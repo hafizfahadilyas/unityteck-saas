@@ -109,7 +109,7 @@ export const ClientAuthModal: React.FC<ClientAuthModalProps> = ({
                 {isAr ? 'بوابة العميل والتاجر' : 'Client & Merchant Portal'}
               </h3>
               <p className="text-[11px] text-slate-400">
-                {isAr ? 'منصة يونيتيك متعددة المتاجر' : 'Unityteck Multi-Store SaaS Platform'}
+                {isAr ? 'منصة سوق — التجارة الإلكترونية الشاملة' : 'Souq Platform — Complete e-commerce'}
               </p>
             </div>
           </div>
@@ -187,7 +187,7 @@ export const ClientAuthModal: React.FC<ClientAuthModalProps> = ({
                   className="text-xs font-semibold transition-colors cursor-pointer inline-flex items-center gap-1 hover:opacity-80"
                   style={{ color: 'var(--accent)' }}
                 >
-                  <span>{isAr ? 'تسجيل دخول مشرف المنصة (رمز تحقق)' : 'Platform Master login (verification code)'}</span>
+                  <span>{isAr ? 'تسجيل دخول منصة سوق (رمز التحقق)' : 'Souq Platform login (verification code)'}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>

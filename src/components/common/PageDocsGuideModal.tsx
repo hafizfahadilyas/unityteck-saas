@@ -394,10 +394,10 @@ const PAGE_GUIDE_DATA: Record<
     ],
   },
   backup: {
-    titleEn: 'Hostinger Backup, Restore & Migration Center Guide',
-    titleAr: 'دليل مركز النسخ الاحتياطي والاستعادة ونقل المتاجر في هوستنجر',
-    subtitleEn: 'Download full ZIP backups, manage automated daily/weekly snapshots, and migrate stores between Hostinger accounts.',
-    subtitleAr: 'تحميل حزمة المتجر الكاملة أرشيف مضغوط، إدارة النسخ الاحتياطية اليومية والأسبوعية، ونقل المتجر بين استضافات هوستنجر.',
+    titleEn: 'Souq Platform Backup, Restore & Migration Center Guide',
+    titleAr: 'دليل مركز النسخ الاحتياطي والاستعادة ونقل المتاجر في منصة سوق',
+    subtitleEn: 'Master-only: download full ZIP backups, manage snapshots, and migrate stores between Hostinger accounts.',
+    subtitleAr: 'للإدارة المركزية فقط: تحميل حزمة المتجر الكاملة، إدارة النسخ، ونقل المتجر بين استضافات هوستنجر.',
     mockScreenshotType: 'backup',
     steps: [
       {

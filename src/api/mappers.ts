@@ -90,6 +90,10 @@ export function mapStore(row: ApiStoreRow): Store {
     category: str(row.category, 'General'),
     owner: str(row.owner_name ?? row.owner, 'Owner'),
     ownerEmail: str(row.email ?? row.owner_email, ''),
+    loginEmailActive:
+      row.login_email_active === undefined || row.login_email_active === null
+        ? true
+        : Boolean(row.login_email_active),
     plan: mapPlan(row.plan),
     masterGrantedPro: Boolean(row.master_granted_pro),
     canvaTemplatesPerCategory:
@@ -322,6 +326,32 @@ export function mapProduct(row: ApiProductRow): Product {
     customFields: mapCustomFields(row.custom_fields ?? row.customFields),
     conditionalRules: mapConditionalRules(row.conditional_rules ?? row.conditionalRules),
     variations: mapVariationRows(row.variations),
+    brand: row.brand == null || row.brand === '' ? undefined : str(row.brand),
+    productType:
+      row.product_type == null || row.product_type === ''
+        ? row.productType == null || row.productType === ''
+          ? undefined
+          : str(row.productType)
+        : str(row.product_type),
+    googleTaxonomy:
+      row.google_taxonomy == null || row.google_taxonomy === ''
+        ? row.googleTaxonomy == null || row.googleTaxonomy === ''
+          ? null
+          : str(row.googleTaxonomy)
+        : str(row.google_taxonomy),
+    salesChannels: asStringArray(row.sales_channels ?? row.salesChannels),
+    discountStartAt:
+      row.discount_start_at == null || row.discount_start_at === ''
+        ? row.discountStartAt == null || row.discountStartAt === ''
+          ? null
+          : dateSlice(row.discountStartAt)
+        : dateSlice(row.discount_start_at),
+    discountEndAt:
+      row.discount_end_at == null || row.discount_end_at === ''
+        ? row.discountEndAt == null || row.discountEndAt === ''
+          ? null
+          : dateSlice(row.discountEndAt)
+        : dateSlice(row.discount_end_at),
     weightKg:
       row.weight_kg === null || row.weight_kg === undefined || row.weight_kg === ''
         ? null
@@ -376,16 +406,31 @@ const ORDER_SOURCES: Order['source'][] = [
   'Snapchat',
   'TikTok',
   'Direct',
+  'Website',
+  'X',
+  'Telegram',
+  'YouTube',
   'Organic Search',
   'Referral',
+  'Other',
 ];
 
 const PAYMENT_METHODS: Order['paymentMethod'][] = [
   'Mada',
+  'Visa',
   'Visa/MC',
   'Apple Pay',
+  'PayPal',
+  'Google Pay',
+  'Samsung Pay',
+  'Customer Wallet',
+  'MIS Pay',
+  'Madfoat',
   'COD',
   'stc pay',
+  'Tabby',
+  'Tamara',
+  'Bank Transfer',
 ];
 
 function mapOrderSource(v: unknown): Order['source'] {
@@ -398,8 +443,14 @@ function mapOrderSource(v: unknown): Order['source'] {
   if (lower.includes('instagram')) return 'Instagram';
   if (lower.includes('whatsapp')) return 'WhatsApp';
   if (lower.includes('facebook')) return 'Facebook';
+  if (lower.includes('youtube')) return 'YouTube';
+  if (lower.includes('telegram')) return 'Telegram';
+  if (lower === 'x' || lower.includes('twitter')) return 'X';
+  if (lower.includes('website') || lower.includes('موقع')) return 'Website';
+  if (lower.includes('organic') || lower.includes('بحث')) return 'Organic Search';
   if (lower.includes('google')) return 'Google Ads';
-  if (lower.includes('referral')) return 'Referral';
+  if (lower.includes('referral') || lower.includes('إحالة')) return 'Referral';
+  if (lower.includes('other') || lower.includes('أخرى')) return 'Other';
   return 'Direct';
 }
 
@@ -407,9 +458,15 @@ function mapPaymentMethod(v: unknown): Order['paymentMethod'] {
   const s = str(v, 'COD');
   const lower = s.toLowerCase();
   if (lower.includes('mada')) return 'Mada';
+  if (lower.includes('samsung')) return 'Samsung Pay';
   if (lower.includes('apple')) return 'Apple Pay';
+  if (lower.includes('google')) return 'Google Pay';
+  if (lower.includes('paypal')) return 'PayPal';
+  if (lower.includes('wallet') || lower.includes('محفظ')) return 'Customer Wallet';
+  if (lower.includes('mis')) return 'MIS Pay';
+  if (lower.includes('madfoat') || lower.includes('madfooat')) return 'Madfoat';
   if (lower.includes('stc')) return 'stc pay';
-  if (lower.includes('visa') || lower.includes('master') || lower === 'visa/mc') return 'Visa/MC';
+  if (lower.includes('visa') || lower.includes('master') || lower === 'visa/mc') return 'Visa';
   if (lower.includes('tabby')) return 'Tabby';
   if (lower.includes('tamara')) return 'Tamara';
   if (lower.includes('bank') || lower.includes('transfer') || lower === 'bank_transfer') {
@@ -422,10 +479,15 @@ function mapPaymentMethod(v: unknown): Order['paymentMethod'] {
 }
 
 function mapOrderStatus(v: unknown): Order['status'] {
-  const s = str(v, 'pending').toLowerCase();
+  const s = str(v, 'pending').toLowerCase().replace(/[\s-]+/g, '_');
   const validStatuses: Order['status'][] = [
+    'draft',
+    'deleted',
     'pending',
+    'partially_paid',
+    'pending_review',
     'processing',
+    'preparing',
     'shipped',
     'out_for_delivery',
     'delivered',
@@ -433,7 +495,13 @@ function mapOrderStatus(v: unknown): Order['status'] {
     'cancellation_requested',
     'cancelled',
     'returned',
+    'return_in_progress',
+    'rfq',
+    'refunded',
   ];
+  if (s === 'awaiting_payment' || s === 'pending_payment') return 'pending';
+  if (s === 'under_review') return 'pending_review';
+  if (s === 'canceled') return 'cancelled';
   if (validStatuses.includes(s as Order['status'])) {
     return s as Order['status'];
   }
@@ -459,6 +527,7 @@ export function mapOrder(row: ApiOrderRow): Order {
     orderNumber: str(row.order_number),
     customerName: str(row.customer_name),
     customerPhone: str(row.customer_phone),
+    customerEmail: row.customer_email != null && str(row.customer_email) ? str(row.customer_email) : undefined,
     itemsCount,
     itemsSummary: row.items_summary != null ? str(row.items_summary) : undefined,
     items: Array.isArray(items)
@@ -480,9 +549,13 @@ export function mapOrder(row: ApiOrderRow): Order {
     status: mapOrderStatus(row.status),
     paymentMethod: mapPaymentMethod(row.payment_method),
     paymentStatus: rowAny.payment_status ? String(rowAny.payment_status) as any : undefined,
+    transactionId: rowAny.payment_transaction_id
+      ? String(rowAny.payment_transaction_id)
+      : undefined,
     shippingStatus: rowAny.shipping_status ? String(rowAny.shipping_status) as any : undefined,
     trackingNumber: rowAny.tracking_number ? String(rowAny.tracking_number) : undefined,
     shippingCompany: rowAny.courier_code ? String(rowAny.courier_code) : undefined,
+    shippingAddress: str(row.delivery_location, '') || undefined,
     codStatus: rowAny.cod_status ? String(rowAny.cod_status) as any : undefined,
     codCollectedAt: rowAny.cod_collected_at ? String(rowAny.cod_collected_at) : undefined,
     codRemittedAt: rowAny.cod_remitted_at ? String(rowAny.cod_remitted_at) : undefined,
@@ -532,6 +605,15 @@ export function orderPatchToApi(patch: Record<string, unknown>): Record<string, 
   };
 
   assign('status', 'status');
+  assign('customerName', 'customer_name');
+  assign('customerPhone', 'customer_phone');
+  assign('customerEmail', 'customer_email');
+  assign('deliveryLocation', 'delivery_location');
+  if (src.shippingAddress !== undefined && out.delivery_location === undefined) {
+    out.delivery_location = src.shippingAddress;
+  } else if (src.shipping_address !== undefined && out.delivery_location === undefined) {
+    out.delivery_location = src.shipping_address;
+  }
   assign('trackingNumber', 'tracking_number');
   assign('shippingStatus', 'shipping_status');
   if (src.shippingCompany !== undefined) out.courier_code = src.shippingCompany;
@@ -540,6 +622,7 @@ export function orderPatchToApi(patch: Record<string, unknown>): Record<string, 
   if (src.paymentStatus !== undefined) out.payment_status = src.paymentStatus;
   else if (src.payment_status !== undefined) out.payment_status = src.payment_status;
   assign('paymentMethod', 'payment_method');
+  assign('transactionId', 'payment_transaction_id');
   assign('codStatus', 'cod_status');
   assign('codNotes', 'cod_notes');
   assign('refundStatus', 'refund_status');

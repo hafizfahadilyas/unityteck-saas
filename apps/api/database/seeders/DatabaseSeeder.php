@@ -177,7 +177,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'master@unityteck.com'],
             [
                 'id' => 'user-master-1',
-                'name' => 'Unityteck Master',
+                'name' => 'Souq Platform SuperAdmin',
                 'password' => Hash::make(env('ADMIN_MASTER_PASSWORD', 'UnityMaster@2026!Secure')),
                 'role' => 'super_admin',
             ]
@@ -1263,8 +1263,9 @@ class DatabaseSeeder extends Seeder
                 'hosting_mode' => 'shared',
                 'db_isolation' => 'shared_store_id',
                 'products_count' => 15,
-                'orders_count' => 8,
-                'revenue' => 5420,
+                // Zero-mock: counters come from real orders only (never seed fake KPIs).
+                'orders_count' => 0,
+                'revenue' => 0,
                 'visitors_count' => 0,
             ]
         );
@@ -1468,82 +1469,14 @@ class DatabaseSeeder extends Seeder
             );
         }
 
-        // Customers for store-coffee
-        $customers = [
-            ['id' => 'cust-cof-1', 'name' => 'ريان بن عبد الله السليمان', 'phone' => '+966549876543', 'email' => 'rayan.sulaiman@gmail.com', 'city' => 'الرياض', 'status' => 'VIP', 'total_orders' => 4, 'total_spend' => 2890, 'avg_order_value' => 722.5],
-            ['id' => 'cust-cof-2', 'name' => 'نورة بنت سعد القحطاني', 'phone' => '+966551122334', 'email' => 'noura.qahtani@saudimail.com', 'city' => 'الرياض', 'status' => 'Active', 'total_orders' => 2, 'total_spend' => 620, 'avg_order_value' => 310],
-            ['id' => 'cust-cof-3', 'name' => 'سلطان فهد الغامدي', 'phone' => '+966509988112', 'email' => 'sultan.ghamdi@outlook.sa', 'city' => 'جدة', 'status' => 'Active', 'total_orders' => 2, 'total_spend' => 880, 'avg_order_value' => 440],
-            ['id' => 'cust-cof-4', 'name' => 'بدر بن خالد العتيبي', 'phone' => '+966567788990', 'email' => 'bader.otaibi@aramco.com', 'city' => 'الظهران', 'status' => 'VIP', 'total_orders' => 3, 'total_spend' => 1950, 'avg_order_value' => 650],
-            ['id' => 'cust-cof-5', 'name' => 'عبد الرحمن الشمري', 'phone' => '+966531144778', 'email' => 'a.shammari@gmail.com', 'city' => 'حائل', 'status' => 'Active', 'total_orders' => 1, 'total_spend' => 513, 'avg_order_value' => 513],
-            ['id' => 'cust-cof-6', 'name' => 'هند بنت ماجد التميمي', 'phone' => '+966548899112', 'email' => 'hind.tamimi@yahoo.com', 'city' => 'الرياض', 'status' => 'Active', 'total_orders' => 1, 'total_spend' => 246, 'avg_order_value' => 246],
-            ['id' => 'cust-cof-7', 'name' => 'مشعل بن ناصر الدوسري', 'phone' => '+966504455667', 'email' => 'meshal.dossary@gmail.com', 'city' => 'الدمام', 'status' => 'VIP', 'total_orders' => 3, 'total_spend' => 2480, 'avg_order_value' => 826.6],
-            ['id' => 'cust-cof-8', 'name' => 'أحمد بن طارق الزهراني', 'phone' => '+966552233445', 'email' => 'ahmed.zahrani@hotmail.com', 'city' => 'مكة المكرمة', 'status' => 'Active', 'total_orders' => 2, 'total_spend' => 990, 'avg_order_value' => 495],
-        ];
+        // Zero-mock: do NOT seed demo customers / orders for store-coffee.
+        // Customers + orders + KPIs come only from real storefront / dashboard checkout.
 
-        foreach ($customers as $c) {
-            Customer::withoutGlobalScope('store')->updateOrCreate(
-                ['id' => $c['id']],
-                array_merge($c, [
-                    'store_id' => 'store-coffee',
-                    'country' => 'Saudi Arabia',
-                    'gender' => 'Male',
-                    'group' => 'Regular',
-                    'acquisition_source' => 'Direct',
-                    'last_order_date' => now(),
-                ])
-            );
-        }
-
-        // Orders for store-coffee
-        $orders = [
-            ['id' => 'ord-cof-101', 'order_number' => '#COF-101', 'customer_id' => 'cust-cof-1', 'customer_name' => 'ريان بن عبد الله السليمان', 'customer_phone' => '+966549876543', 'customer_email' => 'rayan.sulaiman@gmail.com', 'items_count' => 2, 'items_summary' => 'HiBrew Barista Classic Pro & Walnut Portafilter', 'total_amount' => 445, 'status' => 'completed', 'product_id' => 'hb-barista-silver-pro', 'minutes_ago' => 60],
-            ['id' => 'ord-cof-102', 'order_number' => '#COF-102', 'customer_id' => 'cust-cof-2', 'customer_name' => 'نورة بنت سعد القحطاني', 'customer_phone' => '+966551122334', 'customer_email' => 'noura.qahtani@saudimail.com', 'items_count' => 1, 'items_summary' => 'HiBrew Compact Smart Capsule & Espresso', 'total_amount' => 620, 'status' => 'processing', 'product_id' => 'hb-smart-capsule-compact', 'minutes_ago' => 120],
-            ['id' => 'ord-cof-103', 'order_number' => '#COF-103', 'customer_id' => 'cust-cof-3', 'customer_name' => 'سلطان فهد الغامدي', 'customer_phone' => '+966509988112', 'customer_email' => 'sultan.ghamdi@outlook.sa', 'items_count' => 3, 'items_summary' => 'HiBrew Conical Burr Coffee Mill G5', 'total_amount' => 439, 'status' => 'processing', 'product_id' => 'hb-mill-g5-pro', 'minutes_ago' => 240],
-            ['id' => 'ord-cof-104', 'order_number' => '#COF-104', 'customer_id' => 'cust-cof-4', 'customer_name' => 'بدر بن خالد العتيبي', 'customer_phone' => '+966567788990', 'customer_email' => 'bader.otaibi@aramco.com', 'items_count' => 1, 'items_summary' => 'Artisan Fluted Oak Coffee Corner Station', 'total_amount' => 840, 'status' => 'completed', 'product_id' => 'hb-nordic-cabinet', 'minutes_ago' => 360],
-            ['id' => 'ord-cof-105', 'order_number' => '#COF-105', 'customer_id' => 'cust-cof-5', 'customer_name' => 'عبد الرحمن الشمري', 'customer_phone' => '+966531144778', 'customer_email' => 'a.shammari@gmail.com', 'items_count' => 3, 'items_summary' => 'HiBrew Barista Pro H7A Dual-Boiler 20-Bar', 'total_amount' => 513, 'status' => 'completed', 'product_id' => 'hb-h10a-dualboiler', 'minutes_ago' => 480],
-            ['id' => 'ord-cof-106', 'order_number' => '#COF-106', 'customer_id' => 'cust-cof-6', 'customer_name' => 'هند بنت ماجد التميمي', 'customer_phone' => '+966548899112', 'customer_email' => 'hind.tamimi@yahoo.com', 'items_count' => 2, 'items_summary' => 'Artisan Stoneware Ceramic Cup Set (4 Pcs)', 'total_amount' => 246, 'status' => 'completed', 'product_id' => 'hb-ceramic-artisan-cups', 'minutes_ago' => 600],
-            ['id' => 'ord-cof-107', 'order_number' => '#COF-107', 'customer_id' => 'cust-cof-7', 'customer_name' => 'مشعل بن ناصر الدوسري', 'customer_phone' => '+966504455667', 'customer_email' => 'meshal.dossary@gmail.com', 'items_count' => 5, 'items_summary' => 'Master Barista Home Coffee Corner Station', 'total_amount' => 1478, 'status' => 'completed', 'product_id' => 'hb-luxury-corner-station', 'minutes_ago' => 720],
-            ['id' => 'ord-cof-108', 'order_number' => '#COF-108', 'customer_id' => 'cust-cof-8', 'customer_name' => 'أحمد بن طارق الزهراني', 'customer_phone' => '+966552233445', 'customer_email' => 'ahmed.zahrani@hotmail.com', 'items_count' => 5, 'items_summary' => 'Royal Saudi 96 V60 Pour-Over & Kettle Master Set', 'total_amount' => 839, 'status' => 'completed', 'product_id' => 'hb-v60-complete-kit', 'minutes_ago' => 840],
-        ];
-
-        foreach ($orders as $o) {
-            $productId = $o['product_id'];
-            $minutesAgo = $o['minutes_ago'];
-            unset($o['product_id'], $o['minutes_ago']);
-
-            Order::withoutGlobalScope('store')->updateOrCreate(
-                ['id' => $o['id']],
-                array_merge($o, [
-                    'store_id' => 'store-coffee',
-                    'currency' => 'SAR',
-                    'source' => 'Direct',
-                    'source_details' => 'HiBrew Online Store',
-                    'delivery_location' => 'Saudi Arabia',
-                    'payment_method' => 'Mada',
-                    'order_date' => now()->subMinutes($minutesAgo),
-                ])
-            );
-
-            OrderItem::withoutGlobalScope('store')->updateOrCreate(
-                [
-                    'order_id' => $o['id'],
-                    'product_id' => $productId,
-                ],
-                [
-                    'store_id' => 'store-coffee',
-                    'product_name' => $o['items_summary'],
-                    'quantity' => 1,
-                    'unit_price' => $o['total_amount'],
-                    'subtotal' => $o['total_amount'],
-                ]
-            );
-        }
-
-        // Coupons for store-coffee
+        // Coupons for store-coffee (usage_count starts at 0 — real redemptions only)
         $coupons = [
-            ['id' => 'coup-cof-1', 'code' => 'BARISTA15', 'discount_type' => 'percentage', 'discount_value' => 15, 'min_order_amount' => 150, 'usage_count' => 84, 'max_uses' => 500],
-            ['id' => 'coup-cof-2', 'code' => 'FREESHIP', 'discount_type' => 'fixed', 'discount_value' => 25, 'min_order_amount' => 180, 'usage_count' => 142, 'max_uses' => 1000],
-            ['id' => 'coup-cof-3', 'code' => 'COFFEE10', 'discount_type' => 'percentage', 'discount_value' => 10, 'min_order_amount' => 100, 'usage_count' => 38, 'max_uses' => 500],
+            ['id' => 'coup-cof-1', 'code' => 'BARISTA15', 'discount_type' => 'percentage', 'discount_value' => 15, 'min_order_amount' => 150, 'usage_count' => 0, 'max_uses' => 500],
+            ['id' => 'coup-cof-2', 'code' => 'FREESHIP', 'discount_type' => 'fixed', 'discount_value' => 25, 'min_order_amount' => 180, 'usage_count' => 0, 'max_uses' => 1000],
+            ['id' => 'coup-cof-3', 'code' => 'COFFEE10', 'discount_type' => 'percentage', 'discount_value' => 10, 'min_order_amount' => 100, 'usage_count' => 0, 'max_uses' => 500],
         ];
 
         foreach ($coupons as $cp) {
@@ -1622,8 +1555,8 @@ class DatabaseSeeder extends Seeder
                 'hosting_mode' => 'shared',
                 'db_isolation' => 'shared_store_id',
                 'products_count' => 12,
-                'orders_count' => 14,
-                'revenue' => 28450,
+                'orders_count' => 0,
+                'revenue' => 0,
                 'visitors_count' => 0,
             ]
         );
@@ -1812,92 +1745,14 @@ class DatabaseSeeder extends Seeder
             );
         }
 
-        // Customers for store-bleco
-        $customers = [
-            ['id' => 'cust-blc-1', 'name' => 'الأمير فيصل بن خالد آل سعود', 'phone' => '+966505544332', 'email' => 'faisal.khalid@royalnet.sa', 'city' => 'الرياض', 'status' => 'VIP', 'total_orders' => 4, 'total_spend' => 6800, 'avg_order_value' => 1700],
-            ['id' => 'cust-blc-2', 'name' => 'ماجد بن ناصر الحربي', 'phone' => '+966551239876', 'email' => 'majed.harbi@gmail.com', 'city' => 'الرياض', 'status' => 'Active', 'total_orders' => 2, 'total_spend' => 2960, 'avg_order_value' => 1480],
-            ['id' => 'cust-blc-3', 'name' => 'خالد بن عبد الرحمن الدوسري', 'phone' => '+966563344556', 'email' => 'khalid.dossary@gmail.com', 'city' => 'الدمام', 'status' => 'Active', 'total_orders' => 2, 'total_spend' => 1450, 'avg_order_value' => 725],
-            ['id' => 'cust-blc-4', 'name' => 'بندر بن عبد الله السبيعي', 'phone' => '+966509911223', 'email' => 'bandar.subaie@hotmail.com', 'city' => 'الرياض', 'status' => 'VIP', 'total_orders' => 3, 'total_spend' => 3820, 'avg_order_value' => 1273.3],
-            ['id' => 'cust-blc-5', 'name' => 'تركي بن سعد العتيبي', 'phone' => '+966558877665', 'email' => 'turki.otaibi@outlook.sa', 'city' => 'الرياض', 'status' => 'Active', 'total_orders' => 1, 'total_spend' => 960, 'avg_order_value' => 960],
-            ['id' => 'cust-blc-6', 'name' => 'سعد بن فهد الغامدي', 'phone' => '+966547788112', 'email' => 'saad.ghamdi@gmail.com', 'city' => 'جدة', 'status' => 'Active', 'total_orders' => 2, 'total_spend' => 768, 'avg_order_value' => 384],
-            ['id' => 'cust-blc-7', 'name' => 'عبد العزيز بن سعود المقرن', 'phone' => '+966501199887', 'email' => 'a.muqrin@almuqrin.sa', 'city' => 'الرياض', 'status' => 'VIP', 'total_orders' => 3, 'total_spend' => 4120, 'avg_order_value' => 1373.3],
-            ['id' => 'cust-blc-8', 'name' => 'محمد بن يحيى الشهري', 'phone' => '+966532211445', 'email' => 'm.shehri@yahoo.com', 'city' => 'خميس مشيط', 'status' => 'Active', 'total_orders' => 2, 'total_spend' => 3100, 'avg_order_value' => 1550],
-            ['id' => 'cust-blc-9', 'name' => 'نواف بن فهد العنزي', 'phone' => '+966569988771', 'email' => 'nawaf.enazi@gmail.com', 'city' => 'تبوك', 'status' => 'Active', 'total_orders' => 2, 'total_spend' => 4500, 'avg_order_value' => 2250],
-            ['id' => 'cust-blc-10', 'name' => 'سلمان بن ظافر القحطاني', 'phone' => '+966554433221', 'email' => 'salman.qahtani@saudimail.com', 'city' => 'الرياض', 'status' => 'Active', 'total_orders' => 2, 'total_spend' => 2350, 'avg_order_value' => 1175],
-            ['id' => 'cust-blc-11', 'name' => 'فهد بن منصور المطيري', 'phone' => '+966508877112', 'email' => 'fahad.mutairi@gmail.com', 'city' => 'بريدة', 'status' => 'Active', 'total_orders' => 1, 'total_spend' => 704, 'avg_order_value' => 704],
-            ['id' => 'cust-blc-12', 'name' => 'ياسر بن عبد الله الزهراني', 'phone' => '+966551100998', 'email' => 'yasser.fleet@zahrani-corp.sa', 'city' => 'الرياض', 'status' => 'VIP', 'total_orders' => 3, 'total_spend' => 12400, 'avg_order_value' => 4133.3],
-        ];
-
-        foreach ($customers as $c) {
-            Customer::withoutGlobalScope('store')->updateOrCreate(
-                ['id' => $c['id']],
-                array_merge($c, [
-                    'store_id' => 'store-bleco',
-                    'country' => 'Saudi Arabia',
-                    'gender' => 'Male',
-                    'group' => 'Regular',
-                    'acquisition_source' => 'Direct',
-                    'last_order_date' => now(),
-                ])
-            );
-        }
-
-        // Orders for store-bleco
-        $orders = [
-            ['id' => 'ord-blc-101', 'order_number' => '#BLC-101', 'customer_id' => 'cust-blc-1', 'customer_name' => 'الأمير فيصل بن خالد آل سعود', 'customer_phone' => '+966505544332', 'customer_email' => 'faisal.khalid@royalnet.sa', 'items_count' => 1, 'items_summary' => 'طقم تلابيس جلد ألماني فاخر تفصيل وكالة — تويوتا كامري 2025', 'total_amount' => 1680, 'status' => 'completed', 'product_id' => 'prod-seat-camry-2025-leather', 'minutes_ago' => 50],
-            ['id' => 'ord-blc-102', 'order_number' => '#BLC-102', 'customer_id' => 'cust-blc-2', 'customer_name' => 'ماجد بن ناصر الحربي', 'customer_phone' => '+966551239876', 'customer_email' => 'majed.harbi@gmail.com', 'items_count' => 1, 'items_summary' => 'أرضيات الدايموند (Diamond floors)', 'total_amount' => 1480, 'status' => 'processing', 'product_id' => 'prod-mat-diamond', 'minutes_ago' => 100],
-            ['id' => 'ord-blc-103', 'order_number' => '#BLC-103', 'customer_id' => 'cust-blc-3', 'customer_name' => 'خالد بن عبد الرحمن الدوسري', 'customer_phone' => '+966563344556', 'customer_email' => 'khalid.dossary@gmail.com', 'items_count' => 2, 'items_summary' => 'أرضيات الليزر (Laser flooring)', 'total_amount' => 696, 'status' => 'processing', 'product_id' => 'prod-mat-laser', 'minutes_ago' => 200],
-            ['id' => 'ord-blc-104', 'order_number' => '#BLC-104', 'customer_id' => 'cust-blc-4', 'customer_name' => 'بندر بن عبد الله السبيعي', 'customer_phone' => '+966509911223', 'customer_email' => 'bandar.subaie@hotmail.com', 'items_count' => 2, 'items_summary' => 'طقم تلابيس مقاعد جلد ألماني ملكي — هوندا أكورد 2018-2024', 'total_amount' => 1880, 'status' => 'completed', 'product_id' => 'prod-seat-accord-2018-leather', 'minutes_ago' => 300],
-            ['id' => 'ord-blc-105', 'order_number' => '#BLC-105', 'customer_id' => 'cust-blc-5', 'customer_name' => 'تركي بن سعد العتيبي', 'customer_phone' => '+966558877665', 'customer_email' => 'turki.otaibi@outlook.sa', 'items_count' => 1, 'items_summary' => 'أرضيات الفاخر (Luxury flooring)', 'total_amount' => 960, 'status' => 'completed', 'product_id' => 'prod-mat-luxury', 'minutes_ago' => 400],
-            ['id' => 'ord-blc-106', 'order_number' => '#BLC-106', 'customer_id' => 'cust-blc-6', 'customer_name' => 'سعد بن فهد الغامدي', 'customer_phone' => '+966547788112', 'customer_email' => 'saad.ghamdi@gmail.com', 'items_count' => 1, 'items_summary' => 'أرضيات المثلثات (Triangle floors)', 'total_amount' => 384, 'status' => 'completed', 'product_id' => 'prod-mat-triangle', 'minutes_ago' => 500],
-            ['id' => 'ord-blc-107', 'order_number' => '#BLC-107', 'customer_id' => 'cust-blc-7', 'customer_name' => 'عبد العزيز بن سعود المقرن', 'customer_phone' => '+966501199887', 'customer_email' => 'a.muqrin@almuqrin.sa', 'items_count' => 2, 'items_summary' => 'طقم تلابيس مقاعد ملكية ليزرية جلد نابا — تويوتا لاندكروزر LC300', 'total_amount' => 1632, 'status' => 'completed', 'product_id' => 'prod-seat-landcruiser-2022', 'minutes_ago' => 600],
-            ['id' => 'ord-blc-108', 'order_number' => '#BLC-108', 'customer_id' => 'cust-blc-8', 'customer_name' => 'محمد بن يحيى الشهري', 'customer_phone' => '+966532211445', 'customer_email' => 'm.shehri@yahoo.com', 'items_count' => 2, 'items_summary' => 'طقم تلابيس مقاعد جلد ألماني VIP — جمس يوكن وشفروليه تاهو', 'total_amount' => 2088, 'status' => 'completed', 'product_id' => 'prod-seat-yukon-2015-gray', 'minutes_ago' => 700],
-            ['id' => 'ord-blc-109', 'order_number' => '#BLC-109', 'customer_id' => 'cust-blc-9', 'customer_name' => 'نواف بن فهد العنزي', 'customer_phone' => '+966569988771', 'customer_email' => 'nawaf.enazi@gmail.com', 'items_count' => 1, 'items_summary' => 'تلبيسة مقاعد السيارة VIP بطل الدروب متوافق مع نيسان باترول', 'total_amount' => 3360, 'status' => 'completed', 'product_id' => 'prod-seat-nissan-patrol', 'minutes_ago' => 800],
-            ['id' => 'ord-blc-110', 'order_number' => '#BLC-110', 'customer_id' => 'cust-blc-10', 'customer_name' => 'سلمان بن ظافر القحطاني', 'customer_phone' => '+966554433221', 'customer_email' => 'salman.qahtani@saudimail.com', 'items_count' => 2, 'items_summary' => 'تلبيسة مقاعد جاهزة من جلد نابا تنفيذي متوافق مع لكزس ES 350', 'total_amount' => 1704, 'status' => 'completed', 'product_id' => 'prod-seat-lexus-es', 'minutes_ago' => 900],
-            ['id' => 'ord-blc-111', 'order_number' => '#BLC-111', 'customer_id' => 'cust-blc-11', 'customer_name' => 'فهد بن منصور المطيري', 'customer_phone' => '+966508877112', 'customer_email' => 'fahad.mutairi@gmail.com', 'items_count' => 3, 'items_summary' => 'طقم تلابيس مقاعد جلد ألماني ليزري — فورد تورس وإكسبلورر', 'total_amount' => 704, 'status' => 'completed', 'product_id' => 'prod-seat-ford-taurus', 'minutes_ago' => 1000],
-            ['id' => 'ord-blc-112', 'order_number' => '#BLC-112', 'customer_id' => 'cust-blc-12', 'customer_name' => 'ياسر بن عبد الله الزهراني', 'customer_phone' => '+966551100998', 'customer_email' => 'yasser.fleet@zahrani-corp.sa', 'items_count' => 1, 'items_summary' => 'طقم تلابيس مقاعد كابتن VIP جلد ألماني — جمس يوكن دينالي وتاهو', 'total_amount' => 7400, 'status' => 'completed', 'product_id' => 'prod-seat-yukon-denali', 'minutes_ago' => 1100],
-            ['id' => 'ord-blc-113', 'order_number' => '#BLC-113', 'customer_id' => 'cust-blc-1', 'customer_name' => 'عبد الله بن حمد الهاجري', 'customer_phone' => '+966501122334', 'customer_email' => 'abdullah.hajri@aramco.com', 'items_count' => 2, 'items_summary' => 'طقم تلابيس تفصيل ملكي مع أرضيات دايموند 5D', 'total_amount' => 1344, 'status' => 'completed', 'product_id' => 'prod-seat-camry-2025-leather', 'minutes_ago' => 1200],
-            ['id' => 'ord-blc-114', 'order_number' => '#BLC-114', 'customer_id' => 'cust-blc-2', 'customer_name' => 'حمد بن راشد المري', 'customer_phone' => '+966553344556', 'customer_email' => 'hamad.marri@gmail.com', 'items_count' => 2, 'items_summary' => 'طقم تلابيس ليزري لاندكروزر مع معطرات فواحة', 'total_amount' => 1904, 'status' => 'completed', 'product_id' => 'prod-seat-landcruiser-2022', 'minutes_ago' => 1300],
-        ];
-
-        foreach ($orders as $o) {
-            $productId = $o['product_id'];
-            $minutesAgo = $o['minutes_ago'];
-            unset($o['product_id'], $o['minutes_ago']);
-
-            Order::withoutGlobalScope('store')->updateOrCreate(
-                ['id' => $o['id']],
-                array_merge($o, [
-                    'store_id' => 'store-bleco',
-                    'currency' => 'SAR',
-                    'source' => 'Direct',
-                    'source_details' => 'Al-Saeedi Car Services Website',
-                    'delivery_location' => 'Saudi Arabia',
-                    'payment_method' => 'Mada',
-                    'order_date' => now()->subMinutes($minutesAgo),
-                ])
-            );
-
-            OrderItem::withoutGlobalScope('store')->updateOrCreate(
-                [
-                    'order_id' => $o['id'],
-                    'product_id' => $productId,
-                ],
-                [
-                    'store_id' => 'store-bleco',
-                    'product_name' => $o['items_summary'],
-                    'quantity' => 1,
-                    'unit_price' => $o['total_amount'],
-                    'subtotal' => $o['total_amount'],
-                ]
-            );
-        }
+        // Zero-mock: do NOT seed demo customers / orders for store-bleco.
+        // Customers + orders + KPIs come only from real storefront / dashboard checkout.
 
         // Coupons for store-bleco
         $coupons = [
-            ['id' => 'coup-blc-1', 'code' => 'Saudi', 'discount_type' => 'percentage', 'discount_value' => 20, 'min_order_amount' => 0, 'usage_count' => 312, 'max_uses' => 5000],
-            ['id' => 'coup-blc-2', 'code' => 'BLACKO10', 'discount_type' => 'percentage', 'discount_value' => 10, 'min_order_amount' => 200, 'usage_count' => 54, 'max_uses' => 1000],
-            ['id' => 'coup-blc-3', 'code' => 'FLEETVIP', 'discount_type' => 'percentage', 'discount_value' => 15, 'min_order_amount' => 2500, 'usage_count' => 18, 'max_uses' => 100],
+            ['id' => 'coup-blc-1', 'code' => 'Saudi', 'discount_type' => 'percentage', 'discount_value' => 20, 'min_order_amount' => 0, 'usage_count' => 0, 'max_uses' => 5000],
+            ['id' => 'coup-blc-2', 'code' => 'BLACKO10', 'discount_type' => 'percentage', 'discount_value' => 10, 'min_order_amount' => 200, 'usage_count' => 0, 'max_uses' => 1000],
+            ['id' => 'coup-blc-3', 'code' => 'FLEETVIP', 'discount_type' => 'percentage', 'discount_value' => 15, 'min_order_amount' => 2500, 'usage_count' => 0, 'max_uses' => 100],
         ];
 
         foreach ($coupons as $cp) {

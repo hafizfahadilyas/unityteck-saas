@@ -46,9 +46,8 @@ export const STORE_TAB_ABILITY: Record<string, string | null> = {
   'commerce-tools': null,
   appstore: 'themes.read',
   payments: 'settings.read',
-  settings: 'settings.read',
-  backup: null,
-  restore: null,
+  /** Core store page — never hide from sidebar (matches CORE_STORE_CONTROL_IDS). */
+  settings: null,
   notifications: null,
 };
 

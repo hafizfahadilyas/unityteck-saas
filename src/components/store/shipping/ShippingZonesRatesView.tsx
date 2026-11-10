@@ -24,6 +24,7 @@ import {
   X,
   Trash2,
 } from 'lucide-react';
+import { shippingMethodLogoSrc } from '../../../utils/shippingMethodLogos';
 
 interface ZoneRegionItem {
   id: string;
@@ -832,10 +833,28 @@ export const ShippingZonesRatesView: React.FC = () => {
                       </td>
                     </tr>
                   ) : (
-                    currentShippingMethods.map((m) => (
+                    currentShippingMethods.map((m) => {
+                      const methodLogo =
+                        m.logoUrl ||
+                        shippingMethodLogoSrc(m.courierCode) ||
+                        shippingMethodLogoSrc(m.name) ||
+                        shippingMethodLogoSrc(m.nameAr);
+                      return (
                       <tr key={m.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
                         <td className="py-2.5 px-2 font-bold text-blue-600 dark:text-blue-400">
-                          {m.name}
+                          <div className="flex items-center gap-2 min-w-0">
+                            {methodLogo ? (
+                              <span className="w-8 h-8 rounded-md bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 flex items-center justify-center p-0.5 shrink-0">
+                                <img
+                                  src={methodLogo}
+                                  alt=""
+                                  className="max-w-full max-h-full object-contain"
+                                  loading="lazy"
+                                />
+                              </span>
+                            ) : null}
+                            <span className="truncate">{m.name}</span>
+                          </div>
                         </td>
                         <td className="py-2.5 px-2 text-slate-600 dark:text-slate-300 font-mono text-[11px]">
                           {m.type.replace('_', ' ').toUpperCase()}
@@ -880,7 +899,8 @@ export const ShippingZonesRatesView: React.FC = () => {
                           </button>
                         </td>
                       </tr>
-                    ))
+                      );
+                    })
                   )}
                 </tbody>
               </table>

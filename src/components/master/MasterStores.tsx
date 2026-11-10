@@ -45,9 +45,11 @@ import {
 } from '../../auth/api';
 import {
   isStoreLoginEmailActive,
+  setStoreLoginEmailActive,
   setStoreLoginEmailOverride,
-  toggleStoreLoginEmailActive,
 } from '../../auth/storeEmailAccess';
+import { updateStore as updateStoreApi } from '../../api/tenantApi';
+import { isApiEnabled } from '../../api/client';
 import { fetchMasterWhatsAppQuotas, updateMasterWhatsAppQuotaApi } from '../../services/whatsappManagerService';
 import { MasterStoreWhatsAppQuota } from '../../types/whatsapp';
 
@@ -95,7 +97,7 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
     updateStoreLanguages(store.id, next);
     addAuditLog({
       adminId: 'master-admin-01',
-      adminName: 'Master SuperAdmin',
+      adminName: 'Souq Platform SuperAdmin',
       storeId: store.id,
       action: 'store_update',
       resource: `Store: ${storeDisplayName}`,
@@ -143,14 +145,32 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
     return '—';
   };
 
-  const handleToggleLoginEmail = (store: StoreType) => {
-    const next = toggleStoreLoginEmailActive(store.id);
+  const handleToggleLoginEmail = async (store: StoreType) => {
+    const next = !isStoreLoginEmailActive(store.id);
+    setStoreLoginEmailActive(store.id, next);
     setEmailAccessEpoch((n) => n + 1);
     const storeDisplayName = getStoreDisplayName(store, locale);
     const loginEmail = resolveStoreLoginEmail(store);
+    if (isApiEnabled()) {
+      try {
+        await updateStoreApi(store.id, { login_email_active: next });
+      } catch (err) {
+        setStoreLoginEmailActive(store.id, !next);
+        setEmailAccessEpoch((n) => n + 1);
+        toast(
+          err instanceof Error
+            ? err.message
+            : isAr
+              ? 'تعذر حفظ حالة بريد الدخول على الخادم'
+              : 'Could not save login email status on server',
+          'error',
+        );
+        return;
+      }
+    }
     addAuditLog({
       adminId: 'master-admin-01',
-      adminName: 'Master SuperAdmin',
+      adminName: 'Souq Platform SuperAdmin',
       storeId: store.id,
       action: 'store_update',
       resource: `Store login email: ${loginEmail}`,
@@ -211,7 +231,7 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
       const storeDisplayName = getStoreDisplayName(store, locale);
       addAuditLog({
         adminId: 'master-admin-01',
-        adminName: 'Master SuperAdmin',
+        adminName: 'Souq Platform SuperAdmin',
         storeId: store.id,
         action: 'store_update',
         resource: `Store login email: ${saved}`,
@@ -823,7 +843,7 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                       toggleMasterGrant(store.id);
                       addAuditLog({
                         adminId: 'master-admin-01',
-                        adminName: 'Master SuperAdmin',
+                        adminName: 'Souq Platform SuperAdmin',
                         storeId: store.id,
                         action: 'plan_change',
                         resource: `Store: ${storeDisplayName}`,
@@ -907,7 +927,7 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                           deleteStore(store.id);
                           addAuditLog({
                             adminId: 'master-admin-01',
-                            adminName: 'Master SuperAdmin',
+                            adminName: 'Souq Platform SuperAdmin',
                             storeId: store.id,
                             action: 'store_update',
                             resource: `Store: ${storeDisplayName}`,

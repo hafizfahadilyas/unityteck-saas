@@ -431,20 +431,278 @@ function souq_save_store_data(PDO $pdo, string $storeId, array $data): void
     ]);
 }
 
+/**
+ * Canonical default earn rules (same ids as Laravel LoyaltyPointsService / StoreLoyaltyProgram UI).
+ *
+ * @return list<array<string, mixed>>
+ */
+function souq_default_earn_rules(): array
+{
+    return [
+        [
+            'id' => 'earn-order-completed',
+            'method' => 'order_completed',
+            'methodAr' => 'إكمال الطلب',
+            'methodEn' => 'Order Completed',
+            'points' => 1,
+            'active' => true,
+            'config' => [
+                'points_per_sar' => 1,
+                'qualifying_statuses' => ['completed', 'delivered'],
+            ],
+        ],
+        [
+            'id' => 'earn-product-bonus',
+            'method' => 'product_bonus',
+            'methodAr' => 'نقاط إضافية لمنتجات محددة',
+            'methodEn' => 'Product-Specific Bonus',
+            'points' => 0,
+            'active' => false,
+            'config' => [
+                'product_ids' => [],
+                'mode' => 'double',
+                'fixed_points_per_unit' => 10,
+            ],
+        ],
+        [
+            'id' => 'earn-tiered-spend',
+            'method' => 'tiered_spend',
+            'methodAr' => 'مكافأة إنفاق متدرج',
+            'methodEn' => 'Tiered Spending',
+            'points' => 50,
+            'active' => false,
+            'config' => [
+                'threshold_sar' => 300,
+                'bonus_points' => 50,
+            ],
+        ],
+        [
+            'id' => 'earn-product-review',
+            'method' => 'product_review',
+            'methodAr' => 'تقييم منتج',
+            'methodEn' => 'Product Review',
+            'points' => 5,
+            'active' => true,
+            'config' => [
+                'points' => 5,
+                'require_verified' => true,
+                'require_approval' => true,
+            ],
+        ],
+        [
+            'id' => 'earn-review-media',
+            'method' => 'review_with_media',
+            'methodAr' => 'تقييم مع صورة أو فيديو',
+            'methodEn' => 'Review with Media',
+            'points' => 10,
+            'active' => true,
+            'config' => [
+                'points' => 10,
+                'require_verified' => true,
+                'require_approval' => true,
+            ],
+        ],
+        [
+            'id' => 'earn-first-order',
+            'method' => 'first_order',
+            'methodAr' => 'مكافأة أول طلب',
+            'methodEn' => 'First-Order Bonus',
+            'points' => 50,
+            'active' => true,
+            'config' => ['points' => 50],
+        ],
+        [
+            'id' => 'earn-birthday',
+            'method' => 'birthday',
+            'methodAr' => 'مكافأة عيد الميلاد',
+            'methodEn' => "Customer's Birthday Reward",
+            'points' => 100,
+            'active' => true,
+            'config' => ['points' => 100],
+        ],
+        [
+            'id' => 'earn-retention',
+            'method' => 'retention',
+            'methodAr' => 'مكافأة إعادة الشراء',
+            'methodEn' => 'Retention Bonus (Repeat Purchase)',
+            'points' => 25,
+            'active' => true,
+            'config' => [
+                'points' => 25,
+                'within_days' => 30,
+            ],
+        ],
+    ];
+}
+
+/**
+ * @param list<array<string, mixed>> $stored
+ * @return list<array<string, mixed>>
+ */
+function souq_merge_earn_rules(array $stored): array
+{
+    $defaults = souq_default_earn_rules();
+    if ($stored === []) {
+        return $defaults;
+    }
+    $byMethod = [];
+    $byId = [];
+    foreach ($stored as $rule) {
+        if (!is_array($rule)) {
+            continue;
+        }
+        $method = (string)($rule['method'] ?? '');
+        $id = (string)($rule['id'] ?? '');
+        if ($method !== '') {
+            $byMethod[$method] = $rule;
+        }
+        if ($id !== '') {
+            $byId[$id] = $rule;
+        }
+    }
+    $merged = [];
+    foreach ($defaults as $def) {
+        $method = (string)$def['method'];
+        $id = (string)$def['id'];
+        $src = $byMethod[$method] ?? $byId[$id] ?? null;
+        if (!is_array($src)) {
+            $merged[] = $def;
+            continue;
+        }
+        $cfg = array_merge(
+            is_array($def['config'] ?? null) ? $def['config'] : [],
+            is_array($src['config'] ?? null) ? $src['config'] : []
+        );
+        $merged[] = [
+            'id' => $id,
+            'method' => $method,
+            'methodAr' => (string)($src['methodAr'] ?? $def['methodAr']),
+            'methodEn' => (string)($src['methodEn'] ?? $def['methodEn']),
+            'points' => isset($src['points']) ? (int)$src['points'] : (int)$def['points'],
+            'active' => array_key_exists('active', $src) ? (bool)$src['active'] : (bool)$def['active'],
+            'config' => $cfg,
+        ];
+    }
+    return $merged;
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function souq_default_loyalty_game_settings(): array
+{
+    return [
+        'gameEnabled' => true,
+        'storefrontDockEnabled' => false,
+        'coinsPerSar' => 10,
+        'minSpinCoins' => 10,
+        'maxSpinCoins' => 100,
+        'spinCooldownHours' => 24,
+        'cardPaymentBonusCoins' => 30,
+        'signupLocationBonusCoins' => 50,
+    ];
+}
+
+/**
+ * Normalize /stores/{id}/loyalty/... → /loyalty/...
+ */
+function souq_loyalty_uri(string $uri): ?string
+{
+    if (preg_match('#^/stores/[^/]+(/loyalty(?:/.*)?)$#', $uri, $m)) {
+        return $m[1];
+    }
+    if (str_starts_with($uri, '/loyalty')) {
+        return $uri;
+    }
+    return null;
+}
+
+/**
+ * Load / initialize per-store loyalty program blob (earn rules, rewards, settings).
+ *
+ * @return array{loyalty: array<string, mixed>, store_data: array<string, mixed>}
+ */
+function souq_loyalty_program(PDO $pdo, string $storeId): array
+{
+    $storeData = souq_store_data($pdo, $storeId);
+    $loyalty = $storeData['loyalty'] ?? $storeData['loyaltyProgram'] ?? null;
+    if (!is_array($loyalty)) {
+        $loyalty = [];
+    }
+
+    // Migrate legacy flat pointsPerSar into order_completed rule
+    $legacyRate = $loyalty['pointsPerSar'] ?? $loyalty['points_per_sar'] ?? null;
+    $earnRules = souq_merge_earn_rules(
+        is_array($loyalty['earn_rules'] ?? null) ? $loyalty['earn_rules'] : []
+    );
+    if ($legacyRate !== null && is_numeric($legacyRate)) {
+        foreach ($earnRules as &$rule) {
+            if (($rule['method'] ?? '') === 'order_completed') {
+                $rate = max(0, (float)$legacyRate);
+                $rule['points'] = (int)$rate;
+                $rule['config'] = array_merge(
+                    is_array($rule['config'] ?? null) ? $rule['config'] : [],
+                    ['points_per_sar' => $rate]
+                );
+                $rule['active'] = $rate > 0;
+                break;
+            }
+        }
+        unset($rule);
+        unset($loyalty['pointsPerSar'], $loyalty['points_per_sar']);
+    }
+
+    $settings = is_array($loyalty['settings'] ?? null) ? $loyalty['settings'] : [];
+    $settings = array_merge([
+        'enableLoyalty' => true,
+        'appNotifications' => true,
+        'emailNotifications' => true,
+        'pointsExpiration' => false,
+    ], $settings);
+
+    $game = array_merge(
+        souq_default_loyalty_game_settings(),
+        is_array($loyalty['game_settings'] ?? null) ? $loyalty['game_settings'] : []
+    );
+
+    $loyalty['earn_rules'] = $earnRules;
+    $loyalty['rewards'] = is_array($loyalty['rewards'] ?? null) ? array_values($loyalty['rewards']) : [];
+    $loyalty['redemptions'] = is_array($loyalty['redemptions'] ?? null) ? array_values($loyalty['redemptions']) : [];
+    $loyalty['activities'] = is_array($loyalty['activities'] ?? null) ? array_values($loyalty['activities']) : [];
+    $loyalty['settings'] = $settings;
+    $loyalty['game_settings'] = $game;
+
+    return ['loyalty' => $loyalty, 'store_data' => $storeData];
+}
+
+function souq_loyalty_save(PDO $pdo, string $storeId, array $storeData, array $loyalty): void
+{
+    $storeData['loyalty'] = $loyalty;
+    unset($storeData['loyaltyProgram']);
+    souq_save_store_data($pdo, $storeId, $storeData);
+}
+
 function souq_loyalty_rate(PDO $pdo, string $storeId): float
 {
-    $st = $pdo->prepare('SELECT data FROM stores WHERE id = ?');
-    $st->execute([$storeId]);
-    $data = json_decode((string)$st->fetchColumn(), true);
-    if (!is_array($data)) {
+    $pack = souq_loyalty_program($pdo, $storeId);
+    $loyalty = $pack['loyalty'];
+    $settings = is_array($loyalty['settings'] ?? null) ? $loyalty['settings'] : [];
+    if (array_key_exists('enableLoyalty', $settings) && !$settings['enableLoyalty']) {
         return 0.0;
     }
-    $loyalty = $data['loyalty'] ?? $data['loyaltyProgram'] ?? null;
-    if (!is_array($loyalty)) {
-        return 0.0;
+    foreach (($loyalty['earn_rules'] ?? []) as $rule) {
+        if (!is_array($rule) || ($rule['method'] ?? '') !== 'order_completed') {
+            continue;
+        }
+        if (empty($rule['active'])) {
+            return 0.0;
+        }
+        $cfg = is_array($rule['config'] ?? null) ? $rule['config'] : [];
+        $rate = $cfg['points_per_sar'] ?? $rule['points'] ?? 0;
+        return max(0, (float)$rate);
     }
-    $rate = $loyalty['pointsPerSar'] ?? $loyalty['points_per_sar'] ?? 0;
-    return max(0, (float)$rate);
+    $legacy = $loyalty['pointsPerSar'] ?? $loyalty['points_per_sar'] ?? 0;
+    return max(0, (float)$legacy);
 }
 
 function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $storeId, array $input): bool
@@ -452,7 +710,8 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
     if ($storeId === '' && !in_array($uri, ['/storefront/events'], true)) {
         $needsStore = str_starts_with($uri, '/storefront/') || in_array($uri, [
             '/orders', '/customers', '/coupons', '/seo', '/reports/overview', '/gift-cards',
-            '/shipping-methods', '/payment-gateways', '/couriers',
+            '/shipping-methods', '/payment-gateways', '/couriers', '/shipping',
+            '/notifications/deliveries', '/payments/transactions', '/couriers/shipments',
         ], true);
         if ($needsStore) {
             http_response_code(422);
@@ -848,42 +1107,288 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
         return true;
     }
 
-    if ($uri === '/loyalty/settings' && $method === 'PUT') {
-        $rate = (float)($input['points_per_sar'] ?? -1);
-        if ($rate < 0 || $rate > 20) {
+    // ── Loyalty Program (path-style + flat) — matches StoreLoyaltyProgram / tenantApi ──
+    $loyaltyPath = souq_loyalty_uri($uri);
+    if ($loyaltyPath !== null) {
+        if ($storeId === '') {
             http_response_code(422);
-            echo json_encode(['message' => 'Points per SAR must be between 0 and 20.']);
+            echo json_encode(['message' => 'store_id is required.']);
             return true;
         }
-        $data = souq_store_data($pdo, $storeId);
-        $data['loyalty'] = ['pointsPerSar' => $rate];
-        souq_save_store_data($pdo, $storeId, $data);
-        $credited = 0;
-        if (!empty($input['apply_to_existing'])) {
-            $rows = $pdo->prepare('SELECT id, total_spend FROM customers WHERE store_id = ?');
-            $rows->execute([$storeId]);
-            $upd = $pdo->prepare('UPDATE customers SET points = ? WHERE id = ? AND store_id = ?');
-            while ($cust = $rows->fetch()) {
-                $pts = (int)floor(((float)$cust['total_spend']) * $rate);
-                $upd->execute([$pts, $cust['id'], $storeId]);
-                $credited++;
-            }
-        }
-        echo json_encode(['store_id' => $storeId, 'points_per_sar' => $rate, 'customers_updated' => $credited]);
-        return true;
-    }
 
-    if ($uri === '/loyalty/overview' && $method === 'GET') {
-        $sum = $pdo->prepare('SELECT COUNT(*) c, COALESCE(SUM(points), 0) points FROM customers WHERE store_id = ?');
-        $sum->execute([$storeId]);
-        $row = $sum->fetch() ?: ['c' => 0, 'points' => 0];
-        echo json_encode([
-            'store_id' => $storeId,
-            'points_per_sar' => souq_loyalty_rate($pdo, $storeId),
-            'customers' => (int)$row['c'],
-            'points' => (int)$row['points'],
-        ]);
-        return true;
+        // GET /loyalty/overview  OR  /stores/{id}/loyalty/overview
+        if ($loyaltyPath === '/loyalty/overview' && $method === 'GET') {
+            $pack = souq_loyalty_program($pdo, $storeId);
+            $loyalty = $pack['loyalty'];
+            // Persist merged defaults once so toggles have stable ids
+            if (($pack['store_data']['loyalty']['earn_rules'] ?? null) !== $loyalty['earn_rules']) {
+                souq_loyalty_save($pdo, $storeId, $pack['store_data'], $loyalty);
+            }
+
+            $custCount = 0;
+            $pointsIssued = 0;
+            try {
+                $sum = $pdo->prepare('SELECT COUNT(*) c, COALESCE(SUM(points), 0) points FROM customers WHERE store_id = ?');
+                $sum->execute([$storeId]);
+                $row = $sum->fetch() ?: ['c' => 0, 'points' => 0];
+                $custCount = (int)$row['c'];
+                $pointsIssued = (int)$row['points'];
+            } catch (Throwable $e) {
+                $custCount = 0;
+                $pointsIssued = 0;
+            }
+
+            $redemptions = is_array($loyalty['redemptions'] ?? null) ? $loyalty['redemptions'] : [];
+            $pointsRedeemed = 0;
+            foreach ($redemptions as $red) {
+                $pointsRedeemed += (int)($red['points'] ?? 0);
+            }
+
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'summary' => [
+                        'contributionToSales' => '0%',
+                        'ordersFromPoints' => 0,
+                        'totalRedeemed' => $pointsRedeemed,
+                        'pointsIssued' => $pointsIssued,
+                        'registeredCustomers' => $custCount,
+                        'salesGrowth' => '—',
+                        'ordersGrowth' => '—',
+                        'redeemedGrowth' => '—',
+                        'pointsGrowth' => '—',
+                        'customersStatus' => $custCount > 0 ? 'Active' : 'Inactive',
+                    ],
+                    'earn_rules' => $loyalty['earn_rules'],
+                    'rewards' => $loyalty['rewards'],
+                    'redemptions' => $redemptions,
+                    'activities' => $loyalty['activities'],
+                    'performance_series' => [],
+                    'usage_by_type' => [],
+                    'settings' => $loyalty['settings'],
+                    'game_settings' => $loyalty['game_settings'],
+                ],
+                'store_id' => $storeId,
+            ]);
+            return true;
+        }
+
+        // PATCH|PUT|POST /loyalty/earn-rules/{id} (POST/PUT aliases — some hosts block PATCH)
+        if (
+            preg_match('#^/loyalty/earn-rules/([^/]+)$#', $loyaltyPath, $mRule)
+            && in_array($method, ['PATCH', 'PUT', 'POST'], true)
+        ) {
+            $ruleId = rawurldecode((string)$mRule[1]);
+            $pack = souq_loyalty_program($pdo, $storeId);
+            $loyalty = $pack['loyalty'];
+            $rules = souq_merge_earn_rules(
+                is_array($loyalty['earn_rules'] ?? null) ? $loyalty['earn_rules'] : []
+            );
+
+            $found = false;
+            foreach ($rules as &$rule) {
+                if (($rule['id'] ?? '') !== $ruleId) {
+                    continue;
+                }
+                if (array_key_exists('active', $input)) {
+                    $rule['active'] = filter_var($input['active'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                    if ($rule['active'] === null) {
+                        $rule['active'] = (bool)$input['active'];
+                    }
+                }
+                if (array_key_exists('points', $input)) {
+                    $rule['points'] = (int)$input['points'];
+                }
+                if (isset($input['config']) && is_array($input['config'])) {
+                    $rule['config'] = array_merge(
+                        is_array($rule['config'] ?? null) ? $rule['config'] : [],
+                        $input['config']
+                    );
+                    if (isset($input['config']['points'])) {
+                        $rule['points'] = (int)$input['config']['points'];
+                    }
+                    if (isset($input['config']['bonus_points'])) {
+                        $rule['points'] = (int)$input['config']['bonus_points'];
+                    }
+                    if (isset($input['config']['points_per_sar'])) {
+                        $rule['points'] = (int)$input['config']['points_per_sar'];
+                    }
+                }
+                $found = true;
+                break;
+            }
+            unset($rule);
+
+            if (!$found) {
+                http_response_code(404);
+                echo json_encode(['message' => 'Earn rule not found.', 'store_id' => $storeId]);
+                return true;
+            }
+
+            $loyalty['earn_rules'] = $rules;
+            $activities = is_array($loyalty['activities'] ?? null) ? $loyalty['activities'] : [];
+            array_unshift($activities, [
+                'id' => 'act-' . bin2hex(random_bytes(4)),
+                'label' => 'Earn rule updated: ' . $ruleId,
+                'time' => date('h:i A'),
+                'status' => 'Active',
+            ]);
+            $loyalty['activities'] = array_slice($activities, 0, 20);
+            souq_loyalty_save($pdo, $storeId, $pack['store_data'], $loyalty);
+
+            echo json_encode([
+                'success' => true,
+                'data' => $rules,
+                'message' => 'Earn rule updated successfully.',
+                'store_id' => $storeId,
+            ]);
+            return true;
+        }
+
+        // POST /loyalty/rewards
+        if ($loyaltyPath === '/loyalty/rewards' && $method === 'POST') {
+            $name = trim((string)($input['name'] ?? ''));
+            $points = (int)($input['points'] ?? 0);
+            if ($name === '' || $points < 1) {
+                http_response_code(422);
+                echo json_encode(['message' => 'Reward name and points (>=1) are required.']);
+                return true;
+            }
+            $pack = souq_loyalty_program($pdo, $storeId);
+            $loyalty = $pack['loyalty'];
+            $rewards = is_array($loyalty['rewards'] ?? null) ? $loyalty['rewards'] : [];
+            $newReward = [
+                'id' => 'rew-' . bin2hex(random_bytes(5)),
+                'store_id' => $storeId,
+                'nameEn' => $name,
+                'nameAr' => $name,
+                'points' => $points,
+                'rewardType' => (string)($input['rewardType'] ?? 'discount'),
+                'status' => 'active',
+                'createdAt' => date('c'),
+            ];
+            array_unshift($rewards, $newReward);
+            $loyalty['rewards'] = $rewards;
+            souq_loyalty_save($pdo, $storeId, $pack['store_data'], $loyalty);
+            echo json_encode([
+                'success' => true,
+                'data' => $newReward,
+                'message' => 'Reward created successfully.',
+                'store_id' => $storeId,
+            ]);
+            return true;
+        }
+
+        // DELETE /loyalty/rewards/{id}
+        if (preg_match('#^/loyalty/rewards/([^/]+)$#', $loyaltyPath, $mRew) && $method === 'DELETE') {
+            $rewId = rawurldecode((string)$mRew[1]);
+            $pack = souq_loyalty_program($pdo, $storeId);
+            $loyalty = $pack['loyalty'];
+            $rewards = is_array($loyalty['rewards'] ?? null) ? $loyalty['rewards'] : [];
+            $loyalty['rewards'] = array_values(array_filter(
+                $rewards,
+                static fn($r) => is_array($r) && (($r['id'] ?? '') !== $rewId)
+            ));
+            souq_loyalty_save($pdo, $storeId, $pack['store_data'], $loyalty);
+            echo json_encode([
+                'success' => true,
+                'message' => 'Reward deleted successfully.',
+                'store_id' => $storeId,
+            ]);
+            return true;
+        }
+
+        // PUT /loyalty/settings
+        if ($loyaltyPath === '/loyalty/settings' && $method === 'PUT') {
+            $pack = souq_loyalty_program($pdo, $storeId);
+            $loyalty = $pack['loyalty'];
+
+            // Legacy flat rate update (keep working for older callers)
+            if (array_key_exists('points_per_sar', $input) && !isset($input['enableLoyalty']) && !isset($input['game_settings'])) {
+                $rate = (float)$input['points_per_sar'];
+                if ($rate < 0 || $rate > 20) {
+                    http_response_code(422);
+                    echo json_encode(['message' => 'Points per SAR must be between 0 and 20.']);
+                    return true;
+                }
+                $rules = souq_merge_earn_rules(
+                    is_array($loyalty['earn_rules'] ?? null) ? $loyalty['earn_rules'] : []
+                );
+                foreach ($rules as &$rule) {
+                    if (($rule['method'] ?? '') === 'order_completed') {
+                        $rule['points'] = (int)$rate;
+                        $rule['active'] = $rate > 0;
+                        $rule['config'] = array_merge(
+                            is_array($rule['config'] ?? null) ? $rule['config'] : [],
+                            ['points_per_sar' => $rate]
+                        );
+                        break;
+                    }
+                }
+                unset($rule);
+                $loyalty['earn_rules'] = $rules;
+                souq_loyalty_save($pdo, $storeId, $pack['store_data'], $loyalty);
+
+                $credited = 0;
+                if (!empty($input['apply_to_existing'])) {
+                    $rows = $pdo->prepare('SELECT id, total_spend FROM customers WHERE store_id = ?');
+                    $rows->execute([$storeId]);
+                    $upd = $pdo->prepare('UPDATE customers SET points = ? WHERE id = ? AND store_id = ?');
+                    while ($cust = $rows->fetch()) {
+                        $pts = (int)floor(((float)$cust['total_spend']) * $rate);
+                        $upd->execute([$pts, $cust['id'], $storeId]);
+                        $credited++;
+                    }
+                }
+                echo json_encode([
+                    'success' => true,
+                    'store_id' => $storeId,
+                    'points_per_sar' => $rate,
+                    'customers_updated' => $credited,
+                    'data' => [
+                        'settings' => $loyalty['settings'],
+                        'game_settings' => $loyalty['game_settings'],
+                    ],
+                ]);
+                return true;
+            }
+
+            $settings = is_array($loyalty['settings'] ?? null) ? $loyalty['settings'] : [];
+            foreach (['enableLoyalty', 'appNotifications', 'emailNotifications', 'pointsExpiration'] as $key) {
+                if (array_key_exists($key, $input)) {
+                    $val = filter_var($input[$key], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                    $settings[$key] = $val === null ? (bool)$input[$key] : $val;
+                }
+            }
+            $loyalty['settings'] = $settings;
+
+            if (isset($input['game_settings']) && is_array($input['game_settings'])) {
+                $loyalty['game_settings'] = array_merge(
+                    souq_default_loyalty_game_settings(),
+                    is_array($loyalty['game_settings'] ?? null) ? $loyalty['game_settings'] : [],
+                    $input['game_settings']
+                );
+            }
+
+            souq_loyalty_save($pdo, $storeId, $pack['store_data'], $loyalty);
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'settings' => $loyalty['settings'],
+                    'game_settings' => $loyalty['game_settings'],
+                ],
+                'message' => 'Loyalty program settings updated.',
+                'store_id' => $storeId,
+            ]);
+            return true;
+        }
+
+        // Unknown loyalty subpath under matched prefix → 404 with clear message
+        if (str_starts_with($loyaltyPath, '/loyalty')) {
+            http_response_code(404);
+            echo json_encode(['message' => 'Loyalty endpoint not found: ' . $loyaltyPath, 'store_id' => $storeId]);
+            return true;
+        }
     }
 
     if ($uri === '/gift-cards' && $method === 'GET') {
@@ -1197,6 +1702,172 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             $c['is_connected'] = (bool)(int)$c['is_connected'];
             $c['is_sandbox'] = (bool)(int)$c['is_sandbox'];
             $rows[] = $c;
+        }
+        echo json_encode(['data' => $rows, 'store_id' => $storeId, 'meta' => ['total' => count($rows)]]);
+        return true;
+    }
+
+    // ── Domains (real store.domain only — never invent bindings) ──
+    if ($uri === '/domains' && $method === 'GET') {
+        $rows = [];
+        $sidFilter = trim((string)($_GET['store_id'] ?? $_GET['storeId'] ?? $storeId));
+        if ($sidFilter !== '') {
+            $st = $pdo->prepare('SELECT id, name, domain, data FROM stores WHERE id = ?');
+            $st->execute([$sidFilter]);
+            $storeRows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } else {
+            $storeRows = $pdo->query('SELECT id, name, domain, data FROM stores')->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        }
+        foreach ($storeRows as $row) {
+            $sid = (string)($row['id'] ?? '');
+            $data = json_decode((string)($row['data'] ?? '{}'), true);
+            if (!is_array($data)) {
+                $data = [];
+            }
+            $listed = is_array($data['domains'] ?? null) ? $data['domains'] : [];
+            $added = false;
+            foreach ($listed as $dom) {
+                if (!is_array($dom)) {
+                    continue;
+                }
+                $name = trim((string)($dom['domain_name'] ?? $dom['domain'] ?? ''));
+                if ($name === '') {
+                    continue;
+                }
+                $rows[] = [
+                    'id' => (string)($dom['id'] ?? ('dom-' . substr(md5($sid . '|' . $name), 0, 10))),
+                    'store_id' => $sid,
+                    'domain_name' => $name,
+                    'ssl_status' => (string)($dom['ssl_status'] ?? 'pending'),
+                    'dns_verified' => !empty($dom['dns_verified']),
+                    'hosting_tier' => (string)($dom['hosting_tier'] ?? 'Hostinger Shared Business'),
+                    'monthly_fee' => (float)($dom['monthly_fee'] ?? 0),
+                    'payment_received' => !empty($dom['payment_received']),
+                    'status' => (string)($dom['status'] ?? 'pending'),
+                    'is_primary' => !empty($dom['is_primary']),
+                    'nameservers' => is_array($dom['nameservers'] ?? null) ? $dom['nameservers'] : [],
+                    'registered_date' => (string)($dom['registered_date'] ?? ''),
+                    'deployment_status' => (string)($dom['deployment_status'] ?? 'pending'),
+                ];
+                $added = true;
+            }
+            $primary = trim((string)($row['domain'] ?? ''));
+            if (!$added && $primary !== '') {
+                $rows[] = [
+                    'id' => 'dom-' . $sid,
+                    'store_id' => $sid,
+                    'domain_name' => $primary,
+                    'ssl_status' => 'active',
+                    'dns_verified' => true,
+                    'hosting_tier' => 'Hostinger Shared Business',
+                    'monthly_fee' => 0,
+                    'payment_received' => true,
+                    'status' => 'active',
+                    'is_primary' => true,
+                    'nameservers' => [],
+                    'registered_date' => '',
+                    'deployment_status' => 'live',
+                ];
+            }
+        }
+        echo json_encode(['data' => $rows, 'count' => count($rows)]);
+        return true;
+    }
+
+    // ── Shipping zones (store_data only — empty → []) ──
+    if ($uri === '/shipping' && $method === 'GET') {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        $data = souq_store_data($pdo, $storeId);
+        $zones = $data['shipping'] ?? $data['shipping_zones'] ?? [];
+        if (!is_array($zones)) {
+            $zones = [];
+        }
+        $out = [];
+        foreach ($zones as $z) {
+            if (!is_array($z)) {
+                continue;
+            }
+            $out[] = array_merge($z, [
+                'id' => (string)($z['id'] ?? ('ship-' . bin2hex(random_bytes(4)))),
+                'store_id' => $storeId,
+            ]);
+        }
+        echo json_encode(['data' => $out, 'store_id' => $storeId, 'meta' => ['total' => count($out)]]);
+        return true;
+    }
+
+    // ── Notification delivery log (genuine empty when none) ──
+    if ($uri === '/notifications/deliveries' && $method === 'GET') {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        $items = [];
+        $data = souq_store_data($pdo, $storeId);
+        $stored = $data['notification_deliveries'] ?? [];
+        if (is_array($stored)) {
+            foreach ($stored as $row) {
+                if (is_array($row)) {
+                    $items[] = $row;
+                }
+            }
+        }
+        $limit = max(1, min(200, (int)($_GET['limit'] ?? 40)));
+        $items = array_slice($items, 0, $limit);
+        echo json_encode([
+            'success' => true,
+            'data' => [
+                'store_id' => $storeId,
+                'summary' => [
+                    'total' => count($items),
+                    'unread' => 0,
+                    'sent' => count($items),
+                    'failed' => 0,
+                    'skipped' => 0,
+                ],
+                'items' => $items,
+            ],
+        ]);
+        return true;
+    }
+
+    if ($uri === '/notifications/deliveries/mark-read' && $method === 'POST') {
+        echo json_encode(['success' => true, 'updated' => 0, 'store_id' => $storeId]);
+        return true;
+    }
+
+    // ── Payment transactions / courier shipments (empty when none — no fake rows) ──
+    if ($uri === '/payments/transactions' && $method === 'GET') {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        $data = souq_store_data($pdo, $storeId);
+        $tx = is_array($data['payment_transactions'] ?? null) ? array_values($data['payment_transactions']) : [];
+        echo json_encode(['data' => $tx, 'store_id' => $storeId, 'meta' => ['total' => count($tx)]]);
+        return true;
+    }
+
+    if ($uri === '/couriers/shipments' && $method === 'GET') {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        $rows = [];
+        try {
+            $st = $pdo->prepare('SELECT * FROM courier_shipments WHERE store_id = ? ORDER BY created_at DESC LIMIT 200');
+            $st->execute([$storeId]);
+            $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable) {
+            $data = souq_store_data($pdo, $storeId);
+            $rows = is_array($data['courier_shipments'] ?? null) ? array_values($data['courier_shipments']) : [];
         }
         echo json_encode(['data' => $rows, 'store_id' => $storeId, 'meta' => ['total' => count($rows)]]);
         return true;

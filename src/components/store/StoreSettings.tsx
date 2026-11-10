@@ -115,9 +115,13 @@ export const StoreSettings: React.FC = () => {
   // Active sub-tab
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
 
-  /** Sidebar deep-link: Search Console / Tag Manager under Settings */
+  /** Sidebar deep-link: Appearance / Search Console / Tag Manager under Settings */
   useEffect(() => {
     const applyView = (view: string | null | undefined) => {
+      if (view === 'appearance') {
+        setActiveTab('appearance');
+        return;
+      }
       if (view === 'search_console' || view === 'tag_manager') {
         setActiveTab('search_console');
         setSettingsFocus(view);
@@ -178,7 +182,7 @@ export const StoreSettings: React.FC = () => {
     initialThemeSettings.maintenance?.showEmailSubscribe !== false
   );
   const [maintWhatsapp, setMaintWhatsapp] = useState(
-    initialThemeSettings.maintenance?.whatsappNumber || '+966581617712'
+    initialThemeSettings.maintenance?.whatsappNumber || ''
   );
 
   // General Settings State
@@ -191,8 +195,8 @@ export const StoreSettings: React.FC = () => {
   const [storeNameAr, setStoreNameAr] = useState(splitName.storeNameAr);
   const [taglineEn, setTaglineEn] = useState(storeIdentity.taglineEn || '');
   const [taglineAr, setTaglineAr] = useState(storeIdentity.taglineAr || '');
-  const [storeEmail, setStoreEmail] = useState(storeIdentity.email || ('contact@' + activeStore.slug + '.com'));
-  const [storePhone, setStorePhone] = useState(storeIdentity.phone || '+966 50 123 4567');
+  const [storeEmail, setStoreEmail] = useState(storeIdentity.email || '');
+  const [storePhone, setStorePhone] = useState(storeIdentity.phone || '');
   const [logoUrl, setLogoUrl] = useState(
     storeIdentity.logoUrl || activeStore.logo || ''
   );
@@ -207,7 +211,7 @@ export const StoreSettings: React.FC = () => {
 
   // Social & WhatsApp Settings State
   const [whatsappEnabled, setWhatsappEnabled] = useState(true);
-  const [whatsappNumber, setWhatsappNumber] = useState(storeIdentity.whatsapp || '+966501234567');
+  const [whatsappNumber, setWhatsappNumber] = useState(storeIdentity.whatsapp || '');
   const [whatsappGreeting, setWhatsappGreeting] = useState(
     isAr
       ? 'مرحباً، أود الاستفسار عن منتجات المتجر!'

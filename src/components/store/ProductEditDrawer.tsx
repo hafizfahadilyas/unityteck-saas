@@ -77,13 +77,15 @@ export interface ProductEditDrawerProps {
   product: Product | null;
   storeId: string;
   categories: string[];
+  /** Hierarchical labels (category + subcategory). Falls back to `categories`. */
+  categoryOptions?: { value: string; label: string }[];
   availableBrands?: { id: string; name: string }[];
   onClose: () => void;
   onSave: (updatedData: Partial<Product>) => void;
   onExpandFullView?: () => void;
   onDelete?: () => void;
   onDuplicate?: () => void;
-  /** Global field visibility from toolbar Filter (applies to all products). */
+  /** Section visibility (all sections shown — Filter toggles removed). */
   visibleSections?: Record<ProductEditSectionKey, boolean>;
 }
 
@@ -92,6 +94,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
   product,
   storeId,
   categories,
+  categoryOptions,
   availableBrands = [],
   onClose,
   onSave,
@@ -801,23 +804,49 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                    {isAr ? 'العنوان الفرعي' : 'Subtitle'}
-                  </label>
-                  <input
-                    type="text"
-                    value={subtitle}
-                    onChange={(e) => setSubtitle(e.target.value)}
-                    maxLength={200}
-                    placeholder={
-                      isAr
-                        ? 'سطر قصير يظهر تحت اسم المنتج...'
-                        : 'Short line under the product name...'
-                    }
-                    className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-teal-500"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{subtitle.length}/200</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                      {isAr ? 'التصنيف' : 'Category'}
+                    </label>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-teal-500 cursor-pointer"
+                    >
+                      {(categoryOptions && categoryOptions.length > 0
+                        ? categoryOptions
+                        : categories.map((c) => ({ value: c, label: c }))
+                      ).map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                      {category &&
+                        !(categoryOptions ?? []).some((o) => o.value === category) &&
+                        !categories.includes(category) && (
+                          <option value={category}>{category}</option>
+                        )}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                      {isAr ? 'العنوان الفرعي' : 'Subtitle'}
+                    </label>
+                    <input
+                      type="text"
+                      value={subtitle}
+                      onChange={(e) => setSubtitle(e.target.value)}
+                      maxLength={200}
+                      placeholder={
+                        isAr
+                          ? 'سطر قصير يظهر تحت اسم المنتج...'
+                          : 'Short line under the product name...'
+                      }
+                      className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-teal-500"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{subtitle.length}/200</p>
+                  </div>
                 </div>
 
                 <div>

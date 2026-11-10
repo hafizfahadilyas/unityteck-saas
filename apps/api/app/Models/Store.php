@@ -27,6 +27,7 @@ class Store extends Model
         'timezone',
         'phone',
         'email',
+        'login_email_active',
         'owner_name',
         'city',
         'country',
@@ -55,6 +56,7 @@ class Store extends Model
     {
         return [
             'master_granted_pro' => 'boolean',
+            'login_email_active' => 'boolean',
             'canva_templates_per_category' => 'integer',
             'products_count' => 'integer',
             'orders_count' => 'integer',

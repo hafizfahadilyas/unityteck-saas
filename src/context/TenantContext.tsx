@@ -84,6 +84,7 @@ import {
 import * as tenantApi from '../api/tenantApi';
 import { readAuthSession, writeAuthSession, hasLiveApiAuth, clearAuthSession } from '../auth/session';
 import { exchangeClerkForSanctum } from '../auth/api';
+import { hydrateStoreLoginEmailAccess } from '../auth/storeEmailAccess';
 import { DEFAULT_COMMERCE_THEME_ID, defaultThemeSettings } from '../auth/defaultTheme';
 import { effectivePlanCode } from '../auth/plans';
 import { canDeleteEntities, canDeleteStoreOrders } from '../auth/roles';
@@ -645,8 +646,8 @@ export function createFallbackTenantContext(): TenantContextType {
     applyCartCoupon: () => {},
     removeCartCoupon: () => {},
     blogs: [],
-    currentSEOConfig: (INITIAL_SEO_CONFIGS && store && INITIAL_SEO_CONFIGS[store.id]) || {
-      storeId: store?.id || 'store-1',
+    currentSEOConfig: {
+      storeId: store?.id || '',
       googleConnected: false,
       googleAccountEmail: null,
       connectedAt: null,
@@ -655,8 +656,8 @@ export function createFallbackTenantContext(): TenantContextType {
       searchConsoleConnected: false,
       searchConsoleVerificationTag: '',
       indexingApiEnabled: false,
-      metaTitle: `${store?.name || 'المتجر'} | متجر رسمي`,
-      metaDescription: `تسوق من ${store?.name || 'المتجر'}`,
+      metaTitle: '',
+      metaDescription: '',
       keywords: [],
       sitemapUrl: '',
       indexedUrlsCount: 0,
@@ -935,8 +936,16 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   
   // Isolated data sets with localStorage lifetime persistence
   const [customersMap, setCustomersMap] = useState<Record<string, Customer[]>>(() => {
+    // Live API: never hydrate mock INITIAL_CUSTOMERS / stale lean cache (zero-mock).
     if (API_MODE) {
-      return readLeanLocalJson<Record<string, Customer[]>>('unityteck_customers_map', 480_000) || {};
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem('unityteck_customers_map');
+        }
+      } catch {
+        /* ignore */
+      }
+      return {};
     }
     try {
       if (typeof localStorage !== 'undefined') {
@@ -961,10 +970,21 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       }
     } catch {}
-    return API_MODE ? {} : INITIAL_CUSTOMERS;
+    return INITIAL_CUSTOMERS;
   });
 
   const saveCustomersMap = (map: Record<string, Customer[]>) => {
+    // API mode: do not persist customers to localStorage (prevents mock / stale names).
+    if (API_MODE) {
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem('unityteck_customers_map');
+        }
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
     try {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('unityteck_customers_map', JSON.stringify(map));
@@ -1088,7 +1108,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     let cancelled = false;
     (async () => {
       try {
-        const catalog = await tenantApi.fetchStorefrontCatalogPage(activeStoreId);
+        const catalog = await tenantApi.fetchStorefrontCatalogPage(activeStoreId, 1, 100);
         if (cancelled || catalog.data.length === 0) return;
         catalogPageRef.current[activeStoreId] = 1;
         applyProductsFromApi(activeStoreId, catalog.data, catalog.total);
@@ -1140,6 +1160,17 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   });
 
   const saveOrdersMap = (map: Record<string, Order[]>) => {
+    // Live API: never persist orders to localStorage (prevents stale / mock bleed).
+    if (API_MODE) {
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem('unityteck_orders_map');
+        }
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
     try {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('unityteck_orders_map', JSON.stringify(map));
@@ -1471,17 +1502,39 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const job = (async () => {
       const runCore = tier === 'core' || tier === 'full';
       const runRest = tier === 'rest' || tier === 'full';
+      const liveAuthed = hasLiveApiAuth();
 
       if (runCore) {
         storeLoadedAtRef.current[storeId] = Date.now();
         let productList: Product[] = [];
         let productTotal = 0;
         try {
-          const page = await tenantApi.fetchProductsPage(storeId, { page: 1, per_page: 24, sort: 'updated_at', dir: 'desc' });
-          productList = page.data;
-          productTotal = page.meta?.counts?.total ?? page.meta?.total ?? productList.length;
+          // Prefer full storefront catalog (auth-independent), then admin page as fallback.
+          try {
+            const catalog = await tenantApi.fetchStorefrontCatalogPage(storeId, 1, 100);
+            productList = catalog.data;
+            productTotal = catalog.total || catalog.data.length;
+          } catch {
+            if (liveAuthed) {
+              const page = await tenantApi.fetchProductsPage(storeId, {
+                page: 1,
+                per_page: 100,
+                sort: 'updated_at',
+                dir: 'desc',
+              });
+              productList = page.data;
+              productTotal = page.meta?.counts?.total ?? page.meta?.total ?? productList.length;
+            }
+          }
+          if (productList.length > 0) {
+            applyProductsFromApi(storeId, productList, productTotal > 0 ? productTotal : productList.length);
+          }
         } catch {
-          /* products page fetches its own first page */
+          /* products page / modal fetch their own catalog */
+        }
+        // Without Sanctum PAT, never call /orders or /customers (401 spam on login gate).
+        if (!liveAuthed) {
+          return;
         }
         const settled = await Promise.allSettled([
           tenantApi.fetchOrders(storeId, { all: true, lean: true }),
@@ -1517,6 +1570,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       if (runRest) {
+        if (!hasLiveApiAuth()) {
+          return;
+        }
         const settled = await Promise.allSettled([
           tenantApi.fetchCoupons(storeId),
           tenantApi.fetchShipping(storeId),
@@ -1595,7 +1651,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           try {
             const products = await tenantApi.fetchStorefrontCatalog(sid);
             applyProductsFromApi(sid, products);
-            await loadStoreScopedData(sid, { tier: 'core' });
+            if (hasLiveApiAuth()) {
+              await loadStoreScopedData(sid, { tier: 'core' });
+            }
           } catch {
             /* keep last list */
           }
@@ -1627,17 +1685,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return next;
       });
 
-      // Do not re-seed fake INITIAL_ORDERS on soft refresh — keep only real in-memory / API orders
+      // Do not re-seed fake INITIAL_ORDERS / INITIAL_CUSTOMERS on soft refresh — real data only
 
-      setCustomersMap((prev) => {
-        const next = { ...prev };
-        Object.keys(INITIAL_CUSTOMERS).forEach((id) => {
-          const init = INITIAL_CUSTOMERS[id] || [];
-          if (!next[id] || next[id].length < init.length) next[id] = init;
-        });
-        try { localStorage.setItem('unityteck_customers_map', JSON.stringify(next)); } catch {}
-        return next;
-      });
+      // Keep existing customersMap as-is in mock soft refresh (zero-mock: never inflate from INITIAL_*)
 
       setDomains((prev) => {
         const merged = [...prev];
@@ -1669,6 +1719,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const apiStores = await tenantApi.fetchStores();
       if (Array.isArray(apiStores) && apiStores.length > 0) {
         setStores(apiStores);
+        hydrateStoreLoginEmailAccess(apiStores);
       }
       try {
         const apiDomains = await tenantApi.fetchDomainsApi();
@@ -1956,7 +2007,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             pending.user.email,
             pending.storeId,
             clerkJwt,
-          );
+          ).catch(() => undefined);
         }
         if (cancelled) return;
         dataSourceRef.current = 'mock';
@@ -1992,10 +2043,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           setApiReady(true);
         }
         void loadCatalogsAnyway();
-        const sid = activeStoreIdRef.current || (pending?.portal === 'store' ? pending.storeId : '');
-        if (sid && API_MODE) {
-          void loadStoreScopedData(sid, { tier: 'core' }).catch(() => undefined);
-        }
+        // No Sanctum PAT yet → never hit /orders|/customers (401 spam). Wait for exchange.
         return;
       }
 
@@ -2039,6 +2087,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
 
         setStores(apiStores);
+        hydrateStoreLoginEmailAccess(apiStores);
         const preferred =
           session?.portal === 'store' && session.storeId
             ? session.storeId
@@ -2118,9 +2167,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     if (previewOnly || dataSource !== 'api' || !hasLiveApiAuth()) {
       let cancelled = false;
-      if (!previewOnly) {
-        void loadStoreScopedData(activeStoreId, { tier: 'core' }).catch(() => undefined);
-      }
+      // Public catalog only when not live-authed — skip admin orders/customers (401).
       tenantApi.fetchStorefrontCatalog(activeStoreId).then((products) => {
         if (!cancelled && Array.isArray(products) && products.length > 0) {
           applyProductsFromApi(activeStoreId, products);
@@ -2181,7 +2228,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return createDefaultStoreThemes(activeStore);
   }, [activeStoreId, allStoreThemes, activeStore]);
 
-  // Current Store SEO Config
+  // Current Store SEO Config — empty when missing (never invent boutique meta / fake domain)
   const currentSEOConfig = useMemo(() => {
     if (seoConfigs[activeStoreId]) return seoConfigs[activeStoreId];
     return {
@@ -2194,10 +2241,10 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       searchConsoleConnected: false,
       searchConsoleVerificationTag: '',
       indexingApiEnabled: false,
-      metaTitle: `${activeStore.name} | Official Online Boutique`,
-      metaDescription: `Shop authentic ${activeStore.category} products from ${activeStore.name}. Best prices and fast delivery across Saudi Arabia.`,
-      keywords: [activeStore.name, activeStore.category, 'متجر الكتروني السعودية'],
-      sitemapUrl: `https://${activeStore.slug}.saudi-stores.com/sitemap.xml`,
+      metaTitle: '',
+      metaDescription: '',
+      keywords: [] as string[],
+      sitemapUrl: '',
       indexedUrlsCount: 0,
       totalSearchClicks: 0,
       totalSearchImpressions: 0,
@@ -2207,7 +2254,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       submittedUrls: [],
       topQueries: []
     };
-  }, [seoConfigs, activeStoreId, activeStore]);
+  }, [seoConfigs, activeStoreId]);
 
   // Isolated Customers for currently selected store
   const currentCustomers = useMemo(() => {
@@ -2327,7 +2374,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const totalRev = stores.reduce((acc, s) => acc + (s.revenue || 0), 0);
     const totalOrd = stores.reduce((acc, s) => acc + (s.ordersCount || 0), 0);
     const totalProd = stores.reduce((acc, s) => acc + (s.productsCount || 0), 0);
-    const totalVisitors = stores.reduce((acc, s) => acc + (s.visitorsCount || 0), 0);
+    // Seeded stores.visitors_count is NOT truth — public storefront events only (reports/API)
+    const totalVisitors = 0;
     const activeCount = stores.filter((s) => s.status === 'active').length;
 
     const allOrders = Object.values(ordersMap).flat();
@@ -3539,6 +3587,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           shipping_per_kg_rate: prodData.shippingPerKgRate ?? null,
           shipping_per_km_rate: prodData.shippingPerKmRate ?? null,
           shipping_payment_options: prodData.shippingPaymentOptions ?? null,
+          brand: prodData.brand ?? null,
+          product_type: prodData.productType ?? null,
+          google_taxonomy: prodData.googleTaxonomy ?? null,
+          sales_channels: prodData.salesChannels ?? null,
+          discount_start_at: prodData.discountStartAt ?? null,
+          discount_end_at: prodData.discountEndAt ?? null,
         })
         .then(async (created) => {
           let variations = prodData.variations;
@@ -3754,6 +3808,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (patch.shippingPaymentOptions !== undefined) {
         body.shipping_payment_options = patch.shippingPaymentOptions;
       }
+      if (patch.brand !== undefined) body.brand = patch.brand ?? null;
+      if (patch.productType !== undefined) body.product_type = patch.productType ?? null;
+      if (patch.googleTaxonomy !== undefined) body.google_taxonomy = patch.googleTaxonomy ?? null;
+      if (patch.salesChannels !== undefined) body.sales_channels = patch.salesChannels ?? null;
+      if (patch.discountStartAt !== undefined) body.discount_start_at = patch.discountStartAt ?? null;
+      if (patch.discountEndAt !== undefined) body.discount_end_at = patch.discountEndAt ?? null;
 
       void tenantApi
         .updateProduct(storeId!, productId, body)
@@ -4212,8 +4272,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return next;
     });
 
-    const isNowInactive = status === 'cancelled' || status === 'returned';
-    const wasPrevInactive = oldStatus === 'cancelled' || oldStatus === 'returned';
+    const isNowInactive = status === 'cancelled' || status === 'returned' || status === 'deleted';
+    const wasPrevInactive = oldStatus === 'cancelled' || oldStatus === 'returned' || oldStatus === 'deleted';
     const orderItems = affectedOrder?.items;
 
     // Auto-restock inventory if moving to cancelled or returned
@@ -4450,8 +4510,19 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     let resolvedStoreId = targetStoreId || activeStoreId;
     const now = new Date().toISOString();
 
-    setOrdersMap((prev) => {
-      const next = { ...prev };
+    // Snapshot for rollback if live API fails (no dirty COD/Paid left behind).
+    let previousOrder: Order | undefined;
+    for (const sId of Object.keys(ordersMap)) {
+      const hit = (ordersMap[sId] || []).find((o) => o.id === orderId);
+      if (hit) {
+        resolvedStoreId = sId;
+        previousOrder = hit;
+        break;
+      }
+    }
+
+    const applyLocalCod = (map: Record<string, Order[]>) => {
+      const next = { ...map };
       for (const sId of Object.keys(next)) {
         if (next[sId]?.some((o) => o.id === orderId)) {
           resolvedStoreId = sId;
@@ -4473,7 +4544,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       saveOrdersMap(next);
       return next;
-    });
+    };
+
+    setOrdersMap(applyLocalCod);
 
     if (dataSourceRef.current === 'api') {
       try {
@@ -4491,6 +4564,18 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         bumpCacheTag(storeTag(resolvedStoreId, 'orders'));
         void revalidateResource(resolvedStoreId, 'orders');
       } catch (err) {
+        if (previousOrder) {
+          setOrdersMap((prev) => {
+            const next = {
+              ...prev,
+              [resolvedStoreId]: (prev[resolvedStoreId] || []).map((o) =>
+                o.id === orderId ? previousOrder! : o
+              ),
+            };
+            saveOrdersMap(next);
+            return next;
+          });
+        }
         setApiError(err instanceof Error ? err.message : 'Update COD status failed');
       }
     }
@@ -4876,7 +4961,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Shipping
   const updateShippingRate = useCallback(async (id: string, rate: number, freeAbove: number, extraPatch?: Record<string, any>) => {
-    const sId = activeStoreId || 'store-1';
+    const sId = activeStoreId;
+    if (!sId) return;
     setShippingMap(prev => ({
       ...prev,
       [sId]: (prev[sId] || []).map(s => s.id === id ? { ...s, rate, freeShippingAbove: freeAbove, ...extraPatch } : s)
@@ -4910,7 +4996,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       maxWeightKg?: number;
     },
   ) => {
-    const sId = activeStoreId || 'store-1';
+    const sId = activeStoreId;
+    if (!sId) return;
     const region = extras?.region || 'Saudi Arabia';
     try {
       const created = await tenantApi.createShippingZone(sId, {
@@ -4964,7 +5051,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [activeStoreId]);
 
   const deleteShippingCity = useCallback(async (id: string) => {
-    const sId = activeStoreId || 'store-1';
+    const sId = activeStoreId;
+    if (!sId) return;
     setShippingMap(prev => ({
       ...prev,
       [sId]: (prev[sId] || []).filter(s => s.id !== id)
@@ -4978,7 +5066,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // ── Configurable Shipping Methods Handlers ──
   const addShippingMethod = useCallback(async (methodData: Omit<ShippingMethodItem, 'id' | 'storeId'>) => {
-    const sId = activeStoreId || 'store-1';
+    const sId = activeStoreId;
+    if (!sId) return;
     try {
       const created = await tenantApi.createShippingMethod(sId, methodData as any);
       const mapped = tenantApi.mapShippingMethodRow(created, sId);
@@ -4994,7 +5083,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [activeStoreId]);
 
   const updateShippingMethod = useCallback(async (id: string, updates: Partial<ShippingMethodItem>) => {
-    const sId = activeStoreId || 'store-1';
+    const sId = activeStoreId;
+    if (!sId) return;
     try {
       await tenantApi.updateShippingMethod(sId, id, updates as any);
     } catch {}
@@ -5005,7 +5095,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [activeStoreId]);
 
   const deleteShippingMethod = useCallback(async (id: string) => {
-    const sId = activeStoreId || 'store-1';
+    const sId = activeStoreId;
+    if (!sId) return;
     try {
       await tenantApi.deleteShippingMethod(sId, id);
     } catch {}
@@ -5026,7 +5117,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     isSandbox?: boolean;
     settings?: Record<string, unknown>;
   }) => {
-    const sId = activeStoreId || 'store-1';
+    const sId = activeStoreId;
+    if (!sId) return;
     try {
       const res = await tenantApi.saveCourierConnection(sId, courierData as any);
       const conn: CourierConnectionItem = {
@@ -5054,30 +5146,39 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [activeStoreId]);
 
   const testCourier = useCallback(async (id: string) => {
-    const sId = activeStoreId || 'store-1';
+    const sId = activeStoreId;
+    if (!sId) return;
     try {
       const res = await tenantApi.testCourierConnection(sId, id);
       return {
-        success: res.test_result?.success ?? true,
+        success: res.test_result?.success ?? false,
         message: res.test_result?.message ?? 'Carrier API test passed.',
       };
-    } catch {
-      return { success: true, message: 'Carrier test passed.' };
+    } catch (err) {
+      return {
+        success: false,
+        message: err instanceof Error ? err.message : 'Carrier test failed. Verify credentials.',
+      };
     }
   }, [activeStoreId]);
 
   const syncCourier = useCallback(async (id: string) => {
-    const sId = activeStoreId || 'store-1';
+    const sId = activeStoreId;
+    if (!sId) return;
     try {
       const res = await tenantApi.syncCourierConnection(sId, id);
       return { success: true, message: res.message || 'Synced' };
-    } catch {
-      return { success: true, message: 'Configuration synced.' };
+    } catch (err) {
+      return {
+        success: false,
+        message: err instanceof Error ? err.message : 'Courier sync failed. Not Connected.',
+      };
     }
   }, [activeStoreId]);
 
   const createShipmentForOrder = useCallback(async (orderId: string, provider: CourierProviderCode, weightKg?: number) => {
-    const sId = activeStoreId || 'store-1';
+    const sId = activeStoreId;
+    if (!sId) return { success: false };
     try {
       const res = await tenantApi.createCourierShipment(sId, { order_id: orderId, courier_provider: provider, weight_kg: weightKg });
       const created: ShipmentItem = {
@@ -5089,7 +5190,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         trackingNumber: res.data.tracking_number,
         labelUrl: res.data.label_url,
         status: 'created',
-        shippingCost: Number(res.data.shipping_cost ?? 25),
+        shippingCost: Number(res.data.shipping_cost ?? 0),
         codAmount: Number(res.data.cod_amount ?? 0),
         pickupRequestedAt: new Date().toISOString(),
       };
@@ -5105,38 +5206,20 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         } : o),
       }));
       return { success: true, awb: created.awbNumber, trackingNumber: created.trackingNumber };
-    } catch {
-      const awb = `${provider.toUpperCase()}-${Math.floor(100000 + Math.random() * 900000)}`;
-      const tracking = `${provider.toUpperCase()}${Date.now().toString().slice(-9)}`;
-      const fallback: ShipmentItem = {
-        id: `shp-${Date.now()}`,
-        storeId: sId,
-        orderId,
-        provider,
-        awbNumber: awb,
-        trackingNumber: tracking,
-        status: 'created',
-        shippingCost: 25,
-        codAmount: 0,
-        pickupRequestedAt: new Date().toISOString(),
-      };
-      setShipmentsMap(prev => ({ ...prev, [sId]: [fallback, ...(prev[sId] || [])] }));
-      setOrdersMap(prev => ({
-        ...prev,
-        [sId]: (prev[sId] || []).map(o => o.id === orderId ? {
-          ...o,
-          trackingNumber: tracking,
-          awbNumber: awb,
-          shippingCompany: provider.toUpperCase(),
-          shippingStatus: 'In Transit',
-        } : o),
-      }));
-      return { success: true, awb, trackingNumber: tracking };
+    } catch (err) {
+      // Zero-mock: never invent AWB / tracking on courier API failure.
+      setApiError(
+        err instanceof Error
+          ? err.message
+          : 'Shipment create failed. Connect courier and try again.',
+      );
+      return { success: false };
     }
-  }, [activeStoreId]);
+  }, [activeStoreId, setApiError]);
 
   const updateShipmentStatus = useCallback(async (shipmentId: string, status: any, note?: string) => {
-    const sId = activeStoreId || 'store-1';
+    const sId = activeStoreId;
+    if (!sId) return;
     try {
       await tenantApi.updateCourierShipmentStatus(sId, shipmentId, { status, note });
     } catch {
@@ -5178,7 +5261,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     transactionFeePercent?: number;
     transactionFeeFixed?: number;
   }) => {
-    const sId = activeStoreId || 'store-1';
+    const sId = activeStoreId;
+    if (!sId) return;
     try {
       const res = await tenantApi.savePaymentGateway(sId, gatewayData as any);
       const gw: PaymentGatewayItem = {
@@ -5231,7 +5315,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [activeStoreId]);
 
   const testPaymentGatewayConfig = useCallback(async (id: string) => {
-    const sId = activeStoreId || 'store-1';
+    const sId = activeStoreId;
+    if (!sId) return;
     try {
       const res = await tenantApi.testPaymentGateway(sId, id);
       return {
@@ -5250,7 +5335,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     amount: number;
     paymentMethod: string;
   }) => {
-    const sId = activeStoreId || 'store-1';
+    const sId = activeStoreId;
+    if (!sId) return;
     try {
       const res = await tenantApi.verifyPaymentServerSide(sId, {
         order_id: payload.orderId,
@@ -5289,7 +5375,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [activeStoreId]);
 
   const refundPaymentOrder = useCallback(async (transactionId: string, amount: number, reason?: string) => {
-    const sId = activeStoreId || 'store-1';
+    const sId = activeStoreId;
+    if (!sId) return;
     try {
       await tenantApi.refundPaymentTransaction(sId, transactionId, amount, reason);
     } catch {}
@@ -5597,6 +5684,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       };
     });
+    // Clear server-held tokens per store_id (zero-mock — no local-only disconnect).
+    if (dataSourceRef.current === 'api' && storeId) {
+      void tenantApi.disconnectGoogleAccountApi(storeId).catch((err) => {
+        setApiError(err instanceof Error ? err.message : 'Google disconnect failed');
+      });
+    }
   };
 
   const submitUrlToGoogleIndexing = (storeId: string, url: string) => {

@@ -34,22 +34,22 @@
   --active-bg: #1d8b94;
   --active-fg: #ffffff;
   --active-ring: #4fb8b4;
-  /* default = light until data-theme applied */
+  /* default = light until data-theme applied — text follows Holst portal shades */
   --bg: #F8FAFC;
   --surface: #ffffff;
-  --text: #020617;
-  --muted: #334155;
+  --text: var(--portal-950);
+  --muted: var(--portal-900);
   --border: #E2E8F0;
-  --accent: #1d8b94;
-  --icon-on-light: #04222b;
+  --accent: var(--portal-600);
+  --icon-on-light: var(--portal-950);
   --icon-on-dark: #e2f4f0;
-  --icon-box-bg: color-mix(in srgb, #1d8b94 12%, #ffffff);
-  --icon-box-fg: #04222b;
+  --icon-box-bg: color-mix(in srgb, var(--portal-600) 12%, #ffffff);
+  --icon-box-fg: var(--portal-950);
   --input-bg: #ffffff;
-  --input-fg: #020617;
-  --input-ph: #475569;
-  --table-head: #020617;
-  --card-fg: #020617;
+  --input-fg: var(--portal-950);
+  --input-ph: var(--portal-800);
+  --table-head: var(--portal-950);
+  --card-fg: var(--portal-950);
   --tone-success: #059669;
   --tone-info: #0284c7;
   --tone-warn: #d97706;
@@ -66,27 +66,27 @@
   /* branding may override inline */
 }
 
-/* LIGHT — high contrast readable dark text */
+/* LIGHT — text/icons follow BrandingPanel portal shades (same as modal chrome) */
 [data-theme="light"][data-portal="master"],
 [data-theme="light"][data-portal="store"],
 [data-theme="light"] {
   --bg: #F8FAFC;
   --surface: #ffffff;
-  --text: #020617;
-  --muted: #334155;
-  --border: #CBD5E1;
+  --text: var(--portal-950);
+  --muted: var(--portal-900);
+  --border: var(--portal-200);
   --accent: var(--portal-600);
   --active-bg: var(--portal-600);
   --active-fg: #ffffff;
-  --icon-on-light: #04222b;
+  --icon-on-light: var(--portal-950);
   --icon-on-dark: #e2f4f0;
   --icon-box-bg: color-mix(in srgb, var(--portal-600) 12%, #ffffff);
-  --icon-box-fg: #04222b;
+  --icon-box-fg: var(--portal-950);
   --input-bg: #ffffff;
-  --input-fg: #020617;
-  --input-ph: #475569;
-  --table-head: #020617;
-  --card-fg: #020617;
+  --input-fg: var(--portal-950);
+  --input-ph: var(--portal-800);
+  --table-head: var(--portal-950);
+  --card-fg: var(--portal-950);
   --tone-success: #059669;
   --tone-info: #0284c7;
   --tone-warn: #d97706;
@@ -130,17 +130,19 @@
   --card-shadow-hover: 0 8px 28px color-mix(in srgb, var(--portal-600) 35%, transparent);
 }
 
-/* Locale switch: same token tree as Invoice page — every portal surface inherits it */
+/* Locale switch: same token tree as Invoice page — every portal surface inherits it.
+ * !important beats stale inline --font-ui from branding so AR/EN never mix faces. */
 html[lang="ar"],
 html[dir="rtl"] {
-  --font-ui: var(--font-ui-ar);
+  --font-ui: var(--font-ui-ar) !important;
 }
 
 html[lang="en"],
 html[dir="ltr"]:not([lang="ar"]) {
-  --font-ui: var(--font-ui-en);
+  --font-ui: var(--font-ui-en) !important;
 }
 
+/* One global Holst face for Master + Store + modals (not storefront theme preview) */
 html,
 body,
 #root,
@@ -152,8 +154,17 @@ body,
 [data-portal="master"],
 [data-portal="store"],
 [data-global-modal="backdrop"],
-[data-global-modal="panel"] {
-  font-family: var(--font-ui);
+[data-global-modal="panel"],
+.font-sans {
+  font-family: var(--font-ui) !important;
+}
+
+/* Force every dashboard child to inherit the same face (tables, labels, product names) */
+[data-portal="master"] *:not(code):not(kbd):not(pre):not(samp):not(.font-mono),
+[data-portal="store"] *:not(code):not(kbd):not(pre):not(samp):not(.font-mono),
+[data-global-modal="backdrop"] *:not(code):not(kbd):not(pre):not(samp):not(.font-mono),
+[data-global-modal="panel"] *:not(code):not(kbd):not(pre):not(samp):not(.font-mono) {
+  font-family: inherit !important;
 }
 
 input,
@@ -161,16 +172,53 @@ button,
 select,
 textarea,
 optgroup {
-  font-family: inherit;
+  font-family: inherit !important;
 }
 
-/* Mono / code stay mono — do not inherit UI face */
+/*
+ * Arabic brand faces (IBM Plex / Noto) top out at 700.
+ * font-black/extrabold (800–900) would skip to Cairo/Tajawal → mixed faces.
+ * Clamp so the WHOLE dashboard stays on one Arabic family.
+ */
+html[lang="ar"] .font-extrabold,
+html[lang="ar"] .font-black,
+html[dir="rtl"] .font-extrabold,
+html[dir="rtl"] .font-black {
+  font-weight: 700 !important;
+}
+
+/* Dashboard / admin accent chrome — follows BrandingPanel palette */
+.u-accent-text {
+  color: var(--accent) !important;
+}
+.u-accent-text:hover {
+  color: var(--portal-800) !important;
+}
+.u-icon-brand {
+  background: var(--icon-box-bg) !important;
+  color: var(--icon-box-fg) !important;
+  border: 1px solid var(--border) !important;
+}
+
+/* Mono for Latin codes/SKU digits; Arabic letters fall back to portal UI face */
 .font-mono,
 code,
 kbd,
 pre,
 samp {
-  font-family: ui-monospace, 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-family: ui-monospace, 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, var(--font-ui), monospace !important;
+}
+
+/*
+ * Dropdown / select lists: show ALL options when they fit.
+ * Scroll only when the list is truly tall (~70vh / 36rem).
+ * Prefer this over tiny max-h-52/56 which force scroll on short menus.
+ */
+.u-dropdown-list {
+  max-height: min(70vh, 36rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* ─── Shared controls: card / table / form / search / filter ─── */
@@ -378,18 +426,34 @@ samp {
   }
 }
 
-/* Sidebar scroll + speed helpers */
+/* Sidebar scroll — luxury pill (follows --sb-color / global brand) */
 .custom-sidebar-scroll {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--portal-400) 45%, transparent) transparent;
+  scrollbar-color: var(--sb-thumb, color-mix(in srgb, var(--portal-400) 70%, transparent)) transparent;
   -webkit-overflow-scrolling: touch;
 }
 .custom-sidebar-scroll::-webkit-scrollbar {
-  width: 4px;
+  width: 7px;
+  height: 7px;
+}
+.custom-sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 6px 0;
 }
 .custom-sidebar-scroll::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--portal-400) 45%, transparent);
+  background: linear-gradient(165deg, var(--sb-color, var(--portal-400)), var(--sb-color-deep, var(--accent)));
+  background-clip: padding-box;
+  border: 1.5px solid transparent;
   border-radius: 999px;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 30%, transparent),
+    0 0 10px color-mix(in srgb, var(--sb-color-deep, var(--accent)) 35%, transparent);
+}
+.custom-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(165deg, var(--sb-thumb-hover, var(--portal-400)), var(--sb-color-deep, var(--accent)));
+  background-clip: padding-box;
+  border: 1.5px solid transparent;
+  box-shadow: 0 0 16px color-mix(in srgb, var(--sb-color, var(--portal-400)) 45%, transparent);
 }
 
 /* Skip paint for off-screen page sections (mobile speed) */
@@ -663,6 +727,48 @@ html[data-sidebar-design='navy'] .unity-aside nav button svg {
   background: var(--portal-cta) !important;
   color: #fff !important;
   border-radius: var(--radius-ctrl);
+}
+
+/* ── GlobalModal chrome — header + primary buttons = SAME BrandingPanel CTA ── */
+.unity-modal-header {
+  background: var(--portal-cta) !important;
+  color: #ffffff !important;
+}
+.unity-modal-header .unity-modal-icon {
+  color: #ffffff !important;
+}
+.unity-btn-secondary {
+  background: var(--portal-cta) !important;
+  color: #fff !important;
+  border-radius: var(--radius-ctrl);
+  opacity: 0.92;
+}
+[data-global-modal="panel"] {
+  color: var(--text);
+}
+[data-global-modal="panel"] label,
+[data-global-modal="panel"] .unity-modal-label {
+  color: var(--text) !important;
+}
+[data-global-modal="panel"] .unity-modal-hint,
+[data-global-modal="panel"] .unity-modal-muted {
+  color: var(--muted) !important;
+}
+[data-global-modal="panel"] input:not([type='checkbox']):not([type='radio']),
+[data-global-modal="panel"] select,
+[data-global-modal="panel"] textarea {
+  background: var(--input-bg) !important;
+  color: var(--input-fg) !important;
+  border-color: var(--border) !important;
+}
+[data-global-modal="panel"] input::placeholder,
+[data-global-modal="panel"] textarea::placeholder {
+  color: var(--input-ph) !important;
+  opacity: 1;
+}
+[data-global-modal="panel"] .unity-btn-primary,
+[data-global-modal="panel"] .unity-btn-primary * {
+  color: #ffffff !important;
 }
 
 /* ── Sidebar icon sizing — all nav icons same size ── */

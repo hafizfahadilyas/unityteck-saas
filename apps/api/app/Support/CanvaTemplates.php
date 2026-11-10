@@ -43,9 +43,13 @@ final class CanvaTemplates
     public static function entitlement(Store $store): array
     {
         $limit = self::perCategoryLimit($store);
+        // Do NOT call Plans::hasFeature / Plans::forStore here — forStore() embeds
+        // entitlement() and that recursion hung every plan.feature write (orders PATCH, etc.).
+        $features = Plans::featureListForStore($store);
+        $mediaStudio = in_array('all', $features, true) || in_array('media_studio', $features, true);
 
         return [
-            'media_studio' => Plans::hasFeature($store, 'media_studio') || Plans::hasFeature($store, 'all'),
+            'media_studio' => $mediaStudio,
             'canva_templates_per_category' => $limit,
             'canva_categories' => self::CATEGORIES,
             'free_default' => self::FREE_PER_CATEGORY,

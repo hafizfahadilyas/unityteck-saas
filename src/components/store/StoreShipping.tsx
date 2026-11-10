@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { commerceTerm } from '../../i18n/commerceTerms';
+import { getLocalizedCity } from '../../utils/storeLocalization';
 import { useToast } from '../common/ToastProvider';
 import { GlobalModal } from '../common/GlobalModal';
 import {
@@ -49,6 +50,7 @@ import {
   EXAMPLE_SHIPPING_METHOD_PRESETS,
   type DeliveryDriverRow,
 } from '../../api/tenantApi';
+import { shippingMethodLogoSrc } from '../../utils/shippingMethodLogos';
 
 const REGIONS = [
   'All',
@@ -118,12 +120,16 @@ export const StoreShipping: React.FC = () => {
   }, [currentCouriers]);
 
   const avgDeliveryDaysCalc = useMemo(() => {
-    if (currentShipping.length === 0) return '2.0';
-    const sum = currentShipping.reduce((acc, z) => {
-      const match = z.estimatedDelivery.match(/\d+/);
-      return acc + (match ? parseFloat(match[0]) : 2);
-    }, 0);
-    return (sum / currentShipping.length).toFixed(1);
+    if (currentShipping.length === 0) return '—';
+    const parsed = currentShipping
+      .map((z) => {
+        const match = String(z.estimatedDelivery || '').match(/\d+/);
+        return match ? parseFloat(match[0]) : NaN;
+      })
+      .filter((n) => Number.isFinite(n));
+    if (parsed.length === 0) return '—';
+    const sum = parsed.reduce((acc, n) => acc + n, 0);
+    return (sum / parsed.length).toFixed(1);
   }, [currentShipping]);
 
   const shippingRevenueCalc = useMemo(() => {
@@ -697,11 +703,13 @@ export const StoreShipping: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
             {[
               {
-                code: 'spl',
-                name: isAr ? 'البريد السعودي (سبل)' : 'Saudi Post (SPL)',
-                desc: isAr ? 'الناقل البريدي الوطني مع دعم العنوان الوطني السعودي وخدمة واصل.' : 'National postal courier with Saudi National Address & Wasel integration.',
-                badge: 'SPL',
-                bg: 'bg-emerald-700',
+                code: 'redbox',
+                name: isAr ? 'ريدبوكس' : 'RedBox',
+                desc: isAr
+                  ? 'شحن محلي اقتصادي مع نقاط استلام وتسليم في أنحاء المملكة.'
+                  : 'Affordable domestic shipping with pickup points across Saudi Arabia.',
+                badge: 'RBX',
+                bg: 'bg-rose-600',
               },
               {
                 code: 'smsa',
@@ -718,11 +726,36 @@ export const StoreShipping: React.FC = () => {
                 bg: 'bg-red-600',
               },
               {
+                code: 'aymakan',
+                name: isAr ? 'أي مكان' : 'AyMakan',
+                desc: isAr
+                  ? 'حلول شحن سعودية مرنة مع تتبّع وتتويج للمدن الرئيسية.'
+                  : 'Flexible Saudi courier solutions with tracking across major cities.',
+                badge: 'AYM',
+                bg: 'bg-teal-700',
+              },
+              {
                 code: 'dhl',
                 name: isAr ? 'دي إتش إل إكسبريس' : 'DHL Express',
                 desc: isAr ? 'شحن دولي سريع ومميز مع تخليص جمركي معتمد.' : 'Worldwide premium express courier with international customs clearance.',
                 badge: 'DHL',
                 bg: 'bg-amber-600',
+              },
+              {
+                code: 'jt',
+                name: isAr ? 'جيه آند تي إكسبريس' : 'J&T Express',
+                desc: isAr
+                  ? 'شبكة توصيل سريعة للطرود المحلية مع أسعار تنافسية.'
+                  : 'Fast domestic parcel network with competitive rates.',
+                badge: 'J&T',
+                bg: 'bg-orange-600',
+              },
+              {
+                code: 'spl',
+                name: isAr ? 'البريد السعودي (سبل)' : 'Saudi Post (SPL)',
+                desc: isAr ? 'الناقل البريدي الوطني مع دعم العنوان الوطني السعودي وخدمة واصل.' : 'National postal courier with Saudi National Address & Wasel integration.',
+                badge: 'SPL',
+                bg: 'bg-emerald-700',
               },
               {
                 code: 'fedex',
@@ -741,6 +774,7 @@ export const StoreShipping: React.FC = () => {
             ].map((prov) => {
               const conn = currentCouriers.find((c) => c.provider === prov.code);
               const isConnected = conn?.status === 'connected';
+              const logoSrc = shippingMethodLogoSrc(prov.code);
 
               return (
                 <div
@@ -750,17 +784,34 @@ export const StoreShipping: React.FC = () => {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div
-                          className={`w-10 h-10 rounded-xl ${prov.bg} text-white font-black text-xs flex items-center justify-center tracking-wider shadow-2xs`}
-                        >
-                          {prov.badge}
-                        </div>
+                        {logoSrc ? (
+                          <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center p-1.5 shadow-2xs shrink-0">
+                            <img
+                              src={logoSrc}
+                              alt=""
+                              className="max-w-full max-h-full object-contain"
+                              loading="lazy"
+                            />
+                          </div>
+                        ) : (
+                          <div
+                            className={`w-10 h-10 rounded-xl ${prov.bg} text-white font-black text-xs flex items-center justify-center tracking-wider shadow-2xs`}
+                          >
+                            {prov.badge}
+                          </div>
+                        )}
                         <div>
                           <h4 className="font-extrabold text-xs text-slate-900 dark:text-white">
                             {prov.name}
                           </h4>
                           <span className="text-[10px] text-slate-400 font-mono">
-                            {isConnected ? `Account: ${conn?.accountNumber || 'Active'}` : 'Not Connected'}
+                            {isConnected
+                              ? isAr
+                                ? `الحساب: ${conn?.accountNumber || 'نشط'}`
+                                : `Account: ${conn?.accountNumber || 'Active'}`
+                              : isAr
+                                ? 'غير متصل'
+                                : 'Not Connected'}
                           </span>
                         </div>
                       </div>
@@ -823,32 +874,54 @@ export const StoreShipping: React.FC = () => {
                             }
                             const anyOrder = realOrder as any;
                             const anyStore = activeStore as any;
-                            const orderCity = anyOrder.city || (typeof realOrder.shippingAddress === 'string' ? realOrder.shippingAddress : anyOrder.shippingAddress?.city) || realOrder.deliveryLocation || 'Riyadh';
-                            const orderAddress = typeof realOrder.shippingAddress === 'string' ? realOrder.shippingAddress : anyOrder.shippingAddress?.address || realOrder.deliveryLocation || 'Saudi Arabia';
+                            const orderCity =
+                              anyOrder.city ||
+                              (typeof realOrder.shippingAddress === 'string'
+                                ? realOrder.shippingAddress
+                                : anyOrder.shippingAddress?.city) ||
+                              realOrder.deliveryLocation ||
+                              (isAr ? 'غير محدد' : 'Unknown');
+                            const orderAddress =
+                              typeof realOrder.shippingAddress === 'string'
+                                ? realOrder.shippingAddress
+                                : anyOrder.shippingAddress?.address ||
+                                  realOrder.deliveryLocation ||
+                                  (isAr ? 'غير محدد' : 'Unknown');
                             const orderTotal = Number(realOrder.total ?? anyOrder.totalAmount ?? 0);
+                            const realTrk = String(realOrder.trackingNumber || '').trim();
+                            const realAwb = String(anyOrder.awbNumber || realOrder.shippingLabelNumber || '').trim();
+                            if (!realTrk && !realAwb) {
+                              toast(
+                                isAr
+                                  ? 'لا يوجد رقم تتبع حقيقي لهذا الطلب. اربط شركة الشحن أولاً.'
+                                  : 'No real tracking number on this order. Connect courier first.',
+                                'info',
+                              );
+                              return;
+                            }
 
                             setPreviewLabelData({
                               carrier: prov.code as CourierCarrierCode,
                               carrierName: prov.name,
                               carrierNameAr: prov.name,
-                              trackingNumber: realOrder.trackingNumber || `${prov.code.toUpperCase()}-TRK-${realOrder.id.slice(-6)}`,
-                              awbNumber: anyOrder.awbNumber || realOrder.shippingLabelNumber || `${prov.code.toUpperCase()}-AWB-${realOrder.id.slice(-6)}`,
+                              trackingNumber: realTrk || realAwb,
+                              awbNumber: realAwb || realTrk,
                               orderNumber: realOrder.orderNumber || `#${realOrder.id.slice(-8)}`,
                               orderDate: realOrder.createdAt ? realOrder.createdAt.split('T')[0] : new Date().toISOString().split('T')[0],
                               sender: {
-                                name: activeStore.name || 'Store Merchant',
-                                nameAr: activeStore.nameAr || 'تاجر المتجر',
-                                phone: anyStore.phone || '+966 11 000 0000',
-                                address: anyStore.address || 'Saudi Arabia',
-                                city: anyStore.city || 'Riyadh',
-                                country: 'Saudi Arabia',
+                                name: activeStore.name || (isAr ? 'تاجر المتجر' : 'Store Merchant'),
+                                nameAr: activeStore.nameAr || activeStore.name || '',
+                                phone: anyStore.phone || '',
+                                address: anyStore.address || (isAr ? 'المملكة العربية السعودية' : 'Saudi Arabia'),
+                                city: anyStore.city || (isAr ? 'غير محدد' : 'Unknown'),
+                                country: isAr ? 'المملكة العربية السعودية' : 'Saudi Arabia',
                               },
                               recipient: {
-                                name: realOrder.customerName || 'Customer',
-                                phone: realOrder.customerPhone || '+966 500 000 000',
+                                name: realOrder.customerName || (isAr ? 'عميل' : 'Customer'),
+                                phone: realOrder.customerPhone || '',
                                 address: orderAddress,
                                 city: orderCity,
-                                country: 'Saudi Arabia',
+                                country: isAr ? 'المملكة العربية السعودية' : 'Saudi Arabia',
                               },
                               packageDetails: {
                                 weightKg: 1.5,
@@ -967,7 +1040,9 @@ export const StoreShipping: React.FC = () => {
                       </td>
                       <td className="py-3.5 px-4 font-mono text-slate-600 dark:text-slate-300">{d.phone}</td>
                       <td className="py-3.5 px-4 text-slate-500">{d.email || '—'}</td>
-                      <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">{d.city || '—'}</td>
+                      <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">
+                        {getLocalizedCity(d.city, locale) || d.city || '—'}
+                      </td>
                       <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">
                         {d.vehicle_type === 'bike'
                           ? isAr
@@ -1069,6 +1144,7 @@ export const StoreShipping: React.FC = () => {
                         estimatedDelivery: preset.estimatedDelivery,
                         etaType: 'etaType' in preset ? preset.etaType : 'days',
                         courierCode: preset.courierCode,
+                        logoUrl: 'logoUrl' in preset ? preset.logoUrl ?? null : null,
                         isCodAllowed: preset.isCodAllowed,
                         allowOnline: preset.allowOnline,
                         allowBankTransfer: 'allowBankTransfer' in preset ? preset.allowBankTransfer : false,
@@ -1078,8 +1154,8 @@ export const StoreShipping: React.FC = () => {
                     }
                     toast(
                       isAr
-                        ? 'تمت إضافة شركات الشحن النموذجية (ريدبوكس، سمسا، أرامكس، توصيل محلي)'
-                        : 'Example couriers added (RedBox, SMSA, Aramex, Local Delivery)',
+                        ? 'تمت إضافة شركات الشحن النموذجية مع الشعارات'
+                        : 'Example couriers added with logos',
                       'success',
                     );
                   } catch {
@@ -1094,7 +1170,7 @@ export const StoreShipping: React.FC = () => {
                 className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 {presetBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                <span>{isAr ? 'إضافة ريدبوكس/سمسا/أرامكس/محلي' : 'Add RedBox / SMSA / Aramex / Local'}</span>
+                <span>{isAr ? 'إضافة شركات الشحن مع الشعارات' : 'Add couriers with logos'}</span>
               </button>
               <button
                 type="button"
@@ -1127,16 +1203,34 @@ export const StoreShipping: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-semibold">
-                {currentShippingMethods.map((m) => (
+                {currentShippingMethods.map((m) => {
+                  const methodLogo =
+                    m.logoUrl ||
+                    shippingMethodLogoSrc(m.courierCode) ||
+                    shippingMethodLogoSrc(m.name) ||
+                    shippingMethodLogoSrc(m.nameAr);
+                  return (
                   <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                     <td className="py-3.5 px-4">
-                      <div>
-                        <span className="font-bold text-xs text-slate-900 dark:text-white block">
-                          {m.name}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-normal">
-                          {m.nameAr || m.estimatedDelivery}
-                        </span>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {methodLogo ? (
+                          <div className="w-10 h-10 rounded-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 flex items-center justify-center p-1 shrink-0">
+                            <img
+                              src={methodLogo}
+                              alt=""
+                              className="max-w-full max-h-full object-contain"
+                              loading="lazy"
+                            />
+                          </div>
+                        ) : null}
+                        <div className="min-w-0">
+                          <span className="font-bold text-xs text-slate-900 dark:text-white block truncate">
+                            {m.name}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-normal">
+                            {m.nameAr || m.estimatedDelivery}
+                          </span>
+                        </div>
                       </div>
                     </td>
                     <td className="py-3.5 px-4">
@@ -1216,7 +1310,8 @@ export const StoreShipping: React.FC = () => {
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1386,40 +1481,47 @@ export const StoreShipping: React.FC = () => {
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-2">
                     {isAr ? 'شركة الشحن (يمكن إضافة المزيد لاحقاً)' : 'Courier company (more can be added later)'}
                   </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {(
                       [
                         { code: 'redbox', en: 'RedBox', ar: 'ريدبوكس', rate: '24', eta: '5–7 business days' },
-                        { code: 'smsa', en: 'SMSA', ar: 'سمسا', rate: '30', eta: '5–8 business days' },
+                        { code: 'smsa', en: 'SMSA Express – Standard Shipping', ar: 'سمسا إكسبريس — الشحن القياسي', rate: '30', eta: '5–8 business days' },
                         { code: 'aramex', en: 'Aramex', ar: 'أرامكس', rate: '30', eta: '5–8 business days' },
-                        { code: 'spl', en: 'SPL', ar: 'سبل', rate: '25', eta: '3–5 business days' },
+                        { code: 'aymakan', en: 'AyMakan', ar: 'أي مكان', rate: '28', eta: '3–5 business days' },
+                        { code: 'dhl', en: 'DHL Express', ar: 'دي إتش إل إكسبريس', rate: '55', eta: '2–4 business days' },
+                        { code: 'jt', en: 'J&T Express', ar: 'جيه آند تي إكسبريس', rate: '22', eta: '3–6 business days' },
                       ] as const
-                    ).map((c) => (
+                    ).map((c) => {
+                      const logo = shippingMethodLogoSrc(c.code);
+                      const selected =
+                        methodCourierCode === c.code ||
+                        methodName.toLowerCase().includes(c.code) ||
+                        methodNameAr.includes(c.ar);
+                      return (
                       <button
                         key={c.code}
                         type="button"
-                        className={optionBtnClass(methodName.toLowerCase().includes(c.en.toLowerCase()) || methodNameAr.includes(c.ar))}
+                        className={`${optionBtnClass(selected)} flex flex-col items-center gap-1.5 py-2.5`}
                         onClick={() => {
                           setMethodCourierCode(c.code);
-                          setMethodName(c.en === 'SMSA' ? 'SMSA Express – Standard Shipping' : c.en);
-                          setMethodNameAr(
-                            c.code === 'smsa'
-                              ? 'سمسا إكسبريس — الشحن القياسي'
-                              : c.code === 'redbox'
-                                ? 'ريدبوكس'
-                                : c.code === 'aramex'
-                                  ? 'أرامكس'
-                                  : 'البريد السعودي (سبل)',
-                          );
+                          setMethodName(c.en);
+                          setMethodNameAr(c.ar);
                           setMethodBaseRate(c.rate);
                           setMethodEstimatedDays(c.eta);
+                          setMethodLogoUrl(logo || '');
                           setMethodFulfillment('courier');
                           setMethodType('flat_rate');
                         }}
                       >
-                        {isAr ? c.ar : c.en}
+                        {logo ? (
+                          <span className="w-full h-8 rounded-md bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-slate-700 flex items-center justify-center px-1.5">
+                            <img src={logo} alt="" className="max-h-6 max-w-full object-contain" loading="lazy" />
+                          </span>
+                        ) : null}
+                        <span className="text-[11px] font-bold">{isAr ? c.ar : c.en.split('–')[0].trim()}</span>
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ) : (

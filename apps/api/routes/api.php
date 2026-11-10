@@ -116,6 +116,8 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
         Route::post('/products', [ProductController::class, 'store']);
         Route::patch('/products/{id}', [ProductController::class, 'update']);
         Route::delete('/products/{id}', [ProductController::class, 'destroy']);
+        Route::post('/products/{id}/restore', [ProductController::class, 'restore']);
+        Route::delete('/products/{id}/force', [ProductController::class, 'forceDestroy']);
         Route::post('/products/{id}/toggle-publish', [ProductController::class, 'togglePublish']);
         Route::post('/products/{productId}/variations', [ProductVariationController::class, 'store']);
         Route::patch('/products/{productId}/variations/{id}', [ProductVariationController::class, 'update']);

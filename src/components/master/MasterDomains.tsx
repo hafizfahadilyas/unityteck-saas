@@ -92,7 +92,7 @@ export const MasterDomains: React.FC = () => {
     addDomainRequest(selectedStoreId, newDomain.trim().toLowerCase(), newTier);
     addAuditLog({
       adminId: 'master-admin-01',
-      adminName: 'Master SuperAdmin',
+      adminName: 'Souq Platform SuperAdmin',
       storeId: selectedStoreId,
       action: 'domain_add',
       resource: `Domain: ${newDomain} (${newTier})`,
@@ -121,7 +121,7 @@ export const MasterDomains: React.FC = () => {
       });
       addAuditLog({
         adminId: 'master-admin-01',
-        adminName: 'Master SuperAdmin',
+        adminName: 'Souq Platform SuperAdmin',
         storeId,
         action: 'hosting_connect',
         resource: `Hostinger Shared: ${domainName}`,
@@ -146,7 +146,7 @@ export const MasterDomains: React.FC = () => {
       await verifyDomainDns(storeId);
       addAuditLog({
         adminId: 'master-admin-01',
-        adminName: 'Master SuperAdmin',
+        adminName: 'Souq Platform SuperAdmin',
         storeId,
         action: 'dns_verify',
         resource: `DNS: ${domainName}`,
@@ -171,7 +171,7 @@ export const MasterDomains: React.FC = () => {
       await deployStoreLive(storeId);
       addAuditLog({
         adminId: 'master-admin-01',
-        adminName: 'Master SuperAdmin',
+        adminName: 'Souq Platform SuperAdmin',
         storeId,
         action: 'store_deploy',
         resource: `Live Deploy: ${domainName}`,
@@ -196,7 +196,7 @@ export const MasterDomains: React.FC = () => {
       setIsSyncingHostinger(false);
       addAuditLog({
         adminId: 'master-admin-01',
-        adminName: 'Master SuperAdmin',
+        adminName: 'Souq Platform SuperAdmin',
         action: 'system_sync',
         resource: 'Hostinger API (v2.4)',
         details: 'Polled live status for shared hosting servers, SSL certificates, and DNS records',
@@ -454,7 +454,7 @@ export const MasterDomains: React.FC = () => {
                             toggleDomainSsl(dom.id);
                             addAuditLog({
                               adminId: 'master-admin-01',
-                              adminName: 'Master SuperAdmin',
+                              adminName: 'Souq Platform SuperAdmin',
                               storeId: dom.storeId,
                               action: 'ssl_renew',
                               resource: `SSL: ${dom.domainName}`,

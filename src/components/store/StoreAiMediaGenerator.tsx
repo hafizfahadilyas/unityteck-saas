@@ -19,6 +19,8 @@ import {
   Upload,
   Trash2,
   Save,
+  Plus,
+  Play,
 } from 'lucide-react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
@@ -59,17 +61,22 @@ export interface StoreAiMediaGeneratorProps {
 
 type PromptMode = 'manual' | 'auto';
 
-const ASPECTS: { id: AiMediaAspect; labelEn: string; labelAr: string; hintEn: string; hintAr: string }[] = [
-  { id: '1:1', labelEn: 'Square 1:1', labelAr: 'مربع ١:١', hintEn: 'Posts', hintAr: 'منشورات' },
-  { id: '4:5', labelEn: 'Feed 4:5', labelAr: 'منشور ٤:٥', hintEn: 'Instagram', hintAr: 'إنستغرام' },
-  { id: '3:4', labelEn: 'Portrait 3:4', labelAr: 'عمودي ٣:٤', hintEn: 'Catalog', hintAr: 'كتالوج' },
-  { id: '9:16', labelEn: 'Reels 9:16', labelAr: 'مقطع ٩:١٦', hintEn: 'Stories', hintAr: 'قصص' },
-  { id: '16:9', labelEn: 'Banner 16:9', labelAr: 'بانر ١٦:٩', hintEn: 'Hero', hintAr: 'واجهة' },
-  { id: '4:3', labelEn: 'Landscape 4:3', labelAr: 'أفقي ٤:٣', hintEn: 'Web', hintAr: 'ويب' },
+/** Google AI Studio / Nano Banana aspect chips (same set). */
+const ASPECTS: { id: AiMediaAspect; hintEn: string; hintAr: string }[] = [
+  { id: '1:1', hintEn: 'Square', hintAr: 'مربع' },
+  { id: '4:5', hintEn: 'Portrait', hintAr: 'عمودي' },
+  { id: '5:4', hintEn: 'Landscape', hintAr: 'أفقي' },
+  { id: '3:4', hintEn: 'Portrait', hintAr: 'عمودي' },
+  { id: '4:3', hintEn: 'Landscape', hintAr: 'أفقي' },
+  { id: '2:3', hintEn: 'Portrait', hintAr: 'عمودي' },
+  { id: '3:2', hintEn: 'Landscape', hintAr: 'أفقي' },
+  { id: '9:16', hintEn: 'Story', hintAr: 'قصة' },
+  { id: '16:9', hintEn: 'Wide', hintAr: 'عريض' },
+  { id: '21:9', hintEn: 'Cinema', hintAr: 'سينما' },
 ];
 
 const STYLES: { id: AiMediaStyle; labelEn: string; labelAr: string }[] = [
-  { id: 'default', labelEn: 'Auto style', labelAr: 'أسلوب تلقائي' },
+  { id: 'default', labelEn: 'Auto', labelAr: 'تلقائي' },
   { id: 'studio', labelEn: 'Product studio', labelAr: 'استوديو منتجات' },
   { id: 'lifestyle', labelEn: 'Lifestyle', labelAr: 'أسلوب حياة' },
   { id: 'flat', labelEn: 'Flat illustration', labelAr: 'رسم مسطح' },
@@ -78,10 +85,31 @@ const STYLES: { id: AiMediaStyle; labelEn: string; labelAr: string }[] = [
 ];
 
 const SIZES: { id: AiMediaImageSize; labelEn: string; labelAr: string }[] = [
-  { id: '1K', labelEn: '1K · Standard', labelAr: '١ك · قياسي' },
-  { id: '2K', labelEn: '2K · High', labelAr: '٢ك · عالي' },
-  { id: '4K', labelEn: '4K · Pro only', labelAr: '٤ك · برو فقط' },
+  { id: '1K', labelEn: '1K', labelAr: '١ك' },
+  { id: '2K', labelEn: '2K', labelAr: '٢ك' },
+  { id: '4K', labelEn: '4K', labelAr: '٤ك' },
 ];
+
+function aspectBoxClass(id: AiMediaAspect): string {
+  switch (id) {
+    case '9:16':
+    case '2:3':
+      return 'w-2.5 h-4';
+    case '4:5':
+    case '3:4':
+      return 'w-3 h-4';
+    case '16:9':
+      return 'w-5 h-2.5';
+    case '21:9':
+      return 'w-6 h-2';
+    case '3:2':
+    case '5:4':
+    case '4:3':
+      return 'w-4 h-3';
+    default:
+      return 'w-3.5 h-3.5';
+  }
+}
 
 function friendlyAiCode(code: string | null | undefined, isAr: boolean): string | null {
   if (!code) return null;
@@ -159,8 +187,9 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
   const [style, setStyle] = useState<AiMediaStyle>('default');
   const [negativePrompt, setNegativePrompt] = useState('');
   const [autoEnhanceOnGenerate, setAutoEnhanceOnGenerate] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(true);
-  const [showBrandSetup, setShowBrandSetup] = useState(true);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showBrandSetup, setShowBrandSetup] = useState(false);
+  const [showCampaignBox, setShowCampaignBox] = useState(false);
   const [models, setModels] = useState<AiMediaModelOption[]>(DEFAULT_AI_MODELS);
   const [quota, setQuota] = useState<AiMediaQuota | null>(null);
   const [brand, setBrand] = useState<AiBrandProfile | null>(null);
@@ -275,17 +304,25 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
   const aspectPreviewClass = useMemo(() => {
     switch (aspect) {
       case '9:16':
-        return 'aspect-[9/16] max-w-[220px]';
+        return 'aspect-[9/16] max-w-[200px]';
+      case '2:3':
+        return 'aspect-[2/3] max-w-[220px]';
       case '4:5':
-        return 'aspect-[4/5] max-w-[260px]';
+        return 'aspect-[4/5] max-w-[240px]';
       case '3:4':
-        return 'aspect-[3/4] max-w-[260px]';
+        return 'aspect-[3/4] max-w-[240px]';
       case '16:9':
         return 'aspect-video max-w-full';
+      case '21:9':
+        return 'aspect-[21/9] max-w-full';
+      case '3:2':
+        return 'aspect-[3/2] max-w-full';
+      case '5:4':
+        return 'aspect-[5/4] max-w-full';
       case '4:3':
         return 'aspect-[4/3] max-w-full';
       default:
-        return 'aspect-square max-w-[320px]';
+        return 'aspect-square max-w-[360px]';
     }
   }, [aspect]);
 
@@ -620,55 +657,33 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
   );
 
   return (
-    <div className="u-page w-full max-w-7xl mx-auto p-4 sm:p-6 space-y-5 min-w-0" dir={isAr ? 'rtl' : 'ltr'}>
+    <div className="u-page w-full max-w-[1600px] mx-auto p-3 sm:p-5 space-y-4 min-w-0" dir={isAr ? 'rtl' : 'ltr'}>
+      {/* Top bar */}
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className="w-9 h-9 rounded-xl unity-icon-box text-white flex items-center justify-center shadow-xs">
               <Wand2 className="w-4 h-4" />
             </span>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
-              {isAr ? 'مولّد الصور المتوافق مع العلامة' : 'Brand-Consistent AI Image Generator'}
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight">
+              {isAr ? 'استوديو الصور بالذكاء الاصطناعي' : 'AI Images Playground'}
             </h1>
           </div>
-          <p className="text-xs sm:text-sm max-w-2xl" style={{ color: 'var(--muted)' }}>
+          <p className="text-xs max-w-xl" style={{ color: 'var(--muted)' }}>
             {isAr
-              ? 'اكتب وصفاً بسيطاً؛ النظام يدمجه تلقائياً مع ألوان وأسلوب متجرك، مع قفل العلامة وقوالب الحملات ووضع المنتج.'
-              : 'Type a simple prompt; the system merges it with this store’s colors & style — Brand Lock, campaigns, product placement.'}
+              ? 'اكتب وصفاً وشغّل التوليد مع قفل العلامة وإعدادات التشغيل.'
+              : 'Write a prompt and run generation with Brand Lock and run settings.'}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => void loadAll()}
-          disabled={loadingQuota}
-          className="px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-2"
-          style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loadingQuota ? 'animate-spin' : ''}`} />
-          {isAr ? 'تحديث' : 'Refresh'}
-        </button>
-      </div>
-
-      {/* Quota strip */}
-      <div
-        className="rounded-2xl border p-4 flex flex-wrap gap-4 items-center justify-between"
-        style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-      >
-        <div className="text-sm font-bold">
-          {isAr ? 'حصة هذا المتجر' : 'This store quota'}{' '}
-          <span style={{ color: 'var(--muted)' }} className="font-medium text-xs">
-            ({quota?.period_key || '—'} · {quota?.plan_code || '—'})
-          </span>
-        </div>
-        <div className="flex flex-wrap gap-3 text-xs font-semibold">
-          <span className="px-3 py-1.5 rounded-full border" style={{ borderColor: 'var(--border)' }}>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="px-2.5 py-1 rounded-full border text-[10px] font-bold" style={{ borderColor: 'var(--border)' }}>
             {isAr ? 'صور' : 'Images'}: {quota ? `${quota.images_used}/${quota.images_limit}` : '—'}
           </span>
-          <span className="px-3 py-1.5 rounded-full border" style={{ borderColor: 'var(--border)' }}>
+          <span className="px-2.5 py-1 rounded-full border text-[10px] font-bold" style={{ borderColor: 'var(--border)' }}>
             {isAr ? 'فيديو' : 'Videos'}: {quota ? `${quota.videos_used}/${quota.videos_limit}` : '—'}
           </span>
           <span
-            className="px-3 py-1.5 rounded-full font-black"
+            className="px-2.5 py-1 rounded-full text-[10px] font-black"
             style={{
               background: providerReady
                 ? 'color-mix(in srgb, #34d399 22%, transparent)'
@@ -679,64 +694,27 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
             {providerReady
               ? isAr
                 ? 'المزود متصل'
-                : 'Provider connected'
+                : 'Provider ready'
               : isAr
-                ? 'غير متصل / بانتظار البيانات'
-                : 'Not Connected / Waiting'}
+                ? 'غير متصل'
+                : 'Not connected'}
           </span>
-        </div>
-      </div>
-
-      {/* Brand Lock toggle */}
-      <div
-        className="rounded-2xl border p-4 flex flex-wrap items-center justify-between gap-3"
-        style={{
-          borderColor: brandLock
-            ? 'color-mix(in srgb, #0d9488 45%, var(--border))'
-            : 'var(--border)',
-          background: brandLock
-            ? 'color-mix(in srgb, #0d9488 8%, var(--surface))'
-            : 'var(--surface)',
-        }}
-      >
-        <div className="flex items-start gap-3 min-w-0">
-          <span
-            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-            style={{
-              background: brandLock
-                ? 'linear-gradient(135deg, #0f766e, #0d9488)'
-                : 'var(--bg)',
-              color: brandLock ? '#fff' : 'var(--muted)',
-            }}
+          <button
+            type="button"
+            onClick={() => void loadAll()}
+            disabled={loadingQuota}
+            className="px-3 py-1.5 rounded-xl border text-[11px] font-bold flex items-center gap-1.5"
+            style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
           >
-            {brandLock ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-          </span>
-          <div className="min-w-0">
-            <div className="text-sm font-black">
-              {isAr ? 'قفل العلامة التجارية' : 'Brand Lock'}
-            </div>
-            <p className="text-[11px] mt-0.5" style={{ color: 'var(--muted)' }}>
-              {isAr
-                ? 'عند التفعيل، أي وصف بسيط (مثل شاطئ ومحيط) يُرسم بألوان وأسلوب متجرك فقط.'
-                : 'When on, a simple prompt like “beach and ocean” is rendered with this store’s colors & style only.'}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-[11px] font-black" style={{ color: brandLock ? '#0f766e' : 'var(--muted)' }}>
-            {brandLock ? (isAr ? 'مفعّل' : 'On') : isAr ? 'معطّل' : 'Off'}
-          </span>
-          <ToggleSwitch
-            checked={brandLock}
-            onChange={() => setBrandLock((v) => !v)}
-            label={isAr ? 'قفل العلامة التجارية' : 'Brand Lock'}
-          />
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingQuota ? 'animate-spin' : ''}`} />
+            {isAr ? 'تحديث' : 'Refresh'}
+          </button>
         </div>
       </div>
 
-      {/* Kind tabs — segmented */}
+      {/* Kind tabs */}
       <div
-        className="inline-flex p-1 rounded-2xl border gap-1 w-full sm:w-auto"
+        className="inline-flex p-1 rounded-2xl border gap-1"
         style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
         role="tablist"
       >
@@ -750,7 +728,7 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
             role="tab"
             aria-selected={kind === tab.id}
             onClick={() => setKind(tab.id)}
-            className="flex-1 sm:flex-none min-w-[140px] px-5 py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all"
+            className="min-w-[110px] px-4 py-2 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all"
             style={{
               background:
                 kind === tab.id
@@ -788,273 +766,221 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
-        {/* Left: controls */}
-        <div
-          className="xl:col-span-7 rounded-2xl border p-4 sm:p-5 space-y-5"
-          style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-        >
-          {/* Brand setup */}
-          <button
-            type="button"
-            onClick={() => setShowBrandSetup((v) => !v)}
-            className="w-full flex items-center justify-between text-xs font-black py-1"
-            style={{ color: 'var(--text)' }}
+      {/* Playground: canvas + composer | run settings */}
+      <div className="flex flex-col lg:flex-row gap-4 items-stretch min-h-0">
+        {/* LEFT / CENTER — result canvas + prompt composer */}
+        <div className="flex-1 min-w-0 flex flex-col gap-3">
+          <div
+            className="flex-1 rounded-2xl border p-3 sm:p-4 flex flex-col min-h-[320px] sm:min-h-[420px]"
+            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
           >
-            <span className="flex items-center gap-2">
-              <Palette className="w-4 h-4" />
-              {isAr ? 'مدخلات تدريب العلامة' : 'Brand training inputs'}
-            </span>
-            {showBrandSetup ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <span className="text-xs font-black">{isAr ? 'النتيجة' : 'Result'}</span>
+              {result?.media.model ? (
+                <span className="text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+                  {result.media.model}
+                </span>
+              ) : null}
+            </div>
 
-          {showBrandSetup && (
-            <div className="space-y-4 rounded-xl border p-3 sm:p-4" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
-              <div>
-                <label className="text-[11px] font-black block mb-1.5">
-                  {isAr ? 'لوحة ألوان العلامة (رموز سداسية)' : 'Brand color palette (hex)'}
-                </label>
-                <input
-                  value={paletteText}
-                  onChange={(e) => setPaletteText(e.target.value)}
-                  placeholder={isAr ? 'مثال: #1A2B3C, #E0E0E0, #FFFFFF' : 'e.g. #1A2B3C, #E0E0E0, #FFFFFF'}
-                  className="w-full rounded-xl border px-3 py-2 text-sm"
-                  style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
-                />
-                {paletteHex.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {paletteHex.map((c) => (
-                      <span
-                        key={c}
-                        title={c}
-                        className="w-6 h-6 rounded-md border"
-                        style={{ background: c, borderColor: 'var(--border)' }}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div>
-                {fieldLabel(isAr ? 'شخصية / أسلوب الفن' : 'Brand persona / art style')}
-                <select
-                  value={persona}
-                  onChange={(e) => setPersona(e.target.value as AiBrandPersona)}
-                  className={selectClass}
-                  style={selectStyle}
-                >
-                  {AI_PERSONAS.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {isAr ? p.labelAr : p.labelEn}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <div className="text-[11px] font-black mb-1.5 flex flex-wrap items-center justify-between gap-2">
-                  <span>
-                    {isAr
-                      ? 'مراجع الأسلوب (١٠–١٥ صورة حقيقية)'
-                      : 'Style references (10–15 real photos)'}
-                  </span>
-                  <span className="text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
-                    {styleStatusLabel}
-                    {brand && !brand.persisted ? (isAr ? ' · غير محفوظ بعد' : ' · not saved yet') : ''}
-                  </span>
-                </div>
-                <p className="text-[10px] mb-2" style={{ color: 'var(--muted)' }}>
-                  {isAr
-                    ? 'توجيه بصري حقيقي للمتجر — لا ندّعي تدريب نموذج منفصل حتى يُربط فعلياً.'
-                    : 'Real per-store visual guidance — we never claim a separate LoRA is trained until wired.'}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => styleInputRef.current?.click()}
-                    className="px-3 py-2 rounded-xl border text-[11px] font-black flex items-center gap-1.5"
-                    style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    {isAr ? 'رفع مراجع' : 'Upload references'}
-                  </button>
-                  {styleRefs.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setStyleRefs([])}
-                      className="px-3 py-2 rounded-xl border text-[11px] font-bold flex items-center gap-1.5"
-                      style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      {isAr ? 'مسح' : 'Clear'}
-                    </button>
-                  )}
-                </div>
-                <input
-                  ref={styleInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => {
-                    void onStyleFiles(e.target.files);
-                    e.target.value = '';
-                  }}
-                />
-                {styleRefs.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {styleRefs.slice(0, 15).map((src, i) => (
-                      <img
-                        key={`${i}-${src.slice(0, 24)}`}
-                        src={src}
-                        alt=""
-                        className="w-10 h-10 rounded-md object-cover border"
-                        style={{ borderColor: 'var(--border)' }}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+            <div className="flex-1 flex items-center justify-center min-h-[220px]">
+              {result && previewUrl ? (
                 <div
-                  className="flex items-center justify-between gap-3 rounded-xl border px-3.5 py-3"
-                  style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                  className={`rounded-xl overflow-hidden border bg-black/5 w-full mx-auto flex items-center justify-center ${aspectPreviewClass}`}
+                  style={{ borderColor: 'var(--border)' }}
                 >
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-black" style={{ color: 'var(--text)' }}>
-                      {isAr ? 'دمج شعار المتجر تلقائياً' : 'Auto logo overlay'}
-                    </div>
-                    <div className="text-[10px] font-semibold mt-0.5" style={{ color: 'var(--muted)' }}>
-                      {isAr ? 'يُضاف الشعار على الناتج' : 'Watermark on generated output'}
-                    </div>
-                  </div>
-                  <ToggleSwitch
-                    checked={logoOverlay}
-                    onChange={() => setLogoOverlay((v) => !v)}
-                    label={isAr ? 'دمج شعار المتجر تلقائياً' : 'Auto logo overlay'}
+                  <img
+                    src={previewUrl}
+                    alt={result.media.file_name}
+                    className="max-w-full max-h-full object-contain"
                   />
                 </div>
-                <div className={logoOverlay ? '' : 'opacity-45 pointer-events-none'}>
-                  {fieldLabel(isAr ? 'موضع الشعار' : 'Logo position')}
-                  <select
-                    value={logoPosition}
-                    onChange={(e) => setLogoPosition(e.target.value as AiLogoPosition)}
-                    className={selectClass}
-                    style={selectStyle}
-                    disabled={!logoOverlay}
-                  >
-                    {AI_LOGO_POSITIONS.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {isAr ? p.labelAr : p.labelEn}
-                      </option>
-                    ))}
-                  </select>
+              ) : (
+                <div
+                  className={`rounded-xl border border-dashed w-full mx-auto flex flex-col items-center justify-center gap-2 ${aspectPreviewClass}`}
+                  style={{ borderColor: 'var(--border)', minHeight: 220, color: 'var(--muted)' }}
+                >
+                  <ImageIcon className="w-10 h-10 opacity-35" />
+                  <p className="text-[11px] font-semibold text-center px-4">
+                    {isAr
+                      ? 'النتيجة تظهر هنا بعد التشغيل — بلا صور وهمية.'
+                      : 'Result appears here after you run — no fake images.'}
+                  </p>
                 </div>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-black block mb-1.5">
-                  {isAr ? 'رابط شعار المتجر (اختياري)' : 'Store logo URL (optional)'}
-                </label>
-                <input
-                  value={logoUrl}
-                  onChange={(e) => setLogoUrl(e.target.value)}
-                  placeholder={isAr ? 'اتركه فارغاً لاستخدام شعار المتجر المحفوظ' : 'Leave empty to use saved store logo'}
-                  className="w-full rounded-xl border px-3 py-2 text-sm"
-                  style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={() => void handleSaveBrand()}
-                disabled={savingBrand}
-                aria-busy={savingBrand}
-                className="px-3 py-2 rounded-xl border text-[11px] font-black flex items-center gap-1.5 disabled:opacity-50"
-                style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-              >
-                {savingBrand ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                {isAr ? 'حفظ هوية العلامة لهذا المتجر' : 'Save brand identity for this store'}
-              </button>
+              )}
             </div>
-          )}
 
-          {/* Prompt mode — segmented */}
-          <div>
-            {fieldLabel(isAr ? 'وضع الموجه' : 'Prompt mode')}
-            <div
-              className="grid grid-cols-2 p-1 rounded-2xl border gap-1"
-              style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
-              role="tablist"
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={promptMode === 'manual'}
-                onClick={() => {
-                  setPromptMode('manual');
-                  setAutoEnhanceOnGenerate(false);
-                }}
-                className="px-3 py-2.5 rounded-xl text-[11px] font-black flex items-center justify-center gap-1.5 transition-all"
-                style={{
-                  background:
-                    promptMode === 'manual'
-                      ? 'linear-gradient(135deg, #0f766e, #0d9488)'
-                      : 'transparent',
-                  color: promptMode === 'manual' ? '#fff' : 'var(--text)',
-                }}
-              >
-                <PenLine className="w-3.5 h-3.5" />
-                {isAr ? 'موجه يدوي' : 'Manual'}
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={promptMode === 'auto'}
-                onClick={() => {
-                  setPromptMode('auto');
-                  setAutoEnhanceOnGenerate(true);
-                }}
-                className="px-3 py-2.5 rounded-xl text-[11px] font-black flex items-center justify-center gap-1.5 transition-all"
-                style={{
-                  background:
-                    promptMode === 'auto'
-                      ? 'linear-gradient(135deg, #0f766e, #14b8a6)'
-                      : 'transparent',
-                  color: promptMode === 'auto' ? '#fff' : 'var(--text)',
-                }}
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                {isAr ? 'تحسين تلقائي' : 'Auto enhance'}
-              </button>
-            </div>
+            {result && previewUrl ? (
+              <div className="mt-3 flex flex-wrap gap-2 items-center">
+                {(result.brand_lock || result.logo_overlay_applied) && (
+                  <div className="flex flex-wrap gap-1.5 text-[10px] font-bold me-auto">
+                    {result.brand_lock ? (
+                      <span className="px-2 py-1 rounded-full border" style={{ borderColor: 'var(--border)' }}>
+                        {isAr ? 'قفل العلامة' : 'Brand Lock'}
+                      </span>
+                    ) : null}
+                    {result.logo_overlay_applied ? (
+                      <span className="px-2 py-1 rounded-full border" style={{ borderColor: 'var(--border)' }}>
+                        {isAr ? 'شعار مدمج' : 'Logo applied'}
+                      </span>
+                    ) : null}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onNavigateTab?.('media')}
+                  className="px-3 py-2 rounded-xl border text-[11px] font-bold flex items-center gap-1.5"
+                  style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                >
+                  <FolderPlus className="w-3.5 h-3.5" />
+                  {isAr ? 'فتح مكتبة الوسائط' : 'Open Media Library'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPostOpen(true)}
+                  className="px-3 py-2 rounded-xl text-[11px] font-black text-white flex items-center gap-1.5"
+                  style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  {isAr ? 'نشر على وسائل التواصل' : 'Post to social'}
+                </button>
+              </div>
+            ) : null}
           </div>
 
-          <div>
-            <label className="text-xs font-black block mb-1.5">
-              {isAr ? 'الوصف (الموجه)' : 'Prompt'}
-            </label>
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              rows={4}
-              maxLength={2000}
-              placeholder={
-                isAr
-                  ? 'مثال: حقيبة نسائية على طاولة'
-                  : 'e.g. A women\'s handbag on a table'
-              }
-              className="w-full rounded-xl border px-3 py-2.5 text-sm resize-y min-h-[100px]"
-              style={{
-                borderColor: 'var(--border)',
-                background: 'var(--bg)',
-                color: 'var(--text)',
-              }}
-            />
-            {brandLock && prompt.trim().length >= 4 && (
+          {/* Prompt composer (Google-style bar) */}
+          <div
+            className="rounded-2xl border p-3 sm:p-3.5 space-y-2 sticky bottom-2 z-10"
+            style={{
+              borderColor: 'var(--border)',
+              background: 'var(--surface)',
+              boxShadow: '0 -8px 28px -18px rgba(0,0,0,0.35)',
+            }}
+          >
+            <div className="flex items-end gap-2">
+              <button
+                type="button"
+                onClick={() => productInputRef.current?.click()}
+                title={isAr ? 'إرفاق صورة' : 'Attach image'}
+                aria-label={isAr ? 'إرفاق صورة' : 'Attach image'}
+                className="w-11 h-11 rounded-xl border flex items-center justify-center shrink-0"
+                style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--bg)' }}
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+              <div className="flex-1 min-w-0">
+                <label className="sr-only">{isAr ? 'الوصف' : 'Prompt'}</label>
+                <textarea
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  onKeyDown={(e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                      e.preventDefault();
+                      if (!generating && !enhancing && providerReady && kind !== 'video' && remaining > 0) {
+                        void handleGenerate();
+                      }
+                    }
+                  }}
+                  rows={3}
+                  maxLength={2000}
+                  placeholder={
+                    isAr
+                      ? 'اكتب وصفاً للصورة التي تريدها…'
+                      : 'Describe the image you want… (Ctrl+Enter to Run)'
+                  }
+                  className="w-full rounded-xl border px-3 py-2.5 text-sm resize-y min-h-[72px] max-h-[160px]"
+                  style={{
+                    borderColor: 'var(--border)',
+                    background: 'var(--bg)',
+                    color: 'var(--text)',
+                  }}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleEnhanceOnly()}
+                disabled={enhancing || generating || !providerReady}
+                aria-busy={enhancing}
+                className="px-3 h-11 rounded-xl border text-[11px] font-black flex items-center gap-1.5 shrink-0 disabled:opacity-50"
+                style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--bg)' }}
+              >
+                {enhancing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+                {enhancing ? (isAr ? 'جارٍ…' : '…') : isAr ? 'تحسين' : 'Enhance'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleGenerate()}
+                disabled={
+                  generating ||
+                  enhancing ||
+                  remaining <= 0 ||
+                  kind === 'video' ||
+                  !providerReady
+                }
+                aria-busy={generating}
+                className="px-4 h-11 rounded-xl text-[11px] font-black text-white flex items-center gap-1.5 shrink-0 disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}
+              >
+                {generating ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4 fill-current" />
+                )}
+                {kind === 'video'
+                  ? isAr
+                    ? 'غير متصل'
+                    : 'Not connected'
+                  : generating
+                    ? isAr
+                      ? 'جارٍ…'
+                      : 'Running…'
+                    : isAr
+                      ? 'تشغيل'
+                      : 'Run'}
+              </button>
+            </div>
+
+            {productDataUrl ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span
+                  className="inline-flex items-center gap-2 rounded-xl border ps-1 pe-2 py-1 text-[10px] font-bold"
+                  style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
+                >
+                  <img
+                    src={productDataUrl}
+                    alt=""
+                    className="w-8 h-8 rounded-lg object-cover"
+                  />
+                  {isAr ? 'صورة منتج مرفقة' : 'Product attached'}
+                  <button
+                    type="button"
+                    onClick={() => setProductDataUrl(null)}
+                    className="p-0.5 rounded-md"
+                    style={{ color: 'var(--muted)' }}
+                    aria-label={isAr ? 'إزالة' : 'Remove'}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </span>
+                <div
+                  className="flex items-center gap-2 rounded-xl border px-2.5 py-1.5"
+                  style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
+                >
+                  <span className="text-[10px] font-bold" style={{ color: 'var(--text)' }}>
+                    {isAr ? 'مطابقة المنظور' : 'Match perspective'}
+                  </span>
+                  <ToggleSwitch
+                    checked={matchPerspective}
+                    onChange={() => setMatchPerspective((v) => !v)}
+                    label={isAr ? 'مطابقة المنظور والظل' : 'Match perspective & shadows'}
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {brandLock && prompt.trim().length >= 4 ? (
               <div
-                className="mt-2 rounded-xl border px-3 py-2 text-[10px] leading-relaxed"
+                className="rounded-xl border px-3 py-2 text-[10px] leading-relaxed"
                 style={{
                   borderColor: 'color-mix(in srgb, #0d9488 35%, var(--border))',
                   background: 'color-mix(in srgb, #0d9488 6%, transparent)',
@@ -1066,477 +992,506 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
                 </span>
                 {mergedPreview}
               </div>
-            )}
-            <div className="mt-2 flex flex-wrap gap-2 justify-between items-center">
-              <span className="text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
-                {prompt.length}/2000
+            ) : null}
+
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+              <span>
+                {isAr
+                  ? '+ إرفاق صورة المنتج · الشعار من إعدادات التشغيل ← هوية العلامة'
+                  : '+ Attach product photo · Logo lives in Run settings → Brand identity'}
               </span>
-              <button
-                type="button"
-                onClick={() => void handleEnhanceOnly()}
-                disabled={enhancing || generating || !providerReady}
-                aria-busy={enhancing}
-                className="px-3 py-2 rounded-xl border text-[11px] font-black flex items-center gap-1.5 disabled:opacity-50"
-                style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-              >
-                {enhancing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
-                {enhancing
-                  ? isAr
-                    ? 'جارٍ التحسين…'
-                    : 'Enhancing…'
-                  : isAr
-                    ? 'تحسين الموجه الآن'
-                    : 'Enhance prompt now'}
-              </button>
+              <span>{prompt.length}/2000</span>
             </div>
           </div>
+        </div>
 
-          {/* Product injection */}
-          <div className="rounded-xl border p-3 space-y-2" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
-            <div className="text-[11px] font-black">
-              {isAr ? 'حقن المنتج / وضع العنصر' : 'Product injection / placement'}
-            </div>
-            <p className="text-[10px]" style={{ color: 'var(--muted)' }}>
-              {isAr
-                ? 'ارفع صورة المنتج الحقيقية؛ النظام يزيل الخلفية ويولّد مشهداً متناسقاً مع العلامة مع مطابقة المنظور.'
-                : 'Upload a real product photo; the system places it into a brand-consistent scene with perspective matching.'}
-            </p>
-            <div className="flex flex-wrap gap-2 items-center">
-              <button
-                type="button"
-                onClick={() => productInputRef.current?.click()}
-                className="px-3 py-2 rounded-xl border text-[11px] font-black flex items-center gap-1.5"
-                style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-              >
-                <Upload className="w-3.5 h-3.5" />
-                {isAr ? 'رفع صورة المنتج' : 'Upload product photo'}
-              </button>
-              {productDataUrl && (
-                <button
-                  type="button"
-                  onClick={() => setProductDataUrl(null)}
-                  className="px-3 py-2 rounded-xl border text-[11px] font-bold flex items-center gap-1.5"
-                  style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  {isAr ? 'إزالة' : 'Remove'}
-                </button>
-              )}
-              <div
-                className="flex items-center gap-2 ms-auto rounded-xl border px-3 py-2"
-                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-              >
-                <span className="text-[11px] font-bold" style={{ color: 'var(--text)' }}>
-                  {isAr ? 'مطابقة المنظور والظل' : 'Match perspective'}
-                </span>
-                <ToggleSwitch
-                  checked={matchPerspective}
-                  onChange={() => setMatchPerspective((v) => !v)}
-                  label={isAr ? 'مطابقة المنظور والظل' : 'Match perspective & shadows'}
-                />
-              </div>
-            </div>
-            <input
-              ref={productInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                void onProductFile(e.target.files?.[0] || null);
-                e.target.value = '';
-              }}
-            />
-            {productDataUrl && (
-              <img
-                src={productDataUrl}
-                alt=""
-                className="w-20 h-20 rounded-lg object-cover border"
-                style={{ borderColor: 'var(--border)' }}
-              />
-            )}
-          </div>
-
-          {/* Campaign + templates + aspect — aligned form grid */}
+        {/* RIGHT — Run settings */}
+        <aside
+          className="w-full lg:w-[340px] xl:w-[360px] shrink-0 rounded-2xl border flex flex-col max-h-[min(92vh,920px)] lg:sticky lg:top-3 overflow-hidden"
+          style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+        >
           <div
-            className="rounded-2xl border p-3.5 sm:p-4 space-y-4"
-            style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
+            className="px-4 py-3 border-b flex items-center gap-2 shrink-0"
+            style={{ borderColor: 'var(--border)' }}
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              <div>
-                {fieldLabel(isAr ? 'إعدادات الحملات الموسمية' : 'Campaign preset')}
-                <select
-                  value={campaign}
-                  onChange={(e) => setCampaign(e.target.value as AiCampaignPreset)}
-                  className={selectClass}
-                  style={selectStyle}
-                >
-                  {AI_CAMPAIGNS.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {isAr ? c.labelAr : c.labelEn}
+            <Settings2 className="w-4 h-4" style={{ color: 'var(--muted)' }} />
+            <h2 className="text-sm font-black">
+              {isAr ? 'إعدادات التشغيل' : 'Run settings'}
+            </h2>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-3.5 space-y-4">
+            {/* Model */}
+            <div>
+              {fieldLabel(isAr ? 'النموذج' : 'Model')}
+              <select
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                className={selectClass}
+                style={selectStyle}
+              >
+                {models.map((m) => {
+                  const tierLabel =
+                    m.tier === 'pro'
+                      ? isAr
+                        ? 'برو'
+                        : 'Pro'
+                      : m.tier === 'balanced'
+                        ? isAr
+                          ? 'متوازن'
+                          : 'Balanced'
+                        : isAr
+                          ? 'قياسي'
+                          : 'Standard';
+                  return (
+                    <option key={m.id} value={m.id}>
+                      {isAr ? m.label_ar : m.label_en} · {tierLabel}
                     </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                {fieldLabel(isAr ? 'قوالب المقاس الجاهزة' : 'Output template')}
-                <select
-                  value={outputTemplate}
-                  onChange={(e) => {
-                    const v = e.target.value as AiOutputTemplate | '';
-                    setOutputTemplate(v);
-                    if (!v) return;
-                    const hit = AI_OUTPUT_TEMPLATES.find((t) => t.id === v);
-                    if (hit) setAspect(hit.aspect);
-                  }}
-                  className={selectClass}
-                  style={selectStyle}
-                >
-                  <option value="">{isAr ? 'بدون قالب — يدوي' : 'No template — manual'}</option>
-                  {AI_OUTPUT_TEMPLATES.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {isAr ? t.labelAr : t.labelEn}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  );
+                })}
+              </select>
             </div>
 
+            {/* Aspect ratio grid */}
             <div>
-              {fieldLabel(isAr ? 'المقاس / النسبة' : 'Size / aspect ratio')}
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {fieldLabel(isAr ? 'نسبة الأبعاد' : 'Aspect ratio')}
+              <div className="grid grid-cols-5 gap-1.5">
                 {ASPECTS.map((a) => {
                   const active = aspect === a.id;
-                  const box =
-                    a.id === '1:1'
-                      ? 'w-5 h-5'
-                      : a.id === '4:5' || a.id === '3:4'
-                        ? 'w-4 h-5'
-                        : a.id === '9:16'
-                          ? 'w-3 h-5'
-                          : a.id === '16:9'
-                            ? 'w-6 h-3.5'
-                            : 'w-5 h-4';
                   return (
                     <button
                       key={a.id}
                       type="button"
+                      title={isAr ? a.hintAr : a.hintEn}
                       onClick={() => {
                         setAspect(a.id);
                         setOutputTemplate('');
                       }}
-                      className="rounded-xl border px-2 py-2.5 flex flex-col items-center gap-1.5 transition-all"
+                      className="rounded-lg border px-1 py-2 flex flex-col items-center gap-1 transition-all"
                       style={{
                         borderColor: active
                           ? 'color-mix(in srgb, #0d9488 55%, var(--border))'
                           : 'var(--border)',
                         background: active
-                          ? 'color-mix(in srgb, #0d9488 14%, var(--surface))'
-                          : 'var(--surface)',
-                        boxShadow: active
-                          ? 'inset 0 0 0 1px color-mix(in srgb, #0d9488 40%, transparent)'
-                          : undefined,
+                          ? 'color-mix(in srgb, #0d9488 14%, var(--bg))'
+                          : 'var(--bg)',
                       }}
                     >
                       <span
-                        className={`${box} rounded-[3px] border-2`}
+                        className={`${aspectBoxClass(a.id)} rounded-[2px] border-2`}
                         style={{
                           borderColor: active ? '#0d9488' : 'var(--muted)',
-                          opacity: active ? 1 : 0.55,
+                          opacity: active ? 1 : 0.5,
                         }}
                       />
-                      <span className="text-[10px] font-black leading-tight text-center" style={{ color: 'var(--text)' }}>
+                      <span className="text-[9px] font-black leading-none" style={{ color: 'var(--text)' }}>
                         {a.id}
-                      </span>
-                      <span className="text-[9px] font-semibold leading-tight text-center" style={{ color: 'var(--muted)' }}>
-                        {isAr ? a.hintAr : a.hintEn}
                       </span>
                     </button>
                   );
                 })}
               </div>
             </div>
-          </div>
 
-          {/* Advanced */}
-          <button
-            type="button"
-            onClick={() => setShowAdvanced((v) => !v)}
-            className="w-full flex items-center justify-between text-xs font-black py-1"
-            style={{ color: 'var(--text)' }}
-          >
-            <span className="flex items-center gap-2">
-              <Settings2 className="w-4 h-4" />
-              {isAr ? 'إعدادات متقدمة' : 'Advanced settings'}
-            </span>
-            {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-
-          {showAdvanced && (
-            <div className="space-y-4 rounded-xl border p-3 sm:p-4" style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}>
-              <div>
-                {fieldLabel(isAr ? 'نموذج الذكاء الاصطناعي' : 'AI model')}
-                <select
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  className={selectClass}
-                  style={selectStyle}
-                >
-                  {models.map((m) => {
-                    const tierLabel =
-                      m.tier === 'pro'
-                        ? isAr
-                          ? 'برو'
-                          : 'Pro'
-                        : m.tier === 'balanced'
-                          ? isAr
-                            ? 'متوازن'
-                            : 'Balanced'
-                          : isAr
-                            ? 'قياسي'
-                            : 'Standard';
-                    return (
-                      <option key={m.id} value={m.id}>
-                        {isAr ? m.label_ar : m.label_en} · {tierLabel}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  {fieldLabel(isAr ? 'دقة الصورة' : 'Output resolution')}
-                  <div
-                    className="grid grid-cols-3 p-1 rounded-2xl border gap-1"
-                    style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-                    role="radiogroup"
-                    aria-label={isAr ? 'دقة الصورة' : 'Output resolution'}
-                  >
-                    {SIZES.map((s) => {
-                      const disabled = s.id === '4K' && !String(model).includes('pro');
-                      const active = imageSize === s.id;
-                      return (
-                        <button
-                          key={s.id}
-                          type="button"
-                          role="radio"
-                          aria-checked={active}
-                          disabled={disabled}
-                          onClick={() => setImageSize(s.id)}
-                          className="px-2 py-2 rounded-xl text-[10px] sm:text-[11px] font-black transition-all disabled:opacity-35 disabled:cursor-not-allowed"
-                          style={{
-                            background: active
-                              ? 'linear-gradient(135deg, #0f766e, #0d9488)'
-                              : 'transparent',
-                            color: active ? '#fff' : 'var(--text)',
-                          }}
-                          title={disabled ? (isAr ? 'يتطلب نموذج برو' : 'Requires Pro model') : undefined}
-                        >
-                          {s.id}
-                          <span className="block text-[9px] font-semibold opacity-80 mt-0.5">
-                            {s.id === '1K'
-                              ? isAr
-                                ? 'قياسي'
-                                : 'Standard'
-                              : s.id === '2K'
-                                ? isAr
-                                  ? 'عالي'
-                                  : 'High'
-                                : isAr
-                                  ? 'برو'
-                                  : 'Pro'}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  {fieldLabel(isAr ? 'الأسلوب البصري' : 'Visual style')}
-                  <select
-                    value={style}
-                    onChange={(e) => setStyle(e.target.value as AiMediaStyle)}
-                    className={selectClass}
-                    style={selectStyle}
-                  >
-                    {STYLES.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {isAr ? s.labelAr : s.labelEn}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-black block mb-1.5">
-                  {isAr ? 'ما يجب تجنبه (اختياري)' : 'Negative prompt (optional)'}
-                </label>
-                <input
-                  value={negativePrompt}
-                  onChange={(e) => setNegativePrompt(e.target.value)}
-                  maxLength={500}
-                  placeholder={
-                    isAr
-                      ? 'مثال: بلا نص غير واضح، بلا وجوه مشوهة'
-                      : 'e.g. no blurry text, no distorted faces'
-                  }
-                  className="w-full rounded-xl border px-3 py-2 text-sm"
-                  style={{
-                    borderColor: 'var(--border)',
-                    background: 'var(--surface)',
-                    color: 'var(--text)',
-                  }}
-                />
-              </div>
-
+            {/* Media resolution */}
+            <div>
+              {fieldLabel(isAr ? 'دقة الوسائط' : 'Media resolution')}
               <div
-                className="flex items-center justify-between gap-3 rounded-xl border px-3.5 py-3"
-                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                className="grid grid-cols-3 p-1 rounded-2xl border gap-1"
+                style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
+                role="radiogroup"
+                aria-label={isAr ? 'دقة الوسائط' : 'Media resolution'}
               >
-                <div className="min-w-0">
-                  <div className="text-[11px] font-black" style={{ color: 'var(--text)' }}>
-                    {isAr
-                      ? 'تحسين الموجه تلقائياً عند التوليد'
-                      : 'Auto-enhance on generate'}
-                  </div>
-                  <div className="text-[10px] font-semibold mt-0.5" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'يُحسَّن الوصف قبل الإرسال' : 'Improves the prompt before sending'}
-                  </div>
-                </div>
-                <ToggleSwitch
-                  checked={autoEnhanceOnGenerate || promptMode === 'auto'}
-                  onChange={() => {
-                    const next = !(autoEnhanceOnGenerate || promptMode === 'auto');
-                    setAutoEnhanceOnGenerate(next);
-                    setPromptMode(next ? 'auto' : 'manual');
-                  }}
-                  label={
-                    isAr
-                      ? 'تحسين الموجه تلقائياً عند التوليد'
-                      : 'Auto-enhance prompt when clicking Generate'
-                  }
-                />
+                {SIZES.map((s) => {
+                  const disabled = s.id === '4K' && !String(model).includes('pro');
+                  const active = imageSize === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      disabled={disabled}
+                      onClick={() => setImageSize(s.id)}
+                      className="px-2 py-2 rounded-xl text-[11px] font-black transition-all disabled:opacity-35 disabled:cursor-not-allowed"
+                      style={{
+                        background: active
+                          ? 'linear-gradient(135deg, #0f766e, #0d9488)'
+                          : 'transparent',
+                        color: active ? '#fff' : 'var(--text)',
+                      }}
+                      title={disabled ? (isAr ? 'يتطلب نموذج برو' : 'Requires Pro model') : undefined}
+                    >
+                      {isAr ? s.labelAr : s.labelEn}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          )}
 
-          <div className="flex flex-wrap items-center gap-2 justify-between pt-1">
-            <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
-              {isAr
-                ? `المتبقي هذا الشهر: ${remaining} من ${limit} (مستخدم ${used})`
-                : `Remaining this month: ${remaining} of ${limit} (used ${used})`}
-            </span>
-            <button
-              type="button"
-              onClick={() => void handleGenerate()}
-              disabled={
-                generating ||
-                enhancing ||
-                remaining <= 0 ||
-                kind === 'video' ||
-                !providerReady
-              }
-              aria-busy={generating}
-              className="px-5 py-2.5 rounded-xl text-xs font-black text-white flex items-center gap-2 disabled:opacity-50 unity-btn-primary"
-            >
-              {generating ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Sparkles className="w-4 h-4" />
-              )}
-              {kind === 'video'
-                ? isAr
-                  ? 'الفيديو غير متصل بعد'
-                  : 'Video not connected yet'
-                : generating
-                  ? isAr
-                    ? 'جارٍ التوليد… قد يستغرق دقيقة'
-                    : 'Generating… may take up to a minute'
-                  : isAr
-                    ? 'توليد وحفظ في المكتبة'
-                    : 'Generate & save to library'}
-            </button>
-          </div>
-        </div>
-
-        {/* Right: preview */}
-        <div
-          className="xl:col-span-5 rounded-2xl border p-4 sm:p-5 space-y-3 min-h-[280px] xl:sticky xl:top-4"
-          style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-        >
-          <div className="text-xs font-black flex items-center justify-between gap-2">
-            <span>{isAr ? 'المعاينة' : 'Preview'}</span>
-            {result?.media.model ? (
-              <span className="text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
-                {result.media.model}
-              </span>
-            ) : null}
-          </div>
-
-          {result && previewUrl ? (
-            <>
-              <div
-                className={`rounded-xl overflow-hidden border bg-black/5 mx-auto w-full flex items-center justify-center ${aspectPreviewClass}`}
-                style={{ borderColor: 'var(--border)' }}
+            {/* Visual style */}
+            <div>
+              {fieldLabel(isAr ? 'الأسلوب البصري' : 'Visual style')}
+              <select
+                value={style}
+                onChange={(e) => setStyle(e.target.value as AiMediaStyle)}
+                className={selectClass}
+                style={selectStyle}
               >
-                <img
-                  src={previewUrl}
-                  alt={result.media.file_name}
-                  className="max-w-full max-h-full object-contain"
-                />
-              </div>
-              {(result.brand_lock || result.logo_overlay_applied) && (
-                <div className="flex flex-wrap gap-1.5 text-[10px] font-bold">
-                  {result.brand_lock ? (
-                    <span className="px-2 py-1 rounded-full border" style={{ borderColor: 'var(--border)' }}>
-                      {isAr ? 'قفل العلامة' : 'Brand Lock'}
-                    </span>
-                  ) : null}
-                  {result.logo_overlay_applied ? (
-                    <span className="px-2 py-1 rounded-full border" style={{ borderColor: 'var(--border)' }}>
-                      {isAr ? 'شعار مدمج' : 'Logo applied'}
-                    </span>
-                  ) : null}
-                </div>
-              )}
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => onNavigateTab?.('media')}
-                  className="px-4 py-2 rounded-xl border text-xs font-bold flex items-center gap-2"
-                  style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-                >
-                  <FolderPlus className="w-4 h-4" />
-                  {isAr ? 'فتح مكتبة الوسائط' : 'Open Media Library'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPostOpen(true)}
-                  className="px-4 py-2 rounded-xl text-xs font-black text-white flex items-center gap-2"
-                  style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}
-                >
-                  <Send className="w-4 h-4" />
-                  {isAr ? 'نشر على وسائل التواصل' : 'Post to social'}
-                </button>
-              </div>
-            </>
-          ) : (
+                {STYLES.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {isAr ? s.labelAr : s.labelEn}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Brand Lock */}
             <div
-              className={`rounded-xl border border-dashed mx-auto w-full flex flex-col items-center justify-center gap-2 ${aspectPreviewClass}`}
-              style={{ borderColor: 'var(--border)', minHeight: 180, color: 'var(--muted)' }}
+              className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5"
+              style={{
+                borderColor: brandLock
+                  ? 'color-mix(in srgb, #0d9488 45%, var(--border))'
+                  : 'var(--border)',
+                background: brandLock
+                  ? 'color-mix(in srgb, #0d9488 8%, var(--bg))'
+                  : 'var(--bg)',
+              }}
             >
-              <ImageIcon className="w-8 h-8 opacity-40" />
-              <p className="text-[11px] font-semibold text-center px-4">
-                {isAr
-                  ? 'النتيجة تظهر هنا بعد التوليد — بلا صور وهمية.'
-                  : 'Result appears here after generate — no fake images.'}
-              </p>
+              <div className="flex items-center gap-2 min-w-0">
+                {brandLock ? <Lock className="w-3.5 h-3.5 shrink-0" /> : <Unlock className="w-3.5 h-3.5 shrink-0" />}
+                <div className="min-w-0">
+                  <div className="text-[11px] font-black">{isAr ? 'قفل العلامة التجارية' : 'Brand Lock'}</div>
+                  <div className="text-[9px] font-semibold" style={{ color: 'var(--muted)' }}>
+                    {brandLock ? (isAr ? 'مفعّل' : 'On') : isAr ? 'معطّل' : 'Off'}
+                  </div>
+                </div>
+              </div>
+              <ToggleSwitch
+                checked={brandLock}
+                onChange={() => setBrandLock((v) => !v)}
+                label={isAr ? 'قفل العلامة التجارية' : 'Brand Lock'}
+              />
             </div>
-          )}
-        </div>
+
+            {/* Auto-enhance */}
+            <div
+              className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5"
+              style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
+            >
+              <div className="min-w-0">
+                <div className="text-[11px] font-black flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  {isAr ? 'تحسين تلقائي' : 'Auto-enhance'}
+                </div>
+                <div className="text-[9px] font-semibold mt-0.5" style={{ color: 'var(--muted)' }}>
+                  {isAr ? 'يُحسَّن الوصف قبل الإرسال' : 'Improve prompt before send'}
+                </div>
+              </div>
+              <ToggleSwitch
+                checked={autoEnhanceOnGenerate || promptMode === 'auto'}
+                onChange={() => {
+                  const next = !(autoEnhanceOnGenerate || promptMode === 'auto');
+                  setAutoEnhanceOnGenerate(next);
+                  setPromptMode(next ? 'auto' : 'manual');
+                }}
+                label={isAr ? 'تحسين تلقائي' : 'Auto-enhance'}
+              />
+            </div>
+
+            {/* Campaign & templates */}
+            <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+              <button
+                type="button"
+                onClick={() => setShowCampaignBox((v) => !v)}
+                className="w-full flex items-center justify-between px-3 py-2.5 text-[11px] font-black"
+                style={{ color: 'var(--text)', background: 'var(--bg)' }}
+              >
+                <span className="flex items-center gap-1.5">
+                  <PenLine className="w-3.5 h-3.5" />
+                  {isAr ? 'الحملات والقوالب' : 'Campaign & templates'}
+                </span>
+                {showCampaignBox ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+              {showCampaignBox ? (
+                <div className="p-3 space-y-3 border-t" style={{ borderColor: 'var(--border)' }}>
+                  <div>
+                    {fieldLabel(isAr ? 'إعداد الحملة' : 'Campaign preset')}
+                    <select
+                      value={campaign}
+                      onChange={(e) => setCampaign(e.target.value as AiCampaignPreset)}
+                      className={selectClass}
+                      style={selectStyle}
+                    >
+                      {AI_CAMPAIGNS.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {isAr ? c.labelAr : c.labelEn}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    {fieldLabel(isAr ? 'قالب المخرجات' : 'Output template')}
+                    <select
+                      value={outputTemplate}
+                      onChange={(e) => {
+                        const v = e.target.value as AiOutputTemplate | '';
+                        setOutputTemplate(v);
+                        if (!v) return;
+                        const hit = AI_OUTPUT_TEMPLATES.find((t) => t.id === v);
+                        if (hit) setAspect(hit.aspect);
+                      }}
+                      className={selectClass}
+                      style={selectStyle}
+                    >
+                      <option value="">{isAr ? 'بدون قالب — يدوي' : 'No template — manual'}</option>
+                      {AI_OUTPUT_TEMPLATES.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {isAr ? t.labelAr : t.labelEn}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Brand identity */}
+            <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+              <button
+                type="button"
+                onClick={() => setShowBrandSetup((v) => !v)}
+                className="w-full flex items-center justify-between px-3 py-2.5 text-[11px] font-black"
+                style={{ color: 'var(--text)', background: 'var(--bg)' }}
+              >
+                <span className="flex items-center gap-1.5">
+                  <Palette className="w-3.5 h-3.5" />
+                  {isAr ? 'هوية العلامة التجارية' : 'Brand identity'}
+                </span>
+                {showBrandSetup ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+              {showBrandSetup ? (
+                <div className="p-3 space-y-3 border-t" style={{ borderColor: 'var(--border)' }}>
+                  <div>
+                    <label className="text-[11px] font-black block mb-1.5">
+                      {isAr ? 'لوحة الألوان (سداسي)' : 'Palette (hex)'}
+                    </label>
+                    <input
+                      value={paletteText}
+                      onChange={(e) => setPaletteText(e.target.value)}
+                      placeholder={isAr ? 'مثال: #1A2B3C, #E0E0E0' : 'e.g. #1A2B3C, #E0E0E0'}
+                      className="w-full rounded-xl border px-3 py-2 text-sm"
+                      style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+                    />
+                    {paletteHex.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {paletteHex.map((c) => (
+                          <span
+                            key={c}
+                            title={c}
+                            className="w-5 h-5 rounded-md border"
+                            style={{ background: c, borderColor: 'var(--border)' }}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div>
+                    {fieldLabel(isAr ? 'الشخصية الفنية' : 'Persona')}
+                    <select
+                      value={persona}
+                      onChange={(e) => setPersona(e.target.value as AiBrandPersona)}
+                      className={selectClass}
+                      style={selectStyle}
+                    >
+                      {AI_PERSONAS.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {isAr ? p.labelAr : p.labelEn}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <div className="text-[11px] font-black mb-1 flex flex-wrap items-center justify-between gap-2">
+                      <span>{isAr ? 'مراجع الأسلوب' : 'Style references'}</span>
+                      <span className="text-[9px] font-semibold" style={{ color: 'var(--muted)' }}>
+                        {styleStatusLabel}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => styleInputRef.current?.click()}
+                        className="px-2.5 py-1.5 rounded-xl border text-[10px] font-black flex items-center gap-1"
+                        style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                      >
+                        <Upload className="w-3 h-3" />
+                        {isAr ? 'رفع' : 'Upload'}
+                      </button>
+                      {styleRefs.length > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => setStyleRefs([])}
+                          className="px-2.5 py-1.5 rounded-xl border text-[10px] font-bold flex items-center gap-1"
+                          style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          {isAr ? 'مسح' : 'Clear'}
+                        </button>
+                      ) : null}
+                    </div>
+                    {styleRefs.length > 0 ? (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {styleRefs.slice(0, 15).map((src, i) => (
+                          <img
+                            key={`${i}-${src.slice(0, 24)}`}
+                            src={src}
+                            alt=""
+                            className="w-8 h-8 rounded-md object-cover border"
+                            style={{ borderColor: 'var(--border)' }}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div
+                    className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5"
+                    style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                  >
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-black">{isAr ? 'دمج الشعار' : 'Logo overlay'}</div>
+                      <div className="text-[9px] font-semibold" style={{ color: 'var(--muted)' }}>
+                        {isAr ? 'يُضاف على الناتج' : 'Applied on output'}
+                      </div>
+                    </div>
+                    <ToggleSwitch
+                      checked={logoOverlay}
+                      onChange={() => setLogoOverlay((v) => !v)}
+                      label={isAr ? 'دمج الشعار' : 'Logo overlay'}
+                    />
+                  </div>
+
+                  <div className={logoOverlay ? '' : 'opacity-45 pointer-events-none'}>
+                    {fieldLabel(isAr ? 'موضع الشعار' : 'Logo position')}
+                    <select
+                      value={logoPosition}
+                      onChange={(e) => setLogoPosition(e.target.value as AiLogoPosition)}
+                      className={selectClass}
+                      style={selectStyle}
+                      disabled={!logoOverlay}
+                    >
+                      {AI_LOGO_POSITIONS.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {isAr ? p.labelAr : p.labelEn}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-black block mb-1.5">
+                      {isAr ? 'رابط الشعار (اختياري)' : 'Logo URL (optional)'}
+                    </label>
+                    <input
+                      value={logoUrl}
+                      onChange={(e) => setLogoUrl(e.target.value)}
+                      placeholder={isAr ? 'فارغ = شعار المتجر المحفوظ' : 'Empty = saved store logo'}
+                      className="w-full rounded-xl border px-3 py-2 text-sm"
+                      style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => void handleSaveBrand()}
+                    disabled={savingBrand}
+                    aria-busy={savingBrand}
+                    className="w-full px-3 py-2 rounded-xl border text-[11px] font-black flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                  >
+                    {savingBrand ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                    {isAr ? 'حفظ العلامة' : 'Save brand'}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Advanced */}
+            <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+              <button
+                type="button"
+                onClick={() => setShowAdvanced((v) => !v)}
+                className="w-full flex items-center justify-between px-3 py-2.5 text-[11px] font-black"
+                style={{ color: 'var(--text)', background: 'var(--bg)' }}
+              >
+                <span className="flex items-center gap-1.5">
+                  <Settings2 className="w-3.5 h-3.5" />
+                  {isAr ? 'متقدم' : 'Advanced'}
+                </span>
+                {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+              {showAdvanced ? (
+                <div className="p-3 border-t" style={{ borderColor: 'var(--border)' }}>
+                  <label className="text-[11px] font-black block mb-1.5">
+                    {isAr ? 'ما يجب تجنبه (اختياري)' : 'Negative prompt (optional)'}
+                  </label>
+                  <input
+                    value={negativePrompt}
+                    onChange={(e) => setNegativePrompt(e.target.value)}
+                    maxLength={500}
+                    placeholder={
+                      isAr
+                        ? 'مثال: بلا نص غير واضح، بلا وجوه مشوهة'
+                        : 'e.g. no blurry text, no distorted faces'
+                    }
+                    className="w-full rounded-xl border px-3 py-2 text-sm"
+                    style={{
+                      borderColor: 'var(--border)',
+                      background: 'var(--surface)',
+                      color: 'var(--text)',
+                    }}
+                  />
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div
+            className="px-4 py-3 border-t text-[10px] font-semibold shrink-0"
+            style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+          >
+            {isAr
+              ? `المتبقي هذا الشهر: ${remaining} من ${limit} (مستخدم ${used})`
+              : `Remaining this month: ${remaining} of ${limit} (used ${used})`}
+          </div>
+        </aside>
       </div>
+
+      {/* Hidden file inputs */}
+      <input
+        ref={productInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          void onProductFile(e.target.files?.[0] || null);
+          e.target.value = '';
+        }}
+      />
+      <input
+        ref={styleInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          void onStyleFiles(e.target.files);
+          e.target.value = '';
+        }}
+      />
 
       {(errorCode || errorDetail) && (
         <div

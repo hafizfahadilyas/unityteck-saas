@@ -81,7 +81,7 @@ export const AI_CAMPAIGNS: { id: AiCampaignPreset; labelEn: string; labelAr: str
 
 export const AI_OUTPUT_TEMPLATES: {
   id: AiOutputTemplate;
-  aspect: '1:1' | '4:5' | '9:16' | '16:9' | '4:3' | '3:4';
+  aspect: '1:1' | '4:5' | '5:4' | '9:16' | '16:9' | '21:9' | '4:3' | '3:4' | '3:2' | '2:3';
   labelEn: string;
   labelAr: string;
 }[] = [

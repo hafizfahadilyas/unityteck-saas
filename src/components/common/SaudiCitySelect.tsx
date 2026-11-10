@@ -1,6 +1,11 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Plus, Search, Trash2, X } from 'lucide-react';
-import { cityLabel, type SaudiCityOption } from '../../data/saudiCities';
+import {
+  cityLabel,
+  findSaudiCityOption,
+  saudiCitiesEquivalent,
+  type SaudiCityOption,
+} from '../../data/saudiCities';
 import { FloatingPopover } from './FloatingPopover';
 
 type SaudiCitySelectProps = {
@@ -18,6 +23,8 @@ type SaudiCitySelectProps = {
   manageEnabled?: boolean;
   onAddCity?: (nameEn: string, nameAr: string) => boolean;
   onRemoveCity?: (cityId: string) => void;
+  /** Keep list under the trigger (modal-safe). Default true. */
+  preferBelow?: boolean;
 };
 
 /**
@@ -31,13 +38,14 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
   isAr,
   disabled,
   required,
-  className = 'w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white',
+  className = 'w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]',
   includeAllOption,
   allLabel,
   placeholder,
   manageEnabled,
   onAddCity,
   onRemoveCity,
+  preferBelow = true,
 }) => {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -45,12 +53,13 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
   const [query, setQuery] = useState('');
   const [newEn, setNewEn] = useState('');
   const [newAr, setNewAr] = useState('');
+  const listEstimate = Math.min(16 + (includeAllOption ? 1 : 0) * 40 + cities.length * 40 + (manageEnabled ? 56 : 0), 520);
 
   const selectedLabel = useMemo(() => {
     if (includeAllOption && value === 'All') {
       return allLabel || (isAr ? 'الكل' : 'All');
     }
-    const hit = cities.find((c) => c.id === value);
+    const hit = findSaudiCityOption(value, cities);
     if (hit) return cityLabel(hit, isAr);
     if (value) return value;
     return placeholder || (isAr ? 'اختر المدينة' : 'Select city');
@@ -70,10 +79,23 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     if (!onAddCity) return;
-    const ok = onAddCity(newEn.trim() || newAr.trim(), newAr.trim() || newEn.trim());
+    const en = newEn.trim() || newAr.trim();
+    const ar = newAr.trim() || newEn.trim();
+    if (!en && !ar) return;
+    const ok = onAddCity(en, ar);
     if (ok) {
+      // Match useSaudiCityOptions slug so the new city is selected immediately
+      const latin = en
+        .normalize('NFKD')
+        .replace(/[^\w\s-]/g, '')
+        .trim()
+        .replace(/\s+/g, '-');
+      const id = (latin || en || ar).slice(0, 64);
+      if (id) onChange(id);
       setNewEn('');
       setNewAr('');
+      setManaging(false);
+      setQuery('');
     }
   };
 
@@ -84,7 +106,7 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
   };
 
   return (
-    <div className="space-y-1.5 w-full min-w-0">
+    <div className="relative z-10 space-y-1.5 w-full min-w-0">
       {/* Keep native select for form required / accessibility fallback (visually hidden) */}
       {required ? (
         <select
@@ -111,11 +133,12 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
-        onClick={() => {
+        onClick={(e) => {
+          e.stopPropagation();
           if (disabled) return;
           setOpen((v) => !v);
         }}
-        className={`${className} min-h-[2.25rem] flex items-center justify-between gap-2 text-start disabled:opacity-80 disabled:cursor-not-allowed`.trim()}
+        className={`${className} min-h-[2.25rem] flex items-center justify-between gap-2 text-start cursor-pointer disabled:opacity-80 disabled:cursor-not-allowed`.trim()}
       >
         <span className={`truncate ${!value || (value === '' && !includeAllOption) ? 'text-slate-400' : ''}`}>
           {selectedLabel}
@@ -129,7 +152,8 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
         onClose={close}
         width={Math.max(260, triggerRef.current?.offsetWidth || 280)}
         align={isAr ? 'end' : 'start'}
-        estimatedHeight={360}
+        estimatedHeight={listEstimate}
+        preferBelow={preferBelow}
         className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl p-2 text-xs"
       >
         <div className="space-y-2">
@@ -145,9 +169,20 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
             />
           </div>
 
+          {manageEnabled && onAddCity ? (
+            <button
+              type="button"
+              onClick={() => setManaging(true)}
+              className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg border border-dashed border-blue-300 dark:border-blue-700 bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 text-[11px] font-semibold hover:bg-blue-100 dark:hover:bg-blue-950/50"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              {isAr ? 'إضافة مدينة جديدة' : 'Add new city'}
+            </button>
+          ) : null}
+
           <ul
             role="listbox"
-            className="max-h-48 overflow-y-auto overscroll-contain rounded-lg border border-slate-100 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800"
+            className="u-dropdown-list rounded-lg border border-slate-100 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800"
           >
             {includeAllOption ? (
               <li>
@@ -175,7 +210,7 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
               </li>
             ) : (
               filtered.map((c) => {
-                const selected = value === c.id;
+                const selected = saudiCitiesEquivalent(value, c.id, cities);
                 return (
                   <li key={c.id}>
                     <div
@@ -241,49 +276,48 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
             ) : null}
           </ul>
 
-          {manageEnabled && onAddCity && onRemoveCity ? (
-            <div className="space-y-1.5 border-t border-slate-100 dark:border-slate-800 pt-2">
-              <button
-                type="button"
-                onClick={() => setManaging((v) => !v)}
-                className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400"
-              >
-                {managing
-                  ? isAr
-                    ? 'إخفاء إضافة مدينة'
-                    : 'Hide add city'
-                  : isAr
-                    ? 'إضافة / حذف مدينة'
-                    : 'Add / remove city'}
-              </button>
-
-              {managing ? (
-                <form onSubmit={handleAdd} className="grid grid-cols-1 gap-1.5">
-                  <input
-                    type="text"
-                    value={newEn}
-                    onChange={(e) => setNewEn(e.target.value)}
-                    placeholder={isAr ? 'الاسم بالإنجليزية' : 'English name'}
-                    className="px-2 py-1.5 text-[11px] border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                  />
-                  <input
-                    type="text"
-                    value={newAr}
-                    onChange={(e) => setNewAr(e.target.value)}
-                    placeholder={isAr ? 'الاسم بالعربية' : 'Arabic name'}
-                    className="px-2 py-1.5 text-[11px] border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                    dir="rtl"
-                  />
-                  <button
-                    type="submit"
-                    className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-semibold hover:bg-blue-700"
-                  >
-                    <Plus className="w-3 h-3" />
-                    {isAr ? 'إضافة' : 'Add'}
-                  </button>
-                </form>
-              ) : null}
-            </div>
+          {manageEnabled && onAddCity && managing ? (
+            <form
+              onSubmit={handleAdd}
+              className="grid grid-cols-1 gap-1.5 border-t border-slate-100 dark:border-slate-800 pt-2"
+            >
+              <input
+                type="text"
+                value={newEn}
+                onChange={(e) => setNewEn(e.target.value)}
+                placeholder={isAr ? 'الاسم بالإنجليزية' : 'English name'}
+                className="px-2 py-1.5 text-[11px] border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                autoFocus
+              />
+              <input
+                type="text"
+                value={newAr}
+                onChange={(e) => setNewAr(e.target.value)}
+                placeholder={isAr ? 'الاسم بالعربية' : 'Arabic name'}
+                className="px-2 py-1.5 text-[11px] border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                dir="rtl"
+              />
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="submit"
+                  className="flex-1 inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-semibold hover:bg-blue-700"
+                >
+                  <Plus className="w-3 h-3" />
+                  {isAr ? 'إضافة' : 'Add'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setManaging(false);
+                    setNewEn('');
+                    setNewAr('');
+                  }}
+                  className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  {isAr ? 'إلغاء' : 'Cancel'}
+                </button>
+              </div>
+            </form>
           ) : null}
 
           <button

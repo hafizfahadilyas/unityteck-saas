@@ -12,12 +12,26 @@ export function renewLifetimeToken(): Promise<boolean> {
     const session = readAuthSession();
     if (!session?.user?.email || !session.portal) return false;
     const { exchangeClerkForSanctum } = await import('./api');
-    const next = await exchangeClerkForSanctum(
-      session.portal,
-      session.user.email,
-      session.storeId,
-    );
-    return Boolean(next?.token);
+    // Renew only works with a Clerk JWT proof — Sanctum PATs cannot re-exchange.
+    const proof =
+      session.token &&
+      !session.token.includes('|') &&
+      !session.token.startsWith('mock-') &&
+      session.token.split('.').length === 3
+        ? session.token
+        : null;
+    if (!proof) return false;
+    try {
+      const next = await exchangeClerkForSanctum(
+        session.portal,
+        session.user.email,
+        session.storeId,
+        proof,
+      );
+      return Boolean(next?.token?.includes('|'));
+    } catch {
+      return false;
+    }
   })().finally(() => {
     inflight = null;
   });

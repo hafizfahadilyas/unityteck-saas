@@ -102,7 +102,7 @@ export const COFFEE_CATEGORIES_SEED: StoreCategory[] = [
   },
 ];
 
-export const COFFEE_STORE_PRODUCTS: Product[] = [
+const COFFEE_STORE_PRODUCTS_RAW: Product[] = [
   {
     "id": "hb-h10a-dualboiler",
     "storeId": "store-coffee",
@@ -846,6 +846,36 @@ export const COFFEE_STORE_PRODUCTS: Product[] = [
     "partsShowcase": []
   },
 ] as unknown as Product[];
+
+function coffeeSeedGoogleTaxonomy(category: string): string {
+  const c = String(category || '').toLowerCase();
+  if (c.includes('مطح') || c.includes('mill') || c.includes('grind')) {
+    return 'Home & Garden > Kitchen & Dining > Kitchen Appliance Accessories > Coffee Maker & Espresso Machine Accessories > Coffee Grinders';
+  }
+  if (c.includes('دولاب') || c.includes('ركن') || c.includes('cabinet') || c.includes('corner')) {
+    return 'Furniture > Tables > Accent Tables > Coffee Tables';
+  }
+  if (
+    c.includes('مستلزم') ||
+    c.includes('أكواب') ||
+    c.includes('accessories') ||
+    c.includes('cups') ||
+    c.includes('barista')
+  ) {
+    return 'Home & Garden > Kitchen & Dining > Kitchen Appliance Accessories > Coffee Maker & Espresso Machine Accessories';
+  }
+  return 'Home & Garden > Kitchen & Dining > Kitchen Appliances > Coffee Makers & Espresso Machines';
+}
+
+export const COFFEE_STORE_PRODUCTS: Product[] = COFFEE_STORE_PRODUCTS_RAW.map((p) => ({
+  ...p,
+  brand: p.brand || 'HiBrew',
+  productType: p.productType || 'Physical Product',
+  salesChannels: p.salesChannels?.length ? p.salesChannels : ['Online Store'],
+  googleTaxonomy:
+    p.googleTaxonomy ||
+    coffeeSeedGoogleTaxonomy(p.categoryEn || p.category || ''),
+}));
 
 export const COFFEE_STORE_MEDIA: MediaAsset[] = [
   {

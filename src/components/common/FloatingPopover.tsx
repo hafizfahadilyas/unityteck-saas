@@ -17,18 +17,25 @@ export type PopoverPlacement = {
  * Anchor a dropdown to its trigger.
  * Prefer below; if the viewport is too short underneath, pin above with CSS `bottom`
  * so the panel never floats mid-screen from an oversized estimated height.
+ * Pass preferBelow to keep opening under the trigger (scroll inside) — needed for
+ * modal fields near the bottom (Acquisition Source / social source).
  */
+/** Dropdowns show full content when possible; scroll only past this viewport share. */
+export const DROPDOWN_VIEWPORT_MAX_RATIO = 0.85;
+
 export function placePopoverBelow(
   el: HTMLElement | null,
   width: number,
   alignEnd: boolean,
   gap = 8,
   estimatedHeight = 280,
+  preferBelow = false,
 ): PopoverPlacement | null {
   if (!el) return null;
   const rect = el.getBoundingClientRect();
   const vw = window.innerWidth;
   const vh = window.innerHeight;
+  const viewportCap = Math.max(160, Math.floor(vh * DROPDOWN_VIEWPORT_MAX_RATIO));
 
   const left = alignEnd
     ? Math.max(8, Math.min(rect.right - width, vw - width - 8))
@@ -37,27 +44,44 @@ export function placePopoverBelow(
   const belowTop = rect.bottom + gap;
   const spaceBelow = vh - belowTop - 8;
   const spaceAbove = rect.top - gap - 8;
-  const needed = Math.max(96, Math.min(estimatedHeight, vh - 16));
-  /** Keep opening under the button whenever there is usable room; scroll inside if taller. */
+  // Content size for flip decisions — maxHeight itself uses full available space
+  // so short menus never get an artificial 220–320px clip.
+  const needed = Math.max(96, Math.min(estimatedHeight, viewportCap));
   const minComfortable = 120;
 
+  // Prefer above when the full panel cannot fit below but fits better above.
   const placeAbove =
-    spaceBelow < minComfortable && spaceAbove > spaceBelow && spaceAbove >= 96;
+    !preferBelow &&
+    spaceAbove >= Math.min(needed, minComfortable) &&
+    (spaceBelow < needed || spaceBelow < minComfortable) &&
+    spaceAbove > spaceBelow;
 
   if (placeAbove) {
     return {
       // CSS fixed `bottom` = distance from viewport bottom → panel bottom sits just above trigger
       bottom: Math.max(8, vh - rect.top + gap),
       left,
-      maxHeight: Math.min(needed, Math.max(96, spaceAbove)),
+      maxHeight: Math.min(viewportCap, Math.max(96, spaceAbove)),
       placement: 'above',
+    };
+  }
+
+  // preferBelow near viewport bottom: keep opening downward conceptually, but pin the
+  // panel to the screen bottom so the list stays tall/scrollable (no mid-screen float).
+  if (preferBelow && spaceBelow < 140) {
+    return {
+      bottom: 8,
+      left,
+      maxHeight: Math.min(viewportCap, Math.max(160, Math.min(spaceAbove + spaceBelow, vh - 16))),
+      placement: 'below',
     };
   }
 
   return {
     top: belowTop,
     left,
-    maxHeight: Math.min(Math.max(needed, 96), Math.max(96, spaceBelow)),
+    // Full available room under the trigger — overflowY on the panel scrolls only if needed.
+    maxHeight: Math.min(viewportCap, Math.max(80, spaceBelow)),
     placement: 'below',
   };
 }
@@ -72,6 +96,8 @@ type FloatingPopoverProps = {
   align?: FloatingPopoverAlign;
   /** Rough panel height for flip / maxHeight; refined after mount via measurement. */
   estimatedHeight?: number;
+  /** Keep panel under the trigger even near viewport bottom (scroll inside). */
+  preferBelow?: boolean;
   className?: string;
   style?: React.CSSProperties;
   children: React.ReactNode;
@@ -83,6 +109,7 @@ type FloatingPopoverProps = {
  * Body-portal dropdown — never clipped by AdminPageShell overflow.
  * Opens under the trigger (smooth dropdown); flips above only when needed,
  * always pinned to the button edge (no mid-screen overlay float).
+ * z-index sits ABOVE GlobalModal (z-10000) so selects work inside modals.
  */
 export const FloatingPopover: React.FC<FloatingPopoverProps> = ({
   open,
@@ -91,6 +118,7 @@ export const FloatingPopover: React.FC<FloatingPopoverProps> = ({
   width = 256,
   align = 'end',
   estimatedHeight = 280,
+  preferBelow = false,
   className = '',
   style,
   children,
@@ -103,8 +131,8 @@ export const FloatingPopover: React.FC<FloatingPopoverProps> = ({
 
   const updatePos = React.useCallback(() => {
     const h = measuredHeightRef.current || estimatedHeight;
-    setPos(placePopoverBelow(anchorRef.current, width, align === 'end', 8, h));
-  }, [anchorRef, width, align, estimatedHeight]);
+    setPos(placePopoverBelow(anchorRef.current, width, align === 'end', 8, h, preferBelow));
+  }, [anchorRef, width, align, estimatedHeight, preferBelow]);
 
   useLayoutEffect(() => {
     if (!open) {
@@ -122,7 +150,15 @@ export const FloatingPopover: React.FC<FloatingPopoverProps> = ({
     if (!node) return;
 
     const apply = () => {
-      const h = Math.ceil(node.getBoundingClientRect().height) || estimatedHeight;
+      // Measure natural content height without the current maxHeight clamp
+      // (otherwise menus stay half-open forever: height measured == capped maxHeight).
+      const prevMax = node.style.maxHeight;
+      const prevOverflow = node.style.overflowY;
+      node.style.maxHeight = 'none';
+      node.style.overflowY = 'visible';
+      const h = Math.ceil(node.scrollHeight) || estimatedHeight;
+      node.style.maxHeight = prevMax;
+      node.style.overflowY = prevOverflow;
       if (Math.abs(h - measuredHeightRef.current) < 2) return;
       measuredHeightRef.current = h;
       updatePos();
@@ -147,20 +183,33 @@ export const FloatingPopover: React.FC<FloatingPopoverProps> = ({
 
   useEffect(() => {
     if (!open) return;
+    // Capture-phase close. Never preventDefault.
+    // - Click inside GlobalModal panel (e.g. City after Gender): allow the event
+    //   through so the next control still receives onClick.
+    // - Click on modal backdrop / page chrome: stopPropagation so the parent
+    //   GlobalModal does not dismiss on the same gesture.
     const handleOutside = (e: MouseEvent) => {
       const target = e.target as Node;
       if (anchorRef.current?.contains(target)) return;
       if (panelRef.current?.contains(target)) return;
       onClose();
+      const el = target as HTMLElement | null;
+      const insideModalPanel =
+        typeof el?.closest === 'function' && !!el.closest('[data-global-modal="panel"]');
+      if (!insideModalPanel) {
+        e.stopPropagation();
+      }
     };
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      onClose();
     };
-    document.addEventListener('mousedown', handleOutside);
-    document.addEventListener('keydown', handleKey);
+    document.addEventListener('click', handleOutside, true);
+    document.addEventListener('keydown', handleKey, true);
     return () => {
-      document.removeEventListener('mousedown', handleOutside);
-      document.removeEventListener('keydown', handleKey);
+      document.removeEventListener('click', handleOutside, true);
+      document.removeEventListener('keydown', handleKey, true);
     };
   }, [open, onClose, anchorRef, panelRef]);
 
@@ -178,11 +227,14 @@ export const FloatingPopover: React.FC<FloatingPopoverProps> = ({
   return createPortal(
     <div
       ref={panelRef as React.RefObject<HTMLDivElement>}
-      className={`fixed z-[9999] max-w-[calc(100vw-1rem)] overflow-y-auto overscroll-contain animate-in fade-in zoom-in-95 duration-150 ${className}`.trim()}
+      data-floating-popover="true"
+      className={`fixed z-[11000] max-w-[calc(100vw-1rem)] overscroll-contain animate-in fade-in zoom-in-95 duration-150 ${className}`.trim()}
       style={{
         left: pos.left,
         width,
         maxHeight: pos.maxHeight,
+        // Scroll only when content truly exceeds available viewport space.
+        overflowY: measuredHeightRef.current > pos.maxHeight + 2 ? 'auto' : 'visible',
         // Clear the unused edge so flip below↔above never leaves a stuck offset
         top: pos.top ?? 'auto',
         bottom: pos.bottom ?? 'auto',
@@ -190,6 +242,8 @@ export const FloatingPopover: React.FC<FloatingPopoverProps> = ({
         ...style,
       }}
       role="listbox"
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
     >
       {children}
     </div>,

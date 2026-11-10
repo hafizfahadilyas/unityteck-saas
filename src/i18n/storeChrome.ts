@@ -290,6 +290,23 @@ function paint(root: HTMLElement): void {
   root.style.setProperty('--active-fg', '#ffffff');
   root.style.setProperty('--active-ring', shades.p400);
   root.style.setProperty('--portal-cta', `linear-gradient(90deg, ${shades.p600}, ${shades.p400})`);
+  // Modal/form labels follow the same brand family as header + CTA
+  if (root.getAttribute('data-theme') !== 'dark') {
+    root.style.setProperty('--text', shades.p950);
+    root.style.setProperty('--muted', shades.p900);
+    root.style.setProperty('--input-fg', shades.p950);
+    root.style.setProperty('--input-ph', shades.p800);
+    root.style.setProperty('--table-head', shades.p950);
+    root.style.setProperty('--card-fg', shades.p950);
+    root.style.setProperty('--icon-on-light', shades.p950);
+    root.style.setProperty('--icon-box-fg', shades.p950);
+    root.style.setProperty('--border', shades.p200);
+  }
+  // Keep luxury scrollbar in sync with chrome palette unless a dedicated override is set
+  if (!root.hasAttribute('data-custom-scrollbar')) {
+    root.style.setProperty('--sb-color', shades.p400);
+    root.style.setProperty('--sb-color-deep', shades.p600);
+  }
   root.setAttribute('data-chrome-fill', chrome.fill);
   root.setAttribute('data-chrome-store', boundStoreId);
   root.setAttribute('data-sidebar-design', chrome.sidebarDesign || 'classic');
@@ -322,6 +339,11 @@ function paint(root: HTMLElement): void {
 
   if (!designOwnsColors(chrome)) return;
   const preset = designPreset(chrome);
+  // Keep modal headers / sidebar deep tone on the SAME palette as CTA (no teal/green split).
+  const designPalette = BRAND_PALETTES[preset.palette] ?? shades;
+  root.style.setProperty('--portal-950', designPalette.p950);
+  root.style.setProperty('--portal-900', designPalette.p900);
+  root.style.setProperty('--portal-800', designPalette.p800);
   root.style.setProperty('--portal-200', preset.idle);
   root.style.setProperty('--portal-400', preset.accent);
   root.style.setProperty('--portal-600', preset.accent);
@@ -330,6 +352,21 @@ function paint(root: HTMLElement): void {
   root.style.setProperty('--active-fg', preset.activeFg);
   root.style.setProperty('--active-ring', preset.accent);
   root.style.setProperty('--portal-cta', preset.cta);
+  if (root.getAttribute('data-theme') !== 'dark') {
+    root.style.setProperty('--text', designPalette.p950);
+    root.style.setProperty('--muted', designPalette.p900);
+    root.style.setProperty('--input-fg', designPalette.p950);
+    root.style.setProperty('--input-ph', designPalette.p800);
+    root.style.setProperty('--table-head', designPalette.p950);
+    root.style.setProperty('--card-fg', designPalette.p950);
+    root.style.setProperty('--icon-on-light', designPalette.p950);
+    root.style.setProperty('--icon-box-fg', designPalette.p950);
+    root.style.setProperty('--border', designPalette.p200);
+  }
+  if (!root.hasAttribute('data-custom-scrollbar')) {
+    root.style.setProperty('--sb-color', preset.accent);
+    root.style.setProperty('--sb-color-deep', designPalette.p600);
+  }
 }
 
 setChromePainter(paint);

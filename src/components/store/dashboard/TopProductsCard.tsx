@@ -53,18 +53,21 @@ export const TopProductsCard: React.FC<TopProductsCardProps> = React.memo(({
   }, [products, salesByProductId, locale]);
 
   return (
-    <div className="p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-slate-900 shadow-xs flex flex-col h-full min-h-[280px] max-h-[320px]">
+    <div
+      className="u-card p-3.5 sm:p-4 rounded-2xl shadow-xs flex flex-col h-full min-h-[280px] max-h-[320px]"
+      style={{ fontFamily: 'var(--font-ui)' }}
+    >
       {/* ── Card Header ── */}
-      <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800/80 mb-2 shrink-0">
+      <div className="flex items-center justify-between pb-2.5 mb-2 shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
         <div className="flex items-center gap-2 min-w-0">
-          <div className="w-7 h-7 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 flex items-center justify-center border border-teal-200/60 dark:border-teal-800/40 shrink-0">
+          <div className="u-icon-brand w-7 h-7 rounded-xl flex items-center justify-center shrink-0">
             <Crown className="w-3.5 h-3.5" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-sm font-black text-slate-900 dark:text-white leading-tight truncate">
+            <h3 className="text-sm font-black leading-tight truncate" style={{ color: 'var(--text)' }}>
               {isAr ? 'أفضل المنتجات' : 'Top Products'}
             </h3>
-            <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300 truncate">
+            <p className="text-[10px] font-bold truncate" style={{ color: 'var(--muted)' }}>
               {isAr ? 'الأكثر مبيعاً من الطلبات الحية' : 'Top sellers from live orders'}
             </p>
           </div>
@@ -73,7 +76,7 @@ export const TopProductsCard: React.FC<TopProductsCardProps> = React.memo(({
         <button
           type="button"
           onClick={onViewAll}
-          className="text-[11px] font-bold text-teal-700 hover:text-teal-900 dark:text-teal-300 dark:hover:text-teal-200 flex items-center gap-0.5 hover:underline cursor-pointer shrink-0"
+          className="u-accent-text text-[11px] font-bold flex items-center gap-0.5 hover:underline cursor-pointer shrink-0"
         >
           <span>{isAr ? 'عرض الكل' : 'View All'}</span>
           <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" />
@@ -83,8 +86,8 @@ export const TopProductsCard: React.FC<TopProductsCardProps> = React.memo(({
       {/* ── Scrollable products list (height matched to Traffic / Notifications) ── */}
       {displayItems.length === 0 ? (
         <div className="flex-1 py-6 px-3 text-center flex flex-col items-center justify-center">
-          <div className="w-9 h-9 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 flex items-center justify-center border border-teal-200/60 dark:border-teal-800/40 mb-2">
-            <Package className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+          <div className="u-icon-brand w-9 h-9 rounded-2xl flex items-center justify-center mb-2">
+            <Package className="w-4 h-4 opacity-60" />
           </div>
           <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
             {isAr ? 'لا توجد منتجات' : 'No products found'}
@@ -101,7 +104,7 @@ export const TopProductsCard: React.FC<TopProductsCardProps> = React.memo(({
               onClick={() => onSelectProduct?.(item.id)}
               className="flex items-center gap-2 group cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40 p-1 rounded-xl transition-colors"
             >
-              <span className="w-4.5 h-4.5 rounded-md bg-teal-50 dark:bg-teal-950 text-teal-800 dark:text-teal-300 font-bold text-[10px] flex items-center justify-center shrink-0 border border-teal-200/60 dark:border-teal-800/40">
+              <span className="u-icon-brand w-4.5 h-4.5 rounded-md font-bold text-[10px] flex items-center justify-center shrink-0">
                 {index + 1}
               </span>
 
@@ -130,8 +133,11 @@ export const TopProductsCard: React.FC<TopProductsCardProps> = React.memo(({
 
               <div className="w-14 sm:w-16 shrink-0 bg-slate-200 dark:bg-slate-700/80 h-1.5 rounded-full overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-teal-500 dark:bg-teal-400 transition-all duration-500"
-                  style={{ width: `${Math.min(100, Math.max(item.percentage > 0 ? 8 : 0, item.percentage * 2.8))}%` }}
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(100, Math.max(item.percentage > 0 ? 8 : 0, item.percentage * 2.8))}%`,
+                    background: 'var(--accent)',
+                  }}
                 />
               </div>
 

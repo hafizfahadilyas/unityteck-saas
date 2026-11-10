@@ -710,8 +710,8 @@ export const ReportsSalesRevenue: React.FC<ReportsSalesRevenueProps> = ({
               <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
               <p className="text-[11px] text-purple-900 dark:text-purple-200 leading-relaxed">
                 {isAr
-                  ? 'مبيعات المنتجات تشكل 82.5% من إجمالي الدخل مع هامش ربح تشغيلي مستقر.'
-                  : 'Product sales represent 82.5% of total income with a solid operational margin.'}
+                  ? 'بانتظار بيانات الهامش الحقيقية من تكلفة المنتجات — لا نسب وهمية.'
+                  : 'Waiting for real margin data from product costs — no invented percentages.'}
               </p>
             </div>
           </div>
@@ -969,7 +969,9 @@ export const ReportsSalesRevenue: React.FC<ReportsSalesRevenueProps> = ({
 
           <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
             <span>{isAr ? 'معدل إتمام الطلبات الناجح:' : 'Order Completion Rate:'}</span>
-            <span className="font-bold text-emerald-600 dark:text-emerald-400">95.0%</span>
+            <span className="font-bold text-slate-500 dark:text-slate-400">
+              {isAr ? 'بانتظار البيانات' : 'Waiting for Data'}
+            </span>
           </div>
         </div>
 

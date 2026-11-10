@@ -22,10 +22,19 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0, post-chec
 header('Pragma: no-cache');
 header('Expires: 0');
 
-$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+$method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 if ($method === 'OPTIONS') {
     http_response_code(200);
     exit;
+}
+// Some Hostinger / proxy setups rewrite PATCH → POST; honor overrides.
+$methodOverride = strtoupper(trim((string)(
+    $_SERVER['HTTP_X_HTTP_METHOD_OVERRIDE']
+    ?? $_SERVER['HTTP_X_METHOD_OVERRIDE']
+    ?? ''
+)));
+if ($method === 'POST' && in_array($methodOverride, ['PUT', 'PATCH', 'DELETE'], true)) {
+    $method = $methodOverride;
 }
 
 // Ensure database directory exists
@@ -562,6 +571,13 @@ if (preg_match('#^/stores/([^/]+)#', $uri, $mStore)) {
 
 $inputJson = file_get_contents('php://input');
 $inputData = json_decode($inputJson, true) ?: [];
+if ($method === 'POST' && is_array($inputData) && !empty($inputData['_method'])) {
+    $bodyMethod = strtoupper(trim((string)$inputData['_method']));
+    if (in_array($bodyMethod, ['PUT', 'PATCH', 'DELETE'], true)) {
+        $method = $bodyMethod;
+        unset($inputData['_method']);
+    }
+}
 
 // ── FORMATTERS ──
 
@@ -943,6 +959,15 @@ if ($uri === '/stores' && $method === 'GET') {
         $st['name'] = $row['name'];
         $st['slug'] = $row['slug'];
         $st['domain'] = $row['domain'];
+        $email = $st['email'] ?? ($st['ownerEmail'] ?? ($st['owner_email'] ?? null));
+        if ($email) {
+            $st['email'] = $email;
+            $st['owner_email'] = $email;
+            $st['ownerEmail'] = $email;
+        }
+        $st['login_email_active'] = array_key_exists('login_email_active', $st)
+            ? (bool)$st['login_email_active']
+            : true;
         $cnt = (int)$pdo->query("SELECT COUNT(*) FROM products WHERE store_id = '{$row['id']}'")->fetchColumn();
         $st['productsCount'] = $cnt;
         $stores[] = $st;

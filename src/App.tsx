@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { Suspense, useCallback, useEffect, useState, useRef, lazy } from 'react';
+import React, { Suspense, useCallback, useEffect, useState, useRef } from 'react';
 import { TenantProvider, useTenant } from './context/TenantContext';
 import { MasterSidebar } from './components/master/MasterSidebar';
 import { MasterTopBar } from './components/master/MasterTopBar';
@@ -40,195 +40,191 @@ import {
 import { isPublicStoreSlugPath, storeSlugFromStorePath } from './utils/storefrontLinks';
 import { useToast } from './components/common/ToastProvider';
 import { applyPortalHead } from './utils/portalHead';
+import { lazyWithRetry } from './utils/lazyWithRetry';
 import { Lock, ShieldAlert } from 'lucide-react';
 import { CORE_STORE_CONTROL_IDS, isStoreControlEnabled } from './services/storeControlService';
 import { isStoreTabComingSoon } from './config/storeTabVisibility';
 // HolstChromeBar retired — unified MasterTopBar / StoreTopBar (docs/21)
 
 /** Heavy tabs — code-split so dashboard/themes open fast */
-const MasterStores = lazy(() =>
+const MasterStores = lazyWithRetry(() =>
   import('./components/master/MasterStores').then((m) => ({ default: m.MasterStores })),
 );
-const MasterControlCenter = lazy(() =>
+const MasterControlCenter = lazyWithRetry(() =>
   import('./components/master/MasterControlCenter').then((m) => ({ default: m.MasterControlCenter })),
 );
-const MasterOnboarding = lazy(() =>
+const MasterOnboarding = lazyWithRetry(() =>
   import('./components/master/MasterOnboarding').then((m) => ({ default: m.MasterOnboarding })),
 );
-const MasterDomains = lazy(() =>
+const MasterDomains = lazyWithRetry(() =>
   import('./components/master/MasterDomains').then((m) => ({ default: m.MasterDomains })),
 );
-const MasterUpdates = lazy(() =>
+const MasterUpdates = lazyWithRetry(() =>
   import('./components/master/MasterUpdates').then((m) => ({ default: m.MasterUpdates })),
 );
-const MasterThemes = lazy(() =>
+const MasterThemes = lazyWithRetry(() =>
   import('./components/master/MasterThemes').then((m) => ({ default: m.MasterThemes })),
 );
-const MasterMarketplace = lazy(() =>
+const MasterMarketplace = lazyWithRetry(() =>
   import('./components/master/MasterMarketplace').then((m) => ({ default: m.MasterMarketplace })),
 );
-const MasterSEO = lazy(() =>
+const MasterSEO = lazyWithRetry(() =>
   import('./components/master/MasterSEO').then((m) => ({ default: m.MasterSEO })),
 );
-const MasterDatabase = lazy(() =>
+const MasterDatabase = lazyWithRetry(() =>
   import('./components/master/MasterDatabase').then((m) => ({ default: m.MasterDatabase })),
 );
-const MasterGeneralView = lazy(() =>
+const MasterGeneralView = lazyWithRetry(() =>
   import('./components/master/MasterGeneralView').then((m) => ({ default: m.MasterGeneralView })),
 );
-const MasterOrders = lazy(() =>
+const MasterOrders = lazyWithRetry(() =>
   import('./components/master/MasterOrders').then((m) => ({ default: m.MasterOrders })),
 );
-const MasterProducts = lazy(() =>
+const MasterProducts = lazyWithRetry(() =>
   import('./components/master/MasterProducts').then((m) => ({ default: m.MasterProducts })),
 );
-const StoreCustomers = lazy(() =>
+const StoreCustomers = lazyWithRetry(() =>
   import('./components/store/StoreCustomers').then((m) => ({ default: m.StoreCustomers })),
 );
-const StoreMarketingHub = lazy(() =>
+const StoreMarketingHub = lazyWithRetry(() =>
   import('./components/store/StoreMarketingHub').then((m) => ({
     default: m.StoreMarketingHub,
   })),
 );
-const StoreAnalytics = lazy(() =>
+const StoreAnalytics = lazyWithRetry(() =>
   import('./components/store/StoreAnalytics').then((m) => ({ default: m.StoreAnalytics })),
 );
-const StoreReports = lazy(() =>
+const StoreReports = lazyWithRetry(() =>
   import('./components/store/StoreReports').then((m) => ({ default: m.StoreReports })),
 );
-const StoreChannelPerformance = lazy(() =>
+const StoreChannelPerformance = lazyWithRetry(() =>
   import('./components/store/StoreChannelPerformance').then((m) => ({
     default: m.StoreChannelPerformance,
   })),
 );
-const StoreSEO = lazy(() =>
+const StoreSEO = lazyWithRetry(() =>
   import('./components/store/StoreSEO').then((m) => ({ default: m.StoreSEO })),
 );
-const StoreProducts = lazy(() =>
+const StoreProducts = lazyWithRetry(() =>
   import('./components/store/StoreProducts').then((m) => ({ default: m.StoreProducts })),
 );
-const StoreMediaLibrary = lazy(() =>
+const StoreMediaLibrary = lazyWithRetry(() =>
   import('./components/store/StoreMediaLibrary').then((m) => ({ default: m.StoreMediaLibrary })),
 );
-const StoreDesignStudioHub = lazy(() =>
+const StoreDesignStudioHub = lazyWithRetry(() =>
   import('./components/store/StoreDesignStudioHub').then((m) => ({ default: m.StoreDesignStudioHub })),
 );
-const StoreCanvaStudio = lazy(() =>
+const StoreCanvaStudio = lazyWithRetry(() =>
   import('./components/store/StoreCanvaStudio').then((m) => ({ default: m.StoreCanvaStudio })),
 );
-const StoreBannerDesignEditor = lazy(() =>
+const StoreBannerDesignEditor = lazyWithRetry(() =>
   import('./components/store/editors/StoreBannerDesignEditor').then((m) => ({
     default: m.StoreBannerDesignEditor,
   })),
 );
-const StoreLogoDesignEditor = lazy(() =>
+const StoreLogoDesignEditor = lazyWithRetry(() =>
   import('./components/store/editors/StoreLogoDesignEditor').then((m) => ({
     default: m.StoreLogoDesignEditor,
   })),
 );
-const StoreProductCardDesignEditor = lazy(() =>
+const StoreProductCardDesignEditor = lazyWithRetry(() =>
   import('./components/store/editors/StoreProductCardDesignEditor').then((m) => ({
     default: m.StoreProductCardDesignEditor,
   })),
 );
-const StoreAiMediaGenerator = lazy(() =>
+const StoreAiMediaGenerator = lazyWithRetry(() =>
   import('./components/store/StoreAiMediaGenerator').then((m) => ({ default: m.StoreAiMediaGenerator })),
 );
-const StoreCategories = lazy(() =>
+const StoreCategories = lazyWithRetry(() =>
   import('./components/store/StoreCategories').then((m) => ({ default: m.StoreCategories })),
 );
-const StoreOrders = lazy(() =>
+const StoreOrders = lazyWithRetry(() =>
   import('./components/store/StoreOrders').then((m) => ({ default: m.StoreOrders })),
 );
-const StoreInvoices = lazy(async () => {
-  try {
-    return await import('./components/store/invoices/StoreInvoices').then((m) => ({ default: m.StoreInvoices }));
-  } catch {
-    await new Promise((r) => setTimeout(r, 600));
-    return await import('./components/store/invoices/StoreInvoices').then((m) => ({ default: m.StoreInvoices }));
-  }
-});
-const StoreShipping = lazy(() =>
+const StoreInvoices = lazyWithRetry(() =>
+  import('./components/store/invoices/StoreInvoices').then((m) => ({ default: m.StoreInvoices })),
+);
+const StoreShipping = lazyWithRetry(() =>
   import('./components/store/StoreShipping').then((m) => ({ default: m.StoreShipping })),
 );
-const StoreCoupons = lazy(() =>
+const StoreCoupons = lazyWithRetry(() =>
   import('./components/store/StoreCoupons').then((m) => ({ default: m.StoreCoupons })),
 );
-const StoreAbandonedCarts = lazy(() =>
+const StoreAbandonedCarts = lazyWithRetry(() =>
   import('./components/store/StoreAbandonedCarts').then((m) => ({ default: m.StoreAbandonedCarts })),
 );
-const StoreCartOffers = lazy(() =>
+const StoreCartOffers = lazyWithRetry(() =>
   import('./components/store/StoreCartOffers').then((m) => ({ default: m.StoreCartOffers })),
 );
-const StorePromotionalOffers = lazy(() =>
+const StorePromotionalOffers = lazyWithRetry(() =>
   import('./components/store/StorePromotionalOffers').then((m) => ({ default: m.StorePromotionalOffers })),
 );
-const StoreBankOffers = lazy(() =>
+const StoreBankOffers = lazyWithRetry(() =>
   import('./components/store/StoreBankOffers').then((m) => ({ default: m.StoreBankOffers })),
 );
-const StoreCashback = lazy(() =>
+const StoreCashback = lazyWithRetry(() =>
   import('./components/store/StoreCashback').then((m) => ({ default: m.StoreCashback })),
 );
-const StoreGiftingSystem = lazy(() =>
+const StoreGiftingSystem = lazyWithRetry(() =>
   import('./components/store/StoreGiftingSystem').then((m) => ({ default: m.StoreGiftingSystem })),
 );
-const StoreLoyaltyProgram = lazy(() =>
+const StoreLoyaltyProgram = lazyWithRetry(() =>
   import('./components/store/StoreLoyaltyProgram').then((m) => ({ default: m.StoreLoyaltyProgram })),
 );
-const StoreRepurchaseReminders = lazy(() =>
+const StoreRepurchaseReminders = lazyWithRetry(() =>
   import('./components/store/StoreRepurchaseReminders').then((m) => ({ default: m.StoreRepurchaseReminders })),
 );
-const StoreAffiliateMarketing = lazy(() =>
+const StoreAffiliateMarketing = lazyWithRetry(() =>
   import('./components/store/StoreAffiliateMarketing').then((m) => ({ default: m.StoreAffiliateMarketing })),
 );
-const StoreDirectOrders = lazy(() =>
+const StoreDirectOrders = lazyWithRetry(() =>
   import('./components/store/StoreDirectOrders').then((m) => ({ default: m.StoreDirectOrders })),
 );
-const StoreThemes = lazy(() =>
+const StoreThemes = lazyWithRetry(() =>
   import('./components/store/StoreThemes').then((m) => ({ default: m.StoreThemes })),
 );
-const StorePages = lazy(() =>
+const StorePages = lazyWithRetry(() =>
   import('./components/store/StorePages').then((m) => ({ default: m.StorePages })),
 );
-const StoreBlogManagement = lazy(() =>
+const StoreBlogManagement = lazyWithRetry(() =>
   import('./components/store/blog/StoreBlogManagement').then((m) => ({ default: m.StoreBlogManagement })),
 );
-const StoreWhatsAppManager = lazy(() =>
+const StoreWhatsAppManager = lazyWithRetry(() =>
   import('./components/store/whatsapp/StoreWhatsAppManager').then((m) => ({ default: m.StoreWhatsAppManager })),
 );
-const StoreTabComingSoon = lazy(() =>
+const StoreTabComingSoon = lazyWithRetry(() =>
   import('./components/store/StoreTabComingSoon').then((m) => ({ default: m.StoreTabComingSoon })),
 );
-const StoreSocialPublisher = lazy(() =>
+const StoreSocialPublisher = lazyWithRetry(() =>
   import('./components/store/StoreSocialPublisher').then((m) => ({ default: m.StoreSocialPublisher })),
 );
-const StoreArticleCommerceTools = lazy(() =>
+const StoreArticleCommerceTools = lazyWithRetry(() =>
   import('./components/store/blog/StoreArticleCommerceTools').then((m) => ({ default: m.StoreArticleCommerceTools })),
 );
-const StoreAppStore = lazy(() =>
+const StoreAppStore = lazyWithRetry(() =>
   import('./components/store/StoreAppStore').then((m) => ({ default: m.StoreAppStore })),
 );
-const StorePayments = lazy(() =>
+const StorePayments = lazyWithRetry(() =>
   import('./components/store/StorePayments').then((m) => ({ default: m.StorePayments })),
 );
-const StoreHostingDomain = lazy(() =>
+const StoreHostingDomain = lazyWithRetry(() =>
   import('./components/store/StoreHostingDomain').then((m) => ({ default: m.StoreHostingDomain })),
 );
-const StoreBrandsView = lazy(() =>
+const StoreBrandsView = lazyWithRetry(() =>
   import('./components/store/StoreBrandsView').then((m) => ({ default: m.StoreBrandsView })),
 );
-const MasterSettings = lazy(() =>
+const MasterSettings = lazyWithRetry(() =>
   import('./components/master/MasterSettings').then((m) => ({ default: m.MasterSettings })),
 );
-const StoreSettings = lazy(() =>
+const StoreSettings = lazyWithRetry(() =>
   import('./components/store/StoreSettings').then((m) => ({ default: m.StoreSettings })),
 );
-const DynamicThemeRenderer = lazy(() =>
+const DynamicThemeRenderer = lazyWithRetry(() =>
   import('./components/storefront/DynamicThemeRenderer').then((m) => ({
     default: m.DynamicThemeRenderer,
   })),
 );
-const StoreBackupRestoreCenter = lazy(() =>
+const StoreBackupRestoreCenter = lazyWithRetry(() =>
   import('./components/store/StoreBackupRestoreCenter').then((m) => ({
     default: m.StoreBackupRestoreCenter,
   })),
@@ -237,13 +233,13 @@ import { preloadVisualThemeBuilder } from './components/store/visualBuilder/prel
 import { ThemeBuilderLoadingShell } from './components/store/visualBuilder/ThemeBuilderLoadingShell';
 import { preloadWordPressThemeCustomizer } from './components/store/themeCustomizer/preloadWordPressThemeCustomizer';
 
-const VisualThemeBuilder = lazy<React.ComponentType<any>>(() =>
+const VisualThemeBuilder = lazyWithRetry<React.ComponentType<any>>(() =>
   preloadVisualThemeBuilder().then((m: any) => ({
     default: m.VisualThemeBuilder,
   })),
 );
 
-const WordPressThemeCustomizer = lazy(() =>
+const WordPressThemeCustomizer = lazyWithRetry(() =>
   preloadWordPressThemeCustomizer().then((m: any) => ({
     default: m.WordPressThemeCustomizer,
   })),
@@ -254,7 +250,7 @@ import { readAllThemeSettings } from './themes/settings/themeSettingsStore';
 import { DateRangeProvider } from './context/DateRangeContext';
 import { useNotifications } from './notification-system';
 
-const NotificationCenter = lazy(() =>
+const NotificationCenter = lazyWithRetry(() =>
   import('./notification-system/components/NotificationCenter').then((m) => ({
     default: m.NotificationCenter,
   })),
@@ -331,7 +327,7 @@ function TabFallback() {
     ? 'store-coffee'
     : isMaster
     ? 'master'
-    : (activeStore?.id || 'store-1');
+    : (activeStore?.id || '');
 
   const themeSettings = readAllThemeSettings(fallbackStoreId, activeStore);
   const isEnabled = themeSettings.colors?.enableDashboardLoader ?? true;
@@ -638,8 +634,6 @@ const getDefaultStoreTheme = (storeId?: string): string => {
         'invoices',
         'shipping',
         'hosting',
-        'backup',
-        'restore',
         'coupons',
         'abandoned-carts',
         'promotions',
@@ -1000,10 +994,11 @@ const getDefaultStoreTheme = (storeId?: string): string => {
   }, [navigate, switchToStore, switchToMaster, session, activeStore?.id, isPublicStorefront, storeTab, setStoreTab]);
 
   // Recover a lifetime session before sending the admin to the gate.
+  // Never resurrect a session right after explicit Sign out (sessionStorage cleared).
   useEffect(() => {
     if (session) return;
     const recovered = readAuthSession();
-    if (recovered) {
+    if (recovered?.token) {
       setSession(recovered);
       return;
     }
@@ -1074,7 +1069,10 @@ const getDefaultStoreTheme = (storeId?: string): string => {
         setMasterTab(next);
         toast(t('noPermissionTab'), 'info');
       }
-    } else if (!canTabRef.current(storeTab, 'store')) {
+    } else if (
+      !CORE_STORE_CONTROL_IDS.has(storeTab) &&
+      !canTabRef.current(storeTab, 'store')
+    ) {
       const next = firstAllowedTabRef.current(Object.keys(STORE_TAB_ABILITY), 'store');
       setStoreTab(next);
       toast(t('noPermissionTab'), 'info');
@@ -1195,7 +1193,8 @@ const getDefaultStoreTheme = (storeId?: string): string => {
       document.documentElement.setAttribute('data-portal', portal);
       if (portal === 'master') {
         switchToMaster();
-        navigate('/master', { replace: true });
+        setMasterTab('dashboard');
+        navigate('/master?tab=dashboard', { replace: true });
         return;
       }
       if (storeId) {
@@ -1203,6 +1202,8 @@ const getDefaultStoreTheme = (storeId?: string): string => {
       } else {
         setMode('store');
       }
+      // Fresh login always lands on Dashboard (not last localStorage tab e.g. products).
+      setStoreTab('dashboard');
       const slug =
         storeId === 'store-coffee'
           ? 'coffee'
@@ -1211,9 +1212,12 @@ const getDefaultStoreTheme = (storeId?: string): string => {
             : storeId === 'store-1'
               ? 'flowers'
               : '';
-      navigate(slug ? `/admin?store=${slug}` : '/admin', { replace: true });
+      navigate(
+        slug ? `/admin?store=${slug}&tab=dashboard` : '/admin?tab=dashboard',
+        { replace: true },
+      );
     },
-    [navigate, setMode, switchToMaster, switchToStore],
+    [navigate, setMode, setMasterTab, setStoreTab, switchToMaster, switchToStore],
   );
 
   const handleRegisterSuccess = useCallback(
@@ -1222,9 +1226,10 @@ const getDefaultStoreTheme = (storeId?: string): string => {
       setSession(next);
       document.documentElement.setAttribute('data-portal', 'store');
       switchToStore(storeId);
-      navigate('/admin');
+      setStoreTab('dashboard');
+      navigate('/admin?tab=dashboard', { replace: true });
     },
-    [navigate, switchToStore],
+    [navigate, setStoreTab, switchToStore],
   );
 
   const handleSwitchLoginPortal = useCallback(
@@ -1271,13 +1276,18 @@ const getDefaultStoreTheme = (storeId?: string): string => {
 
   const handleLogout = useCallback(async () => {
     const wasMaster = session?.portal === 'master';
-    try {
-      await logoutPortal();
-    } catch {
-      // ignore
-    }
-    clearAuthSession(true);
+    const storeSlug =
+      session?.storeId === 'store-coffee'
+        ? 'coffee'
+        : session?.storeId === 'store-bleco'
+          ? 'car'
+          : session?.storeId === 'store-1'
+            ? 'flowers'
+            : '';
+
+    // Instant UI logout — never wait on API/Clerk before clearing the shell.
     setSession(null);
+    clearAuthSession(true);
     try {
       localStorage.removeItem('unityteck_auth');
       localStorage.removeItem('unityteck_auth_lifetime_backup');
@@ -1286,16 +1296,29 @@ const getDefaultStoreTheme = (storeId?: string): string => {
       localStorage.removeItem('unityteck_master_tab');
       sessionStorage.clear();
       window.dispatchEvent(new Event('unityteck-auth'));
-    } catch {}
-    const dest = wasMaster ? '/master/login' : '/store/login';
+    } catch {
+      /* ignore */
+    }
+
+    const dest = wasMaster
+      ? '/master/login'
+      : storeSlug
+        ? `/admin?store=${storeSlug}`
+        : '/store/login';
     if (typeof window !== 'undefined') {
       window.history.replaceState({}, '', dest);
     }
     navigate(dest);
+
+    try {
+      await logoutPortal();
+    } catch {
+      /* ignore remote logout errors */
+    }
   }, [navigate, session]);
 
-  const requestLogout = useCallback(async () => {
-    await handleLogout();
+  const requestLogout = useCallback(() => {
+    void handleLogout();
   }, [handleLogout]);
 
   const statusHome = useCallback(() => {
@@ -1590,12 +1613,12 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                         <Lock className="w-8 h-8" />
                       </div>
                       <h2 className="text-xl font-black" style={{ color: 'var(--text)' }}>
-                        {locale === 'ar' ? 'تم تعطيل هذه الصفحة بواسطة إدارة المنصة' : 'Page Disabled by Master Admin'}
+                        {locale === 'ar' ? 'تم تعطيل هذه الصفحة بواسطة منصة سوق' : 'Page Disabled by Souq Platform'}
                       </h2>
                       <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
                         {locale === 'ar'
-                          ? 'قام المشرف العام بتعطيل هذه الصفحة مؤقتاً لهذا المتجر. يرجى مراجعة إدارة المنصة لطلب التفعيل.'
-                          : 'This module has been temporarily disabled by Master Admin for this store. Please contact platform administration if you need access.'}
+                          ? 'قامت إدارة منصة سوق بتعطيل هذه الصفحة مؤقتاً لهذا المتجر. يرجى مراجعة إدارة المنصة لطلب التفعيل.'
+                          : 'This module has been temporarily disabled by Souq Platform for this store. Please contact platform administration if you need access.'}
                       </p>
                       <button
                         type="button"
@@ -1632,7 +1655,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                   )}
                   {storeTab === 'social' && <StoreSocialPublisher onNavigateTab={setStoreTab} />}
                   {storeTab === 'seo' && <StoreSEO />}
-                  {storeTab === 'products' && <StoreProducts />}
+                  {storeTab === 'products' && <StoreProducts onNavigateTab={setStoreTab} />}
                   {storeTab === 'media' && <StoreMediaLibrary />}
                   {storeTab === 'canva' && <StoreDesignStudioHub onNavigateTab={setStoreTab} />}
                   {storeTab === 'canva-studio' && <StoreCanvaStudio onNavigateTab={setStoreTab} />}
@@ -1650,9 +1673,6 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                   {storeTab === 'invoices' && <StoreInvoices onNavigateTab={(tab) => setStoreTab(tab)} />}
                   {storeTab === 'shipping' && <StoreShipping />}
                   {storeTab === 'hosting' && <StoreHostingDomain />}
-                  {(storeTab === 'backup' || storeTab === 'restore') && (
-                    <StoreBackupRestoreCenter />
-                  )}
                   {storeTab === 'coupons' && <StoreCoupons onNavigateTab={setStoreTab} />}
                   {storeTab === 'abandoned-carts' && (
                     <StoreAbandonedCarts onNavigateTab={setStoreTab} />

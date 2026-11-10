@@ -21,6 +21,8 @@ type ClerkUserLike = {
 export type ClerkSessionOptions = {
   /** From ?store= / ?demo= — when set, email must belong to this store */
   storeParam?: string | null;
+  /** When false, build session object only — do not write until Sanctum exchange succeeds */
+  persist?: boolean;
 };
 
 /** Map Clerk user → tab session. A closed browser or logout asks for OTP again. */
@@ -71,7 +73,9 @@ export function sessionFromClerkUser(
       isLifetime: false,
       loggedInAt: Date.now(),
     };
-    writeAuthSession(session);
+    if (options?.persist !== false) {
+      writeAuthSession(session);
+    }
     return session;
   }
 
@@ -103,7 +107,9 @@ export function sessionFromClerkUser(
     isLifetime: false,
     loggedInAt: Date.now(),
   };
-  writeAuthSession(session);
+  if (options?.persist !== false) {
+    writeAuthSession(session);
+  }
   return session;
 }
 

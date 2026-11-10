@@ -234,6 +234,12 @@ export type CreateProductPayload = {
   is_active?: boolean;
   is_featured?: boolean;
   weight_kg?: number | null;
+  brand?: string | null;
+  product_type?: string | null;
+  google_taxonomy?: string | null;
+  sales_channels?: string[] | null;
+  discount_start_at?: string | null;
+  discount_end_at?: string | null;
   shipping_mode?: 'store_default' | 'own_delivery' | 'shipping_company' | null;
   shipping_method_id?: string | null;
   delivery_fee?: number | null;
@@ -274,11 +280,36 @@ export async function updateProduct(
   return mapProduct(res.data);
 }
 
+/** Soft-delete → recycle bin (status=archived). */
 export async function deleteProduct(
   storeId: string,
   id: string,
+): Promise<Product | void> {
+  const res = await apiFetch<ItemResponse<ApiProductRow> & { id?: string }>(
+    `/products/${id}`,
+    { method: 'DELETE', storeId },
+  );
+  return res?.data ? mapProduct(res.data) : undefined;
+}
+
+/** Restore from recycle bin → draft. */
+export async function restoreProduct(
+  storeId: string,
+  id: string,
+): Promise<Product> {
+  const res = await apiFetch<ItemResponse<ApiProductRow>>(
+    `/products/${id}/restore`,
+    { method: 'POST', storeId },
+  );
+  return mapProduct(res.data);
+}
+
+/** Permanent delete — only for archived (recycle bin) products. */
+export async function forceDeleteProduct(
+  storeId: string,
+  id: string,
 ): Promise<void> {
-  await apiFetch(`/products/${id}`, { method: 'DELETE', storeId });
+  await apiFetch(`/products/${id}/force`, { method: 'DELETE', storeId });
 }
 
 export async function togglePublishProduct(
@@ -875,6 +906,18 @@ export async function fetchCustomerActivitiesApi(
 ): Promise<CustomerActivityRow[]> {
   const res = await apiFetch<{ data: CustomerActivityRow[] }>(
     `/customers/${customerId}/activities?per_page=50`,
+    { storeId },
+  );
+  return Array.isArray(res?.data) ? res.data : [];
+}
+
+/** Store-wide recent public storefront activities (add_to_cart, checkout, …). */
+export async function fetchStoreRecentActivitiesApi(
+  storeId: string,
+  perPage = 30,
+): Promise<CustomerActivityRow[]> {
+  const res = await apiFetch<{ data: CustomerActivityRow[] }>(
+    `/customer-activities?per_page=${Math.min(100, Math.max(1, perPage))}`,
     { storeId },
   );
   return Array.isArray(res?.data) ? res.data : [];
@@ -2060,6 +2103,7 @@ export const EXAMPLE_SHIPPING_METHOD_PRESETS = [
     baseRate: 24,
     estimatedDelivery: '5–7 business days',
     courierCode: 'redbox',
+    logoUrl: '/shipping-methods/redbox.png',
     isCodAllowed: true,
     allowOnline: true,
     paymentOptions: ['cod', 'online'] as Array<'cod' | 'online' | 'bank_transfer'>,
@@ -2072,6 +2116,7 @@ export const EXAMPLE_SHIPPING_METHOD_PRESETS = [
     baseRate: 30,
     estimatedDelivery: '5–8 business days',
     courierCode: 'smsa',
+    logoUrl: '/shipping-methods/smsa.png',
     isCodAllowed: true,
     allowOnline: true,
     paymentOptions: ['cod', 'online'] as Array<'cod' | 'online' | 'bank_transfer'>,
@@ -2084,6 +2129,46 @@ export const EXAMPLE_SHIPPING_METHOD_PRESETS = [
     baseRate: 30,
     estimatedDelivery: '5–8 business days',
     courierCode: 'aramex',
+    logoUrl: '/shipping-methods/aramex.png',
+    isCodAllowed: true,
+    allowOnline: true,
+    paymentOptions: ['cod', 'online'] as Array<'cod' | 'online' | 'bank_transfer'>,
+  },
+  {
+    name: 'AyMakan',
+    nameAr: 'أي مكان',
+    type: 'flat_rate' as const,
+    fulfillmentMode: 'courier' as const,
+    baseRate: 28,
+    estimatedDelivery: '3–5 business days',
+    courierCode: 'aymakan',
+    logoUrl: '/shipping-methods/aymakan.png',
+    isCodAllowed: true,
+    allowOnline: true,
+    paymentOptions: ['cod', 'online'] as Array<'cod' | 'online' | 'bank_transfer'>,
+  },
+  {
+    name: 'DHL Express',
+    nameAr: 'دي إتش إل إكسبريس',
+    type: 'flat_rate' as const,
+    fulfillmentMode: 'courier' as const,
+    baseRate: 55,
+    estimatedDelivery: '2–4 business days',
+    courierCode: 'dhl',
+    logoUrl: '/shipping-methods/dhl-express.png',
+    isCodAllowed: false,
+    allowOnline: true,
+    paymentOptions: ['online'] as Array<'cod' | 'online' | 'bank_transfer'>,
+  },
+  {
+    name: 'J&T Express',
+    nameAr: 'جيه آند تي إكسبريس',
+    type: 'flat_rate' as const,
+    fulfillmentMode: 'courier' as const,
+    baseRate: 22,
+    estimatedDelivery: '3–6 business days',
+    courierCode: 'jt',
+    logoUrl: '/shipping-methods/jt-express.png',
     isCodAllowed: true,
     allowOnline: true,
     paymentOptions: ['cod', 'online'] as Array<'cod' | 'online' | 'bank_transfer'>,
@@ -2301,7 +2386,9 @@ export type DashboardHomeTrafficSource = {
 
 export type DashboardHomeAnalytics = {
   store_id: string;
+  /** Unique storefront sessions in the current calendar month */
   visitors_count: number;
+  visitors_count_all_time?: number;
   visits_growth: number | null;
   visits_by_weekday: Array<{
     dayEn: string;
@@ -3313,15 +3400,41 @@ export async function updateLoyaltyEarnRuleApi(
     };
   }
 ): Promise<any> {
-  const res = await apiFetch<{ success: boolean; data: any; message: string }>(
-    `/stores/${storeId}/loyalty/earn-rules/${id}`,
-    {
+  const path = `/stores/${storeId}/loyalty/earn-rules/${encodeURIComponent(id)}`;
+  try {
+    const res = await apiFetch<{ success: boolean; data: any; message: string }>(path, {
       method: 'PATCH',
       body: payload,
       storeId,
+    });
+    return res.data;
+  } catch (err) {
+    // Hostinger / some proxies return 404/405 for PATCH — retry with PUT then POST
+    const status = err && typeof err === 'object' && 'status' in err ? Number((err as { status: number }).status) : 0;
+    if (status !== 404 && status !== 405 && status !== 501) {
+      throw err;
     }
-  );
-  return res.data;
+    try {
+      const res = await apiFetch<{ success: boolean; data: any; message: string }>(path, {
+        method: 'PUT',
+        body: payload,
+        storeId,
+      });
+      return res.data;
+    } catch (err2) {
+      const status2 =
+        err2 && typeof err2 === 'object' && 'status' in err2 ? Number((err2 as { status: number }).status) : 0;
+      if (status2 !== 404 && status2 !== 405 && status2 !== 501) {
+        throw err2;
+      }
+      const res = await apiFetch<{ success: boolean; data: any; message: string }>(path, {
+        method: 'POST',
+        body: payload,
+        storeId,
+      });
+      return res.data;
+    }
+  }
 }
 
 export async function updateLoyaltySettingsApi(

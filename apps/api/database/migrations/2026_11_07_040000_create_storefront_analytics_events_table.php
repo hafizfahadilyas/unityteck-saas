@@ -25,8 +25,9 @@ return new class extends Migration
             $table->json('meta')->nullable();
             $table->timestamps();
 
-            $table->index(['store_id', 'event_name', 'created_at']);
-            $table->index(['store_id', 'customer_id', 'created_at']);
+            // MySQL identifier limit 64 chars — keep index names short.
+            $table->index(['store_id', 'event_name', 'created_at'], 'sfae_store_event_created_idx');
+            $table->index(['store_id', 'customer_id', 'created_at'], 'sfae_store_customer_created_idx');
             $table->foreign('store_id')->references('id')->on('stores')->cascadeOnDelete();
         });
     }

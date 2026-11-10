@@ -36,7 +36,6 @@ import {
   BarChart3,
   FileText,
   Image as ImageIcon,
-  Archive,
   Bell,
   ReceiptText,
   Files,
@@ -114,8 +113,8 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
     };
   }, []);
 
-  /** Deep-link into Store Settings (Search Console lives under Settings, not SEO). */
-  const openSettingsView = (view: 'search_console' | 'tag_manager') => {
+  /** Deep-link into Store Settings (Appearance / Search Console under Settings). */
+  const openSettingsView = (view: 'appearance' | 'search_console' | 'tag_manager') => {
     try {
       sessionStorage.setItem('unityteck-settings-view', view);
     } catch {
@@ -163,7 +162,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
     products: true,
     themes: isThemesFamily,
     marketing: isMarketingFamily,
-    whatsapp: currentTab === 'whatsapp',
+    whatsapp: currentTab === 'whatsapp' && !isStoreTabComingSoon('whatsapp'),
     shipping: currentTab === 'shipping',
     settings: currentTab === 'settings',
   });
@@ -178,7 +177,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
     if (isMarketingFamily) {
       setOpenSubmenus((prev) => ({ ...prev, marketing: true }));
     }
-    if (currentTab === 'whatsapp') {
+    if (currentTab === 'whatsapp' && !isStoreTabComingSoon('whatsapp')) {
       setOpenSubmenus((prev) => ({ ...prev, whatsapp: true }));
     }
     if (currentTab === 'shipping') {
@@ -206,24 +205,27 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
       { id: 'seo', icon: Search },
       { id: 'shipping', icon: Truck },
       { id: 'payments', icon: CreditCard },
+      { id: 'settings', icon: Settings },
       { id: 'themes', icon: Palette },
       { id: 'pages', icon: Files },
       { id: 'blog', icon: BookOpen },
       { id: 'commerce-tools', icon: Sparkles },
       { id: 'hosting', icon: Server },
-      { id: 'backup', icon: Archive },
       { id: 'appstore', icon: ShoppingBag },
-      { id: 'settings', icon: Settings },
     ];
-    // Coming-soon tabs stay visible in sidebar; click opens Coming Soon content.
-    return all.filter(
-      (item) =>
-        canTab(item.id, 'store') &&
-        planAllowsStoreTab(activeStore, item.id) &&
-        (CORE_STORE_CONTROL_IDS.has(item.id) ||
-          isStoreControlEnabled(activeStore?.id, item.id) ||
-          isStoreTabComingSoon(item.id)),
-    );
+    // Coming-soon tabs stay visible as disabled fixed buttons (no click / no dropdown).
+    // Core tabs (dashboard / settings / notifications) always stay in the sidebar —
+    // never drop them for role ability, plan gate, or Master store-control toggles.
+    return all.filter((item) => {
+      const isCore = CORE_STORE_CONTROL_IDS.has(item.id);
+      if (isCore) return true;
+      if (!canTab(item.id, 'store')) return false;
+      if (!planAllowsStoreTab(activeStore, item.id)) return false;
+      return (
+        isStoreControlEnabled(activeStore?.id, item.id) ||
+        isStoreTabComingSoon(item.id)
+      );
+    });
   }, [canTab, activeStore, unreadCounts.total, controlsEpoch]);
 
   const sub = resolveSubscription(activeStore.id);
@@ -421,24 +423,29 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
           const isShipping = item.id === 'shipping';
           const isSettings = item.id === 'settings';
           const comingSoon = isStoreTabComingSoon(item.id);
-          // Coming-soon items stay leaf links (no submenu) so click opens Coming Soon page.
+          // Coming Soon = fixed disabled button (no click, no dropdown).
           const hasSubmenu =
             !comingSoon &&
             (isProducts || isThemes || isMarketing || isWhatsApp || isShipping || isSettings);
-          const isActive = isProducts
-            ? isProductsFamily
-            : isThemes
-              ? isThemesFamily
-              : isMarketing
-                ? isMarketingFamily
-                : currentTab === item.id;
-          const isSubmenuOpen = Boolean(openSubmenus[item.id]);
+          const isActive = comingSoon
+            ? false
+            : isProducts
+              ? isProductsFamily
+              : isThemes
+                ? isThemesFamily
+                : isMarketing
+                  ? isMarketingFamily
+                  : currentTab === item.id;
+          const isSubmenuOpen = !comingSoon && Boolean(openSubmenus[item.id]);
 
           return (
             <div key={item.id} className="space-y-0.5">
               <button
                 type="button"
+                disabled={comingSoon}
+                aria-disabled={comingSoon || undefined}
                 onClick={() => {
+                  if (comingSoon) return;
                   if (hasSubmenu) {
                     if (isActive) {
                       setOpenSubmenus((prev) => ({ ...prev, [item.id]: !prev[item.id] }));
@@ -452,13 +459,19 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                 }}
                 aria-current={isActive ? 'page' : undefined}
                 title={
-                  collapsed
-                    ? `${labelForNav(t, STORE_NAV_KEYS, item.id)}${comingSoon ? (isAr ? ' · قريباً' : ' · Coming Soon') : ''}`
-                    : undefined
+                  comingSoon
+                    ? `${labelForNav(t, STORE_NAV_KEYS, item.id)}${isAr ? ' · قريباً' : ' · Coming Soon'}`
+                    : collapsed
+                      ? labelForNav(t, STORE_NAV_KEYS, item.id)
+                      : undefined
                 }
-                className={`w-full flex items-center gap-2.5 transition-all cursor-pointer ${
-                  collapsed ? 'justify-center px-0' : 'justify-between'
-                } ${isActive ? 'unity-nav-active' : 'unity-nav-idle'}`}
+                className={`w-full flex items-center gap-2.5 transition-all ${
+                  comingSoon
+                    ? 'cursor-not-allowed opacity-70'
+                    : 'cursor-pointer'
+                } ${collapsed ? 'justify-center px-0' : 'justify-between'} ${
+                  isActive ? 'unity-nav-active' : 'unity-nav-idle'
+                }`}
                 style={{ borderRadius: 'var(--radius-ctrl)' }}
               >
                 <div className={`flex items-center gap-2.5 min-w-0 ${collapsed ? 'justify-center' : ''}`}>
@@ -666,9 +679,25 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                 </div>
               )}
 
-              {/* Submenu for Settings — Search Console lives here (not under SEO) */}
+              {/* Submenu for Settings — identity + fonts/colors + Search Console */}
               {isSettings && !collapsed && isSubmenuOpen && isActive && (
                 <div className="ps-7 pe-1 space-y-0.5 py-1">
+                  <button
+                    type="button"
+                    onClick={() => selectTab('settings')}
+                    className="w-full text-start py-1 px-2 rounded-lg text-[11px] font-semibold text-slate-200 hover:text-white hover:bg-white/15 transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: 'var(--portal-400)' }} />
+                    <span>{isAr ? 'إعدادات المتجر' : 'Store Settings'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openSettingsView('appearance')}
+                    className="w-full text-start py-1 px-2 rounded-lg text-[11px] font-semibold text-slate-200 hover:text-white hover:bg-white/15 transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: 'var(--accent)' }} />
+                    <span>{isAr ? 'الألوان والخطوط' : 'Colors & Fonts'}</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => openSettingsView('search_console')}
@@ -733,8 +762,8 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                 </div>
               )}
 
-              {/* Submenu for WhatsApp */}
-              {isWhatsApp && !collapsed && isSubmenuOpen && isActive && (
+              {/* Submenu for WhatsApp — never for Coming Soon */}
+              {isWhatsApp && !comingSoon && !collapsed && isSubmenuOpen && isActive && (
                 <div className="ps-7 pe-1 space-y-0.5 py-1">
                   {[
                     { id: 'center', labelAr: 'مركز الرسائل', labelEn: 'Message Center' },

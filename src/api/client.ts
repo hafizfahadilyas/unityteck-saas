@@ -155,6 +155,12 @@ export async function apiFetch<T>(
       path.startsWith('/reports') ||
       path.startsWith('/analytics/dashboard-home') ||
       path.includes('/store-settings') ||
+      path.includes('/loyalty/overview') ||
+      path.startsWith('/domains') ||
+      path.startsWith('/shipping') ||
+      path.startsWith('/notifications/deliveries') ||
+      path.startsWith('/payments/transactions') ||
+      path.startsWith('/couriers/shipments') ||
       path.startsWith('/google/'));
   if (!isPublicEndpoint && !guestReadable && !(token && !token.startsWith('mock-'))) {
     throw new Error(toUserFriendlyError('No active backend API session (mock/guest mode).'));

@@ -25,7 +25,6 @@ import {
   Layers,
   Rocket,
   HelpCircle,
-  Archive,
 } from 'lucide-react';
 import type { DomainRecord } from '../../types';
 import { PageDocsGuideModal } from '../common/PageDocsGuideModal';
@@ -57,13 +56,9 @@ export const StoreHostingDomain: React.FC = () => {
   const [isDeploying, setIsDeploying] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
 
-  // Find domain associated with this store
+  // Strict tenant isolation — never borrow another store's domain row
   const storeDomain = useMemo(() => {
-    return (
-      domains.find((d) => d.storeId === activeStore.id) ||
-      domains.find((d) => d.domainType === 'custom') ||
-      domains[0]
-    );
+    return domains.find((d) => d.storeId === activeStore.id) || null;
   }, [domains, activeStore.id]);
 
   const demoDomainUrl =
@@ -168,7 +163,7 @@ export const StoreHostingDomain: React.FC = () => {
       deployStoreLive(activeStore.id, storeDomain?.id);
       toast(
         isAr
-          ? 'تم نشر أحدث إصدار للمتجر بنجاح! متجرك الآن مباشر عبر SSL.'
+          ? 'تم نشر أحدث إصدار للمتجر بنجاح! متجرك الآن مباشر عبر شهادة الأمان.'
           : 'Latest store build deployed successfully! Store is now Live.',
         'success',
       );
@@ -215,14 +210,6 @@ export const StoreHostingDomain: React.FC = () => {
           </button>
 
           <a
-            href="/admin?tab=backup"
-            className="px-3.5 py-2 rounded-xl text-xs font-bold border border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300 flex items-center gap-1.5 shadow-2xs hover:bg-purple-500/20 transition-colors cursor-pointer"
-          >
-            <Archive className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-            <span>{isAr ? 'مركز النسخ والاستعادة' : 'Backup & Restore Center'}</span>
-          </a>
-
-          <a
             href="/admin"
             className="px-3.5 py-2 rounded-xl text-xs font-semibold border flex items-center gap-1.5 shadow-2xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
@@ -248,7 +235,7 @@ export const StoreHostingDomain: React.FC = () => {
         </div>
       </div>
 
-      {/* Hostinger Backup & Migration Quick Card Banner */}
+      {/* Backup / migration is Master-only (Souq Platform) */}
       <div
         className="p-4 rounded-2xl border flex flex-col sm:flex-row items-center justify-between gap-4 shadow-2xs"
         style={{
@@ -258,27 +245,19 @@ export const StoreHostingDomain: React.FC = () => {
       >
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-            <Archive className="w-5 h-5" />
+            <ShieldCheck className="w-5 h-5" />
           </div>
           <div>
             <h3 className="text-sm font-black text-slate-900 dark:text-white">
-              {isAr ? 'مركز النسخ الاحتياطي والاستعادة ونقل المتاجر' : 'Backup, Restore & 2nd Server Migration'}
+              {isAr ? 'النسخ الاحتياطي والنقل — منصة سوق' : 'Backup & Migration — Souq Platform'}
             </h3>
             <p className="text-xs opacity-75">
               {isAr
-                ? 'تحميل حزمة المتجر الكاملة أرشيف مضغوط، استعادة النسخ المجدولة، ونقل المتجر إلى استضافة ثانية بنقرة واحدة.'
-                : '1-click full store ZIP archive, automated daily/weekly snapshots, and all-in-one migration to a second host.'}
+                ? 'حزم النسخ الكاملة والاستعادة ونقل الاستضافة تُدار من لوحة تحكم منصة سوق فقط.'
+                : 'Full-store ZIP backups, restore, and host migration are managed from the Souq Platform master admin only.'}
             </p>
           </div>
         </div>
-        <a
-          href="/admin?tab=backup"
-          className="px-4 py-2 rounded-xl text-xs font-bold text-white shadow-xs flex items-center gap-1.5 shrink-0 transition-opacity hover:opacity-90 cursor-pointer"
-          style={{ background: 'var(--portal-cta)' }}
-        >
-          <Rocket className="w-4 h-4" />
-          <span>{isAr ? 'فتح مركز النسخ والنقل' : 'Open Migration Center'}</span>
-        </a>
       </div>
 
       {/* Lifecycle Status Stepper Badges */}
@@ -426,7 +405,15 @@ export const StoreHostingDomain: React.FC = () => {
                 </span>
                 <span className="font-bold text-xs text-emerald-600 flex items-center gap-1">
                   <Lock className="w-3 h-3" />
-                  <span>{isAr ? "Let's Encrypt مفعّلة" : "Let's Encrypt Active"}</span>
+                  <span>
+                    {activeStore.ssl_status === 'active'
+                      ? isAr
+                        ? 'شهادة الأمان مفعّلة'
+                        : 'SSL Active'
+                      : isAr
+                        ? 'بانتظار التفعيل'
+                        : 'Waiting for Data'}
+                  </span>
                 </span>
               </div>
             </div>
@@ -620,49 +607,55 @@ export const StoreHostingDomain: React.FC = () => {
                 <th className="py-2.5 px-3">{isAr ? 'النوع' : 'Type'}</th>
                 <th className="py-2.5 px-3">{isAr ? 'المضيف / الاسم' : 'Host / Name'}</th>
                 <th className="py-2.5 px-3">{isAr ? 'يشير إلى / القيمة المستهدفة' : 'Points To / Target Value'}</th>
-                <th className="py-2.5 px-3">{isAr ? 'مدة الصلاحية TTL' : 'TTL'}</th>
+                <th className="py-2.5 px-3">{isAr ? 'مدة الصلاحية' : 'TTL'}</th>
                 <th className="py-2.5 px-3 text-end">{isAr ? 'الحالة' : 'Status'}</th>
               </tr>
             </thead>
             <tbody className="divide-y text-slate-700 dark:text-slate-300" style={{ borderColor: 'var(--border)' }}>
-              <tr>
-                <td className="py-3 px-3 font-bold text-teal-600">A</td>
-                <td className="py-3 px-3">@</td>
-                <td className="py-3 px-3 font-bold">145.79.26.23 / 185.199.108.153 {isAr ? '(عنوان IP للاستضافة المشتركة)' : '(Shared Hosting IP)'}</td>
-                <td className="py-3 px-3">3600</td>
-                <td className="py-3 px-3 text-end">
+              {(() => {
+                const dnsOk =
+                  activeStore.dns_status === 'verified' || Boolean(storeDomain?.dnsVerified);
+                const statusPill = dnsOk ? (
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200">
                     <Check className="w-3 h-3" />
                     {isAr ? 'تم التحقق' : 'Verified'}
                   </span>
-                </td>
-              </tr>
-              <tr>
-                <td className="py-3 px-3 font-bold text-teal-600">CNAME</td>
-                <td className="py-3 px-3">www</td>
-                <td className="py-3 px-3 font-bold">{currentActiveDomain}</td>
-                <td className="py-3 px-3">3600</td>
-                <td className="py-3 px-3 text-end">
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200">
-                    <Check className="w-3 h-3" />
-                    {isAr ? 'تم التحقق' : 'Verified'}
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200">
+                    <Clock className="w-3 h-3" />
+                    {isAr ? 'بانتظار البيانات' : 'Waiting for Data'}
                   </span>
-                </td>
-              </tr>
-              <tr>
-                <td className="py-3 px-3 font-bold text-teal-600">TXT</td>
-                <td className="py-3 px-3">_unityteck-verify</td>
-                <td className="py-3 px-3 truncate max-w-xs text-slate-500">
-                  unityteck-domain-verification=giftshop-sa-active
-                </td>
-                <td className="py-3 px-3">3600</td>
-                <td className="py-3 px-3 text-end">
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200">
-                    <Check className="w-3 h-3" />
-                    {isAr ? 'تم التحقق' : 'Verified'}
-                  </span>
-                </td>
-              </tr>
+                );
+                const verifyToken = `unityteck-domain-verification=${activeStore.slug || activeStore.id}-pending`;
+                return (
+                  <>
+                    <tr>
+                      <td className="py-3 px-3 font-bold text-teal-600">A</td>
+                      <td className="py-3 px-3">@</td>
+                      <td className="py-3 px-3 font-bold">
+                        145.79.26.23 / 185.199.108.153{' '}
+                        {isAr ? '(عنوان للاستضافة المشتركة)' : '(Shared Hosting IP)'}
+                      </td>
+                      <td className="py-3 px-3">3600</td>
+                      <td className="py-3 px-3 text-end">{statusPill}</td>
+                    </tr>
+                    <tr>
+                      <td className="py-3 px-3 font-bold text-teal-600">CNAME</td>
+                      <td className="py-3 px-3">www</td>
+                      <td className="py-3 px-3 font-bold">{currentActiveDomain}</td>
+                      <td className="py-3 px-3">3600</td>
+                      <td className="py-3 px-3 text-end">{statusPill}</td>
+                    </tr>
+                    <tr>
+                      <td className="py-3 px-3 font-bold text-teal-600">TXT</td>
+                      <td className="py-3 px-3">_unityteck-verify</td>
+                      <td className="py-3 px-3 truncate max-w-xs text-slate-500">{verifyToken}</td>
+                      <td className="py-3 px-3">3600</td>
+                      <td className="py-3 px-3 text-end">{statusPill}</td>
+                    </tr>
+                  </>
+                );
+              })()}
             </tbody>
           </table>
         </div>
@@ -701,7 +694,7 @@ export const StoreHostingDomain: React.FC = () => {
           <div className="p-3 rounded-xl border font-mono" style={{ borderColor: 'var(--border)' }}>
             <span className="text-[10px] text-slate-400 block font-sans">hosting_id</span>
             <span className="font-bold text-slate-900 dark:text-slate-100 truncate block">
-              {activeStore.hosting_id || 'hst-shared-01'}
+              {activeStore.hosting_id || (isAr ? 'غير مربوط' : 'Not Connected')}
             </span>
           </div>
 
@@ -715,34 +708,34 @@ export const StoreHostingDomain: React.FC = () => {
           <div className="p-3 rounded-xl border font-mono" style={{ borderColor: 'var(--border)' }}>
             <span className="text-[10px] text-slate-400 block font-sans">database_id</span>
             <span className="font-bold text-slate-900 dark:text-slate-100 truncate block">
-              {activeStore.database_id || 'u920689430_giftshop'}
+              {activeStore.database_id || (isAr ? 'بانتظار البيانات' : 'Waiting for Data')}
             </span>
           </div>
 
           <div className="p-3 rounded-xl border font-mono" style={{ borderColor: 'var(--border)' }}>
             <span className="text-[10px] text-slate-400 block font-sans">ssl_status</span>
-            <span className="font-bold text-emerald-600 truncate block">
-              {activeStore.ssl_status || 'active'}
+            <span className={`font-bold truncate block ${activeStore.ssl_status === 'active' ? 'text-emerald-600' : 'text-slate-500'}`}>
+              {activeStore.ssl_status || (isAr ? 'غير مفعّل' : 'Not Connected')}
             </span>
           </div>
 
           <div className="p-3 rounded-xl border font-mono" style={{ borderColor: 'var(--border)' }}>
             <span className="text-[10px] text-slate-400 block font-sans">deployment_status</span>
-            <span className="font-bold text-emerald-600 truncate block">
-              {activeStore.deployment_status || 'live'}
+            <span className={`font-bold truncate block ${activeStore.deployment_status === 'live' ? 'text-emerald-600' : 'text-slate-500'}`}>
+              {activeStore.deployment_status || (isAr ? 'بانتظار البيانات' : 'Waiting for Data')}
             </span>
           </div>
 
           <div className="p-3 rounded-xl border font-mono" style={{ borderColor: 'var(--border)' }}>
             <span className="text-[10px] text-slate-400 block font-sans">subscription_status</span>
             <span className="font-bold text-slate-900 dark:text-slate-100 truncate block">
-              {activeStore.subscription_status || 'active'}
+              {activeStore.subscription_status || (isAr ? 'غير محدد' : 'Unknown')}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Automated Git/API Deployment Pipeline Log Terminal */}
+      {/* Automated Git/API Deployment Pipeline Log Terminal — store-scoped real status only */}
       <div className="rounded-2xl bg-slate-950 text-slate-200 p-4 sm:p-5 border border-slate-800 shadow-md font-mono text-xs space-y-2">
         <div className="flex items-center justify-between border-b border-slate-800 pb-2">
           <div className="flex items-center gap-2">
@@ -752,20 +745,45 @@ export const StoreHostingDomain: React.FC = () => {
             </span>
           </div>
           <span className="text-[10px] text-slate-400">
-            {isAr ? 'اتصال النقل وقاعدة البيانات مفعّل' : 'FTP & MySQL Connected'}
+            {activeStore.hostinger_status === 'connected'
+              ? isAr
+                ? 'الاستضافة متصلة'
+                : 'Hosting Connected'
+              : isAr
+                ? 'غير مربوط'
+                : 'Not Connected'}
           </span>
         </div>
 
         <div className="space-y-1 text-[11px] text-slate-300 pt-1">
-          <p className="text-emerald-400">✔ Git build verified · Production SPA artifacts compiled</p>
-          <p>✔ FTP Server: 145.79.26.23 · User: u920689430.giftshop</p>
-          <p>✔ Remote Directory: /home/u920689430/domains/{currentActiveDomain}/public_html</p>
-          <p>✔ Database: srv1422.hstgr.io (u920689430_giftshop) · Dedicated MySQL</p>
-          <p>✔ SSL certificate installed &amp; renewed via Let&apos;s Encrypt wildcard</p>
-          <p className="text-teal-300 font-bold flex items-center gap-1.5">
-            <Rocket className="w-3.5 h-3.5 shrink-0" />
-            <span>LIVE STORE: https://{currentActiveDomain}/ · LIVE ADMIN: https://{currentActiveDomain}/admin · HTTP/2 200 OK</span>
+          <p>
+            {isAr ? 'معرف المتجر:' : 'store_id:'} {activeStore.id}
           </p>
+          <p>
+            {isAr ? 'النطاق:' : 'domain:'} {currentActiveDomain || (isAr ? 'بانتظار البيانات' : 'Waiting for Data')}
+          </p>
+          <p>
+            {isAr ? 'قاعدة البيانات:' : 'database_id:'}{' '}
+            {activeStore.database_id || (isAr ? 'بانتظار البيانات' : 'Waiting for Data')}
+          </p>
+          <p>
+            {isAr ? 'شهادة الأمان:' : 'ssl_status:'}{' '}
+            {activeStore.ssl_status || (isAr ? 'غير مفعّل' : 'Not Connected')}
+          </p>
+          {activeStore.deployment_status === 'live' ? (
+            <p className="text-teal-300 font-bold flex items-center gap-1.5">
+              <Rocket className="w-3.5 h-3.5 shrink-0" />
+              <span>
+                {isAr
+                  ? `المتجر مباشر: https://${currentActiveDomain}/`
+                  : `LIVE STORE: https://${currentActiveDomain}/`}
+              </span>
+            </p>
+          ) : (
+            <p className="text-amber-300">
+              {isAr ? 'بانتظار النشر — لا سجلات وهمية لمتجر آخر' : 'Waiting for deploy — no cross-tenant fake logs'}
+            </p>
+          )}
         </div>
       </div>
 

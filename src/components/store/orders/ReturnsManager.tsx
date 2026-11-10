@@ -4,6 +4,7 @@ import { usePrefs } from '../../../i18n/PrefsContext';
 import { useTenant } from '../../../context/TenantContext';
 import { useToast } from '../../common/ToastProvider';
 import { GlobalModal } from '../../common/GlobalModal';
+import { getCustomerDisplayName } from '../../../utils/storeLocalization';
 import {
   RotateCcw,
   CheckCircle,
@@ -134,7 +135,7 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({
                 {isAr ? 'معالجة إرجاع واسترداد الطلب' : 'Process Order Return & Refund'}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-                #{order.orderNumber} · {order.customerName}
+                #{order.orderNumber} · {getCustomerDisplayName(order.customerName, locale)}
               </p>
             </div>
           </div>

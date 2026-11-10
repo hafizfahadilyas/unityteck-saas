@@ -182,6 +182,19 @@ class NotificationService
                 'email_body_ar' => '<p>تم استرداد مبلغ <strong>{{order_total}} {{currency}}</strong> لطلبك <strong>#{{order_number}}</strong>.</p>',
                 'email_body_en' => '<p>A refund of <strong>{{order_total}} {{currency}}</strong> has been processed for order <strong>#{{order_number}}</strong>.</p>',
             ],
+            'abandoned_cart' => [
+                'event' => 'abandoned_cart',
+                'name_en' => 'Abandoned Cart Reminder',
+                'name_ar' => 'تذكير السلة المتروكة',
+                'sms_template_ar' => 'مرحباً {{customer_name}}، سلتك بقيمة {{order_total}} ر.س بانتظارك في {{store_name}}. أكمل الشراء: {{store_url}}',
+                'sms_template_en' => 'Hi {{customer_name}}, your cart ({{order_total}} SAR) is waiting at {{store_name}}. Complete checkout: {{store_url}}',
+                'whatsapp_template_ar' => "مرحباً {{customer_name}} 👋\n\nلاحظنا أنك تركت منتجات بقيمة *{{order_total}} {{currency}}* في سلتك لدى *{{store_name}}*.\n\nأكمل طلبك من هنا:\n{{store_url}}",
+                'whatsapp_template_en' => "Hi {{customer_name}} 👋\n\nYou left items worth *{{order_total}} {{currency}}* in your cart at *{{store_name}}*.\n\nComplete your order here:\n{{store_url}}",
+                'email_subject_ar' => 'سلتك بانتظارك في {{store_name}}',
+                'email_subject_en' => 'Your cart is waiting at {{store_name}}',
+                'email_body_ar' => '<p>مرحباً {{customer_name}}،</p><p>لاحظنا أنك تركت منتجات بقيمة <strong>{{order_total}} {{currency}}</strong> في سلتك لدى <strong>{{store_name}}</strong>.</p><p><a href="{{store_url}}">إتمام الشراء</a></p>',
+                'email_body_en' => '<p>Hello {{customer_name}},</p><p>You left items worth <strong>{{order_total}} {{currency}}</strong> in your cart at <strong>{{store_name}}</strong>.</p><p><a href="{{store_url}}">Complete checkout</a></p>',
+            ],
         ];
     }
 

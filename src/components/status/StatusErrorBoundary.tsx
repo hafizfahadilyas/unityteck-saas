@@ -1,6 +1,7 @@
 import React from 'react';
+import { isChunkLoadError, lazyWithRetry, reloadOnceForStaleChunk } from '../../utils/lazyWithRetry';
 
-const StatusPage = React.lazy(() =>
+const StatusPage = lazyWithRetry(() =>
   import('./StatusPage').then((m) => ({ default: m.StatusPage })),
 );
 
@@ -21,10 +22,18 @@ export class StatusErrorBoundary extends React.Component<Props, State> {
   state: State = { crashed: false };
 
   static getDerivedStateFromError(error: Error): State {
+    // Stale Vite chunk after deploy — keep UI mounted; reload in componentDidCatch.
+    if (isChunkLoadError(error)) {
+      return { crashed: false, error };
+    }
     return { crashed: true, error };
   }
 
   componentDidCatch(error: unknown, errorInfo: React.ErrorInfo) {
+    if (isChunkLoadError(error)) {
+      reloadOnceForStaleChunk();
+      return;
+    }
     console.error('[Unityteck] UI crash', error);
     if (error instanceof Error) {
       console.error('[Unityteck] Crash stack:', error.stack);

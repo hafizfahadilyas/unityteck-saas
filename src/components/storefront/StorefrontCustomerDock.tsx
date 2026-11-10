@@ -42,22 +42,9 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
   });
 
   const storeCusts = (allStoreCustomers && allStoreCustomers[storeId]) || [];
-  const primaryCust = storeCusts[0] || {
-    id: `cust-${storeId}-1`,
-    name: isAr ? 'عميل المتجر السعودي' : 'Saudi Store Customer',
-    phone: '+966 50 123 4567',
-    email: 'customer@ksa-store.sa',
-    city: 'Riyadh',
-  };
+  const primaryCust = storeCusts[0] || null;
 
-  const [profile, setProfile] = useState<CustomerGamifiedProfile>(() =>
-    getOrCreateCustomerGamifiedProfile(storeId, primaryCust.id, {
-      name: primaryCust.name,
-      phone: primaryCust.phone,
-      email: primaryCust.email,
-      city: (primaryCust as any).city || 'Riyadh',
-    }),
-  );
+  const [profile, setProfile] = useState<CustomerGamifiedProfile | null>(null);
 
   const [loyaltySettings, setLoyaltySettings] = useState(() => getStoreLoyaltyGameSettings(storeId));
   const orderPolicy = getStoreOrderPolicy(storeId);
@@ -78,15 +65,19 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
   }, [storeId]);
 
   useEffect(() => {
+    if (!primaryCust) {
+      setProfile(null);
+      return;
+    }
     setProfile(
       getOrCreateCustomerGamifiedProfile(storeId, primaryCust.id, {
         name: primaryCust.name,
         phone: primaryCust.phone,
         email: primaryCust.email,
-        city: (primaryCust as any).city || 'Riyadh',
+        city: (primaryCust as any).city || '',
       }),
     );
-  }, [storeId, primaryCust.id]);
+  }, [storeId, primaryCust?.id, primaryCust?.name, primaryCust?.phone, primaryCust?.email]);
 
   useEffect(() => {
     const handleOpen = () => setIsOpen(true);
@@ -100,6 +91,7 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
 
   // Allow Location & Browser Push Notifications -> Sync to Profile + Earn Bonus Coins
   const handleAllowLocationAndPush = async () => {
+    if (!profile) return;
     try {
       if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
         await Notification.requestPermission();
@@ -112,7 +104,7 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
         ...profile,
         locationAllowed: true,
         notificationsAllowed: true,
-        coordinates: lat && lng ? { lat, lng } : { lat: 24.7136, lng: 46.6753 },
+        coordinates: lat != null && lng != null ? { lat, lng } : null,
         coinsBalance: profile.coinsBalance + bonus,
         totalCoinsEarned: profile.totalCoinsEarned + bonus,
       });
@@ -138,6 +130,7 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
 
   // Play Daily Spin & Win Coin Game (24h Cooldown Timer)
   const handleSpinGame = () => {
+    if (!profile) return;
     if (
       profile.lastGameSpinAt &&
       Date.now() - profile.lastGameSpinAt < loyaltySettings.spinCooldownHours * 3600 * 1000
@@ -147,7 +140,7 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
       );
       toast(
         isAr
-          ? `لعبت اليوم بالفعل! يمكنك اللعب مجدداً بعد${hrs}ساعة.`
+          ? `لعبت اليوم بالفعل! يمكنك اللعب مجدداً بعد ${hrs} ساعة.`
           : `You already played today! Next daily spin available in ~${hrs}h.`,
         'info',
       );
@@ -176,6 +169,9 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
       );
     }, 650);
   };
+
+  // Zero-mock: no invented guest customer — hide dock until a real customer exists
+  if (!primaryCust || !profile) return null;
 
   const sarDiscountWorth = (profile.coinsBalance / (loyaltySettings.coinsPerSar || 10)).toFixed(1);
 

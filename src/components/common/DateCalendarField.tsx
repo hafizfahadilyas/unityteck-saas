@@ -46,14 +46,14 @@ export const DateCalendarField: React.FC<DateCalendarFieldProps> = ({
   };
 
   return (
-    <div className="relative w-full min-w-0">
+    <div className="relative w-full min-w-0 max-w-full overflow-hidden">
       {showIcon ? (
         <button
           type="button"
           tabIndex={-1}
           disabled={disabled}
           onClick={openCalendar}
-          className={`absolute top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-teal-600 disabled:opacity-50 ${
+          className={`absolute top-1/2 -translate-y-1/2 z-[1] p-0.5 text-slate-400 hover:text-[var(--accent)] disabled:opacity-50 ${
             isAr ? 'right-2.5' : 'left-2.5'
           }`}
           aria-label={isAr ? 'فتح التقويم' : 'Open calendar'}
@@ -73,7 +73,7 @@ export const DateCalendarField: React.FC<DateCalendarFieldProps> = ({
         max={max || new Date().toISOString().slice(0, 10)}
         onChange={(e) => onChange(e.target.value)}
         onClick={openCalendar}
-        className={`${className} min-h-[2.25rem] ${
+        className={`${className} min-h-[2.25rem] max-w-full ${
           showIcon ? (isAr ? 'pr-9 pl-3' : 'pl-9 pr-3') : 'px-3'
         }`.trim()}
       />

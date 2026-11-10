@@ -411,20 +411,16 @@ class OrderController extends Controller
 
             $rawStatus = strtolower(trim((string) ($validated['status'] ?? 'pending')));
             // Align with dashboard lifecycle (manual + checkout) — never drop a create over status label
-            $validStatuses = [
-                'pending',
-                'processing',
-                'preparing',
-                'shipped',
-                'out_for_delivery',
-                'delivered',
-                'completed',
-                'cancellation_requested',
-                'cancelled',
-                'returned',
-                'refunded',
-            ];
-            $orderStatus = in_array($rawStatus, $validStatuses, true) ? $rawStatus : 'pending';
+            if ($rawStatus === 'awaiting_payment' || $rawStatus === 'pending_payment') {
+                $rawStatus = 'pending';
+            }
+            if ($rawStatus === 'under_review') {
+                $rawStatus = 'pending_review';
+            }
+            if ($rawStatus === 'canceled') {
+                $rawStatus = 'cancelled';
+            }
+            $orderStatus = in_array($rawStatus, Order::STATUSES, true) ? $rawStatus : 'pending';
 
             $deliveryLocation = !empty($validated['delivery_location']) ? trim($validated['delivery_location']) : 'Makkah';
 
@@ -685,27 +681,18 @@ class OrderController extends Controller
 
         $order = Order::query()->withoutGlobalScope('store')->forStore($storeId)->with('items')->where('id', $id)->firstOrFail();
 
-        $allowedStatuses = [
-            'pending',
-            'processing',
-            'preparing',
-            'shipped',
-            'out_for_delivery',
-            'delivered',
-            'completed',
-            'cancellation_requested',
-            'cancelled',
-            'returned',
-            'refunded',
-        ];
-
         $data = $request->validate([
-            'status' => ['nullable', Rule::in($allowedStatuses)],
+            'status' => ['nullable', Rule::in(Order::STATUSES)],
+            'customer_name' => ['nullable', 'string', 'max:191'],
+            'customer_email' => ['nullable', 'string', 'max:191'],
+            'customer_phone' => ['nullable', 'string', 'max:32'],
+            'delivery_location' => ['nullable', 'string', 'max:255'],
             'shipping_status' => ['nullable', 'string', 'max:64'],
             'tracking_number' => ['nullable', 'string', 'max:128'],
             'courier_code' => ['nullable', 'string', 'max:64'],
             'payment_status' => ['nullable', 'string', 'max:64'],
             'payment_method' => ['nullable', 'string', 'max:64'],
+            'payment_transaction_id' => ['nullable', 'string', 'max:191'],
             'delivery_mode' => ['nullable', Rule::in(['own_delivery', 'shipping_company'])],
             'driver_id' => ['nullable', 'string', 'max:64'],
             'bank_account_id' => ['nullable', 'string', 'max:64'],
@@ -732,11 +719,26 @@ class OrderController extends Controller
         DB::transaction(function () use ($order, $prevStatus, $newStatus, $data, $shouldRestock, $storeId) {
             $order->status = $newStatus;
 
+            if (array_key_exists('customer_name', $data)) {
+                $order->customer_name = $data['customer_name'];
+            }
+            if (array_key_exists('customer_email', $data)) {
+                $order->customer_email = $data['customer_email'];
+            }
+            if (array_key_exists('customer_phone', $data)) {
+                $order->customer_phone = $data['customer_phone'];
+            }
+            if (array_key_exists('delivery_location', $data)) {
+                $order->delivery_location = $data['delivery_location'];
+            }
             if (isset($data['shipping_status'])) $order->shipping_status = $data['shipping_status'];
             if (isset($data['tracking_number'])) $order->tracking_number = $data['tracking_number'];
             if (isset($data['courier_code'])) $order->courier_code = $data['courier_code'];
             if (isset($data['payment_status'])) $order->payment_status = $data['payment_status'];
             if (isset($data['payment_method'])) $order->payment_method = $data['payment_method'];
+            if (array_key_exists('payment_transaction_id', $data)) {
+                $order->payment_transaction_id = $data['payment_transaction_id'];
+            }
             if (array_key_exists('delivery_mode', $data)) {
                 $order->delivery_mode = $data['delivery_mode'];
             }
@@ -925,31 +927,34 @@ class OrderController extends Controller
             }
         }
 
-        try {
-            $notificationService = new NotificationService();
-            if ($newStatus !== $prevStatus) {
-                if ($newStatus === 'processing' || $newStatus === 'preparing') {
-                    $notificationService->sendOrderNotification($newStatus === 'preparing' ? 'order_preparing' : 'order_processing', $fresh);
-                } elseif (in_array($newStatus, ['shipped', 'out_for_delivery'], true)) {
-                    $notificationService->sendOrderNotification('order_shipped', $fresh);
-                } elseif (in_array($newStatus, ['delivered', 'completed'], true)) {
-                    $notificationService->sendOrderNotification('order_delivered', $fresh);
-                } elseif (in_array($newStatus, ['cancelled', 'cancellation_requested'], true)) {
-                    $notificationService->sendOrderNotification('order_cancelled', $fresh);
-                } elseif ($newStatus === 'returned' || $newStatus === 'refunded') {
-                    $notificationService->sendOrderNotification('order_refunded', $fresh);
+        // Only build channel clients when status/payment actually changed (avoid local hang on unused providers).
+        if ($newStatus !== $prevStatus || $newPay !== $oldPay) {
+            try {
+                $notificationService = new NotificationService();
+                if ($newStatus !== $prevStatus) {
+                    if ($newStatus === 'processing' || $newStatus === 'preparing') {
+                        $notificationService->sendOrderNotification($newStatus === 'preparing' ? 'order_preparing' : 'order_processing', $fresh);
+                    } elseif (in_array($newStatus, ['shipped', 'out_for_delivery'], true)) {
+                        $notificationService->sendOrderNotification('order_shipped', $fresh);
+                    } elseif (in_array($newStatus, ['delivered', 'completed'], true)) {
+                        $notificationService->sendOrderNotification('order_delivered', $fresh);
+                    } elseif (in_array($newStatus, ['cancelled', 'cancellation_requested'], true)) {
+                        $notificationService->sendOrderNotification('order_cancelled', $fresh);
+                    } elseif ($newStatus === 'returned' || $newStatus === 'refunded') {
+                        $notificationService->sendOrderNotification('order_refunded', $fresh);
+                    }
                 }
-            }
 
-            if ($newPay !== $oldPay) {
-                if (in_array($newPay, ['paid', 'completed', 'success', 'captured'], true)) {
-                    $notificationService->sendOrderNotification('payment_received', $fresh);
-                } elseif (in_array($newPay, ['pending', 'unpaid', 'failed', 'cancelled', 'canceled'], true)) {
-                    $notificationService->sendOrderNotification('payment_pending', $fresh);
+                if ($newPay !== $oldPay) {
+                    if (in_array($newPay, ['paid', 'completed', 'success', 'captured'], true)) {
+                        $notificationService->sendOrderNotification('payment_received', $fresh);
+                    } elseif (in_array($newPay, ['pending', 'unpaid', 'failed', 'cancelled', 'canceled'], true)) {
+                        $notificationService->sendOrderNotification('payment_pending', $fresh);
+                    }
                 }
+            } catch (\Throwable $e) {
+                Log::warning('Order status notification error (' . $newStatus . '): ' . $e->getMessage());
             }
-        } catch (\Throwable $e) {
-            Log::warning('Order status notification error (' . $newStatus . '): ' . $e->getMessage());
         }
 
         return response()->json(['data' => $fresh]);

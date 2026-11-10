@@ -20,6 +20,7 @@ import {
   CheckCircle,
   XCircle,
   Layers,
+  FileText,
 } from 'lucide-react';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { WhatsAppBrandIcon } from '../../common/BrandIcons';
@@ -40,39 +41,93 @@ export interface StatusItem {
 export const STATUS_ITEMS: StatusItem[] = [
   {
     id: 'all',
-    labelEn: 'All Statuses',
-    labelAr: 'كافة الحالات',
-    icon: (cls = 'w-3.5 h-3.5 text-slate-500') => <Clock className={cls} />,
+    labelEn: 'All',
+    labelAr: 'الكل',
+    icon: (cls = 'w-3.5 h-3.5 text-slate-500') => <Layers className={cls} />,
   },
   {
-    id: 'completed',
-    labelEn: 'Completed',
-    labelAr: 'مكتمل',
-    icon: (cls = 'w-3.5 h-3.5 text-emerald-600') => <CheckCircle className={cls} />,
+    id: 'draft',
+    labelEn: 'Draft',
+    labelAr: 'مسودة',
+    icon: (cls = 'w-3.5 h-3.5 text-slate-500') => <FileText className={cls} />,
+  },
+  {
+    id: 'deleted',
+    labelEn: 'Deleted',
+    labelAr: 'محذوف',
+    icon: (cls = 'w-3.5 h-3.5 text-rose-500') => <XCircle className={cls} />,
   },
   {
     id: 'pending',
-    labelEn: 'Pending',
-    labelAr: 'قيد الانتظار',
+    labelEn: 'Pending Payment',
+    labelAr: 'بانتظار الدفع',
     icon: (cls = 'w-3.5 h-3.5 text-amber-600') => <Clock className={cls} />,
+  },
+  {
+    id: 'partially_paid',
+    labelEn: 'Partially Paid',
+    labelAr: 'مدفوع جزئياً',
+    icon: (cls = 'w-3.5 h-3.5 text-yellow-600') => <Clock className={cls} />,
+  },
+  {
+    id: 'pending_review',
+    labelEn: 'Pending Review',
+    labelAr: 'بانتظار المراجعة',
+    icon: (cls = 'w-3.5 h-3.5 text-blue-600') => <Clock className={cls} />,
   },
   {
     id: 'processing',
     labelEn: 'Processing',
-    labelAr: 'جاري التجهيز',
+    labelAr: 'قيد التنفيذ',
     icon: (cls = 'w-3.5 h-3.5 text-sky-600') => <RefreshCw className={cls} />,
+  },
+  {
+    id: 'completed',
+    labelEn: 'Completed',
+    labelAr: 'تم التنفيذ',
+    icon: (cls = 'w-3.5 h-3.5 text-emerald-600') => <CheckCircle className={cls} />,
+  },
+  {
+    id: 'out_for_delivery',
+    labelEn: 'Out for Delivery',
+    labelAr: 'جاري التوصيل',
+    icon: (cls = 'w-3.5 h-3.5 text-orange-600') => <Truck className={cls} />,
+  },
+  {
+    id: 'delivered',
+    labelEn: 'Delivered',
+    labelAr: 'تم التوصيل',
+    icon: (cls = 'w-3.5 h-3.5 text-emerald-600') => <CheckCircle className={cls} />,
   },
   {
     id: 'shipped',
     labelEn: 'Shipped',
     labelAr: 'تم الشحن',
-    icon: (cls = 'w-3.5 h-3.5 text-blue-600') => <Truck className={cls} />,
+    icon: (cls = 'w-3.5 h-3.5 text-cyan-600') => <Truck className={cls} />,
   },
   {
     id: 'cancelled',
     labelEn: 'Cancelled',
     labelAr: 'ملغي',
     icon: (cls = 'w-3.5 h-3.5 text-rose-600') => <XCircle className={cls} />,
+  },
+  {
+    id: 'returned',
+    labelEn: 'Returned',
+    labelAr: 'مسترجع',
+    icon: (cls = 'w-3.5 h-3.5 text-fuchsia-600') => <RefreshCw className={cls} />,
+  },
+  {
+    id: 'return_in_progress',
+    labelEn: 'Return in Progress',
+    labelAr: 'قيد الإسترجاع',
+    icon: (cls = 'w-3.5 h-3.5 text-purple-600') => <RefreshCw className={cls} />,
+  },
+  {
+    id: 'rfq',
+    labelEn: 'Request for Quotation (RFQ)',
+    labelAr: 'طلب عرض سعر',
+    icon: (cls = 'w-3.5 h-3.5 text-slate-600') => <Layers className={cls} />,
   },
 ];
 
@@ -93,19 +148,9 @@ export interface PaymentCategory {
 export const PAYMENT_CATEGORIES: PaymentCategory[] = [
   {
     groupNum: 1,
-    titleEn: '1. Bank Cards and Electronic Payments',
-    titleAr: '١. البطاقات البنكية والمدفوعات الإلكترونية',
+    titleEn: 'Payment Status / Method',
+    titleAr: 'حالة / طريقة الدفع',
     items: [
-      {
-        id: 'mada',
-        labelEn: 'mada',
-        labelAr: 'مدى',
-        badge: () => (
-          <span className="px-1.5 py-0.5 rounded-xs bg-[#008542] text-white text-[9px] font-black shrink-0 tracking-tight">
-            mada
-          </span>
-        ),
-      },
       {
         id: 'visa',
         labelEn: 'Visa',
@@ -113,16 +158,6 @@ export const PAYMENT_CATEGORIES: PaymentCategory[] = [
         badge: () => (
           <span className="px-1.5 py-0.5 rounded-xs bg-[#1A1F71] text-white text-[9px] font-black shrink-0 tracking-tight">
             VISA
-          </span>
-        ),
-      },
-      {
-        id: 'mastercard',
-        labelEn: 'Mastercard',
-        labelAr: 'ماستركارد',
-        badge: () => (
-          <span className="px-1.5 py-0.5 rounded-xs bg-[#EB001B] text-white text-[9px] font-black shrink-0 tracking-tight">
-            MC
           </span>
         ),
       },
@@ -137,22 +172,41 @@ export const PAYMENT_CATEGORIES: PaymentCategory[] = [
         ),
       },
       {
-        id: 'stc',
-        labelEn: 'stc pay',
-        labelAr: 'STC باي',
+        id: 'paypal',
+        labelEn: 'PayPal',
+        labelAr: 'باي بال',
         badge: () => (
-          <span className="px-1.5 py-0.5 rounded-xs bg-[#4F008C] text-white text-[9px] font-black shrink-0 tracking-tight">
-            stc
+          <span className="px-1.5 py-0.5 rounded-xs bg-[#003087] text-white text-[9px] font-black shrink-0 tracking-tight">
+            PP
           </span>
         ),
       },
-    ],
-  },
-  {
-    groupNum: 2,
-    titleEn: '2. Buy Now Pay Later',
-    titleAr: '٢. اشتر الآن وادفع لاحقاً',
-    items: [
+      {
+        id: 'mada',
+        labelEn: 'Mada',
+        labelAr: 'مدى',
+        badge: () => (
+          <span className="px-1.5 py-0.5 rounded-xs bg-[#008542] text-white text-[9px] font-black shrink-0 tracking-tight">
+            mada
+          </span>
+        ),
+      },
+      {
+        id: 'customer_wallet',
+        labelEn: 'Customer Wallet',
+        labelAr: 'محفظة العميل',
+        badge: () => <Banknote className="w-3.5 h-3.5 text-teal-600 shrink-0" />,
+      },
+      {
+        id: 'samsung',
+        labelEn: 'Samsung Pay',
+        labelAr: 'سامسونج باي',
+        badge: () => (
+          <span className="px-1.5 py-0.5 rounded-xs bg-[#1428A0] text-white text-[9px] font-black shrink-0 tracking-tight">
+            SP
+          </span>
+        ),
+      },
       {
         id: 'tamara',
         labelEn: 'Tamara',
@@ -173,18 +227,45 @@ export const PAYMENT_CATEGORIES: PaymentCategory[] = [
           </span>
         ),
       },
-    ],
-  },
-  {
-    groupNum: 3,
-    titleEn: '3. Cash and Transfers',
-    titleAr: '٣. النقد والتحويلات',
-    items: [
       {
-        id: 'cash',
-        labelEn: 'Cash on Delivery',
-        labelAr: 'الدفع عند الاستلام',
-        badge: () => <Banknote className="w-3.5 h-3.5 text-emerald-600 shrink-0" />,
+        id: 'mispay',
+        labelEn: 'MIS Pay',
+        labelAr: 'ام اي اس باي',
+        badge: () => (
+          <span className="px-1.5 py-0.5 rounded-xs bg-slate-800 text-white text-[9px] font-black shrink-0">
+            MIS
+          </span>
+        ),
+      },
+      {
+        id: 'madfoat',
+        labelEn: 'Madfoat',
+        labelAr: 'مدفوع',
+        badge: () => (
+          <span className="px-1.5 py-0.5 rounded-xs bg-emerald-700 text-white text-[9px] font-black shrink-0">
+            MF
+          </span>
+        ),
+      },
+      {
+        id: 'stc',
+        labelEn: 'stc pay',
+        labelAr: 'أس تي سي باي',
+        badge: () => (
+          <span className="px-1.5 py-0.5 rounded-xs bg-[#4F008C] text-white text-[9px] font-black shrink-0 tracking-tight">
+            stc
+          </span>
+        ),
+      },
+      {
+        id: 'googlepay',
+        labelEn: 'Google Pay',
+        labelAr: 'جوجل باي',
+        badge: () => (
+          <span className="px-1.5 py-0.5 rounded-xs bg-slate-900 text-white text-[9px] font-black shrink-0 tracking-tight">
+            GPay
+          </span>
+        ),
       },
       {
         id: 'bank',
@@ -208,21 +289,15 @@ export interface ChannelItem {
 export const SALES_CHANNEL_ITEMS: ChannelItem[] = [
   {
     id: 'Direct',
-    labelEn: 'Online Store',
-    labelAr: 'المتجر الإلكتروني',
+    labelEn: 'Direct / Store',
+    labelAr: 'مباشر / متجر',
     icon: <Globe className="w-3.5 h-3.5 text-slate-500 shrink-0" />,
   },
   {
-    id: 'Instagram',
-    labelEn: 'Instagram',
-    labelAr: 'إنستغرام',
-    icon: <Instagram className="w-3.5 h-3.5 text-pink-500 shrink-0" />,
-  },
-  {
-    id: 'WhatsApp',
-    labelEn: 'WhatsApp',
-    labelAr: 'واتساب',
-    icon: <WhatsAppBrandIcon className="w-3.5 h-3.5 shrink-0" />,
+    id: 'Website',
+    labelEn: 'Website',
+    labelAr: 'الموقع الإلكتروني',
+    icon: <Globe className="w-3.5 h-3.5 text-teal-600 shrink-0" />,
   },
   {
     id: 'TikTok',
@@ -237,21 +312,63 @@ export const SALES_CHANNEL_ITEMS: ChannelItem[] = [
     icon: <Ghost className="w-3.5 h-3.5 text-amber-400 shrink-0" />,
   },
   {
+    id: 'Instagram',
+    labelEn: 'Instagram',
+    labelAr: 'إنستغرام',
+    icon: <Instagram className="w-3.5 h-3.5 text-pink-500 shrink-0" />,
+  },
+  {
+    id: 'WhatsApp',
+    labelEn: 'WhatsApp',
+    labelAr: 'واتساب',
+    icon: <WhatsAppBrandIcon className="w-3.5 h-3.5 shrink-0" />,
+  },
+  {
     id: 'Facebook',
     labelEn: 'Facebook',
     labelAr: 'فيسبوك',
     icon: <Facebook className="w-3.5 h-3.5 text-blue-600 shrink-0" />,
   },
   {
-    id: 'Google',
+    id: 'X',
+    labelEn: 'X (Twitter)',
+    labelAr: 'إكس (تويتر)',
+    icon: <Share2 className="w-3.5 h-3.5 text-slate-700 shrink-0" />,
+  },
+  {
+    id: 'Telegram',
+    labelEn: 'Telegram',
+    labelAr: 'تيليجرام',
+    icon: <Share2 className="w-3.5 h-3.5 text-sky-500 shrink-0" />,
+  },
+  {
+    id: 'Google Ads',
     labelEn: 'Google Ads',
     labelAr: 'إعلانات جوجل',
     icon: <Share2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />,
   },
   {
-    id: 'Email',
-    labelEn: 'Email',
-    labelAr: 'البريد الإلكتروني',
+    id: 'YouTube',
+    labelEn: 'YouTube',
+    labelAr: 'يوتيوب',
+    icon: <Share2 className="w-3.5 h-3.5 text-rose-600 shrink-0" />,
+  },
+  {
+    id: 'Organic Search',
+    labelEn: 'Organic Search',
+    labelAr: 'بحث مجاني',
+    icon: <Globe className="w-3.5 h-3.5 text-blue-500 shrink-0" />,
+  },
+  {
+    id: 'Referral',
+    labelEn: 'Referral',
+    labelAr: 'إحالة',
+    icon: <Share2 className="w-3.5 h-3.5 text-indigo-500 shrink-0" />,
+  },
+  {
+    id: 'Other',
+    labelEn: 'Other',
+    labelAr: 'أخرى',
     icon: <Mail className="w-3.5 h-3.5 text-slate-500 shrink-0" />,
   },
 ];
@@ -289,7 +406,11 @@ export const OrderFilterMenu: React.FC<OrderFilterMenuProps> = ({
   const isAr = locale === 'ar';
 
   const statusLabel = (item: StatusItem) =>
-    item.id === 'all' ? t('allStatuses') : localizeOrderStatus(item.id, locale) || (isAr ? item.labelAr : item.labelEn);
+    item.id === 'all'
+      ? isAr
+        ? item.labelAr
+        : item.labelEn
+      : localizeOrderStatus(item.id, locale) || (isAr ? item.labelAr : item.labelEn);
 
   const paymentLabel = (item: PaymentItem) => {
     const localized = localizePaymentMethod(item.labelEn || item.id, locale);
@@ -377,7 +498,7 @@ export const OrderFilterMenu: React.FC<OrderFilterMenuProps> = ({
         </button>
         {activeSubMenu === 'status' && (
           <div
-            className="mt-1.5 w-full rounded-xl border p-1 max-h-56 overflow-y-auto"
+            className="mt-1.5 w-full rounded-xl border p-1 u-dropdown-list"
             style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
           >
             {STATUS_ITEMS.map((item) => {
@@ -445,7 +566,7 @@ export const OrderFilterMenu: React.FC<OrderFilterMenuProps> = ({
         </button>
         {activeSubMenu === 'payment' && (
           <div
-            className="mt-1.5 w-full rounded-xl border p-1 max-h-64 overflow-y-auto"
+            className="mt-1.5 w-full rounded-xl border p-1 u-dropdown-list"
             style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
           >
             <button
@@ -542,7 +663,7 @@ export const OrderFilterMenu: React.FC<OrderFilterMenuProps> = ({
         </button>
         {activeSubMenu === 'channel' && (
           <div
-            className="mt-1.5 w-full rounded-xl border p-1 max-h-60 overflow-y-auto"
+            className="mt-1.5 w-full rounded-xl border p-1 u-dropdown-list"
             style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
           >
             <button
@@ -629,7 +750,7 @@ export const OrderFilterMenu: React.FC<OrderFilterMenuProps> = ({
           }}
           width={320}
           align="end"
-          estimatedHeight={320}
+          estimatedHeight={activeSubMenu ? 640 : 360}
           className="p-3.5 sm:p-4 rounded-xl border shadow-lg"
           style={{
             background: 'var(--surface)',

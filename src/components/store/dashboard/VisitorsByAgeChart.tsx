@@ -36,7 +36,7 @@ export const VisitorsByAgeChart: React.FC<VisitorsByAgeChartProps> = React.memo(
     <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 shadow-xs flex flex-col justify-between h-full min-h-[260px]">
       {/* ── Card Header ── */}
       <div className="flex items-center gap-2 mb-3">
-        <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 flex items-center justify-center border border-teal-200/60 dark:border-teal-800/40">
+        <div className="u-icon-brand w-8 h-8 rounded-xl flex items-center justify-center">
           <Users className="w-4 h-4" />
         </div>
         <div>
@@ -52,7 +52,7 @@ export const VisitorsByAgeChart: React.FC<VisitorsByAgeChartProps> = React.memo(
       {/* ── Responsive Bar Chart or Clean Empty State ── */}
       {points.length === 0 ? (
         <div className="py-12 px-4 text-center flex flex-col items-center justify-center">
-          <div className="w-10 h-10 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-[#006d77] dark:text-teal-300 flex items-center justify-center border border-teal-200/50 dark:border-teal-800/40 mb-2.5">
+          <div className="u-icon-brand w-10 h-10 rounded-2xl flex items-center justify-center mb-2.5">
             <Users className="w-5 h-5 text-slate-400 dark:text-slate-500" />
           </div>
           <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
@@ -113,7 +113,7 @@ export const VisitorsByAgeChart: React.FC<VisitorsByAgeChartProps> = React.memo(
                     fontSize="11"
                     fontWeight="800"
                     fill="currentColor"
-                    className="text-teal-700 dark:text-teal-300 font-black"
+                    className="u-accent-text font-black"
                   >
                     {pt.percentage}%
                   </text>

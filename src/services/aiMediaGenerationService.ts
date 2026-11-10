@@ -13,7 +13,17 @@ import type {
 } from './aiBrandIdentity';
 
 export type AiMediaKind = 'image' | 'video';
-export type AiMediaAspect = '1:1' | '4:5' | '9:16' | '16:9' | '3:4' | '4:3';
+export type AiMediaAspect =
+  | '1:1'
+  | '4:5'
+  | '5:4'
+  | '3:4'
+  | '4:3'
+  | '2:3'
+  | '3:2'
+  | '9:16'
+  | '16:9'
+  | '21:9';
 export type AiMediaImageSize = '1K' | '2K' | '4K';
 export type AiMediaStyle =
   | 'default'

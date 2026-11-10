@@ -33,15 +33,20 @@ export interface OrderStatusConfigItem {
 }
 
 const DEFAULT_STATUS_ITEMS: OrderStatusConfigItem[] = [
-  { id: 'st-1', active: true, iconName: 'clock', colorHex: '#F59E0B', nameAr: 'بانتظار الدفع', nameEn: 'Pending Payment', sortOrder: 1, systemKey: 'pending' },
-  { id: 'st-2', active: true, iconName: 'loader', colorHex: '#3B82F6', nameAr: 'قيد المعالجة', nameEn: 'Processing', sortOrder: 2, systemKey: 'processing' },
-  { id: 'st-3', active: true, iconName: 'package', colorHex: '#8B5CF6', nameAr: 'قيد التجهيز', nameEn: 'Preparing', sortOrder: 3, systemKey: 'preparing' },
-  { id: 'st-4', active: true, iconName: 'truck', colorHex: '#06B6D4', nameAr: 'تم الشحن', nameEn: 'Shipped', sortOrder: 4, systemKey: 'shipped' },
-  { id: 'st-5', active: true, iconName: 'truck-fast', colorHex: '#F97316', nameAr: 'جاري التوصيل', nameEn: 'Out for Delivery', sortOrder: 5, systemKey: 'out_for_delivery' },
-  { id: 'st-6', active: true, iconName: 'check-circle', colorHex: '#10B981', nameAr: 'تم التوصيل', nameEn: 'Delivered', sortOrder: 6, systemKey: 'delivered' },
-  { id: 'st-7', active: true, iconName: 'x-circle', colorHex: '#EF4444', nameAr: 'ملغي', nameEn: 'Cancelled', sortOrder: 7, systemKey: 'cancelled' },
-  { id: 'st-8', active: true, iconName: 'rotate-ccw', colorHex: '#A855F7', nameAr: 'مسترجع', nameEn: 'Returned', sortOrder: 8, systemKey: 'returned' },
-  { id: 'st-9', active: true, iconName: 'refresh-cw', colorHex: '#6B7280', nameAr: 'مسترد', nameEn: 'Refunded', sortOrder: 9, systemKey: 'refunded' },
+  { id: 'st-0a', active: true, iconName: 'package', colorHex: '#94A3B8', nameAr: 'مسودة', nameEn: 'Draft', sortOrder: 1, systemKey: 'draft' },
+  { id: 'st-0b', active: true, iconName: 'x-circle', colorHex: '#64748B', nameAr: 'محذوف', nameEn: 'Deleted', sortOrder: 2, systemKey: 'deleted' },
+  { id: 'st-1', active: true, iconName: 'clock', colorHex: '#F59E0B', nameAr: 'بانتظار الدفع', nameEn: 'Pending Payment', sortOrder: 3, systemKey: 'pending' },
+  { id: 'st-2', active: true, iconName: 'loader', colorHex: '#EAB308', nameAr: 'مدفوع جزئياً', nameEn: 'Partially Paid', sortOrder: 4, systemKey: 'partially_paid' },
+  { id: 'st-3', active: true, iconName: 'package', colorHex: '#3B82F6', nameAr: 'بانتظار المراجعة', nameEn: 'Pending Review', sortOrder: 5, systemKey: 'pending_review' },
+  { id: 'st-4', active: true, iconName: 'loader', colorHex: '#8B5CF6', nameAr: 'قيد التنفيذ', nameEn: 'Processing', sortOrder: 6, systemKey: 'processing' },
+  { id: 'st-5', active: true, iconName: 'check-circle', colorHex: '#059669', nameAr: 'تم التنفيذ', nameEn: 'Completed', sortOrder: 7, systemKey: 'completed' },
+  { id: 'st-6', active: true, iconName: 'truck-fast', colorHex: '#F97316', nameAr: 'جاري التوصيل', nameEn: 'Out for Delivery', sortOrder: 8, systemKey: 'out_for_delivery' },
+  { id: 'st-7', active: true, iconName: 'check-circle', colorHex: '#10B981', nameAr: 'تم التوصيل', nameEn: 'Delivered', sortOrder: 9, systemKey: 'delivered' },
+  { id: 'st-8', active: true, iconName: 'truck', colorHex: '#06B6D4', nameAr: 'تم الشحن', nameEn: 'Shipped', sortOrder: 10, systemKey: 'shipped' },
+  { id: 'st-9', active: true, iconName: 'x-circle', colorHex: '#EF4444', nameAr: 'ملغي', nameEn: 'Cancelled', sortOrder: 11, systemKey: 'cancelled' },
+  { id: 'st-10', active: true, iconName: 'rotate-ccw', colorHex: '#A855F7', nameAr: 'مسترجع', nameEn: 'Returned', sortOrder: 12, systemKey: 'returned' },
+  { id: 'st-11', active: true, iconName: 'refresh-cw', colorHex: '#D946EF', nameAr: 'قيد الإسترجاع', nameEn: 'Return in Progress', sortOrder: 13, systemKey: 'return_in_progress' },
+  { id: 'st-12', active: true, iconName: 'package', colorHex: '#64748B', nameAr: 'طلب عرض سعر', nameEn: 'Request for Quotation (RFQ)', sortOrder: 14, systemKey: 'rfq' },
 ];
 
 interface OrderStatusSettingsModalProps {
@@ -69,7 +74,21 @@ export const OrderStatusSettingsModal: React.FC<OrderStatusSettingsModalProps> =
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length) {
-          setStatuses(parsed);
+          const byKey = new Map(
+            parsed
+              .filter((s: OrderStatusConfigItem) => s?.systemKey)
+              .map((s: OrderStatusConfigItem) => [String(s.systemKey), s]),
+          );
+          const merged = DEFAULT_STATUS_ITEMS.map((def) => {
+            const hit = byKey.get(def.systemKey);
+            return hit ? { ...def, ...hit, systemKey: def.systemKey, id: hit.id || def.id } : def;
+          });
+          // Keep any custom rows merchant added (no systemKey or unknown key)
+          const known = new Set(DEFAULT_STATUS_ITEMS.map((d) => d.systemKey));
+          const custom = parsed.filter(
+            (s: OrderStatusConfigItem) => !s?.systemKey || !known.has(String(s.systemKey)),
+          );
+          setStatuses([...merged, ...custom]);
           return;
         }
       }

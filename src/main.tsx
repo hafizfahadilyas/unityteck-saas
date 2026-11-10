@@ -39,7 +39,7 @@ function AppRoot() {
   return (
     <ClerkProvider
       publishableKey={publishableKey}
-      afterSignOutUrl="/store/login"
+      // SPA navigates itself after logout — afterSignOutUrl caused a hard remount / 2nd OTP.
       allowedRedirectOrigins={clerkAllowedRedirectOrigins()}
     >
       <App />

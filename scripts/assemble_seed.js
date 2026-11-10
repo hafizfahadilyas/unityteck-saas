@@ -44,7 +44,7 @@ ON DUPLICATE KEY UPDATE
 
 -- Master admin (password = UnityMaster@2026!Secure) — Phase 2.3 role = super_admin
 INSERT INTO \`users\` (\`id\`,\`name\`,\`email\`,\`password\`,\`role\`,\`created_at\`,\`updated_at\`) VALUES
-  ('user-master-1','Unityteck Master','master@unityteck.com','$2y$10$wCSbvf2RMp5uLgWu4Fuov.sVPgvgpAyXdSkclJBKrvS/VdyZ0hypO','super_admin',NOW(),NOW())
+  ('user-master-1','Souq Platform SuperAdmin','master@unityteck.com','$2y$10$wCSbvf2RMp5uLgWu4Fuov.sVPgvgpAyXdSkclJBKrvS/VdyZ0hypO','super_admin',NOW(),NOW())
 ON DUPLICATE KEY UPDATE
   \`name\`=VALUES(\`name\`),
   \`password\`=VALUES(\`password\`),

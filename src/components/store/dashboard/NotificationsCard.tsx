@@ -194,7 +194,8 @@ const NotificationsCardInner: React.FC<NotificationsCardProps> = ({
 
   const handleAction = (item: SmartNotificationDisplayItem) => {
     if (item.actionType === 'whatsapp') {
-      const targetPhone = item.phone || '+966500000001';
+      const targetPhone = item.phone || '';
+      if (!targetPhone) return;
       const targetText = isAr ? item.descAr : item.descEn;
 
       if (onOpenWhatsApp) {
@@ -251,7 +252,7 @@ const NotificationsCardInner: React.FC<NotificationsCardProps> = ({
       {/* ── Card Header ── */}
       <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800 mb-2.5 shrink-0">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-[#e6f4f1] dark:bg-teal-950/60 text-[#006d77] dark:text-teal-300 flex items-center justify-center border border-teal-200/50 dark:border-teal-800/40">
+          <div className="u-icon-brand w-7 h-7 rounded-lg flex items-center justify-center">
             <Bell className="w-3.5 h-3.5" />
           </div>
           <div className="flex items-center gap-2">
@@ -267,7 +268,7 @@ const NotificationsCardInner: React.FC<NotificationsCardProps> = ({
         <button
           type="button"
           onClick={onViewAll}
-          className="text-xs font-bold text-[#006d77] hover:text-[#004d5a] dark:text-teal-300 flex items-center gap-1 hover:underline cursor-pointer"
+          className="u-accent-text text-xs font-bold flex items-center gap-1 hover:underline cursor-pointer"
         >
           <span>{isAr ? 'عرض الكل' : 'View All'}</span>
           <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" />

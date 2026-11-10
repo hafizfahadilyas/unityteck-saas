@@ -743,34 +743,47 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
         };
 
         const rows: ParsedProductRow[] = [];
+        let skipped = 0;
         for (let i = 1; i < lines.length; i++) {
           const cols = parseRow(lines[i]);
           if (!cols[0]) continue;
           const name = cols[0];
-          const category = cols[1] || copy.defaultCategory;
-          const sku = cols[2] || `SKU-${Date.now().toString().slice(-4)}-${i}`;
-          const price = parseFloat(cols[3]) || 150;
+          const category = (cols[1] || '').trim();
+          const sku = (cols[2] || '').trim();
+          const price = parseFloat(cols[3]);
+          // Zero-mock: never invent price / stock / Unsplash demo images for missing cells.
+          if (!Number.isFinite(price) || price < 0 || !sku) {
+            skipped += 1;
+            continue;
+          }
           const discountedPrice = cols[4] ? parseFloat(cols[4]) : undefined;
-          const stock = parseInt(cols[5], 10) || 20;
+          const stockRaw = cols[5] !== undefined && cols[5] !== '' ? parseInt(cols[5], 10) : 0;
+          const stock = Number.isFinite(stockRaw) ? stockRaw : 0;
           const offersAllowed = (cols[6] || '').toLowerCase() !== 'no';
           const productType = cols[7] || 'Physical';
-          const description = cols[8] || copy.defaultDescription;
-          const image = cols[9] && cols[9].startsWith('http')
-            ? cols[9]
-            : demoCatalog[(i - 1) % demoCatalog.length].image;
+          const description = cols[8] || '';
+          const image = cols[9] && cols[9].startsWith('http') ? cols[9] : '';
 
           rows.push({
             name,
-            category,
+            category: category || (locale === 'ar' ? 'غير مصنف' : 'Uncategorized'),
             sku,
             price,
-            discountedPrice,
+            discountedPrice: Number.isFinite(discountedPrice as number) ? discountedPrice : undefined,
             stock,
             offersAllowed,
             productType,
             description,
             image
           });
+        }
+        if (skipped > 0) {
+          toast(
+            locale === 'ar'
+              ? `تم تخطي ${skipped} صف (سعر أو رمز المنتج ناقص)`
+              : `Skipped ${skipped} row(s) (missing price or SKU)`,
+            'info',
+          );
         }
 
         setParsedRows(rows);
@@ -1007,7 +1020,7 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
                   </div>
                   <button
                     onClick={handleLoadDemo50Direct}
-                    className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                    className="w-full py-2 px-3 rounded-xl unity-btn-primary text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
                   >
                     <Sparkles className="w-3.5 h-3.5" />
                     <span>{locale === 'ar' ? 'تجهيز 50 منتج الآن' : 'Load 50 Products Now'}</span>
@@ -1173,7 +1186,7 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
               <div>
                 <button
                   onClick={handleExportExistingProducts}
-                  className="py-3 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs inline-flex items-center gap-2 shadow-lg hover:shadow-xl transition-all cursor-pointer"
+                  className="py-3 px-6 rounded-2xl unity-btn-primary text-white font-extrabold text-xs inline-flex items-center gap-2 shadow-lg hover:shadow-xl transition-all cursor-pointer"
                 >
                   <Download className="w-4 h-4" />
                   <span>
@@ -1211,7 +1224,7 @@ export const BulkProductUploadModal: React.FC<BulkProductUploadModalProps> = ({
               <button
                 onClick={handleCommitImport}
                 disabled={parsedRows.length === 0}
-                className="py-2.5 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-extrabold flex items-center gap-2 shadow-md transition-all cursor-pointer"
+                className="py-2.5 px-5 rounded-xl unity-btn-primary disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-extrabold flex items-center gap-2 shadow-md transition-all cursor-pointer"
               >
                 <Check className="w-4 h-4" />
                 <span>

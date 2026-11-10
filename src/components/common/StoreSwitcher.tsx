@@ -157,7 +157,7 @@ export const StoreSwitcher: React.FC<StoreSwitcherProps> = ({
             </div>
           )}
 
-          <ul className="max-h-64 overflow-y-auto py-1">
+          <ul className="u-dropdown-list py-1">
             {filtered.length === 0 ? (
               <li className="px-3 py-4 text-xs text-center" style={{ color: 'var(--muted)' }}>
                 {t('noStoresMatch')}

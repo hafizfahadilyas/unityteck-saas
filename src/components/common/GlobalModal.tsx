@@ -57,10 +57,11 @@ export function GlobalModal({
   useEffect(() => {
     if (!isOpen || !closeOnEscape) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        onClose();
-      }
+      if (e.key !== 'Escape') return;
+      // Let FloatingPopover / city / source menus close first
+      if (document.querySelector('[data-floating-popover="true"]')) return;
+      e.stopPropagation();
+      onClose();
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
@@ -68,12 +69,20 @@ export function GlobalModal({
 
   if (!isOpen || typeof document === 'undefined') return null;
 
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (!closeOnBackdrop) return;
+    if (e.target !== e.currentTarget) return;
+    // Outside click on an open portal select must not dismiss the whole modal
+    if (document.querySelector('[data-floating-popover="true"]')) return;
+    onClose();
+  };
+
   return createPortal(
     <div
       dir={dir}
       className={`fixed inset-0 ${zIndexClassName} flex items-center justify-center p-3 sm:p-5 overflow-y-auto overscroll-contain bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-150 ${backdropClassName}`}
       style={{ fontFamily: 'var(--font-ui, inherit)' }}
-      onClick={closeOnBackdrop ? onClose : undefined}
+      onClick={handleBackdropClick}
       role="presentation"
       data-global-modal="backdrop"
     >

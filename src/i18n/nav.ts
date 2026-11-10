@@ -50,7 +50,6 @@ export const STORE_NAV_KEYS: Record<string, DictKey> = {
   notifications: 'navNotifications',
   shipping: 'navShipping',
   hosting: 'navHostingStore',
-  backup: 'navBackup',
   themes: 'navThemesStore',
   pages: 'navPages',
   blog: 'navBlog',

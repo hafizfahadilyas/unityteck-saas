@@ -31,7 +31,11 @@ import {
 import { ModernSegmentedTabs } from '../../common/ModernSegmentedTabs';
 import { CourierShippingLabelModal } from '../orders/CourierShippingLabelModal';
 import type { ShippingLabelData, CourierCarrierCode } from '../../../utils/courierBarcode';
-import { getCustomerDisplayName } from '../../../utils/storeLocalization';
+import {
+  getCustomerDisplayName,
+  getLocalizedAddress,
+  getLocalizedCity,
+} from '../../../utils/storeLocalization';
 import { downloadCsv } from '../../../utils/exportSpreadsheet';
 import { useSaudiCityOptions } from '../../../hooks/useSaudiCityOptions';
 import { SaudiCitySelect } from '../../common/SaudiCitySelect';
@@ -89,11 +93,17 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
       const order = orderMap.get(s.orderId) || s.order;
       const orderNum = order?.orderNumber || (s.orderId.startsWith('#') ? s.orderId : `#${s.orderId.slice(-8)}`);
       const custName = getCustomerDisplayName(order?.customerName || order?.customer?.name, locale);
-      const custPhone = order?.customerPhone || order?.customer?.phone || '+966 500 000 000';
-      const city = s.destinationAddress?.city || order?.city || (typeof order?.shippingAddress === 'string' ? order.shippingAddress : order?.shippingAddress?.city) || 'Riyadh';
+      const custPhone = order?.customerPhone || order?.customer?.phone || '';
+      const city =
+        s.destinationAddress?.city ||
+        order?.city ||
+        (typeof order?.shippingAddress === 'string' ? order.shippingAddress : order?.shippingAddress?.city) ||
+        (locale === 'ar' ? 'غير محدد' : 'Unknown');
       const orderDate = s.createdAt || order?.createdAt || new Date().toISOString();
       const orderTotal = Number(order?.totalAmount || order?.total || s.shippingCost || 0);
-      const paymentMethod = order?.paymentMethod || (s.codAmount > 0 ? 'COD' : 'Prepaid');
+      const paymentMethod =
+        order?.paymentMethod ||
+        (s.codAmount > 0 ? (locale === 'ar' ? 'الدفع عند الاستلام' : 'COD') : locale === 'ar' ? 'مدفوع مسبقاً' : 'Prepaid');
 
       return {
         ...s,
@@ -129,8 +139,17 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
             ? 'picked_up'
             : 'pending';
 
-        const orderCity = anyOrd.city || (typeof ord.shippingAddress === 'string' ? ord.shippingAddress : anyOrd.shippingAddress?.city) || ord.deliveryLocation || 'Riyadh';
-        const addressText = typeof ord.shippingAddress === 'string' ? ord.shippingAddress : anyOrd.shippingAddress?.address || ord.deliveryLocation || `${orderCity}, Saudi Arabia`;
+        const orderCity =
+          anyOrd.city ||
+          (typeof ord.shippingAddress === 'string' ? ord.shippingAddress : anyOrd.shippingAddress?.city) ||
+          ord.deliveryLocation ||
+          (locale === 'ar' ? 'غير محدد' : 'Unknown');
+        const addressText =
+          typeof ord.shippingAddress === 'string'
+            ? ord.shippingAddress
+            : anyOrd.shippingAddress?.address ||
+              ord.deliveryLocation ||
+              orderCity;
         const orderTotal = Number(ord.total ?? anyOrd.totalAmount ?? 0);
 
         list.push({
@@ -705,12 +724,12 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
             className="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
           >
             <option value="all">{isAr ? 'جميع الشركات' : 'All Couriers'}</option>
-            <option value="spl">SPL (البريد السعودي)</option>
-            <option value="aramex">Aramex (أرامكس)</option>
-            <option value="smsa">SMSA Express (سمسا)</option>
-            <option value="dhl">DHL Express</option>
-            <option value="fedex">FedEx</option>
-            <option value="ups">UPS</option>
+            <option value="spl">{isAr ? 'البريد السعودي' : 'SPL'}</option>
+            <option value="aramex">{isAr ? 'أرامكس' : 'Aramex'}</option>
+            <option value="smsa">{isAr ? 'سمسا إكسبريس' : 'SMSA Express'}</option>
+            <option value="dhl">{isAr ? 'دي إتش إل إكسبريس' : 'DHL Express'}</option>
+            <option value="fedex">{isAr ? 'فيديكس' : 'FedEx'}</option>
+            <option value="ups">{isAr ? 'يو بي إس' : 'UPS'}</option>
           </select>
 
           {/* Additional Filter Button — expands inline (no overlay on table) */}
@@ -904,7 +923,7 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
                       </td>
 
                       <td className="py-3.5 px-3.5 text-slate-600 dark:text-slate-400">
-                        {row.city}
+                        {getLocalizedCity(row.city, locale) || row.city}
                       </td>
 
                       <td className="py-3.5 px-3.5">
@@ -1137,7 +1156,10 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
                   <div className="text-end flex items-start gap-1 justify-end max-w-[200px]">
                     <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
                     <span className="text-slate-700 dark:text-slate-300">
-                      {activeShipment.destinationAddress?.location || `${activeShipment.city}, Saudi Arabia`}
+                      {getLocalizedAddress(activeShipment.destinationAddress?.location, locale) ||
+                        `${getLocalizedCity(activeShipment.city, locale) || activeShipment.city}, ${
+                          isAr ? 'المملكة العربية السعودية' : 'Saudi Arabia'
+                        }`}
                     </span>
                   </div>
                 </div>
@@ -1288,7 +1310,9 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
                       {isAr ? 'وصل إلى مركز الوجهة' : 'Arrived at Destination'}
                     </h4>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      {isAr ? `وصل إلى مستودع${activeShipment.city}` : `Arrived at ${activeShipment.city} hub`}
+                      {isAr
+                        ? `وصل إلى مستودع ${getLocalizedCity(activeShipment.city, locale) || activeShipment.city}`
+                        : `Arrived at ${getLocalizedCity(activeShipment.city, locale) || activeShipment.city} hub`}
                     </p>
                     <p className="text-[10px] text-slate-400 mt-0.5 font-mono">
                       {new Date(new Date(activeShipment.orderDate).getTime() + 1.5 * 86400000).toLocaleDateString(
@@ -1415,7 +1439,7 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
                       <circle r="8" fill="#10b981" />
                       <circle r="3.5" fill="#ffffff" />
                       <text x="-10" y="20" fill="#10b981" fontSize="10" fontWeight="bold">
-                        {activeShipment.city}
+                        {getLocalizedCity(activeShipment.city, locale) || activeShipment.city}
                       </text>
                     </g>
 

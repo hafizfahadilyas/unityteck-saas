@@ -298,7 +298,7 @@ export const MasterSEO: React.FC = () => {
                 ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-300'
                 : 'text-slate-500 bg-slate-100'
             }`} dir="ltr">
-              {totalImpressionsAcrossStores > 0 ? '+28.5%' : (isAr ? 'بانتظار البيانات' : 'Waiting for Data')}
+              {isAr ? 'بانتظار البيانات' : 'Waiting for Data'}
             </span>
           </div>
           <div className="text-2xl font-black text-slate-900 tabular-nums">
@@ -306,7 +306,7 @@ export const MasterSEO: React.FC = () => {
           </div>
           <div className="h-8">
             <Sparkline
-              data={totalImpressionsAcrossStores > 0 ? [Math.round(totalImpressionsAcrossStores * 0.4), Math.round(totalImpressionsAcrossStores * 0.6), Math.round(totalImpressionsAcrossStores * 0.8), totalImpressionsAcrossStores] : [0, 0, 0, 0]}
+              data={totalImpressionsAcrossStores > 0 ? [totalImpressionsAcrossStores] : [0]}
               color="#10b981"
             />
           </div>
@@ -331,7 +331,7 @@ export const MasterSEO: React.FC = () => {
           </div>
           <div className="h-8">
             <Sparkline
-              data={totalClicksAcrossStores > 0 ? [Math.round(totalClicksAcrossStores * 0.4), Math.round(totalClicksAcrossStores * 0.7), totalClicksAcrossStores] : [0, 0, 0, 0]}
+              data={totalClicksAcrossStores > 0 ? [totalClicksAcrossStores] : [0]}
               color="#2563eb"
             />
           </div>

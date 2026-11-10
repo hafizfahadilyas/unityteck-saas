@@ -584,6 +584,8 @@ export type BrandState = {
   fontWeight: BrandFontWeight;
   /** Optional custom primary hex (#RRGGBB). When set, overrides preset palette shades. */
   customAccentHex?: string | null;
+  /** Optional scrollbar hex. Null = follow global --portal-400 / --accent. */
+  customScrollbarHex?: string | null;
 };
 
 export const DEFAULT_BRAND: BrandState = {
@@ -594,6 +596,7 @@ export const DEFAULT_BRAND: BrandState = {
   iconStyle: 'rounded',
   fontWeight: 'regular',
   customAccentHex: null,
+  customScrollbarHex: null,
 };
 
 /** Parse #RGB / #RRGGBB → {r,g,b} or null. */
@@ -731,15 +734,19 @@ export function applyBrandCss(brand: BrandState, locale: 'en' | 'ar' = 'en'): vo
   root.style.setProperty('--portal-50', p.p50);
   root.style.setProperty('--portal-cta', `linear-gradient(90deg, ${p.p600}, ${p.p400})`);
 
-  // Primary UI font follows active locale (Arabic font in AR, English in EN)
-  root.style.setProperty('--font-ui', font.stack);
+  // EN/AR stacks always stored; CSS html[lang] picks --font-ui (one global face)
   root.style.setProperty('--font-ui-ar', BRAND_FONTS[arId].stack);
   root.style.setProperty('--font-ui-en', BRAND_FONTS[enId].stack);
   root.style.setProperty('--font-ar', BRAND_FONTS[arId].stack);
+  root.style.setProperty('--font-ui', font.stack);
 
-  // Font weights
-  root.style.setProperty('--font-weight-body', weight.body);
-  root.style.setProperty('--font-weight-heading', weight.heading);
+  // Font weights — Arabic faces (IBM Plex / Noto) max at 700; clamp so headers
+  // do not fall back to a second family (Cairo/Tajawal) and look "different".
+  const arMaxWeight = arId === 'ibm-plex-ar' || arId === 'noto' ? 700 : 800;
+  const bodyW = Math.min(parseInt(weight.body, 10) || 400, locale === 'ar' ? arMaxWeight : 800);
+  const headingW = Math.min(parseInt(weight.heading, 10) || 700, locale === 'ar' ? arMaxWeight : 800);
+  root.style.setProperty('--font-weight-body', String(bodyW));
+  root.style.setProperty('--font-weight-heading', String(headingW));
 
   // Controls & accents
   root.style.setProperty('--radius-ctrl', icon.px);
@@ -748,6 +755,32 @@ export function applyBrandCss(brand: BrandState, locale: 'en' | 'ar' = 'en'): vo
   root.style.setProperty('--active-bg', p.p600);
   root.style.setProperty('--active-fg', '#ffffff');
   root.style.setProperty('--active-ring', p.p400);
+
+  // Form / modal / page text — same Holst family as header (no slate leftover)
+  const isDark = root.getAttribute('data-theme') === 'dark';
+  if (!isDark) {
+    root.style.setProperty('--text', p.p950);
+    root.style.setProperty('--muted', p.p900);
+    root.style.setProperty('--input-fg', p.p950);
+    root.style.setProperty('--input-ph', p.p800);
+    root.style.setProperty('--table-head', p.p950);
+    root.style.setProperty('--card-fg', p.p950);
+    root.style.setProperty('--icon-on-light', p.p950);
+    root.style.setProperty('--icon-box-fg', p.p950);
+    root.style.setProperty('--border', p.p200);
+  }
+
+  // Scrollbar: follow brand by default; optional dedicated luxury color
+  const sbCustom = brand.customScrollbarHex ? paletteFromAccentHex(brand.customScrollbarHex) : null;
+  if (sbCustom) {
+    root.style.setProperty('--sb-color', sbCustom.p400);
+    root.style.setProperty('--sb-color-deep', sbCustom.p600);
+    root.setAttribute('data-custom-scrollbar', sbCustom.colorHex);
+  } else {
+    root.style.setProperty('--sb-color', p.p400);
+    root.style.setProperty('--sb-color-deep', p.p600);
+    root.removeAttribute('data-custom-scrollbar');
+  }
 
   root.setAttribute('data-brand', custom ? 'custom' : brand.palette);
   root.setAttribute('data-font', activeId);

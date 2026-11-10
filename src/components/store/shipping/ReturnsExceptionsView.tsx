@@ -29,6 +29,7 @@ import {
   Truck,
   Image as ImageIcon,
 } from 'lucide-react';
+import { getCustomerDisplayName } from '../../../utils/storeLocalization';
 
 interface ReturnItem {
   id: string;
@@ -92,7 +93,7 @@ export const ReturnsExceptionsView: React.FC = () => {
           id: `ret-store-${ord.id}`,
           orderNumber: ord.orderNumber || (ord.id.startsWith('#') ? ord.id : `#${ord.id.slice(-8)}`),
           trackingNumber: realTrk || (isAr ? 'بانتظار رقم التتبع' : 'Awaiting tracking number'),
-          customerName: ord.customerName || (isAr ? 'عميل المتجر' : 'Store Customer'),
+          customerName: getCustomerDisplayName(ord.customerName, locale),
           customerPhone: ord.customerPhone || '—',
           courier: (ord.courierCode?.toLowerCase() || ord.shippingCompany?.toLowerCase() || 'unknown') as any,
           type: isFailed ? 'Failed Delivery' : 'Return',
@@ -513,7 +514,7 @@ export const ReturnsExceptionsView: React.FC = () => {
                       {row.trackingNumber}
                     </td>
                     <td className="py-3 px-3.5 font-medium text-slate-900 dark:text-white">
-                      {row.customerName}
+                      {getCustomerDisplayName(row.customerName, locale)}
                     </td>
                     <td className="py-3 px-3.5">{renderCourierBadge(row.courier)}</td>
                     <td className="py-3 px-3.5">
@@ -597,7 +598,7 @@ export const ReturnsExceptionsView: React.FC = () => {
                   <span className="text-slate-400">{isAr ? 'العميل' : 'Customer'}</span>
                   <div className="text-end">
                     <span className="font-bold text-slate-800 dark:text-slate-200 block">
-                      {activeReturn.customerName}
+                      {getCustomerDisplayName(activeReturn.customerName, locale)}
                     </span>
                     <span className="text-[11px] text-slate-500 font-mono">
                       {activeReturn.customerPhone}

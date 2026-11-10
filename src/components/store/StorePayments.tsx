@@ -280,7 +280,7 @@ export const StorePayments: React.FC = () => {
     // 1. Mada
     {
       key: 'mada',
-      name: 'Mada (مدى)',
+      name: isAr ? 'مدى' : 'Mada',
       sub: isAr ? 'بطاقة مدى السعودية' : 'National Saudi Debit',
       defaultAccount: 'SAMA-MD-99120',
       gatewayType: 'moyasar',

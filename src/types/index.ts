@@ -34,6 +34,8 @@ export interface Store {
   ownerAr?: string;
   ownerEn?: string;
   ownerEmail: string;
+  /** Master SuperAdmin: when false, store login OTP/Clerk is blocked (MySQL). Default true. */
+  loginEmailActive?: boolean;
   plan: PlanType;
   masterGrantedPro: boolean;
   /** Master override: Free unlocks N templates per Canva category (null = plan default 5). Pro ignores. */
@@ -431,23 +433,30 @@ export interface CategoryFieldDefinition {
   active: boolean;
 }
 
-export type OrderStatus = 
-  | 'pending' 
+export type OrderStatus =
+  | 'draft'
+  | 'deleted'
+  | 'pending'
+  | 'partially_paid'
+  | 'pending_review'
   | 'processing'
   | 'preparing'
-  | 'shipped' 
-  | 'out_for_delivery' 
-  | 'delivered' 
-  | 'completed' 
+  | 'shipped'
+  | 'out_for_delivery'
+  | 'delivered'
+  | 'completed'
   | 'cancellation_requested'
-  | 'cancelled' 
+  | 'cancelled'
   | 'returned'
+  | 'return_in_progress'
+  | 'rfq'
   | 'refunded';
 
 export type OrderSource =
   | 'Instagram'
   | 'Google Ads'
   | 'Direct'
+  | 'Website'
   | 'TikTok'
   | 'Snapchat'
   | 'Organic Search'
@@ -455,6 +464,10 @@ export type OrderSource =
   | 'Referral'
   | 'WhatsApp'
   | 'Facebook'
+  | 'X'
+  | 'Telegram'
+  | 'YouTube'
+  | 'Other'
   | string;
 
 export type PaymentMethod =
@@ -469,7 +482,14 @@ export type PaymentMethod =
   | 'COD'
   | 'Tabby'
   | 'Tamara'
+  | 'PayPal'
+  | 'Google Pay'
+  | 'Samsung Pay'
+  | 'Customer Wallet'
+  | 'MIS Pay'
+  | 'Madfoat'
   | 'Bank Transfer'
+  | 'Emkan'
   | 'bank_transfer'
   | string;
 

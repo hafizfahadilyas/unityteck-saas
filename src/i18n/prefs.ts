@@ -123,7 +123,13 @@ function parseBrand(raw: unknown): BrandState {
         ? b.customAccentHex.trim()
         : `#${b.customAccentHex.trim()}`
       : null;
-  return { palette, font, fontEn, fontAr, iconStyle, fontWeight, customAccentHex };
+  const customScrollbarHex =
+    typeof b.customScrollbarHex === 'string' && /^#?[0-9a-fA-F]{3,8}$/.test(b.customScrollbarHex.trim())
+      ? b.customScrollbarHex.startsWith('#')
+        ? b.customScrollbarHex.trim()
+        : `#${b.customScrollbarHex.trim()}`
+      : null;
+  return { palette, font, fontEn, fontAr, iconStyle, fontWeight, customAccentHex, customScrollbarHex };
 }
 
 export function readPrefs(): PrefsState {

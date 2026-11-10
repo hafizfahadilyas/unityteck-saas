@@ -35,12 +35,37 @@ type LoginResponse = {
   abilities?: string[];
 };
 
+/** Prefer document lang (prefs), else localStorage prefs — never mix AR+EN in one error string. */
+function authIsAr(): boolean {
+  try {
+    if (typeof document !== 'undefined') {
+      const lang = document.documentElement?.getAttribute('lang');
+      if (lang === 'ar' || lang === 'en') return lang === 'ar';
+    }
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('unityteck_prefs');
+      if (raw) {
+        const parsed = JSON.parse(raw) as { locale?: string };
+        if (parsed?.locale === 'ar') return true;
+        if (parsed?.locale === 'en') return false;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+function authMsg(ar: string, en: string): string {
+  return authIsAr() ? ar : en;
+}
+
 /** Default secure admin credentials per store (configurable via Vite env variables) */
 export const DEMO_CREDENTIALS = {
   master: {
     email: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MASTER_ADMIN_EMAIL) || 'master@unityteck.com',
     password: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MASTER_ADMIN_PASSWORD) || 'UnityMaster@2026!Secure',
-    name: 'Unityteck Master SuperAdmin',
+    name: 'Souq Platform SuperAdmin',
     aliases: ['master@unityteck.com', 'admin@unityteck.com', 'admin@giftshop-sa.com', 'master', 'admin', 'superadmin'],
   },
   store: {
@@ -447,25 +472,43 @@ function mockLogin(
   // 1. Rigorous input validation & anti-SQLi / XSS protection
   const secCheck = validateAuthInput(identifier, password);
   if (!secCheck.isSecure) {
-    throw new Error(secCheck.messageAr || secCheck.messageEn || 'Security check failed. Malicious input detected.');
+    throw new Error(
+      authMsg(
+        secCheck.messageAr || 'فشل فحص الأمان. تم اكتشاف إدخال غير آمن.',
+        secCheck.messageEn || 'Security check failed. Malicious input detected.',
+      ),
+    );
   }
 
   const normalized = (identifier || '').trim().toLowerCase();
   const inputPw = (password || '').trim();
 
   if (!normalized) {
-    throw new Error('يرجى إدخال اسم المستخدم أو البريد الإلكتروني / Username or email is required.');
+    throw new Error(
+      authMsg(
+        'يرجى إدخال اسم المستخدم أو البريد الإلكتروني.',
+        'Username or email is required.',
+      ),
+    );
   }
 
   if (!inputPw || inputPw.length < 6) {
-    throw new Error('كلمة المرور يجب ألا تقل عن 6 خانات / Password must be at least 6 characters.');
+    throw new Error(
+      authMsg(
+        'كلمة المرور يجب ألا تقل عن ٦ خانات.',
+        'Password must be at least 6 characters.',
+      ),
+    );
   }
 
   // Strictly block generic demo password "password"
   if (inputPw.toLowerCase() === 'password') {
     recordFailedAttempt(normalized);
     throw new Error(
-      'كلمة المرور غير صحيحة. يرجى إدخال كلمة المرور المعتمدة لمتجرك / Invalid password.'
+      authMsg(
+        'كلمة المرور غير صحيحة. يرجى إدخال كلمة المرور المعتمدة لمتجرك.',
+        'Invalid password.',
+      ),
     );
   }
 
@@ -483,7 +526,7 @@ function mockLogin(
         'master',
         {
           id: 'user-master-1',
-          name: 'Unityteck Master SuperAdmin',
+          name: 'Souq Platform SuperAdmin',
           email: demo.email,
           role: 'super_admin',
         },
@@ -496,19 +539,30 @@ function mockLogin(
     const rateLimitMaster = getRateLimitStatus(normalized);
     if (rateLimitMaster.isLocked) {
       throw new Error(
-        `تم حظر الدخول مؤقتاً لحماية الحساب من محاولات التخمين. يرجى الانتظار ${rateLimitMaster.remainingSeconds} ثانية. (Anti-Brute-Force Locked)`,
+        authMsg(
+          `تم حظر الدخول مؤقتاً لحماية الحساب من محاولات التخمين. يرجى الانتظار ${rateLimitMaster.remainingSeconds} ثانية.`,
+          `Login temporarily locked to protect the account. Please wait ${rateLimitMaster.remainingSeconds} seconds.`,
+        ),
       );
     }
 
     recordFailedAttempt(normalized);
-    throw new Error('بيانات دخول إدارة المنصة غير صحيحة / Invalid master credentials.');
+    throw new Error(
+      authMsg(
+        'بيانات دخول إدارة المنصة غير صحيحة.',
+        'Invalid master credentials.',
+      ),
+    );
   }
 
   // 2. Rate limiting check (anti-brute-force)
   const rateLimit = getRateLimitStatus(normalized);
   if (rateLimit.isLocked) {
     throw new Error(
-      `تم حظر الدخول مؤقتاً لحماية الحساب من محاولات التخمين. يرجى الانتظار ${rateLimit.remainingSeconds} ثانية. (Anti-Brute-Force Locked)`,
+      authMsg(
+        `تم حظر الدخول مؤقتاً لحماية الحساب من محاولات التخمين. يرجى الانتظار ${rateLimit.remainingSeconds} ثانية.`,
+        `Login temporarily locked to protect the account. Please wait ${rateLimit.remainingSeconds} seconds.`,
+      ),
     );
   }
 
@@ -530,7 +584,12 @@ function mockLogin(
     const expectedClientPw = expectedPassword(existingClient.email, existingClient.password);
     if (inputPw !== expectedClientPw) {
       recordFailedAttempt(normalized);
-      throw new Error('كلمة المرور غير صحيحة لحساب هذا المتجر / Invalid password for this store account.');
+      throw new Error(
+        authMsg(
+          'كلمة المرور غير صحيحة لحساب هذا المتجر.',
+          'Invalid password for this store account.',
+        ),
+      );
     }
     resetRateLimit(normalized);
     return mockSession(
@@ -556,7 +615,12 @@ function mockLogin(
     const expectedCoffeePw = expectedPassword(coffeeCreds.email, coffeeCreds.password);
     if (inputPw !== expectedCoffeePw) {
       recordFailedAttempt(normalized);
-      throw new Error('كلمة المرور غير صحيحة لمتجر القهوة المختصة / Invalid password for Specialty Coffee store.');
+      throw new Error(
+        authMsg(
+          'كلمة المرور غير صحيحة لمتجر القهوة المختصة.',
+          'Invalid password for Specialty Coffee store.',
+        ),
+      );
     }
     resetRateLimit(normalized);
     return mockSession(
@@ -582,7 +646,12 @@ function mockLogin(
     const expectedCarPw = expectedPassword(carCreds.email, carCreds.password);
     if (inputPw !== expectedCarPw) {
       recordFailedAttempt(normalized);
-      throw new Error('كلمة المرور غير صحيحة لمتجر تنجيد وإكسسوارات السيارات / Invalid password for Car Accessories store.');
+      throw new Error(
+        authMsg(
+          'كلمة المرور غير صحيحة لمتجر تنجيد وإكسسوارات السيارات.',
+          'Invalid password for Car Accessories store.',
+        ),
+      );
     }
     resetRateLimit(normalized);
     return mockSession(
@@ -613,7 +682,12 @@ function mockLogin(
 
     if (inputPw !== expectedGiftPw) {
       recordFailedAttempt(normalized);
-      throw new Error('كلمة المرور غير صحيحة لمتجر هدايا مكة / Invalid password for Makkah Gifts store.');
+      throw new Error(
+        authMsg(
+          'كلمة المرور غير صحيحة لمتجر هدايا مكة.',
+          'Invalid password for Makkah Gifts store.',
+        ),
+      );
     }
     resetRateLimit(normalized);
     return mockSession(
@@ -632,7 +706,12 @@ function mockLogin(
 
   // Account not found
   recordFailedAttempt(normalized);
-  throw new Error('اسم المستخدم أو البريد الإلكتروني غير مسجل. يرجى التحقق من بيانات الدخول لمتجرك / Account not found. Please verify your username or email.');
+  throw new Error(
+    authMsg(
+      'اسم المستخدم أو البريد الإلكتروني غير مسجل. يرجى التحقق من بيانات الدخول لمتجرك.',
+      'Account not found. Please verify your username or email.',
+    ),
+  );
 }
 
 /**
@@ -645,7 +724,10 @@ export async function loginPortal(
   _password: string,
 ): Promise<LoginResult> {
   throw new Error(
-    'OTP_REQUIRED: تسجيل الدخول بكلمة المرور مغلق. استخدم رمز التحقق المرسل إلى البريد / Password login is disabled. Use the email verification code (OTP).',
+    authMsg(
+      'OTP_REQUIRED: تسجيل الدخول بكلمة المرور مغلق. استخدم رمز التحقق المرسل إلى البريد.',
+      'OTP_REQUIRED: Password login is disabled. Use the email verification code.',
+    ),
   );
 }
 
@@ -665,7 +747,10 @@ export async function loginWithSaudiPhoneOtp(
   _code: string,
 ): Promise<LoginResult> {
   throw new Error(
-    'OTP_REQUIRED: تسجيل الدخول برمز الجوال غير مفعّل بعد. استخدم رمز التحقق عبر البريد / Phone OTP login is not enabled. Use email verification code.',
+    authMsg(
+      'OTP_REQUIRED: تسجيل الدخول برمز الجوال غير مفعّل بعد. استخدم رمز التحقق عبر البريد.',
+      'OTP_REQUIRED: Phone verification login is not enabled. Use the email verification code.',
+    ),
   );
 }
 
@@ -1009,7 +1094,9 @@ export async function verifyOtp(
 function mockSessionFromEmail(portal: AuthPortal, identifier: string): AuthSession {
   const normalized = (identifier || '').trim().toLowerCase();
   if (!normalized) {
-    throw new Error('يرجى إدخال البريد الإلكتروني / Email is required.');
+    throw new Error(
+      authMsg('يرجى إدخال البريد الإلكتروني.', 'Email is required.'),
+    );
   }
 
   if (portal === 'master') {
@@ -1018,13 +1105,18 @@ function mockSessionFromEmail(portal: AuthPortal, identifier: string): AuthSessi
       normalized === demo.email.toLowerCase() ||
       (demo.aliases as readonly string[]).includes(normalized);
     if (!isMasterIdentifier) {
-      throw new Error('بيانات دخول إدارة المنصة غير صحيحة / Invalid master credentials.');
+      throw new Error(
+        authMsg(
+          'بيانات دخول إدارة المنصة غير صحيحة.',
+          'Invalid master credentials.',
+        ),
+      );
     }
     return mockSession(
       'master',
       {
         id: 'user-master-1',
-        name: 'Unityteck Master SuperAdmin',
+        name: 'Souq Platform SuperAdmin',
         email: demo.email,
         role: 'super_admin',
       },
@@ -1141,7 +1233,9 @@ function consumeMockOtp(portal: AuthPortal, email: string, code: string): void {
   const map = raw ? (JSON.parse(raw) as Record<string, string>) : {};
   const key = `${portal}:login:${normalized}`;
   if (map[key] !== code.trim()) {
-    throw new Error('رمز التحقق غير صحيح أو منتهي / Invalid or expired code.');
+    throw new Error(
+      authMsg('رمز التحقق غير صحيح أو منتهي.', 'Invalid or expired code.'),
+    );
   }
   delete map[key];
   sessionStorage.setItem(MOCK_OTP_KEY, JSON.stringify(map));
@@ -1154,19 +1248,46 @@ function consumeMockOtp(portal: AuthPortal, email: string, code: string): void {
 const clerkExchangeInflight = new Map<string, Promise<AuthSession | null>>();
 const clerkExchangeFailUntil = new Map<string, number>();
 
+/**
+ * Hostinger MySQL cold-start often 20–50s; exchange also does 2 Clerk Backend API calls.
+ * 25s was aborting before Sanctum mint → login stuck / empty dashboard.
+ */
+export const CLERK_EXCHANGE_TIMEOUT_MS = 60_000;
+
 function clerkExchangeKey(portal: AuthPortal, email: string, storeId?: string | null): string {
   return `${portal}:${email.trim().toLowerCase()}:${storeId || ''}`;
 }
 
+async function warmApiDatabase(timeoutMs = 45_000): Promise<void> {
+  try {
+    await apiFetch<{ status?: string; database?: string }>('/health', {
+      method: 'GET',
+      skipAuth: true,
+      timeoutMs,
+    });
+  } catch {
+    // Exchange will surface a real error if API/DB is still down
+  }
+}
+
+export type ExchangeClerkOptions = {
+  /** Skip fail-cooldown (use after fresh OTP). */
+  force?: boolean;
+  /** Throw instead of returning null so PortalLogin can toast + stay on OTP. */
+  throwOnFail?: boolean;
+};
+
 /**
  * After Clerk verifies email OTP, mint a real Sanctum PAT so /products etc. work.
  * Requires the Clerk session JWT — email alone cannot mint a token.
+ * Never writes a Clerk-JWT-only session; only persists after Sanctum mint succeeds.
  */
 export async function exchangeClerkForSanctum(
   portal: AuthPortal,
   email: string,
   storeId?: string | null,
   clerkToken?: string | null,
+  options?: ExchangeClerkOptions,
 ): Promise<AuthSession | null> {
   if (!isApiEnabled()) return null;
 
@@ -1177,16 +1298,50 @@ export async function exchangeClerkForSanctum(
   }
 
   const key = clerkExchangeKey(portal, email, storeId);
+  const force = options?.force === true;
+  const throwOnFail = options?.throwOnFail === true;
   const failUntil = clerkExchangeFailUntil.get(key) ?? 0;
-  if (Date.now() < failUntil) {
+  if (!force && Date.now() < failUntil) {
+    if (throwOnFail) {
+      throw new Error(
+        authMsg(
+          'محاولة ربط الجلسة ما زالت قيد الانتظار. انتظر لحظات ثم أعد المحاولة.',
+          'Session link still cooling down. Wait a moment and try again.',
+        ),
+      );
+    }
     return null;
+  }
+  if (force) {
+    clerkExchangeFailUntil.delete(key);
   }
 
   const inflight = clerkExchangeInflight.get(key);
   if (inflight) return inflight;
 
+  const fail = (err: unknown): AuthSession | null => {
+    const msg = err instanceof Error ? err.message : String(err);
+    const backoffMs = /429|Too Many/i.test(msg)
+      ? 45_000
+      : /timeout|network|Failed to fetch|ECONNREFUSED|abort/i.test(msg)
+        ? 4_000
+        : 4_000;
+    clerkExchangeFailUntil.set(key, Date.now() + backoffMs);
+    console.warn('Clerk→Sanctum exchange unavailable:', err);
+    if (
+      throwOnFail ||
+      /422|inactive|CLERK_SECRET|matching account|Unprocessable|timeout|abort/i.test(msg)
+    ) {
+      throw err instanceof Error ? err : new Error(msg);
+    }
+    return null;
+  };
+
   const run = (async (): Promise<AuthSession | null> => {
     try {
+      // Wake Hostinger PDO before the heavy Clerk+membership exchange.
+      await warmApiDatabase(Math.min(45_000, CLERK_EXCHANGE_TIMEOUT_MS - 5_000));
+
       const data = await Promise.race([
         apiFetch<LoginResponse>('/auth/clerk/exchange', {
           method: 'POST',
@@ -1197,30 +1352,50 @@ export async function exchangeClerkForSanctum(
             clerk_token: token,
           },
           skipAuth: true,
+          timeoutMs: CLERK_EXCHANGE_TIMEOUT_MS,
         }),
         new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('Clerk exchange timeout')), 5000);
+          setTimeout(
+            () =>
+              reject(
+                new Error(
+                  authMsg(
+                    'انتهت مهلة ربط الجلسة (قاعدة البيانات بطيئة). أعد إدخال رمز التحقق أو انتظر قليلاً ثم حاول مرة أخرى.',
+                    'Session link timed out (database is slow). Re-enter the verification code, or wait a moment and try again.',
+                  ),
+                ),
+              ),
+            CLERK_EXCHANGE_TIMEOUT_MS,
+          );
         }),
       ]);
       if (!data?.token || !data?.user) {
-        clerkExchangeFailUntil.set(key, Date.now() + 60_000);
-        return null;
+        return fail(
+          new Error(
+            authMsg(
+              'تعذّر ربط الجلسة بقاعدة البيانات. أعد تسجيل الدخول.',
+              'Could not link your session to the database. Sign in again.',
+            ),
+          ),
+        );
+      }
+      // Reject Clerk JWT masquerading as Sanctum (must be PAT: id|hash)
+      if (!data.token.includes('|')) {
+        return fail(
+          new Error(
+            authMsg(
+              'استجابة تسجيل الدخول غير صالحة. أعد المحاولة.',
+              'Invalid login response. Try again.',
+            ),
+          ),
+        );
       }
       clerkExchangeFailUntil.delete(key);
       const session = toSession(data);
       writeAuthSession(session);
       return session;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      // 422 wrong email / 429 rate limit / timeout — back off hard
-      const backoffMs = /429|Too Many/i.test(msg)
-        ? 120_000
-        : /422|matching account|Unprocessable|OTP|clerk/i.test(msg)
-          ? 300_000
-          : 60_000;
-      clerkExchangeFailUntil.set(key, Date.now() + backoffMs);
-      console.warn('Clerk→Sanctum exchange unavailable:', err);
-      return null;
+      return fail(err);
     } finally {
       clerkExchangeInflight.delete(key);
     }
@@ -1240,16 +1415,29 @@ export async function loginWithEmailOtp(
 
   const secCheck = validateAuthInput(cleanEmail, cleanCode);
   if (!secCheck.isSecure) {
-    throw new Error(secCheck.messageAr || secCheck.messageEn || 'Security check failed. Malicious input blocked.');
+    throw new Error(
+      authMsg(
+        secCheck.messageAr || 'فشل فحص الأمان. تم حظر إدخال غير آمن.',
+        secCheck.messageEn || 'Security check failed. Malicious input blocked.',
+      ),
+    );
   }
 
   if (!cleanCode || cleanCode.length !== 6) {
-    throw new Error('رمز التحقق يجب أن يتكون من 6 أرقام / Verification code must be 6 digits.');
+    throw new Error(
+      authMsg(
+        'رمز التحقق يجب أن يتكون من ٦ أرقام.',
+        'Verification code must be 6 digits.',
+      ),
+    );
   }
 
   if (!isApiEnabled()) {
     throw new Error(
-      'OTP_REQUIRED: واجهة البرمجة غير مفعّلة — لا يمكن تسجيل الدخول بدون تحقق حقيقي / API disabled — login requires live OTP verification.',
+      authMsg(
+        'OTP_REQUIRED: واجهة البرمجة غير مفعّلة — لا يمكن تسجيل الدخول بدون تحقق حقيقي.',
+        'OTP_REQUIRED: API disabled — login requires live verification.',
+      ),
     );
   }
 
@@ -1261,7 +1449,18 @@ export async function loginWithEmailOtp(
         skipAuth: true,
       }),
       new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('API OTP login timeout — backend server unreachable')), 4000);
+        setTimeout(
+          () =>
+            reject(
+              new Error(
+                authMsg(
+                  'انتهت مهلة التحقق عبر رمز التحقق — الخادم غير متاح.',
+                  'Verification login timeout — backend server unreachable',
+                ),
+              ),
+            ),
+          4000,
+        );
       }),
     ]);
 
@@ -1273,47 +1472,56 @@ export async function loginWithEmailOtp(
     }
 
     throw new Error(
-      'رمز التحقق غير صالح أو منتهٍ / Invalid or expired verification code.',
+      authMsg(
+        'رمز التحقق غير صالح أو منتهٍ.',
+        'Invalid or expired verification code.',
+      ),
     );
   } catch (err) {
     // Never fall back to mock OTP when live API mode is on
     throw err instanceof Error
       ? err
-      : new Error('رمز التحقق غير صالح أو منتهٍ / Invalid or expired verification code.');
+      : new Error(
+          authMsg(
+            'رمز التحقق غير صالح أو منتهٍ.',
+            'Invalid or expired verification code.',
+          ),
+        );
   }
 }
 
 export async function logoutPortal(): Promise<void> {
+  // Clear local session FIRST so the UI never looks "stuck" on Sign out.
+  const token = getAuthToken();
+  clearAuthSession(true);
+
+  // Best-effort remote logout — never block the login screen on a hung API.
+  if (isApiEnabled() && token && !token.startsWith('mock-') && !token.startsWith('clerk-')) {
+    void Promise.race([
+      apiFetch('/auth/logout', { method: 'POST' }).catch(() => undefined),
+      new Promise<void>((resolve) => setTimeout(resolve, 1500)),
+    ]);
+  }
+
+  // Clear Clerk browser session — otherwise next OTP hits "already signed in".
+  // Do not await forever; do not use redirectUrl (SPA navigates itself).
   try {
-    const token = getAuthToken();
-    if (isApiEnabled() && token && !token.startsWith('mock-')) {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 2500);
-      try {
-        await apiFetch('/auth/logout', { method: 'POST' });
-      } catch {
-        // ignore logout errors
-      } finally {
-        clearTimeout(timer);
-      }
+    const clerkApi =
+      typeof window !== 'undefined'
+        ? (
+            window as Window & {
+              Clerk?: { signOut?: (opts?: { redirectUrl?: string }) => Promise<void> };
+            }
+          ).Clerk
+        : undefined;
+    if (clerkApi?.signOut) {
+      await Promise.race([
+        // null redirect = stay in SPA (no full page reload)
+        clerkApi.signOut({ redirectUrl: undefined }).catch(() => undefined),
+        new Promise<void>((resolve) => setTimeout(resolve, 2000)),
+      ]);
     }
-  } finally {
-    // Clear Clerk browser session too — otherwise next OTP login hits "You're already signed in."
-    // Explicit redirectUrl prevents ClerkProvider afterSignOutUrl from dumping onto public "/".
-    try {
-      const clerkApi = (typeof window !== 'undefined'
-        ? (window as Window & {
-            Clerk?: { signOut?: (opts?: { redirectUrl?: string }) => Promise<void> };
-          }).Clerk
-        : undefined);
-      if (clerkApi?.signOut) {
-        const path = typeof window !== 'undefined' ? window.location.pathname : '';
-        const redirectUrl = path.includes('/master') ? '/master/login' : '/store/login';
-        await clerkApi.signOut({ redirectUrl });
-      }
-    } catch {
-      // ignore Clerk sign-out failures
-    }
-    clearAuthSession(true);
+  } catch {
+    /* ignore Clerk sign-out failures */
   }
 }

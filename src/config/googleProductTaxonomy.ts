@@ -197,3 +197,17 @@ export function isKnownGoogleTaxonomy(value: string): boolean {
 export function googleTaxonomyLabel(row: GoogleTaxonomyOption, isAr: boolean): string {
   return isAr ? row.pathAr : row.path;
 }
+
+/** Resolve a stored taxonomy path/id to locale display text; empty stays empty. */
+export function resolveGoogleTaxonomyLabel(value: string | null | undefined, isAr: boolean): string {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const found = GOOGLE_PRODUCT_TAXONOMY.find(
+    (row) =>
+      row.path.toLowerCase() === raw.toLowerCase() ||
+      row.pathAr === raw ||
+      row.id === raw,
+  );
+  if (found) return googleTaxonomyLabel(found, isAr);
+  return raw;
+}

@@ -566,14 +566,9 @@ export function getStoreSeoDeepAudit(
   storeSlug: string,
   productsCount: number,
 ): SeoDeepAuditItem[] {
-  const key = `unityteck_seo_deep_audit_${storeId}`;
-  try {
-    const raw = localStorage.getItem(key);
-    if (raw) return JSON.parse(raw);
-  } catch {
-    // fallback
-  }
-  // Zero-mock: no fabricated audit rows — empty until a real crawl/API exists
+  // Zero-mock: never hydrate fabricated localStorage audit rows.
+  // Empty until a real crawl/API exists (Wave 1.4).
+  void storeId;
   void storeName;
   void storeSlug;
   void productsCount;

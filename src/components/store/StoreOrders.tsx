@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useTenant } from '../../context/TenantContext';
 import type { Order, OrderStatus } from '../../types';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { AdminPageShell } from '../common/AdminPageHeader';
-import { FloatingPopover, placePopoverBelow, type PopoverPlacement } from '../common/FloatingPopover';
+import { FloatingPopover } from '../common/FloatingPopover';
 import { displayOrderNumber } from '../../utils/orderNumber';
 import { fetchOrder } from '../../api/tenantApi';
 import {
@@ -17,13 +16,11 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
-  Eye,
   MoreHorizontal,
   Printer,
   Edit,
   Trash2,
   Copy,
-  Globe,
   Share2,
   Bot,
   CreditCard,
@@ -33,11 +30,9 @@ import {
   MapPin,
   Package,
   ShoppingBag,
-  Banknote,
   TrendingUp,
   TrendingDown,
   X,
-  SlidersHorizontal,
   FileText,
   Calendar,
   User,
@@ -50,6 +45,7 @@ import {
   ExternalLink,
   UserCheck,
   Download,
+  UploadCloud,
   Settings,
   ChevronDown,
   Layers,
@@ -64,13 +60,9 @@ import {
   localizeOrderStatus,
   localizePaymentMethod,
   localizeSalesChannel,
-  localizePaymentStatus,
-  localizeShippingStatus,
   localizeShippingCompany,
 } from '../../utils/domainLabels';
-import { localeMixedLabel } from '../../utils/localeMixedLabel';
 import type { InvoiceDocument } from '../../types/invoices';
-import { EditOrderModal } from '../common/EditOrderModal';
 import { ReturnsManager } from './orders/ReturnsManager';
 import { CodLedgerModal } from './orders/CodLedgerModal';
 import { OrderDetailsModal } from './orders/OrderDetailsModal';
@@ -101,6 +93,10 @@ import {
   MastercardIcon,
   CodIcon,
 } from '../../themes/coffeeRoasters/components/PaymentIcons';
+import {
+  ORDER_STATUS_CATALOG,
+  catalogLabel,
+} from '../../utils/orderCatalogOptions';
 
 /**
  * StoreOrders — Store Admin Order Management (100% Pixel Perfect to Mockups 04 & 05)
@@ -135,9 +131,12 @@ export const StoreOrders: React.FC = () => {
     shippingStatus: 'all',
     paymentMethod: 'all',
     orderSource: 'all',
+    shippingCompany: 'all',
+    status: 'all',
   });
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all');
   const [selectedSource, setSelectedSource] = useState<string>('all');
+  const [selectedShippingCompany, setSelectedShippingCompany] = useState<string>('all');
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [page, setPage] = useState(1);
@@ -146,46 +145,16 @@ export const StoreOrders: React.FC = () => {
   const [showNewOrderModal, setShowNewOrderModal] = useState(false);
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [activeActionMenuId, setActiveActionMenuId] = useState<string | null>(null);
-  const [actionMenuPos, setActionMenuPos] = useState<PopoverPlacement | null>(null);
-  const actionMenuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!activeActionMenuId) return;
-    const close = () => {
-      setActiveActionMenuId(null);
-      setActionMenuPos(null);
-    };
-    const onPointerDown = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (actionMenuRef.current?.contains(target)) return;
-      if ((target as HTMLElement)?.closest?.('[data-order-actions-trigger]')) return;
-      close();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
-    };
-    window.addEventListener('mousedown', onPointerDown);
-    window.addEventListener('scroll', close, true);
-    window.addEventListener('resize', close);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('mousedown', onPointerDown);
-      window.removeEventListener('scroll', close, true);
-      window.removeEventListener('resize', close);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [activeActionMenuId]);
+  const [actionMenuMode, setActionMenuMode] = useState<'main' | 'status'>('main');
+  const actionMenuAnchorRef = useRef<HTMLElement | null>(null);
 
   // Modals state
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [invoiceOrder, setInvoiceOrder] = useState<Order | null>(null);
   const [invoiceConfig, setInvoiceConfig] = useState<any>(() => invoiceService.getTemplateConfig(activeStore.id));
-  const [showEditOrderModal, setShowEditOrderModal] = useState(false);
-  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
-
   const orderDetailFetched = useRef(new Set<string>());
   useEffect(() => {
-    const row = [invoiceOrder, editingOrder].find((o) => o && (!o.items || o.items.length === 0));
+    const row = invoiceOrder && (!invoiceOrder.items || invoiceOrder.items.length === 0) ? invoiceOrder : null;
     if (!activeStore?.id || !row?.id || orderDetailFetched.current.has(row.id)) return;
     orderDetailFetched.current.add(row.id);
     const rowId = row.id;
@@ -194,13 +163,12 @@ export const StoreOrders: React.FC = () => {
       .then((full) => {
         if (cancelled || !full) return;
         setInvoiceOrder((prev) => (prev?.id === rowId ? full : prev));
-        setEditingOrder((prev) => (prev?.id === rowId ? full : prev));
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [activeStore?.id, invoiceOrder, editingOrder]);
+  }, [activeStore?.id, invoiceOrder]);
   const [showReturnsModal, setShowReturnsModal] = useState(false);
   const [returnsOrder, setReturnsOrder] = useState<Order | null>(null);
   const [showCodLedgerModal, setShowCodLedgerModal] = useState(false);
@@ -216,13 +184,49 @@ export const StoreOrders: React.FC = () => {
   const [showAutoAssignmentModal, setShowAutoAssignmentModal] = useState(false);
   const [showPaymentTransactionsModal, setShowPaymentTransactionsModal] = useState(false);
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
-  const [openFilterDropdown, setOpenFilterDropdown] = useState<'date' | 'payment' | 'shipping' | 'source' | null>(null);
   const orderToolsBtnRef = useRef<HTMLButtonElement | null>(null);
-  const dateFilterBtnRef = useRef<HTMLButtonElement | null>(null);
-  const paymentFilterBtnRef = useRef<HTMLButtonElement | null>(null);
-  const shippingFilterBtnRef = useRef<HTMLButtonElement | null>(null);
-  const sourceFilterBtnRef = useRef<HTMLButtonElement | null>(null);
   const bulkStatusBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  const resetOrderFilters = () => {
+    setOrderFilters({
+      datePreset: 'all',
+      startDate: '',
+      endDate: '',
+      paymentStatus: 'all',
+      shippingStatus: 'all',
+      paymentMethod: 'all',
+      orderSource: 'all',
+      shippingCompany: 'all',
+      status: 'all',
+    });
+    setSelectedSource('all');
+    setSelectedShippingCompany('all');
+    setSelectedPaymentMethod('all');
+    setActiveTab('all');
+    setPage(1);
+  };
+
+  const applyOrderFilters = (next: OrderFilterState) => {
+    setOrderFilters(next);
+    if (next.status) setActiveTab(next.status);
+    if (next.paymentMethod) setSelectedPaymentMethod(next.paymentMethod);
+    if (next.orderSource) setSelectedSource(next.orderSource);
+    if (next.shippingCompany) setSelectedShippingCompany(next.shippingCompany);
+    setPage(1);
+  };
+
+  const hasActiveOrderFilters =
+    (orderFilters.status && orderFilters.status !== 'all') ||
+    orderFilters.datePreset !== 'all' ||
+    orderFilters.paymentStatus !== 'all' ||
+    orderFilters.shippingStatus !== 'all' ||
+    (orderFilters.paymentMethod && orderFilters.paymentMethod !== 'all') ||
+    (orderFilters.orderSource && orderFilters.orderSource !== 'all') ||
+    (orderFilters.shippingCompany && orderFilters.shippingCompany !== 'all') ||
+    selectedSource !== 'all' ||
+    selectedShippingCompany !== 'all' ||
+    selectedPaymentMethod !== 'all' ||
+    activeTab !== 'all';
 
   const isAr = locale === 'ar';
 
@@ -407,16 +411,49 @@ export const StoreOrders: React.FC = () => {
     };
   }, [invoiceOrder, activeStore]);
 
-  const handleSaveEditedOrder = (orderId: string, updates: Partial<Order>) => {
-    updateOrder(orderId, updates, activeStore?.id);
-    toast(isAr ? 'تم تحديث بيانات الطلب بنجاح' : 'Order updated successfully', 'success');
-  };
-
   // Editable notes state for Order Details
   const [isEditingCustomerNotes, setIsEditingCustomerNotes] = useState(false);
   const [customerNotesDraft, setCustomerNotesDraft] = useState('');
   const [isEditingInternalNotes, setIsEditingInternalNotes] = useState(false);
   const [internalNotesDraft, setInternalNotesDraft] = useState('');
+
+  // Inline edit drafts for Customer / Shipping / Payment cards
+  const [isEditingCustomerInfo, setIsEditingCustomerInfo] = useState(false);
+  const [customerInfoDraft, setCustomerInfoDraft] = useState({
+    customerName: '',
+    customerPhone: '',
+    customerEmail: '',
+    deliveryLocation: '',
+  });
+  const [isEditingShippingInfo, setIsEditingShippingInfo] = useState(false);
+  const [shippingInfoDraft, setShippingInfoDraft] = useState({
+    shippingCompany: '',
+    trackingNumber: '',
+    shippingStatus: '',
+    shippingAddress: '',
+  });
+  const [isEditingPaymentInfo, setIsEditingPaymentInfo] = useState(false);
+  const [paymentInfoDraft, setPaymentInfoDraft] = useState({
+    paymentMethod: '',
+    paymentStatus: '',
+    transactionId: '',
+  });
+
+  const detailFieldInputClass =
+    'w-full min-w-0 px-2.5 py-1.5 rounded-lg border text-xs font-semibold focus:outline-hidden focus:border-teal-500';
+  const detailFieldInputStyle: React.CSSProperties = {
+    background: 'var(--input-bg)',
+    borderColor: 'var(--border)',
+    color: 'var(--input-fg)',
+  };
+
+  useEffect(() => {
+    setIsEditingCustomerInfo(false);
+    setIsEditingShippingInfo(false);
+    setIsEditingPaymentInfo(false);
+    setIsEditingCustomerNotes(false);
+    setIsEditingInternalNotes(false);
+  }, [selectedOrder?.id]);
 
   // Active vs Archived separation
   const activeOrders = useMemo(() => currentOrders.filter((o) => !o.isArchived), [currentOrders]);
@@ -508,37 +545,6 @@ export const StoreOrders: React.FC = () => {
     );
   };
 
-  // ── Status Tabs with Counts matching Image 1 ──
-  const STATUS_TABS = useMemo(() => {
-    const counts = {
-      all: activeOrders.length,
-      awaiting_payment: activeOrders.filter((o) => o.status === 'pending').length,
-      under_review: activeOrders.filter((o) => (o as any).customStatusId === 'under_review' || o.status === 'pending').length,
-      processing: activeOrders.filter((o) => o.status === 'processing').length,
-      shipped: activeOrders.filter((o) => o.status === 'shipped').length,
-      out_for_delivery: activeOrders.filter((o) => o.status === 'out_for_delivery').length,
-      delivered: activeOrders.filter((o) => o.status === 'completed' || o.status === 'delivered').length,
-      cancelled: activeOrders.filter((o) => o.status === 'cancelled').length,
-      returned: activeOrders.filter((o) => o.status === 'returned').length,
-      refunded: activeOrders.filter((o) => o.paymentStatus === 'Refunded' || o.refundStatus === 'refunded').length,
-      archived: archivedOrders.length,
-    };
-
-    return [
-      { key: 'all', label: isAr ? 'جميع الطلبات' : 'All Orders', count: counts.all, pillColor: 'bg-teal-900 text-teal-100 dark:bg-teal-950 dark:text-teal-200' },
-      { key: 'awaiting_payment', label: isAr ? 'بانتظار الدفع' : 'Pending Payment', count: counts.awaiting_payment, pillColor: 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300' },
-      { key: 'under_review', label: isAr ? 'قيد المراجعة' : 'Under Review', count: counts.under_review, pillColor: 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300' },
-      { key: 'processing', label: isAr ? 'قيد المعالجة' : 'Processing', count: counts.processing, pillColor: 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300' },
-      { key: 'shipped', label: isAr ? 'تم الشحن' : 'Shipped', count: counts.shipped, pillColor: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950/60 dark:text-cyan-300' },
-      { key: 'out_for_delivery', label: isAr ? 'جاري التوصيل' : 'Out for Delivery', count: counts.out_for_delivery, pillColor: 'bg-orange-100 text-orange-800 dark:bg-orange-950/60 dark:text-orange-300' },
-      { key: 'delivered', label: isAr ? 'تم التوصيل' : 'Delivered', count: counts.delivered, pillColor: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300' },
-      { key: 'cancelled', label: isAr ? 'ملغي' : 'Cancelled', count: counts.cancelled, pillColor: 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300' },
-      { key: 'returned', label: isAr ? 'مسترجع' : 'Returned', count: counts.returned, pillColor: 'bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-950/60 dark:text-fuchsia-300' },
-      { key: 'refunded', label: isAr ? 'مسترد' : 'Refunded', count: counts.refunded, pillColor: 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-300' },
-      { key: 'archived', label: isAr ? 'الأرشيف' : 'Archived', count: counts.archived, pillColor: 'bg-slate-100 text-slate-600 dark:bg-slate-850 dark:text-slate-400' },
-    ];
-  }, [activeOrders, archivedOrders, isAr]);
-
   // ── Filtered & Paginated orders ──
   const filteredOrders = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -552,9 +558,27 @@ export const StoreOrders: React.FC = () => {
         o.customerPhone.includes(q);
 
       const effectivePaymentMethod = orderFilters.paymentMethod || selectedPaymentMethod;
-      const matchesPayment =
-        effectivePaymentMethod === 'all' ||
-        o.paymentMethod.toLowerCase().includes(effectivePaymentMethod.toLowerCase());
+      const matchesPayment = (() => {
+        if (effectivePaymentMethod === 'all') return true;
+        const pm = String(o.paymentMethod || '').toLowerCase();
+        const target = String(effectivePaymentMethod).toLowerCase();
+        if (!pm) return false;
+        if (pm === target || pm.includes(target) || target.includes(pm)) return true;
+        const aliases: Record<string, string[]> = {
+          apple: ['apple pay', 'apple'],
+          googlepay: ['google pay', 'googlepay'],
+          samsung: ['samsung pay', 'samsung'],
+          customer_wallet: ['customer wallet', 'wallet', 'محفظة'],
+          mispay: ['mis pay', 'mispay'],
+          madfoat: ['madfoat', 'madfooat'],
+          stc: ['stc pay', 'stc'],
+          bank: ['bank transfer', 'bank', 'تحويل'],
+          visa: ['visa', 'visa/mc'],
+          mada: ['mada', 'مدى'],
+        };
+        const keys = aliases[target] || [target];
+        return keys.some((k) => pm.includes(k));
+      })();
 
       const effectiveSource = orderFilters.orderSource || selectedSource;
       const matchesSource = (() => {
@@ -565,17 +589,33 @@ export const StoreOrders: React.FC = () => {
         return src === target || src.includes(target) || target.includes(src);
       })();
 
+      const effectiveShippingCompany = orderFilters.shippingCompany || selectedShippingCompany;
+      const matchesShippingCompany = (() => {
+        if (effectiveShippingCompany === 'all') return true;
+        const company = String(o.shippingCompany || '').toLowerCase();
+        const target = String(effectiveShippingCompany).toLowerCase();
+        if (!company) return false;
+        if (company === target || company.includes(target) || target.includes(company)) return true;
+        if (target === 'smsa') return company.includes('smsa') || company.includes('سمسا');
+        if (target === 'redbox') return company.includes('redbox') || company.includes('red box') || company.includes('ريدبوكس');
+        if (target === 'aymakan') return company.includes('aymakan') || company.includes('أي مكان');
+        if (target === 'j&t express') return company.includes('j&t') || company.includes('j and t') || company.includes('جي اند تي');
+        if (target === 'free shipping') return company.includes('free') || company.includes('شحن مجاني');
+        return false;
+      })();
+
       // Payment Status filter
       const matchesPaymentStatus = (() => {
         if (orderFilters.paymentStatus === 'all') return true;
         const ps = (o.paymentStatus || '').toLowerCase();
         const target = orderFilters.paymentStatus.toLowerCase();
         if (ps === target) return true;
-        if (target === 'paid') return ps.includes('paid') || o.status === 'completed';
+        if (target === 'paid') return (ps.includes('paid') && !ps.includes('partial')) || o.status === 'completed';
         if (target === 'pending payment') return ps.includes('pending') || o.status === 'pending';
         if (target === 'payment failed') return ps.includes('fail');
-        if (target === 'refunded') return ps.includes('refund');
-        if (target === 'partially refunded') return ps.includes('partially');
+        if (target === 'refunded') return ps.includes('refund') && !ps.includes('partial');
+        if (target === 'partially refunded') return ps.includes('partially refund');
+        if (target === 'partially paid') return ps.includes('partial') || o.status === 'partially_paid';
         return false;
       })();
 
@@ -638,6 +678,7 @@ export const StoreOrders: React.FC = () => {
         !matchesSearch ||
         !matchesPayment ||
         !matchesSource ||
+        !matchesShippingCompany ||
         !matchesPaymentStatus ||
         !matchesShippingStatus ||
         !matchesDate
@@ -646,18 +687,13 @@ export const StoreOrders: React.FC = () => {
       }
 
       if (activeTab === 'all' || activeTab === 'archived') return true;
-      if (activeTab === 'awaiting_payment') return o.status === 'pending';
-      if (activeTab === 'under_review') return (o as any).customStatusId === 'under_review' || o.status === 'pending';
-      if (activeTab === 'processing') return o.status === 'processing';
-      if (activeTab === 'shipped') return o.status === 'shipped';
-      if (activeTab === 'out_for_delivery') return o.status === 'out_for_delivery';
-      if (activeTab === 'delivered') return o.status === 'completed' || o.status === 'delivered';
-      if (activeTab === 'cancelled') return o.status === 'cancelled';
-      if (activeTab === 'returned') return o.status === 'returned';
-      if (activeTab === 'refunded') return o.paymentStatus === 'Refunded' || o.refundStatus === 'refunded';
-      return true;
+      const status = String(o.status || '').toLowerCase();
+      if (activeTab === 'pending') return status === 'pending' || status === 'awaiting_payment';
+      if (activeTab === 'delivered') return status === 'delivered';
+      if (activeTab === 'completed') return status === 'completed';
+      return status === activeTab;
     });
-  }, [activeOrders, archivedOrders, search, selectedPaymentMethod, selectedSource, orderFilters, activeTab]);
+  }, [activeOrders, archivedOrders, search, selectedPaymentMethod, selectedSource, selectedShippingCompany, orderFilters, activeTab]);
 
   const handleArchiveSingleOrder = async (ord: Order) => {
     const ok = await confirm({
@@ -836,6 +872,121 @@ export const StoreOrders: React.FC = () => {
     handleExportOrders(ordersToExport, format, filename);
   };
 
+  /**
+   * CSV import → real createOrder API (store_id isolated).
+   * Columns: Customer Name, Phone, Email, City, Payment Method, SKU, Quantity
+   * Skips rows missing name/phone/SKU — never invents products or totals.
+   */
+  const handleImportOrdersCsv = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const text = String(reader.result || '');
+      const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      if (lines.length < 2) {
+        toast(isAr ? 'الملف فارغ أو غير صالح' : 'File is empty or invalid', 'error');
+        return;
+      }
+      const parseRow = (line: string): string[] => {
+        const cells: string[] = [];
+        let inside = false;
+        let cur = '';
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') inside = !inside;
+          else if ((ch === ',' || ch === ';') && !inside) {
+            cells.push(cur.trim().replace(/^"|"$/g, ''));
+            cur = '';
+          } else cur += ch;
+        }
+        cells.push(cur.trim().replace(/^"|"$/g, ''));
+        return cells;
+      };
+      const header = parseRow(lines[0]).map((h) => h.toLowerCase().replace(/\s+/g, ''));
+      const idx = (keys: string[]) => header.findIndex((h) => keys.includes(h));
+      const nameI = idx(['customername', 'name', 'اسمالعميل', 'الاسم']);
+      const phoneI = idx(['phone', 'customer', 'الجوال', 'الهاتف']);
+      const emailI = idx(['email', 'البريد', 'البريدالإلكتروني']);
+      const cityI = idx(['city', 'المدينة']);
+      const payI = idx(['paymentmethod', 'payment', 'طريقةالدفع']);
+      const skuI = idx(['sku', 'productsku', 'رمزالمنتج']);
+      const qtyI = idx(['quantity', 'qty', 'الكمية']);
+
+      let imported = 0;
+      let skipped = 0;
+      for (let i = 1; i < lines.length; i++) {
+        const cols = parseRow(lines[i]);
+        const name = (nameI >= 0 ? cols[nameI] : cols[0] || '').trim();
+        const phone = (phoneI >= 0 ? cols[phoneI] : cols[1] || '').trim();
+        const sku = (skuI >= 0 ? cols[skuI] : '').trim();
+        const qty = Math.max(1, parseInt(qtyI >= 0 ? cols[qtyI] : '1', 10) || 1);
+        if (!name || !phone || !sku) {
+          skipped += 1;
+          continue;
+        }
+        const product = currentProducts.find(
+          (p) => String(p.sku || '').toLowerCase() === sku.toLowerCase() || p.id === sku,
+        );
+        if (!product) {
+          skipped += 1;
+          continue;
+        }
+        const unit = Number(product.discountedPrice ?? product.price ?? 0);
+        const email = (emailI >= 0 ? cols[emailI] : '').trim();
+        const city = (cityI >= 0 ? cols[cityI] : '').trim();
+        const paymentMethod = (payI >= 0 ? cols[payI] : '').trim() || 'COD';
+        try {
+          await addOrder(
+            {
+              customerName: name,
+              customerPhone: phone,
+              customerEmail: email,
+              deliveryLocation: city || undefined,
+              shippingAddress: city || undefined,
+              paymentMethod,
+              paymentStatus: 'Pending',
+              status: 'pending',
+              source: 'Direct',
+              items: [
+                {
+                  productId: product.id,
+                  productName: product.name,
+                  name: product.name,
+                  quantity: qty,
+                  unitPrice: unit,
+                  price: unit,
+                  subtotal: unit * qty,
+                },
+              ],
+              itemsCount: qty,
+              total: unit * qty,
+              currency: 'SAR',
+            } as any,
+            activeStore.id,
+          );
+          imported += 1;
+        } catch {
+          skipped += 1;
+        }
+      }
+      if (imported === 0) {
+        toast(
+          isAr
+            ? 'لم يُستورد أي طلب (يتطلب الاسم والهاتف ورمز منتج موجود)'
+            : 'No orders imported (name + phone + existing SKU required)',
+          'warning',
+        );
+      } else {
+        toast(
+          isAr
+            ? `تم استيراد ${imported} طلب${skipped ? ` · تخطي ${skipped}` : ''}`
+            : `Imported ${imported} order(s)${skipped ? ` · skipped ${skipped}` : ''}`,
+          'success',
+        );
+      }
+    };
+    reader.readAsText(file, 'utf-8');
+  };
+
   const totalCount = filteredOrders.length;
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize));
   const safePage = Math.min(page, pageCount);
@@ -919,74 +1070,37 @@ export const StoreOrders: React.FC = () => {
     );
   };
 
-  // ── Status Chip Renderer ──
+  // ── Status Chip Renderer (catalog labels — exact AR/EN) ──
   const getStatusBadge = (status: OrderStatus | string) => {
     const s = String(status || '').toLowerCase().replace(/[\s-]+/g, '_');
-    switch (s) {
-      case 'delivered':
-        return (
-          <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-[#EBF8F2] text-[#059669] border border-[#A7F3D0] dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800 whitespace-nowrap">
-            {t('deliveredTab')}
-          </span>
-        );
-      case 'completed':
-        return (
-          <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-[#EBF8F2] text-[#059669] border border-[#A7F3D0] dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800 whitespace-nowrap">
-            {t('completed')}
-          </span>
-        );
-      case 'processing':
-        return (
-          <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-[#EBF4FE] text-[#2563EB] border border-[#BFDBFE] dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800 whitespace-nowrap">
-            {t('processingTab')}
-          </span>
-        );
-      case 'pending':
-      case 'awaiting_payment':
-        return (
-          <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-[#FEF6EB] text-[#D97706] border border-[#FDE68A] dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800 whitespace-nowrap">
-            {t('awaitingPaymentTab')}
-          </span>
-        );
-      case 'shipped':
-        return (
-          <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-[#F3EBFD] text-[#7C3AED] border border-[#DDD6FE] dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-800 whitespace-nowrap">
-            {t('shippedTab')}
-          </span>
-        );
-      case 'out_for_delivery':
-        return (
-          <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-[#FEF7EB] text-[#B45309] border border-[#FDE68A] dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800 whitespace-nowrap">
-            {t('outForDeliveryTab')}
-          </span>
-        );
-      case 'cancellation_requested':
-      case 'cancellation_pending':
-        return (
-          <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-700 whitespace-nowrap animate-pulse">
-            {isAr ? 'طلب إلغاء معلق ⏳' : 'Cancel Requested ⏳'}
-          </span>
-        );
-      case 'cancelled':
-      case 'canceled':
-        return (
-          <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-[#FEEBEB] text-[#DC2626] border border-[#FECACA] dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800 whitespace-nowrap">
-            {t('cancelledTab')}
-          </span>
-        );
-      case 'returned':
-        return (
-          <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-[#FFF1F2] text-[#E11D48] border border-[#FFE4E6] dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800 whitespace-nowrap">
-            {t('returnedTab')}
-          </span>
-        );
-      default:
-        return (
-          <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 whitespace-nowrap">
-            {localizeOrderStatus(status, locale)}
-          </span>
-        );
-    }
+    const label = localizeOrderStatus(s === 'awaiting_payment' ? 'pending' : status, locale);
+    const tone =
+      s === 'delivered' || s === 'completed'
+        ? 'bg-[#EBF8F2] text-[#059669] border-[#A7F3D0] dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800'
+        : s === 'processing'
+          ? 'bg-[#EBF4FE] text-[#2563EB] border-[#BFDBFE] dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800'
+          : s === 'pending' || s === 'awaiting_payment' || s === 'partially_paid'
+            ? 'bg-[#FEF6EB] text-[#D97706] border-[#FDE68A] dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800'
+            : s === 'pending_review'
+              ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800'
+              : s === 'shipped'
+                ? 'bg-[#F3EBFD] text-[#7C3AED] border-[#DDD6FE] dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-800'
+                : s === 'out_for_delivery'
+                  ? 'bg-[#FEF7EB] text-[#B45309] border-[#FDE68A] dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800'
+                  : s === 'cancelled' || s === 'canceled' || s === 'deleted'
+                    ? 'bg-[#FEEBEB] text-[#DC2626] border-[#FECACA] dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800'
+                    : s === 'returned' || s === 'return_in_progress'
+                      ? 'bg-[#FFF1F2] text-[#E11D48] border-[#FFE4E6] dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800'
+                      : s === 'draft' || s === 'rfq'
+                        ? 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                        : s === 'cancellation_requested' || s === 'cancellation_pending'
+                          ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-700 animate-pulse'
+                          : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700';
+    return (
+      <span className={`px-3 py-1 rounded-full text-[11px] font-bold border whitespace-nowrap ${tone}`}>
+        {label}
+      </span>
+    );
   };
 
   // ────────────────────────────────────────────────
@@ -1078,17 +1192,65 @@ export const StoreOrders: React.FC = () => {
     const handleSaveCustomerNotes = () => {
       updateOrder(o.id, { customerNotes: customerNotesDraft });
       setIsEditingCustomerNotes(false);
-      toast('Customer notes saved', 'success');
+      toast(isAr ? 'تم حفظ ملاحظات العميل' : 'Customer notes saved', 'success');
     };
 
     const handleSaveInternalNotes = () => {
       updateOrder(o.id, { internalNotes: internalNotesDraft });
       setIsEditingInternalNotes(false);
-      toast('Internal notes saved', 'success');
+      toast(isAr ? 'تم حفظ الملاحظات الداخلية' : 'Internal notes saved', 'success');
+    };
+
+    const handleSaveCustomerInfo = () => {
+      const name = customerInfoDraft.customerName.trim();
+      const phone = customerInfoDraft.customerPhone.trim();
+      updateOrder(
+        o.id,
+        {
+          customerName: name || o.customerName,
+          customerPhone: phone || o.customerPhone,
+          customerEmail: customerInfoDraft.customerEmail.trim() || undefined,
+          deliveryLocation: customerInfoDraft.deliveryLocation.trim(),
+        },
+        activeStore?.id,
+      );
+      setIsEditingCustomerInfo(false);
+      toast(isAr ? 'تم تحديث بيانات العميل' : 'Customer information updated', 'success');
+    };
+
+    const handleSaveShippingInfo = () => {
+      const address = shippingInfoDraft.shippingAddress.trim();
+      updateOrder(
+        o.id,
+        {
+          shippingCompany: shippingInfoDraft.shippingCompany.trim() || undefined,
+          trackingNumber: shippingInfoDraft.trackingNumber.trim() || undefined,
+          shippingStatus: (shippingInfoDraft.shippingStatus.trim() || undefined) as Order['shippingStatus'],
+          shippingAddress: address || undefined,
+          deliveryLocation: address || o.deliveryLocation,
+        },
+        activeStore?.id,
+      );
+      setIsEditingShippingInfo(false);
+      toast(isAr ? 'تم تحديث بيانات الشحن' : 'Shipping information updated', 'success');
+    };
+
+    const handleSavePaymentInfo = () => {
+      updateOrder(
+        o.id,
+        {
+          paymentMethod: (paymentInfoDraft.paymentMethod.trim() || o.paymentMethod) as Order['paymentMethod'],
+          paymentStatus: (paymentInfoDraft.paymentStatus.trim() || o.paymentStatus) as Order['paymentStatus'],
+          transactionId: paymentInfoDraft.transactionId.trim() || undefined,
+        },
+        activeStore?.id,
+      );
+      setIsEditingPaymentInfo(false);
+      toast(isAr ? 'تم تحديث بيانات الدفع' : 'Payment information updated', 'success');
     };
 
     return (
-      <AdminPageShell className="pb-16 max-w-[1600px] mx-auto space-y-5">
+      <AdminPageShell className="pb-40 max-w-[1600px] mx-auto space-y-5">
         {/* ── BREADCRUMBS & TOP HEADER ROW ── */}
         <div className="relative z-0 flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 min-w-0">
           <div className="min-w-0 flex-1">
@@ -1199,20 +1361,6 @@ export const StoreOrders: React.FC = () => {
                 <span>{t('archiveOrder') || (isAr ? 'نقل إلى الأرشيف' : 'Move to Archive')}</span>
               </button>
             )}
-
-            {/* Clean Edit Order button opening modal */}
-            <button
-              type="button"
-              onClick={() => {
-                setEditingOrder(o);
-                setShowEditOrderModal(true);
-              }}
-              className="px-4 py-2.5 rounded-xl text-xs font-bold text-white flex items-center gap-2 cursor-pointer shadow-xs transition-all hover:opacity-95"
-              style={{ background: 'var(--portal-cta, #0284c7)' }}
-            >
-              <Edit className="w-3.5 h-3.5" />
-              <span>{t('editOrder')}</span>
-            </button>
 
             {/* Return / Refund button */}
             {o.status !== 'returned' && o.status !== 'cancelled' && (
@@ -1422,24 +1570,53 @@ export const StoreOrders: React.FC = () => {
                 </div>
                 <button
                   type="button"
-                  onClick={() => toast(t('customerInfo'), 'info')}
+                  onClick={() => {
+                    if (isEditingCustomerInfo) {
+                      setIsEditingCustomerInfo(false);
+                      return;
+                    }
+                    setCustomerInfoDraft({
+                      customerName: o.customerName || '',
+                      customerPhone: o.customerPhone || '',
+                      customerEmail: o.customerEmail || '',
+                      deliveryLocation: o.deliveryLocation || '',
+                    });
+                    setIsEditingShippingInfo(false);
+                    setIsEditingPaymentInfo(false);
+                    setIsEditingCustomerInfo(true);
+                  }}
                   className="text-xs font-black text-slate-700 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white flex items-center gap-1 cursor-pointer"
                 >
                   <Edit className="w-3 h-3" />
-                  <span>{t('edit')}</span>
+                  <span>{isEditingCustomerInfo ? (isAr ? 'إلغاء' : 'Cancel') : t('edit')}</span>
                 </button>
               </div>
 
               <div className="flex items-center justify-between gap-3 mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-full bg-teal-100 text-teal-900 dark:bg-teal-950 dark:text-teal-200 font-black flex items-center justify-center text-sm border border-teal-200">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="w-11 h-11 rounded-full bg-teal-100 text-teal-900 dark:bg-teal-950 dark:text-teal-200 font-black flex items-center justify-center text-sm border border-teal-200 shrink-0">
                     {o.customerAvatar ||
-                      (o.customerName ? o.customerName.slice(0, 2).toUpperCase() : '—')}
+                      ((isEditingCustomerInfo ? customerInfoDraft.customerName : o.customerName)
+                        ? (isEditingCustomerInfo ? customerInfoDraft.customerName : o.customerName).slice(0, 2).toUpperCase()
+                        : '—')}
                   </div>
-                  <div>
-                    <h3 className="font-black text-sm text-slate-950 dark:text-white leading-tight">
-                      {getCustomerDisplayName(o.customerName, locale) || (isAr ? 'عميل' : 'Customer')}
-                    </h3>
+                  <div className="min-w-0 flex-1">
+                    {isEditingCustomerInfo ? (
+                      <input
+                        type="text"
+                        value={customerInfoDraft.customerName}
+                        onChange={(e) =>
+                          setCustomerInfoDraft((prev) => ({ ...prev, customerName: e.target.value }))
+                        }
+                        placeholder={isAr ? 'اسم العميل' : 'Customer name'}
+                        className={detailFieldInputClass}
+                        style={detailFieldInputStyle}
+                      />
+                    ) : (
+                      <h3 className="font-black text-sm text-slate-950 dark:text-white leading-tight">
+                        {getCustomerDisplayName(o.customerName, locale) || (isAr ? 'عميل' : 'Customer')}
+                      </h3>
+                    )}
                     {o.customerType ? (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-900 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 mt-1 inline-block">
                         {o.customerType.toLowerCase().includes('return')
@@ -1450,7 +1627,7 @@ export const StoreOrders: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="text-end text-xs">
+                <div className="text-end text-xs shrink-0">
                   <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block">{t('totalOrders')}</span>
                   <span className="font-black font-mono text-sm text-slate-950 dark:text-white">
                     {typeof (o as { customerOrderCount?: number }).customerOrderCount === 'number'
@@ -1460,20 +1637,72 @@ export const StoreOrders: React.FC = () => {
                 </div>
               </div>
 
-              <div className="space-y-2.5 text-xs">
-                <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100">
-                  <Phone className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0" />
-                  <span className="font-mono">{o.customerPhone || '—'}</span>
+              {isEditingCustomerInfo ? (
+                <div className="space-y-2.5 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0" />
+                    <input
+                      type="tel"
+                      value={customerInfoDraft.customerPhone}
+                      onChange={(e) =>
+                        setCustomerInfoDraft((prev) => ({ ...prev, customerPhone: e.target.value }))
+                      }
+                      placeholder={isAr ? 'رقم الجوال' : 'Phone'}
+                      className={`${detailFieldInputClass} font-mono`}
+                      style={detailFieldInputStyle}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0" />
+                    <input
+                      type="email"
+                      value={customerInfoDraft.customerEmail}
+                      onChange={(e) =>
+                        setCustomerInfoDraft((prev) => ({ ...prev, customerEmail: e.target.value }))
+                      }
+                      placeholder={isAr ? 'البريد الإلكتروني' : 'Email'}
+                      className={detailFieldInputClass}
+                      style={detailFieldInputStyle}
+                    />
+                  </div>
+                  <div className="flex items-start gap-2 pt-1">
+                    <MapPin className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0 mt-2" />
+                    <textarea
+                      value={customerInfoDraft.deliveryLocation}
+                      onChange={(e) =>
+                        setCustomerInfoDraft((prev) => ({ ...prev, deliveryLocation: e.target.value }))
+                      }
+                      placeholder={isAr ? 'الموقع / العنوان' : 'Location / address'}
+                      rows={2}
+                      className={detailFieldInputClass}
+                      style={detailFieldInputStyle}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSaveCustomerInfo}
+                    className="mt-1 px-4 py-2 rounded-xl text-xs font-bold text-white cursor-pointer"
+                    style={{ background: 'var(--portal-cta)' }}
+                  >
+                    {isAr ? 'حفظ' : 'Save'}
+                  </button>
                 </div>
-                <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100">
-                  <Mail className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0" />
-                  <span>{o.customerEmail || '—'}</span>
+              ) : (
+                <div className="space-y-2.5 text-xs">
+                  <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100">
+                    <Phone className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0" />
+                    <span className="font-mono">{o.customerPhone || '—'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100">
+                    <Mail className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0" />
+                    <span>{o.customerEmail || '—'}</span>
+                  </div>
+                  <div className="flex items-start gap-2 pt-1 font-semibold text-slate-800 dark:text-slate-200">
+                    <MapPin className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0 mt-0.5" />
+                    <span>{getLocalizedAddress(o.deliveryLocation, locale) || '—'}</span>
+                  </div>
                 </div>
-                <div className="flex items-start gap-2 pt-1 font-semibold text-slate-800 dark:text-slate-200">
-                  <MapPin className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0 mt-0.5" />
-                  <span>{getLocalizedAddress(o.deliveryLocation, locale) || '—'}</span>
-                </div>
-              </div>
+              )}
             </div>
 
             <div className="pt-4 border-t mt-4 text-[11px] flex justify-between border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-bold">
@@ -1494,81 +1723,174 @@ export const StoreOrders: React.FC = () => {
                 </div>
                 <button
                   type="button"
-                  onClick={() => toast(t('shippingInfo'), 'info')}
+                  onClick={() => {
+                    if (isEditingShippingInfo) {
+                      setIsEditingShippingInfo(false);
+                      return;
+                    }
+                    setShippingInfoDraft({
+                      shippingCompany: o.shippingCompany || '',
+                      trackingNumber: o.trackingNumber || '',
+                      shippingStatus: o.shippingStatus || '',
+                      shippingAddress: o.shippingAddress || o.deliveryLocation || '',
+                    });
+                    setIsEditingCustomerInfo(false);
+                    setIsEditingPaymentInfo(false);
+                    setIsEditingShippingInfo(true);
+                  }}
                   className="text-xs font-black text-slate-700 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white flex items-center gap-1 cursor-pointer"
                 >
                   <Edit className="w-3 h-3" />
-                  <span>{t('edit')}</span>
+                  <span>{isEditingShippingInfo ? (isAr ? 'إلغاء' : 'Cancel') : t('edit')}</span>
                 </button>
               </div>
 
-              <div className="space-y-3 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-700 dark:text-slate-300">{t('shippingCompany')}</span>
-                  <span className="font-black flex items-center gap-1.5 text-slate-950 dark:text-white">
-                    {o.shippingCompany ? (
-                      <>
-                        <ShippingCarrierIcon carrier={o.shippingCompany} />
-                        <span>{localizeShippingCompany(o.shippingCompany, locale)}</span>
-                      </>
-                    ) : (
-                      <span className="text-slate-600 dark:text-slate-400 font-bold italic">{isAr ? 'لم تحدد شركة الشحن' : 'Not Assigned'}</span>
-                    )}
-                  </span>
+              {isEditingShippingInfo ? (
+                <div className="space-y-3 text-xs">
+                  <div className="space-y-1">
+                    <span className="font-bold text-slate-700 dark:text-slate-300">{t('shippingCompany')}</span>
+                    <select
+                      value={shippingInfoDraft.shippingCompany}
+                      onChange={(e) =>
+                        setShippingInfoDraft((prev) => ({ ...prev, shippingCompany: e.target.value }))
+                      }
+                      className={detailFieldInputClass}
+                      style={detailFieldInputStyle}
+                    >
+                      <option value="">{isAr ? 'لم تحدد' : 'Not Assigned'}</option>
+                      <option value="SMSA">{isAr ? 'سمسا' : 'SMSA'}</option>
+                      <option value="Aramex">{isAr ? 'أرامكس' : 'Aramex'}</option>
+                      <option value="Aymakan">{isAr ? 'أي مكان' : 'Aymakan'}</option>
+                      <option value="J&T Express">{isAr ? 'جي اند تي اكسبريس' : 'J&T Express'}</option>
+                      <option value="DHL Express">{isAr ? 'دي إتش إل إكسبريس' : 'DHL Express'}</option>
+                      <option value="Redbox">{isAr ? 'ريدبوكس' : 'Redbox'}</option>
+                      <option value="Free Shipping">{isAr ? 'شحن مجاني' : 'Free Shipping'}</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="font-bold text-slate-700 dark:text-slate-300">{t('trackingNumber')}</span>
+                    <input
+                      type="text"
+                      value={shippingInfoDraft.trackingNumber}
+                      onChange={(e) =>
+                        setShippingInfoDraft((prev) => ({ ...prev, trackingNumber: e.target.value }))
+                      }
+                      placeholder={isAr ? 'رقم التتبع' : 'Tracking number'}
+                      className={`${detailFieldInputClass} font-mono`}
+                      style={detailFieldInputStyle}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="font-bold text-slate-700 dark:text-slate-300">{t('shippingStatus')}</span>
+                    <select
+                      value={shippingInfoDraft.shippingStatus}
+                      onChange={(e) =>
+                        setShippingInfoDraft((prev) => ({ ...prev, shippingStatus: e.target.value }))
+                      }
+                      className={detailFieldInputClass}
+                      style={detailFieldInputStyle}
+                    >
+                      <option value="">{isAr ? 'اختر الحالة' : 'Select status'}</option>
+                      <option value="Pending">{isAr ? 'بانتظار الشحن' : 'Pending'}</option>
+                      <option value="Ready to Ship">{isAr ? 'جاهز للشحن' : 'Ready to Ship'}</option>
+                      <option value="Shipped">{isAr ? 'تم الشحن' : 'Shipped'}</option>
+                      <option value="In Transit">{isAr ? 'قيد النقل' : 'In Transit'}</option>
+                      <option value="Out for Delivery">{isAr ? 'جاري التوصيل' : 'Out for Delivery'}</option>
+                      <option value="Delivered">{isAr ? 'تم التوصيل' : 'Delivered'}</option>
+                      <option value="Delivery Failed">{isAr ? 'تعذر التوصيل' : 'Delivery Failed'}</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="font-bold text-slate-700 dark:text-slate-300">{t('shippingAddress')}</span>
+                    <textarea
+                      value={shippingInfoDraft.shippingAddress}
+                      onChange={(e) =>
+                        setShippingInfoDraft((prev) => ({ ...prev, shippingAddress: e.target.value }))
+                      }
+                      placeholder={isAr ? 'عنوان الشحن' : 'Shipping address'}
+                      rows={3}
+                      className={detailFieldInputClass}
+                      style={detailFieldInputStyle}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSaveShippingInfo}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-white cursor-pointer"
+                    style={{ background: 'var(--portal-cta)' }}
+                  >
+                    {isAr ? 'حفظ' : 'Save'}
+                  </button>
                 </div>
+              ) : (
+                <div className="space-y-3 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-slate-700 dark:text-slate-300">{t('shippingCompany')}</span>
+                    <span className="font-black flex items-center gap-1.5 text-slate-950 dark:text-white text-end">
+                      {o.shippingCompany ? (
+                        <>
+                          <ShippingCarrierIcon carrier={o.shippingCompany} />
+                          <span>{localizeShippingCompany(o.shippingCompany, locale)}</span>
+                        </>
+                      ) : (
+                        <span className="text-slate-600 dark:text-slate-400 font-bold italic">{isAr ? 'لم تحدد شركة الشحن' : 'Not Assigned'}</span>
+                      )}
+                    </span>
+                  </div>
 
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-700 dark:text-slate-300">{t('trackingNumber')}</span>
-                  {o.trackingNumber ? (
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-mono font-black text-slate-950 dark:text-white">
-                        {o.trackingNumber}
-                      </span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-slate-700 dark:text-slate-300">{t('trackingNumber')}</span>
+                    {o.trackingNumber ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono font-black text-slate-950 dark:text-white">
+                          {o.trackingNumber}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(o.trackingNumber!, 'track-num-store')}
+                          className="p-1 hover:opacity-75 cursor-pointer rounded"
+                          title={isAr ? 'نسخ رقم التتبع' : 'Copy tracking number'}
+                        >
+                          {copiedId === 'track-num-store' ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+                          )}
+                        </button>
+                      </div>
+                    ) : (
                       <button
                         type="button"
-                        onClick={() => copyToClipboard(o.trackingNumber!, 'track-num-store')}
-                        className="p-1 hover:opacity-75 cursor-pointer rounded"
-                        title="Copy tracking number"
+                        onClick={async () => {
+                          try {
+                            await createShipmentForOrder(o.id, 'spl');
+                            toast(isAr ? 'تم إنشاء بوليصة الشحن بنجاح وإسناد رقم التتبع' : 'Shipment waybill created and assigned to order', 'success');
+                          } catch {
+                            toast(isAr ? 'تعذر إصدار بوليصة الشحن' : 'Failed to generate waybill', 'error');
+                          }
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-blue-600 text-white font-black text-[11px] hover:bg-blue-700 cursor-pointer shadow-2xs"
                       >
-                        {copiedId === 'track-num-store' ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
-                        )}
+                        {isAr ? 'إصدار بوليصة الشحن' : 'Dispatch / Create Waybill'}
                       </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          await createShipmentForOrder(o.id, 'spl');
-                          toast(isAr ? 'تم إنشاء بوليصة الشحن بنجاح وإسناد رقم التتبع' : 'Shipment waybill created and assigned to order', 'success');
-                        } catch {
-                          toast(isAr ? 'تعذر إصدار بوليصة الشحن' : 'Failed to generate waybill', 'error');
-                        }
-                      }}
-                      className="px-2.5 py-1 rounded-lg bg-blue-600 text-white font-black text-[11px] hover:bg-blue-700 cursor-pointer shadow-2xs"
-                    >
-                      {isAr ? 'إصدار بوليصة الشحن' : 'Dispatch / Create Waybill'}
-                    </button>
-                  )}
-                </div>
+                    )}
+                  </div>
 
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-700 dark:text-slate-300">{t('shippingStatus')}</span>
-                  {getStatusBadge(o.shippingStatus || (o.trackingNumber ? 'in_transit' : 'pending'))}
-                </div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-700 dark:text-slate-300">{t('shippingStatus')}</span>
+                    {getStatusBadge(o.shippingStatus || (o.trackingNumber ? 'in_transit' : 'pending'))}
+                  </div>
 
-                <div className="pt-2">
-                  <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    {t('shippingAddress')}
-                  </span>
-                  <p className="leading-relaxed text-xs font-bold text-slate-950 dark:text-white">
-                    {getLocalizedAddress(o.shippingAddress || o.deliveryLocation, locale) || (isAr ? 'الرياض، حي العليا، طريق الملك فهد، مبنى 123، المملكة العربية السعودية' : 'Riyadh, Al Olaya District, King Fahd Road, Building 123, Riyadh 12211, Saudi Arabia')}
-                  </p>
+                  <div className="pt-2">
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                      {t('shippingAddress')}
+                    </span>
+                    <p className="leading-relaxed text-xs font-bold text-slate-950 dark:text-white">
+                      {getLocalizedAddress(o.shippingAddress || o.deliveryLocation, locale) || '—'}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="pt-4 border-t mt-4 text-[11px] flex justify-between border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-bold">
@@ -1587,55 +1909,145 @@ export const StoreOrders: React.FC = () => {
                 </div>
                 <button
                   type="button"
-                  onClick={() => toast(t('paymentInfo'), 'info')}
+                  onClick={() => {
+                    if (isEditingPaymentInfo) {
+                      setIsEditingPaymentInfo(false);
+                      return;
+                    }
+                    setPaymentInfoDraft({
+                      paymentMethod: o.paymentMethod || '',
+                      paymentStatus: o.paymentStatus || 'Pending',
+                      transactionId: o.transactionId || '',
+                    });
+                    setIsEditingCustomerInfo(false);
+                    setIsEditingShippingInfo(false);
+                    setIsEditingPaymentInfo(true);
+                  }}
                   className="text-xs font-black text-slate-700 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white flex items-center gap-1 cursor-pointer"
                 >
                   <Edit className="w-3 h-3" />
-                  <span>{t('edit')}</span>
+                  <span>{isEditingPaymentInfo ? (isAr ? 'إلغاء' : 'Cancel') : t('edit')}</span>
                 </button>
               </div>
 
-              <div className="space-y-3 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-700 dark:text-slate-300">{t('paymentMethod')}</span>
-                  {getPaymentBadge(o.paymentMethod || 'mada')}
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-700 dark:text-slate-300">{t('paymentStatus')}</span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300">
-                    {o.paymentStatus?.toLowerCase() === 'unpaid' ? t('unpaidStatus') : t('paidStatus')}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-700 dark:text-slate-300">{t('transactionId')}</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-mono font-black text-slate-950 dark:text-white">
-                      {o.transactionId || 'MADA-789123456'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(o.transactionId || 'MADA-789123456', 'tx-id-store')}
-                      className="p-1 hover:opacity-75 cursor-pointer rounded"
-                      title="Copy transaction ID"
+              {isEditingPaymentInfo ? (
+                <div className="space-y-3 text-xs">
+                  <div className="space-y-1">
+                    <span className="font-bold text-slate-700 dark:text-slate-300">{t('paymentMethod')}</span>
+                    <select
+                      value={paymentInfoDraft.paymentMethod}
+                      onChange={(e) =>
+                        setPaymentInfoDraft((prev) => ({ ...prev, paymentMethod: e.target.value }))
+                      }
+                      className={detailFieldInputClass}
+                      style={detailFieldInputStyle}
                     >
-                      {copiedId === 'tx-id-store' ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
-                      )}
-                    </button>
+                      <option value="COD">{isAr ? 'الدفع عند الاستلام' : 'Cash on Delivery (COD)'}</option>
+                      <option value="Cash on Delivery">{isAr ? 'الدفع عند الاستلام' : 'Cash on Delivery'}</option>
+                      <option value="Mada">{isAr ? 'مدى' : 'mada'}</option>
+                      <option value="mada">{isAr ? 'مدى' : 'mada'}</option>
+                      <option value="Apple Pay">{isAr ? 'آبل باي' : 'Apple Pay'}</option>
+                      <option value="stc pay">{isAr ? 'إس تي سي باي' : 'stc pay'}</option>
+                      <option value="Visa">{isAr ? 'فيزا' : 'Visa'}</option>
+                      <option value="Visa/MC">{isAr ? 'فيزا / ماستركارد' : 'Visa/MC'}</option>
+                      <option value="Bank Transfer">{isAr ? 'تحويل بنكي' : 'Bank Transfer'}</option>
+                      <option value="Tabby">{isAr ? 'تابي' : 'Tabby'}</option>
+                      <option value="Tamara">{isAr ? 'تمارا' : 'Tamara'}</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="font-bold text-slate-700 dark:text-slate-300">{t('paymentStatus')}</span>
+                    <select
+                      value={paymentInfoDraft.paymentStatus}
+                      onChange={(e) =>
+                        setPaymentInfoDraft((prev) => ({ ...prev, paymentStatus: e.target.value }))
+                      }
+                      className={detailFieldInputClass}
+                      style={detailFieldInputStyle}
+                    >
+                      <option value="Paid">{isAr ? 'مدفوع' : 'Paid'}</option>
+                      <option value="Pending">{isAr ? 'بانتظار الدفع' : 'Pending'}</option>
+                      <option value="Failed">{isAr ? 'فشلت العملية' : 'Failed'}</option>
+                      <option value="Refunded">{isAr ? 'مسترد' : 'Refunded'}</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="font-bold text-slate-700 dark:text-slate-300">{t('transactionId')}</span>
+                    <input
+                      type="text"
+                      value={paymentInfoDraft.transactionId}
+                      onChange={(e) =>
+                        setPaymentInfoDraft((prev) => ({ ...prev, transactionId: e.target.value }))
+                      }
+                      placeholder={isAr ? 'رقم العملية' : 'Transaction ID'}
+                      className={`${detailFieldInputClass} font-mono`}
+                      style={detailFieldInputStyle}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSavePaymentInfo}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-white cursor-pointer"
+                    style={{ background: 'var(--portal-cta)' }}
+                  >
+                    {isAr ? 'حفظ' : 'Save'}
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-700 dark:text-slate-300">{t('paymentMethod')}</span>
+                    {o.paymentMethod ? getPaymentBadge(o.paymentMethod) : <span className="font-bold text-slate-600 dark:text-slate-400">—</span>}
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-700 dark:text-slate-300">{t('paymentStatus')}</span>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300">
+                      {o.paymentStatus?.toLowerCase() === 'unpaid' ||
+                      o.paymentStatus?.toLowerCase() === 'pending' ||
+                      !o.paymentStatus
+                        ? t('unpaidStatus')
+                        : o.paymentStatus?.toLowerCase() === 'refunded'
+                          ? (isAr ? 'مسترد' : 'Refunded')
+                          : o.paymentStatus?.toLowerCase() === 'failed'
+                            ? (isAr ? 'فشلت' : 'Failed')
+                            : t('paidStatus')}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-slate-700 dark:text-slate-300">{t('transactionId')}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono font-black text-slate-950 dark:text-white">
+                        {o.transactionId || '—'}
+                      </span>
+                      {o.transactionId ? (
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(o.transactionId!, 'tx-id-store')}
+                          className="p-1 hover:opacity-75 cursor-pointer rounded"
+                          title={isAr ? 'نسخ رقم العملية' : 'Copy transaction ID'}
+                        >
+                          {copiedId === 'tx-id-store' ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+                          )}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="font-bold text-slate-700 dark:text-slate-300">{t('paymentDate')}</span>
+                    <span className="font-black text-slate-950 dark:text-white">
+                      {o.paymentDate || o.date
+                        ? formatDisplayDate(o.paymentDate || o.date, locale)
+                        : '—'}
+                    </span>
                   </div>
                 </div>
-
-                <div className="flex items-center justify-between pt-1">
-                  <span className="font-bold text-slate-700 dark:text-slate-300">{t('paymentDate')}</span>
-                  <span className="font-black text-slate-950 dark:text-white">
-                    {formatDisplayDate(o.paymentDate || `${o.date || '2026-09-29'} at ${o.time || '02:34 PM'}`, locale)}
-                  </span>
-                </div>
-              </div>
+              )}
             </div>
 
             <div className="pt-4 border-t mt-4 text-[11px] flex justify-between border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-bold">
@@ -1994,13 +2406,6 @@ export const StoreOrders: React.FC = () => {
           store={activeStore}
         />
 
-        <EditOrderModal
-          isOpen={showEditOrderModal}
-          onClose={() => setShowEditOrderModal(false)}
-          order={editingOrder}
-          onSave={handleSaveEditedOrder}
-        />
-
         {showReturnsModal && (
           <ReturnsManager
             isOpen={showReturnsModal}
@@ -2016,7 +2421,7 @@ export const StoreOrders: React.FC = () => {
   //  ORDERS LIST VIEW (S4.orders · Mockup 04 Exact Match)
   // ────────────────────────────────────────────────
   return (
-    <AdminPageShell className="pb-16 max-w-[1600px] mx-auto space-y-5">
+    <AdminPageShell className="pb-40 max-w-[1600px] mx-auto space-y-5">
       {/* ── TOP HEADER — Title & Subtitle + New Order Button ── */}
       <div className="relative z-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 min-w-0">
         <div className="min-w-0 flex-1">
@@ -2029,19 +2434,6 @@ export const StoreOrders: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap self-stretch sm:self-auto min-w-0">
-          {/* COD Cash Ledger — compact on phone to avoid header collision */}
-          <button
-            type="button"
-            onClick={() => setShowCodLedgerModal(true)}
-            className="py-2.5 px-2.5 sm:px-3.5 rounded-xl text-xs font-bold border border-amber-300 dark:border-amber-700/60 bg-amber-50/80 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 flex items-center gap-2 shadow-2xs cursor-pointer transition-all shrink-0 max-w-full"
-            aria-label={isAr ? 'سجل تحصيل الدفع عند الاستلام' : 'COD Cash Ledger'}
-          >
-            <Banknote className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
-            <span className="truncate max-w-[9.5rem] sm:max-w-none">
-              {isAr ? 'سجل التحصيل' : 'COD Ledger'}
-            </span>
-          </button>
-
           {/* + New Order Primary CTA Button */}
           <button
             type="button"
@@ -2167,14 +2559,34 @@ export const StoreOrders: React.FC = () => {
             )}
           </div>
 
-          {/* Order Tools — body portal (never clipped / overlapping table wrongly) */}
-          <div className="shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            {/* Filters dropdown — status + date/payment/shipping/source live inside panel */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowMoreFilters((v) => !v);
+                setShowOrderToolsMenu(false);
+              }}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold border flex items-center gap-2 cursor-pointer shadow-xs transition-colors ${
+                showMoreFilters || hasActiveOrderFilters
+                  ? 'border-teal-500 text-teal-700 bg-teal-50/70 dark:bg-teal-950/40 dark:text-teal-300'
+                  : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
+              }`}
+              aria-expanded={showMoreFilters}
+            >
+              <Filter className="w-3.5 h-3.5 text-teal-600" />
+              <span>{t('filters')}</span>
+              {hasActiveOrderFilters && <span className="w-2 h-2 rounded-full bg-teal-500 shrink-0" />}
+              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${showMoreFilters ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Order Tools — body portal (never clipped / overlapping table wrongly) */}
             <button
               type="button"
               ref={orderToolsBtnRef}
               onClick={() => {
                 setShowOrderToolsMenu(!showOrderToolsMenu);
-                setOpenFilterDropdown(null);
+                setShowMoreFilters(false);
               }}
               className="px-4 py-2.5 rounded-xl text-xs font-bold border flex items-center gap-2 cursor-pointer shadow-xs transition-colors bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
               aria-expanded={showOrderToolsMenu}
@@ -2190,23 +2602,9 @@ export const StoreOrders: React.FC = () => {
               onClose={() => setShowOrderToolsMenu(false)}
               width={240}
               align="end"
-              estimatedHeight={220}
+              estimatedHeight={280}
               className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1.5 text-xs font-medium"
             >
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAutoAssignmentModal(true);
-                  setShowOrderToolsMenu(false);
-                }}
-                className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 text-slate-700 dark:text-slate-200 cursor-pointer"
-              >
-                <UserCheck className="w-4 h-4 text-teal-600" />
-                <span>{isAr ? 'التعيين التلقائي للطلبات' : 'Automatic Assignment'}</span>
-              </button>
-
-              <div className="h-[1px] my-1 bg-slate-100 dark:bg-slate-800" />
-
               <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                 {isAr ? 'تصدير الطلبات' : 'Export Orders'}
               </div>
@@ -2223,17 +2621,21 @@ export const StoreOrders: React.FC = () => {
                   <span>{isAr ? 'ملف إكسل' : 'Excel'}</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  handleExportOrders(filteredOrders, 'csv', `orders_${Date.now()}.csv`);
-                  setShowOrderToolsMenu(false);
-                }}
-                className="w-full text-start px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 text-slate-700 dark:text-slate-200 cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5 text-blue-600" />
-                <span>{isAr ? 'ملف نصي (.csv)' : 'CSV (.csv)'}</span>
-              </button>
+              <label className="w-full text-start px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 text-slate-700 dark:text-slate-200 cursor-pointer">
+                <UploadCloud className="w-3.5 h-3.5 text-blue-600" />
+                <span>{isAr ? 'استيراد طلبات (CSV)' : 'Import orders (CSV)'}</span>
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleImportOrdersCsv(f);
+                    setShowOrderToolsMenu(false);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
 
               <button
                 type="button"
@@ -2276,337 +2678,15 @@ export const StoreOrders: React.FC = () => {
           </div>
         </div>
 
-        {/* Row 2: filter chips — menus via body portal (no table overlap / clip) */}
-        <div className="flex items-center gap-2.5 flex-wrap pt-1">
-          {/* 1. Order Date */}
-          <div>
-            <button
-              type="button"
-              ref={dateFilterBtnRef}
-              onClick={() => {
-                setOpenFilterDropdown(openFilterDropdown === 'date' ? null : 'date');
-                setShowOrderToolsMenu(false);
-              }}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold border flex items-center gap-2 cursor-pointer transition-colors ${
-                orderFilters.datePreset !== 'all'
-                  ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-500 text-teal-800 dark:text-teal-200'
-                  : 'bg-slate-50/80 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
-              }`}
-            >
-              <Calendar className="w-3.5 h-3.5 text-teal-600" />
-              <span>
-                {orderFilters.datePreset === 'all'
-                  ? (isAr ? 'تاريخ الطلب' : 'Order Date')
-                  : orderFilters.datePreset === 'today'
-                  ? (isAr ? 'اليوم' : 'Today')
-                  : orderFilters.datePreset === 'last_7_days'
-                  ? (isAr ? 'آخر 7 أيام' : 'Last 7 Days')
-                  : orderFilters.datePreset === 'last_30_days'
-                  ? (isAr ? 'آخر 30 يوماً' : 'Last 30 Days')
-                  : (isAr ? 'هذا الشهر' : 'This Month')}
-              </span>
-              <ChevronDown className="w-3 h-3 text-slate-400" />
-            </button>
-            <FloatingPopover
-              open={openFilterDropdown === 'date'}
-              anchorRef={dateFilterBtnRef}
-              onClose={() => setOpenFilterDropdown(null)}
-              width={176}
-              align="start"
-              estimatedHeight={220}
-              className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1 text-xs"
-            >
-              {[
-                { value: 'all', label: isAr ? 'جميع التواريخ' : 'All Dates' },
-                { value: 'today', label: isAr ? 'اليوم' : 'Today' },
-                { value: 'last_7_days', label: isAr ? 'آخر 7 أيام' : 'Last 7 Days' },
-                { value: 'last_30_days', label: isAr ? 'آخر 30 يوماً' : 'Last 30 Days' },
-                { value: 'this_month', label: isAr ? 'هذا الشهر' : 'This Month' },
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => {
-                    setOrderFilters((prev) => ({ ...prev, datePreset: opt.value as any }));
-                    setOpenFilterDropdown(null);
-                    setPage(1);
-                  }}
-                  className={`w-full text-start px-3 py-1.5 rounded-lg cursor-pointer ${
-                    orderFilters.datePreset === opt.value
-                      ? 'bg-teal-50 dark:bg-teal-950/50 text-teal-700 font-bold'
-                      : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </FloatingPopover>
-          </div>
-
-          {/* 2. Payment Status */}
-          <div>
-            <button
-              type="button"
-              ref={paymentFilterBtnRef}
-              onClick={() => {
-                setOpenFilterDropdown(openFilterDropdown === 'payment' ? null : 'payment');
-                setShowOrderToolsMenu(false);
-              }}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold border flex items-center gap-2 cursor-pointer transition-colors ${
-                orderFilters.paymentStatus !== 'all'
-                  ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-500 text-teal-800 dark:text-teal-200'
-                  : 'bg-slate-50/80 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
-              }`}
-            >
-              <CreditCard className="w-3.5 h-3.5 text-teal-600" />
-              <span>
-                {orderFilters.paymentStatus === 'all'
-                  ? (isAr ? 'حالة الدفع' : 'Payment Status')
-                  : ({
-                      Paid: localizePaymentStatus('Paid', locale),
-                      'Pending Payment': isAr ? 'بانتظار الدفع' : 'Pending Payment',
-                      'Payment Failed': isAr ? 'فشلت عملية الدفع' : 'Payment Failed',
-                      Refunded: localizePaymentStatus('Refunded', locale),
-                    } as Record<string, string>)[orderFilters.paymentStatus] || localizePaymentStatus(orderFilters.paymentStatus, locale)}
-              </span>
-              <ChevronDown className="w-3 h-3 text-slate-400" />
-            </button>
-            <FloatingPopover
-              open={openFilterDropdown === 'payment'}
-              anchorRef={paymentFilterBtnRef}
-              onClose={() => setOpenFilterDropdown(null)}
-              width={176}
-              align="start"
-              estimatedHeight={260}
-              className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1 text-xs max-h-64 overflow-y-auto"
-            >
-              {[
-                { value: 'all', label: isAr ? 'جميع حالات الدفع' : 'All Payment Statuses' },
-                { value: 'Paid', label: localizePaymentStatus('Paid', locale) },
-                { value: 'Pending Payment', label: isAr ? 'بانتظار الدفع' : 'Pending Payment' },
-                { value: 'Payment Failed', label: isAr ? 'فشلت عملية الدفع' : 'Payment Failed' },
-                { value: 'Refunded', label: localizePaymentStatus('Refunded', locale) },
-                { value: 'Partially Refunded', label: isAr ? 'مسترجع جزئياً' : 'Partially Refunded' },
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => {
-                    setOrderFilters((prev) => ({ ...prev, paymentStatus: opt.value as any }));
-                    setOpenFilterDropdown(null);
-                    setPage(1);
-                  }}
-                  className={`w-full text-start px-3 py-1.5 rounded-lg cursor-pointer ${
-                    orderFilters.paymentStatus === opt.value
-                      ? 'bg-teal-50 dark:bg-teal-950/50 text-teal-700 font-bold'
-                      : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </FloatingPopover>
-          </div>
-
-          {/* 3. Shipping Status */}
-          <div>
-            <button
-              type="button"
-              ref={shippingFilterBtnRef}
-              onClick={() => {
-                setOpenFilterDropdown(openFilterDropdown === 'shipping' ? null : 'shipping');
-                setShowOrderToolsMenu(false);
-              }}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold border flex items-center gap-2 cursor-pointer transition-colors ${
-                orderFilters.shippingStatus !== 'all'
-                  ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-500 text-teal-800 dark:text-teal-200'
-                  : 'bg-slate-50/80 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
-              }`}
-            >
-              <Truck className="w-3.5 h-3.5 text-teal-600" />
-              <span>
-                {orderFilters.shippingStatus === 'all'
-                  ? (isAr ? 'حالة الشحن' : 'Shipping Status')
-                  : ({
-                      'Not Shipped': isAr ? 'لم يتم الشحن' : 'Not Shipped',
-                      'Ready to Ship': isAr ? 'جاهز للشحن' : 'Ready to Ship',
-                      'Handed to Carrier': isAr ? 'تم التسليم للشحن' : 'Handed to Carrier',
-                      'In Transit': localizeShippingStatus('In Transit', locale),
-                      Delivered: localizeShippingStatus('Delivered', locale),
-                    } as Record<string, string>)[orderFilters.shippingStatus] || localizeShippingStatus(orderFilters.shippingStatus, locale)}
-              </span>
-              <ChevronDown className="w-3 h-3 text-slate-400" />
-            </button>
-            <FloatingPopover
-              open={openFilterDropdown === 'shipping'}
-              anchorRef={shippingFilterBtnRef}
-              onClose={() => setOpenFilterDropdown(null)}
-              width={192}
-              align="start"
-              estimatedHeight={220}
-              className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1 text-xs"
-            >
-              {[
-                { value: 'all', label: isAr ? 'جميع حالات الشحن' : 'All Shipping Statuses' },
-                { value: 'Not Shipped', label: isAr ? 'لم يتم الشحن' : 'Not Shipped' },
-                { value: 'Ready to Ship', label: isAr ? 'جاهز للشحن' : 'Ready to Ship' },
-                { value: 'Handed to Carrier', label: isAr ? 'تم التسليم للشحن' : 'Handed to Carrier' },
-                { value: 'In Transit', label: localizeShippingStatus('In Transit', locale) },
-                { value: 'Delivered', label: localizeShippingStatus('Delivered', locale) },
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => {
-                    setOrderFilters((prev) => ({ ...prev, shippingStatus: opt.value as any }));
-                    setOpenFilterDropdown(null);
-                    setPage(1);
-                  }}
-                  className={`w-full text-start px-3 py-1.5 rounded-lg cursor-pointer ${
-                    orderFilters.shippingStatus === opt.value
-                      ? 'bg-teal-50 dark:bg-teal-950/50 text-teal-700 font-bold'
-                      : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </FloatingPopover>
-          </div>
-
-          {/* 4. Order Source */}
-          <div>
-            <button
-              type="button"
-              ref={sourceFilterBtnRef}
-              onClick={() => {
-                setOpenFilterDropdown(openFilterDropdown === 'source' ? null : 'source');
-                setShowOrderToolsMenu(false);
-              }}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold border flex items-center gap-2 cursor-pointer transition-colors ${
-                orderFilters.orderSource !== 'all' && selectedSource !== 'all'
-                  ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-500 text-teal-800 dark:text-teal-200'
-                  : 'bg-slate-50/80 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
-              }`}
-            >
-              <Globe className="w-3.5 h-3.5 text-teal-600" />
-              <span>
-                {selectedSource === 'all'
-                  ? t('orderSource')
-                  : localizeSalesChannel(selectedSource, locale)}
-              </span>
-              <ChevronDown className="w-3 h-3 text-slate-400" />
-            </button>
-            <FloatingPopover
-              open={openFilterDropdown === 'source'}
-              anchorRef={sourceFilterBtnRef}
-              onClose={() => setOpenFilterDropdown(null)}
-              width={176}
-              align="start"
-              estimatedHeight={260}
-              className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1 text-xs max-h-64 overflow-y-auto"
-            >
-              {[
-                { value: 'all', label: isAr ? 'جميع المصادر' : 'All Sources' },
-                { value: 'Instagram', label: isAr ? 'إنستغرام' : 'Instagram' },
-                { value: 'Website', label: isAr ? 'الموقع' : 'Website' },
-                { value: 'TikTok', label: isAr ? 'تيك توك' : 'TikTok' },
-                { value: 'Snapchat', label: isAr ? 'سناب شات' : 'Snapchat' },
-                { value: 'WhatsApp', label: isAr ? 'واتساب' : 'WhatsApp' },
-                { value: 'Facebook', label: isAr ? 'فيسبوك' : 'Facebook' },
-                { value: 'X', label: isAr ? 'إكس (تويتر)' : 'X (Twitter)' },
-                { value: 'Telegram', label: isAr ? 'تيليجرام' : 'Telegram' },
-                { value: 'YouTube', label: isAr ? 'يوتيوب' : 'YouTube' },
-                { value: 'Google Ads', label: isAr ? 'إعلانات جوجل' : 'Google Ads' },
-                { value: 'Direct', label: isAr ? 'مباشر' : 'Direct' },
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => {
-                    setSelectedSource(opt.value);
-                    setOrderFilters((prev) => ({ ...prev, orderSource: opt.value }));
-                    setOpenFilterDropdown(null);
-                    setPage(1);
-                  }}
-                  className={`w-full text-start px-3 py-1.5 rounded-lg cursor-pointer ${
-                    selectedSource === opt.value
-                      ? 'bg-teal-50 dark:bg-teal-950/50 text-teal-700 font-bold'
-                      : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </FloatingPopover>
-          </div>
-
-          {/* Reset Filters Shortcut */}
-          {(orderFilters.datePreset !== 'all' ||
-            orderFilters.paymentStatus !== 'all' ||
-            orderFilters.shippingStatus !== 'all' ||
-            selectedSource !== 'all' ||
-            search) && (
-            <button
-              type="button"
-              onClick={() => {
-                setOrderFilters({
-                  datePreset: 'all',
-                  startDate: '',
-                  endDate: '',
-                  paymentStatus: 'all',
-                  shippingStatus: 'all',
-                  paymentMethod: 'all',
-                  orderSource: 'all',
-                });
-                setSelectedSource('all');
-                setSelectedPaymentMethod('all');
-                setSearch('');
-                setPage(1);
-                toast(isAr ? 'تمت استعادة الفلاتر الافتراضية' : 'Filters reset to default', 'info');
-              }}
-              className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-1 cursor-pointer"
-            >
-              <RotateCcw className="w-3 h-3" />
-              <span>{isAr ? 'مسح الفلاتر' : 'Clear Filters'}</span>
-            </button>
-          )}
-        </div>
-
-        {/* ── STATUS TABS WITH COUNT PILLS (Matching Image 1) ── */}
-        <div
-          className="flex items-center gap-2 flex-wrap pt-3 border-t pb-1 no-scrollbar"
-          style={{ borderColor: 'var(--border)' }}
-        >
-          {STATUS_TABS.map((tab) => {
-            const isSelected = activeTab === tab.key;
-
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => {
-                  setActiveTab(tab.key);
-                  setPage(1);
-                }}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer border ${
-                  isSelected
-                    ? 'bg-teal-700 text-white border-teal-700 dark:bg-teal-600 dark:text-white dark:border-teal-500 shadow-sm'
-                    : 'bg-white hover:bg-slate-50 border-slate-200/90 text-slate-700 hover:text-slate-900 dark:bg-slate-800/80 dark:hover:bg-slate-800 dark:border-slate-700/80 dark:text-slate-200'
-                }`}
-              >
-                <span>{tab.label}</span>
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums font-extrabold ${
-                    isSelected ? 'bg-white/20 text-white' : tab.pillColor
-                  }`}
-                >
-                  {tab.count.toLocaleString()}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <OrderFilters
+          filters={{ ...orderFilters, status: activeTab }}
+          onChange={applyOrderFilters}
+          onReset={() => {
+            resetOrderFilters();
+            toast(isAr ? 'تمت استعادة الفلاتر الافتراضية' : 'Filters reset to default', 'info');
+          }}
+          isOpen={showMoreFilters}
+        />
 
         {/* ── BULK ACTIONS BAR (Matching Image 1) ── */}
         {selectedOrderIds.length > 0 && (
@@ -2631,35 +2711,24 @@ export const StoreOrders: React.FC = () => {
                   <ChevronDown className="w-3 h-3 text-slate-400" />
                 </button>
                 {bulkStatusOpen && (
-                  <div className="absolute start-0 top-full mt-1 w-44 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1 z-50">
-                    <button
-                      type="button"
-                      onClick={() => { handleBulkUpdateStatus('processing'); setBulkStatusOpen(false); }}
-                      className="w-full text-start px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-                    >
-                      {isAr ? 'قيد المعالجة' : 'Processing'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { handleBulkUpdateStatus('shipped'); setBulkStatusOpen(false); }}
-                      className="w-full text-start px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-                    >
-                      {isAr ? 'تم الشحن' : 'Shipped'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { handleBulkUpdateStatus('delivered'); setBulkStatusOpen(false); }}
-                      className="w-full text-start px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-                    >
-                      {isAr ? 'تم التوصيل' : 'Delivered'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { handleBulkUpdateStatus('cancelled'); setBulkStatusOpen(false); }}
-                      className="w-full text-start px-2.5 py-1.5 rounded-lg hover:bg-rose-50 text-rose-600 dark:hover:bg-rose-950/40 cursor-pointer"
-                    >
-                      {isAr ? 'إلغاء الطلبات' : 'Cancel Orders'}
-                    </button>
+                  <div className="absolute start-0 top-full mt-1 w-52 u-dropdown-list rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1 z-50">
+                    {ORDER_STATUS_CATALOG.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          handleBulkUpdateStatus(opt.value as OrderStatus);
+                          setBulkStatusOpen(false);
+                        }}
+                        className={`w-full text-start px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer ${
+                          opt.value === 'cancelled' || opt.value === 'returned'
+                            ? 'text-rose-600 dark:text-rose-400'
+                            : ''
+                        }`}
+                      >
+                        {catalogLabel(opt, isAr)}
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
@@ -2849,8 +2918,8 @@ export const StoreOrders: React.FC = () => {
                             className="w-8 h-8 rounded-lg object-cover border border-slate-200 dark:border-slate-700 shrink-0 mt-0.5"
                           />
                           <div className="min-w-0 flex-1">
-                            <div className="font-bold text-xs line-clamp-2 max-w-[180px] break-words leading-tight" title={itemsList[0] ? getLocalizedItemName(itemsList[0], locale) : (localeMixedLabel((ord as any).itemsSummary, isAr) || (isAr ? 'عنصر الطلب' : 'Order Item'))} style={{ color: 'var(--text)' }}>
-                              {itemsList[0] ? getLocalizedItemName(itemsList[0], locale) : (localeMixedLabel((ord as any).itemsSummary, isAr) || (isAr ? 'عنصر الطلب' : 'Order Item'))}
+                            <div className="font-bold text-xs line-clamp-2 max-w-[180px] break-words leading-tight" title={itemsList[0] ? getLocalizedItemName(itemsList[0], locale) : (getLocalizedItemName({ name: String((ord as any).itemsSummary || '').split(/[,|·]/)[0] || '' }, locale) || (isAr ? 'عنصر الطلب' : 'Order Item'))} style={{ color: 'var(--text)' }}>
+                              {itemsList[0] ? getLocalizedItemName(itemsList[0], locale) : (getLocalizedItemName({ name: String((ord as any).itemsSummary || '').split(/[,|·]/)[0] || '' }, locale) || (isAr ? 'عنصر الطلب' : 'Order Item'))}
                             </div>
                             <div className="text-[11px] text-slate-500 font-mono mt-0.5 whitespace-nowrap">
                               x {itemsList[0]?.quantity || 1}
@@ -2923,9 +2992,9 @@ export const StoreOrders: React.FC = () => {
                             onClick={() => setSelectedOrder(ord)}
                             className="p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors shrink-0"
                             style={{ borderColor: 'var(--border)', color: 'var(--accent)' }}
-                            title="View Details"
+                            title={isAr ? 'تعديل الطلب' : 'Edit Order'}
                           >
-                            <Eye className="w-3.5 h-3.5" />
+                            <Edit className="w-3.5 h-3.5" />
                           </button>
 
                           <button
@@ -2935,12 +3004,12 @@ export const StoreOrders: React.FC = () => {
                               e.stopPropagation();
                               if (activeActionMenuId === ord.id) {
                                 setActiveActionMenuId(null);
-                                setActionMenuPos(null);
+                                setActionMenuMode('main');
+                                actionMenuAnchorRef.current = null;
                                 return;
                               }
-                              const place = placePopoverBelow(e.currentTarget, 192, true, 4, 200);
-                              if (!place) return;
-                              setActionMenuPos(place);
+                              actionMenuAnchorRef.current = e.currentTarget;
+                              setActionMenuMode('main');
                               setActiveActionMenuId(ord.id);
                             }}
                             className="p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors shrink-0"
@@ -2960,63 +3029,87 @@ export const StoreOrders: React.FC = () => {
         </div>
 
         {/* ── PAGINATION CONTROLS (Mockup 04) ── */}
-        <WindowedPagination
-          currentPage={safePage}
-          totalPages={pageCount}
-          totalCount={totalCount}
-          pageSize={pageSize}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-          isAr={isAr}
-          itemLabel={isAr ? 'طلب' : 'orders'}
-          pageSizeOptions={[10, 20, 50, 100]}
-        />
+        <div className="pb-6">
+          <WindowedPagination
+            currentPage={safePage}
+            totalPages={pageCount}
+            totalCount={totalCount}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            isAr={isAr}
+            itemLabel={isAr ? 'طلب' : 'orders'}
+            pageSizeOptions={[10, 20, 50, 100]}
+          />
+        </div>
       </div>
 
-      {/* Fixed portal action menu — never overlaps Order No. / table cells */}
-      {activeActionMenuId &&
-        actionMenuPos &&
-        typeof document !== 'undefined' &&
-        createPortal(
-          (() => {
-            const ord =
-              pagedOrders.find((o) => o.id === activeActionMenuId) ||
-              currentOrders.find((o) => o.id === activeActionMenuId);
-            if (!ord) return null;
-            const closeMenu = () => {
-              setActiveActionMenuId(null);
-              setActionMenuPos(null);
-            };
-            return (
-              <div
-                ref={actionMenuRef}
-                role="menu"
-                className="fixed z-[9999] w-48 rounded-xl border p-1 shadow-xl text-xs font-semibold bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 overflow-y-auto"
-                style={{
-                  left: actionMenuPos.left,
-                  top: actionMenuPos.top ?? 'auto',
-                  bottom: actionMenuPos.bottom ?? 'auto',
-                  maxHeight: actionMenuPos.maxHeight,
-                }}
-              >
+      {/* Row actions — body portal, full height (no half-open clip) */}
+      {(() => {
+        const ord =
+          (activeActionMenuId &&
+            (pagedOrders.find((o) => o.id === activeActionMenuId) ||
+              currentOrders.find((o) => o.id === activeActionMenuId))) ||
+          null;
+        const closeMenu = () => {
+          setActiveActionMenuId(null);
+          setActionMenuMode('main');
+          actionMenuAnchorRef.current = null;
+        };
+        return (
+          <FloatingPopover
+            open={!!activeActionMenuId && !!ord}
+            anchorRef={actionMenuAnchorRef}
+            onClose={closeMenu}
+            width={208}
+            align="end"
+            estimatedHeight={actionMenuMode === 'status' ? 560 : 420}
+            className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1 text-xs font-semibold"
+          >
+            {!ord ? null : actionMenuMode === 'status' ? (
+              <>
                 <button
                   type="button"
-                  role="menuitem"
+                  onClick={() => setActionMenuMode('main')}
+                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-600 dark:text-slate-300"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5 rtl:rotate-180" />
+                  <span>{isAr ? 'رجوع' : 'Back'}</span>
+                </button>
+                <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  {isAr ? 'تحديث حالة الطلب' : 'Update Order Status'}
+                </div>
+                {ORDER_STATUS_CATALOG.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => {
+                      updateOrderStatus(ord.id, opt.value as OrderStatus, activeStore.id);
+                      toast(
+                        isAr
+                          ? `تم تحديث الحالة إلى «${catalogLabel(opt, isAr)}»`
+                          : `Status updated to “${catalogLabel(opt, isAr)}”`,
+                        'success',
+                      );
+                      closeMenu();
+                    }}
+                    className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200"
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${
+                        ord.status === opt.value ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'
+                      }`}
+                    />
+                    <span>{catalogLabel(opt, isAr)}</span>
+                  </button>
+                ))}
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
                   onClick={() => {
                     setSelectedOrder(ord);
-                    closeMenu();
-                  }}
-                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200"
-                >
-                  <Eye className="w-3.5 h-3.5 text-blue-500" />
-                  <span>{isAr ? 'عرض التفاصيل' : 'View Details'}</span>
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setEditingOrder(ord);
-                    setShowEditOrderModal(true);
                     closeMenu();
                   }}
                   className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200"
@@ -3026,7 +3119,6 @@ export const StoreOrders: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  role="menuitem"
                   onClick={() => {
                     setInvoiceOrder(ord);
                     setShowInvoiceModal(true);
@@ -3039,7 +3131,6 @@ export const StoreOrders: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  role="menuitem"
                   onClick={() => {
                     copyToClipboard(displayOrderNumber(ord.orderNumber), ord.id);
                     closeMenu();
@@ -3051,27 +3142,24 @@ export const StoreOrders: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    if (!String(ord.trackingNumber || '').trim()) {
-                      toast(isAr ? 'أضف رقم التتبع قبل طباعة البوليصة' : 'Add a tracking number before printing the label', 'error');
-                      closeMenu();
-                      return;
-                    }
-                    setShippingLabelOrder(ord);
-                    setShowShippingLabelModal(true);
-                    closeMenu();
-                  }}
+                  onClick={() => setActionMenuMode('status')}
                   className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200"
                 >
-                  <Truck className="w-3.5 h-3.5 text-sky-500" />
-                  <span>{isAr ? 'تحديث حالة التوصيل' : 'Update Delivery Status'}</span>
+                  <RefreshCw className="w-3.5 h-3.5 text-sky-500" />
+                  <span>{isAr ? 'تحديث حالة الطلب' : 'Update Order Status'}</span>
                 </button>
                 <button
                   type="button"
-                  role="menuitem"
                   onClick={() => {
-                    setShowCodLedgerModal(true);
+                    const isCod =
+                      /cod|cash/i.test(String(ord.paymentMethod || '')) ||
+                      (ord.codStatus && ord.codStatus !== 'not_cod');
+                    if (isCod) {
+                      setShowCodLedgerModal(true);
+                    } else {
+                      setDetailsModalOrder(ord);
+                      setShowDetailsModal(true);
+                    }
                     closeMenu();
                   }}
                   className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200"
@@ -3084,7 +3172,6 @@ export const StoreOrders: React.FC = () => {
                   <>
                     <button
                       type="button"
-                      role="menuitem"
                       onClick={() => {
                         closeMenu();
                         handleRestoreSingleOrder(ord);
@@ -3096,7 +3183,6 @@ export const StoreOrders: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      role="menuitem"
                       onClick={() => {
                         closeMenu();
                         handlePermanentDeleteSingleOrder(ord);
@@ -3111,7 +3197,6 @@ export const StoreOrders: React.FC = () => {
                   <>
                     <button
                       type="button"
-                      role="menuitem"
                       onClick={() => {
                         closeMenu();
                         handleArchiveSingleOrder(ord);
@@ -3123,7 +3208,6 @@ export const StoreOrders: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      role="menuitem"
                       onClick={() => {
                         closeMenu();
                         void handlePermanentDeleteSingleOrder(ord);
@@ -3135,17 +3219,18 @@ export const StoreOrders: React.FC = () => {
                     </button>
                   </>
                 )}
-              </div>
-            );
-          })(),
-          document.body,
-        )}
+              </>
+            )}
+          </FloatingPopover>
+        );
+      })()}
 
       {/* ── NEW ORDER MODAL (Store scoped) ── */}
       {showNewOrderModal && (
         <CreateStoreOrderModal
           storeName={activeStore.name}
           storeId={activeStore.id}
+          products={currentProducts}
           onClose={() => setShowNewOrderModal(false)}
           onCreate={async (orderData) => {
             const created = await addOrder(
@@ -3169,13 +3254,6 @@ export const StoreOrders: React.FC = () => {
           onConfigChange={(updated: any) => setInvoiceConfig(updated)}
         />
       )}
-
-      <EditOrderModal
-        isOpen={showEditOrderModal}
-        onClose={() => setShowEditOrderModal(false)}
-        order={editingOrder}
-        onSave={handleSaveEditedOrder}
-      />
 
       {showReturnsModal && (
         <ReturnsManager
@@ -3206,8 +3284,9 @@ export const StoreOrders: React.FC = () => {
             setShowInvoiceModal(true);
           }}
           onEditOrder={(ord) => {
-            setEditingOrder(ord);
-            setShowEditOrderModal(true);
+            setShowDetailsModal(false);
+            setDetailsModalOrder(null);
+            setSelectedOrder(ord);
           }}
         />
       )}

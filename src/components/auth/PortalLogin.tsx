@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
   Clock,
@@ -12,7 +12,13 @@ import {
   Store,
 } from 'lucide-react';
 import { useSignIn, useSignUp, useClerk } from '@clerk/clerk-react';
-import { readAuthSession, type AuthPortal, type AuthSession } from '../../auth/session';
+import {
+  clearAuthSession,
+  readAuthSession,
+  writeAuthSession,
+  type AuthPortal,
+  type AuthSession,
+} from '../../auth/session';
 import { sessionFromClerkUser, isClerkConfigured, clerkEnvKeyMissing } from '../../auth/clerkSession';
 import {
   assertStoreLoginEmailAllowed,
@@ -64,6 +70,79 @@ function isAlreadySignedInError(err: unknown): boolean {
   return /already signed in|already logged in|session exists/i.test(clerkErrorMessage(err));
 }
 
+function clerkErrorCode(err: unknown): string {
+  const e = err as { errors?: Array<{ code?: string }>; status?: number; statusCode?: number } | null;
+  return String(e?.errors?.[0]?.code || '').toLowerCase();
+}
+
+/** Clerk development instances throttle OTP hard (429). Detect every Clerk error shape. */
+function isClerkRateLimitError(err: unknown): boolean {
+  const msg = clerkErrorMessage(err);
+  if (/too many requests|rate limit|try again later|please wait a moment|429/i.test(msg)) {
+    return true;
+  }
+  const e = err as {
+    status?: number;
+    statusCode?: number;
+    statusText?: string;
+    errors?: Array<{ code?: string; message?: string }>;
+    clerkError?: { status?: number };
+  } | null;
+  const status = Number(e?.status || e?.statusCode || e?.clerkError?.status || 0);
+  if (status === 429) return true;
+  const code = clerkErrorCode(err);
+  if (code.includes('rate') || code.includes('too_many')) return true;
+  return false;
+}
+
+const OTP_RATE_LOCK_KEY = 'unityteck_clerk_otp_lock_until';
+const OTP_RATE_LOCK_MS = 120_000;
+
+function readOtpRateLockRemaining(): number {
+  try {
+    const until = Number(localStorage.getItem(OTP_RATE_LOCK_KEY) || 0);
+    return Math.max(0, until - Date.now());
+  } catch {
+    return 0;
+  }
+}
+
+function armOtpRateLock(): void {
+  try {
+    localStorage.setItem(OTP_RATE_LOCK_KEY, String(Date.now() + OTP_RATE_LOCK_MS));
+  } catch {
+    /* ignore */
+  }
+}
+
+function isClerkIdentifierExistsError(err: unknown): boolean {
+  const code = clerkErrorCode(err);
+  if (
+    code === 'form_identifier_exists' ||
+    code === 'identifier_exists' ||
+    code === 'form_email_address_exists'
+  ) {
+    return true;
+  }
+  return /already exists|identifier.*taken|email.*taken/i.test(clerkErrorMessage(err));
+}
+
+/** Only these mean “no Clerk user yet” — safe to attempt one-time sign-up OTP. */
+function isClerkIdentifierNotFoundError(err: unknown): boolean {
+  const code = clerkErrorCode(err);
+  if (
+    code === 'form_identifier_not_found' ||
+    code === 'identifier_not_found' ||
+    code === 'form_param_nil' ||
+    code === 'not_found'
+  ) {
+    return true;
+  }
+  return /couldn'?t find.+account|no account|identifier not found|user not found/i.test(
+    clerkErrorMessage(err),
+  );
+}
+
 /** Outer shell — Clerk hooks only run when publishable key is present. */
 export const PortalLogin: React.FC<PortalLoginProps> = (props) => {
   const { locale, theme, dir } = usePrefs();
@@ -111,6 +190,8 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
   const clerk = useClerk();
   const [clerkLoadTimedOut, setClerkLoadTimedOut] = useState(false);
   const clerkReady = clerkOn && clerk.loaded && signInLoaded && Boolean(signIn);
+  /** While OTP → Sanctum is running, never call clerk.signOut (it was reloading the page). */
+  const authHandshakeRef = useRef(false);
 
   const storeParam =
     typeof window !== 'undefined'
@@ -151,11 +232,11 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
   const portalInfo = useMemo(() => {
     if (isMaster) {
       return {
-        title: isAr ? 'لوحة تحكم المنصة المركزية' : 'Platform Master SuperAdmin',
+        title: isAr ? 'منصة سوق' : 'Souq Platform',
         subtitle: isAr
           ? 'بوابة التحكم الرئيسية لإدارة المنصة السحابية والمتاجر'
           : 'Central Cloud Administration & Store Operations',
-        badge: isAr ? 'إدارة المنصة المركزية' : 'Master Control Plane',
+        badge: isAr ? 'لوحة تحكم منصة سوق' : 'Souq Platform Control Plane',
         scopeNote: isAr
           ? 'صلاحيات الإشراف الشامل على جميع المتاجر والاشتراكات في المملكة'
           : 'Global master scope across all merchant stores and Saudi infrastructure',
@@ -250,11 +331,12 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
 
   useEffect(() => {
     if (clerk.loaded === false) return;
+    if (authHandshakeRef.current) return;
     if (readAuthSession()) return;
     if (!clerk.session && !clerk.user) return;
-    // Stay on this login URL — default afterSignOutUrl must not send users to the public storefront.
-    void clerk.signOut({ redirectUrl: window.location.href }).catch(() => undefined);
-  }, [clerk]);
+    // Silent clear only — NEVER redirectUrl here (that hard-refreshes and kills first login).
+    void clerk.signOut().catch(() => undefined);
+  }, [clerk.loaded, clerk.session, clerk.user]);
 
   useEffect(() => {
     if (clerkReady) {
@@ -326,76 +408,124 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
   };
 
   const finishWithClerkUser = async (fallbackEmail: string, sessionId?: string | null) => {
-    // Clerk user can lag a moment after setActive
-    for (let i = 0; i < 25 && !clerk.user; i++) {
-      await new Promise((r) => setTimeout(r, 80));
-    }
-
-    const email = fallbackEmail.trim().toLowerCase();
-    gateEmailForPortal(email);
-
-    const user =
-      clerk.user ||
-      ({
-        id: `clerk-${email}`,
-        primaryEmailAddress: { emailAddress: email },
-        fullName: email.split('@')[0],
-      } as const);
-
-    let token: string | null = sessionId || null;
+    authHandshakeRef.current = true;
     try {
-      token = (await clerk.session?.getToken()) || token;
-    } catch {
-      /* keep sessionId */
-    }
+      // Clerk user can lag a moment after setActive
+      for (let i = 0; i < 25 && !clerk.user; i++) {
+        await new Promise((r) => setTimeout(r, 80));
+      }
 
-    const localSession = sessionFromClerkUser(portal, user as any, token, {
-      storeParam: storeParam || null,
-    });
-    // Clerk JWT ≠ Sanctum — exchange only with verified Clerk session token (OTP proof)
-    if (!token) {
-      throw new Error(
-        isAr
-          ? 'تعذّر إثبات جلسة التحقق. أعد إرسال رمز التحقق.'
-          : 'Could not prove OTP session. Request a new verification code.',
+      const email = fallbackEmail.trim().toLowerCase();
+      gateEmailForPortal(email);
+
+      const user =
+        clerk.user ||
+        ({
+          id: `clerk-${email}`,
+          primaryEmailAddress: { emailAddress: email },
+          fullName: email.split('@')[0],
+        } as const);
+
+      let token: string | null = sessionId || null;
+      try {
+        token = (await clerk.session?.getToken()) || token;
+      } catch {
+        /* keep sessionId */
+      }
+
+      // Build merchant/store binding first — do NOT persist Clerk JWT as live API session.
+      // Otherwise a failed Sanctum exchange leaves a fake "logged in" state with 0 orders.
+      const localSession = sessionFromClerkUser(portal, user as any, token, {
+        storeParam: storeParam || null,
+        persist: false,
+      });
+      // Clerk JWT ≠ Sanctum — exchange only with verified Clerk session token (OTP proof)
+      if (!token) {
+        clearAuthSession(true);
+        throw new Error(
+          isAr
+            ? 'تعذّر إثبات جلسة التحقق. أعد إرسال رمز التحقق.'
+            : 'Could not prove OTP session. Request a new verification code.',
+        );
+      }
+      let exchanged: Awaited<ReturnType<typeof exchangeClerkForSanctum>> = null;
+      try {
+        exchanged = await exchangeClerkForSanctum(
+          portal,
+          email,
+          localSession.storeId,
+          token,
+          { force: true, throwOnFail: true },
+        );
+      } catch (exchangeErr) {
+        clearAuthSession(true);
+        throw exchangeErr instanceof Error
+          ? exchangeErr
+          : new Error(
+              isAr
+                ? 'تعذّر ربط الجلسة بقاعدة البيانات. أعد تسجيل الدخول، أو تأكد أن خادم الواجهة البرمجية يعمل.'
+                : 'Could not link your session to the database. Sign in again, or confirm the API server is running.',
+            );
+      }
+      if (isApiEnabled() && !exchanged) {
+        clearAuthSession(true);
+        throw new Error(
+          isAr
+            ? 'تعذّر ربط الجلسة بقاعدة البيانات. أعد تسجيل الدخول، أو تأكد أن خادم الواجهة البرمجية يعمل.'
+            : 'Could not link your session to the database. Sign in again, or confirm the API server is running.',
+        );
+      }
+      // Never persist Clerk-JWT-only localSession when API mode is on.
+      const liveSession = exchanged || (!isApiEnabled() ? localSession : null);
+      if (!liveSession?.token || (isApiEnabled() && !liveSession.token.includes('|'))) {
+        clearAuthSession(true);
+        throw new Error(
+          isAr
+            ? 'تعذّر إنشاء جلسة صالحة. أعد إدخال رمز التحقق.'
+            : 'Could not create a valid session. Re-enter the verification code.',
+        );
+      }
+      writeAuthSession(liveSession);
+      resetRateLimit(email);
+      try {
+        localStorage.setItem('unityteck_last_login_email', email);
+      } catch {
+        /* ignore */
+      }
+      toast(
+        isMaster
+          ? isAr
+            ? 'مرحباً بك! تم تسجيل الدخول بنجاح.'
+            : 'Welcome! Signed in successfully.'
+          : isAr
+            ? `تم تسجيل الدخول بنجاح ·${liveSession.storeName ?? portalInfo.title}`
+            : `Signed in successfully · ${liveSession.storeName ?? portalInfo.title}`,
+        'success',
       );
+      onSuccess(liveSession.portal, liveSession.storeId, liveSession);
+    } finally {
+      // Keep handshake lock briefly so mount effect cannot signOut+reload after success.
+      window.setTimeout(() => {
+        authHandshakeRef.current = false;
+      }, 2500);
     }
-    const exchanged = await exchangeClerkForSanctum(
-      portal,
-      email,
-      localSession.storeId,
-      token,
-    );
-    if (isApiEnabled() && !exchanged) {
-      throw new Error(
-        isAr
-          ? 'تعذّر تأكيد رمز التحقق على الخادم. أكمل رمز التحقق من البريد ثم أعد المحاولة.'
-          : 'Could not confirm OTP with the server. Finish the email verification code and try again.',
-      );
-    }
-    const liveSession = exchanged || localSession;
-    resetRateLimit(email);
-    try {
-      localStorage.setItem('unityteck_last_login_email', email);
-    } catch {
-      /* ignore */
-    }
-    toast(
-      isMaster
-        ? isAr
-          ? 'مرحباً بك! تم تسجيل الدخول بنجاح.'
-          : 'Welcome! Signed in successfully.'
-        : isAr
-          ? `تم تسجيل الدخول بنجاح ·${liveSession.storeName ?? portalInfo.title}`
-          : `Signed in successfully · ${liveSession.storeName ?? portalInfo.title}`,
-      'success',
-    );
-    onSuccess(liveSession.portal, liveSession.storeId, liveSession);
   };
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (busy) return;
+
+    const lockLeft = readOtpRateLockRemaining();
+    if (lockLeft > 0) {
+      const secs = Math.ceil(lockLeft / 1000);
+      toast(
+        isAr
+          ? `حد إرسال رمز التحقق مؤقتاً. انتظر ${secs} ثانية ثم حاول مرة واحدة فقط.`
+          : `OTP rate limit active. Wait ${secs}s, then try once.`,
+        'error',
+      );
+      return;
+    }
 
     const email = identifier.trim().toLowerCase();
     if (!email || !email.includes('@')) {
@@ -464,8 +594,8 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
 
     const clearClerkThenContinue = async (): Promise<void> => {
       try {
-        // Keep /store/login or /master/login — never bounce to "/" storefront mid-OTP.
-        await clerk.signOut({ redirectUrl: window.location.href });
+        // No redirectUrl — that hard-refreshes the login page and forces a second OTP.
+        await clerk.signOut();
       } catch {
         /* ignore */
       }
@@ -493,16 +623,31 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
         await clearClerkThenContinue();
       }
 
-      // Prefer sign-in. Sign-up only for emails already registered to this store
-      // (first Clerk visit) — never for random/unregistered addresses.
+      // Prefer sign-in. Sign-up only when Clerk has no account yet — never on 429 rate-limit.
       try {
         await startEmailCodeSignIn();
       } catch (signInErr) {
+        if (isClerkRateLimitError(signInErr)) {
+          armOtpRateLock();
+          throw new Error(
+            isAr
+              ? 'تم تجاوز حد إرسال رمز التحقق مؤقتاً (حد التطوير). انتظر دقيقتين ثم أعد المحاولة مرة واحدة فقط.'
+              : 'Verification code rate limit hit (Clerk development limit). Wait 2 minutes, then try once.',
+          );
+        }
         if (isAlreadySignedInError(signInErr)) {
           await clearClerkThenContinue();
           try {
             await startEmailCodeSignIn();
           } catch (retryErr) {
+            if (isClerkRateLimitError(retryErr)) {
+              armOtpRateLock();
+              throw new Error(
+                isAr
+                  ? 'تم تجاوز حد إرسال رمز التحقق مؤقتاً. انتظر دقيقتين ثم أعد المحاولة مرة واحدة فقط.'
+                  : 'Verification code rate limit hit. Wait 2 minutes, then try once.',
+              );
+            }
             if (isAlreadySignedInError(retryErr)) {
               throw new Error(
                 isAr
@@ -512,8 +657,8 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
             }
             throw retryErr;
           }
-        } else {
-          // Registered merchant, but no Clerk account yet → one-time sign-up OTP
+        } else if (isClerkIdentifierNotFoundError(signInErr)) {
+          // Only create Clerk user when sign-in says identifier is missing — never on 429/other.
           if (!signUpLoaded || !signUp) {
             throw new Error(
               isAr
@@ -525,19 +670,44 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
             await signUp.create({ emailAddress: email });
             await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
             setFlowMode('signUp');
-          } catch {
-            throw signInErr instanceof Error
-              ? new Error(clerkErrorMessage(signInErr) || signInErr.message)
+          } catch (signUpErr) {
+            if (isClerkRateLimitError(signUpErr)) {
+              armOtpRateLock();
+              throw new Error(
+                isAr
+                  ? 'تم تجاوز حد إرسال رمز التحقق مؤقتاً. انتظر دقيقتين ثم أعد المحاولة مرة واحدة فقط.'
+                  : 'Verification code rate limit hit. Wait 2 minutes, then try once.',
+              );
+            }
+            if (isClerkIdentifierExistsError(signUpErr)) {
+              throw new Error(
+                isAr
+                  ? 'الحساب موجود مسبقاً. انتظر دقيقة ثم اطلب رمز التحقق مرة واحدة فقط (تسجيل الدخول).'
+                  : 'Account already exists. Wait a minute, then request a sign-in code once.',
+              );
+            }
+            throw signUpErr instanceof Error
+              ? new Error(clerkErrorMessage(signUpErr) || signUpErr.message)
               : new Error(
                   isAr ? 'فشل إرسال رمز التحقق إلى البريد' : 'Failed to send email verification code',
                 );
           }
+        } else {
+          throw signInErr instanceof Error
+            ? new Error(clerkErrorMessage(signInErr) || signInErr.message)
+            : new Error(
+                isAr ? 'فشل إرسال رمز التحقق إلى البريد' : 'Failed to send email verification code',
+              );
         }
       }
 
       setOtpStep('otp');
       setOtpCode('');
       setOtpExpiresIn(OTP_LOCK_SECONDS);
+      // Wake Hostinger MySQL while the merchant reads their OTP email.
+      if (isApiEnabled()) {
+        void fetch('/api/health', { cache: 'no-store' }).catch(() => undefined);
+      }
       toast(
         isAr
           ? 'تم إرسال رمز التحقق إلى بريدك — تحقق من صندوق الوارد'
@@ -545,13 +715,22 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
         'success',
       );
     } catch (err) {
-      const msg =
-        err instanceof Error
+      if (isClerkRateLimitError(err)) {
+        armOtpRateLock();
+      }
+      const msg = isClerkRateLimitError(err)
+        ? isAr
+          ? 'تم تجاوز حد إرسال رمز التحقق مؤقتاً. انتظر دقيقتين ثم أعد المحاولة مرة واحدة فقط.'
+          : 'Verification code rate limit hit. Wait 2 minutes, then try once.'
+        : err instanceof Error
           ? err.message
           : isAr
             ? 'فشل إرسال رمز التحقق إلى البريد'
             : 'Failed to send email verification code';
-      toast(isAlreadySignedInError(err) ? clerkErrorMessage(err) || msg : msg, 'error');
+      toast(
+        isAlreadySignedInError(err) ? clerkErrorMessage(err) || msg : msg,
+        'error',
+      );
     } finally {
       setBusy(false);
     }

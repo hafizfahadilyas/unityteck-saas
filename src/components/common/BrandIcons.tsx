@@ -117,22 +117,7 @@ export const TelegramBrandIcon: React.FC<IconProps> = ({ className = 'w-4 h-4', 
   </svg>
 );
 
-export const ORDER_SOURCE_OPTIONS: { value: string; labelEn: string; labelAr: string }[] = [
-  { value: 'Direct', labelEn: 'Direct / Walk-in', labelAr: 'مباشر / متجر' },
-  { value: 'Website', labelEn: 'Website', labelAr: 'الموقع الإلكتروني' },
-  { value: 'TikTok', labelEn: 'TikTok', labelAr: 'تيك توك' },
-  { value: 'Snapchat', labelEn: 'Snapchat', labelAr: 'سناب شات' },
-  { value: 'Instagram', labelEn: 'Instagram', labelAr: 'إنستغرام' },
-  { value: 'WhatsApp', labelEn: 'WhatsApp', labelAr: 'واتساب' },
-  { value: 'Facebook', labelEn: 'Facebook', labelAr: 'فيسبوك' },
-  { value: 'X', labelEn: 'X (Twitter)', labelAr: 'إكس (تويتر)' },
-  { value: 'Telegram', labelEn: 'Telegram', labelAr: 'تيليجرام' },
-  { value: 'Google Ads', labelEn: 'Google Ads', labelAr: 'إعلانات جوجل' },
-  { value: 'YouTube', labelEn: 'YouTube', labelAr: 'يوتيوب' },
-  { value: 'Organic Search', labelEn: 'Organic Search', labelAr: 'بحث عضوي' },
-  { value: 'Referral', labelEn: 'Referral', labelAr: 'إحالة' },
-  { value: 'Other', labelEn: 'Other', labelAr: 'أخرى' },
-];
+export { ORDER_SOURCE_CATALOG as ORDER_SOURCE_OPTIONS } from '../../utils/orderCatalogOptions';
 
 export function OrderSourceIcon({ source, className = 'w-4 h-4' }: { source: string; className?: string }) {
   const s = (source || '').toLowerCase();

@@ -72,11 +72,26 @@ class CustomerActivityController extends Controller
             return response()->json(['message' => 'Store not found.'], 404);
         }
 
+        $surface = strtolower(trim((string) (
+            $request->header('X-Storefront-Surface')
+            ?? $request->input('meta.surface', '')
+        )));
+        if ($surface !== 'public_storefront') {
+            return response()->json(['message' => 'Public storefront activities only.'], 403);
+        }
+
         $key = 'sf-activity:'.$storeId.':'.$request->ip();
         if (RateLimiter::tooManyAttempts($key, 60)) {
             return response()->json(['message' => 'Too many attempts. Try again shortly.'], 429);
         }
         RateLimiter::hit($key, 60);
+
+        $meta = $request->input('meta');
+        if (! is_array($meta)) {
+            $meta = [];
+        }
+        $meta['surface'] = 'public_storefront';
+        $request->merge(['meta' => $meta]);
 
         $activity = $this->createActivity($request, $storeId);
 

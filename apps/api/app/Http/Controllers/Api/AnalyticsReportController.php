@@ -241,10 +241,10 @@ class AnalyticsReportController extends Controller
         $prevOrders = (clone $prevOrdersQuery)->count();
         $prevAov = $prevOrders > 0 ? round($prevRevenue / $prevOrders, 2) : 0.0;
 
-        // Growth percentages
-        $revenueGrowth = $prevRevenue > 0 ? round((($totalRevenue - $prevRevenue) / $prevRevenue) * 100, 1) : ($totalRevenue > 0 ? 100.0 : 0.0);
-        $ordersGrowth = $prevOrders > 0 ? round((($totalOrders - $prevOrders) / $prevOrders) * 100, 1) : ($totalOrders > 0 ? 100.0 : 0.0);
-        $aovGrowth = $prevAov > 0 ? round((($aov - $prevAov) / $prevAov) * 100, 1) : ($aov > 0 ? 100.0 : 0.0);
+        // Growth percentages — null when no prior period (never invent +100%)
+        $revenueGrowth = $prevRevenue > 0 ? round((($totalRevenue - $prevRevenue) / $prevRevenue) * 100, 1) : null;
+        $ordersGrowth = $prevOrders > 0 ? round((($totalOrders - $prevOrders) / $prevOrders) * 100, 1) : null;
+        $aovGrowth = $prevAov > 0 ? round((($aov - $prevAov) / $prevAov) * 100, 1) : null;
 
         // Store visits — storefront events only; never invent from orders×N or seeded counters
         $totalVisits = $this->countUniquePageViewSessions($storeId, $startDate, $now);
@@ -259,7 +259,7 @@ class AnalyticsReportController extends Controller
             ->forStore($storeId)
             ->whereBetween('created_at', [$prevStartDate, $prevEndDate])
             ->count();
-        $customersGrowth = $prevCustomers > 0 ? round((($newCustomers - $prevCustomers) / $prevCustomers) * 100, 1) : ($newCustomers > 0 ? 100.0 : 0.0);
+        $customersGrowth = $prevCustomers > 0 ? round((($newCustomers - $prevCustomers) / $prevCustomers) * 100, 1) : null;
 
         // Net profit only when real cost fields exist — never invent margin %
         $netProfitEstimated = null;
@@ -407,10 +407,11 @@ class AnalyticsReportController extends Controller
                 'orders_placed' => $ordersPlaced,
             ],
             'abandoned_carts' => [
+                // Real count from funnel only — no invented revenue / recovery %.
                 'abandoned_count' => max(0, $checkoutStarted - $ordersPlaced),
-                'potential_revenue' => 0,
-                'recovered_count' => 0,
-                'recovery_rate' => '0%',
+                'potential_revenue' => null,
+                'recovered_count' => null,
+                'recovery_rate' => null,
             ],
             'clarity_status' => [
                 'connected' => false,
@@ -470,10 +471,11 @@ class AnalyticsReportController extends Controller
         $prevAov = $prevOrders > 0 ? round($prevRevenue / $prevOrders, 2) : 0.0;
         $prevNetRevenue = $prevRevenue;
 
-        $revGrowth = $prevRevenue > 0 ? round((($totalRevenue - $prevRevenue) / $prevRevenue) * 100, 1) : ($totalRevenue > 0 ? 100.0 : 0.0);
-        $ordGrowth = $prevOrders > 0 ? round((($totalOrders - $prevOrders) / $prevOrders) * 100, 1) : ($totalOrders > 0 ? 100.0 : 0.0);
-        $aovGrowth = $prevAov > 0 ? round((($aov - $prevAov) / $prevAov) * 100, 1) : ($aov > 0 ? 100.0 : 0.0);
-        $netGrowth = $prevNetRevenue > 0 ? round((($netRevenue - $prevNetRevenue) / $prevNetRevenue) * 100, 1) : ($netRevenue > 0 ? 100.0 : 0.0);
+        // Never invent +100% when prior period is empty
+        $revGrowth = $prevRevenue > 0 ? round((($totalRevenue - $prevRevenue) / $prevRevenue) * 100, 1) : null;
+        $ordGrowth = $prevOrders > 0 ? round((($totalOrders - $prevOrders) / $prevOrders) * 100, 1) : null;
+        $aovGrowth = $prevAov > 0 ? round((($aov - $prevAov) / $prevAov) * 100, 1) : null;
+        $netGrowth = $prevNetRevenue > 0 ? round((($netRevenue - $prevNetRevenue) / $prevNetRevenue) * 100, 1) : null;
 
         // Daily trend
         $trend = Order::query()
@@ -704,10 +706,10 @@ class AnalyticsReportController extends Controller
         $prevOrders = (clone $attributed($prevStart, $prevEnd))->count();
         $revenueGrowth = $prevRevenue > 0
             ? round((($campaignRevenue - $prevRevenue) / $prevRevenue) * 100, 1)
-            : ($campaignRevenue > 0 ? 100.0 : 0.0);
+            : null;
         $ordersGrowth = $prevOrders > 0
             ? round((($campaignOrders - $prevOrders) / $prevOrders) * 100, 1)
-            : ($campaignOrders > 0 ? 100.0 : 0.0);
+            : null;
 
         $dailyTrend = (clone $attributed($startDate, $now))
             ->select(
@@ -913,7 +915,7 @@ class AnalyticsReportController extends Controller
             ->sum('total_amount') ?? 0);
         $revenueGrowth = $prevRevenue > 0
             ? round((($totalRevenue - $prevRevenue) / $prevRevenue) * 100, 1)
-            : ($totalRevenue > 0 ? 100.0 : 0.0);
+            : null;
 
         $summaryText = $totalOrders > 0
             ? 'Your store recorded '.number_format($totalRevenue, 2)." SAR across {$totalOrders} orders in this period."
@@ -1343,11 +1345,13 @@ class AnalyticsReportController extends Controller
         }
 
         $now = Carbon::now();
+        $monthStart = (clone $now)->startOfMonth();
         $start30 = (clone $now)->subDays(30)->startOfDay();
         $prevStart = (clone $start30)->subDays(30);
 
-        // All-time unique sessions from real page_view events — zero when none recorded
-        $visitorsCount = $this->countUniquePageViewSessions($storeId, null, null);
+        // Current calendar month only — matches Monthly Summary (never all-time inflated totals)
+        $visitorsCount = $this->countUniquePageViewSessions($storeId, $monthStart, $now);
+        $visitorsCountAllTime = $this->countUniquePageViewSessions($storeId, null, null);
 
         $visitsGrowth = null;
         $visitsByWeekday = [];
@@ -1367,6 +1371,7 @@ class AnalyticsReportController extends Controller
 
             $rawCounts = StorefrontAnalyticsEvent::query()
                 ->forStore($storeId)
+                ->publicStorefront()
                 ->where('event_name', 'page_view')
                 ->whereBetween('created_at', [$start30, $now])
                 ->select(DB::raw('DAYOFWEEK(created_at) as dow'), DB::raw('COUNT(*) as c'))
@@ -1403,12 +1408,13 @@ class AnalyticsReportController extends Controller
                 ];
             }
 
-            $trafficSources = $this->trafficSourcesFromEvents($storeId, null, null);
+            $trafficSources = $this->trafficSourcesFromEvents($storeId, $monthStart, $now);
         }
 
         return response()->json([
             'store_id' => $storeId,
             'visitors_count' => $visitorsCount,
+            'visitors_count_all_time' => $visitorsCountAllTime,
             'visits_growth' => $visitsGrowth,
             'visits_by_weekday' => $visitsByWeekday,
             'traffic_sources' => $trafficSources,
@@ -1417,7 +1423,7 @@ class AnalyticsReportController extends Controller
 
     /**
      * Unique page_view sessions for a store. Null dates = all time.
-     * Never falls back to seeded stores.visitors_count (zero-mock).
+     * Public storefront only — never seeded stores.visitors_count (zero-mock).
      */
     private function countUniquePageViewSessions(string $storeId, ?Carbon $from, ?Carbon $to): int
     {
@@ -1427,6 +1433,7 @@ class AnalyticsReportController extends Controller
 
         $base = StorefrontAnalyticsEvent::query()
             ->forStore($storeId)
+            ->publicStorefront()
             ->where('event_name', 'page_view');
 
         if ($from !== null && $to !== null) {
@@ -1462,6 +1469,7 @@ class AnalyticsReportController extends Controller
 
         $query = StorefrontAnalyticsEvent::query()
             ->forStore($storeId)
+            ->publicStorefront()
             ->where('event_name', 'page_view');
 
         if ($from !== null && $to !== null) {
@@ -1604,8 +1612,10 @@ class AnalyticsReportController extends Controller
             return [];
         }
 
+        // Public storefront only — used by overview / campaigns / AI / funnel / SEO-adjacent reports
         return StorefrontAnalyticsEvent::query()
             ->forStore($storeId)
+            ->publicStorefront()
             ->whereBetween('created_at', [$start, $end])
             ->select('event_name', DB::raw('COUNT(*) as c'))
             ->groupBy('event_name')

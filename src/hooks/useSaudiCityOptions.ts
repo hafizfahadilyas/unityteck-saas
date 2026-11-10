@@ -9,7 +9,7 @@ import {
   type SaudiCityOption,
 } from '../data/saudiCities';
 
-function slugCityId(raw: string): string {
+export function slugCityId(raw: string): string {
   const base = raw
     .trim()
     .replace(/\s+/g, ' ')

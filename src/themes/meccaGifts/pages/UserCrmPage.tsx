@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { PRODUCTS } from '../data/mockData';
 import { ProductCard } from '../components/ProductCard';
 import { useTenant } from '../../../context/TenantContext';
+import { readStoreIdentity } from '../../settings/storeIdentity';
 import {
   fetchCartInterceptCustomerProfileApi,
   CartInterceptCustomerRewards,
@@ -60,6 +61,11 @@ export const UserCrmPage: React.FC = () => {
   const { activeStore } = useTenant();
 
   const isAr = language === 'ar';
+  const waDigits = (() => {
+    if (!activeStore?.id) return '';
+    const identity = readStoreIdentity(activeStore.id, activeStore);
+    return String(identity.whatsapp || activeStore.phone || '').replace(/[^0-9]/g, '');
+  })();
   const [activeTab, setActiveTab] = useState<'orders' | 'loyalty' | 'gift_cards' | 'saved_cart' | 'occasions' | 'addresses' | 'wishlist'>('orders');
   const [customerRewards, setCustomerRewards] = useState<CartInterceptCustomerRewards>({
     loyalty_points: 0,
@@ -439,15 +445,19 @@ export const UserCrmPage: React.FC = () => {
                           <span>{isAr ? 'عرض الفاتورة الرسمية' : 'View Tax Invoice'}</span>
                         </button>
 
-                        <a
-                          href={`https://wa.me/966581617712?text=استفسار عن طلبي ${order.orderId}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-4 py-1.5 rounded-full bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#128C7E] font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-                        >
-                          <MessageSquare className="w-3.5 h-3.5" />
-                          <span>{isAr ? 'محادثة المنسق' : 'Chat Florist'}</span>
-                        </a>
+                        {waDigits.length >= 9 && (
+                          <a
+                            href={`https://wa.me/${waDigits}?text=${encodeURIComponent(
+                              isAr ? `استفسار عن طلبي ${order.orderId}` : `Inquiry about my order ${order.orderId}`,
+                            )}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-4 py-1.5 rounded-full bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#128C7E] font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            <span>{isAr ? 'محادثة الدعم' : 'Chat support'}</span>
+                          </a>
+                        )}
                       </div>
                     </div>
                   </div>

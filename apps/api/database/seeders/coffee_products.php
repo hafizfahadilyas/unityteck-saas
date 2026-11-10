@@ -2,7 +2,21 @@
 
 namespace Database\Seeders;
 
-return [
+$coffeeGoogleTaxonomy = static function (string $category): string {
+    if (str_contains($category, 'مطح') || str_contains($category, 'Mill')) {
+        return 'Home & Garden > Kitchen & Dining > Kitchen Appliance Accessories > Coffee Maker & Espresso Machine Accessories > Coffee Grinders';
+    }
+    if (str_contains($category, 'دولاب') || str_contains($category, 'ركن') || str_contains($category, 'Cabinet')) {
+        return 'Furniture > Tables > Accent Tables > Coffee Tables';
+    }
+    if (str_contains($category, 'مستلزم') || str_contains($category, 'أكواب') || str_contains($category, 'Accessories')) {
+        return 'Home & Garden > Kitchen & Dining > Kitchen Appliance Accessories > Coffee Maker & Espresso Machine Accessories';
+    }
+
+    return 'Home & Garden > Kitchen & Dining > Kitchen Appliances > Coffee Makers & Espresso Machines';
+};
+
+$products = [
     [
         'id' => 'hb-h10a-dualboiler',
         'name' => 'HiBrew Barista Pro H7A Dual-Boiler 20-Bar',
@@ -304,3 +318,16 @@ return [
         'is_active' => true,
     ],
 ];
+
+return array_map(static function (array $p) use ($coffeeGoogleTaxonomy): array {
+    $category = (string) ($p['category'] ?? '');
+
+    return array_merge($p, [
+        'brand' => $p['brand'] ?? 'HiBrew',
+        'product_type' => $p['product_type'] ?? 'Physical Product',
+        'google_taxonomy' => $p['google_taxonomy'] ?? $coffeeGoogleTaxonomy($category),
+        'sales_channels' => $p['sales_channels'] ?? ['Online Store'],
+        'discount_start_at' => $p['discount_start_at'] ?? null,
+        'discount_end_at' => $p['discount_end_at'] ?? null,
+    ]);
+}, $products);

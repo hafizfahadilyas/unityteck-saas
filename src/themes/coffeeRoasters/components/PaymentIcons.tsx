@@ -6,7 +6,7 @@ interface PaymentIconProps {
 }
 
 export const MadaIcon: React.FC<PaymentIconProps> = ({ className = "h-5 w-auto" }) => (
-  <div className={`inline-flex items-center justify-center bg-white px-2 py-1 rounded ${className}`} title="Mada مدى">
+  <div className={`inline-flex items-center justify-center bg-white px-2 py-1 rounded ${className}`} title="Mada">
     <svg viewBox="0 0 100 35" className="h-4 w-auto" fill="none">
       {/* Mada Saudi Payment Scheme official colors & curves */}
       <rect width="100" height="35" rx="3" fill="#ffffff"/>
@@ -31,13 +31,13 @@ export const ApplePayIcon: React.FC<PaymentIconProps> = ({ className = "h-5 w-au
 );
 
 export const TabbyIcon: React.FC<PaymentIconProps> = ({ className = "h-5 w-auto" }) => (
-  <div className={`inline-flex items-center justify-center bg-[#3EFEBA] text-neutral-950 font-bold px-2 py-0.5 rounded text-xs tracking-tight ${className}`} title="Tabby تابي - قسط على 4 دفعات">
+  <div className={`inline-flex items-center justify-center bg-[#3EFEBA] text-neutral-950 font-bold px-2 py-0.5 rounded text-xs tracking-tight ${className}`} title="Tabby">
     <span className="font-extrabold text-[11px] leading-tight">tabby</span>
   </div>
 );
 
 export const TamaraIcon: React.FC<PaymentIconProps> = ({ className = "h-5 w-auto" }) => (
-  <div className={`inline-flex items-center justify-center bg-gradient-to-r from-[#F9A55B] to-[#F1728A] text-white font-bold px-2 py-0.5 rounded text-xs tracking-tight ${className}`} title="Tamara تمارا - قسط بدون فوائد">
+  <div className={`inline-flex items-center justify-center bg-gradient-to-r from-[#F9A55B] to-[#F1728A] text-white font-bold px-2 py-0.5 rounded text-xs tracking-tight ${className}`} title="Tamara">
     <span className="font-black text-[11px] leading-tight">tamara</span>
   </div>
 );

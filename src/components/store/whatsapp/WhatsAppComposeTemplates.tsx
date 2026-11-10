@@ -101,7 +101,7 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
     phone: initialData?.phone || '',
   });
 
-  const [orderNumber, setOrderNumber] = useState<string>(initialData?.orderNumber || '10284');
+  const [orderNumber, setOrderNumber] = useState<string>(initialData?.orderNumber || '');
   const [customPhone, setCustomPhone] = useState<string>('');
 
   // New Template Modal state
@@ -118,10 +118,12 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
   const [testPhoneNumber, setTestPhoneNumber] = useState('+9665');
   const [sendingTest, setSendingTest] = useState(false);
 
-  // Message body
+  // Message body — locale-aware default (no English-only body in Arabic UI)
   const [messageContent, setMessageContent] = useState<string>(
     initialData?.content ||
-      `Hi {{customer_name}} 👋\n\nThank you for your order #{{order_id}}!\nWe are preparing your order and it will be shipped within 1-3 business days.\nYou can track your order using the link below:\nhttps://tracking.sa/{{order_id}}\n\nIf you have any questions, feel free to contact us.\n\nBest regards,\n{{store_name}}`,
+      (isAr
+        ? `مرحباً {{customer_name}}\n\nشكراً لطلبك رقم #{{order_id}}!\nنقوم بتجهيز طلبك وسيتم الشحن خلال ١–٣ أيام عمل.\nيمكنك تتبع الطلب عبر الرابط:\nhttps://tracking.sa/{{order_id}}\n\nلأي استفسار تواصل معنا.\n\nمع تحيات،\n{{store_name}}`
+        : `Hi {{customer_name}}\n\nThank you for your order #{{order_id}}!\nWe are preparing your order and it will be shipped within 1-3 business days.\nYou can track your order using the link below:\nhttps://tracking.sa/{{order_id}}\n\nIf you have any questions, feel free to contact us.\n\nBest regards,\n{{store_name}}`),
   );
 
   // Attach Media

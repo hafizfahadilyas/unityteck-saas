@@ -36,6 +36,7 @@ import { customFieldsExtra, missingRequiredField, purchaseNotes, type FieldValue
 import type { Product as CatalogProduct, ProductVariation } from '../../../types';
 import { isVariantPurchasable } from '../../../utils/productVariants';
 import { fetchStoreReviews, submitStoreReviewApi } from '../../../api/tenantApi';
+import { readStoreIdentity } from '../../settings/storeIdentity';
 
 interface CustomerReview {
   id: string;
@@ -64,6 +65,11 @@ export const ProductDetailPage: React.FC = () => {
   const { activeStore } = useTenant();
   const isAr = language === 'ar';
   const storeId = activeStore?.id || '';
+  const waDigits = useMemo(() => {
+    if (!activeStore?.id) return '';
+    const identity = readStoreIdentity(activeStore.id, activeStore);
+    return String(identity.whatsapp || activeStore.phone || '').replace(/[^0-9]/g, '');
+  }, [activeStore]);
 
   // Read URL query parameter for product identification
   const urlProductId = typeof window !== 'undefined'
@@ -1119,15 +1125,17 @@ export const ProductDetailPage: React.FC = () => {
                 <span>{isAr ? 'شراء فوري مباشر وإرسال كهدية' : 'Express Buy Now & Send Gift'}</span>
               </button>
 
-              <a
-                href={`https://wa.me/966581617712?text=${waOrderText}`}
-                target="_blank"
-                rel="noreferrer"
-                className="w-full py-2 px-3 rounded-xl bg-[#25D366]/15 hover:bg-[#25D366] text-[#128C7E] hover:text-white border border-[#25D366]/30 text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
-              >
-                <MessageSquare className="w-3.5 h-3.5 fill-current" />
-                <span>{isAr ? 'طلب فوري ومباشر عبر واتساب' : 'Order via WhatsApp'}</span>
-              </a>
+              {waDigits.length >= 9 && (
+                <a
+                  href={`https://wa.me/${waDigits}?text=${waOrderText}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full py-2 px-3 rounded-xl bg-[#25D366]/15 hover:bg-[#25D366] text-[#128C7E] hover:text-white border border-[#25D366]/30 text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 fill-current" />
+                  <span>{isAr ? 'طلب فوري ومباشر عبر واتساب' : 'Order via WhatsApp'}</span>
+                </a>
+              )}
             </div>
 
           </div>

@@ -68,6 +68,7 @@ import {
   SendToBack,
   ArrowUp,
   ArrowDown,
+  PanelLeft,
 } from 'lucide-react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';

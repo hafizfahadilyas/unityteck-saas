@@ -5,6 +5,7 @@ import { useToast } from '../../common/ToastProvider';
 import { fetchCustomerAnalyticsReportsApi } from '../../../api/tenantApi';
 import { ReportsEmptyState } from './ReportsEmptyState';
 import type { ReportTabKey } from './ReportsNavHeader';
+import { getCustomerDisplayName } from '../../../utils/storeLocalization';
 import {
   Users,
   UserPlus,
@@ -154,11 +155,7 @@ export const ReportsCustomers: React.FC<ReportsCustomersProps> = ({
             {kpis?.returning_rate || '0%'}
           </div>
           <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-1 inline-block">
-            {kpis?.returning_rate
-              ? isAr
-                ? '+3.2٪ ولاء'
-                : '+3.2% loyalty'
-              : '—'}
+            {isAr ? 'بانتظار البيانات' : 'Waiting for Data'}
           </span>
         </div>
 
@@ -294,7 +291,7 @@ export const ReportsCustomers: React.FC<ReportsCustomersProps> = ({
                     #{cust.rank}
                   </span>
                   <div>
-                    <div className="font-bold text-slate-800 dark:text-slate-200">{cust.name}</div>
+                    <div className="font-bold text-slate-800 dark:text-slate-200">{getCustomerDisplayName(cust.name, locale)}</div>
                     <div className="text-[10px] text-slate-400">{cust.email || 'No email provided'} • {cust.orders_count} orders</div>
                   </div>
                 </div>

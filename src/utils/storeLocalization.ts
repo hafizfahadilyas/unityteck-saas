@@ -1,4 +1,5 @@
 import { Store, Product } from '../types';
+import { localizedSaudiCity } from '../data/saudiCities';
 
 /**
  * Returns a clean, concise, language-appropriate store name for dashboard and UI.
@@ -145,6 +146,14 @@ const CATEGORY_MAP_TO_EN: Record<string, string> = {
   'مكائن القهوة والإسبريسو': 'Espresso & Coffee Machines',
   'مكائن ومطاحن قهوة وأدوات باريستا وأركان فاخرة': 'Coffee Machines, Grinders & Barista Stations',
   'أكواب وسيراميك فاخر': 'Ceramic Cups & Glassware',
+  'مطاحن القهوة الاحترافية': 'Precision Coffee Mills',
+  'مطاحن القهوة': 'Coffee Mills',
+  'دواليب وأركان القهوة الفاخرة': 'Luxury Coffee Cabinets & Stations',
+  'دواليب وأركان القهوة': 'Coffee Cabinets & Stations',
+  'أركان ودواليب القهوة الفاخرة ومستلزمات الباريستا': 'Luxury Coffee Stations & Barista Tools',
+  'مستلزمات الباريستا والأكواب': 'Barista Accessories & Ceramic Cups',
+  'مستلزمات الباريستا': 'Barista Accessories',
+  'العروض والبكجات الحصرية': 'Exclusive Offers & Bundles',
 
   // Bleco / Car Accessories categories
   'أرضيات': 'Car Floor Mats',
@@ -224,6 +233,14 @@ const CATEGORY_MAP_TO_AR: Record<string, string> = {
   'Espresso & Coffee Machines': 'مكائن القهوة والإسبريسو',
   'Coffee Machines, Grinders & Barista Stations': 'مكائن ومطاحن قهوة وأدوات باريستا وأركان فاخرة',
   'Ceramic Cups & Glassware': 'أكواب وسيراميك فاخر',
+  'Precision Coffee Mills': 'مطاحن القهوة الاحترافية',
+  'Coffee Mills': 'مطاحن القهوة',
+  'Luxury Coffee Cabinets & Stations': 'دواليب وأركان القهوة الفاخرة',
+  'Coffee Cabinets & Stations': 'دواليب وأركان القهوة',
+  'Luxury Coffee Stations & Barista Tools': 'أركان ودواليب القهوة الفاخرة ومستلزمات الباريستا',
+  'Barista Accessories & Ceramic Cups': 'مستلزمات الباريستا والأكواب',
+  'Barista Accessories': 'مستلزمات الباريستا',
+  'Exclusive Offers & Bundles': 'العروض والبكجات الحصرية',
 
   // Bleco / Car Accessories categories
   'Car Floor Mats': 'أرضيات السيارة',
@@ -347,11 +364,12 @@ export function getProductDisplayCategory(
     if (CATEGORY_MAP_TO_AR[raw]) return CATEGORY_MAP_TO_AR[raw];
     if (/[\u0600-\u06FF]/.test(raw)) return raw;
     return CATEGORY_MAP_TO_AR[raw] || raw || 'عام';
-  } else {
-    if (CATEGORY_MAP_TO_EN[raw]) return CATEGORY_MAP_TO_EN[raw];
-    if (!/[\u0600-\u06FF]/.test(raw)) return raw;
-    return CATEGORY_MAP_TO_EN[raw] || 'Bouquets & Gifts';
   }
+
+  if (CATEGORY_MAP_TO_EN[raw]) return CATEGORY_MAP_TO_EN[raw];
+  // Never leak Arabic into English chrome — unmapped AR → neutral label.
+  if (/[\u0600-\u06FF]/.test(raw)) return 'General';
+  return raw || 'General';
 }
 
 const CUSTOMER_NAME_EN_MAP: Record<string, string> = {
@@ -367,6 +385,10 @@ const CUSTOMER_NAME_EN_MAP: Record<string, string> = {
   'عبد الله الشمري': 'Abdullah Al-Shammari',
   'عبد الرحمن الشمري': 'Abdulrahman Al-Shammari',
   'فيصل المطيري': 'Faisal Al-Mutairi',
+  'فيصل بن سعود المطيري': 'Faisal Al-Mutairi',
+  'لمى بنت فهد العتيبي': 'Lama Al-Otaibi',
+  'نورة الحربي': 'Noura Al-Harbi',
+  'سعد الغامدي': 'Saad Al-Ghamdi',
   'منى العتيبي': 'Mona Al-Otaibi',
   'خالد الدوسري': 'Khalid Al-Dossari',
   'فهد العنزي': 'Fahad Al-Enezi',
@@ -423,18 +445,13 @@ export function getCustomerDisplayName(rawName?: string | null, locale: string =
   if (locale === 'ar') {
     return trimmed;
   }
-  // If in English and name is Arabic, look up transliterated English name
+  // EN locale: prefer mapped transliteration; otherwise keep the real customer name
+  // (merchant/customer content — never invent "Store Customer" for a valid name).
   if (/[\u0600-\u06FF]/.test(trimmed)) {
     if (CUSTOMER_NAME_EN_MAP[trimmed]) return CUSTOMER_NAME_EN_MAP[trimmed];
-    // Try matching without bin / bint
     const simplified = trimmed.replace(/\s+(بن|بنت)\s+/g, ' ');
     if (CUSTOMER_NAME_EN_MAP[simplified]) return CUSTOMER_NAME_EN_MAP[simplified];
-    // Match by last family-name token when full form is unmapped
-    const parts = trimmed.split(/\s+/).filter(Boolean);
-    const lastToken = parts[parts.length - 1];
-    if (lastToken && CUSTOMER_NAME_EN_MAP[lastToken]) return CUSTOMER_NAME_EN_MAP[lastToken];
-    // Avoid dumping unmapped Arabic into the English UI
-    return 'Store Customer';
+    return trimmed;
   }
   return trimmed;
 }
@@ -523,6 +540,47 @@ export const ADDRESS_MAP_EN: Record<string, string> = {
   'طريق خريص الفرعي، حي الروضة، الرياض، المملكة العربية السعودية': 'Khurais Branch Rd, Al Rawdah, Riyadh, Saudi Arabia',
 };
 
+/** Normalize Arabic product labels for EN map / fuzzy match (digits, alef, taa marbuta, dashes). */
+function normalizeItemLabel(raw: string): string {
+  return raw
+    .normalize('NFKC')
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, '') // harakat + tatweel
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/[ىي]/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[\u2010-\u2015―‒–—−]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function lookupItemNameEn(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (ITEM_NAME_MAP_EN[trimmed]) return ITEM_NAME_MAP_EN[trimmed];
+  const cleaned = trimmed.replace(/\s*\([^)]*\)\s*$/, '').trim();
+  if (ITEM_NAME_MAP_EN[cleaned]) return ITEM_NAME_MAP_EN[cleaned];
+
+  const normalized = normalizeItemLabel(trimmed);
+  if (!normalized) return null;
+  for (const [ar, en] of Object.entries(ITEM_NAME_MAP_EN)) {
+    const keyNorm = normalizeItemLabel(ar);
+    if (keyNorm === normalized) return en;
+  }
+  // Fuzzy: long substring overlap (handles lean items_summary / truncated labels)
+  let best: { en: string; score: number } | null = null;
+  for (const [ar, en] of Object.entries(ITEM_NAME_MAP_EN)) {
+    const keyNorm = normalizeItemLabel(ar);
+    if (keyNorm.length < 8 || normalized.length < 8) continue;
+    if (keyNorm.includes(normalized) || normalized.includes(keyNorm)) {
+      const score = Math.min(keyNorm.length, normalized.length);
+      if (!best || score > best.score) best = { en, score };
+    }
+  }
+  return best && best.score >= 10 ? best.en : null;
+}
+
 export function getLocalizedItemName(
   item: { name?: string; nameAr?: string; nameEn?: string; sku?: string },
   locale: string = 'ar'
@@ -534,19 +592,20 @@ export function getLocalizedItemName(
   if (item.nameEn && !/[\u0600-\u06FF]/.test(item.nameEn)) {
     return item.nameEn;
   }
-  const raw = (item.name || '').trim();
-  if (ITEM_NAME_MAP_EN[raw]) {
-    return ITEM_NAME_MAP_EN[raw];
+
+  const candidates = [item.name, item.nameAr]
+    .map((v) => (v || '').trim())
+    .filter(Boolean);
+
+  for (const raw of candidates) {
+    const mapped = lookupItemNameEn(raw);
+    if (mapped) return mapped;
   }
-  // Check without trailing punctuation / parenthesis
-  const cleaned = raw.replace(/\s*\([^)]*\)\s*$/, '').trim();
-  if (ITEM_NAME_MAP_EN[cleaned]) {
-    return ITEM_NAME_MAP_EN[cleaned];
+
+  for (const raw of candidates) {
+    if (raw && !/[\u0600-\u06FF]/.test(raw)) return raw;
   }
-  // If raw doesn't have Arabic, return as-is
-  if (!/[\u0600-\u06FF]/.test(raw) && raw) {
-    return raw;
-  }
+
   // Fallback by SKU if known
   const sku = (item.sku || '').toUpperCase();
   if (sku.includes('H10A')) return 'HiBrew H10A Dual Boiler 20-Bar Espresso Machine';
@@ -568,7 +627,44 @@ export function getLocalizedItemName(
   if (sku.includes('ROSE')) return 'Royal Dutch Red Roses Velvet Box';
   if (sku.includes('TRUF') || sku.includes('PAT')) return 'Patchi Luxury Truffles Collection 500g';
 
-  return raw || 'Product Item';
+  // Keyword hints when map miss (never leak Arabic into English chrome)
+  const blob = candidates.join(' ');
+  if (
+    /سيغنتشر|سيجنتشر/i.test(blob) ||
+    (/اسبريسو|إسبريسو/i.test(blob) && /بندق|شوكولات/i.test(blob)) ||
+    (/داكنه|داكنة/i.test(blob) && /بندق/i.test(blob))
+  ) {
+    return 'Signature Espresso Blend Dark Choc & Hazelnut 1kg';
+  }
+  if (/غيشا|جيشا/i.test(blob) || (/كولومبيا/i.test(blob) && /ريزيرف|عيشا/i.test(blob))) {
+    return 'Colombian Geisha Reserve 200g';
+  }
+  if (/حراز/i.test(blob) || (/موكا/i.test(blob) && /يمن/i.test(blob))) {
+    return 'Yemen Haraaz Wild Moka Vintage Roast 200g';
+  }
+  if (/يرقاتشيفي/i.test(blob)) return 'Ethiopia Yirgacheffe Natural 250g';
+  if (/تارازو/i.test(blob) || (/كوستاريكا/i.test(blob) && /عسل/i.test(blob))) {
+    return 'Costa Rica Tarrazu Yellow Honey 250g';
+  }
+  if (/v60/i.test(blob) || (/تقطير/i.test(blob) && /فلاتر|سيرفر/i.test(blob))) {
+    return 'V60 Drip Brewing Kit with Server & Filters';
+  }
+  if (/ستاغ|ekg/i.test(blob) || (/غلاية/i.test(blob) && /فلو|حرار/i.test(blob))) {
+    return 'Fellow Stagg EKG Digital Electric Kettle';
+  }
+  if (/كيمكس|chemex/i.test(blob)) return 'Chemex Classic 6-Cup Glass Pour-Over Brewer';
+  if (/بتشر/i.test(blob) && /تبخير|حليب/i.test(blob)) {
+    return 'Stainless Milk Steaming Pitcher 450ml';
+  }
+  if (/مطحنة/i.test(blob) && /g5/i.test(blob)) return 'HiBrew G5 Precision Titanium Conical Burr Grinder';
+  if (/h10a/i.test(blob) || (/هاي\s*برو|هايبرو/i.test(blob) && /دبل|بويلر|20/i.test(blob))) {
+    return 'HiBrew H10A Dual Boiler 20-Bar Espresso Machine';
+  }
+  if (/كولد\s*برو/i.test(blob) || (/منقوع/i.test(blob) && /قهو/i.test(blob))) {
+    return 'Cold Brew Coffee Concentrate 500ml';
+  }
+
+  return 'Product Item';
 }
 
 export function getLocalizedWhatsAppMessage(rawContent?: string | null, locale: string = 'ar'): string {
@@ -674,6 +770,46 @@ export function getLocalizedAddress(address?: string | null, locale: string = 'a
   if (trimmed.includes('الخبر')) return 'Al Khobar, Saudi Arabia';
   if (trimmed.includes('مكة')) return 'Makkah, Saudi Arabia';
   return 'Saudi Arabia';
+}
+
+/** Locale-pure Saudi city for dashboard tables / filters / profiles. */
+export function getLocalizedCity(city?: string | null, locale: string = 'ar'): string {
+  const trimmed = (city || '').trim();
+  if (!trimmed) return '';
+  return localizedSaudiCity(trimmed, locale === 'ar');
+}
+
+/** Locale-pure country label for common GCC values stored as EN or AR. */
+export function getLocalizedCountry(country?: string | null, locale: string = 'ar'): string {
+  const trimmed = (country || '').trim();
+  if (!trimmed) return '';
+  const isAr = locale === 'ar';
+  const key = trimmed.toLowerCase().replace(/\s+/g, ' ');
+  if (
+    key === 'saudi arabia' ||
+    key === 'ksa' ||
+    key === 'sa' ||
+    trimmed === 'المملكة العربية السعودية' ||
+    trimmed === 'السعودية'
+  ) {
+    return isAr ? 'المملكة العربية السعودية' : 'Saudi Arabia';
+  }
+  if (key === 'uae' || key === 'united arab emirates' || trimmed === 'الإمارات' || trimmed === 'الامارات') {
+    return isAr ? 'الإمارات' : 'United Arab Emirates';
+  }
+  if (key === 'kuwait' || trimmed === 'الكويت') {
+    return isAr ? 'الكويت' : 'Kuwait';
+  }
+  if (key === 'bahrain' || trimmed === 'البحرين') {
+    return isAr ? 'البحرين' : 'Bahrain';
+  }
+  if (key === 'qatar' || trimmed === 'قطر') {
+    return isAr ? 'قطر' : 'Qatar';
+  }
+  if (key === 'oman' || trimmed === 'عمان') {
+    return isAr ? 'عمان' : 'Oman';
+  }
+  return trimmed;
 }
 
 

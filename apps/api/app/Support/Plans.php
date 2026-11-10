@@ -178,10 +178,29 @@ final class Plans
         ];
     }
 
+    /**
+     * Feature flags only (no product counts / Canva entitlement — safe for middleware gates).
+     *
+     * @return list<string>
+     */
+    public static function featureListForStore(Store $store): array
+    {
+        $effective = self::effectiveCode($store);
+        $meta = self::catalog()[$effective] ?? self::catalog()['free'];
+        $features = $meta['features'];
+
+        $db = Plan::query()->where('code', $effective)->first();
+        if ($db && $effective === 'custom' && is_array($db->features)) {
+            $features = $db->features;
+        }
+
+        return is_array($features) ? array_values($features) : [];
+    }
+
     public static function hasFeature(Store $store, string $feature): bool
     {
-        $info = self::forStore($store);
-        $features = $info['features'];
+        // Lightweight path — never call forStore() (that embeds Canva entitlement → recursion).
+        $features = self::featureListForStore($store);
         if (in_array('all', $features, true)) {
             return true;
         }

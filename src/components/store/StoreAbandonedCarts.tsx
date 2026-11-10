@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
 import { GlobalModal } from '../common/GlobalModal';
+import { FloatingPopover } from '../common/FloatingPopover';
 import {
   ShoppingCart,
   Clock,
@@ -48,6 +49,9 @@ import {
   Bold,
   Italic,
   GitBranch,
+  Trash2,
+  Ban,
+  Copy,
 } from 'lucide-react';
 import { formatRelativeTime } from '../../notification-system/utils/dateFilters';
 import { parseOrderDate, periodCountGrowth } from '../../utils/liveSeries';
@@ -57,15 +61,34 @@ import {
   readAbandonedCartSequence,
   writeAbandonedCartSequence,
   type AbandonedCartSequenceConfig,
+  type AbandonedReminderChannel,
 } from '../../utils/abandonedCartSequenceConfig';
 import * as tenantApi from '../../api/tenantApi';
+import { sendTestNotificationApi } from '../../api/tenantApi';
+import { isApiEnabled } from '../../api/client';
+import { sendWhatsAppMessageApi } from '../../services/whatsappManagerService';
 
 interface StoreAbandonedCartsProps {
   onNavigateTab?: (tab: string) => void;
 }
 
+type AbandonedCartRow = {
+  id: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  cartValue: number;
+  source: string;
+  abandonedAt: string;
+  lastActivity: string;
+  status: 'Recoverable';
+  remindersSent: number;
+  itemsCount: number;
+  items: any[];
+};
+
 export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavigateTab }) => {
-  const { activeStore, currentOrders, currentProducts, allStoreCustomers } = useTenant();
+  const { activeStore, currentOrders, currentProducts, allStoreCustomers, updateOrderStatus } = useTenant();
   const { money, locale } = usePrefs();
   const isAr = locale === 'ar';
   const { toast } = useToast();
@@ -78,9 +101,22 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
   // Preview cart details modal
   const [viewingCart, setViewingCart] = useState<any | null>(null);
 
+  // Row actions menu (⋯)
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const actionMenuBtnRef = useRef<HTMLButtonElement>(null);
+
   // Services modal state
   const [showServicesModal, setShowServicesModal] = useState(false);
   const [showAiModal, setShowAiModal] = useState(false);
+
+  // Send Reminder popup — Email / SMS / WhatsApp
+  const [sendModalCarts, setSendModalCarts] = useState<any[] | null>(null);
+  const [sendChannels, setSendChannels] = useState<Record<AbandonedReminderChannel, boolean>>({
+    email: true,
+    sms: true,
+    whatsapp: true,
+  });
+  const [sendingReminder, setSendingReminder] = useState(false);
 
   // Reminder templates — persisted per store_id
   const [reminders, setReminders] = useState<AbandonedCartSequenceConfig>(() =>
@@ -151,35 +187,95 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
   const [selectedCartIds, setSelectedCartIds] = useState<string[]>([]);
   const [variableDropdownOpen, setVariableDropdownOpen] = useState(false);
 
-  // Real store customers and pending/abandoned orders
+  // Real store customers (for contact enrichment)
   const storeCustomers = (allStoreCustomers && allStoreCustomers[activeStore.id]) || [];
 
-  // Derive real abandoned carts from orders that are in pending/draft/uncompleted state
-  const abandonedCarts = useMemo(() => {
-    const list = currentOrders
-      .filter((o) => o.status === 'pending')
-      .map((o) => {
-        const cust = storeCustomers.find((c) => c.id === (o as any).customerId || (o.customerEmail && c.email === o.customerEmail) || (o.customerPhone && c.phone === o.customerPhone));
-        return {
-          id: o.id,
-          customerName: o.customerName || (cust ? cust.name : isAr ? 'عميل زائر' : 'Guest Customer'),
-          customerEmail: o.customerEmail || (cust ? cust.email : '') || '—',
-          customerPhone: o.customerPhone || (cust ? cust.phone : '') || '—',
-          cartValue: o.total || 0,
-          source: (o as any).source || 'Online Store',
-          abandonedAt: o.createdAt || o.date || new Date().toISOString(),
-          lastActivity: (() => {
-            const ts = o.createdAt || (o.date && o.time ? `${o.date} ${o.time}` : o.date);
-            return ts ? formatRelativeTime(String(ts), locale) : (isAr ? 'الآن' : 'Just now');
-          })(),
-          status: 'Recoverable' as const,
-          remindersSent: 0,
-          itemsCount: o.items?.length || 1,
-          items: o.items || [],
-        };
+  /**
+   * Zero-mock abandoned carts:
+   * - Source = storefront `checkout_started` activities without a later order
+   * - Never treat real pending/COD/manual orders as abandoned
+   */
+  const [activityCarts, setActivityCarts] = useState<AbandonedCartRow[]>([]);
+  const [cartsLoading, setCartsLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (!activeStore?.id || !isApiEnabled()) {
+      setActivityCarts([]);
+      setCartsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setCartsLoading(true);
+    void tenantApi
+      .fetchStoreRecentActivitiesApi(activeStore.id, 100)
+      .then((rows) => {
+        if (cancelled) return;
+        const checkouts = rows.filter((r) => String(r.activity_type || '').toLowerCase() === 'checkout_started');
+        const mapped: AbandonedCartRow[] = [];
+        for (const r of checkouts) {
+          const when = r.occurred_at || '';
+          const whenMs = when ? Date.parse(when) : 0;
+          const who = (r.customer_name && String(r.customer_name).trim()) || '';
+          // Skip if this customer already has an order at/after checkout (recovered)
+          const recovered = currentOrders.some((o) => {
+            const oName = String(o.customerName || '').trim();
+            const oEmail = String(o.customerEmail || '').trim().toLowerCase();
+            const matchName = who && oName && oName === who;
+            const metaEmail = String((r.meta as any)?.customer_email || '').trim().toLowerCase();
+            const matchEmail = metaEmail && oEmail && metaEmail === oEmail;
+            if (!matchName && !matchEmail && !r.order_id) {
+              // anonymous visitor — only skip if activity already linked to an order
+              return Boolean(r.order_id);
+            }
+            if (!matchName && !matchEmail) return false;
+            const oMs = Date.parse(String(o.createdAt || o.date || '')) || 0;
+            return !whenMs || oMs >= whenMs;
+          });
+          if (recovered) continue;
+
+          const cust = storeCustomers.find(
+            (c) =>
+              (who && c.name === who) ||
+              (r.meta &&
+                typeof (r.meta as any).customer_email === 'string' &&
+                c.email === (r.meta as any).customer_email) ||
+              (r.meta &&
+                typeof (r.meta as any).customer_phone === 'string' &&
+                c.phone === (r.meta as any).customer_phone),
+          );
+          const metaValue = Number((r.meta as any)?.cart_value ?? (r.meta as any)?.total ?? 0);
+          const productLabel = (r.product_name && String(r.product_name).trim()) || '';
+          mapped.push({
+            id: String(r.id),
+            customerName: who || (cust ? cust.name : isAr ? 'زائر' : 'Visitor'),
+            customerEmail: cust?.email || String((r.meta as any)?.customer_email || '') || '—',
+            customerPhone: cust?.phone || String((r.meta as any)?.customer_phone || '') || '—',
+            cartValue: Number.isFinite(metaValue) ? metaValue : 0,
+            source: String((r.meta as any)?.source || (isAr ? 'واجهة المتجر' : 'Storefront')),
+            abandonedAt: when || new Date().toISOString(),
+            lastActivity: when ? formatRelativeTime(when, locale) : isAr ? '—' : '—',
+            status: 'Recoverable',
+            remindersSent: 0,
+            itemsCount: productLabel ? 1 : Number((r.meta as any)?.items_count || 0) || 0,
+            items: productLabel
+              ? [{ name: productLabel, nameAr: productLabel, quantity: 1 }]
+              : [],
+          });
+        }
+        setActivityCarts(mapped);
+      })
+      .catch(() => {
+        if (!cancelled) setActivityCarts([]);
+      })
+      .finally(() => {
+        if (!cancelled) setCartsLoading(false);
       });
-    return list;
-  }, [currentOrders, storeCustomers, isAr, locale]);
+    return () => {
+      cancelled = true;
+    };
+  }, [activeStore?.id, currentOrders, storeCustomers, isAr, locale]);
+
+  const abandonedCarts = activityCarts;
 
   const currentTemplate = editingReminder ? reminders[editingReminder] : null;
 
@@ -265,10 +361,10 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
     () => periodCountGrowth(abandonedCarts, (c) => parseOrderDate(c.abandonedAt)),
     [abandonedCarts],
   );
-  // Pending carts are currently all recoverable; recovered reminders not tracked yet → 0
+  // Recovery % only when real recovered events exist — never invent 100%.
   const recoveredCount = 0;
-  const recoverablePct = totalCarts > 0 ? 100 : 0;
-  const recoveredPct = totalCarts > 0 ? Math.round((recoveredCount / totalCarts) * 1000) / 10 : 0;
+  const recoverablePct: number | null = null;
+  const recoveredPct: number | null = null;
 
   // Pagination
   const lastPage = Math.max(1, Math.ceil(filtered.length / pageSize) || 1);
@@ -300,12 +396,217 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
     toast(isAr ? `تم تصدير ${filtered.length} سلة بنجاح` : `Exported ${filtered.length} carts`, 'success');
   };
 
-  const handleSendManualReminder = (cartId: string, name: string) => {
+  const openSendReminderModal = (cartIds: string[]) => {
+    const carts = abandonedCarts.filter((c) => cartIds.includes(c.id));
+    if (carts.length === 0) {
+      toast(isAr ? 'يرجى تحديد سلة واحدة على الأقل' : 'Select at least one cart', 'info');
+      return;
+    }
+    setSendChannels({ email: true, sms: true, whatsapp: true });
+    setSendModalCarts(carts);
+  };
+
+  const handleSendManualReminder = (cartId: string, _name?: string) => {
+    void _name;
+    setActiveMenuId(null);
+    openSendReminderModal([cartId]);
+  };
+
+  const buildCartReminderMessage = (cart: AbandonedCartRow, channel: AbandonedReminderChannel) => {
+    const step =
+      reminders.first.channel === channel
+        ? reminders.first
+        : reminders.second.channel === channel
+          ? reminders.second
+          : reminders.third.channel === channel
+            ? reminders.third
+            : reminders.first;
+    const raw = isAr
+      ? step.messageAr || step.message || ''
+      : step.message || step.messageAr || '';
+    const checkoutPath = activeStore.slug ? `/${activeStore.slug}/checkout` : '/checkout';
+    const storeLabel = isAr
+      ? activeStore.nameAr || activeStore.name || 'متجرك'
+      : activeStore.name || activeStore.nameAr || 'Your Store';
+    return raw
+      .replace(/\{name\}/g, cart.customerName || (isAr ? 'عميل' : 'Customer'))
+      .replace(/\{cart_value\}/g, money(cart.cartValue))
+      .replace(/\{checkout_link\}/g, checkoutPath)
+      .replace(/\{store_name\}/g, storeLabel)
+      .replace(/\{discount_code\}/g, '')
+      .replace(
+        /\{products\}/g,
+        isAr ? `${cart.itemsCount} منتجات` : `${cart.itemsCount} products`,
+      )
+      .replace(
+        /\{product_list\}/g,
+        cart.items?.length
+          ? cart.items
+              .map(
+                (it: any) =>
+                  (isAr ? it.nameAr || it.name || it.nameEn : it.name || it.nameEn || it.nameAr) ||
+                  '',
+              )
+              .filter(Boolean)
+              .join(isAr ? '، ' : ', ')
+          : '',
+      );
+  };
+
+  const phoneDigits = (phone: string) => {
+    const raw = String(phone || '').trim();
+    if (!raw || raw === '—') return '';
+    return raw.replace(/[^\d]/g, '').replace(/^00/, '');
+  };
+
+  const openWhatsAppChat = (phone: string, message: string) => {
+    const digits = phoneDigits(phone);
+    if (!digits) return false;
+    window.open(
+      `https://wa.me/${digits}?text=${encodeURIComponent(message)}`,
+      '_blank',
+      'noopener,noreferrer',
+    );
+    return true;
+  };
+
+  const sendChannelForCart = async (
+    cart: AbandonedCartRow,
+    channel: AbandonedReminderChannel,
+  ): Promise<'sent' | 'opened' | 'skipped' | 'failed'> => {
+    const email =
+      cart.customerEmail && cart.customerEmail !== '—' ? cart.customerEmail.trim() : '';
+    const phone =
+      cart.customerPhone && cart.customerPhone !== '—' ? cart.customerPhone.trim() : '';
+
+    if (channel === 'email' && !email) return 'skipped';
+    if ((channel === 'sms' || channel === 'whatsapp') && !phone) return 'skipped';
+
+    if (channel === 'whatsapp') {
+      const message = buildCartReminderMessage(cart, 'whatsapp');
+      try {
+        const res = await sendWhatsAppMessageApi(activeStore.id, {
+          phone_number: phone,
+          customer_name: cart.customerName,
+          order_id: cart.id,
+          message_content: message,
+          message_type: 'Abandoned Cart Reminder',
+          category: 'marketing',
+          send_mode: 'api',
+          template_name: 'abandoned_cart',
+        });
+        if (res?.direct_url || res?.is_direct_free) {
+          const url =
+            res.direct_url ||
+            `https://wa.me/${phoneDigits(phone)}?text=${encodeURIComponent(message)}`;
+          window.open(url, '_blank', 'noopener,noreferrer');
+          return 'opened';
+        }
+        if (res?.success) return 'sent';
+        openWhatsAppChat(phone, message);
+        return 'opened';
+      } catch {
+        const opened = openWhatsAppChat(phone, message);
+        return opened ? 'opened' : 'failed';
+      }
+    }
+
+    try {
+      const res = await sendTestNotificationApi(
+        {
+          event: 'abandoned_cart',
+          recipient_phone: phone || undefined,
+          recipient_email: email || undefined,
+          channel,
+          order_id: cart.id,
+        },
+        activeStore.id,
+      );
+      const chStatus = res?.data?.channels?.[channel]?.status;
+      if (res?.any_sent || chStatus === 'sent') return 'sent';
+      if (chStatus === 'skipped') return 'skipped';
+      return 'failed';
+    } catch {
+      return 'failed';
+    }
+  };
+
+  const handleConfirmSendReminder = async () => {
+    if (!sendModalCarts?.length || sendingReminder) return;
+    const activeChannels = (Object.keys(sendChannels) as AbandonedReminderChannel[]).filter(
+      (ch) => sendChannels[ch],
+    );
+    if (activeChannels.length === 0) {
+      toast(
+        isAr ? 'اختر قناة إرسال واحدة على الأقل' : 'Select at least one channel',
+        'info',
+      );
+      return;
+    }
+
+    setSendingReminder(true);
+    let sent = 0;
+    let opened = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    try {
+      for (const cart of sendModalCarts) {
+        for (const channel of activeChannels) {
+          const result = await sendChannelForCart(cart, channel);
+          if (result === 'sent') sent += 1;
+          else if (result === 'opened') opened += 1;
+          else if (result === 'skipped') skipped += 1;
+          else failed += 1;
+        }
+      }
+
+      if (sent > 0 || opened > 0) {
+        toast(
+          isAr
+            ? `تم الإرسال: ${sent} ناجح · ${opened} محادثة · ${skipped} متخطى · ${failed} فشل`
+            : `Dispatch done: ${sent} sent · ${opened} chat opened · ${skipped} skipped · ${failed} failed`,
+          failed > 0 && sent === 0 && opened === 0 ? 'error' : 'success',
+        );
+        setSelectedCartIds([]);
+        setSendModalCarts(null);
+      } else {
+        toast(
+          isAr
+            ? `تعذر الإرسال. تحقق من اتصال القنوات وبيانات العميل (${skipped} متخطى · ${failed} فشل)`
+            : `Nothing sent. Check channel connection and customer contacts (${skipped} skipped · ${failed} failed)`,
+          'error',
+        );
+      }
+    } finally {
+      setSendingReminder(false);
+    }
+  };
+
+  const cartCheckoutPath = (cart: { id: string }) => {
+    const base = activeStore.slug ? `/${activeStore.slug}/checkout` : '/checkout';
+    return `${base}?recover=${encodeURIComponent(cart.id)}`;
+  };
+
+  const handleCopyRecoveryLink = async (cart: { id: string; customerName: string }) => {
+    const path = cartCheckoutPath(cart);
+    const url =
+      typeof window !== 'undefined' ? `${window.location.origin}${path}` : path;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast(isAr ? 'تم نسخ رابط الاستعادة' : 'Recovery link copied', 'success');
+    } catch {
+      toast(isAr ? 'تعذر نسخ الرابط' : 'Could not copy link', 'error');
+    }
+  };
+
+  const handleDismissCart = (cartId: string, name: string) => {
+    updateOrderStatus(cartId, 'cancelled');
+    setSelectedCartIds((ids) => ids.filter((id) => id !== cartId));
+    if (viewingCart?.id === cartId) setViewingCart(null);
     toast(
-      isAr
-        ? `تم جدولة إرسال تذكير سلة للعميل${name}`
-        : `Cart recovery reminder scheduled for ${name}`,
-      'success'
+      isAr ? `تم إيقاف استعادة سلة ${name}` : `Stopped recovery for ${name}`,
+      'success',
     );
   };
 
@@ -512,9 +813,8 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
           <div className="text-xl font-black text-slate-900 dark:text-white tabular-nums">
             0
           </div>
-          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-0.5">
-            <TrendingUp className="w-3 h-3" />
-            <span>{recoveredPct}%</span>
+          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold flex items-center gap-0.5">
+            <span>{recoveredPct == null ? '—' : `${recoveredPct}%`}</span>
           </span>
         </div>
 
@@ -527,11 +827,10 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
             </span>
           </div>
           <div className="text-xl font-black text-slate-900 dark:text-white tabular-nums truncate">
-            {totalCarts}
+            {cartsLoading ? '…' : totalCarts}
           </div>
-          <span className="text-[10px] text-teal-600 dark:text-teal-400 font-bold flex items-center gap-0.5">
-            <TrendingUp className="w-3 h-3" />
-            <span>{recoverablePct}%</span>
+          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold flex items-center gap-0.5">
+            <span>{recoverablePct == null ? '—' : `${recoverablePct}%`}</span>
           </span>
         </div>
       </div>
@@ -544,27 +843,60 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
             <div className="relative">
               <select
                 className="appearance-none px-3 py-1.5 pe-7 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
+                value=""
                 onChange={(e) => {
                   const val = e.target.value;
+                  e.currentTarget.blur();
+                  if (!val) return;
+                  if (selectedCartIds.length === 0) {
+                    toast(isAr ? 'يرجى تحديد سلة واحدة على الأقل' : 'Select at least one cart', 'info');
+                    return;
+                  }
                   if (val === 'send') {
-                    if (selectedCartIds.length === 0) {
-                      toast(isAr ? 'يرجى تحديد سلة واحدة على الأقل' : 'Select at least one cart', 'info');
-                    } else {
-                      toast(
-                        isAr
-                          ? `تم إرسال تذكيرات لـ${selectedCartIds.length}سلة`
-                          : `Sent reminders to ${selectedCartIds.length} carts`,
-                        'success'
-                      );
-                      setSelectedCartIds([]);
-                    }
+                    openSendReminderModal(selectedCartIds);
+                    return;
+                  }
+                  if (val === 'export') {
+                    const selected = filtered.filter((c) => selectedCartIds.includes(c.id));
+                    const header = isAr
+                      ? ['المعرف', 'العميل', 'البريد الإلكتروني', 'الهاتف', 'قيمة السلة', 'المصدر', 'التاريخ', 'الحالة']
+                      : ['ID', 'Customer', 'Email', 'Phone', 'Cart Value', 'Source', 'Date', 'Status'];
+                    const rows = selected.map((c) => [
+                      String(c.id ?? ''),
+                      String(c.customerName ?? ''),
+                      String(c.customerEmail ?? ''),
+                      String(c.customerPhone ?? ''),
+                      String(c.cartValue ?? ''),
+                      String(c.source ?? ''),
+                      String(c.abandonedAt ?? ''),
+                      String(c.status ?? ''),
+                    ]);
+                    downloadCsv(`abandoned-carts-selected-${activeStore.id}.csv`, [header, ...rows]);
+                    toast(
+                      isAr
+                        ? `تم تصدير ${selected.length} سلة`
+                        : `Exported ${selected.length} carts`,
+                      'success',
+                    );
+                    setSelectedCartIds([]);
+                    return;
+                  }
+                  if (val === 'dismiss') {
+                    selectedCartIds.forEach((id) => updateOrderStatus(id, 'cancelled'));
+                    toast(
+                      isAr
+                        ? `تم إيقاف استعادة ${selectedCartIds.length} سلة`
+                        : `Stopped recovery for ${selectedCartIds.length} carts`,
+                      'success',
+                    );
+                    setSelectedCartIds([]);
                   }
                 }}
-                defaultValue=""
               >
                 <option value="" disabled>{isAr ? 'إجراءات' : 'Actions'}</option>
                 <option value="send">{isAr ? 'إرسال تذكير للمحددين' : 'Send Reminder'}</option>
                 <option value="export">{isAr ? 'تصدير المحدد' : 'Export Selected'}</option>
+                <option value="dismiss">{isAr ? 'إيقاف الاستعادة للمحددين' : 'Stop Recovery'}</option>
               </select>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute end-2 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
@@ -572,15 +904,7 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
             <button
               type="button"
               disabled={selectedCartIds.length === 0}
-              onClick={() => {
-                toast(
-                  isAr
-                    ? `تم جدولة إرسال التذكيرات لـ${selectedCartIds.length}سلة`
-                    : `Reminders scheduled for ${selectedCartIds.length} carts`,
-                  'success'
-                );
-                setSelectedCartIds([]);
-              }}
+              onClick={() => openSendReminderModal(selectedCartIds)}
               className="px-3.5 py-1.5 bg-[#0EA5A4] hover:bg-[#0c8f8e] text-white rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1.5 transition-all disabled:opacity-40 cursor-pointer"
             >
               <Send className="w-3.5 h-3.5" />
@@ -720,33 +1044,70 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
                       </span>
                     </td>
                     <td className="py-3 px-3 text-center text-[11px] text-slate-500">
-                      <span className="text-teal-600 dark:text-teal-400 font-semibold">1/3 sent</span>
-                      <div className="text-[10px] text-slate-400">Next in 22h</div>
+                      <span className="text-teal-600 dark:text-teal-400 font-semibold">
+                        {isAr
+                          ? `${Math.min(3, Math.max(0, cart.remindersSent))}/3 أُرسل`
+                          : `${Math.min(3, Math.max(0, cart.remindersSent))}/3 sent`}
+                      </span>
+                      <div className="text-[10px] text-slate-400">
+                        {cart.remindersSent >= 3
+                          ? isAr
+                            ? 'اكتملت السلسلة'
+                            : 'Sequence done'
+                          : isAr
+                            ? 'التالي خلال ٢٤ ساعة'
+                            : 'Next in 24h'}
+                      </div>
                     </td>
-                    <td className="py-3 px-4 text-end">
+                    <td className="py-3 px-4 text-end relative z-10" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
                         <button
                           type="button"
-                          onClick={() => setViewingCart(cart)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveMenuId(null);
+                            setViewingCart(cart);
+                          }}
                           className="p-1.5 text-slate-500 hover:text-teal-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
                           title={isAr ? 'عرض التفاصيل' : 'View Details'}
+                          aria-label={isAr ? 'عرض التفاصيل' : 'View Details'}
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleSendManualReminder(cart.id, cart.customerName)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveMenuId(null);
+                            handleSendManualReminder(cart.id, cart.customerName);
+                          }}
                           className="p-1.5 text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/40 rounded-lg transition-colors cursor-pointer"
                           title={isAr ? 'إرسال تذكير' : 'Send Reminder'}
+                          aria-label={isAr ? 'إرسال تذكير' : 'Send Reminder'}
                         >
                           <Send className="w-3.5 h-3.5" />
                         </button>
                         <button
                           type="button"
-                          onClick={() => {
-                            toast(isAr ? 'خيارات إضافية' : 'More options', 'info');
+                          ref={activeMenuId === cart.id ? actionMenuBtnRef : undefined}
+                          data-abandoned-cart-actions-trigger
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (activeMenuId === cart.id) {
+                              setActiveMenuId(null);
+                              return;
+                            }
+                            actionMenuBtnRef.current = e.currentTarget;
+                            setActiveMenuId(cart.id);
                           }}
-                          className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg transition-colors cursor-pointer"
+                          className={`p-1.5 rounded-lg transition-colors cursor-pointer border ${
+                            activeMenuId === cart.id
+                              ? 'text-teal-700 bg-teal-50 border-teal-200 dark:text-teal-300 dark:bg-teal-950/40 dark:border-teal-800'
+                              : 'text-slate-400 border-transparent hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+                          }`}
+                          title={isAr ? 'المزيد' : 'More'}
+                          aria-label={isAr ? 'المزيد' : 'More'}
+                          aria-expanded={activeMenuId === cart.id}
                         >
                           <MoreVertical className="w-3.5 h-3.5" />
                         </button>
@@ -798,13 +1159,104 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
               }}
               className="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
             >
-              <option value={10}>10 / page</option>
-              <option value={20}>20 / page</option>
-              <option value={50}>50 / page</option>
+              <option value={10}>{isAr ? '١٠ / صفحة' : '10 / page'}</option>
+              <option value={20}>{isAr ? '٢٠ / صفحة' : '20 / page'}</option>
+              <option value={50}>{isAr ? '٥٠ / صفحة' : '50 / page'}</option>
             </select>
           </div>
         </div>
       </div>
+
+      <FloatingPopover
+        open={!!activeMenuId}
+        anchorRef={actionMenuBtnRef}
+        onClose={() => setActiveMenuId(null)}
+        width={220}
+        align="end"
+        estimatedHeight={220}
+        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl py-1 text-xs"
+      >
+        {(() => {
+          const cart =
+            pageRows.find((c) => c.id === activeMenuId) ||
+            filtered.find((c) => c.id === activeMenuId);
+          if (!cart) return null;
+          const phoneDigits = String(cart.customerPhone || '').replace(/\D/g, '');
+          return (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setViewingCart(cart);
+                  setActiveMenuId(null);
+                }}
+                className="w-full px-3 py-2 hover:bg-teal-50 dark:hover:bg-teal-950/40 flex items-center gap-1.5 text-teal-700 dark:text-teal-300 font-semibold text-start"
+              >
+                <Eye className="w-3.5 h-3.5 text-teal-600" />
+                <span>{isAr ? 'عرض التفاصيل' : 'View Details'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  openSendReminderModal([cart.id]);
+                  setActiveMenuId(null);
+                }}
+                className="w-full px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1.5 text-slate-700 dark:text-slate-200 text-start"
+              >
+                <Send className="w-3.5 h-3.5 text-teal-600" />
+                <span>{isAr ? 'إرسال تذكير' : 'Send Reminder'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void handleCopyRecoveryLink(cart);
+                  setActiveMenuId(null);
+                }}
+                className="w-full px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1.5 text-slate-700 dark:text-slate-200 text-start"
+              >
+                <Copy className="w-3.5 h-3.5 text-indigo-500" />
+                <span>{isAr ? 'نسخ رابط الاستعادة' : 'Copy Recovery Link'}</span>
+              </button>
+              {phoneDigits ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.open(`https://wa.me/${phoneDigits}`, '_blank', 'noopener,noreferrer');
+                    setActiveMenuId(null);
+                  }}
+                  className="w-full px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1.5 text-slate-700 dark:text-slate-200 text-start"
+                >
+                  <WhatsAppBrandIcon className="w-3.5 h-3.5" />
+                  <span>{isAr ? 'تواصل عبر واتساب' : 'Contact on WhatsApp'}</span>
+                </button>
+              ) : null}
+              <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
+              <button
+                type="button"
+                onClick={() => {
+                  handleDismissCart(cart.id, cart.customerName);
+                  setActiveMenuId(null);
+                }}
+                className="w-full px-3 py-2 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-1.5 text-rose-600 dark:text-rose-400 text-start"
+              >
+                <Ban className="w-3.5 h-3.5" />
+                <span>{isAr ? 'إيقاف الاستعادة' : 'Stop Recovery'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleDismissCart(cart.id, cart.customerName);
+                  setActiveMenuId(null);
+                }}
+                className="w-full px-3 py-2 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-1.5 text-rose-600 dark:text-rose-400 text-start"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isAr ? 'إزالة من القائمة' : 'Remove from List'}</span>
+              </button>
+            </>
+          );
+        })()}
+      </FloatingPopover>
 
       {/* Edit Reminder popup modal — opened from Reminder Sequence */}
       {editingReminder && currentTemplate && (
@@ -1880,13 +2332,160 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
               <button
                 type="button"
                 onClick={() => {
-                  handleSendManualReminder(viewingCart.id, viewingCart.customerName);
+                  const id = viewingCart.id;
                   setViewingCart(null);
+                  openSendReminderModal([id]);
                 }}
                 className="px-4 py-2 bg-[#0EA5A4] text-white rounded-xl text-xs font-bold flex items-center gap-1.5"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>{isAr ? 'إرسال تذكير الآن' : 'Send Reminder Now'}</span>
+              </button>
+            </div>
+          </div>
+        </GlobalModal>
+      )}
+
+      {/* Send Reminder channel picker — Email / SMS / WhatsApp */}
+      {sendModalCarts && (
+        <GlobalModal
+          isOpen
+          onClose={() => {
+            if (sendingReminder) return;
+            setSendModalCarts(null);
+          }}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'إرسال تذكير السلة' : 'Send cart reminder'}
+        >
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto animate-in fade-in zoom-in-95">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  {isAr ? 'إرسال تذكير' : 'Send Reminder'}
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  {isAr
+                    ? `${sendModalCarts.length} سلة · اختر قنوات الإرسال`
+                    : `${sendModalCarts.length} cart(s) · choose channels`}
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={sendingReminder}
+                onClick={() => setSendModalCarts(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
+                aria-label={isAr ? 'إغلاق' : 'Close'}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-2">
+              {(
+                [
+                  {
+                    id: 'email' as const,
+                    icon: <Mail className="w-4 h-4 text-sky-600" />,
+                    label: isAr ? 'البريد الإلكتروني' : 'Email',
+                    hint: isAr ? 'يتطلب بريد العميل' : 'Needs customer email',
+                  },
+                  {
+                    id: 'sms' as const,
+                    icon: <Smartphone className="w-4 h-4 text-violet-600" />,
+                    label: isAr ? 'رسالة نصية' : 'SMS',
+                    hint: isAr ? 'يتطلب رقم الجوال + بوابة الرسائل' : 'Needs phone + SMS gateway',
+                  },
+                  {
+                    id: 'whatsapp' as const,
+                    icon: <WhatsAppBrandIcon className="w-4 h-4" />,
+                    label: isAr ? 'واتساب' : 'WhatsApp',
+                    hint: isAr ? 'واجهة المتجر أو محادثة مباشرة' : 'Store API or direct chat',
+                  },
+                ] as const
+              ).map((ch) => {
+                const on = sendChannels[ch.id];
+                return (
+                  <button
+                    key={ch.id}
+                    type="button"
+                    disabled={sendingReminder}
+                    onClick={() =>
+                      setSendChannels((prev) => ({ ...prev, [ch.id]: !prev[ch.id] }))
+                    }
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-start transition-colors ${
+                      on
+                        ? 'border-teal-400 bg-teal-50/80 dark:bg-teal-950/30 dark:border-teal-700'
+                        : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <span
+                      className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 ${
+                        on
+                          ? 'bg-teal-600 border-teal-600 text-white'
+                          : 'border-slate-300 dark:border-slate-600'
+                      }`}
+                    >
+                      {on ? <Check className="w-3.5 h-3.5" /> : null}
+                    </span>
+                    <span className="shrink-0">{ch.icon}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xs font-bold text-slate-800 dark:text-slate-100">
+                        {ch.label}
+                      </span>
+                      <span className="block text-[10px] text-slate-500">{ch.hint}</span>
+                    </span>
+                  </button>
+                );
+              })}
+
+              <div className="max-h-28 overflow-y-auto rounded-xl border border-slate-100 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 mt-2">
+                {sendModalCarts.slice(0, 8).map((c) => (
+                  <div
+                    key={c.id}
+                    className="px-3 py-1.5 text-[11px] flex items-center justify-between gap-2"
+                  >
+                    <span className="font-semibold text-slate-700 dark:text-slate-200 truncate">
+                      {c.customerName}
+                    </span>
+                    <span className="text-slate-400 shrink-0">{money(c.cartValue)}</span>
+                  </div>
+                ))}
+                {sendModalCarts.length > 8 ? (
+                  <div className="px-3 py-1.5 text-[10px] text-slate-400">
+                    {isAr
+                      ? `+${sendModalCarts.length - 8} أخرى`
+                      : `+${sendModalCarts.length - 8} more`}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2 bg-slate-50/60 dark:bg-slate-800/40">
+              <button
+                type="button"
+                disabled={sendingReminder}
+                onClick={() => setSendModalCarts(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200"
+              >
+                {isAr ? 'إلغاء' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                disabled={sendingReminder || !Object.values(sendChannels).some(Boolean)}
+                aria-busy={sendingReminder}
+                onClick={() => void handleConfirmSendReminder()}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-[#0EA5A4] hover:bg-[#0c8f8e] text-white flex items-center gap-1.5 disabled:opacity-40"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>
+                  {sendingReminder
+                    ? isAr
+                      ? 'جاري الإرسال…'
+                      : 'Sending…'
+                    : isAr
+                      ? 'إرسال الآن'
+                      : 'Send Now'}
+                </span>
               </button>
             </div>
           </div>

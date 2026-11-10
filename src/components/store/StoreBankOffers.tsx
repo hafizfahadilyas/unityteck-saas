@@ -321,9 +321,9 @@ export const StoreBankOffers: React.FC<StoreBankOffersProps> = ({ onNavigateTab 
                     onChange={(e) => setPaymentMethod(e.target.value)}
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs"
                   >
-                    <option value="Credit Cards">Credit Cards (البطاقات الائتمانية)</option>
-                    <option value="Mada">Mada (مدى)</option>
-                    <option value="Apple Pay">Apple Pay</option>
+                    <option value="Credit Cards">{isAr ? 'البطاقات الائتمانية' : 'Credit Cards'}</option>
+                    <option value="Mada">{isAr ? 'مدى' : 'Mada'}</option>
+                    <option value="Apple Pay">{isAr ? 'آبل باي' : 'Apple Pay'}</option>
                   </select>
                 </div>
               </div>

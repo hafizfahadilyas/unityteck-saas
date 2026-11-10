@@ -7,6 +7,7 @@ use App\Models\Plan;
 use App\Models\Store;
 use App\Models\StoreUser;
 use App\Models\Subscription;
+use App\Models\User;
 use App\Support\DefaultTheme;
 use App\Support\HostingerCloud;
 use App\Support\Plans;
@@ -149,6 +150,8 @@ class StoreController extends Controller
             'currency' => ['sometimes', 'string', 'max:10'],
             'phone' => ['nullable', 'string', 'max:32'],
             'email' => ['nullable', 'email', 'max:191'],
+            'owner_email' => ['nullable', 'email', 'max:191'],
+            'login_email_active' => ['sometimes', 'boolean'],
             'owner_name' => ['nullable', 'string', 'max:191'],
             'city' => ['nullable', 'string', 'max:100'],
             'country' => ['nullable', 'string', 'max:100'],
@@ -164,7 +167,38 @@ class StoreController extends Controller
             'visitors_count' => ['sometimes', 'integer', 'min:0'],
         ]);
 
+        // Master login email uses stores.email — accept owner_email alias from SPA.
+        if (array_key_exists('owner_email', $data) && ! array_key_exists('email', $data)) {
+            $data['email'] = $data['owner_email'];
+        }
+        unset($data['owner_email']);
+
+        $previousEmail = Str::lower(trim((string) $store->email));
         $store->fill($data)->save();
+
+        // Keep store-owner User.email in sync when Master changes login email.
+        if (array_key_exists('email', $data)) {
+            $nextEmail = Str::lower(trim((string) $data['email']));
+            if ($nextEmail !== '' && $nextEmail !== $previousEmail) {
+                $ownerMembership = StoreUser::query()
+                    ->where('store_id', $store->id)
+                    ->orderBy('created_at')
+                    ->first();
+                if ($ownerMembership) {
+                    $owner = User::query()->find($ownerMembership->user_id);
+                    if ($owner) {
+                        $taken = User::query()
+                            ->where('email', $nextEmail)
+                            ->where('id', '!=', $owner->id)
+                            ->exists();
+                        if (! $taken) {
+                            $owner->email = $nextEmail;
+                            $owner->save();
+                        }
+                    }
+                }
+            }
+        }
 
         return response()->json(['data' => $store->fresh()]);
     }

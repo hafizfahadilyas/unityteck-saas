@@ -67,10 +67,15 @@ import { CustomerAvatarUploadModal } from './CustomerAvatarUploadModal';
 import { getArabCustomerAvatar, getCustomerSeoAlt } from '../../utils/customerAvatars';
 import { handleImageError } from '../../utils/imageFallback';
 import { WhatsAppBrandIcon } from '../common/BrandIcons';
-import { CUSTOMER_GENDER_OPTIONS } from '../../data/saudiCities';
+import { CUSTOMER_GENDER_OPTIONS, normalizeSaudiCityId } from '../../data/saudiCities';
 import { useSaudiCityOptions } from '../../hooks/useSaudiCityOptions';
 import { SaudiCitySelect } from '../common/SaudiCitySelect';
 import { DateCalendarField } from '../common/DateCalendarField';
+import {
+  getCustomerDisplayName,
+  getLocalizedCity,
+  getLocalizedCountry,
+} from '../../utils/storeLocalization';
 
 interface CustomerDetailsProps {
   customer: Customer;
@@ -242,14 +247,9 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   const [newTagInput, setNewTagInput] = useState('');
   const [showAddTagInput, setShowAddTagInput] = useState(false);
 
-  // AI Modal State
+  // AI Modal State — only real customer fields (no invented city / propensity)
   const [showAiModal, setShowAiModal] = useState(false);
-  const [aiChatMessages, setAiChatMessages] = useState<Array<{ sender: 'ai' | 'user'; text: string }>>([
-    {
-      sender: 'ai',
-      text: `Hello! I have loaded the full profile for ${customer.name}. They are a ${customer.group || 'Regular'} customer from ${customer.city || 'Jazan'}. How can I assist you with tailored marketing or retention today?`,
-    },
-  ]);
+  const [aiChatMessages, setAiChatMessages] = useState<Array<{ sender: 'ai' | 'user'; text: string }>>([]);
   const [aiInputText, setAiInputText] = useState('');
   const [isAiTyping, setIsAiTyping] = useState(false);
 
@@ -382,7 +382,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
       phone: formattedPhone,
       gender: gender as 'Male' | 'Female' | 'Other',
       country,
-      city,
+      city: normalizeSaudiCityId(city, saudiCities) || city,
       state,
       dob,
     };
@@ -509,9 +509,10 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
       );
       return;
     }
+    const greetingName = getCustomerDisplayName(customer.name, locale);
     const greeting = isAr
-      ? `السلام عليكم ${customer.name}، تحية طيبة من متجر ${storeDisplayName}.`
-      : `Hello ${customer.name}, greetings from ${storeDisplayName}.`;
+      ? `السلام عليكم ${greetingName}، تحية طيبة من متجر ${storeDisplayName}.`
+      : `Hello ${greetingName}, greetings from ${storeDisplayName}.`;
     window.open(`https://wa.me/${digits}?text=${encodeURIComponent(greeting)}`, '_blank', 'noopener,noreferrer');
   };
 
@@ -527,9 +528,10 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     const subject = isAr
       ? `رسالة من متجر ${storeDisplayName}`
       : `Message from ${storeDisplayName}`;
+    const greetingName = getCustomerDisplayName(customer.name, locale);
     const body = isAr
-      ? `مرحباً ${customer.name}،\n\n`
-      : `Hello ${customer.name},\n\n`;
+      ? `مرحباً ${greetingName}،\n\n`
+      : `Hello ${greetingName},\n\n`;
     window.location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
@@ -546,13 +548,15 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   };
 
   const openAiChat = () => {
-    const cityLabel = customer.city?.trim() || (isAr ? 'غير محدد' : 'Not set');
+    const displayCustomerName = getCustomerDisplayName(customer.name, locale);
+    const cityLabel =
+      getLocalizedCity(customer.city, locale) || (isAr ? 'غير محدد' : 'Not set');
     const groupLabel = customer.group
       ? builtinGroupLabel(String(customer.group), isAr)
       : builtinGroupLabel('Regular', isAr);
     const greetingText: string = isAr
-      ? `مرحباً! تم تحميل ملف ${customer.name}. العميل ضمن مجموعة "${groupLabel}" من ${cityLabel}. كيف أساعدك في التسويق أو الاحتفاظ بالعملاء؟`
-      : `Hello! I have loaded the full profile for ${customer.name}. They are a ${groupLabel} customer from ${cityLabel}. How can I assist you with tailored marketing or retention today?`;
+      ? `ملخص ملف ${displayCustomerName} من بيانات المتجر فقط: المجموعة "${groupLabel}"، المدينة ${cityLabel}. اسأل عن الطلبات أو الإنفاق — لا توجد توصيات وهمية.`
+      : `Profile summary for ${displayCustomerName} from store data only: group "${groupLabel}", city ${cityLabel}. Ask about orders or spend — no invented recommendations.`;
     setAiChatMessages([{ sender: 'ai', text: greetingText }]);
     setAiInputText('');
     setIsAiTyping(false);
@@ -587,29 +591,21 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     setAiInputText('');
     setIsAiTyping(true);
 
-    setTimeout(() => {
-      const wantsOffer =
-        /discount|offer/i.test(userText) ||
-        userText.includes('خصم') ||
-        userText.includes('عرض');
+    // Zero-mock: only echo real order/spend fields — never invent propensity or coupon %
+    window.setTimeout(() => {
       const wantsOrder =
-        /order/i.test(userText) ||
-        userText.includes('طلب');
-      let reply = isAr
-        ? `بناءً على ملف ${customer.name} في متجرك، لديهم ميل مرتفع للشراء. إرسال كوبون واتساب مخصص للتوصيل المجاني قد يحقق معدل تحويل أفضل.`
-        : `Based on ${customer.name}'s profile in your store, they have high purchase propensity. Sending a personalized WhatsApp coupon for free delivery may improve conversion.`;
-      if (wantsOffer) {
-        reply = isAr
-          ? `أنصح بإنشاء كوبون خصم 15٪ للعميل المميز صالح لمدة 7 أيام. ${customer.name} يتفاعل كثيراً عبر واتساب ويستجيب أفضل للعروض الموسمية.`
-          : `I recommend generating a 15% VIP discount coupon valid for 7 days. ${customer.name} frequently interacts on WhatsApp and responds best to seasonal promotions.`;
-      } else if (wantsOrder) {
-        reply = isAr
-          ? `${customer.name} لديه حالياً ${customerOrders.length} طلبات مؤكدة بإجمالي قيمة ${money(customer.totalSpending || 0)}.`
-          : `${customer.name} currently has ${customerOrders.length} confirmed orders with a total value of ${money(customer.totalSpending || 0)}.`;
-      }
+        /order|spend|total|طلب|إنفاق|مبيعات/i.test(userText);
+      const displayCustomerName = getCustomerDisplayName(customer.name, locale);
+      const reply = wantsOrder
+        ? isAr
+          ? `${displayCustomerName}: ${customerOrders.length} طلبات مؤكدة، إجمالي الإنفاق ${money(customer.totalSpending || 0)}.`
+          : `${displayCustomerName}: ${customerOrders.length} confirmed orders, total spend ${money(customer.totalSpending || 0)}.`
+        : isAr
+          ? 'مساعد التحليل غير متصل بخدمة ذكاء اصطناعي حقيقية بعد. استخدم بيانات الطلبات والإنفاق من الملف فقط.'
+          : 'Analysis assistant is not connected to a live AI service yet. Use order and spend data from the profile only.';
       setAiChatMessages((prev) => [...prev, { sender: 'ai', text: reply }]);
       setIsAiTyping(false);
-    }, 900);
+    }, 200);
   };
 
   const cleanPhoneForWa = normalizeCustomerPhoneDigits(customer.phone);
@@ -627,17 +623,13 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
 
   const localizePlace = (value?: string) => {
     if (!value || !value.trim()) return isAr ? 'غير محدد' : 'Not set';
-    const v = value.trim();
-    if (/saudi\s*arabia/i.test(v) || v === 'KSA' || v === 'SA') {
-      return isAr ? 'المملكة العربية السعودية' : 'Saudi Arabia';
-    }
-    if (/^jazan$/i.test(v) || v === 'جازان') return isAr ? 'جازان' : 'Jazan';
-    if (/^riyadh$/i.test(v) || v === 'الرياض') return isAr ? 'الرياض' : 'Riyadh';
-    if (/^jeddah$/i.test(v) || v === 'جدة') return isAr ? 'جدة' : 'Jeddah';
-    if (/^makkah|mecca$/i.test(v) || v === 'مكة') return isAr ? 'مكة المكرمة' : 'Makkah';
-    if (/^madinah|medina$/i.test(v) || v === 'المدينة') return isAr ? 'المدينة المنورة' : 'Madinah';
-    return v;
+    const asCountry = getLocalizedCountry(value, locale);
+    if (asCountry !== value.trim()) return asCountry;
+    const asCity = getLocalizedCity(value, locale);
+    return asCity || value.trim();
   };
+
+  const profileDisplayName = getCustomerDisplayName(customer.name, locale);
 
   const languageLabel = (() => {
     const lang = (customer.language || '').trim();
@@ -807,7 +799,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                           className="w-full h-full rounded-full object-cover transition-transform group-hover:scale-105"
                         />
                       ) : (
-                        <span>{customer.name.substring(0, 2).toUpperCase()}</span>
+                        <span>{profileDisplayName.substring(0, 2).toUpperCase()}</span>
                       )}
                     </div>
                     <span className="absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-xs" />
@@ -858,7 +850,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 <div className="space-y-1.5 min-w-0">
                   <div className="flex flex-wrap items-center gap-2.5">
                     <h2 className="text-xl font-bold text-slate-900 dark:text-white truncate">
-                      {customer.name}
+                      {profileDisplayName}
                     </h2>
                     <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
                       {customer.group === 'VIP'
@@ -1211,8 +1203,8 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     onClick={() =>
                       toast(
                         isAr
-                          ? `سيتم إنشاء طلب جديد للعميل ${customer.name} في هذا المتجر`
-                          : `New order flow for ${customer.name} in this store`,
+                          ? `سيتم إنشاء طلب جديد للعميل ${profileDisplayName} في هذا المتجر`
+                          : `New order flow for ${profileDisplayName} in this store`,
                         'info',
                       )
                     }
@@ -1473,8 +1465,8 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
           )}
         </div>
 
-        {/* Right Column (4 of 12) Sidebars */}
-        <div className="lg:col-span-4 space-y-4 lg:space-y-6 min-w-0 w-full">
+        {/* Right Column (4 of 12) Sidebars — self-start so tall left column never leaves blank mid-stack */}
+        <div className="lg:col-span-4 space-y-3 self-start min-w-0 w-full">
           {/* 1. Customer Information Card */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-sm space-y-4 w-full">
             <div className="flex items-center justify-between">
@@ -1515,7 +1507,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center font-bold text-xs text-slate-600 dark:text-slate-300">
-                        {customer.name.substring(0, 2).toUpperCase()}
+                        {profileDisplayName.substring(0, 2).toUpperCase()}
                       </div>
                     )}
                   </div>
@@ -1790,213 +1782,213 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             </dl>
           </div>
 
-          {/* Equal-height insight cards — fill width, no blank side gaps */}
-          <div className="u-equal-sections grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-3 w-full">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-sm flex flex-col gap-2 min-h-[7.5rem]">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                {isAr ? 'المكافآت' : 'Rewards'}
-              </h3>
-              {customerRewards.length === 0 ? (
-                <p className="text-xs text-slate-500 dark:text-slate-400 flex-1">
-                  {isAr
-                    ? 'لا توجد مكافآت متاحة لهذا العميل'
-                    : 'No Rewards Available for This Customer'}
-                </p>
-              ) : (
-                <ul className="space-y-1.5 text-xs text-slate-700 dark:text-slate-300 flex-1">
-                  {customerRewards.map((r) => (
-                    <li key={r.id}>{isAr ? r.titleAr || r.title : r.title || r.titleAr}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-sm flex flex-col gap-2 min-h-[7.5rem]">
-              <div className="flex items-center justify-between gap-2">
+          {/* Equal insight + contact stack — content-height only, no mid-column blank */}
+          <div className="grid grid-cols-1 gap-3 w-full">
+            <div className="grid grid-cols-2 gap-3 w-full items-stretch">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-sm flex flex-col gap-1.5 h-full min-h-0">
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  {isAr ? 'محفظة العميل' : 'Customer Wallet'}
+                  {isAr ? 'المكافآت' : 'Rewards'}
                 </h3>
-                {canAdjustWallet ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowWalletAdjust(true)}
-                    className="text-[11px] font-semibold text-teal-600 hover:text-teal-700 cursor-pointer"
-                  >
-                    {isAr ? 'تعديل' : 'Adjust'}
-                  </button>
-                ) : null}
+                {customerRewards.length === 0 ? (
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {isAr
+                      ? 'لا توجد مكافآت متاحة لهذا العميل'
+                      : 'No Rewards Available for This Customer'}
+                  </p>
+                ) : (
+                  <ul className="space-y-1.5 text-xs text-slate-700 dark:text-slate-300">
+                    {customerRewards.map((r) => (
+                      <li key={r.id}>{isAr ? r.titleAr || r.title : r.title || r.titleAr}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
-              <p className="text-lg font-bold text-emerald-600" dir="ltr">
-                {money(walletBalance)}
-              </p>
-              {walletTransactions.length === 0 ? (
-                <p className="text-xs text-slate-500 dark:text-slate-400 flex-1">
-                  {isAr ? 'لا توجد معاملات مسجّلة' : 'No Transactions Recorded'}
+
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-sm flex flex-col gap-1.5 h-full min-h-0">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    {isAr ? 'محفظة العميل' : 'Customer Wallet'}
+                  </h3>
+                  {canAdjustWallet ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowWalletAdjust(true)}
+                      className="text-[11px] font-semibold text-teal-600 hover:text-teal-700 cursor-pointer"
+                    >
+                      {isAr ? 'تعديل' : 'Adjust'}
+                    </button>
+                  ) : null}
+                </div>
+                <p className="text-lg font-bold text-emerald-600" dir="ltr">
+                  {money(walletBalance)}
                 </p>
-              ) : (
-                <p className="text-xs text-slate-500 dark:text-slate-400 flex-1">
-                  {isAr
-                    ? `${walletTransactions.length} معاملة في السجل`
-                    : `${walletTransactions.length} transaction(s) on record`}
-                </p>
-              )}
+                {walletTransactions.length === 0 ? (
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {isAr ? 'لا توجد معاملات مسجّلة' : 'No Transactions Recorded'}
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {isAr
+                      ? `${walletTransactions.length} معاملة في السجل`
+                      : `${walletTransactions.length} transaction(s) on record`}
+                  </p>
+                )}
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-sm flex flex-col gap-1.5 h-full min-h-0">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  {isAr ? 'نقاط الولاء' : 'Loyalty Points'}
+                </h3>
+                {loyaltyPointsCount <= 0 ? (
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {isAr ? 'لا توجد نقاط ولاء متاحة' : 'No Loyalty Points Available'}
+                  </p>
+                ) : (
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                    {loyaltyPointsCount}
+                  </p>
+                )}
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-sm flex flex-col gap-1.5 h-full min-h-0">
+                <div className="flex items-center gap-2">
+                  <Heart className="w-4 h-4 text-rose-500 shrink-0" />
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    {isAr ? 'قائمة الأمنيات' : 'Wishlist'}
+                  </h3>
+                </div>
+                {wishlistItems.length === 0 ? (
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {isAr ? 'لا توجد عناصر في قائمة الأمنيات' : 'No Wishlist Items Available'}
+                  </p>
+                ) : (
+                  <ul className="space-y-1 text-xs text-slate-700 dark:text-slate-300">
+                    {wishlistItems.map((w) => (
+                      <li key={w.id}>{isAr ? w.nameAr || w.name : w.name || w.nameAr}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-sm flex flex-col gap-2 min-h-[7.5rem]">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                {isAr ? 'نقاط الولاء' : 'Loyalty Points'}
-              </h3>
-              {loyaltyPointsCount <= 0 ? (
-                <p className="text-xs text-slate-500 dark:text-slate-400 flex-1">
-                  {isAr ? 'لا توجد نقاط ولاء متاحة' : 'No Loyalty Points Available'}
-                </p>
-              ) : (
-                <p className="text-2xl font-bold text-slate-900 dark:text-white flex-1">
-                  {loyaltyPointsCount}
-                </p>
-              )}
-            </div>
-
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-sm flex flex-col gap-2 min-h-[7.5rem]">
+            {/* Messaging Details — Email, SMS, WhatsApp (real customer channels only) */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-sm space-y-2.5">
               <div className="flex items-center gap-2">
-                <Heart className="w-4 h-4 text-rose-500 shrink-0" />
+                <MessageSquare className="w-4 h-4 text-teal-600" />
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  {isAr ? 'قائمة الأمنيات' : 'Wishlist'}
+                  {isAr ? 'تفاصيل المراسلة' : 'Messaging Details'}
                 </h3>
               </div>
-              {wishlistItems.length === 0 ? (
-                <p className="text-xs text-slate-500 dark:text-slate-400 flex-1">
-                  {isAr ? 'لا توجد عناصر في قائمة الأمنيات' : 'No Wishlist Items Available'}
-                </p>
-              ) : (
-                <ul className="space-y-1 text-xs text-slate-700 dark:text-slate-300 flex-1">
-                  {wishlistItems.map((w) => (
-                    <li key={w.id}>{isAr ? w.nameAr || w.name : w.name || w.nameAr}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-
-          {/* Messaging Details — Email, SMS, WhatsApp consistent order */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-3">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-teal-600" />
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                {isAr ? 'تفاصيل المراسلة' : 'Messaging Details'}
-              </h3>
-            </div>
-            <div className="space-y-2.5 text-xs">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                  <Mail className="w-4 h-4 text-slate-400" />
-                  <span>{isAr ? 'البريد الإلكتروني' : 'Email'}</span>
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                    <Mail className="w-4 h-4 text-slate-400" />
+                    <span>{isAr ? 'البريد الإلكتروني' : 'Email'}</span>
+                  </div>
+                  <span className="font-medium truncate max-w-[160px]" dir="ltr">
+                    {hasEmail ? customer.email : isAr ? 'غير متوفر' : 'Not available'}
+                  </span>
                 </div>
-                <span className="font-medium truncate max-w-[160px]" dir="ltr">
-                  {hasEmail ? customer.email : isAr ? 'غير متوفر' : 'Not available'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                  <Smartphone className="w-4 h-4 text-slate-400" />
-                  <span>{isAr ? 'رسالة نصية' : 'SMS'}</span>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                    <Smartphone className="w-4 h-4 text-slate-400" />
+                    <span>{isAr ? 'رسالة نصية' : 'SMS'}</span>
+                  </div>
+                  <span className="font-medium" dir="ltr">
+                    {hasPhone ? customer.phone : isAr ? 'غير متوفر' : 'Not available'}
+                  </span>
                 </div>
-                <span className="font-medium" dir="ltr">
-                  {hasPhone ? customer.phone : isAr ? 'غير متوفر' : 'Not available'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                  <WhatsAppBrandIcon className="w-4 h-4 text-[#25D366]" title="WhatsApp" />
-                  <span>{isAr ? 'واتساب' : 'WhatsApp'}</span>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                    <WhatsAppBrandIcon className="w-4 h-4 text-[#25D366]" title="WhatsApp" />
+                    <span>{isAr ? 'واتساب' : 'WhatsApp'}</span>
+                  </div>
+                  <span className="font-medium" dir="ltr">
+                    {hasPhone ? customer.phone : isAr ? 'غير متوفر' : 'Not available'}
+                  </span>
                 </div>
-                <span className="font-medium" dir="ltr">
-                  {hasPhone ? customer.phone : isAr ? 'غير متوفر' : 'Not available'}
-                </span>
               </div>
             </div>
-          </div>
 
-          {/* Customer Tags Card */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 flex items-center justify-center">
-                  <Tag className="w-4 h-4" />
+            {/* Customer Tags Card */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 flex items-center justify-center">
+                    <Tag className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    {isAr ? 'وسوم العميل' : 'Customer Tags'}
+                  </h3>
                 </div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  {isAr ? 'وسوم العميل' : 'Customer Tags'}
-                </h3>
-              </div>
-              <button
-                onClick={() => setShowAddTagInput(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-teal-500 transition-colors cursor-pointer"
-              >
-                <Plus className="w-3 h-3 text-teal-600" />
-                <span>{isAr ? 'إضافة وسم' : 'Add Tag'}</span>
-              </button>
-            </div>
-
-            {/* Tag Chips — localized labels, no EN/AR mix */}
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              {tags.map((tg) => {
-                const tagLabelMap: Record<string, { en: string; ar: string }> = {
-                  flower_lover: { en: 'Flower lover', ar: 'محب للزهور' },
-                  regular_customer: { en: 'Regular customer', ar: 'عميل منتظم' },
-                  offers: { en: 'Interested in offers', ar: 'مهتم بالعروض' },
-                  vip: { en: 'VIP', ar: 'عميل مميز' },
-                };
-                const mapped = tagLabelMap[tg];
-                const label = mapped ? (isAr ? mapped.ar : mapped.en) : tg;
-                return (
-                <span
-                  key={tg}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-teal-50/70 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800 text-xs font-medium"
-                >
-                  <span>{label}</span>
-                  <button
-                    onClick={() => handleRemoveTag(tg)}
-                    className="text-teal-500 hover:text-teal-700 dark:hover:text-teal-100 transition-colors cursor-pointer"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              );
-              })}
-
-              {/* Inline Add Tag Input */}
-              {showAddTagInput ? (
-                <div className="flex items-center gap-1">
-                  <input
-                    type="text"
-                    value={newTagInput}
-                    onChange={(e) => setNewTagInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
-                    placeholder={isAr ? 'اكتب الوسم...' : 'Type tag...'}
-                    autoFocus
-                    className="px-2.5 py-1 text-xs rounded-lg border border-teal-300 dark:border-teal-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none"
-                  />
-                  <button
-                    onClick={handleAddTag}
-                    className="p-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setShowAddTagInput(false)}
-                    className="p-1 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ) : (
                 <button
                   onClick={() => setShowAddTagInput(true)}
-                  className="w-7 h-7 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 text-slate-400 hover:text-teal-600 hover:border-teal-400 flex items-center justify-center transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-teal-500 transition-colors cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-3 h-3 text-teal-600" />
+                  <span>{isAr ? 'إضافة وسم' : 'Add Tag'}</span>
                 </button>
-              )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {tags.map((tg) => {
+                  const tagLabelMap: Record<string, { en: string; ar: string }> = {
+                    flower_lover: { en: 'Flower lover', ar: 'محب للزهور' },
+                    regular_customer: { en: 'Regular customer', ar: 'عميل منتظم' },
+                    offers: { en: 'Interested in offers', ar: 'مهتم بالعروض' },
+                    vip: { en: 'VIP', ar: 'عميل مميز' },
+                  };
+                  const mapped = tagLabelMap[tg];
+                  const label = mapped ? (isAr ? mapped.ar : mapped.en) : tg;
+                  return (
+                    <span
+                      key={tg}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-teal-50/70 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800 text-xs font-medium"
+                    >
+                      <span>{label}</span>
+                      <button
+                        onClick={() => handleRemoveTag(tg)}
+                        className="text-teal-500 hover:text-teal-700 dark:hover:text-teal-100 transition-colors cursor-pointer"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  );
+                })}
+
+                {showAddTagInput ? (
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="text"
+                      value={newTagInput}
+                      onChange={(e) => setNewTagInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
+                      placeholder={isAr ? 'اكتب الوسم...' : 'Type tag...'}
+                      autoFocus
+                      className="px-2.5 py-1 text-xs rounded-lg border border-teal-300 dark:border-teal-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none"
+                    />
+                    <button
+                      onClick={handleAddTag}
+                      className="p-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setShowAddTagInput(false)}
+                      className="p-1 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowAddTagInput(true)}
+                    className="w-7 h-7 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 text-slate-400 hover:text-teal-600 hover:border-teal-400 flex items-center justify-center transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -2028,8 +2020,8 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     {isAr
-                      ? `السياق:${customer.name}•${activeStore.nameAr || activeStore.name}`
-                      : `Context: ${customer.name} • ${activeStore.nameEn || activeStore.name}`}
+                      ? `السياق: ${profileDisplayName} • ${activeStore.nameAr || activeStore.name}`
+                      : `Context: ${profileDisplayName} • ${activeStore.nameEn || activeStore.name}`}
                   </p>
                 </div>
               </div>
@@ -2167,7 +2159,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         onClose={() => setShowWalletAdjust(false)}
         storeId={activeStore.id}
         customerId={customer.id}
-        customerName={customer.name}
+        customerName={profileDisplayName}
         currentBalance={walletBalance}
         isAr={isAr}
         onApplied={(result) => {
@@ -2193,7 +2185,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
         isOpen={showAvatarModal}
         onClose={() => setShowAvatarModal(false)}
         customerId={customer.id}
-        customerName={customer.name}
+        customerName={profileDisplayName}
         customerGender={customer.gender}
         currentAvatar={customer.avatar}
         onAvatarUpdated={(newAvatarUrl) => {

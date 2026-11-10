@@ -403,18 +403,31 @@ export const StoreLoyaltyProgram: React.FC<StoreLoyaltyProgramProps> = ({ onNavi
 
   // Toggle Earn Rule
   const handleToggleEarnRule = async (ruleId: string, currentActive: boolean) => {
+    if (!activeStore?.id || !ruleId) return;
     const nextActive = !currentActive;
     setEarnRules((prev) =>
       prev.map((r) => (r.id === ruleId ? { ...r, active: nextActive } : r))
     );
     try {
-      await updateLoyaltyEarnRuleApi(activeStore.id, ruleId, { active: nextActive });
+      const updated = await updateLoyaltyEarnRuleApi(activeStore.id, ruleId, { active: nextActive });
+      if (Array.isArray(updated) && updated.length > 0) {
+        setEarnRules(updated);
+      }
       toast(isAr ? 'تم تحديث طريقة كسب النقاط' : 'Earning rule updated', 'success');
-    } catch {
+    } catch (err) {
       setEarnRules((prev) =>
         prev.map((r) => (r.id === ruleId ? { ...r, active: currentActive } : r))
       );
-      toast(isAr ? 'فشل تحديث الطريقة' : 'Failed to update earning rule', 'error');
+      const detail =
+        err && typeof err === 'object' && 'message' in err && typeof (err as { message: unknown }).message === 'string'
+          ? String((err as { message: string }).message)
+          : '';
+      toast(
+        isAr
+          ? `فشل تحديث الطريقة${detail ? `: ${detail}` : ''}`
+          : `Failed to update earning rule${detail ? `: ${detail}` : ''}`,
+        'error',
+      );
     }
   };
 

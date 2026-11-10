@@ -67,14 +67,17 @@ export const SalesVsProfitChart: React.FC<SalesVsProfitChartProps> = React.memo(
   }, [hoveredIndex, points, chartWidth, chartHeight, maxVal, barWidth, barGap]);
 
   return (
-    <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 shadow-xs flex flex-col justify-between h-full min-h-[280px]">
+    <div
+      className="u-card p-4 sm:p-5 rounded-2xl shadow-xs flex flex-col justify-between h-full min-h-[280px]"
+      style={{ fontFamily: 'var(--font-ui)' }}
+    >
       {/* ── Card Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-[#e6f4f1] dark:bg-teal-950/60 text-[#006d77] dark:text-teal-300 flex items-center justify-center border border-teal-200/50 dark:border-teal-800/40">
+          <div className="u-icon-brand w-8 h-8 rounded-xl flex items-center justify-center">
             <TrendingUp className="w-4 h-4" />
           </div>
-          <h3 className="text-sm font-black text-slate-900 dark:text-white">
+          <h3 className="text-sm font-black" style={{ color: 'var(--text)' }}>
             {isAr ? 'المبيعات مقابل الأرباح التقديرية' : 'Sales vs Estimated Profit'}
           </h3>
         </div>
@@ -82,8 +85,8 @@ export const SalesVsProfitChart: React.FC<SalesVsProfitChartProps> = React.memo(
         {/* Legend */}
         <div className="flex items-center gap-4 text-xs font-bold">
           <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-teal-700 dark:bg-teal-400" />
-            <span className="text-slate-900 dark:text-slate-100 font-bold">
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--accent)' }} />
+            <span className="font-bold" style={{ color: 'var(--text)' }}>
               {isAr ? 'المبيعات' : 'Sales'}
             </span>
           </div>
@@ -99,8 +102,8 @@ export const SalesVsProfitChart: React.FC<SalesVsProfitChartProps> = React.memo(
       {/* ── Responsive Grouped Bar Chart or Real Empty State ── */}
       {points.length === 0 ? (
         <div className="py-14 px-4 text-center flex flex-col items-center justify-center">
-          <div className="w-10 h-10 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-[#006d77] dark:text-teal-300 flex items-center justify-center border border-teal-200/50 dark:border-teal-800/40 mb-2.5">
-            <TrendingUp className="w-5 h-5 text-slate-400 dark:text-slate-500" />
+          <div className="u-icon-brand w-10 h-10 rounded-2xl flex items-center justify-center mb-2.5">
+            <TrendingUp className="w-5 h-5 opacity-60" />
           </div>
           <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
             {isAr ? 'لا توجد بيانات مبيعات في هذه الفترة' : 'No sales data for this period'}
@@ -133,7 +136,7 @@ export const SalesVsProfitChart: React.FC<SalesVsProfitChartProps> = React.memo(
                 {/* Header / Date */}
                 <div className="text-[11px] font-bold text-slate-300 pb-2 mb-2 border-b border-slate-700/70 flex items-center justify-between gap-3">
                   <span className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--accent)' }} />
                     {isAr ? 'التاريخ' : 'Date'}
                   </span>
                   <span className="font-mono text-white text-[11px] font-extrabold dir-ltr">
@@ -144,7 +147,7 @@ export const SalesVsProfitChart: React.FC<SalesVsProfitChartProps> = React.memo(
                 {/* Sales Row */}
                 <div className="flex items-center justify-between gap-3 text-xs mb-1.5">
                   <div className="flex items-center gap-1.5 font-medium text-slate-200">
-                    <span className="w-2.5 h-2.5 rounded-md bg-teal-500 shrink-0 shadow-xs shadow-teal-500/50" />
+                    <span className="w-2.5 h-2.5 rounded-md shrink-0 shadow-xs" style={{ background: 'var(--accent)' }} />
                     <span className="font-bold">{isAr ? 'المبيعات' : 'Sales'}:</span>
                   </div>
                   <span className="font-black text-white tabular-nums text-xs">
@@ -223,22 +226,22 @@ export const SalesVsProfitChart: React.FC<SalesVsProfitChartProps> = React.memo(
                       width={barWidth * 2 + barGap + 6}
                       height={chartHeight + 4}
                       rx={6}
-                      className="fill-teal-500/10 dark:fill-teal-400/15 pointer-events-none"
+                      className="pointer-events-none"
+                      fill="var(--accent)"
+                      fillOpacity={0.12}
                     />
                   )}
 
-                  {/* Sales Bar (Teal) */}
+                  {/* Sales Bar — brand accent */}
                   <rect
                     x={groupX}
                     y={salesY}
                     width={barWidth}
                     height={Math.max(2, salesHeight)}
                     rx={2.5}
-                    className={`transition-all duration-150 ${
-                      isHovered
-                        ? 'fill-teal-600 dark:fill-teal-300 brightness-110'
-                        : 'fill-teal-700 dark:fill-teal-400'
-                    }`}
+                    className="transition-all duration-150"
+                    fill="var(--accent)"
+                    opacity={isHovered ? 1 : 0.92}
                   />
 
                   {/* Profit Bar (Sky Cyan) */}
@@ -264,7 +267,8 @@ export const SalesVsProfitChart: React.FC<SalesVsProfitChartProps> = React.memo(
                       fontSize="10.5"
                       fontWeight="700"
                       fill="currentColor"
-                      className={isHovered ? 'text-teal-700 dark:text-teal-300 font-black' : 'text-slate-800 dark:text-slate-200 font-bold'}
+                      className={isHovered ? 'font-black' : 'font-bold'}
+                      style={{ fill: isHovered ? 'var(--accent)' : 'var(--text)' }}
                     >
                       {pt.date}
                     </text>

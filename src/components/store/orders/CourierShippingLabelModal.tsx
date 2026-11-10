@@ -25,6 +25,7 @@ import {
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
 import { GlobalModal } from '../../common/GlobalModal';
+import { getLocalizedAddress, getLocalizedCity } from '../../../utils/storeLocalization';
 
 interface CourierShippingLabelModalProps {
   isOpen: boolean;
@@ -236,7 +237,10 @@ export const CourierShippingLabelModal: React.FC<CourierShippingLabelModalProps>
                     {isAr ? labelData.sender.nameAr || labelData.sender.name : labelData.sender.name}
                   </p>
                   <p className="text-[10px] text-slate-600 leading-snug">
-                    {labelData.sender.address}, {labelData.sender.city}
+                    {getLocalizedAddress(labelData.sender.address, locale)}
+                    {labelData.sender.city
+                      ? `, ${getLocalizedCity(labelData.sender.city, locale)}`
+                      : ''}
                   </p>
                   <p className="text-[10px] font-mono text-slate-700 flex items-center gap-1 dir-ltr">
                     <Phone className="w-3 h-3 text-slate-400 shrink-0" />
@@ -253,10 +257,10 @@ export const CourierShippingLabelModal: React.FC<CourierShippingLabelModalProps>
                     {isAr ? labelData.recipient.nameAr || labelData.recipient.name : labelData.recipient.name}
                   </p>
                   <p className="text-[10px] text-slate-800 font-medium leading-snug">
-                    {labelData.recipient.address}
+                    {getLocalizedAddress(labelData.recipient.address, locale)}
                   </p>
                   <p className="text-[10px] font-bold text-slate-900">
-                    {labelData.recipient.city}
+                    {getLocalizedCity(labelData.recipient.city, locale)}
                     {labelData.recipient.postalCode ? ` · ${labelData.recipient.postalCode}` : ''}
                   </p>
                   <p className="text-[10px] font-mono font-bold text-slate-900 flex items-center gap-1 dir-ltr">

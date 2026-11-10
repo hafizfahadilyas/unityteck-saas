@@ -136,7 +136,7 @@ export const ReportsProducts: React.FC<ReportsProductsProps> = ({
             {(kpis?.units_sold ?? 0).toLocaleString()}
           </div>
           <span className="text-[11px] text-purple-600 dark:text-purple-400 font-bold mt-1 inline-block">
-            {kpis?.units_sold_growth || (kpis?.units_sold ? '+18% vs prev' : '0%')}
+            {kpis?.units_sold_growth || (isAr ? 'بانتظار البيانات' : 'Waiting for Data')}
           </span>
         </div>
 

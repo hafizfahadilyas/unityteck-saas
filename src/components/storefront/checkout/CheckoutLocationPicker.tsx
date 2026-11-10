@@ -1,10 +1,13 @@
-import React, { useMemo, useState } from 'react';
-import { Crosshair, MapPin, Navigation } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { MapPin } from 'lucide-react';
+import {
+  SaudiGoogleMapPicker,
+  type GeoPoint,
+} from '../../maps/SaudiGoogleMapPicker';
+import { SaudiCitySelect } from '../../common/SaudiCitySelect';
+import { prefetchGoogleMaps, type SaudiAddressParts } from '../../../utils/googleMapsLoader';
 
-export type CheckoutGeoPoint = {
-  lat: number;
-  lng: number;
-};
+export type CheckoutGeoPoint = GeoPoint;
 
 type Props = {
   isAr: boolean;
@@ -22,7 +25,7 @@ type Props = {
 };
 
 /**
- * Modern checkout location: map pin (OSM) + geolocation + full manual address.
+ * Checkout location: Google Maps pin (Saudi Arabia only) + manual address.
  */
 export const CheckoutLocationPicker: React.FC<Props> = ({
   isAr,
@@ -38,83 +41,20 @@ export const CheckoutLocationPicker: React.FC<Props> = ({
   allowCustomCity = true,
 }) => {
   const [manualMode, setManualMode] = useState(true);
-  const [locBusy, setLocBusy] = useState(false);
-  const [locError, setLocError] = useState<string | null>(null);
   const [customCity, setCustomCity] = useState(false);
 
-  const mapSrc = useMemo(() => {
-    const lat = geo?.lat ?? 21.4225;
-    const lng = geo?.lng ?? 39.8262;
-    // OpenStreetMap embed — no API key, store-safe
-    return `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.04}%2C${lat - 0.03}%2C${lng + 0.04}%2C${lat + 0.03}&layer=mapnik&marker=${lat}%2C${lng}`;
-  }, [geo]);
+  useEffect(() => {
+    prefetchGoogleMaps();
+  }, []);
 
-  const useMyLocation = () => {
-    setLocError(null);
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setLocError(isAr ? 'الموقع غير مدعوم على هذا الجهاز' : 'Geolocation is not supported on this device');
-      return;
+  const applyParts = (parts: SaudiAddressParts) => {
+    if (parts.city) {
+      setCustomCity(true);
+      onCityChange(parts.city);
     }
-    setLocBusy(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        onGeoChange({ lat, lng });
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`,
-            { headers: { Accept: 'application/json' } },
-          );
-          if (res.ok) {
-            const data = (await res.json()) as {
-              address?: {
-                city?: string;
-                town?: string;
-                village?: string;
-                state?: string;
-                suburb?: string;
-                neighbourhood?: string;
-                road?: string;
-                house_number?: string;
-              };
-              display_name?: string;
-            };
-            const a = data.address || {};
-            const resolvedCity = a.city || a.town || a.village || a.state || '';
-            if (resolvedCity) {
-              setCustomCity(true);
-              onCityChange(resolvedCity);
-            }
-            if (a.suburb || a.neighbourhood) onDistrictChange(a.suburb || a.neighbourhood || '');
-            const road = [a.road, a.house_number].filter(Boolean).join(' ');
-            if (road) onStreetChange(road);
-            else if (data.display_name && !street) onStreetChange(data.display_name);
-          }
-        } catch {
-          /* keep coords even if reverse geocode fails */
-        } finally {
-          setLocBusy(false);
-          setManualMode(true);
-        }
-      },
-      () => {
-        setLocBusy(false);
-        setLocError(
-          isAr
-            ? 'تعذر قراءة موقعك. أدخل العنوان يدوياً أو من الخريطة.'
-            : 'Could not read your location. Enter the address manually or use the map.',
-        );
-      },
-      { enableHighAccuracy: true, timeout: 12000 },
-    );
-  };
-
-  const applyMapClickHint = () => {
-    // Manual lat/lng fine-tune via browser prompt would be crude; use OSM link instead.
-    const lat = geo?.lat ?? 21.4225;
-    const lng = geo?.lng ?? 39.8262;
-    window.open(`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=15/${lat}/${lng}`, '_blank', 'noopener,noreferrer');
+    if (parts.district) onDistrictChange(parts.district);
+    if (parts.street) onStreetChange(parts.street);
+    else if (parts.formatted && !street) onStreetChange(parts.formatted);
   };
 
   return (
@@ -140,59 +80,25 @@ export const CheckoutLocationPicker: React.FC<Props> = ({
               : 'bg-white text-neutral-600 border-neutral-200'
           }`}
         >
-          {isAr ? 'من الخريطة' : 'From map'}
-        </button>
-        <button
-          type="button"
-          disabled={locBusy}
-          onClick={useMyLocation}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border border-emerald-200 bg-emerald-50 text-emerald-800 cursor-pointer disabled:opacity-50"
-        >
-          <Navigation className="w-3.5 h-3.5" />
-          {locBusy
-            ? isAr
-              ? 'جارٍ التحديد…'
-              : 'Locating…'
-            : isAr
-              ? 'موقعي الحالي'
-              : 'Use my location'}
+          {isAr ? 'من خرائط جوجل' : 'From Google Maps'}
         </button>
       </div>
 
-      {locError ? <p className="text-[11px] text-rose-600">{locError}</p> : null}
-
       {!manualMode ? (
-        <div className="space-y-2">
-          <div className="rounded-2xl overflow-hidden border border-neutral-200 bg-neutral-100 aspect-[16/9] relative">
-            <iframe
-              title={isAr ? 'خريطة موقع التوصيل' : 'Delivery location map'}
-              src={mapSrc}
-              className="absolute inset-0 w-full h-full border-0"
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={applyMapClickHint}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border border-neutral-200 bg-white text-neutral-700 cursor-pointer"
-            >
-              <Crosshair className="w-3.5 h-3.5" />
-              {isAr ? 'فتح الخريطة الكاملة لتحديد النقطة' : 'Open full map to set pin'}
-            </button>
-            {geo ? (
-              <span className="text-[10px] font-mono text-neutral-500 self-center">
-                {geo.lat.toFixed(5)}, {geo.lng.toFixed(5)}
-              </span>
-            ) : null}
-          </div>
-          <p className="text-[11px] text-neutral-500">
-            {isAr
-              ? 'حدّد الموقع على الخريطة ثم أكمل الحي والشارع يدوياً إن لزم.'
-              : 'Set the pin on the map, then complete district and street manually if needed.'}
-          </p>
-        </div>
+        <SaudiGoogleMapPicker
+          isAr={isAr}
+          geo={geo}
+          onGeoChange={(point) => {
+            onGeoChange(point);
+            setManualMode(false);
+          }}
+          onAddressPartsChange={(parts) => {
+            applyParts(parts);
+            setManualMode(true);
+          }}
+          showInlineSearch
+          className="mt-0"
+        />
       ) : null}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
@@ -211,28 +117,18 @@ export const CheckoutLocationPicker: React.FC<Props> = ({
               placeholder={isAr ? 'اكتب اسم المدينة' : 'Type city name'}
             />
           ) : (
-            <select
+            <SaudiCitySelect
               value={city}
-              onChange={(e) => {
-                if (e.target.value === '__custom__') {
-                  setCustomCity(true);
-                  onCityChange('');
-                  return;
-                }
+              onChange={(v) => {
                 setCustomCity(false);
-                onCityChange(e.target.value);
+                onCityChange(v);
               }}
-              className="w-full bg-white rounded-xl p-3 text-neutral-900 border border-neutral-200/90 focus:border-neutral-900 focus:outline-hidden cursor-pointer"
-            >
-              {cities.map((c) => (
-                <option key={c.en} value={isAr ? c.ar : c.en}>
-                  {isAr ? c.ar : c.en}
-                </option>
-              ))}
-              {allowCustomCity ? (
-                <option value="__custom__">{isAr ? 'مدينة أخرى (يدوي)…' : 'Other city (manual)…'}</option>
-              ) : null}
-            </select>
+              cities={cities}
+              isAr={isAr}
+              required
+              placeholder={isAr ? 'اختر المدينة' : 'Select city'}
+              className="w-full bg-white rounded-xl p-3 text-neutral-900 border border-neutral-200/90 focus:border-neutral-900 focus:outline-hidden"
+            />
           )}
           {allowCustomCity && !customCity ? (
             <button

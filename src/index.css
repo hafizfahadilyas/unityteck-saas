@@ -2,6 +2,11 @@
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *, .dark, .dark *));
 @import "./styles/portal-tokens.css";
 
+/* Tailwind font-sans → same Holst brand face (Settings → BrandingPanel) */
+@theme {
+  --font-sans: var(--font-ui);
+}
+
 @layer base {
   *,
   *::before,
@@ -63,8 +68,17 @@
     font-family: inherit;
   }
 
+  /* Latin codes stay mono; Arabic glyphs use the same portal face (no Arial fallback) */
   .font-mono {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: ui-monospace, 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, var(--font-ui), monospace;
+  }
+
+  /* Keep Arabic dashboard on one face — IBM Plex/Noto max weight is 700 */
+  html[lang="ar"] .font-extrabold,
+  html[lang="ar"] .font-black,
+  html[dir="rtl"] .font-extrabold,
+  html[dir="rtl"] .font-black {
+    font-weight: 700;
   }
 
   /* Search / filter icons sit on light wells → dark glyph; on CTA → white */
@@ -77,67 +91,173 @@
   }
 }
 
-/* ── Scrollbar: auto-hide, subtle; only visible on hover ── */
+/* ── Luxury Holst scrollbars (follow --portal / --accent · optional --sb-color override) ── */
+:root {
+  --sb-size: 10px;
+  --sb-radius: 9999px;
+  /* Default = global brand; BrandingPanel can set --sb-color / --sb-color-deep */
+  --sb-color: var(--portal-400, #4fb8b4);
+  --sb-color-deep: var(--accent, var(--portal-600, #1d8b94));
+  --sb-track: color-mix(in srgb, var(--border, #e2e8f0) 42%, transparent);
+  --sb-track-lux: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface, #fff) 55%, transparent),
+    color-mix(in srgb, var(--border, #e2e8f0) 50%, transparent)
+  );
+  --sb-thumb: color-mix(in srgb, var(--sb-color) 82%, var(--sb-color-deep) 18%);
+  --sb-thumb-hover: color-mix(in srgb, var(--sb-color) 45%, var(--sb-color-deep) 55%);
+  --sb-glow: color-mix(in srgb, var(--sb-color-deep) 42%, transparent);
+  --sb-sheen: color-mix(in srgb, #ffffff 38%, transparent);
+}
+
 * {
   scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-}
-*:hover {
-  scrollbar-color: color-mix(in srgb, var(--muted, #64748b) 30%, transparent) transparent;
+  scrollbar-color: var(--sb-thumb) var(--sb-track);
 }
 
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 9999px;
-}
-*:hover::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--muted, #64748b) 30%, transparent);
-}
-::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--muted, #64748b) 60%, transparent);
+  width: var(--sb-size);
+  height: var(--sb-size);
 }
 
-/* ── Always Visible, High-Contrast Scrollbar for Visual Page Builder Canvas ── */
+::-webkit-scrollbar-track {
+  background: var(--sb-track-lux);
+  border-radius: var(--sb-radius);
+  margin: 4px;
+  box-shadow:
+    inset 0 0 6px color-mix(in srgb, var(--portal-950, #04222b) 10%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #ffffff 18%, transparent);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(165deg, var(--sb-color) 0%, var(--sb-color-deep) 100%);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+  border-radius: var(--sb-radius);
+  min-height: 40px;
+  box-shadow:
+    inset 0 1px 0 var(--sb-sheen),
+    inset 0 -1px 0 color-mix(in srgb, var(--portal-950, #04222b) 22%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--sb-color) 28%, transparent),
+    0 2px 10px var(--sb-glow),
+    0 0 14px color-mix(in srgb, var(--sb-color) 22%, transparent);
+  transition: background 0.22s ease, box-shadow 0.22s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(165deg, var(--sb-thumb-hover) 0%, var(--sb-color-deep) 100%);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+  box-shadow:
+    inset 0 1px 0 var(--sb-sheen),
+    0 0 0 1px color-mix(in srgb, var(--sb-color) 45%, transparent),
+    0 4px 16px color-mix(in srgb, var(--sb-color-deep) 55%, transparent),
+    0 0 22px color-mix(in srgb, var(--sb-color) 35%, transparent);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: var(--sb-color-deep);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+  box-shadow:
+    inset 0 2px 4px color-mix(in srgb, var(--portal-950, #04222b) 35%, transparent),
+    0 0 12px var(--sb-glow);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+*:hover {
+  scrollbar-color: var(--sb-thumb-hover) var(--sb-track);
+}
+
+/* Explicit utility — panels / modals / notifications */
+.custom-scrollbar,
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sb-thumb) var(--sb-track);
+}
+
+.custom-scrollbar::-webkit-scrollbar,
+.scrollbar-thin::-webkit-scrollbar {
+  width: var(--sb-size);
+  height: var(--sb-size);
+}
+
+.custom-scrollbar::-webkit-scrollbar-track,
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: var(--sb-track-lux);
+  border-radius: var(--sb-radius);
+  box-shadow:
+    inset 0 0 6px color-mix(in srgb, var(--portal-950, #04222b) 10%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #ffffff 18%, transparent);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb,
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: linear-gradient(165deg, var(--sb-color) 0%, var(--sb-color-deep) 100%);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+  border-radius: var(--sb-radius);
+  box-shadow:
+    inset 0 1px 0 var(--sb-sheen),
+    0 0 0 1px color-mix(in srgb, var(--sb-color) 28%, transparent),
+    0 2px 10px var(--sb-glow);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover,
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(165deg, var(--sb-thumb-hover) 0%, var(--sb-color-deep) 100%);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+  box-shadow:
+    inset 0 1px 0 var(--sb-sheen),
+    0 4px 16px color-mix(in srgb, var(--sb-color-deep) 55%, transparent),
+    0 0 22px color-mix(in srgb, var(--sb-color) 35%, transparent);
+}
+
+/* ── Page Builder canvas — always visible luxury scrollbar ── */
 #theme-builder-canvas-scroll {
   scrollbar-width: thin !important;
-  scrollbar-color: #6366f1 #e2e8f0 !important;
+  scrollbar-color: var(--sb-thumb-hover) var(--sb-track) !important;
   overflow-y: scroll !important;
 }
 
 #theme-builder-canvas-scroll::-webkit-scrollbar {
-  width: 10px !important;
-  height: 10px !important;
+  width: 11px !important;
+  height: 11px !important;
   display: block !important;
 }
 
 #theme-builder-canvas-scroll::-webkit-scrollbar-track {
-  background: #e2e8f0 !important;
-  border-radius: 9999px !important;
+  background: var(--sb-track-lux) !important;
+  border-radius: var(--sb-radius) !important;
+  box-shadow: inset 0 0 6px color-mix(in srgb, var(--portal-950, #04222b) 12%, transparent) !important;
 }
 
 #theme-builder-canvas-scroll::-webkit-scrollbar-thumb {
-  background: #6366f1 !important;
-  border-radius: 9999px !important;
-  border: 2px solid #e2e8f0 !important;
+  background: linear-gradient(165deg, var(--sb-color), var(--sb-color-deep)) !important;
+  border-radius: var(--sb-radius) !important;
+  border: 2px solid color-mix(in srgb, var(--surface, #fff) 55%, transparent) !important;
+  box-shadow:
+    inset 0 1px 0 var(--sb-sheen),
+    0 2px 12px var(--sb-glow) !important;
 }
 
 #theme-builder-canvas-scroll::-webkit-scrollbar-thumb:hover {
-  background: #4f46e5 !important;
+  background: var(--sb-color-deep) !important;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--sb-color) 40%, transparent) !important;
 }
 
 /* Helper: completely hide scrollbar on flex-wrap tab strips */
-.no-scrollbar {
+.no-scrollbar,
+.scrollbar-none {
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
 }
-.no-scrollbar::-webkit-scrollbar {
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar {
   display: none !important;
   width: 0 !important;
   height: 0 !important;

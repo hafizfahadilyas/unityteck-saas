@@ -40,14 +40,20 @@ class ProductController extends Controller
         $query = Product::query()->forStore($storeId);
 
         $counts = (clone $query)
-            ->selectRaw('COUNT(*) as total')
+            ->selectRaw("SUM(CASE WHEN status IS NULL OR status != 'archived' THEN 1 ELSE 0 END) as total")
             ->selectRaw("SUM(CASE WHEN status IN ('published','active') AND stock > 0 THEN 1 ELSE 0 END) as active")
-            ->selectRaw('SUM(CASE WHEN stock = 0 THEN 1 ELSE 0 END) as out_of_stock')
+            ->selectRaw("SUM(CASE WHEN (status IS NULL OR status != 'archived') AND stock = 0 THEN 1 ELSE 0 END) as out_of_stock")
             ->selectRaw("SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) as draft")
+            ->selectRaw("SUM(CASE WHEN status = 'archived' THEN 1 ELSE 0 END) as archived")
             ->first();
 
         if ($status = $request->query('status')) {
             $query->where('status', $status);
+        } else {
+            // Main catalog: recycle-bin (archived) products stay out unless explicitly requested.
+            $query->where(function ($q) {
+                $q->whereNull('status')->orWhere('status', '!=', 'archived');
+            });
         }
 
         if ($request->query('is_active') !== null && $request->query('is_active') !== '') {
@@ -125,6 +131,7 @@ class ProductController extends Controller
                     'active' => (int) ($counts->active ?? 0),
                     'out_of_stock' => (int) ($counts->out_of_stock ?? 0),
                     'draft' => (int) ($counts->draft ?? 0),
+                    'archived' => (int) ($counts->archived ?? 0),
                 ],
             ],
         ]);
@@ -235,6 +242,9 @@ class ProductController extends Controller
         return response()->json(['data' => $product->fresh()]);
     }
 
+    /**
+     * Soft-delete → recycle bin (status=archived). Use forceDestroy for permanent delete.
+     */
     public function destroy(Request $request, string $id): JsonResponse
     {
         $storeId = $this->requireStoreId($request);
@@ -243,10 +253,58 @@ class ProductController extends Controller
         }
 
         $product = Product::query()->forStore($storeId)->where('id', $id)->firstOrFail();
+        $product->status = 'archived';
+        $product->is_active = false;
+        $product->save();
+        $this->syncStoreProductCount($storeId);
+
+        return response()->json([
+            'message' => 'Product moved to recycle bin.',
+            'id' => $id,
+            'data' => $product->fresh(),
+        ]);
+    }
+
+    /** Restore product from recycle bin → draft (merchant can re-publish). */
+    public function restore(Request $request, string $id): JsonResponse
+    {
+        $storeId = $this->requireStoreId($request);
+        if ($storeId instanceof JsonResponse) {
+            return $storeId;
+        }
+
+        $product = Product::query()->forStore($storeId)->where('id', $id)->firstOrFail();
+        if ($product->status !== 'archived') {
+            return response()->json(['message' => 'Product is not in the recycle bin.', 'data' => $product], 422);
+        }
+
+        $product->status = 'draft';
+        $product->is_active = false;
+        $product->save();
+        $this->syncStoreProductCount($storeId);
+
+        return response()->json(['message' => 'Product restored.', 'data' => $product->fresh()]);
+    }
+
+    /** Permanent delete from recycle bin only. */
+    public function forceDestroy(Request $request, string $id): JsonResponse
+    {
+        $storeId = $this->requireStoreId($request);
+        if ($storeId instanceof JsonResponse) {
+            return $storeId;
+        }
+
+        $product = Product::query()->forStore($storeId)->where('id', $id)->firstOrFail();
+        if ($product->status !== 'archived') {
+            return response()->json([
+                'message' => 'Move the product to the recycle bin before permanent delete.',
+            ], 422);
+        }
+
         $product->delete();
         $this->syncStoreProductCount($storeId);
 
-        return response()->json(['message' => 'Product deleted.', 'id' => $id]);
+        return response()->json(['message' => 'Product permanently deleted.', 'id' => $id]);
     }
 
     public function togglePublish(Request $request, string $id): JsonResponse
@@ -307,6 +365,13 @@ class ProductController extends Controller
             'category_id' => ['nullable', 'string', 'max:64'],
             'category' => ['nullable', 'string', 'max:100'],
             'category_ar' => ['nullable', 'string', 'max:100'],
+            'brand' => ['nullable', 'string', 'max:191'],
+            'product_type' => ['nullable', 'string', 'max:100'],
+            'google_taxonomy' => ['nullable', 'string', 'max:500'],
+            'sales_channels' => ['nullable', 'array'],
+            'sales_channels.*' => ['string', 'max:100'],
+            'discount_start_at' => ['nullable', 'date'],
+            'discount_end_at' => ['nullable', 'date', 'after_or_equal:discount_start_at'],
             'image_url' => ['nullable', 'string'],
             'image_version' => ['nullable', 'string', 'max:64'],
             'gallery_urls' => ['nullable', 'array'],
@@ -334,7 +399,16 @@ class ProductController extends Controller
      */
     protected function onlyExistingJsonColumns(array $data): array
     {
-        foreach (['custom_fields', 'conditional_rules'] as $column) {
+        foreach ([
+            'custom_fields',
+            'conditional_rules',
+            'sales_channels',
+            'brand',
+            'product_type',
+            'google_taxonomy',
+            'discount_start_at',
+            'discount_end_at',
+        ] as $column) {
             if (array_key_exists($column, $data) && ! Schema::hasColumn('products', $column)) {
                 unset($data[$column]);
             }
@@ -360,6 +434,9 @@ class ProductController extends Controller
     {
         $count = Product::withoutGlobalScope('store')
             ->where('store_id', $storeId)
+            ->where(function ($q) {
+                $q->whereNull('status')->orWhere('status', '!=', 'archived');
+            })
             ->count();
 
         Store::query()->where('id', $storeId)->update(['products_count' => $count]);

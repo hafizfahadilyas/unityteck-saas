@@ -352,9 +352,10 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
     const totalRev = stores.reduce((sum, s) => sum + (s.revenue || 0), 0);
     const colors = ['#004d5a', '#00838f', '#00acc1', '#64748b'];
     if (totalRev === 0) {
+      // Equal fake bars hide zero revenue — show 0% until real sales exist
       return stores.slice(0, 4).map((s, idx) => ({
         label: getStoreDisplayName(s, locale),
-        percentage: Math.round(100 / Math.min(stores.length, 4)),
+        percentage: 0,
         color: colors[idx % colors.length],
       }));
     }
@@ -365,13 +366,13 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
 
     const items = top3.map((s, idx) => ({
       label: getStoreDisplayName(s, locale),
-      percentage: Math.max(1, Math.round(((s.revenue || 0) / totalRev) * 100)),
+      percentage: Math.round(((s.revenue || 0) / totalRev) * 100),
       color: colors[idx % colors.length],
     }));
     if (rest.length > 0) {
       items.push({
         label: isAr ? 'متاجر أخرى' : 'Other Stores',
-        percentage: Math.max(1, Math.round((restRevenue / totalRev) * 100)),
+        percentage: Math.round((restRevenue / totalRev) * 100),
         color: colors[3],
       });
     }
@@ -402,14 +403,14 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
   const vsLastMonth = t('vsLastMonth') || 'vs last month';
   const vsLastWeek = locale === 'ar' ? 'مقارنة بالأسبوع الماضي' : 'vs last week';
 
-  // Dynamic sparklines
+  // Sparklines from real series only — never invent prior points (e.g. visitors-50)
   const revenueSpark = useMemo(() => sparkFromSeries(revenueGrowthData), [revenueGrowthData]);
   const ordersSpark = useMemo(() => sparkFromSeries(ordersGrowthData), [ordersGrowthData]);
-  const storesSpark = useMemo(() => [Math.max(1, stores.length - 2), Math.max(1, stores.length - 1), Math.max(1, stores.length)], [stores.length]);
-  const activeStoresSpark = useMemo(() => [Math.max(1, activeStoresCount - 1), Math.max(1, activeStoresCount)], [activeStoresCount]);
-  const productsSpark = useMemo(() => [Math.max(1, flatProducts.length - 5), Math.max(1, flatProducts.length)], [flatProducts.length]);
-  const customersSpark = useMemo(() => [Math.max(1, totalCustomersCount - 5), Math.max(1, totalCustomersCount)], [totalCustomersCount]);
-  const visitorsSpark = useMemo(() => [Math.max(10, totalVisitorsCount - 50), Math.max(10, totalVisitorsCount)], [totalVisitorsCount]);
+  const storesSpark = useMemo(() => (stores.length ? [stores.length] : [0]), [stores.length]);
+  const activeStoresSpark = useMemo(() => (activeStoresCount ? [activeStoresCount] : [0]), [activeStoresCount]);
+  const productsSpark = useMemo(() => (flatProducts.length ? [flatProducts.length] : [0]), [flatProducts.length]);
+  const customersSpark = useMemo(() => (totalCustomersCount ? [totalCustomersCount] : [0]), [totalCustomersCount]);
+  const visitorsSpark = useMemo(() => (totalVisitorsCount ? [totalVisitorsCount] : [0]), [totalVisitorsCount]);
 
   const cycleSort = () => {
     setSortField((prev) =>
@@ -482,10 +483,10 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
               className="text-xl sm:text-2xl font-black tracking-tight truncate"
               style={{ color: 'var(--text)' }}
             >
-              {t('masterDashTitle') || 'Master Admin Dashboard'}
+              {t('masterDashTitle') || 'Souq Platform Dashboard'}
             </h1>
             <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--muted)' }}>
-              {t('masterDashManage') || 'Manage your multi-store e-commerce platform'}
+              {t('masterDashManage') || 'Manage your Souq Platform multi-store e-commerce'}
             </p>
           </div>
         </div>
@@ -870,17 +871,14 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
                       color: 'var(--tone-violet)',
                     }}
                   >
-                    {totalCustomersCount > 0 ? '+100%' : '+0%'}
+                    {isAr ? 'بانتظار البيانات' : 'Waiting for Data'}
                   </span>
                 </div>
                 <div className="text-base font-black mb-2 tabular-nums" style={{ color: 'var(--text)' }}>
                   {amount(totalCustomersCount)}
                 </div>
                 <AreaChart
-                  data={[
-                    { label: '1', value: Math.round(totalCustomersCount * 0.7) },
-                    { label: '2', value: totalCustomersCount },
-                  ]}
+                  data={[{ label: '1', value: totalCustomersCount }]}
                   color="#8b5cf6"
                   fillGradient={['#8b5cf6', '#6d28d9']}
                   height={60}
@@ -888,7 +886,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
                 />
               </div>
 
-              {/* 4. Visitor Growth */}
+              {/* 4. Visitor Growth — seed/counter only until event API wired on Master */}
               <div
                 className="p-3.5 rounded-xl border min-w-0"
                 style={{ background: 'var(--hover-bg)', borderColor: 'var(--border)' }}
@@ -904,17 +902,14 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
                       color: 'var(--tone-warn)',
                     }}
                   >
-                    {totalVisitorsCount > 0 ? '+100%' : '+0%'}
+                    {isAr ? 'بانتظار البيانات' : 'Waiting for Data'}
                   </span>
                 </div>
                 <div className="text-base font-black mb-2 tabular-nums" style={{ color: 'var(--text)' }}>
                   {amount(totalVisitorsCount)}
                 </div>
                 <AreaChart
-                  data={[
-                    { label: '1', value: Math.round(totalVisitorsCount * 0.6) },
-                    { label: '2', value: totalVisitorsCount },
-                  ]}
+                  data={[{ label: '1', value: totalVisitorsCount }]}
                   color="#f97316"
                   fillGradient={['#f97316', '#ea580c']}
                   height={60}

@@ -23,7 +23,9 @@ export const WhatsAppChatFab: React.FC<Props> = ({
   if (isAdmin) return null;
 
   const identity = readStoreIdentity(storeId, { name: storeName });
-  const activePhone = (phone || identity.whatsapp || FLOWERS_WHATSAPP.phone).replace(/[^0-9]/g, '');
+  // Never fall back to another store's demo number — hide FAB if unset
+  const activePhone = (phone || identity.whatsapp || '').replace(/[^0-9]/g, '');
+  if (activePhone.length < 9) return null;
 
   const msg =
     (lang === 'ar' ? FLOWERS_WHATSAPP.defaultMessageAr : FLOWERS_WHATSAPP.defaultMessageEn) +
@@ -46,7 +48,8 @@ export const WhatsAppChatFab: React.FC<Props> = ({
 
 export function whatsappOrderHref(lang: string, lines: string[], phoneOverride?: string, storeId = 'store-1', storeName = 'متجر هدايا'): string {
   const identity = readStoreIdentity(storeId, { name: storeName });
-  const activePhone = (phoneOverride || identity.whatsapp || FLOWERS_WHATSAPP.phone).replace(/[^0-9]/g, '');
+  const activePhone = (phoneOverride || identity.whatsapp || '').replace(/[^0-9]/g, '');
+  if (activePhone.length < 9) return '';
   const header = lang === 'ar' ? FLOWERS_WHATSAPP.defaultMessageAr : FLOWERS_WHATSAPP.defaultMessageEn;
   const body = [header, '', ...lines].join('\n');
   return `https://wa.me/${activePhone}?text=${encodeURIComponent(body)}`;

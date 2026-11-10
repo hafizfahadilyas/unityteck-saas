@@ -47,6 +47,22 @@ class StorefrontAnalyticsController extends Controller
             return response()->json(['message' => 'Unsupported event.'], 422);
         }
 
+        // Public storefront only — reject Store Admin / Master / preview pollution
+        $surface = strtolower(trim((string) (
+            $request->header('X-Storefront-Surface')
+            ?? data_get($validated, 'meta.surface', '')
+        )));
+        if ($surface !== 'public_storefront') {
+            return response()->json(['message' => 'Public storefront events only.'], 403);
+        }
+        $path = strtolower((string) ($validated['path'] ?? ''));
+        if ($path !== '' && preg_match('/admin|dashboard|master-portal|\/master\b/', $path)) {
+            return response()->json(['message' => 'Admin paths are not tracked as visits.'], 403);
+        }
+
+        $meta = is_array($validated['meta'] ?? null) ? $validated['meta'] : [];
+        $meta['surface'] = 'public_storefront';
+
         // Count unique sessions as visits — never bump visitors_count on every page hit.
         if ($eventName === 'page_view') {
             $sessionKey = isset($validated['session_key']) ? trim((string) $validated['session_key']) : '';
@@ -75,7 +91,7 @@ class StorefrontAnalyticsController extends Controller
             'campaign' => $validated['campaign'] ?? null,
             'customer_id' => $validated['customer_id'] ?? null,
             'session_key' => $validated['session_key'] ?? null,
-            'meta' => $validated['meta'] ?? null,
+            'meta' => $meta,
         ]);
 
         return response()->json(['success' => true, 'id' => $row->id], 201);

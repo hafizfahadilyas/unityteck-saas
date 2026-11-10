@@ -395,9 +395,8 @@ export const StoreBlogManagement: React.FC<StoreBlogManagementProps> = ({
             <div className="text-2xl font-extrabold text-slate-900 dark:text-white mt-0.5">
               {metrics.total_articles}
             </div>
-            <div className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5">
-              <span>↑</span>
-              <span>{metrics.weekly_articles_growth || '+2 this week'}</span>
+            <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+              <span>{metrics.weekly_articles_growth || (isAr ? '—' : '—')}</span>
             </div>
           </div>
         </div>
@@ -414,9 +413,8 @@ export const StoreBlogManagement: React.FC<StoreBlogManagementProps> = ({
             <div className="text-2xl font-extrabold text-slate-900 dark:text-white mt-0.5">
               {metrics.total_views.toLocaleString()}
             </div>
-            <div className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5">
-              <span>↑</span>
-              <span>{metrics.weekly_views_growth || '18% this week'}</span>
+            <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+              <span>{metrics.weekly_views_growth || (isAr ? '—' : '—')}</span>
             </div>
           </div>
         </div>
@@ -433,9 +431,8 @@ export const StoreBlogManagement: React.FC<StoreBlogManagementProps> = ({
             <div className="text-2xl font-extrabold text-slate-900 dark:text-white mt-0.5">
               {metrics.total_comments}
             </div>
-            <div className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5">
-              <span>↑</span>
-              <span>{metrics.weekly_comments_growth || '12% this week'}</span>
+            <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+              <span>{metrics.weekly_comments_growth || (isAr ? '—' : '—')}</span>
             </div>
           </div>
         </div>

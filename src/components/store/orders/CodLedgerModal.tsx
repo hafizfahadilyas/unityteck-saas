@@ -4,6 +4,7 @@ import { usePrefs } from '../../../i18n/PrefsContext';
 import { useTenant } from '../../../context/TenantContext';
 import { useToast } from '../../common/ToastProvider';
 import { GlobalModal } from '../../common/GlobalModal';
+import { getCustomerDisplayName } from '../../../utils/storeLocalization';
 import {
   Banknote,
   Truck,
@@ -287,7 +288,7 @@ export const CodLedgerModal: React.FC<CodLedgerModalProps> = ({
                       </td>
                       <td className="py-3 px-3">
                         <div className="font-bold text-slate-900 dark:text-white truncate max-w-[140px]">
-                          {ord.customerName}
+                          {getCustomerDisplayName(ord.customerName, locale)}
                         </div>
                         <div className="text-[10px] text-slate-500 font-mono">{ord.customerPhone}</div>
                       </td>

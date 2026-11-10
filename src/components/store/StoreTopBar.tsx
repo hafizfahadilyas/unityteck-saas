@@ -407,7 +407,8 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
                       setShowStoreInfo(false);
                       onCustomizeTheme?.();
                     }}
-                    className="w-full px-3 py-2 rounded-xl text-start hover:bg-slate-500/10 flex items-center gap-2 cursor-pointer font-bold text-indigo-600 dark:text-indigo-400 transition-colors"
+                    className="w-full px-3 py-2 rounded-xl text-start hover:bg-slate-500/10 flex items-center gap-2 cursor-pointer font-bold transition-colors"
+                    style={{ color: 'var(--accent)' }}
                   >
                     <Palette className="w-3.5 h-3.5" />
                     <span>{isAr ? 'محرر الثيم والصفحات' : 'Theme & Page Builder'}</span>
@@ -484,9 +485,9 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
             onMouseEnter={preloadVisualThemeBuilder}
             onPointerDown={preloadVisualThemeBuilder}
             onFocus={preloadVisualThemeBuilder}
-            className="group relative overflow-hidden hidden md:flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold text-white transition-all duration-200 ease-out hover:scale-[1.02] hover:shadow-md hover:shadow-emerald-600/30 active:scale-[0.96] cursor-pointer select-none border border-emerald-400/30 shrink-0 shadow-xs"
+            className="group relative overflow-hidden hidden md:flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold text-white transition-all duration-200 ease-out hover:scale-[1.02] hover:opacity-95 active:scale-[0.96] cursor-pointer select-none border shrink-0 shadow-xs unity-btn-primary"
             style={{
-              background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+              borderColor: 'color-mix(in srgb, var(--portal-400) 40%, transparent)',
             }}
             title={isAr ? 'تخصيص الثيم ومحرر الصفحات البصري' : 'Customize Theme & Visual Page Builder'}
           >

@@ -37,10 +37,31 @@ function injectClerkPublishableKey(key: string): Plugin {
   };
 }
 
+function resolveGoogleMapsApiKey(raw: string): string {
+  const trimmed = String(raw || '').trim();
+  if (
+    trimmed.startsWith('AIza') &&
+    trimmed.length >= 30 &&
+    !/x{3,}|REPLACE|your_key|xxxxx|MY_/i.test(trimmed)
+  ) {
+    return trimmed;
+  }
+  return '';
+}
+
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, process.cwd(), '');
   const clerkPublishableKey = resolveClerkPublishableKey(
     String(env.VITE_CLERK_PUBLISHABLE_KEY || env.CLERK_PUBLISHABLE_KEY || ''),
+  );
+  const googleMapsApiKey = resolveGoogleMapsApiKey(
+    String(env.VITE_GOOGLE_MAPS_API_KEY || env.GOOGLE_MAPS_API_KEY || ''),
+  );
+  const googlePlacesApiKey = resolveGoogleMapsApiKey(
+    String(env.VITE_GOOGLE_PLACES_API_KEY || googleMapsApiKey),
+  );
+  const googleGeocodingApiKey = resolveGoogleMapsApiKey(
+    String(env.VITE_GOOGLE_GEOCODING_API_KEY || googleMapsApiKey),
   );
 
   return {
@@ -48,6 +69,10 @@ export default defineConfig(({mode}) => {
     define: {
       // Ensure production bundles always receive a real pk_ even if CI secret was empty.
       'import.meta.env.VITE_CLERK_PUBLISHABLE_KEY': JSON.stringify(clerkPublishableKey),
+      // Split Maps keys OK (Maps JS / Places New / Geocoding). Hostinger static build bakes from .env.
+      'import.meta.env.VITE_GOOGLE_MAPS_API_KEY': JSON.stringify(googleMapsApiKey),
+      'import.meta.env.VITE_GOOGLE_PLACES_API_KEY': JSON.stringify(googlePlacesApiKey),
+      'import.meta.env.VITE_GOOGLE_GEOCODING_API_KEY': JSON.stringify(googleGeocodingApiKey),
     },
     plugins: [react(), tailwindcss(), injectClerkPublishableKey(clerkPublishableKey)],
     resolve: {
@@ -74,11 +99,28 @@ export default defineConfig(({mode}) => {
         ],
       },
       // Soft SPA routes (/master/login, /store/login) must serve index.html
-      // Proxy /api → Laravel artisan serve (see npm run api:serve)
+      // Proxy /api → Laravel artisan serve (npm run api:serve | npm run dev:stack)
       proxy: {
         '/api': {
           target: 'http://127.0.0.1:8010',
           changeOrigin: true,
+          configure: (proxy) => {
+            proxy.on('error', (err, _req, res) => {
+              console.error(
+                '[vite] /api proxy → :8010 failed. Start API: npm run api:serve (or npm run dev:stack).',
+                err?.message || err,
+              );
+              if (res && !res.headersSent && typeof res.writeHead === 'function') {
+                res.writeHead(502, { 'Content-Type': 'application/json' });
+                res.end(
+                  JSON.stringify({
+                    message:
+                      'Laravel API is not running on :8010. Run npm run api:serve or npm run dev:stack.',
+                  }),
+                );
+              }
+            });
+          },
         },
       },
     },

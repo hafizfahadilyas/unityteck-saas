@@ -17,9 +17,12 @@ import {
   Sparkles
 } from 'lucide-react';
 import { PaymentGatewaySelector, type PaymentMethodId } from '../../../components/storefront/checkout/PaymentGatewaySelector';
+import {
+  CheckoutLocationPicker,
+  type CheckoutGeoPoint,
+} from '../../../components/storefront/checkout/CheckoutLocationPicker';
 import { resolveBankCardDiscount } from '../../../utils/bankOffers';
 import { useSaudiCityOptions } from '../../../hooks/useSaudiCityOptions';
-import { SaudiCitySelect } from '../../../components/common/SaudiCitySelect';
 export const CheckoutPage: React.FC = () => {
   const {
     language,
@@ -36,11 +39,7 @@ export const CheckoutPage: React.FC = () => {
     removeAppliedCoupon
   } = useApp();
   const { activeStore } = useTenant();
-  const {
-    cities: saudiCities,
-    addCity: addSaudiCity,
-    removeCity: removeSaudiCity,
-  } = useSaudiCityOptions(activeStore?.id);
+  const { cities: saudiCities } = useSaudiCityOptions(activeStore?.id);
 
   const isAr = language === 'ar';
   const [promoCode, setPromoCode] = useState('');
@@ -68,6 +67,7 @@ export const CheckoutPage: React.FC = () => {
   const [city, setCity] = useState('');
   const [district, setDistrict] = useState('');
   const [streetAddress, setStreetAddress] = useState('');
+  const [geo, setGeo] = useState<CheckoutGeoPoint | null>(null);
   const [isAnonymousSender, setIsAnonymousSender] = useState(false);
   const [deliveryDate, setDeliveryDate] = useState('');
   const [deliveryTimeSlot, setDeliveryTimeSlot] = useState('');
@@ -109,11 +109,12 @@ export const CheckoutPage: React.FC = () => {
     setIsSubmitting(true);
 
     setTimeout(() => {
+      const geoBit = geo ? ` · ${geo.lat.toFixed(5)},${geo.lng.toFixed(5)}` : '';
       placeOrder({
         recipientName,
         recipientPhone,
         city,
-        address: `${district} - ${streetAddress}`,
+        address: `${district} - ${streetAddress}${geoBit}`,
         deliveryDate,
         deliveryTimeSlot,
         isAnonymousSender,
@@ -255,49 +256,21 @@ export const CheckoutPage: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="text-xs font-semibold text-[#1a1f1b] block mb-1">
-                  {isAr ? 'المدينة *' : 'City *'}
-                </label>
-                <SaudiCitySelect
-                  value={city}
-                  onChange={setCity}
-                  cities={saudiCities}
-                  isAr={isAr}
-                  required
-                  placeholder={isAr ? 'اختر المدينة' : 'Select city'}
-                  manageEnabled
-                  onAddCity={(nameEn, nameAr) => addSaudiCity({ nameEn, nameAr })}
-                  onRemoveCity={removeSaudiCity}
-                  className="w-full bg-white border border-[#d6cfc0] rounded-xl px-3.5 py-2.5 text-xs text-[#1a1f1b] focus:outline-none focus:border-[#102a1c]"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-[#1a1f1b] block mb-1">
-                  {isAr ? 'الحي *' : 'District *'}
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={district}
-                  onChange={(e) => setDistrict(e.target.value)}
-                  className="w-full bg-white border border-[#d6cfc0] rounded-xl px-3.5 py-2.5 text-xs text-[#1a1f1b] focus:outline-none focus:border-[#102a1c]"
-                />
-              </div>
             </div>
 
-            <div>
-              <label className="text-xs font-semibold text-[#1a1f1b] block mb-1">
-                {isAr ? 'تفاصيل العنوان / المعلم البارز' : 'Street & Villa / Landmark Details'}
-              </label>
-              <input
-                type="text"
-                value={streetAddress}
-                onChange={(e) => setStreetAddress(e.target.value)}
-                className="w-full bg-white border border-[#d6cfc0] rounded-xl px-3.5 py-2.5 text-xs text-[#1a1f1b] focus:outline-none focus:border-[#102a1c]"
-              />
-            </div>
+            <CheckoutLocationPicker
+              isAr={isAr}
+              city={city}
+              district={district}
+              street={streetAddress}
+              onCityChange={setCity}
+              onDistrictChange={setDistrict}
+              onStreetChange={setStreetAddress}
+              geo={geo}
+              onGeoChange={setGeo}
+              cities={saudiCities}
+              allowCustomCity
+            />
 
             {/* Anonymous sender checkbox */}
             <div className="pt-2">

@@ -385,6 +385,7 @@ class ShippingController extends Controller
                     'eta_value' => $m->eta_value ?? null,
                     'tracking_enabled' => (bool) ($m->tracking_enabled ?? true),
                     'courier_code' => $m->courier_code,
+                    'logo_url' => $m->logo_url,
                     'is_cod_allowed' => (bool) $m->is_cod_allowed,
                     'allow_online' => (bool) ($m->allow_online ?? true),
                     'allow_bank_transfer' => (bool) ($m->allow_bank_transfer ?? false),

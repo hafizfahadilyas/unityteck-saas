@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { useTenant } from '../../../context/TenantContext';
+import { readStoreIdentity } from '../../settings/storeIdentity';
 import {
   X,
   ShoppingBag,
@@ -31,10 +33,17 @@ export const CartDrawer: React.FC = () => {
     applyCouponCode,
     removeAppliedCoupon
   } = useApp();
+  const { activeStore } = useTenant();
 
   const isAr = language === 'ar';
   const [promoCode, setPromoCode] = useState('');
   const [promoFeedback, setPromoFeedback] = useState<{ msg: string; isError: boolean } | null>(null);
+
+  const waDigits = useMemo(() => {
+    if (!activeStore?.id) return '';
+    const identity = readStoreIdentity(activeStore.id, activeStore);
+    return String(identity.whatsapp || activeStore.phone || '').replace(/[^0-9]/g, '');
+  }, [activeStore]);
 
   if (!isCartOpen) return null;
 
@@ -332,20 +341,23 @@ export const CartDrawer: React.FC = () => {
                 <span>{isAr ? 'عرض صفحة السلة الكاملة' : 'View Full Shopping Bag'}</span>
               </button>
 
-              {/* Order via WhatsApp */}
-              <a
-                href={`https://wa.me/966581617712?text=${encodeURIComponent(
-                  isAr
-                    ? `مرحباً متجر هدايا مكة، أود طلب محتويات السلة:\n${cart.map((i) =>`• ${i.product.name} (عدد: ${i.quantity}) - ${i.selectedSize}`)
-                        .join('\n')}\nالمجموع الإجمالي: ${finalTotal} ر.س. أرجو التنسيق للتوصيل المبرد في مكة.`
-                    : `Hello Hadaya Mecca, I want to order my bag items for ${finalTotal} SAR.`
-                )}`}
-                target="_blank"
-                rel="noreferrer"
-                className="w-full py-2.5 rounded-full bg-[#25D366]/15 hover:bg-[#25D366] text-[#128C7E] hover:text-white border border-[#25D366]/30 text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm"
-              >
-                <span>{isAr ? 'طلب محتويات السلة عبر واتساب' : 'Order Bag via WhatsApp'}</span>
-              </a>
+              {/* Order via WhatsApp — only when this store has a configured number */}
+              {waDigits.length >= 9 && (
+                <a
+                  href={`https://wa.me/${waDigits}?text=${encodeURIComponent(
+                    isAr
+                      ? `مرحباً ${activeStore?.nameAr || activeStore?.name || ''}، أود طلب محتويات السلة:\n${cart
+                          .map((i) => `• ${i.product.name} (عدد: ${i.quantity}) - ${i.selectedSize}`)
+                          .join('\n')}\nالمجموع الإجمالي: ${finalTotal} ر.س.`
+                      : `Hello ${activeStore?.nameEn || activeStore?.name || ''}, I want to order my bag items for ${finalTotal} SAR.`,
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full py-2.5 rounded-full bg-[#25D366]/15 hover:bg-[#25D366] text-[#128C7E] hover:text-white border border-[#25D366]/30 text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm"
+                >
+                  <span>{isAr ? 'طلب محتويات السلة عبر واتساب' : 'Order Bag via WhatsApp'}</span>
+                </a>
+              )}
 
             </div>
           )}

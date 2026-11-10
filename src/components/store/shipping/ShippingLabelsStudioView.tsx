@@ -33,7 +33,11 @@ import {
   ChevronRight,
   ChevronLeft,
 } from 'lucide-react';
-import { getCustomerDisplayName } from '../../../utils/storeLocalization';
+import {
+  getCustomerDisplayName,
+  getLocalizedAddress,
+  getLocalizedCity,
+} from '../../../utils/storeLocalization';
 
 interface ShippingLabelsStudioViewProps {
   initialOrderId?: string;
@@ -334,14 +338,18 @@ export const ShippingLabelsStudioView: React.FC<ShippingLabelsStudioViewProps> =
                     <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                     <div>
                       <div className="font-semibold text-slate-800 dark:text-slate-200">
-                        {(selectedOrder as any)?.city || selectedOrder?.deliveryLocation || (activeStore as any)?.city || 'Saudi Arabia'}
+                        {getLocalizedCity((selectedOrder as any)?.city || (activeStore as any)?.city, locale) ||
+                          getLocalizedAddress(selectedOrder?.deliveryLocation, locale) ||
+                          (isAr ? 'المملكة العربية السعودية' : 'Saudi Arabia')}
                       </div>
                       <div className="text-[11px] text-slate-500">
-                        {typeof selectedOrder?.shippingAddress === 'string'
-                          ? selectedOrder.shippingAddress
-                          : (selectedOrder?.shippingAddress as any)?.address ||
-                            selectedOrder?.deliveryLocation ||
-                            (isAr ? 'العنوان الوطني' : 'National Address')}
+                        {getLocalizedAddress(
+                          typeof selectedOrder?.shippingAddress === 'string'
+                            ? selectedOrder.shippingAddress
+                            : (selectedOrder?.shippingAddress as any)?.address ||
+                              selectedOrder?.deliveryLocation,
+                          locale,
+                        ) || (isAr ? 'العنوان الوطني' : 'National Address')}
                       </div>
                     </div>
                   </div>
@@ -359,7 +367,7 @@ export const ShippingLabelsStudioView: React.FC<ShippingLabelsStudioViewProps> =
                   >
                     {eligibleOrders.map((ord) => (
                       <option key={ord.id} value={ord.id}>
-                        {ord.orderNumber || `#${ord.id.slice(-8)}`} — {getCustomerDisplayName(ord.customerName, locale)} ({(ord as any).city || ord.deliveryLocation || 'KSA'})
+                        {ord.orderNumber || `#${ord.id.slice(-8)}`} — {getCustomerDisplayName(ord.customerName, locale)} ({getLocalizedCity((ord as any).city, locale) || getLocalizedAddress(ord.deliveryLocation, locale) || (isAr ? 'السعودية' : 'KSA')})
                       </option>
                     ))}
                   </select>
@@ -477,10 +485,10 @@ export const ShippingLabelsStudioView: React.FC<ShippingLabelsStudioViewProps> =
                     onChange={(e) => setSelectedCourier(e.target.value as any)}
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
                   >
-                    <option value="spl">SPL (البريد السعودي - سبل)</option>
-                    <option value="aramex">Aramex (أرامكس)</option>
-                    <option value="smsa">SMSA Express (سمسا)</option>
-                    <option value="dhl">DHL Express</option>
+                    <option value="spl">{isAr ? 'البريد السعودي' : 'SPL'}</option>
+                    <option value="aramex">{isAr ? 'أرامكس' : 'Aramex'}</option>
+                    <option value="smsa">{isAr ? 'سمسا إكسبريس' : 'SMSA Express'}</option>
+                    <option value="dhl">{isAr ? 'دي إتش إل إكسبريس' : 'DHL Express'}</option>
                   </select>
                 </div>
 
@@ -706,7 +714,13 @@ export const ShippingLabelsStudioView: React.FC<ShippingLabelsStudioViewProps> =
                         {getCustomerDisplayName(selectedOrder?.customerName, locale)}
                       </strong>
                       <span className="block truncate text-slate-600">
-                        {(selectedOrder as any)?.city || selectedOrder?.deliveryLocation || (activeStore as any)?.city || 'Saudi Arabia'}, KSA
+                        {getLocalizedCity(
+                          (selectedOrder as any)?.city || (activeStore as any)?.city,
+                          locale,
+                        ) ||
+                          getLocalizedAddress(selectedOrder?.deliveryLocation, locale) ||
+                          (isAr ? 'المملكة العربية السعودية' : 'Saudi Arabia')}
+                        {isAr ? '، السعودية' : ', KSA'}
                       </span>
                       <span className="block font-mono text-slate-600 truncate">
                         {selectedOrder?.customerPhone || '—'}

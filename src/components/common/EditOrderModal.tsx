@@ -38,7 +38,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
 
   const [status, setStatus] = useState<OrderStatus>('processing');
   const [paymentStatus, setPaymentStatus] = useState<string>('Paid');
-  const [shippingCompany, setShippingCompany] = useState<string>('SMSA Express');
+  const [shippingCompany, setShippingCompany] = useState<string>('SMSA');
   const [shippingStatus, setShippingStatus] = useState<string>('Delivered');
   const [trackingNumber, setTrackingNumber] = useState<string>('');
   const [shippingLabelNumber, setShippingLabelNumber] = useState<string>('');
@@ -53,7 +53,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
     if (order) {
       setStatus(order.status || 'processing');
       setPaymentStatus(order.paymentStatus || 'Paid');
-      setShippingCompany(order.shippingCompany || 'SMSA Express');
+      setShippingCompany(order.shippingCompany || 'SMSA');
       setShippingStatus(order.shippingStatus || 'Delivered');
       setTrackingNumber(order.trackingNumber || '');
       setShippingLabelNumber((order as any).shippingLabelNumber || '');
@@ -97,22 +97,33 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
       dir={isAr ? 'rtl' : 'ltr'}
       aria-label={isAr ? `تعديل الطلب #${order.orderNumber}` : `Edit Order #${order.orderNumber}`}
     >
-      <div className="w-full max-w-2xl bg-white dark:bg-[#071E26] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden max-h-[min(92vh,92dvh)] flex flex-col animate-in fade-in zoom-in-95 duration-150">
+      <div
+        className="w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden max-h-[min(92vh,92dvh)] flex flex-col animate-in fade-in zoom-in-95 duration-150"
+        style={{
+          background: 'var(--surface, #fff)',
+          border: '1px solid var(--border, #e2e8f0)',
+          color: 'var(--text, #0f172a)',
+          fontFamily: 'var(--font-ui, inherit)',
+        }}
+      >
         
-        {/* Header matching Image 2 */}
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
+        {/* Header — Holst portal tokens */}
+        <div
+          className="px-6 py-4 border-b flex items-center justify-between shrink-0"
+          style={{ background: 'var(--portal-950, #0b1b36)', borderColor: 'var(--border, #1e293b)', color: '#fff' }}
+        >
           <div>
-            <h2 className="text-base font-black text-slate-900 dark:text-white">
+            <h2 className="text-base font-black text-white">
               {isAr ? `تعديل الطلب #${order.orderNumber}` : `Edit Order #${order.orderNumber}`}
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.72)' }}>
               {isAr ? 'تحديث تفاصيل الطلب، الشحن، وحالة الدفع' : 'Update order, shipping, and payment details'}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors"
+            className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -133,13 +144,17 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-900 dark:text-white focus:outline-hidden focus:border-teal-500"
               >
                 <option value="pending">{isAr ? 'بانتظار الدفع' : 'Pending Payment'}</option>
-                <option value="processing">{isAr ? 'قيد المعالجة' : 'Processing'}</option>
-                <option value="shipped">{isAr ? 'تم الشحن' : 'Shipped'}</option>
+                <option value="partially_paid">{isAr ? 'مدفوع جزئياً' : 'Partially Paid'}</option>
+                <option value="pending_review">{isAr ? 'بانتظار المراجعة' : 'Pending Review'}</option>
+                <option value="processing">{isAr ? 'قيد التنفيذ' : 'Processing'}</option>
+                <option value="completed">{isAr ? 'تم التنفيذ' : 'Completed'}</option>
                 <option value="out_for_delivery">{isAr ? 'جاري التوصيل' : 'Out for Delivery'}</option>
                 <option value="delivered">{isAr ? 'تم التوصيل' : 'Delivered'}</option>
-                <option value="completed">{isAr ? 'مكتمل' : 'Completed'}</option>
+                <option value="shipped">{isAr ? 'تم الشحن' : 'Shipped'}</option>
                 <option value="cancelled">{isAr ? 'ملغي' : 'Cancelled'}</option>
                 <option value="returned">{isAr ? 'مسترجع' : 'Returned'}</option>
+                <option value="return_in_progress">{isAr ? 'قيد الإسترجاع' : 'Return in Progress'}</option>
+                <option value="rfq">{isAr ? 'طلب عرض سعر' : 'Request for Quotation (RFQ)'}</option>
               </select>
             </div>
 
@@ -154,7 +169,8 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-900 dark:text-white focus:outline-hidden focus:border-teal-500"
               >
                 <option value="Paid">{isAr ? 'مدفوع' : 'Paid'}</option>
-                <option value="Pending">{isAr ? 'قيد الانتظار' : 'Pending Payment'}</option>
+                <option value="Partially Paid">{isAr ? 'مدفوع جزئياً' : 'Partially Paid'}</option>
+                <option value="Pending">{isAr ? 'بانتظار الدفع' : 'Pending Payment'}</option>
                 <option value="Refunded">{isAr ? 'مسترد' : 'Refunded'}</option>
                 <option value="Failed">{isAr ? 'فشلت العملية' : 'Payment Failed'}</option>
               </select>
@@ -173,13 +189,13 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
                 onChange={(e) => setShippingCompany(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-900 dark:text-white focus:outline-hidden focus:border-teal-500"
               >
-                <option value="SMSA Express">SMSA Express (سمسا)</option>
-                <option value="Aramex">Aramex (أرامكس)</option>
-                <option value="Saudi Post SPL">SPL (البريد السعودي)</option>
-                <option value="DHL Express">DHL Express</option>
-                <option value="RedBox">RedBox (ريدبوكس)</option>
-                <option value="Torod">Torod (طرود)</option>
-                <option value="J&T Express">J&T Express</option>
+                <option value="Free Shipping">{isAr ? 'شحن مجاني' : 'Free Shipping'}</option>
+                <option value="J&T Express">{isAr ? 'جي اند تي اكسبريس' : 'J&T Express'}</option>
+                <option value="DHL Express">{isAr ? 'DHL Express' : 'DHL Express'}</option>
+                <option value="Aymakan">{isAr ? 'أي مكان' : 'Aymakan'}</option>
+                <option value="SMSA">{isAr ? 'سمسا' : 'SMSA'}</option>
+                <option value="Aramex">{isAr ? 'أرامكس' : 'Aramex'}</option>
+                <option value="Redbox">{isAr ? 'ريدبوكس' : 'Redbox'}</option>
               </select>
             </div>
 
@@ -336,7 +352,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-900 dark:text-white focus:outline-hidden focus:border-teal-500"
               >
                 <option value="none">{isAr ? 'لا يوجد استرداد' : 'Select refund status'}</option>
-                <option value="pending">{isAr ? 'قيد المراجعة' : 'Pending Review'}</option>
+                <option value="pending">{isAr ? 'بانتظار المراجعة' : 'Pending Review'}</option>
                 <option value="approved">{isAr ? 'تمت الموافقة' : 'Approved'}</option>
                 <option value="refunded">{isAr ? 'تم الاسترداد' : 'Refunded'}</option>
                 <option value="rejected">{isAr ? 'مرفوض' : 'Rejected'}</option>

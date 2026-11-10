@@ -48,7 +48,7 @@ interface CustomerDeliveriesPanelProps {
 
 const EVENT_LABELS: Record<string, { en: string; ar: string }> = {
   order_placed: { en: 'Order placed', ar: 'طلب جديد' },
-  order_processing: { en: 'Processing', ar: 'قيد المعالجة' },
+  order_processing: { en: 'Processing', ar: 'قيد التنفيذ' },
   order_preparing: { en: 'Preparing', ar: 'قيد التجهيز' },
   order_shipped: { en: 'Shipped', ar: 'تم الشحن' },
   order_delivered: { en: 'Delivered', ar: 'تم التوصيل' },

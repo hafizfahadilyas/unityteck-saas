@@ -53,7 +53,7 @@ interface DashboardOrdersTableProps {
   onOpenCreateOrder?: () => void;
 }
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 100;
 
 type SortKey = 'date_desc' | 'date_asc' | 'total_desc' | 'total_asc' | 'id_desc' | 'id_asc';
 
@@ -65,7 +65,7 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
 }) => {
   const { t, money, locale, dir } = usePrefs();
   const isAr = locale === 'ar';
-  const { permanentDeleteOrder } = useTenant();
+  const { permanentDeleteOrder, currentProducts } = useTenant();
   const { toast, confirmWithReason } = useToast();
   const [inspectOrder, setInspectOrder] = useState<Order | null>(null);
 
@@ -400,7 +400,7 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
             onClose={() => setShowSortMenu(false)}
             width={192}
             align="end"
-            estimatedHeight={220}
+            estimatedHeight={280}
             className="py-1 rounded-xl border shadow-lg text-xs"
             style={{
               background: 'var(--surface)',
@@ -464,7 +464,7 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
         onClose={() => setShowFilterMenu(false)}
         width={340}
         align="end"
-        estimatedHeight={220}
+        estimatedHeight={360}
         className="p-4 rounded-xl border shadow-lg space-y-3.5"
         style={{
           background: 'var(--surface)',
@@ -657,10 +657,43 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
               {paginatedOrders.map((ord) => {
                 const statusStyle = statusChipStyle(ord.status);
                 const firstItem = ord.items?.[0];
-                const summaryName = ord.itemsSummary?.split(/[,|·]/)[0]?.trim();
-                const firstItemName = firstItem
-                  ? getLocalizedItemName(firstItem, locale) || summaryName || t('standardItem')
-                  : summaryName || t('standardItem');
+                const summaryName = ord.itemsSummary?.split(/[,|·]/)[0]?.trim() || '';
+                // Lean order lists often omit line items — localize items_summary too (EN must not show AR).
+                const catalogMatch = firstItem
+                  ? (currentProducts || []).find(
+                      (p) =>
+                        (firstItem.sku && p.sku && p.sku === firstItem.sku) ||
+                        (firstItem.id && p.id === firstItem.id) ||
+                        (firstItem.name &&
+                          (p.nameAr === firstItem.name ||
+                            p.name === firstItem.name ||
+                            p.nameEn === firstItem.name)),
+                    )
+                  : summaryName
+                    ? (currentProducts || []).find(
+                        (p) =>
+                          p.nameAr === summaryName ||
+                          p.name === summaryName ||
+                          p.nameEn === summaryName ||
+                          (p.nameAr && summaryName.includes(p.nameAr)) ||
+                          (p.nameAr && p.nameAr.includes(summaryName)),
+                      )
+                    : undefined;
+                const firstItemName =
+                  (catalogMatch
+                    ? getLocalizedItemName(
+                        {
+                          name: catalogMatch.name,
+                          nameAr: catalogMatch.nameAr,
+                          nameEn: catalogMatch.nameEn || catalogMatch.name,
+                          sku: catalogMatch.sku,
+                        },
+                        locale,
+                      )
+                    : '') ||
+                  (firstItem ? getLocalizedItemName(firstItem, locale) : '') ||
+                  (summaryName ? getLocalizedItemName({ name: summaryName }, locale) : '') ||
+                  t('standardItem');
                 const itemsCount = ord.items?.length || ord.itemsCount || 0;
 
                 return (

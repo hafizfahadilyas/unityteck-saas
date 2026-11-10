@@ -51,6 +51,8 @@ import {
   getStoreDisplayName,
   getProductDisplayCategory,
   getStoreDisplayCategory,
+  getCustomerDisplayName,
+  getLocalizedCity,
 } from '../../utils/storeLocalization';
 import {
   getStoreAdWallet,
@@ -97,18 +99,28 @@ const toCsv = (headers: string[], rows: Array<Array<string | number | undefined 
 const today = () => new Date().toISOString().slice(0, 10);
 
 const ORDER_STATUS_LABEL: Record<string, { en: string; ar: string }> = {
-  pending: { en: 'Pending', ar: 'قيد الانتظار' },
-  processing: { en: 'Processing', ar: 'قيد المعالجة' },
-  shipped: { en: 'Shipped', ar: 'تم الشحن' },
-  out_for_delivery: { en: 'Out for Delivery', ar: 'خرج للتوصيل' },
+  draft: { en: 'Draft', ar: 'مسودة' },
+  deleted: { en: 'Deleted', ar: 'محذوف' },
+  pending: { en: 'Pending Payment', ar: 'بانتظار الدفع' },
+  partially_paid: { en: 'Partially Paid', ar: 'مدفوع جزئياً' },
+  pending_review: { en: 'Pending Review', ar: 'بانتظار المراجعة' },
+  processing: { en: 'Processing', ar: 'قيد التنفيذ' },
+  completed: { en: 'Completed', ar: 'تم التنفيذ' },
+  out_for_delivery: { en: 'Out for Delivery', ar: 'جاري التوصيل' },
   delivered: { en: 'Delivered', ar: 'تم التوصيل' },
-  completed: { en: 'Completed', ar: 'مكتمل' },
+  shipped: { en: 'Shipped', ar: 'تم الشحن' },
   cancelled: { en: 'Cancelled', ar: 'ملغي' },
-  returned: { en: 'Returned', ar: 'مرتجع' },
+  returned: { en: 'Returned', ar: 'مسترجع' },
+  return_in_progress: { en: 'Return in Progress', ar: 'قيد الإسترجاع' },
+  rfq: { en: 'Request for Quotation (RFQ)', ar: 'طلب عرض سعر' },
 };
 
 const ORDER_STATUS_STYLE: Record<string, string> = {
+  draft: 'bg-slate-100 text-slate-700 dark:bg-slate-500/20 dark:text-slate-300',
+  deleted: 'bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300',
   pending: 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+  partially_paid: 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+  pending_review: 'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
   processing: 'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
   shipped: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300',
   out_for_delivery: 'bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
@@ -116,17 +128,28 @@ const ORDER_STATUS_STYLE: Record<string, string> = {
   completed: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
   cancelled: 'bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300',
   returned: 'bg-slate-100 text-slate-700 dark:bg-slate-500/20 dark:text-slate-300',
+  return_in_progress: 'bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-500/15 dark:text-fuchsia-300',
+  rfq: 'bg-slate-100 text-slate-700 dark:bg-slate-500/20 dark:text-slate-300',
 };
 
 const SOURCE_LABEL_AR: Record<string, string> = {
-  Direct: 'مباشر',
-  'Organic Search': 'بحث عضوي',
+  Direct: 'مباشر / متجر',
+  Website: 'الموقع الإلكتروني',
+  TikTok: 'تيك توك',
+  Snapchat: 'سناب شات',
+  Instagram: 'إنستغرام',
+  WhatsApp: 'واتساب',
+  Facebook: 'فيسبوك',
+  X: 'إكس (تويتر)',
+  Telegram: 'تيليجرام',
+  YouTube: 'يوتيوب',
+  'Organic Search': 'بحث مجاني',
   'AI Assistant': 'مساعد ذكي',
   Referral: 'إحالة',
   Other: 'أخرى',
-  'Google Ads': 'إعلانات Google',
-  'Google Search': 'بحث Google',
-  'Snapchat Ads': 'إعلانات Snapchat',
+  'Google Ads': 'إعلانات جوجل',
+  'Google Search': 'بحث مجاني',
+  'Snapchat Ads': 'سناب شات',
 };
 
 const PAYMENT_LABEL_AR: Record<string, string> = {
@@ -384,7 +407,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
                     <td className="py-3 px-4 font-mono font-bold text-teal-800 dark:text-teal-300">{o.orderNumber}</td>
                     <td className="py-3 px-3 font-semibold text-slate-900">{o.storeName}</td>
                     <td className="py-3 px-3">
-                      <div>{o.customerName}</div>
+                      <div>{getCustomerDisplayName(o.customerName, locale)}</div>
                       <div className="text-[10px] text-slate-400" dir="ltr">{o.customerPhone}</div>
                     </td>
                     <td className="py-3 px-3">
@@ -907,11 +930,11 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
                 {pagedCusts.map((c) => (
                   <tr key={`${c.storeId}-${c.id}`} className="hover:opacity-90 transition-colors">
                     <td className="py-3 px-4">
-                      <div className="font-bold" style={{ color: 'var(--text)' }}>{c.name}</div>
+                      <div className="font-bold" style={{ color: 'var(--text)' }}>{getCustomerDisplayName(c.name, locale)}</div>
                       <div className="text-[10px] font-mono" style={{ color: 'var(--muted)' }} dir="ltr">{c.phone} · {c.email}</div>
                     </td>
                     <td className="py-3 px-3 font-semibold text-teal-600 dark:text-teal-400">{c.storeName}</td>
-                    <td className="py-3 px-3" style={{ color: 'var(--text)' }}>{c.city}</td>
+                    <td className="py-3 px-3" style={{ color: 'var(--text)' }}>{getLocalizedCity(c.city, locale) || c.city}</td>
                     <td className="py-3 px-3">{renderSourceIcon(c.source)}</td>
                     <td className="py-3 px-3 text-center">{renderCustomerStatus(c.status)}</td>
                     <td className="py-3 px-3 text-end tabular-nums font-bold" style={{ color: 'var(--text)' }}>
@@ -997,7 +1020,8 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
       const orderRev = matchingOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
       const share = Math.round((matchingOrders.length / totalOrdersCount) * 100);
       const roas = campSpend > 0 ? Number((orderRev / campSpend).toFixed(1)) : 0;
-      const conv = matchingOrders.length > 0 ? Number(Math.min(9.5, 2.1 + matchingOrders.length * 0.4).toFixed(1)) : 0;
+      // Never invent conversion from orders×N — real conv needs visits from events
+      const conv = 0;
       return {
         id: ck.id,
         name: ck.name,

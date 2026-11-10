@@ -44,7 +44,7 @@ export const useManualOrderForm = (options: UseManualOrderFormOptions = {}) => {
 
   // SECTION 3: Payment
   const [paymentMethod, setPaymentMethod] = useState<string>('mada');
-  const [paymentStatus, setPaymentStatus] = useState<ManualPaymentStatus>('Paid');
+  const [paymentStatus, setPaymentStatus] = useState<ManualPaymentStatus>('Pending Payment');
   const [paymentPlan, setPaymentPlan] = useState<PaymentPlan>('full');
   const [amountPaid, setAmountPaid] = useState<number>(0);
   const [bankAccountId, setBankAccountId] = useState<string>('');
@@ -172,21 +172,27 @@ export const useManualOrderForm = (options: UseManualOrderFormOptions = {}) => {
     return deliveryMethod === 'pickup' ? 0 : Number(shippingFee || 0);
   }, [deliveryMethod, shippingFee]);
 
-  // Saudi VAT Calculation: (Subtotal + Shipping) * 0.15
+  // Saudi VAT (ZATCA): catalog prices are VAT-inclusive.
+  // Extract included 15% — never add tax again on top of product/shipping amounts.
   const tax = useMemo(() => {
     const taxableBase = subtotal + effectiveShippingFee;
-    return Number((taxableBase * taxRate).toFixed(2));
+    if (taxRate <= 0) return 0;
+    return Number(((taxableBase * taxRate) / (1 + taxRate)).toFixed(2));
   }, [subtotal, effectiveShippingFee, taxRate]);
 
-  // Grand Total = Subtotal + Shipping + Tax
+  // Grand Total = Subtotal + Shipping (VAT already included in those amounts)
   const grandTotal = useMemo(() => {
-    return Number((subtotal + effectiveShippingFee + tax).toFixed(2));
-  }, [subtotal, effectiveShippingFee, tax]);
+    return Number((subtotal + effectiveShippingFee).toFixed(2));
+  }, [subtotal, effectiveShippingFee]);
 
   const remainingBalance = useMemo(() => {
-    if (paymentPlan === 'full') return 0;
-    return Number(Math.max(0, grandTotal - Number(amountPaid || 0)).toFixed(2));
-  }, [paymentPlan, grandTotal, amountPaid]);
+    if (paymentPlan === 'partial') {
+      return Number(Math.max(0, grandTotal - Number(amountPaid || 0)).toFixed(2));
+    }
+    // full + Paid → 0 remaining; full + Awaiting → full amount due
+    if (paymentStatus === 'Paid') return 0;
+    return grandTotal;
+  }, [paymentPlan, paymentStatus, grandTotal, amountPaid]);
 
   // Validation
   const isValid = useMemo(() => {
@@ -207,24 +213,36 @@ export const useManualOrderForm = (options: UseManualOrderFormOptions = {}) => {
       const paymentMap: Record<string, PaymentMethod> = {
         mada: 'Mada',
         apple: 'Apple Pay',
-        visa: 'Visa/MC',
+        visa: 'Visa',
+        paypal: 'PayPal',
+        googlepay: 'Google Pay',
+        samsung: 'Samsung Pay',
+        customer_wallet: 'Customer Wallet',
+        mispay: 'MIS Pay',
+        madfoat: 'Madfoat',
         stc: 'stc pay',
         tabby: 'Tabby',
         tamara: 'Tamara',
+        emkan: 'Emkan',
         cash: 'COD',
         bank_transfer: 'Bank Transfer',
+        bank: 'Bank Transfer',
       };
       const resolvedPayment = paymentMap[paymentMethod] || (paymentMethod as PaymentMethod);
 
       const resolvedDeliveryMode: DeliveryMode | undefined =
         deliveryMethod === 'pickup' ? undefined : deliveryMode;
 
-      const paid =
-        paymentPlan === 'full'
-          ? grandTotal
-          : Number(Math.min(Math.max(0, amountPaid || 0), grandTotal).toFixed(2));
-      const remaining =
-        paymentPlan === 'full' ? 0 : Number(Math.max(0, grandTotal - paid).toFixed(2));
+      let paid = 0;
+      if (paymentPlan === 'partial') {
+        paid = Number(Math.min(Math.max(0, amountPaid || 0), grandTotal).toFixed(2));
+      } else if (paymentStatus === 'Paid') {
+        paid = grandTotal;
+      } else {
+        // Full plan + Awaiting payment → nothing collected yet
+        paid = 0;
+      }
+      const remaining = Number(Math.max(0, grandTotal - paid).toFixed(2));
 
       return {
         storeId,
@@ -291,7 +309,7 @@ export const useManualOrderForm = (options: UseManualOrderFormOptions = {}) => {
     setCustomerName('');
     setItems([]);
     setPaymentMethod('mada');
-    setPaymentStatus('Paid');
+    setPaymentStatus('Pending Payment');
     setPaymentPlan('full');
     setAmountPaid(0);
     setBankAccountId('');
@@ -299,7 +317,7 @@ export const useManualOrderForm = (options: UseManualOrderFormOptions = {}) => {
     setDeliveryMode('shipping_company');
     setDriverId('');
     setShippingFee(initialShippingFee);
-    setShippingAddress('Riyadh, Saudi Arabia');
+    setShippingAddress('');
     setShippingCompany('');
   }, [defaultCountryCode, initialShippingFee]);
 

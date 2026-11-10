@@ -1,5 +1,6 @@
 import React from 'react';
 import { CheckCircle2, Clock, Truck } from 'lucide-react';
+import { shippingMethodLogoSrc } from '../../../utils/shippingMethodLogos';
 
 export type CheckoutShippingMethodOption = {
   id: string;
@@ -10,6 +11,7 @@ export type CheckoutShippingMethodOption = {
   estimated_delivery?: string | null;
   courier_code?: string | null;
   fulfillment_mode?: string | null;
+  logo_url?: string | null;
 };
 
 type Props = {
@@ -64,6 +66,11 @@ export const CheckoutShippingMethods: React.FC<Props> = ({
         {methods.map((m) => {
           const selected = selectedId === m.id;
           const title = isAr ? m.name_ar || m.name : m.name;
+          const logo =
+            m.logo_url ||
+            shippingMethodLogoSrc(m.courier_code) ||
+            shippingMethodLogoSrc(m.name) ||
+            shippingMethodLogoSrc(m.name_ar);
           const feeLabel = m.is_free || m.fee <= 0
             ? isAr
               ? 'مجاني'
@@ -88,6 +95,11 @@ export const CheckoutShippingMethods: React.FC<Props> = ({
                     ) : (
                       <span className="w-4 h-4 rounded-full border border-neutral-300 shrink-0" />
                     )}
+                    {logo ? (
+                      <span className="w-9 h-9 rounded-lg bg-white border border-neutral-200 flex items-center justify-center p-1 shrink-0">
+                        <img src={logo} alt="" className="max-w-full max-h-full object-contain" loading="lazy" />
+                      </span>
+                    ) : null}
                     <span className="text-sm font-bold text-neutral-900 truncate">{title}</span>
                     {m.courier_code ? (
                       <span className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded-md bg-neutral-100 text-neutral-600">

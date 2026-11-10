@@ -15,6 +15,7 @@ import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
 import { GlobalModal } from '../common/GlobalModal';
 import { listAvailableProductChannels } from '../../config/productChannels';
+import { getProductDisplayCategory } from '../../utils/storeLocalization';
 
 export interface ProductFilterCriteria {
   channel: string;
@@ -438,7 +439,7 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
                 <option value="All">{isAr ? 'جميع الأقسام' : 'All Categories'}</option>
                 {availableCategories.map((c) => (
                   <option key={c} value={c}>
-                    {c}
+                    {getProductDisplayCategory(c, locale)}
                   </option>
                 ))}
               </select>
@@ -632,7 +633,11 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
               <div>
                 {isAr ? 'القسم:' : 'Category:'}{' '}
                 <span className="font-semibold text-slate-900 dark:text-white">
-                  {criteria.category === 'All' ? (isAr ? 'الكل' : 'All') : criteria.category}
+                  {criteria.category === 'All'
+                    ? isAr
+                      ? 'الكل'
+                      : 'All'
+                    : getProductDisplayCategory(criteria.category, locale)}
                 </span>
               </div>
               <div>
@@ -745,8 +750,8 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
                       </div>
                       <div className="text-[10px] text-slate-400">
                         {isAr
-                          ? `الحالة:${p.criteria.status}• القسم:${p.criteria.category}`
-                          : `Status: ${p.criteria.status} • Category: ${p.criteria.category}`}
+                          ? `الحالة:${p.criteria.status}• القسم:${getProductDisplayCategory(p.criteria.category, locale)}`
+                          : `Status: ${p.criteria.status} • Category: ${getProductDisplayCategory(p.criteria.category, locale)}`}
                       </div>
                     </div>
                   </div>
@@ -900,7 +905,9 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
                 >
                   <option value="All">{isAr ? 'جميع الأقسام' : 'All Categories'}</option>
                   {availableCategories.map((c) => (
-                    <option key={c} value={c}>{c}</option>
+                    <option key={c} value={c}>
+                      {getProductDisplayCategory(c, locale)}
+                    </option>
                   ))}
                 </select>
               </div>

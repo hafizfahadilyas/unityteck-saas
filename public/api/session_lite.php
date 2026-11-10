@@ -39,22 +39,28 @@ function souq_lite_find_store_by_owner(PDO $pdo, string $email): ?array
             $data = [];
         }
         $owners = [
+            strtolower(trim((string)($data['email'] ?? ''))),
             strtolower(trim((string)($data['ownerEmail'] ?? ''))),
             strtolower(trim((string)($data['owner_email'] ?? ''))),
             strtolower(trim((string)($data['loginEmail'] ?? ''))),
         ];
-        if (in_array($email, $owners, true)) {
-            return $row;
-        }
-        // Known platform aliases (coffee / flowers / cars)
         $id = (string)$row['id'];
         $alias = match ($id) {
-            'store-coffee' => ['mieraf.sa8@gmail.com'],
+            'store-coffee' => ['mieraf.sa8@gmail.com', 'rayan@specialtycoffee.sa'],
             'store-1' => ['giftshop2030m@gmail.com', 'p4pakistan098@gmail.com'],
             'store-bleco' => ['support@tanjeedmakkah.com', 'admin@bleco.sa', 'alsaeedi@tanjeedmakkah.com'],
             default => [],
         };
-        if (in_array($email, $alias, true)) {
+        // After Master Change Login Email → exclusive registered email(s) only.
+        $exclusive = !empty($data['login_email_exclusive']);
+        $allowed = $exclusive
+            ? $owners
+            : array_merge($owners, $alias);
+        $allowed = array_values(array_unique(array_filter(
+            $allowed,
+            static fn ($e) => is_string($e) && $e !== '' && str_contains($e, '@')
+        )));
+        if ($allowed !== [] && in_array($email, $allowed, true)) {
             return $row;
         }
     }
@@ -129,7 +135,7 @@ function souq_session_lite_dispatch(PDO $pdo, string $uri, string $method, strin
                 'portal' => 'master',
                 'user' => [
                     'id' => 'master-' . substr(md5($email), 0, 10),
-                    'name' => 'Unityteck Master SuperAdmin',
+                    'name' => 'Souq Platform SuperAdmin',
                     'email' => $email,
                     'role' => 'super_admin',
                     'role_label' => 'Super Admin',
@@ -144,25 +150,10 @@ function souq_session_lite_dispatch(PDO $pdo, string $uri, string $method, strin
 
         $row = null;
         if ($reqStore !== '') {
-            $st = $pdo->prepare('SELECT id, name, slug, domain, data FROM stores WHERE id = ?');
-            $st->execute([$reqStore]);
-            $cand = $st->fetch();
-            if ($cand) {
-                $data = json_decode((string)($cand['data'] ?? '{}'), true) ?: [];
-                $owners = [
-                    strtolower(trim((string)($data['ownerEmail'] ?? ''))),
-                    strtolower(trim((string)($data['owner_email'] ?? ''))),
-                    strtolower(trim((string)($data['loginEmail'] ?? ''))),
-                ];
-                $aliasOk = match ((string)$cand['id']) {
-                    'store-coffee' => in_array($email, ['mieraf.sa8@gmail.com'], true),
-                    'store-1' => in_array($email, ['giftshop2030m@gmail.com', 'p4pakistan098@gmail.com'], true),
-                    'store-bleco' => in_array($email, ['support@tanjeedmakkah.com', 'admin@bleco.sa', 'alsaeedi@tanjeedmakkah.com'], true),
-                    default => false,
-                };
-                if (in_array($email, $owners, true) || $aliasOk) {
-                    $row = $cand;
-                }
+            // Resolve by registered login email first, then confirm store_id match (no cross-tenant).
+            $byEmail = souq_lite_find_store_by_owner($pdo, $email);
+            if ($byEmail && (string)$byEmail['id'] === $reqStore) {
+                $row = $byEmail;
             }
         }
         if (!$row) {
@@ -171,6 +162,20 @@ function souq_session_lite_dispatch(PDO $pdo, string $uri, string $method, strin
         if (!$row) {
             http_response_code(403);
             echo json_encode(['message' => 'No store membership for this account.']);
+            return true;
+        }
+
+        $storeData = json_decode((string)($row['data'] ?? '{}'), true);
+        if (!is_array($storeData)) {
+            $storeData = [];
+        }
+        // Master SuperAdmin Active/Inactive — persisted in stores.data (Hostinger SQLite).
+        if (array_key_exists('login_email_active', $storeData) && $storeData['login_email_active'] === false) {
+            http_response_code(422);
+            echo json_encode([
+                'message' => 'This store login email is inactive. Contact platform support.',
+                'errors' => ['email' => ['This store login email is inactive.']],
+            ]);
             return true;
         }
 
@@ -191,6 +196,80 @@ function souq_session_lite_dispatch(PDO $pdo, string $uri, string $method, strin
             'store_id' => (string)$row['id'],
             'store_name' => $name,
         ]);
+        return true;
+    }
+
+    // PATCH /stores/{id} — Master login email + Active/Inactive (stores.data JSON)
+    if (preg_match('#^/stores/([^/]+)$#', $uri, $m) && in_array($method, ['PATCH', 'PUT', 'POST'], true)) {
+        $sid = (string)$m[1];
+        $st = $pdo->prepare('SELECT id, name, slug, domain, data FROM stores WHERE id = ?');
+        $st->execute([$sid]);
+        $row = $st->fetch();
+        if (!$row) {
+            http_response_code(404);
+            echo json_encode(['message' => 'Store not found.']);
+            return true;
+        }
+        $data = json_decode((string)($row['data'] ?? '{}'), true);
+        if (!is_array($data)) {
+            $data = [];
+        }
+        $name = (string)$row['name'];
+        $slug = (string)$row['slug'];
+        $domain = (string)$row['domain'];
+
+        if (isset($input['name']) && is_string($input['name']) && trim($input['name']) !== '') {
+            $name = trim($input['name']);
+            $data['name'] = $name;
+        }
+        if (isset($input['slug']) && is_string($input['slug']) && trim($input['slug']) !== '') {
+            $slug = trim($input['slug']);
+            $data['slug'] = $slug;
+        }
+        if (array_key_exists('domain', $input)) {
+            $domain = trim((string)$input['domain']);
+            $data['domain'] = $domain;
+        }
+        $nextEmail = null;
+        if (isset($input['email']) && is_string($input['email'])) {
+            $nextEmail = strtolower(trim($input['email']));
+        } elseif (isset($input['owner_email']) && is_string($input['owner_email'])) {
+            $nextEmail = strtolower(trim($input['owner_email']));
+        }
+        if ($nextEmail !== null && $nextEmail !== '' && str_contains($nextEmail, '@')) {
+            $data['email'] = $nextEmail;
+            $data['ownerEmail'] = $nextEmail;
+            $data['owner_email'] = $nextEmail;
+            $data['loginEmail'] = $nextEmail;
+            // Master Change Login Email: lock store to this email only (drop seed aliases).
+            $data['login_email_exclusive'] = true;
+        }
+        if (array_key_exists('login_email_active', $input)) {
+            $data['login_email_active'] = filter_var($input['login_email_active'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($data['login_email_active'] === null) {
+                $data['login_email_active'] = (bool)$input['login_email_active'];
+            }
+        }
+        foreach (['plan', 'status', 'phone', 'owner_name', 'city', 'country', 'category', 'logo', 'accent_color'] as $k) {
+            if (array_key_exists($k, $input)) {
+                $data[$k] = $input[$k];
+            }
+        }
+
+        $pdo->prepare('UPDATE stores SET name = ?, slug = ?, domain = ?, data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+            ->execute([$name, $slug, $domain, json_encode($data, JSON_UNESCAPED_UNICODE), $sid]);
+
+        $out = $data;
+        $out['id'] = $sid;
+        $out['name'] = $name;
+        $out['slug'] = $slug;
+        $out['domain'] = $domain;
+        $out['email'] = $data['email'] ?? ($data['ownerEmail'] ?? null);
+        $out['owner_email'] = $out['email'];
+        $out['login_email_active'] = array_key_exists('login_email_active', $data)
+            ? (bool)$data['login_email_active']
+            : true;
+        echo json_encode(['data' => $out]);
         return true;
     }
 

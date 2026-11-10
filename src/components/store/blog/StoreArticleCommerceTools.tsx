@@ -2549,18 +2549,36 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
               </div>
 
               <div className="space-y-1.5 text-xs">
-                <div className="text-[10px] text-slate-400">Metrics to Display</div>
+                <div className="text-[10px] text-slate-400">
+                  {isAr ? 'المقاييس المعروضة' : 'Metrics to Display'}
+                </div>
                 <div className="grid grid-cols-2 gap-1 text-[10px]">
-                  {['Views', 'Product Clicks', 'Add to Cart', 'Orders'].map((m) => (
-                    <label key={m} className="flex items-center gap-1 text-slate-600 dark:text-slate-300">
+                  {(
+                    isAr
+                      ? [
+                          { key: 'views', label: 'المشاهدات' },
+                          { key: 'product_clicks', label: 'نقرات المنتجات' },
+                          { key: 'add_to_cart', label: 'إضافة إلى سلة التسوق' },
+                          { key: 'orders', label: 'الطلبات' },
+                        ]
+                      : [
+                          { key: 'views', label: 'Views' },
+                          { key: 'product_clicks', label: 'Product Clicks' },
+                          { key: 'add_to_cart', label: 'Add to Cart' },
+                          { key: 'orders', label: 'Orders' },
+                        ]
+                  ).map((m) => (
+                    <label key={m.key} className="flex items-center gap-1 text-slate-600 dark:text-slate-300">
                       <input type="checkbox" defaultChecked className="w-3 h-3 text-emerald-600" />
-                      <span>{m}</span>
+                      <span>{m.label}</span>
                     </label>
                   ))}
                 </div>
 
                 <div className="pt-0.5">
-                  <label className="text-[10px] text-slate-400">Time Range</label>
+                  <label className="text-[10px] text-slate-400">
+                    {isAr ? 'النطاق الزمني' : 'Time Range'}
+                  </label>
                   <select
                     value={config.performance_analytics.time_range}
                     onChange={(e) =>
@@ -2571,28 +2589,28 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                     }
                     className="w-full mt-0.5 px-2 py-1 text-[11px] rounded border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
                   >
-                    <option value="Last 30 Days">Last 30 Days</option>
-                    <option value="Last 7 Days">Last 7 Days</option>
-                    <option value="All Time">All Time</option>
+                    <option value="Last 30 Days">{isAr ? 'آخر ٣٠ يوماً' : 'Last 30 Days'}</option>
+                    <option value="Last 7 Days">{isAr ? 'آخر ٧ أيام' : 'Last 7 Days'}</option>
+                    <option value="All Time">{isAr ? 'كل الأوقات' : 'All Time'}</option>
                   </select>
                 </div>
 
                 <div className="grid grid-cols-4 gap-1 text-center pt-1">
                   <div className="p-1 rounded bg-slate-50 dark:bg-slate-800">
                     <div className="font-extrabold text-slate-900 dark:text-white text-[11px]">24,532</div>
-                    <div className="text-[8px] text-slate-400">Views</div>
+                    <div className="text-[8px] text-slate-400">{isAr ? 'المشاهدات' : 'Views'}</div>
                   </div>
                   <div className="p-1 rounded bg-slate-50 dark:bg-slate-800">
                     <div className="font-extrabold text-slate-900 dark:text-white text-[11px]">3,420</div>
-                    <div className="text-[8px] text-slate-400">Clicks</div>
+                    <div className="text-[8px] text-slate-400">{isAr ? 'النقرات' : 'Clicks'}</div>
                   </div>
                   <div className="p-1 rounded bg-slate-50 dark:bg-slate-800">
                     <div className="font-extrabold text-slate-900 dark:text-white text-[11px]">620</div>
-                    <div className="text-[8px] text-slate-400">Cart</div>
+                    <div className="text-[8px] text-slate-400">{isAr ? 'سلة التسوق' : 'Cart'}</div>
                   </div>
                   <div className="p-1 rounded bg-slate-50 dark:bg-slate-800">
                     <div className="font-extrabold text-slate-900 dark:text-white text-[11px]">210</div>
-                    <div className="text-[8px] text-slate-400">Orders</div>
+                    <div className="text-[8px] text-slate-400">{isAr ? 'الطلبات' : 'Orders'}</div>
                   </div>
                 </div>
 

@@ -384,7 +384,7 @@ export const ReportsAiInsights: React.FC<ReportsAiInsightsProps> = ({
                   </div>
                   <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                     <div
-                      style={{ width: `${Math.max(12, 100 - idx * 18)}%` }}
+                      style={{ width: st.pct && typeof st.pct === 'string' && st.pct.includes('%') ? st.pct : `${Math.min(100, Math.max(0, Number(st.pct) || 0))}%` }}
                       className="h-full bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full"
                     />
                   </div>
@@ -395,7 +395,7 @@ export const ReportsAiInsights: React.FC<ReportsAiInsightsProps> = ({
 
           <div className="p-3 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 rounded-xl mt-4 flex items-center justify-between">
             <span className="text-[11px] text-amber-900 dark:text-amber-200 font-medium">
-              {isAr ? 'أكبر تراجع ملحوظ: خطوة الدفع النهائية (42.1%)' : 'Largest drop-off detected: Checkout to Order (42.1%)'}
+              {isAr ? 'بانتظار بيانات مسار التحويل الحقيقية' : 'Waiting for real funnel drop-off data'}
             </span>
             <button
               onClick={() => onNavigateToTab('behavior')}

@@ -1654,7 +1654,7 @@ export const MasterOrders: React.FC = () => {
                 <option value="Direct">{localizeSalesChannel('Direct', locale)}</option>
                 <option value="TikTok">{localizeSalesChannel('TikTok', locale)}</option>
                 <option value="Snapchat">{isAr ? 'سناب شات' : 'Snapchat'}</option>
-                <option value="Organic Search">{isAr ? 'بحث عضوي' : 'Organic Search'}</option>
+                <option value="Organic Search">{isAr ? 'بحث مجاني' : 'Organic Search'}</option>
                 <option value="AI Assistant">{isAr ? 'مساعد ذكي' : 'AI Assistant'}</option>
                 <option value="Referral">{isAr ? 'إحالة' : 'Referral'}</option>
               </select>

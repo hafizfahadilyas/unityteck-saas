@@ -1,0 +1,26 @@
+---
+description: All Master/Store GlobalModal chrome uses Holst portal tokens — same color + same font as BrandingPanel. Fix modals one-by-one; never hardcode navy/blue/green.
+globs: src/components/**/*Modal*.tsx,src/components/common/GlobalModal.tsx,src/components/common/MediaUploadField.tsx,src/components/common/SaudiCitySelect.tsx,src/components/common/PortalSelect.tsx,src/components/common/FloatingPopover.tsx
+alwaysApply: true
+---
+
+# Global Modal · Same Color · Same Font (LOCKED)
+
+**User order:** Har modal ka color/font **global Holst branding** se aaye — BrandingPanel / `portal-tokens.css` CSS vars. Ek-ek modal fix; naya hardcoded palette mat banao.
+
+## Absolute
+- **NO** hardcoded modal headers like `#0b1b36`, random `bg-blue-600` / `bg-emerald-600` CTAs inside dashboard modals.
+- Header → `background: var(--portal-cta)` (same global CTA as primary buttons); icon → white.
+- Primary actions (Upload / Media Library / Save) → `unity-btn-primary` / `var(--portal-cta)` — no dark `portal-950` secondary fill.
+- Surfaces / inputs / text → `var(--surface)`, `var(--input-bg)`, `var(--input-fg)`, `var(--border)`, `var(--text)`, `var(--muted)`, `var(--accent)`.
+- Font → inherit `var(--font-ui)` via `GlobalModal` (`data-global-modal`) — never a one-off face on modal chrome.
+- Shell → always `GlobalModal` (body portal). Dropdowns → `PortalSelect` / `SaudiCitySelect` / `FloatingPopover` (above modal z-index).
+
+## City / select click
+- `FloatingPopover` outside-dismiss must **not** `preventDefault` / `stopPropagation` on the activating click (blocks the next field, e.g. City after Gender).
+- Keep modal backdrop ignore while `[data-floating-popover]` is mounted (already in `GlobalModal`).
+
+## Scope
+- Master + Store admin modals only (not locked storefront theme chrome).
+- Fix the open modal in front of you; leave already-tokenized modals alone.
+---

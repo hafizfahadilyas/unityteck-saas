@@ -44,6 +44,10 @@ class Product extends Model
         'stock',
         'category',
         'category_ar',
+        'brand',
+        'product_type',
+        'google_taxonomy',
+        'sales_channels',
         'image_url',
         'image_version',
         'gallery_urls',
@@ -60,6 +64,8 @@ class Product extends Model
         'status',
         'is_active',
         'is_featured',
+        'discount_start_at',
+        'discount_end_at',
     ];
 
     protected function casts(): array
@@ -81,9 +87,12 @@ class Product extends Model
             'shipping_payment_options' => 'array',
             'gallery_urls' => 'array',
             'tags' => 'array',
+            'sales_channels' => 'array',
             'product_options' => 'array',
             'custom_fields' => 'array',
             'conditional_rules' => 'array',
+            'discount_start_at' => 'date:Y-m-d',
+            'discount_end_at' => 'date:Y-m-d',
         ];
     }
 

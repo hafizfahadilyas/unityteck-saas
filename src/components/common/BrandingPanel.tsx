@@ -37,10 +37,15 @@ export const BrandingPanel: React.FC<{
   const { toast } = useToast();
   const isAr = locale === 'ar';
   const [customHex, setCustomHex] = useState(brand.customAccentHex || '#1d8b94');
+  const [scrollbarHex, setScrollbarHex] = useState(brand.customScrollbarHex || '#4fb8b4');
 
   useEffect(() => {
     if (brand.customAccentHex) setCustomHex(brand.customAccentHex);
   }, [brand.customAccentHex]);
+
+  useEffect(() => {
+    if (brand.customScrollbarHex) setScrollbarHex(brand.customScrollbarHex);
+  }, [brand.customScrollbarHex]);
 
   const panelTitle =
     title ||
@@ -60,6 +65,25 @@ export const BrandingPanel: React.FC<{
   const clearCustomAccent = () => {
     setBrand({ customAccentHex: null });
     toast(isAr ? 'تم إلغاء اللون المخصص' : 'Custom color cleared', 'success');
+  };
+
+  const applyScrollbarColor = (hex: string) => {
+    const normalized = hex.startsWith('#') ? hex : `#${hex}`;
+    if (!parseHexColor(normalized)) {
+      toast(isAr ? 'رمز لون غير صالح' : 'Invalid color code', 'error');
+      return;
+    }
+    setScrollbarHex(normalized);
+    setBrand({ customScrollbarHex: normalized });
+    toast(isAr ? 'تم تطبيق لون شريط التمرير' : 'Scrollbar color applied', 'success');
+  };
+
+  const clearScrollbarColor = () => {
+    setBrand({ customScrollbarHex: null });
+    toast(
+      isAr ? 'شريط التمرير يتبع لون الهوية الآن' : 'Scrollbar now follows brand color',
+      'success',
+    );
   };
 
   const renderFontBtn = (id: BrandFontId) => {
@@ -254,6 +278,109 @@ export const BrandingPanel: React.FC<{
           {isAr
             ? 'اللون المخصص يطبَّق على الأزرار والحدود والبطاقات والجداول والنوافذ فوراً.'
             : 'Custom accent applies instantly to buttons, borders, cards, tables, and modals.'}
+        </p>
+      </div>
+
+      {/* ── Scrollbar color (global · luxury) ── */}
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-xs font-bold">
+            <Zap className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+            <span>{isAr ? 'لون شريط التمرير (فاخر)' : 'Scrollbar Color (Luxury)'}</span>
+          </div>
+          <span
+            className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+            style={{
+              background: 'color-mix(in srgb, var(--sb-color, var(--portal-400)) 18%, var(--surface))',
+              color: 'var(--sb-color-deep, var(--accent))',
+            }}
+          >
+            {brand.customScrollbarHex
+              ? isAr
+                ? 'مخصص'
+                : 'Custom'
+              : isAr
+                ? 'يتبع الهوية'
+                : 'Follows brand'}
+          </span>
+        </div>
+        <div
+          className="flex flex-wrap items-center gap-3 p-3 rounded-xl border"
+          style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
+        >
+          <input
+            type="color"
+            value={
+              parseHexColor(scrollbarHex)
+                ? scrollbarHex.startsWith('#')
+                  ? scrollbarHex
+                  : `#${scrollbarHex}`
+                : '#4fb8b4'
+            }
+            onChange={(e) => setScrollbarHex(e.target.value)}
+            className="w-12 h-10 rounded-lg border cursor-pointer bg-transparent"
+            style={{ borderColor: 'var(--border)' }}
+            aria-label={isAr ? 'لون شريط التمرير' : 'Scrollbar color'}
+          />
+          <input
+            type="text"
+            value={scrollbarHex}
+            onChange={(e) => setScrollbarHex(e.target.value)}
+            placeholder="#4fb8b4"
+            dir="ltr"
+            className="flex-1 min-w-[7rem] px-3 py-2 text-xs font-mono rounded-xl border"
+            style={{
+              borderColor: 'var(--border)',
+              background: 'var(--surface)',
+              color: 'var(--text)',
+              borderRadius: 'var(--radius-ctrl)',
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => applyScrollbarColor(scrollbarHex)}
+            className="px-3.5 py-2 text-xs font-bold rounded-xl text-white cursor-pointer"
+            style={{ background: 'var(--portal-cta)', borderRadius: 'var(--radius-ctrl)' }}
+          >
+            {isAr ? 'تطبيق' : 'Apply'}
+          </button>
+          {brand.customScrollbarHex ? (
+            <button
+              type="button"
+              onClick={clearScrollbarColor}
+              className="px-3 py-2 text-xs font-semibold rounded-xl border cursor-pointer"
+              style={{
+                borderColor: 'var(--border)',
+                color: 'var(--text)',
+                borderRadius: 'var(--radius-ctrl)',
+              }}
+            >
+              {isAr ? 'اتبع لون الهوية' : 'Follow brand'}
+            </button>
+          ) : null}
+          {/* Live luxury preview strip */}
+          <div
+            className="w-full h-2.5 rounded-full relative overflow-hidden"
+            style={{
+              background: 'var(--sb-track, color-mix(in srgb, var(--border) 45%, transparent))',
+              boxShadow: 'inset 0 0 4px color-mix(in srgb, var(--portal-950) 12%, transparent)',
+            }}
+            aria-hidden
+          >
+            <span
+              className="absolute top-0 bottom-0 start-[18%] w-[38%] rounded-full"
+              style={{
+                background: 'linear-gradient(90deg, var(--sb-color, var(--portal-400)), var(--sb-color-deep, var(--accent)))',
+                boxShadow:
+                  'inset 0 1px 0 color-mix(in srgb, #fff 35%, transparent), 0 0 10px color-mix(in srgb, var(--sb-color-deep, var(--accent)) 40%, transparent)',
+              }}
+            />
+          </div>
+        </div>
+        <p className="text-[10px] opacity-65">
+          {isAr
+            ? 'افتراضياً يتبع لوحة الألوان العالمية. يمكنك اختيار لون مستقل مع ظل فاخر لكل الصفحات.'
+            : 'Defaults to the global brand palette. Pick a dedicated color with luxury glow across all pages.'}
         </p>
       </div>
 

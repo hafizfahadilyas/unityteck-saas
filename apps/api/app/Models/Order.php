@@ -15,6 +15,27 @@ class Order extends Model
 
     protected $keyType = 'string';
 
+    /** Canonical order statuses (Souq dashboard — حالة الطلب). */
+    public const STATUSES = [
+        'draft',
+        'deleted',
+        'pending',
+        'partially_paid',
+        'pending_review',
+        'processing',
+        'preparing',
+        'shipped',
+        'out_for_delivery',
+        'delivered',
+        'completed',
+        'cancellation_requested',
+        'cancelled',
+        'returned',
+        'return_in_progress',
+        'rfq',
+        'refunded',
+    ];
+
     protected $fillable = [
         'id',
         'store_id',

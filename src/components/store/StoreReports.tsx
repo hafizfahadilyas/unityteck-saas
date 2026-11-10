@@ -19,6 +19,7 @@ import { ReportsProducts } from './reports/ReportsProducts';
 import { ReportsEmptyState } from './reports/ReportsEmptyState';
 import { StoreChannelPerformance } from './StoreChannelPerformance';
 import { localizePaymentMethod } from '../../utils/domainLabels';
+import { getCustomerDisplayName, getLocalizedCity } from '../../utils/storeLocalization';
 
 
 import {
@@ -250,7 +251,7 @@ export const StoreReports: React.FC = () => {
         id: String(idx + 1),
         name,
         revenue: rev,
-        change: rev > 0 ? `+${Math.min(30, 8 + idx * 3)}%` : '0%',
+        change: '—',
       }));
   }, [storeOrders, storeProducts, isAr, activeStore, computedTotalSales]);
 
@@ -399,18 +400,25 @@ export const StoreReports: React.FC = () => {
       .slice(0, 5)
       .map((p, i) => ({ id: String(i + 1), rank: i + 1, ...p }));
 
+    const unknownCity = isAr ? 'غير محدد' : 'Unknown';
     const cityAgg: Record<string, { city: string; orders: number; sales: number }> = {};
     storeOrders.forEach((o) => {
-      const city = (o as any).customerCity || (typeof o.shippingAddress === 'string' ? o.shippingAddress : (o.shippingAddress as any)?.city) || o.deliveryLocation || (isAr ? 'الرياض' : 'Riyadh');
+      const rawCity =
+        (o as any).customerCity ||
+        (typeof o.shippingAddress === 'string' ? o.shippingAddress : (o.shippingAddress as any)?.city) ||
+        o.deliveryLocation ||
+        '';
+      const city = String(rawCity).trim() || unknownCity;
       if (!cityAgg[city]) cityAgg[city] = { city, orders: 0, sales: 0 };
       cityAgg[city].orders += 1;
       cityAgg[city].sales += o.total || 0;
     });
     const salesByCity = storeOrders.length > 0 ? Object.values(cityAgg).sort((a, b) => b.sales - a.sales).slice(0, 5).map((c, i) => ({ id: String(i + 1), rank: i + 1, ...c })) : [];
 
+    const unknownPay = isAr ? 'غير محدد' : 'Unknown';
     const pmAgg: Record<string, { method: string; orders: number; sales: number }> = {};
     storeOrders.forEach((o) => {
-      const method = o.paymentMethod || 'Credit Card';
+      const method = String(o.paymentMethod || '').trim() || unknownPay;
       if (!pmAgg[method]) pmAgg[method] = { method, orders: 0, sales: 0 };
       pmAgg[method].orders += 1;
       pmAgg[method].sales += o.total || 0;
@@ -641,15 +649,17 @@ export const StoreReports: React.FC = () => {
               <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">
                 {isAr ? 'المبيعات حسب المدينة' : 'Sales by City'}
               </h4>
-              <span className="text-xs font-bold text-blue-600 hover:underline cursor-pointer">View All</span>
+              <span className="text-xs font-bold text-blue-600 hover:underline cursor-pointer">
+                {isAr ? 'عرض الكل' : 'View All'}
+              </span>
             </div>
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-slate-400 dark:text-slate-500 text-start border-b border-slate-100 dark:border-slate-800">
                   <th className="py-2 w-6">#</th>
-                  <th className="py-2 text-start">City</th>
-                  <th className="py-2 text-center">Orders</th>
-                  <th className="py-2 text-end">Total Sales</th>
+                  <th className="py-2 text-start">{isAr ? 'المدينة' : 'City'}</th>
+                  <th className="py-2 text-center">{isAr ? 'الطلبات' : 'Orders'}</th>
+                  <th className="py-2 text-end">{isAr ? 'إجمالي المبيعات' : 'Total Sales'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-semibold">
@@ -663,7 +673,7 @@ export const StoreReports: React.FC = () => {
                   salesByCity.map((c) => (
                     <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                       <td className="py-2.5 text-slate-400">{c.rank}</td>
-                      <td className="py-2.5 font-bold text-slate-800 dark:text-slate-200">{c.city}</td>
+                      <td className="py-2.5 font-bold text-slate-800 dark:text-slate-200">{getLocalizedCity(c.city, locale) || c.city}</td>
                       <td className="py-2.5 text-center text-slate-600 dark:text-slate-400 tabular-nums">{c.orders}</td>
                       <td className="py-2.5 text-end font-bold text-slate-900 dark:text-white tabular-nums">{money(c.sales)}</td>
                     </tr>
@@ -925,9 +935,11 @@ export const StoreReports: React.FC = () => {
           <div className="lg:col-span-4 p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
-                {isAr ? 'مسار التحويل مسار التحويل' : 'Conversion Funnel'}
+                {isAr ? 'مسار التحويل' : 'Conversion Funnel'}
               </h3>
-              <span className="text-[11px] font-mono text-emerald-600 font-bold">2.8% Conversion</span>
+              <span className="text-[11px] font-mono text-slate-500 font-bold">
+                {isAr ? 'بانتظار البيانات' : 'Waiting for Data'}
+              </span>
             </div>
             <CustomerJourneyFunnel />
           </div>
@@ -1009,7 +1021,7 @@ export const StoreReports: React.FC = () => {
                   requestedCustomers.map((c) => (
                     <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                       <td className="py-2.5 text-slate-400">{c.rank}</td>
-                      <td className="py-2.5 font-bold text-slate-800 dark:text-slate-200 truncate max-w-[130px]">{c.name}</td>
+                      <td className="py-2.5 font-bold text-slate-800 dark:text-slate-200 truncate max-w-[130px]">{getCustomerDisplayName(c.name, locale)}</td>
                       <td className="py-2.5 text-center text-slate-600 dark:text-slate-400 tabular-nums">{c.orders}</td>
                       <td className="py-2.5 text-end font-bold text-slate-900 dark:text-white tabular-nums">{money(c.spent)}</td>
                     </tr>
@@ -1138,7 +1150,7 @@ export const StoreReports: React.FC = () => {
       { label: isAr ? 'إيرادات المنتجات' : 'Product Revenue', value: computedTotalSales, change: '—', isMoney: true, icon: DollarSign, color: 'blue' },
       { label: isAr ? 'متوسط سعر الوحدة' : 'Avg Unit Price', value: avgPrice, change: '0%', isMoney: true, icon: Tag, color: 'purple' },
       { label: isAr ? 'منتجات أوشكت على النفاد' : 'Low Stock Items', value: lowStockCount, change: '0', isMoney: false, icon: Layers, color: 'amber' },
-      { label: isAr ? 'هامش الربح الإجمالي' : 'Gross Margin', value: storeOrders.length > 0 ? '45%' : '0%', change: '0%', isMoney: false, icon: TrendingUp, color: 'teal' },
+      { label: isAr ? 'هامش الربح الإجمالي' : 'Gross Margin', value: isAr ? 'بانتظار البيانات' : 'Waiting for Data', change: '—', isMoney: false, icon: TrendingUp, color: 'teal' },
     ];
 
     const prodCategoryDonut = topCategories.length > 0 && computedTotalSales > 0 ? topCategories.map((c, i) => ({
@@ -1341,7 +1353,7 @@ export const StoreReports: React.FC = () => {
       { label: isAr ? 'إجمالي العملاء النشطين' : 'Active Customers', value: totalCustCount, change: '—', isMoney: false, icon: Users, color: 'emerald' },
       { label: isAr ? 'عملاء جدد' : 'New Customers', value: newCustomers, change: '—', isMoney: false, icon: Users, color: 'blue' },
       { label: isAr ? 'معدل تكرار الشراء' : 'Repeat Purchase Rate', value: returningRate, change: '0%', isMoney: false, icon: TrendingUp, color: 'purple' },
-      { label: isAr ? 'متوسط قيمة العميل LTV' : 'Customer LTV', value: avgLtv, change: '0%', isMoney: true, icon: DollarSign, color: 'amber' },
+      { label: isAr ? 'متوسط القيمة مدى حياة العميل' : 'Customer LTV', value: avgLtv, change: '—', isMoney: true, icon: DollarSign, color: 'amber' },
       { label: isAr ? 'معدل الاحتفاظ بالعملاء' : 'Retention Rate', value: returningRate, change: '0%', isMoney: false, icon: CheckCircle2, color: 'teal' },
     ];
 
@@ -1349,10 +1361,10 @@ export const StoreReports: React.FC = () => {
       {
         cohort: dateRange.includes('2026') ? '2026' : 'Recent',
         size: totalCustCount,
-        m1: '100%',
+        m1: '—',
         m2: returningRate,
-        m3: totalCustCount > 2 ? '50%' : '-',
-        m4: '-',
+        m3: '—',
+        m4: '—',
         ltv: avgLtv,
       },
     ] : [];
@@ -1451,7 +1463,7 @@ export const StoreReports: React.FC = () => {
                     <th className="py-2 text-center">{isAr ? 'الشهر 2' : 'Month 2'}</th>
                     <th className="py-2 text-center">{isAr ? 'الشهر 3' : 'Month 3'}</th>
                     <th className="py-2 text-center">{isAr ? 'الشهر 4' : 'Month 4'}</th>
-                    <th className="py-2 text-end">{isAr ? 'متوسط LTV' : 'Avg LTV'}</th>
+                    <th className="py-2 text-end">{isAr ? 'متوسط قيمة العميل' : 'Avg LTV'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-semibold">
@@ -1721,8 +1733,8 @@ export const StoreReports: React.FC = () => {
           name,
           orders: data.count,
           cost: data.cost,
-          avgDays: '1.5 d',
-          onTime: '98%',
+          avgDays: '—',
+          onTime: '—',
         }))
       : currentCouriers.map((c) => ({
           name: `${c.provider.toUpperCase()} (${c.accountName})`,
@@ -1730,8 +1742,8 @@ export const StoreReports: React.FC = () => {
           cost: currentShipments
             .filter((s) => s.provider === c.provider)
             .reduce((sum, s) => sum + s.shippingCost, 0),
-          avgDays: '1.5 d',
-          onTime: '100%',
+          avgDays: '—',
+          onTime: '—',
         }));
 
     // Dynamic Payment Gateways breakdown from store orders and transactions
@@ -1760,7 +1772,8 @@ export const StoreReports: React.FC = () => {
     const paymentGateways = Object.keys(paymentMethodCounts).length > 0
       ? Object.entries(paymentMethodCounts).map(([name, data]) => {
           const share = computedTotalSales > 0 ? `${((data.sales / computedTotalSales) * 100).toFixed(1)}%` : '0%';
-          const fee = Math.round(data.sales * 0.015);
+          // Never invent gateway fee % — wait for real fee fields from transactions
+          const fee = 0;
           return {
             name,
             orders: data.count,

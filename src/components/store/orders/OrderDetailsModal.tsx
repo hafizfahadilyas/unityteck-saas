@@ -35,6 +35,10 @@ import {
   MessageCircle,
 } from 'lucide-react';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE, resolveProductThumbnail } from '../../../utils/imageFallback';
+import {
+  getCustomerDisplayName,
+  getLocalizedAddress,
+} from '../../../utils/storeLocalization';
 
 function digitsOnlyPhone(phone?: string | null): string {
   return String(phone || '').replace(/[^0-9]/g, '');
@@ -50,7 +54,7 @@ function openWhatsAppChat(phone: string, message: string) {
 
 function localizeInstallmentStatus(status: string, isAr: boolean): string {
   const key = String(status || '').toLowerCase();
-  if (key === 'pending') return commerceTerm('pending', isAr);
+  if (key === 'pending') return isAr ? 'بانتظار الدفع' : 'Pending Payment';
   if (key === 'paid' || key === 'completed') {
     return isAr ? 'مدفوع' : 'Paid';
   }
@@ -111,11 +115,11 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
   const [bankAccount, setBankAccount] = useState<StoreBankAccountRow | null>(null);
 
   const lifecycleSteps: { key: OrderStatus; labelAr: string; labelEn: string }[] = [
-    { key: 'pending', labelAr: commerceTerm('pending', true), labelEn: commerceTerm('pending', false) },
-    { key: 'processing', labelAr: commerceTerm('processing', true), labelEn: commerceTerm('processing', false) },
-    { key: 'shipped', labelAr: commerceTerm('shipped', true), labelEn: commerceTerm('shipped', false) },
-    { key: 'out_for_delivery', labelAr: commerceTerm('outForDelivery', true), labelEn: commerceTerm('outForDelivery', false) },
-    { key: 'delivered', labelAr: commerceTerm('delivered', true), labelEn: commerceTerm('delivered', false) },
+    { key: 'pending', labelAr: 'بانتظار الدفع', labelEn: 'Pending Payment' },
+    { key: 'processing', labelAr: 'قيد التنفيذ', labelEn: 'Processing' },
+    { key: 'shipped', labelAr: 'تم الشحن', labelEn: 'Shipped' },
+    { key: 'out_for_delivery', labelAr: 'جاري التوصيل', labelEn: 'Out for Delivery' },
+    { key: 'delivered', labelAr: 'تم التوصيل', labelEn: 'Delivered' },
   ];
 
   const reloadInstallments = async (storeId: string, orderId: string) => {
@@ -429,7 +433,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
                 <span className="text-[11px] font-mono text-slate-400">· {order.date}</span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {order.customerName} · {order.customerPhone}
+                {getCustomerDisplayName(order.customerName, locale)} · {order.customerPhone}
               </p>
             </div>
           </div>
@@ -650,12 +654,13 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white font-bold outline-hidden"
                   >
                     <option value="">{isAr ? 'غير محدد' : 'Not set'}</option>
-                    <option value="SMSA Express">{isAr ? 'سمسا' : 'SMSA Express'}</option>
+                    <option value="Free Shipping">{isAr ? 'شحن مجاني' : 'Free Shipping'}</option>
+                    <option value="J&T Express">{isAr ? 'جي اند تي اكسبريس' : 'J&T Express'}</option>
+                    <option value="DHL Express">{isAr ? 'DHL Express' : 'DHL Express'}</option>
+                    <option value="Aymakan">{isAr ? 'أي مكان' : 'Aymakan'}</option>
+                    <option value="SMSA">{isAr ? 'سمسا' : 'SMSA'}</option>
                     <option value="Aramex">{isAr ? 'أرامكس' : 'Aramex'}</option>
-                    <option value="SPL (Saudi Post)">{isAr ? 'البريد السعودي' : 'Saudi Post'}</option>
-                    <option value="DHL Express">{isAr ? 'دي إتش إل' : 'DHL Express'}</option>
-                    <option value="J&T Express">{isAr ? 'جي آند تي' : 'J&T Express'}</option>
-                    <option value="Store Courier">{isAr ? 'مندوب المتجر' : 'Store courier'}</option>
+                    <option value="Redbox">{isAr ? 'ريدبوكس' : 'Redbox'}</option>
                   </select>
                 </div>
 
@@ -1092,7 +1097,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
                 <span>{isAr ? 'بيانات العميل' : 'Customer Info'}</span>
               </h5>
               <div className="text-xs space-y-1">
-                <div className="font-bold text-slate-900 dark:text-white">{order.customerName}</div>
+                <div className="font-bold text-slate-900 dark:text-white">{getCustomerDisplayName(order.customerName, locale)}</div>
                 <div className="text-slate-500 font-mono">{order.customerPhone}</div>
                 {order.customerEmail && <div className="text-slate-400">{order.customerEmail}</div>}
                 {customerPhoneDigits ? (
@@ -1117,7 +1122,8 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
                 <span>{isAr ? 'عنوان التوصيل' : 'Delivery Address'}</span>
               </h5>
               <div className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                {order.deliveryLocation || order.shippingAddress || (isAr ? 'العنوان غير محفوظ' : 'Address not saved')}
+                {getLocalizedAddress(order.deliveryLocation || order.shippingAddress, locale) ||
+                  (isAr ? 'العنوان غير محفوظ' : 'Address not saved')}
               </div>
               <div className="text-[11px] text-slate-400 pt-1">
                 {order.deliveryMode === 'own_delivery'

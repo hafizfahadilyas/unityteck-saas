@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
+import { useTenant } from '../../../context/TenantContext';
+import { readStoreIdentity } from '../../settings/storeIdentity';
 import {
   CheckCircle,
   Clock,
@@ -15,7 +17,13 @@ import {
 
 export const ThankYouPage: React.FC = () => {
   const { language, lastOrder, setCurrentPage } = useApp();
+  const { activeStore } = useTenant();
   const isAr = language === 'ar';
+  const waDigits = useMemo(() => {
+    if (!activeStore?.id) return '';
+    const identity = readStoreIdentity(activeStore.id, activeStore);
+    return String(identity.whatsapp || activeStore.phone || '').replace(/[^0-9]/g, '');
+  }, [activeStore]);
 
   const order = lastOrder;
 
@@ -158,17 +166,23 @@ export const ThankYouPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Buttons: WhatsApp Concierge + CRM Portal */}
+      {/* Buttons: WhatsApp support + CRM Portal */}
       <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-        <a
-          href={`https://wa.me/966508894433?text=مرحباً، أود الاستفسار عن حالة طلبي رقم ${order.orderId}`}
-          target="_blank"
-          rel="noreferrer"
-          className="w-full sm:w-auto px-7 py-3.5 rounded-full bg-[#25D366] hover:bg-[#20b858] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg transition-all"
-        >
-          <MessageCircle className="w-4 h-4" />
-          <span>{isAr ? 'متابعة عبر واتساب مع المنسق' : 'Live WhatsApp Concierge'}</span>
-        </a>
+        {waDigits.length >= 9 && (
+          <a
+            href={`https://wa.me/${waDigits}?text=${encodeURIComponent(
+              isAr
+                ? `مرحباً، أود الاستفسار عن حالة طلبي رقم ${order.orderId}`
+                : `Hello, I would like to inquire about order ${order.orderId}`,
+            )}`}
+            target="_blank"
+            rel="noreferrer"
+            className="w-full sm:w-auto px-7 py-3.5 rounded-full bg-[#25D366] hover:bg-[#20b858] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg transition-all"
+          >
+            <MessageCircle className="w-4 h-4" />
+            <span>{isAr ? 'متابعة عبر واتساب' : 'Follow up on WhatsApp'}</span>
+          </a>
+        )}
 
         <button
           onClick={() => {

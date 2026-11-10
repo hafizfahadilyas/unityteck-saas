@@ -4,7 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port=3010 --host=0.0.0.0",
+    "dev": "node scripts/dev-stack.mjs --port=3011",
+    "dev:vite": "vite --port=3011 --host=0.0.0.0",
+    "dev:stack": "node scripts/dev-stack.mjs --port=3011",
     "api:serve": "cd apps/api && php artisan serve --host=127.0.0.1 --port=8010",
     "build": "vite build",
     "deploy:hostinger": "vite build && node scripts/deploy-hostinger.js --target=all",

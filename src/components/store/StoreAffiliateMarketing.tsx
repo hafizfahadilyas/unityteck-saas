@@ -204,43 +204,26 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
         }
       }
     } catch (err) {
-      // Clean fallback from store orders in tenant context
-      const storeOrders = currentOrders.filter((o) => (o.storeId || (o as any).store_id) === activeStore.id);
-      const salesTotal = storeOrders.reduce((acc, o) => acc + (Number(o.total ?? (o as any).total_price ?? (o as any).total_amount) || 0), 0);
+      // Zero-mock: API failure must show empty KPIs — never invent growth % or treat all orders as affiliate
       setSummary({
-        totalSales: salesTotal,
-        totalOrders: storeOrders.length,
-        totalCommission: Math.round(salesTotal * 0.1),
+        totalSales: 0,
+        totalOrders: 0,
+        totalCommission: 0,
         affiliatesCount: 0,
         affiliateVisits: 0,
-        conversionRate: storeOrders.length > 0 ? 5.0 : 0.0,
-        salesGrowth: storeOrders.length > 0 ? '+12%' : '0%',
-        ordersGrowth: storeOrders.length > 0 ? '+18%' : '0%',
-        commissionGrowth: salesTotal > 0 ? '+15%' : '0%',
+        conversionRate: 0,
+        salesGrowth: '0%',
+        ordersGrowth: '0%',
+        commissionGrowth: '0%',
         affiliatesGrowth: '0%',
-        visitsGrowth: storeOrders.length > 0 ? '+20%' : '0%',
-        conversionGrowth: storeOrders.length > 0 ? '+0.5%' : '0%',
+        visitsGrowth: '0%',
+        conversionGrowth: '0%',
       });
+      setPerformanceSeries([]);
+      setSalesByOffer([]);
       setOpportunities([]);
       setPartners([]);
-      setAffiliateOrders(
-        storeOrders.slice(0, 10).map((o) => {
-          const anyOrd = o as any;
-          const orderNum = o.orderNumber || anyOrd.order_number || `#${o.id.slice(0, 6)}`;
-          const amount = Number(o.total ?? anyOrd.total_price ?? anyOrd.total_amount ?? 0);
-          const orderDate = o.createdAt || anyOrd.created_at ? new Date(o.createdAt || anyOrd.created_at).toLocaleDateString() : 'Today';
-          return {
-            id: o.id,
-            orderNumber: orderNum,
-            affiliateName: 'Direct Referral',
-            offerName: 'General Promotion',
-            amount: amount,
-            commission: Math.round(amount * 0.1),
-            orderDate: orderDate,
-            status: o.status === 'completed' || o.status === 'delivered' ? 'Completed' : 'Pending',
-          };
-        })
-      );
+      setAffiliateOrders([]);
       setPayments([]);
       setLatestUpdates([]);
     } finally {

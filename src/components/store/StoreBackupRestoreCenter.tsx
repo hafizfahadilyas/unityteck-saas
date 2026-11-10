@@ -67,48 +67,16 @@ export const StoreBackupRestoreCenter: React.FC = () => {
   const storeSlug = activeStore?.slug || activeStore?.id || 'store';
   const storeDomain = (activeStore as any)?.domain || `${storeSlug}.sa`;
 
-  const [snapshots, setSnapshots] = useState<SnapshotItem[]>(() => [
-    {
-      id: 'snap-1',
-      type: 'daily',
-      date: 'Today, Oct 8, 2026',
-      time: '02:00 AM UTC',
-      size: '14.8 MB',
-      recordsCount: 2450,
-      tablesCount: 28,
-      status: 'healthy',
-      fileName: `hosting_daily_${storeSlug}_20261008.sql`,
-    },
-    {
-      id: 'snap-2',
-      type: 'weekly',
-      date: 'Oct 1, 2026',
-      time: '12:00 AM UTC',
-      size: '14.1 MB',
-      recordsCount: 2210,
-      tablesCount: 28,
-      status: 'verified',
-      fileName: `hosting_weekly_${storeSlug}_20261001.sql`,
-    },
-    {
-      id: 'snap-3',
-      type: 'monthly',
-      date: 'Sep 1, 2026',
-      time: '00:00 AM UTC',
-      size: '12.5 MB',
-      recordsCount: 1890,
-      tablesCount: 28,
-      status: 'verified',
-      fileName: `hosting_monthly_${storeSlug}_20260901.sql`,
-    },
-  ]);
+  // Zero-mock: no invented snapshot rows — empty until real backup API/history exists
+  const [snapshots, setSnapshots] = useState<SnapshotItem[]>([]);
 
-  // Migration / Restore Form State
+  // Migration / Restore Form State — store-scoped defaults only (never giftshop for other tenants)
+  const storeDbId = (activeStore as { database_id?: string } | null)?.database_id || '';
   const [destHostingDomain, setDestHostingDomain] = useState(() => storeDomain);
   const [destDbHost, setDestDbHost] = useState('srv1422.hstgr.io');
-  const [destDbName, setDestDbName] = useState('u920689430_giftshop');
-  const [destDbUser, setDestDbUser] = useState('u920689430_giftshop');
-  const [destDbPass, setDestDbPass] = useState('••••••••••••');
+  const [destDbName, setDestDbName] = useState(() => storeDbId);
+  const [destDbUser, setDestDbUser] = useState(() => storeDbId);
+  const [destDbPass, setDestDbPass] = useState('');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
   // Interactive Live Progress State
@@ -133,7 +101,7 @@ export const StoreBackupRestoreCenter: React.FC = () => {
     const customers = allStoreCustomers[activeStore?.id] || [];
 
     const manifest = {
-      platform: 'UnityTeck Multi-Store SaaS',
+      platform: 'Souq Platform',
       version: '2.5.0',
       store: {
         id: activeStore?.id,
@@ -147,7 +115,8 @@ export const StoreBackupRestoreCenter: React.FC = () => {
       database: {
         engine: 'Cloud MySQL 8.0.35',
         host: 'srv1422.hstgr.io',
-        database: 'u920689430_giftshop',
+        database: storeDbId || 'Waiting for Data',
+        store_id: activeStore?.id,
         tables: ['stores', 'users', 'products', 'orders', 'customers', 'categories', 'coupons', 'settings', 'shipping_zones', 'themes_catalog'],
         total_records: products.length + orders.length + customers.length,
       },
@@ -162,10 +131,11 @@ export const StoreBackupRestoreCenter: React.FC = () => {
     };
 
     const sqlContent = `-- Cloud MySQL Dump
--- Multi-Tenant UnityTeck SaaS Store: ${activeStore.name} (${activeStore.id})
+-- Souq Platform multi-store: ${activeStore.name} (${activeStore.id})
 -- Generated: ${new Date().toISOString()}
 -- Host: srv1422.hstgr.io
--- Database: u920689430_giftshop
+-- Database: ${storeDbId || 'Waiting for Data'}
+-- store_id: ${activeStore.id}
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
@@ -313,7 +283,7 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                   color: '#10b981',
                 }}
               >
-                {isAr ? 'سحابة يونيتيك مع قواعد بيانات آمنة' : 'Unityteck Cloud & Secure Database'}
+                {isAr ? 'سحابة منصة سوق مع قواعد بيانات آمنة' : 'Souq Platform Cloud & Secure Database'}
               </span>
               <span className="text-[10px] opacity-50 font-mono">
                 ({isAr ? (activeStore?.nameAr || activeStore?.name || 'المتجر') : (activeStore?.nameEn || activeStore?.name || 'Store')})
@@ -822,6 +792,13 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
                   </tr>
                 </thead>
                 <tbody className="divide-y" style={{ borderColor: 'var(--border)' }}>
+                  {snapshots.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-sm text-slate-500">
+                        {isAr ? 'لا توجد سجلات — بانتظار بيانات النسخ الاحتياطي' : 'No records found — Waiting for Data'}
+                      </td>
+                    </tr>
+                  ) : null}
                   {snapshots.map((snap) => (
                     <tr key={snap.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                       <td className="py-3 px-3">

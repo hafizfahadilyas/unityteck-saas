@@ -1,7 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import type { CategoryFieldType, StoreCategory } from '../../types';
-import { getCategoryDepth, parentPickerOptions } from '../../utils/categoryHierarchy';
+import {
+  flattenCategoryTree,
+  getCategoryDepth,
+  getDescendantIds,
+  parentPickerOptions,
+} from '../../utils/categoryHierarchy';
 import { FolderTree, Plus, Pencil, Trash2, X, Flower2, Layers, CheckCircle2, Tag } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -16,6 +21,7 @@ import {
 } from '../common/AdvancedDataTable';
 import { MediaUploadField } from '../common/MediaUploadField';
 import { GlobalModal } from '../common/GlobalModal';
+import { PortalSelect } from '../common/PortalSelect';
 import { ConnectedWorkspaceBanner } from '../common/ConnectedWorkspaceBanner';
 import { COFFEE_CATEGORIES_SEED } from '../../data/coffeeStoreData';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
@@ -608,19 +614,8 @@ export const StoreCategories: React.FC = () => {
       if (savedList && Array.isArray(savedList) && savedList.length > 0) {
         setRows(savedList);
       } else {
-        const seed =
-          activeStore.id === 'store-coffee'
-            ? COFFEE_CATEGORIES_SEED
-            : activeStore.id === 'store-bleco'
-            ? BLECO_CATEGORIES_SEED
-            : activeStore.id === 'store-1' || activeStore.id === 'store-mecca'
-            ? MECCA_CATEGORIES_SEED
-            : [];
-        const mapped = seed.map((c) => ({ ...c, storeId: activeStore.id }));
-        setRows(mapped);
-        try {
-          localStorage.setItem(savedKey, JSON.stringify(mapped));
-        } catch {}
+        // Zero-mock: never inject Mecca/Coffee/Bleco seed catalogs into a live/empty store
+        setRows([]);
       }
     } catch (err) {
       setError(
@@ -681,12 +676,17 @@ export const StoreCategories: React.FC = () => {
 
   const filteredSorted = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const underParent =
+      parentFilter !== 'all' && parentFilter !== 'roots'
+        ? getDescendantIds(rows, parentFilter)
+        : null;
+
     let list = rows.filter((c) => {
       const matchParent =
         parentFilter === 'all' ||
         (parentFilter === 'roots' && !c.parentId) ||
-        c.parentId === parentFilter ||
-        c.id === parentFilter;
+        c.id === parentFilter ||
+        (underParent?.has(c.id) ?? false);
       const matchSearch =
         !q ||
         c.name.toLowerCase().includes(q) ||
@@ -696,35 +696,41 @@ export const StoreCategories: React.FC = () => {
       return matchParent && matchSearch;
     });
 
-    if (sortKey) {
-      list = [...list].sort((a, b) => {
-        const getter = (c: StoreCategory): string | number => {
-          switch (sortKey) {
-            case 'slug':
-              return c.slug;
-            case 'sortOrder':
-              return c.sortOrder;
-            case 'isActive':
-              return c.isActive ? 1 : 0;
-            case 'name':
-            default:
-              return c.name;
-          }
-        };
-        const av = getter(a);
-        const bv = getter(b);
-        if (typeof av === 'number' && typeof bv === 'number') {
-          return sortDir === 'asc' ? av - bv : bv - av;
-        }
-        const cmp = String(av).localeCompare(String(bv), undefined, {
-          numeric: true,
-          sensitivity: 'base',
-        });
-        return sortDir === 'asc' ? cmp : -cmp;
-      });
+    // Keep parent → subcategory tree order by default (sortOrder within siblings).
+    if (!sortKey || sortKey === 'sortOrder') {
+      const allowed = new Set(list.map((c) => c.id));
+      const tree = flattenCategoryTree(rows, isAr).filter((c) => allowed.has(c.id));
+      if (sortKey === 'sortOrder' && sortDir === 'desc') {
+        return [...tree].reverse();
+      }
+      return tree;
     }
+
+    list = [...list].sort((a, b) => {
+      const getter = (c: StoreCategory): string | number => {
+        switch (sortKey) {
+          case 'slug':
+            return c.slug;
+          case 'isActive':
+            return c.isActive ? 1 : 0;
+          case 'name':
+          default:
+            return isAr ? (c.nameAr || c.name) : c.name;
+        }
+      };
+      const av = getter(a);
+      const bv = getter(b);
+      if (typeof av === 'number' && typeof bv === 'number') {
+        return sortDir === 'asc' ? av - bv : bv - av;
+      }
+      const cmp = String(av).localeCompare(String(bv), undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      });
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
     return list;
-  }, [rows, search, parentFilter, sortKey, sortDir]);
+  }, [rows, search, parentFilter, sortKey, sortDir, isAr]);
 
   const pageRows = useMemo(() => {
     const start = (page - 1) * pageSize;
@@ -778,6 +784,14 @@ export const StoreCategories: React.FC = () => {
     setShowModal(true);
   };
 
+  const openAddSubcategory = (parent: StoreCategory) => {
+    if (denyMutate()) return;
+    setEditingId(null);
+    setForm({ ...emptyForm(), parentId: parent.id });
+    setFieldDrafts([]);
+    setShowModal(true);
+  };
+
   const openEdit = (c: StoreCategory) => {
     if (denyMutate()) return;
     setEditingId(c.id);
@@ -813,17 +827,43 @@ export const StoreCategories: React.FC = () => {
       if (isApiEnabled()) {
         if (editingId) {
           const updated = await tenantApi.updateCategory(activeStore.id, editingId, payload);
-          setRows((prev) => prev.map((r) => (r.id === editingId ? updated : r)));
+          setRows((prev) => {
+            const next = prev.map((r) => (r.id === editingId ? updated : r));
+            try {
+              window.dispatchEvent(
+                new CustomEvent('unityteck-categories-updated', {
+                  detail: { storeId: activeStore.id, categories: next },
+                }),
+              );
+            } catch {
+              /* ignore */
+            }
+            return next;
+          });
           targetCategoryId = editingId;
           bumpStore(activeStore.id, 'categories');
           toast(isAr ? 'تم تحديث التصنيف' : 'Category updated', 'success');
         } else {
           const created = await tenantApi.createCategory(activeStore.id, payload);
-          setRows((prev) => [...prev, created]);
+          setRows((prev) => {
+            const next = [...prev, created];
+            try {
+              window.dispatchEvent(
+                new CustomEvent('unityteck-categories-updated', {
+                  detail: { storeId: activeStore.id, categories: next },
+                }),
+              );
+            } catch {
+              /* ignore */
+            }
+            return next;
+          });
           targetCategoryId = created.id;
           bumpStore(activeStore.id, 'categories');
           toast(isAr ? 'تم إنشاء التصنيف' : 'Category created', 'success');
         }
+        // Re-fetch so parent/child tree + products page stay in sync with MySQL
+        void load(true);
       } else {
         const savedKey = `unityteck_store_categories_${activeStore.id}`;
         if (editingId) {
@@ -942,6 +982,7 @@ export const StoreCategories: React.FC = () => {
       className: 'px-4',
       render: (c) => {
         const depth = getCategoryDepth(rows, c.id);
+        const isSub = Boolean(c.parentId);
         return (
         <div className="flex items-center gap-3" style={{ paddingInlineStart: depth * 16 }}>
           {c.imageUrl ? (
@@ -952,14 +993,26 @@ export const StoreCategories: React.FC = () => {
               className="w-10 h-10 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shrink-0"
             />
           ) : (
-            <span className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400 flex items-center justify-center border border-teal-200 dark:border-teal-800 shrink-0">
+            <span
+              className="w-10 h-10 rounded-xl flex items-center justify-center border shrink-0"
+              style={{
+                background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
+                color: 'var(--accent)',
+                borderColor: 'var(--border)',
+              }}
+            >
               <Flower2 className="w-5 h-5" />
             </span>
           )}
           <div className="min-w-0">
-            <span className="font-bold text-slate-900 dark:text-white block truncate">
+            <span className="font-bold block truncate" style={{ color: 'var(--text)' }}>
               {isAr ? (c.nameAr || c.name) : (c.name || c.nameAr)}
             </span>
+            {isSub ? (
+              <span className="text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+                {isAr ? 'تصنيف فرعي' : 'Subcategory'}
+              </span>
+            ) : null}
           </div>
         </div>
         );
@@ -1025,9 +1078,16 @@ export const StoreCategories: React.FC = () => {
         <div className="inline-flex items-center gap-1 justify-end">
           <button
             type="button"
+            onClick={() => openAddSubcategory(c)}
+            className="p-1.5 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-900/30 rounded-lg"
+            title={isAr ? 'إضافة تصنيف فرعي' : 'Add subcategory'}
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
             onClick={() => openEdit(c)}
-            disabled={!canMutate}
-            className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg disabled:opacity-50"
+            className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
             title={isAr ? 'تعديل' : 'Edit'}
           >
             <Pencil className="w-3.5 h-3.5" />
@@ -1035,8 +1095,7 @@ export const StoreCategories: React.FC = () => {
           <button
             type="button"
             onClick={() => void handleDelete(c.id)}
-            disabled={!canMutate}
-            className={`p-1.5 rounded-lg disabled:opacity-50 ${
+            className={`p-1.5 rounded-lg ${
               confirmDeleteId === c.id
                 ? 'text-white bg-rose-600'
                 : 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30'
@@ -1051,30 +1110,38 @@ export const StoreCategories: React.FC = () => {
   ];
 
   const parentOptionsForForm = parentPickerOptions(rows, editingId, isAr);
+  const fieldClass =
+    'w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--input-bg)] text-[var(--input-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]';
 
   return (
-    <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-200 w-full min-w-0">
+    <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto w-full min-w-0" style={{ color: 'var(--text)' }}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-1.5 bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400 rounded-lg border border-teal-200/50 dark:border-teal-800/50">
+            <span
+              className="p-1.5 rounded-lg border"
+              style={{
+                background: 'color-mix(in srgb, var(--accent) 14%, transparent)',
+                color: 'var(--accent)',
+                borderColor: 'var(--border)',
+              }}
+            >
               <FolderTree className="w-5 h-5" />
             </span>
-            <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+            <h1 className="text-2xl font-black tracking-tight" style={{ color: 'var(--text)' }}>
               {isAr ? 'تصنيفات المتجر' : 'Categories'}
             </h1>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
             {isAr
-              ? 'شجرة التصنيفات · الصور · تحسين محركات البحث SEO · الترتيب'
+              ? 'شجرة التصنيفات · الصور · تحسين محركات البحث · الترتيب'
               : 'Category taxonomy · image · SEO · sort · subcategories'}
           </p>
         </div>
         <button
           type="button"
           onClick={openAdd}
-          disabled={!canMutate}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="unity-btn-primary px-4 py-2 rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           {isAr ? 'إضافة تصنيف' : 'Add Category'}
@@ -1198,75 +1265,96 @@ export const StoreCategories: React.FC = () => {
           dir={isAr ? 'rtl' : 'ltr'}
           aria-label={editingId ? (isAr ? 'تعديل التصنيف' : 'Edit Category') : (isAr ? 'إضافة تصنيف جديد' : 'Add Category')}
         >
-          <div className="bg-white dark:bg-[#071E26] rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 dark:border-slate-800 overflow-hidden max-h-[90vh] flex flex-col">
-            <div className="bg-slate-900 dark:bg-slate-950 px-5 py-4 text-white flex items-center justify-between shrink-0">
+          <div
+            className="rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden max-h-[90vh] flex flex-col border"
+            style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
+          >
+            <div className="unity-modal-header px-5 py-4 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
-                <FolderTree className="w-5 h-5 text-teal-400" />
+                <FolderTree className="w-5 h-5 unity-modal-icon" />
                 <h3 className="font-bold text-base">
                   {editingId
                     ? (isAr ? 'تعديل التصنيف' : 'Edit Category')
                     : (isAr ? 'إضافة تصنيف جديد' : 'Add Category')}
                 </h3>
               </div>
-              <button type="button" onClick={() => setShowModal(false)} className="text-slate-400 hover:text-white">
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="p-1 rounded-lg text-white/70 hover:text-white hover:bg-white/10"
+                aria-label={isAr ? 'إغلاق' : 'Close'}
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={(e) => void handleSave(e)} className="p-5 space-y-3.5 text-xs text-slate-700 dark:text-slate-200 overflow-y-auto">
+            <form
+              onSubmit={(e) => void handleSave(e)}
+              className="p-5 space-y-3.5 text-xs overflow-y-auto"
+              style={{ color: 'var(--text)' }}
+            >
               <div>
-                <label className="block font-semibold mb-1">{isAr ? 'الاسم بالإنجليزية *' : 'Name *'}</label>
+                <label className="block font-semibold mb-1" style={{ color: 'var(--text)' }}>{isAr ? 'الاسم بالإنجليزية *' : 'Name *'}</label>
                 <input
                   required
                   value={form.name}
                   onChange={(e) => setField('name', e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className={fieldClass}
                 />
               </div>
               <div>
-                <label className="block font-semibold mb-1">{isAr ? 'الاسم بالعربية' : 'Name (AR)'}</label>
+                <label className="block font-semibold mb-1" style={{ color: 'var(--text)' }}>{isAr ? 'الاسم بالعربية' : 'Name (AR)'}</label>
                 <input
                   dir="rtl"
                   value={form.nameAr}
                   onChange={(e) => setField('nameAr', e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className={fieldClass}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold mb-1">{isAr ? 'الرابط الدائم' : 'Slug'}</label>
+                  <label className="block font-semibold mb-1" style={{ color: 'var(--text)' }}>{isAr ? 'الرابط الدائم' : 'Slug'}</label>
                   <input
                     value={form.slug}
                     onChange={(e) => setField('slug', e.target.value)}
                     placeholder="auto-generated"
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg font-mono text-slate-800 dark:text-white focus:outline-none"
+                    className={`${fieldClass} font-mono`}
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold mb-1">{isAr ? 'الترتيب' : 'Sort order'}</label>
+                  <label className="block font-semibold mb-1" style={{ color: 'var(--text)' }}>{isAr ? 'الترتيب' : 'Sort order'}</label>
                   <input
                     type="number"
                     min={0}
                     value={form.sortOrder}
                     onChange={(e) => setField('sortOrder', e.target.value)}
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-white focus:outline-none"
+                    className={fieldClass}
                   />
                 </div>
               </div>
               <div>
-                <label className="block font-semibold mb-1">{isAr ? 'التصنيف الأب' : 'Parent (subcategory)'}</label>
-                <select
+                <label className="unity-modal-label block font-semibold mb-1">
+                  {isAr ? 'التصنيف الأب (للتصنيف الفرعي)' : 'Parent (for subcategory)'}
+                </label>
+                <PortalSelect
                   value={form.parentId}
-                  onChange={(e) => setField('parentId', e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-white focus:outline-none"
-                >
-                  <option value="">{isAr ? '— تصنيف رئيسي —' : '— Root category —'}</option>
-                  {parentOptionsForForm.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {`${'— '.repeat(r.depth)}${r.label}`}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setField('parentId', v)}
+                  preferBelow
+                  className={fieldClass}
+                  placeholder={isAr ? '— تصنيف رئيسي —' : '— Root category —'}
+                  options={[
+                    { value: '', label: isAr ? '— تصنيف رئيسي —' : '— Root category —' },
+                    ...parentOptionsForForm.map((r) => ({
+                      value: r.id,
+                      label: `${'— '.repeat(r.depth)}${r.label}`,
+                    })),
+                  ]}
+                />
+                <p className="unity-modal-hint mt-1 text-[10px]">
+                  {isAr
+                    ? 'اتركه فارغاً لتصنيف رئيسي، أو اختر أباً لإنشاء تصنيف فرعي (متعدد المستويات).'
+                    : 'Leave empty for a root category, or pick a parent to create a nested subcategory.'}
+                </p>
               </div>
               <MediaUploadField
                 label={isAr ? 'صورة القسم' : 'Category Image'}
@@ -1277,20 +1365,20 @@ export const StoreCategories: React.FC = () => {
                 initialFolder="categories"
               />
               <div>
-                <label className="block font-semibold mb-1">{isAr ? 'عنوان تحسين محركات البحث' : 'SEO title'}</label>
+                <label className="block font-semibold mb-1" style={{ color: 'var(--text)' }}>{isAr ? 'عنوان تحسين محركات البحث' : 'SEO title'}</label>
                 <input
                   value={form.metaTitle}
                   onChange={(e) => setField('metaTitle', e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-white focus:outline-none"
+                  className={fieldClass}
                 />
               </div>
               <div>
-                <label className="block font-semibold mb-1">{isAr ? 'وصف تحسين محركات البحث' : 'SEO description'}</label>
+                <label className="block font-semibold mb-1" style={{ color: 'var(--text)' }}>{isAr ? 'وصف تحسين محركات البحث' : 'SEO description'}</label>
                 <textarea
                   rows={2}
                   value={form.metaDescription}
                   onChange={(e) => setField('metaDescription', e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-800 dark:text-white focus:outline-none"
+                  className={fieldClass}
                 />
               </div>
               <label className="inline-flex items-center gap-2 cursor-pointer">
@@ -1298,14 +1386,15 @@ export const StoreCategories: React.FC = () => {
                   type="checkbox"
                   checked={form.isActive}
                   onChange={(e) => setField('isActive', e.target.checked)}
-                  className="rounded text-blue-600 focus:ring-blue-500"
+                  className="rounded"
+                  style={{ accentColor: 'var(--accent)' }}
                 />
-                <span className="font-semibold">{isAr ? 'نشط (ظاهر في المتجر)' : 'Active (visible)'}</span>
+                <span className="font-semibold" style={{ color: 'var(--text)' }}>{isAr ? 'نشط (ظاهر في المتجر)' : 'Active (visible)'}</span>
               </label>
 
-              <div className="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
+              <div className="pt-4 space-y-3" style={{ borderTop: '1px solid var(--border)' }}>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-bold text-sm">
+                  <span className="font-bold text-sm" style={{ color: 'var(--text)' }}>
                     {isAr ? 'حقول مخصصة لهذا التصنيف' : 'Custom fields for this category'}
                   </span>
                   <button
@@ -1323,20 +1412,22 @@ export const StoreCategories: React.FC = () => {
                         },
                       ])
                     }
-                    className="text-xs font-semibold text-blue-600 hover:underline"
+                    className="text-xs font-semibold hover:underline"
+                    style={{ color: 'var(--accent)' }}
                   >
                     {isAr ? '+ حقل' : '+ Add field'}
                   </button>
                 </div>
                 {fieldDrafts.length === 0 ? (
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs" style={{ color: 'var(--muted)' }}>
                     {isAr ? 'لا حقول مخصصة — أضف حقولاً لمنتجات هذا التصنيف.' : 'No custom fields yet.'}
                   </p>
                 ) : (
                   fieldDrafts.map((fd, idx) => (
                     <div
                       key={fd.id ?? `draft-${idx}`}
-                      className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2"
+                      className="p-3 rounded-xl space-y-2 border"
+                      style={{ borderColor: 'var(--border)' }}
                     >
                       <div className="grid grid-cols-2 gap-2">
                         <input
@@ -1347,7 +1438,7 @@ export const StoreCategories: React.FC = () => {
                             )
                           }
                           placeholder={isAr ? 'الاسم بالإنجليزية' : 'Name (EN)'}
-                          className="px-2 py-1.5 text-xs border rounded-lg dark:bg-slate-900"
+                          className="px-2 py-1.5 text-xs rounded-lg border border-[var(--border)] bg-[var(--input-bg)] text-[var(--input-fg)]"
                         />
                         <input
                           value={fd.nameAr}
@@ -1357,7 +1448,7 @@ export const StoreCategories: React.FC = () => {
                             )
                           }
                           placeholder={isAr ? 'الاسم بالعربية' : 'Name (AR)'}
-                          className="px-2 py-1.5 text-xs border rounded-lg dark:bg-slate-900"
+                          className="px-2 py-1.5 text-xs rounded-lg border border-[var(--border)] bg-[var(--input-bg)] text-[var(--input-fg)]"
                         />
                       </div>
                       <div className="flex flex-wrap gap-2 items-center">
@@ -1370,7 +1461,7 @@ export const StoreCategories: React.FC = () => {
                               ),
                             )
                           }
-                          className="px-2 py-1.5 text-xs border rounded-lg dark:bg-slate-900"
+                          className="px-2 py-1.5 text-xs rounded-lg border border-[var(--border)] bg-[var(--input-bg)] text-[var(--input-fg)]"
                         >
                           <option value="text">{isAr ? 'نص' : 'Text'}</option>
                           <option value="number">{isAr ? 'رقم' : 'Number'}</option>
@@ -1387,13 +1478,14 @@ export const StoreCategories: React.FC = () => {
                               )
                             }
                             placeholder={isAr ? 'خيارات مفصولة بفاصلة' : 'Options, comma-separated'}
-                            className="flex-1 min-w-[120px] px-2 py-1.5 text-xs border rounded-lg dark:bg-slate-900"
+                            className="flex-1 min-w-[120px] px-2 py-1.5 text-xs rounded-lg border border-[var(--border)] bg-[var(--input-bg)] text-[var(--input-fg)]"
                           />
                         ) : null}
                         <button
                           type="button"
                           onClick={() => setFieldDrafts((prev) => prev.filter((_, i) => i !== idx))}
-                          className="text-xs text-rose-600 font-semibold"
+                          className="text-xs font-semibold"
+                          style={{ color: 'var(--muted)' }}
                         >
                           {isAr ? 'حذف' : 'Remove'}
                         </button>
@@ -1407,7 +1499,8 @@ export const StoreCategories: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="px-4 py-2 rounded-lg hover:opacity-80"
+                  style={{ color: 'var(--muted)' }}
                 >
                   {isAr ? 'إلغاء' : 'Cancel'}
                 </button>
@@ -1415,7 +1508,7 @@ export const StoreCategories: React.FC = () => {
                   type="submit"
                   aria-busy={saving}
                   disabled={saving}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold disabled:opacity-60"
+                  className="px-4 py-2 text-white rounded-lg font-semibold disabled:opacity-60 unity-btn-primary"
                 >
                   {editingId
                     ? (isAr ? 'حفظ التعديلات' : 'Save Changes')

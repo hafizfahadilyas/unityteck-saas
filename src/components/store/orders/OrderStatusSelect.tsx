@@ -6,10 +6,18 @@ import { getStoreOrderStatusOptions } from '../../../utils/orderStatuses';
 import { ChevronDown } from 'lucide-react';
 
 const STATUS_TONE: Record<string, string> = {
+  draft:
+    'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+  deleted:
+    'bg-[#FEEBEB] text-[#DC2626] border-[#FECACA] dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800',
   pending:
     'bg-[#FEF6EB] text-[#D97706] border-[#FDE68A] dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800',
   awaiting_payment:
     'bg-[#FEF6EB] text-[#D97706] border-[#FDE68A] dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800',
+  partially_paid:
+    'bg-[#FEF6EB] text-[#D97706] border-[#FDE68A] dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800',
+  pending_review:
+    'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800',
   processing:
     'bg-[#EBF4FE] text-[#2563EB] border-[#BFDBFE] dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800',
   preparing:
@@ -28,6 +36,10 @@ const STATUS_TONE: Record<string, string> = {
     'bg-[#FEEBEB] text-[#DC2626] border-[#FECACA] dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800',
   returned:
     'bg-[#FFF1F2] text-[#E11D48] border-[#FFE4E6] dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800',
+  return_in_progress:
+    'bg-[#FFF1F2] text-[#E11D48] border-[#FFE4E6] dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800',
+  rfq:
+    'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
   refunded:
     'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
 };

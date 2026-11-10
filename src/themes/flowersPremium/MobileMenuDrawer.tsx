@@ -221,35 +221,42 @@ export const MobileMenuDrawer: React.FC<MobileMenuDrawerProps> = ({
             </div>
           )}
 
-          {/* WhatsApp & Call Direct Links */}
-          <div className="pt-3 border-t space-y-2" style={{ borderColor: 'var(--sf-border, #e2e8f0)' }}>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 block mb-1">
-              {isAr ? 'خدمة العملاء والطلب الفوري' : 'Direct Customer Support'}
-            </span>
-            <a
-              href={`https://wa.me/${phone.replace(/[^0-9]/g, '') || '966504428819'}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full flex items-center justify-between p-2.5 rounded-xl bg-[#25D366]/10 text-emerald-800 dark:text-emerald-300 border border-emerald-300/40 text-xs font-bold"
-            >
-              <div className="flex items-center gap-2">
-                <MessageCircle className="w-4 h-4 text-[#25D366]" />
-                <span>{isAr ? 'محادثة واتساب مباشرة' : 'WhatsApp Live Chat'}</span>
-              </div>
-              <ExternalLink className="w-3.5 h-3.5 opacity-70" />
-            </a>
+          {/* WhatsApp & Call — only when this store has a real number */}
+          {(() => {
+            const waDigits = String(phone || '').replace(/[^0-9]/g, '');
+            const telHref = String(phone || '').replace(/\s/g, '');
+            if (waDigits.length < 9) return null;
+            return (
+              <div className="pt-3 border-t space-y-2" style={{ borderColor: 'var(--sf-border, #e2e8f0)' }}>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 block mb-1">
+                  {isAr ? 'خدمة العملاء والطلب الفوري' : 'Direct Customer Support'}
+                </span>
+                <a
+                  href={`https://wa.me/${waDigits}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center justify-between p-2.5 rounded-xl bg-[#25D366]/10 text-emerald-800 dark:text-emerald-300 border border-emerald-300/40 text-xs font-bold"
+                >
+                  <div className="flex items-center gap-2">
+                    <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                    <span>{isAr ? 'محادثة واتساب مباشرة' : 'WhatsApp Live Chat'}</span>
+                  </div>
+                  <ExternalLink className="w-3.5 h-3.5 opacity-70" />
+                </a>
 
-            <a
-              href={`tel:${phone.replace(/\s/g, '') || '+966504428819'}`}
-              className="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300"
-            >
-              <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-emerald-600" />
-                <span>{phone || '+966 50 442 8819'}</span>
+                <a
+                  href={`tel:${telHref}`}
+                  className="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300"
+                >
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-emerald-600" />
+                    <span dir="ltr">{phone}</span>
+                  </div>
+                  <span className="text-[10px] opacity-70">{isAr ? 'اتصال' : 'Call'}</span>
+                </a>
               </div>
-              <span className="text-[10px] opacity-70">{isAr ? 'اتصال' : 'Call'}</span>
-            </a>
-          </div>
+            );
+          })()}
         </div>
 
         {/* Drawer Footer: Language & Currency */}

@@ -20,8 +20,19 @@ final class GeminiAiMediaService
     /** @var list<string> */
     public const IMAGE_SIZES = ['1K', '2K', '4K'];
 
-    /** @var list<string> */
-    public const ASPECTS = ['1:1', '4:5', '9:16', '16:9', '3:4', '4:3'];
+    /** @var list<string> Google Nano Banana / AI Studio image aspect set */
+    public const ASPECTS = [
+        '1:1',
+        '4:5',
+        '5:4',
+        '3:4',
+        '4:3',
+        '2:3',
+        '3:2',
+        '9:16',
+        '16:9',
+        '21:9',
+    ];
 
     /**
      * @return list<array{id: string, label_en: string, label_ar: string, tier: string}>

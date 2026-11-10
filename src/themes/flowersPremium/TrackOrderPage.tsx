@@ -293,23 +293,12 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-xs font-black" style={{ color: 'var(--sf-text)' }}>
-                  {isAr ? 'كابتن / أحمد الزهراني' : 'Captain Ahmed Al-Zahrani'}
+                  {isAr ? 'مندوب التوصيل' : 'Delivery courier'}
                 </h4>
                 <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold block">
-                  {isAr ? 'سيارة مجهزة تبريد 18°C · توصيل خاص' : 'Refrigerated Van 18°C · White Glove Delivery'}
+                  {isAr ? 'تفاصيل المندوب تظهر بعد التعيين' : 'Courier details appear after assignment'}
                 </span>
               </div>
-              <a
-                href={`https://wa.me/966504428819?text=${encodeURIComponent(
-                  `السلام عليكم، أود الاستفسار عن طلبي رقم ${displayOrderRef}`
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1.5 rounded-xl bg-[#25D366] text-white text-[11px] font-bold flex items-center gap-1.5 shadow-xs hover:opacity-90 transition-opacity"
-              >
-                <MessageCircle className="w-3.5 h-3.5" />
-                <span>{isAr ? 'واتساب' : 'WhatsApp'}</span>
-              </a>
             </div>
           </div>
         </div>

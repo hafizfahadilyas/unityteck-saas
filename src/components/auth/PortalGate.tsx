@@ -126,7 +126,7 @@ export const PortalGate: React.FC<PortalGateProps> = ({
           {/* Card 1: Master SuperAdmin */}
           <PortalCard
             icon={<ShieldCheck className="w-5 h-5" />}
-            badge={isAr ? 'الإدارة المركزية' : 'Platform Master'}
+            badge={isAr ? 'منصة سوق' : 'Souq Platform'}
             badgeColor="blue"
             title={t('masterAdmin')}
             subtitle={t('masterLoginSub')}

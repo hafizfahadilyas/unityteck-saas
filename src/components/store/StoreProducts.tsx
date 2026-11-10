@@ -1,10 +1,18 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { FloatingPopover } from '../common/FloatingPopover';
-import { fetchProductsPage } from '../../api/tenantApi';
-import type { Product } from '../../types';
+import {
+  fetchProductsPage,
+  fetchCategories,
+  restoreProduct as restoreProductApi,
+  forceDeleteProduct as forceDeleteProductApi,
+} from '../../api/tenantApi';
+import { isApiEnabled } from '../../api/client';
+import type { Product, StoreCategory } from '../../types';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { AdminPageShell } from '../common/AdminPageHeader';
+import { GlobalModal } from '../common/GlobalModal';
+import { productCategoryPickerOptions } from '../../utils/categoryHierarchy';
 import {
   Package,
   Plus,
@@ -27,7 +35,6 @@ import {
   Box,
   Info,
   Globe,
-  SlidersHorizontal,
   Layers,
   ShoppingBag,
   Bold,
@@ -53,7 +60,6 @@ import {
 import { useToast } from '../common/ToastProvider';
 import { canAddProduct, planInfoForStore } from '../../auth/plans';
 import { resolveSubscription } from '../../auth/subscriptions';
-import { ProductTypePicker } from './ProductTypePicker';
 import { StoreBrandsView, getStoreBrands } from './StoreBrandsView';
 import { MediaPickerModal } from '../common/MediaPickerModal';
 import { BulkProductUploadModal } from './BulkProductUploadModal';
@@ -72,38 +78,22 @@ import { StoreProductEditorView } from './StoreProductEditorView';
 import {
   ProductEditDrawer,
   DEFAULT_PRODUCT_EDIT_SECTIONS,
-  PRODUCT_EDIT_SECTION_OPTIONS,
-  type ProductEditSectionKey,
 } from './ProductEditDrawer';
 import { ProductFiltersPanel, type ProductFilterCriteria } from './ProductFiltersPanel';
-
-const EDIT_FIELDS_STORAGE_PREFIX = 'unityteck_product_edit_fields_';
-
-function loadEditFieldVisibility(storeId: string): Record<ProductEditSectionKey, boolean> {
-  try {
-    const raw = localStorage.getItem(`${EDIT_FIELDS_STORAGE_PREFIX}${storeId}`);
-    if (!raw) return { ...DEFAULT_PRODUCT_EDIT_SECTIONS };
-    const parsed = JSON.parse(raw) as Partial<Record<ProductEditSectionKey, boolean>>;
-    return { ...DEFAULT_PRODUCT_EDIT_SECTIONS, ...parsed };
-  } catch {
-    return { ...DEFAULT_PRODUCT_EDIT_SECTIONS };
-  }
-}
-
-function saveEditFieldVisibility(storeId: string, value: Record<ProductEditSectionKey, boolean>) {
-  try {
-    localStorage.setItem(`${EDIT_FIELDS_STORAGE_PREFIX}${storeId}`, JSON.stringify(value));
-  } catch {
-    /* ignore quota / private mode */
-  }
-}
+import { getProductChannelLabel } from '../../config/productChannels';
+import { resolveGoogleTaxonomyLabel } from '../../config/googleProductTaxonomy';
+import { mergeProductCatalogExtras } from '../../utils/productCatalogExtras';
 
 /**
  * StoreProducts — Store Admin Products & Catalog Directory & Editor
  * 100% Pixel Perfect to Mockup 06 (Products List) and Mockup 07 (Product Edit)
  * Scoped strictly to activeStore.id with plan limits and zero stale state.
  */
-export const StoreProducts: React.FC = () => {
+export interface StoreProductsProps {
+  onNavigateTab?: (tab: string) => void;
+}
+
+export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) => {
   const {
     activeStore,
     currentProducts,
@@ -128,8 +118,8 @@ export const StoreProducts: React.FC = () => {
   const planInfo = planInfoForStore(activeStore);
   const sub = resolveSubscription(activeStore.id);
 
-  // Navigation / View State: 'list' | 'edit' | 'type-picker' | 'brands' | 'filters'
-  const [currentView, setCurrentView] = useState<'list' | 'edit' | 'type-picker' | 'brands' | 'filters'>('list');
+  // Navigation / View State: 'list' | 'edit' | 'brands' | 'filters'
+  const [currentView, setCurrentView] = useState<'list' | 'edit' | 'brands' | 'filters'>('list');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isSideDrawerOpen, setIsSideDrawerOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
@@ -143,20 +133,16 @@ export const StoreProducts: React.FC = () => {
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [activeActionMenuId, setActiveActionMenuId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-  /** Rows on screen. Starts at 20+ and grows when the list is scrolled. */
-  const [visibleCount, setVisibleCount] = useState(20);
+  /** Admin catalog: up to 100 rows per page, then next page. */
+  const [pageSize, setPageSize] = useState(100);
   const listScrollRef = useRef<HTMLDivElement | null>(null);
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   // Makdah Flowers Catalog Table & Inline Edit State (Spec Section 6 & 9)
   const [isInlineEdit, setIsInlineEdit] = useState(false);
   const [showColumnsPopover, setShowColumnsPopover] = useState(false);
-  const [showFieldsFilterPopover, setShowFieldsFilterPopover] = useState(false);
   const [columnSearch, setColumnSearch] = useState('');
   const [bulkAction, setBulkAction] = useState<string>('');
   const columnsBtnRef = useRef<HTMLButtonElement>(null);
-  const fieldsBtnRef = useRef<HTMLButtonElement>(null);
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({
     image: true,
     name: true,
@@ -167,37 +153,30 @@ export const StoreProducts: React.FC = () => {
     category: true,
     status: true,
     weight: true,
-    shippingClass: true,
+    brand: true,
+    productType: true,
+    googleCategories: true,
+    salesChannels: true,
+    discountStartDate: true,
+    discountEndDate: true,
     actions: true,
   });
 
-  // Edit-panel field visibility (Filter) — shared by Grid (Large Image) & List views
-  const [visibleEditSections, setVisibleEditSections] = useState<Record<ProductEditSectionKey, boolean>>(
-    () => loadEditFieldVisibility(activeStore.id)
-  );
-
-  const applyEditSectionVisibility = (next: Record<ProductEditSectionKey, boolean>) => {
-    setVisibleEditSections(next);
-    saveEditFieldVisibility(activeStore.id, next);
+  const formatProductDate = (value: string | null | undefined) => {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    return raw.slice(0, 10);
   };
 
-  React.useEffect(() => {
-    setVisibleEditSections(loadEditFieldVisibility(activeStore.id));
-  }, [activeStore.id]);
+  /** All edit sections stay visible — no Filter toggles on product edit. */
+  const visibleEditSections = DEFAULT_PRODUCT_EDIT_SECTIONS;
 
   const openColumnsPopover = () => {
-    setShowFieldsFilterPopover(false);
     setShowColumnsPopover((v) => !v);
-  };
-
-  const openFieldsFilterPopover = () => {
-    setShowColumnsPopover(false);
-    setShowFieldsFilterPopover((v) => !v);
   };
 
   const closeFloatingPopovers = () => {
     setShowColumnsPopover(false);
-    setShowFieldsFilterPopover(false);
   };
 
   const [catalogBusy, setCatalogBusy] = useState(false);
@@ -284,8 +263,11 @@ export const StoreProducts: React.FC = () => {
       })
         .then((res) => {
           if (cancelled) return;
-          if (activeStore.id) rowCacheRef.current[activeStore.id] = res.data;
-          setApiRows(res.data);
+          const enriched = (res.data || []).map((row) =>
+            mergeProductCatalogExtras(activeStore.id, row),
+          );
+          if (activeStore.id) rowCacheRef.current[activeStore.id] = enriched;
+          setApiRows(enriched);
           setApiTotal(res.meta.total);
           setApiLastPage(res.meta.last_page);
           if (res.meta.counts) setApiCounts(res.meta.counts);
@@ -293,7 +275,9 @@ export const StoreProducts: React.FC = () => {
         .catch(() => {
           if (cancelled) return;
           const cached = activeStore.id ? rowCacheRef.current[activeStore.id] : undefined;
-          if (cached?.length) setApiRows(cached);
+          if (cached?.length) {
+            setApiRows(cached.map((row) => mergeProductCatalogExtras(activeStore.id, row)));
+          }
         })
         .finally(() => {
           if (!cancelled) setCatalogBusy(false);
@@ -325,6 +309,58 @@ export const StoreProducts: React.FC = () => {
   const [selectedDeletedIds, setSelectedDeletedIds] = useState<string[]>([]);
   const [deletedPage, setDeletedPage] = useState(1);
   const [deletedProducts, setDeletedProducts] = useState<any[]>([]);
+  const [showRecycleBin, setShowRecycleBin] = useState(false);
+  const [recycleBusy, setRecycleBusy] = useState(false);
+
+  type TrashRow = {
+    id: string;
+    name: string;
+    sku: string;
+    productType: string;
+    price: number;
+    category: string;
+    deletedAt: string;
+    image?: string;
+    rawProduct?: Product;
+  };
+
+  const toTrashRow = useCallback(
+    (p: Product, deletedAt?: string): TrashRow => ({
+      id: p.id,
+      name: getProductDisplayName(p, locale) || p.name || '',
+      sku: p.sku || '',
+      productType: p.productType || (p as { type?: string }).type || (isAr ? 'منتج' : 'Product'),
+      price: Number(p.price) || 0,
+      category: getProductDisplayCategory(p, locale) || p.category || '',
+      deletedAt: deletedAt || new Date().toLocaleString(isAr ? 'ar-SA' : 'en-US'),
+      image: p.image || '',
+      rawProduct: p,
+    }),
+    [locale, isAr],
+  );
+
+  const refreshRecycleBin = useCallback(async () => {
+    if (!activeStore?.id || dataSource !== 'api' || !isApiEnabled()) return;
+    try {
+      const page = await fetchProductsPage(activeStore.id, {
+        status: 'archived',
+        per_page: 100,
+        page: 1,
+      });
+      const rows = (page.data || []).map((p) =>
+        toTrashRow(p, p.publishedAt || new Date().toISOString()),
+      );
+      setDeletedProducts(rows);
+    } catch {
+      /* keep last trash list */
+    }
+  }, [activeStore?.id, dataSource, toTrashRow]);
+
+  useEffect(() => {
+    setDeletedProducts([]);
+    setSelectedDeletedIds([]);
+    void refreshRecycleBin();
+  }, [activeStore?.id, refreshRecycleBin]);
 
   // Dynamically load brands for active store
   const [availableStoreBrands, setAvailableStoreBrands] = useState(() => getStoreBrands(activeStore.id));
@@ -360,12 +396,6 @@ export const StoreProducts: React.FC = () => {
     );
   }, [creatingProduct, currentProducts, editingProductId, apiRows]);
   const isCreatingProduct = Boolean(creatingProduct);
-  const editPanelOpen = isSideDrawerOpen && !!editingProduct && !creatingProduct;
-
-  useEffect(() => {
-    if (editPanelOpen) return;
-    setShowFieldsFilterPopover(false);
-  }, [editPanelOpen]);
 
   // ── 4 KPI Summary Cards matching Mockup 06 (Store Scoped) ──
   const kpi = useMemo(() => {
@@ -401,14 +431,72 @@ export const StoreProducts: React.FC = () => {
     return { total, active, outOfStock, draft, totalGrowth, activeGrowth, outOfStockGrowth };
   }, [currentProducts, dataSource, apiCounts]);
 
-  // Unique categories for filtering
+  // Store taxonomy (roots + subcategories) — not only categories already used on products
+  const [storeCategoryRows, setStoreCategoryRows] = useState<StoreCategory[]>([]);
+
+  const reloadStoreCategories = useCallback(async () => {
+    const sid = activeStore?.id;
+    if (!sid) {
+      setStoreCategoryRows([]);
+      return;
+    }
+    try {
+      if (isApiEnabled()) {
+        const list = await fetchCategories(sid, { all: true });
+        setStoreCategoryRows(Array.isArray(list) ? list : []);
+        return;
+      }
+      const raw = localStorage.getItem(`unityteck_store_categories_${sid}`);
+      if (raw) {
+        const parsed = JSON.parse(raw) as StoreCategory[];
+        setStoreCategoryRows(Array.isArray(parsed) ? parsed : []);
+      } else {
+        setStoreCategoryRows([]);
+      }
+    } catch {
+      setStoreCategoryRows([]);
+    }
+  }, [activeStore?.id]);
+
+  useEffect(() => {
+    void reloadStoreCategories();
+    const onUpdated = (e: Event) => {
+      const detail = (e as CustomEvent).detail as
+        | { storeId?: string; categories?: StoreCategory[] }
+        | undefined;
+      if (detail?.storeId && detail.storeId !== activeStore.id) return;
+      if (Array.isArray(detail?.categories)) {
+        setStoreCategoryRows(detail.categories);
+        return;
+      }
+      void reloadStoreCategories();
+    };
+    window.addEventListener('unityteck-categories-updated', onUpdated as EventListener);
+    window.addEventListener('unityteck-data', onUpdated as EventListener);
+    return () => {
+      window.removeEventListener('unityteck-categories-updated', onUpdated as EventListener);
+      window.removeEventListener('unityteck-data', onUpdated as EventListener);
+    };
+  }, [activeStore.id, reloadStoreCategories]);
+
+  const categoryOptions = useMemo(
+    () => productCategoryPickerOptions(storeCategoryRows, isAr),
+    [storeCategoryRows, isAr],
+  );
+
+  // Unique category values for filters / pickers (taxonomy first, then any product-only leftovers)
   const categories = useMemo(() => {
     const set = new Set<string>();
+    categoryOptions.forEach((o) => {
+      if (o.value) set.add(o.value);
+    });
     currentProducts.forEach((p) => {
       if (p.category) set.add(p.category);
+      if (p.categoryEn) set.add(p.categoryEn);
+      if (p.categoryAr) set.add(p.categoryAr);
     });
     return Array.from(set);
-  }, [currentProducts]);
+  }, [categoryOptions, currentProducts]);
 
   // Filtered products list
   const filteredProducts = useMemo(() => {
@@ -430,6 +518,9 @@ export const StoreProducts: React.FC = () => {
         const pBrand = ((p as any).brand || (p as any).brandName || '').toLowerCase();
         if (!pBrand.includes(filterCriteria.brand.toLowerCase())) return false;
       }
+
+      // Recycle-bin products stay out of the main catalog (open Recycle Bin modal instead).
+      if (p.status === 'archived' && filterCriteria.status !== 'Archived') return false;
 
       // 3. Status filter
       if (filterCriteria.status !== 'All') {
@@ -491,33 +582,30 @@ export const StoreProducts: React.FC = () => {
     return list;
   }, [filteredProducts]);
 
-  // First screen is at least 20. Scrolling appends the next page-size batch.
+  // True page windows: Show 100 → rows 1–100 on page 1, 101–200 on page 2, etc.
   const totalCount = dataSource === 'api' ? apiTotal : sortedProducts.length;
-  const pageCount = dataSource === 'api' ? Math.max(1, apiLastPage) : Math.max(1, Math.ceil(totalCount / pageSize));
-  const revealedCount = dataSource === 'api'
-    ? apiRows.length
-    : Math.min(totalCount, Math.max(pageSize, visibleCount, page * pageSize));
-  const safePage = dataSource === 'api'
-    ? Math.min(pageCount, Math.max(1, page))
-    : Math.min(
-        pageCount,
-        Math.max(1, Math.ceil((totalCount === 0 ? 1 : Math.max(revealedCount, 1)) / pageSize)),
-      );
+  const pageCount =
+    dataSource === 'api'
+      ? Math.max(1, apiLastPage)
+      : Math.max(1, Math.ceil((totalCount || 0) / pageSize) || 1);
+  const safePage = Math.min(pageCount, Math.max(1, page));
   const pagedProducts = useMemo(() => {
     if (dataSource === 'api') {
       if (apiRows.length > 0) return apiRows;
-      if (page <= 1 && currentProducts.length > 0 && !search.trim() && filterCriteria.search.trim() === '') {
-        return currentProducts.slice(0, pageSize);
+      if (safePage <= 1 && currentProducts.length > 0 && !search.trim() && filterCriteria.search.trim() === '') {
+        return currentProducts
+          .slice(0, pageSize)
+          .map((p) => mergeProductCatalogExtras(activeStore.id, p));
       }
       return apiRows;
     }
-    return sortedProducts.slice(0, revealedCount);
+    const start = (safePage - 1) * pageSize;
+    return sortedProducts.slice(start, start + pageSize);
   }, [
     dataSource,
     apiRows,
     sortedProducts,
-    revealedCount,
-    page,
+    safePage,
     pageSize,
     currentProducts,
     search,
@@ -525,7 +613,6 @@ export const StoreProducts: React.FC = () => {
   ]);
 
   useEffect(() => {
-    setVisibleCount(pageSize);
     setPage(1);
   }, [
     pageSize,
@@ -539,21 +626,6 @@ export const StoreProducts: React.FC = () => {
     filterCriteria.category,
     filterCriteria.status,
   ]);
-
-  useEffect(() => {
-    const node = loadMoreRef.current;
-    const root = listScrollRef.current;
-    if (!node || !root || dataSource === 'api' || visibleCount >= totalCount) return;
-    const obs = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) return;
-        setVisibleCount((n) => (n >= totalCount ? n : Math.min(totalCount, n + pageSize)));
-      },
-      { root, rootMargin: '180px' },
-    );
-    obs.observe(node);
-    return () => obs.disconnect();
-  }, [visibleCount, totalCount, pageSize, viewMode, dataSource]);
 
   // Bulk Actions Execution (Spec Section 11)
   const handleApplyBulkAction = async () => {
@@ -580,19 +652,27 @@ export const StoreProducts: React.FC = () => {
       setSelectedProductIds([]);
     } else if (bulkAction === 'delete') {
       const ok = await confirm({
-        title: isAr ? 'حذف المنتجات المحددة' : 'Delete Selected Products',
+        title: isAr ? 'نقل إلى سلة المحذوفات' : 'Move to Recycle Bin',
         message: isAr
-          ? `هل أنت متأكد من حذف${selectedProductIds.length}منتج محدد نهائياً؟`
-          : `Are you sure you want to permanently delete ${selectedProductIds.length} selected products?`,
-        confirmLabel: isAr ? 'حذف المنتجات' : 'Delete Products',
+          ? `سيتم نقل ${selectedProductIds.length} منتج إلى سلة المحذوفات. يمكنك استعادتها لاحقاً.`
+          : `${selectedProductIds.length} products will move to the Recycle Bin. You can restore them later.`,
+        confirmLabel: isAr ? 'نقل إلى السلة' : 'Move to Bin',
         danger: true,
       });
       if (ok) {
-        selectedProductIds.forEach((id) => {
-          deleteProduct(id, activeStore.id);
+        const moving = pagedProducts.filter((p) => selectedProductIds.includes(p.id));
+        moving.forEach((p) => {
+          setDeletedProducts((prev) => [toTrashRow(p), ...prev.filter((x) => x.id !== p.id)]);
+          deleteProduct(p.id, activeStore.id);
         });
-        toast(isAr ? `تم حذف${selectedProductIds.length}منتج` : `Deleted ${selectedProductIds.length} products`, 'success');
+        toast(
+          isAr
+            ? `تم نقل ${selectedProductIds.length} منتج إلى سلة المحذوفات`
+            : `Moved ${selectedProductIds.length} products to Recycle Bin`,
+          'success',
+        );
         setSelectedProductIds([]);
+        void refreshRecycleBin();
       }
     }
   };
@@ -629,20 +709,12 @@ export const StoreProducts: React.FC = () => {
     }
   };
 
-  // Open New Product
-  // Open Image 4 Product Type Picker
+  // Open New Product — skip type picker; go straight to create editor (Ready Product)
   const handleOpenNewProduct = () => {
-    if (!sub.writable) {
-      toast(sub.message ?? t('subNotWritable'), 'error');
-      return;
-    }
-    if (!planGate.ok) {
-      toast(planGate.message, 'error');
-      return;
-    }
-    setCreatingProduct(null);
-    setEditingProductId(null);
-    setCurrentView('type-picker');
+    handleCreateProductWithType(
+      'ready-product',
+      isAr ? 'منتج جاهز' : 'Ready Product',
+    );
   };
 
   // Open blank product editor for selected type (manual fill — no auto fake create)
@@ -703,34 +775,74 @@ export const StoreProducts: React.FC = () => {
     setCurrentView('edit');
   };
 
-  // Delete product handler
+  // Soft-delete → Recycle Bin (store-scoped, restoreable)
   const handleDeleteProduct = async (product: Product) => {
     const ok = await confirm({
-      title: t('confirmDeleteProductTitle'),
-      message: `${t('confirmDeleteProductMsg')} (${product.name})`,
-      confirmLabel: t('deleteProduct'),
+      title: isAr ? 'نقل إلى سلة المحذوفات' : 'Move to Recycle Bin',
+      message: isAr
+        ? `سيتم نقل «${getProductDisplayName(product, locale) || product.name}» إلى سلة المحذوفات.`
+        : `“${getProductDisplayName(product, locale) || product.name}” will move to the Recycle Bin.`,
+      confirmLabel: isAr ? 'نقل إلى السلة' : 'Move to Bin',
       danger: true,
     });
     if (ok) {
-      setDeletedProducts(prev => [
-        {
-          id: product.id,
-          name: product.name,
-          sku: product.sku,
-          productType: product.productType || 'Physical',
-          price: product.price,
-          category: product.category,
-          deletedAt: new Date().toLocaleString(),
-          image: product.image,
-        },
-        ...prev
-      ]);
+      setDeletedProducts((prev) => [toTrashRow(product), ...prev.filter((x) => x.id !== product.id)]);
       deleteProduct(product.id, activeStore.id);
       if (editingProductId === product.id) {
         setCurrentView('list');
         setEditingProductId(null);
+        setIsSideDrawerOpen(false);
       }
-      toast(t('productDeletedSuccess'), 'success');
+      toast(
+        isAr ? 'تم نقل المنتج إلى سلة المحذوفات' : 'Product moved to Recycle Bin',
+        'success',
+      );
+      void refreshRecycleBin();
+    }
+  };
+
+  const handleRestoreTrashItem = async (item: TrashRow) => {
+    setRecycleBusy(true);
+    try {
+      if (dataSource === 'api' && isApiEnabled()) {
+        await restoreProductApi(activeStore.id, item.id);
+        await revalidateResource(activeStore.id, 'products');
+        setCatalogNonce((n) => n + 1);
+      } else if (item.rawProduct) {
+        addProduct({ ...item.rawProduct, status: 'draft', isActive: false }, activeStore.id);
+      }
+      setDeletedProducts((prev) => prev.filter((p) => p.id !== item.id));
+      setSelectedDeletedIds((prev) => prev.filter((id) => id !== item.id));
+      toast(isAr ? 'تم استرجاع المنتج بنجاح' : 'Product restored successfully', 'success');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : isAr ? 'تعذر الاسترجاع' : 'Restore failed', 'error');
+    } finally {
+      setRecycleBusy(false);
+    }
+  };
+
+  const handleForceDeleteTrashItem = async (item: TrashRow) => {
+    const ok = await confirm({
+      title: isAr ? 'حذف نهائي' : 'Permanent Delete',
+      message: isAr
+        ? `حذف «${item.name}» نهائياً؟ لا يمكن التراجع.`
+        : `Permanently delete “${item.name}”? This cannot be undone.`,
+      confirmLabel: isAr ? 'حذف نهائي' : 'Delete Forever',
+      danger: true,
+    });
+    if (!ok) return;
+    setRecycleBusy(true);
+    try {
+      if (dataSource === 'api' && isApiEnabled()) {
+        await forceDeleteProductApi(activeStore.id, item.id);
+      }
+      setDeletedProducts((prev) => prev.filter((p) => p.id !== item.id));
+      setSelectedDeletedIds((prev) => prev.filter((id) => id !== item.id));
+      toast(isAr ? 'تم الحذف النهائي للمنتج' : 'Product permanently deleted', 'success');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : isAr ? 'تعذر الحذف' : 'Delete failed', 'error');
+    } finally {
+      setRecycleBusy(false);
     }
   };
 
@@ -796,18 +908,15 @@ export const StoreProducts: React.FC = () => {
         storeSlug={activeStore.slug}
         storeId={activeStore.id}
         canMutate={sub.writable}
+        onNavigateTab={onNavigateTab}
         categories={categories}
+        categoryOptions={categoryOptions.map((o) => ({ value: o.value, label: o.label }))}
         availableBrands={availableStoreBrands.map((b: any) => (typeof b === 'string' ? b : (b.nameEn || b.nameAr || '')))}
         visibleSections={visibleEditSections}
-        onVisibleSectionsChange={applyEditSectionVisibility}
         onBack={() => {
-          if (isCreatingProduct) {
-            setCreatingProduct(null);
-            setCurrentView('type-picker');
-            return;
-          }
-          setCurrentView('list');
+          setCreatingProduct(null);
           setEditingProductId(null);
+          setCurrentView('list');
         }}
         onSave={(updatedData) => {
           if (isCreatingProduct) {
@@ -839,7 +948,8 @@ export const StoreProducts: React.FC = () => {
         onDelete={() => {
           if (isCreatingProduct) {
             setCreatingProduct(null);
-            setCurrentView('type-picker');
+            setEditingProductId(null);
+            setCurrentView('list');
             return;
           }
           handleDeleteProduct(editingProduct);
@@ -867,16 +977,6 @@ export const StoreProducts: React.FC = () => {
     );
   }
 
-  // VIEW 3: PRODUCT TYPE PICKER (Image 4 Exact)
-  if (currentView === 'type-picker') {
-    return (
-      <ProductTypePicker
-        onSelectType={(key, title) => handleCreateProductWithType(key, title)}
-        onBack={() => setCurrentView('list')}
-      />
-    );
-  }
-
   // VIEW 5: ADVANCED FILTERS & DELETED PRODUCTS (Screenshot 4 Exact)
   if (currentView === 'filters') {
     const pagedDeleted = deletedProducts.filter((p) => {
@@ -893,64 +993,24 @@ export const StoreProducts: React.FC = () => {
       }
     };
 
-    const handleRestoreItem = (item: any) => {
-      if (item.rawProduct) {
-        addProduct(item.rawProduct, activeStore.id);
-      } else {
-        addProduct({
-          name: item.name,
-          sku: item.sku,
-          price: item.price,
-          category: item.category,
-          productType: item.productType || 'Physical Product',
-          stock: 15,
-          salesCount: 0,
-          status: 'published',
-          isActive: true,
-          image: item.image,
-          galleryUrls: [item.image],
-          description: isAr ? `منتج مستعاد:${item.name}` : `Restored product: ${item.name}`,
-        }, activeStore.id);
-      }
-      setDeletedProducts((prev) => prev.filter((p) => p.id !== item.id));
-      toast(isAr ? 'تم استرجاع المنتج بنجاح' : 'Product restored successfully', 'success');
+    const handleRestoreItem = (item: TrashRow) => {
+      void handleRestoreTrashItem(item);
     };
 
     const handleRestoreSelected = () => {
       if (selectedDeletedIds.length === 0) return;
       selectedDeletedIds.forEach((delId) => {
         const item = deletedProducts.find((p) => p.id === delId);
-        if (item) {
-          if (item.rawProduct) {
-            addProduct(item.rawProduct, activeStore.id);
-          } else {
-            addProduct({
-              name: item.name,
-              sku: item.sku,
-              price: item.price,
-              category: item.category,
-              productType: item.productType || 'Physical Product',
-              stock: 15,
-              salesCount: 0,
-              status: 'published',
-              isActive: true,
-              image: item.image,
-              galleryUrls: [item.image],
-              description: isAr ? `منتج مستعاد:${item.name}` : `Restored product: ${item.name}`,
-            }, activeStore.id);
-          }
-        }
+        if (item) void handleRestoreTrashItem(item);
       });
-      setDeletedProducts((prev) => prev.filter((p) => !selectedDeletedIds.includes(p.id)));
-      setSelectedDeletedIds([]);
-      toast(isAr ? 'تم استرجاع المنتجات المحددة بنجاح' : 'Selected products restored successfully', 'success');
     };
 
     const handlePermanentDeleteSelected = () => {
       if (selectedDeletedIds.length === 0) return;
-      setDeletedProducts((prev) => prev.filter((p) => !selectedDeletedIds.includes(p.id)));
-      setSelectedDeletedIds([]);
-      toast(isAr ? 'تم الحذف النهائي للمنتجات المحددة' : 'Selected products permanently deleted', 'success');
+      selectedDeletedIds.forEach((delId) => {
+        const item = deletedProducts.find((p) => p.id === delId);
+        if (item) void handleForceDeleteTrashItem(item);
+      });
     };
 
     return (
@@ -1129,13 +1189,7 @@ export const StoreProducts: React.FC = () => {
                             </button>
                             <button
                               type="button"
-                              onClick={() => {
-                                setDeletedProducts((prev) => prev.filter((p) => p.id !== item.id));
-                                toast(
-                                  isAr ? 'تم الحذف النهائي للمنتج' : 'Product permanently deleted',
-                                  'success',
-                                );
-                              }}
+                              onClick={() => void handleForceDeleteTrashItem(item)}
                               className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                               title={isAr ? 'حذف نهائي' : 'Delete permanently'}
                             >
@@ -1385,7 +1439,7 @@ export const StoreProducts: React.FC = () => {
       {/* ── CATALOG CONTAINER (TABLE OR GRID) + SIDE DRAWER (Screenshot 2 Exact) ── */}
       <div className={isSideDrawerOpen && editingProduct ? 'flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch min-h-0' : 'flex-1 flex flex-col w-full min-h-0'}>
         {/* Main Catalog View (Left Column if Drawer Open) */}
-        <div className={isSideDrawerOpen && editingProduct ? 'lg:col-span-7 xl:col-span-8 min-w-0 flex flex-col min-h-0' : 'w-full flex flex-col flex-1 min-h-0'}>
+        <div className={isSideDrawerOpen && editingProduct ? 'lg:col-span-5 xl:col-span-6 min-w-0 flex flex-col min-h-0' : 'w-full flex flex-col flex-1 min-h-0'}>
           {/* ── PRODUCTS TABLE / GRID CARD CONTAINER (Makdah Flowers Spec & Mockup 06 Exact) ── */}
           <div
             className="bg-white dark:bg-[#071E26] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-visible flex flex-col flex-1"
@@ -1446,7 +1500,7 @@ export const StoreProducts: React.FC = () => {
                     }}
                     className={`p-1.5 rounded-lg transition-all cursor-pointer ${
                       viewMode === 'grid'
-                        ? 'bg-[#0D7482] text-white shadow-xs'
+                        ? 'bg-[var(--accent)] text-white shadow-xs'
                         : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                     }`}
                     title={isAr ? 'عرض شبكي' : 'Grid View'}
@@ -1458,7 +1512,7 @@ export const StoreProducts: React.FC = () => {
                     onClick={() => setViewMode('list')}
                     className={`p-1.5 rounded-lg transition-all cursor-pointer ${
                       viewMode === 'list'
-                        ? 'bg-[#0D7482] text-white shadow-xs'
+                        ? 'bg-[var(--accent)] text-white shadow-xs'
                         : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                     }`}
                     title={isAr ? 'عرض جدولي' : 'List View'}
@@ -1467,25 +1521,32 @@ export const StoreProducts: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Edit Fields Filter — only while a product edit drawer is open */}
-                {editPanelOpen && (
-                <div className="relative shrink-0">
-                  <button
-                    ref={fieldsBtnRef}
-                    type="button"
-                    onClick={openFieldsFilterPopover}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors ${
-                      showFieldsFilterPopover
-                        ? 'bg-teal-50 border-teal-300 text-teal-700 dark:bg-teal-950/40 dark:border-teal-800 dark:text-teal-300'
-                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50'
-                    }`}
-                    title={isAr ? 'تخصيص حقول التعديل الظاهرة' : 'Customize which edit fields are visible'}
-                  >
-                    <SlidersHorizontal className="w-3.5 h-3.5" />
-                    <span>{isAr ? 'تصفية الحقول' : 'Filter'}</span>
-                  </button>
-                </div>
-                )}
+                {/* Recycle Bin — count badge opens deleted-products modal */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    void refreshRecycleBin();
+                    setShowRecycleBin(true);
+                  }}
+                  className="relative ms-1 p-1.5 rounded-xl border shadow-2xs cursor-pointer transition-colors"
+                  style={{
+                    background: 'var(--surface)',
+                    borderColor: 'var(--border)',
+                    color: 'var(--text)',
+                  }}
+                  title={isAr ? 'سلة المحذوفات' : 'Recycle Bin'}
+                  aria-label={isAr ? 'سلة المحذوفات' : 'Recycle Bin'}
+                >
+                  <Trash2 className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+                  {deletedProducts.length > 0 ? (
+                    <span
+                      className="absolute -top-1.5 -end-1.5 min-w-[1.15rem] h-[1.15rem] px-1 rounded-full text-[10px] font-black text-white flex items-center justify-center shadow-xs"
+                      style={{ background: 'var(--accent)' }}
+                    >
+                      {deletedProducts.length > 99 ? '99+' : deletedProducts.length}
+                    </span>
+                  ) : null}
+                </button>
 
                 {selectedProductIds.length > 0 && (
                   <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
@@ -1605,8 +1666,10 @@ export const StoreProducts: React.FC = () => {
                   <div
                     className={`grid gap-4 sm:gap-5 ${
                       isSideDrawerOpen && editingProduct
-                        ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3'
-                        : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4'
+                        ? /* Edit open: max 2/row so side editor stays wider on every laptop */
+                          'grid-cols-1 sm:grid-cols-2'
+                        : /* Closed: 2 on small/normal, 3 on laptop+ (never 4) */
+                          'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
                     }`}
                   >
                     {pagedProducts.map((prod) => {
@@ -1798,7 +1861,7 @@ export const StoreProducts: React.FC = () => {
                       {/* SKU */}
                       {visibleColumns.sku && (
                         <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden sm:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                          SKU
+                          {isAr ? 'رمز المنتج' : 'SKU'}
                         </th>
                       )}
 
@@ -1844,10 +1907,45 @@ export const StoreProducts: React.FC = () => {
                         </th>
                       )}
 
-                      {/* Shipping Class */}
-                      {visibleColumns.shippingClass && (
+                      {/* Brand */}
+                      {visibleColumns.brand && (
+                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden lg:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                          {isAr ? 'العلامة التجارية' : 'Brand'}
+                        </th>
+                      )}
+
+                      {/* Product Type */}
+                      {visibleColumns.productType && (
+                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden lg:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                          {isAr ? 'نوع المنتج' : 'Product Type'}
+                        </th>
+                      )}
+
+                      {/* Google Categories */}
+                      {visibleColumns.googleCategories && (
                         <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden xl:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                          {isAr ? 'فئة الشحن' : 'Shipping Class'}
+                          {isAr ? 'تصنيفات جوجل' : 'Google Categories'}
+                        </th>
+                      )}
+
+                      {/* Sales Channels */}
+                      {visibleColumns.salesChannels && (
+                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden xl:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                          {isAr ? 'قنوات البيع' : 'Sales Channels'}
+                        </th>
+                      )}
+
+                      {/* Discount Start Date */}
+                      {visibleColumns.discountStartDate && (
+                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden xl:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                          {isAr ? 'بداية الخصم' : 'Discount Start Date'}
+                        </th>
+                      )}
+
+                      {/* Discount End Date */}
+                      {visibleColumns.discountEndDate && (
+                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden xl:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                          {isAr ? 'نهاية الخصم' : 'Discount End Date'}
                         </th>
                       )}
 
@@ -1909,7 +2007,16 @@ export const StoreProducts: React.FC = () => {
                       pagedProducts.map((prod) => {
                         const isChecked = selectedProductIds.includes(prod.id);
                         const isPublished = prod.status === 'published' || (prod as any).status === 'active';
-                        const shippingClassVal = (prod as any).shippingClass || '';
+                        const brandVal = String(prod.brand || (prod as any).brandName || '').trim();
+                        const productTypeVal = String(prod.productType || prod.type || '').trim();
+                        const googleCategoryVal = resolveGoogleTaxonomyLabel(prod.googleTaxonomy, isAr);
+                        const salesChannelVals = Array.isArray(prod.salesChannels)
+                          ? prod.salesChannels
+                          : Array.isArray((prod as any).channels)
+                            ? (prod as any).channels
+                            : [];
+                        const discountStartVal = formatProductDate(prod.discountStartAt);
+                        const discountEndVal = formatProductDate(prod.discountEndAt);
 
                         return (
                           <tr
@@ -2091,9 +2198,15 @@ export const StoreProducts: React.FC = () => {
                                     className="px-2 py-1 text-xs rounded-lg border bg-white dark:bg-slate-900 focus:outline-none"
                                     style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
                                   >
-                                    {categories.map((c) => (
-                                      <option key={c} value={c}>
-                                        {getProductDisplayCategory(c, locale)}
+                                    {(categoryOptions.length > 0
+                                      ? categoryOptions
+                                      : categories.map((c) => ({
+                                          value: c,
+                                          label: getProductDisplayCategory(c, locale),
+                                        }))
+                                    ).map((c) => (
+                                      <option key={c.value} value={c.value}>
+                                        {c.label}
                                       </option>
                                     ))}
                                   </select>
@@ -2145,38 +2258,119 @@ export const StoreProducts: React.FC = () => {
                               </td>
                             )}
 
-                            {/* Shipping Class */}
-                            {visibleColumns.shippingClass && (
-                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap text-xs hidden xl:table-cell" style={{ borderBottom: '1px solid var(--border)' }}>
+                            {/* Brand */}
+                            {visibleColumns.brand && (
+                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap text-xs hidden lg:table-cell" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
                                 {isInlineEdit ? (
-                                  <select
-                                    defaultValue={shippingClassVal}
-                                    onChange={(e) => handleInlineFieldChange(prod.id, 'shippingClass' as any, e.target.value)}
-                                    className="px-2 py-1 text-xs rounded-lg border bg-white dark:bg-slate-900 focus:outline-none"
+                                  <input
+                                    type="text"
+                                    defaultValue={brandVal}
+                                    onBlur={(e) => handleInlineFieldChange(prod.id, 'brand', e.target.value)}
+                                    className="w-24 px-1.5 py-1 text-xs rounded-lg border bg-white dark:bg-slate-900 focus:outline-none"
                                     style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-                                  >
-                                    <option value="Shoes">{isAr ? 'أحذية' : 'Shoes'}</option>
-                                    <option value="Small Items">{isAr ? 'قطع صغيرة' : 'Small Items'}</option>
-                                    <option value="Medium Item">{isAr ? 'قطعة متوسطة' : 'Medium Item'}</option>
-                                    <option value="Electronics">{isAr ? 'إلكترونيات' : 'Electronics'}</option>
-                                    <option value="Flowers">{isAr ? 'ورود' : 'Flowers'}</option>
-                                  </select>
+                                  />
+                                ) : brandVal ? (
+                                  <span className="max-w-[110px] truncate block" title={brandVal}>{brandVal}</span>
                                 ) : (
-                                  <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 max-w-[85px] truncate block" title={shippingClassVal}>
-                                    {isAr
-                                      ? shippingClassVal === 'Shoes'
-                                        ? 'أحذية'
-                                        : shippingClassVal === 'Small Items'
-                                          ? 'قطع صغيرة'
-                                          : shippingClassVal === 'Medium Item'
-                                            ? 'قطعة متوسطة'
-                                            : shippingClassVal === 'Electronics'
-                                              ? 'إلكترونيات'
-                                              : shippingClassVal === 'Flowers'
-                                                ? 'ورود'
-                                                : shippingClassVal
-                                      : shippingClassVal}
+                                  <span className="text-slate-400">-</span>
+                                )}
+                              </td>
+                            )}
+
+                            {/* Product Type */}
+                            {visibleColumns.productType && (
+                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap text-xs hidden lg:table-cell" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
+                                {isInlineEdit ? (
+                                  <input
+                                    type="text"
+                                    defaultValue={productTypeVal}
+                                    onBlur={(e) => handleInlineFieldChange(prod.id, 'productType', e.target.value)}
+                                    className="w-24 px-1.5 py-1 text-xs rounded-lg border bg-white dark:bg-slate-900 focus:outline-none"
+                                    style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                                  />
+                                ) : productTypeVal ? (
+                                  <span className="max-w-[120px] truncate block" title={productTypeVal}>{productTypeVal}</span>
+                                ) : (
+                                  <span className="text-slate-400">-</span>
+                                )}
+                              </td>
+                            )}
+
+                            {/* Google Categories */}
+                            {visibleColumns.googleCategories && (
+                              <td className="py-2.5 px-1.5 xl:px-2 text-xs hidden xl:table-cell" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
+                                {googleCategoryVal ? (
+                                  <span className="max-w-[160px] line-clamp-2 break-words leading-tight block" title={googleCategoryVal}>
+                                    {googleCategoryVal}
                                   </span>
+                                ) : (
+                                  <span className="text-slate-400">-</span>
+                                )}
+                              </td>
+                            )}
+
+                            {/* Sales Channels */}
+                            {visibleColumns.salesChannels && (
+                              <td className="py-2.5 px-1.5 xl:px-2 text-xs hidden xl:table-cell" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
+                                {salesChannelVals.length > 0 ? (
+                                  <span
+                                    className="max-w-[140px] line-clamp-2 break-words leading-tight block"
+                                    title={salesChannelVals.map((c: string) => getProductChannelLabel(c, isAr)).join(', ')}
+                                  >
+                                    {salesChannelVals.map((c: string) => getProductChannelLabel(c, isAr)).join(', ')}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400">-</span>
+                                )}
+                              </td>
+                            )}
+
+                            {/* Discount Start Date */}
+                            {visibleColumns.discountStartDate && (
+                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap text-xs hidden xl:table-cell" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
+                                {isInlineEdit ? (
+                                  <input
+                                    type="date"
+                                    defaultValue={discountStartVal}
+                                    onBlur={(e) =>
+                                      handleInlineFieldChange(
+                                        prod.id,
+                                        'discountStartAt',
+                                        e.target.value || null,
+                                      )
+                                    }
+                                    className="px-1.5 py-1 text-xs rounded-lg border bg-white dark:bg-slate-900 focus:outline-none"
+                                    style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                                  />
+                                ) : discountStartVal ? (
+                                  <span className="font-mono text-slate-500">{discountStartVal}</span>
+                                ) : (
+                                  <span className="text-slate-400">-</span>
+                                )}
+                              </td>
+                            )}
+
+                            {/* Discount End Date */}
+                            {visibleColumns.discountEndDate && (
+                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap text-xs hidden xl:table-cell" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
+                                {isInlineEdit ? (
+                                  <input
+                                    type="date"
+                                    defaultValue={discountEndVal}
+                                    onBlur={(e) =>
+                                      handleInlineFieldChange(
+                                        prod.id,
+                                        'discountEndAt',
+                                        e.target.value || null,
+                                      )
+                                    }
+                                    className="px-1.5 py-1 text-xs rounded-lg border bg-white dark:bg-slate-900 focus:outline-none"
+                                    style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                                  />
+                                ) : discountEndVal ? (
+                                  <span className="font-mono text-slate-500">{discountEndVal}</span>
+                                ) : (
+                                  <span className="text-slate-400">-</span>
                                 )}
                               </td>
                             )}
@@ -2295,7 +2489,6 @@ export const StoreProducts: React.FC = () => {
                 </table>
               </div>
             )}
-            {dataSource !== 'api' && revealedCount < totalCount ? <div ref={loadMoreRef} className="h-8" aria-hidden /> : null}
             </div>
 
             {/* ── PAGINATION CONTROLS MATCHING MOCKUP 06 ── */}
@@ -2305,10 +2498,8 @@ export const StoreProducts: React.FC = () => {
               totalPages={pageCount}
               totalCount={totalCount}
               pageSize={pageSize}
-              shownCount={revealedCount}
               onPageChange={(next) => {
                 setPage(next);
-                setVisibleCount(next * pageSize);
                 listScrollRef.current?.scrollTo({ top: 0 });
               }}
               onPageSizeChange={setPageSize}
@@ -2322,12 +2513,13 @@ export const StoreProducts: React.FC = () => {
 
         {/* ── RIGHT COLUMN: PRODUCT EDIT DRAWER (MATCHING SCREENSHOT 2) ── */}
         {isSideDrawerOpen && editingProduct && (
-          <div className="lg:col-span-5 xl:col-span-4 min-w-0">
+          <div className="lg:col-span-7 xl:col-span-6 min-w-0">
             <ProductEditDrawer
               isOpen={isSideDrawerOpen}
               product={editingProduct}
               storeId={activeStore.id}
               categories={categories}
+              categoryOptions={categoryOptions.map((o) => ({ value: o.value, label: o.label }))}
               availableBrands={availableStoreBrands}
               visibleSections={visibleEditSections}
               onClose={() => {
@@ -2357,84 +2549,6 @@ export const StoreProducts: React.FC = () => {
       </div>
 
       {/* Body-portal menus — anchored to trigger (never mid-screen / clipped) */}
-      <FloatingPopover
-        open={showFieldsFilterPopover}
-        anchorRef={fieldsBtnRef}
-        onClose={closeFloatingPopovers}
-        width={288}
-        align="start"
-        estimatedHeight={360}
-        className="rounded-2xl border shadow-xl p-3 space-y-2.5"
-        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-      >
-        <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-          <div>
-            <span className="font-bold text-xs text-slate-900 dark:text-white block">
-              {isAr ? 'تصفية حقول التعديل' : 'Filter Edit Fields'}
-            </span>
-            <span className="text-[10px] text-slate-500">
-              {isAr
-                ? 'إيقاف أي قسم يخفيه من لوحة التعديل فوراً'
-                : 'Turn off a section to hide it from the edit panel'}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={closeFloatingPopovers}
-            className="text-slate-400 hover:text-slate-600 cursor-pointer shrink-0"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        <div className="max-h-64 overflow-y-auto space-y-1 custom-scroll pe-1">
-          {PRODUCT_EDIT_SECTION_OPTIONS.map((opt) => {
-            const isOn = visibleEditSections[opt.id] !== false;
-            return (
-              <label
-                key={opt.id}
-                className="flex items-center justify-between gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer text-xs"
-              >
-                <span className="text-slate-700 dark:text-slate-300 font-medium">
-                  {isAr ? opt.labelAr : opt.labelEn}
-                </span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={isOn}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    applyEditSectionVisibility({
-                      ...visibleEditSections,
-                      [opt.id]: !isOn,
-                    });
-                  }}
-                  className={`w-8 h-4.5 rounded-full transition-colors relative cursor-pointer p-0.5 shrink-0 ${
-                    isOn ? 'bg-teal-600' : 'bg-slate-200 dark:bg-slate-700'
-                  }`}
-                >
-                  <span
-                    className={`w-3.5 h-3.5 rounded-full bg-white shadow block transition-transform transform ${
-                      isOn ? 'translate-x-3.5 rtl:-translate-x-3.5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </label>
-            );
-          })}
-        </div>
-
-        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end">
-          <button
-            type="button"
-            onClick={() => applyEditSectionVisibility({ ...DEFAULT_PRODUCT_EDIT_SECTIONS })}
-            className="text-[11px] font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:underline cursor-pointer"
-          >
-            {isAr ? 'إظهار الكل' : 'Show All'}
-          </button>
-        </div>
-      </FloatingPopover>
-
       <FloatingPopover
         open={showColumnsPopover}
         anchorRef={columnsBtnRef}
@@ -2474,7 +2588,7 @@ export const StoreProducts: React.FC = () => {
           />
         </div>
 
-        <div className="max-h-52 overflow-y-auto space-y-1.5 custom-scroll pe-1">
+        <div className="max-h-80 overflow-y-auto space-y-1.5 custom-scroll pe-1">
           {[
             { id: 'image', label: isAr ? 'الصورة' : 'Image' },
             { id: 'name', label: isAr ? 'اسم المنتج' : 'Product Name' },
@@ -2485,7 +2599,12 @@ export const StoreProducts: React.FC = () => {
             { id: 'category', label: isAr ? 'التصنيف' : 'Category' },
             { id: 'status', label: isAr ? 'الحالة' : 'Status' },
             { id: 'weight', label: isAr ? 'الوزن (كجم)' : 'Weight (kg)' },
-            { id: 'shippingClass', label: isAr ? 'فئة الشحن' : 'Shipping Class' },
+            { id: 'brand', label: isAr ? 'العلامة التجارية' : 'Brand' },
+            { id: 'productType', label: isAr ? 'نوع المنتج' : 'Product Type' },
+            { id: 'googleCategories', label: isAr ? 'تصنيفات جوجل' : 'Google Categories' },
+            { id: 'salesChannels', label: isAr ? 'قنوات البيع' : 'Sales Channels' },
+            { id: 'discountStartDate', label: isAr ? 'بداية الخصم' : 'Discount Start Date' },
+            { id: 'discountEndDate', label: isAr ? 'نهاية الخصم' : 'Discount End Date' },
             { id: 'actions', label: isAr ? 'إجراءات' : 'Actions' },
           ]
             .filter((c) => c.label.toLowerCase().includes(columnSearch.toLowerCase()))
@@ -2524,7 +2643,12 @@ export const StoreProducts: React.FC = () => {
                 category: true,
                 status: true,
                 weight: true,
-                shippingClass: true,
+                brand: true,
+                productType: true,
+                googleCategories: true,
+                salesChannels: true,
+                discountStartDate: true,
+                discountEndDate: true,
                 actions: true,
               });
               setColumnSearch('');
@@ -2535,6 +2659,245 @@ export const StoreProducts: React.FC = () => {
           </button>
         </div>
       </FloatingPopover>
+
+      {/* ── RECYCLE BIN MODAL (deleted / archived products for this store only) ── */}
+      <GlobalModal
+        isOpen={showRecycleBin}
+        onClose={() => setShowRecycleBin(false)}
+        dir={dir}
+        aria-label={isAr ? 'سلة المحذوفات' : 'Recycle Bin'}
+        contentClassName="w-full max-w-4xl mx-4"
+      >
+        <div
+          data-global-modal
+          className="rounded-2xl border shadow-2xl overflow-hidden flex flex-col max-h-[min(88vh,720px)]"
+          style={{
+            background: 'var(--surface)',
+            borderColor: 'var(--border)',
+            color: 'var(--text)',
+            fontFamily: 'var(--font-ui)',
+          }}
+        >
+          <div
+            className="flex items-center justify-between gap-3 px-5 py-4 border-b shrink-0"
+            style={{ background: 'var(--portal-950)', borderColor: 'var(--border)' }}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: 'color-mix(in srgb, var(--portal-400) 22%, transparent)' }}
+              >
+                <Trash2 className="w-5 h-5" style={{ color: 'var(--portal-400)' }} />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-sm font-black text-white truncate">
+                  {isAr ? 'سلة المحذوفات' : 'Recycle Bin'}
+                </h2>
+                <p className="text-[11px] text-white/70">
+                  {isAr
+                    ? `${deletedProducts.length} منتج محذوف · استعادة أو حذف نهائي`
+                    : `${deletedProducts.length} deleted · restore or delete forever`}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowRecycleBin(false)}
+              className="p-2 rounded-xl text-white/80 hover:text-white hover:bg-white/10 cursor-pointer"
+              aria-label={isAr ? 'إغلاق' : 'Close'}
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="px-5 py-3 border-b flex flex-wrap items-center gap-2 shrink-0" style={{ borderColor: 'var(--border)' }}>
+            <div className="relative flex-1 min-w-[12rem]">
+              <Search className="w-3.5 h-3.5 absolute start-2.5 top-1/2 -translate-y-1/2 opacity-50" />
+              <input
+                type="text"
+                value={searchDeleted}
+                onChange={(e) => setSearchDeleted(e.target.value)}
+                placeholder={isAr ? 'بحث في المنتجات المحذوفة...' : 'Search deleted products...'}
+                className="w-full ps-8 pe-3 py-2 text-xs rounded-xl border focus:outline-none"
+                style={{ background: 'var(--input-bg, var(--bg))', borderColor: 'var(--border)', color: 'var(--text)' }}
+              />
+            </div>
+            <button
+              type="button"
+              disabled={selectedDeletedIds.length === 0 || recycleBusy}
+              onClick={async () => {
+                const ids = [...selectedDeletedIds];
+                for (const id of ids) {
+                  const item = deletedProducts.find((p) => p.id === id);
+                  if (item) await handleRestoreTrashItem(item);
+                }
+              }}
+              className="px-3 py-2 text-xs font-bold rounded-xl text-white disabled:opacity-40 cursor-pointer flex items-center gap-1.5"
+              style={{ background: 'var(--portal-cta)' }}
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              {isAr ? 'استعادة المحدد' : 'Restore Selected'}
+            </button>
+            <button
+              type="button"
+              disabled={selectedDeletedIds.length === 0 || recycleBusy}
+              onClick={async () => {
+                const ids = [...selectedDeletedIds];
+                for (const id of ids) {
+                  const item = deletedProducts.find((p) => p.id === id);
+                  if (item) await handleForceDeleteTrashItem(item);
+                }
+              }}
+              className="px-3 py-2 text-xs font-bold rounded-xl border disabled:opacity-40 cursor-pointer flex items-center gap-1.5"
+              style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--surface)' }}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {isAr ? 'حذف نهائي' : 'Delete Forever'}
+            </button>
+          </div>
+
+          <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+            {deletedProducts.filter((p) => {
+              if (!searchDeleted.trim()) return true;
+              const q = searchDeleted.toLowerCase();
+              return (
+                String(p.name || '').toLowerCase().includes(q) ||
+                String(p.sku || '').toLowerCase().includes(q) ||
+                String(p.category || '').toLowerCase().includes(q)
+              );
+            }).length === 0 ? (
+              <div className="py-16 text-center text-xs opacity-60">
+                {isAr ? 'لا توجد منتجات في سلة المحذوفات' : 'Recycle Bin is empty'}
+              </div>
+            ) : (
+              <table className="w-full text-start text-xs">
+                <thead className="sticky top-0 z-10" style={{ background: 'var(--bg)' }}>
+                  <tr className="border-b text-[11px] font-bold opacity-70" style={{ borderColor: 'var(--border)' }}>
+                    <th className="py-2.5 px-4 w-10">
+                      <input
+                        type="checkbox"
+                        className="rounded cursor-pointer"
+                        checked={
+                          deletedProducts.length > 0 &&
+                          selectedDeletedIds.length ===
+                            deletedProducts.filter((p) => {
+                              if (!searchDeleted.trim()) return true;
+                              const q = searchDeleted.toLowerCase();
+                              return (
+                                String(p.name || '').toLowerCase().includes(q) ||
+                                String(p.sku || '').toLowerCase().includes(q)
+                              );
+                            }).length
+                        }
+                        onChange={() => {
+                          const visible = deletedProducts.filter((p) => {
+                            if (!searchDeleted.trim()) return true;
+                            const q = searchDeleted.toLowerCase();
+                            return (
+                              String(p.name || '').toLowerCase().includes(q) ||
+                              String(p.sku || '').toLowerCase().includes(q) ||
+                              String(p.category || '').toLowerCase().includes(q)
+                            );
+                          });
+                          setSelectedDeletedIds((prev) =>
+                            prev.length === visible.length ? [] : visible.map((p) => p.id),
+                          );
+                        }}
+                      />
+                    </th>
+                    <th className="py-2.5 px-3">{isAr ? 'المنتج' : 'Product'}</th>
+                    <th className="py-2.5 px-3 hidden sm:table-cell">{isAr ? 'السعر' : 'Price'}</th>
+                    <th className="py-2.5 px-3 hidden md:table-cell">{isAr ? 'تاريخ الحذف' : 'Deleted'}</th>
+                    <th className="py-2.5 px-4 text-center">{isAr ? 'إجراءات' : 'Actions'}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {deletedProducts
+                    .filter((p) => {
+                      if (!searchDeleted.trim()) return true;
+                      const q = searchDeleted.toLowerCase();
+                      return (
+                        String(p.name || '').toLowerCase().includes(q) ||
+                        String(p.sku || '').toLowerCase().includes(q) ||
+                        String(p.category || '').toLowerCase().includes(q)
+                      );
+                    })
+                    .map((item) => (
+                      <tr key={item.id} className="border-b" style={{ borderColor: 'var(--border)' }}>
+                        <td className="py-3 px-4">
+                          <input
+                            type="checkbox"
+                            className="rounded cursor-pointer"
+                            checked={selectedDeletedIds.includes(item.id)}
+                            onChange={() =>
+                              setSelectedDeletedIds((prev) =>
+                                prev.includes(item.id) ? prev.filter((i) => i !== item.id) : [...prev, item.id],
+                              )
+                            }
+                          />
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {item.image ? (
+                              <img
+                                src={item.image}
+                                alt=""
+                                className="w-9 h-9 rounded-xl object-cover border shrink-0"
+                                style={{ borderColor: 'var(--border)' }}
+                                onError={handleImageError}
+                              />
+                            ) : (
+                              <span
+                                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                                style={{ background: 'var(--bg)' }}
+                              >
+                                <Package className="w-4 h-4 opacity-40" />
+                              </span>
+                            )}
+                            <div className="min-w-0">
+                              <div className="font-bold truncate">{item.name}</div>
+                              <div className="text-[10px] opacity-55 font-mono truncate">
+                                {isAr ? 'رمز المنتج' : 'SKU'}: {item.sku || '—'}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 font-bold tabular-nums hidden sm:table-cell">{money(item.price)}</td>
+                        <td className="py-3 px-3 text-[11px] opacity-60 hidden md:table-cell whitespace-nowrap">
+                          {item.deletedAt}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              disabled={recycleBusy}
+                              onClick={() => void handleRestoreTrashItem(item)}
+                              className="px-2.5 py-1 text-[11px] font-bold rounded-lg text-white cursor-pointer disabled:opacity-40 flex items-center gap-1"
+                              style={{ background: 'var(--portal-cta)' }}
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              {isAr ? 'استعادة' : 'Restore'}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={recycleBusy}
+                              onClick={() => void handleForceDeleteTrashItem(item)}
+                              className="p-1.5 rounded-lg cursor-pointer disabled:opacity-40"
+                              style={{ color: '#e11d48' }}
+                              title={isAr ? 'حذف نهائي' : 'Delete forever'}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      </GlobalModal>
 
       {/* ── BULK PRODUCT UPLOAD & EXPORT MODAL ── */}
       <BulkProductUploadModal

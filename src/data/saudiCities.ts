@@ -139,6 +139,92 @@ export function cityLabel(city: SaudiCityOption, isAr: boolean): string {
   return isAr ? city.nameAr : city.nameEn;
 }
 
+function cityMatchKey(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/**
+ * Resolve a stored city string (id / English / Arabic / alias) against the KSA catalog.
+ * Extra custom cities from a store catalog may be passed as `cities`.
+ */
+export function findSaudiCityOption(
+  raw?: string | null,
+  cities: readonly SaudiCityOption[] = DEFAULT_SAUDI_CITIES,
+): SaudiCityOption | undefined {
+  if (!raw) return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+  const key = cityMatchKey(trimmed);
+
+  const direct = cities.find((c) => {
+    return (
+      cityMatchKey(c.id) === key ||
+      cityMatchKey(c.nameEn) === key ||
+      cityMatchKey(c.nameAr) === key
+    );
+  });
+  if (direct) return direct;
+
+  // Common aliases / short forms not identical to catalog labels
+  const aliases: Record<string, string> = {
+    mecca: 'Makkah',
+    'مكة': 'Makkah',
+    medina: 'Madinah',
+    'المدينة': 'Madinah',
+    'المدينه': 'Madinah',
+    'الخبر': 'Khobar',
+    'al khobar': 'Khobar',
+    'الاحساء': 'Ahsa',
+    'الأحساء': 'Ahsa',
+    neom: 'Neom',
+    'نيوم': 'Neom',
+  };
+  const aliasId = aliases[key] || aliases[trimmed];
+  if (aliasId) {
+    return cities.find((c) => c.id === aliasId || cityMatchKey(c.id) === cityMatchKey(aliasId));
+  }
+
+  return undefined;
+}
+
+/** Canonical storage id when known; otherwise original trimmed string. */
+export function normalizeSaudiCityId(
+  raw?: string | null,
+  cities: readonly SaudiCityOption[] = DEFAULT_SAUDI_CITIES,
+): string {
+  const trimmed = (raw || '').trim();
+  if (!trimmed) return '';
+  return findSaudiCityOption(trimmed, cities)?.id || trimmed;
+}
+
+/** Locale-pure city label for dashboard chrome. Unknown merchant cities stay as typed. */
+export function localizedSaudiCity(
+  raw?: string | null,
+  isAr: boolean = false,
+  cities: readonly SaudiCityOption[] = DEFAULT_SAUDI_CITIES,
+): string {
+  const trimmed = (raw || '').trim();
+  if (!trimmed) return '';
+  const hit = findSaudiCityOption(trimmed, cities);
+  if (hit) return cityLabel(hit, isAr);
+  return trimmed;
+}
+
+/** True when two city strings refer to the same catalog city (or exact same raw). */
+export function saudiCitiesEquivalent(
+  a?: string | null,
+  b?: string | null,
+  cities: readonly SaudiCityOption[] = DEFAULT_SAUDI_CITIES,
+): boolean {
+  const left = (a || '').trim();
+  const right = (b || '').trim();
+  if (!left || !right) return false;
+  if (cityMatchKey(left) === cityMatchKey(right)) return true;
+  const leftId = normalizeSaudiCityId(left, cities);
+  const rightId = normalizeSaudiCityId(right, cities);
+  return Boolean(leftId && rightId && cityMatchKey(leftId) === cityMatchKey(rightId));
+}
+
 /** Checkout helpers that need `{ en, ar }` shape */
 export function saudiCitiesAsEnAr(catalog?: SaudiCityCatalogState): Array<{ en: string; ar: string }> {
   return resolveSaudiCities(catalog ?? emptySaudiCityCatalog()).map((c) => ({

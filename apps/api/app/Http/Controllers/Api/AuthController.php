@@ -337,6 +337,13 @@ class AuthController extends Controller
             'clerk_token' => ['required', 'string', 'min:20'],
         ]);
 
+        // Hostinger MySQL cold-start can be 20–50s — wake the PDO before Clerk + membership queries.
+        try {
+            DB::select('select 1 as ok');
+        } catch (\Throwable) {
+            // assert path / createToken will surface a real DB error if still down
+        }
+
         $email = Str::lower(trim($data['email']));
         $this->assertClerkTokenOwnsEmail($data['clerk_token'], $email);
 
@@ -374,6 +381,12 @@ class AuthController extends Controller
         }
 
         $store = Store::query()->find($membership->store_id);
+        // Master SuperAdmin Active/Inactive — Hostinger MySQL (default true when column null).
+        if ($store && $store->getAttribute('login_email_active') === false) {
+            throw ValidationException::withMessages([
+                'email' => ['This store login email is inactive. Contact platform support.'],
+            ]);
+        }
         $role = Roles::normalize($membership->role ?: $user->role);
 
         $token = $user->createToken('store', [
@@ -526,9 +539,7 @@ class AuthController extends Controller
                 ]);
             }
 
-            $sessionResp = Http::withToken($secret)
-                ->acceptJson()
-                ->timeout(8)
+            $sessionResp = $this->clerkHttp($secret)
                 ->get('https://api.clerk.com/v1/sessions/'.$sessionId);
 
             if (! $sessionResp->successful()) {
@@ -551,9 +562,7 @@ class AuthController extends Controller
                 ]);
             }
 
-            $userResp = Http::withToken($secret)
-                ->acceptJson()
-                ->timeout(8)
+            $userResp = $this->clerkHttp($secret)
                 ->get('https://api.clerk.com/v1/users/'.$userId);
 
             if (! $userResp->successful()) {
@@ -582,6 +591,25 @@ class AuthController extends Controller
         throw ValidationException::withMessages([
             'clerk_token' => ['CLERK_SECRET_KEY is required to verify OTP sessions.'],
         ]);
+    }
+
+    /**
+     * Clerk Backend API client. Local Windows often lacks a CA bundle (cURL 60),
+     * which blocks OTP → Sanctum exchange — relax verify only outside production.
+     */
+    private function clerkHttp(string $secret): \Illuminate\Http\Client\PendingRequest
+    {
+        // Two sequential Clerk calls (session + user) + Hostinger DB. Client exchange budget is 60s.
+        $req = Http::withToken($secret)
+            ->acceptJson()
+            ->timeout(20)
+            ->connectTimeout(8);
+
+        if (! app()->environment('production')) {
+            $req = $req->withOptions(['verify' => false]);
+        }
+
+        return $req;
     }
 
     /** Reveal stub token/code only in local/debug — never assume production mailer. */

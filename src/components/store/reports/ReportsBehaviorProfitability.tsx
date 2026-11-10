@@ -328,8 +328,8 @@ export const ReportsBehaviorProfitability: React.FC<ReportsBehaviorProfitability
               <div className="p-3 bg-purple-50/60 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/40 rounded-xl mt-4">
                 <p className="text-[11px] text-purple-900 dark:text-purple-200 leading-relaxed">
                   {isAr
-                    ? '74% من المتسوقين يستخدمون الجوال. التأكد من سرعة تجربة الجوال هو العامل الحاسم في رفع المبيعات.'
-                    : '74% of shoppers are on mobile devices. Optimizing mobile checkout is your primary growth lever.'}
+                    ? 'بانتظار بيانات الأجهزة الحقيقية من التحليلات — لا نسب وهمية.'
+                    : 'Waiting for real device analytics — no invented mobile percentages.'}
                 </p>
               </div>
             </div>

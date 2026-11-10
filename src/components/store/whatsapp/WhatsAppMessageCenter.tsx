@@ -372,7 +372,10 @@ export const WhatsAppMessageCenter: React.FC<Props> = ({ onNavigateSubView }) =>
                   </span>
                 </div>
                 <p className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-1 font-mono dir-ltr text-start" dir="ltr">
-                  {overview?.connection.phone_number || readStoreIdentity(activeStore?.id || '', activeStore).whatsapp || activeStore?.phone || '+966 50 123 4567'}
+                  {overview?.connection.phone_number ||
+                    readStoreIdentity(activeStore?.id || '', activeStore).whatsapp ||
+                    activeStore?.phone ||
+                    (isAr ? 'غير متصل' : 'Not connected')}
                 </p>
               </div>
             </div>
@@ -391,8 +394,8 @@ export const WhatsAppMessageCenter: React.FC<Props> = ({ onNavigateSubView }) =>
             <span className="shrink-0 font-medium text-slate-600 dark:text-slate-400">
               {isAr ? 'آخر مزامنة:' : 'Last synced:'}{' '}
               {overview?.connection.last_synced_at
-                ? formatDateTime(overview.connection.last_synced_at).time || (isAr ? '10:42 ص' : '10:42 AM')
-                : (isAr ? '10:42 ص' : '10:42 AM')}
+                ? formatDateTime(overview.connection.last_synced_at).time || (isAr ? '—' : '—')
+                : (isAr ? '—' : '—')}
             </span>
           </div>
         </div>
@@ -459,9 +462,17 @@ export const WhatsAppMessageCenter: React.FC<Props> = ({ onNavigateSubView }) =>
                 {overview?.metrics.total_messages?.toLocaleString() ?? 0}
               </span>
             </div>
-            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 mt-1 flex items-center gap-0.5 whitespace-nowrap">
-              <ArrowUpRight className="w-3.5 h-3.5" />
-              <span>{overview?.metrics.total_trend || '+12%'} {isAr ? 'مقارنة بالفترة' : 'vs prev'}</span>
+            <p className="text-xs font-bold text-slate-600 dark:text-slate-400 mt-1 flex items-center gap-0.5 whitespace-nowrap">
+              {overview?.metrics.total_trend ? (
+                <>
+                  <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-emerald-700 dark:text-emerald-400">
+                    {overview.metrics.total_trend} {isAr ? 'مقارنة بالفترة' : 'vs prev'}
+                  </span>
+                </>
+              ) : (
+                <span>{isAr ? 'بانتظار البيانات' : 'Waiting for data'}</span>
+              )}
             </p>
           </div>
 
@@ -483,9 +494,15 @@ export const WhatsAppMessageCenter: React.FC<Props> = ({ onNavigateSubView }) =>
                 {overview?.metrics.delivered_rate ?? 0}%
               </span>
             </div>
-            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 mt-1 flex items-center gap-0.5 whitespace-nowrap">
-              <ArrowUpRight className="w-3.5 h-3.5" />
-              <span>{overview?.metrics.delivered_trend || '+5.2%'}</span>
+            <p className="text-xs font-bold text-slate-600 dark:text-slate-400 mt-1 flex items-center gap-0.5 whitespace-nowrap">
+              {overview?.metrics.delivered_trend ? (
+                <>
+                  <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-emerald-700 dark:text-emerald-400">{overview.metrics.delivered_trend}</span>
+                </>
+              ) : (
+                <span>—</span>
+              )}
             </p>
           </div>
 
@@ -507,9 +524,15 @@ export const WhatsAppMessageCenter: React.FC<Props> = ({ onNavigateSubView }) =>
                 {overview?.metrics.read_rate ?? 0}%
               </span>
             </div>
-            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 mt-1 flex items-center gap-0.5 whitespace-nowrap">
-              <ArrowUpRight className="w-3.5 h-3.5" />
-              <span>{overview?.metrics.read_trend || '+5.2%'}</span>
+            <p className="text-xs font-bold text-slate-600 dark:text-slate-400 mt-1 flex items-center gap-0.5 whitespace-nowrap">
+              {overview?.metrics.read_trend ? (
+                <>
+                  <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-emerald-700 dark:text-emerald-400">{overview.metrics.read_trend}</span>
+                </>
+              ) : (
+                <span>—</span>
+              )}
             </p>
           </div>
 
@@ -531,9 +554,15 @@ export const WhatsAppMessageCenter: React.FC<Props> = ({ onNavigateSubView }) =>
                 {overview?.metrics.failed_rate ?? 0}%
               </span>
             </div>
-            <p className="text-xs font-bold text-rose-700 dark:text-rose-400 mt-1 flex items-center gap-0.5 whitespace-nowrap">
-              <ArrowDownRight className="w-3.5 h-3.5" />
-              <span>{overview?.metrics.failed_trend || '-1.3%'}</span>
+            <p className="text-xs font-bold text-slate-600 dark:text-slate-400 mt-1 flex items-center gap-0.5 whitespace-nowrap">
+              {overview?.metrics.failed_trend ? (
+                <>
+                  <ArrowDownRight className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                  <span className="text-rose-700 dark:text-rose-400">{overview.metrics.failed_trend}</span>
+                </>
+              ) : (
+                <span>—</span>
+              )}
             </p>
           </div>
         </div>

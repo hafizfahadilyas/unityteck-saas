@@ -167,8 +167,6 @@ export const STORE_TAB_PLAN_FEATURE: Record<string, PlanFeature | null> = {
   appstore: 'themes_basic',
   payments: null,
   settings: null,
-  backup: null,
-  restore: null,
   notifications: null,
 };
 

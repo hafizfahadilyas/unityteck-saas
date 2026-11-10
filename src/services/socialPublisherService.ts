@@ -233,7 +233,7 @@ export async function testSocialAccount(
     );
     if (res && res.data) return res;
   } catch {
-    // fallback
+    // Zero-mock: never invent Connected on API failure
   }
 
   const all = loadLocalAccounts(storeId);
@@ -241,15 +241,11 @@ export async function testSocialAccount(
   if (!target || !target.is_connected) {
     return { ok: false, message: 'Account is not connected', data: {} as SocialAccountPublic };
   }
-  const updated: SocialAccountPublic = {
-    ...target,
-    last_tested_at: new Date().toISOString(),
-    is_connected: true,
-    status: 'connected',
-    last_error: null,
+  return {
+    ok: false,
+    message: 'Live Graph test unavailable — not marking connected from local cache',
+    data: target,
   };
-  saveLocalAccounts(storeId, all.map((a) => (a.platform === platform ? updated : a)));
-  return { ok: true, message: 'Connection validated successfully via Meta Graph API', data: updated };
 }
 
 export async function disconnectSocialAccount(storeId: string, platform: string): Promise<void> {

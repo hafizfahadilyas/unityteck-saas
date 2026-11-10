@@ -240,17 +240,6 @@ export const CONTROL_DEFINITIONS: ControlItemDefinition[] = [
     impactLevel: 'high',
   },
   {
-    id: 'backup',
-    category: 'store_admin_pages',
-    nameEn: 'Data Backup & Restore Center',
-    nameAr: 'النسخ الاحتياطي واستعادة البيانات',
-    descriptionEn: 'Database snapshot exports, catalog downloads, and single-click store restoration.',
-    descriptionAr: 'تنزيل نسخ احتياطية لقاعدة البيانات واستعادة إعدادات المتجر بنقرة واحدة.',
-    iconName: 'Archive',
-    defaultEnabled: true,
-    impactLevel: 'medium',
-  },
-  {
     id: 'appstore',
     category: 'store_admin_pages',
     nameEn: 'App Store & Integrations Hub',

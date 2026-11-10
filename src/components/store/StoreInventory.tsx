@@ -32,7 +32,7 @@ export const StoreInventory: React.FC = () => {
   const [stockMap, setStockMap] = useState<Record<string, number>>(() => {
     const map: Record<string, number> = {};
     (currentProducts || []).forEach((p: any) => {
-      map[p.id] = typeof p.stock === 'number' ? p.stock : typeof p.inventory === 'number' ? p.inventory : 25;
+      map[p.id] = typeof p.stock === 'number' ? p.stock : typeof p.inventory === 'number' ? p.inventory : 0;
     });
     return map;
   });
@@ -40,7 +40,7 @@ export const StoreInventory: React.FC = () => {
   const productsList = useMemo(() => {
     return (currentProducts || []).map((p: any) => ({
       ...p,
-      currentStock: stockMap[p.id] !== undefined ? stockMap[p.id] : (p.stock ?? p.inventory ?? 25),
+      currentStock: stockMap[p.id] !== undefined ? stockMap[p.id] : (p.stock ?? p.inventory ?? 0),
     }));
   }, [currentProducts, stockMap]);
 

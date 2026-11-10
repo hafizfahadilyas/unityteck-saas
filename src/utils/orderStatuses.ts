@@ -1,23 +1,16 @@
 import type { OrderStatus } from '../types';
+import { ORDER_STATUS_CATALOG } from './orderCatalogOptions';
 
 /** Canonical order statuses — same list everywhere (table, bulk, edit, details, master). */
 export const ORDER_STATUS_CHANGE_OPTIONS: {
   value: OrderStatus;
   labelEn: string;
   labelAr: string;
-}[] = [
-  { value: 'pending', labelEn: 'Pending Payment', labelAr: 'بانتظار الدفع' },
-  { value: 'processing', labelEn: 'Processing', labelAr: 'قيد المعالجة' },
-  { value: 'preparing', labelEn: 'Preparing', labelAr: 'قيد التجهيز' },
-  { value: 'shipped', labelEn: 'Shipped', labelAr: 'تم الشحن' },
-  { value: 'out_for_delivery', labelEn: 'Out for Delivery', labelAr: 'جاري التوصيل' },
-  { value: 'delivered', labelEn: 'Delivered', labelAr: 'تم التوصيل' },
-  { value: 'completed', labelEn: 'Completed', labelAr: 'مكتمل' },
-  { value: 'cancellation_requested', labelEn: 'Cancel Requested', labelAr: 'طلب إلغاء' },
-  { value: 'cancelled', labelEn: 'Cancelled', labelAr: 'ملغي' },
-  { value: 'returned', labelEn: 'Returned', labelAr: 'مسترجع' },
-  { value: 'refunded', labelEn: 'Refunded', labelAr: 'مسترد' },
-];
+}[] = ORDER_STATUS_CATALOG.map((o) => ({
+  value: o.value as OrderStatus,
+  labelEn: o.labelEn,
+  labelAr: o.labelAr,
+}));
 
 export interface StoreOrderStatusOption {
   value: string;
@@ -34,14 +27,13 @@ function statusesStorageKey(storeId: string) {
 
 /** Active custom/system statuses for a store (Customize Statuses tool). Falls back to canonical list. */
 export function getStoreOrderStatusOptions(storeId?: string | null): StoreOrderStatusOption[] {
-  if (!storeId) {
-    return ORDER_STATUS_CHANGE_OPTIONS.map((o) => ({
-      value: o.value,
-      labelEn: o.labelEn,
-      labelAr: o.labelAr,
-      active: true,
-    }));
-  }
+  const canonical = ORDER_STATUS_CHANGE_OPTIONS.map((o) => ({
+    value: o.value,
+    labelEn: o.labelEn,
+    labelAr: o.labelAr,
+    active: true,
+  }));
+  if (!storeId) return canonical;
   try {
     const raw = localStorage.getItem(statusesStorageKey(storeId));
     if (raw) {
@@ -54,7 +46,7 @@ export function getStoreOrderStatusOptions(storeId?: string | null): StoreOrderS
         sortOrder?: number;
       }>;
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed
+        const fromStore: StoreOrderStatusOption[] = parsed
           .slice()
           .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
           .filter((s) => s.active !== false)
@@ -66,17 +58,25 @@ export function getStoreOrderStatusOptions(storeId?: string | null): StoreOrderS
             colorHex: s.colorHex,
             systemKey: s.systemKey,
           }));
+        const seen = new Set(fromStore.map((s) => s.value));
+        // Merge newly added canonical statuses (draft / deleted / …) if store cache is older
+        for (const opt of canonical) {
+          if (!seen.has(opt.value)) {
+            fromStore.push({
+              value: opt.value,
+              labelEn: opt.labelEn,
+              labelAr: opt.labelAr,
+              active: true,
+            });
+          }
+        }
+        return fromStore;
       }
     }
   } catch {
     /* ignore corrupt storage */
   }
-  return ORDER_STATUS_CHANGE_OPTIONS.map((o) => ({
-    value: o.value,
-    labelEn: o.labelEn,
-    labelAr: o.labelAr,
-    active: true,
-  }));
+  return canonical;
 }
 
 export function orderStatusOptionLabel(value: string, isAr: boolean, storeId?: string | null): string {

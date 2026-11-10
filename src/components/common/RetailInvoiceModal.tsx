@@ -356,7 +356,9 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
         {isEditing && (
           <div className="no-print p-4 sm:p-5 bg-slate-800/90 border-b border-slate-700 text-xs grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 animate-in slide-in-from-top-2 duration-150">
             <div>
-              <label className="block text-slate-400 font-medium mb-1">اسم المتجر (عربي)</label>
+              <label className="block text-slate-400 font-medium mb-1">
+                {isAr ? 'اسم المتجر (عربي)' : 'Store Name (Arabic)'}
+              </label>
               <input
                 type="text"
                 value={storeNameAr}
@@ -365,7 +367,9 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-slate-400 font-medium mb-1">Store Name (English)</label>
+              <label className="block text-slate-400 font-medium mb-1">
+                {isAr ? 'اسم المتجر (إنجليزي)' : 'Store Name (English)'}
+              </label>
               <input
                 type="text"
                 value={storeName}
@@ -374,7 +378,9 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-slate-400 font-medium mb-1">الرقم الضريبي (15 رقم)</label>
+              <label className="block text-slate-400 font-medium mb-1">
+                {isAr ? 'الرقم الضريبي (١٥ رقم)' : 'Tax Number (15 digits)'}
+              </label>
               <input
                 type="text"
                 value={taxNumber}
@@ -383,7 +389,9 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-slate-400 font-medium mb-1">السجل التجاري (CR)</label>
+              <label className="block text-slate-400 font-medium mb-1">
+                {isAr ? 'السجل التجاري' : 'Commercial Registration'}
+              </label>
               <input
                 type="text"
                 value={crNumber}
@@ -392,7 +400,9 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-slate-400 font-medium mb-1">عنوان المتجر (عربي)</label>
+              <label className="block text-slate-400 font-medium mb-1">
+                {isAr ? 'عنوان المتجر (عربي)' : 'Store Address (Arabic)'}
+              </label>
               <input
                 type="text"
                 value={storeAddressAr}
@@ -401,7 +411,9 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-slate-400 font-medium mb-1">Store Address (English)</label>
+              <label className="block text-slate-400 font-medium mb-1">
+                {isAr ? 'عنوان المتجر (إنجليزي)' : 'Store Address (English)'}
+              </label>
               <input
                 type="text"
                 value={storeAddress}
@@ -410,7 +422,9 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-slate-400 font-medium mb-1">كاشير / مسؤول الطلب</label>
+              <label className="block text-slate-400 font-medium mb-1">
+                {isAr ? 'أمين الصندوق / مسؤول الطلب' : 'Cashier / Order Handler'}
+              </label>
               <input
                 type="text"
                 value={cashierName}
@@ -419,11 +433,13 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-slate-400 font-medium mb-1">الملاحظات القانونية أسفل الفاتورة</label>
+              <label className="block text-slate-400 font-medium mb-1">
+                {isAr ? 'الملاحظات القانونية أسفل الفاتورة' : 'Legal notes at the bottom of the invoice'}
+              </label>
               <input
                 type="text"
-                value={customNote}
-                onChange={(e) => setCustomNote(e.target.value)}
+                value={isAr ? customNote : customNoteEn}
+                onChange={(e) => (isAr ? setCustomNote(e.target.value) : setCustomNoteEn(e.target.value))}
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white"
               />
             </div>
@@ -582,7 +598,7 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
                     {order.status || 'Processing'}
                   </p>
                   <p className="text-[11px] text-slate-400 font-mono">
-                    .Cashier: {cashierName}
+                    {isAr ? `أمين الصندوق: ${cashierName}` : `Cashier: ${cashierName}`}
                   </p>
                 </div>
               </div>

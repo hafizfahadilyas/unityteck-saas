@@ -56,7 +56,6 @@ import {
 import { fetchGoogleAuthUrl, fetchGooglePageSpeedData, submitGoogleCallback } from '../../api/tenantApi';
 import {
   getStoreSeoDeepAudit,
-  saveStoreSeoDeepAudit,
   type SeoDeepAuditItem,
 } from '../../services/ksaAutomationEngine';
 
@@ -219,7 +218,7 @@ export const StoreSEO: React.FC = () => {
       if (!silent) {
         toast(
           isAr
-            ? `كافة روابط المتجر (${candidateUrls.length}) مفهرسة بالفعل ومحدثة في Googlebot`
+            ? `كافة روابط المتجر (${candidateUrls.length}) مفهرسة بالفعل ومحدَّثة في محركات البحث`
             : `All store routes (${candidateUrls.length}) are already indexed & up to date with Googlebot`,
           'success'
         );
@@ -659,10 +658,10 @@ export const StoreSEO: React.FC = () => {
               ? 'بريد دخول هذا المتجر غير محفوظ. بعد حفظه يربط المالك حسابه بنفسه.'
               : 'This store has no login email yet. After it is saved, the owner connects their own account.')}
             {seoSetupStep(activeStore) === 'need_domain' && (isAr
-              ? `البريد${storeGoogleEmail}جاهز. النطاق العام غير مربوط، لذلك تبقى هذه الخطوة معلقة. بعد إضافة النطاق يفتح المالك بريده من زر الربط. لا حاجة لتكرار ذلك من الإدارة لكل متجر.`
+              ? `البريد ${storeGoogleEmail(activeStore)} جاهز. النطاق العام غير مربوط، لذلك تبقى هذه الخطوة معلقة. بعد إضافة النطاق يفتح المالك بريده من زر الربط. لا حاجة لتكرار ذلك من الإدارة لكل متجر.`
               : `Email ${storeGoogleEmail(activeStore)} is ready. The public domain is not linked yet, so this step waits. After the domain is added, the owner signs in from the connect button. Master does not repeat this for every store.`)}
             {seoSetupStep(activeStore) === 'ready' && (isAr
-              ? `النطاق${storePublicHost}والبريد${storeGoogleEmail}جاهزان. المالك يسجّل الدخول ببريده مرة واحدة. الأرقام تأتي من جوجل بعد ذلك، ولا تُخترع هنا.`
+              ? `النطاق ${storePublicHost(activeStore)} والبريد ${storeGoogleEmail(activeStore)} جاهزان. المالك يسجّل الدخول ببريده مرة واحدة. الأرقام تأتي من جوجل بعد ذلك، ولا تُخترع هنا.`
               : `Domain ${storePublicHost(activeStore)} and email ${storeGoogleEmail(activeStore)} are ready. The owner signs in with that email once. Numbers come from Google after that, and are not invented here.`)}
           </div>
           {/* Services Matrix (4 Google Services: GA4, GSC, GTM, Indexing) */}
@@ -1017,7 +1016,7 @@ export const StoreSEO: React.FC = () => {
                     </h3>
                     <p className="text-[11px] text-slate-500 mt-0.5">
                       {isAr
-                        ? 'فرص تحسين حقيقية من Lighthouse — بدون درجات وهمية أو إصلاح تلقائي مزيف'
+                        ? 'فرص تحسين حقيقية من تحليل الأداء — بدون درجات وهمية أو إصلاح تلقائي مزيف'
                         : 'Real Lighthouse opportunities — no invented scores or fake auto-fix'}
                     </p>
                   </div>
@@ -1266,7 +1265,7 @@ export const StoreSEO: React.FC = () => {
                 </div>
                 <p className="text-xs text-slate-600 dark:text-slate-300 max-w-3xl leading-relaxed">
                   {isAr
-                    ? 'لا تحتاج إلى كتابة أو إرسال أي رابط يدوياً! محرك الأتمتة يفحص متجرك باستمرار ويرسل روابط المتجر الرئيسية وصفحات المنتجات وخرائط ملف خريطة الموقع تلقائياً إلى خوارزميات Googlebot فور توفرها.'
+                    ? 'لا تحتاج إلى كتابة أو إرسال أي رابط يدوياً! محرك الأتمتة يفحص متجرك باستمرار ويرسل روابط المتجر الرئيسية وصفحات المنتجات وخرائط الموقع تلقائياً إلى فهرسة محركات البحث فور توفرها.'
                     : 'Zero manual submissions required! The autonomous auto-pilot continuously indexes your store routes, catalog pages, and new product URLs directly with Googlebot.'}
                 </p>
               </div>
@@ -1340,7 +1339,7 @@ export const StoreSEO: React.FC = () => {
                 </h3>
                 <p className="text-xs text-slate-500">
                   {isAr
-                    ? 'إذا أردت فحص أو إرسال رابط خارجي أو حملة محددة بشكل فوري إلى Googlebot'
+                    ? 'إذا أردت فحص أو إرسال رابط خارجي أو حملة محددة بشكل فوري إلى فهرسة محركات البحث'
                     : 'Submit an individual custom URL directly to Googlebot if priority expedited indexing is required'}
                 </p>
               </div>
@@ -1571,15 +1570,21 @@ export const StoreSEO: React.FC = () => {
                 GTM
               </div>
               <div>
-                <h3 className="font-bold text-sm text-slate-900 dark:text-white">Google Tag Manager (GTM)</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Deploy custom tags, TikTok pixels, and Google Ads tags</p>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                  {isAr ? 'إدارة علامات جوجل' : 'Google Tag Manager (GTM)'}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {isAr
+                    ? 'نشر العلامات المخصصة وبكسل الإعلانات وعلامات الحملات'
+                    : 'Deploy custom tags, TikTok pixels, and Google Ads tags'}
+                </p>
               </div>
             </div>
 
             <div className="space-y-3">
               <div>
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  GTM Container ID (GTM-XXXXXXX)
+                  {isAr ? 'معرّف حاوية العلامات' : 'GTM Container ID (GTM-XXXXXXX)'}
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -1598,13 +1603,15 @@ export const StoreSEO: React.FC = () => {
                   </button>
                 </div>
                 <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-                  The GTM container script is asynchronously injected into your store&apos;s Next.js 15 public storefront.
+                  {isAr
+                    ? 'يُحقَن سكربت الحاوية تلقائياً في واجهة المتجر العامة.'
+                    : 'The GTM container script is asynchronously injected into your storefront.'}
                 </p>
               </div>
 
               <div>
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  Google Search Console Verification Tag
+                  {isAr ? 'وسم التحقق من أدوات مشرفي المواقع' : 'Google Search Console Verification Tag'}
                 </label>
                 <input
                   type="text"
@@ -1619,13 +1626,17 @@ export const StoreSEO: React.FC = () => {
                 onClick={handleSaveMeta}
                 className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer mt-2"
               >
-                Save Google Tag Settings
+                {isAr ? 'حفظ إعدادات علامات جوجل' : 'Save Google Tag Settings'}
               </button>
 
               {saveSuccess && (
                 <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 rounded-xl text-center text-xs font-bold border border-emerald-200 dark:border-emerald-800 flex items-center justify-center gap-1.5 animate-fadeIn">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>Google tags updated! Changes live on your store immediately.</span>
+                  <span>
+                    {isAr
+                      ? 'تم تحديث العلامات! التغييرات تظهر على المتجر فوراً.'
+                      : 'Google tags updated! Changes live on your store immediately.'}
+                  </span>
                 </div>
               )}
             </div>
@@ -1638,7 +1649,7 @@ export const StoreSEO: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-3">
-              Storefront SEO Metadata (Next.js 15 SSR Head)
+              {isAr ? 'بيانات تحسين محركات البحث لواجهة المتجر' : 'Storefront SEO Metadata'}
             </h3>
 
             <form onSubmit={handleSaveMeta} className="space-y-4">
@@ -1674,7 +1685,7 @@ export const StoreSEO: React.FC = () => {
 
               <div>
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  Target SEO Keywords (Press Enter to add)
+                  {isAr ? 'كلمات البحث المستهدفة (اضغط إدخال للإضافة)' : 'Target SEO Keywords (Press Enter to add)'}
                 </label>
                 <input
                   type="text"
@@ -1753,14 +1764,14 @@ export const StoreSEO: React.FC = () => {
                 type="submit"
                 className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
               >
-                Update SEO Metadata
+                {isAr ? 'تحديث بيانات تحسين البحث' : 'Update SEO Metadata'}
               </button>
             </form>
           </div>
 
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-3">
-              Automated Sitemap.xml
+              {isAr ? 'خريطة الموقع التلقائية' : 'Automated Sitemap.xml'}
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
               Dynamically generated at Next.js SSR build and refreshed on every product creation.
@@ -1774,7 +1785,7 @@ export const StoreSEO: React.FC = () => {
               rel="noreferrer"
               className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer transition-colors"
             >
-              <span>Inspect Live XML Sitemap</span>
+              <span>{isAr ? 'معاينة خريطة الموقع المباشرة' : 'Inspect Live XML Sitemap'}</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
           </div>
@@ -1791,46 +1802,42 @@ export const StoreSEO: React.FC = () => {
             <div>
               <h3 className="text-base font-black text-slate-900 dark:text-white">
                 {isAr
-                  ? 'الفحص والإصلاح التلقائي الشامل (الروابط المعطلة 404، Backlinks، ترويسات H1/H2، نصوص Alt، والفهرسة التلقائية)'
-                  : '1-Click Full KSA SEO Auto-Fixer (Broken Links 404->301, Backlinks, H1/H2, Alt Tags & Auto-Indexing)'}
+                  ? 'الفحص الشامل (الروابط المعطلة، الروابط الخلفية، العناوين، النصوص البديلة للصور، والفهرسة)'
+                  : 'Full SEO Audit (Broken Links, Backlinks, Headings, Alt Tags & Indexing)'}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 {isAr
-                  ? `مرتبط تلقائياً بمعرف الماستر (${gtmId}/${ga4Id}) دون الحاجة لإعداد يدوي.`
-                  : `Automatically connected via Master Zero-Touch Umbrella (${gtmId} / ${ga4Id}) — zero manual setup required.`}
+                  ? 'لا نتائج وهمية — تظهر العناصر فقط بعد فحص حقيقي للمتجر.'
+                  : 'Zero mock — items appear only after a real store crawl/API result.'}
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                const fixed = deepAuditItems.map((it) => ({ ...it, status: 'fixed' as const }));
-                setDeepAuditItems(fixed);
-                saveStoreSeoDeepAudit(activeStore.id, fixed);
-                updateStoreSEOConfig(activeStore.id, {
-                  ga4MeasurementId: realTrackingId(ga4Id),
-                  gtmContainerId: realTrackingId(gtmId),
-                });
-                toast(
-                  isAr
-                    ? 'تم إصلاح جميع الروابط المعطلة ، وترويسات H1/H2، ونصوص Alt، وتفعيل الفهرسة التلقائية بنجاح!'
-                    : 'All Broken Links (301), H1/H2 headings, Image Alt tags, Backlinks & Auto-Indexing fixed 100%!',
-                  'success',
-                );
-              }}
-              className="px-5 py-2.5 rounded-2xl text-xs font-black text-white shadow-md flex items-center gap-2 cursor-pointer"
-              style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>
-                {isAr
-                  ? 'إصلاح الكل تلقائياً بالذكاء الاصطناعي'
-                  : '1-Click Auto-Fix All SEO & Broken Links'}
-              </span>
-            </button>
+            {deepAuditItems.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  toast(
+                    isAr
+                      ? 'الإصلاح التلقائي الوهمي معطّل — استخدم إصلاحاً حقيقياً لكل عنصر.'
+                      : 'Fake bulk auto-fix is disabled — apply a real fix per item.',
+                    'info',
+                  );
+                }}
+                className="px-5 py-2.5 rounded-2xl text-xs font-black text-white shadow-md flex items-center gap-2 cursor-pointer"
+                style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>{isAr ? 'تحديث نتائج الفحص' : 'Refresh audit results'}</span>
+              </button>
+            ) : null}
           </div>
 
           <div className="space-y-3">
+            {deepAuditItems.length === 0 ? (
+              <div className="p-6 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 text-center text-sm text-slate-500">
+                {isAr ? 'لا توجد سجلات — بانتظار بيانات الفحص الحقيقية' : 'No records found — Waiting for Data'}
+              </div>
+            ) : null}
             {deepAuditItems.map((item) => (
               <div
                 key={item.id}
@@ -1864,23 +1871,9 @@ export const StoreSEO: React.FC = () => {
                       <span>{isAr ? 'سليم ومُفعل ✓' : 'Fixed & Verified ✓'}</span>
                     </span>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const next = deepAuditItems.map((x) =>
-                          x.id === item.id ? { ...x, status: 'fixed' as const } : x,
-                        );
-                        setDeepAuditItems(next);
-                        saveStoreSeoDeepAudit(activeStore.id, next);
-                        toast(
-                          isAr ? 'تم تطبيق الإصلاح التلقائي بنجاح!' : 'Applied automatic SEO fix!',
-                          'success',
-                        );
-                      }}
-                      className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black cursor-pointer"
-                    >
-                      {isAr ? 'إصلاح فوري' : 'Fix now'}
-                    </button>
+                    <span className="px-3 py-1.5 rounded-xl bg-amber-500/15 text-amber-600 text-xs font-black">
+                      {isAr ? 'بانتظار فحص حقيقي' : 'Waiting for Data'}
+                    </span>
                   )}
                 </div>
               </div>
@@ -1894,8 +1887,14 @@ export const StoreSEO: React.FC = () => {
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-6">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Google SERP Live Simulator</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Live preview of how your store appears on Google Search Results</p>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                {isAr ? 'معاينة نتائج البحث' : 'Google SERP Live Simulator'}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {isAr
+                  ? 'معاينة مباشرة لظهور متجرك في نتائج محركات البحث'
+                  : 'Live preview of how your store appears on Google Search Results'}
+              </p>
             </div>
             <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold">
               <button

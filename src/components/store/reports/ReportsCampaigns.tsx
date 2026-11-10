@@ -743,7 +743,9 @@ export const ReportsCampaigns: React.FC<ReportsCampaignsProps> = ({
 
           <div className="pt-3 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
             <span>{isAr ? 'معدل التحويل الإجمالي:' : 'Overall Ad Conv. Rate:'}</span>
-            <span className="font-bold text-emerald-600 dark:text-emerald-400">3.65%</span>
+            <span className="font-bold text-slate-500 dark:text-slate-400">
+              {isAr ? 'بانتظار البيانات' : 'Waiting for Data'}
+            </span>
           </div>
         </div>
       </div>

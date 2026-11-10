@@ -3,14 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\AcquisitionChannel;
 use App\Models\Order;
 use App\Models\Store;
 use App\Models\StoreSetting;
+use App\Models\StorefrontAnalyticsEvent;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class MarketingCampaignsController extends Controller
 {
@@ -173,11 +174,10 @@ class MarketingCampaignsController extends Controller
             ->whereBetween('created_at', [$prevStartDate, $prevEndDate])
             ->get();
 
-        // 3. Fetch any stored acquisition_channels records for real visits / add_to_cart
-        $storedChannels = AcquisitionChannel::withoutGlobalScope('store')
-            ->where('store_id', $storeId)
-            ->get()
-            ->keyBy('name');
+        // 3. Public storefront events only (never admin / AcquisitionChannel seed counters)
+        $eventVisitsByChannel = $this->publicStorefrontVisitsByChannel($storeId, $startDate, $endDate);
+        $eventCartByChannel = $this->publicStorefrontCartByChannel($storeId, $startDate, $endDate);
+        $prevEventVisitsByChannel = $this->publicStorefrontVisitsByChannel($storeId, $prevStartDate, $prevEndDate);
 
         // Total metrics across all orders
         $totalOrdersCount = $currentOrders->count();
@@ -221,10 +221,9 @@ class MarketingCampaignsController extends Controller
             $prevOrdersCountCh = count($prevOrdersInChannel);
             $prevRevenueCh = (float) array_reduce($prevOrdersInChannel, fn($sum, $o) => $sum + (float) $o->total_amount, 0);
 
-            // Visits / cart only from stored real stats — never invent from orders × N
-            $stored = $storedChannels->get($def['name']) ?? $storedChannels->get($key);
-            $visits = $stored ? max(0, (int) $stored->visits) : 0;
-            $addToCart = $stored ? max(0, (int) $stored->add_to_cart) : 0;
+            // Visits / cart from public storefront_analytics_events only
+            $visits = max(0, (int) ($eventVisitsByChannel[$key] ?? 0));
+            $addToCart = max(0, (int) ($eventCartByChannel[$key] ?? 0));
 
             $totalVisitsSum += $visits;
             $totalAddToCartSum += $addToCart;
@@ -272,7 +271,10 @@ class MarketingCampaignsController extends Controller
         $revenueGrowth = $prevRevenueSum > 0
             ? round((($totalRevenueSum - $prevRevenueSum) / $prevRevenueSum) * 100, 1)
             : ($totalRevenueSum > 0 ? 100.0 : 0.0);
-        $visitsGrowth = 0.0;
+        $prevVisitsSum = (int) array_sum($prevEventVisitsByChannel);
+        $visitsGrowth = $prevVisitsSum > 0
+            ? round((($totalVisitsSum - $prevVisitsSum) / $prevVisitsSum) * 100, 1)
+            : ($totalVisitsSum > 0 ? null : 0.0);
         $convGrowth = 0.0;
         $cartGrowth = 0.0;
         $prevAov = $prevOrdersCount > 0 ? round($prevRevenueSum / $prevOrdersCount, 2) : 0.0;
@@ -280,7 +282,7 @@ class MarketingCampaignsController extends Controller
             ? round((($overallAov - $prevAov) / $prevAov) * 100, 1)
             : ($overallAov > 0 ? 100.0 : 0.0);
 
-        $visitsTrend = $this->buildVisitsTrendSeries($currentOrders, $prevOrders, $startDate, $endDate);
+        $visitsTrend = $this->buildPublicVisitsTrendSeries($storeId, $startDate, $endDate);
 
         $ordersByChannel = array_map(fn ($c) => [
             'name' => $c['name'],
@@ -321,7 +323,9 @@ class MarketingCampaignsController extends Controller
                 ],
                 'total_visits' => [
                     'value' => $totalVisitsSum,
-                    'growth' => ($visitsGrowth >= 0 ? '↑ ' : '↓ ') . abs($visitsGrowth) . '%',
+                    'growth' => $visitsGrowth === null
+                        ? '—'
+                        : (($visitsGrowth >= 0 ? '↑ ' : '↓ ') . abs($visitsGrowth) . '%'),
                     'growth_value' => $visitsGrowth,
                     'label' => 'vs previous period',
                 ],
@@ -416,11 +420,77 @@ class MarketingCampaignsController extends Controller
     }
 
     /**
-     * Real order-count trend by day — never invent visit curves.
+     * Public storefront page_view sessions grouped by marketing channel key.
+     *
+     * @return array<string, int>
      */
-    protected function buildVisitsTrendSeries(mixed $currentOrders, mixed $prevOrders, Carbon $startDate, Carbon $endDate): array
+    protected function publicStorefrontVisitsByChannel(string $storeId, Carbon $from, Carbon $to): array
     {
-        $bucketDays = function ($orders, Carbon $from, Carbon $to): array {
+        if (! Schema::hasTable('storefront_analytics_events')) {
+            return [];
+        }
+
+        $rows = StorefrontAnalyticsEvent::query()
+            ->forStore($storeId)
+            ->publicStorefront()
+            ->where('event_name', 'page_view')
+            ->whereBetween('created_at', [$from, $to])
+            ->select(
+                DB::raw("COALESCE(NULLIF(TRIM(source), ''), 'Direct') as src"),
+                DB::raw("COUNT(DISTINCT CASE WHEN session_key IS NOT NULL AND session_key != '' THEN session_key END) as sessions"),
+                DB::raw("SUM(CASE WHEN session_key IS NULL OR session_key = '' THEN 1 ELSE 0 END) as orphans")
+            )
+            ->groupBy('src')
+            ->get();
+
+        $out = [];
+        foreach ($rows as $row) {
+            $key = $this->matchChannelKey((string) $row->src, null, null);
+            $visits = max(0, (int) ($row->sessions ?? 0) + (int) ($row->orphans ?? 0));
+            $out[$key] = ($out[$key] ?? 0) + $visits;
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    protected function publicStorefrontCartByChannel(string $storeId, Carbon $from, Carbon $to): array
+    {
+        if (! Schema::hasTable('storefront_analytics_events')) {
+            return [];
+        }
+
+        $rows = StorefrontAnalyticsEvent::query()
+            ->forStore($storeId)
+            ->publicStorefront()
+            ->where('event_name', 'add_to_cart')
+            ->whereBetween('created_at', [$from, $to])
+            ->select(
+                DB::raw("COALESCE(NULLIF(TRIM(source), ''), 'Direct') as src"),
+                DB::raw('COUNT(*) as c')
+            )
+            ->groupBy('src')
+            ->get();
+
+        $out = [];
+        foreach ($rows as $row) {
+            $key = $this->matchChannelKey((string) $row->src, null, null);
+            $out[$key] = ($out[$key] ?? 0) + max(0, (int) ($row->c ?? 0));
+        }
+
+        return $out;
+    }
+
+    /**
+     * Real public storefront visit trend — never invent curves from orders.
+     */
+    protected function buildPublicVisitsTrendSeries(string $storeId, Carbon $startDate, Carbon $endDate): array
+    {
+        $prevStart = (clone $startDate)->subDays(max(1, (int) $endDate->diffInDays($startDate)));
+
+        $bucket = function (Carbon $from, Carbon $to) use ($storeId): array {
             $days = max(1, (int) $from->diffInDays($to));
             $points = 7;
             $step = max(1, (int) ceil($days / $points));
@@ -431,27 +501,37 @@ class MarketingCampaignsController extends Controller
                 if ($bucketEnd->gt($to)) {
                     $bucketEnd = clone $to;
                 }
-                $count = 0;
-                foreach ($orders as $order) {
-                    $created = Carbon::parse($order->created_at);
-                    if ($created->betweenIncluded($bucketStart, $bucketEnd)) {
-                        $count++;
-                    }
+                $value = 0;
+                if (Schema::hasTable('storefront_analytics_events')) {
+                    $q = StorefrontAnalyticsEvent::query()
+                        ->forStore($storeId)
+                        ->publicStorefront()
+                        ->where('event_name', 'page_view')
+                        ->whereBetween('created_at', [$bucketStart, $bucketEnd]);
+                    $withSession = (clone $q)
+                        ->whereNotNull('session_key')
+                        ->where('session_key', '!=', '')
+                        ->distinct()
+                        ->count('session_key');
+                    $orphans = (clone $q)
+                        ->where(function ($w) {
+                            $w->whereNull('session_key')->orWhere('session_key', '');
+                        })
+                        ->count();
+                    $value = max(0, (int) $withSession + (int) $orphans);
                 }
                 $series[] = [
                     'label' => $bucketStart->format('M j'),
-                    'value' => $count,
+                    'value' => $value,
                 ];
             }
 
             return $series;
         };
 
-        $prevStart = (clone $startDate)->subDays(max(1, (int) $endDate->diffInDays($startDate)));
-
         return [
-            'current' => $bucketDays($currentOrders, $startDate, $endDate),
-            'previous' => $bucketDays($prevOrders, $prevStart, $startDate),
+            'current' => $bucket($startDate, $endDate),
+            'previous' => $bucket($prevStart, $startDate),
         ];
     }
 }

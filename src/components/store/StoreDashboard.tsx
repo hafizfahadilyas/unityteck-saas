@@ -20,7 +20,12 @@ import {
   type DateRangeKey,
 } from '../../utils/liveSeries';
 import { isApiEnabled } from '../../api/client';
-import { fetchDashboardHomeAnalytics, type DashboardHomeAnalytics } from '../../api/tenantApi';
+import {
+  fetchDashboardHomeAnalytics,
+  fetchStoreRecentActivitiesApi,
+  type CustomerActivityRow,
+  type DashboardHomeAnalytics,
+} from '../../api/tenantApi';
 import type { DayVisitPoint } from './dashboard/VisitsByDayChart';
 
 interface StoreDashboardProps {
@@ -39,10 +44,6 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
     currentCustomers,
     currentProducts,
     currentOrders,
-    currentCoupons,
-    currentPaymentGateways,
-    currentShipping,
-    currentShippingMethods,
     dataSource,
     addOrder,
   } = useTenant();
@@ -53,11 +54,13 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
   const [dateRange, setDateRange] = useState<DateRangeKey>('month');
   const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
   const [homeAnalytics, setHomeAnalytics] = useState<DashboardHomeAnalytics | null>(null);
+  const [storefrontActivities, setStorefrontActivities] = useState<CustomerActivityRow[]>([]);
 
   useEffect(() => {
     const storeId = activeStore?.id;
     if (!storeId || !isApiEnabled()) {
       setHomeAnalytics(null);
+      setStorefrontActivities([]);
       return;
     }
     let cancelled = false;
@@ -67,6 +70,13 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
       })
       .catch(() => {
         if (!cancelled) setHomeAnalytics(null);
+      });
+    void fetchStoreRecentActivitiesApi(storeId, 40)
+      .then((rows) => {
+        if (!cancelled) setStorefrontActivities(Array.isArray(rows) ? rows : []);
+      })
+      .catch(() => {
+        if (!cancelled) setStorefrontActivities([]);
       });
     return () => {
       cancelled = true;
@@ -269,25 +279,14 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
     return { salesGrowth: sGrowth, ordersGrowth: ordersGrowthVal };
   }, [currentOrders]);
 
-  const missingSettingsCount = useMemo(() => {
-    let missing = 0;
-    if (currentProducts.length === 0) missing++;
-    if (!currentPaymentGateways || currentPaymentGateways.length === 0 || !currentPaymentGateways.some((g) => g.isEnabled)) missing++;
-    if ((!currentShipping || currentShipping.length === 0) && (!currentShippingMethods || currentShippingMethods.length === 0)) missing++;
-    if (!activeStore.domain && !activeStore.hosting_id) missing++;
-    return missing;
-  }, [currentProducts.length, currentPaymentGateways, currentShipping, currentShippingMethods, activeStore.domain, activeStore.hosting_id]);
-
   return (
     <AdminPageShell className="pb-12 space-y-4">
-      {/* ── Top Overview Header & Action Required Alert (100% same-to-same) ── */}
+      {/* ── Top Overview Header ── */}
       <StoreOverviewHeader
         storeName={(isAr ? activeStore.nameAr : activeStore.nameEn) || activeStore.name}
         selectedRangeLabel={selectedRangeLabel}
         activeRangeKey={dateRange}
         onSelectRange={(k) => setDateRange(k as DateRangeKey)}
-        missingSettingsCount={missingSettingsCount}
-        onNavigateTab={onNavigateTab}
       />
 
       {/* ── Main 3-Column Grid Layout (Cols 1-2 on Left, Col 3 on Right) ── */}
@@ -305,7 +304,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
               salesValue={liveRevenue}
               visitsValue={visitorsCount}
               profitValue={estimatedProfit}
-              ordersValue={currentOrders.length}
+              ordersValue={analyticsOrders.length}
               salesGrowth={salesGrowth}
               visitsGrowth={visitsGrowth}
               profitGrowth={estimatedProfit > 0 ? salesGrowth : null}
@@ -328,7 +327,8 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
             orders={currentOrders}
             customers={currentCustomers}
             products={currentProducts}
-            onViewAll={() => onNavigateTab('orders')}
+            storefrontActivities={storefrontActivities}
+            onViewAll={() => onNavigateTab('abandoned-carts')}
             onNavigateOrder={() => onNavigateTab('orders')}
           />
         </div>
@@ -369,6 +369,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
           isOpen={isCreateOrderModalOpen}
           storeId={activeStore.id}
           storeName={activeStore.name}
+          products={currentProducts}
           onClose={() => setIsCreateOrderModalOpen(false)}
           onCreate={async (orderData) => {
             try {

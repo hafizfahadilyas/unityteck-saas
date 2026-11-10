@@ -130,18 +130,21 @@ export const TrafficSourcesCard: React.FC<TrafficSourcesCardProps> = React.memo(
   };
 
   return (
-    <div className="p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-slate-900 shadow-xs flex flex-col h-full min-h-[280px] max-h-[320px]">
+    <div
+      className="u-card p-3.5 sm:p-4 rounded-2xl shadow-xs flex flex-col h-full min-h-[280px] max-h-[320px]"
+      style={{ fontFamily: 'var(--font-ui)' }}
+    >
       {/* ── Card Header ── */}
-      <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800/80 mb-3">
+      <div className="flex items-center justify-between pb-3 mb-3" style={{ borderBottom: '1px solid var(--border)' }}>
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 flex items-center justify-center border border-teal-200/60 dark:border-teal-800/40">
+          <div className="u-icon-brand w-8 h-8 rounded-xl flex items-center justify-center shrink-0">
             <Link2 className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-sm font-black text-slate-900 dark:text-white leading-tight">
+            <h3 className="text-sm font-black leading-tight" style={{ color: 'var(--text)' }}>
               {isAr ? 'مصادر الزيارات' : 'Traffic Sources'}
             </h3>
-            <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
+            <p className="text-[11px] font-bold" style={{ color: 'var(--muted)' }}>
               {isAr ? 'من أين يأتي زوار متجرك؟' : 'Where do your visitors come from?'}
             </p>
           </div>
@@ -150,7 +153,7 @@ export const TrafficSourcesCard: React.FC<TrafficSourcesCardProps> = React.memo(
         <button
           type="button"
           onClick={onViewAll}
-          className="text-xs font-bold text-teal-700 hover:text-teal-900 dark:text-teal-300 dark:hover:text-teal-200 flex items-center gap-1 hover:underline cursor-pointer transition-colors"
+          className="u-accent-text text-xs font-bold flex items-center gap-1 hover:underline cursor-pointer transition-colors"
         >
           <span>{isAr ? 'عرض الكل' : 'View All'}</span>
           <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" />
@@ -215,8 +218,8 @@ export const TrafficSourcesCard: React.FC<TrafficSourcesCardProps> = React.memo(
           {/* Channels List or Genuine Empty State (Sources with 0 visits hidden) */}
           {list.length === 0 ? (
             <div className="flex-1 flex flex-col justify-center items-center text-center p-3 sm:p-4 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/60 my-auto">
-              <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 flex items-center justify-center border border-teal-200/50 dark:border-teal-800/40 mb-1.5">
-                <Link2 className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+              <div className="u-icon-brand w-8 h-8 rounded-lg flex items-center justify-center mb-1.5">
+                <Link2 className="w-4 h-4 opacity-60" />
               </div>
               <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
                 {isAr ? 'لا توجد مصادر زيارات مسجلة بعد' : 'No traffic sources recorded yet'}

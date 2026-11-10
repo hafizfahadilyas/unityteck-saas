@@ -47,6 +47,56 @@ function asString(value: unknown): string | undefined {
   return undefined;
 }
 
+/**
+ * Visits / funnel / cart tracking = PUBLIC storefront only.
+ * Store admin + Master dashboard must never inflate reports.
+ */
+export function isPublicStorefrontContext(): boolean {
+  if (typeof document === 'undefined' || typeof location === 'undefined') return false;
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.get('preview') === '1' || q.get('embed') === '1' || q.get('builder') === '1') {
+      return false;
+    }
+    // Admin shell mounted → never count (even if URL looks public)
+    if (document.querySelector('.unity-shell[data-portal="store"], .unity-shell[data-portal="master"]')) {
+      return false;
+    }
+    const path = (location.pathname || '').toLowerCase();
+    const publicPath =
+      path === '/' ||
+      path === '' ||
+      path === '/shop' ||
+      path === '/storefront' ||
+      path.startsWith('/coffee') ||
+      path.startsWith('/flowers') ||
+      path.startsWith('/hadaya') ||
+      path.startsWith('/car') ||
+      path.startsWith('/cars') ||
+      path.startsWith('/bleco') ||
+      path.startsWith('/public_html') ||
+      path === '/catalog' ||
+      path === '/cart' ||
+      path === '/checkout' ||
+      path.startsWith('/product') ||
+      path.startsWith('/category') ||
+      path.startsWith('/catalog/') ||
+      path === '/crm' ||
+      path === '/profile' ||
+      path === '/orders' ||
+      path === '/account' ||
+      path === '/wishlist' ||
+      path === '/thankyou' ||
+      q.get('fullscreen') === '1' ||
+      q.get('tab') === 'storefront';
+    return publicPath;
+  } catch {
+    return false;
+  }
+}
+
+const PUBLIC_SURFACE = 'public_storefront';
+
 /** Fire-and-forget customer activity → Laravel MySQL (per store_id). */
 export function trackCustomerActivity(
   storeId: string | undefined | null,
@@ -54,6 +104,7 @@ export function trackCustomerActivity(
 ): void {
   if (!storeId || !isApiEnabled() || typeof fetch === 'undefined') return;
   if (!payload?.activity_type) return;
+  if (!isPublicStorefrontContext()) return;
 
   const body = {
     store_id: storeId,
@@ -63,7 +114,7 @@ export function trackCustomerActivity(
     customer_id: payload.customer_id || undefined,
     customer_name: payload.customer_name || undefined,
     order_id: payload.order_id || undefined,
-    meta: payload.meta,
+    meta: { ...(payload.meta || {}), surface: PUBLIC_SURFACE },
   };
 
   void fetch('/api/storefront/customer-activities', {
@@ -71,6 +122,7 @@ export function trackCustomerActivity(
     headers: {
       'Content-Type': 'application/json',
       'X-Store-Id': storeId,
+      'X-Storefront-Surface': PUBLIC_SURFACE,
     },
     body: JSON.stringify(body),
     keepalive: true,
@@ -84,7 +136,11 @@ export function trackStorefrontEvent(
   extra?: { path?: string; customerId?: string; meta?: Record<string, unknown> },
 ): void {
   if (!storeId || !isApiEnabled() || typeof fetch === 'undefined') return;
+  // Hard lock: never count Store Admin / Master / preview as visits
+  if (!isPublicStorefrontContext()) return;
+
   const traffic = readTrafficSource();
+  const meta = { ...(extra?.meta || {}), surface: PUBLIC_SURFACE };
   const body = {
     event,
     path: extra?.path || (typeof location !== 'undefined' ? location.pathname : ''),
@@ -93,13 +149,14 @@ export function trackStorefrontEvent(
     campaign: traffic.campaign || undefined,
     customer_id: extra?.customerId,
     session_key: sessionKey(),
-    meta: extra?.meta,
+    meta,
   };
   void fetch('/api/storefront/events', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-Store-Id': storeId,
+      'X-Storefront-Surface': PUBLIC_SURFACE,
     },
     body: JSON.stringify(body),
     keepalive: true,
@@ -108,7 +165,6 @@ export function trackStorefrontEvent(
   const activityType = EVENT_TO_ACTIVITY[event];
   if (!activityType) return;
 
-  const meta = extra?.meta || {};
   const productId = asString(meta.product_id) || asString(meta.productId);
   const productName = asString(meta.product_name) || asString(meta.productName);
   const orderId = asString(meta.order_id) || asString(meta.orderId);

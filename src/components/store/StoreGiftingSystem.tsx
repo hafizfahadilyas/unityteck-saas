@@ -61,7 +61,7 @@ export const StoreGiftingSystem: React.FC<StoreGiftingSystemProps> = ({ onNaviga
   const [isAnonymous, setIsAnonymous] = useState<boolean>(true);
   const [customMessage, setCustomMessage] = useState<string>('');
   const [recipientName, setRecipientName] = useState<string>('');
-  const [recipientPhone, setRecipientPhone] = useState<string>('+966 50 123 4567');
+  const [recipientPhone, setRecipientPhone] = useState<string>('');
   const [recipientAddress, setRecipientAddress] = useState<string>('');
 
   // Add Card Modal / Inline Form

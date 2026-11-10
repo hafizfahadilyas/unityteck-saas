@@ -98,39 +98,6 @@ const EDITOR_TO_FILTER_KEY: Partial<Record<EditorSectionKey, ProductEditSectionK
   seo: 'seo',
 };
 
-function SectionVisibilityToggle({
-  checked,
-  onChange,
-  label,
-}: {
-  checked: boolean;
-  onChange: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onChange();
-      }}
-      className={`relative w-11 h-6 rounded-full transition-colors shrink-0 cursor-pointer ${
-        checked ? 'bg-teal-600' : 'bg-slate-300 dark:bg-slate-600'
-      }`}
-    >
-      <span
-        className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${
-          checked ? 'start-5' : 'start-0.5'
-        }`}
-      />
-    </button>
-  );
-}
-
 type ProductShippingMode = 'store_default' | 'own_delivery' | 'shipping_company';
 
 export interface StoreProductEditorViewProps {
@@ -142,11 +109,15 @@ export interface StoreProductEditorViewProps {
   storeId?: string;
   canMutate?: boolean;
   categories: string[];
+  /** Hierarchical labels (category + subcategory). Falls back to `categories`. */
+  categoryOptions?: { value: string; label: string }[];
   availableBrands?: string[];
   onBack: () => void;
   onSave: (updatedData: Partial<Product>) => void;
   onDelete: () => void;
   onDuplicate?: (product: Product) => void;
+  /** Open store admin tab (e.g. shipping) from product editor. */
+  onNavigateTab?: (tab: string) => void;
   /** Shared with list Filter popover — hide/show editor cards. */
   visibleSections?: Partial<Record<ProductEditSectionKey, boolean>>;
   onVisibleSectionsChange?: (next: Record<ProductEditSectionKey, boolean>) => void;
@@ -270,7 +241,9 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   storeSlug = 'store',
   storeId = '',
   canMutate = true,
+  onNavigateTab,
   categories,
+  categoryOptions,
   availableBrands = [],
   onBack,
   onSave,
@@ -302,14 +275,10 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   );
   const [discountStartAt, setDiscountStartAt] = useState(product.discountStartAt || '');
   const [discountEndAt, setDiscountEndAt] = useState(product.discountEndAt || '');
-  const [badgeText, setBadgeText] = useState(product.badgeText || '');
-  const [badgeIcon, setBadgeIcon] = useState(product.badgeIcon || 'tag');
   const [salesChannels, setSalesChannels] = useState<string[]>(() =>
     normalizeProductSalesChannels(product.salesChannels),
   );
-  const [optionsEnabled, setOptionsEnabled] = useState(
-    () => seedExistingCommerce(product, storeId).options.length > 0,
-  );
+  const [optionsEnabled, setOptionsEnabled] = useState(true);
   const [variantSearch, setVariantSearch] = useState('');
   const [expandedVariantIds, setExpandedVariantIds] = useState<string[]>([]);
 
@@ -586,31 +555,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     }
     return [];
   });
-  const [badge, setBadge] = useState<string>(() => {
-    if (!product.badge && !product.badgeText) return '';
-    return 'promo';
-  });
   const [newTagInput, setNewTagInput] = useState('');
-
-  const QUICK_OCCASION_TAGS = [
-    { id: 'trending', labelAr: 'الأكثر رواجاً', labelEn: 'Top Trending' },
-    { id: 'best_sellers', labelAr: 'الأكثر مبيعاً', labelEn: 'Best Sellers' },
-    { id: 'best_products', labelAr: 'أفضل المنتجات', labelEn: 'Best Products' },
-    { id: 'featured', labelAr: 'منتج مميز', labelEn: 'Featured' },
-    { id: 'women', labelAr: 'هدايا نسائية', labelEn: 'Women' },
-    { id: 'valentines', labelAr: 'عيد الحب والرومانسية', labelEn: "Valentine's Day" },
-    { id: 'eid', labelAr: 'الأعياد والاحتفالات', labelEn: 'Eid' },
-    { id: 'birthday', labelAr: 'أعياد الميلاد', labelEn: 'Birthday' },
-    { id: 'luxury', labelAr: 'تشكيلة فاخرة', labelEn: 'Luxury VIP' },
-  ];
-
-  const toggleQuickTag = (tagId: string) => {
-    if (tags.includes(tagId)) {
-      setTags(tags.filter((t) => t !== tagId));
-    } else {
-      setTags([...tags, tagId]);
-    }
-  };
 
   // ── Custom Fields State (Strictly Real Product Specs / Fields - ZERO DUMMY FIELDS) ──
   const [customFields, setCustomFields] = useState<CustomFieldItem[]>(() => {
@@ -1590,9 +1535,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       image: gallery[selectedImageIndex] || gallery[0] || product.image,
       galleryUrls: gallery,
       additionalImages: gallery.slice(1),
-      badge: badge === 'promo' ? 'promo' : undefined,
-      badgeText: badge === 'promo' ? badgeText.trim() || null : null,
-      badgeIcon: badge === 'promo' ? badgeIcon || 'tag' : null,
       salesChannels: normalizeProductSalesChannels(salesChannels),
       tags,
       customFields: customFields.map((f, i) => ({
@@ -1818,11 +1760,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     </p>
                   </div>
                 </div>
-                <SectionVisibilityToggle
-                  checked={sectionVisibility.images}
-                  onChange={() => toggleEditorSection('images')}
-                  label={isAr ? 'إظهار صور المنتج' : 'Show product images'}
-                />
               </div>
 
               {/* Hidden File Inputs for Instant Selection */}
@@ -2055,11 +1992,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     </h3>
                   </div>
                 </div>
-                <SectionVisibilityToggle
-                  checked={sectionVisibility.basic}
-                  onChange={() => toggleEditorSection('basic')}
-                  label={isAr ? 'إظهار المعلومات الأساسية' : 'Show basic information'}
-                />
               </div>
 
               {/* Form Row 1: Product Name * and SKU * */}
@@ -2103,18 +2035,32 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   </label>
                   <select
                     value={category}
-                    onChange={(e) => setCategory(e.target.value)}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setCategory(next);
+                      if (next && !productCategories.includes(next)) {
+                        setProductCategories([next, ...productCategories.filter((c) => c !== next)]);
+                      }
+                    }}
                     className="w-full px-2.5 py-2 rounded-xl border text-xs font-medium cursor-pointer focus:outline-none"
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   >
-                    {categories.map((c) => (
-                      <option key={c} value={c}>
-                        {getProductDisplayCategory(c, locale)}
+                    {(categoryOptions && categoryOptions.length > 0
+                      ? categoryOptions
+                      : categories.map((c) => ({
+                          value: c,
+                          label: getProductDisplayCategory(c, locale),
+                        }))
+                    ).map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
                       </option>
                     ))}
-                    {!categories.includes(category) && (
-                      <option value={category}>{category}</option>
-                    )}
+                    {category &&
+                      !(categoryOptions ?? []).some((o) => o.value === category) &&
+                      !categories.includes(category) && (
+                        <option value={category}>{category}</option>
+                      )}
                   </select>
                 </div>
 
@@ -2272,11 +2218,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     {isAr ? 'التسعير' : 'Pricing'}
                   </h3>
                 </div>
-                <SectionVisibilityToggle
-                  checked={sectionVisibility.pricing}
-                  onChange={() => toggleEditorSection('pricing')}
-                  label={isAr ? 'إظهار التسعير' : 'Show pricing'}
-                />
               </div>
 
               {/* 3-Column Inputs: Regular Price, Sale Price, Tax Rate */}
@@ -2374,11 +2315,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     {isAr ? 'المخزون والشحن' : 'Inventory & Shipping'}
                   </h3>
                 </div>
-                <SectionVisibilityToggle
-                  checked={sectionVisibility.inventory}
-                  onChange={() => toggleEditorSection('inventory')}
-                  label={isAr ? 'إظهار المخزون والشحن' : 'Show inventory and shipping'}
-                />
               </div>
 
               {/* Row 1: Stock Quantity *, Low Stock Alert, Stock Status */}
@@ -2493,7 +2429,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                 </div>
               </div>
 
-              {/* Product shipping — both channels + dynamic options */}
+              {/* Product shipping channels — rates / ETA / payments live on Shipping page */}
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
                 <div className="flex items-center gap-2">
                   <Truck className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
@@ -2545,136 +2481,39 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   </div>
                 </div>
 
-                {(allowOwnDelivery || allowShippingCompany) && (
-                  <div className="space-y-3 rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--hover-bg)' }}>
-                    <div>
-                      <label className="text-xs font-bold block mb-2" style={{ color: 'var(--text)' }}>
-                        {isAr ? 'حساب رسوم الشحن' : 'Shipping charge mode'}
-                      </label>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        {(
-                          [
-                            { id: 'fixed' as const, en: 'Fixed', ar: 'ثابت' },
-                            { id: 'per_kg' as const, en: 'Per kg', ar: 'حسب الكيلو' },
-                            { id: 'per_km' as const, en: 'Per km', ar: 'حسب الكيلومتر' },
-                            { id: 'zone' as const, en: 'By zone', ar: 'حسب المنطقة' },
-                          ] as const
-                        ).map((opt) => (
-                          <button
-                            key={opt.id}
-                            type="button"
-                            onClick={() => setShippingRateMode(opt.id)}
-                            className={`px-2 py-2 rounded-xl text-[11px] font-bold border cursor-pointer ${
-                              shippingRateMode === opt.id
-                                ? 'bg-teal-600 text-white border-teal-600'
-                                : 'bg-white dark:bg-slate-900 text-slate-600 border-slate-200 dark:border-slate-700'
-                            }`}
-                          >
-                            {isAr ? opt.ar : opt.en}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <div>
-                        <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                          {isAr ? 'أساسي' : 'Base'} ({commerceTerm('currencySar', isAr)})
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={deliveryFee}
-                          onChange={(e) => setDeliveryFee(Number(e.target.value))}
-                          className="w-full px-3 py-2 rounded-xl border text-xs font-mono focus:outline-none"
-                          style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                        />
-                      </div>
-                      {(shippingRateMode === 'per_kg' || shippingRateMode === 'zone') && (
-                        <div>
-                          <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                            {isAr ? 'للكل كجم' : 'Per kg'}
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={shippingPerKgRate}
-                            onChange={(e) => setShippingPerKgRate(Number(e.target.value))}
-                            className="w-full px-3 py-2 rounded-xl border text-xs font-mono focus:outline-none"
-                            style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                          />
-                        </div>
-                      )}
-                      {(shippingRateMode === 'per_km' || shippingRateMode === 'zone') && (
-                        <div>
-                          <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                            {isAr ? 'للكل كم' : 'Per km'}
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={shippingPerKmRate}
-                            onChange={(e) => setShippingPerKmRate(Number(e.target.value))}
-                            className="w-full px-3 py-2 rounded-xl border text-xs font-mono focus:outline-none"
-                            style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                        {isAr ? 'الوقت المتوقع / التتبع' : 'ETA / tracking text'}
-                      </label>
-                      <input
-                        type="text"
-                        value={estimatedDeliveryText}
-                        onChange={(e) => setEstimatedDeliveryText(e.target.value)}
-                        placeholder={isAr ? 'مثال: نفس اليوم أو خلال 24–48 ساعة' : 'e.g. Same day or Within 24–48 hours'}
-                        className="w-full px-3 py-2 rounded-xl border text-xs focus:outline-none"
-                        style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-bold block mb-2" style={{ color: 'var(--text)' }}>
-                        {isAr ? 'خيارات الدفع مع الشحن' : 'Payment options with shipping'}
-                      </label>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        {(
-                          [
-                            { id: 'cod' as const, en: 'COD', ar: 'عند الاستلام' },
-                            { id: 'online' as const, en: 'Online', ar: 'إلكتروني' },
-                            { id: 'bank_transfer' as const, en: 'Bank', ar: 'تحويل بنكي' },
-                          ] as const
-                        ).map((opt) => {
-                          const on = shippingPaymentOptions.includes(opt.id);
-                          return (
-                            <button
-                              key={opt.id}
-                              type="button"
-                              onClick={() =>
-                                setShippingPaymentOptions((prev) =>
-                                  on ? prev.filter((x) => x !== opt.id) : [...prev, opt.id],
-                                )
-                              }
-                              className={`px-2 py-2 rounded-xl text-[11px] font-bold border cursor-pointer ${
-                                on
-                                  ? 'bg-emerald-600 text-white border-emerald-600'
-                                  : 'bg-white dark:bg-slate-900 text-slate-600 border-slate-200 dark:border-slate-700'
-                              }`}
-                            >
-                              {isAr ? opt.ar : opt.en}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                )}
+                <div
+                  className="rounded-xl border p-3 space-y-2"
+                  style={{ borderColor: 'var(--border)', background: 'var(--hover-bg)' }}
+                >
+                  <p className="text-[11px] leading-relaxed" style={{ color: 'var(--muted)' }}>
+                    {isAr
+                      ? 'أسعار الشحن والوقت المتوقع وخيارات الدفع تُدار من صفحة الشحن.'
+                      : 'Shipping rates, ETA, and payment options are managed on the Shipping page.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        sessionStorage.setItem('unityteck-shipping-view', 'methods');
+                      } catch {
+                        /* storage may be unavailable */
+                      }
+                      onNavigateTab?.('shipping');
+                      window.setTimeout(() => {
+                        window.dispatchEvent(
+                          new CustomEvent('unityteck-shipping-view', { detail: 'methods' }),
+                        );
+                      }, 60);
+                    }}
+                    className="w-full px-3 py-2.5 rounded-xl text-xs font-bold border cursor-pointer inline-flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-500 text-white border-teal-600"
+                  >
+                    <Truck className="w-3.5 h-3.5 shrink-0" />
+                    <span>
+                      {isAr ? 'فتح صفحة الشحن' : 'Open Shipping page'}
+                    </span>
+                    <ExternalLink className="w-3.5 h-3.5 shrink-0 opacity-90" />
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -2702,53 +2541,23 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
               </div>
 
               <div className="flex items-center gap-3 self-start sm:self-center shrink-0">
-                <SectionVisibilityToggle
-                  checked={sectionVisibility.variations}
-                  onChange={() => toggleEditorSection('variations')}
-                  label={isAr ? 'إظهار قسم الخيارات' : 'Show options section'}
-                />
                 <button
                   type="button"
-                  role="switch"
-                  aria-checked={optionsEnabled}
                   onClick={() => {
-                    const next = !optionsEnabled;
-                    setOptionsEnabled(next);
-                    if (next && variations.length === 0) applyVariantMatrix(options, variations, true);
+                    if (!optionsEnabled) {
+                      setOptionsEnabled(true);
+                      if (variations.length === 0) applyVariantMatrix(options, variations, true);
+                    }
+                    handleOpenAddOption();
                   }}
-                  className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
-                    optionsEnabled ? 'bg-teal-600' : 'bg-slate-300 dark:bg-slate-600'
-                  }`}
-                  title={isAr ? 'تفعيل خيارات المنتج' : 'Enable product options'}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-blue-500/50 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900/60 hover:bg-blue-50 dark:hover:bg-blue-950/40 font-bold text-xs transition-colors shadow-2xs cursor-pointer"
                 >
-                  <span
-                    className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
-                      optionsEnabled ? 'start-5' : 'start-0.5'
-                    }`}
-                  />
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{isAr ? 'إضافة خيار' : '+ Add Option'}</span>
                 </button>
-                {optionsEnabled && (
-                  <button
-                    type="button"
-                    onClick={handleOpenAddOption}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-blue-500/50 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900/60 hover:bg-blue-50 dark:hover:bg-blue-950/40 font-bold text-xs transition-colors shadow-2xs cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>{isAr ? 'إضافة خيار' : '+ Add Option'}</span>
-                  </button>
-                )}
               </div>
             </div>
 
-            {!optionsEnabled && (
-              <p className="text-xs text-slate-500 dark:text-slate-400 py-2">
-                {isAr
-                  ? 'خيارات المنتج متوقفة. فعّل المفتاح لإضافة خيارات وتنويعات.'
-                  : 'Product options are off. Enable the toggle to add options and variants.'}
-              </p>
-            )}
-
-            {optionsEnabled && (
             <>
 
             {/* Options List (Grip, Name, Value Pills with Colors, Expand, Edit, Delete) */}
@@ -3447,7 +3256,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
               </div>
             </div>
             </>
-            )}
           </div>
         )}
 
@@ -3472,11 +3280,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                 </div>
               </div>
               <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
-                <SectionVisibilityToggle
-                  checked={sectionVisibility.custom_fields}
-                  onChange={() => toggleEditorSection('custom_fields')}
-                  label={isAr ? 'إظهار الحقول المخصصة' : 'Show custom fields'}
-                />
                 <button
                   type="button"
                   onClick={handleOpenAddField}
@@ -3705,11 +3508,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     {isAr ? 'التصنيف والوسوم' : 'Category & Tags'}
                   </h3>
                 </div>
-                <SectionVisibilityToggle
-                  checked={sectionVisibility.category_tags}
-                  onChange={() => toggleEditorSection('category_tags')}
-                  label={isAr ? 'إظهار التصنيف والوسوم' : 'Show category and tags'}
-                />
               </div>
 
               {/* Multi-category assignment */}
@@ -3750,11 +3548,17 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                 >
                   <option value="">{isAr ? 'إضافة تصنيف...' : 'Add category...'}</option>
-                  {categories
-                    .filter((c) => !productCategories.includes(c))
+                  {(categoryOptions && categoryOptions.length > 0
+                    ? categoryOptions
+                    : categories.map((c) => ({
+                        value: c,
+                        label: getProductDisplayCategory(c, locale),
+                      }))
+                  )
+                    .filter((c) => !productCategories.includes(c.value))
                     .map((c) => (
-                      <option key={c} value={c}>
-                        {getProductDisplayCategory(c, locale)}
+                      <option key={c.value} value={c.value}>
+                        {c.label}
                       </option>
                     ))}
                 </select>
@@ -3787,98 +3591,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     }`}
                   />
                 </button>
-              </div>
-
-              {/* Product Badge: No Badge | Promotional Text */}
-              <div>
-                <label className="text-xs font-bold block mb-1.5" style={{ color: 'var(--text)' }}>
-                  {isAr ? 'شارة المنتج' : 'Product Badge'}
-                </label>
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                  {[
-                    { id: '', labelAr: 'بدون شارة', labelEn: 'No Badge' },
-                    { id: 'promo', labelAr: 'نص ترويجي', labelEn: 'Promotional Text' },
-                  ].map((bItem) => {
-                    const isSelected = badge === bItem.id;
-                    return (
-                      <button
-                        key={bItem.id || 'none'}
-                        type="button"
-                        onClick={() => setBadge(bItem.id)}
-                        className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all text-start flex items-center justify-between cursor-pointer ${
-                          isSelected
-                            ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-700 dark:text-emerald-400 shadow-xs'
-                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
-                        }`}
-                      >
-                        <span>{isAr ? bItem.labelAr : bItem.labelEn}</span>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />}
-                      </button>
-                    );
-                  })}
-                </div>
-                {badge === 'promo' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-xl border border-emerald-200/80 dark:border-emerald-900/50 bg-emerald-50/40 dark:bg-emerald-950/20">
-                    <div>
-                      <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                        {isAr ? 'النص الترويجي' : 'Promotional Text'}
-                      </label>
-                      <input
-                        type="text"
-                        value={badgeText}
-                        onChange={(e) => setBadgeText(e.target.value)}
-                        maxLength={40}
-                        placeholder={isAr ? 'مثال: عرض خاص' : 'e.g. Special Offer'}
-                        className="w-full px-2.5 py-2 rounded-xl border text-xs font-medium focus:outline-none"
-                        style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                        {isAr ? 'الأيقونة' : 'Icon'}
-                      </label>
-                      <select
-                        value={badgeIcon}
-                        onChange={(e) => setBadgeIcon(e.target.value)}
-                        className="w-full px-2.5 py-2 rounded-xl border text-xs font-medium cursor-pointer focus:outline-none"
-                        style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                      >
-                        <option value="tag">{isAr ? 'وسم' : 'Tag'}</option>
-                        <option value="percent">{isAr ? 'نسبة خصم' : 'Percent'}</option>
-                        <option value="star">{isAr ? 'نجمة' : 'Star'}</option>
-                        <option value="flame">{isAr ? 'لهب' : 'Flame'}</option>
-                        <option value="gift">{isAr ? 'هدية' : 'Gift'}</option>
-                      </select>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Quick Occasions & Dynamic Collections */}
-              <div>
-                <label className="text-xs font-bold block mb-1.5" style={{ color: 'var(--text)' }}>
-                  {isAr ? 'الأقسام الموسمية والمناسبات (تظهر في أقسام الصفحة الرئيسية)' : 'Occasions & Dynamic Collections (Show on Homepage)'}
-                </label>
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {QUICK_OCCASION_TAGS.map((qTag) => {
-                    const isTagged = tags.includes(qTag.id);
-                    return (
-                      <button
-                        key={qTag.id}
-                        type="button"
-                        onClick={() => toggleQuickTag(qTag.id)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer flex items-center gap-1 ${
-                          isTagged
-                            ? 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-500 text-indigo-700 dark:text-indigo-300'
-                            : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300'
-                        }`}
-                      >
-                        <span>{isAr ? qTag.labelAr : qTag.labelEn}</span>
-                        {isTagged && <Check className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />}
-                      </button>
-                    );
-                  })}
-                </div>
               </div>
 
               {/* Tags with removable pills */}
@@ -3928,11 +3640,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     {isAr ? 'إعدادات تحسين محركات البحث' : 'SEO Settings'}
                   </h3>
                 </div>
-                <SectionVisibilityToggle
-                  checked={sectionVisibility.seo}
-                  onChange={() => toggleEditorSection('seo')}
-                  label={isAr ? 'إظهار إعدادات تحسين محركات البحث' : 'Show SEO settings'}
-                />
               </div>
 
               {/* SEO Title */}
