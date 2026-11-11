@@ -1,5 +1,5 @@
 /**
- * Real Excel / CSV downloads for Unityteck dashboards.
+ * Real Excel / CSV downloads for Souq Platform dashboards.
  * - CSV: UTF-8 BOM + `sep=;` + `;` delimiter (works AR + EN Excel; no mashed / leftover sep=).
  * - Excel: SpreadsheetML (.xls) with header colors, column widths, borders, phone-as-text, money numbers.
  */

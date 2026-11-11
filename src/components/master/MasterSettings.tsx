@@ -40,11 +40,7 @@ export const MasterSettings: React.FC = () => {
 
   // Platform details
   const [platformName, setPlatformName] = useState(isAr ? 'منصة سوق' : 'Souq Platform');
-  const [platformTagline, setPlatformTagline] = useState(
-    isAr
-      ? 'التجارة الإلكترونية الشاملة'
-      : 'Complete e-commerce'
-  );
+  const [platformTagline, setPlatformTagline] = useState('');
   const [platformLogo, setPlatformLogo] = useState('/favicon.svg');
   const [supportEmail, setSupportEmail] = useState('admin@unityteck.sa');
   const [timezone, setTimezone] = useState('Asia/Riyadh');

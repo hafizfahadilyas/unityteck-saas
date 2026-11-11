@@ -287,41 +287,24 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
                           </div>
                         </div>
 
-                        {/* Arabic Text */}
                         <div>
                           <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                            {isAr ? 'النص بالعربية' : 'Arabic Text'}
+                            {isAr ? 'النص' : 'Text'}
                           </label>
                           <input
                             type="text"
-                            value={msg.textAr}
+                            dir={isAr ? 'rtl' : 'ltr'}
+                            value={isAr ? msg.textAr : msg.textEn}
                             onChange={(e) => {
                               const val = e.target.value;
                               updateSub('announcement', (prev) => ({
                                 ...prev,
                                 messages: prev.messages.map((m) =>
-                                  m.id === msg.id ? { ...m, textAr: val } : m,
-                                ),
-                              }));
-                            }}
-                            className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:bg-white"
-                          />
-                        </div>
-
-                        {/* English Text */}
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                            {isAr ? 'النص بالإنجليزية' : 'English Text'}
-                          </label>
-                          <input
-                            type="text"
-                            value={msg.textEn}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              updateSub('announcement', (prev) => ({
-                                ...prev,
-                                messages: prev.messages.map((m) =>
-                                  m.id === msg.id ? { ...m, textEn: val } : m,
+                                  m.id === msg.id
+                                    ? isAr
+                                      ? { ...m, textAr: val }
+                                      : { ...m, textEn: val }
+                                    : m,
                                 ),
                               }));
                             }}
@@ -462,13 +445,17 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
                   <div className="space-y-2.5 pt-2 border-t border-slate-200">
                     <div>
                       <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                        {isAr ? 'اسم المتجر الرئيسي (عربي)' : 'Store Name (Arabic)'}
+                        {isAr ? 'العنوان' : 'Title'}
                       </label>
                       <input
                         type="text"
-                        value={settings.logo.titleAr}
+                        dir={isAr ? 'rtl' : 'ltr'}
+                        value={isAr ? settings.logo.titleAr : settings.logo.titleEn}
                         onChange={(e) =>
-                          updateSub('logo', (prev) => ({ ...prev, titleAr: e.target.value }))
+                          updateSub('logo', (prev) => ({
+                            ...prev,
+                            ...(isAr ? { titleAr: e.target.value } : { titleEn: e.target.value }),
+                          }))
                         }
                         className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 bg-white font-bold"
                       />
@@ -476,45 +463,20 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
 
                     <div>
                       <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                        {isAr ? 'اسم المتجر (إنجليزي)' : 'Store Name (English)'}
+                        {isAr ? 'العنوان الفرعي' : 'Subtitle'}
                       </label>
                       <input
                         type="text"
-                        value={settings.logo.titleEn}
+                        dir={isAr ? 'rtl' : 'ltr'}
+                        value={isAr ? settings.logo.subtitleAr : settings.logo.subtitleEn}
                         onChange={(e) =>
-                          updateSub('logo', (prev) => ({ ...prev, titleEn: e.target.value }))
+                          updateSub('logo', (prev) => ({
+                            ...prev,
+                            ...(isAr ? { subtitleAr: e.target.value } : { subtitleEn: e.target.value }),
+                          }))
                         }
-                        className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 bg-white font-bold"
+                        className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 bg-white"
                       />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                          {isAr ? 'الشعار الفرعي (عربي)' : 'Subtitle (AR)'}
-                        </label>
-                        <input
-                          type="text"
-                          value={settings.logo.subtitleAr}
-                          onChange={(e) =>
-                            updateSub('logo', (prev) => ({ ...prev, subtitleAr: e.target.value }))
-                          }
-                          className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 bg-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                          {isAr ? 'الشعار الفرعي (إنجليزي)' : 'Subtitle (EN)'}
-                        </label>
-                        <input
-                          type="text"
-                          value={settings.logo.subtitleEn}
-                          onChange={(e) =>
-                            updateSub('logo', (prev) => ({ ...prev, subtitleEn: e.target.value }))
-                          }
-                          className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 bg-white"
-                        />
-                      </div>
                     </div>
                   </div>
                 )}
@@ -727,45 +689,29 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                            {isAr ? 'الاسم (عربي)' : 'Name (AR)'}
-                          </label>
-                          <input
-                            type="text"
-                            value={link.labelAr}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              updateSub('navigation', (prev) => ({
-                                ...prev,
-                                links: prev.links.map((l) =>
-                                  l.id === link.id ? { ...l, labelAr: val } : l,
-                                ),
-                              }));
-                            }}
-                            className="w-full px-2 py-1 text-xs rounded border border-slate-200 bg-slate-50"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
-                            {isAr ? 'الاسم (إنجليزي)' : 'Name (EN)'}
-                          </label>
-                          <input
-                            type="text"
-                            value={link.labelEn}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              updateSub('navigation', (prev) => ({
-                                ...prev,
-                                links: prev.links.map((l) =>
-                                  l.id === link.id ? { ...l, labelEn: val } : l,
-                                ),
-                              }));
-                            }}
-                            className="w-full px-2 py-1 text-xs rounded border border-slate-200 bg-slate-50"
-                          />
-                        </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
+                          {isAr ? 'الاسم' : 'Name'}
+                        </label>
+                        <input
+                          type="text"
+                          dir={isAr ? 'rtl' : 'ltr'}
+                          value={isAr ? link.labelAr : link.labelEn}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            updateSub('navigation', (prev) => ({
+                              ...prev,
+                              links: prev.links.map((l) =>
+                                l.id === link.id
+                                  ? isAr
+                                    ? { ...l, labelAr: val }
+                                    : { ...l, labelEn: val }
+                                  : l,
+                              ),
+                            }));
+                          }}
+                          className="w-full px-2 py-1 text-xs rounded border border-slate-200 bg-slate-50"
+                        />
                       </div>
 
                       <div>
@@ -819,39 +765,31 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
                 </div>
 
                 {settings.actions.search.enabled && (
-                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200">
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                        {isAr ? 'نص توجيهي (عربي)' : 'Placeholder (AR)'}
-                      </label>
-                      <input
-                        type="text"
-                        value={settings.actions.search.placeholderAr}
-                        onChange={(e) =>
-                          updateSub('actions', (prev) => ({
-                            ...prev,
-                            search: { ...prev.search, placeholderAr: e.target.value },
-                          }))
-                        }
-                        className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                        {isAr ? 'نص توجيهي (إنجليزي)' : 'Placeholder (EN)'}
-                      </label>
-                      <input
-                        type="text"
-                        value={settings.actions.search.placeholderEn}
-                        onChange={(e) =>
-                          updateSub('actions', (prev) => ({
-                            ...prev,
-                            search: { ...prev.search, placeholderEn: e.target.value },
-                          }))
-                        }
-                        className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 bg-white"
-                      />
-                    </div>
+                  <div className="pt-1 border-t border-slate-200">
+                    <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                      {isAr ? 'نص توجيهي' : 'Placeholder'}
+                    </label>
+                    <input
+                      type="text"
+                      dir={isAr ? 'rtl' : 'ltr'}
+                      value={
+                        isAr
+                          ? settings.actions.search.placeholderAr
+                          : settings.actions.search.placeholderEn
+                      }
+                      onChange={(e) =>
+                        updateSub('actions', (prev) => ({
+                          ...prev,
+                          search: {
+                            ...prev.search,
+                            ...(isAr
+                              ? { placeholderAr: e.target.value }
+                              : { placeholderEn: e.target.value }),
+                          },
+                        }))
+                      }
+                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 bg-white"
+                    />
                   </div>
                 )}
               </div>
@@ -896,30 +834,31 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
                     </div>
 
                     {settings.actions.account.showText && (
-                      <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 mb-0.5">
+                          {isAr ? 'التسمية' : 'Label'}
+                        </label>
                         <input
                           type="text"
-                          value={settings.actions.account.labelAr}
+                          dir={isAr ? 'rtl' : 'ltr'}
+                          value={
+                            isAr
+                              ? settings.actions.account.labelAr
+                              : settings.actions.account.labelEn
+                          }
                           onChange={(e) =>
                             updateSub('actions', (prev) => ({
                               ...prev,
-                              account: { ...prev.account, labelAr: e.target.value },
+                              account: {
+                                ...prev.account,
+                                ...(isAr
+                                  ? { labelAr: e.target.value }
+                                  : { labelEn: e.target.value }),
+                              },
                             }))
                           }
-                          className="px-2 py-1 text-xs rounded border border-slate-200 bg-white"
-                          placeholder="دخول / Google"
-                        />
-                        <input
-                          type="text"
-                          value={settings.actions.account.labelEn}
-                          onChange={(e) =>
-                            updateSub('actions', (prev) => ({
-                              ...prev,
-                              account: { ...prev.account, labelEn: e.target.value },
-                            }))
-                          }
-                          className="px-2 py-1 text-xs rounded border border-slate-200 bg-white"
-                          placeholder="Sign In"
+                          className="w-full px-2 py-1 text-xs rounded border border-slate-200 bg-white"
+                          placeholder={isAr ? 'دخول' : 'Sign In'}
                         />
                       </div>
                     )}

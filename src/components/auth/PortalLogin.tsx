@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   Clock,
@@ -11,22 +11,17 @@ import {
   ShieldCheck,
   Store,
 } from 'lucide-react';
-import { useSignIn, useSignUp, useClerk } from '@clerk/clerk-react';
-import {
-  clearAuthSession,
-  readAuthSession,
-  writeAuthSession,
-  type AuthPortal,
-  type AuthSession,
-} from '../../auth/session';
-import { sessionFromClerkUser, isClerkConfigured, clerkEnvKeyMissing } from '../../auth/clerkSession';
+import type { AuthPortal, AuthSession } from '../../auth/session';
 import {
   assertStoreLoginEmailAllowed,
-  exchangeClerkForSanctum,
   isMasterLoginEmail,
+  loginWithEmailOtp,
+  normalizeClerkDevLoginEmail,
+  requestOtp,
   resolveStoreIdFromLoginParam,
 } from '../../auth/api';
-import { isApiEnabled } from '../../api/client';
+import { hydrateStoreLoginEmailAccess } from '../../auth/storeEmailAccess';
+import { isApiEnabled, apiFetch } from '../../api/client';
 import {
   getRateLimitStatus,
   recordFailedAttempt,
@@ -47,163 +42,62 @@ type PortalLoginProps = {
   onSuccess: (portal: AuthPortal, storeId?: string | null, session?: AuthSession | null) => void;
   onSwitchPortal: (portal: AuthPortal) => void;
   onForgotPassword?: () => void;
+  /** Domain / App resolved store slug or id (giftshop → flowers) when URL has no ?store= */
+  storeHint?: string | null;
 };
 
 type OtpStep = 'email' | 'otp';
 
 const OTP_LOCK_SECONDS = 60;
 
-function clerkErrorMessage(err: unknown): string {
-  if (!err || typeof err !== 'object') return String(err || '');
-  const e = err as {
-    errors?: Array<{ message?: string; longMessage?: string; code?: string }>;
-    message?: string;
-  };
-  const first = e.errors?.[0];
-  return (first?.longMessage || first?.message || e.message || String(err)).trim();
-}
-
-function isAlreadySignedInError(err: unknown): boolean {
-  const e = err as { errors?: Array<{ code?: string }> } | null;
-  const code = e?.errors?.[0]?.code || '';
-  if (code === 'session_exists' || code === 'identifier_already_signed_in') return true;
-  return /already signed in|already logged in|session exists/i.test(clerkErrorMessage(err));
-}
-
-function clerkErrorCode(err: unknown): string {
-  const e = err as { errors?: Array<{ code?: string }>; status?: number; statusCode?: number } | null;
-  return String(e?.errors?.[0]?.code || '').toLowerCase();
-}
-
-/** Clerk development instances throttle OTP hard (429). Detect every Clerk error shape. */
-function isClerkRateLimitError(err: unknown): boolean {
-  const msg = clerkErrorMessage(err);
-  if (/too many requests|rate limit|try again later|please wait a moment|429/i.test(msg)) {
-    return true;
+function resolveLoginStoreParam(hint?: string | null): string {
+  if (typeof window === 'undefined') return String(hint || '').toLowerCase().trim();
+  const q = new URLSearchParams(window.location.search);
+  const fromUrl = (q.get('store') || q.get('demo') || '').toLowerCase().trim();
+  if (fromUrl) return fromUrl;
+  const fromHint = String(hint || '').toLowerCase().trim();
+  if (fromHint) return fromHint;
+  const host = window.location.hostname.toLowerCase().replace(/^www\./, '');
+  if (host.includes('giftshop') || host.includes('makkah') || host.includes('flowers')) {
+    return 'flowers';
   }
-  const e = err as {
-    status?: number;
-    statusCode?: number;
-    statusText?: string;
-    errors?: Array<{ code?: string; message?: string }>;
-    clerkError?: { status?: number };
-  } | null;
-  const status = Number(e?.status || e?.statusCode || e?.clerkError?.status || 0);
-  if (status === 429) return true;
-  const code = clerkErrorCode(err);
-  if (code.includes('rate') || code.includes('too_many')) return true;
-  return false;
+  if (host.includes('mieraf') || host.includes('hibrew') || host.includes('coffee')) {
+    return 'coffee';
+  }
+  if (host.includes('bleco') || host.includes('tanjeed') || host.includes('alsaeedi')) {
+    return 'car';
+  }
+  return '';
 }
 
-const OTP_RATE_LOCK_KEY = 'unityteck_clerk_otp_lock_until';
-const OTP_RATE_LOCK_MS = 120_000;
-
-function readOtpRateLockRemaining(): number {
-  try {
-    const until = Number(localStorage.getItem(OTP_RATE_LOCK_KEY) || 0);
-    return Math.max(0, until - Date.now());
-  } catch {
-    return 0;
-  }
-}
-
-function armOtpRateLock(): void {
-  try {
-    localStorage.setItem(OTP_RATE_LOCK_KEY, String(Date.now() + OTP_RATE_LOCK_MS));
-  } catch {
-    /* ignore */
-  }
-}
-
-function isClerkIdentifierExistsError(err: unknown): boolean {
-  const code = clerkErrorCode(err);
-  if (
-    code === 'form_identifier_exists' ||
-    code === 'identifier_exists' ||
-    code === 'form_email_address_exists'
-  ) {
-    return true;
-  }
-  return /already exists|identifier.*taken|email.*taken/i.test(clerkErrorMessage(err));
-}
-
-/** Only these mean “no Clerk user yet” — safe to attempt one-time sign-up OTP. */
-function isClerkIdentifierNotFoundError(err: unknown): boolean {
-  const code = clerkErrorCode(err);
-  if (
-    code === 'form_identifier_not_found' ||
-    code === 'identifier_not_found' ||
-    code === 'form_param_nil' ||
-    code === 'not_found'
-  ) {
-    return true;
-  }
-  return /couldn'?t find.+account|no account|identifier not found|user not found/i.test(
-    clerkErrorMessage(err),
-  );
-}
-
-/** Outer shell — Clerk hooks only run when publishable key is present. */
-export const PortalLogin: React.FC<PortalLoginProps> = (props) => {
-  const { locale, theme, dir } = usePrefs();
-  const isAr = locale === 'ar';
-
-  if (!isClerkConfigured()) {
-    return (
-      <div
-        dir={dir}
-        lang={locale}
-        data-theme={theme}
-        className="min-h-screen flex items-center justify-center p-6"
-        style={{ background: 'var(--bg)', color: 'var(--text)' }}
-      >
-        <div className="max-w-md w-full rounded-3xl border p-6 space-y-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-          <h1 className="text-lg font-black">{isAr ? 'نظام المصادقة غير مهيأ' : 'Authentication not configured'}</h1>
-          <p className="text-sm" style={{ color: 'var(--muted)' }}>
-            {isAr
-              ? 'حدّث الصفحة. إن استمرت المشكلة فأعد تشغيل الخادم المحلي بعد التأكد من مفتاح المصادقة في ملف البيئة.'
-              : 'Refresh the page. If it continues, restart the local server after confirming the auth publishable key in .env.'}
-          </p>
-          <code className="block text-[11px] p-2 rounded-xl bg-slate-100 dark:bg-slate-900 break-all">
-            VITE_CLERK_PUBLISHABLE_KEY=pk_test_…
-          </code>
-        </div>
-      </div>
-    );
-  }
-
-  return <ClerkPortalLoginInner {...props} />;
-};
-
-const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
+/**
+ * Admin / Master login — Laravel (local) or Hostinger gateway OTP + SMTP.
+ * Clerk email OTP is not used here (free Hostinger/Resend/Brevo SMTP path).
+ */
+export const PortalLogin: React.FC<PortalLoginProps> = ({
   portal,
   onSuccess,
+  storeHint = null,
 }) => {
   const { toast } = useToast();
-  const { t, theme, locale, dir } = usePrefs();
+  const { theme, locale, dir, setLocale } = usePrefs();
   const isMaster = portal === 'master';
   const isAr = locale === 'ar';
-  const clerkOn = true;
 
-  const { isLoaded: signInLoaded, signIn, setActive: setSignInActive } = useSignIn();
-  const { isLoaded: signUpLoaded, signUp, setActive: setSignUpActive } = useSignUp();
-  const clerk = useClerk();
-  const [clerkLoadTimedOut, setClerkLoadTimedOut] = useState(false);
-  const clerkReady = clerkOn && clerk.loaded && signInLoaded && Boolean(signIn);
-  /** While OTP → Sanctum is running, never call clerk.signOut (it was reloading the page). */
-  const authHandshakeRef = useRef(false);
+  // Login opens in Arabic (KSA default). PrefsSwitcher can still switch to English for this session.
+  useEffect(() => {
+    try {
+      const key = 'unityteck_login_ar_boot';
+      if (sessionStorage.getItem(key) === '1') return;
+      sessionStorage.setItem(key, '1');
+    } catch {
+      /* sessionStorage may be blocked */
+    }
+    if (locale !== 'ar') setLocale('ar');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per browser session on login
+  }, []);
 
-  const storeParam =
-    typeof window !== 'undefined'
-      ? (
-          new URLSearchParams(window.location.search).get('store') ||
-          new URLSearchParams(window.location.search).get('demo') ||
-          ''
-        )
-          .toLowerCase()
-          .trim()
-      : '';
-
+  const storeParam = useMemo(() => resolveLoginStoreParam(storeHint), [storeHint]);
   const resolvedStoreId = useMemo(
     () => (isMaster ? null : resolveStoreIdFromLoginParam(storeParam)),
     [isMaster, storeParam],
@@ -213,6 +107,19 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
   const isFlowers = resolvedStoreId === 'store-1';
 
   const [loginSideImageUrl, setLoginSideImageUrl] = useState(DEFAULT_LOGIN_SIDE_IMAGE);
+  const [identifier, setIdentifier] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpStep, setOtpStep] = useState<OtpStep>('email');
+  const [otpExpiresIn, setOtpExpiresIn] = useState(0);
+  const [devOtpHint, setDevOtpHint] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [securityWarning, setSecurityWarning] = useState<string | null>(null);
+  const [rateLimit, setRateLimit] = useState<RateLimitStatus>({
+    isLocked: false,
+    remainingSeconds: 0,
+    attempts: 0,
+    maxAttempts: 5,
+  });
 
   useEffect(() => {
     if (isMaster || !resolvedStoreId) {
@@ -233,9 +140,6 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
     if (isMaster) {
       return {
         title: isAr ? 'منصة سوق' : 'Souq Platform',
-        subtitle: isAr
-          ? 'بوابة التحكم الرئيسية لإدارة المنصة السحابية والمتاجر'
-          : 'Central Cloud Administration & Store Operations',
         badge: isAr ? 'لوحة تحكم منصة سوق' : 'Souq Platform Control Plane',
         scopeNote: isAr
           ? 'صلاحيات الإشراف الشامل على جميع المتاجر والاشتراكات في المملكة'
@@ -245,9 +149,6 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
     if (isBleco) {
       return {
         title: isAr ? 'مؤسسة بلاكو للتجارة · السعودية' : 'Blacko Trading Est. · Saudi Arabia',
-        subtitle: isAr
-          ? 'بوابة إدارة متجر تنجيد ودعاسات السيارات الفاخرة'
-          : 'Luxury Automotive & Car Accessories Merchant Portal',
         badge: isAr ? 'مؤسسة بلاكو (الرياض)' : 'Blacko Trading (Riyadh)',
         scopeNote: isAr
           ? 'حساب التاجر معزول تماماً ومخصص لمؤسسة بلاكو للتجارة فقط'
@@ -257,9 +158,6 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
     if (isCoffee) {
       return {
         title: isAr ? 'متجر القهوة المختصة · السعودية' : 'Specialty Coffee Roasters · KSA',
-        subtitle: isAr
-          ? 'بوابة إدارة متجر القهوة المختصة ومعدات الباريستا'
-          : 'Specialty Coffee & Barista Tools Merchant Portal',
         badge: isAr ? 'متجر القهوة المختصة' : 'Specialty Coffee KSA',
         scopeNote: isAr
           ? 'حساب التاجر معزول ومخصص لمتجر القهوة المختصة فقط'
@@ -269,9 +167,6 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
     if (isFlowers) {
       return {
         title: isAr ? 'هدايا وزهور مكة المكرمة' : 'Makkah Fresh Flowers & Luxury Gifts',
-        subtitle: isAr
-          ? 'بوابة إدارة متجر الأزهار الفاخرة والهدايا بمكة وجدة'
-          : 'Makkah & Jeddah Luxury Floral Boutique Portal',
         badge: isAr ? 'هدايا مكة المكرمة' : 'Makkah Flowers KSA',
         scopeNote: isAr
           ? 'حساب التاجر معزول ومخصص لمتجر هدايا مكة فقط'
@@ -280,40 +175,69 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
     }
     return {
       title: isAr ? 'بوابة المتاجر السعودية الموحدة' : 'Saudi Unified Merchants Portal',
-      subtitle: isAr
-        ? 'مبادرة تمكين 100 متجر سعودي في التجارة الإلكترونية السحابية'
-        : 'Empowering 100+ Saudi Stores in Cloud E-Commerce',
-      badge: isAr ? 'مبادرة 100 متجر سعودي 🇸🇦' : 'KSA 100 Stores Mission 🇸🇦',
+      badge: isAr ? 'مبادرة 100 متجر سعودي' : 'KSA 100 Stores Mission',
       scopeNote: isAr
         ? 'كل تاجر يفتح لوحة تحكم مستقلة ومحمية بالكامل ومعزولة برقم متجره الخاص'
         : 'Every merchant accesses a strictly isolated, encrypted vault scoped to their store',
     };
   }, [isMaster, isBleco, isCoffee, isFlowers, isAr]);
 
-  const [identifier, setIdentifier] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [otpStep, setOtpStep] = useState<OtpStep>('email');
-  const [otpExpiresIn, setOtpExpiresIn] = useState(0);
-  const [flowMode, setFlowMode] = useState<'signIn' | 'signUp'>('signIn');
-  const [busy, setBusy] = useState(false);
-  const [securityWarning, setSecurityWarning] = useState<string | null>(null);
-  const [rateLimit, setRateLimit] = useState<RateLimitStatus>({
-    isLocked: false,
-    remainingSeconds: 0,
-    attempts: 0,
-    maxAttempts: 5,
-  });
+  const expectedLoginHint = useMemo(() => {
+    if (isMaster) return 'master@unityteck.com';
+    if (isCoffee) return 'mieraf.sa8@gmail.com';
+    if (isFlowers) return 'p4pakistan098@gmail.com';
+    if (isBleco) return 'admin@bleco.sa';
+    return '';
+  }, [isMaster, isCoffee, isFlowers, isBleco]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-portal', portal);
   }, [portal]);
 
   useEffect(() => {
+    if (!isApiEnabled() || isMaster) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await apiFetch<{
+          data?: Array<{
+            id?: string;
+            email?: string;
+            ownerEmail?: string;
+            owner_email?: string;
+            login_email_active?: boolean | null;
+            loginEmailActive?: boolean | null;
+          }>;
+        }>('/stores', { skipAuth: true, timeoutMs: 20_000 });
+        if (cancelled || !Array.isArray(res?.data)) return;
+        hydrateStoreLoginEmailAccess(
+          res.data.map((s) => ({
+            id: String(s.id || ''),
+            email: s.email || s.ownerEmail || s.owner_email || '',
+            ownerEmail: s.ownerEmail || s.owner_email || s.email || '',
+            loginEmailActive:
+              typeof s.loginEmailActive === 'boolean'
+                ? s.loginEmailActive
+                : typeof s.login_email_active === 'boolean'
+                  ? s.login_email_active
+                  : null,
+          })),
+        );
+      } catch {
+        /* seeded DEMO emails still gate login */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isMaster]);
+
+  useEffect(() => {
     setIdentifier('');
     setOtpCode('');
     setOtpStep('email');
+    setDevOtpHint(null);
     setSecurityWarning(null);
-    setFlowMode('signIn');
   }, [portal]);
 
   useEffect(() => {
@@ -328,24 +252,6 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
     }, 1000);
     return () => clearInterval(interval);
   }, [rateLimit.isLocked, rateLimit.remainingSeconds]);
-
-  useEffect(() => {
-    if (clerk.loaded === false) return;
-    if (authHandshakeRef.current) return;
-    if (readAuthSession()) return;
-    if (!clerk.session && !clerk.user) return;
-    // Silent clear only — NEVER redirectUrl here (that hard-refreshes and kills first login).
-    void clerk.signOut().catch(() => undefined);
-  }, [clerk.loaded, clerk.session, clerk.user]);
-
-  useEffect(() => {
-    if (clerkReady) {
-      setClerkLoadTimedOut(false);
-      return;
-    }
-    const timer = window.setTimeout(() => setClerkLoadTimedOut(true), 12000);
-    return () => window.clearTimeout(timer);
-  }, [clerkReady]);
 
   useEffect(() => {
     if (otpExpiresIn <= 0) return;
@@ -395,119 +301,23 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
       if (code === 'STORE_EMAIL_WRONG_STORE') {
         throw new Error(
           isAr
-            ? 'هذا البريد يتبع متجراً آخر. استخدم البريد المسجّل لهذا المتجر فقط.'
-            : 'This email belongs to another store. Use only this store’s registered email.',
+            ? expectedLoginHint
+              ? `هذا البريد يتبع متجراً آخر. لهذا المتجر استخدم: ${expectedLoginHint}`
+              : 'هذا البريد يتبع متجراً آخر. استخدم البريد المسجّل لهذا المتجر فقط.'
+            : expectedLoginHint
+              ? `This email belongs to another store. For this store use: ${expectedLoginHint}`
+              : 'This email belongs to another store. Use only this store’s registered email.',
         );
       }
       throw new Error(
         isAr
-          ? 'هذا البريد غير مسجّل لهذا المتجر. كل متجر يُفتح فقط ببريده المسجّل الخاص به (مثال: متجر الورود ≠ متجر القهوة).'
-          : 'This email is not registered for this store. Each store opens only with its own registered email (e.g. flowers ≠ coffee).',
+          ? expectedLoginHint
+            ? `هذا البريد غير مسجّل لهذا المتجر. البريد الصحيح: ${expectedLoginHint}`
+            : 'هذا البريد غير مسجّل لهذا المتجر. كل متجر يُفتح فقط ببريده المسجّل الخاص به.'
+          : expectedLoginHint
+            ? `This email is not registered for this store. Use: ${expectedLoginHint}`
+            : 'This email is not registered for this store. Each store opens only with its own registered email.',
       );
-    }
-  };
-
-  const finishWithClerkUser = async (fallbackEmail: string, sessionId?: string | null) => {
-    authHandshakeRef.current = true;
-    try {
-      // Clerk user can lag a moment after setActive
-      for (let i = 0; i < 25 && !clerk.user; i++) {
-        await new Promise((r) => setTimeout(r, 80));
-      }
-
-      const email = fallbackEmail.trim().toLowerCase();
-      gateEmailForPortal(email);
-
-      const user =
-        clerk.user ||
-        ({
-          id: `clerk-${email}`,
-          primaryEmailAddress: { emailAddress: email },
-          fullName: email.split('@')[0],
-        } as const);
-
-      let token: string | null = sessionId || null;
-      try {
-        token = (await clerk.session?.getToken()) || token;
-      } catch {
-        /* keep sessionId */
-      }
-
-      // Build merchant/store binding first — do NOT persist Clerk JWT as live API session.
-      // Otherwise a failed Sanctum exchange leaves a fake "logged in" state with 0 orders.
-      const localSession = sessionFromClerkUser(portal, user as any, token, {
-        storeParam: storeParam || null,
-        persist: false,
-      });
-      // Clerk JWT ≠ Sanctum — exchange only with verified Clerk session token (OTP proof)
-      if (!token) {
-        clearAuthSession(true);
-        throw new Error(
-          isAr
-            ? 'تعذّر إثبات جلسة التحقق. أعد إرسال رمز التحقق.'
-            : 'Could not prove OTP session. Request a new verification code.',
-        );
-      }
-      let exchanged: Awaited<ReturnType<typeof exchangeClerkForSanctum>> = null;
-      try {
-        exchanged = await exchangeClerkForSanctum(
-          portal,
-          email,
-          localSession.storeId,
-          token,
-          { force: true, throwOnFail: true },
-        );
-      } catch (exchangeErr) {
-        clearAuthSession(true);
-        throw exchangeErr instanceof Error
-          ? exchangeErr
-          : new Error(
-              isAr
-                ? 'تعذّر ربط الجلسة بقاعدة البيانات. أعد تسجيل الدخول، أو تأكد أن خادم الواجهة البرمجية يعمل.'
-                : 'Could not link your session to the database. Sign in again, or confirm the API server is running.',
-            );
-      }
-      if (isApiEnabled() && !exchanged) {
-        clearAuthSession(true);
-        throw new Error(
-          isAr
-            ? 'تعذّر ربط الجلسة بقاعدة البيانات. أعد تسجيل الدخول، أو تأكد أن خادم الواجهة البرمجية يعمل.'
-            : 'Could not link your session to the database. Sign in again, or confirm the API server is running.',
-        );
-      }
-      // Never persist Clerk-JWT-only localSession when API mode is on.
-      const liveSession = exchanged || (!isApiEnabled() ? localSession : null);
-      if (!liveSession?.token || (isApiEnabled() && !liveSession.token.includes('|'))) {
-        clearAuthSession(true);
-        throw new Error(
-          isAr
-            ? 'تعذّر إنشاء جلسة صالحة. أعد إدخال رمز التحقق.'
-            : 'Could not create a valid session. Re-enter the verification code.',
-        );
-      }
-      writeAuthSession(liveSession);
-      resetRateLimit(email);
-      try {
-        localStorage.setItem('unityteck_last_login_email', email);
-      } catch {
-        /* ignore */
-      }
-      toast(
-        isMaster
-          ? isAr
-            ? 'مرحباً بك! تم تسجيل الدخول بنجاح.'
-            : 'Welcome! Signed in successfully.'
-          : isAr
-            ? `تم تسجيل الدخول بنجاح ·${liveSession.storeName ?? portalInfo.title}`
-            : `Signed in successfully · ${liveSession.storeName ?? portalInfo.title}`,
-        'success',
-      );
-      onSuccess(liveSession.portal, liveSession.storeId, liveSession);
-    } finally {
-      // Keep handshake lock briefly so mount effect cannot signOut+reload after success.
-      window.setTimeout(() => {
-        authHandshakeRef.current = false;
-      }, 2500);
     }
   };
 
@@ -515,19 +325,7 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
     e.preventDefault();
     if (busy) return;
 
-    const lockLeft = readOtpRateLockRemaining();
-    if (lockLeft > 0) {
-      const secs = Math.ceil(lockLeft / 1000);
-      toast(
-        isAr
-          ? `حد إرسال رمز التحقق مؤقتاً. انتظر ${secs} ثانية ثم حاول مرة واحدة فقط.`
-          : `OTP rate limit active. Wait ${secs}s, then try once.`,
-        'error',
-      );
-      return;
-    }
-
-    const email = identifier.trim().toLowerCase();
+    const email = normalizeClerkDevLoginEmail(identifier.trim().toLowerCase());
     if (!email || !email.includes('@')) {
       toast(isAr ? 'يرجى إدخال بريد إلكتروني صحيح' : 'Please enter a valid email', 'error');
       return;
@@ -556,25 +354,6 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
       return;
     }
 
-    if (!clerkOn || !clerk.loaded || !signInLoaded || !signIn) {
-      const envHint = clerkEnvKeyMissing();
-      toast(
-        clerkLoadTimedOut
-          ? envHint
-            ? isAr
-              ? 'تعذّر تحميل نظام المصادقة. أضف VITE_CLERK_PUBLISHABLE_KEY في ملف البيئة ثم أعد تشغيل الخادم المحلي.'
-              : 'Authentication failed to load. Set VITE_CLERK_PUBLISHABLE_KEY in .env and restart the dev server.'
-            : isAr
-              ? 'تعذّر تحميل نظام المصادقة. حدّث الصفحة وتأكد أن نطاق المتجر مسموح في لوحة إعدادات المصادقة.'
-              : 'Authentication failed to load. Refresh and confirm this domain is allowed in the Clerk dashboard.'
-          : isAr
-            ? 'نظام المصادقة لا يزال قيد التحميل… انتظر لحظة ثم أعد المحاولة.'
-            : 'Authentication is still loading… wait a moment and try again.',
-        'error',
-      );
-      return;
-    }
-
     try {
       gateEmailForPortal(email);
     } catch (gateErr) {
@@ -589,146 +368,42 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
       return;
     }
 
-    setBusy(true);
-    setSecurityWarning(null);
-
-    const clearClerkThenContinue = async (): Promise<void> => {
-      try {
-        // No redirectUrl — that hard-refreshes the login page and forces a second OTP.
-        await clerk.signOut();
-      } catch {
-        /* ignore */
-      }
-    };
-
-    const startEmailCodeSignIn = async () => {
-      const created = await signIn.create({ identifier: email });
-      const emailFactor = created.supportedFirstFactors?.find(
-        (f) => f.strategy === 'email_code',
-      ) as { emailAddressId?: string; strategy: string } | undefined;
-
-      if (!emailFactor?.emailAddressId) {
-        throw new Error('EMAIL_CODE_UNAVAILABLE');
-      }
-
-      await signIn.prepareFirstFactor({
-        strategy: 'email_code',
-        emailAddressId: emailFactor.emailAddressId,
-      });
-      setFlowMode('signIn');
-    };
-
-    try {
-      if (clerk.session || clerk.user) {
-        await clearClerkThenContinue();
-      }
-
-      // Prefer sign-in. Sign-up only when Clerk has no account yet — never on 429 rate-limit.
-      try {
-        await startEmailCodeSignIn();
-      } catch (signInErr) {
-        if (isClerkRateLimitError(signInErr)) {
-          armOtpRateLock();
-          throw new Error(
-            isAr
-              ? 'تم تجاوز حد إرسال رمز التحقق مؤقتاً (حد التطوير). انتظر دقيقتين ثم أعد المحاولة مرة واحدة فقط.'
-              : 'Verification code rate limit hit (Clerk development limit). Wait 2 minutes, then try once.',
-          );
-        }
-        if (isAlreadySignedInError(signInErr)) {
-          await clearClerkThenContinue();
-          try {
-            await startEmailCodeSignIn();
-          } catch (retryErr) {
-            if (isClerkRateLimitError(retryErr)) {
-              armOtpRateLock();
-              throw new Error(
-                isAr
-                  ? 'تم تجاوز حد إرسال رمز التحقق مؤقتاً. انتظر دقيقتين ثم أعد المحاولة مرة واحدة فقط.'
-                  : 'Verification code rate limit hit. Wait 2 minutes, then try once.',
-              );
-            }
-            if (isAlreadySignedInError(retryErr)) {
-              throw new Error(
-                isAr
-                  ? 'جلسة سابقة ما زالت نشطة. أعد تحميل الصفحة ثم حاول مرة أخرى.'
-                  : 'A previous session is still active. Refresh the page and try again.',
-              );
-            }
-            throw retryErr;
-          }
-        } else if (isClerkIdentifierNotFoundError(signInErr)) {
-          // Only create Clerk user when sign-in says identifier is missing — never on 429/other.
-          if (!signUpLoaded || !signUp) {
-            throw new Error(
-              isAr
-                ? 'نظام المصادقة لا يزال يحمّل بيانات التسجيل. انتظر لحظة ثم أعد المحاولة.'
-                : 'Authentication is still loading sign-up. Wait a moment and try again.',
-            );
-          }
-          try {
-            await signUp.create({ emailAddress: email });
-            await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
-            setFlowMode('signUp');
-          } catch (signUpErr) {
-            if (isClerkRateLimitError(signUpErr)) {
-              armOtpRateLock();
-              throw new Error(
-                isAr
-                  ? 'تم تجاوز حد إرسال رمز التحقق مؤقتاً. انتظر دقيقتين ثم أعد المحاولة مرة واحدة فقط.'
-                  : 'Verification code rate limit hit. Wait 2 minutes, then try once.',
-              );
-            }
-            if (isClerkIdentifierExistsError(signUpErr)) {
-              throw new Error(
-                isAr
-                  ? 'الحساب موجود مسبقاً. انتظر دقيقة ثم اطلب رمز التحقق مرة واحدة فقط (تسجيل الدخول).'
-                  : 'Account already exists. Wait a minute, then request a sign-in code once.',
-              );
-            }
-            throw signUpErr instanceof Error
-              ? new Error(clerkErrorMessage(signUpErr) || signUpErr.message)
-              : new Error(
-                  isAr ? 'فشل إرسال رمز التحقق إلى البريد' : 'Failed to send email verification code',
-                );
-          }
-        } else {
-          throw signInErr instanceof Error
-            ? new Error(clerkErrorMessage(signInErr) || signInErr.message)
-            : new Error(
-                isAr ? 'فشل إرسال رمز التحقق إلى البريد' : 'Failed to send email verification code',
-              );
-        }
-      }
-
-      setOtpStep('otp');
-      setOtpCode('');
-      setOtpExpiresIn(OTP_LOCK_SECONDS);
-      // Wake Hostinger MySQL while the merchant reads their OTP email.
-      if (isApiEnabled()) {
-        void fetch('/api/health', { cache: 'no-store' }).catch(() => undefined);
-      }
+    if (!isApiEnabled()) {
       toast(
         isAr
-          ? 'تم إرسال رمز التحقق إلى بريدك — تحقق من صندوق الوارد'
-          : 'Verification code sent to your email — check your inbox',
+          ? 'واجهة البرمجة غير مفعّلة — شغّل الخادم المحلي ثم أعد المحاولة.'
+          : 'API is disabled — start the local API server and try again.',
+        'error',
+      );
+      return;
+    }
+
+    setBusy(true);
+    setSecurityWarning(null);
+    try {
+      const res = await requestOtp(portal, email, 'login');
+      const hint = String(res.dev_code || '').trim();
+      setDevOtpHint(hint || null);
+      setOtpStep('otp');
+      setOtpCode(hint || '');
+      setOtpExpiresIn(OTP_LOCK_SECONDS);
+      toast(
+        hint
+          ? isAr
+            ? `رمز التحقق جاهز: ${hint}`
+            : `Verification code ready: ${hint}`
+          : isAr
+            ? 'تم إرسال رمز التحقق إلى بريدك — تحقق من صندوق الوارد'
+            : 'Verification code sent to your email — check your inbox',
         'success',
       );
     } catch (err) {
-      if (isClerkRateLimitError(err)) {
-        armOtpRateLock();
-      }
-      const msg = isClerkRateLimitError(err)
-        ? isAr
-          ? 'تم تجاوز حد إرسال رمز التحقق مؤقتاً. انتظر دقيقتين ثم أعد المحاولة مرة واحدة فقط.'
-          : 'Verification code rate limit hit. Wait 2 minutes, then try once.'
-        : err instanceof Error
+      toast(
+        err instanceof Error
           ? err.message
           : isAr
             ? 'فشل إرسال رمز التحقق إلى البريد'
-            : 'Failed to send email verification code';
-      toast(
-        isAlreadySignedInError(err) ? clerkErrorMessage(err) || msg : msg,
+            : 'Failed to send email verification code',
         'error',
       );
     } finally {
@@ -740,45 +415,46 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
     e.preventDefault();
     if (busy) return;
 
-    const email = identifier.trim().toLowerCase();
+    const email = normalizeClerkDevLoginEmail(identifier.trim().toLowerCase());
     const code = otpCode.trim();
     if (code.length !== 6) {
       toast(isAr ? 'أدخل رمز التحقق المكون من 6 أرقام' : 'Enter the 6-digit code', 'error');
       return;
     }
 
-    if (!signIn || !signUp || !setSignInActive || !setSignUpActive) {
-      toast(isAr ? 'نظام المصادقة غير جاهز بعد' : 'Authentication is not ready yet', 'error');
-      return;
-    }
-
     setBusy(true);
     try {
-      if (flowMode === 'signIn') {
-        const result = await signIn.attemptFirstFactor({
-          strategy: 'email_code',
-          code,
-        });
-        if (result.status === 'complete' && result.createdSessionId) {
-          await setSignInActive({ session: result.createdSessionId });
-          await finishWithClerkUser(email, result.createdSessionId);
-          return;
-        }
-        throw new Error(isAr ? 'التحقق غير مكتمل' : 'Verification incomplete');
+      gateEmailForPortal(email);
+      const session = await loginWithEmailOtp(portal, email, code);
+      resetRateLimit(email);
+      try {
+        localStorage.setItem('unityteck_last_login_email', email);
+        sessionStorage.setItem('unityteck_just_logged_in', String(Date.now()));
+      } catch {
+        /* ignore */
       }
-
-      const result = await signUp.attemptEmailAddressVerification({ code });
-      if (result.status === 'complete' && result.createdSessionId) {
-        await setSignUpActive({ session: result.createdSessionId });
-        await finishWithClerkUser(email, result.createdSessionId);
-        return;
-      }
-      throw new Error(isAr ? 'التحقق غير مكتمل' : 'Verification incomplete');
+      toast(
+        isMaster
+          ? isAr
+            ? 'مرحباً بك! تم تسجيل الدخول بنجاح.'
+            : 'Welcome! Signed in successfully.'
+          : isAr
+            ? `تم تسجيل الدخول بنجاح ·${session.storeName ?? portalInfo.title}`
+            : `Signed in successfully · ${session.storeName ?? portalInfo.title}`,
+        'success',
+      );
+      onSuccess(session.portal, session.storeId, session);
     } catch (err) {
       const nextRate = recordFailedAttempt(email);
       setRateLimit(nextRate);
-      const msg = err instanceof Error ? err.message : t('signInFailed');
-      toast(msg, 'error');
+      toast(
+        err instanceof Error
+          ? err.message
+          : isAr
+            ? 'رمز التحقق غير صحيح أو منتهٍ.'
+            : 'Incorrect or expired verification code.',
+        'error',
+      );
     } finally {
       setBusy(false);
     }
@@ -790,7 +466,7 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
       lang={locale}
       data-theme={theme}
       data-portal={portal}
-      className="portal-auth-shell min-h-screen flex flex-col selection:bg-emerald-500 selection:text-white"
+      className="min-h-screen flex flex-col"
       style={{
         background: 'var(--bg)',
         color: 'var(--text)',
@@ -822,14 +498,14 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
               <p className="text-[10px] font-black uppercase tracking-wider leading-none" style={{ color: 'var(--muted)' }}>
                 {isMaster
                   ? isAr
-                    ? 'منصة يونيتيك للمؤسسات'
-                    : 'UNITYTECK ENTERPRISE'
+                    ? 'منصة سوق للمؤسسات'
+                    : 'SOUQ PLATFORM'
                   : isAr
                     ? 'منصة التجارة الإلكترونية السحابية للمتاجر السعودية'
                     : 'SAUDI COMMERCE CLOUD'}
               </p>
               <span className="inline-flex items-center gap-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                <span>{isAr ? 'مصادقة سحابية' : 'Cloud Auth'}</span>
+                <span>{isAr ? 'تحقق بالبريد' : 'Email OTP'}</span>
               </span>
             </div>
             <p className="text-sm font-extrabold truncate leading-tight mt-1" style={{ color: 'var(--text)' }}>
@@ -905,8 +581,8 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
                         ? 'أدخل البريد المسجّل لهذا المتجر فقط — بريد متجر آخر لن يفتح تسجيل الدخول.'
                         : 'Enter only this store’s registered email — another store’s email will not open login.'
                     : isAr
-                      ? 'أدخل رمز التحقق الذي وصلك على البريد الإلكتروني (لا يظهر هنا).'
-                      : 'Enter the verification code from your email (not shown here).'}
+                      ? 'أدخل رمز التحقق المرسل إلى بريدك (أو الظاهر هنا إن لم يُضبط البريد بعد).'
+                      : 'Enter the verification code from email (or shown here if SMTP is not configured yet).'}
                 </p>
               </div>
               <div
@@ -921,37 +597,6 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
                 <Mail className="w-6 h-6" />
               </div>
             </div>
-
-            {!clerkReady && (
-              <div
-                className={`mb-5 p-3.5 rounded-2xl border text-xs ${
-                  clerkLoadTimedOut
-                    ? 'bg-red-500/10 border-red-500/30 text-red-700'
-                    : 'bg-amber-500/10 border-amber-500/30 text-amber-700'
-                }`}
-              >
-                {clerkLoadTimedOut
-                  ? clerkEnvKeyMissing()
-                    ? isAr
-                      ? 'تعذّر تحميل نظام المصادقة. أضف VITE_CLERK_PUBLISHABLE_KEY في ملف البيئة ثم أعد تشغيل الخادم المحلي.'
-                      : 'Authentication failed to load. Ensure the publishable key is set in .env (VITE_CLERK_PUBLISHABLE_KEY) and restart the dev server.'
-                    : isAr
-                      ? 'تعذّر تحميل نظام المصادقة. حدّث الصفحة، وتأكد أن نطاق المتجر مسموح في لوحة إعدادات المصادقة.'
-                      : 'Authentication failed to load. Refresh the page and confirm this domain is allowed in the Clerk dashboard.'
-                  : isAr
-                    ? 'جارٍ تحميل نظام المصادقة… يرجى الانتظار لحظة.'
-                    : 'Loading authentication… please wait a moment.'}
-                {clerkLoadTimedOut ? (
-                  <button
-                    type="button"
-                    className="mt-2 block text-[11px] font-bold underline"
-                    onClick={() => window.location.reload()}
-                  >
-                    {isAr ? 'تحديث الصفحة' : 'Refresh page'}
-                  </button>
-                ) : null}
-              </div>
-            )}
 
             {securityWarning && (
               <div
@@ -997,7 +642,7 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
 
                 <button
                   type="submit"
-                  disabled={busy || rateLimit.isLocked || !clerkReady}
+                  disabled={busy || rateLimit.isLocked}
                   className="w-full py-3.5 rounded-2xl text-sm font-black flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-lg shadow-emerald-600/25"
                   style={{
                     background: isMaster
@@ -1044,6 +689,7 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
                       onClick={() => {
                         setOtpStep('email');
                         setOtpCode('');
+                        setDevOtpHint(null);
                       }}
                       className="text-[11px] font-bold text-emerald-600 hover:underline shrink-0 cursor-pointer"
                     >
@@ -1077,9 +723,13 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
                     />
                   </div>
                   <p className="mt-2 text-[11px]" style={{ color: 'var(--muted)' }}>
-                    {isAr
-                      ? 'الرمز يُرسل فقط إلى بريدك — ولن يظهر على هذه الشاشة.'
-                      : 'The code is emailed only — it is never displayed on this screen.'}
+                    {devOtpHint
+                      ? isAr
+                        ? `رمز التحقق: ${devOtpHint} — اضغط تسجيل الدخول`
+                        : `Code: ${devOtpHint} — tap sign in`
+                      : isAr
+                        ? 'الرمز يُرسل إلى بريدك عبر خادم البريد.'
+                        : 'The code is emailed via your SMTP provider.'}
                   </p>
                 </div>
 
@@ -1130,7 +780,7 @@ const ClerkPortalLoginInner: React.FC<PortalLoginProps> = ({
                 <span>•</span>
                 <span className="flex items-center gap-1">
                   <Lock className="w-3.5 h-3.5 text-emerald-500" />
-                  {isAr ? 'لا يظهر الرمز على الشاشة' : 'Code never on-screen'}
+                  {isAr ? 'بدون حد كليرك الشهري' : 'No Clerk monthly email cap'}
                 </span>
               </div>
               <p className="text-[11px] leading-relaxed" style={{ color: 'var(--muted)' }}>

@@ -398,9 +398,10 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
             open={showSortMenu}
             anchorRef={sortBtnRef}
             onClose={() => setShowSortMenu(false)}
-            width={192}
+            width={220}
             align="end"
             estimatedHeight={280}
+            preferBelow
             className="py-1 rounded-xl border shadow-lg text-xs"
             style={{
               background: 'var(--surface)',
@@ -449,7 +450,7 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
               }
             }}
             className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 shadow-xs transition-transform hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-            style={{ background: '#007b83' }}
+            style={{ background: 'var(--portal-cta)' }}
           >
             <Plus className="w-3.5 h-3.5" />
             <span>{t('manageOrders')}</span>
@@ -462,9 +463,10 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
         open={showFilterMenu}
         anchorRef={filterBtnRef}
         onClose={() => setShowFilterMenu(false)}
-        width={340}
+        width={380}
         align="end"
         estimatedHeight={360}
+        preferBelow
         className="p-4 rounded-xl border shadow-lg space-y-3.5"
         style={{
           background: 'var(--surface)',
@@ -488,15 +490,15 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-3 text-xs">
-          <div>
+        <div className="grid grid-cols-1 gap-3 text-xs w-full min-w-0">
+          <div className="w-full min-w-0">
             <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
               {t('statusCol')}
             </label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-2.5 py-1.5 text-xs rounded-lg border outline-none"
+              className="block w-full min-w-0 max-w-full box-border px-2.5 py-1.5 text-xs rounded-lg border outline-none"
               style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
             >
               <option value="all">{t('allStatuses')}</option>
@@ -508,14 +510,14 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
             </select>
           </div>
 
-          <div>
+          <div className="w-full min-w-0">
             <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
               {t('paymentMethod')}
             </label>
             <select
               value={paymentFilter}
               onChange={(e) => setPaymentFilter(e.target.value)}
-              className="w-full px-2.5 py-1.5 text-xs rounded-lg border outline-none"
+              className="block w-full min-w-0 max-w-full box-border px-2.5 py-1.5 text-xs rounded-lg border outline-none"
               style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
             >
               <option value="all">{t('allPaymentMethods')}</option>
@@ -528,14 +530,14 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
             </select>
           </div>
 
-          <div>
+          <div className="w-full min-w-0">
             <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
               {t('salesChannel')}
             </label>
             <select
               value={channelFilter}
               onChange={(e) => setChannelFilter(e.target.value)}
-              className="w-full px-2.5 py-1.5 text-xs rounded-lg border outline-none"
+              className="block w-full min-w-0 max-w-full box-border px-2.5 py-1.5 text-xs rounded-lg border outline-none"
               style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
             >
               <option value="all">{t('allChannels')}</option>
@@ -628,7 +630,7 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
               type="button"
               onClick={onOpenCreateOrder}
               className="mt-3 px-3.5 py-1.5 rounded-xl text-xs font-bold text-white cursor-pointer"
-              style={{ background: '#007b83' }}
+              style={{ background: 'var(--portal-cta)' }}
             >
               {t('createManualOrder')}
             </button>

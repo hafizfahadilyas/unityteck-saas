@@ -26,15 +26,15 @@ export type ThemeStoreMeta = {
 const THEME_BLURBS: Record<string, Omit<ThemeStoreMeta, 'priceSar' | 'isProOnly'>> = {
   [FLOWERS_THEME_ID]: {
     publisherAr: 'منصة سوق · ثيم هدايا مكة الفاخر',
-    publisherEn: 'Unityteck Store · Mecca Luxury Gifts Theme',
+    publisherEn: 'Souq Platform · Mecca Luxury Gifts Theme',
     blurbAr:
       'ثيم الزهور الفاخر الحصري المعتمد لمتجر هدايا مكة ومحلات الورود والهدايا · ٢٠ قسماً تفاعلياً وسلايدر ثلاثي الأبعاد.',
     blurbEn:
       'Exclusive official Luxury Floral & Gifts theme for Mecca Gifts. Features 20 interactive sections, 3D slider, video reels, and express checkout.',
   },
   'theme-makkah-royal': {
-    publisherAr: 'يونيتك · بوتيك هدايا مكة',
-    publisherEn: 'Unityteck · Mecca Gifts Boutique',
+    publisherAr: 'منصة سوق · بوتيك هدايا مكة',
+    publisherEn: 'Souq Platform · Mecca Gifts Boutique',
     blurbAr: 'تصميم ملكي خاص بمتجر هدايا مكة للباقات الحصرية والتغليف الفاخر.',
     blurbEn: 'Royal boutique theme tailored for Mecca Gifts exclusive floral arrangements.',
   },
@@ -125,8 +125,8 @@ export function resolveThemeStoreMeta(theme: ThemeItem, store: Store): ThemeStor
     priceSar: free ? 0 : THEME_MARKET_PRICE_SAR,
     // Marketplace paid themes stay installable; Pro gate is plan-level elsewhere
     isProOnly: false,
-    publisherAr: blurb?.publisherAr || 'يونيتك للمتاجر',
-    publisherEn: blurb?.publisherEn || 'Unityteck Platforms',
+    publisherAr: blurb?.publisherAr || 'منصة سوق للمتاجر',
+    publisherEn: blurb?.publisherEn || 'Souq Platform',
     blurbAr: blurb?.blurbAr || theme.taglineAr || theme.tagline,
     blurbEn: blurb?.blurbEn || theme.taglineEn || theme.tagline,
   };

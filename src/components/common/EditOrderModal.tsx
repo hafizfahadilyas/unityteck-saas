@@ -110,7 +110,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
         {/* Header — Holst portal tokens */}
         <div
           className="px-6 py-4 border-b flex items-center justify-between shrink-0"
-          style={{ background: 'var(--portal-950, #0b1b36)', borderColor: 'var(--border, #1e293b)', color: '#fff' }}
+          style={{ background: 'var(--portal-cta)', borderColor: 'transparent', color: '#fff' }}
         >
           <div>
             <h2 className="text-base font-black text-white">
@@ -411,7 +411,7 @@ export const EditOrderModal: React.FC<EditOrderModalProps> = ({
             <button
               type="submit"
               className="px-5 py-2.5 rounded-xl text-xs font-bold text-white shadow-xs cursor-pointer transition-all hover:opacity-95 flex items-center gap-1.5"
-              style={{ background: '#0d9488' }}
+              style={{ background: 'var(--portal-cta)' }}
             >
               <Check className="w-4 h-4" />
               <span>{commerceTerm('saveChanges', isAr)}</span>

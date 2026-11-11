@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
+import { getCustomerDisplayName, getLocalizedCity } from '../../utils/storeLocalization';
 import { useToast } from '../common/ToastProvider';
 import { StoreChannelPerformance } from './StoreChannelPerformance';
 import {
@@ -41,9 +42,11 @@ import {
   ChevronRight,
   Package,
   CreditCard,
+  BookOpen,
   type LucideIcon,
 } from 'lucide-react';
 import { PageDocsGuideModal } from '../common/PageDocsGuideModal';
+import { PortalHubCard } from '../common/PortalHubCard';
 import { downloadCsv } from '../../utils/exportSpreadsheet';
 import * as tenantApi from '../../api/tenantApi';
 import {
@@ -242,9 +245,38 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
     {
       id: 'social',
       title: isAr ? 'النشر الاجتماعي' : 'Social Publishing',
-      desc: isAr ? 'جدولة ونشر المحتوى على القنوات.' : 'Schedule and publish to social channels.',
-      icon: Share2,
+      desc: isAr
+        ? 'ربط إنستغرام وفيسبوك وجدولة المنشورات أو نشرها فوراً.'
+        : 'Connect Instagram and Facebook, then schedule or publish posts.',
+      icon: Send,
       action: () => goTab('social'),
+    },
+    {
+      id: 'seo',
+      title: isAr ? 'تحسين محركات البحث' : 'SEO Optimization',
+      desc: isAr
+        ? 'عناوين وصفحات المتجر والمنتجات وتحسين الظهور في البحث.'
+        : 'Optimize store and product titles, pages, and search visibility.',
+      icon: Search,
+      action: () => goTab('seo'),
+    },
+    {
+      id: 'blog',
+      title: isAr ? 'المدونة' : 'Blog (Articles)',
+      desc: isAr
+        ? 'إنشاء وإدارة مقالات المدونة لجذب الزوار وتعزيز الظهور.'
+        : 'Create and manage blog articles to attract visitors and boost SEO.',
+      icon: BookOpen,
+      action: () => goTab('blog'),
+    },
+    {
+      id: 'commerce-tools',
+      title: isAr ? 'أدوات التجارة للمقالات' : 'Commerce Tools',
+      desc: isAr
+        ? 'بطاقات منتجات وكوبونات وأدوات تفاعلية داخل المقالات.'
+        : 'Product cards, coupons, and interactive tools inside articles.',
+      icon: ShoppingBag,
+      action: () => goTab('commerce-tools'),
     },
   ];
 
@@ -566,8 +598,8 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               {subView === 'hub' &&
                 (isAr
-                  ? 'الحملات، الكوبونات، العروض، السيو، وأتمتة الواتساب'
-                  : 'Campaigns, coupons, offers, SEO, and WhatsApp automation')}
+                  ? 'الحملات والكوبونات والعروض وتحسين محركات البحث والمدونة وأدوات التجارة والنشر الاجتماعي'
+                  : 'Campaigns, coupons, offers, SEO, blog, commerce tools, and social publishing')}
               {subView === 'abandoned' &&
                 (isAr
                   ? 'تتبع الأداء، إدارة رسائل التذكير، واستعادة المبيعات المفقودة.'
@@ -699,29 +731,16 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                 {isAr ? 'لا توجد أدوات تسويق متاحة حالياً.' : 'No marketing tools available right now.'}
               </div>
             ) : null}
-            {filteredTools.map((tool) => {
-              const Icon = tool.icon;
-              return (
-                <div
-                  key={tool.id}
-                  onClick={tool.action}
-                  className="p-5 bg-white dark:bg-slate-900 hover:bg-slate-50/80 dark:hover:bg-slate-800/60 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group h-44"
-                >
-                  <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 mb-3 group-hover:scale-105 transition-transform">
-                    <Icon className="w-6 h-6" />
-                  </div>
-
-                  <div>
-                    <h3 className="font-extrabold text-sm text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                      {tool.title}
-                    </h3>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2 font-medium">
-                      {tool.desc}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
+            {filteredTools.map((tool) => (
+              <PortalHubCard
+                key={tool.id}
+                icon={tool.icon}
+                title={tool.title}
+                description={tool.desc}
+                onClick={tool.action}
+                isAr={isAr}
+              />
+            ))}
           </div>
         </div>
       )}
@@ -1970,7 +1989,8 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                           key={c.id}
                           value={`${c.name} (${c.phone || activeStore.phone || '+966 50 000 0000'})`}
                         >
-                          {c.name} ({c.phone || '+966 50 000 0000'}) {c.city ? `- ${c.city}` : ''}
+                          {getCustomerDisplayName(c.name, locale)} ({c.phone || '+966 50 000 0000'})
+                          {c.city ? ` - ${getLocalizedCity(c.city, locale) || c.city}` : ''}
                         </option>
                       ))
                     ) : (

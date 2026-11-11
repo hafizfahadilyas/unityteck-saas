@@ -480,7 +480,7 @@ export const OrderFilterMenu: React.FC<OrderFilterMenuProps> = ({
           className="w-full px-3 py-2 text-xs rounded-xl border flex items-center justify-between transition-all cursor-pointer shadow-2xs hover:border-teal-500/60"
           style={{
             background: 'var(--input-bg)',
-            borderColor: activeSubMenu === 'status' ? '#007b83' : 'var(--border)',
+            borderColor: activeSubMenu === 'status' ? 'var(--accent)' : 'var(--border)',
             color: 'var(--input-fg)',
           }}
         >
@@ -540,7 +540,7 @@ export const OrderFilterMenu: React.FC<OrderFilterMenuProps> = ({
           className="w-full px-3 py-2 text-xs rounded-xl border flex items-center justify-between transition-all cursor-pointer shadow-2xs hover:border-teal-500/60"
           style={{
             background: 'var(--input-bg)',
-            borderColor: activeSubMenu === 'payment' ? '#007b83' : 'var(--border)',
+            borderColor: activeSubMenu === 'payment' ? 'var(--accent)' : 'var(--border)',
             color: 'var(--input-fg)',
           }}
         >
@@ -637,7 +637,7 @@ export const OrderFilterMenu: React.FC<OrderFilterMenuProps> = ({
           className="w-full px-3 py-2 text-xs rounded-xl border flex items-center justify-between transition-all cursor-pointer shadow-2xs hover:border-teal-500/60"
           style={{
             background: 'var(--input-bg)',
-            borderColor: activeSubMenu === 'channel' ? '#007b83' : 'var(--border)',
+            borderColor: activeSubMenu === 'channel' ? 'var(--accent)' : 'var(--border)',
             color: 'var(--input-fg)',
           }}
         >

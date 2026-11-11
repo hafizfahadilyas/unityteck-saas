@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Category;
 use App\Models\Store;
+use App\Services\GeminiAiMediaService;
 use App\Support\Plans;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -578,6 +579,65 @@ class ProductController extends Controller
             'data' => $rows,
             'store_id' => $store->id,
             'meta' => ['total' => $rows->count()],
+        ]);
+    }
+
+    /**
+     * AI suggestion for product title + description. Does not save the product.
+     */
+    public function suggestCopy(Request $request, GeminiAiMediaService $gemini): JsonResponse
+    {
+        $storeId = $this->requireStoreId($request);
+        if ($storeId instanceof JsonResponse) {
+            return $storeId;
+        }
+
+        $store = Store::query()->find($storeId);
+        if (! $store) {
+            return response()->json(['message' => 'Store not found'], 404);
+        }
+
+        $validated = $request->validate([
+            'name' => ['nullable', 'string', 'max:200'],
+            'category' => ['nullable', 'string', 'max:160'],
+            'brand' => ['nullable', 'string', 'max:120'],
+            'product_type' => ['nullable', 'string', 'max:120'],
+            'seed' => ['nullable', 'string', 'max:1000'],
+            'locale' => ['nullable', 'string', 'in:ar,en'],
+        ]);
+
+        $result = $gemini->suggestProductCopy([
+            'name' => $validated['name'] ?? '',
+            'category' => $validated['category'] ?? '',
+            'brand' => $validated['brand'] ?? '',
+            'product_type' => $validated['product_type'] ?? '',
+            'store_name' => (string) ($store->name ?? ''),
+            'seed' => $validated['seed'] ?? '',
+            'locale' => $validated['locale'] ?? 'en',
+        ]);
+
+        if (! $result['ok']) {
+            $status = ($result['code'] ?? '') === 'provider_not_connected' ? 503
+                : (($result['code'] ?? '') === 'missing_context' ? 422 : 502);
+
+            return response()->json([
+                'message' => $result['message'],
+                'code' => $result['code'],
+                'store_id' => $storeId,
+            ], $status);
+        }
+
+        return response()->json([
+            'success' => true,
+            'store_id' => $storeId,
+            'data' => [
+                'title' => $result['title'],
+                'subtitle' => $result['subtitle'],
+                'description' => $result['description'],
+                'saved' => false,
+                'model' => $result['model'],
+            ],
+            'message' => 'Product copy suggestion ready.',
         ]);
     }
 }

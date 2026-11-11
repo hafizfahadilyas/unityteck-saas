@@ -1,0 +1,33 @@
+---
+description: Ultra-fast Hostinger deploy — only changed files, never full tree
+alwaysApply: true
+---
+
+# Ultra-fast delta deploy (LOCKED)
+
+**User order:** Deploy **only what changed**. Full 1800-file FTP / whole-repo Hostinger push = **banned** for normal fixes. GitHub/local → Hostinger must stay instant.
+
+## Commands (prefer these)
+
+| Need | Command |
+|---|---|
+| API PHP only | `npm run deploy:api` or `node scripts/deploy-api-hotfiles.js --target=flowers\|central\|all` |
+| UI + API changed | `npm run deploy:fast:flowers` / `deploy:fast:central` / `deploy:fast` |
+| Rare full resync | `npm run deploy:all` **only when user explicitly asks full** |
+
+`deploy:fast*` = clean `dist/` + Vite build + **sha1 manifest delta** (parallel hosts). Second run uploads far fewer files.
+
+## Do not
+
+- Re-upload all images/fonts every fix
+- Run slow full FTP when delta covers the change
+- Push/deploy the entire monorepo “just in case”
+- Start a second full deploy while one is running (kill stale first)
+
+## After deploy
+
+Smoke live hosts the user cares about (`giftshop-sa.com`, `mieraf-ksa.com`): health, products, `/admin` stays on login (not bounce to `/`).
+
+## Status
+
+**Ho gaya** / **Baqi** with which target + approx file count uploaded.

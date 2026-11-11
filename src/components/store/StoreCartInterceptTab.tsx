@@ -406,102 +406,74 @@ export const StoreCartInterceptTab: React.FC = () => {
               </div>
             )}
 
-            {/* Bilingual Titles & Subtitles */}
+            {/* Locale Titles & Subtitles */}
             <div className="space-y-4 pt-2">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    {isAr ? 'العنوان الرئيسي (العربية)' : 'Heading (Arabic)'}
-                  </label>
-                  <input
-                    type="text"
-                    dir="rtl"
-                    value={
-                      config.active_modal === 'loyalty'
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  {isAr ? 'العنوان' : 'Heading'}
+                </label>
+                <input
+                  type="text"
+                  dir={isAr ? 'rtl' : 'ltr'}
+                  value={
+                    isAr
+                      ? config.active_modal === 'loyalty'
                         ? config.title_ar
                         : config.active_modal === 'gift'
                         ? config.gift_title_ar
                         : config.save_cart_title_ar
-                    }
-                    onChange={(e) => {
-                      if (config.active_modal === 'loyalty') setConfig({ ...config, title_ar: e.target.value });
-                      else if (config.active_modal === 'gift') setConfig({ ...config, gift_title_ar: e.target.value });
-                      else setConfig({ ...config, save_cart_title_ar: e.target.value });
-                    }}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    {isAr ? 'العنوان الرئيسي (الإنجليزية)' : 'Heading (English)'}
-                  </label>
-                  <input
-                    type="text"
-                    dir="ltr"
-                    value={
-                      config.active_modal === 'loyalty'
+                      : config.active_modal === 'loyalty'
                         ? config.title_en
                         : config.active_modal === 'gift'
                         ? config.gift_title_en
                         : config.save_cart_title_en
+                  }
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (config.active_modal === 'loyalty') {
+                      setConfig({ ...config, ...(isAr ? { title_ar: v } : { title_en: v }) });
+                    } else if (config.active_modal === 'gift') {
+                      setConfig({ ...config, ...(isAr ? { gift_title_ar: v } : { gift_title_en: v }) });
+                    } else {
+                      setConfig({ ...config, ...(isAr ? { save_cart_title_ar: v } : { save_cart_title_en: v }) });
                     }
-                    onChange={(e) => {
-                      if (config.active_modal === 'loyalty') setConfig({ ...config, title_en: e.target.value });
-                      else if (config.active_modal === 'gift') setConfig({ ...config, gift_title_en: e.target.value });
-                      else setConfig({ ...config, save_cart_title_en: e.target.value });
-                    }}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs"
-                  />
-                </div>
+                  }}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs"
+                />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    {isAr ? 'الوصف التوضيحي (العربية)' : 'Subtitle Description (Arabic)'}
-                  </label>
-                  <textarea
-                    rows={2}
-                    dir="rtl"
-                    value={
-                      config.active_modal === 'loyalty'
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  {isAr ? 'الوصف' : 'Subtitle'}
+                </label>
+                <textarea
+                  rows={2}
+                  dir={isAr ? 'rtl' : 'ltr'}
+                  value={
+                    isAr
+                      ? config.active_modal === 'loyalty'
                         ? config.subtitle_ar
                         : config.active_modal === 'gift'
                         ? config.gift_subtitle_ar
                         : config.save_cart_subtitle_ar
-                    }
-                    onChange={(e) => {
-                      if (config.active_modal === 'loyalty') setConfig({ ...config, subtitle_ar: e.target.value });
-                      else if (config.active_modal === 'gift') setConfig({ ...config, gift_subtitle_ar: e.target.value });
-                      else setConfig({ ...config, save_cart_subtitle_ar: e.target.value });
-                    }}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    {isAr ? 'الوصف التوضيحي (الإنجليزية)' : 'Subtitle Description (English)'}
-                  </label>
-                  <textarea
-                    rows={2}
-                    dir="ltr"
-                    value={
-                      config.active_modal === 'loyalty'
+                      : config.active_modal === 'loyalty'
                         ? config.subtitle_en
                         : config.active_modal === 'gift'
                         ? config.gift_subtitle_en
                         : config.save_cart_subtitle_en
+                  }
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (config.active_modal === 'loyalty') {
+                      setConfig({ ...config, ...(isAr ? { subtitle_ar: v } : { subtitle_en: v }) });
+                    } else if (config.active_modal === 'gift') {
+                      setConfig({ ...config, ...(isAr ? { gift_subtitle_ar: v } : { gift_subtitle_en: v }) });
+                    } else {
+                      setConfig({ ...config, ...(isAr ? { save_cart_subtitle_ar: v } : { save_cart_subtitle_en: v }) });
                     }
-                    onChange={(e) => {
-                      if (config.active_modal === 'loyalty') setConfig({ ...config, subtitle_en: e.target.value });
-                      else if (config.active_modal === 'gift') setConfig({ ...config, gift_subtitle_en: e.target.value });
-                      else setConfig({ ...config, save_cart_subtitle_en: e.target.value });
-                    }}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs"
-                  />
-                </div>
+                  }}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs"
+                />
               </div>
             </div>
 

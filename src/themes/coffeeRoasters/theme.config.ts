@@ -13,7 +13,7 @@ export const coffeeRoastersThemeConfig: ThemeManifest = {
   version: '2.4.0',
   description: 'Specialty coffee roastery and espresso machine flagship store theme with interactive machinery showcases.',
   descriptionAr: 'قالب رسمي مخصص للمقاهي ومحامص القهوة المتخصصة وأجهزة الإسبريسو مع عروض تفاعلية للمنتجات.',
-  author: 'Unityteck Storefront Engine',
+  author: 'Souq Platform Storefront Engine',
   category: 'cafe',
   previewImage: '/images/hero_hibrew_espresso_1791217182679.jpg',
   tags: ['coffee', 'espresso', 'roasters', 'machines', 'barista', 'luxury'],

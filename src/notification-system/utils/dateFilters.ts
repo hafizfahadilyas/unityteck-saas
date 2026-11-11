@@ -85,7 +85,7 @@ export function formatRelativeTime(
       return isAr ? 'منذ دقيقتين' : '2 minutes ago';
     }
     if (diffMinutes < 60) {
-      return isAr ? `منذ${diffMinutes}دقيقة` : `${diffMinutes} minutes ago`;
+      return isAr ? `منذ ${diffMinutes} دقيقة` : `${diffMinutes} minutes ago`;
     }
     const diffHours = Math.floor(diffMinutes / 60);
     if (diffHours === 1) {
@@ -95,7 +95,7 @@ export function formatRelativeTime(
       return isAr ? 'منذ ساعتين' : '2 hours ago';
     }
     if (diffHours < 24) {
-      return isAr ? `منذ${diffHours}ساعات` : `${diffHours} hours ago`;
+      return isAr ? `منذ ${diffHours} ساعات` : `${diffHours} hours ago`;
     }
     const diffDays = Math.floor(diffHours / 24);
     if (diffDays === 1) {
@@ -105,10 +105,12 @@ export function formatRelativeTime(
       return isAr ? 'منذ يومين' : '2 days ago';
     }
     if (diffDays < 7) {
-      return isAr ? `منذ${diffDays}أيام` : `${diffDays} days ago`;
+      return isAr ? `منذ ${diffDays} أيام` : `${diffDays} days ago`;
     }
 
-    return format(date, 'MMM d, yyyy');
+    return isAr
+      ? date.toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' })
+      : format(date, 'MMM d, yyyy');
   } catch {
     return timestamp;
   }

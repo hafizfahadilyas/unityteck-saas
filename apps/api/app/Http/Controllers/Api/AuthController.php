@@ -22,7 +22,7 @@ class AuthController extends Controller
 {
     private const RESET_TTL_MINUTES = 60;
 
-    private const OTP_TTL_MINUTES = 1;
+    private const OTP_TTL_MINUTES = 5;
 
     /**
      * Password login closed — email OTP (Clerk) or /auth/otp/verify only.
@@ -59,7 +59,7 @@ class AuthController extends Controller
         $normalized = Roles::normalize($user->role);
         $portal = $normalized === Roles::SUPER_ADMIN ? 'master' : 'store';
         $role = $portal === 'store' && $membership
-            ? Roles::normalize($membership->role ?: $user->role)
+            ? $this->resolveStorePortalRole($user, $membership->role)
             : $normalized;
 
         $store = $membership
@@ -67,6 +67,9 @@ class AuthController extends Controller
             : null;
 
         $desc = Roles::describe($role);
+        $roleLabel = $portal === 'store' && $role === Roles::ADMIN
+            ? 'Store Owner'
+            : $desc['label'];
 
         return response()->json([
             'portal' => $portal,
@@ -75,7 +78,7 @@ class AuthController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $desc['slug'],
-                'role_label' => $desc['label'],
+                'role_label' => $roleLabel,
                 'role_level' => $desc['level'],
             ],
             'abilities' => $desc['abilities'],
@@ -109,6 +112,9 @@ class AuthController extends Controller
         string $role,
     ): array {
         $desc = Roles::describe($role);
+        $roleLabel = $portal === 'store' && $role === Roles::ADMIN
+            ? 'Store Owner'
+            : $desc['label'];
 
         return [
             'token' => $token,
@@ -118,7 +124,7 @@ class AuthController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $desc['slug'],
-                'role_label' => $desc['label'],
+                'role_label' => $roleLabel,
                 'role_level' => $desc['level'],
             ],
             'abilities' => $desc['abilities'],
@@ -345,9 +351,14 @@ class AuthController extends Controller
         }
 
         $email = Str::lower(trim($data['email']));
+        // Clerk owns the OTP email (may be +clerk_test). Membership uses registered store email.
         $this->assertClerkTokenOwnsEmail($data['clerk_token'], $email);
+        $accountEmail = $this->normalizeClerkDevLoginEmail($email);
 
-        $user = User::query()->where('email', $email)->first();
+        $user = User::query()->where('email', $accountEmail)->first();
+        if (! $user && $accountEmail !== $email) {
+            $user = User::query()->where('email', $email)->first();
+        }
 
         if (! $user || ! $this->userMatchesPortal($user, $data['portal'])) {
             throw ValidationException::withMessages([
@@ -387,7 +398,7 @@ class AuthController extends Controller
                 'email' => ['This store login email is inactive. Contact platform support.'],
             ]);
         }
-        $role = Roles::normalize($membership->role ?: $user->role);
+        $role = $this->resolveStorePortalRole($user, $membership->role);
 
         $token = $user->createToken('store', [
             'portal:store',
@@ -471,7 +482,7 @@ class AuthController extends Controller
         }
 
         $store = Store::query()->find($membership->store_id);
-        $role = Roles::normalize($membership->role ?: $user->role);
+        $role = $this->resolveStorePortalRole($user, $membership->role);
 
         $token = $user->createToken('store', [
             'portal:store',
@@ -491,6 +502,45 @@ class AuthController extends Controller
         ));
     }
 
+    /**
+     * Primary merchant seats (flowers / coffee / bleco owners) must keep products.write.
+     * Legacy store_owner / bad membership slug must not collapse to viewer.
+     */
+    private function resolveStorePortalRole(User $user, ?string $membershipRole): string
+    {
+        $fromMembership = Roles::normalize($membershipRole ?: $user->role);
+        $fromUser = Roles::normalize($user->role);
+
+        if (in_array($fromMembership, [Roles::ADMIN, Roles::MANAGER], true)) {
+            return $fromMembership;
+        }
+
+        // User record says admin/manager but membership slug was legacy/unknown → restore write access
+        if (in_array($fromUser, [Roles::ADMIN, Roles::MANAGER], true)) {
+            return $fromUser;
+        }
+
+        // Explicit limited seats stay limited
+        if (in_array($fromMembership, [
+            Roles::SUPPORT,
+            Roles::SALES,
+            Roles::MARKETING,
+            Roles::SEO,
+            Roles::CONTENT,
+            Roles::DEVELOPER,
+        ], true)) {
+            return $fromMembership;
+        }
+
+        // Unknown / viewer on a store login with owner-like user name slug → admin
+        $raw = strtolower(trim((string) ($membershipRole ?: $user->role)));
+        if (in_array($raw, ['store_owner', 'owner', 'storeowner', ''], true)) {
+            return Roles::ADMIN;
+        }
+
+        return $fromMembership;
+    }
+
     private function userMatchesPortal(User $user, string $portal): bool
     {
         $role = Roles::normalize($user->role);
@@ -500,6 +550,23 @@ class AuthController extends Controller
         }
 
         return $role !== Roles::SUPER_ADMIN;
+    }
+
+    /**
+     * Strip Clerk reserved `+clerk_test` subaddress so Sanctum maps to the real store user.
+     * Example: mieraf.sa8+clerk_test@gmail.com → mieraf.sa8@gmail.com
+     */
+    private function normalizeClerkDevLoginEmail(string $email): string
+    {
+        $email = Str::lower(trim($email));
+        if (! str_contains($email, '@')) {
+            return $email;
+        }
+
+        [$local, $domain] = explode('@', $email, 2);
+        $local = (string) preg_replace('/\+clerk_test.*$/i', '', $local);
+
+        return $local.'@'.$domain;
     }
 
     /**

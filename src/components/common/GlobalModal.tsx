@@ -77,14 +77,26 @@ export function GlobalModal({
     onClose();
   };
 
+  // Portals escape the shell — copy Holst portal/theme so remaps + tokens apply inside modals.
+  const portalAttr =
+    document.documentElement.getAttribute('data-portal') ||
+    document.body.getAttribute('data-portal') ||
+    'store';
+  const themeAttr =
+    document.documentElement.getAttribute('data-theme') ||
+    document.body.getAttribute('data-theme') ||
+    'light';
+
   return createPortal(
     <div
       dir={dir}
       className={`fixed inset-0 ${zIndexClassName} flex items-center justify-center p-3 sm:p-5 overflow-y-auto overscroll-contain bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-150 ${backdropClassName}`}
-      style={{ fontFamily: 'var(--font-ui, inherit)' }}
+      style={{ fontFamily: 'var(--font-ui, inherit)', color: 'var(--text)' }}
       onClick={handleBackdropClick}
       role="presentation"
       data-global-modal="backdrop"
+      data-portal={portalAttr}
+      data-theme={themeAttr}
     >
       <div
         className={`relative w-full flex justify-center my-auto max-h-[min(96dvh,100%)] ${contentClassName}`}

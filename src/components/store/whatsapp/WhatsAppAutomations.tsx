@@ -608,24 +608,18 @@ export const WhatsAppAutomations: React.FC<Props> = ({ onNavigateSubView }) => {
             <div className="space-y-3 text-xs">
               <div>
                 <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                  {isAr ? 'اسم الأتمتة بالإنجليزية' : 'Automation Name (EN)'}
+                  {isAr ? 'اسم الأتمتة' : 'Automation Name'}
                 </label>
                 <input
                   type="text"
-                  value={editingItem.name}
-                  onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
-                  className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                  {isAr ? 'اسم الأتمتة (عربي)' : 'Automation Name (AR)'}
-                </label>
-                <input
-                  type="text"
-                  value={editingItem.name_ar}
-                  onChange={(e) => setEditingItem({ ...editingItem, name_ar: e.target.value })}
+                  dir={isAr ? 'rtl' : 'ltr'}
+                  value={isAr ? editingItem.name_ar : editingItem.name}
+                  onChange={(e) =>
+                    setEditingItem({
+                      ...editingItem,
+                      ...(isAr ? { name_ar: e.target.value } : { name: e.target.value }),
+                    })
+                  }
                   className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none"
                 />
               </div>

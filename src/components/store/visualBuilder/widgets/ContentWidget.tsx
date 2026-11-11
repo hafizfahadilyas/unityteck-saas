@@ -300,8 +300,9 @@ export function WidgetFields({
   if (type === 'offer_banner' || type === 'promo_banner' || type === 'special_offer') {
     return (
       <div className="space-y-2">
-        {field('headingEn', 'English heading', 'العنوان الإنجليزي', settings.headingEn || '')}
-        {field('headingAr', 'Arabic heading', 'العنوان العربي', settings.headingAr || '')}
+        {isAr
+          ? field('headingAr', 'Heading', 'العنوان', settings.headingAr || '')
+          : field('headingEn', 'Heading', 'العنوان', settings.headingEn || '')}
         {field('endsAt', 'End time', 'وقت الانتهاء', settings.endsAt || '')}
       </div>
     );

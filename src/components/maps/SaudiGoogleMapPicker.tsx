@@ -14,6 +14,7 @@ import {
   loadGoogleMaps,
   prefetchGoogleMaps,
   resolveSaudiPlace,
+  isPlusCodeLabel,
   reverseGeocodeSaudi,
   searchSaudiPlaces,
   type SaudiAddressParts,
@@ -89,11 +90,37 @@ export const SaudiGoogleMapPicker: React.FC<Props> = ({
   const [query, setQuery] = useState(address || '');
   const [suggestions, setSuggestions] = useState<SaudiPlaceSuggestion[]>([]);
   const [searchBusy, setSearchBusy] = useState(false);
+  const [reverseBusy, setReverseBusy] = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1);
   const [searchOpen, setSearchOpen] = useState(false);
 
+  const pinFallbackLabel = (point: GeoPoint) =>
+    isAr
+      ? `موقع الدبوس · ${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`
+      : `Map pin · ${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`;
+
+  const resolvingLabel = (point: GeoPoint) =>
+    isAr
+      ? `جاري قراءة العنوان الكامل… (${point.lat.toFixed(4)}, ${point.lng.toFixed(4)})`
+      : `Reading full address… (${point.lat.toFixed(4)}, ${point.lng.toFixed(4)})`;
+
+  const isPinFallbackText = (raw: string) => {
+    const t = raw.trim();
+    return (
+      t.startsWith('Map pin ·') ||
+      t.startsWith('موقع الدبوس ·') ||
+      t.startsWith('Reading full address') ||
+      t.startsWith('جاري قراءة العنوان') ||
+      isPlusCodeLabel(t)
+    );
+  };
+
   useEffect(() => {
-    if (typeof address === 'string' && address !== query) setQuery(address);
+    if (typeof address === 'string' && address !== query) {
+      // Don't let parent re-inject Plus Codes / coord stubs over a resolving full address.
+      if (isPlusCodeLabel(address) || isPinFallbackText(address)) return;
+      setQuery(address);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address]);
 
@@ -106,30 +133,65 @@ export const SaudiGoogleMapPicker: React.FC<Props> = ({
     onAddressPartsChange?.(parts);
     const next =
       parts.formatted ||
-      [parts.city, parts.district, parts.street].filter(Boolean).join(' - ');
-    if (next) {
+      [parts.street, parts.district, parts.city].filter(Boolean).join(isAr ? '، ' : ', ');
+    if (next && !isPlusCodeLabel(next)) {
       setQuery(next);
       onAddressChange?.(next);
     }
   };
 
+  /** Temporary label while reverse geocode runs — never leave Plus Code as the address. */
+  const applyResolvingLabel = (point: GeoPoint) => {
+    const current = (typeof address === 'string' ? address : query).trim();
+    if (current && !isPinFallbackText(current)) {
+      // Keep merchant typed street text; pin still locks via onGeoChange.
+      return;
+    }
+    const label = resolvingLabel(point);
+    setQuery(label);
+    onAddressChange?.(label);
+  };
+
+  const applyPinWithoutTyping = (point: GeoPoint) => {
+    const label = pinFallbackLabel(point);
+    const current = (typeof address === 'string' ? address : query).trim();
+    if (current && !isPinFallbackText(current)) return;
+    setQuery(label);
+    onAddressChange?.(label);
+    onAddressPartsChange?.({
+      formatted: label,
+      city: '',
+      district: '',
+      street: label,
+    });
+  };
+
   const reverseGeocode = (point: GeoPoint) => {
     if (reverseTimerRef.current) clearTimeout(reverseTimerRef.current);
     reverseAbortRef.current?.abort();
+    setReverseBusy(true);
     reverseTimerRef.current = setTimeout(() => {
       const ac = new AbortController();
       reverseAbortRef.current = ac;
       void reverseGeocodeSaudi(point.lat, point.lng, isAr, ac.signal)
         .then((parts) => {
-          if (!ac.signal.aborted && parts) applyAddressParts(parts);
+          if (ac.signal.aborted) return;
+          if (parts?.formatted && !isPlusCodeLabel(parts.formatted)) applyAddressParts(parts);
+          else applyPinWithoutTyping(point);
         })
         .catch(() => {
-          /* keep pin */
+          if (!ac.signal.aborted) applyPinWithoutTyping(point);
+        })
+        .finally(() => {
+          if (!ac.signal.aborted) setReverseBusy(false);
         });
-    }, 180);
+    }, 90);
   };
 
-  const setPin = (point: GeoPoint, opts?: { reverse?: boolean; silentOutOfSa?: boolean }) => {
+  const setPin = (
+    point: GeoPoint,
+    opts?: { reverse?: boolean; silentOutOfSa?: boolean; fromDrag?: boolean },
+  ) => {
     if (!isInSaudiArabia(point.lat, point.lng)) {
       if (!opts?.silentOutOfSa) {
         setLocError(
@@ -143,11 +205,16 @@ export const SaudiGoogleMapPicker: React.FC<Props> = ({
     setLocError(null);
     onGeoChange(point);
     if (markerRef.current) markerRef.current.setPosition(point);
-    if (mapRef.current) {
+    // Drag already moved the marker — skip pan/zoom so the map stays buttery.
+    if (mapRef.current && !opts?.fromDrag) {
       mapRef.current.panTo(point);
-      mapRef.current.setZoom(16);
+      const z = mapRef.current.getZoom() ?? 12;
+      if (z < 14) mapRef.current.setZoom(16);
     }
-    if (opts?.reverse !== false) reverseGeocode(point);
+    if (opts?.reverse !== false) {
+      applyResolvingLabel(point);
+      reverseGeocode(point);
+    }
   };
 
   const setPinRef = useRef(setPin);
@@ -286,7 +353,7 @@ export const SaudiGoogleMapPicker: React.FC<Props> = ({
           marker.addListener('dragend', () => {
             const pos = marker.getPosition();
             if (!pos) return;
-            setPinRef.current({ lat: pos.lat(), lng: pos.lng() });
+            setPinRef.current({ lat: pos.lat(), lng: pos.lng() }, { fromDrag: true });
           });
 
           mapRef.current = map;
@@ -330,8 +397,18 @@ export const SaudiGoogleMapPicker: React.FC<Props> = ({
 
   useEffect(() => {
     if (!mapReady || !geo || !isInSaudiArabia(geo.lat, geo.lng)) return;
-    markerRef.current?.setPosition(geo);
-    mapRef.current?.panTo(geo);
+    const marker = markerRef.current;
+    const map = mapRef.current;
+    if (!marker || !map) return;
+    const cur = marker.getPosition();
+    if (
+      cur &&
+      Math.abs(cur.lat() - geo.lat) < 0.00001 &&
+      Math.abs(cur.lng() - geo.lng) < 0.00001
+    ) {
+      return;
+    }
+    marker.setPosition(geo);
   }, [geo, mapReady]);
 
   // Legacy external input still supported
@@ -435,7 +512,9 @@ export const SaudiGoogleMapPicker: React.FC<Props> = ({
               {isAr ? 'موقع التوصيل على الخريطة' : 'Delivery location on map'}
             </p>
             <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 truncate">
-              {isAr ? 'اكتب العنوان بسلاسة — النتائج داخل السعودية فقط' : 'Type smoothly — results in Saudi Arabia only'}
+              {isAr
+                ? 'اسحب الدبوس للتثبيت — أو اكتب للبحث داخل السعودية'
+                : 'Drag the pin to lock — or type to search inside Saudi Arabia'}
             </p>
           </div>
         </div>
@@ -485,7 +564,7 @@ export const SaudiGoogleMapPicker: React.FC<Props> = ({
               spellCheck={false}
             />
             <span className="absolute end-3 top-1/2 -translate-y-1/2 text-slate-400">
-              {searchBusy || pickBusy ? (
+              {searchBusy || pickBusy || reverseBusy ? (
                 <Loader2 className="w-4 h-4 animate-spin text-teal-600" />
               ) : null}
             </span>
@@ -527,7 +606,7 @@ export const SaudiGoogleMapPicker: React.FC<Props> = ({
       ) : null}
 
       {/* Map stage */}
-      <div className="relative mx-3.5 mb-3.5 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-700/70 bg-slate-100 dark:bg-slate-850 aspect-[16/10] sm:aspect-[16/9] shadow-inner">
+      <div className="relative mx-3.5 mb-3.5 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-700/70 bg-slate-100 dark:bg-slate-850 h-[min(42vw,220px)] min-h-[180px] sm:h-auto sm:min-h-0 sm:aspect-[16/9] shadow-inner">
         {wantsInteractive ? (
           <div ref={mapHostRef} className="absolute inset-0 w-full h-full" />
         ) : null}
@@ -594,11 +673,11 @@ export const SaudiGoogleMapPicker: React.FC<Props> = ({
             <p className="text-[10px] sm:text-[11px] font-bold text-white leading-snug">
               {isAr
                 ? interactive
-                  ? 'اكتب العنوان أعلاه أو اضغط على الخريطة لوضع الدبوس داخل السعودية'
-                  : 'اكتب عنواناً سعودياً أو استخدم موقعك الحالي'
+                  ? 'اسحب الدبوس أو اضغط على الخريطة — الموقع يُثبَّت دون كتابة'
+                  : 'استخدم موقعك الحالي أو ابحث عن عنوان سعودي'
                 : interactive
-                  ? 'Type above or tap the map to drop a pin inside Saudi Arabia'
-                  : 'Type a Saudi address or use your live location'}
+                  ? 'Drag the pin or tap the map — location locks with no typing'
+                  : 'Use your live location or search a Saudi address'}
             </p>
           </div>
         ) : (
@@ -609,9 +688,15 @@ export const SaudiGoogleMapPicker: React.FC<Props> = ({
               </span>
               <div className="min-w-0">
                 <p className="text-[10px] font-black text-teal-700 dark:text-teal-300 uppercase tracking-wide">
-                  {isAr ? 'تم تثبيت الموقع' : 'Pin set'}
+                  {reverseBusy
+                    ? isAr
+                      ? 'جاري جلب العنوان الكامل…'
+                      : 'Fetching full address…'
+                    : isAr
+                      ? 'تم تثبيت الموقع'
+                      : 'Pin set'}
                 </p>
-                <p className="text-[11px] font-semibold text-slate-800 dark:text-slate-100 leading-snug truncate">
+                <p className="text-[11px] font-semibold text-slate-800 dark:text-slate-100 leading-snug line-clamp-2">
                   {query ||
                     (isAr ? 'موقع داخل المملكة العربية السعودية' : 'Location inside Saudi Arabia')}
                 </p>

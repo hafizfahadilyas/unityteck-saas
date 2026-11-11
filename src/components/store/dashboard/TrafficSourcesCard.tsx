@@ -160,7 +160,7 @@ export const TrafficSourcesCard: React.FC<TrafficSourcesCardProps> = React.memo(
         </button>
       </div>
 
-      {/* ── Donut Chart + Channel List (live order sources only; 0% channels hidden upstream) ── */}
+      {/* ── Donut Chart + Channel List (storefront page_view traffic only; 0% channels hidden upstream) ── */}
       <div className="flex-1 flex flex-col justify-center min-w-0 min-h-0 overflow-hidden">
         <div className="flex flex-row items-center justify-between gap-2 sm:gap-3 w-full min-w-0 h-full">
           {/* Donut Chart */}

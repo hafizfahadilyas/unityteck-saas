@@ -272,7 +272,13 @@ export const RecentActivityCard: React.FC<RecentActivityCardProps> = React.memo(
         );
       case 'register':
         return (
-          <div className="w-10 h-10 rounded-full bg-[#e8f7fa] text-[#0284c7] dark:bg-sky-950/80 dark:text-sky-300 flex items-center justify-center shrink-0">
+          <div
+            className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+            style={{
+              background: 'color-mix(in srgb, var(--accent) 14%, var(--surface))',
+              color: 'var(--accent)',
+            }}
+          >
             <User className="w-5 h-5" />
           </div>
         );

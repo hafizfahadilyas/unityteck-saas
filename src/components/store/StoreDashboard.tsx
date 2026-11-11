@@ -347,7 +347,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
         <div className="min-w-0 h-full">
           <TrafficSourcesCard
             totalVisits={visitorsCount}
-            growthPercentage={0}
+            growthPercentage={typeof visitsGrowth === 'number' ? visitsGrowth : 0}
             channels={trafficChannels}
             onViewAll={() => onNavigateTab('analytics')}
           />

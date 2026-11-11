@@ -203,31 +203,37 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
     });
   }, [documents, selectedType, selectedStatus, dateFilter, searchQuery]);
 
-  // Document Type Metadata Helper
+  // Document Type Metadata Helper — brand chrome uses Holst accent (no indigo/blue/purple)
+  const portalAccentBadgeStyle: React.CSSProperties = {
+    background: 'color-mix(in srgb, var(--accent) 12%, var(--surface))',
+    color: 'var(--accent)',
+    borderColor: 'color-mix(in srgb, var(--accent) 28%, transparent)',
+  };
+
   const getDocTypeBadge = (type: InvoiceDocumentType) => {
     switch (type) {
       case 'order_invoice':
-        return { label: isAr ? 'فاتورة مبيعات' : 'Order Invoice', color: 'bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/30', icon: FileText };
+        return { label: isAr ? 'فاتورة مبيعات' : 'Order Invoice', color: 'border', useAccent: true as const, icon: FileText };
       case 'tax_invoice':
-        return { label: isAr ? 'فاتورة ضريبية معتمدة' : 'Tax Invoice', color: 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30', icon: ShieldCheck };
+        return { label: isAr ? 'فاتورة ضريبية معتمدة' : 'Tax Invoice', color: 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30', useAccent: false as const, icon: ShieldCheck };
       case 'quotation':
-        return { label: isAr ? 'عرض أسعار' : 'Quotation', color: 'bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/30', icon: Sparkles };
+        return { label: isAr ? 'عرض أسعار' : 'Quotation', color: 'border', useAccent: true as const, icon: Sparkles };
       case 'proforma_invoice':
-        return { label: isAr ? 'فاتورة أولية' : 'Proforma', color: 'bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/30', icon: FileSpreadsheet };
+        return { label: isAr ? 'فاتورة أولية' : 'Proforma', color: 'bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/30', useAccent: false as const, icon: FileSpreadsheet };
       case 'payment_receipt':
-        return { label: isAr ? 'سند قبض' : 'Receipt', color: 'bg-teal-50 dark:bg-teal-500/15 text-teal-700 dark:text-teal-400 border-teal-200 dark:border-teal-500/30', icon: Receipt };
+        return { label: isAr ? 'سند قبض' : 'Receipt', color: 'bg-teal-50 dark:bg-teal-500/15 text-teal-700 dark:text-teal-400 border-teal-200 dark:border-teal-500/30', useAccent: false as const, icon: Receipt };
       case 'delivery_note':
-        return { label: isAr ? 'سند تسليم' : 'Delivery Note', color: 'bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-500/30', icon: Truck };
+        return { label: isAr ? 'سند تسليم' : 'Delivery Note', color: 'border', useAccent: true as const, icon: Truck };
       case 'credit_note':
-        return { label: isAr ? 'إشعار دائن' : 'Credit Note', color: 'bg-purple-50 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-500/30', icon: CreditCard };
+        return { label: isAr ? 'إشعار دائن' : 'Credit Note', color: 'border', useAccent: true as const, icon: CreditCard };
       case 'refund_receipt':
-        return { label: isAr ? 'إيصال استرجاع' : 'Refund Receipt', color: 'bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/30', icon: RotateCcw };
+        return { label: isAr ? 'إيصال استرجاع' : 'Refund Receipt', color: 'bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/30', useAccent: false as const, icon: RotateCcw };
       case 'cancelled_order_invoice':
-        return { label: isAr ? 'سجل إلغاء' : 'Cancellation', color: 'bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/30', icon: AlertTriangle };
+        return { label: isAr ? 'سجل إلغاء' : 'Cancellation', color: 'bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/30', useAccent: false as const, icon: AlertTriangle };
       case 'purchase_invoice':
-        return { label: isAr ? 'فاتورة مشتريات' : 'Purchase Invoice', color: 'bg-slate-100 dark:bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-500/30', icon: Building };
+        return { label: isAr ? 'فاتورة مشتريات' : 'Purchase Invoice', color: 'bg-slate-100 dark:bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-500/30', useAccent: false as const, icon: Building };
       default:
-        return { label: type, color: 'bg-slate-100 dark:bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-500/30', icon: FileText };
+        return { label: type, color: 'bg-slate-100 dark:bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-500/30', useAccent: false as const, icon: FileText };
     }
   };
 
@@ -294,7 +300,10 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30 flex items-center justify-center font-bold">
+            <div
+              className="w-10 h-10 rounded-xl border flex items-center justify-center font-bold"
+              style={portalAccentBadgeStyle}
+            >
               <ReceiptText className="w-5 h-5" />
             </div>
             <div>
@@ -316,7 +325,7 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
             onClick={() => setIsDesignerOpen(true)}
             className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
           >
-            <Palette className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+            <Palette className="w-4 h-4" style={{ color: 'var(--accent)' }} />
             <span>{isAr ? 'تخصيص القوالب' : 'Template Designer'}</span>
           </button>
 
@@ -326,7 +335,7 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
               setCreateInitialType('order_invoice');
               setIsCreateOpen(true);
             }}
-            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-md active:scale-95"
+            className="px-4 py-2 rounded-xl unity-btn-primary text-white text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-md active:scale-95 hover:opacity-95"
           >
             <Plus className="w-4 h-4" />
             <span>{isAr ? 'إنشاء مستند جديد' : 'Generate Document'}</span>
@@ -340,7 +349,10 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 shadow-xs relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{isAr ? 'إجمالي المبيعات المفوترة' : 'Total Invoiced'}</span>
-            <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={portalAccentBadgeStyle}
+            >
               <Coins className="w-4 h-4" />
             </div>
           </div>
@@ -382,12 +394,15 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 shadow-xs relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{isAr ? 'عروض الأسعار النشطة' : 'Active Quotes'}</span>
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={portalAccentBadgeStyle}
+            >
               <Sparkles className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-xl sm:text-2xl font-black text-indigo-600 dark:text-indigo-400 font-mono">{money(stats.activeQuotesValue)}</span>
+            <span className="text-xl sm:text-2xl font-black font-mono" style={{ color: 'var(--accent)' }}>{money(stats.activeQuotesValue)}</span>
           </div>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{stats.activeQuotesCount} {isAr ? 'عروض تسعير مرسلة' : 'proposals pending'}</p>
         </div>
@@ -418,9 +433,10 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
                 onClick={() => setSelectedType(tab.id)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
                   isSelected
-                    ? 'bg-blue-600 text-white shadow-xs'
+                    ? 'text-white shadow-xs'
                     : 'bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800'
                 }`}
+                style={isSelected ? { background: 'var(--portal-cta)' } : undefined}
               >
                 {isAr ? tab.labelAr : tab.labelEn}
               </button>
@@ -442,7 +458,7 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
                   ? 'بحث برقم الفاتورة، رقم الطلب، اسم العميل، الجوال، أو المورد...'
                   : 'Search by document #, order #, customer name, phone, or supplier...'
               }
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl ps-9 pe-4 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 transition-colors"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl ps-9 pe-4 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:border-[var(--accent)] focus:bg-white dark:focus:bg-slate-800 transition-colors"
             />
           </div>
 
@@ -517,16 +533,19 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
                         <button
                           type="button"
                           onClick={() => handleOpenPreview(doc)}
-                          className="hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1.5 transition-colors cursor-pointer"
+                          className="flex items-center gap-1.5 transition-colors cursor-pointer hover:[color:var(--accent)]"
                         >
                           <span>{doc.documentNumber}</span>
-                          <ArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 text-blue-600 dark:text-blue-400 transition-opacity" />
+                          <ArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--accent)' }} />
                         </button>
                       </td>
 
                       {/* Document Type Badge */}
                       <td className="py-3.5 px-3">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${badge.color}`}>
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${badge.color}`}
+                          style={badge.useAccent ? portalAccentBadgeStyle : undefined}
+                        >
                           <TypeIcon className="w-3 h-3" />
                           <span>{badge.label}</span>
                         </span>
@@ -547,7 +566,7 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
                       {/* Linked Order */}
                       <td className="py-3.5 px-3">
                         {doc.orderNumber ? (
-                          <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">
+                          <span className="font-mono font-semibold" style={{ color: 'var(--accent)' }}>
                             {doc.orderNumber}
                           </span>
                         ) : (

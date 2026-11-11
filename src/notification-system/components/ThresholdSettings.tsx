@@ -69,7 +69,7 @@ export const ThresholdSettings: React.FC = () => {
             </h3>
             <p className="text-xs text-slate-500">
               {isAr
-                ? 'تحكم في الحدود الرقمية لإطلاق التنبيهات التشغيلية وشروط مراسلة الواتساب'
+                ? 'تحكم في الحدود الرقمية لإطلاق التنبيهات التشغيلية وشروط مراسلة واتساب'
                 : 'Configure trigger limits for operational alerts, stock ceilings, and WhatsApp rules'}
             </p>
           </div>
@@ -233,14 +233,38 @@ export const ThresholdSettings: React.FC = () => {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
           {[
-            { key: 'isWhatsappConnected', label: 'WhatsApp Business API' },
-            { key: 'isMetaConnected', label: 'Meta Pixel & Marketing' },
-            { key: 'isGoogleAdsConnected', label: 'Google Ads & GMC' },
-            { key: 'isTiktokConnected', label: 'TikTok for Business' },
-            { key: 'isSnapchatConnected', label: 'Snapchat Conversions' },
-            { key: 'isXConnected', label: 'X (Twitter) Ads' },
-            { key: 'isPinterestConnected', label: 'Pinterest Business' },
-            { key: 'isYoutubeConnected', label: 'YouTube Shopping' },
+            {
+              key: 'isWhatsappConnected',
+              label: isAr ? 'واجهة واتساب للأعمال' : 'WhatsApp Business API',
+            },
+            {
+              key: 'isMetaConnected',
+              label: isAr ? 'بكسل ميتا والتسويق' : 'Meta Pixel & Marketing',
+            },
+            {
+              key: 'isGoogleAdsConnected',
+              label: isAr ? 'إعلانات جوجل وتاجر جوجل' : 'Google Ads & GMC',
+            },
+            {
+              key: 'isTiktokConnected',
+              label: isAr ? 'تيك توك للأعمال' : 'TikTok for Business',
+            },
+            {
+              key: 'isSnapchatConnected',
+              label: isAr ? 'تحويلات سناب شات' : 'Snapchat Conversions',
+            },
+            {
+              key: 'isXConnected',
+              label: isAr ? 'إعلانات منصة إكس' : 'X (Twitter) Ads',
+            },
+            {
+              key: 'isPinterestConnected',
+              label: isAr ? 'بينتيريست للأعمال' : 'Pinterest Business',
+            },
+            {
+              key: 'isYoutubeConnected',
+              label: isAr ? 'يوتيوب للتسوق' : 'YouTube Shopping',
+            },
           ].map((item) => {
             const isConnected = (thresholds as any)[item.key];
             return (

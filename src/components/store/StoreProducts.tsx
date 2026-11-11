@@ -3,6 +3,7 @@ import { useTenant } from '../../context/TenantContext';
 import { FloatingPopover } from '../common/FloatingPopover';
 import {
   fetchProductsPage,
+  fetchStorefrontCatalogPage,
   fetchCategories,
   restoreProduct as restoreProductApi,
   forceDeleteProduct as forceDeleteProductApi,
@@ -121,6 +122,8 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
   // Navigation / View State: 'list' | 'edit' | 'brands' | 'filters'
   const [currentView, setCurrentView] = useState<'list' | 'edit' | 'brands' | 'filters'>('list');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  /** Grid density: products per row on large screens (3–6). */
+  const [gridCols, setGridCols] = useState<3 | 4 | 5 | 6>(3);
   const [isSideDrawerOpen, setIsSideDrawerOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   /** Unsaved manual create draft — never persisted until user clicks Save */
@@ -182,6 +185,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
   const [catalogBusy, setCatalogBusy] = useState(false);
 
   const rowCacheRef = useRef<Record<string, Product[]>>({});
+  const catalogReqSeqRef = useRef(0);
 
   useEffect(() => {
     const cached = activeStore?.id ? rowCacheRef.current[activeStore.id] : undefined;
@@ -197,6 +201,9 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
     setPage(1);
     setCatalogNonce((n) => n + 1);
   };
+
+  /** Side-edit open → hide secondary cols so the list pane stays readable. */
+  const tableCompact = Boolean(isSideDrawerOpen && editingProductId);
 
   const emptyCatalogMessage = catalogBusy
     ? isAr
@@ -229,6 +236,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
   useEffect(() => {
     if (dataSource !== 'api' || !activeStore?.id) return;
     let cancelled = false;
+    const reqId = (catalogReqSeqRef.current += 1);
     setCatalogBusy(true);
     const status =
       filterCriteria.status === 'Draft'
@@ -245,6 +253,20 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
         : selectedCategory !== 'all'
           ? selectedCategory
           : undefined;
+    const applyPage = (res: {
+      data: Product[];
+      meta: { total: number; last_page: number; counts?: Record<string, number> | null };
+    }) => {
+      if (cancelled || reqId !== catalogReqSeqRef.current) return;
+      const enriched = (res.data || []).map((row) =>
+        mergeProductCatalogExtras(activeStore.id, row),
+      );
+      rowCacheRef.current[activeStore.id] = enriched;
+      setApiRows(enriched);
+      setApiTotal(res.meta.total);
+      setApiLastPage(res.meta.last_page);
+      if (res.meta.counts) setApiCounts(res.meta.counts as any);
+    };
     const timer = window.setTimeout(() => {
       void fetchProductsPage(activeStore.id, {
         page,
@@ -261,26 +283,31 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
         sort: 'updated_at',
         dir: 'desc',
       })
-        .then((res) => {
-          if (cancelled) return;
-          const enriched = (res.data || []).map((row) =>
-            mergeProductCatalogExtras(activeStore.id, row),
-          );
-          if (activeStore.id) rowCacheRef.current[activeStore.id] = enriched;
-          setApiRows(enriched);
-          setApiTotal(res.meta.total);
-          setApiLastPage(res.meta.last_page);
-          if (res.meta.counts) setApiCounts(res.meta.counts);
-        })
-        .catch(() => {
-          if (cancelled) return;
-          const cached = activeStore.id ? rowCacheRef.current[activeStore.id] : undefined;
+        .then((res) => applyPage(res))
+        .catch(async () => {
+          if (cancelled || reqId !== catalogReqSeqRef.current) return;
+          try {
+            // Admin /products timed out or aborted — public catalog keeps the table usable.
+            const catalog = await fetchStorefrontCatalogPage(activeStore.id, page, pageSize);
+            applyPage({
+              data: catalog.data,
+              meta: {
+                total: catalog.total,
+                last_page: catalog.lastPage,
+              },
+            });
+            return;
+          } catch {
+            /* fall through to cache */
+          }
+          const cached = rowCacheRef.current[activeStore.id];
           if (cached?.length) {
             setApiRows(cached.map((row) => mergeProductCatalogExtras(activeStore.id, row)));
           }
         })
         .finally(() => {
-          if (!cancelled) setCatalogBusy(false);
+          // Clear busy for this request generation only — never leave "Loading…" stuck.
+          if (reqId === catalogReqSeqRef.current) setCatalogBusy(false);
         });
     }, q ? 250 : 0);
     return () => {
@@ -1324,7 +1351,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
             type="button"
             onClick={handleOpenNewProduct}
             className="px-4 py-2 text-xs font-bold text-white rounded-xl flex items-center gap-2 shadow-xs cursor-pointer transition-all hover:opacity-95 shrink-0"
-            style={{ background: 'var(--portal-cta, #0284c7)' }}
+            style={{ background: 'var(--portal-cta)' }}
           >
             <Plus className="w-4 h-4 shrink-0" />
             <span>{t('addProduct')}</span>
@@ -1521,6 +1548,33 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                   </button>
                 </div>
 
+                {/* Grid density: items per row (next to grid toggle) */}
+                {viewMode === 'grid' && (
+                  <div
+                    className="flex items-center p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xs"
+                    role="group"
+                    aria-label={isAr ? 'عدد المنتجات في الصف' : 'Items per row'}
+                    title={isAr ? 'عدد المنتجات في الصف' : 'Items per row'}
+                  >
+                    {([3, 4, 5, 6] as const).map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setGridCols(n)}
+                        className={`min-w-[1.75rem] px-1.5 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                          gridCols === n
+                            ? 'bg-[var(--accent)] text-white shadow-xs'
+                            : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                        }`}
+                        title={isAr ? `${n} في الصف` : `${n} per row`}
+                        aria-pressed={gridCols === n}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 {/* Recycle Bin — count badge opens deleted-products modal */}
                 <button
                   type="button"
@@ -1615,7 +1669,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
             {/* ── CONDITIONAL VIEW: GRID OR TABLE ── */}
             <div
               ref={listScrollRef}
-              className="rounded-b-2xl relative z-0 flex-1 min-h-0 overflow-auto"
+              className="rounded-b-2xl relative z-0 flex-1 min-h-0 overflow-x-auto overflow-y-auto overscroll-contain"
               style={{ maxHeight: 'calc(100dvh - 17rem)' }}
             >
             {viewMode === 'grid' ? (
@@ -1668,8 +1722,13 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                       isSideDrawerOpen && editingProduct
                         ? /* Edit open: max 2/row so side editor stays wider on every laptop */
                           'grid-cols-1 sm:grid-cols-2'
-                        : /* Closed: 2 on small/normal, 3 on laptop+ (never 4) */
-                          'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+                        : gridCols === 6
+                          ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6'
+                          : gridCols === 5
+                            ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
+                            : gridCols === 4
+                              ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+                              : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
                     }`}
                   >
                     {pagedProducts.map((prod) => {
@@ -1680,7 +1739,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                       return (
                         <div
                           key={prod.id}
-                          className={`rounded-2xl border transition-all duration-150 p-3.5 flex flex-col justify-between group relative ${
+                          className={`h-full min-h-[280px] rounded-2xl border transition-all duration-150 p-3.5 flex flex-col justify-between group relative ${
                             isEditing
                               ? 'border-teal-500 ring-2 ring-teal-500/20 bg-teal-50/10 dark:bg-teal-950/20 shadow-sm'
                               : 'border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#071E26] hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-xs'
@@ -1802,12 +1861,12 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                             />
                           </div>
 
-                          {/* Grid: heading + subheading (SKU) only */}
-                          <div>
+                          {/* Grid: heading + subheading (SKU) — fixed title block for equal card heights */}
+                          <div className="mt-auto min-h-[3.25rem]">
                             <h4
                               onClick={() => handleOpenEdit(prod)}
                               title={getProductDisplayName(prod, locale)}
-                              className="font-bold text-sm text-slate-900 dark:text-white line-clamp-2 leading-snug cursor-pointer hover:text-teal-600 dark:hover:text-teal-400 mb-1"
+                              className="font-bold text-sm text-slate-900 dark:text-white line-clamp-2 leading-snug cursor-pointer hover:text-teal-600 dark:hover:text-teal-400 mb-1 min-h-[2.5rem]"
                             >
                               {getProductDisplayName(prod, locale)}
                             </h4>
@@ -1822,13 +1881,13 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                 )}
               </div>
             ) : (
-              /* ── 2. TABLE VIEW (Spec Section 7 & 8 - Responsive 2-Line Title & Crisp Gaps) ── */
-              <div className="min-w-0">
-                <table className="w-full text-start text-xs border-separate border-spacing-0">
-                  <thead className="sticky top-0 z-10" style={{ background: 'var(--surface)' }}>
+              /* ── 2. TABLE VIEW — fixed column mins + horizontal scroll (no column squash) ── */
+              <div className="min-w-0 w-full">
+                <table className="w-max min-w-full text-start text-xs border-separate border-spacing-0">
+                  <thead className="sticky top-0 z-20" style={{ background: 'var(--surface)' }}>
                     <tr className="border-b" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
                       {/* Selection Checkbox */}
-                      <th className="py-3 px-2 w-8 text-center" style={{ borderBottom: '1px solid var(--border)' }}>
+                      <th className="py-3 px-2 w-10 min-w-[40px] text-center whitespace-nowrap" style={{ borderBottom: '1px solid var(--border)' }}>
                         <input
                           type="checkbox"
                           checked={pagedProducts.length > 0 && selectedProductIds.length === pagedProducts.length}
@@ -1839,119 +1898,122 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
 
                       {/* Drag Handle Column when Inline Edit is Active */}
                       {isInlineEdit && (
-                        <th className="py-3 px-1.5 w-6 text-center" style={{ borderBottom: '1px solid var(--border)' }}>
+                        <th className="py-3 px-1.5 w-8 min-w-[32px] text-center" style={{ borderBottom: '1px solid var(--border)' }}>
                           <span className="sr-only">{isAr ? 'إعادة ترتيب' : 'Reorder'}</span>
                         </th>
                       )}
 
                       {/* Image */}
                       {visibleColumns.image && (
-                        <th className="py-3 px-1.5 w-10 text-center font-bold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                        <th className="py-3 px-2 w-14 min-w-[56px] text-center font-bold text-[11px] whitespace-nowrap" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
                           {isAr ? 'الصورة' : 'Image'}
                         </th>
                       )}
 
                       {/* Product Name */}
                       {visibleColumns.name && (
-                        <th className="py-3 px-2 text-start font-bold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                        <th className="py-3 px-2 min-w-[180px] w-[200px] text-start font-bold text-[11px] whitespace-nowrap" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
                           {t('product')}
                         </th>
                       )}
 
                       {/* SKU */}
                       {visibleColumns.sku && (
-                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden sm:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                        <th className="py-3 px-2 min-w-[120px] text-start font-bold text-[11px] whitespace-nowrap hidden sm:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
                           {isAr ? 'رمز المنتج' : 'SKU'}
                         </th>
                       )}
 
                       {/* Price */}
                       {visibleColumns.price && (
-                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                        <th className="py-3 px-2 min-w-[96px] text-start font-bold text-[11px] whitespace-nowrap" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
                           {isAr ? 'السعر (ر.س)' : 'Price (SAR)'}
                         </th>
                       )}
 
                       {/* Discount Price */}
                       {visibleColumns.salePrice && (
-                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden md:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                        <th className="py-3 px-2 min-w-[120px] text-start font-bold text-[11px] whitespace-nowrap hidden md:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
                           {isAr ? 'سعر الخصم' : 'Discount Price (SAR)'}
                         </th>
                       )}
 
                       {/* Stock */}
                       {visibleColumns.stock && (
-                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                        <th className="py-3 px-2 min-w-[72px] text-start font-bold text-[11px] whitespace-nowrap" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
                           {t('stockCount')}
                         </th>
                       )}
 
                       {/* Category */}
                       {visibleColumns.category && (
-                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                        <th className="py-3 px-2 min-w-[130px] text-start font-bold text-[11px] whitespace-nowrap" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
                           {t('categoryLabel')}
                         </th>
                       )}
 
                       {/* Status */}
                       {visibleColumns.status && (
-                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                        <th className="py-3 px-2 min-w-[100px] text-start font-bold text-[11px] whitespace-nowrap" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
                           {isAr ? 'الحالة' : 'Status'}
                         </th>
                       )}
 
                       {/* Weight */}
-                      {visibleColumns.weight && (
-                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden lg:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                      {visibleColumns.weight && !tableCompact && (
+                        <th className="py-3 px-2 min-w-[96px] text-start font-bold text-[11px] whitespace-nowrap hidden lg:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
                           {isAr ? 'الوزن (كجم)' : 'Weight (kg)'}
                         </th>
                       )}
 
                       {/* Brand */}
-                      {visibleColumns.brand && (
-                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden lg:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                      {visibleColumns.brand && !tableCompact && (
+                        <th className="py-3 px-2 min-w-[110px] text-start font-bold text-[11px] whitespace-nowrap hidden lg:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
                           {isAr ? 'العلامة التجارية' : 'Brand'}
                         </th>
                       )}
 
                       {/* Product Type */}
-                      {visibleColumns.productType && (
-                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden lg:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                      {visibleColumns.productType && !tableCompact && (
+                        <th className="py-3 px-2 min-w-[120px] text-start font-bold text-[11px] whitespace-nowrap hidden lg:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
                           {isAr ? 'نوع المنتج' : 'Product Type'}
                         </th>
                       )}
 
                       {/* Google Categories */}
-                      {visibleColumns.googleCategories && (
-                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden xl:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                      {visibleColumns.googleCategories && !tableCompact && (
+                        <th className="py-3 px-2 min-w-[180px] text-start font-bold text-[11px] whitespace-nowrap hidden xl:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
                           {isAr ? 'تصنيفات جوجل' : 'Google Categories'}
                         </th>
                       )}
 
                       {/* Sales Channels */}
-                      {visibleColumns.salesChannels && (
-                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden xl:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                      {visibleColumns.salesChannels && !tableCompact && (
+                        <th className="py-3 px-2 min-w-[140px] text-start font-bold text-[11px] whitespace-nowrap hidden xl:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
                           {isAr ? 'قنوات البيع' : 'Sales Channels'}
                         </th>
                       )}
 
                       {/* Discount Start Date */}
-                      {visibleColumns.discountStartDate && (
-                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden xl:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                      {visibleColumns.discountStartDate && !tableCompact && (
+                        <th className="py-3 px-2 min-w-[130px] text-start font-bold text-[11px] whitespace-nowrap hidden xl:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
                           {isAr ? 'بداية الخصم' : 'Discount Start Date'}
                         </th>
                       )}
 
                       {/* Discount End Date */}
-                      {visibleColumns.discountEndDate && (
-                        <th className="py-3 px-1.5 xl:px-2 text-start font-bold text-[11px] hidden xl:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                      {visibleColumns.discountEndDate && !tableCompact && (
+                        <th className="py-3 px-2 min-w-[130px] text-start font-bold text-[11px] whitespace-nowrap hidden xl:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
                           {isAr ? 'نهاية الخصم' : 'Discount End Date'}
                         </th>
                       )}
 
-                      {/* Actions */}
+                      {/* Actions — sticky end so controls stay visible while scrolling */}
                       {visibleColumns.actions && (
-                        <th className="py-3 px-2 text-center font-bold text-[11px] w-36 min-w-[136px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                        <th
+                          className="py-3 px-2 text-center font-bold text-[11px] w-36 min-w-[148px] whitespace-nowrap sticky end-0 z-30 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]"
+                          style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}
+                        >
                           {isAr ? 'إجراءات' : 'Actions'}
                         </th>
                       )}
@@ -1960,7 +2022,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                   <tbody>
                     {pagedProducts.length === 0 ? (
                       <tr>
-                        <td colSpan={14} className="py-12 text-center text-xs" style={{ color: 'var(--muted)' }}>
+                        <td colSpan={24} className="py-12 text-center text-xs" style={{ color: 'var(--muted)' }}>
                           <div className="space-y-3">
                             <p>{emptyCatalogMessage}</p>
                             {(search.trim() ||
@@ -2025,7 +2087,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                             style={{ borderColor: 'var(--border)' }}
                           >
                             {/* Checkbox */}
-                            <td className="py-2.5 px-2 text-center" style={{ borderBottom: '1px solid var(--border)' }}>
+                            <td className="py-2.5 px-2 w-10 min-w-[40px] text-center align-middle" style={{ borderBottom: '1px solid var(--border)' }}>
                               <input
                                 type="checkbox"
                                 checked={isChecked}
@@ -2036,14 +2098,14 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
 
                             {/* Drag Handle if Inline Edit is ON */}
                             {isInlineEdit && (
-                              <td className="py-2.5 px-1.5 text-center" style={{ borderBottom: '1px solid var(--border)' }}>
+                              <td className="py-2.5 px-1.5 w-8 min-w-[32px] text-center align-middle" style={{ borderBottom: '1px solid var(--border)' }}>
                                 <GripVertical className="w-3.5 h-3.5 text-slate-400 mx-auto cursor-grab" />
                               </td>
                             )}
 
                             {/* Image Thumbnail */}
                             {visibleColumns.image && (
-                              <td className="py-2 px-1.5 text-center" style={{ borderBottom: '1px solid var(--border)' }}>
+                              <td className="py-2 px-2 w-14 min-w-[56px] text-center align-middle" style={{ borderBottom: '1px solid var(--border)' }}>
                                 <img
                                   src={prod.image || FALLBACK_PRODUCT_IMAGE}
                                   alt={getProductDisplayName(prod, locale)}
@@ -2054,45 +2116,43 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                               </td>
                             )}
 
-                            {/* Product Name (2 to 3 Lines Responsive Wrap) */}
+                            {/* Product Name */}
                             {visibleColumns.name && (
-                              <td className="py-2.5 px-2" style={{ borderBottom: '1px solid var(--border)' }}>
+                              <td className="py-2.5 px-2 min-w-[180px] w-[200px] align-middle" style={{ borderBottom: '1px solid var(--border)' }}>
                                 {isInlineEdit ? (
                                   <input
                                     type="text"
                                     defaultValue={getProductDisplayName(prod, locale)}
                                     onBlur={(e) => handleInlineFieldChange(prod.id, 'name', e.target.value)}
-                                    className="w-full min-w-[120px] max-w-[200px] px-2 py-1 text-xs font-semibold rounded-lg border bg-white dark:bg-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    className="w-full min-w-0 px-2 py-1 text-xs font-semibold rounded-lg border bg-white dark:bg-slate-900 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
                                     style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
                                   />
                                 ) : (
-                                  <div className="min-w-0 max-w-[130px] md:max-w-[170px] xl:max-w-[210px]">
-                                    <span
-                                      onClick={() => handleOpenEdit(prod)}
-                                      title={getProductDisplayName(prod, locale)}
-                                      className="font-bold text-xs line-clamp-2 sm:line-clamp-3 leading-snug break-words cursor-pointer hover:underline hover:text-teal-600 dark:hover:text-teal-400 block"
-                                      style={{ color: 'var(--text)' }}
-                                    >
-                                      {getProductDisplayName(prod, locale)}
-                                    </span>
-                                  </div>
+                                  <span
+                                    onClick={() => handleOpenEdit(prod)}
+                                    title={getProductDisplayName(prod, locale)}
+                                    className="font-bold text-xs line-clamp-2 leading-snug cursor-pointer hover:underline hover:text-[var(--accent)] block max-w-[184px]"
+                                    style={{ color: 'var(--text)', overflowWrap: 'anywhere' }}
+                                  >
+                                    {getProductDisplayName(prod, locale)}
+                                  </span>
                                 )}
                               </td>
                             )}
 
-                            {/* SKU */}
+                            {/* SKU — never break character-by-character */}
                             {visibleColumns.sku && (
-                              <td className="py-2.5 px-1.5 xl:px-2 hidden sm:table-cell" style={{ borderBottom: '1px solid var(--border)' }}>
+                              <td className="py-2.5 px-2 min-w-[120px] hidden sm:table-cell align-middle" style={{ borderBottom: '1px solid var(--border)' }}>
                                 {isInlineEdit ? (
                                   <input
                                     type="text"
                                     defaultValue={prod.sku}
                                     onBlur={(e) => handleInlineFieldChange(prod.id, 'sku', e.target.value)}
-                                    className="w-20 px-1.5 py-1 text-xs font-mono font-bold rounded-lg border bg-white dark:bg-slate-900 uppercase focus:outline-none"
+                                    className="w-full min-w-[100px] px-1.5 py-1 text-xs font-mono font-bold rounded-lg border bg-white dark:bg-slate-900 uppercase focus:outline-none"
                                     style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
                                   />
                                 ) : (
-                                  <span className="text-[11px] font-mono text-slate-400 font-bold break-all leading-tight block max-w-[85px] xl:max-w-[105px]" title={prod.sku}>
+                                  <span className="text-[11px] font-mono text-slate-400 font-bold whitespace-nowrap truncate block max-w-[140px]" title={prod.sku}>
                                     {prod.sku}
                                   </span>
                                 )}
@@ -2101,14 +2161,14 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
 
                             {/* Price */}
                             {visibleColumns.price && (
-                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap font-bold text-xs" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
+                              <td className="py-2.5 px-2 min-w-[96px] whitespace-nowrap font-bold text-xs align-middle" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
                                 {isInlineEdit ? (
                                   <input
                                     type="number"
                                     min="0"
                                     defaultValue={prod.price}
                                     onBlur={(e) => handleInlineFieldChange(prod.id, 'price', Number(e.target.value))}
-                                    className="w-18 px-1.5 py-1 text-xs font-bold font-mono rounded-lg border bg-white dark:bg-slate-900 focus:outline-none"
+                                    className="w-[4.5rem] px-1.5 py-1 text-xs font-bold font-mono rounded-lg border bg-white dark:bg-slate-900 focus:outline-none"
                                     style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
                                   />
                                 ) : (
@@ -2119,7 +2179,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
 
                             {/* Sale Price */}
                             {visibleColumns.salePrice && (
-                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap font-bold text-xs hidden md:table-cell" style={{ borderBottom: '1px solid var(--border)' }}>
+                              <td className="py-2.5 px-2 min-w-[120px] whitespace-nowrap font-bold text-xs hidden md:table-cell align-middle" style={{ borderBottom: '1px solid var(--border)' }}>
                                 {isInlineEdit ? (
                                   <input
                                     type="number"
@@ -2133,7 +2193,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                                         e.target.value ? Number(e.target.value) : null
                                       )
                                     }
-                                    className="w-18 px-1.5 py-1 text-xs font-bold font-mono rounded-lg border bg-white dark:bg-slate-900 focus:outline-none"
+                                    className="w-[4.5rem] px-1.5 py-1 text-xs font-bold font-mono rounded-lg border bg-white dark:bg-slate-900 focus:outline-none"
                                     style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
                                   />
                                 ) : prod.discountedPrice ? (
@@ -2148,7 +2208,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
 
                             {/* Stock with colored dot */}
                             {visibleColumns.stock && (
-                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap text-xs" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
+                              <td className="py-2.5 px-2 min-w-[72px] whitespace-nowrap text-xs align-middle" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
                                 <div className="flex items-center gap-1.5">
                                   <span
                                     className={`w-2 h-2 rounded-full shrink-0 ${
@@ -2190,12 +2250,12 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
 
                             {/* Category */}
                             {visibleColumns.category && (
-                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap font-medium text-xs" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
+                              <td className="py-2.5 px-2 min-w-[130px] font-medium text-xs align-middle" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
                                 {isInlineEdit ? (
                                   <select
                                     defaultValue={prod.category}
                                     onChange={(e) => handleInlineFieldChange(prod.id, 'category', e.target.value)}
-                                    className="px-2 py-1 text-xs rounded-lg border bg-white dark:bg-slate-900 focus:outline-none"
+                                    className="max-w-[140px] px-2 py-1 text-xs rounded-lg border bg-white dark:bg-slate-900 focus:outline-none"
                                     style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
                                   >
                                     {(categoryOptions.length > 0
@@ -2211,16 +2271,16 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                                     ))}
                                   </select>
                                 ) : (
-                                  <div className="line-clamp-2 break-words leading-tight text-xs max-w-[100px] xl:max-w-[130px]" title={getProductDisplayCategory(prod, locale)}>
+                                  <span className="truncate block max-w-[140px] whitespace-nowrap" title={getProductDisplayCategory(prod, locale)}>
                                     {getProductDisplayCategory(prod, locale)}
-                                  </div>
+                                  </span>
                                 )}
                               </td>
                             )}
 
                             {/* Status */}
                             {visibleColumns.status && (
-                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap text-xs" style={{ borderBottom: '1px solid var(--border)' }}>
+                              <td className="py-2.5 px-2 min-w-[100px] whitespace-nowrap text-xs align-middle" style={{ borderBottom: '1px solid var(--border)' }}>
                                 {isInlineEdit ? (
                                   <select
                                     defaultValue={prod.status}
@@ -2238,8 +2298,8 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                             )}
 
                             {/* Weight (kg) */}
-                            {visibleColumns.weight && (
-                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap text-xs hidden lg:table-cell" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
+                            {visibleColumns.weight && !tableCompact && (
+                              <td className="py-2.5 px-2 min-w-[96px] whitespace-nowrap text-xs hidden lg:table-cell align-middle" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
                                 {isInlineEdit ? (
                                   <input
                                     type="number"
@@ -2259,8 +2319,8 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                             )}
 
                             {/* Brand */}
-                            {visibleColumns.brand && (
-                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap text-xs hidden lg:table-cell" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
+                            {visibleColumns.brand && !tableCompact && (
+                              <td className="py-2.5 px-2 min-w-[110px] whitespace-nowrap text-xs hidden lg:table-cell align-middle" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
                                 {isInlineEdit ? (
                                   <input
                                     type="text"
@@ -2270,7 +2330,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                                     style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
                                   />
                                 ) : brandVal ? (
-                                  <span className="max-w-[110px] truncate block" title={brandVal}>{brandVal}</span>
+                                  <span className="max-w-[120px] truncate block" title={brandVal}>{brandVal}</span>
                                 ) : (
                                   <span className="text-slate-400">-</span>
                                 )}
@@ -2278,8 +2338,8 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                             )}
 
                             {/* Product Type */}
-                            {visibleColumns.productType && (
-                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap text-xs hidden lg:table-cell" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
+                            {visibleColumns.productType && !tableCompact && (
+                              <td className="py-2.5 px-2 min-w-[120px] whitespace-nowrap text-xs hidden lg:table-cell align-middle" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
                                 {isInlineEdit ? (
                                   <input
                                     type="text"
@@ -2289,18 +2349,18 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                                     style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
                                   />
                                 ) : productTypeVal ? (
-                                  <span className="max-w-[120px] truncate block" title={productTypeVal}>{productTypeVal}</span>
+                                  <span className="max-w-[130px] truncate block" title={productTypeVal}>{productTypeVal}</span>
                                 ) : (
                                   <span className="text-slate-400">-</span>
                                 )}
                               </td>
                             )}
 
-                            {/* Google Categories */}
-                            {visibleColumns.googleCategories && (
-                              <td className="py-2.5 px-1.5 xl:px-2 text-xs hidden xl:table-cell" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
+                            {/* Google Categories — ellipsis, no vertical letter stack */}
+                            {visibleColumns.googleCategories && !tableCompact && (
+                              <td className="py-2.5 px-2 min-w-[180px] text-xs hidden xl:table-cell align-middle" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
                                 {googleCategoryVal ? (
-                                  <span className="max-w-[160px] line-clamp-2 break-words leading-tight block" title={googleCategoryVal}>
+                                  <span className="max-w-[220px] truncate whitespace-nowrap block" title={googleCategoryVal}>
                                     {googleCategoryVal}
                                   </span>
                                 ) : (
@@ -2310,11 +2370,11 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                             )}
 
                             {/* Sales Channels */}
-                            {visibleColumns.salesChannels && (
-                              <td className="py-2.5 px-1.5 xl:px-2 text-xs hidden xl:table-cell" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
+                            {visibleColumns.salesChannels && !tableCompact && (
+                              <td className="py-2.5 px-2 min-w-[140px] text-xs hidden xl:table-cell align-middle" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
                                 {salesChannelVals.length > 0 ? (
                                   <span
-                                    className="max-w-[140px] line-clamp-2 break-words leading-tight block"
+                                    className="max-w-[160px] truncate whitespace-nowrap block"
                                     title={salesChannelVals.map((c: string) => getProductChannelLabel(c, isAr)).join(', ')}
                                   >
                                     {salesChannelVals.map((c: string) => getProductChannelLabel(c, isAr)).join(', ')}
@@ -2326,8 +2386,8 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                             )}
 
                             {/* Discount Start Date */}
-                            {visibleColumns.discountStartDate && (
-                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap text-xs hidden xl:table-cell" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
+                            {visibleColumns.discountStartDate && !tableCompact && (
+                              <td className="py-2.5 px-2 min-w-[130px] whitespace-nowrap text-xs hidden xl:table-cell align-middle" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
                                 {isInlineEdit ? (
                                   <input
                                     type="date"
@@ -2351,8 +2411,8 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                             )}
 
                             {/* Discount End Date */}
-                            {visibleColumns.discountEndDate && (
-                              <td className="py-2.5 px-1.5 xl:px-2 whitespace-nowrap text-xs hidden xl:table-cell" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
+                            {visibleColumns.discountEndDate && !tableCompact && (
+                              <td className="py-2.5 px-2 min-w-[130px] whitespace-nowrap text-xs hidden xl:table-cell align-middle" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
                                 {isInlineEdit ? (
                                   <input
                                     type="date"
@@ -2375,9 +2435,12 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                               </td>
                             )}
 
-                            {/* Actions */}
+                            {/* Actions — sticky end */}
                             {visibleColumns.actions && (
-                              <td className="py-2.5 px-2 text-center whitespace-nowrap relative w-36 min-w-[136px]" style={{ borderBottom: '1px solid var(--border)' }}>
+                              <td
+                                className="py-2.5 px-2 text-center whitespace-nowrap relative w-36 min-w-[148px] align-middle sticky end-0 z-10 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]"
+                                style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}
+                              >
                                 <div className="inline-flex items-center justify-center gap-1.5 w-full">
                                   <button
                                     type="button"

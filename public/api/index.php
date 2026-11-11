@@ -37,7 +37,50 @@ if ($method === 'POST' && in_array($methodOverride, ['PUT', 'PATCH', 'DELETE'], 
     $method = $methodOverride;
 }
 
-// Ensure database directory exists
+// Prefer Laravel Hostinger MySQL when DB_* is present (same commerce as apps/api).
+// Fallback: local platform.sqlite (legacy Hostinger gateway).
+require_once __DIR__ . '/live_extensions.php';
+$souqEnv = souq_load_root_env();
+$dbDriver = 'sqlite';
+$pdo = null;
+
+$dbHost = trim((string)($souqEnv['DB_HOST'] ?? getenv('DB_HOST') ?: ''));
+$dbName = trim((string)($souqEnv['DB_DATABASE'] ?? getenv('DB_DATABASE') ?: ''));
+$dbUser = trim((string)($souqEnv['DB_USERNAME'] ?? getenv('DB_USERNAME') ?: ''));
+$dbPass = (string)($souqEnv['DB_PASSWORD'] ?? getenv('DB_PASSWORD') ?: '');
+$dbPort = trim((string)($souqEnv['DB_PORT'] ?? getenv('DB_PORT') ?: '3306'));
+
+if ($dbHost !== '' && $dbName !== '' && $dbUser !== '') {
+    // Prefer localhost first on Hostinger — remote srvXXX burns max_connections_per_hour.
+    $normalizedHost = strtolower($dbHost);
+    $mysqlHosts = in_array($normalizedHost, ['localhost', '127.0.0.1'], true)
+        ? [$dbHost]
+        : ['localhost', '127.0.0.1', $dbHost];
+    $port = $dbPort !== '' ? $dbPort : '3306';
+    foreach (array_values(array_unique($mysqlHosts)) as $tryHost) {
+        try {
+            $dsn = sprintf(
+                'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
+                $tryHost,
+                $port,
+                $dbName
+            );
+            $pdo = new PDO($dsn, $dbUser, $dbPass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false,
+            ]);
+            $dbDriver = 'mysql';
+            $dbHost = $tryHost;
+            break;
+        } catch (Throwable $mysqlErr) {
+            $pdo = null;
+            $dbDriver = 'sqlite';
+        }
+    }
+}
+
+// Ensure database directory exists (sqlite fallback / media paths)
 $dataDir = __DIR__ . '/data';
 if (!is_dir($dataDir)) {
     @mkdir($dataDir, 0777, true);
@@ -45,10 +88,15 @@ if (!is_dir($dataDir)) {
 $dbPath = $dataDir . '/platform.sqlite';
 
 try {
-    $pdo = new PDO('sqlite:' . $dbPath);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+    if (!$pdo instanceof PDO) {
+        $pdo = new PDO('sqlite:' . $dbPath);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+        $dbDriver = 'sqlite';
+    }
 
+    // SQLite-only bootstrap (Laravel MySQL already has migrations — never run this DDL there)
+    if ($dbDriver === 'sqlite') {
     // Initialize Core Schema
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS stores (
@@ -531,6 +579,25 @@ try {
 
     require_once __DIR__ . '/commerce.php';
     souq_commerce_schema($pdo);
+    } else {
+        // MySQL: Laravel schema already exists — load helpers + analytics tables only.
+        // Never abort the whole request if optional DDL fails (locks / cold-start / perms).
+        require_once __DIR__ . '/commerce.php';
+        try {
+            if (function_exists('souq_ensure_analytics_tables')) {
+                souq_ensure_analytics_tables($pdo);
+            }
+        } catch (Throwable) {
+            /* analytics DDL optional — catalog/auth must still serve */
+        }
+        try {
+            if (function_exists('souq_ensure_mysql_store_login_column')) {
+                souq_ensure_mysql_store_login_column($pdo);
+            }
+        } catch (Throwable) {
+            /* login_email_active column ensure optional */
+        }
+    }
 
 } catch (Exception $e) {
     http_response_code(500);
@@ -607,11 +674,16 @@ function formatProduct(array $row): array {
     $salesCount = 0;
     $statsPdo = $GLOBALS['souq_pdo'] ?? null;
     if ($statsPdo instanceof PDO) {
-        $rev = $statsPdo->prepare('SELECT COUNT(*) c, AVG(rating) a FROM reviews WHERE store_id = ? AND product_id = ? AND is_active = 1');
-        $rev->execute([(string)$row['store_id'], (string)$row['id']]);
-        $revRow = $rev->fetch() ?: ['c' => 0, 'a' => null];
-        $reviewCount = (int)$revRow['c'];
-        $reviewAvg = $reviewCount > 0 ? round((float)$revRow['a'], 2) : null;
+        try {
+            $rev = $statsPdo->prepare('SELECT COUNT(*) c, AVG(rating) a FROM reviews WHERE store_id = ? AND product_id = ? AND is_active = 1');
+            $rev->execute([(string)$row['store_id'], (string)$row['id']]);
+            $revRow = $rev->fetch() ?: ['c' => 0, 'a' => null];
+            $reviewCount = (int)$revRow['c'];
+            $reviewAvg = $reviewCount > 0 ? round((float)$revRow['a'], 2) : null;
+        } catch (Throwable $e) {
+            $reviewCount = 0;
+            $reviewAvg = null;
+        }
         try {
             $sales = $statsPdo->prepare('SELECT COALESCE(SUM(quantity), 0) s FROM order_items WHERE store_id = ? AND product_id = ?');
             $sales->execute([(string)$row['store_id'], (string)$row['id']]);
@@ -782,7 +854,8 @@ function resolveLiveStoreId(PDO $pdo, string $key): ?string {
     if ($key === '') {
         return null;
     }
-    $stmt = $pdo->query('SELECT id, slug, domain, data FROM stores');
+    // Never SELECT stores.data — Laravel MySQL has real columns, not a JSON blob.
+    $stmt = $pdo->query('SELECT * FROM stores');
     $alias = [
         'flowers' => 'store-1',
         'hadaya' => 'store-1',
@@ -806,10 +879,20 @@ function resolveLiveStoreId(PDO $pdo, string $key): ?string {
         $id = strtolower((string)$row['id']);
         $slug = strtolower((string)($row['slug'] ?? ''));
         $domain = strtolower((string)($row['domain'] ?? ''));
-        if ($key === $id || ($slug !== '' && $key === $slug) || ($domain !== '' && $key === $domain)) {
+        $custom = strtolower((string)($row['custom_domain'] ?? ''));
+        $demo = strtolower((string)($row['demo_domain'] ?? ''));
+        if (
+            $key === $id
+            || ($slug !== '' && $key === $slug)
+            || ($domain !== '' && $key === $domain)
+            || ($custom !== '' && $key === $custom)
+            || ($demo !== '' && $key === $demo)
+        ) {
             return (string)$row['id'];
         }
-        $data = json_decode((string)($row['data'] ?? ''), true);
+        $data = function_exists('souq_store_payload')
+            ? souq_store_payload($row)
+            : (json_decode((string)($row['data'] ?? ''), true) ?: []);
         if (is_array($data)) {
             foreach (['domain', 'custom_domain', 'demo_domain', 'slug'] as $field) {
                 if (!empty($data[$field]) && strtolower((string)$data[$field]) === $key) {
@@ -925,18 +1008,24 @@ function catalogPayload(PDO $pdo, string $storeId, array $query = []): array {
 
 // 1. Health check
 if ($uri === '/health') {
-    $prodTotal = (int)$pdo->query("SELECT COUNT(*) FROM products")->fetchColumn();
-    $stTotal = (int)$pdo->query("SELECT COUNT(*) FROM stores")->fetchColumn();
-    $artTotal = (int)$pdo->query("SELECT COUNT(*) FROM blog_articles")->fetchColumn();
-    $revTotal = (int)$pdo->query("SELECT COUNT(*) FROM reviews")->fetchColumn();
+    $countTable = static function (PDO $pdo, string $table): int {
+        try {
+            return (int) $pdo->query('SELECT COUNT(*) FROM `' . str_replace('`', '', $table) . '`')->fetchColumn();
+        } catch (Throwable $e) {
+            return 0;
+        }
+    };
     echo json_encode([
         'status' => 'ok',
         'provider' => 'Hostinger Cloud API',
-        'database' => 'active_live_sqlite',
-        'stores_count' => $stTotal,
-        'products_count' => $prodTotal,
-        'blog_articles_count' => $artTotal,
-        'reviews_count' => $revTotal,
+        'database' => $dbDriver === 'mysql' ? 'active_live_mysql' : 'active_live_sqlite',
+        'db_name' => $dbDriver === 'mysql' ? $dbName : 'platform.sqlite',
+        'stores_count' => $countTable($pdo, 'stores'),
+        'products_count' => $countTable($pdo, 'products'),
+        'blog_articles_count' => $countTable($pdo, 'blog_articles'),
+        'reviews_count' => $countTable($pdo, 'reviews'),
+        'orders_count' => $countTable($pdo, 'orders'),
+        'customers_count' => $countTable($pdo, 'customers'),
         'timestamp' => date('c'),
     ]);
     exit;
@@ -954,7 +1043,9 @@ if ($uri === '/stores' && $method === 'GET') {
     $stmt = $pdo->query("SELECT * FROM stores ORDER BY id ASC");
     $stores = [];
     while ($row = $stmt->fetch()) {
-        $st = json_decode($row['data'], true) ?: [];
+        $st = function_exists('souq_store_payload')
+            ? souq_store_payload($row)
+            : (json_decode((string)($row['data'] ?? ''), true) ?: []);
         $st['id'] = $row['id'];
         $st['name'] = $row['name'];
         $st['slug'] = $row['slug'];
@@ -968,7 +1059,13 @@ if ($uri === '/stores' && $method === 'GET') {
         $st['login_email_active'] = array_key_exists('login_email_active', $st)
             ? (bool)$st['login_email_active']
             : true;
-        $cnt = (int)$pdo->query("SELECT COUNT(*) FROM products WHERE store_id = '{$row['id']}'")->fetchColumn();
+        try {
+            $cntSt = $pdo->prepare('SELECT COUNT(*) FROM products WHERE store_id = ?');
+            $cntSt->execute([(string)$row['id']]);
+            $cnt = (int)$cntSt->fetchColumn();
+        } catch (Throwable) {
+            $cnt = (int)($row['products_count'] ?? 0);
+        }
         $st['productsCount'] = $cnt;
         $stores[] = $st;
     }
@@ -1029,62 +1126,131 @@ if (($uri === '/categories' || strpos($uri, '/categories') === 0) && $method ===
 }
 
 if ($uri === '/categories' && $method === 'POST') {
-    $cId = !empty($inputData['id']) ? (string)$inputData['id'] : ('cat-' . time() . '-' . substr(md5(uniqid()), 0, 6));
-    $name = trim($inputData['name'] ?? '');
-    $nameAr = !empty($inputData['name_ar']) ? trim($inputData['name_ar']) : (!empty($inputData['nameAr']) ? trim($inputData['nameAr']) : null);
-    $slug = !empty($inputData['slug']) ? trim($inputData['slug']) : strtolower(preg_replace('/[^a-zA-Z0-9_-]/', '-', $name));
-    $parentId = !empty($inputData['parent_id']) ? $inputData['parent_id'] : (!empty($inputData['parentId']) ? $inputData['parentId'] : null);
-    $imageUrl = $inputData['image_url'] ?? ($inputData['imageUrl'] ?? null);
-    $sortOrder = (int)($inputData['sort_order'] ?? ($inputData['sortOrder'] ?? 0));
-    $metaTitle = $inputData['meta_title'] ?? ($inputData['metaTitle'] ?? null);
-    $metaDesc = $inputData['meta_description'] ?? ($inputData['metaDescription'] ?? null);
-    $isActive = isset($inputData['is_active']) ? (int)(bool)$inputData['is_active'] : (isset($inputData['isActive']) ? (int)(bool)$inputData['isActive'] : 1);
+    try {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            exit;
+        }
+        $cId = !empty($inputData['id']) ? (string)$inputData['id'] : ('cat-' . time() . '-' . substr(md5(uniqid()), 0, 6));
+        $name = trim((string)($inputData['name'] ?? ''));
+        if ($name === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'Category name is required.']);
+            exit;
+        }
+        $nameAr = !empty($inputData['name_ar']) ? trim((string)$inputData['name_ar']) : (!empty($inputData['nameAr']) ? trim((string)$inputData['nameAr']) : null);
+        $slug = !empty($inputData['slug']) ? trim((string)$inputData['slug']) : strtolower((string)preg_replace('/[^a-zA-Z0-9_-]+/', '-', $name));
+        if ($slug === '') {
+            $slug = 'cat-' . substr(md5($cId), 0, 8);
+        }
+        $parentId = !empty($inputData['parent_id']) ? $inputData['parent_id'] : (!empty($inputData['parentId']) ? $inputData['parentId'] : null);
+        if ($parentId === '' || $parentId === false) {
+            $parentId = null;
+        }
+        $imageUrl = $inputData['image_url'] ?? ($inputData['imageUrl'] ?? null);
+        $sortOrder = (int)($inputData['sort_order'] ?? ($inputData['sortOrder'] ?? 0));
+        $metaTitle = $inputData['meta_title'] ?? ($inputData['metaTitle'] ?? null);
+        $metaDesc = $inputData['meta_description'] ?? ($inputData['metaDescription'] ?? null);
+        $isActive = isset($inputData['is_active']) ? (int)(bool)$inputData['is_active'] : (isset($inputData['isActive']) ? (int)(bool)$inputData['isActive'] : 1);
+        $nowExpr = function_exists('souq_sql_now_expr') ? souq_sql_now_expr($pdo) : "datetime('now')";
+        $isMysql = function_exists('souq_driver_is_mysql') && souq_driver_is_mysql($pdo);
 
-    $stmt = $pdo->prepare("
-        INSERT OR REPLACE INTO categories (
-            id, store_id, parent_id, name, name_ar, slug, image_url, sort_order, meta_title, meta_description, is_active, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-    ");
-    $stmt->execute([
-        $cId, $storeId, $parentId, $name, $nameAr, $slug, $imageUrl, $sortOrder, $metaTitle, $metaDesc, $isActive
-    ]);
+        if ($isMysql) {
+            $stmt = $pdo->prepare("
+                INSERT INTO categories (
+                    id, store_id, parent_id, name, name_ar, slug, image_url, sort_order, meta_title, meta_description, is_active, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {$nowExpr}, {$nowExpr})
+                ON DUPLICATE KEY UPDATE
+                    parent_id = VALUES(parent_id),
+                    name = VALUES(name),
+                    name_ar = VALUES(name_ar),
+                    slug = VALUES(slug),
+                    image_url = VALUES(image_url),
+                    sort_order = VALUES(sort_order),
+                    meta_title = VALUES(meta_title),
+                    meta_description = VALUES(meta_description),
+                    is_active = VALUES(is_active),
+                    updated_at = {$nowExpr}
+            ");
+        } else {
+            $stmt = $pdo->prepare("
+                INSERT OR REPLACE INTO categories (
+                    id, store_id, parent_id, name, name_ar, slug, image_url, sort_order, meta_title, meta_description, is_active, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {$nowExpr})
+            ");
+        }
+        $stmt->execute([
+            $cId, $storeId, $parentId, $name, $nameAr, $slug, $imageUrl, $sortOrder, $metaTitle, $metaDesc, $isActive
+        ]);
 
-    $res = $pdo->prepare("SELECT * FROM categories WHERE id = ?");
-    $res->execute([$cId]);
-    $created = $res->fetch();
-    echo json_encode(['data' => formatCategory($created)]);
-    exit;
+        $res = $pdo->prepare('SELECT * FROM categories WHERE id = ? AND store_id = ?');
+        $res->execute([$cId, $storeId]);
+        $created = $res->fetch();
+        http_response_code(201);
+        echo json_encode(['data' => formatCategory($created ?: [
+            'id' => $cId,
+            'store_id' => $storeId,
+            'parent_id' => $parentId,
+            'name' => $name,
+            'name_ar' => $nameAr,
+            'slug' => $slug,
+            'image_url' => $imageUrl,
+            'sort_order' => $sortOrder,
+            'meta_title' => $metaTitle,
+            'meta_description' => $metaDesc,
+            'is_active' => $isActive,
+        ])]);
+        exit;
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode(['message' => 'Category create failed', 'error' => $e->getMessage()]);
+        exit;
+    }
 }
 
 if (preg_match('#^/categories/([^/]+)$#', $uri, $matches) && in_array($method, ['PATCH', 'PUT', 'POST'])) {
-    $catId = $matches[1];
-    $stmt = $pdo->prepare("SELECT * FROM categories WHERE id = ? AND store_id = ?");
-    $stmt->execute([$catId, $storeId]);
-    $existing = $stmt->fetch();
-    if ($existing) {
-        $name = isset($inputData['name']) ? trim($inputData['name']) : $existing['name'];
+    try {
+        $catId = $matches[1];
+        $stmt = $pdo->prepare('SELECT * FROM categories WHERE id = ? AND store_id = ?');
+        $stmt->execute([$catId, $storeId]);
+        $existing = $stmt->fetch();
+        if (!$existing) {
+            http_response_code(404);
+            echo json_encode(['message' => 'Category not found: ' . $catId]);
+            exit;
+        }
+        $name = isset($inputData['name']) ? trim((string)$inputData['name']) : $existing['name'];
         $nameAr = isset($inputData['name_ar']) ? $inputData['name_ar'] : (isset($inputData['nameAr']) ? $inputData['nameAr'] : $existing['name_ar']);
-        $slug = isset($inputData['slug']) ? trim($inputData['slug']) : $existing['slug'];
+        $slug = isset($inputData['slug']) ? trim((string)$inputData['slug']) : $existing['slug'];
         $parentId = array_key_exists('parent_id', $inputData) ? $inputData['parent_id'] : (array_key_exists('parentId', $inputData) ? $inputData['parentId'] : $existing['parent_id']);
+        if ($parentId === '' || $parentId === false) {
+            $parentId = null;
+        }
         $imageUrl = array_key_exists('image_url', $inputData) ? $inputData['image_url'] : (array_key_exists('imageUrl', $inputData) ? $inputData['imageUrl'] : $existing['image_url']);
         $sortOrder = isset($inputData['sort_order']) ? (int)$inputData['sort_order'] : (isset($inputData['sortOrder']) ? (int)$inputData['sortOrder'] : (int)$existing['sort_order']);
         $metaTitle = array_key_exists('meta_title', $inputData) ? $inputData['meta_title'] : (array_key_exists('metaTitle', $inputData) ? $inputData['metaTitle'] : $existing['meta_title']);
         $metaDesc = array_key_exists('meta_description', $inputData) ? $inputData['meta_description'] : (array_key_exists('metaDescription', $inputData) ? $inputData['metaDescription'] : $existing['meta_description']);
         $isActive = isset($inputData['is_active']) ? (int)(bool)$inputData['is_active'] : (isset($inputData['isActive']) ? (int)(bool)$inputData['isActive'] : (int)$existing['is_active']);
+        $nowExpr = function_exists('souq_sql_now_expr') ? souq_sql_now_expr($pdo) : "datetime('now')";
 
         $upd = $pdo->prepare("
             UPDATE categories SET
-                name = ?, name_ar = ?, slug = ?, parent_id = ?, image_url = ?, sort_order = ?, meta_title = ?, meta_description = ?, is_active = ?, updated_at = datetime('now')
+                name = ?, name_ar = ?, slug = ?, parent_id = ?, image_url = ?, sort_order = ?, meta_title = ?, meta_description = ?, is_active = ?, updated_at = {$nowExpr}
             WHERE id = ? AND store_id = ?
         ");
         $upd->execute([
             $name, $nameAr, $slug, $parentId, $imageUrl, $sortOrder, $metaTitle, $metaDesc, $isActive, $catId, $storeId
         ]);
 
-        $sel = $pdo->prepare("SELECT * FROM categories WHERE id = ?");
-        $sel->execute([$catId]);
+        $sel = $pdo->prepare('SELECT * FROM categories WHERE id = ? AND store_id = ?');
+        $sel->execute([$catId, $storeId]);
         $row = $sel->fetch();
-        echo json_encode(['data' => formatCategory($row)]);
+        echo json_encode(['data' => formatCategory($row ?: $existing)]);
+        exit;
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode(['message' => 'Category update failed', 'error' => $e->getMessage()]);
         exit;
     }
 }
@@ -1109,103 +1275,233 @@ if ($uri === '/products' && $method === 'GET') {
 }
 
 if ($uri === '/products' && $method === 'POST') {
-    $id = $inputData['id'] ?? ('prod-' . uniqid());
-    $sku = $inputData['sku'] ?? ('SKU-' . strtoupper(substr(uniqid(), -6)));
-    $name = trim((string)($inputData['name'] ?? ''));
-    $nameAr = trim((string)($inputData['name_ar'] ?? ($inputData['nameAr'] ?? $name)));
-    $price = (float)($inputData['price'] ?? 0);
-    $origPrice = (float)($inputData['original_price'] ?? ($inputData['originalPrice'] ?? $price));
-    $stock = (int)($inputData['stock'] ?? 0);
-    $cat = trim((string)($inputData['category'] ?? ''));
-    $catAr = trim((string)($inputData['category_ar'] ?? ($inputData['categoryAr'] ?? $cat)));
-    $img = (string)($inputData['image_url'] ?? ($inputData['image'] ?? ''));
-    $gal = isset($inputData['gallery_urls']) && is_array($inputData['gallery_urls']) 
-        ? json_encode($inputData['gallery_urls']) 
-        : (isset($inputData['galleryUrls']) && is_array($inputData['galleryUrls']) ? json_encode($inputData['galleryUrls']) : json_encode([$img]));
-    $status = $inputData['status'] ?? 'published';
-    $isActive = (!isset($inputData['is_active']) || $inputData['is_active']) ? 1 : 0;
+    try {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            exit;
+        }
+        $id = (string)($inputData['id'] ?? ('prod-' . uniqid()));
+        $sku = (string)($inputData['sku'] ?? ('SKU-' . strtoupper(substr(uniqid(), -6))));
+        $name = trim((string)($inputData['name'] ?? ''));
+        if ($name === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'Product name is required.']);
+            exit;
+        }
+        $nameAr = trim((string)($inputData['name_ar'] ?? ($inputData['nameAr'] ?? $name)));
+        $price = (float)($inputData['price'] ?? 0);
+        $origPrice = (float)($inputData['original_price'] ?? ($inputData['originalPrice'] ?? $price));
+        $stock = (int)($inputData['stock'] ?? 0);
+        $cat = trim((string)($inputData['category'] ?? ''));
+        $catAr = trim((string)($inputData['category_ar'] ?? ($inputData['categoryAr'] ?? $cat)));
+        $img = (string)($inputData['image_url'] ?? ($inputData['image'] ?? ''));
+        $gal = isset($inputData['gallery_urls']) && is_array($inputData['gallery_urls'])
+            ? json_encode($inputData['gallery_urls'], JSON_UNESCAPED_UNICODE)
+            : (isset($inputData['galleryUrls']) && is_array($inputData['galleryUrls'])
+                ? json_encode($inputData['galleryUrls'], JSON_UNESCAPED_UNICODE)
+                : json_encode($img !== '' ? [$img] : [], JSON_UNESCAPED_UNICODE));
+        $status = (string)($inputData['status'] ?? 'published');
+        $isActive = (!isset($inputData['is_active']) || $inputData['is_active']) ? 1 : 0;
+        $nowExpr = function_exists('souq_sql_now_expr') ? souq_sql_now_expr($pdo) : "datetime('now')";
+        $hasGallery = !function_exists('souq_table_has_column') || souq_table_has_column($pdo, 'products', 'gallery_urls');
+        $hasData = function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'products', 'data');
+        $isMysql = function_exists('souq_driver_is_mysql') && souq_driver_is_mysql($pdo);
 
-    $stmt = $pdo->prepare("
-        INSERT OR REPLACE INTO products (
-            id, store_id, name, name_ar, sku, price, original_price, stock, 
-            category, category_ar, image_url, gallery_urls, status, is_active, data, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-    ");
-    $stmt->execute([
-        $id, $storeId, $name, $nameAr, $sku, $price, $origPrice, $stock,
-        $cat, $catAr, $img, $gal, $status, $isActive,
-        json_encode($inputData, JSON_UNESCAPED_UNICODE)
-    ]);
+        $cols = ['id', 'store_id', 'name', 'name_ar', 'sku', 'price', 'original_price', 'stock', 'category', 'category_ar', 'image_url', 'status', 'is_active'];
+        $vals = [$id, $storeId, $name, $nameAr, $sku, $price, $origPrice, $stock, $cat, $catAr, $img, $status, $isActive];
+        if ($hasGallery) {
+            $cols[] = 'gallery_urls';
+            $vals[] = $gal;
+        }
+        if ($hasData) {
+            $cols[] = 'data';
+            $vals[] = json_encode($inputData, JSON_UNESCAPED_UNICODE);
+        }
+        foreach (['seo_title' => ['seo_title', 'seoTitle'], 'seo_description' => ['seo_description', 'seoDescription']] as $col => $keys) {
+            if (!function_exists('souq_table_has_column') || !souq_table_has_column($pdo, 'products', $col)) {
+                continue;
+            }
+            $v = null;
+            foreach ($keys as $k) {
+                if (array_key_exists($k, $inputData)) {
+                    $v = $inputData[$k];
+                    break;
+                }
+            }
+            if ($v === null) {
+                continue;
+            }
+            $cols[] = $col;
+            $vals[] = $v;
+        }
+        if ($isMysql) {
+            $cols[] = 'created_at';
+            $cols[] = 'updated_at';
+            $placeholders = array_fill(0, count($vals), '?');
+            $placeholders[] = $nowExpr;
+            $placeholders[] = $nowExpr;
+            $updates = [];
+            foreach ($cols as $col) {
+                if (in_array($col, ['id', 'store_id', 'created_at'], true)) {
+                    continue;
+                }
+                if ($col === 'updated_at') {
+                    $updates[] = "updated_at = {$nowExpr}";
+                    continue;
+                }
+                $updates[] = "`{$col}` = VALUES(`{$col}`)";
+            }
+            $sql = 'INSERT INTO products (`' . implode('`, `', $cols) . '`) VALUES (' . implode(', ', $placeholders) . ')
+                ON DUPLICATE KEY UPDATE ' . implode(', ', $updates);
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($vals);
+        } else {
+            $cols[] = 'updated_at';
+            $placeholders = array_fill(0, count($vals), '?');
+            $placeholders[] = $nowExpr;
+            $sql = 'INSERT OR REPLACE INTO products (`' . implode('`, `', $cols) . '`) VALUES (' . implode(', ', $placeholders) . ')';
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($vals);
+        }
 
-    $fetch = $pdo->prepare("SELECT * FROM products WHERE id = ?");
-    $fetch->execute([$id]);
-    $created = $fetch->fetch();
-    echo json_encode(['data' => formatProduct($created)]);
-    exit;
+        $fetch = $pdo->prepare('SELECT * FROM products WHERE id = ?');
+        $fetch->execute([$id]);
+        $created = $fetch->fetch();
+        http_response_code(201);
+        echo json_encode(['data' => formatProduct($created ?: ['id' => $id, 'store_id' => $storeId, 'name' => $name, 'name_ar' => $nameAr, 'sku' => $sku, 'price' => $price, 'original_price' => $origPrice, 'stock' => $stock, 'category' => $cat, 'category_ar' => $catAr, 'image_url' => $img, 'gallery_urls' => $gal, 'status' => $status, 'is_active' => $isActive])]);
+        exit;
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode(['message' => 'Product create failed', 'error' => $e->getMessage()]);
+        exit;
+    }
 }
 
-if (preg_match('#^/products/([^/]+)$#', $uri, $matches) && in_array($method, ['PATCH', 'PUT', 'POST'])) {
+if (preg_match('#^/products/([^/]+)$#', $uri, $matches) && $method === 'GET') {
     $pId = $matches[1];
-    $stmt = $pdo->prepare("SELECT * FROM products WHERE id = ?");
-    $stmt->execute([$pId]);
+    $stmt = $pdo->prepare('SELECT * FROM products WHERE id = ?' . ($storeId !== '' ? ' AND store_id = ?' : '') . ' LIMIT 1');
+    $stmt->execute($storeId !== '' ? [$pId, $storeId] : [$pId]);
     $existing = $stmt->fetch();
     if (!$existing) {
-        $stmt2 = $pdo->prepare("SELECT * FROM products WHERE sku = ?");
-        $stmt2->execute([$pId]);
+        $stmt2 = $pdo->prepare('SELECT * FROM products WHERE sku = ?' . ($storeId !== '' ? ' AND store_id = ?' : '') . ' LIMIT 1');
+        $stmt2->execute($storeId !== '' ? [$pId, $storeId] : [$pId]);
         $existing = $stmt2->fetch();
     }
-
     if (!$existing) {
         http_response_code(404);
         echo json_encode(['message' => 'Product not found: ' . $pId]);
         exit;
     }
-
-    $existingData = json_decode($existing['data'] ?? '{}', true) ?: [];
-    $mergedData = array_merge($existingData, $inputData);
-
-    $name = $inputData['name'] ?? $existing['name'];
-    $nameAr = $inputData['name_ar'] ?? ($inputData['nameAr'] ?? $existing['name_ar']);
-    $sku = $inputData['sku'] ?? $existing['sku'];
-    $price = isset($inputData['price']) ? (float)$inputData['price'] : (float)$existing['price'];
-    $origPrice = isset($inputData['original_price']) ? (float)$inputData['original_price'] : (isset($inputData['originalPrice']) ? (float)$inputData['originalPrice'] : (float)$existing['original_price']);
-    $stock = isset($inputData['stock']) ? (int)$inputData['stock'] : (int)$existing['stock'];
-    $cat = $inputData['category'] ?? $existing['category'];
-    $catAr = $inputData['category_ar'] ?? ($inputData['categoryAr'] ?? $existing['category_ar']);
-    $img = $inputData['image_url'] ?? ($inputData['image'] ?? $existing['image_url']);
-    
-    $gal = $existing['gallery_urls'];
-    if (isset($inputData['gallery_urls']) && is_array($inputData['gallery_urls'])) {
-        $gal = json_encode($inputData['gallery_urls']);
-    } elseif (isset($inputData['galleryUrls']) && is_array($inputData['galleryUrls'])) {
-        $gal = json_encode($inputData['galleryUrls']);
-    } elseif ($img !== $existing['image_url']) {
-        $curGal = json_decode($existing['gallery_urls'], true) ?: [];
-        $gal = json_encode(array_values(array_unique(array_merge([$img], $curGal))));
-    }
-
-    $status = $inputData['status'] ?? $existing['status'];
-    $isActive = isset($inputData['is_active']) ? ($inputData['is_active'] ? 1 : 0) : (isset($inputData['isActive']) ? ($inputData['isActive'] ? 1 : 0) : $existing['is_active']);
-
-    $upd = $pdo->prepare("
-        UPDATE products 
-        SET name = ?, name_ar = ?, sku = ?, price = ?, original_price = ?, stock = ?,
-            category = ?, category_ar = ?, image_url = ?, gallery_urls = ?, status = ?, is_active = ?,
-            data = ?, updated_at = datetime('now')
-        WHERE id = ?
-    ");
-    $upd->execute([
-        $name, $nameAr, $sku, $price, $origPrice, $stock,
-        $cat, $catAr, $img, $gal, $status, $isActive,
-        json_encode($mergedData, JSON_UNESCAPED_UNICODE),
-        $existing['id']
-    ]);
-
-    $fetch = $pdo->prepare("SELECT * FROM products WHERE id = ?");
-    $fetch->execute([$existing['id']]);
-    $updated = $fetch->fetch();
-    echo json_encode(['data' => formatProduct($updated)]);
+    echo json_encode(['data' => formatProduct($existing)]);
     exit;
+}
+
+if (preg_match('#^/products/([^/]+)$#', $uri, $matches) && in_array($method, ['PATCH', 'PUT', 'POST'])) {
+    try {
+        $pId = $matches[1];
+        $stmt = $pdo->prepare('SELECT * FROM products WHERE id = ?' . ($storeId !== '' ? ' AND store_id = ?' : '') . ' LIMIT 1');
+        $stmt->execute($storeId !== '' ? [$pId, $storeId] : [$pId]);
+        $existing = $stmt->fetch();
+        if (!$existing) {
+            $stmt2 = $pdo->prepare('SELECT * FROM products WHERE sku = ?' . ($storeId !== '' ? ' AND store_id = ?' : '') . ' LIMIT 1');
+            $stmt2->execute($storeId !== '' ? [$pId, $storeId] : [$pId]);
+            $existing = $stmt2->fetch();
+        }
+
+        if (!$existing) {
+            http_response_code(404);
+            echo json_encode(['message' => 'Product not found: ' . $pId]);
+            exit;
+        }
+
+        $existingData = [];
+        if (!empty($existing['data'])) {
+            $decoded = json_decode((string)$existing['data'], true);
+            if (is_array($decoded)) {
+                $existingData = $decoded;
+            }
+        }
+        $mergedData = array_merge($existingData, $inputData);
+
+        $name = $inputData['name'] ?? $existing['name'];
+        $nameAr = $inputData['name_ar'] ?? ($inputData['nameAr'] ?? $existing['name_ar']);
+        $sku = $inputData['sku'] ?? $existing['sku'];
+        $price = isset($inputData['price']) ? (float)$inputData['price'] : (float)$existing['price'];
+        $origPrice = isset($inputData['original_price'])
+            ? (float)$inputData['original_price']
+            : (isset($inputData['originalPrice']) ? (float)$inputData['originalPrice'] : (float)($existing['original_price'] ?? $existing['price']));
+        $stock = isset($inputData['stock']) ? (int)$inputData['stock'] : (int)$existing['stock'];
+        $cat = $inputData['category'] ?? $existing['category'];
+        $catAr = $inputData['category_ar'] ?? ($inputData['categoryAr'] ?? $existing['category_ar']);
+        $img = $inputData['image_url'] ?? ($inputData['image'] ?? $existing['image_url']);
+
+        $gal = $existing['gallery_urls'] ?? null;
+        if (isset($inputData['gallery_urls']) && is_array($inputData['gallery_urls'])) {
+            $gal = json_encode($inputData['gallery_urls'], JSON_UNESCAPED_UNICODE);
+        } elseif (isset($inputData['galleryUrls']) && is_array($inputData['galleryUrls'])) {
+            $gal = json_encode($inputData['galleryUrls'], JSON_UNESCAPED_UNICODE);
+        } elseif ($img !== ($existing['image_url'] ?? null)) {
+            $curGal = json_decode((string)($existing['gallery_urls'] ?? '[]'), true) ?: [];
+            $gal = json_encode(array_values(array_unique(array_merge([(string)$img], $curGal))), JSON_UNESCAPED_UNICODE);
+        }
+
+        $status = $inputData['status'] ?? $existing['status'];
+        $isActive = isset($inputData['is_active'])
+            ? ($inputData['is_active'] ? 1 : 0)
+            : (isset($inputData['isActive']) ? ($inputData['isActive'] ? 1 : 0) : (int)$existing['is_active']);
+        $nowExpr = function_exists('souq_sql_now_expr') ? souq_sql_now_expr($pdo) : "datetime('now')";
+
+        $sets = [
+            'name = ?',
+            'name_ar = ?',
+            'sku = ?',
+            'price = ?',
+            'original_price = ?',
+            'stock = ?',
+            'category = ?',
+            'category_ar = ?',
+            'image_url = ?',
+            'status = ?',
+            'is_active = ?',
+            "updated_at = {$nowExpr}",
+        ];
+        $params = [$name, $nameAr, $sku, $price, $origPrice, $stock, $cat, $catAr, $img, $status, $isActive];
+
+        if ((!function_exists('souq_table_has_column') || souq_table_has_column($pdo, 'products', 'gallery_urls')) && $gal !== null) {
+            $sets[] = 'gallery_urls = ?';
+            $params[] = $gal;
+        }
+        if (function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'products', 'data')) {
+            $sets[] = 'data = ?';
+            $params[] = json_encode($mergedData, JSON_UNESCAPED_UNICODE);
+        }
+        foreach (['seo_title' => ['seo_title', 'seoTitle'], 'seo_description' => ['seo_description', 'seoDescription']] as $col => $keys) {
+            if (!function_exists('souq_table_has_column') || !souq_table_has_column($pdo, 'products', $col)) {
+                continue;
+            }
+            foreach ($keys as $k) {
+                if (array_key_exists($k, $inputData)) {
+                    $sets[] = "`{$col}` = ?";
+                    $params[] = $inputData[$k];
+                    break;
+                }
+            }
+        }
+        $params[] = $existing['id'];
+        $upd = $pdo->prepare('UPDATE products SET ' . implode(', ', $sets) . ' WHERE id = ?');
+        $upd->execute($params);
+
+        $fetch = $pdo->prepare('SELECT * FROM products WHERE id = ?');
+        $fetch->execute([$existing['id']]);
+        $updated = $fetch->fetch();
+        echo json_encode(['data' => formatProduct($updated ?: $existing)]);
+        exit;
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode(['message' => 'Product update failed', 'error' => $e->getMessage()]);
+        exit;
+    }
 }
 
 if (preg_match('#^/products/([^/]+)$#', $uri, $matches) && $method === 'DELETE') {
@@ -1224,7 +1520,8 @@ if (preg_match('#^/products/([^/]+)/toggle-publish$#', $uri, $matches) && $metho
     if ($existing) {
         $newActive = $existing['is_active'] ? 0 : 1;
         $newStatus = $newActive ? 'published' : 'draft';
-        $upd = $pdo->prepare("UPDATE products SET is_active = ?, status = ?, updated_at = datetime('now') WHERE id = ?");
+        $nowExpr = function_exists('souq_sql_now_expr') ? souq_sql_now_expr($pdo) : "datetime('now')";
+        $upd = $pdo->prepare("UPDATE products SET is_active = ?, status = ?, updated_at = {$nowExpr} WHERE id = ?");
         $upd->execute([$newActive, $newStatus, $existing['id']]);
         $existing['is_active'] = $newActive;
         $existing['status'] = $newStatus;
@@ -1590,24 +1887,58 @@ if (preg_match('#^/stores/([^/]+)/banners#', $uri, $mBan) || $uri === '/banners'
 // ── 9. THEME SETTINGS & PAGE BUILDER LAYOUTS ──
 if (preg_match('#^/stores/([^/]+)/theme-settings#', $uri, $mTS) || $uri === '/theme-settings') {
     $targetStore = !empty($mTS[1]) ? $mTS[1] : $storeId;
-    $themeId = $_GET['theme_id'] ?? 'theme-flora-luxe';
+    $themeId = $_GET['theme_id'] ?? ($inputData['theme_id'] ?? 'theme-flora-luxe');
+    $isMysql = function_exists('souq_driver_is_mysql') && souq_driver_is_mysql($pdo);
+    $nowExpr = function_exists('souq_sql_now_expr') ? souq_sql_now_expr($pdo) : "datetime('now')";
 
-    if (in_array($method, ['PUT', 'POST'])) {
-        $st = $pdo->prepare("
-            INSERT OR REPLACE INTO theme_settings (store_id, theme_id, settings, updated_at)
-            VALUES (?, ?, ?, datetime('now'))
-        ");
-        $st->execute([$targetStore, $themeId, json_encode($inputData, JSON_UNESCAPED_UNICODE)]);
-        echo json_encode(['success' => true, 'data' => $inputData]);
+    try {
+        if (in_array($method, ['PUT', 'POST', 'PATCH'], true)) {
+            $payload = json_encode($inputData, JSON_UNESCAPED_UNICODE);
+            if ($isMysql) {
+                // Laravel store_themes: unique store_id + required id PK
+                $find = $pdo->prepare('SELECT id FROM store_themes WHERE store_id = ? LIMIT 1');
+                $find->execute([$targetStore]);
+                $existingThemeId = $find->fetchColumn();
+                if ($existingThemeId) {
+                    $st = $pdo->prepare("UPDATE store_themes SET theme_id = ?, settings = ?, updated_at = {$nowExpr} WHERE store_id = ?");
+                    $st->execute([$themeId, $payload, $targetStore]);
+                } else {
+                    $rowId = 'stheme-' . substr(md5($targetStore . '|' . $themeId . '|' . microtime(true)), 0, 16);
+                    $st = $pdo->prepare("INSERT INTO store_themes (id, store_id, theme_id, settings, created_at, updated_at) VALUES (?, ?, ?, ?, {$nowExpr}, {$nowExpr})");
+                    $st->execute([$rowId, $targetStore, $themeId, $payload]);
+                }
+            } else {
+                $st = $pdo->prepare("
+                    INSERT OR REPLACE INTO theme_settings (store_id, theme_id, settings, updated_at)
+                    VALUES (?, ?, ?, {$nowExpr})
+                ");
+                $st->execute([$targetStore, $themeId, $payload]);
+            }
+            echo json_encode(['success' => true, 'data' => $inputData]);
+            exit;
+        }
+
+        if ($isMysql) {
+            $st = $pdo->prepare('SELECT settings FROM store_themes WHERE store_id = ? LIMIT 1');
+            $st->execute([$targetStore]);
+        } else {
+            $st = $pdo->prepare('SELECT settings FROM theme_settings WHERE store_id = ? AND theme_id = ?');
+            $st->execute([$targetStore, $themeId]);
+        }
+        $raw = $st->fetchColumn();
+        $decoded = $raw ? json_decode((string)$raw, true) : null;
+        echo json_encode(['success' => true, 'data' => is_array($decoded) ? $decoded : []]);
+        exit;
+    } catch (Throwable $e) {
+        // Never hang admin theme UI — return empty on missing FK/table
+        if (in_array($method, ['GET', 'HEAD'], true)) {
+            echo json_encode(['success' => true, 'data' => [], 'warning' => $e->getMessage()]);
+            exit;
+        }
+        http_response_code(500);
+        echo json_encode(['message' => 'Theme settings failed', 'error' => $e->getMessage(), 'data' => []]);
         exit;
     }
-
-    $st = $pdo->prepare("SELECT settings FROM theme_settings WHERE store_id = ? AND theme_id = ?");
-    $st->execute([$targetStore, $themeId]);
-    $raw = $st->fetchColumn();
-    $decoded = $raw ? json_decode($raw, true) : null;
-    echo json_encode(['success' => true, 'data' => $decoded ?: []]);
-    exit;
 }
 
 if (preg_match('#^/stores/([^/]+)/builder-layout#', $uri, $mBL)) {
@@ -1930,12 +2261,20 @@ if ($uri === '/storefront/resolve-domain' && $method === 'GET') {
         ]);
         exit;
     }
-    $st = $pdo->prepare('SELECT id, name, slug, domain, data FROM stores WHERE id = ?');
+    $st = $pdo->prepare('SELECT * FROM stores WHERE id = ?');
     $st->execute([$resolved]);
-    $row = $st->fetch();
-    $data = json_decode((string)($row['data'] ?? ''), true);
-    if (!is_array($data)) {
-        $data = [];
+    $row = $st->fetch() ?: [];
+    $data = function_exists('souq_store_payload')
+        ? souq_store_payload($row)
+        : (json_decode((string)($row['data'] ?? ''), true) ?: []);
+    $themeId = (string)($data['active_theme_id'] ?? $data['themeId'] ?? '');
+    if ($themeId === '') {
+        $themeId = match ($resolved) {
+            'store-coffee' => 'coffee-roasters',
+            'store-bleco' => 'saudia-transport',
+            'store-1' => 'theme-flora-luxe',
+            default => 'theme-commerce-starter',
+        };
     }
     echo json_encode([
         'resolved' => true,
@@ -1944,12 +2283,19 @@ if ($uri === '/storefront/resolve-domain' && $method === 'GET') {
         'store_name' => (string)($row['name'] ?? ''),
         'domain' => $domain,
         'domain_type' => 'custom',
-        'active_theme_id' => (string)($data['active_theme_id'] ?? $data['themeId'] ?? ''),
+        'active_theme_id' => $themeId,
         'store' => array_merge($data, [
             'id' => $resolved,
             'name' => (string)($row['name'] ?? ''),
             'slug' => (string)($row['slug'] ?? ''),
             'domain' => (string)($row['domain'] ?? $domain),
+            'custom_domain' => (string)($row['custom_domain'] ?? ''),
+            'status' => (string)($row['status'] ?? 'active'),
+            'plan' => (string)($row['plan'] ?? 'free'),
+            'currency' => (string)($row['currency'] ?? 'SAR'),
+            'locale' => (string)($row['locale'] ?? 'ar'),
+            'logo' => (string)($row['logo'] ?? ''),
+            'accent_color' => (string)($row['accent_color'] ?? ''),
         ]),
     ]);
     exit;
@@ -1963,14 +2309,23 @@ if ($uri === '/settings' && $method === 'GET') {
         echo json_encode(['message' => 'Store not found.']);
         exit;
     }
-    $st = $pdo->prepare('SELECT data FROM stores WHERE id = ?');
+    $st = $pdo->prepare('SELECT * FROM stores WHERE id = ?');
     $st->execute([$resolved]);
-    $data = json_decode((string)$st->fetchColumn(), true);
-    if (!is_array($data)) {
-        $data = [];
-    }
+    $row = $st->fetch() ?: [];
+    $data = function_exists('souq_store_payload')
+        ? souq_store_payload($row)
+        : (json_decode((string)($row['data'] ?? ''), true) ?: []);
     $section = (string)($_GET['id'] ?? 'branding');
     $section = explode(':', $section)[0];
+    if ($section === 'branding' && empty($data['branding'])) {
+        $data['branding'] = [
+            'name' => (string)($row['name'] ?? ''),
+            'logo' => (string)($row['logo'] ?? ''),
+            'accent_color' => (string)($row['accent_color'] ?? ''),
+            'email' => (string)($row['email'] ?? ''),
+            'phone' => (string)($row['phone'] ?? ''),
+        ];
+    }
     $payload = isset($data[$section]) && is_array($data[$section]) ? $data[$section] : $data;
     echo json_encode([
         'success' => true,

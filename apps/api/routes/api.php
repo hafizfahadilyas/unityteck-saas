@@ -114,6 +114,7 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
         'subscription.writable',
     ])->group(function () {
         Route::post('/products', [ProductController::class, 'store']);
+        Route::post('/products/ai-suggest', [ProductController::class, 'suggestCopy'])->middleware('throttle:30,1');
         Route::patch('/products/{id}', [ProductController::class, 'update']);
         Route::delete('/products/{id}', [ProductController::class, 'destroy']);
         Route::post('/products/{id}/restore', [ProductController::class, 'restore']);
@@ -562,6 +563,7 @@ Route::post('/whatsapp/webhook', [WhatsAppController::class, 'handleWebhook']);
 Route::post('/storefront/shipping/calculate', [ShippingController::class, 'calculate']);
 Route::post('/storefront/orders', [OrderController::class, 'storefrontStore']);
 Route::post('/storefront/orders/track', [OrderController::class, 'storefrontTrack']);
+Route::post('/storefront/coupons/validate', [CouponController::class, 'storefrontValidate']);
 
 // Public Storefront Saudi Payments (Mada, Apple Pay, Tabby, Tamara, Card, COD)
 Route::get('/storefront/payments/methods', [PaymentGatewayController::class, 'storefrontMethods']);

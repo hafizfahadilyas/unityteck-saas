@@ -271,6 +271,7 @@ function paint(root: HTMLElement): void {
   if (!boundChrome || !boundStoreId) {
     root.style.removeProperty('--chrome-sidebar-bg');
     root.style.removeProperty('--chrome-header-bg');
+    // Let BrandingPanel / CSS tokens own --bg again (still one global canvas)
     root.removeAttribute('data-chrome-fill');
     root.removeAttribute('data-chrome-store');
     root.removeAttribute('data-sidebar-design');
@@ -312,29 +313,30 @@ function paint(root: HTMLElement): void {
   root.setAttribute('data-sidebar-design', chrome.sidebarDesign || 'classic');
   root.setAttribute('data-brand', chrome.fill === 'palette' ? chrome.palette : 'custom');
 
+  // ONE global page canvas: --bg follows brand portal-50 (light) / portal-950 (dark)
+  const isDarkChrome = root.getAttribute('data-theme') === 'dark';
+  if (!isDarkChrome) {
+    root.style.setProperty('--bg', shades.p50);
+  } else {
+    root.style.setProperty('--bg', shades.p950);
+  }
+
   if (chrome.fill === 'gradient') {
     const bar = `linear-gradient(180deg, ${chrome.gradientFrom}, ${chrome.gradientTo})`;
     root.style.setProperty('--chrome-sidebar-bg', bar);
-    root.style.setProperty(
-      '--chrome-header-bg',
-      `linear-gradient(90deg, color-mix(in srgb, ${chrome.gradientFrom} 16%, var(--surface)), color-mix(in srgb, ${chrome.gradientTo} 16%, var(--surface)))`,
-    );
+    // Header stays on the same global --bg (no second white/tinted strip)
+    root.style.removeProperty('--chrome-header-bg');
   } else if (chrome.fill === 'image' && chrome.bgImage) {
     const image = cssUrl(chrome.bgImage);
     root.style.setProperty(
       '--chrome-sidebar-bg',
       `linear-gradient(180deg, rgba(4,16,28,0.78), rgba(4,16,28,0.88)), url("${image}")`,
     );
-    root.style.setProperty(
-      '--chrome-header-bg',
-      `linear-gradient(color-mix(in srgb, var(--surface) 88%, transparent), color-mix(in srgb, var(--surface) 88%, transparent)), url("${image}")`,
-    );
+    root.style.removeProperty('--chrome-header-bg');
   } else {
     root.style.removeProperty('--chrome-sidebar-bg');
-    root.style.setProperty(
-      '--chrome-header-bg',
-      `linear-gradient(90deg, color-mix(in srgb, ${shades.p600} 12%, var(--surface)), var(--surface))`,
-    );
+    // Palette / solid: header + main share --bg only
+    root.style.removeProperty('--chrome-header-bg');
   }
 
   if (!designOwnsColors(chrome)) return;

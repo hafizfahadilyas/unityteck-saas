@@ -1,13 +1,22 @@
 import React from 'react';
+import type { LucideIcon } from 'lucide-react';
 import {
   BarChart3,
   Calendar,
   Filter,
   Download,
   Bookmark,
+  ArrowLeft,
+  Sparkles,
+  TrendingUp,
+  Megaphone,
+  Users,
+  Package,
+  Target,
+  Eye,
 } from 'lucide-react';
 import { usePrefs } from '../../../i18n/PrefsContext';
-import { ModernSegmentedTabs } from '../../common/ModernSegmentedTabs';
+import { PortalHubCard } from '../../common/PortalHubCard';
 
 export type ReportTabKey =
   | 'overview'
@@ -19,9 +28,87 @@ export type ReportTabKey =
   | 'channels'
   | 'behavior';
 
+export type ReportHubTab = {
+  key: ReportTabKey;
+  labelAr: string;
+  labelEn: string;
+  descAr: string;
+  descEn: string;
+  icon: LucideIcon;
+};
+
+export const REPORT_HUB_TABS: ReportHubTab[] = [
+  {
+    key: 'overview',
+    labelAr: 'نظرة عامة',
+    labelEn: 'Overview',
+    descAr: 'ملخص أداء المتجر والمؤشرات الرئيسية.',
+    descEn: 'Store performance summary and key metrics.',
+    icon: BarChart3,
+  },
+  {
+    key: 'ai_insights',
+    labelAr: 'تحليلات الذكاء الاصطناعي',
+    labelEn: 'AI Insights',
+    descAr: 'رؤى ذكية من بيانات متجرك الحقيقية.',
+    descEn: 'Smart insights from your real store data.',
+    icon: Sparkles,
+  },
+  {
+    key: 'sales_revenue',
+    labelAr: 'المبيعات والإيرادات',
+    labelEn: 'Sales & Revenue',
+    descAr: 'تحليل المبيعات والإيرادات والضرائب.',
+    descEn: 'Sales, revenue, and tax analytics.',
+    icon: TrendingUp,
+  },
+  {
+    key: 'campaign',
+    labelAr: 'تحليلات الحملات',
+    labelEn: 'Campaign Analytics',
+    descAr: 'أداء الحملات والعروض التسويقية.',
+    descEn: 'Campaign and promo performance.',
+    icon: Megaphone,
+  },
+  {
+    key: 'customers',
+    labelAr: 'تحليلات العملاء',
+    labelEn: 'Customer Analytics',
+    descAr: 'سلوك العملاء والولاء والشرائح.',
+    descEn: 'Customer behavior, loyalty, and segments.',
+    icon: Users,
+  },
+  {
+    key: 'products',
+    labelAr: 'تحليلات المنتجات',
+    labelEn: 'Product Analytics',
+    descAr: 'أداء المنتجات والفئات والمخزون.',
+    descEn: 'Product, category, and inventory performance.',
+    icon: Package,
+  },
+  {
+    key: 'channels',
+    labelAr: 'أداء القنوات التسويقية',
+    labelEn: 'Marketing Channels Performance',
+    descAr: 'مقارنة قنوات التسويق والتحويل.',
+    descEn: 'Compare marketing channels and conversion.',
+    icon: Target,
+  },
+  {
+    key: 'behavior',
+    labelAr: 'سلوك الزوار',
+    labelEn: 'Behavior Analytics',
+    descAr: 'سلوك الزوار والربحية والمسارات.',
+    descEn: 'Visitor behavior, profitability, and paths.',
+    icon: Eye,
+  },
+];
+
 interface ReportsNavHeaderProps {
-  activeTab: ReportTabKey;
+  /** null = hub (buttons only). Set = section open. */
+  activeTab: ReportTabKey | null;
   onSelectTab: (tab: ReportTabKey) => void;
+  onBackToHub?: () => void;
   dateRange: string;
   onDateRangeChange: (range: string) => void;
   comparisonPeriod: string;
@@ -37,6 +124,7 @@ interface ReportsNavHeaderProps {
 export const ReportsNavHeader: React.FC<ReportsNavHeaderProps> = ({
   activeTab,
   onSelectTab,
+  onBackToHub,
   dateRange,
   onDateRangeChange,
   comparisonPeriod,
@@ -48,20 +136,12 @@ export const ReportsNavHeader: React.FC<ReportsNavHeaderProps> = ({
 }) => {
   const { locale, dir } = usePrefs();
   const isAr = locale === 'ar';
-
-  const reportTabs = [
-    { key: 'overview' as ReportTabKey, labelAr: 'نظرة عامة', labelEn: 'Overview' },
-    { key: 'ai_insights' as ReportTabKey, labelAr: 'تحليلات الذكاء الاصطناعي', labelEn: 'AI Insights' },
-    { key: 'sales_revenue' as ReportTabKey, labelAr: 'المبيعات والإيرادات', labelEn: 'Sales & Revenue' },
-    { key: 'campaign' as ReportTabKey, labelAr: 'تحليلات الحملات', labelEn: 'Campaign Analytics' },
-    { key: 'customers' as ReportTabKey, labelAr: 'تحليلات العملاء', labelEn: 'Customer Analytics' },
-    { key: 'products' as ReportTabKey, labelAr: 'تحليلات المنتجات', labelEn: 'Product Analytics' },
-    { key: 'channels' as ReportTabKey, labelAr: 'أداء القنوات التسويقية', labelEn: 'Marketing Channels Performance' },
-    { key: 'behavior' as ReportTabKey, labelAr: 'سلوك الزوار', labelEn: 'Behavior Analytics' },
-  ];
+  const activeMeta = activeTab
+    ? REPORT_HUB_TABS.find((t) => t.key === activeTab) ?? null
+    : null;
 
   const formattedDateRange = React.useMemo(() => {
-    const now = new Date(2026, 9, 14);
+    const now = new Date();
     const past = new Date(now);
     if (dateRange === '7d') past.setDate(now.getDate() - 7);
     else if (dateRange === '90d') past.setDate(now.getDate() - 90);
@@ -69,124 +149,193 @@ export const ReportsNavHeader: React.FC<ReportsNavHeaderProps> = ({
     else past.setDate(now.getDate() - 30);
 
     if (isAr) {
-      const arMonths = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+      const arMonths = [
+        'يناير',
+        'فبراير',
+        'مارس',
+        'أبريل',
+        'مايو',
+        'يونيو',
+        'يوليو',
+        'أغسطس',
+        'سبتمبر',
+        'أكتوبر',
+        'نوفمبر',
+        'ديسمبر',
+      ];
       return `${past.getDate()} ${arMonths[past.getMonth()]} ${past.getFullYear()} - ${now.getDate()} ${arMonths[now.getMonth()]} ${now.getFullYear()}`;
     }
     const enMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return `${enMonths[past.getMonth()]} ${past.getDate()}, ${past.getFullYear()} - ${enMonths[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
   }, [dateRange, isAr]);
 
+  const controlShell: React.CSSProperties = {
+    background: 'var(--surface)',
+    borderColor: 'var(--border)',
+    color: 'var(--text)',
+  };
+
   return (
-    <div className="space-y-4" dir={dir}>
-      {/* ═══════════════════════════════════════════════════════════════ */}
-      {/* HEADER TOP ROW (Matching Image 3 Top Bar)                       */}
-      {/* ═══════════════════════════════════════════════════════════════ */}
+    <div className="space-y-4" dir={dir} style={{ fontFamily: 'var(--font-ui)' }}>
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-        {/* Title & Subtitle */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-sm shrink-0">
-            <BarChart3 className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-              {isAr ? 'التقارير والتحليلات' : 'Reports & Analytics'}
+        <div className="flex items-center gap-3 min-w-0">
+          {activeTab && onBackToHub ? (
+            <button
+              type="button"
+              onClick={onBackToHub}
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-xs font-bold cursor-pointer shadow-xs shrink-0"
+              style={controlShell}
+            >
+              <ArrowLeft className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} aria-hidden />
+              {isAr ? 'كل التقارير' : 'All reports'}
+            </button>
+          ) : (
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-sm shrink-0"
+              style={{ background: 'var(--portal-cta)' }}
+              aria-hidden
+            >
+              <BarChart3 className="w-5 h-5" />
+            </div>
+          )}
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight truncate" style={{ color: 'var(--text)' }}>
+              {activeMeta
+                ? isAr
+                  ? activeMeta.labelAr
+                  : activeMeta.labelEn
+                : isAr
+                  ? 'التقارير والتحليلات'
+                  : 'Reports & Analytics'}
             </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {isAr
-                ? 'تتبع أداء متجرك، وافهم عملاءك، واحصل على رؤى وتحليلات مدعومة بالذكاء الاصطناعي.'
-                : 'Track your store performance, understand your customers, and get AI-powered insights.'}
+            <p className="text-xs truncate" style={{ color: 'var(--muted)' }}>
+              {activeMeta
+                ? isAr
+                  ? activeMeta.descAr
+                  : activeMeta.descEn
+                : isAr
+                  ? 'اختر تقريراً لعرض بياناته. لا تُعرض البيانات إلا بعد اختيار القسم.'
+                  : 'Pick a report to load its data. Data appears only after you open a section.'}
             </p>
           </div>
         </div>
 
-        {/* Action Controls (Right aligned in Image 3) */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Date Range Selector */}
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-xl text-xs font-semibold shadow-2xs">
-            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <div className="flex flex-col text-start">
-              <span className="text-[10px] text-slate-400 leading-tight">
-                {dateRange === '7d' ? (isAr ? 'آخر 7 أيام' : 'Last 7 days') : dateRange === '90d' ? (isAr ? 'آخر 90 يوم' : 'Last 90 days') : (isAr ? 'آخر 30 يوم' : 'Last 30 days')}
-              </span>
-              <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 leading-tight">
-                {formattedDateRange}
-              </span>
-            </div>
-            <select
-              value={dateRange}
-              onChange={(e) => onDateRangeChange(e.target.value)}
-              className="bg-transparent text-slate-800 dark:text-slate-200 outline-none cursor-pointer w-4 text-transparent focus:w-auto focus:text-slate-800 dark:focus:text-slate-200"
+        {/* Filters only when a report section is open */}
+        {activeTab ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            <div
+              className="flex items-center gap-2 px-3 py-1.5 border rounded-xl text-xs font-semibold shadow-2xs"
+              style={controlShell}
             >
-              <option value="7d" className="dark:bg-slate-900 text-slate-800 dark:text-slate-100">{isAr ? 'آخر 7 أيام' : 'Last 7 Days'}</option>
-              <option value="30d" className="dark:bg-slate-900 text-slate-800 dark:text-slate-100">{isAr ? 'آخر 30 يوم' : 'Last 30 Days'}</option>
-              <option value="90d" className="dark:bg-slate-900 text-slate-800 dark:text-slate-100">{isAr ? 'آخر 90 يوم' : 'Last 90 Days'}</option>
-              <option value="year" className="dark:bg-slate-900 text-slate-800 dark:text-slate-100">{isAr ? 'العام الحالي' : 'This Year (2026)'}</option>
-            </select>
-          </div>
-
-          {/* Comparison Period Selector */}
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-xl text-xs font-semibold shadow-2xs">
-            <div className="flex flex-col text-start">
-              <span className="text-[10px] text-slate-400 leading-tight">{isAr ? 'مقارنة بـ' : 'Compare to'}</span>
-              <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 leading-tight">
-                {comparisonPeriod === 'prev_year' ? (isAr ? 'العام الماضي' : 'Previous year') : (isAr ? 'الفترة السابقة' : 'Previous period')}
-              </span>
+              <Calendar className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--muted)' }} />
+              <div className="flex flex-col text-start">
+                <span className="text-[10px] leading-tight" style={{ color: 'var(--muted)' }}>
+                  {dateRange === '7d'
+                    ? isAr
+                      ? 'آخر 7 أيام'
+                      : 'Last 7 days'
+                    : dateRange === '90d'
+                      ? isAr
+                        ? 'آخر 90 يوم'
+                        : 'Last 90 days'
+                      : isAr
+                        ? 'آخر 30 يوم'
+                        : 'Last 30 days'}
+                </span>
+                <span className="text-[11px] font-bold leading-tight" style={{ color: 'var(--text)' }}>
+                  {formattedDateRange}
+                </span>
+              </div>
+              <select
+                value={dateRange}
+                onChange={(e) => onDateRangeChange(e.target.value)}
+                className="bg-transparent outline-none cursor-pointer w-4 text-transparent focus:w-auto"
+                style={{ color: 'var(--text)' }}
+              >
+                <option value="7d">{isAr ? 'آخر 7 أيام' : 'Last 7 Days'}</option>
+                <option value="30d">{isAr ? 'آخر 30 يوم' : 'Last 30 Days'}</option>
+                <option value="90d">{isAr ? 'آخر 90 يوم' : 'Last 90 Days'}</option>
+                <option value="year">{isAr ? 'العام الحالي' : 'This Year'}</option>
+              </select>
             </div>
-            <select
-              value={comparisonPeriod}
-              onChange={(e) => onComparisonChange(e.target.value)}
-              className="bg-transparent text-slate-800 dark:text-slate-200 outline-none cursor-pointer w-4 text-transparent focus:w-auto focus:text-slate-800 dark:focus:text-slate-200"
+
+            <div
+              className="flex items-center gap-2 px-3 py-1.5 border rounded-xl text-xs font-semibold shadow-2xs"
+              style={controlShell}
             >
-              <option value="prev_period" className="dark:bg-slate-900 text-slate-800 dark:text-slate-100">{isAr ? 'الفترة السابقة' : 'Previous period'}</option>
-              <option value="prev_year" className="dark:bg-slate-900 text-slate-800 dark:text-slate-100">{isAr ? 'العام الماضي' : 'Previous year'}</option>
-            </select>
+              <div className="flex flex-col text-start">
+                <span className="text-[10px] leading-tight" style={{ color: 'var(--muted)' }}>
+                  {isAr ? 'مقارنة بـ' : 'Compare to'}
+                </span>
+                <span className="text-[11px] font-bold leading-tight" style={{ color: 'var(--text)' }}>
+                  {comparisonPeriod === 'prev_year'
+                    ? isAr
+                      ? 'العام الماضي'
+                      : 'Previous year'
+                    : isAr
+                      ? 'الفترة السابقة'
+                      : 'Previous period'}
+                </span>
+              </div>
+              <select
+                value={comparisonPeriod}
+                onChange={(e) => onComparisonChange(e.target.value)}
+                className="bg-transparent outline-none cursor-pointer w-4 text-transparent focus:w-auto"
+                style={{ color: 'var(--text)' }}
+              >
+                <option value="prev_period">{isAr ? 'الفترة السابقة' : 'Previous period'}</option>
+                <option value="prev_year">{isAr ? 'العام الماضي' : 'Previous year'}</option>
+              </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={onFilter}
+              className="px-3 py-2 border rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              style={controlShell}
+            >
+              <Filter className="w-3.5 h-3.5" style={{ color: 'var(--muted)' }} />
+              <span>{isAr ? 'تصفية' : 'Filter'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onExport}
+              disabled={isExporting}
+              className="px-3 py-2 border rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
+              style={controlShell}
+            >
+              <Download className="w-3.5 h-3.5" style={{ color: 'var(--muted)' }} />
+              <span>{isExporting ? (isAr ? 'جارِ...' : 'Exporting...') : isAr ? 'تصدير' : 'Export'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onSaveView}
+              className="unity-btn-primary px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+            >
+              <Bookmark className="w-3.5 h-3.5" />
+              <span>{isAr ? 'حفظ العرض' : 'Save view'}</span>
+            </button>
           </div>
-
-          {/* Filter Button */}
-          <button
-            type="button"
-            onClick={onFilter}
-            className="px-3 py-2 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200/90 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-          >
-            <Filter className="w-3.5 h-3.5 text-slate-500" />
-            <span>{isAr ? 'تصفية' : 'Filter'}</span>
-          </button>
-
-          {/* Export Button */}
-          <button
-            type="button"
-            onClick={onExport}
-            disabled={isExporting}
-            className="px-3 py-2 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200/90 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
-          >
-            <Download className="w-3.5 h-3.5 text-slate-500" />
-            <span>{isExporting ? (isAr ? 'جارِ...' : 'Exporting...') : (isAr ? 'تصدير' : 'Export')}</span>
-          </button>
-
-          {/* Save View Button (Solid Blue) */}
-          <button
-            type="button"
-            onClick={onSaveView}
-            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-          >
-            <Bookmark className="w-3.5 h-3.5" />
-            <span>{isAr ? 'حفظ العرض' : 'Save view'}</span>
-          </button>
-        </div>
+        ) : null}
       </div>
 
-      {/* Modern segmented page tabs (full button toggles — no plain underline text) */}
-      <ModernSegmentedTabs
-        accent="blue"
-        aria-label={isAr ? 'أقسام التقارير' : 'Report sections'}
-        value={activeTab}
-        onChange={onSelectTab}
-        items={reportTabs.map((tab) => ({
-          id: tab.key,
-          label: isAr ? tab.labelAr : tab.labelEn,
-          badge: tab.badge,
-        }))}
-      />
+      {/* Hub: ONLY big buttons — data loads after click */}
+      {activeTab === null ? (
+        <div className="u-equal-sections grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {REPORT_HUB_TABS.map((tab) => (
+            <PortalHubCard
+              key={tab.key}
+              icon={tab.icon}
+              title={isAr ? tab.labelAr : tab.labelEn}
+              description={isAr ? tab.descAr : tab.descEn}
+              onClick={() => onSelectTab(tab.key)}
+              isAr={isAr}
+            />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 };

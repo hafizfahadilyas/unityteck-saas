@@ -193,57 +193,40 @@ export const CoffeeFeaturesForm: React.FC<CoffeeFormChromeProps> = ({ onBack, em
             </div>
             <label className="block space-y-1">
               <span className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
-                {isAr ? 'عنوان القسم (اختياري · إنجليزي)' : 'Section Title (Optional · English)'}
-                <Counter value={draft?.mainTitleEn || draft?.mainTitle || ''} max={100} />
+                {isAr ? 'عنوان القسم (اختياري)' : 'Section Title (Optional)'}
+                <Counter
+                  value={isAr ? draft?.mainTitleAr || '' : draft?.mainTitleEn || draft?.mainTitle || ''}
+                  max={100}
+                />
               </span>
               <input
                 className={inputCls}
-                dir="ltr"
+                dir={isAr ? 'rtl' : 'ltr'}
                 maxLength={100}
-                placeholder={isAr ? 'اكتب العنوان بالإنجليزية' : 'e.g. Why Shop With Us'}
-                value={draft?.mainTitleEn || draft?.mainTitle || ''}
-                onChange={(e) => patchSection({ mainTitleEn: e.target.value })}
+                placeholder={isAr ? 'مثال: لماذا تتسوق معنا' : 'e.g. Why Shop With Us'}
+                value={isAr ? draft?.mainTitleAr || '' : draft?.mainTitleEn || draft?.mainTitle || ''}
+                onChange={(e) =>
+                  patchSection(isAr ? { mainTitleAr: e.target.value } : { mainTitleEn: e.target.value })
+                }
               />
             </label>
             <label className="block space-y-1">
               <span className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
-                {isAr ? 'عنوان القسم (اختياري · عربي)' : 'Section Title (Optional · Arabic)'}
-                <Counter value={draft?.mainTitleAr || ''} max={100} />
+                {isAr ? 'وصف القسم (اختياري)' : 'Section Description (Optional)'}
+                <Counter
+                  value={isAr ? draft?.subtitleAr || '' : draft?.subtitleEn || draft?.subtitle || ''}
+                  max={200}
+                />
               </span>
               <input
                 className={inputCls}
-                dir="rtl"
-                maxLength={100}
-                placeholder={isAr ? 'مثال: لماذا تتسوق معنا' : 'Enter Arabic title'}
-                value={draft?.mainTitleAr || ''}
-                onChange={(e) => patchSection({ mainTitleAr: e.target.value })}
-              />
-            </label>
-            <label className="block space-y-1">
-              <span className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
-                {isAr ? 'وصف القسم (اختياري · إنجليزي)' : 'Section Description (Optional · English)'}
-                <Counter value={draft?.subtitleEn || draft?.subtitle || ''} max={200} />
-              </span>
-              <input
-                className={inputCls}
-                dir="ltr"
+                dir={isAr ? 'rtl' : 'ltr'}
                 maxLength={200}
-                placeholder={isAr ? 'اكتب الوصف بالإنجليزية' : 'e.g. Experience the best service and quality'}
-                value={draft?.subtitleEn || draft?.subtitle || ''}
-                onChange={(e) => patchSection({ subtitleEn: e.target.value })}
-              />
-            </label>
-            <label className="block space-y-1">
-              <span className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
-                {isAr ? 'وصف القسم (اختياري · عربي)' : 'Section Description (Optional · Arabic)'}
-                <Counter value={draft?.subtitleAr || ''} max={200} />
-              </span>
-              <input
-                className={inputCls}
-                dir="rtl"
-                maxLength={200}
-                value={draft?.subtitleAr || ''}
-                onChange={(e) => patchSection({ subtitleAr: e.target.value })}
+                placeholder={isAr ? 'اكتب الوصف' : 'e.g. Experience the best service and quality'}
+                value={isAr ? draft?.subtitleAr || '' : draft?.subtitleEn || draft?.subtitle || ''}
+                onChange={(e) =>
+                  patchSection(isAr ? { subtitleAr: e.target.value } : { subtitleEn: e.target.value })
+                }
               />
             </label>
           </section>
@@ -455,31 +438,50 @@ export const CoffeeFeaturesForm: React.FC<CoffeeFormChromeProps> = ({ onBack, em
                 <div className="space-y-2">
                   <label className="block space-y-1">
                     <span className="flex justify-between text-[11px] font-semibold text-slate-600">
-                      {isAr ? 'العنوان الرئيسي (إنجليزي)' : 'Main Title (English)'}
-                      <Counter value={editing.titleEn || editing.title || ''} max={100} />
+                      {isAr ? 'العنوان' : 'Title'}
+                      <Counter
+                        value={isAr ? editing.titleAr || '' : editing.titleEn || editing.title || ''}
+                        max={100}
+                      />
                     </span>
-                    <input className={inputCls} dir="ltr" maxLength={100} value={editing.titleEn || editing.title || ''} onChange={(e) => patchItem(editing.id, { titleEn: e.target.value })} />
+                    <input
+                      className={inputCls}
+                      dir={isAr ? 'rtl' : 'ltr'}
+                      maxLength={100}
+                      value={isAr ? editing.titleAr || '' : editing.titleEn || editing.title || ''}
+                      onChange={(e) =>
+                        patchItem(editing.id, isAr ? { titleAr: e.target.value } : { titleEn: e.target.value })
+                      }
+                    />
                   </label>
                   <label className="block space-y-1">
                     <span className="flex justify-between text-[11px] font-semibold text-slate-600">
-                      {isAr ? 'العنوان الرئيسي (عربي)' : 'Main Title (Arabic)'}
-                      <Counter value={editing.titleAr || ''} max={100} />
+                      {isAr ? 'العنوان الفرعي' : 'Subtitle'}
+                      <Counter
+                        value={
+                          isAr
+                            ? editing.descriptionAr || ''
+                            : editing.descriptionEn || editing.description || ''
+                        }
+                        max={200}
+                      />
                     </span>
-                    <input className={inputCls} dir="rtl" maxLength={100} value={editing.titleAr || ''} onChange={(e) => patchItem(editing.id, { titleAr: e.target.value })} />
-                  </label>
-                  <label className="block space-y-1">
-                    <span className="flex justify-between text-[11px] font-semibold text-slate-600">
-                      {isAr ? 'العنوان الفرعي (إنجليزي)' : 'Sub Title (English)'}
-                      <Counter value={editing.descriptionEn || editing.description || ''} max={200} />
-                    </span>
-                    <input className={inputCls} dir="ltr" maxLength={200} value={editing.descriptionEn || editing.description || ''} onChange={(e) => patchItem(editing.id, { descriptionEn: e.target.value })} />
-                  </label>
-                  <label className="block space-y-1">
-                    <span className="flex justify-between text-[11px] font-semibold text-slate-600">
-                      {isAr ? 'العنوان الفرعي (عربي)' : 'Sub Title (Arabic)'}
-                      <Counter value={editing.descriptionAr || ''} max={200} />
-                    </span>
-                    <input className={inputCls} dir="rtl" maxLength={200} value={editing.descriptionAr || ''} onChange={(e) => patchItem(editing.id, { descriptionAr: e.target.value })} />
+                    <input
+                      className={inputCls}
+                      dir={isAr ? 'rtl' : 'ltr'}
+                      maxLength={200}
+                      value={
+                        isAr
+                          ? editing.descriptionAr || ''
+                          : editing.descriptionEn || editing.description || ''
+                      }
+                      onChange={(e) =>
+                        patchItem(
+                          editing.id,
+                          isAr ? { descriptionAr: e.target.value } : { descriptionEn: e.target.value },
+                        )
+                      }
+                    />
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     <label className="space-y-1 block">

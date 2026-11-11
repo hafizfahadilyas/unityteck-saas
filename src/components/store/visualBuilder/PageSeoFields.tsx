@@ -55,26 +55,38 @@ export function PageSeoFields({
     setForm((prev) => ({ ...prev, [key]: next }));
   };
 
-  const field = (key: keyof PageSeoFieldsValue, label: string, area = false) => (
-    <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
-      <span>{label}</span>
-      {area ? (
-        <textarea
-          value={String(form[key] || '')}
-          onChange={(event) => set(key, event.target.value)}
-          rows={2}
-          className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm font-normal"
-        />
-      ) : (
-        <input
-          value={String(form[key] || '')}
-          onChange={(event) => set(key, event.target.value)}
-          className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm font-normal"
-          dir={key === 'canonical' || key === 'og_image' ? 'ltr' : undefined}
-        />
-      )}
-    </label>
-  );
+  const field = (key: keyof PageSeoFieldsValue, label: string, area = false) => {
+    const keyStr = String(key);
+    const dir =
+      key === 'canonical' || key === 'og_image'
+        ? 'ltr'
+        : keyStr.endsWith('_ar')
+          ? 'rtl'
+          : keyStr.endsWith('_en')
+            ? 'ltr'
+            : undefined;
+    return (
+      <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
+        <span>{label}</span>
+        {area ? (
+          <textarea
+            dir={dir}
+            value={String(form[key] || '')}
+            onChange={(event) => set(key, event.target.value)}
+            rows={2}
+            className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm font-normal"
+          />
+        ) : (
+          <input
+            dir={dir}
+            value={String(form[key] || '')}
+            onChange={(event) => set(key, event.target.value)}
+            className="rounded-lg border border-slate-200 px-2 py-1.5 text-sm font-normal"
+          />
+        )}
+      </label>
+    );
+  };
 
   return (
     <div className="absolute inset-0 z-[80] bg-slate-900/40 flex items-start justify-center p-4 overflow-y-auto" data-theme-modal="seo">
@@ -92,14 +104,18 @@ export function PageSeoFields({
           </button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {field('seo_title_en', isAr ? 'عنوان إنجليزي' : 'English title')}
-          {field('seo_title_ar', isAr ? 'عنوان عربي' : 'Arabic title')}
-          {field('seo_description_en', isAr ? 'وصف إنجليزي' : 'English description', true)}
-          {field('seo_description_ar', isAr ? 'وصف عربي' : 'Arabic description', true)}
-          {field('og_title_en', isAr ? 'عنوان المشاركة بالإنجليزية' : 'English share title')}
-          {field('og_title_ar', isAr ? 'عنوان المشاركة بالعربية' : 'Arabic share title')}
-          {field('og_description_en', isAr ? 'وصف المشاركة بالإنجليزية' : 'English share description', true)}
-          {field('og_description_ar', isAr ? 'وصف المشاركة بالعربية' : 'Arabic share description', true)}
+          {isAr
+            ? field('seo_title_ar', 'العنوان')
+            : field('seo_title_en', 'Title')}
+          {isAr
+            ? field('seo_description_ar', 'الوصف', true)
+            : field('seo_description_en', 'Description', true)}
+          {isAr
+            ? field('og_title_ar', 'عنوان المشاركة')
+            : field('og_title_en', 'Share title')}
+          {isAr
+            ? field('og_description_ar', 'وصف المشاركة', true)
+            : field('og_description_en', 'Share description', true)}
           {field('og_image', isAr ? 'صورة المشاركة' : 'Share image')}
           {field('twitter_card', isAr ? 'بطاقة المشاركة' : 'Share card')}
           {field('canonical', isAr ? 'الرابط الأساسي' : 'Canonical URL')}

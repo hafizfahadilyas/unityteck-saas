@@ -514,6 +514,18 @@ const INITIAL_PURCHASES_COFFEE: PurchaseRecord[] = [
 /**
  * Check if the cached documents for a store are contaminated with data from another store.
  */
+/** Old localStorage demo packs (ORD-9842 / INV-2026-* seeds) — never treat as production truth. */
+function isSeededDemoInvoice(doc: InvoiceDocument): boolean {
+  const id = String(doc?.id || '');
+  const orderNumber = String(doc?.orderNumber || '');
+  const documentNumber = String(doc?.documentNumber || '');
+  if (id.startsWith('doc-inv-') || id.startsWith('doc-cof-') || id.startsWith('doc-fl-')) return true;
+  if (orderNumber === 'ORD-9842') return true;
+  if (/^INV-2026-0(201|104|189|174|092|078)$/i.test(documentNumber)) return true;
+  if (/^CRN-2026-00(12|22)$/i.test(documentNumber)) return true;
+  return false;
+}
+
 function isContaminated(storeId: string, docs: InvoiceDocument[]): boolean {
   if (!docs || docs.length === 0) return false;
   const isCoffee = isCoffeeStoreId(storeId);
@@ -547,9 +559,23 @@ function isContaminated(storeId: string, docs: InvoiceDocument[]): boolean {
 }
 
 /**
- * Creates full initial suite of 10 official document types isolated per store.
+ * LOCKED zero-mock: never auto-seed fake invoice / document suites on the live path.
+ * Documents come from real store orders (syncWithStoreOrders) or merchant-created rows only.
  */
-function createInitialDocuments(storeId: string, store?: Partial<Store>): InvoiceDocument[] {
+function createInitialDocuments(_storeId: string, _store?: Partial<Store>): InvoiceDocument[] {
+  // Retained identifiers only so legacy seed blobs below stay typed until full file purge
+  void INITIAL_SUPPLIERS_FLOWERS;
+  void INITIAL_SUPPLIERS_COFFEE;
+  void INITIAL_PURCHASES_FLOWERS;
+  void INITIAL_PURCHASES_COFFEE;
+  void _legacyCreateInitialDocumentsUnused;
+  return [];
+}
+
+/** @deprecated Dead seed suite — never call. */
+function _legacyCreateInitialDocumentsUnused(storeId: string, store?: Partial<Store>): InvoiceDocument[] {
+  void storeId;
+  void store;
   const profile = getStoreInvoiceProfile(storeId, store);
   const isCoffee = isCoffeeStoreId(storeId, store);
   const isCar = isCarStoreId(storeId, store);
@@ -2316,23 +2342,22 @@ function createInitialDocuments(storeId: string, store?: Partial<Store>): Invoic
 class InvoiceService {
   private getStoredInvoices(storeId: string, store?: Partial<Store>): InvoiceDocument[] {
     try {
-      if (typeof window === 'undefined') return createInitialDocuments(storeId, store);
+      if (typeof window === 'undefined') return [];
       const raw = localStorage.getItem(`${INVOICES_STORAGE_KEY}_${storeId}`);
-      if (!raw) {
-        const initial = createInitialDocuments(storeId, store);
-        this.saveStoredInvoices(storeId, initial);
-        return initial;
-      }
+      if (!raw) return [];
       const parsed: InvoiceDocument[] = JSON.parse(raw);
-      if (isContaminated(storeId, parsed)) {
-        // Cache was contaminated with foreign-store documents — reset cleanly!
-        const clean = createInitialDocuments(storeId, store);
-        this.saveStoredInvoices(storeId, clean);
-        return clean;
+      const withoutDemo = parsed.filter((d) => !isSeededDemoInvoice(d));
+      if (isContaminated(storeId, withoutDemo)) {
+        // Cross-tenant leak — genuine empty for this store_id
+        this.saveStoredInvoices(storeId, []);
+        return [];
       }
-      return parsed;
+      if (withoutDemo.length !== parsed.length) {
+        this.saveStoredInvoices(storeId, withoutDemo);
+      }
+      return withoutDemo;
     } catch {
-      return createInitialDocuments(storeId, store);
+      return [];
     }
   }
 
@@ -2403,10 +2428,10 @@ class InvoiceService {
         : [
             {
               id: `ord-item-0`,
-              name: isCoffee ? 'Specialty Coffee Pack' : 'Store Order Bundle',
-              nameAr: isCoffee ? 'باقة القهوة المختصة الفاخرة' : 'باقة منتجات المتجر',
-              nameEn: isCoffee ? 'Specialty Coffee Pack' : 'Store Order Bundle',
-              sku: 'BDL-001',
+              name: `Order ${orderNum}`,
+              nameAr: `طلب ${orderNum}`,
+              nameEn: `Order ${orderNum}`,
+              sku: String(orderNum),
               quantity: 1,
               unitPrice: subtotal,
               discount,
@@ -2717,23 +2742,19 @@ class InvoiceService {
   // Suppliers & Purchases
   public getSuppliers(storeId: string): SupplierRecord[] {
     const isCoffee = isCoffeeStoreId(storeId);
-    const defaults = isCoffee ? INITIAL_SUPPLIERS_COFFEE : INITIAL_SUPPLIERS_FLOWERS;
     try {
-      if (typeof window === 'undefined') return defaults;
+      if (typeof window === 'undefined') return [];
       const raw = localStorage.getItem(`${SUPPLIERS_STORAGE_KEY}_${storeId}`);
-      if (!raw) {
-        localStorage.setItem(`${SUPPLIERS_STORAGE_KEY}_${storeId}`, JSON.stringify(defaults));
-        return defaults;
-      }
+      if (!raw) return [];
       const parsed: SupplierRecord[] = JSON.parse(raw);
-      // Clean cross-store contamination
+      // Clean cross-store contamination → empty (never re-seed flower/coffee dummy packs)
       if (isCoffee && parsed.some((s) => s.name.includes('Dutch Flora') || (s.nameAr && s.nameAr.includes('فلورا')))) {
-        localStorage.setItem(`${SUPPLIERS_STORAGE_KEY}_${storeId}`, JSON.stringify(defaults));
-        return defaults;
+        localStorage.setItem(`${SUPPLIERS_STORAGE_KEY}_${storeId}`, JSON.stringify([]));
+        return [];
       }
-      return parsed;
+      return parsed.filter((s) => s.storeId === storeId || !s.storeId);
     } catch {
-      return defaults;
+      return [];
     }
   }
 
@@ -2754,22 +2775,18 @@ class InvoiceService {
 
   public getPurchases(storeId: string): PurchaseRecord[] {
     const isCoffee = isCoffeeStoreId(storeId);
-    const defaults = isCoffee ? INITIAL_PURCHASES_COFFEE : INITIAL_PURCHASES_FLOWERS;
     try {
-      if (typeof window === 'undefined') return defaults;
+      if (typeof window === 'undefined') return [];
       const raw = localStorage.getItem(`${PURCHASES_STORAGE_KEY}_${storeId}`);
-      if (!raw) {
-        localStorage.setItem(`${PURCHASES_STORAGE_KEY}_${storeId}`, JSON.stringify(defaults));
-        return defaults;
-      }
+      if (!raw) return [];
       const parsed: PurchaseRecord[] = JSON.parse(raw);
       if (isCoffee && parsed.some((p) => p.supplierName.includes('Dutch Flora') || (p.supplierNameAr && p.supplierNameAr.includes('فلورا')))) {
-        localStorage.setItem(`${PURCHASES_STORAGE_KEY}_${storeId}`, JSON.stringify(defaults));
-        return defaults;
+        localStorage.setItem(`${PURCHASES_STORAGE_KEY}_${storeId}`, JSON.stringify([]));
+        return [];
       }
-      return parsed;
+      return parsed.filter((p) => p.storeId === storeId || !p.storeId);
     } catch {
-      return defaults;
+      return [];
     }
   }
 

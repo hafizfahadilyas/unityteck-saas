@@ -13,7 +13,7 @@ export const meccaGiftsThemeConfig: ThemeManifest = {
   version: '2.6.0',
   description: 'Luxury flowers, spiritual Makkah souvenirs, customized gift boxes, and seasonal holiday collections.',
   descriptionAr: 'قالب فاخر لباقات الورد الطبيعي، الهدايا التذكارية المكية، وصناديق الإهداء الفاخرة للمناسبات.',
-  author: 'Unityteck Storefront Engine',
+  author: 'Souq Platform Storefront Engine',
   category: 'gifts',
   previewImage: '/images/saudi_hero_banner_2.jpg',
   tags: ['flowers', 'gifts', 'makkah', 'souvenirs', 'luxury', 'perfumes', 'chocolates'],

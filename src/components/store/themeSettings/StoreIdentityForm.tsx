@@ -156,10 +156,12 @@ export const StoreIdentityForm: React.FC = () => {
 
       <div className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          {field(locale === 'ar' ? 'اسم المتجر بالإنجليزية' : 'Store name in English', 'storeNameEn', { dir: 'ltr' })}
-          {field(locale === 'ar' ? 'اسم المتجر بالعربية' : 'Store name in Arabic', 'storeNameAr', { dir: 'rtl' })}
-          {field(locale === 'ar' ? 'الوصف بالإنجليزية' : 'Tagline in English', 'taglineEn', { dir: 'ltr' })}
-          {field(locale === 'ar' ? 'الوصف بالعربية' : 'Tagline in Arabic', 'taglineAr', { dir: 'rtl' })}
+          {locale === 'ar'
+            ? field('اسم المتجر', 'storeNameAr', { dir: 'rtl' })
+            : field('Store name', 'storeNameEn', { dir: 'ltr' })}
+          {locale === 'ar'
+            ? field('الوصف', 'taglineAr', { dir: 'rtl' })
+            : field('Tagline', 'taglineEn', { dir: 'ltr' })}
         </div>
         <MediaUploadField
           label={locale === 'ar' ? 'شعار المتجر' : 'Store logo'}
@@ -219,15 +221,11 @@ export const StoreIdentityForm: React.FC = () => {
         <div className="grid grid-cols-1 gap-3">
           <div className="space-y-1.5">
             <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--muted)' }}>
-              <MapPin className="w-3 h-3 text-rose-500" /> {locale === 'ar' ? 'العنوان بالإنجليزية' : 'Address in English'}
+              <MapPin className="w-3 h-3 text-rose-500" /> {locale === 'ar' ? 'العنوان' : 'Address'}
             </span>
-            {field('', 'addressEn', { dir: 'ltr', placeholder: 'King Fahd Rd, Riyadh' })}
-          </div>
-          <div className="space-y-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: 'var(--muted)' }}>
-              <MapPin className="w-3 h-3 text-rose-500" /> {locale === 'ar' ? 'العنوان بالعربية' : 'Address in Arabic'}
-            </span>
-            {field('', 'addressAr', { dir: 'rtl', placeholder: 'طريق الملك فهد، الرياض' })}
+            {locale === 'ar'
+              ? field('', 'addressAr', { dir: 'rtl', placeholder: 'طريق الملك فهد، الرياض' })
+              : field('', 'addressEn', { dir: 'ltr', placeholder: 'King Fahd Rd, Riyadh' })}
           </div>
         </div>
 

@@ -203,7 +203,7 @@ class DatabaseSeeder extends Seeder
                 'timezone' => 'Asia/Riyadh',
                 'phone' => '+966 50 442 8819',
                 'email' => 'p4pakistan098@gmail.com',
-                'owner_name' => 'متجر هدايا',
+                'owner_name' => 'Makkah Gifts Store',
                 'city' => 'Makkah',
                 'country' => 'Saudi Arabia',
                 'category' => 'Real Fresh Flowers & Luxury Gifts',
@@ -276,7 +276,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'p4pakistan098@gmail.com'],
             [
                 'id' => 'user-store-1',
-                'name' => 'متجر هدايا',
+                'name' => 'Makkah Gifts Store',
                 'password' => Hash::make(env('ADMIN_STORE_PASSWORD', 'MakkahStore@2026!Secure')),
                 'role' => 'admin',
             ]
@@ -1579,7 +1579,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'owner@tanjeedmakkah.com'],
             [
                 'id' => 'user-store-bleco-1',
-                'name' => 'Al-Saeedi Manager',
+                'name' => 'Al-Saeedi Car Services',
                 'password' => Hash::make(env('ADMIN_STORE_PASSWORD', 'BlecoStore@2026!Secure')),
                 'role' => 'admin',
             ]

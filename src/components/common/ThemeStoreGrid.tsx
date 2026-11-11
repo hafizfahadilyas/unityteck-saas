@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef } from 'react';
-import { Check, Download, Lock, Palette, Sparkles, Star, Globe, Upload, Eye } from 'lucide-react';
+import { Check, Download, Lock, Sparkles, Star, Globe, Upload, Eye } from 'lucide-react';
 import type { ThemeItem } from '../../types';
 import type { Store } from '../../types';
 import { planHasFullThemes, planInfoForStore } from '../../auth/plans';
@@ -10,6 +10,7 @@ import {
 } from '../../auth/themeMarketplace';
 import { useToast } from '../common/ToastProvider';
 import { usePrefs } from '../../i18n/PrefsContext';
+import { SouqEMakkahMark } from './SouqEMakkahLogo';
 
 export type { ThemeStoreMeta };
 
@@ -134,11 +135,11 @@ export const ThemeStoreGrid: React.FC<Props> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <p className="text-xs font-bold" style={{ color: 'var(--text)' }}>
-            {isAr ? 'متجر ثيمات يونيتك متجر ثيمات يونيتيك' : 'Unityteck Theme Store'}
+            {isAr ? 'متجر ثيمات منصة سوق' : 'Souq Platform Theme Store'}
           </p>
           <p className="text-[11px]" style={{ color: 'var(--muted)' }}>
             {isAr
-              ? `سوق الثيمات المعتمدة · الباقة الحالية:${plan.name}(${full ? 'كاملة المميزات': 'أساسية'})`
+              ? `سوق الثيمات المعتمدة · الباقة الحالية: ${plan.name} (${full ? 'كاملة المميزات' : 'أساسية'})`
               : `Official Theme Marketplace · Current Plan: ${plan.name} (${full ? 'Full' : 'Basic'})`}
           </p>
         </div>
@@ -354,32 +355,30 @@ export const ThemeStoreGrid: React.FC<Props> = ({
           <Sparkles className="w-3.5 h-3.5 inline me-1" style={{ color: 'var(--accent)' }} />
           {isAr
             ? 'الباقة الأساسية: تتضمن ثيم التجارة الإلكترونية الافتراضي. قم بالترقية إلى باقة برو للحصول على كافة الثيمات والتصاميم الحصرية.'
-            : 'Basic Plan: Includes default Commerce Theme. Upgrade to Pro for the complete Unityteck Theme Store catalog.'}
+            : 'Basic Plan: Includes default Commerce Theme. Upgrade to Pro for the complete Souq Platform Theme Store catalog.'}
         </p>
       ) : null}
     </div>
   );
 };
 
-/** Small badge for App Store chrome */
+/** Small badge for App Store chrome — Final Master Admin = منصة سوق / Souq Platform */
 export const AppStoreBrand: React.FC<{ subtitle?: string }> = ({ subtitle }) => {
   const { locale } = usePrefs();
   const isAr = locale === 'ar';
 
   return (
     <div className="flex items-center gap-2.5 min-w-0">
-      <div
-        className="w-9 h-9 rounded-2xl text-white flex items-center justify-center shadow-md shrink-0"
-        style={{ background: 'var(--portal-cta)' }}
-      >
-        <Palette className="w-4 h-4" />
-      </div>
+      <SouqEMakkahMark isAr={isAr} className="shrink-0" />
       <div className="min-w-0">
         <h1 className="text-lg sm:text-xl font-extrabold tracking-tight" style={{ color: 'var(--text)' }}>
-          {isAr ? 'متجر تطبيقات وثيمات يونيتك' : 'Unityteck App Store'}
+          {isAr ? 'متجر تطبيقات منصة سوق' : 'Souq Platform App Store'}
         </h1>
         <p className="text-[11px] truncate" style={{ color: 'var(--muted)' }}>
-          {subtitle || (isAr ? 'سوق الثيمات والتطبيقات والإضافات المعتمدة' : 'Themes Store · Apps & plugins — our own marketplace')}
+          {subtitle ||
+            (isAr
+              ? 'سوق الثيمات والتطبيقات والإضافات المعتمدة'
+              : 'Themes Store · Apps & plugins — Souq Platform marketplace')}
         </p>
       </div>
     </div>

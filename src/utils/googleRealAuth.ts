@@ -1,6 +1,6 @@
 /**
  * Real Google OAuth 2.0 Client & Google Services Integration
- * Site Kit by Google Architecture for Unityteck E-Commerce SaaS
+ * Site Kit by Google Architecture for Souq Platform E-Commerce SaaS
  */
 
 export interface GoogleAuthTokenResponse {

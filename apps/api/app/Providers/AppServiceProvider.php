@@ -19,11 +19,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Local Windows → Hostinger MySQL is high-latency; avoid 30s fatal mid-request.
-        if ($this->app->environment('local')) {
-            @ini_set('max_execution_time', '120');
-            @ini_set('default_socket_timeout', '15');
-            @set_time_limit(120);
+        // Local Windows → Hostinger MySQL is high-latency; avoid php.ini 30s fatal mid-request.
+        // Skip pure CLI (artisan commands / serve watcher). Allow cli-server HTTP workers.
+        $sapi = \PHP_SAPI;
+        $isHttpWorker = $sapi === 'cli-server' || ! $this->app->runningInConsole();
+        if ($this->app->environment('local') && $isHttpWorker && $sapi !== 'cli' && $sapi !== 'phpdbg') {
+            @ini_set('max_execution_time', '300');
+            @ini_set('default_socket_timeout', '60');
+            @set_time_limit(300);
         }
     }
 }

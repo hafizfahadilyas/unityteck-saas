@@ -191,8 +191,8 @@ export const StoreHostingDomain: React.FC = () => {
               </h1>
               <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
                 {isAr
-                  ? 'استضافة مشتركة سريعة من يونيتيك — بدون خوادم خاصة منفصلة.'
-                  : 'Unityteck Shared Hosting. Seamless automated deployment & SSL.'}
+                  ? 'استضافة مشتركة سريعة من منصة سوق — بدون خوادم خاصة منفصلة.'
+                  : 'Souq Platform Shared Hosting. Seamless automated deployment & security certificate.'}
               </p>
             </div>
           </div>
@@ -396,7 +396,7 @@ export const StoreHostingDomain: React.FC = () => {
                   {isAr ? 'نوع الاستضافة' : 'Hosting Type'}
                 </span>
                 <span className="font-bold text-xs" style={{ color: 'var(--text)' }}>
-                  Unityteck Shared Cloud
+                  {isAr ? 'سحابة منصة سوق المشتركة' : 'Souq Platform Shared Cloud'}
                 </span>
               </div>
               <div className="p-2.5 rounded-lg border" style={{ borderColor: 'var(--border)' }}>

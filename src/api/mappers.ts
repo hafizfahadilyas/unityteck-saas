@@ -81,14 +81,46 @@ export function mapStore(row: ApiStoreRow): Store {
     ? 'Makkah Flowers'
     : (row.name_en ? str(row.name_en) : undefined);
 
+  const storeId = str(row.id);
+  const ownerRaw = str(row.owner_name ?? row.owner, 'Owner');
+  const isCoffeeStore =
+    storeId === 'store-coffee' ||
+    str(row.slug).includes('coffee') ||
+    str(row.slug).includes('hibrew') ||
+    /hibrew|هاي\s*برو|قهوة/i.test(rawName);
+  const isBlecoStore =
+    storeId === 'store-bleco' ||
+    str(row.slug).includes('bleco') ||
+    str(row.slug).includes('alsaeedi') ||
+    str(row.slug).includes('tanjeed') ||
+    /سعيدي|بلاكو|bleco|tanjeed/i.test(rawName);
+
+  let ownerAr: string | undefined;
+  let ownerEn: string | undefined;
+  if (isMakkahStore || storeId === 'store-1') {
+    ownerAr = 'متجر هدايا مكة';
+    ownerEn = 'Makkah Gifts Store';
+  } else if (isCoffeeStore) {
+    ownerAr = 'ريان السليمان';
+    ownerEn = 'Rayan Al-Sulaiman';
+  } else if (isBlecoStore) {
+    ownerAr = 'متجر السعيدي لخدمات السيارات';
+    ownerEn = 'Al-Saeedi Car Services';
+  } else if (row.owner_ar || row.owner_en) {
+    ownerAr = row.owner_ar ? str(row.owner_ar) : undefined;
+    ownerEn = row.owner_en ? str(row.owner_en) : undefined;
+  }
+
   return {
-    id: str(row.id),
+    id: storeId,
     name: isMakkahStore ? 'هدايا مكة' : rawName,
     nameAr,
     nameEn,
     slug: str(row.slug),
     category: str(row.category, 'General'),
-    owner: str(row.owner_name ?? row.owner, 'Owner'),
+    owner: ownerRaw,
+    ownerAr,
+    ownerEn,
     ownerEmail: str(row.email ?? row.owner_email, ''),
     loginEmailActive:
       row.login_email_active === undefined || row.login_email_active === null

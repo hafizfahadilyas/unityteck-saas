@@ -1,0 +1,39 @@
+---
+description: Live Hostinger verify before claiming fix done (products/orders/login)
+alwaysApply: true
+---
+
+# Live verify before done (LOCKED)
+
+**User order:** Screenshot / “products not showing” / login / orders — **probe live API first**, then fix, then **re-probe**. Do not claim done from code-only reading.
+
+## Required smoke (giftshop / coffee as relevant)
+
+Run against the live host the user reported (usually `https://giftshop-sa.com` or `https://mieraf-ksa.com`):
+
+1. `GET /api/health` → 200 + `active_live_mysql`
+2. `GET /api/storefront/resolve-domain?domain=…` → 200 + correct `store_id`
+3. `GET /api/products?store_id=store-1` (or coffee) → 200 + `data[]` length > 0 when DB has rows
+4. `GET /api/storefront/catalog?store_id=…&page=1&per_page=5` → 200
+5. Auth path when login broken: `POST /api/auth/clerk/exchange` with structured JWT → 200 `lite|…` or clear 422 (not blank 500)
+
+## UI checks
+
+- Admin Products: not stuck on **Loading products…**; empty only when API truly returns `[]`
+- After login: stay on `/admin?store=…&tab=dashboard` — never dump to storefront `/`
+- Console 404 on missing Hostinger routes → add empty stub or real handler; never leave admin hanging
+
+## Abort / timeout
+
+- Treat `AbortError` as timeout → friendly message + catalog fallback for products list
+- Never leave `catalogBusy` true after cancelled/aborted request generation
+
+## Deploy
+
+- API-only fix → `node scripts/deploy-api-hotfiles.js --target=flowers|central|all`
+- UI fix → build + deploy (prefer hot/delta when available)
+- Re-run the same smoke URLs after deploy
+
+## Status (Roman Urdu)
+
+End with **Ho gaya** / **Baqi** including what live HTTP codes were after the fix.

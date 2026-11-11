@@ -49,6 +49,37 @@ export function optionValuesList(
   });
 }
 
+/** Short SKU token from an option label (Latin + Arabic digits/letters). */
+function skuToken(label: string, fallback: string): string {
+  const raw = String(label || '').trim();
+  const latin = raw.replace(/[^a-zA-Z0-9]/g, '');
+  if (latin.length > 0) return latin.slice(0, 4).toUpperCase();
+  // Keep Arabic / unicode letters so AR option values stay distinguishable.
+  const uni = [...raw.replace(/\s+/g, '')]
+    .filter((ch) => /[\u0600-\u06FFa-zA-Z0-9]/u.test(ch))
+    .slice(0, 3)
+    .join('');
+  return uni || fallback;
+}
+
+/** Drop duplicate labels inside one option (case-insensitive) so the matrix cannot emit twin combos. */
+function uniqueSelectedValues(
+  values: ReturnType<typeof optionValuesList>,
+): ReturnType<typeof optionValuesList> {
+  const seen = new Set<string>();
+  const out: ReturnType<typeof optionValuesList> = [];
+  for (const v of values) {
+    if (v.selected === false) continue;
+    const label = String(v.label || '').trim();
+    if (!label) continue;
+    const key = label.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(v);
+  }
+  return out;
+}
+
 /** Cartesian product of selected option values → option maps */
 export function generateVariantCombos(
   options: ProductOptionDefinition[],
@@ -56,7 +87,7 @@ export function generateVariantCombos(
   const active = options
     .map((opt) => ({
       name: opt.name,
-      values: optionValuesList(opt.values).filter((v) => v.selected !== false && v.label.trim()),
+      values: uniqueSelectedValues(optionValuesList(opt.values)),
     }))
     .filter((o) => o.values.length > 0);
 
@@ -90,12 +121,79 @@ export interface GeneratedVariantInput {
   sharedStock?: number | null;
 }
 
+/** Make variant SKUs unique within the product (suffix -2, -3…). */
+export function ensureUniqueVariantSkus(variations: ProductVariation[]): ProductVariation[] {
+  const used = new Set<string>();
+  let changed = false;
+  const next = variations.map((row, idx) => {
+    let sku = String(row.sku || '').trim();
+    if (!sku) {
+      sku = `VAR-${idx + 1}`;
+      changed = true;
+    }
+    const base = sku.slice(0, 70);
+    let candidate = sku.slice(0, 80);
+    let n = 2;
+    while (used.has(candidate.toLowerCase())) {
+      candidate = `${base}-${n++}`.slice(0, 80);
+      changed = true;
+    }
+    used.add(candidate.toLowerCase());
+    return candidate === row.sku ? row : { ...row, sku: candidate };
+  });
+  return changed ? next : variations;
+}
+
+/** Keep the first barcode; clear later duplicates (barcode must stay unique per store). */
+export function ensureUniqueVariantBarcodes(variations: ProductVariation[]): ProductVariation[] {
+  const used = new Set<string>();
+  let changed = false;
+  const next = variations.map((row) => {
+    const code = String(row.barcode || '').trim();
+    if (!code) return row;
+    const key = code.toLowerCase();
+    if (used.has(key)) {
+      changed = true;
+      return { ...row, barcode: null };
+    }
+    used.add(key);
+    return row;
+  });
+  return changed ? next : variations;
+}
+
+/** Keep the first row per option fingerprint; drop later twins. */
+export function dedupeVariationsByOptionCombo(variations: ProductVariation[]): ProductVariation[] {
+  const seen = new Set<string>();
+  const out: ProductVariation[] = [];
+  let dropped = false;
+  for (const row of variations) {
+    const fp = optionsFingerprint(row.options || {});
+    if (fp) {
+      if (seen.has(fp)) {
+        dropped = true;
+        continue;
+      }
+      seen.add(fp);
+    }
+    out.push(row);
+  }
+  return dropped ? out : variations;
+}
+
+/** Heal SKU / barcode / twin-option collisions so a valid matrix can save. */
+export function normalizeVariantUniqueness(variations: ProductVariation[]): ProductVariation[] {
+  return ensureUniqueVariantSkus(
+    ensureUniqueVariantBarcodes(dedupeVariationsByOptionCombo(variations)),
+  );
+}
+
 /** Rebuild the variant matrix. A value price is an extra added to the product price. Matching combos keep stock, SKU, image, and visibility. */
 export function buildGeneratedVariants(input: GeneratedVariantInput): ProductVariation[] {
   const active = input.options
     .map((opt) => ({
       name: String(opt.name || '').trim(),
-      values: optionValuesList(opt.values).filter((v) => v.selected !== false && v.label.trim()),
+      values: uniqueSelectedValues(optionValuesList(opt.values)),
     }))
     .filter((o) => o.name && o.values.length > 0);
 
@@ -107,23 +205,36 @@ export function buildGeneratedVariants(input: GeneratedVariantInput): ProductVar
     sellExtra: number;
     mrpExtra: number;
     stock: number | null;
-    sku: string;
+    skuParts: string[];
     weight: number | null;
     weightUnit: string | null;
-  }> = [{ options: {}, imageUrl: null, sellExtra: 0, mrpExtra: 0, stock: null, sku: '', weight: null, weightUnit: null }];
+  }> = [
+    {
+      options: {},
+      imageUrl: null,
+      sellExtra: 0,
+      mrpExtra: 0,
+      stock: null,
+      skuParts: [],
+      weight: null,
+      weightUnit: null,
+    },
+  ];
   for (const opt of active) {
     const next: typeof combos = [];
     for (const c of combos) {
       for (const v of opt.values) {
         const sellBit = v.salePrice != null ? Number(v.salePrice) : v.price != null ? Number(v.price) : 0;
         const mrpBit = v.price != null ? Number(v.price) : v.salePrice != null ? Number(v.salePrice) : 0;
+        const part = String(v.sku || '').trim();
         next.push({
           options: { ...c.options, [opt.name]: v.label },
           imageUrl: v.imageUrl || c.imageUrl,
           sellExtra: c.sellExtra + (Number.isFinite(sellBit) ? sellBit : 0),
           mrpExtra: c.mrpExtra + (Number.isFinite(mrpBit) ? mrpBit : 0),
           stock: v.stock != null ? v.stock : c.stock,
-          sku: v.sku || c.sku,
+          // Collect per-value SKU pieces — never reuse one value SKU alone across Size×Color.
+          skuParts: part ? [...c.skuParts, part] : c.skuParts,
           weight: v.weight != null ? v.weight : c.weight,
           weightUnit: v.weightUnit || c.weightUnit,
         });
@@ -139,13 +250,16 @@ export function buildGeneratedVariants(input: GeneratedVariantInput): ProductVar
   }
 
   const prefix = (input.baseSku || 'SKU').trim() || 'SKU';
-  return combos.map((combo, idx) => {
+  const rows = combos.map((combo, idx) => {
     const fp = optionsFingerprint(combo.options);
     const prev = prevByFp.get(fp);
-    const abbrs = Object.values(combo.options).map((label) => {
-      const clean = String(label).replace(/[^a-zA-Z0-9]/g, '');
-      return (clean.slice(0, 4) || 'OPT').toUpperCase();
-    });
+    const abbrs = Object.values(combo.options).map((label, i) => skuToken(label, `O${i + 1}`));
+    const fromParts = combo.skuParts.length > 0 ? combo.skuParts.join('-') : '';
+    // Prefer a previous unique SKU only when it is not the bare product SKU shared by every row.
+    const prevSku = String(prev?.sku || '').trim();
+    const prevLooksShared = !prevSku || prevSku.toLowerCase() === prefix.toLowerCase();
+    const autoSku = `${prefix}-${abbrs.join('-')}-${idx + 1}`;
+    const candidate = fromParts || (!prevLooksShared ? prevSku : '') || autoSku;
     const hasExtra = combo.sellExtra !== 0 || combo.mrpExtra !== 0;
     const selling = hasExtra ? input.basePrice + combo.sellExtra : (prev?.price ?? input.basePrice);
     const mrpBase = input.baseCompareAt != null ? input.baseCompareAt : input.basePrice;
@@ -154,7 +268,7 @@ export function buildGeneratedVariants(input: GeneratedVariantInput): ProductVar
       id: prev?.id || `var_${input.productId}_${idx}_${fp.slice(0, 12)}`,
       storeId: input.storeId,
       productId: input.productId,
-      sku: (combo.sku || prev?.sku || `${prefix}-${abbrs.join('-')}-${idx + 1}`).slice(0, 80),
+      sku: candidate.slice(0, 80),
       barcode: prev?.barcode ?? null,
       options: combo.options,
       price: selling,
@@ -176,6 +290,8 @@ export function buildGeneratedVariants(input: GeneratedVariantInput): ProductVar
       isActive: prev ? prev.isActive !== false : true,
     };
   });
+
+  return normalizeVariantUniqueness(rows);
 }
 
 export function variantPriceParts(v: {

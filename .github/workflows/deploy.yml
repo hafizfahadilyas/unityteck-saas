@@ -124,7 +124,7 @@ jobs:
           name: dist-production-bundle
           path: dist/
 
-      - name: 🚀 Deploy one build to central and flowers Hostinger
+      - name: 🚀 Ultra-fast delta deploy UI + API hotfiles (GitHub → Hostinger)
         env:
           FTP_CENTRAL_HOST: ${{ secrets.FTP_CENTRAL_HOST }}
           FTP_CENTRAL_USER: ${{ secrets.FTP_CENTRAL_USER }}
@@ -140,7 +140,16 @@ jobs:
           if [ -z "$FTP_CENTRAL_HOST" ] && [ -z "$FTP_FLOWERS_HOST" ]; then
             echo "::warning::No Hostinger FTP secrets yet. Skipping upload."
           else
-            node scripts/deploy-hostinger.js --target=all
+            # UI: sha1 delta only (ultra-fast). Use --full once if manifests missing.
+            if [ -f scripts/deploy-delta.js ]; then
+              node scripts/deploy-delta.js --target=all
+            else
+              node scripts/deploy-hostinger.js --target=all
+            fi
+            # API gateway PHP (orders/products/categories/SEO) — always hot-push
+            if [ -f scripts/deploy-api-hotfiles.js ]; then
+              node scripts/deploy-api-hotfiles.js --target=all
+            fi
           fi
 
       - name: 🔎 Post-Deployment Health Check

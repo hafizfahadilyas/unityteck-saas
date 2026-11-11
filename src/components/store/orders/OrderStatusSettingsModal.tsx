@@ -216,7 +216,7 @@ export const OrderStatusSettingsModal: React.FC<OrderStatusSettingsModalProps> =
               type="button"
               onClick={handleAddNewStatus}
               className="px-3.5 py-2 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 shadow-xs hover:opacity-90 cursor-pointer transition-all"
-              style={{ background: '#0d9488' }}
+              style={{ background: 'var(--portal-cta)' }}
             >
               <Plus className="w-4 h-4" />
               <span>{isAr ? 'إضافة حالة جديدة' : 'Add New Status'}</span>
@@ -241,10 +241,7 @@ export const OrderStatusSettingsModal: React.FC<OrderStatusSettingsModalProps> =
                 <th className="pb-3 text-start w-20">{isAr ? 'أيقونة' : 'Icon'}</th>
                 <th className="pb-3 text-start w-28">{isAr ? 'اللون' : 'Color'}</th>
                 <th className="pb-3 text-start min-w-[140px]">
-                  {isAr ? 'اسم الحالة بالعربية' : 'Status Name (Arabic)'}
-                </th>
-                <th className="pb-3 text-start min-w-[140px]">
-                  {isAr ? 'اسم الحالة بالإنجليزية' : 'Status Name (English)'}
+                  {isAr ? 'الاسم' : 'Name'}
                 </th>
                 <th className="pb-3 text-center w-24">{isAr ? 'الترتيب' : 'Sort Order'}</th>
                 <th className="pb-3 text-center w-12" />
@@ -319,22 +316,13 @@ export const OrderStatusSettingsModal: React.FC<OrderStatusSettingsModalProps> =
                   <td className="py-3 pe-3">
                     <input
                       type="text"
-                      value={item.nameAr}
-                      onChange={(e) => handleNameChange(item.id, 'nameAr', e.target.value)}
-                      dir="rtl"
+                      value={isAr ? item.nameAr : item.nameEn}
+                      onChange={(e) =>
+                        handleNameChange(item.id, isAr ? 'nameAr' : 'nameEn', e.target.value)
+                      }
+                      dir={isAr ? 'rtl' : 'ltr'}
                       className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-900 dark:text-white focus:outline-hidden focus:border-teal-500"
-                      placeholder={isAr ? 'الاسم بالعربية' : 'Arabic name'}
-                    />
-                  </td>
-
-                  <td className="py-3 pe-3">
-                    <input
-                      type="text"
-                      value={item.nameEn}
-                      onChange={(e) => handleNameChange(item.id, 'nameEn', e.target.value)}
-                      dir="ltr"
-                      className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-900 dark:text-white focus:outline-hidden focus:border-teal-500"
-                      placeholder={isAr ? 'الاسم بالإنجليزية' : 'English name'}
+                      placeholder={isAr ? 'الاسم' : 'Name'}
                     />
                   </td>
 
@@ -370,7 +358,7 @@ export const OrderStatusSettingsModal: React.FC<OrderStatusSettingsModalProps> =
             type="button"
             onClick={handleSave}
             className="px-5 py-2.5 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 shadow-sm hover:opacity-95 cursor-pointer transition-all"
-            style={{ background: '#0d9488' }}
+            style={{ background: 'var(--portal-cta)' }}
           >
             <Check className="w-4 h-4" />
             <span>{isAr ? 'حفظ التغييرات' : 'Save Changes'}</span>

@@ -812,6 +812,31 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     isClearCache ||
     isPublicStorefront;
 
+  // giftshop-sa.com/admin (no ?store=) → keep merchant on flowers admin, never bare frontend.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!path.startsWith('/admin')) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('store') || params.get('demo')) return;
+    const host = window.location.hostname.toLowerCase().replace(/^www\./, '');
+    let slug = '';
+    if (host.includes('giftshop') || host.includes('makkah') || host.includes('flowers')) {
+      slug = 'flowers';
+    } else if (host.includes('mieraf') || host.includes('hibrew') || host.includes('coffee')) {
+      slug = 'coffee';
+    } else if (host.includes('bleco') || host.includes('tanjeed') || host.includes('alsaeedi')) {
+      slug = 'car';
+    } else if (resolvedDomain?.resolved && resolvedDomain.storeId) {
+      const sid = String(resolvedDomain.storeId);
+      slug =
+        sid === 'store-1' ? 'flowers' : sid === 'store-coffee' ? 'coffee' : sid === 'store-bleco' ? 'car' : '';
+    }
+    if (!slug) return;
+    params.set('store', slug);
+    if (!params.get('tab') && !session) params.set('tab', 'dashboard');
+    navigate(`${path}?${params.toString()}`, { replace: true });
+  }, [path, navigate, resolvedDomain?.resolved, resolvedDomain?.storeId, session]);
+
   // Normalize short URLs → login / gate paths (soft, no reload)
   useEffect(() => {
     const search = typeof window !== 'undefined' ? window.location.search : '';
@@ -995,17 +1020,67 @@ const getDefaultStoreTheme = (storeId?: string): string => {
 
   // Recover a lifetime session before sending the admin to the gate.
   // Never resurrect a session right after explicit Sign out (sessionStorage cleared).
+  // Never bounce admin/master routes to storefront "/" — that looked like "login redirects to frontend".
   useEffect(() => {
-    if (session) return;
+    const p = typeof window !== 'undefined' ? window.location.pathname : path;
+    const onAdminSurface =
+      p === '/admin' ||
+      p.startsWith('/admin/') ||
+      p.startsWith('/master') ||
+      p.startsWith('/store');
+
+    if (session) {
+      // Logged-in merchant on bare "/" (bad redirect) → recover to admin dashboard.
+      if ((p === '/' || p === '') && session.portal === 'store' && !isFullscreenParam && !isTabStorefrontParam) {
+        const sid = session.storeId || '';
+        const slug =
+          sid === 'store-coffee' ? 'coffee' : sid === 'store-bleco' ? 'car' : sid === 'store-1' ? 'flowers' : '';
+        navigate(slug ? `/admin?store=${slug}&tab=dashboard` : '/admin?tab=dashboard', { replace: true });
+      }
+      return;
+    }
+
     const recovered = readAuthSession();
     if (recovered?.token) {
       setSession(recovered);
       return;
     }
+
+    // Hard rule: /admin* and /master* never dump to storefront homepage.
+    if (onAdminSurface) {
+      if (isAuthPage) return;
+      const search = typeof window !== 'undefined' ? window.location.search : '';
+      const loginTarget = p.startsWith('/master')
+        ? `/master/login${search}`
+        : p.startsWith('/admin') || p === '/admin'
+          ? `/admin${search || ''}`
+          : `/store/login${search}`;
+      if (`${p}${search}` !== loginTarget) {
+        navigate(loginTarget, { replace: true });
+      }
+      return;
+    }
     if (isAuthPage) return;
     if (activeStatus) return;
+    // Just logged in — never yank to storefront while Sanctum handshake settles.
+    try {
+      const just = Number(sessionStorage.getItem('unityteck_just_logged_in') || 0);
+      if (just && Date.now() - just < 12_000) return;
+    } catch {
+      /* ignore */
+    }
+    // Never navigate('/') while URL is still an admin path (race / stale path state).
+    if (onAdminSurface) return;
     navigate('/');
-  }, [session, isAuthPage, activeStatus, navigate]);
+  }, [
+    session,
+    isAuthPage,
+    activeStatus,
+    navigate,
+    path,
+    isFullscreenParam,
+    isTabStorefrontParam,
+  ]);
 
   // Renew the saved session while the dashboard is open. Never signs the admin out.
   useEffect(() => {
@@ -1191,27 +1266,34 @@ const getDefaultStoreTheme = (storeId?: string): string => {
       writeAuthSession(next);
       setSession(next);
       document.documentElement.setAttribute('data-portal', portal);
+      try {
+        sessionStorage.setItem('unityteck_just_logged_in', String(Date.now()));
+      } catch {
+        /* ignore */
+      }
       if (portal === 'master') {
         switchToMaster();
         setMasterTab('dashboard');
         navigate('/master?tab=dashboard', { replace: true });
         return;
       }
-      if (storeId) {
-        switchToStore(storeId);
+      const sid = storeId || next.storeId || '';
+      if (sid) {
+        switchToStore(sid);
       } else {
         setMode('store');
       }
       // Fresh login always lands on Dashboard (not last localStorage tab e.g. products).
       setStoreTab('dashboard');
       const slug =
-        storeId === 'store-coffee'
+        sid === 'store-coffee'
           ? 'coffee'
-          : storeId === 'store-bleco'
+          : sid === 'store-bleco'
             ? 'car'
-            : storeId === 'store-1'
+            : sid === 'store-1'
               ? 'flowers'
               : '';
+      // Always stay on /admin — never "/" storefront after merchant OTP.
       navigate(
         slug ? `/admin?store=${slug}&tab=dashboard` : '/admin?tab=dashboard',
         { replace: true },
@@ -1398,9 +1480,25 @@ const getDefaultStoreTheme = (storeId?: string): string => {
   }
 
   if (!session && (isMasterLogin || isStoreLogin || isAdminLogin)) {
+    const adminStoreHint = (() => {
+      if (typeof window === 'undefined') return null;
+      const q = new URLSearchParams(window.location.search);
+      const fromUrl = (q.get('store') || q.get('demo') || '').trim();
+      if (fromUrl) return fromUrl;
+      const sid = resolvedDomain?.resolved ? String(resolvedDomain.storeId || '') : '';
+      if (sid === 'store-1') return 'flowers';
+      if (sid === 'store-coffee') return 'coffee';
+      if (sid === 'store-bleco') return 'car';
+      const host = window.location.hostname.toLowerCase().replace(/^www\./, '');
+      if (host.includes('giftshop') || host.includes('makkah') || host.includes('flowers')) return 'flowers';
+      if (host.includes('mieraf') || host.includes('hibrew') || host.includes('coffee')) return 'coffee';
+      if (host.includes('bleco') || host.includes('tanjeed') || host.includes('alsaeedi')) return 'car';
+      return null;
+    })();
     return (
       <PortalLogin
         portal={isMasterLogin ? 'master' : 'store'}
+        storeHint={isMasterLogin ? null : adminStoreHint}
         onSuccess={handleLoginSuccess}
         onSwitchPortal={handleSwitchLoginPortal}
         onForgotPassword={() =>
@@ -1654,7 +1752,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                     <StoreWhatsAppManager onNavigateTab={setStoreTab} />
                   )}
                   {storeTab === 'social' && <StoreSocialPublisher onNavigateTab={setStoreTab} />}
-                  {storeTab === 'seo' && <StoreSEO />}
+                  {storeTab === 'seo' && <StoreSEO onNavigateTab={setStoreTab} />}
                   {storeTab === 'products' && <StoreProducts onNavigateTab={setStoreTab} />}
                   {storeTab === 'media' && <StoreMediaLibrary />}
                   {storeTab === 'canva' && <StoreDesignStudioHub onNavigateTab={setStoreTab} />}

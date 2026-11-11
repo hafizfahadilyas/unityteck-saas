@@ -1,4 +1,5 @@
 import type { StoreCategory } from '../types';
+import { pickLocaleName } from './localeLabel';
 
 export function getDescendantIds(
   categories: StoreCategory[],
@@ -51,8 +52,8 @@ export function flattenCategoryTree(
   const sortSiblings = (list: StoreCategory[]) =>
     [...list].sort((a, b) => {
       if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
-      const la = isAr ? (a.nameAr || a.name) : (a.name || a.nameAr || '');
-      const lb = isAr ? (b.nameAr || b.name) : (b.name || b.nameAr || '');
+      const la = pickLocaleName(isAr, a.name, a.nameAr);
+      const lb = pickLocaleName(isAr, b.name, b.nameAr);
       return la.localeCompare(lb, undefined, { sensitivity: 'base' });
     });
 
@@ -91,7 +92,7 @@ export function parentPickerOptions(
     .map((c) => ({
       id: c.id,
       depth: getCategoryDepth(categories, c.id),
-      label: isAr ? (c.nameAr || c.name) : (c.name || c.nameAr || c.slug),
+      label: pickLocaleName(isAr, c.name, c.nameAr) || c.slug,
     }));
 }
 
@@ -106,13 +107,11 @@ export function productCategoryPickerOptions(
 
   return ordered.map((c) => {
     const depth = getCategoryDepth(categories, c.id);
-    const own = isAr ? (c.nameAr || c.name) : (c.name || c.nameAr || c.slug);
+    const own = pickLocaleName(isAr, c.name, c.nameAr) || c.slug;
     let label = own;
     if (c.parentId && byId.has(c.parentId)) {
       const parent = byId.get(c.parentId)!;
-      const parentName = isAr
-        ? (parent.nameAr || parent.name)
-        : (parent.name || parent.nameAr || parent.slug);
+      const parentName = pickLocaleName(isAr, parent.name, parent.nameAr) || parent.slug;
       label = `${parentName} › ${own}`;
     }
     return {

@@ -287,46 +287,71 @@ export function getStoreDisplayCategory(store?: Partial<Store> | null, locale: s
 
 const OWNER_MAP_TO_EN: Record<string, string> = {
   'متجر هدايا مكة': 'Makkah Gifts Store',
+  'متجر هدايا': 'Makkah Gifts Store',
+  'هدايا مكة': 'Makkah Gifts Store',
   'ريان السليمان': 'Rayan Al-Sulaiman',
+  'ريان السليمان - وكيل هاي برو المعتمد': 'Rayan Al-Sulaiman',
   'متجر السعيدي لخدمات السيارات': 'Al-Saeedi Car Services',
+  'متجر السعيدي لخدمات السيارات (مؤسسة بلاكو)': 'Al-Saeedi Car Services',
+  'متجر السعيدي لخدمات السيارات (مؤسسة بلاكو للتجارة)': 'Al-Saeedi Car Services',
   'فهد العتيبي': 'Fahad Al-Otaibi',
   'سلطان العتيبي': 'Sultan Al-Otaibi',
 };
 
 const OWNER_MAP_TO_AR: Record<string, string> = {
   'Makkah Gifts Store': 'متجر هدايا مكة',
+  'Makkah Flowers': 'متجر هدايا مكة',
   'Rayan Al-Sulaiman': 'ريان السليمان',
+  'Rayan Al-Sulaiman - HiBrew Official Agent': 'ريان السليمان',
   'Al-Saeedi Car Services': 'متجر السعيدي لخدمات السيارات',
+  'Al-Saeedi Manager': 'متجر السعيدي لخدمات السيارات',
   'Fahad Al-Otaibi': 'فهد العتيبي',
   'Sultan Al-Otaibi': 'سلطان العتيبي',
 };
+
+/** Short owner chip for topbar (strip title after " - "). */
+export function shortStoreOwnerName(name: string): string {
+  const trimmed = (name || '').trim();
+  if (!trimmed) return '';
+  const cut = trimmed.split(/\s[-–—]\s/)[0]?.trim();
+  return cut || trimmed;
+}
 
 export function getStoreDisplayOwner(store?: Partial<Store> | null, locale: string = 'ar'): string {
   if (!store) return '';
   const isAr = locale === 'ar';
   const id = String(store.id || '');
   const owner = (store.owner || '').trim();
+  const ownerAr = shortStoreOwnerName((store.ownerAr || '').trim());
+  const ownerEn = shortStoreOwnerName((store.ownerEn || '').trim());
 
   if (id === 'store-1') {
-    return isAr ? (store.ownerAr || 'متجر هدايا مكة') : (store.ownerEn || 'Makkah Gifts Store');
+    return shortStoreOwnerName(
+      isAr ? ownerAr || OWNER_MAP_TO_AR[owner] || 'متجر هدايا مكة' : ownerEn || OWNER_MAP_TO_EN[owner] || 'Makkah Gifts Store',
+    );
   }
   if (id === 'store-coffee') {
-    return isAr ? (store.ownerAr || 'ريان السليمان') : (store.ownerEn || 'Rayan Al-Sulaiman');
+    return shortStoreOwnerName(
+      isAr ? ownerAr || OWNER_MAP_TO_AR[owner] || 'ريان السليمان' : ownerEn || OWNER_MAP_TO_EN[owner] || 'Rayan Al-Sulaiman',
+    );
   }
   if (id === 'store-bleco') {
-    return isAr ? (store.ownerAr || 'متجر السعيدي لخدمات السيارات') : (store.ownerEn || 'Al-Saeedi Car Services');
+    return shortStoreOwnerName(
+      isAr
+        ? ownerAr || OWNER_MAP_TO_AR[owner] || 'متجر السعيدي لخدمات السيارات'
+        : ownerEn || OWNER_MAP_TO_EN[owner] || 'Al-Saeedi Car Services',
+    );
   }
 
   if (isAr) {
-    if (store.ownerAr) return store.ownerAr;
+    if (ownerAr) return ownerAr;
     if (OWNER_MAP_TO_AR[owner]) return OWNER_MAP_TO_AR[owner];
-    return owner;
-  } else {
-    if (store.ownerEn && !/[\u0600-\u06FF]/.test(store.ownerEn)) return store.ownerEn;
-    if (OWNER_MAP_TO_EN[owner]) return OWNER_MAP_TO_EN[owner];
-    if (!/[\u0600-\u06FF]/.test(owner) && owner) return owner;
-    return store.ownerEn || owner;
+    return shortStoreOwnerName(owner);
   }
+  if (ownerEn && !/[\u0600-\u06FF]/.test(ownerEn)) return ownerEn;
+  if (OWNER_MAP_TO_EN[owner]) return OWNER_MAP_TO_EN[owner];
+  if (!/[\u0600-\u06FF]/.test(owner) && owner) return shortStoreOwnerName(owner);
+  return shortStoreOwnerName(ownerEn || OWNER_MAP_TO_EN[owner] || owner);
 }
 
 export function getProductDisplayName(product?: Partial<Product> | null, locale: string = 'ar'): string {

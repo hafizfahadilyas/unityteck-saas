@@ -100,7 +100,7 @@ export const StoreAppStore: React.FC<StoreAppStoreProps> = ({ onOpenStorefront }
         <AppStoreBrand
           subtitle={
             isAr
-              ? `سوق الثيمات · ثيمات${otherStoreCount || 'باقي'}متاجر · شراء ومعاينة`
+              ? `سوق الثيمات · ثيمات من ${otherStoreCount || 'باقي'} متاجر · شراء ومعاينة`
               : `Themes Market · Themes from ${otherStoreCount || 'other'} stores · Buy & View`
           }
         />

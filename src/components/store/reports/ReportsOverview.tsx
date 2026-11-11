@@ -103,7 +103,8 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
   const conversionRate =
     apiData?.kpis?.conversion_rate_numeric ??
     (totalVisits > 0 ? Number(((totalOrders / totalVisits) * 100).toFixed(1)) : 0);
-  const newCustomersCount = apiData?.kpis?.new_customers ?? storeCustomers.length;
+  // Never substitute “all customers” as new customers when API omits the KPI (zero-mock)
+  const newCustomersCount = apiData?.kpis?.new_customers ?? 0;
   const netProfitEstimated = apiData?.kpis?.net_profit_estimated ?? 0;
 
   const prevRevenue = apiData?.kpis?.prev_revenue ?? 0;

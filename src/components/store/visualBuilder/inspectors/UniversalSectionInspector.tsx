@@ -219,10 +219,11 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
               </div>
               <div>
                 <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                  {isAr ? 'النص العربي' : 'English text'}
+                  {isAr ? 'العنوان' : 'Title'}
                 </label>
                 <input
                   type="text"
+                  dir={isAr ? 'rtl' : 'ltr'}
                   value={isAr ? (s.textAr || s.titleAr || '') : (s.textEn || s.titleEn || '')}
                   onChange={(e) => {
                     const val = e.target.value;
@@ -234,29 +235,6 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                       onUpdateSetting('textEn', val);
                       onUpdateSetting('titleEn', val);
                       onUpdateSetting('headingEn', val);
-                    }
-                  }}
-                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                  {isAr ? 'النص الإنجليزي' : 'Arabic text'}
-                </label>
-                <input
-                  type="text"
-                  dir={isAr ? 'ltr' : 'rtl'}
-                  value={isAr ? (s.textEn || s.titleEn || '') : (s.textAr || s.titleAr || '')}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (isAr) {
-                      onUpdateSetting('textEn', val);
-                      onUpdateSetting('titleEn', val);
-                      onUpdateSetting('headingEn', val);
-                    } else {
-                      onUpdateSetting('textAr', val);
-                      onUpdateSetting('titleAr', val);
-                      onUpdateSetting('headingAr', val);
                     }
                   }}
                   className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs"
@@ -693,24 +671,18 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
 
                             <div>
                               <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                                {isAr ? 'العنوان العربي للتصنيف' : 'Arabic Category Name'}
+                                {isAr ? 'الاسم' : 'Name'}
                               </label>
                               <input
                                 type="text"
-                                value={item.name || ''}
-                                onChange={(e) => handleUpdateCategory(idx, { name: e.target.value })}
-                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                                {isAr ? 'العنوان الإنجليزي للتصنيف' : 'English Category Name'}
-                              </label>
-                              <input
-                                type="text"
-                                value={item.nameEn || ''}
-                                onChange={(e) => handleUpdateCategory(idx, { nameEn: e.target.value })}
+                                dir={isAr ? 'rtl' : 'ltr'}
+                                value={isAr ? item.name || '' : item.nameEn || ''}
+                                onChange={(e) =>
+                                  handleUpdateCategory(
+                                    idx,
+                                    isAr ? { name: e.target.value } : { nameEn: e.target.value },
+                                  )
+                                }
                                 className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white"
                               />
                             </div>
@@ -923,23 +895,17 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                     <div className="space-y-2.5">
                       <div>
                         <label className="block text-[10px] font-bold text-slate-700 mb-1">
-                          {isAr ? 'العنوان العربي' : 'Arabic Title'}
+                          {isAr ? 'العنوان' : 'Title'}
                         </label>
                         <input
                           type="text"
-                          value={activeSlide.titleAr || ''}
-                          onChange={(e) => handleUpdateActiveSlide({ titleAr: e.target.value })}
-                          className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white text-xs font-bold"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-700 mb-1">
-                          {isAr ? 'العنوان الإنجليزي' : 'English Title'}
-                        </label>
-                        <input
-                          type="text"
-                          value={activeSlide.title || ''}
-                          onChange={(e) => handleUpdateActiveSlide({ title: e.target.value })}
+                          dir={isAr ? 'rtl' : 'ltr'}
+                          value={isAr ? activeSlide.titleAr || '' : activeSlide.title || ''}
+                          onChange={(e) =>
+                            handleUpdateActiveSlide(
+                              isAr ? { titleAr: e.target.value } : { title: e.target.value },
+                            )
+                          }
                           className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white text-xs font-bold"
                         />
                       </div>
@@ -951,23 +917,17 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                     <div className="space-y-2.5">
                       <div>
                         <label className="block text-[10px] font-bold text-slate-700 mb-1">
-                          {isAr ? 'الوصف التوضيحي (عربي)' : 'Arabic Subtitle'}
+                          {isAr ? 'الوصف' : 'Subtitle'}
                         </label>
                         <textarea
                           rows={2}
-                          value={activeSlide.subtitleAr || ''}
-                          onChange={(e) => handleUpdateActiveSlide({ subtitleAr: e.target.value })}
-                          className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white text-xs resize-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-700 mb-1">
-                          {isAr ? 'الوصف التوضيحي (إنجليزي)' : 'English Subtitle'}
-                        </label>
-                        <textarea
-                          rows={2}
-                          value={activeSlide.subtitle || ''}
-                          onChange={(e) => handleUpdateActiveSlide({ subtitle: e.target.value })}
+                          dir={isAr ? 'rtl' : 'ltr'}
+                          value={isAr ? activeSlide.subtitleAr || '' : activeSlide.subtitle || ''}
+                          onChange={(e) =>
+                            handleUpdateActiveSlide(
+                              isAr ? { subtitleAr: e.target.value } : { subtitle: e.target.value },
+                            )
+                          }
                           className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white text-xs resize-none"
                         />
                       </div>
@@ -982,29 +942,21 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                         <span className="text-[11px] font-extrabold text-indigo-900 block">
                           {isAr ? 'الزر الأول' : 'Primary Button'}
                         </span>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                              {isAr ? 'النص (عربي)' : 'Label (AR)'}
-                            </label>
-                            <input
-                              type="text"
-                              value={activeSlide.primaryBtnAr || ''}
-                              onChange={(e) => handleUpdateActiveSlide({ primaryBtnAr: e.target.value })}
-                              className="w-full px-2 py-1 border border-slate-300 rounded-lg bg-white text-xs"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                              {isAr ? 'النص (إنجليزي)' : 'Label (EN)'}
-                            </label>
-                            <input
-                              type="text"
-                              value={activeSlide.primaryBtn || ''}
-                              onChange={(e) => handleUpdateActiveSlide({ primaryBtn: e.target.value })}
-                              className="w-full px-2 py-1 border border-slate-300 rounded-lg bg-white text-xs"
-                            />
-                          </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                            {isAr ? 'النص' : 'Label'}
+                          </label>
+                          <input
+                            type="text"
+                            dir={isAr ? 'rtl' : 'ltr'}
+                            value={isAr ? (activeSlide.primaryBtnAr || '') : (activeSlide.primaryBtn || '')}
+                            onChange={(e) =>
+                              handleUpdateActiveSlide(
+                                isAr ? { primaryBtnAr: e.target.value } : { primaryBtn: e.target.value },
+                              )
+                            }
+                            className="w-full px-2 py-1 border border-slate-300 rounded-lg bg-white text-xs"
+                          />
                         </div>
                         <div>
                           <label className="block text-[10px] font-bold text-slate-600 mb-1">
@@ -1024,29 +976,21 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                         <span className="text-[11px] font-extrabold text-slate-800 block">
                           {isAr ? 'الزر الثانوي' : 'Secondary Button'}
                         </span>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                              {isAr ? 'النص (عربي)' : 'Label (AR)'}
-                            </label>
-                            <input
-                              type="text"
-                              value={activeSlide.secondaryBtnAr || ''}
-                              onChange={(e) => handleUpdateActiveSlide({ secondaryBtnAr: e.target.value })}
-                              className="w-full px-2 py-1 border border-slate-300 rounded-lg bg-white text-xs"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                              {isAr ? 'النص (إنجليزي)' : 'Label (EN)'}
-                            </label>
-                            <input
-                              type="text"
-                              value={activeSlide.secondaryBtn || ''}
-                              onChange={(e) => handleUpdateActiveSlide({ secondaryBtn: e.target.value })}
-                              className="w-full px-2 py-1 border border-slate-300 rounded-lg bg-white text-xs"
-                            />
-                          </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                            {isAr ? 'النص' : 'Label'}
+                          </label>
+                          <input
+                            type="text"
+                            dir={isAr ? 'rtl' : 'ltr'}
+                            value={isAr ? (activeSlide.secondaryBtnAr || '') : (activeSlide.secondaryBtn || '')}
+                            onChange={(e) =>
+                              handleUpdateActiveSlide(
+                                isAr ? { secondaryBtnAr: e.target.value } : { secondaryBtn: e.target.value },
+                              )
+                            }
+                            className="w-full px-2 py-1 border border-slate-300 rounded-lg bg-white text-xs"
+                          />
                         </div>
                         <div>
                           <label className="block text-[10px] font-bold text-slate-600 mb-1">
@@ -1118,34 +1062,33 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                   />
                   <div>
                     <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                      {isAr ? 'اسم المتجر (عربي)' : 'Store Name (AR)'}
+                      {isAr ? 'اسم المتجر' : 'Store Name'}
                     </label>
                     <input
                       type="text"
-                      value={s.storeNameAr || s.brandNameAr || ''}
-                      onChange={(e) => onUpdateSetting('storeNameAr', e.target.value)}
+                      dir={isAr ? 'rtl' : 'ltr'}
+                      value={
+                        isAr
+                          ? s.storeNameAr || s.brandNameAr || ''
+                          : s.storeNameEn || s.brandNameEn || ''
+                      }
+                      onChange={(e) =>
+                        onUpdateSetting(isAr ? 'storeNameAr' : 'storeNameEn', e.target.value)
+                      }
                       className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white text-xs"
                     />
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                      {isAr ? 'اسم المتجر (إنجليزي)' : 'Store Name (EN)'}
-                    </label>
-                    <input
-                      type="text"
-                      value={s.storeNameEn || s.brandNameEn || ''}
-                      onChange={(e) => onUpdateSetting('storeNameEn', e.target.value)}
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                      {isAr ? 'وصف المتجر في التذييل (عربي)' : 'Footer Description (AR)'}
+                      {isAr ? 'وصف المتجر في التذييل' : 'Footer Description'}
                     </label>
                     <textarea
                       rows={2}
-                      value={s.storeDescAr || ''}
-                      onChange={(e) => onUpdateSetting('storeDescAr', e.target.value)}
+                      dir={isAr ? 'rtl' : 'ltr'}
+                      value={isAr ? (s.storeDescAr || '') : (s.storeDescEn || '')}
+                      onChange={(e) =>
+                        onUpdateSetting(isAr ? 'storeDescAr' : 'storeDescEn', e.target.value)
+                      }
                       className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white text-xs resize-none"
                     />
                   </div>
@@ -1262,23 +1205,15 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                 <div className="space-y-2.5">
                   <div>
                     <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                      {isAr ? 'نص حقوق الملكية (عربي)' : 'Copyright Text (AR)'}
+                      {isAr ? 'نص حقوق الملكية' : 'Copyright Text'}
                     </label>
                     <input
                       type="text"
-                      value={s.copyrightAr || ''}
-                      onChange={(e) => onUpdateSetting('copyrightAr', e.target.value)}
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                      {isAr ? 'نص حقوق الملكية (إنجليزي)' : 'Copyright Text (EN)'}
-                    </label>
-                    <input
-                      type="text"
-                      value={s.copyrightEn || ''}
-                      onChange={(e) => onUpdateSetting('copyrightEn', e.target.value)}
+                      dir={isAr ? 'rtl' : 'ltr'}
+                      value={isAr ? (s.copyrightAr || '') : (s.copyrightEn || '')}
+                      onChange={(e) =>
+                        onUpdateSetting(isAr ? 'copyrightAr' : 'copyrightEn', e.target.value)
+                      }
                       className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white text-xs"
                     />
                   </div>
@@ -1298,16 +1233,27 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                    {isAr ? 'العنوان العربي' : 'Arabic Title'}
+                    {isAr ? 'العنوان' : 'Title'}
                   </label>
                   <input
                     type="text"
-                    value={s.mainTitleAr || s.headingAr || s.titleAr || s.textAr || ''}
+                    dir={isAr ? 'rtl' : 'ltr'}
+                    value={
+                      isAr
+                        ? s.mainTitleAr || s.headingAr || s.titleAr || s.textAr || ''
+                        : s.mainTitleEn || s.headingEn || s.titleEn || s.textEn || ''
+                    }
                     onChange={(e) => {
                       const val = e.target.value;
-                      onUpdateSetting('titleAr', val);
-                      onUpdateSetting('mainTitleAr', val);
-                      onUpdateSetting('headingAr', val);
+                      if (isAr) {
+                        onUpdateSetting('titleAr', val);
+                        onUpdateSetting('mainTitleAr', val);
+                        onUpdateSetting('headingAr', val);
+                      } else {
+                        onUpdateSetting('titleEn', val);
+                        onUpdateSetting('mainTitleEn', val);
+                        onUpdateSetting('headingEn', val);
+                      }
                     }}
                     className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs"
                   />
@@ -1315,41 +1261,19 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                    {isAr ? 'العنوان الإنجليزي' : 'English Title'}
-                  </label>
-                  <input
-                    type="text"
-                    value={s.mainTitleEn || s.headingEn || s.titleEn || s.textEn || ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      onUpdateSetting('titleEn', val);
-                      onUpdateSetting('mainTitleEn', val);
-                      onUpdateSetting('headingEn', val);
-                    }}
-                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                    {isAr ? 'الوصف التوضيحي (عربي)' : 'Subtitle / Description (Arabic)'}
+                    {isAr ? 'الوصف' : 'Subtitle'}
                   </label>
                   <textarea
                     rows={2}
-                    value={s.subtitleAr || s.subheadingAr || ''}
-                    onChange={(e) => onUpdateSetting('subtitleAr', e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                    {isAr ? 'الوصف التوضيحي (إنجليزي)' : 'Subtitle / Description (English)'}
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={s.subtitleEn || s.subheadingEn || ''}
-                    onChange={(e) => onUpdateSetting('subtitleEn', e.target.value)}
+                    dir={isAr ? 'rtl' : 'ltr'}
+                    value={
+                      isAr
+                        ? s.subtitleAr || s.subheadingAr || ''
+                        : s.subtitleEn || s.subheadingEn || ''
+                    }
+                    onChange={(e) =>
+                      onUpdateSetting(isAr ? 'subtitleAr' : 'subtitleEn', e.target.value)
+                    }
                     className="w-full px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs resize-none"
                   />
                 </div>
@@ -1361,35 +1285,30 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                   {isAr ? 'الأزرار وروابط التوجيه' : 'Action Buttons & Links'}
                 </span>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                      {isAr ? 'نص الزر (عربي)' : 'Button Label (AR)'}
-                    </label>
-                    <input
-                      type="text"
-                      value={s.buttonTextAr || s.ctaTextAr || ''}
-                      onChange={(e) => {
-                        onUpdateSetting('buttonTextAr', e.target.value);
-                        onUpdateSetting('ctaTextAr', e.target.value);
-                      }}
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                      {isAr ? 'نص الزر (إنجليزي)' : 'Button Label (EN)'}
-                    </label>
-                    <input
-                      type="text"
-                      value={s.buttonTextEn || s.ctaTextEn || ''}
-                      onChange={(e) => {
-                        onUpdateSetting('buttonTextEn', e.target.value);
-                        onUpdateSetting('ctaTextEn', e.target.value);
-                      }}
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                    {isAr ? 'نص الزر' : 'Button Label'}
+                  </label>
+                  <input
+                    type="text"
+                    dir={isAr ? 'rtl' : 'ltr'}
+                    value={
+                      isAr
+                        ? s.buttonTextAr || s.ctaTextAr || ''
+                        : s.buttonTextEn || s.ctaTextEn || ''
+                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (isAr) {
+                        onUpdateSetting('buttonTextAr', val);
+                        onUpdateSetting('ctaTextAr', val);
+                      } else {
+                        onUpdateSetting('buttonTextEn', val);
+                        onUpdateSetting('ctaTextEn', val);
+                      }
+                    }}
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs"
+                  />
                 </div>
 
                 <div>

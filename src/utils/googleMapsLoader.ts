@@ -269,7 +269,91 @@ export async function resolveSaudiPlace(
   };
 }
 
-/** Geocoding REST — reverse pin inside Saudi Arabia. */
+/** Google Plus Codes look like `PX8X+2R` — never show these as the delivery address. */
+export function isPlusCodeLabel(raw: string | undefined | null): boolean {
+  const s = String(raw || '').trim();
+  if (!s) return false;
+  if (/^[A-Z0-9]{2,}\+[A-Z0-9]{2,}\b/i.test(s)) return true;
+  if (/\b[A-Z0-9]{4,}\+[A-Z0-9]{2,}\b/i.test(s) && !/,/.test(s)) return true;
+  return false;
+}
+
+function composeSaudiFormatted(parts: SaudiAddressParts, isAr: boolean): string {
+  const bits = [parts.street, parts.district, parts.city].filter(
+    (x): x is string => Boolean(x && String(x).trim()),
+  );
+  if (bits.length) return bits.join(isAr ? '، ' : ', ');
+  if (parts.formatted && !isPlusCodeLabel(parts.formatted)) return String(parts.formatted).trim();
+  return '';
+}
+
+type GeocodeResultRow = {
+  formatted_address?: string;
+  types?: string[];
+  address_components?: google.maps.GeocoderAddressComponent[];
+};
+
+function scoreGeocodeRow(row: GeocodeResultRow): number {
+  const types = row.types || [];
+  if (types.includes('street_address') || types.includes('premise')) return 100;
+  if (types.includes('route')) return 80;
+  if (types.includes('neighborhood') || types.includes('sublocality')) return 60;
+  if (types.includes('locality')) return 40;
+  if (types.includes('plus_code')) return -50;
+  if (isPlusCodeLabel(row.formatted_address)) return -40;
+  return 10;
+}
+
+function pickBestSaudiGeocode(results: GeocodeResultRow[]): GeocodeResultRow | null {
+  const saudi = results.filter((row) => {
+    const country = row.address_components?.find((c) => c.types.includes('country'));
+    return !country || country.short_name === 'SA';
+  });
+  if (!saudi.length) return null;
+  return [...saudi].sort((a, b) => scoreGeocodeRow(b) - scoreGeocodeRow(a))[0] || null;
+}
+
+const REVERSE_TTL_MS = 60_000;
+const reverseCache = new Map<string, { at: number; parts: SaudiAddressParts }>();
+
+function reverseCacheKey(lat: number, lng: number, isAr: boolean): string {
+  return `${isAr ? 'ar' : 'en'}|${lat.toFixed(4)},${lng.toFixed(4)}`;
+}
+
+async function fetchGeocodeJson(
+  lat: number,
+  lng: number,
+  isAr: boolean,
+  key: string,
+  withResultType: boolean,
+  signal?: AbortSignal,
+): Promise<GeocodeResultRow[]> {
+  const url = new URL('https://maps.googleapis.com/maps/api/geocode/json');
+  url.searchParams.set('latlng', `${lat},${lng}`);
+  url.searchParams.set('key', key);
+  url.searchParams.set('language', isAr ? 'ar' : 'en');
+  url.searchParams.set('region', 'sa');
+  if (withResultType) {
+    url.searchParams.set(
+      'result_type',
+      'street_address|premise|route|neighborhood|sublocality|locality',
+    );
+  }
+
+  const res = await fetch(url.toString(), { signal });
+  const data = (await res.json()) as {
+    status: string;
+    error_message?: string;
+    results?: GeocodeResultRow[];
+  };
+  if (data.status === 'REQUEST_DENIED') {
+    throw new Error(data.error_message || 'Geocoding API denied');
+  }
+  if (data.status !== 'OK' || !data.results?.length) return [];
+  return data.results;
+}
+
+/** Geocoding REST — reverse pin → full Saudi street/district/city (never Plus Code alone). */
 export async function reverseGeocodeSaudi(
   lat: number,
   lng: number,
@@ -279,29 +363,29 @@ export async function reverseGeocodeSaudi(
   const key = getGoogleGeocodingApiKey();
   if (!key) return null;
 
-  const url = new URL('https://maps.googleapis.com/maps/api/geocode/json');
-  url.searchParams.set('latlng', `${lat},${lng}`);
-  url.searchParams.set('key', key);
-  url.searchParams.set('language', isAr ? 'ar' : 'en');
-  url.searchParams.set('result_type', 'street_address|route|neighborhood|locality');
-
-  const res = await fetch(url.toString(), { signal });
-  const data = (await res.json()) as {
-    status: string;
-    error_message?: string;
-    results?: Array<{
-      formatted_address?: string;
-      address_components?: google.maps.GeocoderAddressComponent[];
-    }>;
-  };
-  if (data.status !== 'OK' || !data.results?.[0]) {
-    if (data.status === 'REQUEST_DENIED') {
-      throw new Error(data.error_message || 'Geocoding API denied');
-    }
-    return null;
+  const cacheKey = reverseCacheKey(lat, lng, isAr);
+  const hit = reverseCache.get(cacheKey);
+  if (hit && Date.now() - hit.at < REVERSE_TTL_MS) {
+    return hit.parts;
   }
-  const top = data.results[0];
-  const country = top.address_components?.find((c) => c.types.includes('country'));
-  if (country && country.short_name !== 'SA') return null;
-  return parseGoogleAddressComponents(top.address_components, top.formatted_address);
+
+  let rows = await fetchGeocodeJson(lat, lng, isAr, key, true, signal);
+  let top = pickBestSaudiGeocode(rows);
+  // Narrow result_type often returns only Plus Codes in KSA — retry open query.
+  if (!top || scoreGeocodeRow(top) < 40 || isPlusCodeLabel(top.formatted_address)) {
+    rows = await fetchGeocodeJson(lat, lng, isAr, key, false, signal);
+    top = pickBestSaudiGeocode(rows);
+  }
+  if (!top) return null;
+
+  const parts = parseGoogleAddressComponents(top.address_components, top.formatted_address);
+  const formatted = composeSaudiFormatted(parts, isAr);
+  if (!formatted) return null;
+  const out: SaudiAddressParts = { ...parts, formatted };
+  reverseCache.set(cacheKey, { at: Date.now(), parts: out });
+  if (reverseCache.size > 120) {
+    const oldest = reverseCache.keys().next().value;
+    if (oldest) reverseCache.delete(oldest);
+  }
+  return out;
 }

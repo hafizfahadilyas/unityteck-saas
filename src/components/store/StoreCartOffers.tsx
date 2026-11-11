@@ -23,7 +23,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { StoreCartInterceptTab } from './StoreCartInterceptTab';
-import { ModernSegmentedTabs } from '../common/ModernSegmentedTabs';
+import { PortalHubCard } from '../common/PortalHubCard';
+import { LocaleTitleField } from '../common/LocaleTitleField';
 
 interface StoreCartOffersProps {
   onNavigateTab?: (tab: string) => void;
@@ -52,10 +53,10 @@ export const StoreCartOffers: React.FC<StoreCartOffersProps> = ({ onNavigateTab 
   const isAr = locale === 'ar';
   const { toast } = useToast();
 
-  const [mainSection, setMainSection] = useState<'intercept' | 'rules'>('intercept');
+  // null = hub buttons only; set = that section's data
+  const [mainSection, setMainSection] = useState<'intercept' | 'rules' | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'create'>('list');
   const [activeStep, setActiveStep] = useState<number>(1);
-  const [titleLang, setTitleLang] = useState<'ar' | 'en'>('en');
 
   // Form states matching reference screenshot
   const [titleEn, setTitleEn] = useState('20% Off Your Order');
@@ -118,33 +119,69 @@ export const StoreCartOffers: React.FC<StoreCartOffersProps> = ({ onNavigateTab 
   };
 
   // ─────────────────────────────────────────────────────────────
+  // HUB: ONLY big buttons — data after click
+  // ─────────────────────────────────────────────────────────────
+  if (mainSection === null) {
+    return (
+      <div
+        className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto w-full min-w-0"
+        style={{ color: 'var(--text)', fontFamily: 'var(--font-ui)' }}
+      >
+        <div>
+          <h1 className="text-2xl font-black tracking-tight" style={{ color: 'var(--text)' }}>
+            {isAr ? 'عروض السلة' : 'Cart Offers'}
+          </h1>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
+            {isAr
+              ? 'اختر قسماً لعرض بياناته. لا تُعرض البيانات إلا بعد اختيار الزر.'
+              : 'Pick a section to load its data. Data appears only after you open a button.'}
+          </p>
+        </div>
+        <div className="u-equal-sections grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <PortalHubCard
+            icon={Sparkles}
+            title={isAr ? 'نوافذ التقاط السلة الذكية' : 'Smart Cart Intercept'}
+            description={isAr ? 'نوافذ التقاط السلة عند أول نقرة.' : '1st-click smart cart intercept popups.'}
+            onClick={() => setMainSection('intercept')}
+            isAr={isAr}
+          />
+          <PortalHubCard
+            icon={ShoppingCart}
+            title={isAr ? 'قواعد عروض السلة التلقائية' : 'Cart Offer Rules'}
+            description={isAr ? 'إنشاء وإدارة قواعد عروض السلة.' : 'Create and manage automatic cart offer rules.'}
+            onClick={() => {
+              setMainSection('rules');
+              setViewMode('list');
+            }}
+            isAr={isAr}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
   // 1ST-CLICK SMART CART INTERCEPT POPUPS & TRACKING TAB
   // ─────────────────────────────────────────────────────────────
   if (mainSection === 'intercept') {
     return (
-      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
-        {/* Top Section Nav — modern segmented toggles */}
-        <ModernSegmentedTabs
-          accent="blue"
-          aria-label={isAr ? 'أقسام عروض السلة' : 'Cart offers sections'}
-          value={mainSection}
-          onChange={(section) => {
-            setMainSection(section);
-            if (section === 'rules') setViewMode('list');
+      <div
+        className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto w-full min-w-0"
+        style={{ color: 'var(--text)', fontFamily: 'var(--font-ui)' }}
+      >
+        <button
+          type="button"
+          onClick={() => setMainSection(null)}
+          className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-xs font-bold cursor-pointer shadow-xs"
+          style={{
+            background: 'var(--surface)',
+            borderColor: 'var(--border)',
+            color: 'var(--text)',
           }}
-          items={[
-            {
-              id: 'intercept',
-              label: isAr ? 'نوافذ التقاط السلة الذكية (الأولى بالنقرة)' : 'Smart Cart Intercept (1st-Click)',
-              icon: Sparkles,
-            },
-            {
-              id: 'rules',
-              label: isAr ? 'قواعد عروض السلة التلقائية' : 'Cart Offer Rules',
-              icon: ShoppingCart,
-            },
-          ]}
-        />
+        >
+          <ArrowLeft className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} aria-hidden />
+          {isAr ? 'كل أقسام عروض السلة' : 'All cart offer sections'}
+        </button>
 
         <StoreCartInterceptTab />
       </div>
@@ -240,52 +277,22 @@ export const StoreCartOffers: React.FC<StoreCartOffersProps> = ({ onNavigateTab 
               </h3>
 
               <div className="space-y-4">
-                {/* Offer Title with Arabic/English tabs */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      {isAr ? 'عنوان العرض *' : 'Offer Title *'}
-                    </label>
-                    <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
-                      <button
-                        type="button"
-                        onClick={() => setTitleLang('ar')}
-                        className={`px-2.5 py-0.5 text-[10px] font-bold ${
-                          titleLang === 'ar' ? 'bg-blue-600 text-white' : 'bg-slate-50 dark:bg-slate-800'
-                        }`}
-                      >
-                        Arabic
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setTitleLang('en')}
-                        className={`px-2.5 py-0.5 text-[10px] font-bold ${
-                          titleLang === 'en' ? 'bg-blue-600 text-white' : 'bg-slate-50 dark:bg-slate-800'
-                        }`}
-                      >
-                        English
-                      </button>
-                    </div>
-                  </div>
-                  <input
-                    type="text"
-                    value={titleLang === 'ar' ? titleAr : titleEn}
-                    onChange={(e) => {
-                      if (titleLang === 'ar') setTitleAr(e.target.value);
-                      else setTitleEn(e.target.value);
-                    }}
-                    placeholder={titleLang === 'ar' ? 'خصم 20% على طلبك' : '20% Off Your Order'}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-semibold"
-                  />
-                  <div className="flex justify-between items-center text-[10px] text-slate-400 mt-1">
-                    <span>
-                      {isAr
-                        ? 'سيظهر هذا العنوان للعميل في واجهة المتجر حسب لغته المختارة.'
-                        : 'The title will be displayed in the store in the selected language.'}
-                    </span>
-                    <span>{(titleLang === 'ar' ? titleAr : titleEn).length}/100</span>
-                  </div>
-                </div>
+                <LocaleTitleField
+                  isAr={isAr}
+                  valueEn={titleEn}
+                  valueAr={titleAr}
+                  onChangeEn={setTitleEn}
+                  onChangeAr={setTitleAr}
+                  labelEn="Title"
+                  labelAr="العنوان"
+                  placeholderEn="20% Off Your Order"
+                  placeholderAr="خصم 20% على طلبك"
+                  required
+                  maxLength={100}
+                  hintEn="The title will be displayed in the storefront."
+                  hintAr="سيظهر هذا العنوان في واجهة المتجر."
+                  inputClassName="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20 font-semibold"
+                />
 
                 {/* Dates & Times */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -562,7 +569,7 @@ export const StoreCartOffers: React.FC<StoreCartOffersProps> = ({ onNavigateTab 
                     {discountPercentage}% OFF
                   </div>
                   <div className="text-xs text-emerald-100 font-medium">
-                    {titleLang === 'ar' ? titleAr : titleEn}
+                    {isAr ? titleAr : titleEn}
                   </div>
                 </div>
 
@@ -627,31 +634,28 @@ export const StoreCartOffers: React.FC<StoreCartOffersProps> = ({ onNavigateTab 
   // LIST VIEW: Cart Offers Overview
   // ─────────────────────────────────────────────────────────────
   return (
-    <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
-      {/* Top Section Nav — modern segmented toggles */}
-      <ModernSegmentedTabs
-        accent="blue"
-        aria-label={isAr ? 'أقسام عروض السلة' : 'Cart offers sections'}
-        value={mainSection}
-        onChange={setMainSection}
-        items={[
-          {
-            id: 'intercept',
-            label: isAr ? 'نوافذ التقاط السلة الذكية (الأولى بالنقرة)' : 'Smart Cart Intercept (1st-Click)',
-            icon: Sparkles,
-          },
-          {
-            id: 'rules',
-            label: isAr ? 'قواعد عروض السلة التلقائية' : 'Cart Offer Rules',
-            icon: ShoppingCart,
-          },
-        ]}
-      />
+    <div
+      className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto w-full min-w-0"
+      style={{ color: 'var(--text)', fontFamily: 'var(--font-ui)' }}
+    >
+      <button
+        type="button"
+        onClick={() => setMainSection(null)}
+        className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-xs font-bold cursor-pointer shadow-xs"
+        style={{
+          background: 'var(--surface)',
+          borderColor: 'var(--border)',
+          color: 'var(--text)',
+        }}
+      >
+        <ArrowLeft className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} aria-hidden />
+        {isAr ? 'كل أقسام عروض السلة' : 'All cart offer sections'}
+      </button>
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-            <ShoppingCart className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+          <h1 className="text-2xl font-black tracking-tight flex items-center gap-2" style={{ color: 'var(--text)' }}>
+            <ShoppingCart className="w-6 h-6" style={{ color: 'var(--accent)' }} />
             <span>{isAr ? 'عروض السلة التلقائية' : 'Cart Offers'}</span>
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">

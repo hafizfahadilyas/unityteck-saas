@@ -15,7 +15,7 @@ function assert(condition: boolean, message: string) {
 
 async function runEndToEndVerification() {
   console.log('========================================================================');
-  console.log('🚀 UNITYTECK ENTERPRISE SAAS — STEP 7.3 FULL END-TO-END VERIFICATION');
+  console.log('🚀 SOUQ PLATFORM SAAS — STEP 7.3 FULL END-TO-END VERIFICATION');
   console.log('========================================================================\n');
 
   // 1. ZATCA E-Invoicing Phase 1 & Phase 2 QR Engine

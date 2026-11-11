@@ -22,8 +22,12 @@ const files = [
   'live_extensions.php',
   'google_oauth.php',
   'session_lite.php',
-  '.env',
 ];
+// Only upload .env when explicitly requested — overwriting Hostinger DB host
+// (localhost vs srvXXX) silently drops MySQL → SQLite and looks like data loss.
+if (process.argv.includes('--with-env')) {
+  files.push('.env');
+}
 
 function account(name, source) {
   if (!source.host || !source.user || !source.password) return null;

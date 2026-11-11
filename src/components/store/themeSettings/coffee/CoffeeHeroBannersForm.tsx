@@ -237,30 +237,38 @@ export const HeroBannersForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embed
                 initialFolder="banners"
                 recommendedSize="750 × 1100 px"
               />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2">
                 <label className="space-y-1 text-[11px] font-semibold text-slate-600">
-                  <span>{isAr ? 'النص الترويجي (إنجليزي)' : 'Promo (English)'}</span>
-                  <input className={inputCls} dir="ltr" maxLength={100} value={editing.promoEn} onChange={(e) => patch(editing.id, { promoEn: e.target.value })} />
-                </label>
-                <label className="space-y-1 text-[11px] font-semibold text-slate-600">
-                  <span>{isAr ? 'النص الترويجي (عربي)' : 'Promo (Arabic)'}</span>
-                  <input className={inputCls} dir="rtl" maxLength={100} value={editing.promoAr} onChange={(e) => patch(editing.id, { promoAr: e.target.value })} />
-                </label>
-                <label className="space-y-1 text-[11px] font-semibold text-slate-600">
-                  <span>{isAr ? 'العنوان (إنجليزي)' : 'Title (English)'}</span>
-                  <input className={inputCls} dir="ltr" maxLength={100} value={editing.titleEn} onChange={(e) => patch(editing.id, { titleEn: e.target.value })} />
+                  <span>{isAr ? 'النص الترويجي' : 'Promo'}</span>
+                  <input
+                    className={inputCls}
+                    dir={isAr ? 'rtl' : 'ltr'}
+                    maxLength={100}
+                    value={isAr ? editing.promoAr : editing.promoEn}
+                    onChange={(e) => patch(editing.id, isAr ? { promoAr: e.target.value } : { promoEn: e.target.value })}
+                  />
                 </label>
                 <label className="space-y-1 text-[11px] font-semibold text-slate-600">
-                  <span>{isAr ? 'العنوان (عربي)' : 'Title (Arabic)'}</span>
-                  <input className={inputCls} dir="rtl" maxLength={100} value={editing.titleAr} onChange={(e) => patch(editing.id, { titleAr: e.target.value })} />
+                  <span>{isAr ? 'العنوان' : 'Title'}</span>
+                  <input
+                    className={inputCls}
+                    dir={isAr ? 'rtl' : 'ltr'}
+                    maxLength={100}
+                    value={isAr ? editing.titleAr : editing.titleEn}
+                    onChange={(e) => patch(editing.id, isAr ? { titleAr: e.target.value } : { titleEn: e.target.value })}
+                  />
                 </label>
-                <label className="space-y-1 text-[11px] font-semibold text-slate-600 md:col-span-2">
-                  <span>{isAr ? 'الوصف (إنجليزي)' : 'Description (English)'}</span>
-                  <input className={inputCls} dir="ltr" maxLength={200} value={editing.descriptionEn} onChange={(e) => patch(editing.id, { descriptionEn: e.target.value })} />
-                </label>
-                <label className="space-y-1 text-[11px] font-semibold text-slate-600 md:col-span-2">
-                  <span>{isAr ? 'الوصف (عربي)' : 'Description (Arabic)'}</span>
-                  <input className={inputCls} dir="rtl" maxLength={200} value={editing.descriptionAr} onChange={(e) => patch(editing.id, { descriptionAr: e.target.value })} />
+                <label className="space-y-1 text-[11px] font-semibold text-slate-600">
+                  <span>{isAr ? 'الوصف' : 'Description'}</span>
+                  <input
+                    className={inputCls}
+                    dir={isAr ? 'rtl' : 'ltr'}
+                    maxLength={200}
+                    value={isAr ? editing.descriptionAr : editing.descriptionEn}
+                    onChange={(e) =>
+                      patch(editing.id, isAr ? { descriptionAr: e.target.value } : { descriptionEn: e.target.value })
+                    }
+                  />
                 </label>
               </div>
               <div className="grid grid-cols-2 gap-2">

@@ -256,6 +256,7 @@ export const EnableRow: React.FC<{
   </label>
 );
 
+/** One locale field only — AR chrome edits Arabic; EN chrome edits English. Other lang value stays as saved. */
 export const BiFields: React.FC<{
   isAr: boolean;
   labelEn: string;
@@ -266,34 +267,24 @@ export const BiFields: React.FC<{
   onAr: (v: string) => void;
   max?: number;
 }> = ({ isAr, labelEn, labelAr, en, ar, onEn, onAr, max }) => {
-  const enTag = isAr ? 'إنجليزي' : 'English';
-  const arTag = isAr ? 'عربي' : 'Arabic';
-  const base = isAr ? labelAr : labelEn;
+  const value = isAr ? ar : en;
+  const onChange = isAr ? onAr : onEn;
+  const label = isAr ? labelAr : labelEn;
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-      <label className="text-[11px] font-bold space-y-1">
-        <span>{`${base} (${enTag})`}{max ? ` · ${(en || '').length}/${max}` : ''}</span>
-        <input
-          value={en || ''}
-          maxLength={max}
-          onChange={(e) => onEn(e.target.value)}
-          className="w-full px-3 py-2 rounded-xl border text-xs"
-          style={{ background: 'var(--input-bg)', borderColor: 'var(--border)' }}
-          dir="ltr"
-        />
-      </label>
-      <label className="text-[11px] font-bold space-y-1">
-        <span>{`${base} (${arTag})`}{max ? ` · ${(ar || '').length}/${max}` : ''}</span>
-        <input
-          value={ar || ''}
-          maxLength={max}
-          onChange={(e) => onAr(e.target.value)}
-          className="w-full px-3 py-2 rounded-xl border text-xs"
-          style={{ background: 'var(--input-bg)', borderColor: 'var(--border)' }}
-          dir="rtl"
-        />
-      </label>
-    </div>
+    <label className="text-[11px] font-bold space-y-1 block">
+      <span>
+        {label}
+        {max ? ` · ${(value || '').length}/${max}` : ''}
+      </span>
+      <input
+        value={value || ''}
+        maxLength={max}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full px-3 py-2 rounded-xl border text-xs"
+        style={{ background: 'var(--input-bg)', borderColor: 'var(--border)' }}
+        dir={isAr ? 'rtl' : 'ltr'}
+      />
+    </label>
   );
 };
 

@@ -6049,26 +6049,16 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {isAr ? 'اسم القالب (عربي):' : 'Template Name (Arabic):'}
+                  {isAr ? 'الاسم' : 'Name'}
                 </label>
                 <input
                   type="text"
-                  value={customTplNameAr}
-                  onChange={(e) => setCustomTplNameAr(e.target.value)}
-                  placeholder={isAr ? selectedBlock.titleAr : 'قالب مخصص'}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {isAr ? 'اسم القالب (إنجليزي):' : 'Template Name (English):'}
-                </label>
-                <input
-                  type="text"
-                  value={customTplNameEn}
-                  onChange={(e) => setCustomTplNameEn(e.target.value)}
-                  placeholder={selectedBlock.titleEn}
+                  dir={isAr ? 'rtl' : 'ltr'}
+                  value={isAr ? customTplNameAr : customTplNameEn}
+                  onChange={(e) =>
+                    isAr ? setCustomTplNameAr(e.target.value) : setCustomTplNameEn(e.target.value)
+                  }
+                  placeholder={isAr ? selectedBlock.titleAr : selectedBlock.titleEn}
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold"
                 />
               </div>

@@ -3,7 +3,7 @@ import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
 import { PageDocsGuideModal } from '../common/PageDocsGuideModal';
-import { ModernSegmentedTabs } from '../common/ModernSegmentedTabs';
+import { PortalHubCard } from '../common/PortalHubCard';
 import {
   Database,
   Archive,
@@ -34,6 +34,7 @@ import {
   HardDrive,
   Rocket,
   ArrowLeftRight,
+  ArrowLeft,
 } from 'lucide-react';
 
 export interface SnapshotItem {
@@ -57,8 +58,8 @@ export const StoreBackupRestoreCenter: React.FC = () => {
   // Docs Guide Modal
   const [isGuideOpen, setIsGuideOpen] = useState(false);
 
-  // Active sub-tab
-  const [activeTab, setActiveTab] = useState<'backup' | 'restore_migration' | 'snapshots' | 'guides'>('backup');
+  // null = hub buttons only; set = that section's data
+  const [activeTab, setActiveTab] = useState<'backup' | 'restore_migration' | 'snapshots' | 'guides' | null>(null);
 
   // Mode: In-place restore vs Migrate to 2nd Host
   const [migrationMode, setMigrationMode] = useState<'local' | 'migrate_2nd'>('migrate_2nd');
@@ -323,27 +324,55 @@ INSERT INTO \`stores\` VALUES ('${activeStore.id}', '${activeStore.name.replace(
         </div>
       </div>
 
-      {/* ── SUB-TABS — modern segmented toggles ── */}
-      <ModernSegmentedTabs
-        accent="portal"
-        aria-label={isAr ? 'أقسام النسخ والاستعادة' : 'Backup and restore sections'}
-        value={activeTab}
-        onChange={setActiveTab}
-        items={[
-          { id: 'backup', label: isAr ? 'النسخ الاحتياطي الشامل' : 'Full Store Backup', icon: Archive },
-          {
-            id: 'restore_migration',
-            label: isAr ? 'الاستعادة والنقل إلى استضافة ثانية' : 'Restore & 2nd Host Migration',
-            icon: Rocket,
-          },
-          {
-            id: 'snapshots',
-            label: isAr ? 'النسخ المجدولة (يومي / أسبوعي / شهري)' : 'Automated Snapshots',
-            icon: Database,
-          },
-          { id: 'guides', label: isAr ? 'أدلة الربط خطوة بخطوة' : 'Setup Guides', icon: FileText },
-        ]}
-      />
+      {/* Hub: ONLY big buttons. Section open: back + data. */}
+      {activeTab === null ? (
+        <div className="u-equal-sections grid grid-cols-2 md:grid-cols-4 gap-4">
+          <PortalHubCard
+            icon={Archive}
+            title={isAr ? 'النسخ الاحتياطي الشامل' : 'Full Store Backup'}
+            description={isAr ? 'تحميل حزمة هذا المتجر كاملة.' : 'Download a full ZIP for this store.'}
+            onClick={() => setActiveTab('backup')}
+            isAr={isAr}
+          />
+          <PortalHubCard
+            icon={Rocket}
+            title={isAr ? 'الاستعادة والنقل إلى استضافة ثانية' : 'Restore & 2nd Host Migration'}
+            description={isAr ? 'استعادة أو نقل المتجر لاستضافة أخرى.' : 'Restore or migrate this store to another host.'}
+            onClick={() => setActiveTab('restore_migration')}
+            isAr={isAr}
+          />
+          <PortalHubCard
+            icon={Database}
+            title={isAr ? 'النسخ المجدولة' : 'Automated Snapshots'}
+            description={isAr ? 'النسخ اليومية والأسبوعية والشهرية.' : 'Daily, weekly, and monthly snapshots.'}
+            onClick={() => setActiveTab('snapshots')}
+            isAr={isAr}
+          />
+          <PortalHubCard
+            icon={FileText}
+            title={isAr ? 'أدلة الربط خطوة بخطوة' : 'Setup Guides'}
+            description={isAr ? 'أدلة الربط والاستعادة خطوة بخطوة.' : 'Step-by-step connect and restore guides.'}
+            onClick={() => setActiveTab('guides')}
+            isAr={isAr}
+          />
+        </div>
+      ) : (
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setActiveTab(null)}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-xs font-bold cursor-pointer shadow-xs"
+            style={{
+              background: 'var(--surface)',
+              borderColor: 'var(--border)',
+              color: 'var(--text)',
+            }}
+          >
+            <ArrowLeft className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} aria-hidden />
+            {isAr ? 'كل أقسام النسخ' : 'All backup sections'}
+          </button>
+        </div>
+      )}
 
       {/* ═══════════════════════════════════════════════════════════════ */}
       {/* ── TAB 1: FULL ZIP BACKUP ── */}

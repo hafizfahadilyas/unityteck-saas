@@ -23,10 +23,10 @@ export const CartPage: React.FC = () => {
   const [promoCode, setPromoCode] = useState('');
   const [promoFeedback, setPromoFeedback] = useState<{ msg: string; isError: boolean } | null>(null);
 
-  const handleApplyPromo = (e: React.FormEvent) => {
+  const handleApplyPromo = async (e: React.FormEvent) => {
     e.preventDefault();
     setPromoFeedback(null);
-    const res = applyCouponCode(promoCode);
+    const res = await applyCouponCode(promoCode);
     setPromoFeedback({ msg: res.message, isError: !res.success });
     if (res.success) setPromoCode('');
   };

@@ -41,7 +41,9 @@ export const MasterMarketplace: React.FC = () => {
   if (!selectedStore) {
     return (
       <div className="p-6 text-sm" style={{ color: 'var(--muted)' }}>
-        No stores yet — create a store to use the Unityteck App Store.
+        {isAr
+          ? 'لا توجد متاجر بعد — أنشئ متجراً لاستخدام متجر تطبيقات منصة سوق.'
+          : 'No stores yet — create a store to use the Souq Platform App Store.'}
       </div>
     );
   }
@@ -52,14 +54,20 @@ export const MasterMarketplace: React.FC = () => {
       style={{ color: 'var(--text)', fontFamily: 'var(--font-ui)' }}
     >
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <AppStoreBrand subtitle="Master control · Theme Store + Apps for every client store" />
+        <AppStoreBrand
+          subtitle={
+            isAr
+              ? 'لوحة التحكم الرئيسية · متجر الثيمات والتطبيقات لكل متجر عميل'
+              : 'Master Admin · Theme Store + Apps for every client store'
+          }
+        />
 
         <div className="flex flex-wrap items-center gap-2">
           <div
             className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs border"
             style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
           >
-            <span style={{ color: 'var(--muted)' }}>Target store</span>
+            <span style={{ color: 'var(--muted)' }}>{isAr ? 'المتجر المستهدف' : 'Target store'}</span>
             <select
               value={selectedStoreId}
               onChange={(e) => setSelectedStoreId(e.target.value)}

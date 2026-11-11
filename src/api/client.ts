@@ -148,7 +148,9 @@ export async function apiFetch<T>(
   }
   const guestReadable =
     isGet &&
-    (path.startsWith('/orders') ||
+    (path.startsWith('/products') ||
+      path.startsWith('/categories') ||
+      path.startsWith('/orders') ||
       path.startsWith('/customers') ||
       path.startsWith('/coupons') ||
       path.startsWith('/seo') ||
@@ -161,6 +163,8 @@ export async function apiFetch<T>(
       path.startsWith('/notifications/deliveries') ||
       path.startsWith('/payments/transactions') ||
       path.startsWith('/couriers/shipments') ||
+      path.startsWith('/customer-activities') ||
+      path.startsWith('/delivery-drivers') ||
       path.startsWith('/google/'));
   if (!isPublicEndpoint && !guestReadable && !(token && !token.startsWith('mock-'))) {
     throw new Error(toUserFriendlyError('No active backend API session (mock/guest mode).'));
@@ -201,7 +205,11 @@ export async function apiFetch<T>(
         body: isFormData ? (body as FormData) : (body !== undefined ? JSON.stringify(body) : undefined),
       });
     } catch (err) {
-      throw new Error(toUserFriendlyError(err));
+      // Never leak raw AbortError to the console / uncaught rejection path.
+      const aborted =
+        (typeof DOMException !== 'undefined' && err instanceof DOMException && err.name === 'AbortError') ||
+        (err instanceof Error && /abort/i.test(err.name + err.message));
+      throw new Error(toUserFriendlyError(aborted ? 'timeout' : err));
     } finally {
       clearTimeout(timer);
     }

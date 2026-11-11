@@ -44,9 +44,9 @@ export function StorefrontCustomerResume() {
           err instanceof Error ? err.message : 'Could not save the customer.',
         );
       }
-      const back = `${window.location.pathname}${window.location.search}`;
+      // Stay in SPA — redirectUrl hard-nav can yank /admin login to storefront.
       try {
-        await signOut({ redirectUrl: back || '/' });
+        await signOut({ redirectUrl: undefined });
       } catch {
         /* local session is already stored */
       }

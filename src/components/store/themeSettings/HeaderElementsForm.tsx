@@ -110,27 +110,18 @@ function HeaderNavListEditor({
                 </span>
                 <input
                   type="text"
-                  value={link.labelAr}
+                  value={isAr ? link.labelAr : link.labelEn}
                   onChange={(e) => {
                     const copy = [...links];
-                    copy[idx] = { ...copy[idx], labelAr: e.target.value };
+                    copy[idx] = {
+                      ...copy[idx],
+                      ...(isAr ? { labelAr: e.target.value } : { labelEn: e.target.value }),
+                    };
                     onChange(copy);
                   }}
-                  placeholder={isAr ? 'الاسم بالعربية' : 'Name in Arabic'}
+                  placeholder={isAr ? 'الاسم' : 'Name'}
                   className="flex-1 px-2 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-bold"
-                  dir="rtl"
-                />
-                <input
-                  type="text"
-                  value={link.labelEn}
-                  onChange={(e) => {
-                    const copy = [...links];
-                    copy[idx] = { ...copy[idx], labelEn: e.target.value };
-                    onChange(copy);
-                  }}
-                  placeholder={isAr ? 'الاسم بالإنجليزية' : 'Name in English'}
-                  className="flex-1 px-2 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
-                  dir="ltr"
+                  dir={isAr ? 'rtl' : 'ltr'}
                 />
                 <button
                   type="button"
@@ -594,63 +585,46 @@ export const HeaderElementsForm: React.FC = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'نص التلميح بالإنجليزية' : 'Tooltip in English'}</label>
-                    <input
-                      type="text"
-                      dir="ltr"
-                      value={whatsapp.tooltipEn || ''}
-                      onChange={(e) =>
-                        setHeaderSettings((p) => ({
-                          ...p,
-                          actions: {
-                            ...p.actions,
-                            whatsapp: { ...whatsapp, tooltipEn: e.target.value },
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'نص التلميح' : 'Tooltip'}</label>
+                  <input
+                    type="text"
+                    dir={isAr ? 'rtl' : 'ltr'}
+                    value={isAr ? whatsapp.tooltipAr || '' : whatsapp.tooltipEn || ''}
+                    onChange={(e) =>
+                      setHeaderSettings((p) => ({
+                        ...p,
+                        actions: {
+                          ...p.actions,
+                          whatsapp: {
+                            ...whatsapp,
+                            ...(isAr ? { tooltipAr: e.target.value } : { tooltipEn: e.target.value }),
                           },
-                        }))
-                      }
-                      className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'نص التلميح بالعربية' : 'Tooltip in Arabic'}</label>
-                    <input
-                      type="text"
-                      dir="rtl"
-                      value={whatsapp.tooltipAr || ''}
-                      onChange={(e) =>
-                        setHeaderSettings((p) => ({
-                          ...p,
-                          actions: {
-                            ...p.actions,
-                            whatsapp: { ...whatsapp, tooltipAr: e.target.value },
-                          },
-                        }))
-                      }
-                      className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
-                    />
-                  </div>
+                        },
+                      }))
+                    }
+                    className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                  />
+                </div>
 
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'تأثير النبض' : 'Pulse Animation'}</label>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setHeaderSettings((p) => ({
-                          ...p,
-                          actions: {
-                            ...p.actions,
-                            whatsapp: { ...whatsapp, pulseAnimation: !whatsapp.pulseAnimation },
-                          },
-                        }))
-                      }
-                      className="w-full py-1.5 px-2 rounded-lg border border-slate-200 dark:border-slate-700 text-start text-[11px] font-bold flex items-center justify-between"
-                    >
-                      <span>{whatsapp.pulseAnimation ? (isAr ? 'نبض مفعل' : 'Pulse Active') : (isAr ? 'ثابت' : 'Static')}</span>
-                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    </button>
-                  </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'تأثير النبض' : 'Pulse Animation'}</label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setHeaderSettings((p) => ({
+                        ...p,
+                        actions: {
+                          ...p.actions,
+                          whatsapp: { ...whatsapp, pulseAnimation: !whatsapp.pulseAnimation },
+                        },
+                      }))
+                    }
+                    className="w-full py-1.5 px-2 rounded-lg border border-slate-200 dark:border-slate-700 text-start text-[11px] font-bold flex items-center justify-between"
+                  >
+                    <span>{whatsapp.pulseAnimation ? (isAr ? 'نبض مفعل' : 'Pulse Active') : (isAr ? 'ثابت' : 'Static')}</span>
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  </button>
                 </div>
               </div>
             )}
@@ -687,41 +661,26 @@ export const HeaderElementsForm: React.FC = () => {
             </div>
 
             {accountAction.enabled && (
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'النص (عربي)' : 'Label (AR)'}</label>
-                  <input
-                    type="text"
-                    value={accountAction.labelAr || 'حسابي'}
-                    onChange={(e) =>
-                      setHeaderSettings((p) => ({
-                        ...p,
-                        actions: {
-                          ...p.actions,
-                          account: { ...accountAction, labelAr: e.target.value },
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 text-xs">
+                <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'النص' : 'Label'}</label>
+                <input
+                  type="text"
+                  dir={isAr ? 'rtl' : 'ltr'}
+                  value={isAr ? accountAction.labelAr || 'حسابي' : accountAction.labelEn || 'Sign In'}
+                  onChange={(e) =>
+                    setHeaderSettings((p) => ({
+                      ...p,
+                      actions: {
+                        ...p.actions,
+                        account: {
+                          ...accountAction,
+                          ...(isAr ? { labelAr: e.target.value } : { labelEn: e.target.value }),
                         },
-                      }))
-                    }
-                    className="w-full px-2 py-1 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'النص (إنجليزي)' : 'Label (EN)'}</label>
-                  <input
-                    type="text"
-                    value={accountAction.labelEn || 'Sign In'}
-                    onChange={(e) =>
-                      setHeaderSettings((p) => ({
-                        ...p,
-                        actions: {
-                          ...p.actions,
-                          account: { ...accountAction, labelEn: e.target.value },
-                        },
-                      }))
-                    }
-                    className="w-full px-2 py-1 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
-                  />
-                </div>
+                      },
+                    }))
+                  }
+                  className="w-full px-2 py-1 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                />
               </div>
             )}
           </div>
@@ -759,16 +718,30 @@ export const HeaderElementsForm: React.FC = () => {
             {searchAction.enabled && (
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 space-y-2 text-xs">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'نص تلميح البحث (عربي)' : 'Search Placeholder (AR)'}</label>
+                  <label className="text-[10px] font-bold text-slate-400 block mb-1">
+                    {isAr ? 'نص تلميح البحث' : 'Search Placeholder'}
+                  </label>
                   <input
                     type="text"
-                    value={searchAction.placeholderAr || ''}
+                    dir={isAr ? 'rtl' : 'ltr'}
+                    value={
+                      isAr
+                        ? searchAction.placeholderAr || ''
+                        : (searchAction as { placeholderEn?: string }).placeholderEn ||
+                          searchAction.placeholderAr ||
+                          ''
+                    }
                     onChange={(e) =>
                       setHeaderSettings((p) => ({
                         ...p,
                         actions: {
                           ...p.actions,
-                          search: { ...searchAction, placeholderAr: e.target.value },
+                          search: {
+                            ...searchAction,
+                            ...(isAr
+                              ? { placeholderAr: e.target.value }
+                              : { placeholderEn: e.target.value }),
+                          },
                         },
                       }))
                     }
@@ -828,68 +801,43 @@ export const HeaderElementsForm: React.FC = () => {
             recommendedSize="512 × 512 px"
           />
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'اسم المتجر (عربي)' : 'Store Title (AR)'}</label>
-              <input
-                type="text"
-                value={headerSettings.logo.titleAr || ''}
-                onChange={(e) =>
-                  setHeaderSettings((p) => ({
-                    ...p,
-                    logo: { ...p.logo, titleAr: e.target.value, applyTitle: true },
-                  }))
-                }
-                className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-bold"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'اسم المتجر (إنجليزي)' : 'Store Title (EN)'}</label>
-              <input
-                type="text"
-                value={headerSettings.logo.titleEn || ''}
-                onChange={(e) =>
-                  setHeaderSettings((p) => ({
-                    ...p,
-                    logo: { ...p.logo, titleEn: e.target.value, applyTitle: true },
-                  }))
-                }
-                className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-bold"
-                dir="ltr"
-              />
-            </div>
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'العنوان' : 'Title'}</label>
+            <input
+              type="text"
+              dir={isAr ? 'rtl' : 'ltr'}
+              value={isAr ? headerSettings.logo.titleAr || '' : headerSettings.logo.titleEn || ''}
+              onChange={(e) =>
+                setHeaderSettings((p) => ({
+                  ...p,
+                  logo: {
+                    ...p.logo,
+                    ...(isAr ? { titleAr: e.target.value } : { titleEn: e.target.value }),
+                    applyTitle: true,
+                  },
+                }))
+              }
+              className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-bold"
+            />
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'العنوان الفرعي (عربي)' : 'Subtitle (AR)'}</label>
-              <input
-                type="text"
-                value={headerSettings.logo.subtitleAr || ''}
-                onChange={(e) =>
-                  setHeaderSettings((p) => ({
-                    ...p,
-                    logo: { ...p.logo, subtitleAr: e.target.value },
-                  }))
-                }
-                className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'العنوان الفرعي (إنجليزي)' : 'Subtitle (EN)'}</label>
-              <input
-                type="text"
-                value={headerSettings.logo.subtitleEn || ''}
-                onChange={(e) =>
-                  setHeaderSettings((p) => ({
-                    ...p,
-                    logo: { ...p.logo, subtitleEn: e.target.value },
-                  }))
-                }
-                className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
-                dir="ltr"
-              />
-            </div>
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'العنوان الفرعي' : 'Subtitle'}</label>
+            <input
+              type="text"
+              dir={isAr ? 'rtl' : 'ltr'}
+              value={isAr ? headerSettings.logo.subtitleAr || '' : headerSettings.logo.subtitleEn || ''}
+              onChange={(e) =>
+                setHeaderSettings((p) => ({
+                  ...p,
+                  logo: {
+                    ...p.logo,
+                    ...(isAr ? { subtitleAr: e.target.value } : { subtitleEn: e.target.value }),
+                  },
+                }))
+              }
+              className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-2">

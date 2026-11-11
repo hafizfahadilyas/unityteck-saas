@@ -575,18 +575,34 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
     ];
   }, []);
 
+  const toolTitle = (en: string, ar: string) => (isAr ? ar : en);
+
   return (
     <div
-      className="u-page p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1920px] mx-auto min-h-screen font-sans select-none w-full min-w-0"
+      className="u-page u-commerce-tools-page p-4 sm:p-6 lg:p-8 space-y-6 max-w-[1920px] mx-auto min-h-screen font-sans select-none w-full min-w-0"
       dir={isAr ? 'rtl' : 'ltr'}
     >
       {/* 1. Page Header and Global Actions (100% Matching Image 5) */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200/90 dark:border-slate-800">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+        <div className="min-w-0 space-y-2">
+          <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--muted)' }}>
+            <button
+              type="button"
+              onClick={() => onNavigateTab?.('marketing')}
+              className="cursor-pointer hover:underline font-semibold bg-transparent border-0 p-0"
+              style={{ color: 'var(--accent)' }}
+            >
+              {isAr ? 'أدوات التسويق' : 'Marketing Tools'}
+            </button>
+            <span>/</span>
+            <span className="font-semibold" style={{ color: 'var(--text)' }}>
+              {isAr ? 'أدوات التجارة للمقالات' : 'Commerce Tools'}
+            </span>
+          </div>
+          <h1 className="text-2xl font-black tracking-tight" style={{ color: 'var(--text)' }}>
             {isAr ? 'أدوات التجارة للمقالات' : 'Article Commerce Tools'}
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-sm font-medium mt-1" style={{ color: 'var(--muted)' }}>
             {isAr
               ? 'تخصيص الأدوات التفاعلية للمقال لزيادة التفاعل، الزيارات ومبيعات المتجر.'
               : 'Customize each tool to match your article and increase engagement, traffic, and sales.'}
@@ -672,7 +688,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                   <span className="w-5 h-5 rounded-md bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                     1
                   </span>
-                  <h3 className="font-bold text-xs text-slate-900 dark:text-white">Product Cards</h3>
+                  <h3 className="font-bold text-sm">{toolTitle('Product Cards', 'بطاقات المنتجات')}</h3>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -786,7 +802,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                   <span className="w-5 h-5 rounded-md bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                     2
                   </span>
-                  <h3 className="font-bold text-xs text-slate-900 dark:text-white">Product Finder Quiz</h3>
+                  <h3 className="font-bold text-sm">{toolTitle('Product Finder Quiz', 'اختبار اختيار المنتج')}</h3>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -890,7 +906,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                   <span className="w-5 h-5 rounded-md bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                     3
                   </span>
-                  <h3 className="font-bold text-xs text-slate-900 dark:text-white">Product Comparison Table</h3>
+                  <h3 className="font-bold text-sm">{toolTitle('Product Comparison Table', 'جدول مقارنة المنتجات')}</h3>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -961,7 +977,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                   <span className="w-5 h-5 rounded-md bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                     4
                   </span>
-                  <h3 className="font-bold text-xs text-slate-900 dark:text-white">Product Bundles</h3>
+                  <h3 className="font-bold text-sm">{toolTitle('Product Bundles', 'باقات المنتجات')}</h3>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -1082,7 +1098,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                   <span className="w-5 h-5 rounded-md bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                     5
                   </span>
-                  <h3 className="font-bold text-xs text-slate-900 dark:text-white">Discount Coupon Box</h3>
+                  <h3 className="font-bold text-sm">{toolTitle('Discount Coupon Box', 'صندوق كوبون الخصم')}</h3>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -1209,7 +1225,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                   <span className="w-5 h-5 rounded-md bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                     6
                   </span>
-                  <h3 className="font-bold text-xs text-slate-900 dark:text-white">Customer Reviews</h3>
+                  <h3 className="font-bold text-sm">{toolTitle('Customer Reviews', 'تقييمات العملاء')}</h3>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -1303,7 +1319,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                   <span className="w-5 h-5 rounded-md bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                     7
                   </span>
-                  <h3 className="font-bold text-xs text-slate-900 dark:text-white">Free Shipping Progress Bar</h3>
+                  <h3 className="font-bold text-sm">{toolTitle('Free Shipping Progress Bar', 'شريط تقدم الشحن المجاني')}</h3>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -1394,7 +1410,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                   <span className="w-5 h-5 rounded-md bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                     8
                   </span>
-                  <h3 className="font-bold text-xs text-slate-900 dark:text-white">Savings Calculator</h3>
+                  <h3 className="font-bold text-sm">{toolTitle('Savings Calculator', 'حاسبة التوفير')}</h3>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -1479,7 +1495,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                   <span className="w-5 h-5 rounded-md bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                     9
                   </span>
-                  <h3 className="font-bold text-xs text-slate-900 dark:text-white">Sticky Add to Cart Bar</h3>
+                  <h3 className="font-bold text-sm">{toolTitle('Sticky Add to Cart Bar', 'شريط إضافة للسلة الثابت')}</h3>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -1573,7 +1589,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                   <span className="w-5 h-5 rounded-md bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                     10
                   </span>
-                  <h3 className="font-bold text-xs text-slate-900 dark:text-white">Wishlist / Save for Later</h3>
+                  <h3 className="font-bold text-sm">{toolTitle('Wishlist / Save for Later', 'قائمة الأمنيات / الحفظ لاحقاً')}</h3>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -1708,7 +1724,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                   <span className="w-5 h-5 rounded-md bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                     11
                   </span>
-                  <h3 className="font-bold text-xs text-slate-900 dark:text-white">Product Demo Video</h3>
+                  <h3 className="font-bold text-sm">{toolTitle('Product Demo Video', 'فيديو عرض المنتج')}</h3>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -1825,7 +1841,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                   <span className="w-5 h-5 rounded-md bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                     12
                   </span>
-                  <h3 className="font-bold text-xs text-slate-900 dark:text-white">AI Product Assistant</h3>
+                  <h3 className="font-bold text-sm">{toolTitle('AI Product Assistant', 'مساعد المنتجات الذكي')}</h3>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -1926,7 +1942,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                   <span className="w-5 h-5 rounded-md bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                     13
                   </span>
-                  <h3 className="font-bold text-xs text-slate-900 dark:text-white">Newsletter Signup</h3>
+                  <h3 className="font-bold text-sm">{toolTitle('Newsletter Signup', 'الاشتراك في النشرة')}</h3>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -2024,7 +2040,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                   <span className="w-5 h-5 rounded-md bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                     14
                   </span>
-                  <h3 className="font-bold text-xs text-slate-900 dark:text-white">Social Sharing Buttons</h3>
+                  <h3 className="font-bold text-sm">{toolTitle('Social Sharing Buttons', 'أزرار المشاركة الاجتماعية')}</h3>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -2121,7 +2137,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                   <span className="w-5 h-5 rounded-md bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                     15
                   </span>
-                  <h3 className="font-bold text-xs text-slate-900 dark:text-white">Related Articles</h3>
+                  <h3 className="font-bold text-sm">{toolTitle('Related Articles', 'مقالات ذات صلة')}</h3>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -2229,7 +2245,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                   <span className="w-5 h-5 rounded-md bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                     16
                   </span>
-                  <h3 className="font-bold text-xs text-slate-900 dark:text-white">SEO Enhancements</h3>
+                  <h3 className="font-bold text-sm">{toolTitle('SEO Enhancements', 'تحسينات محركات البحث')}</h3>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -2348,7 +2364,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                   <span className="w-5 h-5 rounded-md bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                     17
                   </span>
-                  <h3 className="font-bold text-xs text-slate-900 dark:text-white">Interactive Table of Contents</h3>
+                  <h3 className="font-bold text-sm">{toolTitle('Interactive Table of Contents', 'فهرس المحتويات التفاعلي')}</h3>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -2411,7 +2427,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                   <span className="w-5 h-5 rounded-md bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                     18
                   </span>
-                  <h3 className="font-bold text-xs text-slate-900 dark:text-white truncate">Back in Stock / Alert</h3>
+                  <h3 className="font-bold text-sm truncate">{toolTitle('Back in Stock / Alert', 'تنبيه توفر المنتج / انخفاض السعر')}</h3>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -2533,8 +2549,8 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                   <span className="w-5 h-5 rounded-md bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                     19
                   </span>
-                  <h3 className="font-bold text-xs text-slate-900 dark:text-white truncate">
-                    Article Analytics
+                  <h3 className="font-bold text-sm truncate">
+                    {toolTitle('Article Analytics', 'تحليلات المقال')}
                   </h3>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -2629,7 +2645,7 @@ export const StoreArticleCommerceTools: React.FC<StoreArticleCommerceToolsProps>
                   <span className="w-5 h-5 rounded-md bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0">
                     20
                   </span>
-                  <h3 className="font-bold text-xs text-slate-900 dark:text-white">Exit Intent Offer</h3>
+                  <h3 className="font-bold text-sm">{toolTitle('Exit Intent Offer', 'عرض نية المغادرة')}</h3>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input

@@ -1213,8 +1213,14 @@ export const StoreMediaLibrary: React.FC = () => {
                     </span>
                   )}
 
-                  {/* Quick Action Overlay Buttons */}
-                  <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-between">
+                  {/* Quick actions — always visible on touch / small; hover-reveal on desktop (no badge overlap) */}
+                  <div
+                    className={`absolute inset-x-0 bottom-0 z-10 p-1.5 sm:p-2 bg-gradient-to-t from-black/85 via-black/45 to-transparent flex flex-wrap items-center justify-center gap-1 transition-opacity ${
+                      isSelected
+                        ? 'opacity-100'
+                        : 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100'
+                    }`}
+                  >
                     {asset.fileType === 'image' && !isCanvaHidden && (
                       <button
                         type="button"
@@ -1223,17 +1229,18 @@ export const StoreMediaLibrary: React.FC = () => {
                           if (isCanvaSoon && canvaFeat) {
                             setComingSoonModalFeature(canvaFeat);
                           } else {
+                            setIsDetailsOpen(false);
                             setCanvaTargetAsset(asset);
                             setIsCanvaStudioOpen(true);
                           }
                         }}
-                        className={`p-1.5 rounded-lg text-white transition-colors shadow-xs ${
+                        className={`p-1.5 rounded-lg text-white transition-colors shadow-xs shrink-0 ${
                           isCanvaSoon ? 'bg-amber-600/90 hover:bg-amber-500' : 'bg-emerald-500/90 hover:bg-emerald-500'
                         }`}
                         title={
                           isCanvaSoon
                             ? `${isAr ? canvaFeat?.nameAr : canvaFeat?.nameEn} (${isAr ? canvaFeat?.comingSoonTagAr : canvaFeat?.comingSoonTagEn})`
-                            : isAr ? 'تعديل التصميم وعزل الخلفية' : 'Edit design & remove background'
+                            : isAr ? 'تعديل الطبقة في الاستوديو' : 'Edit as Canva layers'
                         }
                       >
                         <Edit3 className="w-3.5 h-3.5" />
@@ -1246,7 +1253,7 @@ export const StoreMediaLibrary: React.FC = () => {
                         e.stopPropagation();
                         handleTriggerReplace(asset);
                       }}
-                      className="p-1.5 rounded-lg bg-white/20 hover:bg-white text-white hover:text-slate-900 transition-colors shadow-xs"
+                      className="p-1.5 rounded-lg bg-white/20 hover:bg-white text-white hover:text-slate-900 transition-colors shadow-xs shrink-0"
                       title={isAr ? 'استبدال الملف' : 'Replace Media'}
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
@@ -1258,7 +1265,7 @@ export const StoreMediaLibrary: React.FC = () => {
                         e.stopPropagation();
                         copyToClipboard(asset.originalUrl, `url-${asset.id}`);
                       }}
-                      className="p-1.5 rounded-lg bg-white/20 hover:bg-white text-white hover:text-slate-900 transition-colors shadow-xs"
+                      className="p-1.5 rounded-lg bg-white/20 hover:bg-white text-white hover:text-slate-900 transition-colors shadow-xs shrink-0"
                       title={isAr ? 'نسخ الرابط' : 'Copy URL'}
                     >
                       <Copy className="w-3.5 h-3.5" />
@@ -1270,7 +1277,7 @@ export const StoreMediaLibrary: React.FC = () => {
                         e.stopPropagation();
                         handleRequestDelete(asset);
                       }}
-                      className="p-1.5 rounded-lg bg-rose-500/80 hover:bg-rose-600 text-white transition-colors shadow-xs"
+                      className="p-1.5 rounded-lg bg-rose-500/80 hover:bg-rose-600 text-white transition-colors shadow-xs shrink-0"
                       title={isAr ? 'حذف' : 'Delete'}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -1669,6 +1676,7 @@ export const StoreMediaLibrary: React.FC = () => {
                     if (isCanvaSoon && canvaFeat) {
                       setComingSoonModalFeature(canvaFeat);
                     } else {
+                      setIsDetailsOpen(false);
                       setCanvaTargetAsset(selectedAsset);
                       setIsCanvaStudioOpen(true);
                     }
@@ -1677,7 +1685,7 @@ export const StoreMediaLibrary: React.FC = () => {
                   style={{ background: isCanvaSoon ? 'linear-gradient(135deg, #d97706, #b45309)' : 'linear-gradient(135deg, #059669, #0d9488)' }}
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>{isAr ? 'تعديل التصميم وعزل الخلفية' : 'Edit design & remove background'}</span>
+                  <span>{isAr ? 'تعديل الطبقات في الاستوديو' : 'Edit layers in studio'}</span>
                   {isCanvaSoon && (
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-white/25 text-white border border-white/30 shrink-0">
                       {isAr ? canvaFeat?.comingSoonTagAr : canvaFeat?.comingSoonTagEn}

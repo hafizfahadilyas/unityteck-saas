@@ -1,5 +1,5 @@
 /**
- * Approved Unityteck / Souq commerce terminology (EN ↔ MSA Arabic).
+ * Approved Souq Platform commerce terminology (EN ↔ MSA Arabic).
  * Use these strings for store-admin chrome. Merchant content stays bilingual fields.
  * Do not mix English tech leftovers into Arabic chrome strings.
  */

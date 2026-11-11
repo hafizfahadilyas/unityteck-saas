@@ -25,9 +25,8 @@ import {
   isKnownGoogleTaxonomy,
 } from '../../config/googleProductTaxonomy';
 import {
-  findDuplicateBarcodes,
   findDuplicateOptionCombos,
-  findDuplicateSkus,
+  normalizeVariantUniqueness,
   sumVariantStock,
   buildGeneratedVariants,
   optionValuesList,
@@ -266,6 +265,10 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   const [subtitle, setSubtitle] = useState(product.subtitle || '');
   const [googleTaxonomy, setGoogleTaxonomy] = useState(product.googleTaxonomy || '');
   const [description, setDescription] = useState(product.description || '');
+  /** Manual typing vs AI auto-suggestion for title / description */
+  const [titleEntryMode, setTitleEntryMode] = useState<'manual' | 'ai'>('manual');
+  const [descEntryMode, setDescEntryMode] = useState<'manual' | 'ai'>('manual');
+  const [aiSuggestBusy, setAiSuggestBusy] = useState(false);
   const [isFeatured, setIsFeatured] = useState(
     Boolean(
       product.isFeatured ||
@@ -482,7 +485,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   // ── Variations State (Loaded from API or Product - ZERO DUMMY DATA) ──
   const [variations, setVariations] = useState<ProductVariation[]>(() => {
     if (product.variations && Array.isArray(product.variations) && product.variations.length > 0) {
-      return product.variations;
+      return normalizeVariantUniqueness(product.variations);
     }
     const seeded = seedExistingCommerce(product, storeId).options;
     if (seeded.length === 0) return [];
@@ -522,16 +525,16 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       if (isApiEnabled()) {
         const list = await tenantApi.fetchVariations(storeId, product.id);
         if (list && list.length > 0) {
-          setVariations(list);
+          setVariations(normalizeVariantUniqueness(list));
         } else if (product.variations && product.variations.length > 0) {
-          setVariations(product.variations);
+          setVariations(normalizeVariantUniqueness(product.variations));
         }
       } else if (product.variations && product.variations.length > 0) {
-        setVariations(product.variations);
+        setVariations(normalizeVariantUniqueness(product.variations));
       }
     } catch {
       if (product.variations && product.variations.length > 0) {
-        setVariations(product.variations);
+        setVariations(normalizeVariantUniqueness(product.variations));
       }
     } finally {
       setLoadingVariations(false);
@@ -712,7 +715,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
         pricing: sectionVisibility.pricing,
         inventory: sectionVisibility.inventory,
         variations: sectionVisibility.variations,
-        variationInventory: visibleSections?.variationInventory !== false,
         customFields: sectionVisibility.custom_fields,
         seo: sectionVisibility.seo,
         categoryTags: sectionVisibility.category_tags,
@@ -742,7 +744,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       pricing: true,
       inventory: true,
       variations: true,
-      variationInventory: true,
       customFields: true,
       seo: true,
       categoryTags: true,
@@ -1377,22 +1378,16 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       toast(isAr ? 'الكمية غير صالحة' : 'Invalid quantity', 'error');
       return;
     }
-    const next = variations.map((v) => (v.id === editingVariant.id ? editingVariant : v));
-    const dupSku = findDuplicateSkus(next);
-    const dupBar = findDuplicateBarcodes(next);
-    if (dupSku.length || dupBar.length) {
-      toast(
-        isAr ? 'رمز منتج أو باركود مكرر داخل التنويعات' : 'Duplicate SKU or barcode among variants',
-        'error',
-      );
-      return;
-    }
+    const next = normalizeVariantUniqueness(
+      variations.map((v) => (v.id === editingVariant.id ? editingVariant : v)),
+    );
+    const savedRow = next.find((v) => v.id === editingVariant.id) || editingVariant;
     setVariations(next);
     setStock(sumVariantStock(next));
     if (isApiEnabled() && storeId && product.id) {
       void tenantApi.updateVariation(storeId, product.id, editingVariant.id, {
-        sku: editingVariant.sku,
-        barcode: editingVariant.barcode ?? null,
+        sku: savedRow.sku,
+        barcode: savedRow.barcode ?? null,
         price: editingVariant.price,
         compare_at_price: editingVariant.compareAtPrice ?? null,
         stock: editingVariant.stock,
@@ -1478,15 +1473,19 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     const sale = Number(discountedPrice) || 0;
     const onSale = sale > 0 && sale < regular;
 
-    if (optionsEnabled) {
-      const dupSku = findDuplicateSkus(variations);
-      const dupBar = findDuplicateBarcodes(variations);
-      const dupCombo = findDuplicateOptionCombos(variations);
-      if (dupSku.length || dupBar.length || dupCombo.length) {
+    // Heal inherited / shared SKU·barcode collisions; only hard-block if twin option combos remain.
+    let saveVariations = variations;
+    if (optionsEnabled && variations.length > 0) {
+      saveVariations = normalizeVariantUniqueness(variations);
+      if (saveVariations !== variations) {
+        setVariations(saveVariations);
+      }
+      const dupCombo = findDuplicateOptionCombos(saveVariations);
+      if (dupCombo.length) {
         toast(
           isAr
-            ? 'تنويعات مكررة (رمز المنتج / الرمز الشريطي / الخيارات) — أصلحها قبل الحفظ'
-            : 'Duplicate variants (SKU / barcode / options) — fix before saving',
+            ? 'تنويعات بنفس الخيارات مكررة — احذف التكرار قبل الحفظ'
+            : 'Duplicate option combinations — remove extras before saving',
           'error',
         );
         return;
@@ -1495,11 +1494,11 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
     const primaryCategory = productCategories[0] || category;
     const tracksVariantStock =
-      optionsEnabled && variations.some((row) => row.isActive !== false && !row.unlimitedStock);
+      optionsEnabled && saveVariations.some((row) => row.isActive !== false && !row.unlimitedStock);
     const mirroredStock =
-      variations.length > 0 &&
-      variations.every((row) => row.isActive === false || row.unlimitedStock || Number(row.stock) === Number(stock));
-    const computedStock = tracksVariantStock && !mirroredStock ? sumVariantStock(variations) : Number(stock);
+      saveVariations.length > 0 &&
+      saveVariations.every((row) => row.isActive === false || row.unlimitedStock || Number(row.stock) === Number(stock));
+    const computedStock = tracksVariantStock && !mirroredStock ? sumVariantStock(saveVariations) : Number(stock);
     const payload: Partial<Product> = {
       name,
       sku,
@@ -1581,7 +1580,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
           }))
         : [],
       conditionalRules: conditionalRule ? [conditionalRule] : [],
-      variations: optionsEnabled ? variations : [],
+      variations: optionsEnabled ? saveVariations : [],
       seoTitle,
       seoDescription,
       customUrl: urlSlug,
@@ -1590,14 +1589,127 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     onSave(payload);
   };
 
+  const runAiProductCopySuggest = async (opts?: { fillTitle?: boolean; fillDescription?: boolean }) => {
+    const fillTitle = opts?.fillTitle !== false;
+    const fillDescription = opts?.fillDescription !== false;
+    if (!storeId || !isApiEnabled()) {
+      toast(
+        isAr ? 'اقتراح الذكاء الاصطناعي يتطلب اتصال الواجهة البرمجية' : 'AI suggestion needs the live API connection',
+        'error',
+      );
+      return;
+    }
+    if (!name.trim() && !category.trim() && !brand.trim()) {
+      toast(
+        isAr
+          ? 'أدخل اسم المنتج أو التصنيف أو العلامة أولاً ثم اطلب الاقتراح'
+          : 'Enter a name, category, or brand first, then request a suggestion',
+        'error',
+      );
+      return;
+    }
+    setAiSuggestBusy(true);
+    try {
+      const data = await tenantApi.suggestProductCopy(storeId, {
+        name: name.trim() || undefined,
+        category: category.trim() || undefined,
+        brand: brand.trim() || undefined,
+        product_type: productType.trim() || undefined,
+        locale: isAr ? 'ar' : 'en',
+      });
+      if (fillTitle && data.title) {
+        setName(data.title);
+      }
+      if (data.subtitle) {
+        setSubtitle(data.subtitle);
+      }
+      if (fillDescription && data.description) {
+        setDescription(data.description);
+      }
+      if (data.title && !seoTitle.trim()) {
+        setSeoTitle(`${data.title} | ${storeName}`);
+      }
+      if (data.description && !seoDescription.trim()) {
+        const plain = data.description.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        setSeoDescription(plain.slice(0, 160));
+      }
+      toast(
+        isAr ? 'تم تطبيق اقتراح العنوان والوصف — احفظ المنتج عند الجاهزية' : 'Title and description suggestion applied — save when ready',
+        'success',
+      );
+    } catch (err) {
+      const msg =
+        err instanceof Error && err.message
+          ? err.message
+          : isAr
+            ? 'تعذر الحصول على اقتراح الذكاء الاصطناعي'
+            : 'Could not fetch AI suggestion';
+      toast(msg, 'error');
+    } finally {
+      setAiSuggestBusy(false);
+    }
+  };
+
+  const entryModeToggle = (
+    modeValue: 'manual' | 'ai',
+    onChange: (next: 'manual' | 'ai') => void,
+    onPickAi: () => void,
+  ) => (
+    <div
+      className="inline-flex items-center gap-0.5 p-0.5 rounded-lg border shrink-0"
+      style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+      role="group"
+    >
+      <button
+        type="button"
+        onClick={() => onChange('manual')}
+        className={`px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors ${
+          modeValue === 'manual' ? 'text-white' : ''
+        }`}
+        style={
+          modeValue === 'manual'
+            ? { background: 'var(--portal-cta)', color: '#fff' }
+            : { color: 'var(--muted)' }
+        }
+        title={isAr ? 'كتابة يدوية' : 'Manual entry'}
+      >
+        <Pencil className="w-3 h-3" />
+        <span>{isAr ? 'يدوي' : 'Manual'}</span>
+      </button>
+      <button
+        type="button"
+        disabled={aiSuggestBusy || !canMutate}
+        onClick={() => {
+          onChange('ai');
+          onPickAi();
+        }}
+        className={`px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-50 ${
+          modeValue === 'ai' ? 'text-white' : ''
+        }`}
+        style={
+          modeValue === 'ai'
+            ? { background: 'var(--accent)', color: '#fff' }
+            : { color: 'var(--muted)' }
+        }
+        title={isAr ? 'اقتراح بالذكاء الاصطناعي' : 'AI suggestion'}
+      >
+        <Sparkles className={`w-3 h-3 ${aiSuggestBusy ? 'animate-pulse' : ''}`} />
+        <span>{isAr ? 'ذكاء' : 'AI'}</span>
+      </button>
+    </div>
+  );
+
   return (
-    <div className="u-page p-4 sm:p-6 pb-16 max-w-[1600px] mx-auto space-y-5 w-full min-w-0">
-      {/* ── HEADER ROW (Pixel-Perfect Matching Mockup 07) ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="u-page p-4 sm:p-6 pb-28 max-w-[1600px] mx-auto space-y-5 w-full min-w-0">
+      {/* ── HEADER ROW (sticky so Save stays visible) ── */}
+      <div
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-30 -mx-1 px-1 py-2 rounded-xl backdrop-blur-md"
+        style={{ background: 'color-mix(in srgb, var(--surface) 92%, transparent)' }}
+      >
         <div>
           {/* Green vertical indicator bar & Title */}
           <div className="flex items-center gap-3">
-            <div className="w-1.5 h-8 bg-teal-600 rounded-full shrink-0" />
+            <div className="w-1.5 h-8 rounded-full shrink-0" style={{ background: 'var(--accent)' }} />
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight" style={{ color: 'var(--text)' }}>
               {isCreateMode
                 ? isAr
@@ -1697,7 +1809,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
             type="button"
             onClick={() => handleSubmit()}
             disabled={!canMutate}
-            className="px-5 py-2 text-xs font-bold text-white rounded-xl flex items-center gap-2 cursor-pointer shadow-xs transition-all hover:opacity-95 bg-teal-700 hover:bg-teal-800 disabled:opacity-50"
+            className="unity-btn-primary px-5 py-2 text-xs font-bold rounded-xl flex items-center gap-2 cursor-pointer shadow-xs transition-all hover:opacity-95 disabled:opacity-50"
           >
             <Save className="w-4 h-4 shrink-0" />
             <span>
@@ -1744,11 +1856,14 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
           {/* CARD 1: PRODUCT IMAGES */}
           {sectionVisibility.images && (
-            <div className="lg:col-span-5 h-full flex flex-col bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+            <div
+              className="lg:col-span-5 h-full flex flex-col p-5 rounded-2xl shadow-xs space-y-4"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--card-fg)' }}
+            >
               {/* Card Header */}
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
+                  <div className="u-icon-brand w-9 h-9 rounded-xl flex items-center justify-center shrink-0">
                     <ImageIcon className="w-5 h-5" />
                   </div>
                   <div className="min-w-0">
@@ -1802,15 +1917,15 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
               {/* Main Image & Thumbnails side-by-side or stacked */}
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
-                {/* Large Main Preview (approx 7 cols) */}
-                <div className="sm:col-span-8 relative rounded-2xl overflow-hidden bg-slate-900 aspect-square flex items-center justify-center p-4 group border border-slate-200 dark:border-slate-800">
+                {/* Large Main Preview (approx 7 cols) — Holst media stage (no navy slate) */}
+                <div className="u-media-stage sm:col-span-8 relative rounded-2xl overflow-hidden aspect-square flex items-center justify-center p-4 group">
                   {/* Action Buttons top-end */}
                   <div className="absolute top-3 end-3 flex items-center gap-1.5 z-10">
                     {/* Upload & Replace from Device */}
                     <button
                       type="button"
                       onClick={() => mainFileInputRef.current?.click()}
-                      className="px-2.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white flex items-center gap-1.5 shadow-md transition-all cursor-pointer text-xs font-bold"
+                      className="unity-btn-primary px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 shadow-md transition-all cursor-pointer text-xs font-bold"
                       title={isAr ? 'تغيير واستبدال الصورة فوراً من جهازك' : 'Upload & replace from device'}
                     >
                       <UploadCloud className="w-3.5 h-3.5" />
@@ -1823,7 +1938,8 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                         setMediaPickerTarget('main');
                         setIsMediaPickerOpen(true);
                       }}
-                      className="p-2 rounded-xl bg-white/95 hover:bg-white dark:bg-slate-800/95 text-slate-700 dark:text-slate-200 flex items-center justify-center shadow-md transition-all cursor-pointer"
+                      className="p-2 rounded-xl flex items-center justify-center shadow-md transition-all cursor-pointer"
+                      style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
                       title={isAr ? 'اختيار من مكتبة الوسائط' : 'Choose from Media Library'}
                     >
                       <ImageIcon className="w-3.5 h-3.5" />
@@ -1832,7 +1948,8 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     <button
                       type="button"
                       onClick={handleRemoveMainImage}
-                      className="p-2 rounded-xl bg-white/95 hover:bg-white text-rose-600 flex items-center justify-center shadow-md transition-all cursor-pointer"
+                      className="p-2 rounded-xl flex items-center justify-center shadow-md transition-all cursor-pointer"
+                      style={{ background: 'var(--surface)', color: 'var(--tone-danger)', border: '1px solid var(--border)' }}
                       title={isAr ? 'حذف الصورة' : 'Remove image'}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -1840,8 +1957,11 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   </div>
 
                   {/* Main Image Badge bottom-start */}
-                  <div className="absolute bottom-3 start-3 px-3 py-1 rounded-full bg-black/75 backdrop-blur-xs text-white text-[11px] font-bold z-10 flex items-center gap-1.5 shadow-md">
-                    <Check className="w-3 h-3 text-teal-400" />
+                  <div
+                    className="absolute bottom-3 start-3 px-3 py-1 rounded-full backdrop-blur-xs text-[11px] font-bold z-10 flex items-center gap-1.5 shadow-md"
+                    style={{ background: 'color-mix(in srgb, var(--portal-950) 82%, transparent)', color: '#fff' }}
+                  >
+                    <Check className="w-3 h-3" style={{ color: 'var(--portal-400)' }} />
                     <span>{isAr ? 'الصورة الرئيسية' : 'Main Image'}</span>
                   </div>
 
@@ -1849,7 +1969,8 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsLightboxOpen(true)}
-                    className="absolute bottom-3 end-3 w-8 h-8 rounded-xl bg-black/60 hover:bg-black/80 text-white flex items-center justify-center shadow-md transition-all cursor-pointer z-10"
+                    className="absolute bottom-3 end-3 w-8 h-8 rounded-xl flex items-center justify-center shadow-md transition-all cursor-pointer z-10"
+                    style={{ background: 'color-mix(in srgb, var(--portal-950) 70%, transparent)', color: '#fff' }}
                     title={isAr ? 'تكبير الصورة' : 'Expand full image'}
                   >
                     <Maximize2 className="w-3.5 h-3.5" />
@@ -1864,9 +1985,9 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   />
                 </div>
 
-                {/* Thumbnails strip & Add button (approx 4 cols) */}
+                {/* Thumbnails strip & Add button — equal fixed heights */}
                 <div className="sm:col-span-4 flex flex-col gap-2.5 max-h-[460px] overflow-y-auto custom-scroll pe-1">
-                  <div className="text-[11px] font-semibold text-slate-500 flex items-center justify-between px-0.5">
+                  <div className="text-[11px] font-semibold flex items-center justify-between px-0.5" style={{ color: 'var(--muted)' }}>
                     <span>{isAr ? `الصور (${gallery.length})` : `All Images (${gallery.length})`}</span>
                     <span className="text-[10px]">{isAr ? 'تعديل أو استبدال' : 'Edit / Replace'}</span>
                   </div>
@@ -1874,11 +1995,16 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   {gallery.map((url, idx) => (
                     <div
                       key={idx}
-                      className={`group/thumb relative aspect-square rounded-xl overflow-hidden border-2 transition-all p-1 bg-slate-50 dark:bg-slate-900/60 flex items-center justify-center ${
+                      className={`group/thumb relative h-24 w-full shrink-0 rounded-xl overflow-hidden border-2 transition-all p-1 u-media-stage flex items-center justify-center ${
                         selectedImageIndex === idx
                           ? 'border-teal-600 ring-2 ring-teal-500/30'
-                          : 'border-slate-200 dark:border-slate-800 hover:border-slate-400'
+                          : 'hover:opacity-95'
                       }`}
+                      style={
+                        selectedImageIndex === idx
+                          ? { borderColor: 'var(--accent)', boxShadow: '0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent)' }
+                          : { borderColor: 'var(--border)' }
+                      }
                     >
                       <img
                         src={url || FALLBACK_PRODUCT_IMAGE}
@@ -1891,7 +2017,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
                       {/* Main Image tag */}
                       {selectedImageIndex === idx && (
-                        <span className="absolute bottom-1 start-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-teal-600 text-white leading-none z-10">
+                        <span className="unity-btn-primary absolute bottom-1 start-1 px-1.5 py-0.5 rounded text-[9px] font-bold leading-none z-10">
                           {isAr ? 'معروضة' : 'Active'}
                         </span>
                       )}
@@ -1943,12 +2069,17 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     </div>
                   ))}
 
-                  {/* Add Images action buttons */}
+                  {/* Add Images action buttons — same height as thumbs */}
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     <button
                       type="button"
                       onClick={() => addFilesInputRef.current?.click()}
-                      className="p-2.5 rounded-xl border-2 border-dashed border-teal-500 hover:border-teal-600 hover:bg-teal-50/50 dark:hover:bg-teal-950/40 text-teal-700 dark:text-teal-300 flex flex-col items-center justify-center gap-1 transition-all cursor-pointer"
+                      className="h-24 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all cursor-pointer"
+                      style={{
+                        borderColor: 'var(--accent)',
+                        color: 'var(--accent)',
+                        background: 'color-mix(in srgb, var(--accent) 6%, var(--surface))',
+                      }}
                       title={isAr ? 'رفع صور جديدة من جهازك' : 'Upload new images from device'}
                     >
                       <UploadCloud className="w-4 h-4" />
@@ -1963,7 +2094,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                         setMediaPickerTarget('gallery');
                         setIsMediaPickerOpen(true);
                       }}
-                      className="p-2.5 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 flex flex-col items-center justify-center gap-1 transition-all cursor-pointer"
+                      className="h-24 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 flex flex-col items-center justify-center gap-1 transition-all cursor-pointer"
                       title={isAr ? 'اختيار من مكتبة الوسائط' : 'Choose from Media Library'}
                     >
                       <ImageIcon className="w-4 h-4" />
@@ -1979,11 +2110,11 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
           {/* CARD 2: BASIC INFORMATION */}
           {sectionVisibility.basic && (
-            <div className="lg:col-span-7 h-full flex flex-col bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+            <div className="lg:col-span-7 h-full flex flex-col bg-[var(--surface)] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
               {/* Card Header */}
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
+                  <div className="u-icon-brand w-9 h-9 rounded-xl flex items-center justify-center shrink-0">
                     <FileText className="w-5 h-5" />
                   </div>
                   <div className="min-w-0">
@@ -1997,15 +2128,32 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
               {/* Form Row 1: Product Name * and SKU * */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                    {isAr ? 'اسم المنتج' : 'Product Name'} <span className="text-rose-500">*</span>
-                  </label>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <label className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                      {isAr ? 'اسم المنتج / العنوان' : 'Product Name / Title'}{' '}
+                      <span className="text-rose-500">*</span>
+                    </label>
+                    {entryModeToggle(titleEntryMode, setTitleEntryMode, () =>
+                      void runAiProductCopySuggest({ fillTitle: true, fillDescription: descEntryMode === 'ai' }),
+                    )}
+                  </div>
                   <input
                     type="text"
                     required
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder={isAr ? 'مثال: اسم المنتج' : 'e.g. Product name'}
+                    onChange={(e) => {
+                      setTitleEntryMode('manual');
+                      setName(e.target.value);
+                    }}
+                    placeholder={
+                      titleEntryMode === 'ai'
+                        ? isAr
+                          ? 'اضغط ذكاء لاقتراح العنوان تلقائياً...'
+                          : 'Press AI to auto-suggest the title...'
+                        : isAr
+                          ? 'مثال: اسم المنتج'
+                          : 'e.g. Product name'
+                    }
                     className="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   />
@@ -2185,15 +2333,30 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
         </div>
 
         {sectionVisibility.basic && (
-          <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+          <div className="bg-[var(--surface)] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <h3 className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                {isAr ? 'الوصف الكامل (عناوين، صور، فيديو)' : 'Full Description (headings, images, video)'}
+              </h3>
+              {entryModeToggle(descEntryMode, setDescEntryMode, () =>
+                void runAiProductCopySuggest({ fillTitle: titleEntryMode === 'ai', fillDescription: true }),
+              )}
+            </div>
             <RichTextEditor
-              label={isAr ? 'الوصف الكامل (عناوين، صور، فيديو)' : 'Full Description (headings, images, video)'}
+              label=""
               value={description}
-              onChange={setDescription}
+              onChange={(next) => {
+                setDescEntryMode('manual');
+                setDescription(next);
+              }}
               placeholder={
-                isAr
-                  ? 'اكتب وصف المنتج مع عناوين وصور وفيديو...'
-                  : 'Write product details with headings, images, and video...'
+                descEntryMode === 'ai'
+                  ? isAr
+                    ? 'اضغط ذكاء لاقتراح الوصف تلقائياً، أو عدّل يدوياً...'
+                    : 'Press AI to auto-suggest the description, or edit manually...'
+                  : isAr
+                    ? 'اكتب وصف المنتج مع عناوين وصور وفيديو...'
+                    : 'Write product details with headings, images, and video...'
               }
               isAr={isAr}
               enableHeadings
@@ -2207,7 +2370,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           {/* CARD 4: PRICING */}
           {sectionVisibility.pricing && (
-            <div className="lg:col-span-5 bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+            <div className="lg:col-span-5 bg-[var(--surface)] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
               {/* Header */}
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -2304,7 +2467,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
           {/* CARD 5: INVENTORY & SHIPPING */}
           {sectionVisibility.inventory && (
-            <div className="lg:col-span-7 bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+            <div className="lg:col-span-7 bg-[var(--surface)] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
               {/* Header */}
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -2505,7 +2668,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                         );
                       }, 60);
                     }}
-                    className="w-full px-3 py-2.5 rounded-xl text-xs font-bold border cursor-pointer inline-flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-500 text-white border-teal-600"
+                    className="unity-btn-primary w-full px-3 py-2.5 rounded-xl text-xs font-bold border cursor-pointer inline-flex items-center justify-center gap-2"
                   >
                     <Truck className="w-3.5 h-3.5 shrink-0" />
                     <span>
@@ -2521,7 +2684,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
         {/* ROW 3: Product Options & Variants (Full Width, 100% Pixel-Perfect to Reference Screenshot) */}
         {(sectionVisibility.options || sectionVisibility.variations) && (
-          <div className="bg-white dark:bg-[#071E26] p-5 sm:p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-6">
+          <div className="bg-[var(--surface)] p-5 sm:p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-6">
             {/* Header matching reference screenshot */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-start gap-3">
@@ -3261,7 +3424,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
         {/* ROW 4: Custom Fields (Full Width, 100% Pixel-Perfect to Reference Screenshot) */}
         {sectionVisibility.custom_fields && (
-          <div className="bg-white dark:bg-[#071E26] p-5 sm:p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-5">
+          <div className="bg-[var(--surface)] p-5 sm:p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-5">
             {/* Header matching reference screenshot */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-start gap-3 min-w-0">
@@ -3497,7 +3660,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           {/* CARD 8: CATEGORY & TAGS */}
           {sectionVisibility.category_tags && (
-            <div className="lg:col-span-6 bg-white dark:bg-[#071E26] p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+            <div className="lg:col-span-6 bg-[var(--surface)] p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
               {/* Header */}
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -3629,7 +3792,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
           {/* CARD 9: SEO SETTINGS */}
           {sectionVisibility.seo && (
-            <div className="lg:col-span-6 bg-white dark:bg-[#071E26] p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+            <div className="lg:col-span-6 bg-[var(--surface)] p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
               {/* Header */}
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -3698,6 +3861,55 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
           )}
         </div>
       </form>
+
+      {/* Sticky bottom Save — always visible on Add / Edit */}
+      <div
+        className="fixed bottom-0 inset-x-0 z-40 border-t px-4 py-3 flex items-center justify-end gap-2.5"
+        style={{
+          background: 'color-mix(in srgb, var(--surface) 94%, transparent)',
+          borderColor: 'var(--border)',
+          backdropFilter: 'blur(10px)',
+        }}
+      >
+        <div className="w-full max-w-[1600px] mx-auto flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+            {isCreateMode
+              ? isAr
+                ? 'احفظ المنتج من هنا بعد تعبئة الاسم ورمز المنتج والسعر'
+                : 'Save the product here after name, SKU, and price are filled'
+              : isAr
+                ? 'احفظ التغييرات من الشريط السفلي أو من أعلى الصفحة'
+                : 'Save changes from this bar or from the top of the page'}
+          </p>
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={onBack}
+              className="px-4 py-2 rounded-xl text-xs font-bold border cursor-pointer transition-colors"
+              style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--surface)' }}
+            >
+              {isAr ? 'إلغاء' : 'Cancel'}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSubmit()}
+              disabled={!canMutate || aiSuggestBusy}
+              className="unity-btn-primary px-5 py-2 text-xs font-bold rounded-xl flex items-center gap-2 cursor-pointer shadow-xs transition-all hover:opacity-95 disabled:opacity-50"
+            >
+              <Save className="w-4 h-4 shrink-0" />
+              <span>
+                {isCreateMode
+                  ? isAr
+                    ? 'إنشاء المنتج'
+                    : 'Create Product'
+                  : isAr
+                    ? 'حفظ التغييرات'
+                    : 'Save Changes'}
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* ── CENTRAL MEDIA PICKER MODAL ── */}
       <MediaPickerModal
@@ -3796,7 +4008,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                         'noopener,noreferrer',
                       );
                     }}
-                    className="flex-1 py-2.5 rounded-xl bg-teal-700 text-white font-bold text-xs flex items-center justify-center gap-2 hover:bg-teal-800"
+                    className="unity-btn-primary flex-1 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2"
                   >
                     <ExternalLink className="w-4 h-4" />
                     <span>{isAr ? 'عرض في المتجر مباشرة' : 'View on Storefront'}</span>
@@ -3818,7 +4030,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       {/* ── EDIT VARIANT MODAL ── */}
       {editingVariant && (
         <EditorModal onClose={() => setEditingVariant(null)}>
-          <div className="bg-white dark:bg-[#071E26] border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-[var(--surface)] border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
@@ -4146,7 +4358,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       {/* ── CUSTOM FIELD MODAL (Add / Edit Custom Field) ── */}
       {isFieldModalOpen && (
         <EditorModal onClose={() => setIsFieldModalOpen(false)}>
-          <div className="bg-white dark:bg-[#071E26] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-lg w-full p-5 sm:p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+          <div className="bg-[var(--surface)] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-lg w-full p-5 sm:p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <FileSpreadsheet className="w-4 h-4 text-blue-600" />
@@ -4534,7 +4746,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       {/* ── CONDITIONAL RULE MODAL (Configure Rule) ── */}
       {isRuleModalOpen && (
         <EditorModal onClose={() => setIsRuleModalOpen(false)}>
-          <div className="bg-white dark:bg-[#071E26] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-lg w-full p-5 sm:p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-[var(--surface)] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-lg w-full p-5 sm:p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <Info className="w-4 h-4 text-blue-600" />

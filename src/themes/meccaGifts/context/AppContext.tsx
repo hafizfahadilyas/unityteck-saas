@@ -78,7 +78,7 @@ interface AppContextType {
   freeShippingRemaining: number;
   appliedCoupon: CouponItem | null;
   appliedDiscount: number;
-  applyCouponCode: (rawCode: string) => { success: boolean; message: string; discount: number };
+  applyCouponCode: (rawCode: string) => Promise<{ success: boolean; message: string; discount: number }>;
   removeAppliedCoupon: () => void;
   builderDevice?: 'desktop' | 'laptop' | 'tablet' | 'mobile';
   setBuilderDevice?: (device: 'desktop' | 'laptop' | 'tablet' | 'mobile') => void;
@@ -940,7 +940,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return Math.min(cartSubtotal, couponPart + specialOfferDiscount);
   }, [appliedCoupon, cartSubtotal, specialOfferDiscount]);
 
-  const applyCouponCode = (rawCode: string): { success: boolean; message: string; discount: number } => {
+  const applyCouponCode = async (
+    rawCode: string,
+  ): Promise<{ success: boolean; message: string; discount: number }> => {
     if (!rawCode || !rawCode.trim()) {
       return {
         success: false,
@@ -949,6 +951,48 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       };
     }
     const cleanCode = rawCode.trim().toUpperCase().replace(/\s+/g, '');
+
+    if (activeStore?.id) {
+      try {
+        const { validateStorefrontCoupon } = await import('../../../api/tenantApi');
+        const apiRes = await validateStorefrontCoupon(activeStore.id, cleanCode, cartSubtotal);
+        if (apiRes.valid && apiRes.coupon) {
+          setAppliedCoupon(apiRes.coupon);
+          const disc =
+            apiRes.discount ||
+            (apiRes.coupon.discountType === 'percentage'
+              ? Math.round(cartSubtotal * (apiRes.coupon.discountValue / 100))
+              : Math.min(cartSubtotal, apiRes.coupon.discountValue));
+          return {
+            success: true,
+            message:
+              language === 'ar'
+                ? `تم تطبيق الكوبون "${apiRes.coupon.code}" وحصلت على خصم ${disc} ر.س`
+                : `Coupon "${apiRes.coupon.code}" applied! You saved ${disc} SAR`,
+            discount: disc,
+          };
+        }
+        if (apiRes.message && !/invalid/i.test(apiRes.message)) {
+          return {
+            success: false,
+            message:
+              language === 'ar'
+                ? apiRes.message.includes('expired')
+                  ? 'انتهت صلاحية هذا الكود'
+                  : apiRes.message.includes('limit')
+                    ? 'وصل الكوبون للحد الأقصى من الاستخدام'
+                    : apiRes.message.includes('Minimum')
+                      ? `الحد الأدنى لتطبيق هذا الكوبون غير مكتمل`
+                      : 'هذا الكود غير نشط أو منتهي الصلاحية'
+                : apiRes.message,
+            discount: 0,
+          };
+        }
+      } catch {
+        /* fall through to tenant coupons */
+      }
+    }
+
     const found = (currentCoupons || []).find((c) => c.code.toUpperCase() === cleanCode);
 
     if (!found) {
@@ -1007,8 +1051,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       success: true,
       message:
         language === 'ar'
-          ? `تم تطبيق الكوبون "${found.code}" وحصلت على خصم ${disc} ر.س 🎉`
-          : `Coupon "${found.code}" applied! You saved ${disc} SAR 🎉`,
+          ? `تم تطبيق الكوبون "${found.code}" وحصلت على خصم ${disc} ر.س`
+          : `Coupon "${found.code}" applied! You saved ${disc} SAR`,
       discount: disc,
     };
   };
@@ -1332,7 +1376,7 @@ const DEFAULT_FALLBACK_APP_CONTEXT: AppContextType = {
   freeShippingRemaining: 299,
   appliedCoupon: null,
   appliedDiscount: 0,
-  applyCouponCode: () => ({ success: false, message: '', discount: 0 }),
+  applyCouponCode: async () => ({ success: false, message: '', discount: 0 }),
   removeAppliedCoupon: () => {},
   builderDevice: 'desktop',
   setBuilderDevice: () => {},

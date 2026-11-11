@@ -256,6 +256,16 @@
   box-shadow: 0 4px 14px rgba(15, 23, 42, 0.14) !important;
   pointer-events: auto;
   z-index: 40;
+  max-width: min(92vw, 280px);
+}
+
+/* Keep selection chrome inside viewport on small screens */
+@media (max-width: 640px) {
+  .canva-studio-light .cs-selection-toolbar,
+  .canva-studio-light .cs-selection-pill {
+    top: 0.35rem !important;
+    transform: translateX(-50%);
+  }
 }
 
 .canva-studio-light .cs-canvas-frame {

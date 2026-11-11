@@ -2561,11 +2561,14 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
           dir={isAr ? 'rtl' : 'ltr'}
           aria-label={isAr ? 'إعدادات المساعد الذكي' : 'AI Assistant Settings'}
         >
-          <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-purple-200 dark:border-purple-800 overflow-hidden my-auto animate-in fade-in zoom-in-95">
-            <div className="p-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white flex items-center justify-between">
+          <div
+            className="w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'var(--font-ui)' }}
+          >
+            <div className="unity-modal-header p-4 text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5" />
-                <h3 className="font-bold text-sm">
+                <Sparkles className="w-5 h-5 unity-modal-icon" />
+                <h3 className="font-bold text-sm text-white">
                   {isAr ? 'إعدادات المساعد الذكي' : 'AI Assistant Settings'}
                 </h3>
               </div>

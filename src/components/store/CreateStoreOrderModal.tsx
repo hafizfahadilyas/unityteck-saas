@@ -30,12 +30,14 @@ import { usePrefs } from '../../i18n/PrefsContext';
 import { commerceTerm } from '../../i18n/commerceTerms';
 import type { Order, Product } from '../../types';
 import {
+  fetchCouriers,
   fetchDeliveryDriversApi,
-  fetchProducts,
   fetchProductsPage,
+  fetchShippingMethods,
   fetchStorefrontCatalog,
   type DeliveryDriverRow,
 } from '../../api/tenantApi';
+import type { CourierConnectionItem, ShippingMethodItem } from '../../types';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
 import {
   getProductDisplayCategory,
@@ -81,18 +83,26 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
   const currencyLabel = isAr ? 'ر.س' : 'SAR';
 
   // Access store catalog from TenantContext with fallbacks
-  const { currentProducts, allProducts, activeStore, currentShippingMethods } = useTenant();
+  const {
+    currentProducts,
+    allProducts,
+    activeStore,
+    currentShippingMethods,
+    currentCouriers,
+  } = useTenant();
   const resolvedStoreId = storeId || activeStore?.id;
   const [liveCatalog, setLiveCatalog] = useState<Product[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [localShippingMethods, setLocalShippingMethods] = useState<ShippingMethodItem[]>([]);
+  const [localCouriers, setLocalCouriers] = useState<CourierConnectionItem[]>([]);
 
   // Warm Google Maps while catalog loads so the delivery pin is ready when scrolled into view.
   useEffect(() => {
     prefetchGoogleMaps();
   }, []);
 
-  // Lifetime: always load this store's real catalog when modal opens (local + live).
+  // Seed from context first (instant UI) — one light refresh, no triple sequential hangs.
   useEffect(() => {
     if (!resolvedStoreId) {
       setLiveCatalog([]);
@@ -100,8 +110,20 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
       return;
     }
     let cancelled = false;
-    setCatalogLoading(true);
-    setCatalogError(null);
+    const ctxRows =
+      allProducts[resolvedStoreId] ||
+      (activeStore?.id === resolvedStoreId ? currentProducts : null) ||
+      propProducts ||
+      [];
+    const seed = Array.isArray(ctxRows) ? ctxRows : [];
+    if (seed.length > 0) {
+      setLiveCatalog(seed);
+      setCatalogLoading(false);
+      setCatalogError(null);
+    } else {
+      setCatalogLoading(true);
+      setCatalogError(null);
+    }
 
     (async () => {
       const mergeUnique = (rows: Product[]) => {
@@ -118,14 +140,9 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
       let loaded: Product[] = [];
       let fetchFailed = false;
       try {
-        loaded = await fetchProducts(resolvedStoreId, {
-          all: true,
-          per_page: 200,
-          sort: 'updated_at',
-          dir: 'desc',
-        });
+        loaded = await fetchStorefrontCatalog(resolvedStoreId);
       } catch {
-        /* try next source */
+        /* try admin page */
       }
       if (!Array.isArray(loaded) || loaded.length === 0) {
         try {
@@ -137,13 +154,6 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
           });
           loaded = page.data;
         } catch {
-          /* try next source */
-        }
-      }
-      if (!Array.isArray(loaded) || loaded.length === 0) {
-        try {
-          loaded = await fetchStorefrontCatalog(resolvedStoreId);
-        } catch {
           loaded = [];
           fetchFailed = true;
         }
@@ -151,10 +161,10 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
 
       if (cancelled) return;
       const next = mergeUnique(Array.isArray(loaded) ? loaded : []);
-      setLiveCatalog(next);
+      if (next.length > 0) setLiveCatalog(next);
       setCatalogLoading(false);
       setCatalogError(
-        fetchFailed && next.length === 0
+        fetchFailed && next.length === 0 && seed.length === 0
           ? isAr
             ? 'تعذر تحميل منتجات هذا المتجر. تحقق من الاتصال وحاول مرة أخرى.'
             : 'Could not load products for this store. Check connection and try again.'
@@ -165,7 +175,55 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
     return () => {
       cancelled = true;
     };
+    // Only re-run when the store (or locale) changes — not on every catalog map rewrite.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedStoreId, isAr]);
+
+  // Ensure enabled shipping methods + connected couriers are available for the dropdown.
+  useEffect(() => {
+    if (!resolvedStoreId) {
+      setLocalShippingMethods([]);
+      setLocalCouriers([]);
+      return;
+    }
+    let cancelled = false;
+    void Promise.allSettled([
+      fetchShippingMethods(resolvedStoreId),
+      fetchCouriers(resolvedStoreId),
+    ]).then(([methodsRes, couriersRes]) => {
+      if (cancelled) return;
+      if (methodsRes.status === 'fulfilled' && Array.isArray(methodsRes.value)) {
+        setLocalShippingMethods(methodsRes.value.filter((m) => m.isActive !== false));
+      }
+      if (couriersRes.status === 'fulfilled' && Array.isArray(couriersRes.value)) {
+        const normalized: CourierConnectionItem[] = couriersRes.value.map((raw: any) => {
+          const statusRaw = String(raw.status || '').toLowerCase();
+          const connected =
+            statusRaw === 'connected' ||
+            raw.is_connected === true ||
+            raw.isConnected === true;
+          return {
+            id: String(raw.id || ''),
+            storeId: String(raw.store_id || raw.storeId || resolvedStoreId),
+            provider: (raw.provider || 'smsa') as CourierConnectionItem['provider'],
+            accountName: String(raw.account_name || raw.accountName || raw.provider || ''),
+            accountNumber: raw.account_number || raw.accountNumber,
+            maskedApiKey: String(raw.masked_api_key || raw.maskedApiKey || ''),
+            isSandbox: Boolean(raw.is_sandbox ?? raw.isSandbox),
+            isConnected: connected,
+            status: connected ? 'connected' : statusRaw === 'error' ? 'error' : 'disconnected',
+            settings: raw.settings,
+            lastTestedAt: raw.last_tested_at || raw.lastTestedAt,
+            lastSyncAt: raw.last_sync_at || raw.lastSyncAt,
+          };
+        });
+        setLocalCouriers(normalized.filter((c) => c.status === 'connected' || c.isConnected));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedStoreId]);
 
   const catalogProducts: Product[] = useMemo(() => {
     // Strict store isolation — never borrow another tenant's catalog.
@@ -475,7 +533,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
       aria-label={commerceTerm('createNewOrder', isAr)}
     >
       <div
-        className="relative w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[min(94vh,94dvh)]"
+        className="relative w-[calc(100vw-0.75rem)] sm:w-full max-w-4xl rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[min(96vh,96dvh)]"
         style={{
           background: 'var(--surface, #fff)',
           border: '1px solid var(--border, #e2e8f0)',
@@ -483,12 +541,13 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
           fontFamily: 'var(--font-ui, inherit)',
         }}
       >
-        {/* ── TOP HEADER ── */}
+        {/* ── TOP HEADER — Holst global CTA (same BrandingPanel / unity-btn-primary) ── */}
         <div
-          className="px-6 py-4.5 border-b flex items-center justify-between sticky top-0 z-30"
+          className="unity-modal-header px-6 py-4.5 border-b flex items-center justify-between sticky top-0 z-30"
           style={{
-            background: 'var(--portal-950, #0b1b36)',
-            borderColor: 'var(--border, #1e293b)',
+            background: 'var(--portal-cta)',
+            backgroundColor: 'var(--portal-600)',
+            borderColor: 'transparent',
             color: '#fff',
           }}
         >
@@ -496,7 +555,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
             <div className="flex items-center gap-2.5 flex-wrap">
               <span
                 className="w-8 h-8 rounded-xl text-white flex items-center justify-center font-black shadow-sm"
-                style={{ background: 'var(--portal-400, #38bdf8)' }}
+                style={{ background: 'rgba(255,255,255,0.2)' }}
               >
                 <Store className="w-4 h-4" />
               </span>
@@ -507,14 +566,14 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                 <span
                   className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-2xs"
                   style={{
-                    background: 'rgba(255,255,255,0.12)',
-                    borderColor: 'rgba(255,255,255,0.22)',
+                    background: 'rgba(255,255,255,0.14)',
+                    borderColor: 'rgba(255,255,255,0.28)',
                     color: '#fff',
                   }}
                 >
                   <span
                     className="w-2 h-2 rounded-full animate-pulse"
-                    style={{ background: 'var(--portal-400, #38bdf8)' }}
+                    style={{ background: '#ffffff' }}
                   />
                   <span>
                     {activeStore
@@ -524,7 +583,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                 </span>
               )}
             </div>
-            <p className="text-xs font-semibold mt-1" style={{ color: 'rgba(255,255,255,0.72)' }}>
+            <p className="text-xs font-semibold mt-1 text-white/80">
               {isAr
                 ? 'ابحث وأضف منتجات حقيقية من كتالوج المتجر وحدد بيانات العميل والتوصيل'
                 : 'Search and add real products from store catalog, set customer info, and finalize manual order'}
@@ -1504,22 +1563,96 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                       {commerceTerm('shippingCompany', isAr)}
                     </label>
                     {(() => {
-                      const courierMethods = (currentShippingMethods || []).filter(
-                        (m) => m.isActive && (m.fulfillmentMode || 'courier') !== 'own_delivery',
+                      type ShipOpt = {
+                        id: string;
+                        name: string;
+                        nameAr: string;
+                        baseRate: number;
+                        perKgRate: number;
+                        estimatedDelivery: string;
+                        trackingEnabled: boolean;
+                      };
+                      const providerLabel = (code: string): { en: string; ar: string } => {
+                        const c = code.toLowerCase();
+                        if (c === 'smsa') return { en: 'SMSA Express', ar: 'سمسا إكسبريس' };
+                        if (c === 'aramex') return { en: 'Aramex', ar: 'أرامكس' };
+                        if (c === 'spl') return { en: 'Saudi Post (SPL)', ar: 'البريد السعودي' };
+                        if (c === 'dhl') return { en: 'DHL', ar: 'دي إتش إل' };
+                        if (c === 'fedex') return { en: 'FedEx', ar: 'فيديكس' };
+                        if (c === 'ups') return { en: 'UPS', ar: 'يو بي إس' };
+                        return { en: code.toUpperCase(), ar: code.toUpperCase() };
+                      };
+
+                      const methodsPool =
+                        (currentShippingMethods || []).length > 0
+                          ? currentShippingMethods
+                          : localShippingMethods;
+                      const couriersPool =
+                        (currentCouriers || []).length > 0 ? currentCouriers : localCouriers;
+
+                      const seen = new Set<string>();
+                      const courierMethods: ShipOpt[] = [];
+
+                      for (const m of methodsPool || []) {
+                        if (m.isActive === false) continue;
+                        if ((m.fulfillmentMode || 'courier') === 'own_delivery') continue;
+                        const key = String(m.courierCode || m.name || m.id)
+                          .trim()
+                          .toLowerCase();
+                        if (!key || seen.has(key)) continue;
+                        seen.add(key);
+                        courierMethods.push({
+                          id: m.id,
+                          name: m.name || key,
+                          nameAr: m.nameAr || m.name || key,
+                          baseRate: Number(m.baseRate) || 0,
+                          perKgRate: Number(m.perKgRate) || 0,
+                          estimatedDelivery: m.estimatedDelivery || '',
+                          trackingEnabled: m.trackingEnabled !== false,
+                        });
+                      }
+
+                      for (const c of couriersPool || []) {
+                        if (!(c.status === 'connected' || c.isConnected === true)) continue;
+                        const key = String(c.provider || '').trim().toLowerCase();
+                        if (!key || seen.has(key)) continue;
+                        seen.add(key);
+                        const names = providerLabel(key);
+                        courierMethods.push({
+                          id: c.id || `courier-${key}`,
+                          name: c.accountName || names.en,
+                          nameAr: names.ar,
+                          baseRate: 0,
+                          perKgRate: 0,
+                          estimatedDelivery: '',
+                          trackingEnabled: true,
+                        });
+                      }
+
+                      courierMethods.sort((a, b) =>
+                        (isAr ? a.nameAr : a.name).localeCompare(isAr ? b.nameAr : b.name),
                       );
+
                       if (courierMethods.length === 0) {
                         return (
-                          <input
-                            type="text"
-                            value={shippingCompany}
-                            onChange={(e) => setShippingCompany(e.target.value)}
-                            placeholder={isAr ? 'مثال: سمسا، أرامكس، سبل' : 'e.g. SMSA, Aramex, SPL'}
-                            className="w-full max-w-md px-3 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 font-medium"
-                          />
+                          <div className="space-y-2 max-w-md">
+                            <input
+                              type="text"
+                              value={shippingCompany}
+                              onChange={(e) => setShippingCompany(e.target.value)}
+                              placeholder={isAr ? 'مثال: سمسا، أرامكس، سبل' : 'e.g. SMSA, Aramex, SPL'}
+                              className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 font-medium"
+                            />
+                            <p className="text-[10px] text-amber-700 dark:text-amber-300">
+                              {isAr
+                                ? 'لا توجد شركات شحن مفعّلة — فعّلها من إعدادات الشحن أو اكتب الاسم يدوياً.'
+                                : 'No enabled shipping companies — enable them in Shipping settings or type a name.'}
+                            </p>
+                          </div>
                         );
                       }
                       return (
-                        <div className="space-y-2 max-w-md">
+                        <div className="space-y-2 w-full max-w-md">
                           <PortalSelect
                             value={
                               courierMethods.find(
@@ -1530,30 +1663,35 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                               )?.id || ''
                             }
                             onChange={(idOrName) => {
-                              setShippingCompany(idOrName);
                               const m = courierMethods.find(
                                 (x) => x.id === idOrName || x.name === idOrName || x.nameAr === idOrName,
                               );
                               if (m) {
                                 setShippingFee(Number(m.baseRate) || 0);
-                                setShippingCompany(isAr ? (m.nameAr || m.name) : m.name);
+                                setShippingCompany(isAr ? m.nameAr || m.name : m.name);
+                              } else {
+                                setShippingCompany(idOrName);
                               }
                             }}
                             placeholder={isAr ? 'اختر شركة الشحن' : 'Select shipping company'}
                             className="w-full px-3 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-850 font-medium text-start"
                             options={courierMethods.map((m) => {
-                              const label = isAr ? (m.nameAr || m.name) : m.name;
+                              const label = isAr ? m.nameAr || m.name : m.name;
                               const fee = Number(m.baseRate) || 0;
                               const perKg = Number(m.perKgRate) || 0;
                               const eta = m.estimatedDelivery || '';
                               const feeBit =
-                                perKg > 0
-                                  ? isAr
-                                    ? `${fee}ر.س +${perKg}/كجم`
-                                    : `${fee} SAR + ${perKg}/kg`
+                                fee > 0 || perKg > 0
+                                  ? perKg > 0
+                                    ? isAr
+                                      ? `${fee}ر.س +${perKg}/كجم`
+                                      : `${fee} SAR + ${perKg}/kg`
+                                    : isAr
+                                      ? `${fee}ر.س`
+                                      : `${fee} SAR`
                                   : isAr
-                                    ? `${fee}ر.س`
-                                    : `${fee} SAR`;
+                                    ? 'مفعّلة'
+                                    : 'Enabled';
                               return {
                                 value: m.id,
                                 label: `${label} · ${feeBit}${eta ? ` · ${eta}` : ''}${
@@ -1564,8 +1702,8 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                           />
                           <p className="text-[10px] text-slate-500">
                             {isAr
-                              ? 'الرسوم والوقت والتتبع من إعدادات الشحن (ثابت أو حسب الكيلو).'
-                              : 'Fee, ETA, and tracking come from Shipping settings (fixed or per-kg).'}
+                              ? `كل شركات الشحن المفعّلة (${courierMethods.length}) — الرسوم من إعدادات الشحن.`
+                              : `All enabled shipping companies (${courierMethods.length}) — fees from Shipping settings.`}
                           </p>
                         </div>
                       );
@@ -1581,11 +1719,16 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                 {isAr ? 'عنوان التوصيل والحي' : 'Delivery Address & District'}{' '}
                 <span className="text-rose-500">*</span>
               </label>
-              {/* Hidden required field so HTML form validation still works */}
+              <p className="mb-1.5 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                {isAr
+                  ? 'الخيار ١: اسحب الدبوس للتثبيت دون كتابة — الخيار ٢: اكتب العنوان للبحث'
+                  : 'Option 1: drag the pin to lock with no typing — Option 2: type to search'}
+              </p>
+              {/* Hidden required: typed address OR map pin is enough */}
               <input
                 type="text"
-                required={deliveryMethod === 'delivery'}
-                value={shippingAddress}
+                required={deliveryMethod === 'delivery' && !deliveryGeo && !shippingAddress.trim()}
+                value={shippingAddress || (deliveryGeo ? `${deliveryGeo.lat},${deliveryGeo.lng}` : '')}
                 onChange={(e) => setShippingAddress(e.target.value)}
                 tabIndex={-1}
                 aria-hidden="true"
@@ -1673,7 +1816,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
         ) : null}
 
         {/* ── STICKY FOOTER ACTIONS ── */}
-        <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-end gap-3 sticky bottom-0 z-30">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 sticky bottom-0 z-30">
           <button
             type="button"
             onClick={onClose}

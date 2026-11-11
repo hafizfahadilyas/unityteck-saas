@@ -22,7 +22,7 @@
     /* Single face for whole admin (Invoice page reference) — AR/EN via --font-ui */
     font-family: var(--font-ui);
     color: var(--text, #0F172A);
-    background-color: var(--bg, #F8FAFC);
+    background-color: var(--bg, #e2f4f0);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }

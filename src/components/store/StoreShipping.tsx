@@ -26,6 +26,7 @@ import {
   UserRound,
   Trash2,
   Loader2,
+  ArrowLeft,
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { commerceTerm } from '../../i18n/commerceTerms';
@@ -42,6 +43,7 @@ import { ShipmentsTrackingView } from './shipping/ShipmentsTrackingView';
 import { ShippingLabelsStudioView } from './shipping/ShippingLabelsStudioView';
 import { ShippingZonesRatesView } from './shipping/ShippingZonesRatesView';
 import { ReturnsExceptionsView } from './shipping/ReturnsExceptionsView';
+import { PortalHubCard } from '../common/PortalHubCard';
 import {
   fetchDeliveryDriversApi,
   createDeliveryDriverApi,
@@ -96,20 +98,38 @@ export const StoreShipping: React.FC = () => {
   const isAr = locale === 'ar';
   const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<ShippingTab>('shipments');
+  // null = hub (buttons only); set = open that section's data
+  const [activeTab, setActiveTab] = useState<ShippingTab | null>(null);
   const [dateRange, setDateRange] = useState(isAr ? '١ يناير - ٣١ يناير ٢٠٢٦' : 'Jan 1, 2026 - Jan 31, 2026');
   const [search, setSearch] = useState('');
   const [carrierSearch, setCarrierSearch] = useState('');
 
   useEffect(() => {
-    const handleShippingView = (e: any) => {
-      if (e?.detail) setActiveTab(e.detail);
+    const applyView = (view: string | null | undefined) => {
+      if (!view) return;
+      const allowed: ShippingTab[] = [
+        'shipments',
+        'labels',
+        'zones',
+        'returns',
+        'carriers',
+        'methods',
+        'drivers',
+      ];
+      if (allowed.includes(view as ShippingTab)) {
+        setActiveTab(view as ShippingTab);
+      }
+    };
+    const handleShippingView = (e: Event) => {
+      applyView((e as CustomEvent<string>).detail);
     };
     window.addEventListener('unityteck-shipping-view', handleShippingView);
-    const saved = sessionStorage.getItem('unityteck-shipping-view');
-    if (saved) {
-      setActiveTab(saved as any);
-      sessionStorage.removeItem('unityteck-shipping-view');
+    try {
+      const saved = sessionStorage.getItem('unityteck-shipping-view');
+      applyView(saved);
+      if (saved) sessionStorage.removeItem('unityteck-shipping-view');
+    } catch {
+      /* storage may be unavailable */
     }
     return () => window.removeEventListener('unityteck-shipping-view', handleShippingView);
   }, []);
@@ -453,10 +473,11 @@ export const StoreShipping: React.FC = () => {
 
   const handleAddShippingMethod = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!methodName.trim()) return;
+    const activeMethodName = isAr ? methodNameAr.trim() : methodName.trim();
+    if (!activeMethodName) return;
     try {
       await addShippingMethod({
-        name: methodName.trim(),
+        name: methodName.trim() || methodNameAr.trim(),
         nameAr: methodNameAr.trim() || methodName.trim(),
         type: methodType,
         fulfillmentMode: methodFulfillment,
@@ -575,81 +596,119 @@ export const StoreShipping: React.FC = () => {
     return filteredSortedZones.slice(start, start + pageSize);
   }, [filteredSortedZones, page, pageSize]);
 
+  const shippingHubTabs = [
+    {
+      id: 'shipments' as ShippingTab,
+      icon: Truck,
+      label: isAr ? 'الشحنات والتتبع' : 'Shipments & Tracking',
+      desc: isAr ? 'تتبع الشحنات وحالة التوصيل.' : 'Track shipments and delivery status.',
+      flipIconRtl: true as const,
+    },
+    {
+      id: 'labels' as ShippingTab,
+      icon: Printer,
+      label: isAr ? 'بوالص الشحن' : 'Shipping Labels',
+      desc: isAr ? 'طباعة وإدارة بوالص الشحن.' : 'Print and manage shipping labels.',
+    },
+    {
+      id: 'zones' as ShippingTab,
+      icon: MapPin,
+      label: isAr
+        ? `المناطق والأسعار (${currentShipping.length})`
+        : `Zones & Rates (${currentShipping.length})`,
+      desc: isAr ? 'مناطق التوصيل وأسعار الشحن.' : 'Delivery zones and shipping rates.',
+    },
+    {
+      id: 'returns' as ShippingTab,
+      icon: RotateCcw,
+      label: isAr ? 'المرتجعات' : 'Returns & Exceptions',
+      desc: isAr ? 'إدارة المرتجعات والاستثناءات.' : 'Manage returns and exceptions.',
+    },
+    {
+      id: 'carriers' as ShippingTab,
+      icon: ShieldCheck,
+      label: isAr
+        ? `شركات الشحن (${connectedCouriersCount})`
+        : `Shipping Companies (${connectedCouriersCount})`,
+      desc: isAr ? 'ربط شركات الشحن والناقلين.' : 'Connect carriers and couriers.',
+    },
+    {
+      id: 'methods' as ShippingTab,
+      icon: Package,
+      label: isAr
+        ? `طرق الشحن (${currentShippingMethods.length})`
+        : `Methods (${currentShippingMethods.length})`,
+      desc: isAr ? 'طرق الشحن وقواعد التوصيل.' : 'Shipping methods and delivery rules.',
+    },
+    {
+      id: 'drivers' as ShippingTab,
+      icon: UserRound,
+      label: isAr
+        ? `توصيل محلي داخل مدينة مكة (${drivers.length})`
+        : `Local delivery within Makkah city (${drivers.length})`,
+      desc: isAr ? 'السائقون والتوصيل المحلي.' : 'Drivers and local city delivery.',
+    },
+  ];
+  const activeTabMeta = activeTab
+    ? shippingHubTabs.find((t) => t.id === activeTab) ?? null
+    : null;
+
   return (
     <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
-      {/* ── Main Module Navigation — 4 buttons per row ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
-        {(
-          [
-            {
-              id: 'shipments' as ShippingTab,
-              icon: Truck,
-              label: isAr ? 'الشحنات والتتبع' : 'Shipments & Tracking',
-              active: 'text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900',
-            },
-            {
-              id: 'labels' as ShippingTab,
-              icon: Printer,
-              label: isAr ? 'بوالص الشحن' : 'Shipping Labels',
-              active: 'text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900',
-            },
-            {
-              id: 'zones' as ShippingTab,
-              icon: MapPin,
-              label: isAr ? `المناطق والأسعار (${currentShipping.length})` : `Zones & Rates (${currentShipping.length})`,
-              active: 'text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900',
-            },
-            {
-              id: 'returns' as ShippingTab,
-              icon: RotateCcw,
-              label: isAr ? 'المرتجعات' : 'Returns & Exceptions',
-              active: 'text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800 bg-white dark:bg-slate-900',
-            },
-            {
-              id: 'carriers' as ShippingTab,
-              icon: ShieldCheck,
-              label: isAr
-                ? `شركات الشحن (${connectedCouriersCount})`
-                : `Shipping Companies (${connectedCouriersCount})`,
-              active: 'text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900',
-            },
-            {
-              id: 'methods' as ShippingTab,
-              icon: Package,
-              label: isAr
-                ? `طرق الشحن (${currentShippingMethods.length})`
-                : `Methods (${currentShippingMethods.length})`,
-              active: 'text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900',
-            },
-            {
-              id: 'drivers' as ShippingTab,
-              icon: UserRound,
-              label: isAr
-                ? `توصيل محلي داخل مدينة مكة (${drivers.length})`
-                : `Local delivery within Makkah city (${drivers.length})`,
-              active: 'text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900',
-            },
-          ] as const
-        ).map((tab) => {
-          const Icon = tab.icon;
-          const isOn = activeTab === tab.id;
-          return (
-            <button
+      {/* Hub: ONLY buttons. Section open: back + that section's data. */}
+      {activeTab === null ? (
+        <div className="u-equal-sections grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 w-full">
+          {shippingHubTabs.map((tab) => (
+            <PortalHubCard
               key={tab.id}
-              type="button"
+              icon={tab.icon}
+              title={tab.label}
+              description={tab.desc}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                isOn
-                  ? tab.active + ' shadow-xs'
-                  : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 hover:border-slate-300'
-              }`}
-            >
-              <Icon className={`w-4 h-4 shrink-0 ${tab.id === 'shipments' ? 'rtl:rotate-180' : ''}`} />
-              <span className="truncate">{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
+              flipIconRtl={'flipIconRtl' in tab && Boolean(tab.flipIconRtl)}
+              isAr={isAr}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setActiveTab(null)}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-xs font-bold cursor-pointer shadow-xs transition-colors hover:opacity-95"
+            style={{
+              background: 'var(--surface)',
+              borderColor: 'var(--border)',
+              color: 'var(--text)',
+            }}
+          >
+            <ArrowLeft className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} aria-hidden />
+            {isAr ? 'كل أقسام الشحن' : 'All shipping'}
+          </button>
+          {activeTabMeta ? (
+            <div className="flex items-center gap-2 min-w-0">
+              <span
+                className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center"
+                style={{
+                  background: 'var(--portal-cta)',
+                  color: '#fff',
+                }}
+                aria-hidden
+              >
+                {React.createElement(activeTabMeta.icon, { className: 'w-4 h-4' })}
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-extrabold truncate" style={{ color: 'var(--text)' }}>
+                  {activeTabMeta.label}
+                </p>
+                <p className="text-[11px] truncate" style={{ color: 'var(--muted)' }}>
+                  {activeTabMeta.desc}
+                </p>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
 
       {/* ── Active Tab 1: Shipments & Tracking (Pixel-Perfect Image 1 Top) ── */}
       {activeTab === 'shipments' && (
@@ -1544,32 +1603,19 @@ export const StoreShipping: React.FC = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    {isAr ? 'اسم الطريقة (بالإنجليزية) *' : 'Method Name (English) *'}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={methodName}
-                    onChange={(e) => setMethodName(e.target.value)}
-                    placeholder={isAr ? '' : 'e.g. Express Same-Day Delivery'}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    {isAr ? 'اسم الطريقة (بالعربية)' : 'Method Name (Arabic)'}
-                  </label>
-                  <input
-                    type="text"
-                    value={methodNameAr}
-                    onChange={(e) => setMethodNameAr(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold"
-                    dir="rtl"
-                  />
-                </div>
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  {isAr ? 'الاسم *' : 'Name *'}
+                </label>
+                <input
+                  type="text"
+                  required
+                  dir={isAr ? 'rtl' : 'ltr'}
+                  value={isAr ? methodNameAr : methodName}
+                  onChange={(e) => (isAr ? setMethodNameAr(e.target.value) : setMethodName(e.target.value))}
+                  placeholder={isAr ? 'مثال: توصيل سريع في نفس اليوم' : 'e.g. Express Same-Day Delivery'}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold"
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

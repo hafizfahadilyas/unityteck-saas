@@ -23,6 +23,11 @@ class StorefrontAnalyticsController extends Controller
             return response()->json(['message' => 'Store not found.'], 404);
         }
 
+        // Accept `event` (canonical) or legacy `event_name` from older clients.
+        if (! $request->filled('event') && $request->filled('event_name')) {
+            $request->merge(['event' => $request->input('event_name')]);
+        }
+
         $validated = $request->validate([
             'event' => ['required', 'string', 'max:64'],
             'path' => ['nullable', 'string', 'max:512'],
@@ -63,23 +68,8 @@ class StorefrontAnalyticsController extends Controller
         $meta = is_array($validated['meta'] ?? null) ? $validated['meta'] : [];
         $meta['surface'] = 'public_storefront';
 
-        // Count unique sessions as visits — never bump visitors_count on every page hit.
-        if ($eventName === 'page_view') {
-            $sessionKey = isset($validated['session_key']) ? trim((string) $validated['session_key']) : '';
-            $shouldIncrement = true;
-            if ($sessionKey !== '') {
-                $already = StorefrontAnalyticsEvent::query()
-                    ->where('store_id', $storeId)
-                    ->where('event_name', 'page_view')
-                    ->where('session_key', $sessionKey)
-                    ->where('created_at', '>=', now()->subDay())
-                    ->exists();
-                $shouldIncrement = ! $already;
-            }
-            if ($shouldIncrement) {
-                Store::query()->where('id', $storeId)->increment('visitors_count');
-            }
-        }
+        // Visits truth = storefront_analytics_events only (zero-mock).
+        // Do NOT increment stores.visitors_count — that column is not dashboard truth.
 
         $row = StorefrontAnalyticsEvent::query()->create([
             'id' => 'evt-'.(string) Str::uuid(),

@@ -212,7 +212,7 @@ interface CartContextType {
   toastMessage: string | null;
   appliedCoupon: CouponItem | null;
   couponDiscount: number;
-  applyCoupon: (code: string) => { success: boolean; message: string };
+  applyCoupon: (code: string) => Promise<{ success: boolean; message: string }>;
   removeCoupon: () => void;
 }
 
@@ -758,10 +758,48 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return Math.min(cartTotal, couponPart + specialOfferDiscount);
   }, [appliedCoupon, cartTotal, specialOfferDiscount]);
 
-  const applyCoupon = (rawCode: string): { success: boolean; message: string } => {
+  const applyCoupon = async (rawCode: string): Promise<{ success: boolean; message: string }> => {
     const isAr = language === 'AR';
     const code = (rawCode || '').trim().toUpperCase().replace(/\s+/g, '');
     if (!code) return { success: false, message: isAr ? 'يرجى إدخال كود الخصم' : 'Please enter a coupon code' };
+
+    const storeId = tenant?.activeStore?.id || '';
+    if (storeId) {
+      try {
+        const { validateStorefrontCoupon } = await import('../../../api/tenantApi');
+        const apiRes = await validateStorefrontCoupon(storeId, code, cartTotal);
+        if (apiRes.valid && apiRes.coupon) {
+          setAppliedCoupon(apiRes.coupon);
+          return {
+            success: true,
+            message: isAr ? `تم تطبيق الكود ${apiRes.coupon.code}` : `Coupon ${apiRes.coupon.code} applied`,
+          };
+        }
+        if (apiRes.message && !apiRes.valid) {
+          // Fall through to local list only when API had no match (404); otherwise show API reason.
+          const softMiss = /invalid/i.test(apiRes.message);
+          if (!softMiss) {
+            return {
+              success: false,
+              message: isAr
+                ? apiRes.message.includes('Minimum')
+                  ? `الحد الأدنى للطلب غير مكتمل`
+                  : apiRes.message.includes('expired')
+                    ? 'انتهت صلاحية الكود'
+                    : apiRes.message.includes('limit')
+                      ? 'تم بلوغ الحد الأقصى لاستخدام الكود'
+                      : apiRes.message.includes('inactive')
+                        ? 'الكود غير نشط أو منتهي'
+                        : 'كود الخصم غير صحيح'
+                : apiRes.message,
+            };
+          }
+        }
+      } catch {
+        /* offline / API down → try merchant coupons already loaded in tenant */
+      }
+    }
+
     const list: CouponItem[] = (tenant?.currentCoupons as CouponItem[]) || [];
     const found = list.find((c) => c.code.toUpperCase() === code);
     if (!found) return { success: false, message: isAr ? 'كود الخصم غير صحيح' : 'Invalid coupon code' };
@@ -775,11 +813,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (found.minOrderValue && cartTotal < found.minOrderValue) {
       return {
         success: false,
-        message: isAr ? `الحد الأدنى للطلب${found.minOrderValue}ر.س` : `Minimum order is SAR ${found.minOrderValue}`
+        message: isAr ? `الحد الأدنى للطلب ${found.minOrderValue} ر.س` : `Minimum order is SAR ${found.minOrderValue}`,
       };
     }
     setAppliedCoupon(found);
-    return { success: true, message: isAr ? `تم تطبيق الكود${found.code}` : `Coupon ${found.code} applied` };
+    return { success: true, message: isAr ? `تم تطبيق الكود ${found.code}` : `Coupon ${found.code} applied` };
   };
 
   const removeCoupon = () => setAppliedCoupon(null);
@@ -1046,7 +1084,7 @@ const CART_STUB: CartContextType = {
   toastMessage: null,
   appliedCoupon: null,
   couponDiscount: 0,
-  applyCoupon: () => ({ success: false, message: '' }),
+  applyCoupon: async () => ({ success: false, message: '' }),
   removeCoupon: () => undefined,
 };
 

@@ -7,7 +7,6 @@ import { MediaPickerModal } from '../common/MediaPickerModal';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
 import { optimizeImageFile } from '../../utils/mediaOptimizer';
 import { RichTextEditor } from '../common/RichTextEditor';
-import { ProductVariationsPanel } from './ProductVariationsPanel';
 import {
   X,
   Maximize2,
@@ -17,7 +16,6 @@ import {
   Tag,
   Box,
   Layers,
-  Settings,
   FileSpreadsheet,
   Search,
   ChevronDown,
@@ -38,7 +36,6 @@ export type ProductEditSectionKey =
   | 'pricing'
   | 'inventory'
   | 'variations'
-  | 'variationInventory'
   | 'customFields'
   | 'seo'
   | 'categoryTags';
@@ -50,7 +47,6 @@ export const DEFAULT_PRODUCT_EDIT_SECTIONS: Record<ProductEditSectionKey, boolea
   pricing: true,
   inventory: true,
   variations: true,
-  variationInventory: true,
   customFields: true,
   seo: true,
   categoryTags: true,
@@ -66,7 +62,6 @@ export const PRODUCT_EDIT_SECTION_OPTIONS: {
   { id: 'pricing', labelEn: 'Price & Pricing', labelAr: 'السعر والتسعير' },
   { id: 'inventory', labelEn: 'Inventory & Shipping', labelAr: 'المخزون والشحن' },
   { id: 'variations', labelEn: 'Product Options & Variations', labelAr: 'خيارات وتنوعات المنتج' },
-  { id: 'variationInventory', labelEn: 'Variation Inventory', labelAr: 'مخزون التنوعات' },
   { id: 'categoryTags', labelEn: 'Category & Tags', labelAr: 'التصنيف والوسوم' },
   { id: 'customFields', labelEn: 'Custom Fields', labelAr: 'الحقول المخصصة' },
   { id: 'seo', labelEn: 'SEO Settings', labelAr: 'إعدادات تحسين محركات البحث' },
@@ -114,7 +109,6 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
     pricing: true,
     inventory: true,
     variations: false,
-    variationInventory: false,
     customFields: false,
     seo: false,
   });
@@ -475,7 +469,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
   return (
     <>
       <div
-        className="bg-white dark:bg-[#071E26] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-md flex flex-col sticky top-2 overflow-hidden animate-in fade-in slide-in-from-end-4 duration-150"
+        className="bg-[var(--surface)] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-md flex flex-col sticky top-2 overflow-hidden animate-in fade-in slide-in-from-end-4 duration-150"
         style={{
           // Header 4rem + sticky top 0.5rem + 4rem so the action bar stays above the screen-bottom corner.
           height: 'calc(100dvh - 8.5rem)',
@@ -525,7 +519,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               className="p-3.5 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
             >
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 flex items-center justify-center shrink-0">
+                <div className="u-icon-brand w-8 h-8 rounded-lg flex items-center justify-center shrink-0">
                   <ImageIcon className="w-4 h-4" />
                 </div>
                 <div>
@@ -574,7 +568,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                 />
 
                 {/* Main Image Large Preview */}
-                <div className="relative min-h-72 w-full rounded-xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 overflow-hidden flex items-center justify-center group">
+                <div className="u-media-stage relative min-h-72 w-full rounded-xl overflow-hidden flex items-center justify-center group">
                   <img
                     src={mainImage || FALLBACK_PRODUCT_IMAGE}
                     alt={name}
@@ -583,7 +577,10 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                   />
                   
                   {/* Badge */}
-                  <span className="absolute top-2.5 start-2.5 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-900/85 text-white shadow-xs">
+                  <span
+                    className="absolute top-2.5 start-2.5 px-2 py-0.5 rounded-md text-[10px] font-bold text-white shadow-xs"
+                    style={{ background: 'color-mix(in srgb, var(--portal-950) 82%, transparent)' }}
+                  >
                     {isAr ? 'الصورة الرئيسية' : 'Main Image'}
                   </span>
 
@@ -592,7 +589,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                     <button
                       type="button"
                       onClick={() => mainFileInputRef.current?.click()}
-                      className="px-2 py-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white flex items-center gap-1 text-[11px] font-bold shadow-xs cursor-pointer transition-colors"
+                      className="unity-btn-primary px-2 py-1 rounded-lg flex items-center gap-1 text-[11px] font-bold shadow-xs cursor-pointer transition-colors"
                       title={isAr ? 'تغيير من جهازك فوراً' : 'Upload & replace from device'}
                     >
                       <UploadCloud className="w-3.5 h-3.5" />
@@ -659,7 +656,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
 
                           {/* Main Star Indicator */}
                           {isMain && (
-                            <span className="absolute bottom-0.5 start-0.5 px-1 py-0.2 rounded text-[8px] font-bold bg-teal-600 text-white">
+                            <span className="unity-btn-primary absolute bottom-0.5 start-0.5 px-1 py-0.2 rounded text-[8px] font-bold">
                               {isAr ? 'رئيسية' : 'Main'}
                             </span>
                           )}
@@ -675,7 +672,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                                   setTargetThumbnailIndex(idx);
                                   thumbFileInputRef.current?.click();
                                 }}
-                                className="p-0.5 rounded bg-teal-600 hover:bg-teal-500 text-white transition-colors cursor-pointer"
+                                className="unity-btn-primary p-0.5 rounded transition-colors cursor-pointer"
                                 title={isAr ? 'استبدال من جهازك فوراً' : 'Replace from device'}
                               >
                                 <UploadCloud className="w-2.5 h-2.5" />
@@ -937,44 +934,6 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                   </div>
                 </div>
 
-                {/* Occasions & Collections Tags */}
-                <div>
-                  <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                    {isAr ? 'المناسبات والأقسام الموسمية (للفلترة بالصفحة الرئيسية)' : 'Occasions & Collections (Homepage Filters)'}
-                  </label>
-                  <div className="flex flex-wrap gap-1">
-                    {[
-                      { id: 'trending', labelAr: 'الأكثر رواجاً', labelEn: 'Trending' },
-                      { id: 'best_sellers', labelAr: 'الأكثر مبيعاً', labelEn: 'Best Sellers' },
-                      { id: 'best_products', labelAr: 'أفضل المنتجات', labelEn: 'Best Products' },
-                      { id: 'women', labelAr: 'هدايا نسائية', labelEn: 'Women' },
-                      { id: 'valentines', labelAr: 'عيد الحب', labelEn: 'Valentine' },
-                      { id: 'eid', labelAr: 'الأعياد', labelEn: 'Eid' },
-                      { id: 'birthday', labelAr: 'أعياد ميلاد', labelEn: 'Birthday' },
-                      { id: 'luxury', labelAr: 'تشكيلة فاخرة', labelEn: 'Luxury VIP' },
-                    ].map((tItem) => {
-                      const isT = tags.includes(tItem.id);
-                      return (
-                        <button
-                          key={tItem.id}
-                          type="button"
-                          onClick={() => {
-                            if (isT) setTags(tags.filter((t) => t !== tItem.id));
-                            else setTags([...tags, tItem.id]);
-                          }}
-                          className={`px-2 py-1 rounded-md text-[11px] font-bold border transition-all cursor-pointer flex items-center gap-1 ${
-                            isT
-                              ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-500 text-teal-700 dark:text-teal-300'
-                              : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300'
-                          }`}
-                        >
-                          <span>{isAr ? tItem.labelAr : tItem.labelEn}</span>
-                          {isT && <Check className="w-2.5 h-2.5 text-teal-600 dark:text-teal-400" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
               </div>
             )}
           </div>
@@ -1123,37 +1082,18 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                      {isAr ? 'الوزن (كجم)' : 'Weight (kg)'}
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      value={weightKg}
-                      onChange={(e) => setWeightKg(Number(e.target.value))}
-                      className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono focus:outline-none focus:ring-1 focus:ring-teal-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                      {isAr ? 'فئة الشحن' : 'Shipping Class'}
-                    </label>
-                    <select
-                      value={shippingClass}
-                      onChange={(e) => setShippingClass(e.target.value)}
-                      className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-teal-500 cursor-pointer"
-                    >
-                      <option value="Shoes">{isAr ? 'أحذية' : 'Shoes'}</option>
-                      <option value="Small Items">{isAr ? 'قطع صغيرة' : 'Small Items'}</option>
-                      <option value="Medium Item">{isAr ? 'قطعة متوسطة' : 'Medium Item'}</option>
-                      <option value="Electronics">{isAr ? 'إلكترونيات' : 'Electronics'}</option>
-                      <option value="Standard">{isAr ? 'قياسي' : 'Standard'}</option>
-                    </select>
-                  </div>
+                <div>
+                  <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                    {isAr ? 'الوزن (كجم)' : 'Weight (kg)'}
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={weightKg}
+                    onChange={(e) => setWeightKg(Number(e.target.value))}
+                    className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  />
                 </div>
               </div>
             )}
@@ -1211,60 +1151,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
 
           )}
 
-          {/* 6. Variation Inventory */}
-          {isSectionVisible('variationInventory') && (
-          <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900/50">
-            <div
-              onClick={() => toggleAccordion('variationInventory')}
-              className="p-3.5 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 flex items-center justify-center shrink-0">
-                  <Settings className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                    {isAr ? 'مخزون التنوعات' : 'Variation Inventory'}
-                  </h4>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2.5">
-                {sectionsOpen.variationInventory ? (
-                  <ChevronUp className="w-4 h-4 text-slate-400" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-slate-400" />
-                )}
-              </div>
-            </div>
-
-            {sectionsOpen.variationInventory && (
-              <div className="p-3.5 pt-0 border-t border-slate-100 dark:border-slate-800/80 space-y-2">
-                <p className="text-[11px] text-slate-500">
-                  {isAr
-                    ? 'تتبع المخزون والأسعار الخاصة بكل لون أو مقاس.'
-                    : 'Track stock levels and custom prices per product variation.'}
-                </p>
-                {product?.id ? (
-                  <ProductVariationsPanel
-                    storeId={storeId}
-                    productId={product.id}
-                    canMutate={true}
-                    onDenied={() =>
-                      toast(
-                        isAr ? 'لا تملك صلاحية التعديل' : 'You do not have permission to edit',
-                        'error',
-                      )
-                    }
-                  />
-                ) : null}
-              </div>
-            )}
-          </div>
-
-          )}
-
-          {/* 7. Custom Fields */}
+          {/* 6. Custom Fields */}
           {isSectionVisible('customFields') && (
           <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900/50">
             <div
@@ -1398,7 +1285,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
         </div>
 
         {/* ── Fixed Bottom Actions Footer ── */}
-        <div className="p-3.5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#071E26] flex items-center justify-end gap-2.5 shrink-0">
+        <div className="p-3.5 border-t border-slate-200 dark:border-slate-800 bg-[var(--surface)] flex items-center justify-end gap-2.5 shrink-0">
           <button
             type="button"
             onClick={onClose}
@@ -1409,7 +1296,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
           <button
             type="button"
             onClick={handleSave}
-            className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-[#0D7482] hover:bg-[#0a5d69] flex items-center gap-2 shadow-xs cursor-pointer transition-all"
+            className="unity-btn-primary px-5 py-2 rounded-xl text-xs font-bold text-white flex items-center gap-2 shadow-xs cursor-pointer transition-all"
           >
             <Save className="w-3.5 h-3.5" />
             <span>{isAr ? 'حفظ التعديلات' : 'Save Changes'}</span>

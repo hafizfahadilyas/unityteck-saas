@@ -38,7 +38,7 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
   isAr,
   disabled,
   required,
-  className = 'w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-[var(--accent)]',
+  className = 'w-full px-3 py-2 border border-[var(--border)] rounded-lg bg-[var(--input-bg)] text-[var(--input-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]',
   includeAllOption,
   allLabel,
   placeholder,
@@ -64,6 +64,8 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
     if (value) return value;
     return placeholder || (isAr ? 'اختر المدينة' : 'Select city');
   }, [allLabel, cities, includeAllOption, isAr, placeholder, value]);
+
+  const hasSelection = Boolean(value) && !(value === '' && !includeAllOption);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -140,10 +142,16 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
         }}
         className={`${className} min-h-[2.25rem] flex items-center justify-between gap-2 text-start cursor-pointer disabled:opacity-80 disabled:cursor-not-allowed`.trim()}
       >
-        <span className={`truncate ${!value || (value === '' && !includeAllOption) ? 'text-slate-400' : ''}`}>
+        <span
+          className="truncate"
+          style={{ color: hasSelection ? 'var(--input-fg)' : 'var(--muted)' }}
+        >
           {selectedLabel}
         </span>
-        <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          className={`w-3.5 h-3.5 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+          style={{ color: 'var(--muted)' }}
+        />
       </button>
 
       <FloatingPopover
@@ -154,35 +162,106 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
         align={isAr ? 'end' : 'start'}
         estimatedHeight={listEstimate}
         preferBelow={preferBelow}
-        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl p-2 text-xs"
+        className="rounded-xl shadow-xl p-2 text-xs"
+        style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)' }}
       >
         <div className="space-y-2">
           <div className="relative">
-            <Search className={`w-3.5 h-3.5 text-slate-400 absolute top-1/2 -translate-y-1/2 ${isAr ? 'right-2.5' : 'left-2.5'}`} />
+            <Search
+              className={`w-3.5 h-3.5 absolute top-1/2 -translate-y-1/2 ${isAr ? 'right-2.5' : 'left-2.5'}`}
+              style={{ color: 'var(--muted)' }}
+            />
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={isAr ? 'بحث عن مدينة…' : 'Search city…'}
-              className={`w-full py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${isAr ? 'pr-8 pl-2' : 'pl-8 pr-2'}`}
+              className={`w-full py-2 text-xs rounded-lg border focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/25 ${isAr ? 'pr-8 pl-2' : 'pl-8 pr-2'}`}
+              style={{
+                borderColor: 'var(--border)',
+                background: 'var(--input-bg)',
+                color: 'var(--input-fg)',
+              }}
               autoFocus
             />
           </div>
 
           {manageEnabled && onAddCity ? (
-            <button
-              type="button"
-              onClick={() => setManaging(true)}
-              className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg border border-dashed border-blue-300 dark:border-blue-700 bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 text-[11px] font-semibold hover:bg-blue-100 dark:hover:bg-blue-950/50"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              {isAr ? 'إضافة مدينة جديدة' : 'Add new city'}
-            </button>
+            managing ? (
+              <form
+                onSubmit={handleAdd}
+                className="grid grid-cols-1 gap-1.5 rounded-lg border border-dashed p-2"
+                style={{ borderColor: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 8%, transparent)' }}
+              >
+                <input
+                  type="text"
+                  value={newEn}
+                  onChange={(e) => setNewEn(e.target.value)}
+                  placeholder={isAr ? 'الاسم بالإنجليزية' : 'English name'}
+                  className="px-2 py-1.5 text-[11px] border rounded-lg focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                  style={{
+                    borderColor: 'var(--border)',
+                    background: 'var(--input-bg)',
+                    color: 'var(--input-fg)',
+                  }}
+                  autoFocus
+                />
+                <input
+                  type="text"
+                  value={newAr}
+                  onChange={(e) => setNewAr(e.target.value)}
+                  placeholder={isAr ? 'الاسم بالعربية' : 'Arabic name'}
+                  className="px-2 py-1.5 text-[11px] border rounded-lg focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                  style={{
+                    borderColor: 'var(--border)',
+                    background: 'var(--input-bg)',
+                    color: 'var(--input-fg)',
+                  }}
+                  dir="rtl"
+                />
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="submit"
+                    className="flex-1 inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-white text-[11px] font-semibold unity-btn-primary"
+                  >
+                    <Plus className="w-3 h-3" />
+                    {isAr ? 'إضافة' : 'Add'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setManaging(false);
+                      setNewEn('');
+                      setNewAr('');
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold hover:opacity-80"
+                    style={{ color: 'var(--muted)' }}
+                  >
+                    {isAr ? 'إلغاء' : 'Cancel'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setManaging(true)}
+                className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg border border-dashed text-[11px] font-semibold hover:opacity-90"
+                style={{
+                  borderColor: 'var(--accent)',
+                  background: 'color-mix(in srgb, var(--accent) 10%, transparent)',
+                  color: 'var(--accent)',
+                }}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {isAr ? 'إضافة مدينة جديدة' : 'Add new city'}
+              </button>
+            )
           ) : null}
 
           <ul
             role="listbox"
-            className="u-dropdown-list rounded-lg border border-slate-100 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800"
+            className="u-dropdown-list rounded-lg border divide-y"
+            style={{ borderColor: 'var(--border)' }}
           >
             {includeAllOption ? (
               <li>
@@ -194,18 +273,25 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
                     onChange('All');
                     close();
                   }}
-                  className={`w-full px-2.5 py-2 flex items-center justify-between gap-2 text-start hover:bg-slate-50 dark:hover:bg-slate-800 ${
-                    value === 'All' ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold' : 'text-slate-700 dark:text-slate-200'
-                  }`}
+                  className="w-full px-2.5 py-2 flex items-center justify-between gap-2 text-start"
+                  style={
+                    value === 'All'
+                      ? {
+                          background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
+                          color: 'var(--accent)',
+                          fontWeight: 600,
+                        }
+                      : { color: 'var(--text)' }
+                  }
                 >
                   <span>{allLabel || (isAr ? 'الكل' : 'All')}</span>
-                  {value === 'All' ? <Check className="w-3.5 h-3.5 shrink-0" /> : null}
+                  {value === 'All' ? <Check className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--accent)' }} /> : null}
                 </button>
               </li>
             ) : null}
 
             {filtered.length === 0 ? (
-              <li className="px-2.5 py-3 text-slate-400 text-center">
+              <li className="px-2.5 py-3 text-center" style={{ color: 'var(--muted)' }}>
                 {isAr ? 'لا توجد مدن مطابقة' : 'No matching cities'}
               </li>
             ) : (
@@ -214,9 +300,12 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
                 return (
                   <li key={c.id}>
                     <div
-                      className={`flex items-center gap-1 ${
-                        selected ? 'bg-blue-50 dark:bg-blue-950/40' : ''
-                      }`}
+                      className="flex items-center gap-1"
+                      style={
+                        selected
+                          ? { background: 'color-mix(in srgb, var(--accent) 12%, transparent)' }
+                          : undefined
+                      }
                     >
                       <button
                         type="button"
@@ -226,15 +315,18 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
                           onChange(c.id);
                           close();
                         }}
-                        className={`flex-1 min-w-0 px-2.5 py-2 text-start hover:bg-slate-50 dark:hover:bg-slate-800 ${
+                        className="flex-1 min-w-0 px-2.5 py-2 text-start hover:opacity-90"
+                        style={
                           selected
-                            ? 'text-blue-700 dark:text-blue-300 font-semibold'
-                            : 'text-slate-700 dark:text-slate-200'
-                        }`}
+                            ? { color: 'var(--accent)', fontWeight: 600 }
+                            : { color: 'var(--text)' }
+                        }
                       >
                         <span className="truncate block">{cityLabel(c, isAr)}</span>
                       </button>
-                      {selected ? <Check className="w-3.5 h-3.5 shrink-0 text-blue-600 me-2" /> : null}
+                      {selected ? (
+                        <Check className="w-3.5 h-3.5 shrink-0 me-1" style={{ color: 'var(--accent)' }} />
+                      ) : null}
                       {manageEnabled && onRemoveCity ? (
                         <button
                           type="button"
@@ -268,7 +360,7 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
                   role="option"
                   aria-selected
                   onClick={() => close()}
-                  className="w-full px-2.5 py-2 text-start bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 font-semibold"
+                  className="w-full px-2.5 py-2 text-start font-semibold bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200"
                 >
                   {value}
                 </button>
@@ -276,54 +368,11 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
             ) : null}
           </ul>
 
-          {manageEnabled && onAddCity && managing ? (
-            <form
-              onSubmit={handleAdd}
-              className="grid grid-cols-1 gap-1.5 border-t border-slate-100 dark:border-slate-800 pt-2"
-            >
-              <input
-                type="text"
-                value={newEn}
-                onChange={(e) => setNewEn(e.target.value)}
-                placeholder={isAr ? 'الاسم بالإنجليزية' : 'English name'}
-                className="px-2 py-1.5 text-[11px] border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                autoFocus
-              />
-              <input
-                type="text"
-                value={newAr}
-                onChange={(e) => setNewAr(e.target.value)}
-                placeholder={isAr ? 'الاسم بالعربية' : 'Arabic name'}
-                className="px-2 py-1.5 text-[11px] border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                dir="rtl"
-              />
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="submit"
-                  className="flex-1 inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-semibold hover:bg-blue-700"
-                >
-                  <Plus className="w-3 h-3" />
-                  {isAr ? 'إضافة' : 'Add'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setManaging(false);
-                    setNewEn('');
-                    setNewAr('');
-                  }}
-                  className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                >
-                  {isAr ? 'إلغاء' : 'Cancel'}
-                </button>
-              </div>
-            </form>
-          ) : null}
-
           <button
             type="button"
             onClick={close}
-            className="inline-flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-700"
+            className="inline-flex items-center gap-1 text-[10px] hover:opacity-80"
+            style={{ color: 'var(--muted)' }}
           >
             <X className="w-3 h-3" />
             {isAr ? 'إغلاق' : 'Close'}

@@ -1,6 +1,6 @@
 /**
  * Comprehensive Enterprise Security & Anti-Hacking Layer
- * Unityteck Multi-Store E-Commerce Cloud (Saudi Arabia 100-Stores SaaS)
+ * Souq Platform Multi-Store E-Commerce Cloud (Saudi Arabia 100-Stores SaaS)
  *
  * Implements defenses against:
  * - SQL Injection (SQLi)

@@ -40,8 +40,187 @@ function souq_load_root_env(): array
     return $vars;
 }
 
+function souq_driver_is_mysql(PDO $pdo): bool
+{
+    try {
+        return $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql';
+    } catch (Throwable) {
+        return false;
+    }
+}
+
+/** Cached column existence check (MySQL Laravel + SQLite gateway). */
+function souq_table_has_column(PDO $pdo, string $table, string $column, bool $bust = false): bool
+{
+    static $cache = [];
+    $key = spl_object_id($pdo) . ':' . $table . '.' . $column;
+    if ($bust) {
+        unset($cache[$key]);
+    }
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
+    }
+    try {
+        if (souq_driver_is_mysql($pdo)) {
+            $st = $pdo->prepare('SHOW COLUMNS FROM `' . str_replace('`', '', $table) . '` LIKE ?');
+            $st->execute([$column]);
+            $cache[$key] = (bool) $st->fetch(PDO::FETCH_ASSOC);
+        } else {
+            $safe = preg_replace('/[^a-z0-9_]/i', '', $table) ?: 'stores';
+            $cols = $pdo->query('PRAGMA table_info(' . $safe . ')')->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            $found = false;
+            foreach ($cols as $col) {
+                if (strcasecmp((string) ($col['name'] ?? ''), $column) === 0) {
+                    $found = true;
+                    break;
+                }
+            }
+            $cache[$key] = $found;
+        }
+    } catch (Throwable) {
+        $cache[$key] = false;
+    }
+    return $cache[$key];
+}
+
+/**
+ * Normalize a stores row for both SQLite (JSON `data`) and Laravel MySQL (real columns).
+ * @param array<string, mixed> $row
+ * @return array<string, mixed>
+ */
+function souq_store_payload(array $row): array
+{
+    $data = [];
+    if (!empty($row['data']) && is_string($row['data'])) {
+        $decoded = json_decode($row['data'], true);
+        if (is_array($decoded)) {
+            $data = $decoded;
+        }
+    }
+
+    $copyKeys = [
+        'id', 'name', 'slug', 'domain', 'demo_domain', 'custom_domain', 'status', 'plan',
+        'currency', 'locale', 'text_direction', 'timezone', 'phone', 'email', 'owner_name',
+        'city', 'country', 'category', 'logo', 'accent_color', 'ssl_status',
+        'products_count', 'orders_count', 'revenue', 'visitors_count',
+        'hosting_mode', 'db_isolation', 'subscription_status', 'deployment_status',
+    ];
+    foreach ($copyKeys as $col) {
+        if (array_key_exists($col, $row) && $row[$col] !== null && $row[$col] !== '') {
+            $data[$col] = $row[$col];
+        }
+    }
+
+    if (array_key_exists('master_granted_pro', $row) && $row['master_granted_pro'] !== null) {
+        $granted = (bool) $row['master_granted_pro'];
+        $data['master_granted_pro'] = $granted;
+        $data['masterGrantedPro'] = $granted;
+    }
+
+    $email = strtolower(trim((string) (
+        $data['email']
+        ?? $data['ownerEmail']
+        ?? $data['owner_email']
+        ?? $data['loginEmail']
+        ?? ($row['email'] ?? '')
+    )));
+    if ($email !== '' && str_contains($email, '@')) {
+        $data['email'] = $email;
+        $data['ownerEmail'] = $email;
+        $data['owner_email'] = $email;
+        if (empty($data['loginEmail'])) {
+            $data['loginEmail'] = $email;
+        }
+    }
+
+    if (array_key_exists('login_email_active', $row) && $row['login_email_active'] !== null) {
+        $data['login_email_active'] = (bool) $row['login_email_active'];
+    } elseif (!array_key_exists('login_email_active', $data) || $data['login_email_active'] === null) {
+        $data['login_email_active'] = true;
+    } else {
+        $data['login_email_active'] = (bool) $data['login_email_active'];
+    }
+
+    if (!empty($row['id'])) {
+        $data['id'] = (string) $row['id'];
+    }
+    if (!empty($row['name'])) {
+        $data['name'] = (string) $row['name'];
+    }
+    if (!empty($row['slug'])) {
+        $data['slug'] = (string) $row['slug'];
+    }
+    if (array_key_exists('domain', $row) && $row['domain'] !== null) {
+        $data['domain'] = (string) $row['domain'];
+    }
+
+    return $data;
+}
+
+/** Ensure Master Active/Inactive column exists on Hostinger MySQL. */
+function souq_ensure_mysql_store_login_column(PDO $pdo): void
+{
+    if (!souq_driver_is_mysql($pdo)) {
+        return;
+    }
+    if (souq_table_has_column($pdo, 'stores', 'login_email_active')) {
+        return;
+    }
+    try {
+        $pdo->exec('ALTER TABLE `stores` ADD COLUMN `login_email_active` TINYINT(1) NOT NULL DEFAULT 1 AFTER `email`');
+        souq_table_has_column($pdo, 'stores', 'login_email_active', true);
+    } catch (Throwable) {
+        /* column may already exist under race */
+    }
+}
+
+/** Ensure JSON blob for SEO / Google / store extras on Hostinger MySQL. */
+function souq_ensure_mysql_store_data_column(PDO $pdo): void
+{
+    if (!souq_driver_is_mysql($pdo)) {
+        return;
+    }
+    if (souq_table_has_column($pdo, 'stores', 'data')) {
+        return;
+    }
+    try {
+        $pdo->exec('ALTER TABLE `stores` ADD COLUMN `data` LONGTEXT NULL');
+        souq_table_has_column($pdo, 'stores', 'data', true);
+    } catch (Throwable) {
+        /* column may already exist under race */
+    }
+}
+
+/** SQL NOW() expression for MySQL vs SQLite gateway. */
+function souq_sql_now_expr(PDO $pdo): string
+{
+    return souq_driver_is_mysql($pdo) ? 'NOW()' : "datetime('now')";
+}
+
 function souq_ensure_live_extension_tables(PDO $pdo): void
 {
+    // Laravel MySQL already has migrations — SQLite DDL (TEXT indexes) breaks MySQL.
+    try {
+        if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql') {
+            try {
+                $pdo->exec(
+                    'CREATE TABLE IF NOT EXISTS `ai_generation_usage` (
+                        `store_id` VARCHAR(64) NOT NULL,
+                        `period_key` VARCHAR(16) NOT NULL,
+                        `images_used` INT NOT NULL DEFAULT 0,
+                        `videos_used` INT NOT NULL DEFAULT 0,
+                        `updated_at` TIMESTAMP NULL DEFAULT NULL,
+                        PRIMARY KEY (`store_id`, `period_key`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+                );
+            } catch (Throwable) {
+                /* ignore — AI routes still work with zero-usage fallback */
+            }
+            return;
+        }
+    } catch (Throwable $e) {
+        /* continue with sqlite bootstrap */
+    }
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS media (
             id TEXT PRIMARY KEY,
@@ -148,11 +327,17 @@ function souq_ai_quota_snapshot(PDO $pdo, string $storeId): array
     $plan = souq_store_plan_code($pdo, $storeId);
     $limits = souq_ai_limits($plan);
     $period = souq_ai_period_key();
-    $st = $pdo->prepare('SELECT images_used, videos_used FROM ai_generation_usage WHERE store_id = ? AND period_key = ?');
-    $st->execute([$storeId, $period]);
-    $row = $st->fetch() ?: ['images_used' => 0, 'videos_used' => 0];
-    $imagesUsed = (int)$row['images_used'];
-    $videosUsed = (int)$row['videos_used'];
+    $imagesUsed = 0;
+    $videosUsed = 0;
+    try {
+        $st = $pdo->prepare('SELECT images_used, videos_used FROM ai_generation_usage WHERE store_id = ? AND period_key = ?');
+        $st->execute([$storeId, $period]);
+        $row = $st->fetch() ?: ['images_used' => 0, 'videos_used' => 0];
+        $imagesUsed = (int)$row['images_used'];
+        $videosUsed = (int)$row['videos_used'];
+    } catch (Throwable) {
+        /* Table missing on some MySQL hosts — treat as zero usage, do not 500. */
+    }
     $env = souq_load_root_env();
     $key = trim((string)($env['GEMINI_API_KEY'] ?? ''));
     $imageReady = $key !== '' && $key !== 'MY_GEMINI_API_KEY';
@@ -713,7 +898,10 @@ function souq_gemini_enhance_prompt(string $rawPrompt, string $locale = 'en', st
     if ($apiKey === '' || $apiKey === 'MY_GEMINI_API_KEY') {
         return ['ok' => false, 'code' => 'provider_not_connected', 'message' => 'AI image provider is not connected.'];
     }
-    $model = trim((string)($env['GEMINI_TEXT_MODEL'] ?? 'gemini-2.5-flash')) ?: 'gemini-2.5-flash';
+    $model = trim((string)($env['GEMINI_TEXT_MODEL'] ?? 'gemini-3.8-flash')) ?: 'gemini-3.8-flash';
+    if ($model === 'gemini-2.5-flash' || $model === 'gemini-2.0-flash') {
+        $model = 'gemini-3.8-flash';
+    }
     $wantAr = str_starts_with(strtolower($locale), 'ar');
     $instruction = $wantAr
         ? 'حسّن الوصف التالي ليصبح موجهاً تفصيلياً لتوليد صورة تسويقية لمتجر إلكتروني سعودي. أعد الموجه فقط بدون شرح، وباللغة العربية الفصحى الواضحة، مع تفاصيل الإضاءة والتكوين والخلفية والأسلوب.'
@@ -750,6 +938,126 @@ function souq_gemini_enhance_prompt(string $rawPrompt, string $locale = 'en', st
         return ['ok' => false, 'code' => 'empty_result', 'message' => 'AI prompt enhance returned empty text.'];
     }
     return ['ok' => true, 'prompt' => mb_substr($text, 0, 2000), 'model' => $model];
+}
+
+/**
+ * Suggest product title + description (suggestion only — no catalog write).
+ *
+ * @param array{name?:string,category?:string,brand?:string,product_type?:string,store_name?:string,seed?:string,locale?:string} $input
+ * @return array{ok:bool,code?:string,message?:string,title?:string,subtitle?:string,description?:string,model?:string}
+ */
+function souq_gemini_suggest_product_copy(array $input): array
+{
+    $env = souq_load_root_env();
+    $apiKey = trim((string)($env['GEMINI_API_KEY'] ?? ''));
+    if ($apiKey === '' || $apiKey === 'MY_GEMINI_API_KEY') {
+        return [
+            'ok' => false,
+            'code' => 'provider_not_connected',
+            'message' => 'AI text provider is not connected. Set GEMINI_API_KEY on the API server.',
+        ];
+    }
+    $model = trim((string)($env['GEMINI_TEXT_MODEL'] ?? 'gemini-3.8-flash')) ?: 'gemini-3.8-flash';
+    if ($model === 'gemini-2.5-flash' || $model === 'gemini-2.0-flash') {
+        $model = 'gemini-3.8-flash';
+    }
+    $locale = strtolower(trim((string)($input['locale'] ?? 'en')));
+    $wantAr = str_starts_with($locale, 'ar');
+    $name = trim((string)($input['name'] ?? ''));
+    $category = trim((string)($input['category'] ?? ''));
+    $brand = trim((string)($input['brand'] ?? ''));
+    $productType = trim((string)($input['product_type'] ?? ''));
+    $storeName = trim((string)($input['store_name'] ?? ''));
+    $seed = trim((string)($input['seed'] ?? ''));
+
+    $facts = [];
+    if ($name !== '') {
+        $facts[] = 'Current name: ' . $name;
+    }
+    if ($category !== '') {
+        $facts[] = 'Category: ' . $category;
+    }
+    if ($brand !== '') {
+        $facts[] = 'Brand: ' . $brand;
+    }
+    if ($productType !== '') {
+        $facts[] = 'Product type: ' . $productType;
+    }
+    if ($storeName !== '') {
+        $facts[] = 'Store: ' . $storeName;
+    }
+    if ($seed !== '') {
+        $facts[] = 'Merchant notes: ' . $seed;
+    }
+    if ($facts === []) {
+        return [
+            'ok' => false,
+            'code' => 'missing_context',
+            'message' => 'Enter a product name, category, or brand first so AI can suggest copy.',
+        ];
+    }
+
+    $langLine = $wantAr
+        ? 'Write ALL three fields in clear formal Arabic only (no English words in the values).'
+        : 'Write ALL three fields in clear English only (no Arabic words in the values).';
+    $instruction = implode("\n", [
+        'You write Saudi e-commerce product catalog copy for a multi-store SaaS merchant.',
+        $langLine,
+        'Return ONLY valid JSON with keys: title, subtitle, description.',
+        'title = product display name, max 80 characters, no quotes.',
+        'subtitle = one short marketing line under the title, max 120 characters.',
+        'description = 2-4 short paragraphs of honest product description HTML using <p> tags only (no scripts, no fake reviews, no invented specs).',
+        'Do not invent stock counts, prices, ratings, or competitor claims.',
+        'Facts:',
+        implode("\n", $facts),
+    ]);
+
+    $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($model) . ':generateContent?key=' . rawurlencode($apiKey);
+    $res = souq_gemini_curl_json($url, [
+        'contents' => [['parts' => [['text' => $instruction]]]],
+        'generationConfig' => [
+            'temperature' => 0.55,
+            'maxOutputTokens' => 1024,
+            'responseMimeType' => 'application/json',
+        ],
+    ], 45);
+
+    if ($res['raw'] === false || $res['status'] < 200 || $res['status'] >= 300) {
+        $msg = $res['err'] !== '' ? $res['err'] : 'AI product copy returned an error.';
+        $decoded = json_decode((string)$res['raw'], true);
+        if (is_array($decoded) && !empty($decoded['error']['message'])) {
+            $msg = (string)$decoded['error']['message'];
+        }
+        return ['ok' => false, 'code' => 'provider_error', 'message' => mb_substr($msg, 0, 280)];
+    }
+
+    $json = json_decode((string)$res['raw'], true);
+    $text = '';
+    foreach (($json['candidates'][0]['content']['parts'] ?? []) as $part) {
+        if (!empty($part['text'])) {
+            $text .= (string)$part['text'];
+        }
+    }
+    $text = trim($text);
+    $text = preg_replace('/^```(?:json)?\s*|\s*```$/u', '', $text) ?? $text;
+    $decoded = json_decode($text, true);
+    if (!is_array($decoded)) {
+        return ['ok' => false, 'code' => 'empty_result', 'message' => 'AI product copy returned invalid JSON.'];
+    }
+    $title = trim((string)($decoded['title'] ?? ''));
+    $subtitle = trim((string)($decoded['subtitle'] ?? ''));
+    $description = trim((string)($decoded['description'] ?? ''));
+    if (mb_strlen($title) < 2 && mb_strlen($description) < 8) {
+        return ['ok' => false, 'code' => 'empty_result', 'message' => 'AI product copy returned empty text.'];
+    }
+
+    return [
+        'ok' => true,
+        'title' => mb_substr($title, 0, 120),
+        'subtitle' => mb_substr($subtitle, 0, 200),
+        'description' => mb_substr($description, 0, 8000),
+        'model' => $model,
+    ];
 }
 
 function souq_media_row(array $row): array
@@ -951,6 +1259,75 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
             'store_id' => $storeId,
         ], JSON_UNESCAPED_UNICODE);
         return true;
+    }
+
+    if ($uri === '/ai-media/product-copy' && $method === 'POST') {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.', 'code' => 'validation']);
+            return true;
+        }
+        try {
+            $env = souq_load_root_env();
+            $key = trim((string)($env['GEMINI_API_KEY'] ?? ''));
+            if ($key === '' || $key === 'MY_GEMINI_API_KEY') {
+                http_response_code(503);
+                echo json_encode([
+                    'message' => 'AI text provider is not connected.',
+                    'code' => 'provider_not_connected',
+                    'store_id' => $storeId,
+                ]);
+                return true;
+            }
+            $storeName = '';
+            try {
+                $storeRow = souq_store_row($pdo, $storeId);
+                $storeName = is_array($storeRow) ? trim((string)($storeRow['name'] ?? '')) : '';
+            } catch (Throwable) {
+                $storeName = '';
+            }
+            $result = souq_gemini_suggest_product_copy([
+                'name' => (string)($input['name'] ?? ''),
+                'category' => (string)($input['category'] ?? ''),
+                'brand' => (string)($input['brand'] ?? ''),
+                'product_type' => (string)($input['product_type'] ?? ''),
+                'store_name' => $storeName,
+                'seed' => (string)($input['seed'] ?? ''),
+                'locale' => (string)($input['locale'] ?? 'en'),
+            ]);
+            if (!$result['ok']) {
+                $status = ($result['code'] ?? '') === 'provider_not_connected' ? 503
+                    : (($result['code'] ?? '') === 'missing_context' ? 422 : 502);
+                http_response_code($status);
+                echo json_encode([
+                    'message' => $result['message'] ?? 'AI product copy failed.',
+                    'code' => $result['code'] ?? 'provider_error',
+                    'store_id' => $storeId,
+                ]);
+                return true;
+            }
+            echo json_encode([
+                'success' => true,
+                'store_id' => $storeId,
+                'data' => [
+                    'title' => $result['title'] ?? '',
+                    'subtitle' => $result['subtitle'] ?? '',
+                    'description' => $result['description'] ?? '',
+                    'saved' => false,
+                    'model' => $result['model'] ?? null,
+                ],
+                'message' => 'Product copy suggestion ready.',
+            ], JSON_UNESCAPED_UNICODE);
+            return true;
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode([
+                'message' => 'AI product copy failed: ' . $e->getMessage(),
+                'code' => 'server_error',
+                'store_id' => $storeId,
+            ]);
+            return true;
+        }
     }
 
     if ($uri === '/ai-media/enhance-prompt' && $method === 'POST') {
@@ -1280,71 +1657,86 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
             echo json_encode(['message' => 'store_id is required.']);
             return true;
         }
-        $row = souq_store_row($pdo, $storeId);
-        if (!$row) {
-            http_response_code(404);
-            echo json_encode(['message' => 'Store not found']);
+        try {
+            souq_ensure_mysql_store_data_column($pdo);
+            $row = souq_store_row($pdo, $storeId);
+            if (!$row) {
+                http_response_code(404);
+                echo json_encode(['message' => 'Store not found']);
+                return true;
+            }
+            $data = function_exists('souq_store_data')
+                ? souq_store_data($pdo, $storeId)
+                : (function_exists('souq_store_payload')
+                    ? souq_store_payload($row)
+                    : (json_decode((string)($row['data'] ?? '{}'), true) ?: []));
+            if (!is_array($data)) {
+                $data = [];
+            }
+            $seo = is_array($data['seo'] ?? null) ? $data['seo'] : [];
+            $map = [
+                'meta_title' => 'metaTitle',
+                'meta_description' => 'metaDescription',
+                'ga4_measurement_id' => 'ga4MeasurementId',
+                'keywords' => 'keywords',
+            ];
+            foreach ($map as $apiKey => $seoKey) {
+                if (array_key_exists($apiKey, $input)) {
+                    $seo[$seoKey] = $input[$apiKey];
+                }
+                if (array_key_exists($seoKey, $input)) {
+                    $seo[$seoKey] = $input[$seoKey];
+                }
+            }
+            if (isset($input['extra']) && is_array($input['extra'])) {
+                $seo = array_merge($seo, $input['extra']);
+            }
+            $data['seo'] = $seo;
+            if (!empty($seo['ga4MeasurementId'])) {
+                $data['ga4MeasurementId'] = $seo['ga4MeasurementId'];
+            }
+            if (function_exists('souq_save_store_data')) {
+                souq_save_store_data($pdo, $storeId, $data);
+            } else {
+                $pdo->prepare('UPDATE stores SET data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+                    ->execute([json_encode($data, JSON_UNESCAPED_UNICODE), $storeId]);
+            }
+
+            $ga = strtoupper(trim((string)($seo['ga4MeasurementId'] ?? '')));
+            $gaOk = (bool)preg_match('/^G-[A-Z0-9]+$/', $ga);
+            $gInt = is_array($data['google_integration'] ?? null) ? $data['google_integration'] : [];
+            $googleConnected = !empty($gInt['is_connected']) && !empty($gInt['google_account_email']);
+            $host = function_exists('souq_request_host') ? souq_request_host() : '';
+            $publicHost = '';
+            if ($host && function_exists('souq_host_store') && souq_host_store($host) === $storeId) {
+                $publicHost = $host;
+            } elseif (!empty($row['domain'])) {
+                $publicHost = strtolower((string)preg_replace('#^https?://#', '', (string)$row['domain']));
+                $publicHost = explode('/', $publicHost)[0];
+            }
+            echo json_encode(['data' => [
+                'store_id' => $storeId,
+                'google_connected' => $googleConnected,
+                'google_account_email' => $googleConnected ? (string)($gInt['google_account_email'] ?? '') : '',
+                'ga4_measurement_id' => $gaOk ? $ga : '',
+                'meta_title' => (string)($seo['metaTitle'] ?? ''),
+                'meta_description' => (string)($seo['metaDescription'] ?? ''),
+                'keywords' => $seo['keywords'] ?? [],
+                'sitemap_url' => $publicHost !== '' ? 'https://' . $publicHost . '/sitemap.xml' : '',
+                'indexed_urls_count' => null,
+                'total_search_clicks' => null,
+                'total_search_impressions' => null,
+                'avg_ctr' => null,
+                'avg_position' => null,
+                'top_queries' => [],
+                'extra' => new stdClass(),
+            ]]);
+            return true;
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['message' => 'SEO save failed', 'error' => $e->getMessage()]);
             return true;
         }
-        $data = json_decode((string)($row['data'] ?? '{}'), true);
-        if (!is_array($data)) {
-            $data = [];
-        }
-        $seo = is_array($data['seo'] ?? null) ? $data['seo'] : [];
-        $map = [
-            'meta_title' => 'metaTitle',
-            'meta_description' => 'metaDescription',
-            'ga4_measurement_id' => 'ga4MeasurementId',
-            'keywords' => 'keywords',
-        ];
-        foreach ($map as $apiKey => $seoKey) {
-            if (array_key_exists($apiKey, $input)) {
-                $seo[$seoKey] = $input[$apiKey];
-            }
-            if (array_key_exists($seoKey, $input)) {
-                $seo[$seoKey] = $input[$seoKey];
-            }
-        }
-        if (isset($input['extra']) && is_array($input['extra'])) {
-            $seo = array_merge($seo, $input['extra']);
-        }
-        $data['seo'] = $seo;
-        if (!empty($seo['ga4MeasurementId'])) {
-            $data['ga4MeasurementId'] = $seo['ga4MeasurementId'];
-        }
-        $pdo->prepare('UPDATE stores SET data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-            ->execute([json_encode($data, JSON_UNESCAPED_UNICODE), $storeId]);
-
-        $ga = strtoupper(trim((string)($seo['ga4MeasurementId'] ?? '')));
-        $gaOk = (bool)preg_match('/^G-[A-Z0-9]+$/', $ga);
-        $gInt = is_array($data['google_integration'] ?? null) ? $data['google_integration'] : [];
-        $googleConnected = !empty($gInt['is_connected']) && !empty($gInt['google_account_email']);
-        $host = function_exists('souq_request_host') ? souq_request_host() : '';
-        $publicHost = '';
-        if ($host && function_exists('souq_host_store') && souq_host_store($host) === $storeId) {
-            $publicHost = $host;
-        } elseif (!empty($row['domain'])) {
-            $publicHost = strtolower((string)preg_replace('#^https?://#', '', (string)$row['domain']));
-            $publicHost = explode('/', $publicHost)[0];
-        }
-        echo json_encode(['data' => [
-            'store_id' => $storeId,
-            'google_connected' => $googleConnected,
-            'google_account_email' => $googleConnected ? (string)($gInt['google_account_email'] ?? '') : '',
-            'ga4_measurement_id' => $gaOk ? $ga : '',
-            'meta_title' => (string)($seo['metaTitle'] ?? ''),
-            'meta_description' => (string)($seo['metaDescription'] ?? ''),
-            'keywords' => $seo['keywords'] ?? [],
-            'sitemap_url' => $publicHost !== '' ? 'https://' . $publicHost . '/sitemap.xml' : '',
-            'indexed_urls_count' => null,
-            'total_search_clicks' => null,
-            'total_search_impressions' => null,
-            'avg_ctr' => null,
-            'avg_position' => null,
-            'top_queries' => [],
-            'extra' => new stdClass(),
-        ]]);
-        return true;
     }
 
     return false;

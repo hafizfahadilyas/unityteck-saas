@@ -183,8 +183,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                 {mainView === 'customer'
                   ? isAr
-                    ? 'إدارة إشعارات العميل عبر الإيميل وواتساب والرسائل النصية'
-                    : 'Manage real customer Email, WhatsApp & SMS deliveries'
+                    ? 'إدارة إشعارات العميل عبر البريد الإلكتروني وواتساب والرسائل النصية'
+                    : 'Manage real customer Email, WhatsApp and SMS deliveries'
                   : isAr
                     ? `إدارة التنبيهات والفرص (${filteredItems.length})`
                     : `Manage store alerts & opportunities (${filteredItems.length})`}
@@ -238,7 +238,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 type="button"
                 onClick={onClose}
                 className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                aria-label="Close"
+                aria-label={isAr ? 'إغلاق' : 'Close'}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -270,7 +270,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
             }`}
           >
             <Mail className="w-3.5 h-3.5" />
-            {isAr ? 'إشعارات العميل' : 'Customer Email / WA / SMS'}
+            {isAr ? 'إشعارات العميل' : 'Customer deliveries'}
           </button>
         </div>
       </div>

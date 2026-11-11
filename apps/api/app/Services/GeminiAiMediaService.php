@@ -333,9 +333,9 @@ final class GeminiAiMediaService
             ];
         }
 
-        $model = trim((string) config('services.gemini.text_model', 'gemini-2.5-flash'));
-        if ($model === '') {
-            $model = 'gemini-2.5-flash';
+        $model = trim((string) config('services.gemini.text_model', 'gemini-3.8-flash'));
+        if ($model === '' || $model === 'gemini-2.5-flash' || $model === 'gemini-2.0-flash') {
+            $model = 'gemini-3.8-flash';
         }
 
         $aspect = self::resolveAspect($aspect);
@@ -544,6 +544,159 @@ final class GeminiAiMediaService
                 'ok' => false,
                 'code' => 'provider_error',
                 'message' => 'AI image request failed: '.$e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Suggest product title + description for the merchant form (KSA bilingual store).
+     * Returns suggestion only — never writes catalog rows.
+     *
+     * @param  array{name?: string, category?: string, brand?: string, product_type?: string, store_name?: string, locale?: string, seed?: string}  $input
+     * @return array{ok: true, title: string, description: string, subtitle: string, model: string}|array{ok: false, code: string, message: string}
+     */
+    public function suggestProductCopy(array $input): array
+    {
+        $apiKey = trim((string) config('services.gemini.api_key', ''));
+        if ($apiKey === '' || $apiKey === 'MY_GEMINI_API_KEY') {
+            return [
+                'ok' => false,
+                'code' => 'provider_not_connected',
+                'message' => 'AI text provider is not connected. Set GEMINI_API_KEY on the API server.',
+            ];
+        }
+
+        $model = trim((string) config('services.gemini.text_model', 'gemini-3.8-flash'));
+        if ($model === '' || $model === 'gemini-2.5-flash' || $model === 'gemini-2.0-flash') {
+            $model = 'gemini-3.8-flash';
+        }
+
+        $locale = strtolower(trim((string) ($input['locale'] ?? 'en')));
+        $wantAr = str_starts_with($locale, 'ar');
+        $name = trim((string) ($input['name'] ?? ''));
+        $category = trim((string) ($input['category'] ?? ''));
+        $brand = trim((string) ($input['brand'] ?? ''));
+        $productType = trim((string) ($input['product_type'] ?? ''));
+        $storeName = trim((string) ($input['store_name'] ?? ''));
+        $seed = trim((string) ($input['seed'] ?? ''));
+
+        $facts = [];
+        if ($name !== '') {
+            $facts[] = 'Current name: '.$name;
+        }
+        if ($category !== '') {
+            $facts[] = 'Category: '.$category;
+        }
+        if ($brand !== '') {
+            $facts[] = 'Brand: '.$brand;
+        }
+        if ($productType !== '') {
+            $facts[] = 'Product type: '.$productType;
+        }
+        if ($storeName !== '') {
+            $facts[] = 'Store: '.$storeName;
+        }
+        if ($seed !== '') {
+            $facts[] = 'Merchant notes: '.$seed;
+        }
+        if ($facts === []) {
+            return [
+                'ok' => false,
+                'code' => 'missing_context',
+                'message' => 'Enter a product name, category, or brand first so AI can suggest copy.',
+            ];
+        }
+
+        $langLine = $wantAr
+            ? 'Write ALL three fields in clear formal Arabic only (no English words in the values).'
+            : 'Write ALL three fields in clear English only (no Arabic words in the values).';
+
+        $instruction = implode("\n", [
+            'You write Saudi e-commerce product catalog copy for a multi-store SaaS merchant.',
+            $langLine,
+            'Return ONLY valid JSON with keys: title, subtitle, description.',
+            'title = product display name, max 80 characters, no quotes.',
+            'subtitle = one short marketing line under the title, max 120 characters.',
+            'description = 2-4 short paragraphs of honest product description HTML using <p> tags only (no scripts, no fake reviews, no invented specs).',
+            'Do not invent stock counts, prices, ratings, or competitor claims.',
+            'Facts:',
+            implode("\n", $facts),
+        ]);
+
+        $url = 'https://generativelanguage.googleapis.com/v1beta/models/'
+            .rawurlencode($model)
+            .':generateContent?key='.rawurlencode($apiKey);
+
+        try {
+            $response = Http::timeout(45)
+                ->acceptJson()
+                ->asJson()
+                ->post($url, [
+                    'contents' => [
+                        ['parts' => [['text' => $instruction]]],
+                    ],
+                    'generationConfig' => [
+                        'temperature' => 0.55,
+                        'maxOutputTokens' => 1024,
+                        'responseMimeType' => 'application/json',
+                    ],
+                ]);
+
+            if (! $response->successful()) {
+                $err = $response->json('error.message') ?: $response->body();
+
+                return [
+                    'ok' => false,
+                    'code' => 'provider_error',
+                    'message' => is_string($err) && $err !== ''
+                        ? $err
+                        : 'AI product copy returned an error.',
+                ];
+            }
+
+            $parts = $response->json('candidates.0.content.parts') ?? [];
+            $text = '';
+            if (is_array($parts)) {
+                foreach ($parts as $part) {
+                    if (! empty($part['text'])) {
+                        $text .= (string) $part['text'];
+                    }
+                }
+            }
+            $text = trim($text);
+            $text = preg_replace('/^```(?:json)?\s*|\s*```$/u', '', $text) ?? $text;
+            $decoded = json_decode($text, true);
+            if (! is_array($decoded)) {
+                return [
+                    'ok' => false,
+                    'code' => 'empty_result',
+                    'message' => 'AI product copy returned invalid JSON.',
+                ];
+            }
+
+            $title = trim((string) ($decoded['title'] ?? ''));
+            $subtitle = trim((string) ($decoded['subtitle'] ?? ''));
+            $description = trim((string) ($decoded['description'] ?? ''));
+            if (mb_strlen($title) < 2 && mb_strlen($description) < 8) {
+                return [
+                    'ok' => false,
+                    'code' => 'empty_result',
+                    'message' => 'AI product copy returned empty text.',
+                ];
+            }
+
+            return [
+                'ok' => true,
+                'title' => mb_substr($title, 0, 120),
+                'subtitle' => mb_substr($subtitle, 0, 200),
+                'description' => mb_substr($description, 0, 8000),
+                'model' => $model,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'ok' => false,
+                'code' => 'provider_error',
+                'message' => 'AI product copy failed: '.$e->getMessage(),
             ];
         }
     }

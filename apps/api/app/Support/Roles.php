@@ -96,7 +96,8 @@ final class Roles
         return match ($r) {
             'master_admin', 'superadmin', 'super_admin' => self::SUPER_ADMIN,
             'store_manager', 'manager' => self::MANAGER,
-            'store_admin', 'admin' => self::ADMIN,
+            // Merchant primary login / store owner = full store admin
+            'store_admin', 'admin', 'store_owner', 'owner', 'storeowner' => self::ADMIN,
             'store_staff', 'support' => self::SUPPORT,
             'store_viewer', 'viewer' => self::VIEWER,
             'sales' => self::SALES,

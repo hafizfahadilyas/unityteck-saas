@@ -176,22 +176,18 @@ export const CoffeeAnnouncementsForm: React.FC<CoffeeFormChromeProps> = ({ onBac
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <label className="space-y-1 text-[11px] font-semibold text-slate-600">
-                  <span>{isAr ? 'نص الإعلان (إنجليزي)' : 'Announcement text (English)'}</span>
+                <label className="space-y-1 text-[11px] font-semibold text-slate-600 md:col-span-2">
+                  <span>{isAr ? 'نص الإعلان' : 'Announcement text'}</span>
                   <input
                     className={inputCls}
-                    dir="ltr"
-                    value={m.textEn || m.text || ''}
-                    onChange={(e) => patchMsg(m.id, { textEn: e.target.value })}
-                  />
-                </label>
-                <label className="space-y-1 text-[11px] font-semibold text-slate-600">
-                  <span>{isAr ? 'نص الإعلان (عربي)' : 'Announcement text (Arabic)'}</span>
-                  <input
-                    className={inputCls}
-                    dir="rtl"
-                    value={m.textAr || ''}
-                    onChange={(e) => patchMsg(m.id, { textAr: e.target.value })}
+                    dir={isAr ? 'rtl' : 'ltr'}
+                    value={isAr ? (m.textAr || '') : (m.textEn || m.text || '')}
+                    onChange={(e) =>
+                      patchMsg(
+                        m.id,
+                        isAr ? { textAr: e.target.value } : { textEn: e.target.value },
+                      )
+                    }
                   />
                 </label>
                 <label className="space-y-1 text-[11px] font-semibold text-slate-600">
@@ -260,20 +256,22 @@ export const CoffeeAnnouncementsForm: React.FC<CoffeeFormChromeProps> = ({ onBac
           <section className={cardCls}>
             <h3 className="text-sm font-bold">{isAr ? 'إضافة إعلان جديد' : 'Add New Announcement'}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <input
-                className={inputCls}
-                dir="ltr"
-                placeholder={isAr ? 'مثال إنجليزي' : 'Example: Free shipping on orders over SAR 200'}
-                value={newTextEn}
-                onChange={(e) => setNewTextEn(e.target.value)}
-              />
-              <input
-                className={inputCls}
-                dir="rtl"
-                placeholder={isAr ? 'مثال: شحن مجاني للطلبات فوق 200 ريال' : 'Arabic text'}
-                value={newTextAr}
-                onChange={(e) => setNewTextAr(e.target.value)}
-              />
+              <label className="space-y-1 text-[11px] font-semibold text-slate-600 md:col-span-2">
+                <span>{isAr ? 'نص الإعلان' : 'Announcement text'}</span>
+                <input
+                  className={inputCls}
+                  dir={isAr ? 'rtl' : 'ltr'}
+                  placeholder={
+                    isAr
+                      ? 'مثال: شحن مجاني للطلبات فوق 200 ريال'
+                      : 'Example: Free shipping on orders over SAR 200'
+                  }
+                  value={isAr ? newTextAr : newTextEn}
+                  onChange={(e) =>
+                    isAr ? setNewTextAr(e.target.value) : setNewTextEn(e.target.value)
+                  }
+                />
+              </label>
               <label className="space-y-1 text-[11px] font-semibold text-slate-600">
                 <span>{isAr ? 'لون النص' : 'Text color'}</span>
                 <div className="flex gap-2">

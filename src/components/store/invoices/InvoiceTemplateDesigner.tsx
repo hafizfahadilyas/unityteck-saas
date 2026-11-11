@@ -186,21 +186,19 @@ export const InvoiceTemplateDesigner: React.FC<InvoiceTemplateDesignerProps> = (
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">{isAr ? 'الاسم التجاري بالعربية' : 'Business Name (AR)'}</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {isAr ? 'الاسم التجاري' : 'Business Name'}
+                  </label>
                   <input
                     type="text"
-                    value={config.businessNameAr}
-                    onChange={(e) => setConfig((c) => ({ ...c, businessNameAr: e.target.value }))}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">{isAr ? 'الاسم التجاري بالإنجليزية' : 'Business Name (EN)'}</label>
-                  <input
-                    type="text"
-                    value={config.businessNameEn}
-                    onChange={(e) => setConfig((c) => ({ ...c, businessNameEn: e.target.value }))}
+                    dir={isAr ? 'rtl' : 'ltr'}
+                    value={isAr ? config.businessNameAr : config.businessNameEn}
+                    onChange={(e) =>
+                      setConfig((c) => ({
+                        ...c,
+                        ...(isAr ? { businessNameAr: e.target.value } : { businessNameEn: e.target.value }),
+                      }))
+                    }
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white"
                   />
                 </div>
@@ -329,31 +327,58 @@ export const InvoiceTemplateDesigner: React.FC<InvoiceTemplateDesignerProps> = (
             {designerTab === 'terms' && (
               <div className="space-y-4">
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">{isAr ? 'الملاحظات الافتراضية (عربي)' : 'Default Notes (AR)'}</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {isAr ? 'الملاحظات الافتراضية' : 'Default Notes'}
+                  </label>
                   <textarea
                     rows={3}
-                    value={config.customNotesAr}
-                    onChange={(e) => setConfig((c) => ({ ...c, customNotesAr: e.target.value }))}
+                    dir={isAr ? 'rtl' : 'ltr'}
+                    value={isAr ? config.customNotesAr : config.customNotesEn}
+                    onChange={(e) =>
+                      setConfig((c) =>
+                        isAr
+                          ? { ...c, customNotesAr: e.target.value }
+                          : { ...c, customNotesEn: e.target.value },
+                      )
+                    }
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">{isAr ? 'الشروط والأحكام (عربي)' : 'Default Terms (AR)'}</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {isAr ? 'الشروط والأحكام' : 'Default Terms'}
+                  </label>
                   <textarea
                     rows={3}
-                    value={config.customTermsAr}
-                    onChange={(e) => setConfig((c) => ({ ...c, customTermsAr: e.target.value }))}
+                    dir={isAr ? 'rtl' : 'ltr'}
+                    value={isAr ? config.customTermsAr : config.customTermsEn}
+                    onChange={(e) =>
+                      setConfig((c) =>
+                        isAr
+                          ? { ...c, customTermsAr: e.target.value }
+                          : { ...c, customTermsEn: e.target.value },
+                      )
+                    }
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">{isAr ? 'بيانات الحساب البنكي والآيبان' : 'Bank Account Details'}</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {isAr ? 'بيانات الحساب البنكي' : 'Bank Account Details'}
+                  </label>
                   <input
                     type="text"
-                    value={config.bankDetailsAr}
-                    onChange={(e) => setConfig((c) => ({ ...c, bankDetailsAr: e.target.value }))}
+                    dir={isAr ? 'rtl' : 'ltr'}
+                    value={isAr ? config.bankDetailsAr : config.bankDetailsEn}
+                    onChange={(e) =>
+                      setConfig((c) =>
+                        isAr
+                          ? { ...c, bankDetailsAr: e.target.value }
+                          : { ...c, bankDetailsEn: e.target.value },
+                      )
+                    }
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white font-mono"
                   />
                 </div>

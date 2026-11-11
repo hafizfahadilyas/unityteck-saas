@@ -82,7 +82,6 @@ import {
 import {
   CANVA_FONT_FAMILIES,
   getDefaultBlankTemplate,
-  getDefaultNicheStarterTemplate,
   resolveCanvaLayerLabel,
   type CanvaDesignTemplate,
   type CanvaTemplateCategory,
@@ -490,16 +489,107 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     setSavedDesignId(null);
   }, [isOpen, editorKind, isAr]);
 
-  // Initialize on open: Blank canvas (or niche starter if editing an asset)
+  // Initialize on open:
+  // - Media Library asset → single full-canvas editable image layer (Canva-like, no niche text overlap)
+  // - Blank / dedicated editor → blank or niche starter only when no asset
   useEffect(() => {
     if (!isOpen) return;
 
     const initialUrl = resolveCandidateUrl(initialAsset);
+
+    // Media image / PNG → open as editable layer design (same path as importImageAsDesign)
+    if (initialAsset && initialUrl) {
+      const name =
+        (initialAsset.title || initialAsset.fileName || '').replace(/\.[^.]+$/, '') ||
+        (isAr ? 'تصميم الوسائط' : 'Media Design');
+      const assetKey = initialAsset.id || String(Date.now());
+
+      const applyMediaLayer = (w0: number, h0: number) => {
+        const w = Math.max(1, w0);
+        const h = Math.max(1, h0);
+        const layer: CanvasElement = {
+          id: `img-media-${assetKey}`,
+          type: 'image',
+          text: name,
+          imageUrl: initialUrl,
+          x: Math.round(w / 2),
+          y: Math.round(h / 2),
+          width: w,
+          height: h,
+          fontSize: 16,
+          fontColor: '#0f172a',
+          borderRadius: 0,
+          opacity: 1,
+        };
+
+        // Do NOT load as product hero — that stacked niche text + product on the same image (overlap / dead clicks)
+        setLoadedImg(null);
+        setActiveImageUrl('');
+        setImageLoading(false);
+        setProductScale(0);
+        setProductPosX(Math.round(w / 2));
+        setProductPosY(Math.round(h / 2));
+        setProductHeroSelected(false);
+        setCanvasW(w);
+        setCanvasH(h);
+        setSelectedBackdrop('transparent');
+        setCustomSolidColor('#ffffff');
+        setElements([layer]);
+        setSelectedElementId(layer.id);
+        setSelectedTemplateId(`media-${assetKey}`);
+        setDocTitle(name);
+        setActiveTab('layers');
+        setLayersSubTab('layers');
+        setViewZoom(1);
+
+        const probe = new Image();
+        probe.crossOrigin = 'anonymous';
+        probe.onload = () => {
+          imageCacheRef.current[initialUrl] = probe;
+          setElements((prev) => [...prev]);
+        };
+        probe.src = initialUrl;
+        imageCacheRef.current[initialUrl] = probe;
+
+        setHistory([
+          {
+            elements: [layer],
+            productPos: { x: Math.round(w / 2), y: Math.round(h / 2), scale: 0 },
+            selectedBackdrop: 'transparent',
+            customSolidColor: '#ffffff',
+            bgRemoved: false,
+            bgTolerance: 38,
+            filters: { brightness: 100, contrast: 100, saturation: 100, blur: 0 },
+          },
+        ]);
+        historyIndexRef.current = 0;
+        setHistoryIndex(0);
+      };
+
+      const knownW = initialAsset.width || 0;
+      const knownH = initialAsset.height || 0;
+      if (knownW > 0 && knownH > 0) {
+        applyMediaLayer(knownW, knownH);
+        return;
+      }
+
+      setImageLoading(true);
+      const dimProbe = new Image();
+      dimProbe.onload = () => {
+        applyMediaLayer(dimProbe.naturalWidth || 1080, dimProbe.naturalHeight || 1080);
+        setImageLoading(false);
+      };
+      dimProbe.onerror = () => {
+        applyMediaLayer(1080, 1080);
+        setImageLoading(false);
+      };
+      dimProbe.src = initialUrl;
+      return;
+    }
+
     loadStudioImage(initialUrl);
 
-    const starter = initialAsset
-      ? getDefaultNicheStarterTemplate(activeStore)
-      : getDefaultBlankTemplate('square');
+    const starter = getDefaultBlankTemplate('square');
 
     const mapped: CanvasElement[] = starter.elements.map((layer, idx) => ({
       id: `el-${Date.now()}-${idx}`,
@@ -527,9 +617,6 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       imageUrl: layer.imageUrl,
     }));
 
-    const scale = initialAsset
-      ? starter.productPosPct.scale
-      : 0;
     const px = Math.round(starter.productPosPct.x * starter.width);
     const py = Math.round(starter.productPosPct.y * starter.height);
 
@@ -539,7 +626,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     setCustomSolidColor(starter.customSolidColor || '#faf8f5');
     setProductPosX(px);
     setProductPosY(py);
-    setProductScale(scale);
+    setProductScale(0);
     setElements(mapped);
     setSelectedElementId(mapped[0]?.id || null);
     setSelectedTemplateId(starter.id);
@@ -554,7 +641,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     setHistory([
       {
         elements: mapped,
-        productPos: { x: px, y: py, scale },
+        productPos: { x: px, y: py, scale: 0 },
         selectedBackdrop: starter.backdropId || 'soft-ivory',
         customSolidColor: starter.customSolidColor || '#faf8f5',
         bgRemoved: false,
@@ -564,7 +651,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     ]);
     historyIndexRef.current = 0;
     setHistoryIndex(0);
-  }, [isOpen, initialAsset, resolveCandidateUrl, loadStudioImage, isAr, activeStore]);
+  }, [isOpen, initialAsset, resolveCandidateUrl, loadStudioImage, isAr]);
 
   // Snapshot State for Undo / Redo
   const pushHistorySnapshot = useCallback(
@@ -1906,16 +1993,18 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     if (isResizingElement || isResizingProduct) return;
     const { x, y } = getCanvasCoords(e);
 
-    // Hit test elements in reverse order (use measured layout from canvas)
+    // Hit test top → bottom (Canva-like). Select locked layers too; only skip drag when locked.
     for (let i = elements.length - 1; i >= 0; i--) {
       const el = elements[i];
-      if (el.locked || el.hidden) continue;
+      if (el.hidden) continue;
       const bounds = layoutCacheRef.current[el.id] || estimateElementBounds(el);
       if (rectContainsPoint(bounds, x, y, 8)) {
         setSelectedElementId(el.id);
         setProductHeroSelected(false);
-        setIsDraggingElement(true);
-        setDragOffset({ x: x - el.x, y: y - el.y });
+        if (!el.locked) {
+          setIsDraggingElement(true);
+          setDragOffset({ x: x - el.x, y: y - el.y });
+        }
         return;
       }
     }
@@ -4234,15 +4323,16 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
             {/* Canvas Container */}
             <div
               ref={containerRef}
-              className="flex-1 flex items-center justify-center min-h-[350px] overflow-auto p-2"
+              className="flex-1 flex items-center justify-center min-h-[280px] sm:min-h-[350px] overflow-auto p-2 sm:p-4 pt-10"
             >
               <div
                 ref={canvasFrameRef}
-                className="cs-canvas-frame relative overflow-visible flex items-center justify-center is-pan-ready select-none"
+                className="cs-canvas-frame relative overflow-visible flex items-center justify-center is-pan-ready select-none w-full max-w-full"
                 style={{
                   aspectRatio: `${canvasW} / ${canvasH}`,
-                  maxHeight: isPage ? 'min(76vh, 720px)' : 'min(64vh, 580px)',
-                  maxWidth: '100%',
+                  maxHeight: isPage ? 'min(70vh, 720px)' : 'min(58vh, 560px)',
+                  maxWidth: 'min(100%, 920px)',
+                  width: '100%',
                   transform: `scale(${viewZoom})`,
                   transformOrigin: 'center center',
                 }}
@@ -4444,7 +4534,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       dir={isAr ? 'rtl' : 'ltr'}
       aria-label={isAr ? 'استوديو التصميم' : 'Design Studio'}
       backdropClassName="!p-0 font-sans"
-      zIndexClassName="z-50"
+      zIndexClassName="z-[70]"
     >
       {studioPanel}
       {socialModal}

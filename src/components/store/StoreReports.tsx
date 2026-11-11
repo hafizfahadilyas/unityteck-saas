@@ -18,6 +18,7 @@ import { ReportsCustomers } from './reports/ReportsCustomers';
 import { ReportsProducts } from './reports/ReportsProducts';
 import { ReportsEmptyState } from './reports/ReportsEmptyState';
 import { StoreChannelPerformance } from './StoreChannelPerformance';
+import { ordersBySource } from './reports/realOrderSeries';
 import { localizePaymentMethod } from '../../utils/domainLabels';
 import { getCustomerDisplayName, getLocalizedCity } from '../../utils/storeLocalization';
 
@@ -72,7 +73,8 @@ export const StoreReports: React.FC = () => {
   const { toast } = useToast();
   const isAr = locale === 'ar';
 
-  const [activeReportTab, setActiveReportTab] = useState<ReportTabKey>('overview');
+  // null = hub (buttons only); set = that report's data
+  const [activeReportTab, setActiveReportTab] = useState<ReportTabKey | null>(null);
   const [dateRange, setDateRange] = useState('30d');
   const [comparisonPeriod, setComparisonPeriod] = useState<string>('prev_period');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -83,7 +85,7 @@ export const StoreReports: React.FC = () => {
 
   const handleBackToOverview = () => {
     setSelectedCategory(null);
-    setActiveReportTab('overview');
+    setActiveReportTab(null);
   };
 
   const handleTabSwitch = (tab: ReportTabKey) => {
@@ -158,7 +160,7 @@ export const StoreReports: React.FC = () => {
       label: isAr ? 'إجمالي المبيعات' : 'Total Sales',
       value: computedTotalSales,
       isMoney: true,
-      change: '0%',
+      change: '—',
       positive: true,
       icon: ShoppingCart,
       color: 'emerald',
@@ -168,7 +170,7 @@ export const StoreReports: React.FC = () => {
       label: isAr ? 'صافي المبيعات' : 'Net Sales',
       value: computedNetSales,
       isMoney: true,
-      change: '0%',
+      change: '—',
       positive: true,
       icon: DollarSign,
       color: 'blue',
@@ -178,7 +180,7 @@ export const StoreReports: React.FC = () => {
       label: isAr ? 'إجمالي الطلبات' : 'Total Orders',
       value: computedTotalOrders,
       isMoney: false,
-      change: '0%',
+      change: '—',
       positive: true,
       icon: FileText,
       color: 'purple',
@@ -188,7 +190,7 @@ export const StoreReports: React.FC = () => {
       label: isAr ? 'العملاء' : 'Customers',
       value: computedCustomersCount,
       isMoney: false,
-      change: '0%',
+      change: '—',
       positive: true,
       icon: Users,
       color: 'amber',
@@ -198,7 +200,7 @@ export const StoreReports: React.FC = () => {
       label: isAr ? 'زيارات المتجر' : 'Store Visits',
       value: computedVisits,
       isMoney: false,
-      change: '0%',
+      change: '—',
       positive: true,
       icon: BarChart3,
       color: 'rose',
@@ -341,6 +343,21 @@ export const StoreReports: React.FC = () => {
     );
   };
 
+  const reportsHeaderProps = {
+    activeTab: activeReportTab,
+    onSelectTab: handleTabSwitch,
+    onBackToHub: handleBackToOverview,
+    dateRange,
+    onDateRangeChange: setDateRange,
+    comparisonPeriod,
+    onComparisonChange: setComparisonPeriod,
+    onExport: handleDownload,
+    onPrint: () => window.print(),
+    onOpenGuide: () => setIsGuideOpen(true),
+    onSaveView: () =>
+      toast(isAr ? 'تم حفظ إعدادات العرض بنجاح!' : 'Report view saved successfully!', 'success'),
+  };
+
   // ═══════════════════════════════════════════════════════════════════
   // SUB-VIEW 1: DETAILED SALES REPORT (Screenshot 4: media_1790960677090.png)
   // ═══════════════════════════════════════════════════════════════════
@@ -382,9 +399,8 @@ export const StoreReports: React.FC = () => {
       formattedValue: `${money(c.revenue)} (${Math.round((c.revenue / computedTotalSales) * 100)}%)`,
     })) : [];
 
-    const brandSalesDonut = computedTotalSales > 0 ? [
-      { label: activeStore.nameEn || activeStore.name || 'Store', value: 100, color: '#3b82f6', formattedValue: `${money(computedTotalSales)} (100%)` },
-    ] : [];
+    // Brand split only when line items carry real brand fields — never invent 100% store mix
+    const brandSalesDonut: { label: string; value: number; color: string; formattedValue: string }[] = [];
 
     const productAgg: Record<string, { name: string; qty: number; sales: number }> = {};
     storeOrders.forEach((o) => {
@@ -542,7 +558,11 @@ export const StoreReports: React.FC = () => {
                 <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
                   {isAr ? 'المبيعات مع الوقت' : 'Sales Over Time'}
                 </h3>
-                <span className="text-[11px] font-bold text-teal-600">SAR 14,250 (Sep 15, 2026)</span>
+                <span className="text-[11px] font-bold text-teal-600">
+                  {salesChartData.length > 0
+                    ? `${money(salesChartData[salesChartData.length - 1].value)} (${salesChartData[salesChartData.length - 1].label})`
+                    : '—'}
+                </span>
               </div>
               <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold">
                 {(['Daily', 'Weekly', 'Monthly'] as const).map((freq) => (
@@ -743,40 +763,85 @@ export const StoreReports: React.FC = () => {
 
     const campaignPerformance: any[] = [];
 
-    const salesByChannelDonut = computedTotalSales > 0 ? [
-      { label: isAr ? 'المتجر المباشر' : 'Direct Store', value: 100, color: '#10b981', formattedValue: `${money(computedTotalSales)} (100%)` },
-    ] : [];
+    // Real order.source mix only — never invent 100% Direct Store
+    const sourceRows = ordersBySource(storeOrders);
+    const salesByChannelDonut = sourceRows
+      .filter((r) => r.revenue > 0)
+      .map((r) => ({
+        label: isAr ? r.nameAr : r.nameEn,
+        value: Math.max(0, Math.round(r.percentage)),
+        color: r.color,
+        formattedValue: `${money(r.revenue)} (${Math.round(r.percentage)}%)`,
+      }));
 
-    const requestedDays = [
-      { day: 'Mon', orders: 0 },
-      { day: 'Tue', orders: 0 },
-      { day: 'Wed', orders: 0 },
-      { day: 'Thu', orders: 0 },
-      { day: 'Fri', orders: 0 },
-      { day: 'Sat', orders: 0 },
-      { day: 'Sun', orders: 0 },
+    const dayKeys = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+    const dayCounts = Object.fromEntries(dayKeys.map((d) => [d, 0])) as Record<(typeof dayKeys)[number], number>;
+    storeOrders.forEach((o) => {
+      const raw = o.createdAt || o.date || '';
+      const when = new Date(raw.includes(' ') && !raw.includes('T') ? raw.replace(' ', 'T') : raw);
+      if (Number.isNaN(when.getTime())) return;
+      dayCounts[dayKeys[when.getDay()]] += 1;
+    });
+    const requestedDays = dayKeys.map((day) => ({ day, orders: dayCounts[day] }));
+    const maxDayOrders = Math.max(1, ...requestedDays.map((d) => d.orders));
+
+    // Real hour histogram from order timestamps — empty chart when no times
+    const hourBuckets = [
+      { label: '12 AM', hour: 0, value: 0 },
+      { label: '4 AM', hour: 4, value: 0 },
+      { label: '8 AM', hour: 8, value: 0 },
+      { label: '12 PM', hour: 12, value: 0 },
+      { label: '2 PM', hour: 14, value: 0 },
+      { label: '4 PM', hour: 16, value: 0 },
+      { label: '8 PM', hour: 20, value: 0 },
     ];
+    storeOrders.forEach((o) => {
+      const raw = o.createdAt || (o.date && o.time ? `${o.date} ${o.time}` : o.date) || '';
+      const when = new Date(String(raw).includes(' ') && !String(raw).includes('T') ? String(raw).replace(' ', 'T') : raw);
+      if (Number.isNaN(when.getTime())) return;
+      const h = when.getHours();
+      let best = 0;
+      let bestDist = 99;
+      hourBuckets.forEach((b, i) => {
+        const dist = Math.min(Math.abs(h - b.hour), 24 - Math.abs(h - b.hour));
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = i;
+        }
+      });
+      hourBuckets[best].value += 1;
+    });
+    const hoursChartData = hourBuckets.map(({ label, value }) => ({ label, value }));
+    const peakHour = hoursChartData.reduce(
+      (best, row) => (row.value > best.value ? row : best),
+      { label: '', value: 0 },
+    );
 
-    const requestedCustomers = storeCustomers.slice(0, 5).map((c, i) => ({
-      id: String(c.id || i + 1),
-      rank: i + 1,
-      name: c.name || `Customer #${i + 1}`,
-      orders: c.totalOrders || 1,
-      spent: c.totalSpending || (c as any).totalSpent || 0,
-    }));
+    const requestedCustomers = storeCustomers
+      .map((c, i) => ({
+        id: String(c.id || i + 1),
+        name: c.name || (isAr ? `عميل #${i + 1}` : `Customer #${i + 1}`),
+        orders: Math.max(0, Number(c.totalOrders) || 0),
+        spent: Number(c.totalSpending ?? (c as { totalSpent?: number }).totalSpent) || 0,
+      }))
+      .filter((c) => c.orders > 0 || c.spent > 0)
+      .sort((a, b) => b.orders - a.orders || b.spent - a.spent)
+      .slice(0, 5)
+      .map((c, i) => ({ ...c, rank: i + 1 }));
 
-    const marketingChannelsProgress = computedTotalSales > 0 ? [
-      { name: isAr ? 'مباشر (المتجر)' : 'Direct (Store)', count: computedTotalOrders, color: '#10b981', width: '100%' },
-    ] : [];
+    const marketingChannelsProgress = sourceRows
+      .filter((r) => r.orders > 0)
+      .map((r) => ({
+        name: isAr ? r.nameAr : r.nameEn,
+        count: r.orders,
+        color: r.color,
+        width: `${Math.max(0, Math.min(100, Math.round(r.pct)))}%`,
+      }));
 
     const topPerformingContent: any[] = [];
 
-    const roiOverTime = [
-      { label: 'Week 1', value: 0 },
-      { label: 'Week 2', value: 0 },
-      { label: 'Week 3', value: 0 },
-      { label: 'Week 4', value: 0 },
-    ];
+    // No ad spend → ROI series stays empty (never invent weekly ROAS curve)
+    const roiOverTime: { label: string; value: number }[] = [];
 
     return (
       <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
@@ -956,16 +1021,25 @@ export const StoreReports: React.FC = () => {
               <span className="text-xs font-bold text-slate-400">Orders</span>
             </div>
             <div className="flex items-end justify-between gap-2 h-36 pt-4">
-              {requestedDays.map((d, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
-                  <span className="text-[10px] font-bold text-slate-500 tabular-nums">{d.orders}</span>
-                  <div
-                    className="w-full bg-blue-500 hover:bg-blue-600 rounded-t-lg transition-all"
-                    style={{ height: `${(d.orders / 450) * 100}%` }}
-                  />
-                  <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">{d.day}</span>
+              {requestedDays.every((d) => d.orders === 0) ? (
+                <div className="w-full flex items-center justify-center text-xs font-semibold text-slate-400">
+                  {isAr ? 'لا توجد طلبات مسجلة' : 'No records found'}
                 </div>
-              ))}
+              ) : (
+                requestedDays.map((d, i) => (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
+                    <span className="text-[10px] font-bold text-slate-500 tabular-nums">{d.orders}</span>
+                    <div
+                      className="w-full rounded-t-lg transition-all"
+                      style={{
+                        height: `${Math.max(4, (d.orders / maxDayOrders) * 100)}%`,
+                        background: 'var(--accent)',
+                      }}
+                    />
+                    <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">{d.day}</span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -975,22 +1049,24 @@ export const StoreReports: React.FC = () => {
               <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
                 {isAr ? 'أوقات ذروة الطلبات' : 'Most Requested Hours'}
               </h3>
-              <span className="text-xs font-bold text-teal-600">Peak: 2:00 PM</span>
+              <span className="text-xs font-bold text-teal-600">
+                {peakHour.value > 0
+                  ? `${isAr ? 'الذروة:' : 'Peak:'} ${peakHour.label}`
+                  : '—'}
+              </span>
             </div>
-            <AreaChart
-              data={[
-                { label: '12 AM', value: 15 },
-                { label: '4 AM', value: 8 },
-                { label: '8 AM', value: 65 },
-                { label: '12 PM', value: 160 },
-                { label: '2 PM', value: 210 },
-                { label: '4 PM', value: 175 },
-                { label: '8 PM', value: 130 },
-              ]}
-              height={140}
-              color="#0ea5e9"
-              fillGradient={['#0ea5e9', '#38bdf8']}
-            />
+            {peakHour.value > 0 ? (
+              <AreaChart
+                data={hoursChartData}
+                height={140}
+                color="#0ea5e9"
+                fillGradient={['#0ea5e9', '#38bdf8']}
+              />
+            ) : (
+              <div className="h-[140px] flex items-center justify-center text-xs font-semibold text-slate-400">
+                {isAr ? 'لا توجد بيانات أوقات طلبات' : 'No order-hour data yet'}
+              </div>
+            )}
           </div>
 
           {/* Most Requested Customers (4 cols) */}
@@ -1105,9 +1181,7 @@ export const StoreReports: React.FC = () => {
                 <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
                   {isAr ? 'عائد التسويق مع الوقت' : 'Marketing ROI Over Time'}
                 </h3>
-                <span className="text-[11px] font-bold text-emerald-600">
-                  {computedTotalSales > 0 ? 'Peak 4.5x ROAS' : '—'}
-                </span>
+                <span className="text-[11px] font-bold text-emerald-600">—</span>
               </div>
               <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold">
                 {(['Weekly', 'Monthly'] as const).map((f) => (
@@ -1124,13 +1198,19 @@ export const StoreReports: React.FC = () => {
                 ))}
               </div>
             </div>
-            <AreaChart
-              data={roiOverTime}
-              height={140}
-              color="#0284c7"
-              fillGradient={['#0284c7', '#38bdf8']}
-              prefix=""
-            />
+            {roiOverTime.length > 0 ? (
+              <AreaChart
+                data={roiOverTime}
+                height={140}
+                color="#0284c7"
+                fillGradient={['#0284c7', '#38bdf8']}
+                prefix=""
+              />
+            ) : (
+              <div className="h-[140px] flex items-center justify-center text-xs font-semibold text-slate-400">
+                {isAr ? 'لا يوجد إنفاق إعلاني مسجّل بعد' : 'No ad spend recorded yet'}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1148,7 +1228,7 @@ export const StoreReports: React.FC = () => {
     const prodKpis = [
       { label: isAr ? 'إجمالي المنتجات المباعة' : 'Units Sold', value: totalUnitsSold, change: '—', isMoney: false, icon: Package, color: 'emerald' },
       { label: isAr ? 'إيرادات المنتجات' : 'Product Revenue', value: computedTotalSales, change: '—', isMoney: true, icon: DollarSign, color: 'blue' },
-      { label: isAr ? 'متوسط سعر الوحدة' : 'Avg Unit Price', value: avgPrice, change: '0%', isMoney: true, icon: Tag, color: 'purple' },
+      { label: isAr ? 'متوسط سعر الوحدة' : 'Avg Unit Price', value: avgPrice, change: '—', isMoney: true, icon: Tag, color: 'purple' },
       { label: isAr ? 'منتجات أوشكت على النفاد' : 'Low Stock Items', value: lowStockCount, change: '0', isMoney: false, icon: Layers, color: 'amber' },
       { label: isAr ? 'هامش الربح الإجمالي' : 'Gross Margin', value: isAr ? 'بانتظار البيانات' : 'Waiting for Data', change: '—', isMoney: false, icon: TrendingUp, color: 'teal' },
     ];
@@ -1352,9 +1432,9 @@ export const StoreReports: React.FC = () => {
     const custKpis = [
       { label: isAr ? 'إجمالي العملاء النشطين' : 'Active Customers', value: totalCustCount, change: '—', isMoney: false, icon: Users, color: 'emerald' },
       { label: isAr ? 'عملاء جدد' : 'New Customers', value: newCustomers, change: '—', isMoney: false, icon: Users, color: 'blue' },
-      { label: isAr ? 'معدل تكرار الشراء' : 'Repeat Purchase Rate', value: returningRate, change: '0%', isMoney: false, icon: TrendingUp, color: 'purple' },
+      { label: isAr ? 'معدل تكرار الشراء' : 'Repeat Purchase Rate', value: returningRate, change: '—', isMoney: false, icon: TrendingUp, color: 'purple' },
       { label: isAr ? 'متوسط القيمة مدى حياة العميل' : 'Customer LTV', value: avgLtv, change: '—', isMoney: true, icon: DollarSign, color: 'amber' },
-      { label: isAr ? 'معدل الاحتفاظ بالعملاء' : 'Retention Rate', value: returningRate, change: '0%', isMoney: false, icon: CheckCircle2, color: 'teal' },
+      { label: isAr ? 'معدل الاحتفاظ بالعملاء' : 'Retention Rate', value: returningRate, change: '—', isMoney: false, icon: CheckCircle2, color: 'teal' },
     ];
 
     const customerCohorts = totalCustCount > 0 ? [
@@ -1725,7 +1805,7 @@ export const StoreReports: React.FC = () => {
         carrierOrderCounts[cName] = { count: 0, cost: 0 };
       }
       carrierOrderCounts[cName].count += 1;
-      carrierOrderCounts[cName].cost += o.shippingFee || 15;
+      carrierOrderCounts[cName].cost += Number(o.shippingFee) || 0;
     });
 
     const carriers = Object.keys(carrierOrderCounts).length > 0
@@ -1937,24 +2017,37 @@ export const StoreReports: React.FC = () => {
   }
 
   // ═══════════════════════════════════════════════════════════════════
+  // HUB: ONLY big report buttons — data loads after click
+  // ═══════════════════════════════════════════════════════════════════
+  if (activeReportTab === null && !selectedCategory) {
+    return (
+      <div
+        className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto w-full min-w-0"
+        dir={dir}
+        style={{ color: 'var(--text)', fontFamily: 'var(--font-ui)' }}
+      >
+        <ReportsNavHeader {...reportsHeaderProps} />
+        <PageDocsGuideModal
+          isOpen={isGuideOpen}
+          onClose={() => setIsGuideOpen(false)}
+          pageId="reports"
+        />
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
   // STEP 1: REPORTS & ANALYTICS OVERVIEW DASHBOARD
   // (Screenshot: لوحة تحليلات التجارة الإلكترونية.png & Souq_Reports_Analytics_Overview...docx)
   // ═══════════════════════════════════════════════════════════════════
   if (activeReportTab === 'overview' && !selectedCategory) {
     return (
-      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
-        <ReportsNavHeader
-          activeTab={activeReportTab}
-          onSelectTab={handleTabSwitch}
-          dateRange={dateRange}
-          onDateRangeChange={setDateRange}
-          comparisonPeriod={comparisonPeriod}
-          onComparisonChange={setComparisonPeriod}
-          onExport={handleDownload}
-          onPrint={() => window.print()}
-          onOpenGuide={() => setIsGuideOpen(true)}
-          onSaveView={() => toast(isAr ? 'تم حفظ إعدادات العرض بنجاح!' : 'Report view saved successfully!', 'success')}
-        />
+      <div
+        className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto w-full min-w-0"
+        dir={dir}
+        style={{ color: 'var(--text)', fontFamily: 'var(--font-ui)' }}
+      >
+        <ReportsNavHeader {...reportsHeaderProps} />
 
         <ReportsOverview
           dateRange={dateRange}
@@ -1978,18 +2071,7 @@ export const StoreReports: React.FC = () => {
   if (activeReportTab === 'sales_revenue' && !selectedCategory) {
     return (
       <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
-        <ReportsNavHeader
-          activeTab={activeReportTab}
-          onSelectTab={handleTabSwitch}
-          dateRange={dateRange}
-          onDateRangeChange={setDateRange}
-          comparisonPeriod={comparisonPeriod}
-          onComparisonChange={setComparisonPeriod}
-          onExport={handleDownload}
-          onPrint={() => window.print()}
-          onOpenGuide={() => setIsGuideOpen(true)}
-          onSaveView={() => toast(isAr ? 'تم حفظ إعدادات العرض بنجاح!' : 'Report view saved successfully!', 'success')}
-        />
+        <ReportsNavHeader {...reportsHeaderProps} />
 
         <ReportsSalesRevenue
           dateRange={dateRange}
@@ -2013,18 +2095,7 @@ export const StoreReports: React.FC = () => {
   if (activeReportTab === 'campaign' && !selectedCategory) {
     return (
       <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
-        <ReportsNavHeader
-          activeTab={activeReportTab}
-          onSelectTab={handleTabSwitch}
-          dateRange={dateRange}
-          onDateRangeChange={setDateRange}
-          comparisonPeriod={comparisonPeriod}
-          onComparisonChange={setComparisonPeriod}
-          onExport={handleDownload}
-          onPrint={() => window.print()}
-          onOpenGuide={() => setIsGuideOpen(true)}
-          onSaveView={() => toast(isAr ? 'تم حفظ إعدادات العرض بنجاح!' : 'Report view saved successfully!', 'success')}
-        />
+        <ReportsNavHeader {...reportsHeaderProps} />
 
         <ReportsCampaigns
           dateRange={dateRange}
@@ -2047,18 +2118,7 @@ export const StoreReports: React.FC = () => {
   if (activeReportTab === 'ai_insights' && !selectedCategory) {
     return (
       <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
-        <ReportsNavHeader
-          activeTab={activeReportTab}
-          onSelectTab={handleTabSwitch}
-          dateRange={dateRange}
-          onDateRangeChange={setDateRange}
-          comparisonPeriod={comparisonPeriod}
-          onComparisonChange={setComparisonPeriod}
-          onExport={handleDownload}
-          onPrint={() => window.print()}
-          onOpenGuide={() => setIsGuideOpen(true)}
-          onSaveView={() => toast(isAr ? 'تم حفظ إعدادات العرض بنجاح!' : 'Report view saved successfully!', 'success')}
-        />
+        <ReportsNavHeader {...reportsHeaderProps} />
 
         <ReportsAiInsights
           dateRange={dateRange}
@@ -2081,18 +2141,7 @@ export const StoreReports: React.FC = () => {
   if (activeReportTab === 'behavior' && !selectedCategory) {
     return (
       <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
-        <ReportsNavHeader
-          activeTab={activeReportTab}
-          onSelectTab={handleTabSwitch}
-          dateRange={dateRange}
-          onDateRangeChange={setDateRange}
-          comparisonPeriod={comparisonPeriod}
-          onComparisonChange={setComparisonPeriod}
-          onExport={handleDownload}
-          onPrint={() => window.print()}
-          onOpenGuide={() => setIsGuideOpen(true)}
-          onSaveView={() => toast(isAr ? 'تم حفظ إعدادات العرض بنجاح!' : 'Report view saved successfully!', 'success')}
-        />
+        <ReportsNavHeader {...reportsHeaderProps} />
 
         <ReportsBehaviorProfitability
           dateRange={dateRange}
@@ -2115,18 +2164,7 @@ export const StoreReports: React.FC = () => {
   if (activeReportTab === 'customers' && !selectedCategory) {
     return (
       <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
-        <ReportsNavHeader
-          activeTab={activeReportTab}
-          onSelectTab={handleTabSwitch}
-          dateRange={dateRange}
-          onDateRangeChange={setDateRange}
-          comparisonPeriod={comparisonPeriod}
-          onComparisonChange={setComparisonPeriod}
-          onExport={handleDownload}
-          onPrint={() => window.print()}
-          onOpenGuide={() => setIsGuideOpen(true)}
-          onSaveView={() => toast(isAr ? 'تم حفظ إعدادات العرض بنجاح!' : 'Report view saved successfully!', 'success')}
-        />
+        <ReportsNavHeader {...reportsHeaderProps} />
 
         <ReportsCustomers
           dateRange={dateRange}
@@ -2149,18 +2187,7 @@ export const StoreReports: React.FC = () => {
   if (activeReportTab === 'products' && !selectedCategory) {
     return (
       <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
-        <ReportsNavHeader
-          activeTab={activeReportTab}
-          onSelectTab={handleTabSwitch}
-          dateRange={dateRange}
-          onDateRangeChange={setDateRange}
-          comparisonPeriod={comparisonPeriod}
-          onComparisonChange={setComparisonPeriod}
-          onExport={handleDownload}
-          onPrint={() => window.print()}
-          onOpenGuide={() => setIsGuideOpen(true)}
-          onSaveView={() => toast(isAr ? 'تم حفظ إعدادات العرض بنجاح!' : 'Report view saved successfully!', 'success')}
-        />
+        <ReportsNavHeader {...reportsHeaderProps} />
 
         <ReportsProducts
           dateRange={dateRange}
@@ -2184,18 +2211,7 @@ export const StoreReports: React.FC = () => {
   if (activeReportTab === 'channels' && !selectedCategory) {
     return (
       <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
-        <ReportsNavHeader
-          activeTab={activeReportTab}
-          onSelectTab={handleTabSwitch}
-          dateRange={dateRange}
-          onDateRangeChange={setDateRange}
-          comparisonPeriod={comparisonPeriod}
-          onComparisonChange={setComparisonPeriod}
-          onExport={handleDownload}
-          onPrint={() => window.print()}
-          onOpenGuide={() => setIsGuideOpen(true)}
-          onSaveView={() => toast(isAr ? 'تم حفظ إعدادات العرض بنجاح!' : 'Report view saved successfully!', 'success')}
-        />
+        <ReportsNavHeader {...reportsHeaderProps} />
 
         <StoreChannelPerformance />
 

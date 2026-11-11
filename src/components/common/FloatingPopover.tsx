@@ -17,8 +17,8 @@ export type PopoverPlacement = {
  * Anchor a dropdown to its trigger.
  * Prefer below; if the viewport is too short underneath, pin above with CSS `bottom`
  * so the panel never floats mid-screen from an oversized estimated height.
- * Pass preferBelow to keep opening under the trigger (scroll inside) — needed for
- * modal fields near the bottom (Acquisition Source / social source).
+ * Pass preferBelow to always open under the trigger (scroll inside) — toolbar
+ * Filter/Sort menus must not flip upward over the page.
  */
 /** Dropdowns show full content when possible; scroll only past this viewport share. */
 export const DROPDOWN_VIEWPORT_MAX_RATIO = 0.85;
@@ -50,6 +50,7 @@ export function placePopoverBelow(
   const minComfortable = 120;
 
   // Prefer above when the full panel cannot fit below but fits better above.
+  // preferBelow = never flip / never bottom-pin — always open under the trigger (scroll inside).
   const placeAbove =
     !preferBelow &&
     spaceAbove >= Math.min(needed, minComfortable) &&
@@ -63,17 +64,6 @@ export function placePopoverBelow(
       left,
       maxHeight: Math.min(viewportCap, Math.max(96, spaceAbove)),
       placement: 'above',
-    };
-  }
-
-  // preferBelow near viewport bottom: keep opening downward conceptually, but pin the
-  // panel to the screen bottom so the list stays tall/scrollable (no mid-screen float).
-  if (preferBelow && spaceBelow < 140) {
-    return {
-      bottom: 8,
-      left,
-      maxHeight: Math.min(viewportCap, Math.max(160, Math.min(spaceAbove + spaceBelow, vh - 16))),
-      placement: 'below',
     };
   }
 

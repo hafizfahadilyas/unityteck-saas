@@ -11,46 +11,24 @@ export type ModernSegmentedTabItem<T extends string = string> = {
 
 export type ModernSegmentedAccent = 'portal' | 'blue' | 'emerald' | 'teal' | 'indigo' | 'rose';
 
+/** Global Holst only — no blue/emerald/indigo one-off brand accents on toggles. */
+const PORTAL_ACCENT = {
+  activeBg: 'var(--portal-cta)',
+  activeShadow: '0 6px 16px -8px color-mix(in srgb, var(--portal-cta) 55%, transparent)',
+  badgeActive: 'bg-white/20 text-white',
+  badgeIdle: 'text-[color:var(--muted)]',
+};
+
 const ACCENT_STYLES: Record<
   ModernSegmentedAccent,
   { activeBg: string; activeShadow: string; badgeActive: string; badgeIdle: string }
 > = {
-  portal: {
-    activeBg: 'var(--portal-cta)',
-    activeShadow: '0 6px 16px -8px color-mix(in srgb, var(--portal-cta) 55%, transparent)',
-    badgeActive: 'bg-white/20 text-white',
-    badgeIdle: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
-  },
-  blue: {
-    activeBg: '#2563eb',
-    activeShadow: '0 6px 16px -8px rgba(37,99,235,0.55)',
-    badgeActive: 'bg-white/20 text-white',
-    badgeIdle: 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
-  },
-  emerald: {
-    activeBg: '#059669',
-    activeShadow: '0 6px 16px -8px rgba(5,150,105,0.55)',
-    badgeActive: 'bg-white/20 text-white',
-    badgeIdle: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
-  },
-  teal: {
-    activeBg: '#0d9488',
-    activeShadow: '0 6px 16px -8px rgba(13,148,136,0.55)',
-    badgeActive: 'bg-white/20 text-white',
-    badgeIdle: 'bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300',
-  },
-  indigo: {
-    activeBg: '#4f46e5',
-    activeShadow: '0 6px 16px -8px rgba(79,70,229,0.55)',
-    badgeActive: 'bg-white/20 text-white',
-    badgeIdle: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300',
-  },
-  rose: {
-    activeBg: '#e11d48',
-    activeShadow: '0 6px 16px -8px rgba(225,29,72,0.55)',
-    badgeActive: 'bg-white/20 text-white',
-    badgeIdle: 'bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300',
-  },
+  portal: PORTAL_ACCENT,
+  blue: PORTAL_ACCENT,
+  emerald: PORTAL_ACCENT,
+  teal: PORTAL_ACCENT,
+  indigo: PORTAL_ACCENT,
+  rose: PORTAL_ACCENT,
 };
 
 export interface ModernSegmentedTabsProps<T extends string = string> {
@@ -110,18 +88,15 @@ export function ModernSegmentedTabs<T extends string = string>({
             }}
             className={`${pad} rounded-xl transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed ${
               fullWidth ? 'flex-1' : ''
-            } ${
-              active
-                ? 'text-white scale-[1.02]'
-                : 'text-slate-600 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-slate-800/80 opacity-85 hover:opacity-100'
-            }`}
+            } ${active ? 'text-white scale-[1.02]' : 'opacity-85 hover:opacity-100'}`}
             style={
               active
                 ? {
                     background: tone.activeBg,
                     boxShadow: `${tone.activeShadow}, inset 0 1px 0 rgba(255,255,255,0.22)`,
+                    color: '#fff',
                   }
-                : { background: 'transparent' }
+                : { background: 'transparent', color: 'var(--muted)' }
             }
           >
             {Icon ? <Icon className="w-3.5 h-3.5 shrink-0" /> : null}
@@ -138,10 +113,17 @@ export function ModernSegmentedTabs<T extends string = string>({
             {tab.badge ? (
               <span
                 className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold leading-none ${
-                  active
-                    ? 'bg-white/20 text-white'
-                    : 'bg-blue-50 text-blue-600 dark:bg-blue-950/70 dark:text-blue-400 border border-blue-100 dark:border-blue-900/40'
+                  active ? 'bg-white/20 text-white' : ''
                 }`}
+                style={
+                  active
+                    ? undefined
+                    : {
+                        background: 'color-mix(in srgb, var(--accent) 12%, var(--surface))',
+                        color: 'var(--accent)',
+                        border: '1px solid color-mix(in srgb, var(--accent) 22%, var(--border))',
+                      }
+                }
               >
                 {tab.badge}
               </span>

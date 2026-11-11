@@ -76,11 +76,14 @@ export function defaultSubscription(): StoredSub {
   };
 }
 
+/** Known Souq Platform demo / production tenants — Pro + writable by default. */
+const PRO_DEFAULT_STORE_IDS = new Set(['store-1', 'store-coffee', 'store-bleco']);
+
 export function getStoredSubscription(storeId: string): StoredSub {
   const map = readMap();
   if (map[storeId]) return map[storeId];
-  // seed store-1 without local override
-  if (storeId === 'store-1') return defaultSubscription();
+  // Flowers + coffee + bleco: active yearly (matches Hostinger seed) — never soft-lock categories
+  if (PRO_DEFAULT_STORE_IDS.has(storeId)) return defaultSubscription();
   return {
     status: 'trial',
     billingInterval: 'monthly',

@@ -2518,13 +2518,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [mode, activeStoreId]);
 
   const createNewStore = (storeData: Omit<Store, 'id' | 'productsCount' | 'ordersCount' | 'revenue' | 'visitorsCount' | 'lastActivity' | 'createdAt'>) => {
-    const applyLocal = (newId: string, seeded = true) => {
+    // Live API path never seeds demo customers/orders/revenue (zero-mock)
+    const applyLocal = (newId: string, seeded = false) => {
       const newStore: Store = {
         ...storeData,
         id: newId,
-        productsCount: seeded ? 3 : 0,
-        ordersCount: seeded ? 2 : 0,
-        revenue: seeded ? 1450 : 0,
+        productsCount: 0,
+        ordersCount: 0,
+        revenue: 0,
         visitorsCount: 0,
         lastActivity: 'Just now',
         createdAt: new Date().toISOString().split('T')[0],
@@ -2692,7 +2693,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    applyLocal(`store-${Date.now()}`, true);
+    applyLocal(`store-${Date.now()}`, false);
   };
 
   const deleteStore = (storeId: string) => {

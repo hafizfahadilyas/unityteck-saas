@@ -31,9 +31,9 @@ export const CartPage: React.FC = () => {
   const discountAmount = couponDiscount;
   const appliedCoupon = appliedCouponObj?.code || null;
 
-  const handleApplyCoupon = (e: React.FormEvent) => {
+  const handleApplyCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = applyCoupon(couponCode);
+    const res = await applyCoupon(couponCode);
     showToast(res.message);
     if (res.success) setCouponCode('');
   };

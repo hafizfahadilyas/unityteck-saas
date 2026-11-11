@@ -50,6 +50,10 @@ export function normalizeRole(role?: string | null): RoleSlug {
       return 'manager';
     case 'store_admin':
     case 'admin':
+    case 'store_owner':
+    case 'owner':
+    case 'storeowner':
+      // Merchant primary login = full store admin (UI label stays "Store Owner")
       return 'admin';
     case 'store_staff':
     case 'support':
@@ -210,6 +214,11 @@ export function canAbility(
   // Session may only add extra grants — never strip role defaults.
   if (abilities && abilities.length > 0) {
     if (abilities.includes('*') || abilities.includes(ability)) return true;
+    // Legacy session_lite grant for store owner (full store modules, not master stores.*)
+    if (abilities.includes('store:*')) {
+      const ownerList = abilitiesFor('admin');
+      if (ownerList.includes(ability) || ability === 'stores.read') return true;
+    }
   }
   return false;
 }

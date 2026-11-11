@@ -85,7 +85,8 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
 
   const handleCreateCustomTheme = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newThemeNameAr.trim() && !newThemeNameEn.trim()) {
+    const activeName = isAr ? newThemeNameAr.trim() : newThemeNameEn.trim();
+    if (!activeName) {
       toast(isAr ? 'يرجى إدخال اسم الثيم' : 'Please enter theme name', 'error');
       return;
     }
@@ -152,7 +153,8 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
 
   const handleCreateCustomPage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPageTitleAr.trim() && !newPageTitleEn.trim()) {
+    const activeTitle = isAr ? newPageTitleAr.trim() : newPageTitleEn.trim();
+    if (!activeTitle) {
       toast(isAr ? 'يرجى إدخال عنوان الصفحة' : 'Please enter page title', 'error');
       return;
     }
@@ -1302,30 +1304,18 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
             </div>
 
             <form onSubmit={handleCreateCustomPage} className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold block">{isAr ? 'عنوان الصفحة (عربي) *' : 'Page Title (Arabic) *'}</label>
-                  <input
-                    type="text"
-                    required
-                    value={newPageTitleAr}
-                    onChange={(e) => setNewPageTitleAr(e.target.value)}
-                    placeholder={isAr ? 'مثال: عروض عيد الفطر ٢٠٢٦' : 'e.g. Eid Mubarak Offers'}
-                    className="w-full px-3 py-2 rounded-xl border outline-none font-bold"
-                    style={{ background: 'var(--hover-bg)', borderColor: 'var(--border)' }}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="font-bold block">{isAr ? 'عنوان الصفحة (إنجليزي)' : 'Page Title (English)'}</label>
-                  <input
-                    type="text"
-                    value={newPageTitleEn}
-                    onChange={(e) => setNewPageTitleEn(e.target.value)}
-                    placeholder="e.g. Eid Festive Special 2026"
-                    className="w-full px-3 py-2 rounded-xl border outline-none"
-                    style={{ background: 'var(--hover-bg)', borderColor: 'var(--border)' }}
-                  />
-                </div>
+              <div className="space-y-1">
+                <label className="font-bold block">{isAr ? 'العنوان *' : 'Title *'}</label>
+                <input
+                  type="text"
+                  required
+                  dir={isAr ? 'rtl' : 'ltr'}
+                  value={isAr ? newPageTitleAr : newPageTitleEn}
+                  onChange={(e) => (isAr ? setNewPageTitleAr(e.target.value) : setNewPageTitleEn(e.target.value))}
+                  placeholder={isAr ? 'مثال: عروض عيد الفطر ٢٠٢٦' : 'e.g. Eid Festive Special 2026'}
+                  className="w-full px-3 py-2 rounded-xl border outline-none font-bold"
+                  style={{ background: 'var(--hover-bg)', borderColor: 'var(--border)' }}
+                />
               </div>
 
               <div className="space-y-1">
@@ -1436,30 +1426,18 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
             </div>
 
             <form onSubmit={handleCreateCustomTheme} className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold block">{isAr ? 'اسم الثيم (عربي) *' : 'Theme Name (Arabic) *'}</label>
-                  <input
-                    type="text"
-                    required
-                    value={newThemeNameAr}
-                    onChange={(e) => setNewThemeNameAr(e.target.value)}
-                    placeholder={isAr ? 'مثال: ثيم الصيف والعروض الخاصة' : 'e.g. Summer Promo Theme'}
-                    className="w-full px-3 py-2 rounded-xl border font-bold"
-                    style={{ background: 'var(--hover-bg)', borderColor: 'var(--border)', color: 'var(--text)' }}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="font-bold block">{isAr ? 'اسم الثيم (إنجليزي)' : 'Theme Name (English)'}</label>
-                  <input
-                    type="text"
-                    value={newThemeNameEn}
-                    onChange={(e) => setNewThemeNameEn(e.target.value)}
-                    placeholder="e.g. Summer Festive Edition"
-                    className="w-full px-3 py-2 rounded-xl border"
-                    style={{ background: 'var(--hover-bg)', borderColor: 'var(--border)', color: 'var(--text)' }}
-                  />
-                </div>
+              <div className="space-y-1">
+                <label className="font-bold block">{isAr ? 'الاسم *' : 'Name *'}</label>
+                <input
+                  type="text"
+                  required
+                  dir={isAr ? 'rtl' : 'ltr'}
+                  value={isAr ? newThemeNameAr : newThemeNameEn}
+                  onChange={(e) => (isAr ? setNewThemeNameAr(e.target.value) : setNewThemeNameEn(e.target.value))}
+                  placeholder={isAr ? 'مثال: ثيم الصيف والعروض الخاصة' : 'e.g. Summer Festive Edition'}
+                  className="w-full px-3 py-2 rounded-xl border font-bold"
+                  style={{ background: 'var(--hover-bg)', borderColor: 'var(--border)', color: 'var(--text)' }}
+                />
               </div>
 
               <div className="space-y-1">

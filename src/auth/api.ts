@@ -88,7 +88,7 @@ export const DEMO_CREDENTIALS = {
   coffee: {
     email: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_COFFEE_ADMIN_EMAIL) || 'mieraf.sa8@gmail.com',
     password: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_COFFEE_ADMIN_PASSWORD) || 'CoffeeStore@2026!Secure',
-    name: 'متجر القهوة المختصة',
+    name: 'Rayan Al-Sulaiman',
     storeId: 'store-coffee',
     aliases: [
       'mieraf.sa8@gmail.com',
@@ -100,7 +100,7 @@ export const DEMO_CREDENTIALS = {
   car: {
     email: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_CAR_ADMIN_EMAIL) || 'admin@bleco.sa',
     password: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_CAR_ADMIN_PASSWORD) || 'BlackoStore@2026!Secure',
-    name: 'متجر السعيدي لخدمات السيارات (مؤسسة بلاكو)',
+    name: 'Al-Saeedi Car Services',
     storeId: 'store-bleco',
     aliases: [
       'admin@bleco.sa',
@@ -139,6 +139,39 @@ function emailLikeIdentifiers(values: readonly string[]): string[] {
   return values
     .map((v) => v.trim().toLowerCase())
     .filter((v) => v.includes('@'));
+}
+
+/**
+ * Clerk development test emails (`+clerk_test`) skip real delivery and use OTP `424242`.
+ * Strip the test subaddress so gate / membership still match the registered store email.
+ * @see https://clerk.com/docs/guides/development/testing/test-emails-and-phones
+ */
+export function normalizeClerkDevLoginEmail(email: string): string {
+  const normalized = String(email || '')
+    .trim()
+    .toLowerCase();
+  const at = normalized.lastIndexOf('@');
+  if (at <= 0) return normalized;
+  const local = normalized.slice(0, at).replace(/\+clerk_test.*$/i, '');
+  return `${local}@${normalized.slice(at + 1)}`;
+}
+
+/** True when the address is a Clerk reserved test email (no real inbox / fixed OTP). */
+export function isClerkTestEmail(email: string): boolean {
+  const normalized = String(email || '')
+    .trim()
+    .toLowerCase();
+  const at = normalized.lastIndexOf('@');
+  if (at <= 0) return false;
+  return /\+clerk_test/i.test(normalized.slice(0, at));
+}
+
+/** Insert `+clerk_test` before @ so Clerk does not burn the monthly email quota. */
+export function toClerkTestEmail(email: string): string {
+  const normalized = normalizeClerkDevLoginEmail(email);
+  const at = normalized.lastIndexOf('@');
+  if (at <= 0) return normalized;
+  return `${normalized.slice(0, at)}+clerk_test@${normalized.slice(at + 1)}`;
 }
 
 /**
@@ -194,7 +227,7 @@ export function listRegisteredMerchants(): RegisteredMerchant[] {
     },
     {
       storeId: DEMO_CREDENTIALS.coffee.storeId,
-      storeName: DEMO_CREDENTIALS.coffee.name,
+      storeName: 'HiBrew KSA',
       email: DEMO_CREDENTIALS.coffee.email.toLowerCase(),
       emails: emailLikeIdentifiers([
         DEMO_CREDENTIALS.coffee.email,
@@ -203,7 +236,7 @@ export function listRegisteredMerchants(): RegisteredMerchant[] {
     },
     {
       storeId: DEMO_CREDENTIALS.car.storeId,
-      storeName: DEMO_CREDENTIALS.car.name,
+      storeName: 'Al-Saeedi Car Services',
       email: DEMO_CREDENTIALS.car.email.toLowerCase(),
       emails: emailLikeIdentifiers([
         DEMO_CREDENTIALS.car.email,
@@ -236,14 +269,16 @@ export function listRegisteredMerchants(): RegisteredMerchant[] {
     });
   }
 
-  // Master SuperAdmin login-email overrides win (only new email may open the store)
+  // Live MySQL / Master override is preferred, but NEVER drop seeded store emails.
+  // Exclusive wipe caused false "not registered" when localStorage override was stale
+  // (e.g. coffee mieraf.sa8 blocked while UI said coffee store).
   return [...byStore.values()].map((m) => {
     const override = getStoreLoginEmailOverride(m.storeId);
     if (!override) return m;
     return {
       ...m,
       email: override,
-      emails: [override],
+      emails: [...new Set([override, ...m.emails])],
     };
   });
 }
@@ -252,31 +287,41 @@ export function listRegisteredMerchants(): RegisteredMerchant[] {
 export function findRegisteredMerchantByEmail(email: string): RegisteredMerchant | null {
   const normalized = email.trim().toLowerCase();
   if (!normalized || !normalized.includes('@')) return null;
+  const accountEmail = normalizeClerkDevLoginEmail(normalized);
 
   const masterEmails = emailLikeIdentifiers([
     DEMO_CREDENTIALS.master.email,
     ...(DEMO_CREDENTIALS.master.aliases as readonly string[]),
   ]);
-  if (masterEmails.includes(normalized) || normalized.includes('master@')) {
+  if (
+    masterEmails.includes(normalized) ||
+    masterEmails.includes(accountEmail) ||
+    normalized.includes('master@') ||
+    accountEmail.includes('master@')
+  ) {
     return null; // master is not a merchant store
   }
 
   for (const m of listRegisteredMerchants()) {
-    if (m.emails.includes(normalized)) return m;
+    if (m.emails.includes(normalized) || m.emails.includes(accountEmail)) return m;
   }
   return null;
 }
 
 export function isMasterLoginEmail(email: string): boolean {
   const normalized = email.trim().toLowerCase();
+  const accountEmail = normalizeClerkDevLoginEmail(normalized);
   const masterEmails = emailLikeIdentifiers([
     DEMO_CREDENTIALS.master.email,
     ...(DEMO_CREDENTIALS.master.aliases as readonly string[]),
   ]);
   return (
     masterEmails.includes(normalized) ||
+    masterEmails.includes(accountEmail) ||
     normalized === 'master@unityteck.com' ||
-    normalized.startsWith('master@')
+    accountEmail === 'master@unityteck.com' ||
+    normalized.startsWith('master@') ||
+    accountEmail.startsWith('master@')
   );
 }
 
@@ -426,18 +471,31 @@ function toSession(data: LoginResponse): AuthSession {
     throw new Error('Invalid login response from server.');
   }
   const role = normalizeRole(data.user.role);
+  const fromApi = Array.isArray(data.abilities) ? data.abilities : [];
+  const fromRole = abilitiesFor(role);
+  // Expand legacy store:* / empty lists — role matrix is the floor for store owner/admin.
+  let abilities = fromRole;
+  if (fromApi.includes('*')) {
+    abilities = ['*', ...fromRole];
+  } else if (fromApi.includes('store:*') || fromApi.length === 0) {
+    abilities = fromRole;
+  } else {
+    abilities = [...new Set([...fromRole, ...fromApi])];
+  }
   return {
     token: data.token || 'auth-token',
     portal: data.portal,
     user: {
       ...data.user,
       role,
-      role_label: data.user.role_label ?? roleLabel(role),
+      role_label:
+        data.user.role_label ||
+        (data.portal === 'store' && role === 'admin' ? 'Store Owner' : roleLabel(role)),
       role_level: data.user.role_level ?? roleLevel(role),
     },
     storeId: data.store_id ?? null,
     storeName: data.store_name ?? null,
-    abilities: data.abilities ?? abilitiesFor(role),
+    abilities,
   };
 }
 
@@ -627,12 +685,12 @@ function mockLogin(
       'store',
       {
         id: 'store-coffee',
-        name: 'ريان السليمان (Rayan Al-Sulaiman)',
+        name: 'Rayan Al-Sulaiman',
         email: coffeeCreds.email,
         role: 'admin',
       },
       'store-coffee',
-      'متجر القهوة المختصة',
+      'HiBrew KSA',
       'mock-store-coffee-token',
     );
   }
@@ -658,12 +716,12 @@ function mockLogin(
       'store',
       {
         id: 'store-bleco',
-        name: 'متجر السعيدي لخدمات السيارات (مؤسسة بلاكو)',
+        name: 'Al-Saeedi Car Services',
         email: carCreds.email,
         role: 'admin',
       },
       'store-bleco',
-      'متجر السعيدي لخدمات السيارات (مؤسسة بلاكو للتجارة)',
+      'Al-Saeedi Car Services',
       'mock-store-bleco-token',
     );
   }
@@ -1160,12 +1218,12 @@ function mockSessionFromEmail(portal: AuthPortal, identifier: string): AuthSessi
       'store',
       {
         id: 'store-coffee',
-        name: 'ريان السليمان (Rayan Al-Sulaiman)',
+        name: 'Rayan Al-Sulaiman',
         email: coffeeCreds.email,
         role: 'admin',
       },
       'store-coffee',
-      'متجر القهوة المختصة',
+      'HiBrew KSA',
       'mock-store-coffee-token',
     );
   }
@@ -1178,12 +1236,12 @@ function mockSessionFromEmail(portal: AuthPortal, identifier: string): AuthSessi
       'store',
       {
         id: 'store-bleco',
-        name: 'متجر السعيدي لخدمات السيارات (مؤسسة بلاكو)',
+        name: 'Al-Saeedi Car Services',
         email: carCreds.email,
         role: 'admin',
       },
       'store-bleco',
-      'متجر السعيدي لخدمات السيارات (مؤسسة بلاكو للتجارة)',
+      'Al-Saeedi Car Services',
       'mock-store-bleco-token',
     );
   }
@@ -1459,7 +1517,7 @@ export async function loginWithEmailOtp(
                 ),
               ),
             ),
-          4000,
+          45_000,
         );
       }),
     ]);

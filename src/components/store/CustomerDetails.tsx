@@ -68,7 +68,8 @@ import { getArabCustomerAvatar, getCustomerSeoAlt } from '../../utils/customerAv
 import { handleImageError } from '../../utils/imageFallback';
 import { WhatsAppBrandIcon } from '../common/BrandIcons';
 import { CUSTOMER_GENDER_OPTIONS, normalizeSaudiCityId } from '../../data/saudiCities';
-import { useSaudiCityOptions } from '../../hooks/useSaudiCityOptions';
+import { slugCityId, useSaudiCityOptions } from '../../hooks/useSaudiCityOptions';
+import { PortalSelect } from '../common/PortalSelect';
 import { SaudiCitySelect } from '../common/SaudiCitySelect';
 import { DateCalendarField } from '../common/DateCalendarField';
 import {
@@ -193,6 +194,46 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
   const [dob, setDob] = useState(customer.dob || '');
   const [isSavingInfo, setIsSavingInfo] = useState(false);
   const [infoSaveSuccess, setInfoSaveSuccess] = useState(false);
+
+  const infoFieldClass =
+    'w-full min-h-[2.25rem] px-3 py-2 text-xs rounded-xl border border-[var(--border)] bg-[var(--input-bg)] text-[var(--input-fg)] disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20';
+
+  const genderSelectOptions = useMemo(
+    () =>
+      CUSTOMER_GENDER_OPTIONS.map((g) => ({
+        value: g.id,
+        label: isAr ? g.nameAr : g.nameEn,
+      })),
+    [isAr],
+  );
+
+  const countrySelectOptions = useMemo(
+    () => [
+      {
+        value: 'Saudi Arabia',
+        label: isAr ? 'المملكة العربية السعودية' : 'Saudi Arabia',
+      },
+      {
+        value: 'United Arab Emirates',
+        label: isAr ? 'الإمارات العربية المتحدة' : 'United Arab Emirates',
+      },
+      {
+        value: 'Kuwait',
+        label: isAr ? 'الكويت' : 'Kuwait',
+      },
+    ],
+    [isAr],
+  );
+
+  const stateSelectOptions = useMemo(
+    () => [
+      { value: 'Jazan', label: isAr ? 'منطقة جازان' : 'Jazan' },
+      { value: 'Makkah Province', label: isAr ? 'منطقة مكة المكرمة' : 'Makkah Province' },
+      { value: 'Riyadh Province', label: isAr ? 'منطقة الرياض' : 'Riyadh Province' },
+      { value: 'Eastern Province', label: isAr ? 'المنطقة الشرقية' : 'Eastern Province' },
+    ],
+    [isAr],
+  );
 
   const [activityRows, setActivityRows] = useState<
     Array<{
@@ -644,7 +685,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
       ? customer.aiInsights
       : [
           isAr
-            ? `طلبات مكتملة:${customerOrders.filter((o) => ['delivered', 'completed'].includes(String(o.status).toLowerCase)).length}`
+            ? `طلبات مكتملة:${customerOrders.filter((o) => ['delivered', 'completed'].includes(String(o.status).toLowerCase())).length}`
             : `Completed orders: ${customerOrders.filter((o) => ['delivered', 'completed'].includes(String(o.status).toLowerCase())).length}`,
           isAr
             ? `إجمالي الإنفاق:${money(customer.totalSpending || 0)}`
@@ -768,20 +809,25 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
           <button
             type="button"
             onClick={openAiChat}
-            className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 min-h-[2.5rem] rounded-xl text-xs font-semibold bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 hover:border-purple-400 shadow-sm transition-all cursor-pointer grow basis-[calc(50%-0.35rem)] sm:grow-0 sm:basis-auto"
+            className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 min-h-[2.5rem] rounded-xl text-xs font-semibold shadow-sm transition-all cursor-pointer grow basis-[calc(50%-0.35rem)] sm:grow-0 sm:basis-auto"
+            style={{
+              background: 'color-mix(in srgb, var(--accent) 10%, var(--surface))',
+              color: 'var(--accent)',
+              border: '1px solid color-mix(in srgb, var(--accent) 35%, var(--border))',
+            }}
           >
-            <Sparkles className="w-4 h-4 text-purple-600 animate-pulse shrink-0" />
+            <Sparkles className="w-4 h-4 animate-pulse shrink-0" style={{ color: 'var(--accent)' }} />
             <span className="truncate">{isAr ? 'محادثة الذكاء الاصطناعي' : 'Chat with AI'}</span>
           </button>
         </div>
       </div>
 
-      {/* Main Grid: Left 2/3 Content & Right 1/3 Sidebars — lg for small laptops */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-start w-full min-w-0">
+      {/* Main Grid: Left 2/3 Content & Right 1/3 Sidebars — equal column height, no blank void */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-stretch w-full min-w-0">
         {/* Left Column (8 of 12) */}
-        <div className="lg:col-span-8 space-y-4 lg:space-y-6 min-w-0 w-full">
+        <div className="lg:col-span-8 flex flex-col gap-4 lg:gap-6 min-w-0 w-full h-full">
           {/* Customer Profile Hero Card */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm shrink-0">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               {/* Profile Avatar & Details */}
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-start">
@@ -997,7 +1043,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
           </div>
 
           {/* 4 Benefit Metric Stat Cards */}
-          <div className="u-equal-sections grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="u-equal-sections grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 shrink-0">
             {/* Loyalty Points */}
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 space-y-3 shadow-sm hover:border-teal-300 transition-all">
               <div className="flex items-center justify-between">
@@ -1103,11 +1149,11 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             ]}
           />
 
-          {/* Tab 1: Order History */}
+          {/* Tab 1: Order History — flex-1 fills remaining left column (no blank void) */}
           {activeTab === 'orders' && (
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-5">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm flex flex-col gap-5 flex-1 min-h-0 h-full">
               {/* Header & Filter */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 flex items-center justify-center border border-teal-200 dark:border-teal-800">
                     <ShoppingCart className="w-4 h-4" />
@@ -1140,7 +1186,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
 
               {/* Table / Empty State */}
               {filteredOrders.length > 0 ? (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto flex-1 min-h-0">
                   <table className="w-full text-start text-xs">
                     <thead>
                       <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
@@ -1188,7 +1234,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 </div>
               ) : (
                 /* 100% Pixel-Perfect Empty State */
-                <div className="py-14 text-center flex flex-col items-center justify-center">
+                <div className="py-14 text-center flex flex-col items-center justify-center flex-1 min-h-0">
                   <div className="w-16 h-16 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 flex items-center justify-center text-slate-400 mb-3 shadow-inner">
                     <FileText className="w-8 h-8 stroke-[1.5]" />
                   </div>
@@ -1220,7 +1266,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
 
           {/* Tab 2: Loyalty Points */}
           {activeTab === 'loyalty' && (
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm flex flex-col gap-4 flex-1 min-h-0 h-full">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-white">
@@ -1251,7 +1297,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
 
           {/* Tab 3: Coupons */}
           {activeTab === 'coupons' && (
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm flex flex-col gap-4 flex-1 min-h-0 h-full">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-white">
@@ -1295,7 +1341,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
 
           {/* Tab 4: Offers */}
           {activeTab === 'offers' && (
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm flex flex-col gap-4 flex-1 min-h-0 h-full">
               <h3 className="text-base font-bold text-slate-900 dark:text-white">
                 {isAr ? 'العروض المخصصة للعميل' : 'Personalized Offers'}
               </h3>
@@ -1324,7 +1370,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
 
           {/* Tab 5: Wallet & Cashback */}
           {activeTab === 'wallet' && (
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm flex flex-col gap-4 flex-1 min-h-0 h-full">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h3 className="text-base font-bold text-slate-900 dark:text-white">
@@ -1402,7 +1448,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
 
           {/* Tab 6: Activity Logs */}
           {activeTab === 'activity' && (
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-sm flex flex-col gap-4 flex-1 min-h-0 h-full">
               <h3 className="text-base font-bold text-slate-900 dark:text-white">
                 {isAr ? 'سجل النشاط' : 'Activity Logs'}
               </h3>
@@ -1465,10 +1511,10 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
           )}
         </div>
 
-        {/* Right Column (4 of 12) Sidebars — self-start so tall left column never leaves blank mid-stack */}
-        <div className="lg:col-span-4 space-y-3 self-start min-w-0 w-full">
+        {/* Right Column (4 of 12) — stretch with left; no mid-stack blank */}
+        <div className="lg:col-span-4 flex flex-col gap-3 min-w-0 w-full h-full">
           {/* 1. Customer Information Card */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-sm space-y-4 w-full">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-sm space-y-4 w-full shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 flex items-center justify-center">
@@ -1622,45 +1668,39 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 </div>
               </div>
 
-              {/* Gender & Country */}
+              {/* Gender & Country — same portal trigger style as City */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1 min-w-0">
                   <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                     {isAr ? 'الجنس' : 'Gender'}
                   </label>
-                  <select
+                  <PortalSelect
                     disabled={!isEditingInfo}
                     value={gender}
-                    onChange={(e) => setGender(e.target.value as any)}
-                    className="w-full min-h-[2.25rem] px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  >
-                    {CUSTOMER_GENDER_OPTIONS.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {isAr ? g.nameAr : g.nameEn}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(v) => setGender(v as 'Male' | 'Female' | 'Other')}
+                    options={genderSelectOptions}
+                    preferBelow
+                    className={infoFieldClass}
+                  />
                 </div>
                 <div className="space-y-1 min-w-0">
                   <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                     {isAr ? 'الدولة' : 'Country'}
                   </label>
-                  <select
+                  <PortalSelect
                     disabled={!isEditingInfo}
                     value={country}
-                    onChange={(e) => setCountry(e.target.value)}
-                    className="w-full min-h-[2.25rem] px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  >
-                    <option value="Saudi Arabia">{isAr ? 'المملكة العربية السعودية' : 'Saudi Arabia'}</option>
-                    <option value="United Arab Emirates">{isAr ? 'الإمارات العربية المتحدة' : 'United Arab Emirates'}</option>
-                    <option value="Kuwait">{isAr ? 'الكويت' : 'Kuwait'}</option>
-                  </select>
+                    onChange={setCountry}
+                    options={countrySelectOptions}
+                    preferBelow
+                    className={infoFieldClass}
+                  />
                 </div>
               </div>
 
-              {/* City & State */}
+              {/* City & State — City = same search / add / delete picker as Add Customer */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1 min-w-0 relative z-10">
+                <div className="space-y-1 min-w-0 relative z-20">
                   <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                     {isAr ? 'المدينة' : 'City'}
                   </label>
@@ -1670,27 +1710,45 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                     onChange={setCity}
                     cities={saudiCities}
                     isAr={isAr}
+                    preferBelow
                     manageEnabled={isEditingInfo}
-                    onAddCity={(nameEn, nameAr) => addSaudiCity({ nameEn, nameAr })}
-                    onRemoveCity={removeSaudiCity}
-                    className="w-full min-h-[2.25rem] px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className={infoFieldClass}
+                    onAddCity={(nameEn, nameAr) => {
+                      const ok = addSaudiCity({ nameEn, nameAr });
+                      toast(
+                        ok
+                          ? isAr
+                            ? 'تمت إضافة المدينة'
+                            : 'City added'
+                          : isAr
+                            ? 'المدينة موجودة مسبقاً'
+                            : 'City already exists',
+                        ok ? 'success' : 'warning',
+                      );
+                      if (ok) {
+                        const nextId = slugCityId(nameEn.trim() || nameAr.trim());
+                        if (nextId) setCity(nextId);
+                      }
+                      return ok;
+                    }}
+                    onRemoveCity={(id) => {
+                      removeSaudiCity(id);
+                      toast(isAr ? 'تم حذف المدينة من القائمة' : 'City removed from list', 'success');
+                    }}
                   />
                 </div>
                 <div className="space-y-1 min-w-0">
                   <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                     {isAr ? 'المنطقة' : 'State'}
                   </label>
-                  <select
+                  <PortalSelect
                     disabled={!isEditingInfo}
                     value={state}
-                    onChange={(e) => setState(e.target.value)}
-                    className="w-full min-h-[2.25rem] px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  >
-                    <option value="Jazan">{isAr ? 'منطقة جازان' : 'Jazan'}</option>
-                    <option value="Makkah Province">{isAr ? 'منطقة مكة المكرمة' : 'Makkah Province'}</option>
-                    <option value="Riyadh Province">{isAr ? 'منطقة الرياض' : 'Riyadh Province'}</option>
-                    <option value="Eastern Province">{isAr ? 'المنطقة الشرقية' : 'Eastern Province'}</option>
-                  </select>
+                    onChange={setState}
+                    options={stateSelectOptions}
+                    preferBelow
+                    className={infoFieldClass}
+                  />
                 </div>
               </div>
 
@@ -1735,7 +1793,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
           </div>
 
           {/* Purchasing Behavior Indicators */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-sm space-y-3 w-full">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-sm space-y-3 w-full shrink-0">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">
               {isAr ? 'مؤشرات سلوك الشراء' : 'Purchasing Behavior Indicators'}
             </h3>
@@ -1782,13 +1840,13 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             </dl>
           </div>
 
-          {/* Equal insight + contact stack — content-height only, no mid-column blank */}
-          <div className="grid grid-cols-1 gap-3 w-full">
-            <div className="grid grid-cols-2 gap-3 w-full items-stretch">
-              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-sm flex flex-col gap-1.5 h-full min-h-0">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  {isAr ? 'المكافآت' : 'Rewards'}
-                </h3>
+          {/* 2×2 insight cards — equal height in both rows; flex-1 absorbs leftover column space */}
+          <div className="u-equal-sections grid grid-cols-2 gap-3 w-full flex-1 min-h-[14rem] [grid-auto-rows:minmax(6.5rem,1fr)]">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-sm flex flex-col gap-1.5 h-full min-h-[6.5rem]">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white shrink-0">
+                {isAr ? 'المكافآت' : 'Rewards'}
+              </h3>
+              <div className="flex-1 min-h-0 flex flex-col justify-center">
                 {customerRewards.length === 0 ? (
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {isAr
@@ -1803,22 +1861,24 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                   </ul>
                 )}
               </div>
+            </div>
 
-              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-sm flex flex-col gap-1.5 h-full min-h-0">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    {isAr ? 'محفظة العميل' : 'Customer Wallet'}
-                  </h3>
-                  {canAdjustWallet ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowWalletAdjust(true)}
-                      className="text-[11px] font-semibold text-teal-600 hover:text-teal-700 cursor-pointer"
-                    >
-                      {isAr ? 'تعديل' : 'Adjust'}
-                    </button>
-                  ) : null}
-                </div>
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-sm flex flex-col gap-1.5 h-full min-h-[6.5rem]">
+              <div className="flex items-center justify-between gap-2 shrink-0">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  {isAr ? 'محفظة العميل' : 'Customer Wallet'}
+                </h3>
+                {canAdjustWallet ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowWalletAdjust(true)}
+                    className="text-[11px] font-semibold text-teal-600 hover:text-teal-700 cursor-pointer"
+                  >
+                    {isAr ? 'تعديل' : 'Adjust'}
+                  </button>
+                ) : null}
+              </div>
+              <div className="flex-1 min-h-0 flex flex-col justify-center gap-1">
                 <p className="text-lg font-bold text-emerald-600" dir="ltr">
                   {money(walletBalance)}
                 </p>
@@ -1834,11 +1894,13 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                   </p>
                 )}
               </div>
+            </div>
 
-              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-sm flex flex-col gap-1.5 h-full min-h-0">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  {isAr ? 'نقاط الولاء' : 'Loyalty Points'}
-                </h3>
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-sm flex flex-col gap-1.5 h-full min-h-[6.5rem]">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white shrink-0">
+                {isAr ? 'نقاط الولاء' : 'Loyalty Points'}
+              </h3>
+              <div className="flex-1 min-h-0 flex flex-col justify-center">
                 {loyaltyPointsCount <= 0 ? (
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {isAr ? 'لا توجد نقاط ولاء متاحة' : 'No Loyalty Points Available'}
@@ -1849,14 +1911,16 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                   </p>
                 )}
               </div>
+            </div>
 
-              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-sm flex flex-col gap-1.5 h-full min-h-0">
-                <div className="flex items-center gap-2">
-                  <Heart className="w-4 h-4 text-rose-500 shrink-0" />
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    {isAr ? 'قائمة الأمنيات' : 'Wishlist'}
-                  </h3>
-                </div>
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-sm flex flex-col gap-1.5 h-full min-h-[6.5rem]">
+              <div className="flex items-center gap-2 shrink-0">
+                <Heart className="w-4 h-4 text-rose-500 shrink-0" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  {isAr ? 'قائمة الأمنيات' : 'Wishlist'}
+                </h3>
+              </div>
+              <div className="flex-1 min-h-0 flex flex-col justify-center">
                 {wishlistItems.length === 0 ? (
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {isAr ? 'لا توجد عناصر في قائمة الأمنيات' : 'No Wishlist Items Available'}
@@ -1870,125 +1934,125 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                 )}
               </div>
             </div>
+          </div>
 
-            {/* Messaging Details — Email, SMS, WhatsApp (real customer channels only) */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-sm space-y-2.5">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-teal-600" />
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  {isAr ? 'تفاصيل المراسلة' : 'Messaging Details'}
-                </h3>
+          {/* Messaging Details — Email, SMS, WhatsApp (real customer channels only) */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-sm space-y-2.5 shrink-0">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-teal-600" />
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                {isAr ? 'تفاصيل المراسلة' : 'Messaging Details'}
+              </h3>
+            </div>
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                  <Mail className="w-4 h-4 text-slate-400" />
+                  <span>{isAr ? 'البريد الإلكتروني' : 'Email'}</span>
+                </div>
+                <span className="font-medium truncate max-w-[160px]" dir="ltr">
+                  {hasEmail ? customer.email : isAr ? 'غير متوفر' : 'Not available'}
+                </span>
               </div>
-              <div className="space-y-2 text-xs">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                    <Mail className="w-4 h-4 text-slate-400" />
-                    <span>{isAr ? 'البريد الإلكتروني' : 'Email'}</span>
-                  </div>
-                  <span className="font-medium truncate max-w-[160px]" dir="ltr">
-                    {hasEmail ? customer.email : isAr ? 'غير متوفر' : 'Not available'}
-                  </span>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                  <Smartphone className="w-4 h-4 text-slate-400" />
+                  <span>{isAr ? 'رسالة نصية' : 'SMS'}</span>
                 </div>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                    <Smartphone className="w-4 h-4 text-slate-400" />
-                    <span>{isAr ? 'رسالة نصية' : 'SMS'}</span>
-                  </div>
-                  <span className="font-medium" dir="ltr">
-                    {hasPhone ? customer.phone : isAr ? 'غير متوفر' : 'Not available'}
-                  </span>
+                <span className="font-medium" dir="ltr">
+                  {hasPhone ? customer.phone : isAr ? 'غير متوفر' : 'Not available'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                  <WhatsAppBrandIcon className="w-4 h-4 text-[#25D366]" title="WhatsApp" />
+                  <span>{isAr ? 'واتساب' : 'WhatsApp'}</span>
                 </div>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                    <WhatsAppBrandIcon className="w-4 h-4 text-[#25D366]" title="WhatsApp" />
-                    <span>{isAr ? 'واتساب' : 'WhatsApp'}</span>
-                  </div>
-                  <span className="font-medium" dir="ltr">
-                    {hasPhone ? customer.phone : isAr ? 'غير متوفر' : 'Not available'}
-                  </span>
-                </div>
+                <span className="font-medium" dir="ltr">
+                  {hasPhone ? customer.phone : isAr ? 'غير متوفر' : 'Not available'}
+                </span>
               </div>
             </div>
+          </div>
 
-            {/* Customer Tags Card */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-sm space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 flex items-center justify-center">
-                    <Tag className="w-4 h-4" />
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    {isAr ? 'وسوم العميل' : 'Customer Tags'}
-                  </h3>
+          {/* Customer Tags Card */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-sm space-y-3 shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 flex items-center justify-center">
+                  <Tag className="w-4 h-4" />
                 </div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  {isAr ? 'وسوم العميل' : 'Customer Tags'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowAddTagInput(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-teal-500 transition-colors cursor-pointer"
+              >
+                <Plus className="w-3 h-3 text-teal-600" />
+                <span>{isAr ? 'إضافة وسم' : 'Add Tag'}</span>
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {tags.map((tg) => {
+                const tagLabelMap: Record<string, { en: string; ar: string }> = {
+                  flower_lover: { en: 'Flower lover', ar: 'محب للزهور' },
+                  regular_customer: { en: 'Regular customer', ar: 'عميل منتظم' },
+                  offers: { en: 'Interested in offers', ar: 'مهتم بالعروض' },
+                  vip: { en: 'VIP', ar: 'عميل مميز' },
+                };
+                const mapped = tagLabelMap[tg];
+                const label = mapped ? (isAr ? mapped.ar : mapped.en) : tg;
+                return (
+                  <span
+                    key={tg}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-teal-50/70 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800 text-xs font-medium"
+                  >
+                    <span>{label}</span>
+                    <button
+                      onClick={() => handleRemoveTag(tg)}
+                      className="text-teal-500 hover:text-teal-700 dark:hover:text-teal-100 transition-colors cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                );
+              })}
+
+              {showAddTagInput ? (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="text"
+                    value={newTagInput}
+                    onChange={(e) => setNewTagInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
+                    placeholder={isAr ? 'اكتب الوسم...' : 'Type tag...'}
+                    autoFocus
+                    className="px-2.5 py-1 text-xs rounded-lg border border-teal-300 dark:border-teal-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none"
+                  />
+                  <button
+                    onClick={handleAddTag}
+                    className="p-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setShowAddTagInput(false)}
+                    className="p-1 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
                 <button
                   onClick={() => setShowAddTagInput(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-teal-500 transition-colors cursor-pointer"
+                  className="w-7 h-7 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 text-slate-400 hover:text-teal-600 hover:border-teal-400 flex items-center justify-center transition-colors cursor-pointer"
                 >
-                  <Plus className="w-3 h-3 text-teal-600" />
-                  <span>{isAr ? 'إضافة وسم' : 'Add Tag'}</span>
+                  <Plus className="w-3.5 h-3.5" />
                 </button>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                {tags.map((tg) => {
-                  const tagLabelMap: Record<string, { en: string; ar: string }> = {
-                    flower_lover: { en: 'Flower lover', ar: 'محب للزهور' },
-                    regular_customer: { en: 'Regular customer', ar: 'عميل منتظم' },
-                    offers: { en: 'Interested in offers', ar: 'مهتم بالعروض' },
-                    vip: { en: 'VIP', ar: 'عميل مميز' },
-                  };
-                  const mapped = tagLabelMap[tg];
-                  const label = mapped ? (isAr ? mapped.ar : mapped.en) : tg;
-                  return (
-                    <span
-                      key={tg}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-teal-50/70 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800 text-xs font-medium"
-                    >
-                      <span>{label}</span>
-                      <button
-                        onClick={() => handleRemoveTag(tg)}
-                        className="text-teal-500 hover:text-teal-700 dark:hover:text-teal-100 transition-colors cursor-pointer"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  );
-                })}
-
-                {showAddTagInput ? (
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="text"
-                      value={newTagInput}
-                      onChange={(e) => setNewTagInput(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
-                      placeholder={isAr ? 'اكتب الوسم...' : 'Type tag...'}
-                      autoFocus
-                      className="px-2.5 py-1 text-xs rounded-lg border border-teal-300 dark:border-teal-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none"
-                    />
-                    <button
-                      onClick={handleAddTag}
-                      className="p-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => setShowAddTagInput(false)}
-                      className="p-1 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setShowAddTagInput(true)}
-                    className="w-7 h-7 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 text-slate-400 hover:text-teal-600 hover:border-teal-400 flex items-center justify-center transition-colors cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -2005,20 +2069,23 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               : 'AI Customer Intelligence & Retention Assistant'
           }
         >
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
-            {/* Modal Header */}
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-purple-50/50 to-indigo-50/50 dark:from-purple-950/20 dark:to-indigo-950/20">
+          <div
+            className="rounded-2xl w-full max-w-xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'var(--font-ui)' }}
+          >
+            {/* Modal Header — Holst global CTA */}
+            <div className="unity-modal-header p-4 flex items-center justify-between text-white">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-md">
-                  <Sparkles className="w-4 h-4" />
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-md" style={{ background: 'rgba(255,255,255,0.2)' }}>
+                  <Sparkles className="w-4 h-4 text-white unity-modal-icon" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white text-sm">
+                  <h3 className="font-bold text-white text-sm">
                     {isAr
                       ? 'مساعد الذكاء الاصطناعي لتحليل وسلوك العملاء'
                       : 'AI Customer Intelligence & Retention Assistant'}
                   </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  <p className="text-[11px] text-white/80">
                     {isAr
                       ? `السياق: ${profileDisplayName} • ${activeStore.nameAr || activeStore.name}`
                       : `Context: ${profileDisplayName} • ${activeStore.nameEn || activeStore.name}`}
@@ -2027,7 +2094,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
               </div>
               <button
                 onClick={() => setShowAiModal(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>

@@ -26,6 +26,7 @@ import { useToast } from '../common/ToastProvider';
 import { preloadVisualThemeBuilder } from './visualBuilder/preloadVisualBuilder';
 import { preloadWordPressThemeCustomizer } from './themeCustomizer/preloadWordPressThemeCustomizer';
 import { BellDropdown } from '../../notification-system';
+import { getStoreDisplayOwner, shortStoreOwnerName } from '../../utils/storeLocalization';
 
 interface StoreTopBarProps {
   searchPlaceholder?: string;
@@ -81,23 +82,38 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
 
   const [copiedId, setCopiedId] = useState(false);
 
-  // Locale-aware name so English UI never shows Arabic-only owner labels (and vice versa)
+  // Locale-aware short owner name for ALL stores (EN UI → English only; AR UI → Arabic only)
   const displayName = useMemo(() => {
-    const sessionName = (session?.user?.name || '').trim();
     const hasArabic = (s: string) => /[\u0600-\u06FF]/.test(s);
-    const localizedOwner = isAr
-      ? activeStore.ownerAr || activeStore.owner || activeStore.nameAr || activeStore.name
-      : activeStore.ownerEn || activeStore.nameEn || activeStore.owner || activeStore.name;
+    const localizedOwner = shortStoreOwnerName(
+      getStoreDisplayOwner(activeStore, locale) ||
+        (isAr
+          ? activeStore.ownerAr || activeStore.owner || ''
+          : activeStore.ownerEn || activeStore.owner || ''),
+    );
+    const sessionName = shortStoreOwnerName((session?.user?.name || '').trim());
 
-    if (!sessionName) return localizedOwner || activeStore.name;
+    if (!sessionName) {
+      return (
+        localizedOwner ||
+        shortStoreOwnerName(
+          isAr ? activeStore.nameAr || activeStore.name : activeStore.nameEn || activeStore.name,
+        ) ||
+        activeStore.name
+      );
+    }
 
-    // Session name in the wrong script for current UI language → use store owner localized field
+    // Session name in the wrong script for current UI language → localized short owner
     if (!isAr && hasArabic(sessionName)) return localizedOwner || sessionName;
     if (isAr && !hasArabic(sessionName)) {
-      return activeStore.ownerAr || activeStore.nameAr || sessionName;
+      return shortStoreOwnerName(activeStore.ownerAr || '') || localizedOwner || sessionName;
     }
-    return sessionName;
-  }, [session, activeStore, isAr]);
+    // Prefer localized short owner when session is a long store brand title
+    if (localizedOwner && sessionName.length > localizedOwner.length + 8) {
+      return localizedOwner;
+    }
+    return localizedOwner || sessionName;
+  }, [session, activeStore, isAr, locale]);
 
   const roleLabel = useMemo(() => {
     const raw = (session?.user?.role_label || session?.user?.role || '').toLowerCase();
@@ -182,9 +198,9 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
 
   return (
     <header
-      className="min-h-14 sm:h-16 border-b px-2 sm:px-3.5 md:px-4 flex items-center justify-between gap-1 sm:gap-2 w-full bg-[var(--surface)] text-[var(--text)] border-[var(--border)] shrink-0 z-50 select-none max-lg:sticky max-lg:top-0 isolate"
+      className="min-h-14 sm:h-16 border-b px-2 sm:px-3.5 md:px-4 flex items-center justify-between gap-1 sm:gap-2 w-full bg-[var(--bg)] text-[var(--text)] border-[var(--border)] shrink-0 z-50 select-none max-lg:sticky max-lg:top-0 isolate"
       style={{
-        background: 'var(--surface)',
+        background: 'var(--bg)',
         borderColor: 'var(--border)',
         color: 'var(--text)',
         fontFamily: 'var(--font-ui)',

@@ -231,11 +231,12 @@ class MarketingCampaignsController extends Controller
             $conversionRate = $visits > 0 ? round(($ordersCount / $visits) * 100, 1) : 0.0;
             $aov = $ordersCount > 0 ? round($revenue / $ordersCount, 2) : 0.0;
 
-            $growth = 0.0;
+            // Never invent +100% when prior period is empty (zero-mock)
+            $growth = null;
             if ($prevRevenueCh > 0) {
                 $growth = round((($revenue - $prevRevenueCh) / $prevRevenueCh) * 100, 1);
-            } elseif ($revenue > 0) {
-                $growth = 100.0;
+            } elseif ($revenue <= 0 && $prevRevenueCh <= 0) {
+                $growth = 0.0;
             }
 
             $trendSparkline = $this->buildChannelSparkline($ordersInChannel, $startDate, $endDate, $visits);
@@ -267,20 +268,20 @@ class MarketingCampaignsController extends Controller
 
         $ordersGrowth = $prevOrdersCount > 0
             ? round((($totalOrdersCount - $prevOrdersCount) / $prevOrdersCount) * 100, 1)
-            : ($totalOrdersCount > 0 ? 100.0 : 0.0);
+            : ($totalOrdersCount > 0 ? null : 0.0);
         $revenueGrowth = $prevRevenueSum > 0
             ? round((($totalRevenueSum - $prevRevenueSum) / $prevRevenueSum) * 100, 1)
-            : ($totalRevenueSum > 0 ? 100.0 : 0.0);
+            : ($totalRevenueSum > 0 ? null : 0.0);
         $prevVisitsSum = (int) array_sum($prevEventVisitsByChannel);
         $visitsGrowth = $prevVisitsSum > 0
             ? round((($totalVisitsSum - $prevVisitsSum) / $prevVisitsSum) * 100, 1)
             : ($totalVisitsSum > 0 ? null : 0.0);
-        $convGrowth = 0.0;
-        $cartGrowth = 0.0;
+        $convGrowth = null;
+        $cartGrowth = null;
         $prevAov = $prevOrdersCount > 0 ? round($prevRevenueSum / $prevOrdersCount, 2) : 0.0;
         $aovGrowth = $prevAov > 0
             ? round((($overallAov - $prevAov) / $prevAov) * 100, 1)
-            : ($overallAov > 0 ? 100.0 : 0.0);
+            : ($overallAov > 0 ? null : 0.0);
 
         $visitsTrend = $this->buildPublicVisitsTrendSeries($storeId, $startDate, $endDate);
 

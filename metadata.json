@@ -1,5 +1,5 @@
 {
-  "name": "Unityteck | Multi-Store E-Commerce SaaS",
+  "name": "Souq Platform | Multi-Store E-Commerce SaaS",
   "description": "Multi-tenant e-commerce SaaS with unified Master Admin and isolated Store Admin workspaces, channel analytics, customer management, and store data isolation.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

@@ -759,6 +759,8 @@ export function applyBrandCss(brand: BrandState, locale: 'en' | 'ar' = 'en'): vo
   // Form / modal / page text — same Holst family as header (no slate leftover)
   const isDark = root.getAttribute('data-theme') === 'dark';
   if (!isDark) {
+    // ONE global page canvas for Master + Store (design pack: --bg = portal-50)
+    root.style.setProperty('--bg', p.p50);
     root.style.setProperty('--text', p.p950);
     root.style.setProperty('--muted', p.p900);
     root.style.setProperty('--input-fg', p.p950);
@@ -768,6 +770,8 @@ export function applyBrandCss(brand: BrandState, locale: 'en' | 'ar' = 'en'): vo
     root.style.setProperty('--icon-on-light', p.p950);
     root.style.setProperty('--icon-box-fg', p.p950);
     root.style.setProperty('--border', p.p200);
+  } else {
+    root.style.setProperty('--bg', p.p950);
   }
 
   // Scrollbar: follow brand by default; optional dedicated luxury color

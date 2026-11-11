@@ -480,26 +480,18 @@ export const GeneralOptionsForm: React.FC = () => {
 
                 <input
                   type="text"
-                  value={item.labelAr}
+                  dir={isAr ? 'rtl' : 'ltr'}
+                  value={isAr ? item.labelAr : item.labelEn}
                   onChange={(e) => {
                     const list = [...fullList];
-                    list[idx] = { ...list[idx], labelAr: e.target.value };
+                    list[idx] = {
+                      ...list[idx],
+                      ...(isAr ? { labelAr: e.target.value } : { labelEn: e.target.value }),
+                    };
                     setVal('customNavigationMenu', list);
                   }}
-                  placeholder="العنوان بالعربية"
+                  placeholder={isAr ? 'العنوان' : 'Title'}
                   className="px-2.5 py-1 rounded-lg border text-xs flex-1 outline-none font-bold"
-                  style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-                />
-                <input
-                  type="text"
-                  value={item.labelEn}
-                  onChange={(e) => {
-                    const list = [...fullList];
-                    list[idx] = { ...list[idx], labelEn: e.target.value };
-                    setVal('customNavigationMenu', list);
-                  }}
-                  placeholder="English Title"
-                  className="px-2.5 py-1 rounded-lg border text-xs flex-1 outline-none"
                   style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
                 />
               </div>

@@ -94,42 +94,27 @@ export const OfferDisplaySettingsPanel: React.FC<Props> = ({
         </button>
       ) : (
         <form onSubmit={onSave} className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t mt-3" style={{ borderColor: 'var(--border)' }}>
-          <div>
-            <label className="text-[11px] font-bold block mb-1">{isAr ? 'العنوان بالإنجليزية' : 'Title (EN)'}</label>
+          <div className="sm:col-span-2">
+            <label className="text-[11px] font-bold block mb-1">{isAr ? 'العنوان' : 'Title'}</label>
             <input
-              value={config.titleEn}
-              onChange={(e) => setConfig({ ...config, titleEn: e.target.value })}
+              dir={isAr ? 'rtl' : 'ltr'}
+              value={isAr ? config.titleAr : config.titleEn}
+              onChange={(e) =>
+                setConfig({ ...config, ...(isAr ? { titleAr: e.target.value } : { titleEn: e.target.value }) })
+              }
               className="w-full px-3 py-2 text-xs rounded-xl border"
               style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
             />
           </div>
-          <div>
-            <label className="text-[11px] font-bold block mb-1">{isAr ? 'العنوان بالعربية' : 'Title (AR)'}</label>
-            <input
-              dir="rtl"
-              value={config.titleAr}
-              onChange={(e) => setConfig({ ...config, titleAr: e.target.value })}
-              className="w-full px-3 py-2 text-xs rounded-xl border"
-              style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
-            />
-          </div>
-          <div>
-            <label className="text-[11px] font-bold block mb-1">{isAr ? 'النص بالإنجليزية' : 'Body (EN)'}</label>
+          <div className="sm:col-span-2">
+            <label className="text-[11px] font-bold block mb-1">{isAr ? 'النص' : 'Body'}</label>
             <textarea
+              dir={isAr ? 'rtl' : 'ltr'}
               rows={2}
-              value={config.bodyEn}
-              onChange={(e) => setConfig({ ...config, bodyEn: e.target.value })}
-              className="w-full px-3 py-2 text-xs rounded-xl border resize-none"
-              style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
-            />
-          </div>
-          <div>
-            <label className="text-[11px] font-bold block mb-1">{isAr ? 'النص بالعربية' : 'Body (AR)'}</label>
-            <textarea
-              dir="rtl"
-              rows={2}
-              value={config.bodyAr}
-              onChange={(e) => setConfig({ ...config, bodyAr: e.target.value })}
+              value={isAr ? config.bodyAr : config.bodyEn}
+              onChange={(e) =>
+                setConfig({ ...config, ...(isAr ? { bodyAr: e.target.value } : { bodyEn: e.target.value }) })
+              }
               className="w-full px-3 py-2 text-xs rounded-xl border resize-none"
               style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
             />

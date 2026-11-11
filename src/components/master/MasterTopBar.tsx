@@ -70,9 +70,9 @@ export const MasterTopBar: React.FC<MasterTopBarProps> = ({
 
   return (
     <header
-      className="min-h-14 sm:h-16 border-b px-2 sm:px-4 lg:px-6 flex items-center justify-between gap-1 sm:gap-2.5 w-full bg-[var(--surface)] text-[var(--text)] border-[var(--border)] shrink-0 z-30 select-none max-lg:sticky max-lg:top-0"
+      className="min-h-14 sm:h-16 border-b px-2 sm:px-4 lg:px-6 flex items-center justify-between gap-1 sm:gap-2.5 w-full bg-[var(--bg)] text-[var(--text)] border-[var(--border)] shrink-0 z-30 select-none max-lg:sticky max-lg:top-0"
       style={{
-        background: 'var(--surface)',
+        background: 'var(--bg)',
         borderColor: 'var(--border)',
         color: 'var(--text)',
         fontFamily: 'var(--font-ui)',

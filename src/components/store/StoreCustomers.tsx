@@ -26,6 +26,7 @@ import {
   ShoppingBag,
   Gem,
   Tags,
+  Maximize2,
   LucideIcon,
 } from 'lucide-react';
 import { CustomerDetails } from './CustomerDetails';
@@ -159,8 +160,16 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
 
   const [customGroups, setCustomGroups] = useState<CustomerGroupDef[]>([]);
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
+  const [showGroupsFullView, setShowGroupsFullView] = useState(false);
+  const [groupsFullViewTab, setGroupsFullViewTab] = useState<'new' | 'groups' | 'customers'>('groups');
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupIcon, setNewGroupIcon] = useState('Users');
+
+  const openGroupsFullView = (tab: 'new' | 'groups' | 'customers' = 'groups') => {
+    setGroupsFullViewTab(tab);
+    setShowCreateGroupModal(false);
+    setShowGroupsFullView(true);
+  };
 
   const [assignGroupCustomerId, setAssignGroupCustomerId] = useState<string | null>(null);
   const [assignGroupValue, setAssignGroupValue] = useState('');
@@ -203,13 +212,13 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
     }
   };
 
-  const handleCreateGroupSubmit = (e: React.FormEvent) => {
+  const handleCreateGroupSubmit = (e: React.FormEvent): boolean => {
     e.preventDefault();
     const name = newGroupName.trim();
-    if (!name) return;
+    if (!name) return false;
     if (customGroups.some((g) => g.name.toLowerCase() === name.toLowerCase())) {
       toast(isAr ? 'المجموعة موجودة مسبقاً' : 'Group already exists', 'warning');
-      return;
+      return false;
     }
     const next: CustomerGroupDef = {
       id: `grp-${Date.now()}`,
@@ -221,7 +230,25 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
     setNewGroupIcon('Users');
     setShowCreateGroupModal(false);
     toast(isAr ? 'تم إنشاء المجموعة' : 'Group created', 'success');
+    return true;
   };
+
+  const handleDeleteCustomGroup = (groupId: string) => {
+    const target = customGroups.find((g) => g.id === groupId);
+    if (!target) return;
+    persistCustomGroups(customGroups.filter((g) => g.id !== groupId));
+    toast(isAr ? 'تم حذف المجموعة' : 'Group deleted', 'success');
+  };
+
+  const groupCustomerCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const c of currentCustomers) {
+      const key = (c.group || '').trim();
+      if (!key) continue;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return counts;
+  }, [currentCustomers]);
 
   const handleAssignGroupSubmit = () => {
     if (!assignGroupValue.trim()) return;
@@ -682,6 +709,16 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
             <span>{isAr ? 'إنشاء مجموعة' : 'Create Group'}</span>
           </button>
 
+          <button
+            type="button"
+            onClick={() => openGroupsFullView('groups')}
+            className="px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-opacity hover:opacity-90 border"
+            style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
+          >
+            <Maximize2 className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+            <span>{isAr ? 'العرض الكامل' : 'Full View'}</span>
+          </button>
+
           <div>
             <button
               type="button"
@@ -914,6 +951,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                 cities={saudiCities}
                 isAr={isAr}
                 includeAllOption
+                preferBelow
                 manageEnabled
                 onAddCity={(nameEn, nameAr) => {
                   const ok = addSaudiCity({ nameEn, nameAr });
@@ -933,7 +971,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                   removeSaudiCity(id);
                   toast(isAr ? 'تم حذف المدينة من القائمة' : 'City removed from list', 'success');
                 }}
-                className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100"
+                className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-[var(--border)] bg-[var(--input-bg)] text-[var(--input-fg)]"
               />
             </div>
             <div>
@@ -1423,13 +1461,22 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                   {isAr ? 'إنشاء مجموعة عملاء' : 'Create Customer Group'}
                 </h3>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowCreateGroupModal(false)}
-                className="p-1 rounded-lg text-white/70 hover:text-white hover:bg-white/10"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => openGroupsFullView('new')}
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-white/90 hover:text-white hover:bg-white/10 border border-white/25"
+                >
+                  {isAr ? 'العرض الكامل' : 'Full View'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateGroupModal(false)}
+                  className="p-1 rounded-lg text-white/70 hover:text-white hover:bg-white/10"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
             <form onSubmit={handleCreateGroupSubmit} className="p-5 space-y-4 text-xs" style={{ color: 'var(--text)' }}>
               <div>
@@ -1487,6 +1534,295 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                 </button>
               </div>
             </form>
+          </div>
+        </GlobalModal>
+      )}
+
+      {/* Groups Full View */}
+      {showGroupsFullView && (
+        <GlobalModal
+          onClose={() => setShowGroupsFullView(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'العرض الكامل لمجموعات العملاء' : 'Customer Groups Full View'}
+          contentClassName="w-full max-w-4xl"
+        >
+          <div
+            className="rounded-2xl shadow-2xl w-full overflow-hidden border max-h-[90vh] flex flex-col"
+            style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
+          >
+            <div className="unity-modal-header px-5 py-4 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <Tags className="w-5 h-5 unity-modal-icon" />
+                <h3 className="font-bold text-base">
+                  {isAr ? 'مجموعات العملاء — العرض الكامل' : 'Customer Groups — Full View'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowGroupsFullView(false)}
+                className="p-1 rounded-lg text-white/70 hover:text-white hover:bg-white/10"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div
+              className="px-5 py-3 border-b flex flex-wrap items-center gap-2 shrink-0"
+              style={{ borderColor: 'var(--border)' }}
+            >
+              {(
+                [
+                  { id: 'new' as const, labelAr: 'مجموعة جديدة', labelEn: 'New Group', Icon: Plus },
+                  { id: 'groups' as const, labelAr: 'كل المجموعات', labelEn: 'All Groups', Icon: Tags },
+                  { id: 'customers' as const, labelAr: 'كل العملاء', labelEn: 'All Customers', Icon: Users },
+                ] as const
+              ).map(({ id, labelAr, labelEn, Icon }) => {
+                const active = groupsFullViewTab === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setGroupsFullViewTab(id)}
+                    className="px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-opacity hover:opacity-90"
+                    style={
+                      active
+                        ? {
+                            background: 'var(--portal-cta)',
+                            borderColor: 'var(--portal-cta)',
+                            color: '#fff',
+                          }
+                        : {
+                            background: 'var(--surface)',
+                            borderColor: 'var(--border)',
+                            color: 'var(--text)',
+                          }
+                    }
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{isAr ? labelAr : labelEn}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4 text-xs">
+              {groupsFullViewTab === 'new' && (
+                <form
+                  onSubmit={(e) => {
+                    if (handleCreateGroupSubmit(e)) setGroupsFullViewTab('groups');
+                  }}
+                  className="rounded-xl border p-4 space-y-3"
+                  style={{ borderColor: 'var(--border)', background: 'color-mix(in srgb, var(--accent) 4%, transparent)' }}
+                >
+                  <h4 className="font-bold text-sm" style={{ color: 'var(--text)' }}>
+                    {isAr ? 'إنشاء مجموعة جديدة' : 'Create New Group'}
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
+                    <div>
+                      <label className="unity-modal-label block font-semibold mb-1">
+                        {isAr ? 'اسم المجموعة' : 'Group Name'}
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={newGroupName}
+                        onChange={(e) => setNewGroupName(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--input-bg)] text-[var(--input-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 text-white rounded-lg font-semibold unity-btn-primary whitespace-nowrap"
+                    >
+                      {isAr ? 'حفظ المجموعة' : 'Save Group'}
+                    </button>
+                  </div>
+                  <div>
+                    <label className="unity-modal-label block font-semibold mb-2">
+                      {isAr ? 'أيقونة المجموعة' : 'Group Icon'}
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {GROUP_ICON_OPTIONS.map(({ key, Icon }) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setNewGroupIcon(key)}
+                          className="p-2.5 rounded-xl border transition-colors"
+                          style={
+                            newGroupIcon === key
+                              ? {
+                                  borderColor: 'var(--accent)',
+                                  background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
+                                  color: 'var(--accent)',
+                                }
+                              : { borderColor: 'var(--border)', color: 'var(--muted)' }
+                          }
+                        >
+                          <Icon className="w-5 h-5" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </form>
+              )}
+
+              {groupsFullViewTab === 'groups' && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="font-bold text-sm" style={{ color: 'var(--text)' }}>
+                      {isAr ? 'كل المجموعات' : 'All Groups'}
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setGroupsFullViewTab('new')}
+                      className="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-white unity-btn-primary flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      {isAr ? 'مجموعة جديدة' : 'New Group'}
+                    </button>
+                  </div>
+
+                  {builtinGroups.map((g) => {
+                    const count = groupCustomerCounts.get(g.id) || 0;
+                    return (
+                      <div
+                        key={g.id}
+                        className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5"
+                        style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                            style={{
+                              background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
+                              color: 'var(--accent)',
+                            }}
+                          >
+                            <Users className="w-4 h-4" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-semibold truncate">{isAr ? g.nameAr : g.nameEn}</p>
+                            <p style={{ color: 'var(--muted)' }}>
+                              {isAr ? 'مجموعة أساسية' : 'Built-in group'}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-[11px] font-bold tabular-nums shrink-0" style={{ color: 'var(--muted)' }}>
+                          {count} {isAr ? 'عميل' : count === 1 ? 'customer' : 'customers'}
+                        </span>
+                      </div>
+                    );
+                  })}
+
+                  {customGroups.length === 0 ? (
+                    <div
+                      className="rounded-xl border border-dashed px-4 py-6 text-center"
+                      style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+                    >
+                      {isAr ? 'لا توجد مجموعات مخصصة بعد' : 'No custom groups yet'}
+                    </div>
+                  ) : (
+                    customGroups.map((g) => {
+                      const count = groupCustomerCounts.get(g.name) || 0;
+                      return (
+                        <div
+                          key={g.id}
+                          className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5"
+                          style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span
+                              className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                              style={{
+                                background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
+                                color: 'var(--accent)',
+                              }}
+                            >
+                              {renderGroupIcon(g.icon)}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="font-semibold truncate">{g.name}</p>
+                              <p style={{ color: 'var(--muted)' }}>
+                                {isAr ? 'مجموعة مخصصة' : 'Custom group'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[11px] font-bold tabular-nums" style={{ color: 'var(--muted)' }}>
+                              {count} {isAr ? 'عميل' : count === 1 ? 'customer' : 'customers'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCustomGroup(g.id)}
+                              className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                              aria-label={isAr ? 'حذف المجموعة' : 'Delete group'}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+
+              {groupsFullViewTab === 'customers' && (
+                <div className="space-y-2">
+                  <h4 className="font-bold text-sm" style={{ color: 'var(--text)' }}>
+                    {isAr ? 'كل العملاء' : 'All Customers'}
+                    <span className="ms-2 font-medium" style={{ color: 'var(--muted)' }}>
+                      ({currentCustomers.length})
+                    </span>
+                  </h4>
+
+                  {currentCustomers.length === 0 ? (
+                    <div
+                      className="rounded-xl border border-dashed px-4 py-6 text-center"
+                      style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+                    >
+                      {isAr ? 'لا توجد سجلات' : 'No records found'}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+                      <div className="max-h-[50vh] overflow-y-auto">
+                        <table className="w-full text-xs">
+                          <thead
+                            className="sticky top-0"
+                            style={{ background: 'var(--surface)', color: 'var(--muted)' }}
+                          >
+                            <tr className="border-b" style={{ borderColor: 'var(--border)' }}>
+                              <th className="text-start font-semibold px-3 py-2">{isAr ? 'العميل' : 'Customer'}</th>
+                              <th className="text-start font-semibold px-3 py-2">{isAr ? 'الهاتف' : 'Phone'}</th>
+                              <th className="text-start font-semibold px-3 py-2">{isAr ? 'المجموعة' : 'Group'}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {currentCustomers.map((cust) => (
+                              <tr
+                                key={cust.id}
+                                className="border-b last:border-b-0"
+                                style={{ borderColor: 'var(--border)' }}
+                              >
+                                <td className="px-3 py-2 font-semibold" style={{ color: 'var(--text)' }}>
+                                  {getCustomerDisplayName(cust, isAr)}
+                                </td>
+                                <td className="px-3 py-2" style={{ color: 'var(--muted)' }}>
+                                  {cust.phone || '—'}
+                                </td>
+                                <td className="px-3 py-2" style={{ color: 'var(--text)' }}>
+                                  {cust.group?.trim() || (isAr ? '—' : '—')}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </GlobalModal>
       )}

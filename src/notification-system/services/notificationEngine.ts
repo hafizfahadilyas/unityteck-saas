@@ -108,7 +108,7 @@ export class NotificationEngine {
         title: `Product "${p.name || p.nameAr || 'Product'}" has only ${count} items left`,
         titleAr: `المنتج "${p.nameAr || p.name || 'منتج'}" متبقي منه${count}قطع فقط`,
         description: `Critical low inventory for SKU ${p.sku || 'N/A'}. Restock soon to prevent stockout.`,
-        descriptionAr: `مستوى المخزون حرج لرمز المنتج${p.sku || 'N/A'}. قم بإعادة التزويد لتفادي نفاد الكمية.`,
+        descriptionAr: `مستوى المخزون حرج لرمز المنتج ${p.sku || 'غير متوفر'}. قم بإعادة التزويد لتفادي نفاد الكمية.`,
         timestamp: new Date(nowMs - 18 * 60 * 1000).toISOString(),
         read: false,
         dismissed: false,

@@ -1,10 +1,10 @@
 /**
  * Portal-scoped document title + favicon (docs/21).
- * Master = Unityteck platform branding.
+ * Master = Souq Platform (Final Master Admin) branding.
  * Store = active store name/brand (when wired) — never force Master assets on Store.
  */
 
-const MASTER_TITLE = 'Unityteck | Master Admin';
+const MASTER_TITLE = 'Souq Platform | Master Admin';
 const MASTER_FAVICON = '/favicon.svg';
 
 function ensureIconLink(rel: string): HTMLLinkElement {
@@ -57,6 +57,6 @@ export function applyPortalHead(input: PortalHeadInput): void {
   }
 
   const name = (input.storeName || '').trim();
-  document.title = name ? `${name} | Store Admin` : 'Store Admin | Unityteck';
+  document.title = name ? `${name} | Store Admin` : 'Store Admin | Souq Platform';
   setFavicon(input.faviconUrl?.trim() || MASTER_FAVICON);
 }

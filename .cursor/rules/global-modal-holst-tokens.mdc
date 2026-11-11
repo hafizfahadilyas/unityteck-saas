@@ -1,26 +1,29 @@
 ---
-description: All Master/Store GlobalModal chrome uses Holst portal tokens — same color + same font as BrandingPanel. Fix modals one-by-one; never hardcode navy/blue/green.
-globs: src/components/**/*Modal*.tsx,src/components/common/GlobalModal.tsx,src/components/common/MediaUploadField.tsx,src/components/common/SaudiCitySelect.tsx,src/components/common/PortalSelect.tsx,src/components/common/FloatingPopover.tsx
+description: ALL Master/Store pages + sections + modals use Holst portal color/font — no hardcoded indigo/blue brand chrome
+globs: src/components/**/*.tsx,src/styles/portal-tokens.css,designs/Login_UIUX/00_palettes/portal-tokens.css
 alwaysApply: true
 ---
 
-# Global Modal · Same Color · Same Font (LOCKED)
+# Global Holst · ALL Pages · ALL Sections (LOCKED)
 
-**User order:** Har modal ka color/font **global Holst branding** se aaye — BrandingPanel / `portal-tokens.css` CSS vars. Ek-ek modal fix; naya hardcoded palette mat banao.
+**User order (memory):** **ALL pages + ALL sections** (Master + Store admin) — color + font **global Holst** se. BrandingPanel / `portal-tokens.css`. Blue/indigo CTA, filter, link, icon, focus → Holst teal. Naya hardcoded blue/indigo/purple brand palette **mat** banao.
 
-## Absolute
-- **NO** hardcoded modal headers like `#0b1b36`, random `bg-blue-600` / `bg-emerald-600` CTAs inside dashboard modals.
-- Header → `background: var(--portal-cta)` (same global CTA as primary buttons); icon → white.
-- Primary actions (Upload / Media Library / Save) → `unity-btn-primary` / `var(--portal-cta)` — no dark `portal-950` secondary fill.
-- Surfaces / inputs / text → `var(--surface)`, `var(--input-bg)`, `var(--input-fg)`, `var(--border)`, `var(--text)`, `var(--muted)`, `var(--accent)`.
-- Font → inherit `var(--font-ui)` via `GlobalModal` (`data-global-modal`) — never a one-off face on modal chrome.
-- Shell → always `GlobalModal` (body portal). Dropdowns → `PortalSelect` / `SaudiCitySelect` / `FloatingPopover` (above modal z-index).
+## Scope = everything admin
+- Dashboard, Products, Orders, Customers, Shipping, Payments, Invoices, Pages, Marketing, Reports, SEO, WhatsApp, Settings, Media, Themes, Master screens, **every** subsection/tab/modal/drawer.
+- CSS remap under `[data-portal="master|store"]` covers legacy Tailwind blue/indigo utilities — still prefer tokens in new code.
+- **Not** locked storefront theme chrome (coffee HiBrew / flowers storefront look).
 
-## City / select click
-- `FloatingPopover` outside-dismiss must **not** `preventDefault` / `stopPropagation` on the activating click (blocks the next field, e.g. City after Gender).
-- Keep modal backdrop ignore while `[data-floating-popover]` is mounted (already in `GlobalModal`).
+## Tokens
+- CTA → `unity-btn-primary` or `background: var(--portal-cta)` + white text
+- Accent / active chip / link / icon / focus → `var(--accent)`
+- Surfaces → `var(--surface)` / `var(--border)` / `var(--text)` / `var(--muted)` / inputs
+- Font → `var(--font-ui)` (already on portal); no one-off admin font faces
 
-## Scope
-- Master + Store admin modals only (not locked storefront theme chrome).
-- Fix the open modal in front of you; leave already-tokenized modals alone.
+## Ban
+- Brand chrome: `bg-blue-*` / `bg-indigo-*` / `text-indigo-*` / `focus:border-blue-*` as primary brand
+- Hardcoded modal headers `#0b1b36`, random green/blue primary CTAs
+- Status OK: emerald / amber / rose when semantic (Paid / Pending / danger)
+
+## Modals
+- Header → `var(--portal-cta)`; primary → `unity-btn-primary`; shell → `GlobalModal`
 ---

@@ -47,9 +47,24 @@ function AppRoot() {
   );
 }
 
-const root = document.getElementById('root')!;
-createRoot(root).render(
+type UnityRootStore = typeof globalThis & {
+  __unityteckReactRoot?: ReturnType<typeof createRoot>;
+};
+
+const container = document.getElementById('root')!;
+const store = globalThis as UnityRootStore;
+
+// HMR-safe: never call createRoot twice on #root (avoids nested ClerkProvider)
+if (!store.__unityteckReactRoot) {
+  store.__unityteckReactRoot = createRoot(container);
+}
+
+store.__unityteckReactRoot.render(
   <StrictMode>
     <AppRoot />
   </StrictMode>,
 );
+
+if (import.meta.hot) {
+  import.meta.hot.accept();
+}

@@ -6,10 +6,8 @@ import {
   Plug,
   CalendarClock,
   CheckCircle2,
-  AlertTriangle,
   XCircle,
   Lock,
-  Sparkles,
   Send,
   Image as ImageIcon,
   Heart,
@@ -17,22 +15,19 @@ import {
   Bookmark,
   TrendingUp,
   Users,
-  Eye,
   Plus,
-  ArrowRight,
   Layers,
-  Copy,
   ShieldCheck,
-  Check,
   Globe,
   Video,
   Type,
+  ArrowLeft,
 } from 'lucide-react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
 import { GlobalModal } from '../common/GlobalModal';
-import { ModernSegmentedTabs } from '../common/ModernSegmentedTabs';
+import { PortalHubCard } from '../common/PortalHubCard';
 import {
   cancelSocialPost,
   disconnectSocialAccount,
@@ -155,7 +150,8 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
   const { toast } = useToast();
   const isAr = locale === 'ar';
 
-  const [activeTab, setActiveTab] = useState<'accounts' | 'compose' | 'scheduled' | 'history'>('accounts');
+  // null = hub buttons only; set = that section's data
+  const [activeTab, setActiveTab] = useState<'accounts' | 'compose' | 'scheduled' | 'history' | null>(null);
   const [accounts, setAccounts] = useState<SocialAccountPublic[]>([]);
   const [posts, setPosts] = useState<SocialPostRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -250,8 +246,8 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
       setIgUserId('');
       toast(
         isAr
-          ? `تم ربط حساب${platformLabel}بنجاح بعد التحقق المباشر!`
-          : `${platformLabel(formPlatform, false)} connected successfully!`,
+          ? `تم ربط حساب ${platformLabel(formPlatform, true)} بنجاح بعد التحقق المباشر`
+          : `${platformLabel(formPlatform, false)} connected successfully after live verification`,
         'success',
       );
       await load();
@@ -269,7 +265,7 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
       toast(
         res.ok
           ? isAr
-            ? `الاتصال سليم مع منصة${platformLabel}`
+            ? `الاتصال سليم مع منصة ${platformLabel(platform, true)}`
             : `Connection OK for ${platformLabel(platform, false)}`
           : res.message || (isAr ? 'فشل الاختبار' : 'Test failed'),
         res.ok ? 'success' : 'error',
@@ -400,27 +396,50 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
   const totalReach = posts.reduce((acc, p) => acc + (p.reach_count || 0), 0);
 
   return (
-    <div className="u-page p-4 sm:p-6 space-y-6 max-w-7xl mx-auto select-none font-sans w-full min-w-0">
-      {/* Top Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-pink-500 via-rose-500 to-amber-500 text-white flex items-center justify-center shadow-lg shadow-pink-500/20">
-            <Share2 className="w-6 h-6" />
+    <div
+      className="u-page u-social-hub-page p-4 sm:p-6 space-y-6 max-w-7xl mx-auto select-none w-full min-w-0"
+      style={{ fontFamily: 'var(--font-ui)', color: 'var(--text)' }}
+      dir={isAr ? 'rtl' : 'ltr'}
+    >
+      {/* Marketing family breadcrumb + header */}
+      <div className="flex flex-wrap items-start justify-between gap-4 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
+        <div className="min-w-0 space-y-2">
+          <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--muted)' }}>
+            <button
+              type="button"
+              onClick={() => onNavigateTab?.('marketing')}
+              className="cursor-pointer hover:underline font-medium bg-transparent border-0 p-0"
+              style={{ color: 'var(--accent)' }}
+            >
+              {isAr ? 'أدوات التسويق' : 'Marketing Tools'}
+            </button>
+            <span>/</span>
+            <span className="font-semibold" style={{ color: 'var(--text)' }}>
+              {isAr ? 'النشر الاجتماعي' : 'Social Publishing'}
+            </span>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-                {isAr ? 'مركز النشر وإدارة التواصل الاجتماعي' : 'Social Media Publishing & Growth Hub'}
-              </h1>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
-                {activeStore.name}
-              </span>
+          <div className="flex items-center gap-3">
+            <div
+              className="w-12 h-12 rounded-2xl text-white flex items-center justify-center shadow-lg shrink-0"
+              style={{ background: 'var(--portal-cta)' }}
+            >
+              <Share2 className="w-6 h-6" />
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 font-medium">
-              {isAr
-                ? 'الربط المباشر متاح لإنستغرام وفيسبوك عبر ميتا غراف. تيك توك وسناب وإكس قريباً'
-                : 'Live connect: Instagram & Facebook via Meta Graph. TikTok, Snapchat & X Coming Soon'}
-            </p>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-lg sm:text-xl font-black" style={{ color: 'var(--text)' }}>
+                  {isAr ? 'النشر الاجتماعي' : 'Social Publishing'}
+                </h1>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                  {activeStore.name}
+                </span>
+              </div>
+              <p className="text-sm mt-0.5 font-semibold" style={{ color: 'var(--muted)' }}>
+                {isAr
+                  ? 'ربط إنستغرام وفيسبوك عبر واجهة ميتا، ثم جدولة المنشورات أو نشرها فوراً. تيك توك وسناب شات وإكس قريباً'
+                  : 'Connect Instagram and Facebook via Meta, then schedule or publish now. TikTok, Snapchat and X coming soon'}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -428,19 +447,23 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
           {onNavigateTab && (
             <button
               type="button"
-              onClick={() => onNavigateTab('canva')}
-              className="px-4 py-2 rounded-xl text-xs font-black text-white shadow-md flex items-center gap-2 cursor-pointer hover:brightness-110 transition-all"
-              style={{ background: 'linear-gradient(135deg, #7c3aed, #db2777)' }}
+              onClick={() => onNavigateTab('media')}
+              className="unity-btn-primary px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 cursor-pointer hover:brightness-110 transition-all"
             >
-              <Sparkles className="w-4 h-4" />
-              <span>{isAr ? 'فتح استوديو كانفا للتصميم' : 'Open Canva Studio'}</span>
+              <Layers className="w-4 h-4" />
+              <span>{isAr ? 'مكتبة الوسائط' : 'Media Library'}</span>
             </button>
           )}
           <button
             type="button"
             onClick={() => void load()}
             disabled={loading || busy}
-            className="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shadow-xs"
+            className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+            style={{
+              border: '1px solid var(--border)',
+              background: 'var(--surface)',
+              color: 'var(--text)',
+            }}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             <span>{isAr ? 'تحديث' : 'Refresh'}</span>
@@ -448,72 +471,112 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
         </div>
       </div>
 
-      {/* KPI Stats Highlights */}
+      {/* KPIs only after a section is opened — hub stays buttons-only */}
+      {activeTab !== null ? (
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-4 rounded-2xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/70 dark:bg-emerald-950/20 space-y-1 shadow-xs">
-          <div className="flex items-center justify-between text-slate-600 dark:text-slate-400 text-xs font-semibold">
+        <div
+          className="p-4 rounded-2xl border space-y-1 shadow-xs"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+        >
+          <div className="flex items-center justify-between text-xs font-semibold" style={{ color: 'var(--muted)' }}>
             <span>{isAr ? 'الحسابات المتصلة' : 'Connected Channels'}</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <CheckCircle2 className="w-4 h-4" style={{ color: 'var(--accent)' }} />
           </div>
-          <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400 font-mono">
+          <div className="text-2xl font-black font-mono" style={{ color: 'var(--text)' }}>
             {accounts.filter((a) => a.is_connected).length} / {accounts.length}
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl border border-pink-200 dark:border-pink-800/60 bg-pink-50/70 dark:bg-pink-950/20 space-y-1 shadow-xs">
-          <div className="flex items-center justify-between text-slate-600 dark:text-slate-400 text-xs font-semibold">
+        <div
+          className="p-4 rounded-2xl border space-y-1 shadow-xs"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+        >
+          <div className="flex items-center justify-between text-xs font-semibold" style={{ color: 'var(--muted)' }}>
             <span>{isAr ? 'إجمالي المتابعين' : 'Total Audience'}</span>
-            <Users className="w-4 h-4 text-pink-600 dark:text-pink-400" />
+            <Users className="w-4 h-4" style={{ color: 'var(--accent)' }} />
           </div>
-          <div className="text-2xl font-black text-pink-700 dark:text-pink-400 font-mono">
+          <div className="text-2xl font-black font-mono" style={{ color: 'var(--text)' }}>
             {totalFollowers > 1000 ? `${(totalFollowers / 1000).toFixed(1)}K` : totalFollowers}
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/70 dark:bg-amber-950/20 space-y-1 shadow-xs">
-          <div className="flex items-center justify-between text-slate-600 dark:text-slate-400 text-xs font-semibold">
+        <div
+          className="p-4 rounded-2xl border space-y-1 shadow-xs"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+        >
+          <div className="flex items-center justify-between text-xs font-semibold" style={{ color: 'var(--muted)' }}>
             <span>{isAr ? 'المنشورات المجدولة' : 'Scheduled Queue'}</span>
-            <CalendarClock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            <CalendarClock className="w-4 h-4" style={{ color: 'var(--accent)' }} />
           </div>
-          <div className="text-2xl font-black text-amber-700 dark:text-amber-400 font-mono">
+          <div className="text-2xl font-black font-mono" style={{ color: 'var(--text)' }}>
             {scheduledPosts.length}
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl border border-sky-200 dark:border-sky-800/60 bg-sky-50/70 dark:bg-sky-950/20 space-y-1 shadow-xs">
-          <div className="flex items-center justify-between text-slate-600 dark:text-slate-400 text-xs font-semibold">
+        <div
+          className="p-4 rounded-2xl border space-y-1 shadow-xs"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+        >
+          <div className="flex items-center justify-between text-xs font-semibold" style={{ color: 'var(--muted)' }}>
             <span>{isAr ? 'إجمالي الوصول' : 'Total Reach'}</span>
-            <TrendingUp className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+            <TrendingUp className="w-4 h-4" style={{ color: 'var(--accent)' }} />
           </div>
-          <div className="text-2xl font-black text-sky-700 dark:text-sky-400 font-mono">
+          <div className="text-2xl font-black font-mono" style={{ color: 'var(--text)' }}>
             {totalReach > 1000 ? `${(totalReach / 1000).toFixed(1)}K` : totalReach}
           </div>
         </div>
       </div>
+      ) : null}
 
-      {/* Navigation Sub-Tabs — modern segmented toggles */}
-      <ModernSegmentedTabs
-        accent="emerald"
-        aria-label={isAr ? 'أقسام النشر الاجتماعي' : 'Social publisher sections'}
-        value={activeTab}
-        onChange={setActiveTab}
-        items={[
-          { id: 'accounts', label: isAr ? 'الحسابات المتصلة' : 'Connected Accounts', icon: Users },
-          { id: 'compose', label: isAr ? 'إنشاء ونشر منشور' : 'Compose & Publish', icon: Send },
-          {
-            id: 'scheduled',
-            label: isAr ? 'الجدولة' : 'Scheduled',
-            icon: CalendarClock,
-            count: scheduledPosts.length,
-          },
-          {
-            id: 'history',
-            label: isAr ? 'سجل النشر' : 'Published',
-            icon: TrendingUp,
-            count: publishedPosts.length,
-          },
-        ]}
-      />
+      {/* Hub: ONLY big buttons. Section open: back + data. */}
+      {activeTab === null ? (
+        <div className="u-equal-sections grid grid-cols-2 md:grid-cols-4 gap-4">
+          <PortalHubCard
+            icon={Users}
+            title={isAr ? 'الحسابات المتصلة' : 'Connected Accounts'}
+            description={isAr ? 'ربط حسابات التواصل لهذا المتجر.' : 'Connect social accounts for this store.'}
+            onClick={() => setActiveTab('accounts')}
+            isAr={isAr}
+          />
+          <PortalHubCard
+            icon={Send}
+            title={isAr ? 'إنشاء ونشر منشور' : 'Compose & Publish'}
+            description={isAr ? 'إنشاء منشور ونشره أو جدولته.' : 'Create a post and publish or schedule it.'}
+            onClick={() => setActiveTab('compose')}
+            isAr={isAr}
+          />
+          <PortalHubCard
+            icon={CalendarClock}
+            title={isAr ? `الجدولة (${scheduledPosts.length})` : `Scheduled (${scheduledPosts.length})`}
+            description={isAr ? 'المنشورات المجدولة في الانتظار.' : 'Posts waiting in the schedule queue.'}
+            onClick={() => setActiveTab('scheduled')}
+            isAr={isAr}
+          />
+          <PortalHubCard
+            icon={TrendingUp}
+            title={isAr ? `سجل النشر (${publishedPosts.length})` : `Published (${publishedPosts.length})`}
+            description={isAr ? 'سجل المنشورات المنشورة.' : 'History of published posts.'}
+            onClick={() => setActiveTab('history')}
+            isAr={isAr}
+          />
+        </div>
+      ) : (
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setActiveTab(null)}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-xs font-bold cursor-pointer shadow-xs"
+            style={{
+              background: 'var(--surface)',
+              borderColor: 'var(--border)',
+              color: 'var(--text)',
+            }}
+          >
+            <ArrowLeft className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} aria-hidden />
+            {isAr ? 'كل أقسام النشر' : 'All social sections'}
+          </button>
+        </div>
+      )}
 
       {/* TAB 1: CONNECTED ACCOUNTS */}
       {activeTab === 'accounts' && (
@@ -525,8 +588,7 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
             <button
               type="button"
               onClick={() => setIsConnectModalOpen(true)}
-              className="px-3.5 py-2 rounded-xl text-xs font-black text-white shadow-md flex items-center gap-1.5 cursor-pointer hover:brightness-110 transition-all"
-              style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}
+              className="unity-btn-primary px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer hover:brightness-110 transition-all"
             >
               <Plus className="w-4 h-4" />
               <span>{isAr ? 'ربط حساب جديد' : 'Connect Channel'}</span>
@@ -596,7 +658,11 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
                       {isAr ? 'اسم الحساب:' : 'Account Name:'}
                     </span>
                     <strong className="text-slate-900 dark:text-white font-bold truncate max-w-[170px]">
-                      {acc.is_connected ? (acc.account_name || 'Connected') : (isAr ? 'غير مربوط' : 'Not Connected')}
+                      {acc.is_connected
+                        ? acc.account_name || (isAr ? 'متصل' : 'Connected')
+                        : isAr
+                          ? 'غير مربوط'
+                          : 'Not Connected'}
                     </strong>
                   </div>
 
@@ -616,10 +682,16 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
                     <span className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-slate-700 dark:text-slate-300">
                       <ShieldCheck className={`w-3.5 h-3.5 ${acc.is_connected ? 'text-emerald-500' : 'text-slate-400'}`} />
                       {acc.is_connected
-                        ? (acc.last_tested_at
-                          ? (isAr ? 'ميتا غراف مباشر' : 'Live Meta Graph')
-                          : (isAr ? 'متصل' : 'Connected'))
-                        : (isAr ? 'بدون اتصال' : 'No Token')}
+                        ? acc.last_tested_at
+                          ? isAr
+                            ? 'تحقق مباشر من ميتا'
+                            : 'Live Meta verified'
+                          : isAr
+                            ? 'متصل'
+                            : 'Connected'
+                        : isAr
+                          ? 'بدون اتصال'
+                          : 'No Token'}
                     </span>
                   </div>
                     </>
@@ -665,11 +737,10 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
                         setFormPlatform(acc.platform);
                         setIsConnectModalOpen(true);
                       }}
-                      className="w-full py-2.5 px-3 rounded-xl text-xs font-black text-white shadow-md flex items-center justify-center gap-2 cursor-pointer hover:brightness-110 active:scale-[0.98] transition-all"
-                      style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}
+                      className="unity-btn-primary w-full py-2.5 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-2 cursor-pointer hover:brightness-110 active:scale-[0.98] transition-all"
                     >
                       <Plug className="w-4 h-4" />
-                      <span>{isAr ? 'ربط عبر ميتا غراف' : 'Connect via Meta Graph'}</span>
+                      <span>{isAr ? 'الربط عبر واجهة ميتا' : 'Connect via Meta'}</span>
                     </button>
                   )}
                 </div>
@@ -778,11 +849,12 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
                     {onNavigateTab && (
                       <button
                         type="button"
-                        onClick={() => onNavigateTab('canva')}
-                        className="text-[11px] font-bold text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 cursor-pointer"
+                        onClick={() => onNavigateTab('media')}
+                        className="text-[11px] font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                        style={{ color: 'var(--accent)' }}
                       >
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>{isAr ? 'تصميم صورة جديدة في كانفا' : 'Design new in Canva'}</span>
+                        <Layers className="w-3.5 h-3.5" />
+                        <span>{isAr ? 'فتح مكتبة الوسائط' : 'Open Media Library'}</span>
                       </button>
                     )}
                   </div>
@@ -919,8 +991,7 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
                   type="button"
                   disabled={busy || !canSubmitComposer}
                   onClick={() => void handlePublishFromComposer(true)}
-                  className="flex-1 py-3 px-4 rounded-xl text-xs font-black text-white shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all hover:brightness-110 disabled:opacity-50"
-                  style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}
+                  className="unity-btn-primary flex-1 py-3 px-4 rounded-xl text-xs font-black flex items-center justify-center gap-2 cursor-pointer transition-all hover:brightness-110 disabled:opacity-50"
                 >
                   <Send className="w-4 h-4" />
                   <span>{busy ? (isAr ? 'جاري النشر...' : 'Publishing...') : (isAr ? 'انشر الآن على الحساب' : 'Publish Live Now')}</span>
@@ -1098,8 +1169,7 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
             <button
               type="button"
               onClick={() => setActiveTab('compose')}
-              className="px-3.5 py-2 rounded-xl text-xs font-black text-white shadow-md flex items-center gap-1.5 cursor-pointer hover:brightness-110"
-              style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}
+              className="unity-btn-primary px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer hover:brightness-110"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>{isAr ? 'جدولة منشور جديد' : 'New Schedule'}</span>
@@ -1172,8 +1242,8 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
               <p className="text-xs font-bold">{isAr ? 'لا توجد منشورات منشورة حتى الآن' : 'No published posts yet'}</p>
               <p className="text-[11px] text-slate-400">
                 {isAr
-                  ? 'أنشئ منشوراً جديداً أو صمم في كانفا وانشر مباشرة على حسابات المتجر.'
-                  : 'Compose a new post or design in Canva Studio to publish live.'}
+                  ? 'أنشئ منشوراً جديداً من تبويب الإنشاء أو اختر صورة من مكتبة الوسائط ثم انشر على حسابات المتجر.'
+                  : 'Compose a new post or pick a creative from Media Library, then publish to connected accounts.'}
               </p>
             </div>
           ) : (
@@ -1317,7 +1387,7 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
                 </div>
                 <div>
                   <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    {isAr ? 'رمز وصول ميتا غراف:' : 'Meta Graph access token:'}
+                    {isAr ? 'رمز وصول ميتا:' : 'Meta access token:'}
                   </label>
                   <input
                     type="password"
@@ -1360,8 +1430,7 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
                   type="button"
                   disabled={busy}
                   onClick={() => void handleConnectAccount()}
-                  className="w-full py-3 rounded-2xl text-xs font-black text-white shadow-lg flex items-center justify-center gap-2 cursor-pointer hover:brightness-110"
-                  style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}
+                  className="unity-btn-primary w-full py-3 rounded-2xl text-xs font-black flex items-center justify-center gap-2 cursor-pointer hover:brightness-110"
                 >
                   <ShieldCheck className="w-4 h-4" />
                   <span>{busy ? (isAr ? 'جارٍ التحقق...' : 'Verifying...') : (isAr ? 'ربط واختبار مباشر' : 'Connect & Live Test')}</span>

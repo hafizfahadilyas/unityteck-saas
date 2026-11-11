@@ -13,7 +13,7 @@ export const saudiaTransportThemeConfig: ThemeManifest = {
   version: '2.5.0',
   description: 'Specialized automotive upholstery, customized leather seat covers, floor mats, and transport interior services.',
   descriptionAr: 'قالب متخصص في تنجيد السيارات، تلبيسات المقاعد الجلدية، الدعاسات الأرضية وخدمات تجهيز المركبات.',
-  author: 'Unityteck Storefront Engine',
+  author: 'Souq Platform Storefront Engine',
   category: 'automotive',
   previewImage: '/src/assets/images/saudi_hero_banner_1.jpg',
   tags: ['automotive', 'upholstery', 'seat-covers', 'tanjeed', 'car-mats', 'transport', 'saudi'],

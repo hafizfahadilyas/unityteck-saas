@@ -323,6 +323,33 @@ export async function togglePublishProduct(
   return mapProduct(res.data);
 }
 
+export type ProductCopySuggestion = {
+  title: string;
+  subtitle: string;
+  description: string;
+  saved: boolean;
+  model?: string;
+};
+
+/** AI title/description suggestion — does not save the product. */
+export async function suggestProductCopy(
+  storeId: string,
+  payload: {
+    name?: string;
+    category?: string;
+    brand?: string;
+    product_type?: string;
+    seed?: string;
+    locale?: 'ar' | 'en';
+  },
+): Promise<ProductCopySuggestion> {
+  const res = await apiFetch<{ data: ProductCopySuggestion }>(
+    '/ai-media/product-copy',
+    { method: 'POST', storeId, body: payload },
+  );
+  return res.data;
+}
+
 function mapVariation(row: Record<string, unknown>): ProductVariation {
   const optsRaw = row.options;
   let options: Record<string, string> = {};
@@ -1034,6 +1061,39 @@ export async function updateCoupon(
 
 export async function deleteCoupon(storeId: string, id: string): Promise<void> {
   await apiFetch(`/coupons/${id}`, { method: 'DELETE', storeId });
+}
+
+/** Guest storefront coupon check — no Sanctum; scoped by store_id. */
+export async function validateStorefrontCoupon(
+  storeId: string,
+  code: string,
+  cartTotal = 0,
+): Promise<{ valid: boolean; discount: number; coupon?: CouponItem; message?: string }> {
+  try {
+    const res = await apiFetch<{
+      valid: boolean;
+      discount?: number;
+      message?: string;
+      data?: ApiCouponRow;
+    }>('/storefront/coupons/validate', {
+      method: 'POST',
+      storeId,
+      skipAuth: true,
+      body: { store_id: storeId, code, cart_total: cartTotal },
+    });
+    return {
+      valid: Boolean(res.valid),
+      discount: Number(res.discount || 0),
+      coupon: res.data ? mapCoupon({ ...res.data, store_id: storeId }) : undefined,
+      message: res.message,
+    };
+  } catch (err: unknown) {
+    const message =
+      err && typeof err === 'object' && 'message' in err
+        ? String((err as { message?: string }).message || '')
+        : '';
+    return { valid: false, discount: 0, message: message || 'Coupon code is invalid.' };
+  }
 }
 
 export async function fetchShipping(storeId: string): Promise<ShippingZone[]> {

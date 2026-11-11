@@ -66,9 +66,10 @@ async function main() {
     console.log('[dev-stack] Laravel API already listening on :8010');
   } else {
     console.log('[dev-stack] Starting Laravel API on :8010 …');
+    // Windows PHP CLI defaults can kill artisan serve after max_execution_time (120s)
     apiChild = spawnProc(
       'php',
-      ['artisan', 'serve', '--host=127.0.0.1', '--port=8010'],
+      ['-d', 'max_execution_time=0', 'artisan', 'serve', '--host=127.0.0.1', '--port=8010'],
       apiDir,
       'api',
     );

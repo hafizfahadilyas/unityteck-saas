@@ -1,25 +1,23 @@
 ---
-description: Full dynamic content, store_id isolation; general chrome headings vs per-store merchant text
+description: ALL pages/sections — FULL dynamic content + store_id isolation; no fake/dummy merchant or commerce rows
 alwaysApply: true
 ---
 
-# Content · Dynamic · Store Isolated (LOCKED)
+# Content · FULL Dynamic · Isolated · ALL Pages (LOCKED)
 
-**Company:** Unityteck multi-store e-commerce SaaS (KSA).
+**User memory:** **ALL pages + ALL sections** — content/commerce **FULL dynamic**, **`store_id` isolated**, fake/dummy **banned**.
 
 ## Absolute
-- **Overall content = full dynamic.** No hardcoded store body copy, product text, theme section text, headings that belong to a merchant, or invented tenant strings in live paths.
-- **Isolated per `store_id`.** Store A content ≠ Store B. Never fall back to another store’s text, images, SEO, or theme strings.
-- Empty API/DB → genuine empty / Waiting for Data — never decorate with another tenant’s or fake copy.
+- Lists + merchant fields (products, orders, customers, invoices, pages, theme text, SEO, blog, marketing) load/save for **that `store_id` only** via real API/DB (or genuine empty).
+- Store A ≠ Store B. Never borrow another tenant’s copy/images/SEO/theme/invoices.
+- Empty → Waiting for Data / No records — never fake or cross-tenant decorate.
 
-## Two layers (remember)
-1. **General text → general headings**  
-   Platform chrome only: shared UI labels, section titles, empty-state chrome, table headers, buttons — AR/EN via `isAr` / `t()`. Same for every store; not merchant-owned content.
-2. **Store ka apna apna**  
-   Merchant content (products, descriptions, H1–H3 body, badges, theme Customize text `*En`/`*Ar`, banners, SEO, blog, etc.) loads/saves **only** for that `store_id` via real API/DB.
+## Two layers (every page)
+1. **Chrome** — shared labels/headers/buttons — AR/EN via `isAr` / `t()`
+2. **Store ka apna** — merchant data for active `store_id` only
 
 ## Do not
-- Mix general chrome with store body as one hardcoded blob.
-- Seed Store B with Store A (flowers/coffee/bleco) copy.
-- Use mock/dummy product or theme text on production paths.
+- Hardcode merchant body into chrome blobs
+- Seed Store B from flowers/coffee/bleco demo packs
+- Treat `mockData` / `INITIAL_*` as live production truth
 ---

@@ -303,9 +303,10 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
     () => stores.filter((s) => s.status === 'active').length,
     [stores],
   );
+  // Seeded stores.visitors_count is NOT truth — store dashboards use storefront_analytics_events only
   const totalVisitorsCount = useMemo(
-    () => stores.reduce((acc, s) => acc + (Number(s.visitorsCount) || 0), 0) || platformMetrics.totalVisitors || 0,
-    [stores, platformMetrics.totalVisitors],
+    () => Math.max(0, Number(platformMetrics.totalVisitors) || 0),
+    [platformMetrics.totalVisitors],
   );
   const totalCustomersCount = useMemo(
     () => flatCustomers.length || platformMetrics.totalCustomers || 0,

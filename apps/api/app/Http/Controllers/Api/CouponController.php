@@ -30,6 +30,99 @@ class CouponController extends Controller
         ]);
     }
 
+    /**
+     * Public storefront: validate one coupon code for checkout (per store_id).
+     * Does not list secret inventory — only returns the matched active coupon.
+     */
+    public function storefrontValidate(Request $request): JsonResponse
+    {
+        $raw = (string) ($request->header('X-Store-Id') ?? $request->input('store_id', ''));
+        if (trim($raw) === '') {
+            return response()->json(['message' => 'Store ID required.', 'valid' => false], 400);
+        }
+
+        $storeId = $this->canonicalStoreId($raw);
+        $data = $request->validate([
+            'code' => ['required', 'string', 'max:64'],
+            'cart_total' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $code = strtoupper(trim((string) preg_replace('/\s+/', '', $data['code'])));
+        $cartTotal = (float) ($data['cart_total'] ?? 0);
+
+        $coupon = Coupon::query()
+            ->withoutGlobalScope('store')
+            ->where('store_id', $storeId)
+            ->whereRaw('UPPER(TRIM(code)) = ?', [$code])
+            ->first();
+
+        if (! $coupon) {
+            return response()->json([
+                'valid' => false,
+                'message' => 'Coupon code is invalid.',
+                'store_id' => $storeId,
+            ], 404);
+        }
+
+        $active = ((bool) $coupon->is_active) && strtolower((string) $coupon->status) === 'active';
+        if (! $active) {
+            return response()->json([
+                'valid' => false,
+                'message' => 'Coupon is inactive or expired.',
+                'store_id' => $storeId,
+            ], 422);
+        }
+
+        if ($coupon->expires_at && $coupon->expires_at->isPast()) {
+            return response()->json([
+                'valid' => false,
+                'message' => 'Coupon has expired.',
+                'store_id' => $storeId,
+            ], 422);
+        }
+
+        if ($coupon->max_uses !== null && (int) $coupon->usage_count >= (int) $coupon->max_uses) {
+            return response()->json([
+                'valid' => false,
+                'message' => 'Coupon usage limit reached.',
+                'store_id' => $storeId,
+            ], 422);
+        }
+
+        $minOrder = (float) ($coupon->min_order_amount ?? 0);
+        if ($minOrder > 0 && $cartTotal > 0 && $cartTotal < $minOrder) {
+            return response()->json([
+                'valid' => false,
+                'message' => 'Minimum order amount not met.',
+                'min_order_amount' => $minOrder,
+                'store_id' => $storeId,
+            ], 422);
+        }
+
+        $discountValue = (float) $coupon->discount_value;
+        $discount = $coupon->discount_type === 'percentage'
+            ? round($cartTotal * ($discountValue / 100), 2)
+            : min($cartTotal > 0 ? $cartTotal : $discountValue, $discountValue);
+
+        return response()->json([
+            'valid' => true,
+            'store_id' => $storeId,
+            'discount' => $discount,
+            'data' => [
+                'id' => $coupon->id,
+                'code' => $coupon->code,
+                'discount_type' => $coupon->discount_type,
+                'discount_value' => $coupon->discount_value,
+                'min_order_amount' => $coupon->min_order_amount,
+                'max_uses' => $coupon->max_uses,
+                'usage_count' => $coupon->usage_count,
+                'status' => $coupon->status,
+                'is_active' => $coupon->is_active,
+                'expires_at' => $coupon->expires_at,
+            ],
+        ]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $storeId = $this->requireStoreId($request);

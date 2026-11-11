@@ -237,7 +237,7 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
 
   const handleCreateNewTemplate = async () => {
     if (!activeStore?.id) return;
-    if (!newTplName.trim()) {
+    if (!(isAr ? newTplNameAr.trim() : newTplName.trim())) {
       toast(isAr ? 'يرجى إدخال اسم القالب' : 'Please provide template name', 'error');
       return;
     }
@@ -249,7 +249,7 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
     try {
       setCreatingTpl(true);
       const res = await createWhatsAppTemplateApi(activeStore.id, {
-        name: newTplName.trim(),
+        name: newTplName.trim() || newTplNameAr.trim(),
         name_ar: newTplNameAr.trim() || newTplName.trim(),
         category: newTplCategory,
         description: newTplDesc.trim(),
@@ -1205,31 +1205,18 @@ export const WhatsAppComposeTemplates: React.FC<Props> = ({
             </div>
 
             <div className="p-4 space-y-3.5 max-h-[70vh] overflow-y-auto">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {isAr ? 'اسم القالب (إنجليزي)' : 'Template Name (EN)'} *
-                  </label>
-                  <input
-                    type="text"
-                    value={newTplName}
-                    onChange={(e) => setNewTplName(e.target.value)}
-                    placeholder="e.g. order_shipped_alert"
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:ring-1 focus:ring-emerald-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    {isAr ? 'اسم القالب (عربي)' : 'Template Name (AR)'}
-                  </label>
-                  <input
-                    type="text"
-                    value={newTplNameAr}
-                    onChange={(e) => setNewTplNameAr(e.target.value)}
-                    placeholder="مثال: تنبيه شحن الطلب"
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:ring-1 focus:ring-emerald-500 outline-none"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  {isAr ? 'الاسم *' : 'Name *'}
+                </label>
+                <input
+                  type="text"
+                  dir={isAr ? 'rtl' : 'ltr'}
+                  value={isAr ? newTplNameAr : newTplName}
+                  onChange={(e) => (isAr ? setNewTplNameAr(e.target.value) : setNewTplName(e.target.value))}
+                  placeholder={isAr ? 'مثال: تنبيه شحن الطلب' : 'e.g. order_shipped_alert'}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:ring-1 focus:ring-emerald-500 outline-none"
+                />
               </div>
 
               <div>

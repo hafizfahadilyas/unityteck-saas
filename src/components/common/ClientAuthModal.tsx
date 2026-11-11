@@ -109,7 +109,7 @@ export const ClientAuthModal: React.FC<ClientAuthModalProps> = ({
                 {isAr ? 'بوابة العميل والتاجر' : 'Client & Merchant Portal'}
               </h3>
               <p className="text-[11px] text-slate-400">
-                {isAr ? 'منصة سوق — التجارة الإلكترونية الشاملة' : 'Souq Platform — Complete e-commerce'}
+                {isAr ? 'منصة سوق' : 'Souq Platform'}
               </p>
             </div>
           </div>

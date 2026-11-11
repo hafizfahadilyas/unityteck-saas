@@ -300,7 +300,7 @@ export const ExportTemplateModal: React.FC<ExportTemplateModalProps> = ({
             type="button"
             onClick={handleSave}
             className="px-5 py-2 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 shadow-sm hover:opacity-95 cursor-pointer transition-all"
-            style={{ background: '#0d9488' }}
+            style={{ background: 'var(--portal-cta)' }}
           >
             <Check className="w-4 h-4" />
             <span>{isAr ? 'حفظ وتصدير' : 'Save & Export'}</span>

@@ -758,7 +758,7 @@ export const MasterOrders: React.FC = () => {
                 setShowEditOrderModal(true);
               }}
               className="px-4 py-2.5 rounded-xl text-xs font-bold text-white flex items-center gap-2 cursor-pointer shadow-xs transition-all hover:opacity-95"
-              style={{ background: 'var(--portal-cta, #0284c7)' }}
+              style={{ background: 'var(--portal-cta)' }}
             >
               <Edit className="w-3.5 h-3.5" />
               <span>{t('editOrder')}</span>
@@ -1454,7 +1454,7 @@ export const MasterOrders: React.FC = () => {
           type="button"
           onClick={() => setShowNewOrderModal(true)}
           className="py-2.5 px-4 rounded-xl text-xs font-bold text-white flex items-center gap-2 shadow-xs cursor-pointer transition-all hover:opacity-95 shrink-0 self-start sm:self-auto"
-          style={{ background: 'var(--portal-cta, #0284c7)' }}
+          style={{ background: 'var(--portal-cta)' }}
           aria-label="Create new order"
         >
           <Plus className="w-4 h-4 shrink-0" />

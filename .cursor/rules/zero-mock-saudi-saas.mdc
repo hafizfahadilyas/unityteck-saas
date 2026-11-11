@@ -1,28 +1,29 @@
 ---
-description: Unityteck KSA SaaS — absolute zero fake/mock/hardcoded/dummy data; Saudi production company; fix-only no rebuild
+description: ALL pages/sections — zero fake/dummy; FULL dynamic + store_id isolation; Saudi production only
 alwaysApply: true
 ---
 
-# Zero Mock · Saudi Production SaaS (LOCKED)
+# Zero Mock · FULL Dynamic · Isolated · ALL Pages (LOCKED)
 
-**Company:** Unityteck — Saudi Arabia based multi-store e-commerce SaaS.  
+**Company:** Unityteck KSA multi-store SaaS.  
+**User memory:** Fake/dummy **NA**. **ALL pages + ALL sections** = **FULL dynamic** + **`store_id` isolated**.  
 **Plan:** `docs/29-dashboard-zero-mock-fix-plan.md`
 
-## Absolute ban (no exceptions)
-- **NO** fake / mock / dummy / hardcoded commerce metrics, SEO clicks, GA4/GTM IDs, PSI scores, campaigns, growth %, invented visit multipliers (`orders×N`).
-- **NO** fake Total Visits / Unique Visitors / bounce / session duration / device split / traffic sources on SEO, Analytics, Reports, Activity, or dashboard cards. Visits = real `storefront_analytics_events` only. Seeded `stores.visitors_count` and localStorage bumps are **not** truth. Empty events → **0** + Waiting for Data / No traffic sources — never show orphan visit totals without sources.
-- **NO** Instant Google / fake OAuth tokens / auto-seed “connected” for any store.
-- **NO** `INITIAL_*` hydration on live API / production path.
-- Empty API/DB → genuine empty: **No records found** / Not Connected / Waiting for Data — never decorate with fake numbers.
+## Applies to ALL admin surfaces
+Home, Products, Orders, Customers, Shipping, Payments, Invoices/Documents, Store Pages, Marketing (coupons/loyalty/campaigns/…), Reports, Analytics, SEO, WhatsApp/SMS/Email, Settings, Media, Themes/Builder, Master control — **every** tab/KPI/table/modal.
 
-## Isolation
-- Every store-scoped row: `store_id`. Never fall back to `store-1`, flower brands, Flora Luxe, or giftshop identity for other tenants.
-- **Messaging isolation (locked):** WhatsApp Cloud, SMS gateway, email SMTP, message templates, merchant alert phones/emails, and dashboard notifications are **per `store_id` only**. Store A not connected ≠ use Store B’s WhatsApp/email. No silent cross-tenant credential borrow. Disconnected channel → skip for that store only; others keep working.
+## Absolute ban
+- **NO** fake / mock / dummy / hardcoded commerce rows or KPIs on live path
+- **NO** `INITIAL_*` / demo `ORD-*` / `INV-2026-*` / invent visit multipliers (`orders×N`) as production truth
+- **NO** Instant Google / fake OAuth / auto “connected”
+- Empty → **No records found** / Not Connected / Waiting for Data / **0** — never decorate
 
-## UI / i18n
-- Preserve pixel UI (designs/). No rebuild Master/Store/storefront.
-- EN = full English LTR chrome; AR = full Arabic RTL chrome. No EN+AR mixed in one chrome string. Content: dual `*_en` / `*_ar` when bilingual.
+## FULL dynamic + isolation
+- Every store-scoped row: **`store_id` only**. Store A ≠ Store B.
+- No `store-1` / Flora / Makkah Gifts / giftshop / coffee demo fallback for other tenants
+- Invoices/docs from **this store’s real orders/API** (or empty)
+- Messaging credentials/templates/alerts: **per `store_id` only**
 
 ## Stack
-- Real Hostinger MySQL + Laravel API only. Dark + Light tokens. Fix masla only — inspect → reuse → extend.
+- Real Hostinger MySQL + Laravel API. Pixel UI preserve. Inspect → reuse → extend.
 ---

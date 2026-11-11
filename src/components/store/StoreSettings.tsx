@@ -33,7 +33,9 @@ import {
   Code,
   CheckCircle2,
   AlertCircle,
+  ArrowLeft,
 } from 'lucide-react';
+import { PortalHubCard } from '../common/PortalHubCard';
 import { GoogleConnectModal } from './GoogleConnectModal';
 import { realTrackingId, seoSetupStep, storeGoogleEmail, storePublicHost } from './seo/storeSeoSetup';
 import { BrandingPanel } from '../common/BrandingPanel';
@@ -112,8 +114,8 @@ export const StoreSettings: React.FC = () => {
     }, 450);
   };
 
-  // Active sub-tab
-  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  // null = settings hub (big buttons); set = open that section
+  const [activeTab, setActiveTab] = useState<SettingsTab | null>(null);
 
   /** Sidebar deep-link: Appearance / Search Console / Tag Manager under Settings */
   useEffect(() => {
@@ -288,53 +290,64 @@ export const StoreSettings: React.FC = () => {
     }
   };
 
-  const tabs: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
+  const tabs: { id: SettingsTab; label: string; desc: string; icon: React.ElementType }[] = [
     {
       id: 'general',
       label: isAr ? 'الهوية والمتجر' : 'General & Identity',
+      desc: isAr ? 'الاسم والشعار والأيقونة' : 'Name, logo & favicon',
       icon: Settings,
     },
     {
       id: 'search_console',
       label: isAr ? 'بحث جوجل والتحليلات' : 'Search Console',
+      desc: isAr ? 'الفهرسة والتحليلات والوسوم' : 'Indexing, analytics & tags',
       icon: Search,
     },
     {
       id: 'localization',
       label: isAr ? 'اللغة والعملة والتوقيت' : 'Language & Currency',
+      desc: isAr ? 'العربية والإنجليزية والعملات' : 'AR / EN locales & currencies',
       icon: Coins,
     },
     {
       id: 'appearance',
       label: isAr ? 'المظهر والألوان والخطوط' : 'Theme, Colors & Fonts',
+      desc: isAr ? 'ألوان وهوية لوحة التحكم' : 'Admin chrome colors & fonts',
       icon: Palette,
     },
     {
       id: 'maintenance',
       label: isAr ? 'صفحة تحت الصيانة' : 'Maintenance & Launch',
+      desc: isAr ? 'وضع الصيانة وموعد الإطلاق' : 'Maintenance mode & launch date',
       icon: Clock,
     },
     {
       id: 'social',
       label: isAr ? 'واتساب والتواصل' : 'WhatsApp & Social',
+      desc: isAr ? 'زر واتساب وروابط التواصل' : 'Chat widget & social links',
       icon: MessageSquare,
     },
     {
       id: 'subscription',
       label: isAr ? 'الخطة والبيانات' : 'Plan & Isolation',
+      desc: isAr ? 'الخطة وعزل بيانات المتجر' : 'Plan tier & store data isolation',
       icon: ShieldCheck,
     },
     {
       id: 'notifications',
-      label: isAr ? 'إشعارات الواتساب والرسائل النصية (+966)' : 'WhatsApp & SMS (+966)',
+      label: isAr ? 'إشعارات الواتساب والرسائل النصية' : 'WhatsApp & SMS (+966)',
+      desc: isAr ? 'قنوات الرسائل السعودية' : 'Saudi messaging channels',
       icon: Smartphone,
     },
     {
       id: 'thresholds',
       label: isAr ? 'عتبات التنبيهات والربط' : 'Alert Thresholds & Integrations',
+      desc: isAr ? 'حدود التنبيه والتكاملات' : 'Alert limits & integrations',
       icon: SlidersHorizontal,
     },
   ];
+
+  const activeTabMeta = activeTab ? tabs.find((t) => t.id === activeTab) : null;
 
   const ga4Id = realTrackingId(currentSEOConfig?.ga4MeasurementId);
   const gtmId = realTrackingId(currentSEOConfig?.gtmContainerId);
@@ -407,40 +420,59 @@ export const StoreSettings: React.FC = () => {
       {/* ── Connected Local Workspace Banner ── */}
       <ConnectedWorkspaceBanner page="settings" />
 
-      {/* ── Sub-Tabs Navigation Strip ── */}
-      <div
-        className="flex items-center gap-1.5 p-1.5 rounded-2xl border overflow-x-auto custom-scroll shadow-xs"
-        style={{
-          background: 'var(--surface)',
-          borderColor: 'var(--border)',
-        }}
-        role="tablist"
-      >
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const active = activeTab === tab.id;
-          return (
-            <button
+      {/* ── Settings hub: same Marketing-style big cards ── */}
+      {activeTab === null ? (
+        <div className="u-equal-sections grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          {tabs.map((tab) => (
+            <PortalHubCard
               key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
+              icon={tab.icon}
+              title={tab.label}
+              description={tab.desc}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all duration-150 ${
-                active ? 'shadow-xs ring-1' : 'opacity-70 hover:opacity-100'
-              }`}
-              style={{
-                background: active ? 'var(--active-bg)' : 'transparent',
-                color: active ? 'var(--active-fg)' : 'var(--text)',
-                borderColor: active ? 'var(--accent)' : 'transparent',
-              }}
-            >
-              <Icon className="w-4 h-4" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
+              isAr={isAr}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setActiveTab(null)}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-xs font-bold cursor-pointer shadow-xs transition-colors hover:opacity-95"
+            style={{
+              background: 'var(--surface)',
+              borderColor: 'var(--border)',
+              color: 'var(--text)',
+            }}
+          >
+            <ArrowLeft className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} aria-hidden />
+            {isAr ? 'كل الإعدادات' : 'All settings'}
+          </button>
+          {activeTabMeta ? (
+            <div className="flex items-center gap-2 min-w-0">
+              <span
+                className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center"
+                style={{
+                  background: 'var(--portal-cta)',
+                  color: '#fff',
+                }}
+                aria-hidden
+              >
+                {React.createElement(activeTabMeta.icon, { className: 'w-4 h-4' })}
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-extrabold truncate" style={{ color: 'var(--text)' }}>
+                  {activeTabMeta.label}
+                </p>
+                <p className="text-[11px] truncate" style={{ color: 'var(--muted)' }}>
+                  {activeTabMeta.desc}
+                </p>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
 
       {/* ── TAB 1: General & Identity ── */}
       {activeTab === 'general' && (
@@ -492,26 +524,13 @@ export const StoreSettings: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'اسم المتجر بالإنجليزية' : 'Store name in English'}
+                    {isAr ? 'اسم المتجر' : 'Store name'}
                   </label>
                   <input
                     type="text"
-                    value={storeNameEn}
-                    onChange={(e) => setStoreNameEn(e.target.value)}
-                    dir="ltr"
-                    className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'اسم المتجر بالعربية' : 'Store name in Arabic'}
-                  </label>
-                  <input
-                    type="text"
-                    value={storeNameAr}
-                    onChange={(e) => setStoreNameAr(e.target.value)}
-                    dir="rtl"
+                    value={isAr ? storeNameAr : storeNameEn}
+                    onChange={(e) => (isAr ? setStoreNameAr(e.target.value) : setStoreNameEn(e.target.value))}
+                    dir={isAr ? 'rtl' : 'ltr'}
                     className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   />
@@ -530,28 +549,15 @@ export const StoreSettings: React.FC = () => {
                   />
                 </div>
 
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'الوصف بالإنجليزية' : 'Tagline in English'}
+                    {isAr ? 'الوصف' : 'Tagline'}
                   </label>
                   <input
                     type="text"
-                    value={taglineEn}
-                    onChange={(e) => setTaglineEn(e.target.value)}
-                    dir="ltr"
-                    className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'الوصف بالعربية' : 'Tagline in Arabic'}
-                  </label>
-                  <input
-                    type="text"
-                    value={taglineAr}
-                    onChange={(e) => setTaglineAr(e.target.value)}
-                    dir="rtl"
+                    value={isAr ? taglineAr : taglineEn}
+                    onChange={(e) => (isAr ? setTaglineAr(e.target.value) : setTaglineEn(e.target.value))}
+                    dir={isAr ? 'rtl' : 'ltr'}
                     className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   />
@@ -1277,12 +1283,15 @@ export const StoreSettings: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                  {isAr ? 'عنوان الصفحة الرئيسي (بالعربية)' : 'Main Headline (Arabic)'}
+                  {isAr ? 'العنوان' : 'Title'}
                 </label>
                 <input
                   type="text"
-                  value={maintenanceTitleAr}
-                  onChange={(e) => setMaintenanceTitleAr(e.target.value)}
+                  dir={isAr ? 'rtl' : 'ltr'}
+                  value={isAr ? maintenanceTitleAr : maintenanceTitleEn}
+                  onChange={(e) =>
+                    isAr ? setMaintenanceTitleAr(e.target.value) : setMaintenanceTitleEn(e.target.value)
+                  }
                   className="w-full px-3.5 py-2.5 text-xs rounded-xl border focus:outline-none"
                   style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   required
@@ -1291,39 +1300,15 @@ export const StoreSettings: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                  {isAr ? 'عنوان الصفحة الرئيسي (بالإنجليزية)' : 'Main Headline (English)'}
-                </label>
-                <input
-                  type="text"
-                  value={maintenanceTitleEn}
-                  onChange={(e) => setMaintenanceTitleEn(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border focus:outline-none"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                  {isAr ? 'وصف وتفاصيل الافتتاح (بالعربية)' : 'Description (Arabic)'}
+                  {isAr ? 'الوصف' : 'Description'}
                 </label>
                 <textarea
                   rows={3}
-                  value={maintenanceSubtitleAr}
-                  onChange={(e) => setMaintenanceSubtitleAr(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border focus:outline-none resize-none"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                  {isAr ? 'وصف وتفاصيل الافتتاح (بالإنجليزية)' : 'Description (English)'}
-                </label>
-                <textarea
-                  rows={3}
-                  value={maintenanceSubtitleEn}
-                  onChange={(e) => setMaintenanceSubtitleEn(e.target.value)}
+                  dir={isAr ? 'rtl' : 'ltr'}
+                  value={isAr ? maintenanceSubtitleAr : maintenanceSubtitleEn}
+                  onChange={(e) =>
+                    isAr ? setMaintenanceSubtitleAr(e.target.value) : setMaintenanceSubtitleEn(e.target.value)
+                  }
                   className="w-full px-3.5 py-2.5 text-xs rounded-xl border focus:outline-none resize-none"
                   style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                 />

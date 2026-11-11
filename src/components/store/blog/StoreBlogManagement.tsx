@@ -333,11 +333,27 @@ export const StoreBlogManagement: React.FC<StoreBlogManagementProps> = ({
       <div className="space-y-6 font-sans" dir={isAr ? 'rtl' : 'ltr'}>
         {/* 1. Header and Global Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/80 dark:border-slate-800">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+        <div className="min-w-0 space-y-2">
+          {onNavigateTab ? (
+            <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--muted)' }}>
+              <button
+                type="button"
+                onClick={() => onNavigateTab('marketing')}
+                className="cursor-pointer hover:underline font-semibold bg-transparent border-0 p-0"
+                style={{ color: 'var(--accent)' }}
+              >
+                {isAr ? 'أدوات التسويق' : 'Marketing Tools'}
+              </button>
+              <span>/</span>
+              <span className="font-semibold" style={{ color: 'var(--text)' }}>
+                {isAr ? 'المدونة' : 'Blog'}
+              </span>
+            </div>
+          ) : null}
+          <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: 'var(--text)' }}>
             {isAr ? 'المدونة (المقالات)' : 'Blog (Articles)'}
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-sm font-medium mt-1" style={{ color: 'var(--muted)' }}>
             {isAr
               ? 'إنشاء وإدارة مقالات المدونة لجذب جمهورك وتعزيز نتائج محركات البحث.'
               : 'Create and manage your blog posts to engage your audience and boost your SEO.'}

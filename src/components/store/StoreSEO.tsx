@@ -35,10 +35,11 @@ import {
   Sliders,
   Settings2,
   Upload,
+  ArrowLeft,
 } from 'lucide-react';
 import { PageDocsGuideModal } from '../common/PageDocsGuideModal';
 import { GlobalModal } from '../common/GlobalModal';
-import { ModernSegmentedTabs } from '../common/ModernSegmentedTabs';
+import { PortalHubCard } from '../common/PortalHubCard';
 import { realTrackingId, seoSetupStep, storeGoogleEmail, storePublicHost } from './seo/storeSeoSetup';
 import { GoogleConnectModal } from './GoogleConnectModal';
 import { UtmCampaignBuilder } from './UtmCampaignBuilder';
@@ -59,7 +60,11 @@ import {
   type SeoDeepAuditItem,
 } from '../../services/ksaAutomationEngine';
 
-export const StoreSEO: React.FC = () => {
+interface StoreSEOProps {
+  onNavigateTab?: (tab: string) => void;
+}
+
+export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
   const { 
     activeStore, 
     currentProducts,
@@ -74,7 +79,9 @@ export const StoreSEO: React.FC = () => {
   const { toast } = useToast();
   const isAr = locale === 'ar';
 
-  const [activeSubTab, setActiveSubTab] = useState<'hub' | 'console' | 'google_tags' | 'utm' | 'pagespeed' | 'meta' | 'simulator' | 'deep_audit'>('hub');
+  type SeoSubTab = 'hub' | 'console' | 'google_tags' | 'utm' | 'pagespeed' | 'meta' | 'simulator' | 'deep_audit';
+  // null = hub buttons only; set = that section's data
+  const [activeSubTab, setActiveSubTab] = useState<SeoSubTab | null>(null);
   const [deepAuditItems, setDeepAuditItems] = useState<SeoDeepAuditItem[]>(() =>
     getStoreSeoDeepAudit(activeStore.id, activeStore.name, activeStore.slug, currentProducts.length),
   );
@@ -503,6 +510,20 @@ export const StoreSEO: React.FC = () => {
 
   return (
     <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
+      <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--muted)' }}>
+        <button
+          type="button"
+          onClick={() => onNavigateTab?.('marketing')}
+          className="cursor-pointer hover:underline bg-transparent border-0 p-0"
+          style={{ color: 'var(--accent)' }}
+        >
+          {isAr ? 'أدوات التسويق' : 'Marketing Tools'}
+        </button>
+        <span>/</span>
+        <span style={{ color: 'var(--text)' }}>
+          {isAr ? 'تحسين محركات البحث' : 'SEO Optimization'}
+        </span>
+      </div>
       {/* ── Top Header Banner with Official Google Identity ── */}
       <div
         className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 text-white p-6 sm:p-7 rounded-3xl shadow-sm border"
@@ -522,13 +543,13 @@ export const StoreSEO: React.FC = () => {
               </svg>
             </span>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2 flex-wrap">
-              {isAr ? 'مركز أدوات جوجل' : 'Google tools hub'}
-              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              {isAr ? 'تحسين محركات البحث' : 'SEO Optimization'}
+              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                 {isAr ? 'تسجيل دخول حقيقي' : 'Real sign-in'}
               </span>
             </h1>
           </div>
-          <p className="text-xs text-slate-300 max-w-3xl leading-relaxed">
+          <p className="text-sm text-slate-200 max-w-3xl leading-relaxed font-medium">
             {isAr
               ? 'اربط حساب جوجل الخاص بهذا المتجر بعد أن يصبح النطاق مباشراً على الاستضافة. الأرقام تظهر فقط عندما ترسلها جوجل أو ميتا. قبل ذلك تبقى الخانات فارغة.'
               : 'Connect this store’s own Google account after the domain is live on Hostinger. Numbers appear only when Google or Meta sends them. Until then the fields stay empty.'}
@@ -633,22 +654,76 @@ export const StoreSEO: React.FC = () => {
         </div>
       )}
 
-      {/* Sub Tabs — full modern luxury segmented buttons (no underline text links) */}
-      <ModernSegmentedTabs
-        accent="emerald"
-        size="md"
-        aria-label={isAr ? 'أقسام تحسين محركات البحث' : 'SEO sections'}
-        value={activeSubTab}
-        onChange={setActiveSubTab}
-        items={[
-          { id: 'hub', label: isAr ? 'مركز الربط' : 'Connection hub', icon: Activity },
-          { id: 'pagespeed', label: isAr ? 'سرعة الصفحات ومؤشرات الويب' : 'PageSpeed & Web Vitals', icon: Gauge },
-          { id: 'utm', label: isAr ? 'تتبع الحملات' : 'Campaign tracking', icon: Link2 },
-          { id: 'meta', label: isAr ? 'وسوم الصفحة وخريطة الموقع' : 'Page tags and sitemap', icon: Globe },
-          { id: 'simulator', label: isAr ? 'معاينة نتائج البحث' : 'Search result preview', icon: Eye },
-          { id: 'deep_audit', label: isAr ? 'الروابط والعناوين والنص البديل' : 'Links, headings, and alt text', icon: Sparkles },
-        ]}
-      />
+      {/* Hub: ONLY big buttons. Section open: back + that section's data. */}
+      {activeSubTab === null ? (
+        <div className="u-equal-sections grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4">
+          {(
+            [
+              {
+                id: 'hub' as const,
+                icon: Activity,
+                title: isAr ? 'مركز الربط' : 'Connection hub',
+                desc: isAr ? 'ربط خدمات جوجل لهذا المتجر.' : 'Connect Google services for this store.',
+              },
+              {
+                id: 'pagespeed' as const,
+                icon: Gauge,
+                title: isAr ? 'سرعة الصفحات ومؤشرات الويب' : 'PageSpeed & Web Vitals',
+                desc: isAr ? 'قياس سرعة الصفحات من بيانات حقيقية.' : 'Measure page speed from real data.',
+              },
+              {
+                id: 'utm' as const,
+                icon: Link2,
+                title: isAr ? 'تتبع الحملات' : 'Campaign tracking',
+                desc: isAr ? 'روابط التتبع للحملات التسويقية.' : 'UTM links for marketing campaigns.',
+              },
+              {
+                id: 'meta' as const,
+                icon: Globe,
+                title: isAr ? 'وسوم الصفحة وخريطة الموقع' : 'Page tags and sitemap',
+                desc: isAr ? 'وسوم الصفحات وخريطة الموقع.' : 'Page meta tags and sitemap.',
+              },
+              {
+                id: 'simulator' as const,
+                icon: Eye,
+                title: isAr ? 'معاينة نتائج البحث' : 'Search result preview',
+                desc: isAr ? 'معاينة ظهور المتجر في نتائج البحث.' : 'Preview how the store appears in search.',
+              },
+              {
+                id: 'deep_audit' as const,
+                icon: Sparkles,
+                title: isAr ? 'الروابط والعناوين والنص البديل' : 'Links, headings, and alt text',
+                desc: isAr ? 'مراجعة الروابط والعناوين والنص البديل.' : 'Audit links, headings, and alt text.',
+              },
+            ] as const
+          ).map((tab) => (
+            <PortalHubCard
+              key={tab.id}
+              icon={tab.icon}
+              title={tab.title}
+              description={tab.desc}
+              onClick={() => setActiveSubTab(tab.id)}
+              isAr={isAr}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setActiveSubTab(null)}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-xs font-bold cursor-pointer shadow-xs"
+            style={{
+              background: 'var(--surface)',
+              borderColor: 'var(--border)',
+              color: 'var(--text)',
+            }}
+          >
+            <ArrowLeft className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} aria-hidden />
+            {isAr ? 'كل أقسام تحسين البحث' : 'All SEO sections'}
+          </button>
+        </div>
+      )}
 
       {/* ================= TAB 0: SITE KIT CENTRALIZED CONNECTION HUB ================= */}
       {activeSubTab === 'hub' && (

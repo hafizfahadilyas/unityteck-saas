@@ -26,6 +26,7 @@ import { ConnectedWorkspaceBanner } from '../common/ConnectedWorkspaceBanner';
 import { COFFEE_CATEGORIES_SEED } from '../../data/coffeeStoreData';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
 import { toUserFriendlyError } from '../../utils/userFriendlyError';
+import { hasArabicScript, pickLocaleName } from '../../utils/localeLabel';
 
 type FormState = {
   name: string;
@@ -52,9 +53,13 @@ const emptyForm = (): FormState => ({
 });
 
 function formFrom(c: StoreCategory): FormState {
+  const rawName = String(c.name ?? '').trim();
+  const rawAr = String(c.nameAr ?? '').trim();
+  const namePolluted = hasArabicScript(rawName);
   return {
-    name: c.name,
-    nameAr: c.nameAr ?? '',
+    // EN Name field must never show Arabic (polluted `name` moves to Arabic slot).
+    name: namePolluted ? '' : rawName,
+    nameAr: rawAr || (namePolluted ? rawName : ''),
     slug: c.slug,
     parentId: c.parentId ?? '',
     imageUrl: c.imageUrl ?? '',
@@ -665,7 +670,7 @@ export const StoreCategories: React.FC = () => {
 
   const nameById = useMemo(() => {
     const m = new Map<string, string>();
-    rows.forEach((r) => m.set(r.id, isAr ? (r.nameAr || r.name) : (r.name || r.nameAr || '')));
+    rows.forEach((r) => m.set(r.id, pickLocaleName(isAr, r.name, r.nameAr) || r.slug));
     return m;
   }, [rows, isAr]);
 
@@ -715,7 +720,7 @@ export const StoreCategories: React.FC = () => {
             return c.isActive ? 1 : 0;
           case 'name':
           default:
-            return isAr ? (c.nameAr || c.name) : c.name;
+            return pickLocaleName(isAr, c.name, c.nameAr);
         }
       };
       const av = getter(a);
@@ -759,15 +764,20 @@ export const StoreCategories: React.FC = () => {
         setFieldDrafts(
           defs
             .filter((d) => d.categoryId === categoryId)
-            .map((d) => ({
-            id: d.id,
-            nameEn: d.nameEn,
-            nameAr: d.nameAr ?? '',
-            fieldType: d.fieldType,
-            optionsText: (d.options ?? []).join(', '),
-            sort: String(d.sort),
-            active: d.active,
-          })),
+            .map((d) => {
+              const rawEn = String(d.nameEn ?? '').trim();
+              const rawAr = String(d.nameAr ?? '').trim();
+              const enPolluted = hasArabicScript(rawEn);
+              return {
+                id: d.id,
+                nameEn: enPolluted ? '' : rawEn,
+                nameAr: rawAr || (enPolluted ? rawEn : ''),
+                fieldType: d.fieldType,
+                optionsText: (d.options ?? []).join(', '),
+                sort: String(d.sort),
+                active: d.active,
+              };
+            }),
         );
       } catch {
         setFieldDrafts([]);
@@ -807,11 +817,21 @@ export const StoreCategories: React.FC = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (denyMutate()) return;
-    if (!form.name.trim()) return;
+    const enName = form.name.trim();
+    const arName = form.nameAr.trim();
+    const activeName = isAr ? arName : enName;
+    if (!activeName) return;
+
+    // Never copy Arabic into English `name` when an English value exists.
+    // API still requires `name` — only fall back to Arabic when EN is empty (create from AR UI).
+    const prev = editingId ? rows.find((r) => r.id === editingId) : undefined;
+    const prevEn = String(prev?.name ?? '').trim();
+    const safePrevEn = prevEn && !hasArabicScript(prevEn) ? prevEn : '';
+    const nameForApi = enName || safePrevEn || form.slug.trim() || arName;
 
     const payload: tenantApi.CategoryPayload = {
-      name: form.name.trim(),
-      name_ar: form.nameAr.trim() || null,
+      name: nameForApi,
+      name_ar: arName || null,
       slug: form.slug.trim() || undefined,
       parent_id: form.parentId || null,
       image_url: form.imageUrl.trim() || null,
@@ -918,11 +938,14 @@ export const StoreCategories: React.FC = () => {
 
       if (isApiEnabled() && targetCategoryId && fieldDrafts.length > 0) {
         for (const fd of fieldDrafts) {
-          if (!fd.nameEn.trim()) continue;
+          const fdEn = fd.nameEn.trim();
+          const fdAr = fd.nameAr.trim();
+          if (!(isAr ? fdAr : fdEn)) continue;
           const body = {
             category_id: targetCategoryId,
-            name_en: fd.nameEn.trim(),
-            name_ar: fd.nameAr.trim() || null,
+            // API requires name_en — never copy Arabic script into the English slot.
+            name_en: fdEn || 'Field',
+            name_ar: fdAr || null,
             field_type: fd.fieldType,
             options: fd.optionsText
               ? fd.optionsText.split(',').map((s) => s.trim()).filter(Boolean)
@@ -988,7 +1011,7 @@ export const StoreCategories: React.FC = () => {
           {c.imageUrl ? (
             <img
               src={c.imageUrl}
-              alt={c.name}
+              alt={pickLocaleName(isAr, c.name, c.nameAr) || c.slug}
               onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
               className="w-10 h-10 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shrink-0"
             />
@@ -1006,7 +1029,7 @@ export const StoreCategories: React.FC = () => {
           )}
           <div className="min-w-0">
             <span className="font-bold block truncate" style={{ color: 'var(--text)' }}>
-              {isAr ? (c.nameAr || c.name) : (c.name || c.nameAr)}
+              {pickLocaleName(isAr, c.name, c.nameAr) || c.slug || '—'}
             </span>
             {isSub ? (
               <span className="text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
@@ -1026,7 +1049,7 @@ export const StoreCategories: React.FC = () => {
     },
     {
       key: 'parent',
-      header: isAr ? 'التصنيف الأب' : 'Parent',
+      header: isAr ? 'التصنيف' : 'Parent',
       render: (c) => (
         <span className="text-slate-600 dark:text-slate-300">
           {c.parentId ? nameById.get(c.parentId) ?? c.parentId : (
@@ -1251,7 +1274,9 @@ export const StoreCategories: React.FC = () => {
               <option value="roots">{isAr ? 'الرئيسية فقط' : 'Roots only'}</option>
               {roots.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {isAr ? `تحت:${r.nameAr || r.name}` : `Under: ${r.name}`}
+                  {isAr
+                    ? `تحت:${pickLocaleName(true, r.name, r.nameAr) || r.slug}`
+                    : `Under: ${pickLocaleName(false, r.name, r.nameAr) || r.slug}`}
                 </option>
               ))}
             </select>
@@ -1269,7 +1294,10 @@ export const StoreCategories: React.FC = () => {
             className="rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden max-h-[90vh] flex flex-col border"
             style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
           >
-            <div className="unity-modal-header px-5 py-4 text-white flex items-center justify-between shrink-0">
+            <div
+              className="unity-modal-header px-5 py-4 text-white flex items-center justify-between shrink-0"
+              style={{ backgroundImage: 'var(--portal-cta)', backgroundColor: 'var(--portal-600)' }}
+            >
               <div className="flex items-center gap-2">
                 <FolderTree className="w-5 h-5 unity-modal-icon" />
                 <h3 className="font-bold text-base">
@@ -1290,24 +1318,18 @@ export const StoreCategories: React.FC = () => {
 
             <form
               onSubmit={(e) => void handleSave(e)}
-              className="p-5 space-y-3.5 text-xs overflow-y-auto"
+              className="p-5 space-y-3.5 text-xs overflow-y-auto custom-scrollbar"
               style={{ color: 'var(--text)' }}
             >
               <div>
-                <label className="block font-semibold mb-1" style={{ color: 'var(--text)' }}>{isAr ? 'الاسم بالإنجليزية *' : 'Name *'}</label>
+                <label className="block font-semibold mb-1" style={{ color: 'var(--text)' }}>
+                  {isAr ? 'الاسم *' : 'Name *'}
+                </label>
                 <input
                   required
-                  value={form.name}
-                  onChange={(e) => setField('name', e.target.value)}
-                  className={fieldClass}
-                />
-              </div>
-              <div>
-                <label className="block font-semibold mb-1" style={{ color: 'var(--text)' }}>{isAr ? 'الاسم بالعربية' : 'Name (AR)'}</label>
-                <input
-                  dir="rtl"
-                  value={form.nameAr}
-                  onChange={(e) => setField('nameAr', e.target.value)}
+                  dir={isAr ? 'rtl' : 'ltr'}
+                  value={isAr ? form.nameAr : form.name}
+                  onChange={(e) => setField(isAr ? 'nameAr' : 'name', e.target.value)}
                   className={fieldClass}
                 />
               </div>
@@ -1334,7 +1356,7 @@ export const StoreCategories: React.FC = () => {
               </div>
               <div>
                 <label className="unity-modal-label block font-semibold mb-1">
-                  {isAr ? 'التصنيف الأب (للتصنيف الفرعي)' : 'Parent (for subcategory)'}
+                  {isAr ? 'التصنيف' : 'Parent (for subcategory)'}
                 </label>
                 <PortalSelect
                   value={form.parentId}
@@ -1429,28 +1451,21 @@ export const StoreCategories: React.FC = () => {
                       className="p-3 rounded-xl space-y-2 border"
                       style={{ borderColor: 'var(--border)' }}
                     >
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          value={fd.nameEn}
-                          onChange={(e) =>
-                            setFieldDrafts((prev) =>
-                              prev.map((x, i) => (i === idx ? { ...x, nameEn: e.target.value } : x)),
-                            )
-                          }
-                          placeholder={isAr ? 'الاسم بالإنجليزية' : 'Name (EN)'}
-                          className="px-2 py-1.5 text-xs rounded-lg border border-[var(--border)] bg-[var(--input-bg)] text-[var(--input-fg)]"
-                        />
-                        <input
-                          value={fd.nameAr}
-                          onChange={(e) =>
-                            setFieldDrafts((prev) =>
-                              prev.map((x, i) => (i === idx ? { ...x, nameAr: e.target.value } : x)),
-                            )
-                          }
-                          placeholder={isAr ? 'الاسم بالعربية' : 'Name (AR)'}
-                          className="px-2 py-1.5 text-xs rounded-lg border border-[var(--border)] bg-[var(--input-bg)] text-[var(--input-fg)]"
-                        />
-                      </div>
+                      <input
+                        dir={isAr ? 'rtl' : 'ltr'}
+                        value={isAr ? fd.nameAr : fd.nameEn}
+                        onChange={(e) =>
+                          setFieldDrafts((prev) =>
+                            prev.map((x, i) =>
+                              i === idx
+                                ? { ...x, ...(isAr ? { nameAr: e.target.value } : { nameEn: e.target.value }) }
+                                : x,
+                            ),
+                          )
+                        }
+                        placeholder={isAr ? 'الاسم' : 'Name'}
+                        className="w-full px-2 py-1.5 text-xs rounded-lg border border-[var(--border)] bg-[var(--input-bg)] text-[var(--input-fg)]"
+                      />
                       <div className="flex flex-wrap gap-2 items-center">
                         <select
                           value={fd.fieldType}

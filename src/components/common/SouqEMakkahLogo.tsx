@@ -21,15 +21,16 @@ const ANIM_CSS = `
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-2px); }
 }
-.souq-logo-root { position: relative; display: inline-flex; align-items: center; gap: 10px; max-width: 100%; min-width: 0; direction: ltr; }
+.souq-logo-root { position: relative; display: inline-flex; align-items: center; gap: 10px; max-width: 100%; min-width: 0; }
+.souq-logo-root[dir="rtl"] { flex-direction: row; }
 .souq-mark-wrap {
   position: relative;
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
   flex-shrink: 0;
   animation: souq-glow 2.8s ease-in-out infinite, souq-float 3.2s ease-in-out infinite;
 }
-.souq-mark-wrap.sm { width: 42px; height: 42px; }
+.souq-mark-wrap.sm { width: 36px; height: 36px; }
 .souq-orbit {
   position: absolute;
   inset: -3px;
@@ -40,10 +41,10 @@ const ANIM_CSS = `
 .souq-orbit-dot {
   position: absolute;
   top: -2px;
-  left: 50%;
+  inset-inline-start: 50%;
   width: 5px;
   height: 5px;
-  margin-left: -2.5px;
+  margin-inline-start: -2.5px;
   border-radius: 50%;
   background: #F5E6B8;
   box-shadow: 0 0 6px #D4A017;
@@ -56,36 +57,24 @@ const ANIM_CSS = `
   min-width: 0;
   flex: 1;
   line-height: 1.15;
-  direction: ltr;
 }
-.souq-word[lang="ar"] .souq-title,
-.souq-word[lang="ar"] .souq-sub {
-  direction: rtl;
-  unicode-bidi: isolate;
-  text-align: left;
+.souq-word[lang="ar"] {
+  align-items: flex-start;
   font-family: Tajawal, Cairo, system-ui, sans-serif;
 }
-.souq-word[lang="en"] .souq-title,
-.souq-word[lang="en"] .souq-sub {
-  direction: ltr;
-  unicode-bidi: isolate;
-  text-align: left;
+.souq-word[lang="en"] {
   font-family: var(--font-ui), system-ui, sans-serif;
 }
 .souq-title {
   font-weight: 900;
-  font-size: 16px;
+  font-size: 15px;
   color: #F8FAFC;
   letter-spacing: 0;
   white-space: nowrap;
-}
-.souq-sub {
-  font-weight: 600;
-  font-size: 10.5px;
-  color: #98D8D0;
-  margin-top: 2px;
-  white-space: normal;
-  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  text-align: start;
 }
 .souq-shimmer-bar {
   position: absolute;
@@ -166,10 +155,8 @@ function MarkSvg({ size = 44 }: { size?: number }) {
 
 const TITLE_AR = 'منصة سوق';
 const TITLE_EN = 'Souq Platform';
-const SUB_AR = 'التجارة الإلكترونية الشاملة';
-const SUB_EN = 'Complete e-commerce';
 
-/** Collapsed sidebar — larger animated mark only */
+/** Collapsed sidebar — animated mark only */
 export const SouqEMakkahMark: React.FC<{ className?: string; isAr?: boolean }> = ({
   className = '',
   isAr = false,
@@ -178,31 +165,31 @@ export const SouqEMakkahMark: React.FC<{ className?: string; isAr?: boolean }> =
     <style>{ANIM_CSS}</style>
     <span className="souq-orbit" aria-hidden />
     <span className="souq-orbit-dot" aria-hidden />
-    <MarkSvg size={42} />
+    <MarkSvg size={36} />
     <span className="souq-shimmer-bar" aria-hidden />
   </span>
 );
 
-/** Expanded sidebar — larger Saudi modern animated wordmark (GIF-style loop) */
+/** Expanded sidebar — brand only (منصة سوق / Souq Platform); no subtitle */
 export const SouqEMakkahLogo: React.FC<{ className?: string; isAr?: boolean }> = ({
   className = '',
   isAr = false,
 }) => (
   <span
     className={`souq-logo-root ${className}`}
+    dir={isAr ? 'rtl' : 'ltr'}
     role="img"
-    aria-label={isAr ? `${TITLE_AR}. ${SUB_AR}` : `${TITLE_EN}. ${SUB_EN}`}
+    aria-label={isAr ? TITLE_AR : TITLE_EN}
   >
     <style>{ANIM_CSS}</style>
     <span className="souq-mark-wrap">
       <span className="souq-orbit" aria-hidden />
       <span className="souq-orbit-dot" aria-hidden />
-      <MarkSvg size={56} />
+      <MarkSvg size={48} />
       <span className="souq-shimmer-bar" aria-hidden />
     </span>
     <span className="souq-word" lang={isAr ? 'ar' : 'en'}>
       <span className="souq-title">{isAr ? TITLE_AR : TITLE_EN}</span>
-      <span className="souq-sub">{isAr ? SUB_AR : SUB_EN}</span>
     </span>
   </span>
 );

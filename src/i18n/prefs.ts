@@ -93,7 +93,8 @@ export type PrefsState = {
 
 export const DEFAULT_PREFS: PrefsState = {
   theme: 'light',
-  locale: 'en',
+  /** Saudi SaaS — login / first visit open in Arabic (user can switch to English). */
+  locale: 'ar',
   currency: 'SAR',
   brand: { ...DEFAULT_BRAND },
 };

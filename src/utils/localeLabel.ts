@@ -16,6 +16,10 @@ export const KNOWN_OPTION_VALUE_AR: Record<string, string> = {
   Material: 'الخامة',
 };
 
+export function hasArabicScript(value: string | null | undefined): boolean {
+  return /[\u0600-\u06FF]/.test(String(value || ''));
+}
+
 export function pickLocaleText(
   isAr: boolean,
   en: string | null | undefined,
@@ -25,6 +29,26 @@ export function pickLocaleText(
   const arabic = String(ar || '').trim();
   if (isAr) return arabic || KNOWN_OPTION_VALUE_AR[english] || english;
   return english || arabic;
+}
+
+/**
+ * Locale-pure merchant name for lists/forms.
+ * EN UI never shows Arabic; AR prefers Arabic (recovers Arabic wrongly stored in `name`).
+ */
+export function pickLocaleName(
+  isAr: boolean,
+  en: string | null | undefined,
+  ar: string | null | undefined,
+): string {
+  const english = String(en || '').trim();
+  const arabic = String(ar || '').trim();
+  if (isAr) {
+    if (arabic) return arabic;
+    if (english && hasArabicScript(english)) return english;
+    return english;
+  }
+  if (english && !hasArabicScript(english)) return english;
+  return '';
 }
 
 /** Fill missing Arabic labels from known map / catalog twin. */

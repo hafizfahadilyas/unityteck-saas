@@ -89,15 +89,22 @@ export function sessionFromClerkUser(
 
   // Store owner login = Admin only (no manager seat on merchant portal).
   const role = normalizeRole('admin');
+  // Short EN owner chip for known tenants (AR UI still localizes via StoreTopBar)
+  const shortOwnerByStore: Record<string, string> = {
+    'store-1': 'Makkah Gifts Store',
+    'store-coffee': 'Rayan Al-Sulaiman',
+    'store-bleco': 'Al-Saeedi Car Services',
+  };
+  const displayName = shortOwnerByStore[merchant.storeId] || name;
   const session: AuthSession = {
     token: clerkToken || `clerk-store-${user.id}`,
     portal: 'store',
     user: {
       id: user.id,
-      name,
+      name: displayName,
       email: merchant.email || email,
       role,
-      role_label: roleLabel(role),
+      role_label: 'Store Owner',
       role_level: roleLevel(role),
       avatar: user.imageUrl || undefined,
     },

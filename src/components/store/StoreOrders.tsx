@@ -1108,86 +1108,42 @@ export const StoreOrders: React.FC = () => {
   // ────────────────────────────────────────────────
   if (currentSelectedOrder) {
     const o = currentSelectedOrder;
-    const items = o.items && o.items.length > 0 ? o.items : [
-      {
-        id: 'item-1',
-        name: 'Royal Dutch Red Roses Velvet Box',
-        sku: 'WM-ROSE-01',
-        price: 340,
-        quantity: 1,
-        total: 340,
-        image: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=120&auto=format&fit=crop&q=80',
-      },
-      {
-        id: 'item-2',
-        name: 'Casablanca White Lilies & Orchids Vase',
-        sku: 'WM-LILY-02',
-        price: 220,
-        quantity: 1,
-        total: 220,
-        image: 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=120&auto=format&fit=crop&q=80',
-      },
-      {
-        id: 'item-3',
-        name: 'Belgian Chocolate & Red Roses Box',
-        sku: 'WM-CHOC-06',
-        price: 90,
-        quantity: 1,
-        total: 90,
-        image: 'https://images.unsplash.com/photo-1548848221-0c2e497ed557?w=120&auto=format&fit=crop&q=80',
-      },
-    ];
+    // Real line items only — never invent flower SKUs / Unsplash placeholders
+    const items = Array.isArray(o.items) ? o.items : [];
 
-    const subtotal = o.subtotal ?? items.reduce((sum, it) => sum + (it.price * it.quantity), 0);
-    const discount = o.discountAmount ?? 46;
-    const shipping = o.shippingFee ?? 42;
-    const tax = o.tax ?? Math.round(subtotal * 0.15);
-    const grandTotal = o.total || (subtotal - discount + shipping + tax);
+    const subtotal =
+      typeof o.subtotal === 'number'
+        ? o.subtotal
+        : items.reduce((sum, it) => sum + (Number(it.price) || 0) * (Number(it.quantity) || 0), 0);
+    const discount = typeof o.discountAmount === 'number' ? o.discountAmount : 0;
+    const shipping = typeof o.shippingFee === 'number' ? o.shippingFee : 0;
+    const tax = typeof o.tax === 'number' ? o.tax : 0;
+    const grandTotal =
+      typeof o.total === 'number'
+        ? o.total
+        : Math.max(0, subtotal - discount + shipping + tax);
 
-    const timeline = o.timeline && o.timeline.length > 0 ? o.timeline : [
-      {
-        date: o.date || 'Jan 31, 2024',
-        time: o.time || '02:32 PM',
-        title: t('orderPlaced'),
-        description: t('orderPlacedDesc'),
-        status: 'pending' as const,
-      },
-      {
-        date: o.date || 'Jan 31, 2024',
-        time: '02:34 PM',
-        title: t('paymentConfirmed'),
-        description: t('paymentConfirmedDesc'),
-        status: 'processing' as const,
-      },
-      {
-        date: o.date || 'Jan 31, 2024',
-        time: '11:55 AM',
-        title: t('orderProcessed'),
-        description: t('orderProcessedDesc'),
-        status: 'processing' as const,
-      },
-      {
-        date: o.date || 'Jan 31, 2024',
-        time: '01:20 PM',
-        title: t('shippedTitle'),
-        description: t('shippedDesc'),
-        status: 'shipped' as const,
-      },
-      {
-        date: o.date || 'Jan 31, 2024',
-        time: '09:12 AM',
-        title: t('outForDeliveryTitle'),
-        description: t('outForDeliveryDesc'),
-        status: 'out_for_delivery' as const,
-      },
-      {
-        date: o.date || 'Jan 31, 2024',
-        time: '02:10 PM',
-        title: t('deliveredTitle'),
-        description: t('deliveredDesc'),
-        status: 'delivered' as const,
-      },
-    ];
+    // Timeline: API timeline only, else a single real "placed" step — never invent full journey
+    const timeline =
+      o.timeline && o.timeline.length > 0
+        ? o.timeline
+        : o.date || o.createdAt
+          ? [
+              {
+                date: o.date || (o.createdAt ? String(o.createdAt).slice(0, 10) : ''),
+                time: o.time || '',
+                title: t('orderPlaced'),
+                description: t('orderPlacedDesc'),
+                status: (String(o.status || 'pending').toLowerCase() as
+                  | 'pending'
+                  | 'processing'
+                  | 'shipped'
+                  | 'out_for_delivery'
+                  | 'delivered'
+                  | 'cancelled'),
+              },
+            ]
+          : [];
 
     const handleSaveCustomerNotes = () => {
       updateOrder(o.id, { customerNotes: customerNotesDraft });
@@ -1285,8 +1241,8 @@ export const StoreOrders: React.FC = () => {
             </div>
             <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
               {t('orderPlacedAt')
-                .replace('{date}', formatDisplayDate(o.date || '2026-09-29', locale))
-                .replace('{time}', formatDisplayTime(o.time || '02:32 PM', locale))
+                .replace('{date}', formatDisplayDate(o.date || '', locale) || '—')
+                .replace('{time}', formatDisplayTime(o.time || '', locale) || '—')
                 .replace('{store}', activeStore.name)}
             </p>
           </div>
@@ -1465,10 +1421,10 @@ export const StoreOrders: React.FC = () => {
                 {t('orderDate')}
               </span>
               <span className="text-xs sm:text-sm font-bold truncate block" style={{ color: 'var(--text)' }}>
-                {formatDisplayDate(o.date || '2026-09-29', locale)}
+                {formatDisplayDate(o.date || '', locale) || '—'}
               </span>
               <span className="text-[10px] block" style={{ color: 'var(--muted)' }}>
-                {formatDisplayTime(o.time || '02:32 PM', locale)}
+                {formatDisplayTime(o.time || '', locale) || '—'}
               </span>
             </div>
           </div>
@@ -1491,14 +1447,14 @@ export const StoreOrders: React.FC = () => {
           {/* Card 4: Order Source & Attribution */}
           <div className="bg-white dark:bg-[#071E26] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-xs">
             <div className="w-11 h-11 rounded-xl bg-pink-50 text-pink-600 dark:bg-pink-950/50 dark:text-pink-400 flex items-center justify-center shrink-0">
-              {getSourceIcon(o.source || 'Instagram')}
+              {getSourceIcon(o.source || 'Direct')}
             </div>
             <div className="min-w-0">
               <span className="text-[11px] font-medium block" style={{ color: 'var(--muted)' }}>
                 {t('orderSource')}
               </span>
               <span className="text-xs sm:text-sm font-bold truncate block" style={{ color: 'var(--text)' }}>
-                {localizeSalesChannel(o.source || 'Instagram', locale)}
+                {localizeSalesChannel(o.source || 'Direct', locale)}
               </span>
               {(o.medium || o.campaign) && (
                 <span className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold truncate block">
@@ -2089,6 +2045,17 @@ export const StoreOrders: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
+                    {items.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="py-8 text-center text-xs font-semibold"
+                          style={{ color: 'var(--muted)' }}
+                        >
+                          {isAr ? 'لا توجد منتجات في هذا الطلب' : 'No line items on this order'}
+                        </td>
+                      </tr>
+                    ) : null}
                     {items.map((it, idx) => (
                       <tr
                         key={it.id || idx}
@@ -2439,7 +2406,7 @@ export const StoreOrders: React.FC = () => {
             type="button"
             onClick={() => setShowNewOrderModal(true)}
             className="py-2.5 px-3 sm:px-4 rounded-xl text-xs font-bold text-white flex items-center gap-2 shadow-xs cursor-pointer transition-all hover:opacity-95 shrink-0"
-            style={{ background: 'var(--portal-cta, #0284c7)' }}
+            style={{ background: 'var(--portal-cta)' }}
             aria-label={isAr ? 'إنشاء طلب جديد' : 'Create new order'}
           >
             <Plus className="w-4 h-4 shrink-0" />
@@ -2621,34 +2588,6 @@ export const StoreOrders: React.FC = () => {
                   <span>{isAr ? 'ملف إكسل' : 'Excel'}</span>
               </button>
 
-              <label className="w-full text-start px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 text-slate-700 dark:text-slate-200 cursor-pointer">
-                <UploadCloud className="w-3.5 h-3.5 text-blue-600" />
-                <span>{isAr ? 'استيراد طلبات (CSV)' : 'Import orders (CSV)'}</span>
-                <input
-                  type="file"
-                  accept=".csv,text/csv"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleImportOrdersCsv(f);
-                    setShowOrderToolsMenu(false);
-                    e.target.value = '';
-                  }}
-                />
-              </label>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowExportTemplateModal(true);
-                  setShowOrderToolsMenu(false);
-                }}
-                className="w-full text-start px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 text-teal-600 font-semibold cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>{isAr ? 'تخصيص قالب تصدير...' : 'Custom Export Template...'}</span>
-              </button>
-
               <div className="h-[1px] my-1 bg-slate-100 dark:bg-slate-800" />
 
               <button
@@ -2661,18 +2600,6 @@ export const StoreOrders: React.FC = () => {
               >
                 <Layers className="w-4 h-4 text-purple-600" />
                 <span>{isAr ? 'تخصيص حالات الطلب' : 'Customize Statuses'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowPaymentTransactionsModal(true);
-                  setShowOrderToolsMenu(false);
-                }}
-                className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 text-slate-700 dark:text-slate-200 cursor-pointer"
-              >
-                <CreditCard className="w-4 h-4 text-amber-600" />
-                <span>{isAr ? 'عمليات الدفع الإلكتروني' : 'Electronic Payment Transactions'}</span>
               </button>
             </FloatingPopover>
           </div>
@@ -2855,7 +2782,7 @@ export const StoreOrders: React.FC = () => {
                         type="button"
                         onClick={() => setShowNewOrderModal(true)}
                         className="px-4 py-2 rounded-xl text-xs font-bold text-white shadow-xs cursor-pointer inline-flex items-center gap-1.5 transition-all hover:opacity-90"
-                        style={{ background: '#0d9488' }}
+                        style={{ background: 'var(--portal-cta)' }}
                       >
                         <Plus className="w-4 h-4" />
                         <span>{isAr ? 'إنشاء طلب جديد' : 'Create Order'}</span>
@@ -2977,10 +2904,10 @@ export const StoreOrders: React.FC = () => {
                       {/* Order Date */}
                       <td className="py-2.5 px-2 whitespace-nowrap text-[11px] min-w-[100px] text-start" style={{ borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>
                         <div className="font-medium whitespace-nowrap" style={{ color: 'var(--text)' }}>
-                          {ord.date || 'Jan 31, 2024'}
+                          {ord.date || '—'}
                         </div>
                         <div className="text-[10px] opacity-75 whitespace-nowrap">
-                          {ord.time || '02:32 PM'}
+                          {ord.time || '—'}
                         </div>
                       </td>
 

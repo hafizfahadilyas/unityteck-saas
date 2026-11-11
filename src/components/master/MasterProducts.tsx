@@ -184,7 +184,7 @@ export const MasterProducts: React.FC = () => {
         ? 'يوفر هذا المنتج أعلى معايير الجودة والتصميم العصري مع ضمان شامل وراحة لا مثيل لها.'
         : 'Delivers all-day comfort with a modern aesthetic, crafted with top-tier materials.',
       productType: 'Physical Product',
-      brand: 'Unityteck',
+      brand: 'Souq',
       countryOfOrigin: 'Saudi Arabia',
       requiresShipping: true,
       trackInventory: true,
@@ -383,7 +383,7 @@ export const MasterProducts: React.FC = () => {
 
       {/* ── EXPANDABLE CATEGORY & ATTRIBUTE FILTER BAR ── */}
       {showFilterDrawer && (
-        <div className="bg-white dark:bg-[#071E26] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center gap-3 flex-wrap text-xs animate-in fade-in duration-100">
+        <div className="bg-[var(--surface)] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center gap-3 flex-wrap text-xs animate-in fade-in duration-100">
           <span className="font-bold text-slate-500">{t('categoryLabel')}:</span>
           <button
             type="button"
@@ -428,7 +428,7 @@ export const MasterProducts: React.FC = () => {
       {/* ── 4 KPI CARDS DEDICATED GRID (Mockup 06 - 100% UNIFORM NO 3+1 WRAP) ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Total Products */}
-        <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+        <div className="bg-[var(--surface)] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
           <span className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
             {t('totalProductsCard')}
           </span>
@@ -444,7 +444,7 @@ export const MasterProducts: React.FC = () => {
         </div>
 
         {/* Card 2: Active */}
-        <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+        <div className="bg-[var(--surface)] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
           <span className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
             {t('activeProducts')}
           </span>
@@ -460,7 +460,7 @@ export const MasterProducts: React.FC = () => {
         </div>
 
         {/* Card 3: Out of Stock */}
-        <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+        <div className="bg-[var(--surface)] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
           <span className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
             {t('outOfStock')}
           </span>
@@ -476,7 +476,7 @@ export const MasterProducts: React.FC = () => {
         </div>
 
         {/* Card 4: Draft */}
-        <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+        <div className="bg-[var(--surface)] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
           <span className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
             {t('draftProducts')}
           </span>
@@ -489,7 +489,7 @@ export const MasterProducts: React.FC = () => {
       </div>
 
       {/* ── PRODUCTS TABLE CARD CONTAINER (Mockup 06) ── */}
-      <div className="bg-white dark:bg-[#071E26] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
+      <div className="bg-[var(--surface)] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-start text-xs border-separate border-spacing-0">
             <thead>
@@ -940,7 +940,7 @@ const ProductEditorView: React.FC<ProductEditorViewProps> = ({
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* ── COLUMN 1: PRODUCT IMAGES (approx 3 cols / 26% width) ── */}
         <div className="lg:col-span-3 space-y-5">
-          <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+          <div className="bg-[var(--surface)] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
             <div>
               <h3 className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--text)' }}>
                 <Box className="w-4 h-4 text-cyan-600" />
@@ -952,8 +952,8 @@ const ProductEditorView: React.FC<ProductEditorViewProps> = ({
             </div>
 
             {/* Main Image Box */}
-            <div className="relative rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-50 dark:bg-slate-900/50 aspect-square flex items-center justify-center">
-              <span className="absolute top-3 start-3 px-2.5 py-1 rounded-md text-[10px] font-bold bg-blue-600 text-white z-10 shadow-xs">
+            <div className="u-media-stage relative rounded-2xl overflow-hidden aspect-square flex items-center justify-center">
+              <span className="unity-btn-primary absolute top-3 start-3 px-2.5 py-1 rounded-md text-[10px] font-bold z-10 shadow-xs">
                 {t('mainImage')}
               </span>
               <button
@@ -985,11 +985,12 @@ const ProductEditorView: React.FC<ProductEditorViewProps> = ({
                   key={idx}
                   type="button"
                   onClick={() => setSelectedImageIndex(idx)}
-                  className={`aspect-square rounded-xl border overflow-hidden p-1 transition-all cursor-pointer bg-slate-50 dark:bg-slate-900/50 ${
+                  className="u-media-stage aspect-square rounded-xl border overflow-hidden p-1 transition-all cursor-pointer"
+                  style={
                     selectedImageIndex === idx
-                      ? 'border-blue-600 ring-2 ring-blue-600/30'
-                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-400'
-                  }`}
+                      ? { borderColor: 'var(--accent)', boxShadow: '0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent)' }
+                      : { borderColor: 'var(--border)' }
+                  }
                 >
                   <img
                     src={url || FALLBACK_PRODUCT_IMAGE}
@@ -1013,9 +1014,13 @@ const ProductEditorView: React.FC<ProductEditorViewProps> = ({
                   setSelectedImageIndex(gallery.length);
                 }
               }}
-              className="p-5 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-950/20 text-center cursor-pointer transition-colors"
+              className="p-5 rounded-2xl border-2 border-dashed text-center cursor-pointer transition-colors"
+              style={{
+                borderColor: 'var(--border)',
+                background: 'color-mix(in srgb, var(--accent) 4%, var(--surface))',
+              }}
             >
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400 flex items-center justify-center mx-auto mb-2">
+              <div className="u-icon-brand w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2">
                 <UploadCloud className="w-5 h-5" />
               </div>
               <div className="font-bold text-xs" style={{ color: 'var(--text)' }}>
@@ -1031,7 +1036,7 @@ const ProductEditorView: React.FC<ProductEditorViewProps> = ({
         {/* ── COLUMN 2: BASIC INFO + INVENTORY & SHIPPING (approx 5 cols / 42% width) ── */}
         <div className="lg:col-span-5 space-y-5">
           {/* Card 1: Basic Information */}
-          <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+          <div className="bg-[var(--surface)] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
             <div>
               <h3 className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--text)' }}>
                 <Box className="w-4 h-4 text-blue-600" />
@@ -1144,7 +1149,7 @@ const ProductEditorView: React.FC<ProductEditorViewProps> = ({
                   <option value="Apple">Apple</option>
                   <option value="Samsung">Samsung</option>
                   <option value="Sony">Sony</option>
-                  <option value="Unityteck">Unityteck</option>
+                  <option value="Souq">Souq</option>
                 </select>
               </div>
 
@@ -1171,7 +1176,7 @@ const ProductEditorView: React.FC<ProductEditorViewProps> = ({
           </div>
 
           {/* Card 2: Inventory & Shipping */}
-          <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+          <div className="bg-[var(--surface)] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
             <div>
               <h3 className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--text)' }}>
                 <Box className="w-4 h-4 text-blue-600" />
@@ -1290,7 +1295,7 @@ const ProductEditorView: React.FC<ProductEditorViewProps> = ({
         {/* ── COLUMN 3: PRICING + SEO SETTINGS (approx 4 cols / 32% width) ── */}
         <div className="lg:col-span-4 space-y-5">
           {/* Card 1: Pricing */}
-          <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+          <div className="bg-[var(--surface)] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
             <div>
               <h3 className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--text)' }}>
                 <Info className="w-4 h-4 text-blue-600" />
@@ -1394,7 +1399,7 @@ const ProductEditorView: React.FC<ProductEditorViewProps> = ({
           </div>
 
           {/* Card 2: SEO Settings */}
-          <div className="bg-white dark:bg-[#071E26] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+          <div className="bg-[var(--surface)] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
             <div>
               <h3 className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--text)' }}>
                 <Search className="w-4 h-4 text-blue-600" />

@@ -133,7 +133,9 @@ export const CustomerDeliveriesPanel: React.FC<CustomerDeliveriesPanelProps> = (
       <div className="px-5 py-3 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0" style={{ borderColor: 'var(--border)' }}>
         <div>
           <h3 className="text-sm font-black" style={{ color: 'var(--text)' }}>
-            {isAr ? 'إشعارات العميل (إيميل / واتساب / الرسائل النصية)' : 'Customer alerts (Email / WhatsApp / SMS)'}
+            {isAr
+              ? 'إشعارات العميل (البريد الإلكتروني / واتساب / الرسائل النصية)'
+              : 'Customer alerts (Email / WhatsApp / SMS)'}
           </h3>
           <p className="text-[11px] text-slate-500 mt-0.5">
             {isAr
@@ -167,9 +169,9 @@ export const CustomerDeliveriesPanel: React.FC<CustomerDeliveriesPanelProps> = (
         <div className="px-5 py-3 grid grid-cols-2 sm:grid-cols-4 gap-2 shrink-0 border-b" style={{ borderColor: 'var(--border)' }}>
           {[
             { label: isAr ? 'أُرسل' : 'Sent', value: summary.sent, color: 'text-emerald-600' },
-            { label: 'Email', value: summary.by_channel.email, color: 'text-sky-600' },
-            { label: 'WhatsApp', value: summary.by_channel.whatsapp, color: 'text-emerald-600' },
-            { label: 'SMS', value: summary.by_channel.sms, color: 'text-blue-600' },
+            { label: isAr ? 'البريد الإلكتروني' : 'Email', value: summary.by_channel.email, color: 'text-sky-600' },
+            { label: isAr ? 'واتساب' : 'WhatsApp', value: summary.by_channel.whatsapp, color: 'text-emerald-600' },
+            { label: isAr ? 'الرسائل النصية' : 'SMS', value: summary.by_channel.sms, color: 'text-blue-600' },
           ].map((s) => (
             <div key={s.label} className="rounded-xl px-3 py-2 bg-slate-50 dark:bg-slate-900/40 border" style={{ borderColor: 'var(--border)' }}>
               <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">{s.label}</div>
@@ -191,7 +193,21 @@ export const CustomerDeliveriesPanel: React.FC<CustomerDeliveriesPanelProps> = (
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
             }`}
           >
-            {ch === 'all' ? (isAr ? 'الكل' : 'All') : ch === 'email' ? 'Email' : ch === 'whatsapp' ? 'WhatsApp' : 'SMS'}
+            {ch === 'all'
+              ? isAr
+                ? 'الكل'
+                : 'All'
+              : ch === 'email'
+                ? isAr
+                  ? 'البريد الإلكتروني'
+                  : 'Email'
+                : ch === 'whatsapp'
+                  ? isAr
+                    ? 'واتساب'
+                    : 'WhatsApp'
+                  : isAr
+                    ? 'الرسائل النصية'
+                    : 'SMS'}
           </button>
         ))}
         <span className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-1 hidden sm:inline-block" />
@@ -206,7 +222,21 @@ export const CustomerDeliveriesPanel: React.FC<CustomerDeliveriesPanelProps> = (
                 : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
-            {st === 'all' ? (isAr ? 'كل الحالات' : 'Any status') : st}
+            {st === 'all'
+              ? isAr
+                ? 'كل الحالات'
+                : 'Any status'
+              : st === 'sent'
+                ? isAr
+                  ? 'أُرسل'
+                  : 'Sent'
+                : st === 'failed'
+                  ? isAr
+                    ? 'فشل'
+                    : 'Failed'
+                  : isAr
+                    ? 'تخطّي'
+                    : 'Skipped'}
           </button>
         ))}
       </div>
@@ -222,7 +252,7 @@ export const CustomerDeliveriesPanel: React.FC<CustomerDeliveriesPanelProps> = (
             </p>
             <p>
               {isAr
-                ? 'عند تغيير حالة الطلب (شحن / إلغاء / إرجاع) ستظهر هنا قنوات الإيميل وواتساب والرسائل النصية.'
+                ? 'عند تغيير حالة الطلب (شحن / إلغاء / إرجاع) ستظهر هنا قنوات البريد الإلكتروني وواتساب والرسائل النصية.'
                 : 'When order status changes (ship / cancel / return), Email, WhatsApp and SMS attempts appear here.'}
             </p>
           </div>
@@ -260,7 +290,19 @@ export const CustomerDeliveriesPanel: React.FC<CustomerDeliveriesPanelProps> = (
                           {row.audience === 'merchant' ? (isAr ? 'للتاجر' : 'Merchant') : isAr ? 'للعميل' : 'Customer'}
                           {row.recipient ? ` · ${row.recipient}` : ''}
                           {' · '}
-                          {String(row.channel).toUpperCase()}
+                          {row.channel === 'email'
+                            ? isAr
+                              ? 'البريد الإلكتروني'
+                              : 'Email'
+                            : row.channel === 'whatsapp'
+                              ? isAr
+                                ? 'واتساب'
+                                : 'WhatsApp'
+                              : row.channel === 'sms'
+                                ? isAr
+                                  ? 'الرسائل النصية'
+                                  : 'SMS'
+                                : String(row.channel)}
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">

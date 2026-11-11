@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Check, Users, X } from 'lucide-react';
 import type { CustomerSource, CustomerStatus } from '../../types';
-import { CUSTOMER_GENDER_OPTIONS } from '../../data/saudiCities';
+import { CUSTOMER_GENDER_OPTIONS, normalizeSaudiCityId } from '../../data/saudiCities';
 import { slugCityId, useSaudiCityOptions } from '../../hooks/useSaudiCityOptions';
 import { ORDER_SOURCE_OPTIONS, OrderSourceIcon } from '../common/BrandIcons';
 import { DateCalendarField } from '../common/DateCalendarField';
@@ -120,7 +120,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
       phone,
       email: emailFallback,
       status,
-      city,
+      city: normalizeSaudiCityId(city, saudiCities) || city,
       country: 'Saudi Arabia',
       gender,
       dob: dob.trim() || undefined,

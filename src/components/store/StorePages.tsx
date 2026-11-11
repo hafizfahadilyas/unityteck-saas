@@ -149,7 +149,8 @@ export const StorePages: React.FC = () => {
   // Save changes
   const handleSaveForm = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.titleAr.trim() || !formData.titleEn.trim() || !formData.slug.trim()) {
+    const activeTitle = isAr ? formData.titleAr.trim() : formData.titleEn.trim();
+    if (!activeTitle || !formData.slug.trim()) {
       showNotification(isAr ? 'يرجى تعبئة العنوان والاسم اللطيف' : 'Please fill title and URL slug');
       return;
     }
@@ -238,7 +239,7 @@ export const StorePages: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-2xs">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 mb-1">
+          <div className="flex items-center gap-2 text-xs font-semibold mb-1" style={{ color: 'var(--accent)' }}>
             <Shield className="w-4 h-4" />
             <span>{isAr ? 'منظومة حوكمة المتاجر والامتثال السعودي' : 'Saudi Legal Compliance & Store Governance'}</span>
           </div>
@@ -266,7 +267,7 @@ export const StorePages: React.FC = () => {
           <button
             type="button"
             onClick={handleStartCreate}
-            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+            className="px-5 py-2.5 rounded-xl unity-btn-primary text-white text-xs font-bold transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 hover:opacity-95"
           >
             <Plus className="w-4 h-4" />
             <span>{isAr ? 'إنشاء صفحة جديدة +' : 'Create New Page +'}</span>
@@ -279,7 +280,7 @@ export const StorePages: React.FC = () => {
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-medium">{isAr ? 'إجمالي الصفحات' : 'Total Pages'}</span>
-            <FileText className="w-4 h-4 text-indigo-500" />
+            <FileText className="w-4 h-4" style={{ color: 'var(--accent)' }} />
           </div>
           <div className="text-2xl font-black text-slate-900">{metrics.total}</div>
         </div>
@@ -303,7 +304,7 @@ export const StorePages: React.FC = () => {
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-medium">{isAr ? 'صفحات مخصصة' : 'Custom Pages'}</span>
-            <Sparkles className="w-4 h-4 text-purple-500" />
+            <Sparkles className="w-4 h-4" style={{ color: 'var(--accent)' }} />
           </div>
           <div className="text-2xl font-black text-slate-900">{metrics.custom}</div>
         </div>
@@ -325,9 +326,10 @@ export const StorePages: React.FC = () => {
               onClick={() => setActiveCategory(cat.id as any)}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
                 activeCategory === cat.id
-                  ? 'bg-indigo-600 text-white shadow-2xs'
+                  ? 'text-white shadow-2xs'
                   : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
               }`}
+              style={activeCategory === cat.id ? { background: 'var(--portal-cta)' } : undefined}
             >
               {isAr ? cat.labelAr : cat.labelEn}
             </button>
@@ -342,7 +344,7 @@ export const StorePages: React.FC = () => {
             placeholder={isAr ? 'بحث في الصفحات أو الروابط...' : 'Search pages or slugs...'}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full ps-9 pe-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 focus:bg-white transition-colors"
+            className="w-full ps-9 pe-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[var(--accent)] focus:bg-white transition-colors"
           />
         </div>
       </div>
@@ -361,12 +363,19 @@ export const StorePages: React.FC = () => {
                   className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
                     page.category === 'legal'
                       ? 'bg-amber-50 text-amber-700 border border-amber-200/60'
-                      : page.category === 'support'
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200/60'
                       : page.category === 'information'
                       ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
-                      : 'bg-purple-50 text-purple-700 border border-purple-200/60'
+                      : 'border'
                   }`}
+                  style={
+                    page.category === 'support' || page.category === 'custom'
+                      ? {
+                          background: 'color-mix(in srgb, var(--accent) 12%, var(--surface))',
+                          color: 'var(--accent)',
+                          borderColor: 'color-mix(in srgb, var(--accent) 28%, transparent)',
+                        }
+                      : undefined
+                  }
                 >
                   {page.category === 'legal'
                     ? isAr ? 'سياسة نظامية' : 'Legal Policy'
@@ -401,7 +410,7 @@ export const StorePages: React.FC = () => {
               </div>
 
               {/* Title */}
-              <h3 className="font-extrabold text-slate-900 text-base leading-snug group-hover:text-indigo-600 transition-colors">
+              <h3 className="font-extrabold text-slate-900 text-base leading-snug transition-colors group-hover:[color:var(--accent)]">
                 {isAr ? page.titleAr : page.titleEn}
               </h3>
               <p className="text-xs text-slate-400 font-mono mt-0.5 dir-ltr truncate">
@@ -424,7 +433,7 @@ export const StorePages: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setPreviewPage(page)}
-                  className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
+                  className="p-1.5 rounded-lg text-slate-500 transition-colors cursor-pointer hover:[color:var(--accent)] hover:[background:color-mix(in_srgb,var(--accent)_12%,transparent)]"
                   title={isAr ? 'معاينة الصفحة' : 'Preview page'}
                 >
                   <Eye className="w-4 h-4" />
@@ -433,7 +442,7 @@ export const StorePages: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => handleStartEdit(page)}
-                  className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
+                  className="p-1.5 rounded-lg text-slate-500 transition-colors cursor-pointer hover:[color:var(--accent)] hover:[background:color-mix(in_srgb,var(--accent)_12%,transparent)]"
                   title={isAr ? 'تعديل المحتوى' : 'Edit page'}
                 >
                   <Edit3 className="w-4 h-4" />
@@ -490,7 +499,7 @@ export const StorePages: React.FC = () => {
             <button
               type="button"
               onClick={handleStartCreate}
-              className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs cursor-pointer shadow-sm hover:bg-indigo-700 transition-colors"
+              className="px-4 py-2 rounded-xl unity-btn-primary text-white font-bold text-xs cursor-pointer shadow-sm hover:opacity-95 transition-colors"
             >
               {isAr ? 'إنشاء صفحة جديدة +' : 'Create New Page +'}
             </button>
@@ -520,10 +529,13 @@ export const StorePages: React.FC = () => {
         >
           <div className="bg-white rounded-3xl max-w-4xl w-full shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[92vh] flex flex-col">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+            <div
+              className="px-6 py-4 border-b border-slate-200 flex items-center justify-between text-white"
+              style={{ background: 'var(--portal-cta)' }}
+            >
               <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-indigo-600" />
-                <h3 className="font-black text-slate-900 text-base">
+                <FileText className="w-5 h-5 text-white" />
+                <h3 className="font-black text-white text-base">
                   {isCreating
                     ? isAr ? 'بناء وإنشاء صفحة جديدة' : 'Build & Create New Page'
                     : isAr ? `تعديل الصفحة:${editingPage?.titleAr}` : `Edit Page: ${editingPage?.titleEn}`}
@@ -535,7 +547,7 @@ export const StorePages: React.FC = () => {
                   setEditingPage(null);
                   setIsCreating(false);
                 }}
-                className="p-1.5 rounded-full hover:bg-slate-200 text-slate-500 cursor-pointer transition-colors"
+                className="p-1.5 rounded-full hover:bg-white/15 text-white cursor-pointer transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -543,34 +555,24 @@ export const StorePages: React.FC = () => {
 
             {/* Modal Form */}
             <form onSubmit={handleSaveForm} className="p-6 space-y-6 overflow-y-auto flex-1">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isAr ? 'عنوان الصفحة بالعربية *' : 'Arabic Title *'}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.titleAr}
-                    onChange={(e) => setFormData({ ...formData, titleAr: e.target.value })}
-                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-indigo-500 outline-none"
-                    placeholder={isAr ? 'مثال: سياسة الاستبدال والاسترجاع' : 'Arabic title...'}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isAr ? 'عنوان الصفحة بالإنجليزية *' : 'English Title *'}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.titleEn}
-                    onChange={(e) => setFormData({ ...formData, titleEn: e.target.value })}
-                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-indigo-500 outline-none"
-                    placeholder="e.g. Return and Refund Policy"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {isAr ? 'العنوان *' : 'Title *'}
+                </label>
+                <input
+                  type="text"
+                  required
+                  dir={isAr ? 'rtl' : 'ltr'}
+                  value={isAr ? formData.titleAr : formData.titleEn}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      ...(isAr ? { titleAr: e.target.value } : { titleEn: e.target.value }),
+                    })
+                  }
+                  className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-[var(--accent)] outline-none"
+                  placeholder={isAr ? 'مثال: سياسة الاستبدال والاسترجاع' : 'e.g. Return and Refund Policy'}
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -590,7 +592,7 @@ export const StorePages: React.FC = () => {
                           slug: e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, '-'),
                         })
                       }
-                      className="w-full ps-16 pe-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono focus:bg-white focus:border-indigo-500 outline-none"
+                      className="w-full ps-16 pe-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono focus:bg-white focus:border-[var(--accent)] outline-none"
                       placeholder="return-policy"
                     />
                   </div>
@@ -603,7 +605,7 @@ export const StorePages: React.FC = () => {
                   <select
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value as any })}
-                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-indigo-500 outline-none"
+                    className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-[var(--accent)] outline-none"
                   >
                     <option value="legal">{isAr ? 'سياسة نظامية وقانونية' : 'Legal Policy'}</option>
                     <option value="support">{isAr ? 'دعم وخدمات عملاء' : 'Support & Help'}</option>
@@ -618,7 +620,8 @@ export const StorePages: React.FC = () => {
                       type="checkbox"
                       checked={formData.isPublished}
                       onChange={(e) => setFormData({ ...formData, isPublished: e.target.checked })}
-                      className="rounded text-indigo-600 focus:ring-indigo-500"
+                      className="rounded"
+                      style={{ accentColor: 'var(--accent)' }}
                     />
                     <span className="text-xs font-bold text-slate-800">
                       {isAr ? 'نشر وتفعيل في المتجر فوراً' : 'Publish Immediately'}
@@ -628,70 +631,58 @@ export const StorePages: React.FC = () => {
               </div>
 
               {/* Meta Description */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isAr ? 'وصف تحسين محركات البحث مختصر بالعربية' : 'Arabic Meta Description'}
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.metaDescriptionAr}
-                    onChange={(e) => setFormData({ ...formData, metaDescriptionAr: e.target.value })}
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                    placeholder={isAr ? 'وصف لمحركات البحث وجوجل...' : 'SEO description...'}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {isAr ? 'وصف تحسين محركات البحث مختصر بالإنجليزية' : 'English Meta Description'}
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.metaDescriptionEn}
-                    onChange={(e) => setFormData({ ...formData, metaDescriptionEn: e.target.value })}
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                    placeholder="Short SEO description for search engines..."
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {isAr ? 'وصف تحسين محركات البحث' : 'Meta Description'}
+                </label>
+                <input
+                  type="text"
+                  dir={isAr ? 'rtl' : 'ltr'}
+                  value={isAr ? formData.metaDescriptionAr : formData.metaDescriptionEn}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      ...(isAr
+                        ? { metaDescriptionAr: e.target.value }
+                        : { metaDescriptionEn: e.target.value }),
+                    })
+                  }
+                  className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                  placeholder={
+                    isAr
+                      ? 'وصف لمحركات البحث...'
+                      : 'Short SEO description for search engines...'
+                  }
+                />
               </div>
 
-              {/* Content Editors (Arabic & English) */}
-              <div className="space-y-4">
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-                      <span>🇸🇦 {isAr ? 'محتوى الصفحة بالعربية' : 'Arabic Content (Markdown)'}</span>
-                    </label>
-                    <span className="text-[11px] text-slate-400">
-                      {isAr ? 'يمكنك استخدام عناوين مثل ### ونقاط وقوائم' : 'Supports Markdown headings and lists'}
-                    </span>
-                  </div>
-                  <textarea
-                    rows={8}
-                    required
-                    value={formData.contentAr}
-                    onChange={(e) => setFormData({ ...formData, contentAr: e.target.value })}
-                    className="w-full p-4 text-xs font-sans leading-relaxed bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:border-indigo-500 outline-none"
-                    dir="rtl"
-                  />
+              {/* Content Editor (active locale only; both kept in state) */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                    <span>{isAr ? 'محتوى الصفحة' : 'Page Content'}</span>
+                  </label>
+                  <span className="text-[11px] text-slate-400">
+                    {isAr
+                      ? 'يمكنك استخدام عناوين مثل ### ونقاط وقوائم'
+                      : 'Supports Markdown headings and lists'}
+                  </span>
                 </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-                      <span>🌐 {isAr ? 'محتوى الصفحة بالإنجليزية' : 'English Content (Markdown)'}</span>
-                    </label>
-                  </div>
-                  <textarea
-                    rows={8}
-                    required
-                    value={formData.contentEn}
-                    onChange={(e) => setFormData({ ...formData, contentEn: e.target.value })}
-                    className="w-full p-4 text-xs font-sans leading-relaxed bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:border-indigo-500 outline-none"
-                    dir="ltr"
-                  />
-                </div>
+                <textarea
+                  rows={8}
+                  required
+                  dir={isAr ? 'rtl' : 'ltr'}
+                  value={isAr ? formData.contentAr : formData.contentEn}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      ...(isAr
+                        ? { contentAr: e.target.value }
+                        : { contentEn: e.target.value }),
+                    })
+                  }
+                  className="w-full p-4 text-xs font-sans leading-relaxed bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:border-[var(--accent)] outline-none"
+                />
               </div>
 
               {/* Modal Actions */}
@@ -709,7 +700,7 @@ export const StorePages: React.FC = () => {
 
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer transition-all shadow-sm flex items-center gap-1.5 active:scale-95"
+                  className="px-6 py-2.5 rounded-xl unity-btn-primary text-white text-xs font-bold cursor-pointer transition-all shadow-sm flex items-center gap-1.5 active:scale-95 hover:opacity-95"
                 >
                   <Save className="w-4 h-4" />
                   <span>{isAr ? 'حفظ ونشر التعديلات' : 'Save & Publish Page'}</span>
@@ -730,19 +721,22 @@ export const StorePages: React.FC = () => {
           aria-label={isAr ? 'معاينة صفحة المتجر' : 'Storefront Preview'}
         >
           <div className="bg-white rounded-3xl max-w-3xl w-full shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[90vh] flex flex-col">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+            <div
+              className="px-6 py-4 border-b border-slate-200 flex items-center justify-between text-white"
+              style={{ background: 'var(--portal-cta)' }}
+            >
               <div>
-                <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest block">
+                <span className="text-[10px] font-bold text-white/90 uppercase tracking-widest block">
                   {isAr ? 'معاينة صفحة المتجر' : 'Storefront Preview'}
                 </span>
-                <h3 className="font-extrabold text-slate-900 text-base">
+                <h3 className="font-extrabold text-white text-base">
                   {isAr ? previewPage.titleAr : previewPage.titleEn}
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setPreviewPage(null)}
-                className="p-1.5 rounded-full hover:bg-slate-200 text-slate-500 cursor-pointer"
+                className="p-1.5 rounded-full hover:bg-white/15 text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>

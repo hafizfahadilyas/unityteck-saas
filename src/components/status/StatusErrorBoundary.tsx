@@ -34,12 +34,12 @@ export class StatusErrorBoundary extends React.Component<Props, State> {
       reloadOnceForStaleChunk();
       return;
     }
-    console.error('[Unityteck] UI crash', error);
+    console.error('[Souq Platform] UI crash', error);
     if (error instanceof Error) {
-      console.error('[Unityteck] Crash stack:', error.stack);
+      console.error('[Souq Platform] Crash stack:', error.stack);
     }
     if (errorInfo?.componentStack) {
-      console.error('[Unityteck] Crash component stack:', errorInfo.componentStack);
+      console.error('[Souq Platform] Crash component stack:', errorInfo.componentStack);
     }
     this.setState({ error, errorInfo });
   }

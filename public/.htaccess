@@ -61,6 +61,15 @@ DirectoryIndex storefront-shell.php index.html
   RewriteRule ^api/(.*)$ /api/index.php [QSA,L]
   RewriteRule ^api$ /api/index.php [QSA,L]
 
+  # Force SPA for auth/admin routes EVEN if a physical /admin folder exists on Hostinger.
+  # Without this, /admin → directory → bounce to storefront homepage.
+  RewriteRule ^admin/?$ /storefront-shell.php [L,QSA]
+  RewriteRule ^admin/(.*)$ /storefront-shell.php [L,QSA]
+  RewriteRule ^master/?$ /storefront-shell.php [L,QSA]
+  RewriteRule ^master/(.*)$ /storefront-shell.php [L,QSA]
+  RewriteRule ^store/?$ /storefront-shell.php [L,QSA]
+  RewriteRule ^store/(.*)$ /storefront-shell.php [L,QSA]
+
   # Prevent serving HTML for missing static assets (return 404 instead of index.html fallback)
   RewriteCond %{REQUEST_URI} \.(?:js|mjs|css|png|jpe?g|gif|webp|svg|woff2?|ttf|eot|ico|json|map)$ [NC]
   RewriteCond %{REQUEST_FILENAME} !-f

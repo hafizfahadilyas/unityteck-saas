@@ -15,29 +15,21 @@ import {
   Package,
   Users,
   Megaphone,
-  Boxes,
   Truck,
   CreditCard,
   Settings,
   ArrowLeft,
-  Globe,
-  Tag,
   Palette,
   Search,
   Store,
-  FolderTree,
   ShoppingBag,
-  Server,
-  Award,
   ChevronRight,
   ChevronDown,
   PanelLeftClose,
   PanelLeftOpen,
   BarChart3,
   FileText,
-  Image as ImageIcon,
   Bell,
-  ReceiptText,
   Files,
   BookOpen,
   Sparkles,
@@ -140,7 +132,9 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
   };
 
   const isProductsFamily = ['products', 'categories', 'brands', 'media'].includes(currentTab);
-  const isThemesFamily = ['themes', 'appstore'].includes(currentTab);
+  const isOrdersFamily = ['orders', 'invoices'].includes(currentTab);
+  const isThemesFamily = currentTab === 'themes';
+  const isSmartAutomationFamily = ['analytics'].includes(currentTab);
   const isMarketingFamily = [
     'marketing',
     'coupons',
@@ -156,20 +150,37 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
     'affiliate',
     'direct-orders',
     'social',
+    'seo',
+    'blog',
+    'commerce-tools',
   ].includes(currentTab);
+
+  const SMART_AUTOMATION_CHILDREN = ['analytics'] as const;
+
+  const canShowStoreTab = (tabId: string) => {
+    if (CORE_STORE_CONTROL_IDS.has(tabId)) return true;
+    if (!canTab(tabId, 'store')) return false;
+    if (!planAllowsStoreTab(activeStore, tabId)) return false;
+    return isStoreControlEnabled(activeStore?.id, tabId) || isStoreTabComingSoon(tabId);
+  };
 
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
     products: true,
+    orders: isOrdersFamily,
     themes: isThemesFamily,
     marketing: isMarketingFamily,
+    'smart-automation': isSmartAutomationFamily,
     whatsapp: currentTab === 'whatsapp' && !isStoreTabComingSoon('whatsapp'),
     shipping: currentTab === 'shipping',
-    settings: currentTab === 'settings',
+    settings: currentTab === 'settings' || currentTab === 'hosting',
   });
 
   useEffect(() => {
     if (isProductsFamily) {
       setOpenSubmenus((prev) => ({ ...prev, products: true }));
+    }
+    if (isOrdersFamily) {
+      setOpenSubmenus((prev) => ({ ...prev, orders: true }));
     }
     if (isThemesFamily) {
       setOpenSubmenus((prev) => ({ ...prev, themes: true }));
@@ -177,54 +188,50 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
     if (isMarketingFamily) {
       setOpenSubmenus((prev) => ({ ...prev, marketing: true }));
     }
+    if (isSmartAutomationFamily) {
+      setOpenSubmenus((prev) => ({ ...prev, 'smart-automation': true }));
+    }
     if (currentTab === 'whatsapp' && !isStoreTabComingSoon('whatsapp')) {
       setOpenSubmenus((prev) => ({ ...prev, whatsapp: true }));
     }
     if (currentTab === 'shipping') {
       setOpenSubmenus((prev) => ({ ...prev, shipping: true }));
     }
-    if (currentTab === 'settings') {
+    if (currentTab === 'settings' || currentTab === 'hosting') {
       setOpenSubmenus((prev) => ({ ...prev, settings: true }));
     }
-  }, [isProductsFamily, isThemesFamily, isMarketingFamily, currentTab]);
+  }, [isProductsFamily, isOrdersFamily, isThemesFamily, isMarketingFamily, isSmartAutomationFamily, currentTab]);
 
   const navItems = useMemo(() => {
-    const all = [
+    // Order locked to Souq store sidebar map (1–17). Need Help stays in footer (18).
+    // invoices → Orders submenu · seo/blog/commerce-tools → Marketing · hosting → Settings
+    const all: Array<{ id: string; icon: React.ElementType; badge?: number }> = [
       { id: 'dashboard', icon: LayoutDashboard },
+      { id: 'pages', icon: Files },
+      { id: 'products', icon: Package },
       { id: 'orders', icon: ShoppingCart },
+      { id: 'customers', icon: Users },
+      { id: 'payments', icon: CreditCard },
+      { id: 'shipping', icon: Truck },
+      { id: 'notifications', icon: Bell, badge: unreadCounts.total },
+      { id: 'marketing', icon: Megaphone },
+      { id: 'whatsapp', icon: WhatsAppBrandIcon },
+      { id: 'reports', icon: FileText },
+      { id: 'smart-automation', icon: BarChart3 },
       { id: 'canva', icon: Paintbrush },
       { id: 'ai-media', icon: Sparkles },
-      { id: 'products', icon: Package },
-      { id: 'customers', icon: Users },
-      { id: 'marketing', icon: Megaphone },
-      { id: 'analytics', icon: BarChart3 },
-      { id: 'reports', icon: FileText },
-      { id: 'invoices', icon: ReceiptText },
-      { id: 'notifications', icon: Bell, badge: unreadCounts.total },
-      { id: 'whatsapp', icon: WhatsAppBrandIcon },
-      { id: 'seo', icon: Search },
-      { id: 'shipping', icon: Truck },
-      { id: 'payments', icon: CreditCard },
-      { id: 'settings', icon: Settings },
       { id: 'themes', icon: Palette },
-      { id: 'pages', icon: Files },
-      { id: 'blog', icon: BookOpen },
-      { id: 'commerce-tools', icon: Sparkles },
-      { id: 'hosting', icon: Server },
       { id: 'appstore', icon: ShoppingBag },
+      { id: 'settings', icon: Settings },
     ];
     // Coming-soon tabs stay visible as disabled fixed buttons (no click / no dropdown).
     // Core tabs (dashboard / settings / notifications) always stay in the sidebar —
     // never drop them for role ability, plan gate, or Master store-control toggles.
     return all.filter((item) => {
-      const isCore = CORE_STORE_CONTROL_IDS.has(item.id);
-      if (isCore) return true;
-      if (!canTab(item.id, 'store')) return false;
-      if (!planAllowsStoreTab(activeStore, item.id)) return false;
-      return (
-        isStoreControlEnabled(activeStore?.id, item.id) ||
-        isStoreTabComingSoon(item.id)
-      );
+      if (item.id === 'smart-automation') {
+        return SMART_AUTOMATION_CHILDREN.some((childId) => canShowStoreTab(childId));
+      }
+      return canShowStoreTab(item.id);
     });
   }, [canTab, activeStore, unreadCounts.total, controlsEpoch]);
 
@@ -253,142 +260,157 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
       data-mobile-drawer="true"
       data-mobile-open={mobileOpen ? 'true' : 'false'}
     >
-      {/* Header: store logo (coffee/flowers) + brand text + toggle */}
+      {/* Header: Souq Platform on top · store name below · toggle */}
       <div
-        className="h-16 px-3 flex items-center gap-2 border-b shrink-0"
-        style={{ borderColor: 'var(--portal-800)' }}
-      >
-        <div className="unity-icon-box w-9 h-9 flex items-center justify-center shadow-md shrink-0 overflow-hidden p-0.5 rounded-full">
-          <img
-            src={activeStore?.logo || '/favicon.svg'}
-            alt=""
-            className="w-full h-full object-cover rounded-full"
-            onError={(e) => {
-              const el = e.currentTarget;
-              if (el.dataset.fallback === '1') {
-                el.style.display = 'none';
-                const sibling = el.nextElementSibling as HTMLElement | null;
-                if (sibling) sibling.classList.remove('hidden');
-                return;
-              }
-              el.dataset.fallback = '1';
-              el.src = '/favicon.svg';
-            }}
-          />
-          <Store className="w-5 h-5 hidden" aria-hidden />
-        </div>
-        {!collapsed && (
-          <div className="min-w-0 flex-1">
-            <h2 className="font-extrabold text-[15px] text-white tracking-tight leading-tight truncate">
-              {getStoreDisplayName(activeStore, isAr ? 'ar' : 'en')}
-            </h2>
-            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-              <span className="text-[9px] font-medium" style={{ color: 'var(--portal-400)' }}>
-                {t('storeAdmin')}
-              </span>
-              <span
-                className="text-[8px] px-1.5 py-0.5 rounded uppercase font-medium"
-                style={{
-                  background: 'color-mix(in srgb, var(--portal-800) 80%, transparent)',
-                  color: 'var(--portal-200)',
-                }}
-              >
-                {activeStore.plan === 'premium'
-                  ? isAr
-                    ? 'مميزة'
-                    : 'Premium'
-                  : activeStore.plan === 'pro' || activeStore.plan === 'paid'
-                    ? isAr
-                      ? 'احترافية'
-                      : 'Pro'
-                    : activeStore.plan === 'custom'
-                      ? isAr
-                        ? 'مخصصة'
-                        : 'Custom'
-                      : isAr
-                        ? 'مجانية'
-                        : 'Free'}
-              </span>
-              <span
-                className="text-[8px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wide"
-                style={{
-                  background:
-                    sub.status === 'active' || sub.status === 'trial'
-                      ? 'color-mix(in srgb, #34d399 25%, transparent)'
-                      : sub.status === 'grace'
-                        ? 'color-mix(in srgb, #fbbf24 30%, transparent)'
-                        : 'color-mix(in srgb, #f87171 30%, transparent)',
-                  color:
-                    sub.status === 'active' || sub.status === 'trial'
-                      ? '#A7F3D0'
-                      : sub.status === 'grace'
-                        ? '#FDE68A'
-                        : '#FECACA',
-                }}
-              >
-                {sub.status === 'active'
-                  ? t('statusActive')
-                  : sub.status === 'trial'
-                    ? t('statusTrial')
-                    : sub.status === 'grace'
-                      ? t('statusGrace')
-                      : sub.status === 'expired'
-                        ? t('statusExpired')
-                        : sub.status}
-              </span>
-            </div>
-          </div>
-        )}
-        <button
-          type="button"
-          onClick={() => {
-            if (typeof window !== 'undefined' && window.matchMedia('(max-width: 1023.98px)').matches) {
-              onMobileClose?.();
-              return;
-            }
-            setCollapsed((v) => !v);
-          }}
-          className="unity-sidebar-toggle ms-auto"
-          aria-label={
-            isAr
-              ? (typeof window !== 'undefined' && window.matchMedia('(max-width: 1023.98px)').matches
-                  ? 'إغلاق القائمة'
-                  : collapsed
-                    ? 'توسيع الشريط الجانبي'
-                    : 'طي الشريط الجانبي')
-              : (typeof window !== 'undefined' && window.matchMedia('(max-width: 1023.98px)').matches
-                  ? 'Close menu'
-                  : collapsed
-                    ? 'Expand sidebar'
-                    : 'Collapse sidebar')
-          }
-        >
-          <X className="w-4 h-4 lg:hidden" aria-hidden />
-          <span className="hidden lg:inline-flex">
-            {collapsed ? (
-              <PanelLeftOpen className="w-4 h-4 rtl:rotate-180" aria-hidden />
-            ) : (
-              <PanelLeftClose className="w-4 h-4 rtl:rotate-180" aria-hidden />
-            )}
-          </span>
-        </button>
-      </div>
-
-      {/* Company brand — Souq e Makkah (larger Saudi modern animated logo) */}
-      <div
-        className={`px-3 py-4 border-b shrink-0 flex items-center ${collapsed ? 'justify-center' : ''}`}
+        className="shrink-0 border-b"
         style={{
           borderColor: 'var(--portal-800)',
           background:
             'linear-gradient(135deg, color-mix(in srgb, #0B3D4A 70%, transparent), color-mix(in srgb, #04222B 85%, transparent))',
         }}
-        title={isAr ? 'منصة سوق' : 'Souq Platform'}
       >
-        {collapsed ? (
-          <SouqEMakkahMark isAr={isAr} />
-        ) : (
-          <SouqEMakkahLogo isAr={isAr} />
-        )}
+        <div
+          className={`px-3 pt-3 pb-2 flex items-center gap-2 ${collapsed ? 'justify-center' : ''}`}
+          title={isAr ? 'منصة سوق' : 'Souq Platform'}
+        >
+          {collapsed ? (
+            <SouqEMakkahMark isAr={isAr} />
+          ) : (
+            <div className="min-w-0 flex-1">
+              <SouqEMakkahLogo isAr={isAr} />
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== 'undefined' && window.matchMedia('(max-width: 1023.98px)').matches) {
+                onMobileClose?.();
+                return;
+              }
+              setCollapsed((v) => !v);
+            }}
+            className="unity-sidebar-toggle shrink-0"
+            aria-label={
+              isAr
+                ? (typeof window !== 'undefined' && window.matchMedia('(max-width: 1023.98px)').matches
+                    ? 'إغلاق القائمة'
+                    : collapsed
+                      ? 'توسيع الشريط الجانبي'
+                      : 'طي الشريط الجانبي')
+                : (typeof window !== 'undefined' && window.matchMedia('(max-width: 1023.98px)').matches
+                    ? 'Close menu'
+                    : collapsed
+                      ? 'Expand sidebar'
+                      : 'Collapse sidebar')
+            }
+          >
+            <X className="w-4 h-4 lg:hidden" aria-hidden />
+            <span className="hidden lg:inline-flex">
+              {collapsed ? (
+                <PanelLeftOpen className="w-4 h-4 rtl:rotate-180" aria-hidden />
+              ) : (
+                <PanelLeftClose className="w-4 h-4 rtl:rotate-180" aria-hidden />
+              )}
+            </span>
+          </button>
+        </div>
+
+        <div
+          className={`px-3 pb-3 flex items-center gap-2 ${collapsed ? 'justify-center' : ''}`}
+          style={{ borderTop: '1px solid color-mix(in srgb, var(--portal-800) 70%, transparent)' }}
+        >
+          <div className="unity-icon-box w-9 h-9 flex items-center justify-center shadow-md shrink-0 overflow-hidden p-0.5 rounded-full">
+            <img
+              src={activeStore?.logo || '/favicon.svg'}
+              alt=""
+              className="w-full h-full object-cover rounded-full"
+              onError={(e) => {
+                const el = e.currentTarget;
+                if (el.dataset.fallback === '1') {
+                  el.style.display = 'none';
+                  const sibling = el.nextElementSibling as HTMLElement | null;
+                  if (sibling) sibling.classList.remove('hidden');
+                  return;
+                }
+                el.dataset.fallback = '1';
+                el.src = '/favicon.svg';
+              }}
+            />
+            <Store className="w-5 h-5 hidden" aria-hidden />
+          </div>
+          {!collapsed && (
+            <div className="min-w-0 flex-1">
+              <h2
+                className="font-extrabold text-[13px] text-white tracking-tight leading-snug"
+                style={{
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  wordBreak: 'break-word',
+                }}
+                title={getStoreDisplayName(activeStore, isAr ? 'ar' : 'en')}
+              >
+                {getStoreDisplayName(activeStore, isAr ? 'ar' : 'en')}
+              </h2>
+              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                <span className="text-[9px] font-medium" style={{ color: 'var(--portal-400)' }}>
+                  {t('storeAdmin')}
+                </span>
+                <span
+                  className="text-[8px] px-1.5 py-0.5 rounded uppercase font-medium"
+                  style={{
+                    background: 'color-mix(in srgb, var(--portal-800) 80%, transparent)',
+                    color: 'var(--portal-200)',
+                  }}
+                >
+                  {activeStore.plan === 'premium'
+                    ? isAr
+                      ? 'مميزة'
+                      : 'Premium'
+                    : activeStore.plan === 'pro' || activeStore.plan === 'paid'
+                      ? isAr
+                        ? 'احترافية'
+                        : 'Pro'
+                      : activeStore.plan === 'custom'
+                        ? isAr
+                          ? 'مخصصة'
+                          : 'Custom'
+                        : isAr
+                          ? 'مجانية'
+                          : 'Free'}
+                </span>
+                <span
+                  className="text-[8px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wide"
+                  style={{
+                    background:
+                      sub.status === 'active' || sub.status === 'trial'
+                        ? 'color-mix(in srgb, #34d399 25%, transparent)'
+                        : sub.status === 'grace'
+                          ? 'color-mix(in srgb, #fbbf24 30%, transparent)'
+                          : 'color-mix(in srgb, #f87171 30%, transparent)',
+                    color:
+                      sub.status === 'active' || sub.status === 'trial'
+                        ? '#A7F3D0'
+                        : sub.status === 'grace'
+                          ? '#FDE68A'
+                          : '#FECACA',
+                  }}
+                >
+                  {sub.status === 'active'
+                    ? t('statusActive')
+                    : sub.status === 'trial'
+                      ? t('statusTrial')
+                      : sub.status === 'grace'
+                        ? t('statusGrace')
+                        : sub.status === 'expired'
+                          ? t('statusExpired')
+                          : sub.status}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {!collapsed && canAccessMaster && (
@@ -417,8 +439,10 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
         {navItems.map((item) => {
           const Icon = item.icon;
           const isProducts = item.id === 'products';
+          const isOrders = item.id === 'orders';
           const isThemes = item.id === 'themes';
           const isMarketing = item.id === 'marketing';
+          const isSmartAutomation = item.id === 'smart-automation';
           const isWhatsApp = item.id === 'whatsapp';
           const isShipping = item.id === 'shipping';
           const isSettings = item.id === 'settings';
@@ -426,16 +450,29 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
           // Coming Soon = fixed disabled button (no click, no dropdown).
           const hasSubmenu =
             !comingSoon &&
-            (isProducts || isThemes || isMarketing || isWhatsApp || isShipping || isSettings);
+            (isProducts ||
+              isOrders ||
+              isThemes ||
+              isMarketing ||
+              isSmartAutomation ||
+              isWhatsApp ||
+              isShipping ||
+              isSettings);
           const isActive = comingSoon
             ? false
             : isProducts
               ? isProductsFamily
-              : isThemes
-                ? isThemesFamily
-                : isMarketing
-                  ? isMarketingFamily
-                  : currentTab === item.id;
+              : isOrders
+                ? isOrdersFamily
+                : isThemes
+                  ? isThemesFamily
+                  : isMarketing
+                    ? isMarketingFamily
+                    : isSmartAutomation
+                      ? isSmartAutomationFamily
+                      : isSettings
+                        ? currentTab === 'settings' || currentTab === 'hosting'
+                        : currentTab === item.id;
           const isSubmenuOpen = !comingSoon && Boolean(openSubmenus[item.id]);
 
           return (
@@ -447,6 +484,18 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                 onClick={() => {
                   if (comingSoon) return;
                   if (hasSubmenu) {
+                    if (isSmartAutomation) {
+                      if (isActive) {
+                        setOpenSubmenus((prev) => ({ ...prev, [item.id]: !prev[item.id] }));
+                      } else {
+                        const firstChild =
+                          SMART_AUTOMATION_CHILDREN.find((childId) => canShowStoreTab(childId)) ||
+                          'analytics';
+                        selectTab(firstChild);
+                        setOpenSubmenus((prev) => ({ ...prev, [item.id]: true }));
+                      }
+                      return;
+                    }
                     if (isActive) {
                       setOpenSubmenus((prev) => ({ ...prev, [item.id]: !prev[item.id] }));
                     } else {
@@ -487,7 +536,9 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                     strokeWidth={isActive ? 2.25 : 2}
                   />
                   {!collapsed && (
-                    <span className="truncate font-semibold">{labelForNav(t, STORE_NAV_KEYS, item.id)}</span>
+                    <span className="truncate font-semibold text-start">
+                      {labelForNav(t, STORE_NAV_KEYS, item.id)}
+                    </span>
                   )}
                 </div>
                 {!collapsed && (
@@ -582,6 +633,82 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                 </div>
               )}
 
+              {/* Submenu for Orders — All Orders · Invoices */}
+              {isOrders && !collapsed && isSubmenuOpen && isActive && (
+                <div className="ps-7 pe-1 space-y-0.5 py-1">
+                  {(
+                    [
+                      {
+                        id: 'orders',
+                        labelAr: 'كل الطلبات',
+                        labelEn: 'All Orders',
+                        color: 'bg-orange-400',
+                      },
+                      {
+                        id: 'invoices',
+                        labelAr: 'الفواتير والمستندات',
+                        labelEn: 'Invoices & Documents',
+                        color: 'bg-emerald-400',
+                      },
+                    ] as const
+                  )
+                    .filter((sub) => canShowStoreTab(sub.id))
+                    .map((sub) => {
+                      const isSubActive = currentTab === sub.id;
+                      return (
+                        <button
+                          key={sub.id}
+                          type="button"
+                          onClick={() => selectTab(sub.id)}
+                          className={`w-full text-start py-1.5 px-2 rounded-lg text-[11.5px] transition-colors flex items-center gap-2 cursor-pointer ${
+                            isSubActive
+                              ? 'font-bold text-white bg-white/15 shadow-xs'
+                              : 'font-semibold text-slate-200 hover:text-white hover:bg-white/10'
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${sub.color} shrink-0`} />
+                          <span className="truncate">{isAr ? sub.labelAr : sub.labelEn}</span>
+                        </button>
+                      );
+                    })}
+                </div>
+              )}
+
+              {/* Submenu for Smart Automation — Analytics */}
+              {isSmartAutomation && !collapsed && isSubmenuOpen && isActive && (
+                <div className="ps-7 pe-1 space-y-0.5 py-1">
+                  {(
+                    [
+                      {
+                        id: 'analytics',
+                        labelAr: 'التحليلات',
+                        labelEn: 'Analytics',
+                        color: 'bg-sky-400',
+                      },
+                    ] as const
+                  )
+                    .filter((sub) => canShowStoreTab(sub.id))
+                    .map((sub) => {
+                      const isSubActive = currentTab === sub.id;
+                      return (
+                        <button
+                          key={sub.id}
+                          type="button"
+                          onClick={() => selectTab(sub.id)}
+                          className={`w-full text-start py-1.5 px-2 rounded-lg text-[12px] transition-colors flex items-center gap-2 cursor-pointer ${
+                            isSubActive
+                              ? 'font-bold text-white bg-white/15 shadow-xs'
+                              : 'font-semibold text-slate-100 hover:text-white hover:bg-white/10'
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${sub.color} shrink-0`} />
+                          <span className="truncate">{isAr ? sub.labelAr : sub.labelEn}</span>
+                        </button>
+                      );
+                    })}
+                </div>
+              )}
+
               {/* Submenu for Themes — settings + all builder pages (page switch) */}
               {isThemes && !collapsed && isSubmenuOpen && isActive && (
                 <div className="ps-7 pe-1 space-y-0.5 py-1">
@@ -596,18 +723,6 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-teal-400 shrink-0" />
                     <span>{isAr ? 'الثيمات المثبتة' : 'Installed Themes'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => selectTab('appstore')}
-                    className={`w-full text-start py-1 px-2 rounded-lg text-[11px] transition-colors flex items-center gap-2 cursor-pointer ${
-                      currentTab === 'appstore'
-                        ? 'font-bold text-white bg-white/15 shadow-xs'
-                        : 'font-semibold text-slate-200 hover:text-white hover:bg-white/15'
-                    }`}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
-                    <span>{isAr ? 'متجر الثيمات' : 'Theme Marketplace'}</span>
                   </button>
                   <button
                     type="button"
@@ -714,6 +829,20 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                     <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />
                     <span>{isAr ? 'مدير العلامات وتحليلات الزوار' : 'Tag Manager & Analytics'}</span>
                   </button>
+                  {canShowStoreTab('hosting') ? (
+                    <button
+                      type="button"
+                      onClick={() => selectTab('hosting')}
+                      className={`w-full text-start py-1 px-2 rounded-lg text-[11px] transition-colors flex items-center gap-2 cursor-pointer ${
+                        currentTab === 'hosting'
+                          ? 'font-bold text-white bg-white/15 shadow-xs'
+                          : 'font-semibold text-slate-200 hover:text-white hover:bg-white/15'
+                      }`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+                      <span>{isAr ? 'الاستضافة والنطاق' : 'Hosting & Domain'}</span>
+                    </button>
+                  ) : null}
                 </div>
               )}
 
@@ -734,6 +863,9 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                     { id: 'affiliate', labelAr: 'التسويق بالعمولة', labelEn: 'Affiliate Marketing', color: 'bg-yellow-400' },
                     { id: 'direct-orders', labelAr: 'الطلب المباشر', labelEn: 'Direct Orders', color: 'bg-sky-400' },
                     { id: 'social', labelAr: 'النشر الاجتماعي', labelEn: 'Social Publishing', color: 'bg-fuchsia-400' },
+                    { id: 'seo', labelAr: 'تحسين محركات البحث', labelEn: 'SEO Optimization', color: 'bg-amber-400' },
+                    { id: 'blog', labelAr: 'المدونة', labelEn: 'Blog (Articles)', color: 'bg-violet-400' },
+                    { id: 'commerce-tools', labelAr: 'أدوات التجارة للمقالات', labelEn: 'Commerce Tools', color: 'bg-rose-400' },
                   ]
                     .filter(
                       (sub) =>
@@ -748,10 +880,10 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                         key={sub.id}
                         type="button"
                         onClick={() => selectTab(sub.id)}
-                        className={`w-full text-start py-1 px-2 rounded-lg text-[11px] font-semibold transition-all flex items-center gap-2 cursor-pointer ${
+                        className={`w-full text-start py-1.5 px-2 rounded-lg text-[12px] font-semibold transition-all flex items-center gap-2 cursor-pointer ${
                           isSubActive
                             ? 'text-white bg-white/20 shadow-xs font-bold'
-                            : 'text-slate-300 hover:text-white hover:bg-white/10'
+                            : 'text-slate-100 hover:text-white hover:bg-white/10'
                         }`}
                       >
                         <span className={`w-1.5 h-1.5 rounded-full ${sub.color} shrink-0`} />

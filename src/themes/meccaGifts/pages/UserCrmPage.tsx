@@ -700,7 +700,7 @@ export const UserCrmPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      applyCouponCode(coupon.code);
+                      void applyCouponCode(coupon.code);
                       setCurrentPage('cart');
                     }}
                     className="w-full py-2.5 rounded-xl bg-[#102a1c] hover:bg-[#1a3f2b] text-[#e6ca98] text-xs font-bold transition-all cursor-pointer"

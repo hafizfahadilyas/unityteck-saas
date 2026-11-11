@@ -61,8 +61,8 @@ export function PrefsProvider({
   );
 
   const allowedLocales = useMemo<AppLocale[]>(() => {
-    // Both English and Arabic are always fully available in both Store and Master portals
-    return ['en', 'ar'];
+    // Both languages available — Arabic first (Saudi default / login start).
+    return ['ar', 'en'];
   }, []);
 
   useEffect(() => {
