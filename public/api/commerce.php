@@ -465,6 +465,161 @@ function souq_product_stock_restock(PDO $pdo, string $storeId, string $productId
     )->execute([$qty, $productId, $storeId]);
 }
 
+/** Ensure product_variations exists (MySQL Laravel schema or SQLite bridge). */
+function souq_ensure_product_variations_table(PDO $pdo): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    if (souq_pdo_is_mysql($pdo)) {
+        try {
+            $chk = $pdo->query("SHOW TABLES LIKE 'product_variations'");
+            if ($chk && $chk->fetch()) {
+                return;
+            }
+        } catch (Throwable) {
+            /* fall through to create */
+        }
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS product_variations (
+                id VARCHAR(64) PRIMARY KEY,
+                store_id VARCHAR(64) NOT NULL,
+                product_id VARCHAR(64) NOT NULL,
+                sku VARCHAR(100) NOT NULL,
+                barcode VARCHAR(128) NULL,
+                options JSON NULL,
+                price DECIMAL(12,2) NULL,
+                compare_at_price DECIMAL(12,2) NULL,
+                stock INT NOT NULL DEFAULT 0,
+                weight DECIMAL(12,3) NULL,
+                weight_unit VARCHAR(16) NULL DEFAULT 'kg',
+                low_stock_alert INT NULL,
+                unlimited_stock TINYINT(1) NOT NULL DEFAULT 0,
+                image_url TEXT NULL,
+                is_active TINYINT(1) NOT NULL DEFAULT 1,
+                created_at TIMESTAMP NULL,
+                updated_at TIMESTAMP NULL,
+                UNIQUE KEY product_variations_store_sku_unique (store_id, sku),
+                KEY product_variations_store_product_index (store_id, product_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+        );
+        return;
+    }
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS product_variations (
+            id TEXT PRIMARY KEY,
+            store_id TEXT NOT NULL,
+            product_id TEXT NOT NULL,
+            sku TEXT NOT NULL,
+            barcode TEXT,
+            options TEXT,
+            price REAL,
+            compare_at_price REAL,
+            stock INTEGER DEFAULT 0,
+            weight REAL,
+            weight_unit TEXT DEFAULT 'kg',
+            low_stock_alert INTEGER,
+            unlimited_stock INTEGER DEFAULT 0,
+            image_url TEXT,
+            is_active INTEGER DEFAULT 1,
+            created_at TEXT,
+            updated_at TEXT
+        )"
+    );
+    try {
+        $pdo->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_pv_store_sku ON product_variations(store_id, sku)');
+    } catch (Throwable) {
+        /* index may exist */
+    }
+}
+
+function souq_variation_options_normalize($raw): array
+{
+    if (is_string($raw)) {
+        $decoded = json_decode($raw, true);
+        $raw = is_array($decoded) ? $decoded : [];
+    }
+    if (!is_array($raw)) {
+        return [];
+    }
+    $out = [];
+    foreach ($raw as $key => $value) {
+        $k = is_string($key) ? trim($key) : '';
+        if ($k === '' || $value === null || $value === '') {
+            continue;
+        }
+        $out[$k] = is_scalar($value) ? (string)$value : json_encode($value);
+    }
+    return $out;
+}
+
+function souq_variation_row(array $row): array
+{
+    $options = souq_variation_options_normalize($row['options'] ?? []);
+    return [
+        'id' => (string)$row['id'],
+        'store_id' => (string)$row['store_id'],
+        'product_id' => (string)$row['product_id'],
+        'sku' => (string)$row['sku'],
+        'barcode' => $row['barcode'] !== null && $row['barcode'] !== '' ? (string)$row['barcode'] : null,
+        'options' => $options,
+        'price' => $row['price'] !== null && $row['price'] !== '' ? (float)$row['price'] : null,
+        'compare_at_price' => $row['compare_at_price'] !== null && $row['compare_at_price'] !== '' ? (float)$row['compare_at_price'] : null,
+        'stock' => (int)($row['stock'] ?? 0),
+        'weight' => $row['weight'] !== null && $row['weight'] !== '' ? (float)$row['weight'] : null,
+        'weight_unit' => (string)($row['weight_unit'] ?? 'kg'),
+        'low_stock_alert' => $row['low_stock_alert'] !== null && $row['low_stock_alert'] !== '' ? (int)$row['low_stock_alert'] : null,
+        'unlimited_stock' => (bool)(int)($row['unlimited_stock'] ?? 0),
+        'image_url' => !empty($row['image_url']) ? (string)$row['image_url'] : null,
+        'is_active' => (bool)(int)($row['is_active'] ?? 1),
+        'created_at' => $row['created_at'] ?? null,
+        'updated_at' => $row['updated_at'] ?? null,
+    ];
+}
+
+/** @return list<array<string,mixed>> */
+function souq_product_variations_list(PDO $pdo, string $storeId, string $productId): array
+{
+    try {
+        souq_ensure_product_variations_table($pdo);
+        $st = $pdo->prepare('SELECT * FROM product_variations WHERE store_id = ? AND product_id = ? ORDER BY sku ASC');
+        $st->execute([$storeId, $productId]);
+        $out = [];
+        while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+            $out[] = souq_variation_row($row);
+        }
+        return $out;
+    } catch (Throwable) {
+        return [];
+    }
+}
+
+function souq_variation_stock_deduct(PDO $pdo, string $storeId, string $variationId, int $qty): void
+{
+    if ($variationId === '' || $qty < 1) {
+        return;
+    }
+    try {
+        $sql = souq_pdo_is_mysql($pdo)
+            ? 'UPDATE product_variations SET stock = CASE WHEN stock - ? < 0 THEN 0 ELSE stock - ? END, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND store_id = ?'
+            : 'UPDATE product_variations SET stock = CASE WHEN stock - ? < 0 THEN 0 ELSE stock - ? END, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND store_id = ?';
+        $pdo->prepare($sql)->execute([$qty, $qty, $variationId, $storeId]);
+    } catch (Throwable) {
+        /* ignore if table missing */
+    }
+}
+
+function souq_fmt_growth(?float $growth): ?string
+{
+    if ($growth === null) {
+        return null;
+    }
+    $prefix = $growth >= 0 ? '+' : '';
+    return $prefix . round($growth, 1) . '%';
+}
+
 function souq_customer_row(array $row): array
 {
     return [
@@ -489,13 +644,21 @@ function souq_customer_row(array $row): array
 
 function souq_upsert_customer(PDO $pdo, string $storeId, string $name, string $phone, ?string $email, string $city, string $source, float $total): array
 {
-    // Hostinger MySQL customers.email is NOT NULL — never bind PHP null.
-    $emailValue = trim((string)$email);
+    // Hostinger MySQL: customers.email NOT NULL + UNIQUE(store_id, email).
+    // Empty email '' can only exist once per store — use phone-based placeholder instead.
+    $emailValue = strtolower(trim((string)$email));
+    if ($emailValue === '') {
+        $digits = souq_digits($phone);
+        $emailValue = $digits !== ''
+            ? ('guest+' . $digits . '@noemail.local')
+            : ('guest+' . bin2hex(random_bytes(4)) . '@noemail.local');
+    }
     $st = $pdo->prepare('SELECT * FROM customers WHERE store_id = ?');
     $st->execute([$storeId]);
     $found = null;
     while ($row = $st->fetch()) {
-        $emailMatch = $emailValue !== '' && strcasecmp((string)$row['email'], $emailValue) === 0;
+        $rowEmail = strtolower(trim((string)($row['email'] ?? '')));
+        $emailMatch = $rowEmail !== '' && strcasecmp($rowEmail, $emailValue) === 0;
         if ($emailMatch || souq_phones_match((string)$row['phone'], $phone)) {
             $found = $row;
             break;
@@ -508,9 +671,16 @@ function souq_upsert_customer(PDO $pdo, string $storeId, string $name, string $p
         $avg = $orders > 0 ? round($spend / $orders, 2) : $total;
         $status = ($spend >= 1500 || $orders >= 3) ? 'VIP' : (($found['status'] === 'Inactive' || $found['status'] === 'New') ? 'Active' : $found['status']);
         $group = $status === 'VIP' ? 'VIP' : ($found['group'] ?: 'Regular');
-        $upd = $pdo->prepare('UPDATE customers SET name = ?, email = COALESCE(NULLIF(?, \'\'), email), phone = ?, city = COALESCE(NULLIF(?, \'\'), city), total_orders = ?, total_spend = ?, avg_order_value = ?, last_order_date = ?, status = ?, `group` = ?, acquisition_source = COALESCE(acquisition_source, ?) WHERE id = ? AND store_id = ?');
-        $upd->execute([$name, $emailValue, $phone, $city, $orders, $spend, $avg, $now, $status, $group, $source, $found['id'], $storeId]);
+        // Keep real emails; only fill blank/legacy empty email with placeholder.
+        $nextEmail = $emailValue;
+        $existingEmail = trim((string)($found['email'] ?? ''));
+        if ($existingEmail !== '' && !str_ends_with(strtolower($existingEmail), '@noemail.local') && str_contains($emailValue, '@noemail.local')) {
+            $nextEmail = $existingEmail;
+        }
+        $upd = $pdo->prepare('UPDATE customers SET name = ?, email = ?, phone = ?, city = COALESCE(NULLIF(?, \'\'), city), total_orders = ?, total_spend = ?, avg_order_value = ?, last_order_date = ?, status = ?, `group` = ?, acquisition_source = COALESCE(acquisition_source, ?) WHERE id = ? AND store_id = ?');
+        $upd->execute([$name, $nextEmail, $phone, $city, $orders, $spend, $avg, $now, $status, $group, $source, $found['id'], $storeId]);
         $found['name'] = $name;
+        $found['email'] = $nextEmail;
         $found['total_orders'] = $orders;
         $found['total_spend'] = $spend;
         $found['avg_order_value'] = $avg;
@@ -533,12 +703,48 @@ function souq_upsert_customer(PDO $pdo, string $storeId, string $name, string $p
         $vals[] = $now;
     }
     $placeholders = implode(', ', array_fill(0, count($cols), '?'));
-    $pdo->prepare('INSERT INTO customers (' . implode(', ', $cols) . ') VALUES (' . $placeholders . ')')->execute($vals);
+    try {
+        $pdo->prepare('INSERT INTO customers (' . implode(', ', $cols) . ') VALUES (' . $placeholders . ')')->execute($vals);
+    } catch (Throwable $e) {
+        // Unique(store_id,email) clash (legacy '' email or race): bind to matching row or uniqueize email once.
+        $st2 = $pdo->prepare('SELECT * FROM customers WHERE store_id = ?');
+        $st2->execute([$storeId]);
+        $legacy = null;
+        while ($row = $st2->fetch()) {
+            $rowEmail = trim((string)($row['email'] ?? ''));
+            if (souq_phones_match((string)$row['phone'], $phone) || strcasecmp($rowEmail, $emailValue) === 0 || $rowEmail === '') {
+                $legacy = $row;
+                break;
+            }
+        }
+        if ($legacy) {
+            $orders = (int)$legacy['total_orders'] + 1;
+            $spend = (float)$legacy['total_spend'] + $total;
+            $avg = $orders > 0 ? round($spend / $orders, 2) : $total;
+            $status = ($spend >= 1500 || $orders >= 3) ? 'VIP' : 'Active';
+            $group = $status === 'VIP' ? 'VIP' : 'Regular';
+            $pdo->prepare('UPDATE customers SET name = ?, email = ?, phone = ?, city = COALESCE(NULLIF(?, \'\'), city), total_orders = ?, total_spend = ?, avg_order_value = ?, last_order_date = ?, status = ?, `group` = ? WHERE id = ? AND store_id = ?')
+                ->execute([$name, $emailValue, $phone, $city, $orders, $spend, $avg, $now, $status, $group, $legacy['id'], $storeId]);
+            $legacy['name'] = $name;
+            $legacy['email'] = $emailValue;
+            $legacy['phone'] = $phone;
+            $legacy['total_orders'] = $orders;
+            $legacy['total_spend'] = $spend;
+            $legacy['avg_order_value'] = $avg;
+            $legacy['status'] = $status;
+            $legacy['group'] = $group;
+            $legacy['last_order_date'] = $now;
+            return $legacy;
+        }
+        $emailValue = 'guest+' . bin2hex(random_bytes(5)) . '@noemail.local';
+        $vals[3] = $emailValue;
+        $pdo->prepare('INSERT INTO customers (' . implode(', ', $cols) . ') VALUES (' . $placeholders . ')')->execute($vals);
+    }
     return [
         'id' => $id,
         'store_id' => $storeId,
         'name' => $name,
-        'email' => $email,
+        'email' => $emailValue,
         'phone' => $phone,
         'city' => $city,
         'country' => 'Saudi Arabia',
@@ -1002,6 +1208,7 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
     }
 
     if ($uri === '/storefront/orders' && $method === 'POST') {
+        try {
         $name = trim((string)($input['customer_name'] ?? ''));
         $phone = trim((string)($input['customer_phone'] ?? ''));
         $total = (float)($input['total_amount'] ?? 0);
@@ -1054,11 +1261,15 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
         $charged = max(0, $total - $discount);
         $customer = souq_upsert_customer($pdo, $storeId, $name, $phone, $email, $city, $source, $charged);
         $rate = souq_loyalty_rate($pdo, $storeId);
-        if ($rate > 0) {
+        if ($rate > 0 && function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'customers', 'points')) {
             $pts = (int)floor($charged * $rate);
             if ($pts > 0) {
-                $pdo->prepare('UPDATE customers SET points = points + ? WHERE id = ? AND store_id = ?')->execute([$pts, $customer['id'], $storeId]);
-                $customer['points'] = (int)($customer['points'] ?? 0) + $pts;
+                try {
+                    $pdo->prepare('UPDATE customers SET points = points + ? WHERE id = ? AND store_id = ?')->execute([$pts, $customer['id'], $storeId]);
+                    $customer['points'] = (int)($customer['points'] ?? 0) + $pts;
+                } catch (Throwable) {
+                    /* points column optional on some hosts */
+                }
             }
         }
         $orderId = 'ord-' . bin2hex(random_bytes(8));
@@ -1070,20 +1281,72 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             }
         }
         $summary = $names ? implode(', ', $names) : '';
-        $now = date('c');
+        $now = date('Y-m-d H:i:s');
         $methodName = souq_payment_method($input['payment_method'] ?? null);
-        $ins = $pdo->prepare('INSERT INTO orders (id, store_id, order_number, customer_id, customer_name, customer_email, customer_phone, items_count, items_summary, total_amount, currency, source, source_details, delivery_location, status, payment_method, payment_status, shipping_status, order_date, coupon_code, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        $ins->execute([
+        // Prefer dynamic columns like manual orders (MySQL schema varies).
+        $cols = [
+            'id', 'store_id', 'order_number', 'customer_id', 'customer_name', 'customer_email', 'customer_phone',
+            'items_count', 'items_summary', 'total_amount', 'currency', 'source', 'source_details',
+            'delivery_location', 'status', 'payment_method', 'payment_status', 'shipping_status',
+            'order_date', 'created_at',
+        ];
+        $vals = [
             $orderId, $storeId, $number, $customer['id'], $name, $email, $phone,
             count($items) ?: 1, $summary, $charged, 'SAR', $source, $details !== '' ? $details : $source,
-            $location, 'pending', $methodName, 'Pending', 'pending', substr($now, 0, 10), $couponCode !== '' ? $couponCode : null, $now,
-        ]);
+            $location !== '' ? $location : null, 'pending', $methodName, 'Pending', 'pending',
+            substr($now, 0, 10), $now,
+        ];
+        if (function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'orders', 'coupon_code')) {
+            $cols[] = 'coupon_code';
+            $vals[] = $couponCode !== '' ? $couponCode : null;
+        }
+        if (function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'orders', 'updated_at')) {
+            $cols[] = 'updated_at';
+            $vals[] = $now;
+        }
+        $placeholders = implode(', ', array_fill(0, count($cols), '?'));
+        $colSql = implode(', ', $cols);
+        $ins = $pdo->prepare("INSERT INTO orders ({$colSql}) VALUES ({$placeholders})");
+        $ins->execute($vals);
+        try {
+            souq_ensure_product_variations_table($pdo);
+        } catch (Throwable) {
+            /* optional */
+        }
         $itemIns = $pdo->prepare('INSERT INTO order_items (order_id, store_id, product_id, product_name, quantity, unit_price, subtotal) VALUES (?, ?, ?, ?, ?, ?, ?)');
         foreach ($items as $item) {
             $qty = max(1, (int)($item['quantity'] ?? 1));
             $price = (float)($item['price'] ?? 0);
             $pid = (string)($item['product_id'] ?? '');
-            $itemIns->execute([$orderId, $storeId, $pid, (string)($item['name'] ?? ''), $qty, $price, $qty * $price]);
+            $vid = trim((string)($item['variation_id'] ?? $item['variationId'] ?? ''));
+            $pname = (string)($item['name'] ?? '');
+            if ($vid !== '') {
+                try {
+                    $vst = $pdo->prepare('SELECT * FROM product_variations WHERE id = ? AND store_id = ? LIMIT 1');
+                    $vst->execute([$vid, $storeId]);
+                    $vrow = $vst->fetch(PDO::FETCH_ASSOC);
+                    if ($vrow) {
+                        if ($vrow['price'] !== null && $vrow['price'] !== '') {
+                            $price = (float)$vrow['price'];
+                        }
+                        if ($pid === '') {
+                            $pid = (string)$vrow['product_id'];
+                        }
+                        $opts = souq_variation_options_normalize($vrow['options'] ?? []);
+                        if ($opts !== [] && $pname !== '') {
+                            $bits = [];
+                            foreach ($opts as $ok => $ov) {
+                                $bits[] = $ok . ': ' . $ov;
+                            }
+                            $pname .= ' (' . implode(', ', $bits) . ')';
+                        }
+                        souq_variation_stock_deduct($pdo, $storeId, $vid, $qty);
+                    }
+                } catch (Throwable) {
+                    /* keep posted price */
+                }
+            }
+            $itemIns->execute([$orderId, $storeId, $pid, $pname, $qty, $price, $qty * $price]);
             if ($pid !== '') {
                 souq_product_stock_deduct($pdo, $storeId, $pid, $qty);
             }
@@ -1097,6 +1360,14 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             'customer' => souq_customer_row($custFresh->fetch() ?: $customer),
         ]);
         return true;
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode([
+                'message' => 'Storefront order failed.',
+                'error' => $e->getMessage(),
+            ]);
+            return true;
+        }
     }
 
     if ($uri === '/storefront/orders/track' && $method === 'POST') {
@@ -2562,6 +2833,456 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             $rows = is_array($data['courier_shipments'] ?? null) ? array_values($data['courier_shipments']) : [];
         }
         echo json_encode(['data' => $rows, 'store_id' => $storeId, 'meta' => ['total' => count($rows)]]);
+        return true;
+    }
+
+    // ── Product variations (store_id isolated) ──
+    if (preg_match('#^/products/([^/]+)/variations$#', $uri, $vm) && $method === 'GET') {
+        $productId = rawurldecode($vm[1]);
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        $pst = $pdo->prepare('SELECT id FROM products WHERE id = ? AND store_id = ? LIMIT 1');
+        $pst->execute([$productId, $storeId]);
+        if (!$pst->fetch()) {
+            http_response_code(404);
+            echo json_encode(['message' => 'Product not found in this store.']);
+            return true;
+        }
+        $rows = souq_product_variations_list($pdo, $storeId, $productId);
+        echo json_encode(['data' => $rows, 'store_id' => $storeId, 'product_id' => $productId]);
+        return true;
+    }
+
+    if (preg_match('#^/products/([^/]+)/variations$#', $uri, $vm) && $method === 'POST') {
+        $productId = rawurldecode($vm[1]);
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        souq_ensure_product_variations_table($pdo);
+        $pst = $pdo->prepare('SELECT id FROM products WHERE id = ? AND store_id = ? LIMIT 1');
+        $pst->execute([$productId, $storeId]);
+        if (!$pst->fetch()) {
+            http_response_code(404);
+            echo json_encode(['message' => 'Product not found in this store.']);
+            return true;
+        }
+        $sku = trim((string)($input['sku'] ?? ''));
+        if ($sku === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'SKU is required.']);
+            return true;
+        }
+        $dup = $pdo->prepare('SELECT id FROM product_variations WHERE store_id = ? AND sku = ? LIMIT 1');
+        $dup->execute([$storeId, $sku]);
+        if ($dup->fetch()) {
+            http_response_code(422);
+            echo json_encode(['message' => 'Variation SKU already exists for this store.']);
+            return true;
+        }
+        $options = souq_variation_options_normalize($input['options'] ?? []);
+        $id = trim((string)($input['id'] ?? ''));
+        if ($id === '') {
+            $id = 'var-' . bin2hex(random_bytes(6));
+        }
+        $now = date('Y-m-d H:i:s');
+        $optsJson = json_encode($options, JSON_UNESCAPED_UNICODE);
+        $pdo->prepare(
+            'INSERT INTO product_variations (id, store_id, product_id, sku, barcode, options, price, compare_at_price, stock, weight, weight_unit, low_stock_alert, unlimited_stock, image_url, is_active, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        )->execute([
+            $id,
+            $storeId,
+            $productId,
+            $sku,
+            $input['barcode'] ?? null,
+            $optsJson,
+            array_key_exists('price', $input) ? $input['price'] : null,
+            array_key_exists('compare_at_price', $input) ? $input['compare_at_price'] : null,
+            (int)($input['stock'] ?? 0),
+            array_key_exists('weight', $input) ? $input['weight'] : null,
+            (string)($input['weight_unit'] ?? 'kg'),
+            array_key_exists('low_stock_alert', $input) ? $input['low_stock_alert'] : null,
+            !empty($input['unlimited_stock']) ? 1 : 0,
+            $input['image_url'] ?? null,
+            array_key_exists('is_active', $input) ? (!empty($input['is_active']) ? 1 : 0) : 1,
+            $now,
+            $now,
+        ]);
+        $fresh = $pdo->prepare('SELECT * FROM product_variations WHERE id = ? AND store_id = ?');
+        $fresh->execute([$id, $storeId]);
+        http_response_code(201);
+        echo json_encode(['data' => souq_variation_row($fresh->fetch(PDO::FETCH_ASSOC) ?: ['id' => $id, 'store_id' => $storeId, 'product_id' => $productId, 'sku' => $sku, 'options' => $optsJson, 'stock' => 0, 'is_active' => 1])]);
+        return true;
+    }
+
+    if (preg_match('#^/products/([^/]+)/variations/([^/]+)$#', $uri, $vm) && in_array($method, ['PATCH', 'PUT', 'POST'], true)) {
+        $productId = rawurldecode($vm[1]);
+        $varId = rawurldecode($vm[2]);
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        souq_ensure_product_variations_table($pdo);
+        $st = $pdo->prepare('SELECT * FROM product_variations WHERE id = ? AND product_id = ? AND store_id = ? LIMIT 1');
+        $st->execute([$varId, $productId, $storeId]);
+        $existing = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$existing) {
+            http_response_code(404);
+            echo json_encode(['message' => 'Variation not found.']);
+            return true;
+        }
+        $sku = array_key_exists('sku', $input) ? trim((string)$input['sku']) : (string)$existing['sku'];
+        if ($sku === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'SKU is required.']);
+            return true;
+        }
+        if ($sku !== (string)$existing['sku']) {
+            $dup = $pdo->prepare('SELECT id FROM product_variations WHERE store_id = ? AND sku = ? AND id != ? LIMIT 1');
+            $dup->execute([$storeId, $sku, $varId]);
+            if ($dup->fetch()) {
+                http_response_code(422);
+                echo json_encode(['message' => 'Variation SKU already exists for this store.']);
+                return true;
+            }
+        }
+        $options = array_key_exists('options', $input)
+            ? souq_variation_options_normalize($input['options'])
+            : souq_variation_options_normalize($existing['options'] ?? []);
+        $now = date('Y-m-d H:i:s');
+        $pdo->prepare(
+            'UPDATE product_variations SET sku = ?, barcode = ?, options = ?, price = ?, compare_at_price = ?, stock = ?, weight = ?, weight_unit = ?, low_stock_alert = ?, unlimited_stock = ?, image_url = ?, is_active = ?, updated_at = ? WHERE id = ? AND store_id = ?'
+        )->execute([
+            $sku,
+            array_key_exists('barcode', $input) ? $input['barcode'] : $existing['barcode'],
+            json_encode($options, JSON_UNESCAPED_UNICODE),
+            array_key_exists('price', $input) ? $input['price'] : $existing['price'],
+            array_key_exists('compare_at_price', $input) ? $input['compare_at_price'] : $existing['compare_at_price'],
+            array_key_exists('stock', $input) ? (int)$input['stock'] : (int)$existing['stock'],
+            array_key_exists('weight', $input) ? $input['weight'] : $existing['weight'],
+            array_key_exists('weight_unit', $input) ? $input['weight_unit'] : ($existing['weight_unit'] ?? 'kg'),
+            array_key_exists('low_stock_alert', $input) ? $input['low_stock_alert'] : $existing['low_stock_alert'],
+            array_key_exists('unlimited_stock', $input) ? (!empty($input['unlimited_stock']) ? 1 : 0) : (int)$existing['unlimited_stock'],
+            array_key_exists('image_url', $input) ? $input['image_url'] : $existing['image_url'],
+            array_key_exists('is_active', $input) ? (!empty($input['is_active']) ? 1 : 0) : (int)$existing['is_active'],
+            $now,
+            $varId,
+            $storeId,
+        ]);
+        $fresh = $pdo->prepare('SELECT * FROM product_variations WHERE id = ? AND store_id = ?');
+        $fresh->execute([$varId, $storeId]);
+        echo json_encode(['data' => souq_variation_row($fresh->fetch(PDO::FETCH_ASSOC) ?: $existing)]);
+        return true;
+    }
+
+    if (preg_match('#^/products/([^/]+)/variations/([^/]+)$#', $uri, $vm) && $method === 'DELETE') {
+        $productId = rawurldecode($vm[1]);
+        $varId = rawurldecode($vm[2]);
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        souq_ensure_product_variations_table($pdo);
+        $del = $pdo->prepare('DELETE FROM product_variations WHERE id = ? AND product_id = ? AND store_id = ?');
+        $del->execute([$varId, $productId, $storeId]);
+        echo json_encode(['success' => true, 'deleted' => $del->rowCount() > 0, 'store_id' => $storeId]);
+        return true;
+    }
+
+    // ── Storefront categories (public, store_id isolated) ──
+    if ($uri === '/storefront/categories' && $method === 'GET') {
+        $sid = $storeId !== '' ? $storeId : trim((string)($_GET['store_id'] ?? ''));
+        if ($sid === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        $st = $pdo->prepare('SELECT id, store_id, parent_id, name, name_ar, slug, image_url, sort_order FROM categories WHERE store_id = ? AND (is_active = 1 OR is_active IS NULL) ORDER BY sort_order ASC, name ASC');
+        $st->execute([$sid]);
+        $rows = [];
+        while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+            $rows[] = [
+                'id' => (string)$r['id'],
+                'store_id' => (string)$r['store_id'],
+                'parent_id' => !empty($r['parent_id']) ? (string)$r['parent_id'] : null,
+                'name' => (string)$r['name'],
+                'name_ar' => $r['name_ar'] !== null && $r['name_ar'] !== '' ? (string)$r['name_ar'] : null,
+                'slug' => (string)($r['slug'] ?? ''),
+                'image_url' => !empty($r['image_url']) ? (string)$r['image_url'] : null,
+            ];
+        }
+        echo json_encode(['data' => $rows, 'store_id' => $sid, 'meta' => ['total' => count($rows)]]);
+        return true;
+    }
+
+    // ── Shipping calculate (admin + storefront) ──
+    if (($uri === '/shipping/calculate' || $uri === '/storefront/shipping/calculate') && $method === 'POST') {
+        $sid = $storeId !== '' ? $storeId : trim((string)($input['store_id'] ?? ''));
+        if ($sid === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        souq_ensure_shipping_defaults($pdo, $sid);
+        $city = trim((string)($input['city'] ?? ''));
+        $orderTotal = (float)($input['order_total'] ?? $input['subtotal'] ?? 0);
+        $st = $pdo->prepare('SELECT * FROM shipping_methods WHERE store_id = ? AND is_active = 1 ORDER BY sort_order, created_at');
+        $st->execute([$sid]);
+        $methods = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $options = [];
+        foreach ($methods as $m) {
+            $base = (float)($m['base_rate'] ?? 0);
+            $threshold = $m['free_shipping_threshold'] !== null && $m['free_shipping_threshold'] !== ''
+                ? (float)$m['free_shipping_threshold']
+                : null;
+            $isFree = $threshold !== null && $threshold > 0 && $orderTotal >= $threshold;
+            $rate = $isFree ? 0.0 : $base;
+            $options[] = [
+                'id' => (string)$m['id'],
+                'name' => (string)$m['name'],
+                'name_ar' => (string)($m['name_ar'] ?? $m['name']),
+                'type' => (string)($m['type'] ?? 'flat_rate'),
+                'rate' => $rate,
+                'is_free' => $isFree,
+                'estimated_delivery' => (string)($m['estimated_delivery'] ?? '2-4 Days'),
+                'is_cod_allowed' => (bool)(int)($m['is_cod_allowed'] ?? 1),
+                'city' => $city !== '' ? $city : null,
+            ];
+        }
+        $best = $options[0] ?? null;
+        echo json_encode([
+            'store_id' => $sid,
+            'city' => $city !== '' ? $city : null,
+            'order_total' => $orderTotal,
+            'rate' => $best['rate'] ?? 0,
+            'is_free' => $best['is_free'] ?? false,
+            'estimated_delivery' => $best['estimated_delivery'] ?? null,
+            'cod_available' => $best['is_cod_allowed'] ?? true,
+            'methods' => $options,
+            'data' => $options,
+        ]);
+        return true;
+    }
+
+    // ── Analytics overview / sales-revenue (real orders only — no invented KPIs) ──
+    if (($uri === '/analytics/overview' || $uri === '/analytics/sales-revenue') && $method === 'GET') {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        $range = (string)($_GET['range'] ?? '30d');
+        $days = match ($range) {
+            '7d' => 7,
+            '90d' => 90,
+            'year' => 365,
+            default => 30,
+        };
+        $now = date('Y-m-d H:i:s');
+        $start = date('Y-m-d H:i:s', strtotime("-{$days} days"));
+        $prevStart = date('Y-m-d H:i:s', strtotime('-' . ($days * 2) . ' days'));
+        $prevEnd = $start;
+
+        $sumOrders = static function (PDO $pdo, string $sid, string $from, string $to): array {
+            $st = $pdo->prepare("SELECT COUNT(*) c, COALESCE(SUM(CASE WHEN status != 'cancelled' THEN total_amount ELSE 0 END), 0) revenue FROM orders WHERE store_id = ? AND created_at >= ? AND created_at <= ?");
+            $st->execute([$sid, $from, $to]);
+            $row = $st->fetch(PDO::FETCH_ASSOC) ?: ['c' => 0, 'revenue' => 0];
+            return ['orders' => (int)$row['c'], 'revenue' => (float)$row['revenue']];
+        };
+        $cur = $sumOrders($pdo, $storeId, $start, $now);
+        $prev = $sumOrders($pdo, $storeId, $prevStart, $prevEnd);
+        $aov = $cur['orders'] > 0 ? round($cur['revenue'] / $cur['orders'], 2) : 0.0;
+        $prevAov = $prev['orders'] > 0 ? round($prev['revenue'] / $prev['orders'], 2) : 0.0;
+        $revGrowth = $prev['revenue'] > 0 ? (($cur['revenue'] - $prev['revenue']) / $prev['revenue']) * 100 : null;
+        $ordGrowth = $prev['orders'] > 0 ? (($cur['orders'] - $prev['orders']) / $prev['orders']) * 100 : null;
+        $aovGrowth = $prevAov > 0 ? (($aov - $prevAov) / $prevAov) * 100 : null;
+
+        $visits = 0;
+        try {
+            souq_ensure_analytics_tables($pdo);
+            $vst = $pdo->prepare("SELECT COUNT(DISTINCT CASE WHEN session_key IS NOT NULL AND session_key != '' THEN session_key END) sessions, SUM(CASE WHEN session_key IS NULL OR session_key = '' THEN 1 ELSE 0 END) orphans FROM analytics_events WHERE store_id = ? AND event_name = 'page_view' AND created_at >= ? AND created_at <= ?");
+            $vst->execute([$storeId, $start, $now]);
+            $vr = $vst->fetch(PDO::FETCH_ASSOC) ?: [];
+            $visits = (int)($vr['sessions'] ?? 0) + (int)($vr['orphans'] ?? 0);
+        } catch (Throwable) {
+            $visits = 0;
+        }
+        $conversion = $visits > 0 ? round(($cur['orders'] / $visits) * 100, 2) : 0.0;
+
+        $newCustomers = 0;
+        $prevCustomers = 0;
+        try {
+            $cst = $pdo->prepare('SELECT COUNT(*) c FROM customers WHERE store_id = ? AND created_at >= ? AND created_at <= ?');
+            $cst->execute([$storeId, $start, $now]);
+            $newCustomers = (int)$cst->fetchColumn();
+            $cst->execute([$storeId, $prevStart, $prevEnd]);
+            $prevCustomers = (int)$cst->fetchColumn();
+        } catch (Throwable) {
+            /* ignore */
+        }
+        $custGrowth = $prevCustomers > 0 ? (($newCustomers - $prevCustomers) / $prevCustomers) * 100 : null;
+
+        $daily = [];
+        try {
+            $dst = $pdo->prepare("SELECT DATE(created_at) d, COUNT(*) o, COALESCE(SUM(CASE WHEN status != 'cancelled' THEN total_amount ELSE 0 END), 0) r FROM orders WHERE store_id = ? AND created_at >= ? AND created_at <= ? GROUP BY DATE(created_at) ORDER BY d ASC");
+            $dst->execute([$storeId, $start, $now]);
+            while ($r = $dst->fetch(PDO::FETCH_ASSOC)) {
+                $daily[] = [
+                    'date' => (string)$r['d'],
+                    'label' => date('M d', strtotime((string)$r['d'])),
+                    'revenue' => (float)$r['r'],
+                    'orders' => (int)$r['o'],
+                ];
+            }
+        } catch (Throwable) {
+            $daily = [];
+        }
+
+        $sources = [];
+        try {
+            $sst = $pdo->prepare("SELECT COALESCE(NULLIF(TRIM(source), ''), 'Direct') source, COUNT(*) c, COALESCE(SUM(total_amount), 0) revenue FROM orders WHERE store_id = ? AND created_at >= ? AND created_at <= ? GROUP BY source");
+            $sst->execute([$storeId, $start, $now]);
+            while ($r = $sst->fetch(PDO::FETCH_ASSOC)) {
+                $sources[] = [
+                    'source' => (string)$r['source'],
+                    'orders' => (int)$r['c'],
+                    'revenue' => (float)$r['revenue'],
+                    'percentage' => $cur['orders'] > 0 ? round(((int)$r['c'] / $cur['orders']) * 100, 1) : 0.0,
+                ];
+            }
+        } catch (Throwable) {
+            $sources = [];
+        }
+
+        $topProducts = [];
+        try {
+            $pst = $pdo->prepare('SELECT product_id, product_name, SUM(quantity) units, SUM(subtotal) revenue FROM order_items WHERE store_id = ? GROUP BY product_id, product_name ORDER BY revenue DESC LIMIT 5');
+            $pst->execute([$storeId]);
+            $rank = 0;
+            while ($r = $pst->fetch(PDO::FETCH_ASSOC)) {
+                $rank++;
+                $topProducts[] = [
+                    'rank' => $rank,
+                    'product_id' => (string)$r['product_id'],
+                    'name' => (string)$r['product_name'],
+                    'units_sold' => (int)$r['units'],
+                    'revenue' => (float)$r['revenue'],
+                    'orders' => (int)$r['units'],
+                    'conversion_rate' => $cur['orders'] > 0 ? round((min((int)$r['units'], $cur['orders']) / $cur['orders']) * 100, 1) . '%' : '0%',
+                ];
+            }
+        } catch (Throwable) {
+            $topProducts = [];
+        }
+
+        $payload = [
+            'store_id' => $storeId,
+            'period' => [
+                'start' => substr($start, 0, 10),
+                'end' => substr($now, 0, 10),
+                'range' => $range,
+            ],
+            'kpis' => [
+                'total_revenue' => $cur['revenue'],
+                'revenue_growth' => souq_fmt_growth($revGrowth),
+                'prev_revenue' => $prev['revenue'],
+                'total_orders' => $cur['orders'],
+                'orders_growth' => souq_fmt_growth($ordGrowth),
+                'prev_orders' => $prev['orders'],
+                'conversion_rate' => $conversion . '%',
+                'conversion_rate_numeric' => $conversion,
+                'aov' => $aov,
+                'aov_growth' => souq_fmt_growth($aovGrowth),
+                'prev_aov' => $prevAov,
+                'new_customers' => $newCustomers,
+                'customers_growth' => souq_fmt_growth($custGrowth),
+                'prev_customers' => $prevCustomers,
+                'net_profit_estimated' => null,
+                'profit_growth' => null,
+            ],
+            'revenue_orders_trend' => $daily,
+            'source_distribution' => $sources,
+            'top_products' => $topProducts,
+            'funnel' => [
+                'site_visits' => $visits,
+                'product_views' => 0,
+                'add_to_cart' => 0,
+                'checkout_started' => 0,
+                'orders_placed' => $cur['orders'],
+            ],
+        ];
+        if ($uri === '/analytics/sales-revenue') {
+            $payload['sales'] = [
+                'revenue' => $cur['revenue'],
+                'orders' => $cur['orders'],
+                'aov' => $aov,
+                'trend' => $daily,
+            ];
+        }
+        echo json_encode($payload);
+        return true;
+    }
+
+    // ── Storefront SEO bootstrap (host / store_id) ──
+    if ($uri === '/storefront/seo-bootstrap' && $method === 'GET') {
+        $host = strtolower(trim((string)($_GET['host'] ?? '')));
+        $host = preg_replace('/:\d+$/', '', $host) ?? $host;
+        if (str_starts_with($host, 'www.')) {
+            $host = substr($host, 4);
+        }
+        $sid = $storeId !== '' ? $storeId : trim((string)($_GET['store_id'] ?? ''));
+        $storeRow = null;
+        if ($sid !== '') {
+            $st = $pdo->prepare('SELECT * FROM stores WHERE id = ? LIMIT 1');
+            $st->execute([$sid]);
+            $storeRow = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+        }
+        if (!$storeRow && $host !== '') {
+            $st = $pdo->prepare('SELECT * FROM stores WHERE LOWER(domain) = ? OR LOWER(custom_domain) = ? OR LOWER(demo_domain) = ? LIMIT 1');
+            $st->execute([$host, $host, $host]);
+            $storeRow = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+        }
+        if (!$storeRow) {
+            http_response_code(404);
+            echo json_encode(['resolved' => false, 'host' => $host]);
+            return true;
+        }
+        $sid = (string)$storeRow['id'];
+        $seo = [];
+        try {
+            $sst = $pdo->prepare('SELECT * FROM seo_configs WHERE store_id = ? LIMIT 1');
+            $sst->execute([$sid]);
+            $seo = $sst->fetch(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable) {
+            try {
+                $sst = $pdo->prepare('SELECT * FROM seo WHERE store_id = ? LIMIT 1');
+                $sst->execute([$sid]);
+                $seo = $sst->fetch(PDO::FETCH_ASSOC) ?: [];
+            } catch (Throwable) {
+                $seo = [];
+            }
+        }
+        $origin = 'https://' . ($storeRow['custom_domain'] ?: $storeRow['domain'] ?: $host ?: 'localhost');
+        echo json_encode([
+            'resolved' => true,
+            'host' => $host !== '' ? $host : null,
+            'store_id' => $sid,
+            'meta_title' => (string)($seo['meta_title'] ?? $storeRow['name'] ?? ''),
+            'meta_description' => (string)($seo['meta_description'] ?? ''),
+            'keywords' => (string)($seo['keywords'] ?? ''),
+            'canonical_url' => rtrim((string)($seo['canonical_url'] ?? $origin), '/') . '/',
+            'ga4_measurement_id' => (string)($seo['ga4_measurement_id'] ?? ''),
+            'gtm_container_id' => (string)($seo['gtm_container_id'] ?? ''),
+            'og_image' => (string)($storeRow['logo'] ?? ''),
+            'locale' => (string)($storeRow['locale'] ?? 'ar'),
+        ]);
         return true;
     }
 

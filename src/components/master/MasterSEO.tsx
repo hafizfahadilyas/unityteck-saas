@@ -332,7 +332,7 @@ export const MasterSEO: React.FC = () => {
           <div className="h-8">
             <Sparkline
               data={totalClicksAcrossStores > 0 ? [totalClicksAcrossStores] : [0]}
-              color="#2563eb"
+              color="var(--accent)"
             />
           </div>
           <span className="text-[10px] text-slate-400 block">

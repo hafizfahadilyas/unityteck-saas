@@ -687,7 +687,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               <span className="text-neutral-300 shrink-0 hidden xs:inline">|</span>
 
               {/* Breadcrumbs */}
-              <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-neutral-500 whitespace-nowrap min-w-0">
+              <nav aria-label={language === 'AR' ? 'مسار التنقل' : 'Breadcrumb'} className="flex items-center gap-1.5 text-xs text-neutral-500 whitespace-nowrap min-w-0">
                 <button
                   onClick={() => navigateTo('home')}
                   className="hover:text-black transition-colors cursor-pointer shrink-0 font-medium"
@@ -825,57 +825,11 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                 </span>
               </div>
 
-              {/* Side Floating Gift Preview Card (Desktop & Tablet view) */}
-              <div
-                onMouseEnter={() => setIsHoveringImage(false)}
-                onMouseMove={(e) => {
-                  e.stopPropagation();
-                  setIsHoveringImage(false);
-                }}
-                className="hidden sm:flex absolute top-1/2 -translate-y-1/2 right-2 sm:right-6 z-20 w-[94px] sm:w-[106px] h-[184px] sm:h-[198px] rounded-[22px] bg-[#ECECEE] p-2.5 pt-5 pb-3 flex-col items-center justify-between pointer-events-auto transition-transform hover:scale-105 shadow-2xs cursor-default"
-              >
-                {/* Floating Top Circular Gift Icon (Coffee brown circle with white gift box) */}
-                <div className="absolute -top-3.5 sm:-top-4 left-1/2 -translate-x-1/2 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#8B5A2B] text-white flex items-center justify-center shadow-xs">
-                  <Gift className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.2]" />
-                </div>
-
-                {/* Gift Item 1 */}
-                <div className="flex flex-col items-center text-center">
-                  <img
-                    src={baristaKitImg}
-                    alt="Gift 1"
-                    className="w-10 h-10 sm:w-12 sm:h-12 object-contain mix-blend-multiply"
-                    referrerPolicy="no-referrer"
-                  />
-                  <span className="text-[10px] text-neutral-500 font-medium tracking-tight mt-0.5 font-sans">
-                    {language === 'AR' ? '99 ر.س' : 'SAR 99'}
-                  </span>
-                </div>
-
-                {/* Plus Separator */}
-                <span className="text-neutral-400 text-xs font-light leading-none -my-0.5 select-none">
-                  +
-                </span>
-
-                {/* Gift Item 2 */}
-                <div className="flex flex-col items-center text-center">
-                  <img
-                    src={scaleImg}
-                    alt="Gift 2"
-                    className="w-9 h-9 sm:w-11 sm:h-11 object-contain mix-blend-multiply"
-                    referrerPolicy="no-referrer"
-                  />
-                  <span className="text-[10px] text-neutral-500 font-medium tracking-tight mt-0.5 font-sans">
-                    {language === 'AR' ? '199 ر.س' : 'SAR 199'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Main Product Image (Direct, Unobstructed, Pure White Canvas) */}
+              {/* Main Product Image (Direct, Unobstructed — gift strip sits below, no overlay) */}
               <img
                 src={currentDisplayImage}
                 alt={product.name}
-                className="max-h-[300px] sm:max-h-[380px] w-auto max-w-[95%] sm:max-w-[80%] object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.06)] group-hover:scale-105 transition-transform duration-300"
+                className="max-h-[300px] sm:max-h-[380px] w-auto max-w-[95%] sm:max-w-[88%] object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.06)] group-hover:scale-105 transition-transform duration-300"
                 referrerPolicy="no-referrer"
               />
 
@@ -901,24 +855,45 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               )}
             </div>
 
-            {/* Mobile Only Clean Horizontal Gift Strip (Zero Overlap on Mobile screen) */}
-            <div className="sm:hidden w-full flex items-center justify-between bg-neutral-50 border border-neutral-200/80 rounded-xl px-3 py-2 text-xs">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-[#8B5A2B] text-white flex items-center justify-center shrink-0">
-                  <Gift className="w-3 h-3" />
+            {/* Gift strip below image — all breakpoints (no overlay on product photo) */}
+            <div className="w-full flex items-center justify-between gap-3 bg-neutral-50 border border-neutral-200/80 rounded-xl px-3 py-2.5 text-xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-7 h-7 rounded-full bg-[#8B5A2B] text-white flex items-center justify-center shrink-0">
+                  <Gift className="w-3.5 h-3.5" />
                 </div>
-                <div className="flex flex-col">
-                  <span className="font-bold text-[11px] text-neutral-900 leading-tight">
-                    {language === 'AR' ? 'بكج هدايا الباريستا المجاني' : 'Free Barista Bonus Kit'}
-                  </span>
-                  <span className="text-[10px] text-neutral-500">
-                    {language === 'AR' ? 'تامبر 30 باوند + إبريق تبخير ستانلس' : '30lb Tamper + Frothing Pitcher'}
-                  </span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <img
+                    src={baristaKitImg}
+                    alt=""
+                    className="hidden sm:block w-9 h-9 object-contain mix-blend-multiply shrink-0"
+                    referrerPolicy="no-referrer"
+                  />
+                  <img
+                    src={scaleImg}
+                    alt=""
+                    className="hidden sm:block w-8 h-8 object-contain mix-blend-multiply shrink-0"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-bold text-[11px] sm:text-xs text-neutral-900 leading-tight truncate">
+                      {language === 'AR' ? 'بكج هدايا الباريستا المجاني' : 'Free Barista Bonus Kit'}
+                    </span>
+                    <span className="text-[10px] text-neutral-500 truncate">
+                      {language === 'AR'
+                        ? 'تامبر 30 باوند + إبريق تبخير ستانلس'
+                        : '30lb Tamper + Frothing Pitcher'}
+                    </span>
+                  </div>
                 </div>
               </div>
-              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md shrink-0">
-                {language === 'AR' ? 'بقيمة 457 ر.س مجاناً' : 'SAR 457 Free'}
-              </span>
+              <div className="flex flex-col items-end gap-0.5 shrink-0">
+                <span className="text-[10px] font-medium text-neutral-500 font-sans hidden sm:inline">
+                  {language === 'AR' ? '99 + 199 ر.س' : 'SAR 99 + 199'}
+                </span>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                  {language === 'AR' ? 'بقيمة 457 ر.س مجاناً' : 'SAR 457 Free'}
+                </span>
+              </div>
             </div>
 
             {/* Coffee Brown Promotional Installment Wave Banner (Exact 1:1 Match with Image 1) */}
@@ -983,7 +958,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
             <div className="w-full flex items-center justify-center gap-2 sm:gap-3 pt-2" dir="ltr">
               <button
                 onClick={handlePrevImage}
-                aria-label="Previous image"
+                aria-label={language === 'AR' ? 'الصورة السابقة' : 'Previous image'}
                 className="text-neutral-400 hover:text-black transition-colors cursor-pointer p-1 shrink-0"
               >
                 <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 stroke-[1.5]" />
@@ -1015,7 +990,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
 
               <button
                 onClick={handleNextImage}
-                aria-label="Next image"
+                aria-label={language === 'AR' ? 'الصورة التالية' : 'Next image'}
                 className="text-neutral-400 hover:text-black transition-colors cursor-pointer p-1 shrink-0"
               >
                 <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 stroke-[1.5]" />
@@ -1105,7 +1080,8 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                     }
                   }}
                   className="w-7 h-7 rounded-full flex items-center justify-center text-[#8B5A2B] hover:bg-[#8B5A2B]/10 transition-colors cursor-pointer"
-                  title="Share"
+                  title={language === 'AR' ? 'مشاركة' : 'Share'}
+                  aria-label={language === 'AR' ? 'مشاركة' : 'Share'}
                 >
                   <Send className="w-4 h-4 fill-[#8B5A2B] -rotate-45 ml-0.5 mb-0.5" />
                 </button>

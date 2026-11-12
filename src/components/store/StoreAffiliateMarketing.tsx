@@ -667,10 +667,10 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
             <div className="flex items-center gap-4">
               <div className="relative w-28 h-28 shrink-0 flex items-center justify-center">
                 <svg viewBox="0 0 36 36" className="w-28 h-28 transform -rotate-90">
-                  <circle cx="18" cy="18" r="14" fill="transparent" stroke="#3b82f6" strokeWidth="5" strokeDasharray="30 70" strokeDashoffset="0" />
+                  <circle cx="18" cy="18" r="14" fill="transparent" stroke="var(--accent)" strokeWidth="5" strokeDasharray="30 70" strokeDashoffset="0" />
                   <circle cx="18" cy="18" r="14" fill="transparent" stroke="#10b981" strokeWidth="5" strokeDasharray="25 75" strokeDashoffset="-30" />
                   <circle cx="18" cy="18" r="14" fill="transparent" stroke="#f59e0b" strokeWidth="5" strokeDasharray="20 80" strokeDashoffset="-55" />
-                  <circle cx="18" cy="18" r="14" fill="transparent" stroke="#8b5cf6" strokeWidth="5" strokeDasharray="25 75" strokeDashoffset="-75" />
+                  <circle cx="18" cy="18" r="14" fill="transparent" stroke="var(--portal-400)" strokeWidth="5" strokeDasharray="25 75" strokeDashoffset="-75" />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-1">
                   <span className="text-[10px] font-bold text-gray-900 dark:text-white truncate max-w-[70px]">

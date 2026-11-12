@@ -236,8 +236,12 @@ function souq_google_pick_defaults(PDO $pdo, string $storeId, array $discovered)
 {
     $row = souq_store_row($pdo, $storeId);
     $domain = '';
-    if ($row && !empty($row['domain'])) {
-        $domain = strtolower((string)preg_replace('#^https?://#', '', (string)$row['domain']));
+    $rawHost = '';
+    if ($row) {
+        $rawHost = (string)($row['custom_domain'] ?: $row['domain'] ?: $row['demo_domain'] ?: '');
+    }
+    if ($rawHost !== '') {
+        $domain = strtolower((string)preg_replace('#^https?://#i', '', $rawHost));
         $domain = explode('/', $domain)[0];
         if (str_starts_with($domain, 'www.')) {
             $domain = substr($domain, 4);

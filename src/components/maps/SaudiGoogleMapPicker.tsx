@@ -104,23 +104,11 @@ export const SaudiGoogleMapPicker: React.FC<Props> = ({
       ? `جاري قراءة العنوان الكامل… (${point.lat.toFixed(4)}, ${point.lng.toFixed(4)})`
       : `Reading full address… (${point.lat.toFixed(4)}, ${point.lng.toFixed(4)})`;
 
-  const isPinFallbackText = (raw: string) => {
-    const t = raw.trim();
-    return (
-      t.startsWith('Map pin ·') ||
-      t.startsWith('موقع الدبوس ·') ||
-      t.startsWith('Reading full address') ||
-      t.startsWith('جاري قراءة العنوان') ||
-      isPlusCodeLabel(t)
-    );
-  };
-
   useEffect(() => {
-    if (typeof address === 'string' && address !== query) {
-      // Don't let parent re-inject Plus Codes / coord stubs over a resolving full address.
-      if (isPlusCodeLabel(address) || isPinFallbackText(address)) return;
-      setQuery(address);
-    }
+    if (typeof address !== 'string' || address === query) return;
+    // Never paint Google Plus Codes into the delivery field.
+    if (isPlusCodeLabel(address)) return;
+    setQuery(address);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address]);
 
@@ -142,11 +130,6 @@ export const SaudiGoogleMapPicker: React.FC<Props> = ({
 
   /** Temporary label while reverse geocode runs — never leave Plus Code as the address. */
   const applyResolvingLabel = (point: GeoPoint) => {
-    const current = (typeof address === 'string' ? address : query).trim();
-    if (current && !isPinFallbackText(current)) {
-      // Keep merchant typed street text; pin still locks via onGeoChange.
-      return;
-    }
     const label = resolvingLabel(point);
     setQuery(label);
     onAddressChange?.(label);
@@ -154,8 +137,6 @@ export const SaudiGoogleMapPicker: React.FC<Props> = ({
 
   const applyPinWithoutTyping = (point: GeoPoint) => {
     const label = pinFallbackLabel(point);
-    const current = (typeof address === 'string' ? address : query).trim();
-    if (current && !isPinFallbackText(current)) return;
     setQuery(label);
     onAddressChange?.(label);
     onAddressPartsChange?.({
@@ -170,22 +151,28 @@ export const SaudiGoogleMapPicker: React.FC<Props> = ({
     if (reverseTimerRef.current) clearTimeout(reverseTimerRef.current);
     reverseAbortRef.current?.abort();
     setReverseBusy(true);
+    // Tiny coalesce only — Maps JS Geocoder is in-process and feels instant.
     reverseTimerRef.current = setTimeout(() => {
       const ac = new AbortController();
       reverseAbortRef.current = ac;
       void reverseGeocodeSaudi(point.lat, point.lng, isAr, ac.signal)
         .then((parts) => {
           if (ac.signal.aborted) return;
-          if (parts?.formatted && !isPlusCodeLabel(parts.formatted)) applyAddressParts(parts);
-          else applyPinWithoutTyping(point);
+          if (parts?.formatted && !isPlusCodeLabel(parts.formatted)) {
+            // Pin wins: always paint the full Saudi address for this pin.
+            applyAddressParts(parts);
+          } else {
+            applyPinWithoutTyping(point);
+          }
         })
-        .catch(() => {
+        .catch((err: unknown) => {
+          if (err instanceof DOMException && err.name === 'AbortError') return;
           if (!ac.signal.aborted) applyPinWithoutTyping(point);
         })
         .finally(() => {
           if (!ac.signal.aborted) setReverseBusy(false);
         });
-    }, 90);
+    }, 24);
   };
 
   const setPin = (
@@ -563,10 +550,12 @@ export const SaudiGoogleMapPicker: React.FC<Props> = ({
               autoComplete="off"
               spellCheck={false}
             />
-            <span className="absolute end-3 top-1/2 -translate-y-1/2 text-slate-400">
-              {searchBusy || pickBusy || reverseBusy ? (
-                <Loader2 className="w-4 h-4 animate-spin text-teal-600" />
-              ) : null}
+            <span className="absolute end-3 top-1/2 -translate-y-1/2 text-slate-400 inline-flex w-4 h-4 items-center justify-center">
+              <span aria-hidden="true" className="inline-flex">
+                {searchBusy || pickBusy || reverseBusy ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-teal-600" />
+                ) : null}
+              </span>
             </span>
           </div>
 
@@ -574,7 +563,8 @@ export const SaudiGoogleMapPicker: React.FC<Props> = ({
             <ul
               id={listId}
               role="listbox"
-              className="absolute inset-x-3.5 top-[calc(100%-2px)] mt-1 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shadow-xl overflow-hidden max-h-56 overflow-y-auto animate-in fade-in zoom-in-95 duration-150"
+              translate="no"
+              className="absolute inset-x-3.5 top-[calc(100%-2px)] mt-1 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shadow-xl overflow-hidden max-h-56 overflow-y-auto"
             >
               {suggestions.map((s, idx) => (
                 <li key={s.placeId} role="option" aria-selected={idx === activeIdx}>
@@ -588,13 +578,15 @@ export const SaudiGoogleMapPicker: React.FC<Props> = ({
                         : 'text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/80'
                     }`}
                   >
-                    <MapPin className="w-3.5 h-3.5 mt-0.5 text-teal-600 shrink-0" />
+                    <span aria-hidden="true" className="inline-flex mt-0.5 shrink-0">
+                      <MapPin className="w-3.5 h-3.5 text-teal-600" />
+                    </span>
                     <span className="leading-snug">{s.text}</span>
                   </button>
                 </li>
               ))}
               <li className="px-3.5 py-1.5 text-[9px] font-bold uppercase tracking-wide text-slate-400 bg-slate-50/80 dark:bg-slate-850 border-t border-slate-100 dark:border-slate-800">
-                {isAr ? 'نتائج المملكة العربية السعودية فقط' : 'Saudi Arabia results only'}
+                <span>{isAr ? 'نتائج المملكة العربية السعودية فقط' : 'Saudi Arabia results only'}</span>
               </li>
             </ul>
           ) : null}
@@ -605,105 +597,133 @@ export const SaudiGoogleMapPicker: React.FC<Props> = ({
         <p className="px-3.5 pb-2 text-[11px] font-semibold text-rose-600 dark:text-rose-400">{locError}</p>
       ) : null}
 
-      {/* Map stage */}
-      <div className="relative mx-3.5 mb-3.5 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-700/70 bg-slate-100 dark:bg-slate-850 h-[min(42vw,220px)] min-h-[180px] sm:h-auto sm:min-h-0 sm:aspect-[16/9] shadow-inner">
-        {wantsInteractive ? (
-          <div ref={mapHostRef} className="absolute inset-0 w-full h-full" />
-        ) : null}
-
-        {/*
-          When JS Maps key exists: light skeleton only (do NOT also load embed iframe —
-          dual Google loads made the grey “stuck loading” feel).
-          Fallback embed only when there is no Maps JS key.
-        */}
-        {wantsInteractive && !mapReady ? (
-          <div className="absolute inset-0 z-[1] flex flex-col items-center justify-center gap-2 bg-gradient-to-b from-slate-100 to-teal-50/40 dark:from-slate-850 dark:to-teal-950/30 pointer-events-none">
-            <Loader2 className="w-7 h-7 animate-spin text-teal-600" />
-            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
-              {isAr ? 'جارٍ تحميل الخريطة…' : 'Loading map…'}
-            </p>
-          </div>
-        ) : null}
-
-        {!wantsInteractive ? (
-          <iframe
-            title={isAr ? 'خريطة جوجل لموقع التوصيل' : 'Google Maps delivery location'}
-            src={googleMapsEmbedUrl(embedCenter.lat, embedCenter.lng, isAr)}
-            className="absolute inset-0 w-full h-full border-0"
-            loading="eager"
-            referrerPolicy="no-referrer-when-downgrade"
-            allowFullScreen
-          />
-        ) : null}
-
-        {/* Floating controls */}
-        <div className="absolute top-2.5 start-2.5 end-2.5 z-10 flex flex-wrap items-center gap-1.5 pointer-events-none">
-          <button
-            type="button"
-            disabled={locBusy}
-            onClick={useMyLocation}
-            className="pointer-events-auto inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[10px] sm:text-[11px] font-black border border-white/70 dark:border-slate-600/80 bg-white/95 dark:bg-slate-900/90 backdrop-blur text-teal-800 dark:text-teal-200 shadow-md cursor-pointer disabled:opacity-50 hover:bg-teal-50 dark:hover:bg-teal-950/50 transition-colors"
-          >
-            {locBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Navigation className="w-3.5 h-3.5" />}
-            {locBusy
-              ? isAr
-                ? 'جارٍ التحديد…'
-                : 'Locating…'
-              : isAr
-                ? 'موقعي الحالي'
-                : 'My live pin'}
-          </button>
-          <button
-            type="button"
-            onClick={openFullMap}
-            className="pointer-events-auto inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[10px] sm:text-[11px] font-black border border-white/70 dark:border-slate-600/80 bg-white/95 dark:bg-slate-900/90 backdrop-blur text-slate-700 dark:text-slate-200 shadow-md cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-          >
-            <Crosshair className="w-3.5 h-3.5" />
-            {isAr ? 'خرائط جوجل' : 'Google Maps'}
-          </button>
-          {pinned ? (
-            <span className="ms-auto pointer-events-none inline-flex items-center gap-1 px-2 py-1.5 rounded-xl text-[10px] font-mono font-bold bg-slate-900/70 text-white tabular-nums backdrop-blur">
-              {geo!.lat.toFixed(5)}, {geo!.lng.toFixed(5)}
-            </span>
+      {/* Map stage — map host is isolated so Google Maps never shares a parent with React siblings (insertBefore-safe). */}
+      <div
+        className="relative mx-3.5 mb-3.5 rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-700/70 bg-slate-100 dark:bg-slate-850 h-[min(42vw,220px)] min-h-[180px] sm:h-auto sm:min-h-0 sm:aspect-[16/9] shadow-inner"
+        translate="no"
+      >
+        {/* Layer A: Google Maps owns ONLY this empty host (no React siblings inside). */}
+        <div className="absolute inset-0 z-0">
+          {wantsInteractive ? <div ref={mapHostRef} className="w-full h-full" /> : null}
+          {!wantsInteractive ? (
+            <iframe
+              title={isAr ? 'خريطة جوجل لموقع التوصيل' : 'Google Maps delivery location'}
+              src={googleMapsEmbedUrl(embedCenter.lat, embedCenter.lng, isAr)}
+              className="w-full h-full border-0"
+              loading="eager"
+              referrerPolicy="no-referrer-when-downgrade"
+              allowFullScreen
+            />
           ) : null}
         </div>
 
-        {!pinned ? (
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/75 via-slate-950/35 to-transparent px-3 py-3 pointer-events-none z-10">
-            <p className="text-[10px] sm:text-[11px] font-bold text-white leading-snug">
-              {isAr
-                ? interactive
-                  ? 'اسحب الدبوس أو اضغط على الخريطة — الموقع يُثبَّت دون كتابة'
-                  : 'استخدم موقعك الحالي أو ابحث عن عنوان سعودي'
-                : interactive
-                  ? 'Drag the pin or tap the map — location locks with no typing'
-                  : 'Use your live location or search a Saudi address'}
-            </p>
-          </div>
-        ) : (
-          <div className="absolute inset-x-2 bottom-2 z-10 pointer-events-none">
-            <div className="rounded-xl bg-white/95 dark:bg-slate-900/92 backdrop-blur border border-teal-200/60 dark:border-teal-800/50 shadow-lg px-3 py-2 flex items-start gap-2">
-              <span className="mt-0.5 w-6 h-6 rounded-lg bg-teal-600 text-white flex items-center justify-center shrink-0">
-                <MapPin className="w-3.5 h-3.5" />
+        {/* Layer B: React overlays (separate branch — safe icon/label swaps). */}
+        <div className="absolute inset-0 z-10 pointer-events-none">
+          {wantsInteractive && !mapReady ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-b from-slate-100 to-teal-50/40 dark:from-slate-850 dark:to-teal-950/30">
+              <span aria-hidden="true" className="inline-flex">
+                <Loader2 className="w-7 h-7 animate-spin text-teal-600" />
               </span>
-              <div className="min-w-0">
-                <p className="text-[10px] font-black text-teal-700 dark:text-teal-300 uppercase tracking-wide">
-                  {reverseBusy
-                    ? isAr
-                      ? 'جاري جلب العنوان الكامل…'
-                      : 'Fetching full address…'
-                    : isAr
-                      ? 'تم تثبيت الموقع'
-                      : 'Pin set'}
-                </p>
-                <p className="text-[11px] font-semibold text-slate-800 dark:text-slate-100 leading-snug line-clamp-2">
-                  {query ||
-                    (isAr ? 'موقع داخل المملكة العربية السعودية' : 'Location inside Saudi Arabia')}
-                </p>
+              <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                <span>{isAr ? 'جارٍ تحميل الخريطة…' : 'Loading map…'}</span>
+              </p>
+            </div>
+          ) : null}
+
+          <div className="absolute top-2.5 start-2.5 end-2.5 flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              disabled={locBusy}
+              onClick={useMyLocation}
+              className="pointer-events-auto inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[10px] sm:text-[11px] font-black border border-white/70 dark:border-slate-600/80 bg-white/95 dark:bg-slate-900/90 backdrop-blur text-teal-800 dark:text-teal-200 shadow-md cursor-pointer disabled:opacity-50 hover:bg-teal-50 dark:hover:bg-teal-950/50 transition-colors"
+            >
+              <span aria-hidden="true" className="inline-flex shrink-0">
+                {locBusy ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Navigation className="w-3.5 h-3.5" />
+                )}
+              </span>
+              <span>
+                {locBusy
+                  ? isAr
+                    ? 'جارٍ التحديد…'
+                    : 'Locating…'
+                  : isAr
+                    ? 'موقعي الحالي'
+                    : 'My live pin'}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={openFullMap}
+              className="pointer-events-auto inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[10px] sm:text-[11px] font-black border border-white/70 dark:border-slate-600/80 bg-white/95 dark:bg-slate-900/90 backdrop-blur text-slate-700 dark:text-slate-200 shadow-md cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            >
+              <span aria-hidden="true" className="inline-flex shrink-0">
+                <Crosshair className="w-3.5 h-3.5" />
+              </span>
+              <span>{isAr ? 'خرائط جوجل' : 'Google Maps'}</span>
+            </button>
+            {pinned ? (
+              <span className="ms-auto inline-flex items-center gap-1 px-2 py-1.5 rounded-xl text-[10px] font-mono font-bold bg-slate-900/70 text-white tabular-nums backdrop-blur">
+                <span>
+                  {geo!.lat.toFixed(5)}, {geo!.lng.toFixed(5)}
+                </span>
+              </span>
+            ) : null}
+          </div>
+
+          {!pinned ? (
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/75 via-slate-950/35 to-transparent px-3 py-3">
+              <p className="text-[10px] sm:text-[11px] font-bold text-white leading-snug">
+                <span>
+                  {isAr
+                    ? interactive
+                      ? 'اسحب الدبوس أو اضغط على الخريطة — الموقع يُثبَّت دون كتابة'
+                      : 'استخدم موقعك الحالي أو ابحث عن عنوان سعودي'
+                    : interactive
+                      ? 'Drag the pin or tap the map — location locks with no typing'
+                      : 'Use your live location or search a Saudi address'}
+                </span>
+              </p>
+            </div>
+          ) : (
+            <div className="absolute inset-x-2 bottom-2">
+              <div className="rounded-xl bg-white/95 dark:bg-slate-900/92 backdrop-blur border border-teal-200/60 dark:border-teal-800/50 shadow-lg px-3 py-2 flex items-start gap-2">
+                <span className="mt-0.5 w-6 h-6 rounded-lg bg-teal-600 text-white flex items-center justify-center shrink-0">
+                  <span aria-hidden="true" className="inline-flex">
+                    {reverseBusy ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <MapPin className="w-3.5 h-3.5" />
+                    )}
+                  </span>
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black text-teal-700 dark:text-teal-300 uppercase tracking-wide">
+                    <span>
+                      {reverseBusy
+                        ? isAr
+                          ? 'جاري جلب العنوان الكامل…'
+                          : 'Fetching full address…'
+                        : isAr
+                          ? 'تم تثبيت الموقع'
+                          : 'Pin set'}
+                    </span>
+                  </p>
+                  <p className="text-[11px] font-semibold text-slate-800 dark:text-slate-100 leading-snug line-clamp-2">
+                    <span>
+                      {query ||
+                        (isAr
+                          ? 'موقع داخل المملكة العربية السعودية'
+                          : 'Location inside Saudi Arabia')}
+                    </span>
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

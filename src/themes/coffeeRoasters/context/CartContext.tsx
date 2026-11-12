@@ -853,11 +853,17 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const coffeeCatalog = activeStoreId === 'store-coffee';
     const liveCommerce = (dp: any) => {
       const hasSaved = Array.isArray(dp.productOptions) && dp.productOptions.length > 0;
-      const seeded = hasSaved ? null : seedExistingCommerce(dp, activeStoreId);
-      const options = hasSaved ? dp.productOptions : seeded?.options;
-      const hasRows = Array.isArray(dp.variations) && dp.variations.length > 0;
+      const seeded = seedExistingCommerce(dp, activeStoreId);
+      // Always merge Color/اللون twins so storefront never shows both rows.
+      const options = hasSaved
+        ? seeded.options.length
+          ? seeded.options
+          : dp.productOptions
+        : seeded.options;
+      const variations = seeded.variations?.length ? seeded.variations : dp.variations;
+      const hasRows = Array.isArray(variations) && variations.length > 0;
       if (hasRows || !options?.length) {
-        return { options, variations: dp.variations };
+        return { options, variations };
       }
       const regular = Number(dp.price) || 0;
       const sale = Number(dp.discountedPrice) || 0;

@@ -111,6 +111,10 @@ export function mapStore(row: ApiStoreRow): Store {
     ownerEn = row.owner_en ? str(row.owner_en) : undefined;
   }
 
+  const domain = str(row.domain);
+  const demoDomain = str(row.demo_domain);
+  const customDomain = str(row.custom_domain);
+
   return {
     id: storeId,
     name: isMakkahStore ? 'هدايا مكة' : rawName,
@@ -147,6 +151,12 @@ export function mapStore(row: ApiStoreRow): Store {
     locale,
     textDirection: locale === 'ar' ? 'rtl' : 'ltr',
     timezone: str(row.timezone, 'Asia/Riyadh') || 'Asia/Riyadh',
+    // Keep public host from API — Site Kit connect requires a saved domain
+    domain: domain || undefined,
+    demo_domain: demoDomain || undefined,
+    custom_domain: customDomain || undefined,
+    phone: str(row.phone) || undefined,
+    email: str(row.email) || undefined,
   };
 }
 

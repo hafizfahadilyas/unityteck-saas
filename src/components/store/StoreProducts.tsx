@@ -76,6 +76,7 @@ import {
   periodCountGrowth,
 } from '../../utils/liveSeries';
 import { StoreProductEditorView } from './StoreProductEditorView';
+import { ProductTypePicker } from './ProductTypePicker';
 import {
   ProductEditDrawer,
   DEFAULT_PRODUCT_EDIT_SECTIONS,
@@ -119,8 +120,8 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
   const planInfo = planInfoForStore(activeStore);
   const sub = resolveSubscription(activeStore.id);
 
-  // Navigation / View State: 'list' | 'edit' | 'brands' | 'filters'
-  const [currentView, setCurrentView] = useState<'list' | 'edit' | 'brands' | 'filters'>('list');
+  // Navigation / View State: 'list' | 'type-picker' | 'edit' | 'brands' | 'filters'
+  const [currentView, setCurrentView] = useState<'list' | 'type-picker' | 'edit' | 'brands' | 'filters'>('list');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   /** Grid density: products per row on large screens (3–6). */
   const [gridCols, setGridCols] = useState<3 | 4 | 5 | 6>(3);
@@ -736,12 +737,20 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
     }
   };
 
-  // Open New Product — skip type picker; go straight to create editor (Ready Product)
+  // Open New Product — animated type picker first, then create editor
   const handleOpenNewProduct = () => {
-    handleCreateProductWithType(
-      'ready-product',
-      isAr ? 'منتج جاهز' : 'Ready Product',
-    );
+    if (!sub.writable) {
+      toast(sub.message ?? t('subNotWritable'), 'error');
+      return;
+    }
+    if (!planGate.ok) {
+      toast(planGate.message, 'error');
+      return;
+    }
+    setCreatingProduct(null);
+    setEditingProductId(null);
+    setIsSideDrawerOpen(false);
+    setCurrentView('type-picker');
   };
 
   // Open blank product editor for selected type (manual fill — no auto fake create)
@@ -922,6 +931,18 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
       </span>
     );
   };
+
+  // ────────────────────────────────────────────────
+  //  VIEW 1b: Product type picker (create step 0)
+  // ────────────────────────────────────────────────
+  if (currentView === 'type-picker') {
+    return (
+      <ProductTypePicker
+        onSelectType={handleCreateProductWithType}
+        onBack={() => setCurrentView('list')}
+      />
+    );
+  }
 
   // ────────────────────────────────────────────────
   //  VIEW 2: 3-COLUMN PRODUCT EDITOR (Mockup 07 Exact)

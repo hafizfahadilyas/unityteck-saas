@@ -92,6 +92,7 @@ return [
         'api_key' => env('GEMINI_API_KEY', env('GOOGLE_AI_API_KEY')),
         // Retired preview id gemini-2.0-flash-preview-image-generation → gemini-2.5-flash-image
         'image_model' => env('GEMINI_IMAGE_MODEL', 'gemini-2.5-flash-image'),
+        // New AI Studio keys require gemini-3.8-flash (2.5 Flash returns 404 for new users).
         'text_model' => env('GEMINI_TEXT_MODEL', 'gemini-3.8-flash'),
         'video_enabled' => filter_var(env('GEMINI_VIDEO_ENABLED', false), FILTER_VALIDATE_BOOL),
         'video_model' => env('GEMINI_VIDEO_MODEL', 'veo-2.0-generate-001'),

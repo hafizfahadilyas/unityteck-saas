@@ -46,6 +46,7 @@ export const STORE_NAV_KEYS: Record<string, DictKey> = {
   'smart-automation': 'navSmartAutomation',
   reports: 'navReports',
   whatsapp: 'navWhatsApp',
+  social: 'navSocialPublishing',
   seo: 'navSeoStore',
   coupons: 'navCouponsDeals',
   notifications: 'navNotifications',

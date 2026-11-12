@@ -345,7 +345,7 @@ export async function suggestProductCopy(
 ): Promise<ProductCopySuggestion> {
   const res = await apiFetch<{ data: ProductCopySuggestion }>(
     '/ai-media/product-copy',
-    { method: 'POST', storeId, body: payload },
+    { method: 'POST', storeId, body: payload, timeoutMs: 55_000 },
   );
   return res.data;
 }

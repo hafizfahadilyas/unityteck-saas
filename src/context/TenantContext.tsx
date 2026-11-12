@@ -3882,7 +3882,6 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const deleteProduct = (productId: string, targetStoreId?: string) => {
     const session = readAuthSession();
     if (session?.user?.role && !canDeleteEntities(session.user.role)) {
-      console.warn('Security guard blocked deleteProduct: role unauthorized to delete products.');
       setApiError('Access Denied: Partner role cannot delete products.');
       return;
     }

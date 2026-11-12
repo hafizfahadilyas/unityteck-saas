@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
@@ -45,7 +45,23 @@ import {
   Layers,
   ArrowUpRight,
   Palette,
+  ChevronDown,
+  Check,
 } from 'lucide-react';
+
+const DOCUMENT_TYPE_TABS = [
+  { id: 'all', labelEn: 'All Documents', labelAr: 'جميع المستندات' },
+  { id: 'order_invoice', labelEn: 'Sales Invoices', labelAr: 'فواتير المبيعات' },
+  { id: 'tax_invoice', labelEn: 'Tax Invoices', labelAr: 'الفواتير الضريبية' },
+  { id: 'quotation', labelEn: 'Quotations', labelAr: 'عروض الأسعار' },
+  { id: 'proforma_invoice', labelEn: 'Proforma', labelAr: 'الفواتير الأولية' },
+  { id: 'payment_receipt', labelEn: 'Payment Receipts', labelAr: 'سندات القبض' },
+  { id: 'delivery_note', labelEn: 'Delivery Notes', labelAr: 'سندات التسليم' },
+  { id: 'credit_note', labelEn: 'Credit Notes', labelAr: 'الإشعارات الدائنة' },
+  { id: 'refund_receipt', labelEn: 'Refund Receipts', labelAr: 'إيصالات الاسترجاع' },
+  { id: 'cancelled_order_invoice', labelEn: 'Cancellations', labelAr: 'سجلات الإلغاء' },
+  { id: 'purchase_invoice', labelEn: 'Purchases', labelAr: 'المشتريات والتوريد' },
+] as const;
 
 interface StoreInvoicesProps {
   onNavigateTab?: (tab: string) => void;
@@ -102,6 +118,29 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | '7days' | 'month'>('all');
+  const [typeMenuOpen, setTypeMenuOpen] = useState(false);
+  const typeMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!typeMenuOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (typeMenuRef.current && !typeMenuRef.current.contains(e.target as Node)) {
+        setTypeMenuOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setTypeMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [typeMenuOpen]);
+
+  const selectedTypeTab = DOCUMENT_TYPE_TABS.find((tab) => tab.id === selectedType) || DOCUMENT_TYPE_TABS[0];
+  const selectedTypeLabel = isAr ? selectedTypeTab.labelAr : selectedTypeTab.labelEn;
 
   // Modals & Drawers State
   const [previewDoc, setPreviewDoc] = useState<InvoiceDocument | null>(null);
@@ -408,46 +447,62 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
         </div>
       </div>
 
-      {/* Filter Toolbar & Document Types Filter Strip */}
+      {/* Filter Toolbar */}
       <div className="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-3 shadow-xs">
-        {/* Document Type Horizontal Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-          {[
-            { id: 'all', labelEn: 'All Documents', labelAr: 'جميع المستندات' },
-            { id: 'order_invoice', labelEn: 'Sales Invoices', labelAr: 'فواتير المبيعات' },
-            { id: 'tax_invoice', labelEn: 'Tax Invoices', labelAr: 'الفواتير الضريبية' },
-            { id: 'quotation', labelEn: 'Quotations', labelAr: 'عروض الأسعار' },
-            { id: 'proforma_invoice', labelEn: 'Proforma', labelAr: 'الفواتير الأولية' },
-            { id: 'payment_receipt', labelEn: 'Payment Receipts', labelAr: 'سندات القبض' },
-            { id: 'delivery_note', labelEn: 'Delivery Notes', labelAr: 'سندات التسليم' },
-            { id: 'credit_note', labelEn: 'Credit Notes', labelAr: 'الإشعارات الدائنة' },
-            { id: 'refund_receipt', labelEn: 'Refund Receipts', labelAr: 'إيصالات الاسترجاع' },
-            { id: 'cancelled_order_invoice', labelEn: 'Cancellations', labelAr: 'سجلات الإلغاء' },
-            { id: 'purchase_invoice', labelEn: 'Purchases', labelAr: 'المشتريات والتوريد' },
-          ].map((tab) => {
-            const isSelected = selectedType === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setSelectedType(tab.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                  isSelected
-                    ? 'text-white shadow-xs'
-                    : 'bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800'
-                }`}
-                style={isSelected ? { background: 'var(--portal-cta)' } : undefined}
-              >
-                {isAr ? tab.labelAr : tab.labelEn}
-              </button>
-            );
-          })}
-        </div>
+        {/* Document Type Toggle + Search & Sub-Filters */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          {/* Document Type Toggle Dropdown */}
+          <div className="relative shrink-0" ref={typeMenuRef}>
+            <button
+              type="button"
+              onClick={() => setTypeMenuOpen((open) => !open)}
+              aria-expanded={typeMenuOpen}
+              aria-haspopup="listbox"
+              className="w-full sm:w-auto inline-flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-white shadow-xs cursor-pointer transition-opacity hover:opacity-95"
+              style={{ background: 'var(--portal-cta)' }}
+            >
+              <span className="inline-flex items-center gap-2 min-w-0">
+                <Layers className="w-3.5 h-3.5 shrink-0 opacity-90" />
+                <span className="truncate max-w-[11rem]">{selectedTypeLabel}</span>
+              </span>
+              <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform ${typeMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
 
-        {/* Search & Sub-Filters Row */}
-        <div className="flex flex-col sm:flex-row items-center gap-3 pt-1">
+            {typeMenuOpen && (
+              <div
+                role="listbox"
+                aria-label={isAr ? 'نوع المستند' : 'Document type'}
+                className="absolute z-40 top-[calc(100%+0.4rem)] start-0 w-[min(100vw-2rem,16.5rem)] max-h-72 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg py-1"
+              >
+                {DOCUMENT_TYPE_TABS.map((tab) => {
+                  const isSelected = selectedType === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      onClick={() => {
+                        setSelectedType(tab.id);
+                        setTypeMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-semibold text-start transition-colors cursor-pointer ${
+                        isSelected
+                          ? 'text-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)]'
+                          : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80'
+                      }`}
+                    >
+                      <span className="truncate">{isAr ? tab.labelAr : tab.labelEn}</span>
+                      {isSelected ? <Check className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--accent)' }} /> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           {/* Search Input */}
-          <div className="relative flex-1 w-full">
+          <div className="relative flex-1 w-full min-w-0">
             <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
             <input
               type="text"

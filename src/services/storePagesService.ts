@@ -677,22 +677,27 @@ export async function hydrateStorePages(storeId: string): Promise<StoreCustomPag
     return local;
   }
 
-  const remote = (await fetchThemePagesApi(storeId)).filter(isPolicyContentRow);
-  if (remote.length === 0) {
-    const local = readStoredRows(storeId) ?? [];
-    const importable = isUntouchedMasterSeed(local) ? [] : local;
-    if (importable.length > 0) {
-      const imported: StoreCustomPage[] = [];
-      for (const page of importable) {
-        imported.push(await upsertPolicyPage(storeId, page));
+  try {
+    const remote = (await fetchThemePagesApi(storeId)).filter(isPolicyContentRow);
+    if (remote.length === 0) {
+      const local = readStoredRows(storeId) ?? [];
+      const importable = isUntouchedMasterSeed(local) ? [] : local;
+      if (importable.length > 0) {
+        const imported: StoreCustomPage[] = [];
+        for (const page of importable) {
+          imported.push(await upsertPolicyPage(storeId, page));
+        }
+        notifyPages(storeId);
+        return rememberPages(storeId, imported);
       }
-      notifyPages(storeId);
-      return rememberPages(storeId, imported);
+      return rememberPages(storeId, []);
     }
-    return rememberPages(storeId, []);
-  }
 
-  return rememberPages(storeId, remote.map(fromThemePage));
+    return rememberPages(storeId, remote.map(fromThemePage));
+  } catch {
+    const local = readStoredRows(storeId) ?? pageMemory.get(storeId) ?? [];
+    return rememberPages(storeId, local);
+  }
 }
 
 export function getStorePageBySlug(

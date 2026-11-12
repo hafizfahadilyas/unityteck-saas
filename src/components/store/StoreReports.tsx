@@ -582,8 +582,8 @@ export const StoreReports: React.FC = () => {
             <AreaChart
               data={salesChartData}
               height={180}
-              color="#2563eb"
-              fillGradient={['#2563eb', '#60a5fa']}
+              color="var(--accent)"
+              fillGradient={['var(--accent)', 'var(--portal-400)']}
               prefix="SAR "
             />
           </div>

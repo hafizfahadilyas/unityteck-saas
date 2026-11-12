@@ -100,7 +100,7 @@ export const VisitsOrdersChart: React.FC<VisitsOrdersChartProps> = ({ data: data
           </text>
         ))}
         <path d={visitsD} fill="none" stroke="#0d9488" strokeWidth="2.5" />
-        <path d={ordersD} fill="none" stroke="#6366f1" strokeWidth="2.5" />
+        <path d={ordersD} fill="none" stroke="var(--accent)" strokeWidth="2.5" />
         {data.map((_, i) => (
           <circle
             key={`v-${i}`}

@@ -14,7 +14,75 @@ export const KNOWN_OPTION_VALUE_AR: Record<string, string> = {
   Edition: 'الإصدار',
   Size: 'المقاس',
   Material: 'الخامة',
+  Black: 'أسود',
+  Silver: 'فضي',
+  White: 'أبيض',
+  Red: 'أحمر',
+  Blue: 'أزرق',
+  Green: 'أخضر',
+  Gold: 'ذهبي',
+  Brown: 'بني',
 };
+
+/** One option = EN name + AR nameAr — never two separate Color / اللون rows. */
+export const OPTION_NAME_TWINS: ReadonlyArray<{ en: string; ar: string }> = [
+  { en: 'Color', ar: 'اللون' },
+  { en: 'Edition', ar: 'الإصدار' },
+  { en: 'Size', ar: 'المقاس' },
+  { en: 'Material', ar: 'الخامة' },
+];
+
+export function arabicOptionNameFor(enName: string | null | undefined): string | undefined {
+  const key = String(enName || '').trim().toLowerCase();
+  if (!key) return undefined;
+  return OPTION_NAME_TWINS.find((t) => t.en.toLowerCase() === key)?.ar;
+}
+
+export function englishOptionNameFor(arName: string | null | undefined): string | undefined {
+  const key = String(arName || '').trim();
+  if (!key) return undefined;
+  return OPTION_NAME_TWINS.find((t) => t.ar === key)?.en;
+}
+
+/** Canonical English option key used in variant maps / selection. */
+export function canonicalOptionName(name: string | null | undefined): string {
+  const raw = String(name || '').trim();
+  if (!raw) return '';
+  const fromAr = englishOptionNameFor(raw);
+  if (fromAr) return fromAr;
+  const twin = OPTION_NAME_TWINS.find((t) => t.en.toLowerCase() === raw.toLowerCase());
+  return twin ? twin.en : raw;
+}
+
+export function isArabicOptionNameTwin(name: string | null | undefined): boolean {
+  const raw = String(name || '').trim();
+  return OPTION_NAME_TWINS.some((t) => t.ar === raw);
+}
+
+/**
+ * Collapse twin EN/AR keys in a variant options map to one English key.
+ * `{ Color: "Black", اللون: "أسود" }` → `{ Color: "Black" }`
+ */
+export function collapseOptionMap(options: Record<string, string> | null | undefined): Record<string, string> {
+  const src = options || {};
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(src)) {
+    const label = String(value || '').trim();
+    if (!key || !label) continue;
+    if (isArabicOptionNameTwin(key)) {
+      const enKey = canonicalOptionName(key);
+      if (!out[enKey]) {
+        // Prefer Latin/English value when only Arabic key exists.
+        const enFromKnown = Object.entries(KNOWN_OPTION_VALUE_AR).find(([, ar]) => ar === label)?.[0];
+        out[enKey] = enFromKnown || label;
+      }
+      continue;
+    }
+    const canon = canonicalOptionName(key);
+    if (!out[canon]) out[canon] = label;
+  }
+  return out;
+}
 
 export function hasArabicScript(value: string | null | undefined): boolean {
   return /[\u0600-\u06FF]/.test(String(value || ''));
@@ -76,5 +144,6 @@ export function resolveOptionNameAr(
 ): string | undefined {
   const ar = String(nameAr || '').trim();
   if (ar) return ar;
-  return knownAr(String(name || '').trim());
+  const canon = canonicalOptionName(name);
+  return arabicOptionNameFor(canon) || knownAr(String(name || '').trim()) || knownAr(canon);
 }

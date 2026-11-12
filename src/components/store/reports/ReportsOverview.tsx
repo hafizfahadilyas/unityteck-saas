@@ -194,7 +194,7 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
         nameEn: 'Site Visits',
         count: visits,
         pct: visits > 0 ? '100%' : '0%',
-        color: '#2563eb',
+        color: 'var(--accent)',
         icon: Users,
       },
       {
@@ -203,7 +203,7 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
         nameEn: 'Product Views',
         count: views,
         pct: pct(views),
-        color: '#8b5cf6',
+        color: 'var(--portal-400)',
         icon: Eye,
       },
       {
@@ -642,7 +642,7 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
                 <circle cx="18" cy="18" r="14" fill="none" stroke="#000000" strokeWidth="4" strokeDasharray="33.7 100" strokeDashoffset="0" />
                 <circle cx="18" cy="18" r="14" fill="none" stroke="#eab308" strokeWidth="4" strokeDasharray="24.8 100" strokeDashoffset="-33.7" />
                 <circle cx="18" cy="18" r="14" fill="none" stroke="#ec4899" strokeWidth="4" strokeDasharray="17.6 100" strokeDashoffset="-58.5" />
-                <circle cx="18" cy="18" r="14" fill="none" stroke="#3b82f6" strokeWidth="4" strokeDasharray="14.4 100" strokeDashoffset="-76.1" />
+                <circle cx="18" cy="18" r="14" fill="none" stroke="var(--accent)" strokeWidth="4" strokeDasharray="14.4 100" strokeDashoffset="-76.1" />
                 <circle cx="18" cy="18" r="14" fill="none" stroke="#22c55e" strokeWidth="4" strokeDasharray="9.5 100" strokeDashoffset="-90.5" />
               </svg>
               {/* Center Total Count */}
@@ -1075,7 +1075,7 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
               <div className="relative w-28 h-28 shrink-0 flex items-center justify-center">
                 <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
                   <circle cx="18" cy="18" r="14" fill="none" className="stroke-slate-100 dark:stroke-slate-800" strokeWidth="4.5" />
-                  <circle cx="18" cy="18" r="14" fill="none" stroke="#3b82f6" strokeWidth="4.5" strokeDasharray={`${newPct} 100`} strokeDashoffset="0" />
+                  <circle cx="18" cy="18" r="14" fill="none" stroke="var(--accent)" strokeWidth="4.5" strokeDasharray={`${newPct} 100`} strokeDashoffset="0" />
                   <circle cx="18" cy="18" r="14" fill="none" stroke="#10b981" strokeWidth="4.5" strokeDasharray={`${retPct} 100`} strokeDashoffset={`-${newPct}`} />
                   <circle cx="18" cy="18" r="14" fill="none" stroke="#f59e0b" strokeWidth="4.5" strokeDasharray={`${atRiskPct} 100`} strokeDashoffset={`-${newPct + retPct}`} />
                   <circle cx="18" cy="18" r="14" fill="none" stroke="#8b5cf6" strokeWidth="4.5" strokeDasharray={`${vipPct} 100`} strokeDashoffset={`-${newPct + retPct + atRiskPct}`} />

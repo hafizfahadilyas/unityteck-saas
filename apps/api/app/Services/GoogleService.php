@@ -610,13 +610,18 @@ class GoogleService
         if (!$store) {
             return '';
         }
-        if (!empty($store->custom_domain)) {
-            $host = preg_replace('#^https?://#', '', rtrim((string) $store->custom_domain, '/'));
-            return 'https://' . $host;
+        $rawHost = (string) ($store->custom_domain ?: $store->domain ?: $store->demo_domain ?: '');
+        if ($rawHost !== '') {
+            $host = preg_replace('#^https?://#i', '', rtrim($rawHost, '/'));
+            $host = explode('/', (string) $host)[0] ?? '';
+            $host = preg_replace('#^www\.#i', '', $host) ?: '';
+            if ($host !== '') {
+                return 'https://'.$host;
+            }
         }
         if (!empty($store->slug)) {
             $suffix = env('STORE_PUBLIC_DOMAIN_SUFFIX', 'saasdomain.com');
-            return 'https://' . $store->slug . '.' . ltrim($suffix, '.');
+            return 'https://'.$store->slug.'.'.ltrim($suffix, '.');
         }
         return '';
     }

@@ -126,18 +126,15 @@ export const ExportTemplateModal: React.FC<ExportTemplateModalProps> = ({
       aria-label={isAr ? 'إضافة قالب تصدير' : 'Add Export Template'}
     >
       <div className="w-full max-w-2xl bg-white dark:bg-[#071E26] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150">
-        <div
-          className="px-6 py-4 flex items-center justify-between text-white"
-          style={{ background: '#5eead4', color: '#134e4a' }}
-        >
+        <div className="unity-modal-header px-6 py-4 flex items-center justify-between text-white">
           <div className="flex items-center gap-2 font-bold text-sm">
-            <FileText className="w-4 h-4 text-teal-800" />
+            <FileText className="w-4 h-4 unity-modal-icon" />
             <span>{isAr ? 'إضافة قالب تصدير' : 'Add Export Template'}</span>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-black/10 cursor-pointer transition-colors"
+            className="p-1 rounded-lg hover:bg-white/15 cursor-pointer transition-colors"
           >
             <X className="w-4 h-4" />
           </button>

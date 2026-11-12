@@ -6,7 +6,15 @@
  */
 import type { Product, ProductCustomField, ProductOptionDefinition, ProductOptionValueItem, ProductVariation } from '../types';
 import { PRODUCTS } from '../themes/coffeeRoasters/data/products';
-import { resolveOptionNameAr, resolveOptionValueAr } from './localeLabel';
+import {
+  arabicOptionNameFor,
+  canonicalOptionName,
+  collapseOptionMap,
+  hasArabicScript,
+  isArabicOptionNameTwin,
+  resolveOptionNameAr,
+  resolveOptionValueAr,
+} from './localeLabel';
 
 function slug(raw: string): string {
   const s = String(raw || '')
@@ -81,35 +89,142 @@ function enrichOptionsAr(
   });
 }
 
+type ValuePair = { label: string; labelAr?: string };
+
 function optionsFromVariations(variations: ProductVariation[]): ProductOptionDefinition[] {
-  const grouped = new Map<string, string[]>();
+  /** canonical EN name → ordered value pairs */
+  const grouped = new Map<string, ValuePair[]>();
   for (const row of variations) {
-    for (const [key, value] of Object.entries(row.options || {})) {
-      const label = String(value || '').trim();
-      if (!key || !label) continue;
-      const list = grouped.get(key) || [];
-      if (!list.some((item) => item.toLowerCase() === label.toLowerCase())) list.push(label);
-      grouped.set(key, list);
+    const collapsed = collapseOptionMap(row.options || {});
+    const raw = row.options || {};
+    for (const [canon, enLabel] of Object.entries(collapsed)) {
+      const arTwin = arabicOptionNameFor(canon);
+      const arLabel = arTwin ? String(raw[arTwin] || '').trim() : '';
+      const list = grouped.get(canon) || [];
+      const exists = list.some(
+        (item) => item.label.toLowerCase() === enLabel.toLowerCase() || (arLabel && item.labelAr === arLabel),
+      );
+      if (!exists) {
+        list.push({
+          label: enLabel,
+          labelAr: arLabel || resolveOptionValueAr(enLabel),
+        });
+      } else {
+        const hit = list.find((item) => item.label.toLowerCase() === enLabel.toLowerCase());
+        if (hit && arLabel && !hit.labelAr) hit.labelAr = arLabel;
+      }
+      grouped.set(canon, list);
     }
   }
   const options: ProductOptionDefinition[] = [];
-  for (const [key, labels] of grouped) {
+  for (const [key, pairs] of grouped) {
     const lower = key.toLowerCase();
     options.push({
       id: slug(key),
       name: key,
-      nameAr: OPTION_NAME_AR[lower] || resolveOptionNameAr(key),
+      nameAr: OPTION_NAME_AR[lower] || resolveOptionNameAr(key) || arabicOptionNameFor(key),
       type: lower.includes('color') || key.includes('لون') ? 'color' : 'select',
       visible: true,
-      values: labels.map((label) => ({
-        id: slug(label),
-        label,
-        labelAr: resolveOptionValueAr(label),
+      values: pairs.map((pair) => ({
+        id: slug(pair.label),
+        label: pair.label,
+        labelAr: pair.labelAr || resolveOptionValueAr(pair.label),
         selected: true,
       })),
     });
   }
   return options;
+}
+
+/** Merge Color + اللون (and other twins) into one bilingual option row. */
+export function mergeBilingualProductOptions(
+  options: ProductOptionDefinition[],
+): ProductOptionDefinition[] {
+  const buckets = new Map<string, ProductOptionDefinition[]>();
+  for (const opt of options) {
+    const name = String(opt?.name || '').trim();
+    if (!name) continue;
+    const canon = canonicalOptionName(name).toLowerCase();
+    const list = buckets.get(canon) || [];
+    list.push(opt);
+    buckets.set(canon, list);
+  }
+  const out: ProductOptionDefinition[] = [];
+  for (const [, group] of buckets) {
+    const enRow =
+      group.find((o) => !isArabicOptionNameTwin(o.name) && !hasArabicScript(o.name)) || group[0];
+    const arRow = group.find((o) => isArabicOptionNameTwin(o.name) || (o !== enRow && hasArabicScript(o.name)));
+    const canonName = canonicalOptionName(enRow.name) || String(enRow.name || '').trim();
+    const nameAr =
+      resolveOptionNameAr(canonName, enRow.nameAr || arRow?.nameAr || arRow?.name) ||
+      arabicOptionNameFor(canonName);
+    const enVals = Array.isArray(enRow.values) ? enRow.values : [];
+    const arVals = arRow && arRow !== enRow && Array.isArray(arRow.values) ? arRow.values : [];
+    const mergedVals: ProductOptionValueItem[] = [];
+    const seen = new Set<string>();
+    const pushVal = (raw: ProductOptionValueItem | string, arHint?: string) => {
+      const base =
+        typeof raw === 'string'
+          ? ({ id: slug(raw), label: raw, selected: true } as ProductOptionValueItem)
+          : raw;
+      const label = String(base.label || '').trim();
+      if (!label) return;
+      const key = label.toLowerCase();
+      if (seen.has(key)) {
+        const hit = mergedVals.find((v) => v.label.toLowerCase() === key);
+        if (hit && !hit.labelAr && (arHint || base.labelAr)) {
+          hit.labelAr = resolveOptionValueAr(label, arHint || base.labelAr);
+        }
+        return;
+      }
+      seen.add(key);
+      mergedVals.push({
+        ...base,
+        id: base.id || slug(label),
+        label,
+        labelAr: resolveOptionValueAr(label, arHint || base.labelAr),
+        selected: base.selected !== false,
+      });
+    };
+    enVals.forEach((v, i) => {
+      const twin =
+        typeof arVals[i] === 'string'
+          ? String(arVals[i])
+          : arVals[i] && typeof arVals[i] !== 'string'
+            ? String((arVals[i] as ProductOptionValueItem).label || '')
+            : undefined;
+      pushVal(v, twin);
+    });
+    arVals.forEach((v) => {
+      if (typeof v === 'string') {
+        const enFromKnown = resolveOptionValueAr(v) === v ? undefined : undefined;
+        // Arabic-only row: keep label as Arabic only when no EN twin matched.
+        if (!mergedVals.some((m) => m.labelAr === v || m.label === v)) {
+          pushVal({ id: slug(v), label: v, labelAr: v, selected: true });
+        }
+        void enFromKnown;
+      } else {
+        const lab = String(v.label || '').trim();
+        if (!mergedVals.some((m) => m.labelAr === lab || m.label === lab)) {
+          pushVal({ ...v, label: lab, labelAr: lab });
+        }
+      }
+    });
+    if (mergedVals.length === 0) continue;
+    out.push({
+      ...enRow,
+      id: enRow.id || slug(canonName),
+      name: canonName,
+      nameAr,
+      type:
+        enRow.type ||
+        arRow?.type ||
+        (canonName.toLowerCase().includes('color') ? 'color' : 'select'),
+      visible: enRow.visible !== false && (arRow ? arRow.visible !== false : true),
+      values: mergedVals,
+    });
+  }
+  return out;
 }
 
 function optionsFromCatalog(product: Product, storeId: string): {
@@ -191,11 +306,10 @@ function optionsFromCatalog(product: Product, storeId: string): {
 
 function savedOptions(product: Product): ProductOptionDefinition[] {
   if (!Array.isArray(product.productOptions)) return [];
-  const used = new Set<string>();
   const options: ProductOptionDefinition[] = [];
   for (const opt of product.productOptions) {
     const name = String(opt?.name || '').trim();
-    if (!name || used.has(name.toLowerCase())) continue;
+    if (!name) continue;
     const values = dedupeByLabel(
       (Array.isArray(opt.values) ? opt.values : []).map((value, index) => {
         if (typeof value === 'string') {
@@ -224,17 +338,24 @@ function savedOptions(product: Product): ProductOptionDefinition[] {
       }),
     );
     if (values.length === 0) continue;
-    used.add(name.toLowerCase());
+    const canon = canonicalOptionName(name);
     options.push({
-      id: opt.id || slug(name),
-      name,
-      nameAr: resolveOptionNameAr(name, opt.nameAr),
+      id: opt.id || slug(canon || name),
+      name: isArabicOptionNameTwin(name) ? canon : name,
+      nameAr: resolveOptionNameAr(canon || name, opt.nameAr || (isArabicOptionNameTwin(name) ? name : undefined)),
       type: opt.type,
       visible: opt.visible !== false,
       values,
     });
   }
-  return options;
+  return mergeBilingualProductOptions(options);
+}
+
+export function normalizeCommerceVariations(variations: ProductVariation[]): ProductVariation[] {
+  return (variations || []).map((row) => ({
+    ...row,
+    options: collapseOptionMap(row.options || {}),
+  }));
 }
 
 export function seedExistingCommerce(product: Product, storeId: string): {
@@ -246,11 +367,13 @@ export function seedExistingCommerce(product: Product, storeId: string): {
   const saved = savedOptions(product);
   const fromRows = optionsFromVariations(product.variations || []);
   const base = saved.length > 0 ? saved : fromRows.length > 0 ? fromRows : catalog.options;
-  const options = enrichOptionsAr(base, catalog.options);
+  const options = mergeBilingualProductOptions(enrichOptionsAr(base, catalog.options));
   const fields =
     Array.isArray(product.customFields) && product.customFields.length > 0
       ? product.customFields
       : catalog.fields;
-  const variations = Array.isArray(product.variations) ? product.variations : [];
+  const variations = normalizeCommerceVariations(
+    Array.isArray(product.variations) ? product.variations : [],
+  );
   return { options, fields, variations };
 }

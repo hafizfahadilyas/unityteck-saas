@@ -374,9 +374,9 @@ function OfflineStatusCard({
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3500);
-        // Ping root / favicon cache-busted probe
-        const res = await fetch('/favicon.ico?probe=' + Date.now(), {
-          method: 'HEAD',
+        // Same-origin health probe (avoids favicon DNS / offline console noise)
+        const res = await fetch('/api/health?probe=' + Date.now(), {
+          method: 'GET',
           cache: 'no-store',
           signal: controller.signal,
         });

@@ -460,9 +460,19 @@ function isCorruptedDisplayName(raw: string): boolean {
   return marks >= 2 && letters === 0;
 }
 
-export function getCustomerDisplayName(rawName?: string | null, locale: string = 'ar'): string {
-  if (!rawName) return locale === 'ar' ? 'عميل المتجر' : 'Store Customer';
-  const trimmed = rawName.trim();
+/** Locale-aware customer name. Coerces non-strings safely (never assumes .trim exists). */
+export function getCustomerDisplayName(rawName?: unknown, locale: string = 'ar'): string {
+  let asText = '';
+  if (typeof rawName === 'string') {
+    asText = rawName;
+  } else if (typeof rawName === 'number' || typeof rawName === 'boolean') {
+    asText = String(rawName);
+  } else if (rawName && typeof rawName === 'object' && 'name' in rawName) {
+    const nested = (rawName as { name?: unknown }).name;
+    if (typeof nested === 'string') asText = nested;
+  }
+  if (!asText.trim()) return locale === 'ar' ? 'عميل المتجر' : 'Store Customer';
+  const trimmed = asText.trim();
   // Corrupted charset rows often arrive as ??? / � — show a clean fallback.
   if (isCorruptedDisplayName(trimmed)) {
     return locale === 'ar' ? 'عميل المتجر' : 'Store Customer';
@@ -798,16 +808,16 @@ export function getLocalizedAddress(address?: string | null, locale: string = 'a
 }
 
 /** Locale-pure Saudi city for dashboard tables / filters / profiles. */
-export function getLocalizedCity(city?: string | null, locale: string = 'ar'): string {
-  const trimmed = (city || '').trim();
-  if (!trimmed) return '';
+export function getLocalizedCity(city?: unknown, locale: string = 'ar'): string {
+  const trimmed = city == null ? '' : String(city).trim();
+  if (!trimmed || trimmed === '[object Object]') return '';
   return localizedSaudiCity(trimmed, locale === 'ar');
 }
 
 /** Locale-pure country label for common GCC values stored as EN or AR. */
-export function getLocalizedCountry(country?: string | null, locale: string = 'ar'): string {
-  const trimmed = (country || '').trim();
-  if (!trimmed) return '';
+export function getLocalizedCountry(country?: unknown, locale: string = 'ar'): string {
+  const trimmed = country == null ? '' : String(country).trim();
+  if (!trimmed || trimmed === '[object Object]') return '';
   const isAr = locale === 'ar';
   const key = trimmed.toLowerCase().replace(/\s+/g, ' ');
   if (

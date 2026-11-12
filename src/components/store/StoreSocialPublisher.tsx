@@ -401,23 +401,9 @@ export const StoreSocialPublisher: React.FC<StoreSocialPublisherProps> = ({ onNa
       style={{ fontFamily: 'var(--font-ui)', color: 'var(--text)' }}
       dir={isAr ? 'rtl' : 'ltr'}
     >
-      {/* Marketing family breadcrumb + header */}
+      {/* Standalone Social Publishing page header */}
       <div className="flex flex-wrap items-start justify-between gap-4 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
-        <div className="min-w-0 space-y-2">
-          <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--muted)' }}>
-            <button
-              type="button"
-              onClick={() => onNavigateTab?.('marketing')}
-              className="cursor-pointer hover:underline font-medium bg-transparent border-0 p-0"
-              style={{ color: 'var(--accent)' }}
-            >
-              {isAr ? 'أدوات التسويق' : 'Marketing Tools'}
-            </button>
-            <span>/</span>
-            <span className="font-semibold" style={{ color: 'var(--text)' }}>
-              {isAr ? 'النشر الاجتماعي' : 'Social Publishing'}
-            </span>
-          </div>
+        <div className="min-w-0">
           <div className="flex items-center gap-3">
             <div
               className="w-12 h-12 rounded-2xl text-white flex items-center justify-center shadow-lg shrink-0"

@@ -663,6 +663,12 @@ function formatProduct(array $row): array {
             $gallery = $decGal;
         }
     }
+    // Prefer richer gallery from products.data when column is empty/stale.
+    foreach (['gallery_urls', 'galleryUrls'] as $gk) {
+        if (!empty($full[$gk]) && is_array($full[$gk]) && count($full[$gk]) > count($gallery)) {
+            $gallery = $full[$gk];
+        }
+    }
     if (empty($gallery) && !empty($row['image_url'])) {
         $gallery = [$row['image_url']];
     }
@@ -701,6 +707,11 @@ function formatProduct(array $row): array {
         return (is_string($u) && strpos($u, '/src/assets/images/') === 0) ? str_replace('/src/assets/images/', '/images/', $u) : $u;
     }, $gallery);
 
+    $variations = [];
+    if ($statsPdo instanceof PDO && function_exists('souq_product_variations_list')) {
+        $variations = souq_product_variations_list($statsPdo, (string)$row['store_id'], (string)$row['id']);
+    }
+
     return array_merge($full, [
         'id' => (string)$row['id'],
         'storeId' => (string)$row['store_id'],
@@ -731,6 +742,7 @@ function formatProduct(array $row): array {
         'reviews_count' => $reviewCount,
         'salesCount' => $salesCount,
         'sales_count' => $salesCount,
+        'variations' => $variations,
     ]);
 }
 
@@ -1281,6 +1293,33 @@ if ($uri === '/products' && $method === 'POST') {
             echo json_encode(['message' => 'store_id is required.']);
             exit;
         }
+        // Ensure gallery_urls exists and is wide enough (VARCHAR(255) truncates multi-image JSON).
+        if (function_exists('souq_driver_is_mysql') && souq_driver_is_mysql($pdo) && function_exists('souq_table_has_column')) {
+            if (!souq_table_has_column($pdo, 'products', 'gallery_urls')) {
+                try {
+                    $pdo->exec('ALTER TABLE products ADD COLUMN gallery_urls LONGTEXT NULL');
+                    souq_table_has_column($pdo, 'products', 'gallery_urls', true);
+                } catch (Throwable) {
+                    /* keep going — data JSON fallback */
+                }
+            } else {
+                try {
+                    $pdo->exec('ALTER TABLE products MODIFY COLUMN gallery_urls LONGTEXT NULL');
+                } catch (Throwable) {
+                    /* already JSON/TEXT or no ALTER privilege */
+                }
+            }
+        }
+        if (function_exists('souq_driver_is_mysql') && souq_driver_is_mysql($pdo)
+            && function_exists('souq_table_has_column')
+            && !souq_table_has_column($pdo, 'products', 'data')) {
+            try {
+                $pdo->exec('ALTER TABLE products ADD COLUMN data LONGTEXT NULL');
+                souq_table_has_column($pdo, 'products', 'data', true);
+            } catch (Throwable) {
+                /* optional */
+            }
+        }
         $id = (string)($inputData['id'] ?? ('prod-' . uniqid()));
         $sku = (string)($inputData['sku'] ?? ('SKU-' . strtoupper(substr(uniqid(), -6))));
         $name = trim((string)($inputData['name'] ?? ''));
@@ -1296,16 +1335,26 @@ if ($uri === '/products' && $method === 'POST') {
         $cat = trim((string)($inputData['category'] ?? ''));
         $catAr = trim((string)($inputData['category_ar'] ?? ($inputData['categoryAr'] ?? $cat)));
         $img = (string)($inputData['image_url'] ?? ($inputData['image'] ?? ''));
-        $gal = isset($inputData['gallery_urls']) && is_array($inputData['gallery_urls'])
-            ? json_encode($inputData['gallery_urls'], JSON_UNESCAPED_UNICODE)
-            : (isset($inputData['galleryUrls']) && is_array($inputData['galleryUrls'])
-                ? json_encode($inputData['galleryUrls'], JSON_UNESCAPED_UNICODE)
-                : json_encode($img !== '' ? [$img] : [], JSON_UNESCAPED_UNICODE));
+        $galList = [];
+        if (isset($inputData['gallery_urls']) && is_array($inputData['gallery_urls'])) {
+            $galList = array_values(array_filter(array_map('strval', $inputData['gallery_urls'])));
+        } elseif (isset($inputData['galleryUrls']) && is_array($inputData['galleryUrls'])) {
+            $galList = array_values(array_filter(array_map('strval', $inputData['galleryUrls'])));
+        }
+        if ($galList === [] && $img !== '') {
+            $galList = [$img];
+        }
+        if ($img !== '' && !in_array($img, $galList, true)) {
+            array_unshift($galList, $img);
+        }
+        $gal = json_encode($galList, JSON_UNESCAPED_UNICODE);
+        $inputData['gallery_urls'] = $galList;
+        $inputData['galleryUrls'] = $galList;
         $status = (string)($inputData['status'] ?? 'published');
         $isActive = (!isset($inputData['is_active']) || $inputData['is_active']) ? 1 : 0;
         $nowExpr = function_exists('souq_sql_now_expr') ? souq_sql_now_expr($pdo) : "datetime('now')";
-        $hasGallery = !function_exists('souq_table_has_column') || souq_table_has_column($pdo, 'products', 'gallery_urls');
-        $hasData = function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'products', 'data');
+        $hasGallery = !function_exists('souq_table_has_column') || souq_table_has_column($pdo, 'products', 'gallery_urls', true);
+        $hasData = function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'products', 'data', true);
         $isMysql = function_exists('souq_driver_is_mysql') && souq_driver_is_mysql($pdo);
 
         $cols = ['id', 'store_id', 'name', 'name_ar', 'sku', 'price', 'original_price', 'stock', 'category', 'category_ar', 'image_url', 'status', 'is_active'];
@@ -1365,11 +1414,36 @@ if ($uri === '/products' && $method === 'POST') {
             $stmt->execute($vals);
         }
 
+        // Force-persist gallery after insert (handles missing column / truncation / data-only hosts).
+        try {
+            if ($hasGallery) {
+                $pdo->prepare('UPDATE products SET gallery_urls = ? WHERE id = ? AND store_id = ?')->execute([$gal, $id, $storeId]);
+            }
+        } catch (Throwable) {
+            /* ignore */
+        }
+        try {
+            if ($hasData) {
+                $pdo->prepare('UPDATE products SET data = ? WHERE id = ? AND store_id = ?')->execute([
+                    json_encode($inputData, JSON_UNESCAPED_UNICODE),
+                    $id,
+                    $storeId,
+                ]);
+            }
+        } catch (Throwable) {
+            /* ignore */
+        }
+
         $fetch = $pdo->prepare('SELECT * FROM products WHERE id = ?');
         $fetch->execute([$id]);
         $created = $fetch->fetch();
+        $formatted = formatProduct($created ?: ['id' => $id, 'store_id' => $storeId, 'name' => $name, 'name_ar' => $nameAr, 'sku' => $sku, 'price' => $price, 'original_price' => $origPrice, 'stock' => $stock, 'category' => $cat, 'category_ar' => $catAr, 'image_url' => $img, 'gallery_urls' => $gal, 'status' => $status, 'is_active' => $isActive]);
+        if (count($formatted['gallery_urls'] ?? []) < count($galList) && $galList !== []) {
+            $formatted['gallery_urls'] = $galList;
+            $formatted['galleryUrls'] = $galList;
+        }
         http_response_code(201);
-        echo json_encode(['data' => formatProduct($created ?: ['id' => $id, 'store_id' => $storeId, 'name' => $name, 'name_ar' => $nameAr, 'sku' => $sku, 'price' => $price, 'original_price' => $origPrice, 'stock' => $stock, 'category' => $cat, 'category_ar' => $catAr, 'image_url' => $img, 'gallery_urls' => $gal, 'status' => $status, 'is_active' => $isActive])]);
+        echo json_encode(['data' => $formatted]);
         exit;
     } catch (Throwable $e) {
         http_response_code(500);
@@ -1437,10 +1511,29 @@ if (preg_match('#^/products/([^/]+)$#', $uri, $matches) && in_array($method, ['P
         $img = $inputData['image_url'] ?? ($inputData['image'] ?? $existing['image_url']);
 
         $gal = $existing['gallery_urls'] ?? null;
+        if (function_exists('souq_driver_is_mysql') && souq_driver_is_mysql($pdo)
+            && function_exists('souq_table_has_column')
+            && !souq_table_has_column($pdo, 'products', 'gallery_urls')) {
+            try {
+                $pdo->exec('ALTER TABLE products ADD COLUMN gallery_urls JSON NULL');
+                souq_table_has_column($pdo, 'products', 'gallery_urls', true);
+            } catch (Throwable) {
+                try {
+                    $pdo->exec('ALTER TABLE products ADD COLUMN gallery_urls TEXT NULL');
+                    souq_table_has_column($pdo, 'products', 'gallery_urls', true);
+                } catch (Throwable) {
+                    /* optional */
+                }
+            }
+        }
         if (isset($inputData['gallery_urls']) && is_array($inputData['gallery_urls'])) {
-            $gal = json_encode($inputData['gallery_urls'], JSON_UNESCAPED_UNICODE);
+            $gal = json_encode(array_values(array_filter(array_map('strval', $inputData['gallery_urls']))), JSON_UNESCAPED_UNICODE);
+            $mergedData['gallery_urls'] = array_values(array_filter(array_map('strval', $inputData['gallery_urls'])));
+            $mergedData['galleryUrls'] = $mergedData['gallery_urls'];
         } elseif (isset($inputData['galleryUrls']) && is_array($inputData['galleryUrls'])) {
-            $gal = json_encode($inputData['galleryUrls'], JSON_UNESCAPED_UNICODE);
+            $gal = json_encode(array_values(array_filter(array_map('strval', $inputData['galleryUrls']))), JSON_UNESCAPED_UNICODE);
+            $mergedData['gallery_urls'] = array_values(array_filter(array_map('strval', $inputData['galleryUrls'])));
+            $mergedData['galleryUrls'] = $mergedData['gallery_urls'];
         } elseif ($img !== ($existing['image_url'] ?? null)) {
             $curGal = json_decode((string)($existing['gallery_urls'] ?? '[]'), true) ?: [];
             $gal = json_encode(array_values(array_unique(array_merge([(string)$img], $curGal))), JSON_UNESCAPED_UNICODE);
@@ -1987,12 +2080,68 @@ if (preg_match('#^/stores/([^/]+)/builder-layout#', $uri, $mBL)) {
 }
 
 // ── 10. PAGES & POLICIES ──
+// MySQL (Hostinger Laravel) → theme_pages. SQLite legacy gateway → pages.
 if (preg_match('#^/stores/([^/]+)/pages(?:/([^/]+))?(?:/(publish))?$#', $uri, $mP) || $uri === '/pages') {
     $targetStore = !empty($mP[1]) ? $mP[1] : $storeId;
     $pageKey = isset($mP[2]) ? rawurldecode((string) $mP[2]) : '';
     $isPublishAction = ($method === 'POST' && !empty($mP[3]) && $mP[3] === 'publish');
+    $useThemePages = function_exists('souq_driver_is_mysql') && souq_driver_is_mysql($pdo);
+    $nowExpr = function_exists('souq_sql_now_expr') ? souq_sql_now_expr($pdo) : "datetime('now')";
 
-    $mapPageRow = static function (array $row): array {
+    $decodeJsonCol = static function ($raw): ?array {
+        if (is_array($raw)) {
+            return $raw;
+        }
+        if (!is_string($raw) || trim($raw) === '') {
+            return null;
+        }
+        $decoded = json_decode($raw, true);
+        return is_array($decoded) ? $decoded : null;
+    };
+
+    $mapThemePageRow = static function (array $row) use ($decodeJsonCol): array {
+        $draft = $decodeJsonCol($row['draft_layout'] ?? null) ?? [];
+        $published = $decodeJsonCol($row['published_layout'] ?? null);
+        $seo = $decodeJsonCol($row['seo'] ?? null) ?? [];
+        $status = (string) ($row['status'] ?? 'draft');
+        $contentEn = (string) ($draft['contentEn'] ?? ($draft['content_en'] ?? ''));
+        $contentAr = (string) ($draft['contentAr'] ?? ($draft['content_ar'] ?? ''));
+        if ($contentEn === '' && is_array($published)) {
+            $contentEn = (string) ($published['contentEn'] ?? ($published['content_en'] ?? ''));
+        }
+        if ($contentAr === '' && is_array($published)) {
+            $contentAr = (string) ($published['contentAr'] ?? ($published['content_ar'] ?? ''));
+        }
+        $category = (string) ($draft['category'] ?? ($published['category'] ?? 'custom'));
+        $isSystem = (bool) ($draft['isSystemDefault'] ?? ($published['isSystemDefault'] ?? false));
+        return [
+            'id' => $row['id'],
+            'store_id' => $row['store_id'],
+            'slug' => $row['slug'],
+            'type' => $row['type'] ?? 'custom',
+            'title_en' => $row['title_en'] ?? '',
+            'title_ar' => $row['title_ar'] ?? '',
+            'draft_layout' => $draft ?: null,
+            'published_layout' => $published,
+            'seo' => $seo ?: null,
+            'header_mode' => $row['header_mode'] ?? 'global',
+            'footer_mode' => $row['footer_mode'] ?? 'global',
+            'status' => $status,
+            'published_at' => $row['published_at'] ?? null,
+            'updated_at' => $row['updated_at'] ?? null,
+            'titleEn' => $row['title_en'] ?? '',
+            'titleAr' => $row['title_ar'] ?? '',
+            'content_en' => $contentEn,
+            'content_ar' => $contentAr,
+            'category' => $category,
+            'is_system_default' => $isSystem ? 1 : 0,
+            'is_published' => $status === 'published' ? 1 : 0,
+            'meta_description_en' => (string) ($seo['seo_description_en'] ?? ''),
+            'meta_description_ar' => (string) ($seo['seo_description_ar'] ?? ''),
+        ];
+    };
+
+    $mapLegacyPageRow = static function (array $row): array {
         $contentEn = (string) ($row['content_en'] ?? '');
         $contentAr = (string) ($row['content_ar'] ?? '');
         $category = (string) ($row['category'] ?? 'custom');
@@ -2021,7 +2170,6 @@ if (preg_match('#^/stores/([^/]+)/pages(?:/([^/]+))?(?:/(publish))?$#', $uri, $m
             'footer_mode' => 'global',
             'status' => $published ? 'published' : 'draft',
             'updated_at' => $row['updated_at'] ?? null,
-            // Flat fields kept for older clients
             'titleEn' => $row['title_en'] ?? '',
             'titleAr' => $row['title_ar'] ?? '',
             'content_en' => $contentEn,
@@ -2034,124 +2182,286 @@ if (preg_match('#^/stores/([^/]+)/pages(?:/([^/]+))?(?:/(publish))?$#', $uri, $m
         ];
     };
 
-    if ($method === 'DELETE' && $pageKey !== '') {
-        $del = $pdo->prepare('DELETE FROM pages WHERE store_id = ? AND (id = ? OR slug = ?)');
-        $del->execute([$targetStore, $pageKey, $pageKey]);
-        echo json_encode(['success' => true, 'store_id' => $targetStore]);
-        exit;
-    }
+    try {
+        if ($useThemePages) {
+            if ($method === 'DELETE' && $pageKey !== '') {
+                $del = $pdo->prepare('DELETE FROM theme_pages WHERE store_id = ? AND (id = ? OR slug = ?)');
+                $del->execute([$targetStore, $pageKey, $pageKey]);
+                echo json_encode(['success' => true, 'store_id' => $targetStore]);
+                exit;
+            }
 
-    if ($isPublishAction && $pageKey !== '') {
-        $pub = $pdo->prepare("UPDATE pages SET is_published = 1, updated_at = datetime('now') WHERE store_id = ? AND (id = ? OR slug = ?)");
-        $pub->execute([$targetStore, $pageKey, $pageKey]);
-        $stOne = $pdo->prepare('SELECT * FROM pages WHERE store_id = ? AND (id = ? OR slug = ?) LIMIT 1');
-        $stOne->execute([$targetStore, $pageKey, $pageKey]);
-        $saved = $stOne->fetch();
-        echo json_encode(['success' => true, 'store_id' => $targetStore, 'data' => $saved ? $mapPageRow($saved) : null]);
-        exit;
-    }
+            if ($isPublishAction && $pageKey !== '') {
+                $find = $pdo->prepare('SELECT * FROM theme_pages WHERE store_id = ? AND (id = ? OR slug = ?) LIMIT 1');
+                $find->execute([$targetStore, $pageKey, $pageKey]);
+                $existing = $find->fetch() ?: null;
+                if (!$existing) {
+                    http_response_code(404);
+                    echo json_encode(['message' => 'Page not found.']);
+                    exit;
+                }
+                $draft = $decodeJsonCol($existing['draft_layout'] ?? null);
+                $pubLayout = $draft ?: ($decodeJsonCol($existing['published_layout'] ?? null) ?: []);
+                $pub = $pdo->prepare("UPDATE theme_pages SET status = 'published', published_layout = ?, published_at = {$nowExpr}, updated_at = {$nowExpr} WHERE store_id = ? AND id = ?");
+                $pub->execute([
+                    json_encode($pubLayout, JSON_UNESCAPED_UNICODE),
+                    $targetStore,
+                    $existing['id'],
+                ]);
+                $find->execute([$targetStore, $existing['id'], $existing['id']]);
+                $saved = $find->fetch();
+                echo json_encode(['success' => true, 'store_id' => $targetStore, 'data' => $saved ? $mapThemePageRow($saved) : null]);
+                exit;
+            }
 
-    if (in_array($method, ['PUT', 'POST'], true)) {
-        $draft = is_array($inputData['draft_layout'] ?? null) ? $inputData['draft_layout'] : [];
-        $publishedLayout = is_array($inputData['published_layout'] ?? null) ? $inputData['published_layout'] : [];
-        $seo = is_array($inputData['seo'] ?? null) ? $inputData['seo'] : [];
+            if (in_array($method, ['PUT', 'POST'], true)) {
+                $draftIn = is_array($inputData['draft_layout'] ?? null) ? $inputData['draft_layout'] : [];
+                $publishedLayout = is_array($inputData['published_layout'] ?? null) ? $inputData['published_layout'] : null;
+                $seo = is_array($inputData['seo'] ?? null) ? $inputData['seo'] : [];
+                $slug = (string) ($inputData['slug'] ?? $pageKey);
+                $type = (string) ($inputData['type'] ?? 'custom');
+                $titleEn = (string) ($inputData['titleEn'] ?? ($inputData['title_en'] ?? ''));
+                $titleAr = (string) ($inputData['titleAr'] ?? ($inputData['title_ar'] ?? ''));
+                $status = (string) ($inputData['status'] ?? '');
+                if ($status === '' && $publishedLayout) {
+                    $status = 'published';
+                }
+                if ($status === '') {
+                    $status = 'draft';
+                }
+                $headerMode = (string) ($inputData['header_mode'] ?? 'global');
+                $footerMode = (string) ($inputData['footer_mode'] ?? 'global');
 
-        $slug = (string) ($inputData['slug'] ?? $pageKey);
-        $titleEn = (string) ($inputData['titleEn'] ?? ($inputData['title_en'] ?? ''));
-        $titleAr = (string) ($inputData['titleAr'] ?? ($inputData['title_ar'] ?? ''));
-        $contentEn = (string) ($inputData['contentEn'] ?? ($inputData['content_en'] ?? ($draft['contentEn'] ?? ($publishedLayout['contentEn'] ?? ''))));
-        $contentAr = (string) ($inputData['contentAr'] ?? ($inputData['content_ar'] ?? ($draft['contentAr'] ?? ($publishedLayout['contentAr'] ?? ''))));
-        $category = (string) ($inputData['category'] ?? ($draft['category'] ?? ($publishedLayout['category'] ?? 'legal')));
-        $isSystem = isset($inputData['isSystemDefault'])
-            ? (int) (bool) $inputData['isSystemDefault']
-            : (int) (bool) ($draft['isSystemDefault'] ?? false);
-        $status = (string) ($inputData['status'] ?? '');
-        $isPublished = isset($inputData['isPublished'])
-            ? (int) (bool) $inputData['isPublished']
-            : ($status === 'published' || $status === '' ? 1 : 0);
-        if ($publishedLayout) {
-            $isPublished = 1;
-        }
-        $metaEn = (string) ($inputData['metaDescriptionEn'] ?? ($inputData['meta_description_en'] ?? ($seo['seo_description_en'] ?? '')));
-        $metaAr = (string) ($inputData['metaDescriptionAr'] ?? ($inputData['meta_description_ar'] ?? ($seo['seo_description_ar'] ?? '')));
+                $existing = null;
+                if ($pageKey !== '') {
+                    $find = $pdo->prepare('SELECT * FROM theme_pages WHERE store_id = ? AND (id = ? OR slug = ?) LIMIT 1');
+                    $find->execute([$targetStore, $pageKey, $pageKey]);
+                    $existing = $find->fetch() ?: null;
+                }
+                if (!$existing && $slug !== '') {
+                    $find = $pdo->prepare('SELECT * FROM theme_pages WHERE store_id = ? AND slug = ? LIMIT 1');
+                    $find->execute([$targetStore, $slug]);
+                    $existing = $find->fetch() ?: null;
+                }
 
-        $existing = null;
-        if ($pageKey !== '') {
-            $find = $pdo->prepare('SELECT * FROM pages WHERE store_id = ? AND (id = ? OR slug = ?) LIMIT 1');
-            $find->execute([$targetStore, $pageKey, $pageKey]);
-            $existing = $find->fetch() ?: null;
-        }
-        if (!$existing && $slug !== '') {
-            $find = $pdo->prepare('SELECT * FROM pages WHERE store_id = ? AND slug = ? LIMIT 1');
-            $find->execute([$targetStore, $slug]);
-            $existing = $find->fetch() ?: null;
-        }
+                $pId = (string) ($inputData['id'] ?? ($existing['id'] ?? ('tpage-' . bin2hex(random_bytes(6)))));
+                if ($slug === '' && $existing) {
+                    $slug = (string) $existing['slug'];
+                }
+                if ($slug === '') {
+                    http_response_code(422);
+                    echo json_encode(['message' => 'slug is required.']);
+                    exit;
+                }
+                if ($type === '' && $existing) {
+                    $type = (string) ($existing['type'] ?? 'custom');
+                }
+                if ($type === '') {
+                    $type = 'custom';
+                }
 
-        $pId = (string) ($inputData['id'] ?? ($existing['id'] ?? ('page-' . uniqid())));
-        if ($slug === '' && $existing) {
-            $slug = (string) $existing['slug'];
-        }
+                $draftJson = json_encode($draftIn ?: new stdClass(), JSON_UNESCAPED_UNICODE);
+                $publishedJson = $publishedLayout !== null
+                    ? json_encode($publishedLayout, JSON_UNESCAPED_UNICODE)
+                    : ($status === 'published' && $existing ? ($existing['published_layout'] ?? null) : null);
+                if ($status === 'published' && $publishedJson === null) {
+                    $publishedJson = $draftJson;
+                }
+                $seoJson = json_encode($seo ?: new stdClass(), JSON_UNESCAPED_UNICODE);
+                $publishedAtSql = $status === 'published' ? $nowExpr : 'NULL';
 
-        $ins = $pdo->prepare("
-            INSERT OR REPLACE INTO pages (
-                id, store_id, slug, title_ar, title_en, content_ar, content_en, category, is_system_default, is_published, meta_description_ar, meta_description_en, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-        ");
-        $ins->execute([
-            $pId,
-            $targetStore,
-            $slug,
-            $titleAr,
-            $titleEn,
-            $contentAr,
-            $contentEn,
-            $category,
-            $isSystem,
-            $isPublished,
-            $metaAr,
-            $metaEn,
-        ]);
+                if ($existing) {
+                    $upd = $pdo->prepare("UPDATE theme_pages SET slug = ?, type = ?, title_en = ?, title_ar = ?, draft_layout = ?, published_layout = ?, seo = ?, header_mode = ?, footer_mode = ?, status = ?, published_at = IF(? = 'published', COALESCE(published_at, {$nowExpr}), published_at), updated_at = {$nowExpr} WHERE store_id = ? AND id = ?");
+                    $upd->execute([
+                        $slug,
+                        $type,
+                        $titleEn,
+                        $titleAr,
+                        $draftJson,
+                        $publishedJson,
+                        $seoJson,
+                        $headerMode,
+                        $footerMode,
+                        $status,
+                        $status,
+                        $targetStore,
+                        $pId,
+                    ]);
+                } else {
+                    $ins = $pdo->prepare("INSERT INTO theme_pages (id, store_id, slug, type, title_en, title_ar, draft_layout, published_layout, seo, header_mode, footer_mode, status, published_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {$publishedAtSql}, {$nowExpr}, {$nowExpr})");
+                    $ins->execute([
+                        $pId,
+                        $targetStore,
+                        $slug,
+                        $type,
+                        $titleEn,
+                        $titleAr,
+                        $draftJson,
+                        $publishedJson,
+                        $seoJson,
+                        $headerMode,
+                        $footerMode,
+                        $status,
+                    ]);
+                }
 
-        $stOne = $pdo->prepare('SELECT * FROM pages WHERE store_id = ? AND id = ? LIMIT 1');
-        $stOne->execute([$targetStore, $pId]);
-        $saved = $stOne->fetch() ?: [
-            'id' => $pId,
-            'store_id' => $targetStore,
-            'slug' => $slug,
-            'title_en' => $titleEn,
-            'title_ar' => $titleAr,
-            'content_en' => $contentEn,
-            'content_ar' => $contentAr,
-            'category' => $category,
-            'is_system_default' => $isSystem,
-            'is_published' => $isPublished,
-            'meta_description_en' => $metaEn,
-            'meta_description_ar' => $metaAr,
-            'updated_at' => date('c'),
-        ];
-        http_response_code($existing ? 200 : 201);
-        echo json_encode(['success' => true, 'store_id' => $targetStore, 'data' => $mapPageRow($saved)]);
-        exit;
-    }
+                $stOne = $pdo->prepare('SELECT * FROM theme_pages WHERE store_id = ? AND id = ? LIMIT 1');
+                $stOne->execute([$targetStore, $pId]);
+                $saved = $stOne->fetch();
+                http_response_code($existing ? 200 : 201);
+                echo json_encode(['success' => true, 'store_id' => $targetStore, 'data' => $saved ? $mapThemePageRow($saved) : null]);
+                exit;
+            }
 
-    if ($pageKey !== '') {
-        $stOne = $pdo->prepare('SELECT * FROM pages WHERE store_id = ? AND (id = ? OR slug = ?) LIMIT 1');
-        $stOne->execute([$targetStore, $pageKey, $pageKey]);
-        $saved = $stOne->fetch();
-        if (!$saved) {
-            http_response_code(404);
-            echo json_encode(['message' => 'Page not found.']);
+            if ($pageKey !== '') {
+                $stOne = $pdo->prepare('SELECT * FROM theme_pages WHERE store_id = ? AND (id = ? OR slug = ?) LIMIT 1');
+                $stOne->execute([$targetStore, $pageKey, $pageKey]);
+                $saved = $stOne->fetch();
+                if (!$saved) {
+                    http_response_code(404);
+                    echo json_encode(['message' => 'Page not found.']);
+                    exit;
+                }
+                echo json_encode(['success' => true, 'store_id' => $targetStore, 'data' => $mapThemePageRow($saved)]);
+                exit;
+            }
+
+            $st = $pdo->prepare('SELECT * FROM theme_pages WHERE store_id = ? ORDER BY slug ASC');
+            $st->execute([$targetStore]);
+            $rows = array_map($mapThemePageRow, $st->fetchAll() ?: []);
+            echo json_encode(['success' => true, 'store_id' => $targetStore, 'data' => $rows]);
             exit;
         }
-        echo json_encode(['success' => true, 'store_id' => $targetStore, 'data' => $mapPageRow($saved)]);
+
+        // ── SQLite legacy `pages` table ──
+        if ($method === 'DELETE' && $pageKey !== '') {
+            $del = $pdo->prepare('DELETE FROM pages WHERE store_id = ? AND (id = ? OR slug = ?)');
+            $del->execute([$targetStore, $pageKey, $pageKey]);
+            echo json_encode(['success' => true, 'store_id' => $targetStore]);
+            exit;
+        }
+
+        if ($isPublishAction && $pageKey !== '') {
+            $pub = $pdo->prepare("UPDATE pages SET is_published = 1, updated_at = {$nowExpr} WHERE store_id = ? AND (id = ? OR slug = ?)");
+            $pub->execute([$targetStore, $pageKey, $pageKey]);
+            $stOne = $pdo->prepare('SELECT * FROM pages WHERE store_id = ? AND (id = ? OR slug = ?) LIMIT 1');
+            $stOne->execute([$targetStore, $pageKey, $pageKey]);
+            $saved = $stOne->fetch();
+            echo json_encode(['success' => true, 'store_id' => $targetStore, 'data' => $saved ? $mapLegacyPageRow($saved) : null]);
+            exit;
+        }
+
+        if (in_array($method, ['PUT', 'POST'], true)) {
+            $draft = is_array($inputData['draft_layout'] ?? null) ? $inputData['draft_layout'] : [];
+            $publishedLayout = is_array($inputData['published_layout'] ?? null) ? $inputData['published_layout'] : [];
+            $seo = is_array($inputData['seo'] ?? null) ? $inputData['seo'] : [];
+
+            $slug = (string) ($inputData['slug'] ?? $pageKey);
+            $titleEn = (string) ($inputData['titleEn'] ?? ($inputData['title_en'] ?? ''));
+            $titleAr = (string) ($inputData['titleAr'] ?? ($inputData['title_ar'] ?? ''));
+            $contentEn = (string) ($inputData['contentEn'] ?? ($inputData['content_en'] ?? ($draft['contentEn'] ?? ($publishedLayout['contentEn'] ?? ''))));
+            $contentAr = (string) ($inputData['contentAr'] ?? ($inputData['content_ar'] ?? ($draft['contentAr'] ?? ($publishedLayout['contentAr'] ?? ''))));
+            $category = (string) ($inputData['category'] ?? ($draft['category'] ?? ($publishedLayout['category'] ?? 'legal')));
+            $isSystem = isset($inputData['isSystemDefault'])
+                ? (int) (bool) $inputData['isSystemDefault']
+                : (int) (bool) ($draft['isSystemDefault'] ?? false);
+            $status = (string) ($inputData['status'] ?? '');
+            $isPublished = isset($inputData['isPublished'])
+                ? (int) (bool) $inputData['isPublished']
+                : ($status === 'published' || $status === '' ? 1 : 0);
+            if ($publishedLayout) {
+                $isPublished = 1;
+            }
+            $metaEn = (string) ($inputData['metaDescriptionEn'] ?? ($inputData['meta_description_en'] ?? ($seo['seo_description_en'] ?? '')));
+            $metaAr = (string) ($inputData['metaDescriptionAr'] ?? ($inputData['meta_description_ar'] ?? ($seo['seo_description_ar'] ?? '')));
+
+            $existing = null;
+            if ($pageKey !== '') {
+                $find = $pdo->prepare('SELECT * FROM pages WHERE store_id = ? AND (id = ? OR slug = ?) LIMIT 1');
+                $find->execute([$targetStore, $pageKey, $pageKey]);
+                $existing = $find->fetch() ?: null;
+            }
+            if (!$existing && $slug !== '') {
+                $find = $pdo->prepare('SELECT * FROM pages WHERE store_id = ? AND slug = ? LIMIT 1');
+                $find->execute([$targetStore, $slug]);
+                $existing = $find->fetch() ?: null;
+            }
+
+            $pId = (string) ($inputData['id'] ?? ($existing['id'] ?? ('page-' . uniqid())));
+            if ($slug === '' && $existing) {
+                $slug = (string) $existing['slug'];
+            }
+
+            $ins = $pdo->prepare("
+                INSERT OR REPLACE INTO pages (
+                    id, store_id, slug, title_ar, title_en, content_ar, content_en, category, is_system_default, is_published, meta_description_ar, meta_description_en, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {$nowExpr})
+            ");
+            $ins->execute([
+                $pId,
+                $targetStore,
+                $slug,
+                $titleAr,
+                $titleEn,
+                $contentAr,
+                $contentEn,
+                $category,
+                $isSystem,
+                $isPublished,
+                $metaAr,
+                $metaEn,
+            ]);
+
+            $stOne = $pdo->prepare('SELECT * FROM pages WHERE store_id = ? AND id = ? LIMIT 1');
+            $stOne->execute([$targetStore, $pId]);
+            $saved = $stOne->fetch() ?: [
+                'id' => $pId,
+                'store_id' => $targetStore,
+                'slug' => $slug,
+                'title_en' => $titleEn,
+                'title_ar' => $titleAr,
+                'content_en' => $contentEn,
+                'content_ar' => $contentAr,
+                'category' => $category,
+                'is_system_default' => $isSystem,
+                'is_published' => $isPublished,
+                'meta_description_en' => $metaEn,
+                'meta_description_ar' => $metaAr,
+                'updated_at' => date('c'),
+            ];
+            http_response_code($existing ? 200 : 201);
+            echo json_encode(['success' => true, 'store_id' => $targetStore, 'data' => $mapLegacyPageRow($saved)]);
+            exit;
+        }
+
+        if ($pageKey !== '') {
+            $stOne = $pdo->prepare('SELECT * FROM pages WHERE store_id = ? AND (id = ? OR slug = ?) LIMIT 1');
+            $stOne->execute([$targetStore, $pageKey, $pageKey]);
+            $saved = $stOne->fetch();
+            if (!$saved) {
+                http_response_code(404);
+                echo json_encode(['message' => 'Page not found.']);
+                exit;
+            }
+            echo json_encode(['success' => true, 'store_id' => $targetStore, 'data' => $mapLegacyPageRow($saved)]);
+            exit;
+        }
+
+        $st = $pdo->prepare('SELECT * FROM pages WHERE store_id = ? ORDER BY slug ASC');
+        $st->execute([$targetStore]);
+        $rows = array_map($mapLegacyPageRow, $st->fetchAll() ?: []);
+        echo json_encode(['success' => true, 'store_id' => $targetStore, 'data' => $rows]);
+        exit;
+    } catch (Throwable $pageErr) {
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Pages request failed.',
+            'error' => $pageErr->getMessage(),
+            'store_id' => $targetStore,
+        ]);
         exit;
     }
-
-    $st = $pdo->prepare('SELECT * FROM pages WHERE store_id = ? ORDER BY slug ASC');
-    $st->execute([$targetStore]);
-    $rows = array_map($mapPageRow, $st->fetchAll());
-    echo json_encode(['success' => true, 'store_id' => $targetStore, 'data' => $rows]);
-    exit;
 }
 
 // ── 11. BRANDS ──

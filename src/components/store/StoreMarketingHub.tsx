@@ -243,15 +243,6 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
       action: () => goTab('direct-orders'),
     },
     {
-      id: 'social',
-      title: isAr ? 'النشر الاجتماعي' : 'Social Publishing',
-      desc: isAr
-        ? 'ربط إنستغرام وفيسبوك وجدولة المنشورات أو نشرها فوراً.'
-        : 'Connect Instagram and Facebook, then schedule or publish posts.',
-      icon: Send,
-      action: () => goTab('social'),
-    },
-    {
       id: 'seo',
       title: isAr ? 'تحسين محركات البحث' : 'SEO Optimization',
       desc: isAr
@@ -598,8 +589,8 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               {subView === 'hub' &&
                 (isAr
-                  ? 'الحملات والكوبونات والعروض وتحسين محركات البحث والمدونة وأدوات التجارة والنشر الاجتماعي'
-                  : 'Campaigns, coupons, offers, SEO, blog, commerce tools, and social publishing')}
+                  ? 'الحملات والكوبونات والعروض وتحسين محركات البحث والمدونة وأدوات التجارة'
+                  : 'Campaigns, coupons, offers, SEO, blog, and commerce tools')}
               {subView === 'abandoned' &&
                 (isAr
                   ? 'تتبع الأداء، إدارة رسائل التذكير، واستعادة المبيعات المفقودة.'
@@ -939,7 +930,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                             width="5"
                             height={Math.max(hA, 2)}
                             rx="2"
-                            fill="#3b82f6"
+                            fill="var(--accent)"
                             className="transition-all hover:opacity-80"
                           />
                           {/* Recovered Bar (Green) */}

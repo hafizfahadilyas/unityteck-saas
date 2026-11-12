@@ -439,22 +439,124 @@ function souq_ai_resolve_model(?string $requested, array $env): string
     return 'gemini-2.5-flash-image';
 }
 
-function souq_gemini_curl_json(string $url, array $payload, int $timeout = 120): array
+/**
+ * POST JSON to Gemini. Prefers x-goog-api-key header (avoids some WAF query stripping).
+ *
+ * @return array{raw:string|false,status:int,err:string}
+ */
+function souq_gemini_curl_json(string $url, array $payload, int $timeout = 120, ?string $apiKey = null): array
 {
     $body = json_encode($payload, JSON_UNESCAPED_UNICODE);
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
+    $headers = ['Content-Type: application/json', 'Accept: application/json'];
+    $postUrl = $url;
+    if ($apiKey !== null && $apiKey !== '') {
+        $headers[] = 'x-goog-api-key: ' . $apiKey;
+        // Drop ?key= from URL when header auth is used.
+        $postUrl = preg_replace('/([?&])key=[^&]*&?/', '$1', $url) ?? $url;
+        $postUrl = rtrim($postUrl, '?&');
+    }
+    $ch = curl_init($postUrl);
+    $opts = [
         CURLOPT_POST => true,
-        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Accept: application/json'],
+        CURLOPT_HTTPHEADER => $headers,
         CURLOPT_POSTFIELDS => $body,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => $timeout,
-    ]);
+        // Hostinger shared often black-holes IPv6 → "0 bytes received" timeouts to Google.
+        CURLOPT_CONNECTTIMEOUT => min(10, max(4, (int) floor($timeout / 3))),
+        CURLOPT_NOSIGNAL => true,
+    ];
+    if (defined('CURL_HTTP_VERSION_1_1')) {
+        $opts[CURLOPT_HTTP_VERSION] = CURL_HTTP_VERSION_1_1;
+    }
+    if (defined('CURL_IPRESOLVE_V4')) {
+        $opts[CURLOPT_IPRESOLVE] = CURL_IPRESOLVE_V4;
+    }
+    curl_setopt_array($ch, $opts);
     $raw = curl_exec($ch);
     $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $err = curl_error($ch);
     curl_close($ch);
     return ['raw' => $raw, 'status' => $status, 'err' => $err];
+}
+
+/**
+ * Resolve Gemini text model from env.
+ * New AI Studio keys: gemini-2.5-flash returns 404 → must use gemini-3.8-flash.
+ * (Outbound hang was IPv6; fixed via CURL_IPRESOLVE_V4 — not a 3.8 model ban.)
+ */
+function souq_gemini_resolve_text_model(?string $configured = null): string
+{
+    if ($configured === null) {
+        $env = souq_load_root_env();
+        $configured = (string)($env['GEMINI_TEXT_MODEL'] ?? '');
+    }
+    $model = trim((string)$configured);
+    $model = trim($model, "\"'");
+    // Retired for new users (Google 404 → migrate to 3.8 Flash).
+    if ($model === '' || $model === 'gemini-2.0-flash' || $model === 'gemini-2.5-flash' || $model === 'gemini-2.5-flash-lite') {
+        return 'gemini-3.8-flash';
+    }
+    return $model;
+}
+
+/** Sanitize Gemini API key from .env (strip quotes / BOM / whitespace). */
+function souq_gemini_api_key(): string
+{
+    $env = souq_load_root_env();
+    $key = trim((string)($env['GEMINI_API_KEY'] ?? ''));
+    $key = trim($key, "\"'");
+    $key = preg_replace('/^\xEF\xBB\xBF/', '', $key) ?? $key;
+    return trim($key);
+}
+
+/**
+ * Primary + fast fallbacks for product copy / prompt enhance.
+ *
+ * @return list<string>
+ */
+function souq_gemini_text_model_candidates(?string $preferred = null): array
+{
+    $primary = souq_gemini_resolve_text_model($preferred);
+    $out = [$primary];
+    // Keep short — nginx gateway ~60s; each attempt can take ~22s + one 503 retry.
+    foreach (['gemini-3.8-flash', 'gemini-flash-latest'] as $fallback) {
+        if (!in_array($fallback, $out, true)) {
+            $out[] = $fallback;
+        }
+    }
+    return $out;
+}
+
+/**
+ * Gemini 3.x defaults to medium thinking which can eat the whole token budget
+ * and hang free-tier keys — disable thinking for short catalog copy jobs.
+ *
+ * @param array<string,mixed> $base
+ * @return array<string,mixed>
+ */
+function souq_gemini_text_generation_config(string $model, array $base): array
+{
+    // Gemini 3.x defaults to medium thinking (slow + burns tokens). Prefer LOW for catalog copy.
+    if (str_starts_with($model, 'gemini-3')) {
+        $base['thinkingConfig'] = ['thinkingLevel' => 'LOW'];
+    }
+    return $base;
+}
+
+/**
+ * Call Gemini once; on transient 503 high-demand retry once quickly.
+ *
+ * @return array{raw:string|false,status:int,err:string}
+ */
+function souq_gemini_curl_json_retry(string $url, array $payload, int $timeout, string $apiKey): array
+{
+    $res = souq_gemini_curl_json($url, $payload, $timeout, $apiKey);
+    if ($res['status'] === 503) {
+        usleep(600000);
+        $res = souq_gemini_curl_json($url, $payload, $timeout, $apiKey);
+    }
+    return $res;
 }
 
 function souq_gemini_parse_image(string $raw, string $model): array
@@ -690,7 +792,7 @@ function souq_ai_load_brand_profile(PDO $pdo, string $storeId): array
 function souq_gemini_generate_image(string $prompt, array $options = []): array
 {
     $env = souq_load_root_env();
-    $apiKey = trim((string)($env['GEMINI_API_KEY'] ?? ''));
+    $apiKey = souq_gemini_api_key();
     if ($apiKey === '' || $apiKey === 'MY_GEMINI_API_KEY') {
         return ['ok' => false, 'code' => 'provider_not_connected', 'message' => 'AI image provider is not connected.'];
     }
@@ -788,12 +890,12 @@ function souq_gemini_generate_image(string $prompt, array $options = []): array
     $usedModel = $model;
     $usedParts = $parts;
 
-    $tryOnce = static function (string $tryUrl, string $tryModel, array $tryParts, array $genConfig) use (&$lastFail): ?array {
+    $tryOnce = static function (string $tryUrl, string $tryModel, array $tryParts, array $genConfig) use (&$lastFail, $apiKey): ?array {
         $payload = [
             'contents' => [['parts' => $tryParts]],
             'generationConfig' => $genConfig,
         ];
-        $res = souq_gemini_curl_json($tryUrl, $payload, 120);
+        $res = souq_gemini_curl_json($tryUrl, $payload, 120, $apiKey);
         if ($res['raw'] !== false && $res['status'] >= 200 && $res['status'] < 300) {
             $parsed = souq_gemini_parse_image((string)$res['raw'], $tryModel);
             if (!empty($parsed['ok'])) {
@@ -893,14 +995,9 @@ function souq_gemini_generate_image(string $prompt, array $options = []): array
 
 function souq_gemini_enhance_prompt(string $rawPrompt, string $locale = 'en', string $aspect = '1:1', ?string $style = null): array
 {
-    $env = souq_load_root_env();
-    $apiKey = trim((string)($env['GEMINI_API_KEY'] ?? ''));
+    $apiKey = souq_gemini_api_key();
     if ($apiKey === '' || $apiKey === 'MY_GEMINI_API_KEY') {
         return ['ok' => false, 'code' => 'provider_not_connected', 'message' => 'AI image provider is not connected.'];
-    }
-    $model = trim((string)($env['GEMINI_TEXT_MODEL'] ?? 'gemini-3.8-flash')) ?: 'gemini-3.8-flash';
-    if ($model === 'gemini-2.5-flash' || $model === 'gemini-2.0-flash') {
-        $model = 'gemini-3.8-flash';
     }
     $wantAr = str_starts_with(strtolower($locale), 'ar');
     $instruction = $wantAr
@@ -912,32 +1009,42 @@ function souq_gemini_enhance_prompt(string $rawPrompt, string $locale = 'en', st
     }
     $instruction .= "\n\nMerchant note:\n" . trim($rawPrompt);
 
-    $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($model) . ':generateContent?key=' . rawurlencode($apiKey);
-    $res = souq_gemini_curl_json($url, [
-        'contents' => [['parts' => [['text' => $instruction]]]],
-        'generationConfig' => ['temperature' => 0.7, 'maxOutputTokens' => 512],
-    ], 45);
+    $lastFail = ['ok' => false, 'code' => 'provider_error', 'message' => 'AI prompt enhance returned an error.'];
+    foreach (souq_gemini_text_model_candidates() as $model) {
+        $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($model) . ':generateContent';
+        $res = souq_gemini_curl_json_retry($url, [
+            'contents' => [['parts' => [['text' => $instruction]]]],
+            'generationConfig' => souq_gemini_text_generation_config($model, [
+                'temperature' => 0.7,
+                'maxOutputTokens' => 512,
+            ]),
+        ], 22, $apiKey);
 
-    if ($res['raw'] === false || $res['status'] < 200 || $res['status'] >= 300) {
-        $msg = $res['err'] !== '' ? $res['err'] : 'AI prompt enhance returned an error.';
-        $decoded = json_decode((string)$res['raw'], true);
-        if (is_array($decoded) && !empty($decoded['error']['message'])) {
-            $msg = (string)$decoded['error']['message'];
+        if ($res['raw'] === false || $res['status'] < 200 || $res['status'] >= 300) {
+            $msg = $res['err'] !== '' ? $res['err'] : 'AI prompt enhance returned an error.';
+            $decoded = json_decode((string)$res['raw'], true);
+            if (is_array($decoded) && !empty($decoded['error']['message'])) {
+                $msg = (string)$decoded['error']['message'];
+            }
+            $lastFail = ['ok' => false, 'code' => 'provider_error', 'message' => mb_substr($msg, 0, 280)];
+            continue;
         }
-        return ['ok' => false, 'code' => 'provider_error', 'message' => mb_substr($msg, 0, 280)];
-    }
-    $json = json_decode((string)$res['raw'], true);
-    $text = '';
-    foreach (($json['candidates'][0]['content']['parts'] ?? []) as $part) {
-        if (!empty($part['text'])) {
-            $text .= (string)$part['text'];
+        $json = json_decode((string)$res['raw'], true);
+        $text = '';
+        foreach (($json['candidates'][0]['content']['parts'] ?? []) as $part) {
+            if (!empty($part['text'])) {
+                $text .= (string)$part['text'];
+            }
         }
+        $text = trim(preg_replace('/^["“]|["”]$/u', '', trim($text)) ?? '');
+        if (mb_strlen($text) < 12) {
+            $lastFail = ['ok' => false, 'code' => 'empty_result', 'message' => 'AI prompt enhance returned empty text.'];
+            continue;
+        }
+        return ['ok' => true, 'prompt' => mb_substr($text, 0, 2000), 'model' => $model];
     }
-    $text = trim(preg_replace('/^["“]|["”]$/u', '', trim($text)) ?? '');
-    if (mb_strlen($text) < 12) {
-        return ['ok' => false, 'code' => 'empty_result', 'message' => 'AI prompt enhance returned empty text.'];
-    }
-    return ['ok' => true, 'prompt' => mb_substr($text, 0, 2000), 'model' => $model];
+
+    return $lastFail;
 }
 
 /**
@@ -948,18 +1055,13 @@ function souq_gemini_enhance_prompt(string $rawPrompt, string $locale = 'en', st
  */
 function souq_gemini_suggest_product_copy(array $input): array
 {
-    $env = souq_load_root_env();
-    $apiKey = trim((string)($env['GEMINI_API_KEY'] ?? ''));
+    $apiKey = souq_gemini_api_key();
     if ($apiKey === '' || $apiKey === 'MY_GEMINI_API_KEY') {
         return [
             'ok' => false,
             'code' => 'provider_not_connected',
             'message' => 'AI text provider is not connected. Set GEMINI_API_KEY on the API server.',
         ];
-    }
-    $model = trim((string)($env['GEMINI_TEXT_MODEL'] ?? 'gemini-3.8-flash')) ?: 'gemini-3.8-flash';
-    if ($model === 'gemini-2.5-flash' || $model === 'gemini-2.0-flash') {
-        $model = 'gemini-3.8-flash';
     }
     $locale = strtolower(trim((string)($input['locale'] ?? 'en')));
     $wantAr = str_starts_with($locale, 'ar');
@@ -1012,52 +1114,74 @@ function souq_gemini_suggest_product_copy(array $input): array
         implode("\n", $facts),
     ]);
 
-    $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($model) . ':generateContent?key=' . rawurlencode($apiKey);
-    $res = souq_gemini_curl_json($url, [
-        'contents' => [['parts' => [['text' => $instruction]]]],
-        'generationConfig' => [
-            'temperature' => 0.55,
-            'maxOutputTokens' => 1024,
-            'responseMimeType' => 'application/json',
-        ],
-    ], 45);
+    $lastFail = ['ok' => false, 'code' => 'provider_error', 'message' => 'AI product copy returned an error.'];
+    foreach (souq_gemini_text_model_candidates() as $model) {
+        $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($model) . ':generateContent';
+        $res = souq_gemini_curl_json_retry($url, [
+            'contents' => [['parts' => [['text' => $instruction]]]],
+            'generationConfig' => souq_gemini_text_generation_config($model, [
+                'temperature' => 0.55,
+                'maxOutputTokens' => 1024,
+                'responseMimeType' => 'application/json',
+            ]),
+        ], 22, $apiKey);
 
-    if ($res['raw'] === false || $res['status'] < 200 || $res['status'] >= 300) {
-        $msg = $res['err'] !== '' ? $res['err'] : 'AI product copy returned an error.';
-        $decoded = json_decode((string)$res['raw'], true);
-        if (is_array($decoded) && !empty($decoded['error']['message'])) {
-            $msg = (string)$decoded['error']['message'];
+        if ($res['raw'] === false || $res['status'] < 200 || $res['status'] >= 300) {
+            $msg = $res['err'] !== '' ? $res['err'] : 'AI product copy returned an error.';
+            $decoded = json_decode((string)$res['raw'], true);
+            if (is_array($decoded) && !empty($decoded['error']['message'])) {
+                $msg = (string)$decoded['error']['message'];
+            }
+            $code = 'provider_error';
+            $low = strtolower($msg);
+            if (
+                str_contains($low, 'quota')
+                || str_contains($low, 'rate limit')
+                || str_contains($low, 'resource_exhausted')
+                || (int)$res['status'] === 429
+            ) {
+                $code = 'quota_exceeded';
+                $msg = 'AI quota exceeded for this Google key. Wait for the free-tier reset, or set a billed GEMINI_API_KEY on the API server.';
+            } elseif ((int)$res['status'] === 503 || str_contains($low, 'high demand')) {
+                $code = 'provider_busy';
+                $msg = 'AI model is busy (high demand). Try again in a minute.';
+            }
+            $lastFail = ['ok' => false, 'code' => $code, 'message' => mb_substr($msg, 0, 280)];
+            continue;
         }
-        return ['ok' => false, 'code' => 'provider_error', 'message' => mb_substr($msg, 0, 280)];
-    }
 
-    $json = json_decode((string)$res['raw'], true);
-    $text = '';
-    foreach (($json['candidates'][0]['content']['parts'] ?? []) as $part) {
-        if (!empty($part['text'])) {
-            $text .= (string)$part['text'];
+        $json = json_decode((string)$res['raw'], true);
+        $text = '';
+        foreach (($json['candidates'][0]['content']['parts'] ?? []) as $part) {
+            if (!empty($part['text'])) {
+                $text .= (string)$part['text'];
+            }
         }
-    }
-    $text = trim($text);
-    $text = preg_replace('/^```(?:json)?\s*|\s*```$/u', '', $text) ?? $text;
-    $decoded = json_decode($text, true);
-    if (!is_array($decoded)) {
-        return ['ok' => false, 'code' => 'empty_result', 'message' => 'AI product copy returned invalid JSON.'];
-    }
-    $title = trim((string)($decoded['title'] ?? ''));
-    $subtitle = trim((string)($decoded['subtitle'] ?? ''));
-    $description = trim((string)($decoded['description'] ?? ''));
-    if (mb_strlen($title) < 2 && mb_strlen($description) < 8) {
-        return ['ok' => false, 'code' => 'empty_result', 'message' => 'AI product copy returned empty text.'];
+        $text = trim($text);
+        $text = preg_replace('/^```(?:json)?\s*|\s*```$/u', '', $text) ?? $text;
+        $decoded = json_decode($text, true);
+        if (!is_array($decoded)) {
+            $lastFail = ['ok' => false, 'code' => 'empty_result', 'message' => 'AI product copy returned invalid JSON.'];
+            continue;
+        }
+        $title = trim((string)($decoded['title'] ?? ''));
+        $subtitle = trim((string)($decoded['subtitle'] ?? ''));
+        $description = trim((string)($decoded['description'] ?? ''));
+        if (mb_strlen($title) < 2 && mb_strlen($description) < 8) {
+            $lastFail = ['ok' => false, 'code' => 'empty_result', 'message' => 'AI product copy returned empty text.'];
+            continue;
+        }
+
+        return [
+            'ok' => true,
+            'title' => mb_substr($title, 0, 120),
+            'subtitle' => mb_substr($subtitle, 0, 200),
+            'description' => mb_substr($description, 0, 8000),
+            'model' => $model,
+        ];
     }
 
-    return [
-        'ok' => true,
-        'title' => mb_substr($title, 0, 120),
-        'subtitle' => mb_substr($subtitle, 0, 200),
-        'description' => mb_substr($description, 0, 8000),
-        'model' => $model,
-    ];
+    return $lastFail;
 }
 
 function souq_media_row(array $row): array
@@ -1171,6 +1295,59 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
             'canva_categories' => ['product', 'category', 'banner', 'social'],
             'free_default' => 5,
         ]]);
+        return true;
+    }
+
+    if ($uri === '/ai-media/ping' && $method === 'GET') {
+        $key = souq_gemini_api_key();
+        $host = 'generativelanguage.googleapis.com';
+        $dns = @gethostbyname($host);
+        $tcpOk = false;
+        $tcpErr = '';
+        $tcpIp = ($dns && $dns !== $host) ? $dns : $host;
+        $fp = @fsockopen('ssl://' . $tcpIp, 443, $errno, $errstr, 8);
+        if ($fp) {
+            $tcpOk = true;
+            fclose($fp);
+        } else {
+            $tcpErr = trim($errno . ' ' . $errstr);
+        }
+        $geminiHttp = 0;
+        $geminiErr = '';
+        $geminiMs = 0;
+        if ($key !== '' && $key !== 'MY_GEMINI_API_KEY') {
+            $t0 = microtime(true);
+            $pingModel = souq_gemini_resolve_text_model();
+            $res = souq_gemini_curl_json(
+                'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($pingModel) . ':generateContent',
+                [
+                    'contents' => [['parts' => [['text' => 'Reply with OK']]]],
+                    'generationConfig' => souq_gemini_text_generation_config($pingModel, ['maxOutputTokens' => 16]),
+                ],
+                20,
+                $key
+            );
+            $geminiMs = (int) round((microtime(true) - $t0) * 1000);
+            $geminiHttp = (int)$res['status'];
+            $geminiErr = (string)$res['err'];
+            if ($geminiHttp >= 200 && $geminiHttp < 300) {
+                $geminiErr = '';
+            } elseif ($geminiErr === '' && is_string($res['raw'])) {
+                $decoded = json_decode($res['raw'], true);
+                $geminiErr = (string)($decoded['error']['message'] ?? mb_substr((string)$res['raw'], 0, 160));
+            }
+        }
+        echo json_encode([
+            'ok' => $geminiHttp >= 200 && $geminiHttp < 300,
+            'key_present' => $key !== '' && $key !== 'MY_GEMINI_API_KEY',
+            'key_len' => strlen($key),
+            'text_model' => souq_gemini_resolve_text_model(),
+            'dns' => $dns,
+            'tcp_443' => $tcpOk ? 'ok' : ('fail: ' . $tcpErr),
+            'gemini_http' => $geminiHttp,
+            'gemini_ms' => $geminiMs,
+            'gemini_err' => mb_substr($geminiErr, 0, 220),
+        ], JSON_UNESCAPED_UNICODE);
         return true;
     }
 
@@ -1296,12 +1473,20 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
                 'locale' => (string)($input['locale'] ?? 'en'),
             ]);
             if (!$result['ok']) {
-                $status = ($result['code'] ?? '') === 'provider_not_connected' ? 503
-                    : (($result['code'] ?? '') === 'missing_context' ? 422 : 502);
+                $code = (string) ($result['code'] ?? 'provider_error');
+                $msg = (string) ($result['message'] ?? 'AI product copy failed.');
+                $busy = str_contains(strtolower($msg), 'high demand')
+                    || str_contains(strtolower($msg), 'try again later')
+                    || str_contains(strtolower($msg), 'resource exhausted')
+                    || $code === 'provider_quota_exceeded';
+                $status = $code === 'provider_not_connected' || $busy ? 503
+                    : ($code === 'missing_context' ? 422 : 502);
                 http_response_code($status);
                 echo json_encode([
-                    'message' => $result['message'] ?? 'AI product copy failed.',
-                    'code' => $result['code'] ?? 'provider_error',
+                    'message' => $busy
+                        ? 'AI text provider is busy right now. Please try again in a moment.'
+                        : $msg,
+                    'code' => $busy ? 'provider_busy' : $code,
                     'store_id' => $storeId,
                 ]);
                 return true;
@@ -1735,6 +1920,421 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
         } catch (Throwable $e) {
             http_response_code(500);
             echo json_encode(['message' => 'SEO save failed', 'error' => $e->getMessage()]);
+            return true;
+        }
+    }
+
+    // ── Bank accounts / customer wallet / activities (Hostinger MySQL gateway) ──
+    if (souq_gateway_bank_wallet_activity_dispatch($pdo, $uri, $method, $storeId, $input)) {
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * Real store_id scoped bank accounts, wallets, and customer activities for the PHP gateway.
+ * Empty tables → empty data (never fake rows). Missing tables → empty / soft fail.
+ */
+function souq_gateway_table_exists(PDO $pdo, string $table): bool
+{
+    static $cache = [];
+    $key = spl_object_id($pdo) . ':' . $table;
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
+    }
+    try {
+        if (souq_driver_is_mysql($pdo)) {
+            $st = $pdo->prepare('SHOW TABLES LIKE ?');
+            $st->execute([$table]);
+            $cache[$key] = (bool) $st->fetchColumn();
+        } else {
+            $safe = preg_replace('/[^a-z0-9_]/i', '', $table) ?: 'x';
+            $st = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='{$safe}' LIMIT 1");
+            $cache[$key] = (bool) ($st && $st->fetchColumn());
+        }
+    } catch (Throwable) {
+        $cache[$key] = false;
+    }
+    return $cache[$key];
+}
+
+function souq_gateway_bank_wallet_activity_dispatch(PDO $pdo, string $uri, string $method, string $storeId, array $input): bool
+{
+    $nowExpr = souq_sql_now_expr($pdo);
+
+    // GET/POST /bank-accounts  · PATCH/DELETE /bank-accounts/{id}
+    if ($uri === '/bank-accounts' || preg_match('#^/bank-accounts/([^/]+)$#', $uri, $mBank)) {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.', 'data' => []]);
+            return true;
+        }
+        if (!souq_gateway_table_exists($pdo, 'store_bank_accounts')) {
+            if ($method === 'GET') {
+                echo json_encode(['data' => [], 'store_id' => $storeId, 'meta' => ['total' => 0]]);
+                return true;
+            }
+            http_response_code(503);
+            echo json_encode(['message' => 'Bank accounts table is not available on this host.', 'data' => []]);
+            return true;
+        }
+
+        $bankId = isset($mBank[1]) ? rawurldecode((string) $mBank[1]) : '';
+
+        try {
+            if ($method === 'GET' && $bankId === '') {
+                $sql = 'SELECT * FROM store_bank_accounts WHERE store_id = ?';
+                $params = [$storeId];
+                if (isset($_GET['is_active']) && $_GET['is_active'] !== '') {
+                    $active = filter_var($_GET['is_active'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                    if ($active !== null) {
+                        $sql .= ' AND is_active = ?';
+                        $params[] = $active ? 1 : 0;
+                    }
+                }
+                $sql .= ' ORDER BY is_default DESC, bank_name ASC';
+                $st = $pdo->prepare($sql);
+                $st->execute($params);
+                $rows = $st->fetchAll() ?: [];
+                echo json_encode([
+                    'data' => $rows,
+                    'store_id' => $storeId,
+                    'meta' => ['total' => count($rows)],
+                ]);
+                return true;
+            }
+
+            if ($method === 'POST' && $bankId === '') {
+                $bankName = trim((string) ($input['bank_name'] ?? ''));
+                $accountTitle = trim((string) ($input['account_title'] ?? ''));
+                $iban = strtoupper(trim((string) ($input['iban'] ?? '')));
+                if ($bankName === '' || $accountTitle === '' || $iban === '') {
+                    http_response_code(422);
+                    echo json_encode(['message' => 'bank_name, account_title, and iban are required.']);
+                    return true;
+                }
+                $isDefault = !empty($input['is_default']) ? 1 : 0;
+                $isActive = array_key_exists('is_active', $input) ? (!empty($input['is_active']) ? 1 : 0) : 1;
+                if ($isDefault) {
+                    $pdo->prepare('UPDATE store_bank_accounts SET is_default = 0 WHERE store_id = ?')->execute([$storeId]);
+                }
+                $id = 'bank-' . bin2hex(random_bytes(6));
+                $ins = $pdo->prepare("INSERT INTO store_bank_accounts (id, store_id, bank_name, bank_name_ar, account_title, account_title_ar, iban, account_number, payment_reference_prefix, is_default, is_active, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,{$nowExpr},{$nowExpr})");
+                $ins->execute([
+                    $id,
+                    $storeId,
+                    $bankName,
+                    trim((string) ($input['bank_name_ar'] ?? '')) ?: null,
+                    $accountTitle,
+                    trim((string) ($input['account_title_ar'] ?? '')) ?: null,
+                    $iban,
+                    trim((string) ($input['account_number'] ?? '')) ?: null,
+                    trim((string) ($input['payment_reference_prefix'] ?? '')) ?: null,
+                    $isDefault,
+                    $isActive,
+                ]);
+                $st = $pdo->prepare('SELECT * FROM store_bank_accounts WHERE store_id = ? AND id = ? LIMIT 1');
+                $st->execute([$storeId, $id]);
+                http_response_code(201);
+                echo json_encode(['data' => $st->fetch() ?: null]);
+                return true;
+            }
+
+            if (in_array($method, ['PATCH', 'PUT'], true) && $bankId !== '') {
+                $st = $pdo->prepare('SELECT * FROM store_bank_accounts WHERE store_id = ? AND id = ? LIMIT 1');
+                $st->execute([$storeId, $bankId]);
+                $row = $st->fetch();
+                if (!$row) {
+                    http_response_code(404);
+                    echo json_encode(['message' => 'Bank account not found.']);
+                    return true;
+                }
+                $fields = [
+                    'bank_name' => 'bank_name',
+                    'bank_name_ar' => 'bank_name_ar',
+                    'account_title' => 'account_title',
+                    'account_title_ar' => 'account_title_ar',
+                    'iban' => 'iban',
+                    'account_number' => 'account_number',
+                    'payment_reference_prefix' => 'payment_reference_prefix',
+                ];
+                $sets = [];
+                $params = [];
+                foreach ($fields as $key => $col) {
+                    if (array_key_exists($key, $input)) {
+                        $val = $input[$key];
+                        if ($key === 'iban' && is_string($val)) {
+                            $val = strtoupper(trim($val));
+                        }
+                        $sets[] = "`{$col}` = ?";
+                        $params[] = $val === '' ? null : $val;
+                    }
+                }
+                if (array_key_exists('is_default', $input)) {
+                    $isDefault = !empty($input['is_default']) ? 1 : 0;
+                    if ($isDefault) {
+                        $pdo->prepare('UPDATE store_bank_accounts SET is_default = 0 WHERE store_id = ? AND id != ?')->execute([$storeId, $bankId]);
+                    }
+                    $sets[] = '`is_default` = ?';
+                    $params[] = $isDefault;
+                }
+                if (array_key_exists('is_active', $input)) {
+                    $sets[] = '`is_active` = ?';
+                    $params[] = !empty($input['is_active']) ? 1 : 0;
+                }
+                if ($sets !== []) {
+                    $sets[] = "updated_at = {$nowExpr}";
+                    $params[] = $storeId;
+                    $params[] = $bankId;
+                    $pdo->prepare('UPDATE store_bank_accounts SET ' . implode(', ', $sets) . ' WHERE store_id = ? AND id = ?')->execute($params);
+                }
+                $st->execute([$storeId, $bankId]);
+                echo json_encode(['data' => $st->fetch() ?: null]);
+                return true;
+            }
+
+            if ($method === 'DELETE' && $bankId !== '') {
+                $del = $pdo->prepare('DELETE FROM store_bank_accounts WHERE store_id = ? AND id = ?');
+                $del->execute([$storeId, $bankId]);
+                echo json_encode(['message' => 'Bank account deleted.', 'id' => $bankId]);
+                return true;
+            }
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['message' => 'Bank accounts request failed.', 'error' => $e->getMessage()]);
+            return true;
+        }
+        return false;
+    }
+
+    // GET /customers/{id}/wallet · /wallet/transactions · POST /wallet/adjust
+    if (preg_match('#^/customers/([^/]+)/wallet(?:/(transactions|adjust))?$#', $uri, $mW)) {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        $customerId = rawurldecode((string) $mW[1]);
+        $action = isset($mW[2]) ? (string) $mW[2] : '';
+
+        try {
+            $cust = $pdo->prepare('SELECT id FROM customers WHERE store_id = ? AND id = ? LIMIT 1');
+            $cust->execute([$storeId, $customerId]);
+            if (!$cust->fetchColumn()) {
+                http_response_code(404);
+                echo json_encode(['message' => 'Customer not found.']);
+                return true;
+            }
+
+            if ($method === 'GET' && $action === '') {
+                $balance = 0.0;
+                $points = 0;
+                if (souq_gateway_table_exists($pdo, 'customer_wallets')) {
+                    $st = $pdo->prepare('SELECT balance, loyalty_points FROM customer_wallets WHERE store_id = ? AND customer_id = ? LIMIT 1');
+                    $st->execute([$storeId, $customerId]);
+                    $row = $st->fetch();
+                    if ($row) {
+                        $balance = (float) ($row['balance'] ?? 0);
+                        $points = (int) ($row['loyalty_points'] ?? 0);
+                    }
+                }
+                echo json_encode([
+                    'data' => ['balance' => $balance, 'loyalty_points' => $points],
+                    'store_id' => $storeId,
+                    'customer_id' => $customerId,
+                ]);
+                return true;
+            }
+
+            if ($method === 'GET' && $action === 'transactions') {
+                $rows = [];
+                if (souq_gateway_table_exists($pdo, 'wallet_transactions')) {
+                    $st = $pdo->prepare('SELECT * FROM wallet_transactions WHERE store_id = ? AND customer_id = ? ORDER BY created_at DESC LIMIT 100');
+                    $st->execute([$storeId, $customerId]);
+                    $rows = $st->fetchAll() ?: [];
+                }
+                echo json_encode([
+                    'data' => $rows,
+                    'store_id' => $storeId,
+                    'customer_id' => $customerId,
+                ]);
+                return true;
+            }
+
+            if ($method === 'POST' && $action === 'adjust') {
+                if (!souq_gateway_table_exists($pdo, 'customer_wallets') || !souq_gateway_table_exists($pdo, 'wallet_transactions')) {
+                    http_response_code(503);
+                    echo json_encode(['message' => 'Wallet tables are not available on this host.']);
+                    return true;
+                }
+                $type = strtolower(trim((string) ($input['type'] ?? '')));
+                $amount = round((float) ($input['amount'] ?? 0), 2);
+                if (!in_array($type, ['add', 'deduct'], true) || $amount <= 0) {
+                    http_response_code(422);
+                    echo json_encode(['message' => 'type (add|deduct) and positive amount are required.']);
+                    return true;
+                }
+                $resetLoyalty = !empty($input['reset_loyalty']);
+                $notify = trim((string) ($input['notify_channel'] ?? ''));
+                if ($notify === 'none') {
+                    $notify = '';
+                }
+
+                $pdo->beginTransaction();
+                try {
+                    $st = $pdo->prepare('SELECT * FROM customer_wallets WHERE store_id = ? AND customer_id = ? LIMIT 1 FOR UPDATE');
+                    if (!souq_driver_is_mysql($pdo)) {
+                        $st = $pdo->prepare('SELECT * FROM customer_wallets WHERE store_id = ? AND customer_id = ? LIMIT 1');
+                    }
+                    $st->execute([$storeId, $customerId]);
+                    $wallet = $st->fetch() ?: null;
+                    if (!$wallet) {
+                        $pdo->prepare("INSERT INTO customer_wallets (store_id, customer_id, balance, loyalty_points, created_at, updated_at) VALUES (?,?,0,0,{$nowExpr},{$nowExpr})")
+                            ->execute([$storeId, $customerId]);
+                        $st->execute([$storeId, $customerId]);
+                        $wallet = $st->fetch() ?: ['balance' => 0, 'loyalty_points' => 0];
+                    }
+                    $before = (float) ($wallet['balance'] ?? 0);
+                    if ($type === 'deduct' && $before < $amount) {
+                        $pdo->rollBack();
+                        http_response_code(422);
+                        echo json_encode(['message' => 'Insufficient wallet balance for deduction.']);
+                        return true;
+                    }
+                    $after = $type === 'add' ? round($before + $amount, 2) : round($before - $amount, 2);
+                    $points = $resetLoyalty ? 0 : (int) ($wallet['loyalty_points'] ?? 0);
+                    $pdo->prepare("UPDATE customer_wallets SET balance = ?, loyalty_points = ?, updated_at = {$nowExpr} WHERE store_id = ? AND customer_id = ?")
+                        ->execute([$after, $points, $storeId, $customerId]);
+                    $pdo->prepare("INSERT INTO wallet_transactions (store_id, customer_id, type, amount, balance_before, balance_after, reason, employee_id, employee_name, notify_channel, reset_loyalty, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,{$nowExpr})")
+                        ->execute([
+                            $storeId,
+                            $customerId,
+                            $type,
+                            $amount,
+                            $before,
+                            $after,
+                            trim((string) ($input['reason'] ?? '')) ?: null,
+                            trim((string) ($input['employee_id'] ?? '')) ?: null,
+                            trim((string) ($input['employee_name'] ?? '')) ?: null,
+                            $notify !== '' ? $notify : null,
+                            $resetLoyalty ? 1 : 0,
+                        ]);
+                    $txId = (int) $pdo->lastInsertId();
+                    $pdo->commit();
+                    $tx = null;
+                    if ($txId > 0) {
+                        $txSt = $pdo->prepare('SELECT * FROM wallet_transactions WHERE id = ? LIMIT 1');
+                        $txSt->execute([$txId]);
+                        $tx = $txSt->fetch() ?: null;
+                    }
+                    echo json_encode([
+                        'data' => [
+                            'balance' => $after,
+                            'loyalty_points' => $points,
+                            'transaction' => $tx,
+                        ],
+                    ]);
+                    return true;
+                } catch (Throwable $inner) {
+                    if ($pdo->inTransaction()) {
+                        $pdo->rollBack();
+                    }
+                    throw $inner;
+                }
+            }
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['message' => 'Wallet request failed.', 'error' => $e->getMessage()]);
+            return true;
+        }
+        return false;
+    }
+
+    // GET /customers/{id}/activities
+    if (preg_match('#^/customers/([^/]+)/activities$#', $uri, $mA) && $method === 'GET') {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.', 'data' => []]);
+            return true;
+        }
+        $customerId = rawurldecode((string) $mA[1]);
+        $perPage = min(100, max(1, (int) ($_GET['per_page'] ?? 50)));
+        $page = max(1, (int) ($_GET['page'] ?? 1));
+        $offset = ($page - 1) * $perPage;
+        try {
+            if (!souq_gateway_table_exists($pdo, 'customer_activities')) {
+                echo json_encode([
+                    'data' => [],
+                    'store_id' => $storeId,
+                    'meta' => ['total' => 0, 'page' => 1, 'per_page' => $perPage, 'last_page' => 1],
+                ]);
+                return true;
+            }
+            $cust = $pdo->prepare('SELECT id FROM customers WHERE store_id = ? AND id = ? LIMIT 1');
+            $cust->execute([$storeId, $customerId]);
+            if (!$cust->fetchColumn()) {
+                http_response_code(404);
+                echo json_encode(['message' => 'Customer not found.', 'data' => []]);
+                return true;
+            }
+            $countSt = $pdo->prepare('SELECT COUNT(*) FROM customer_activities WHERE store_id = ? AND customer_id = ?');
+            $countSt->execute([$storeId, $customerId]);
+            $total = (int) $countSt->fetchColumn();
+            $st = $pdo->prepare('SELECT * FROM customer_activities WHERE store_id = ? AND customer_id = ? ORDER BY occurred_at DESC LIMIT ' . (int) $perPage . ' OFFSET ' . (int) $offset);
+            $st->execute([$storeId, $customerId]);
+            $rows = $st->fetchAll() ?: [];
+            echo json_encode([
+                'data' => $rows,
+                'store_id' => $storeId,
+                'meta' => [
+                    'total' => $total,
+                    'page' => $page,
+                    'per_page' => $perPage,
+                    'last_page' => max(1, (int) ceil($total / $perPage)),
+                ],
+            ]);
+            return true;
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['message' => 'Customer activities request failed.', 'error' => $e->getMessage(), 'data' => []]);
+            return true;
+        }
+    }
+
+    // GET /customer-activities — real rows when table exists (replaces empty stub noise)
+    if ($uri === '/customer-activities' && $method === 'GET') {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.', 'data' => []]);
+            return true;
+        }
+        $perPage = min(100, max(1, (int) ($_GET['per_page'] ?? 40)));
+        $page = max(1, (int) ($_GET['page'] ?? 1));
+        $offset = ($page - 1) * $perPage;
+        try {
+            if (!souq_gateway_table_exists($pdo, 'customer_activities')) {
+                echo json_encode(['data' => [], 'meta' => ['total' => 0, 'page' => 1, 'per_page' => $perPage]]);
+                return true;
+            }
+            $countSt = $pdo->prepare('SELECT COUNT(*) FROM customer_activities WHERE store_id = ?');
+            $countSt->execute([$storeId]);
+            $total = (int) $countSt->fetchColumn();
+            $st = $pdo->prepare('SELECT * FROM customer_activities WHERE store_id = ? ORDER BY occurred_at DESC LIMIT ' . (int) $perPage . ' OFFSET ' . (int) $offset);
+            $st->execute([$storeId]);
+            echo json_encode([
+                'data' => $st->fetchAll() ?: [],
+                'store_id' => $storeId,
+                'meta' => [
+                    'total' => $total,
+                    'page' => $page,
+                    'per_page' => $perPage,
+                    'last_page' => max(1, (int) ceil($total / max(1, $perPage))),
+                ],
+            ]);
+            return true;
+        } catch (Throwable $e) {
+            echo json_encode(['data' => [], 'meta' => ['total' => 0, 'page' => 1, 'per_page' => $perPage], 'error' => $e->getMessage()]);
             return true;
         }
     }

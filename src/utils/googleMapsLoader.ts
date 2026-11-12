@@ -353,35 +353,124 @@ async function fetchGeocodeJson(
   return data.results;
 }
 
-/** Geocoding REST — reverse pin → full Saudi street/district/city (never Plus Code alone). */
+function finalizeGeocodeParts(
+  top: GeocodeResultRow | null,
+  isAr: boolean,
+): SaudiAddressParts | null {
+  if (!top) return null;
+  const parts = parseGoogleAddressComponents(top.address_components, top.formatted_address);
+  const formatted = composeSaudiFormatted(parts, isAr);
+  if (!formatted) return null;
+  return { ...parts, formatted };
+}
+
+/** Instant path: Maps JS Geocoder (already loaded with the pin map) — no second REST hop. */
+function reverseViaJsGeocoder(
+  lat: number,
+  lng: number,
+  isAr: boolean,
+  signal?: AbortSignal,
+): Promise<GeocodeResultRow[]> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException('Aborted', 'AbortError'));
+      return;
+    }
+    const g = typeof window !== 'undefined' ? window.google : undefined;
+    if (!g?.maps?.Geocoder) {
+      resolve([]);
+      return;
+    }
+    let settled = false;
+    const onAbort = () => {
+      if (settled) return;
+      settled = true;
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+    try {
+      const geocoder = new g.maps.Geocoder();
+      geocoder.geocode(
+        {
+          location: { lat, lng },
+          region: 'sa',
+          language: isAr ? 'ar' : 'en',
+          componentRestrictions: { country: 'SA' },
+        },
+        (results, status) => {
+          if (settled) return;
+          settled = true;
+          signal?.removeEventListener('abort', onAbort);
+          if (signal?.aborted) {
+            reject(new DOMException('Aborted', 'AbortError'));
+            return;
+          }
+          if (status === 'OK' && results?.length) {
+            resolve(
+              results.map((r) => ({
+                formatted_address: r.formatted_address,
+                types: r.types,
+                address_components: r.address_components,
+              })),
+            );
+            return;
+          }
+          resolve([]);
+        },
+      );
+    } catch {
+      settled = true;
+      signal?.removeEventListener('abort', onAbort);
+      resolve([]);
+    }
+  });
+}
+
+/**
+ * Reverse pin → full Saudi street/district/city (never Plus Code alone).
+ * Prefers in-memory Maps JS Geocoder (ultra-fast when map is open), then Geocoding REST.
+ */
 export async function reverseGeocodeSaudi(
   lat: number,
   lng: number,
   isAr: boolean,
   signal?: AbortSignal,
 ): Promise<SaudiAddressParts | null> {
-  const key = getGoogleGeocodingApiKey();
-  if (!key) return null;
-
   const cacheKey = reverseCacheKey(lat, lng, isAr);
   const hit = reverseCache.get(cacheKey);
   if (hit && Date.now() - hit.at < REVERSE_TTL_MS) {
     return hit.parts;
   }
 
+  // 1) JS Geocoder — same session as the live map (fastest).
+  try {
+    const jsRows = await reverseViaJsGeocoder(lat, lng, isAr, signal);
+    let top = pickBestSaudiGeocode(jsRows);
+    if (top && scoreGeocodeRow(top) >= 40 && !isPlusCodeLabel(top.formatted_address)) {
+      const out = finalizeGeocodeParts(top, isAr);
+      if (out) {
+        reverseCache.set(cacheKey, { at: Date.now(), parts: out });
+        return out;
+      }
+    }
+  } catch (err: unknown) {
+    if (err instanceof DOMException && err.name === 'AbortError') throw err;
+    /* fall through to REST */
+  }
+
+  // 2) Geocoding REST fallback (narrow types, then open query).
+  const key = getGoogleGeocodingApiKey();
+  if (!key) return null;
+
   let rows = await fetchGeocodeJson(lat, lng, isAr, key, true, signal);
   let top = pickBestSaudiGeocode(rows);
-  // Narrow result_type often returns only Plus Codes in KSA — retry open query.
   if (!top || scoreGeocodeRow(top) < 40 || isPlusCodeLabel(top.formatted_address)) {
     rows = await fetchGeocodeJson(lat, lng, isAr, key, false, signal);
     top = pickBestSaudiGeocode(rows);
   }
-  if (!top) return null;
 
-  const parts = parseGoogleAddressComponents(top.address_components, top.formatted_address);
-  const formatted = composeSaudiFormatted(parts, isAr);
-  if (!formatted) return null;
-  const out: SaudiAddressParts = { ...parts, formatted };
+  const out = finalizeGeocodeParts(top, isAr);
+  if (!out) return null;
   reverseCache.set(cacheKey, { at: Date.now(), parts: out });
   if (reverseCache.size > 120) {
     const oldest = reverseCache.keys().next().value;

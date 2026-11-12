@@ -596,8 +596,12 @@ export const StorePayments: React.FC = () => {
       return;
     }
     const vat = p.amount * 0.15;
+    const portalFont =
+      getComputedStyle(document.documentElement).getPropertyValue('--font-ui').trim() ||
+      getComputedStyle(document.body).fontFamily ||
+      'system-ui,Segoe UI,Tahoma,sans-serif';
     win.document.write(`<!doctype html><html dir="${isAr ? 'rtl' : 'ltr'}" lang="${isAr ? 'ar' : 'en'}"><head><meta charset="utf-8"><title>${p.id}</title>
-<style>body{font-family:system-ui,Segoe UI,Tahoma,sans-serif;padding:32px;color:#0f172a}h1{font-size:20px;margin:0 0 4px}table{width:100%;border-collapse:collapse;margin-top:16px}td{padding:8px;border-bottom:1px solid #e2e8f0;font-size:13px}td:last-child{text-align:end;font-weight:700}.muted{color:#64748b;font-size:12px}</style></head><body>
+<style>body{font-family:${portalFont};padding:32px;color:#0f172a}h1{font-size:20px;margin:0 0 4px}table{width:100%;border-collapse:collapse;margin-top:16px}td{padding:8px;border-bottom:1px solid #e2e8f0;font-size:13px}td:last-child{text-align:end;font-weight:700}.muted{color:#64748b;font-size:12px}</style></head><body>
 <h1>${isAr ? 'فاتورة ضريبية مبسطة' : 'Simplified Tax Invoice'}</h1>
 <div class="muted">${activeStore.name} · ${isAr ? 'متوافقة مع هيئة الزكاة والضريبة والجمارك' : 'ZATCA compliant'}</div>
 <table>

@@ -11,6 +11,7 @@ import type {
   ProductVariation,
 } from '../types';
 import { customFieldIsFillable, normalizeCustomFieldType } from './customFieldTypes';
+import { mergeBilingualProductOptions } from './existingProductCommerce';
 import {
   evalConditionGroup,
   evalFieldCondition,
@@ -27,7 +28,9 @@ export function visibleProductOptions(
   raw: Product['productOptions'] | null | undefined,
 ): ProductOptionDefinition[] {
   if (!Array.isArray(raw)) return [];
-  return raw.filter((opt) => opt && opt.visible !== false && String(opt.name || '').trim());
+  return mergeBilingualProductOptions(
+    raw.filter((opt) => opt && opt.visible !== false && String(opt.name || '').trim()),
+  );
 }
 
 export function optionKind(opt: ProductOptionDefinition): 'color' | 'image' | 'text' {

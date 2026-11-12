@@ -58,11 +58,9 @@ const ANIM_CSS = `
   flex: 1;
   line-height: 1.15;
 }
-.souq-word[lang="ar"] {
-  align-items: flex-start;
-  font-family: Tajawal, Cairo, system-ui, sans-serif;
-}
+.souq-word[lang="ar"],
 .souq-word[lang="en"] {
+  align-items: flex-start;
   font-family: var(--font-ui), system-ui, sans-serif;
 }
 .souq-title {

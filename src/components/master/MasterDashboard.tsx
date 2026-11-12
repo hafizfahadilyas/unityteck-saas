@@ -849,8 +849,8 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
                 </div>
                 <AreaChart
                   data={ordersGrowthData.length > 0 ? ordersGrowthData : [{ label: '1', value: 0 }]}
-                  color="#0ea5e9"
-                  fillGradient={['#0ea5e9', '#0284c7']}
+                  color="var(--accent)"
+                  fillGradient={['var(--accent)', 'var(--portal-400)']}
                   height={60}
                   prefix=""
                 />
@@ -880,8 +880,8 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
                 </div>
                 <AreaChart
                   data={[{ label: '1', value: totalCustomersCount }]}
-                  color="#8b5cf6"
-                  fillGradient={['#8b5cf6', '#6d28d9']}
+                  color="var(--portal-400)"
+                  fillGradient={['var(--portal-400)', 'var(--portal-600)']}
                   height={60}
                   prefix=""
                 />

@@ -31,6 +31,11 @@ export const ProductTypePicker: React.FC<ProductTypePickerProps> = ({
   const isDark = theme === 'dark';
   const [showGuide, setShowGuide] = useState(false);
 
+  /* Holst global only — same accent/card tones on every type card */
+  const holstAccent = 'var(--accent)';
+  const holstBg = 'color-mix(in srgb, var(--accent) 10%, var(--surface))';
+  const holstBorder = 'color-mix(in srgb, var(--accent) 28%, var(--border))';
+
   const types = [
     {
       id: 'ready-product',
@@ -40,9 +45,9 @@ export const ProductTypePicker: React.FC<ProductTypePickerProps> = ({
         : 'Physical products that are in stock and ready to be shipped to customers.',
       btnText: isAr ? 'إنشاء منتج جاهز' : 'Create Ready Product',
       icon: Box,
-      accentColor: '#2563eb',
-      bgTone: '#eff6ff',
-      borderTone: '#bfdbfe',
+      accentColor: holstAccent,
+      bgTone: holstBg,
+      borderTone: holstBorder,
     },
     {
       id: 'custom-service',
@@ -52,9 +57,9 @@ export const ProductTypePicker: React.FC<ProductTypePickerProps> = ({
         : 'Services performed based on customer request, such as design, printing, consulting, etc.',
       btnText: isAr ? 'إنشاء خدمة مخصصة' : 'Create Custom Service',
       icon: Wrench,
-      accentColor: '#9333ea',
-      bgTone: '#faf5ff',
-      borderTone: '#e9d5ff',
+      accentColor: holstAccent,
+      bgTone: holstBg,
+      borderTone: holstBorder,
     },
     {
       id: 'food-beverage',
@@ -64,9 +69,9 @@ export const ProductTypePicker: React.FC<ProductTypePickerProps> = ({
         : 'Food or beverage products that may require special preparation.',
       btnText: isAr ? 'إنشاء منتج غذائي' : 'Create Food Product',
       icon: UtensilsCrossed,
-      accentColor: '#ea580c',
-      bgTone: '#fff7ed',
-      borderTone: '#fed7aa',
+      accentColor: holstAccent,
+      bgTone: holstBg,
+      borderTone: holstBorder,
     },
     {
       id: 'digital-product',
@@ -76,9 +81,9 @@ export const ProductTypePicker: React.FC<ProductTypePickerProps> = ({
         : 'Digital products that do not require shipping, such as files, licenses, or subscriptions.',
       btnText: isAr ? 'إنشاء منتج رقمي' : 'Create Digital Product',
       icon: Download,
-      accentColor: '#059669',
-      bgTone: '#f0fdf4',
-      borderTone: '#bbf7d0',
+      accentColor: holstAccent,
+      bgTone: holstBg,
+      borderTone: holstBorder,
     },
     {
       id: 'gift-card',
@@ -88,9 +93,9 @@ export const ProductTypePicker: React.FC<ProductTypePickerProps> = ({
         : 'Prepaid cards that can be used as a payment method in your store.',
       btnText: isAr ? 'إنشاء بطاقة هدايا' : 'Create Gift Card',
       icon: CreditCard,
-      accentColor: '#e11d48',
-      bgTone: '#fff1f2',
-      borderTone: '#fecdd3',
+      accentColor: holstAccent,
+      bgTone: holstBg,
+      borderTone: holstBorder,
     },
     {
       id: 'product-bundle',
@@ -100,9 +105,9 @@ export const ProductTypePicker: React.FC<ProductTypePickerProps> = ({
         : 'A group of products sold together as one product.',
       btnText: isAr ? 'إنشاء حزمة منتجات' : 'Create Bundle Product',
       icon: Boxes,
-      accentColor: '#4f46e5',
-      bgTone: '#eef2ff',
-      borderTone: '#c7d2fe',
+      accentColor: holstAccent,
+      bgTone: holstBg,
+      borderTone: holstBorder,
     },
     {
       id: 'booking',
@@ -112,9 +117,9 @@ export const ProductTypePicker: React.FC<ProductTypePickerProps> = ({
         : 'Products or services that require a specific date and time.',
       btnText: isAr ? 'إنشاء حجز وموعد' : 'Create Booking Product',
       icon: Calendar,
-      accentColor: '#0891b2',
-      bgTone: '#ecfeff',
-      borderTone: '#a5f3fc',
+      accentColor: holstAccent,
+      bgTone: holstBg,
+      borderTone: holstBorder,
     },
     {
       id: 'template',
@@ -124,16 +129,16 @@ export const ProductTypePicker: React.FC<ProductTypePickerProps> = ({
         : 'Create a product using a ready template to make the process faster and easier.',
       btnText: isAr ? 'استعراض القوالب' : 'Browse Templates',
       icon: FileSpreadsheet,
-      accentColor: '#7c3aed',
-      bgTone: '#f5f3ff',
-      borderTone: '#ddd6fe',
+      accentColor: holstAccent,
+      bgTone: holstBg,
+      borderTone: holstBorder,
     },
   ];
 
   return (
-    <AdminPageShell className="pb-16 max-w-[1500px] mx-auto space-y-6">
+    <AdminPageShell className="pb-16 max-w-[1500px] mx-auto space-y-6 product-type-picker-page">
       {/* ── Breadcrumb & Header ── */}
-      <div>
+      <div className="product-create-section" style={{ animationDelay: '0ms' }}>
         <div className="flex items-center gap-2 text-xs mb-1 font-semibold" style={{ color: 'var(--muted)' }}>
           <button
             type="button"
@@ -158,19 +163,38 @@ export const ProductTypePicker: React.FC<ProductTypePickerProps> = ({
             ? 'اختر نوع المنتج المناسب لبدء إنشاء وتخصيص منتجك'
             : 'Choose the appropriate product type to start creating your product'}
         </p>
+
+        {/* Step 1 of create flow */}
+        <div
+          className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-[11px] font-bold"
+          style={{
+            borderColor: 'color-mix(in srgb, var(--accent) 40%, var(--border))',
+            background: 'color-mix(in srgb, var(--accent) 12%, var(--surface))',
+            color: 'var(--text)',
+          }}
+        >
+          <span
+            className="w-5 h-5 rounded-lg text-[10px] font-black flex items-center justify-center text-white"
+            style={{ background: 'var(--accent)' }}
+          >
+            1
+          </span>
+          <span>{isAr ? 'الخطوة ١ · اختيار نوع المنتج' : 'Step 1 · Choose product type'}</span>
+        </div>
       </div>
 
       {/* ── 8 Product Type Cards Grid (4x2 on large screens) ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-        {types.map((item) => {
+        {types.map((item, idx) => {
           const Icon = item.icon;
           return (
             <div
               key={item.id}
-              className="p-6 rounded-2xl border text-center flex flex-col justify-between transition-all duration-200 hover:shadow-lg hover:-translate-y-1 dark:bg-[#071E26] dark:hover:bg-[#0b2731]"
+              className="product-create-section p-6 rounded-2xl border text-center flex flex-col justify-between transition-all duration-200 hover:shadow-lg hover:-translate-y-1 dark:bg-[#071E26] dark:hover:bg-[#0b2731]"
               style={{
                 background: isDark ? undefined : item.bgTone,
                 borderColor: isDark ? `color-mix(in srgb, ${item.accentColor} 35%, var(--border))` : item.borderTone,
+                animationDelay: `${80 + idx * 55}ms`,
               }}
             >
               <div>
@@ -212,11 +236,17 @@ export const ProductTypePicker: React.FC<ProductTypePickerProps> = ({
 
       {/* ── Bottom Guide & Help Callout Banner ── */}
       <div
-        className="p-4 sm:p-5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs bg-blue-50/70 dark:bg-[#071E26] border-blue-200/80 dark:border-slate-800"
+        className="product-create-section p-4 sm:p-5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs"
+        style={{
+          background: 'color-mix(in srgb, var(--accent) 10%, var(--surface))',
+          borderColor: 'color-mix(in srgb, var(--accent) 28%, var(--border))',
+          animationDelay: '520ms',
+        }}
       >
         <div className="flex items-center gap-3.5">
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs bg-blue-100 dark:bg-sky-950/60 text-blue-700 dark:text-sky-300 font-bold"
+            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs font-bold text-white"
+            style={{ background: 'var(--accent)' }}
           >
             <Info className="w-5 h-5" />
           </div>

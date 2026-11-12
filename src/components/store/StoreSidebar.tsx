@@ -35,6 +35,7 @@ import {
   Sparkles,
   Headphones,
   Paintbrush,
+  Share2,
   X,
 } from 'lucide-react';
 import { useNotifications } from '../../notification-system';
@@ -149,7 +150,6 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
     'campaigns',
     'affiliate',
     'direct-orders',
-    'social',
     'seo',
     'blog',
     'commerce-tools',
@@ -216,6 +216,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
       { id: 'notifications', icon: Bell, badge: unreadCounts.total },
       { id: 'marketing', icon: Megaphone },
       { id: 'whatsapp', icon: WhatsAppBrandIcon },
+      { id: 'social', icon: Share2 },
       { id: 'reports', icon: FileText },
       { id: 'smart-automation', icon: BarChart3 },
       { id: 'canva', icon: Paintbrush },
@@ -600,8 +601,8 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                     },
                     {
                       id: 'brands',
-                      labelAr: 'العلامات التجارية والحقول المخصصة',
-                      labelEn: 'Brands & Custom Fields',
+                      labelAr: 'العلامات التجارية',
+                      labelEn: 'Brands',
                       color: 'bg-purple-400',
                       onClick: () => {
                         selectTab('brands');
@@ -862,7 +863,6 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                     { id: 'campaigns', labelAr: 'الحملات التسويقية', labelEn: 'Marketing Campaigns', color: 'bg-teal-400' },
                     { id: 'affiliate', labelAr: 'التسويق بالعمولة', labelEn: 'Affiliate Marketing', color: 'bg-yellow-400' },
                     { id: 'direct-orders', labelAr: 'الطلب المباشر', labelEn: 'Direct Orders', color: 'bg-sky-400' },
-                    { id: 'social', labelAr: 'النشر الاجتماعي', labelEn: 'Social Publishing', color: 'bg-fuchsia-400' },
                     { id: 'seo', labelAr: 'تحسين محركات البحث', labelEn: 'SEO Optimization', color: 'bg-amber-400' },
                     { id: 'blog', labelAr: 'المدونة', labelEn: 'Blog (Articles)', color: 'bg-violet-400' },
                     { id: 'commerce-tools', labelAr: 'أدوات التجارة للمقالات', labelEn: 'Commerce Tools', color: 'bg-rose-400' },

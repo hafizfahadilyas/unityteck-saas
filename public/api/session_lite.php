@@ -893,16 +893,7 @@ function souq_session_lite_dispatch(PDO $pdo, string $uri, string $method, strin
         return true;
     }
 
-    // Hostinger gateway stubs — Laravel has these; empty is correct until wired (never fake rows).
-    if ($uri === '/customer-activities' && $method === 'GET') {
-        if ($storeId === '') {
-            http_response_code(422);
-            echo json_encode(['message' => 'store_id is required.', 'data' => []]);
-            return true;
-        }
-        echo json_encode(['data' => [], 'meta' => ['total' => 0, 'page' => 1, 'per_page' => 40]]);
-        return true;
-    }
+    // /customer-activities is handled by souq_gateway_bank_wallet_activity_dispatch (real MySQL rows).
     if ($uri === '/delivery-drivers' && $method === 'GET') {
         if ($storeId === '') {
             http_response_code(422);

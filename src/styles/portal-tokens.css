@@ -773,6 +773,12 @@ html[data-sidebar-design='navy'] .unity-aside nav button svg {
 [data-portal="master"] .bg-blue-700,
 [data-portal="store"] .bg-blue-700,
 [data-global-modal] .bg-blue-700,
+[data-portal="master"] .bg-blue-800,
+[data-portal="store"] .bg-blue-800,
+[data-global-modal] .bg-blue-800,
+[data-portal="master"] .bg-blue-400,
+[data-portal="store"] .bg-blue-400,
+[data-global-modal] .bg-blue-400,
 [data-portal="master"] .bg-indigo-600,
 [data-portal="store"] .bg-indigo-600,
 [data-global-modal] .bg-indigo-600,
@@ -782,12 +788,24 @@ html[data-sidebar-design='navy'] .unity-aside nav button svg {
 [data-portal="master"] .bg-indigo-700,
 [data-portal="store"] .bg-indigo-700,
 [data-global-modal] .bg-indigo-700,
+[data-portal="master"] .bg-indigo-400,
+[data-portal="store"] .bg-indigo-400,
+[data-global-modal] .bg-indigo-400,
 [data-portal="master"] .bg-violet-600,
 [data-portal="store"] .bg-violet-600,
 [data-global-modal] .bg-violet-600,
 [data-portal="master"] .bg-purple-600,
 [data-portal="store"] .bg-purple-600,
 [data-global-modal] .bg-purple-600,
+[data-portal="master"] .bg-purple-500,
+[data-portal="store"] .bg-purple-500,
+[data-global-modal] .bg-purple-500,
+[data-portal="master"] .bg-purple-700,
+[data-portal="store"] .bg-purple-700,
+[data-global-modal] .bg-purple-700,
+[data-portal="master"] .bg-purple-400,
+[data-portal="store"] .bg-purple-400,
+[data-global-modal] .bg-purple-400,
 [data-portal="master"] .bg-sky-600,
 [data-portal="store"] .bg-sky-600,
 [data-global-modal] .bg-sky-600,
@@ -811,7 +829,36 @@ html[data-sidebar-design='navy'] .unity-aside nav button svg {
 [data-global-modal] .hover\:bg-indigo-600:hover,
 [data-portal="master"] .hover\:bg-indigo-700:hover,
 [data-portal="store"] .hover\:bg-indigo-700:hover,
-[data-global-modal] .hover\:bg-indigo-700:hover {
+[data-global-modal] .hover\:bg-indigo-700:hover,
+[data-portal="master"] .hover\:bg-purple-600:hover,
+[data-portal="store"] .hover\:bg-purple-600:hover,
+[data-global-modal] .hover\:bg-purple-600:hover,
+[data-portal="master"] .hover\:bg-purple-700:hover,
+[data-portal="store"] .hover\:bg-purple-700:hover,
+[data-global-modal] .hover\:bg-purple-700:hover,
+[data-portal="master"] .hover\:bg-violet-700:hover,
+[data-portal="store"] .hover\:bg-violet-700:hover,
+[data-global-modal] .hover\:bg-violet-700:hover {
+  background: var(--portal-cta) !important;
+  background-image: var(--portal-cta) !important;
+  background-color: var(--portal-600) !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+}
+
+/* Toggle tracks: peer:checked ~ sibling with peer-checked:bg-* */
+[data-portal="master"] .peer:checked ~ .peer-checked\:bg-blue-600,
+[data-portal="store"] .peer:checked ~ .peer-checked\:bg-blue-600,
+[data-global-modal] .peer:checked ~ .peer-checked\:bg-blue-600,
+[data-portal="master"] .peer:checked ~ .peer-checked\:bg-blue-500,
+[data-portal="store"] .peer:checked ~ .peer-checked\:bg-blue-500,
+[data-global-modal] .peer:checked ~ .peer-checked\:bg-blue-500,
+[data-portal="master"] .peer:checked ~ .peer-checked\:bg-indigo-600,
+[data-portal="store"] .peer:checked ~ .peer-checked\:bg-indigo-600,
+[data-global-modal] .peer:checked ~ .peer-checked\:bg-indigo-600,
+[data-portal="master"] .peer:checked ~ .peer-checked\:bg-purple-600,
+[data-portal="store"] .peer:checked ~ .peer-checked\:bg-purple-600,
+[data-global-modal] .peer:checked ~ .peer-checked\:bg-purple-600 {
   background: var(--portal-cta) !important;
   background-image: var(--portal-cta) !important;
   background-color: var(--portal-600) !important;
@@ -2522,5 +2569,86 @@ button:active:not(:disabled) {
 .unity-shell button[class*="bg-teal-6"],
 .unity-shell button[class*="bg-blue-6"] {
   color: #ffffff !important;
+}
+
+/* ─── Product create steps: enter animations (no overlap with sticky footer) ─── */
+@keyframes product-create-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes product-create-step-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+}
+
+.product-type-picker-page .product-create-section,
+.product-create-form-animate .product-create-section,
+.product-create-steps .product-create-step-chip {
+  animation: product-create-rise 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.product-create-steps .product-create-step-chip--active {
+  animation: product-create-rise 0.42s cubic-bezier(0.22, 1, 0.36, 1) both,
+    product-create-step-pulse 1.6s ease-in-out 0.45s 1;
+}
+
+.product-editor-sticky-footer {
+  pointer-events: none;
+}
+
+.product-editor-sticky-footer .product-editor-sticky-dock {
+  pointer-events: auto;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--surface) 92%, #fff 8%) 0%,
+      color-mix(in srgb, var(--surface) 96%, transparent) 100%
+    );
+  border-color: color-mix(in srgb, var(--border) 85%, var(--accent) 15%);
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #fff 55%, transparent) inset,
+    0 10px 28px -12px color-mix(in srgb, var(--text) 22%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.dark .product-editor-sticky-footer .product-editor-sticky-dock,
+[data-theme='dark'] .product-editor-sticky-footer .product-editor-sticky-dock {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--surface) 88%, #fff 4%) 0%,
+      color-mix(in srgb, var(--surface) 96%, transparent) 100%
+    );
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #fff 8%, transparent) inset,
+    0 14px 32px -14px rgba(0, 0, 0, 0.55),
+    0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.product-editor-page .product-create-section {
+  scroll-margin-top: 5.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-type-picker-page .product-create-section,
+  .product-create-form-animate .product-create-section,
+  .product-create-steps .product-create-step-chip,
+  .product-create-steps .product-create-step-chip--active {
+    animation: none !important;
+  }
 }
 

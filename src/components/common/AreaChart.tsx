@@ -12,8 +12,8 @@ interface AreaChartProps {
 
 export const AreaChart: React.FC<AreaChartProps> = React.memo(({
   data,
-  color = '#00C9A7',
-  fillGradient = ['#00C9A7', '#00C9A7'],
+  color = 'var(--accent)',
+  fillGradient = ['var(--accent)', 'var(--portal-400)'],
   height = 120,
   prefix = '',
   suffix = '',

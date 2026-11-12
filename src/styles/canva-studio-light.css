@@ -329,6 +329,49 @@
   border-color: var(--cs-accent) !important;
 }
 
+/* Modern Canva-like element tiles (Elements / Emoji / Icons) */
+.canva-studio-light .cs-section-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cs-muted) !important;
+}
+
+.canva-studio-light .cs-element-tile {
+  background: var(--cs-bg) !important;
+  border: 1px solid var(--cs-border) !important;
+  border-radius: 12px !important;
+  color: var(--cs-text) !important;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    transform 140ms ease;
+}
+
+.canva-studio-light .cs-element-tile:hover {
+  border-color: var(--cs-accent) !important;
+  background: var(--cs-accent-soft) !important;
+  transform: translateY(-1px);
+}
+
+.canva-studio-light .cs-emoji-grid .cs-element-tile {
+  border-radius: 10px !important;
+  min-height: 2.5rem;
+}
+
+.canva-studio-light .cs-emoji-grid .cs-element-tile:active {
+  transform: scale(0.96);
+}
+
+/* Soft checker workspace like Canva editor */
+.canva-studio-light .cs-workspace {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--cs-panel) 92%, #ffffff), var(--cs-panel))
+      !important;
+}
+
 /* Force common Tailwind one-offs → Holst accent */
 .canva-studio-light .bg-violet-600,
 .canva-studio-light .bg-purple-600,

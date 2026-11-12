@@ -32,8 +32,16 @@ import {
   optionValuesList,
   variantPriceParts,
 } from '../../utils/productVariants';
-import { seedExistingCommerce } from '../../utils/existingProductCommerce';
-import { pickLocaleText } from '../../utils/localeLabel';
+import {
+  mergeBilingualProductOptions,
+  normalizeCommerceVariations,
+  seedExistingCommerce,
+} from '../../utils/existingProductCommerce';
+import {
+  canonicalOptionName,
+  isArabicOptionNameTwin,
+  pickLocaleText,
+} from '../../utils/localeLabel';
 import * as tenantApi from '../../api/tenantApi';
 import { isApiEnabled } from '../../api/client';
 import { commerceTerm } from '../../i18n/commerceTerms';
@@ -405,7 +413,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
   // ── Product Options State ──
   const [options, setOptions] = useState<ProductOptionItem[]>(() => {
-    const seeded = seedExistingCommerce(product, storeId).options;
+    const seeded = mergeBilingualProductOptions(seedExistingCommerce(product, storeId).options);
     if (seeded.length > 0) {
       return seeded.map((opt) => ({
         id: opt.id,
@@ -485,7 +493,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   // ── Variations State (Loaded from API or Product - ZERO DUMMY DATA) ──
   const [variations, setVariations] = useState<ProductVariation[]>(() => {
     if (product.variations && Array.isArray(product.variations) && product.variations.length > 0) {
-      return normalizeVariantUniqueness(product.variations);
+      return normalizeVariantUniqueness(normalizeCommerceVariations(product.variations));
     }
     const seeded = seedExistingCommerce(product, storeId).options;
     if (seeded.length === 0) return [];
@@ -525,16 +533,16 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       if (isApiEnabled()) {
         const list = await tenantApi.fetchVariations(storeId, product.id);
         if (list && list.length > 0) {
-          setVariations(normalizeVariantUniqueness(list));
+          setVariations(normalizeVariantUniqueness(normalizeCommerceVariations(list)));
         } else if (product.variations && product.variations.length > 0) {
-          setVariations(normalizeVariantUniqueness(product.variations));
+          setVariations(normalizeVariantUniqueness(normalizeCommerceVariations(product.variations)));
         }
       } else if (product.variations && product.variations.length > 0) {
-        setVariations(normalizeVariantUniqueness(product.variations));
+        setVariations(normalizeVariantUniqueness(normalizeCommerceVariations(product.variations)));
       }
     } catch {
       if (product.variations && product.variations.length > 0) {
-        setVariations(normalizeVariantUniqueness(product.variations));
+        setVariations(normalizeVariantUniqueness(normalizeCommerceVariations(product.variations)));
       }
     } finally {
       setLoadingVariations(false);
@@ -1267,26 +1275,32 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
   // ── Dynamic Option Columns for Variant Table ──
   const variantOptionKeys = useMemo(() => {
-    const keysMap = new Map<string, string>(); // normalizedKey -> Display Label
-    // Add active options
+    const keysMap = new Map<string, string>(); // canonical EN key -> locale display label
+    // Add active options (one column per bilingual option)
     options.forEach((opt) => {
       if (opt.values.some((v) => v.selected)) {
-        keysMap.set(opt.name, pickLocaleText(isAr, opt.name, opt.nameAr));
+        const canon = canonicalOptionName(opt.name) || opt.name;
+        keysMap.set(canon, pickLocaleText(isAr, opt.name, opt.nameAr));
       }
     });
-    // Add any options found in existing variations
+    // Add any options found in existing variations (skip Arabic twin keys)
     variations.forEach((v) => {
       if (v.options) {
         Object.keys(v.options).forEach((k) => {
-          if (!keysMap.has(k)) {
+          if (isArabicOptionNameTwin(k)) return;
+          const canon = canonicalOptionName(k) || k;
+          if (!keysMap.has(canon)) {
             const foundOpt = options.find(
-              (o) => o.id.toLowerCase() === k.toLowerCase() || o.name.toLowerCase() === k.toLowerCase()
+              (o) =>
+                o.id.toLowerCase() === canon.toLowerCase() ||
+                o.name.toLowerCase() === canon.toLowerCase() ||
+                canonicalOptionName(o.name).toLowerCase() === canon.toLowerCase(),
             );
             keysMap.set(
-              k,
+              canon,
               foundOpt
                 ? pickLocaleText(isAr, foundOpt.name, foundOpt.nameAr)
-                : k.charAt(0).toUpperCase() + k.slice(1).replace('_', ' '),
+                : canon.charAt(0).toUpperCase() + canon.slice(1).replace('_', ' '),
             );
           }
         });
@@ -1476,7 +1490,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     // Heal inherited / shared SKU·barcode collisions; only hard-block if twin option combos remain.
     let saveVariations = variations;
     if (optionsEnabled && variations.length > 0) {
-      saveVariations = normalizeVariantUniqueness(variations);
+      saveVariations = normalizeVariantUniqueness(normalizeCommerceVariations(variations));
       if (saveVariations !== variations) {
         setVariations(saveVariations);
       }
@@ -1556,28 +1570,30 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
         value: f.value ?? '',
       })),
       productOptions: optionsEnabled
-        ? options.map((opt) => ({
-            id: opt.id,
-            name: opt.name,
-            nameAr: opt.nameAr,
-            type: opt.type,
-            visible: opt.visible !== false,
-            values: opt.values.map((v) => ({
-              id: v.id,
-              label: v.label,
-              labelAr: v.labelAr,
-              colorHex: v.colorHex,
-              imageUrl: v.imageUrl,
-              videoUrl: v.videoUrl,
-              selected: v.selected,
-              price: v.price ?? null,
-              salePrice: v.salePrice ?? null,
-              stock: v.stock ?? null,
-              sku: v.sku || '',
-              weight: v.weight ?? null,
-              weightUnit: v.weightUnit || 'kg',
+        ? mergeBilingualProductOptions(
+            options.map((opt) => ({
+              id: opt.id,
+              name: opt.name,
+              nameAr: opt.nameAr,
+              type: opt.type,
+              visible: opt.visible !== false,
+              values: opt.values.map((v) => ({
+                id: v.id,
+                label: v.label,
+                labelAr: v.labelAr,
+                colorHex: v.colorHex,
+                imageUrl: v.imageUrl,
+                videoUrl: v.videoUrl,
+                selected: v.selected,
+                price: v.price ?? null,
+                salePrice: v.salePrice ?? null,
+                stock: v.stock ?? null,
+                sku: v.sku || '',
+                weight: v.weight ?? null,
+                weightUnit: v.weightUnit || 'kg',
+              })),
             })),
-          }))
+          )
         : [],
       conditionalRules: conditionalRule ? [conditionalRule] : [],
       variations: optionsEnabled ? saveVariations : [],
@@ -1638,12 +1654,20 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
         'success',
       );
     } catch (err) {
-      const msg =
-        err instanceof Error && err.message
-          ? err.message
-          : isAr
-            ? 'تعذر الحصول على اقتراح الذكاء الاصطناعي'
-            : 'Could not fetch AI suggestion';
+      const raw = err instanceof Error && err.message ? err.message : '';
+      const low = raw.toLowerCase();
+      let msg = raw;
+      if (!msg) {
+        msg = isAr ? 'تعذر الحصول على اقتراح الذكاء الاصطناعي' : 'Could not fetch AI suggestion';
+      } else if (low.includes('quota') || low.includes('rate limit') || low.includes('resource_exhausted')) {
+        msg = isAr
+          ? 'تم تجاوز حد استخدام الذكاء الاصطناعي لهذا المفتاح. انتظر إعادة التعيين أو حدّث مفتاح الواجهة على الخادم.'
+          : 'AI quota exceeded for this key. Wait for the free-tier reset, or update GEMINI_API_KEY on the API server.';
+      } else if (low.includes('high demand') || low.includes('busy')) {
+        msg = isAr
+          ? 'نموذج الذكاء الاصطناعي مشغول حالياً. حاول مرة أخرى بعد دقيقة.'
+          : 'AI model is busy right now. Try again in a minute.';
+      }
       toast(msg, 'error');
     } finally {
       setAiSuggestBusy(false);
@@ -1699,8 +1723,48 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     </div>
   );
 
+  const createSteps = useMemo(
+    () => [
+      {
+        id: 'basics',
+        label: isAr ? 'الأساسيات' : 'Basics',
+        hint: isAr ? 'الصور والاسم والوصف' : 'Images, name & description',
+        targetIds: ['pe-sec-images', 'pe-sec-basic'],
+      },
+      {
+        id: 'pricing',
+        label: isAr ? 'التسعير' : 'Pricing',
+        hint: isAr ? 'السعر والمخزون' : 'Price & inventory',
+        targetIds: ['pe-sec-pricing', 'pe-sec-inventory'],
+      },
+      {
+        id: 'options',
+        label: isAr ? 'الخيارات' : 'Options',
+        hint: isAr ? 'الخيارات والتنويعات' : 'Options & variations',
+        targetIds: ['pe-sec-options', 'pe-sec-custom'],
+      },
+      {
+        id: 'discover',
+        label: isAr ? 'الاكتشاف' : 'Discover',
+        hint: isAr ? 'التصنيف وتحسين البحث' : 'Category & SEO',
+        targetIds: ['pe-sec-category', 'pe-sec-seo'],
+      },
+    ],
+    [isAr],
+  );
+  const [createStepId, setCreateStepId] = useState(createSteps[0]?.id ?? 'basics');
+
+  const scrollToCreateStep = useCallback((stepId: string) => {
+    setCreateStepId(stepId);
+    const step = createSteps.find((s) => s.id === stepId);
+    if (!step) return;
+    const el =
+      step.targetIds.map((id) => document.getElementById(id)).find(Boolean) ?? null;
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [createSteps]);
+
   return (
-    <div className="u-page p-4 sm:p-6 pb-28 max-w-[1600px] mx-auto space-y-5 w-full min-w-0">
+    <div className="u-page p-4 sm:p-6 pb-6 max-w-[1600px] mx-auto space-y-5 w-full min-w-0 product-editor-page">
       {/* ── HEADER ROW (sticky so Save stays visible) ── */}
       <div
         className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-30 -mx-1 px-1 py-2 rounded-xl backdrop-blur-md"
@@ -1825,8 +1889,72 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
         </div>
       </div>
 
+      {/* Create flow: animated step strip */}
+      {isCreateMode && (
+        <div
+          className="product-create-steps rounded-2xl border p-3 sm:p-3.5"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+          role="navigation"
+          aria-label={isAr ? 'خطوات إنشاء المنتج' : 'Product create steps'}
+        >
+          <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
+            {createSteps.map((step, idx) => {
+              const active = createStepId === step.id;
+              const done = createSteps.findIndex((s) => s.id === createStepId) > idx;
+              return (
+                <React.Fragment key={step.id}>
+                  {idx > 0 ? (
+                    <div
+                      className="hidden sm:block h-px w-6 shrink-0"
+                      style={{
+                        background: done || active ? 'var(--accent)' : 'var(--border)',
+                        opacity: done || active ? 0.85 : 1,
+                      }}
+                    />
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => scrollToCreateStep(step.id)}
+                    className={`product-create-step-chip shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl border text-start transition-all duration-200 cursor-pointer ${
+                      active ? 'product-create-step-chip--active' : ''
+                    }`}
+                    style={{
+                      borderColor: active || done ? 'color-mix(in srgb, var(--accent) 45%, var(--border))' : 'var(--border)',
+                      background: active
+                        ? 'color-mix(in srgb, var(--accent) 14%, var(--surface))'
+                        : 'var(--surface)',
+                      color: 'var(--text)',
+                      animationDelay: `${idx * 60}ms`,
+                    }}
+                  >
+                    <span
+                      className="w-6 h-6 rounded-lg text-[11px] font-black flex items-center justify-center shrink-0"
+                      style={{
+                        background: active || done ? 'var(--accent)' : 'color-mix(in srgb, var(--muted) 18%, var(--surface))',
+                        color: active || done ? '#fff' : 'var(--muted)',
+                      }}
+                    >
+                      {done ? <Check className="w-3.5 h-3.5" /> : idx + 1}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[11px] font-extrabold leading-tight">{step.label}</span>
+                      <span className="block text-[10px] font-semibold leading-tight mt-0.5" style={{ color: 'var(--muted)' }}>
+                        {step.hint}
+                      </span>
+                    </span>
+                  </button>
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* ── MAIN GRID (100% Mockup 07 Layout) ── */}
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form
+        onSubmit={handleSubmit}
+        className={`space-y-5 pb-24 sm:pb-28 ${isCreateMode ? 'product-create-form-animate' : ''}`}
+      >
         {hiddenSectionKeys.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl border border-amber-200/80 dark:border-amber-900/50 bg-amber-50/70 dark:bg-amber-950/20">
             <span className="text-xs font-bold text-amber-900 dark:text-amber-200">
@@ -1857,8 +1985,9 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
           {/* CARD 1: PRODUCT IMAGES */}
           {sectionVisibility.images && (
             <div
-              className="lg:col-span-5 h-full flex flex-col p-5 rounded-2xl shadow-xs space-y-4"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--card-fg)' }}
+              id="pe-sec-images"
+              className="lg:col-span-5 h-full flex flex-col p-5 rounded-2xl shadow-xs space-y-4 product-create-section"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--card-fg)', animationDelay: '40ms' }}
             >
               {/* Card Header */}
               <div className="flex items-center justify-between gap-3">
@@ -2110,7 +2239,11 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
           {/* CARD 2: BASIC INFORMATION */}
           {sectionVisibility.basic && (
-            <div className="lg:col-span-7 h-full flex flex-col bg-[var(--surface)] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+            <div
+              id="pe-sec-basic"
+              className="lg:col-span-7 h-full flex flex-col bg-[var(--surface)] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4 product-create-section"
+              style={{ animationDelay: '90ms' }}
+            >
               {/* Card Header */}
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -2366,11 +2499,15 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
           </div>
         )}
 
-        {/* ROW 2: Pricing (left) + Inventory & Shipping (center/right) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* ROW 2: Pricing (left) + Inventory & Shipping (center/right) — equal card heights */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
           {/* CARD 4: PRICING */}
           {sectionVisibility.pricing && (
-            <div className="lg:col-span-5 bg-[var(--surface)] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+            <div
+              id="pe-sec-pricing"
+              className="lg:col-span-5 h-full flex flex-col bg-[var(--surface)] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4 product-create-section"
+              style={{ animationDelay: '140ms' }}
+            >
               {/* Header */}
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -2462,12 +2599,18 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   />
                 </div>
               </div>
+              {/* Fill remaining height so Pricing matches Inventory card */}
+              <div className="flex-1 min-h-0" aria-hidden="true" />
             </div>
           )}
 
           {/* CARD 5: INVENTORY & SHIPPING */}
           {sectionVisibility.inventory && (
-            <div className="lg:col-span-7 bg-[var(--surface)] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+            <div
+              id="pe-sec-inventory"
+              className="lg:col-span-7 h-full flex flex-col bg-[var(--surface)] p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4 product-create-section"
+              style={{ animationDelay: '180ms' }}
+            >
               {/* Header */}
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -2684,7 +2827,11 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
         {/* ROW 3: Product Options & Variants (Full Width, 100% Pixel-Perfect to Reference Screenshot) */}
         {(sectionVisibility.options || sectionVisibility.variations) && (
-          <div className="bg-[var(--surface)] p-5 sm:p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-6">
+          <div
+            id="pe-sec-options"
+            className="bg-[var(--surface)] p-5 sm:p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-6 product-create-section"
+            style={{ animationDelay: '220ms' }}
+          >
             {/* Header matching reference screenshot */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-start gap-3">
@@ -3424,7 +3571,11 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
         {/* ROW 4: Custom Fields (Full Width, 100% Pixel-Perfect to Reference Screenshot) */}
         {sectionVisibility.custom_fields && (
-          <div className="bg-[var(--surface)] p-5 sm:p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-5">
+          <div
+            id="pe-sec-custom"
+            className="bg-[var(--surface)] p-5 sm:p-6 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-5 product-create-section"
+            style={{ animationDelay: '260ms' }}
+          >
             {/* Header matching reference screenshot */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-start gap-3 min-w-0">
@@ -3660,7 +3811,11 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           {/* CARD 8: CATEGORY & TAGS */}
           {sectionVisibility.category_tags && (
-            <div className="lg:col-span-6 bg-[var(--surface)] p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+            <div
+              id="pe-sec-category"
+              className="lg:col-span-6 bg-[var(--surface)] p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4 product-create-section"
+              style={{ animationDelay: '300ms' }}
+            >
               {/* Header */}
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -3792,7 +3947,11 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
           {/* CARD 9: SEO SETTINGS */}
           {sectionVisibility.seo && (
-            <div className="lg:col-span-6 bg-[var(--surface)] p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+            <div
+              id="pe-sec-seo"
+              className="lg:col-span-6 bg-[var(--surface)] p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4 product-create-section"
+              style={{ animationDelay: '340ms' }}
+            >
               {/* Header */}
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -3862,30 +4021,49 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
         </div>
       </form>
 
-      {/* Sticky bottom Save — always visible on Add / Edit */}
+      {/* Sticky bottom Save — floating dock so SEO/tags never sit under the bar */}
       <div
-        className="fixed bottom-0 inset-x-0 z-40 border-t px-4 py-3 flex items-center justify-end gap-2.5"
-        style={{
-          background: 'color-mix(in srgb, var(--surface) 94%, transparent)',
-          borderColor: 'var(--border)',
-          backdropFilter: 'blur(10px)',
-        }}
+        className="sticky bottom-0 z-40 mt-4 px-1 sm:px-2 pb-3 product-editor-sticky-footer"
+        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
       >
-        <div className="w-full max-w-[1600px] mx-auto flex items-center justify-between gap-3 flex-wrap">
-          <p className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
-            {isCreateMode
-              ? isAr
-                ? 'احفظ المنتج من هنا بعد تعبئة الاسم ورمز المنتج والسعر'
-                : 'Save the product here after name, SKU, and price are filled'
-              : isAr
-                ? 'احفظ التغييرات من الشريط السفلي أو من أعلى الصفحة'
-                : 'Save changes from this bar or from the top of the page'}
-          </p>
-          <div className="flex items-center gap-2.5">
+        <div className="product-editor-sticky-dock w-full flex items-center justify-between gap-3 flex-wrap rounded-2xl border px-3.5 sm:px-4 py-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span
+              className="hidden sm:inline-flex w-8 h-8 rounded-xl items-center justify-center shrink-0"
+              style={{
+                background: 'color-mix(in srgb, var(--accent) 14%, transparent)',
+                color: 'var(--accent)',
+              }}
+              aria-hidden
+            >
+              <Save className="w-3.5 h-3.5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] sm:text-xs font-bold tracking-tight truncate" style={{ color: 'var(--text)' }}>
+                {isCreateMode
+                  ? isAr
+                    ? 'جاهز للحفظ؟'
+                    : 'Ready to save?'
+                  : isAr
+                    ? 'حفظ سريع'
+                    : 'Quick save'}
+              </p>
+              <p className="text-[10px] sm:text-[11px] font-medium truncate" style={{ color: 'var(--muted)' }}>
+                {isCreateMode
+                  ? isAr
+                    ? 'بعد تعبئة الاسم ورمز المنتج والسعر احفظ من هنا'
+                    : 'Save here after name, SKU, and price are filled'
+                  : isAr
+                    ? 'احفظ من هذا الشريط أو من أعلى الصفحة'
+                    : 'Save from this bar or from the top of the page'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 sm:gap-2.5 ms-auto">
             <button
               type="button"
               onClick={onBack}
-              className="px-4 py-2 rounded-xl text-xs font-bold border cursor-pointer transition-colors"
+              className="px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold border cursor-pointer transition-all hover:opacity-90 active:scale-[0.98]"
               style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--surface)' }}
             >
               {isAr ? 'إلغاء' : 'Cancel'}
@@ -3894,9 +4072,9 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
               type="button"
               onClick={() => handleSubmit()}
               disabled={!canMutate || aiSuggestBusy}
-              className="unity-btn-primary px-5 py-2 text-xs font-bold rounded-xl flex items-center gap-2 cursor-pointer shadow-xs transition-all hover:opacity-95 disabled:opacity-50"
+              className="unity-btn-primary px-4 sm:px-5 py-2 text-xs font-bold rounded-xl flex items-center gap-2 cursor-pointer transition-all hover:opacity-95 hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Save className="w-4 h-4 shrink-0" />
+              <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
               <span>
                 {isCreateMode
                   ? isAr

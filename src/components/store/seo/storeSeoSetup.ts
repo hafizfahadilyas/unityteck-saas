@@ -9,23 +9,32 @@ export function realTrackingId(value: string | null | undefined): string {
   return v;
 }
 
-export function storePublicHost(store: { custom_domain?: string | null; domain?: string | null }): string {
-  return String(store.custom_domain || store.domain || '')
+export function storePublicHost(store: {
+  custom_domain?: string | null;
+  domain?: string | null;
+  demo_domain?: string | null;
+}): string {
+  return String(store.custom_domain || store.domain || store.demo_domain || '')
     .trim()
     .replace(/^https?:\/\//i, '')
     .replace(/\/.*$/, '')
+    .replace(/^www\./i, '')
     .trim();
 }
 
-export function storeGoogleEmail(store: { ownerEmail?: string | null }): string {
-  const email = String(store.ownerEmail || '').trim().toLowerCase();
+export function storeGoogleEmail(store: { ownerEmail?: string | null; email?: string | null }): string {
+  const email = String(store.ownerEmail || store.email || '')
+    .trim()
+    .toLowerCase();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : '';
 }
 
 export function seoSetupStep(store: {
   ownerEmail?: string | null;
+  email?: string | null;
   custom_domain?: string | null;
   domain?: string | null;
+  demo_domain?: string | null;
 }): SeoSetupStep {
   if (!storeGoogleEmail(store)) return 'need_email';
   if (!storePublicHost(store)) return 'need_domain';

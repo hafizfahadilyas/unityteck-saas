@@ -2,6 +2,7 @@
  * Product options → variants helpers (extend existing catalog — no duplicate systems).
  */
 import type { ProductOptionDefinition, ProductVariation } from '../types';
+import { collapseOptionMap } from './localeLabel';
 
 function numOrNull(v: unknown): number | null {
   if (v === '' || v == null) return null;
@@ -251,9 +252,10 @@ export function buildGeneratedVariants(input: GeneratedVariantInput): ProductVar
 
   const prefix = (input.baseSku || 'SKU').trim() || 'SKU';
   const rows = combos.map((combo, idx) => {
-    const fp = optionsFingerprint(combo.options);
+    const optionMap = collapseOptionMap(combo.options);
+    const fp = optionsFingerprint(optionMap);
     const prev = prevByFp.get(fp);
-    const abbrs = Object.values(combo.options).map((label, i) => skuToken(label, `O${i + 1}`));
+    const abbrs = Object.values(optionMap).map((label, i) => skuToken(label, `O${i + 1}`));
     const fromParts = combo.skuParts.length > 0 ? combo.skuParts.join('-') : '';
     // Prefer a previous unique SKU only when it is not the bare product SKU shared by every row.
     const prevSku = String(prev?.sku || '').trim();
@@ -270,7 +272,7 @@ export function buildGeneratedVariants(input: GeneratedVariantInput): ProductVar
       productId: input.productId,
       sku: candidate.slice(0, 80),
       barcode: prev?.barcode ?? null,
-      options: combo.options,
+      options: optionMap,
       price: selling,
       compareAtPrice: mrpSum > selling ? mrpSum : (prev?.compareAtPrice ?? null),
       stock:
@@ -307,9 +309,10 @@ export function variantPriceParts(v: {
 }
 
 export function optionsFingerprint(options: Record<string, string>): string {
-  return Object.keys(options)
+  const collapsed = collapseOptionMap(options || {});
+  return Object.keys(collapsed)
     .sort()
-    .map((k) => `${k.toLowerCase()}=${String(options[k] || '').trim().toLowerCase()}`)
+    .map((k) => `${k.toLowerCase()}=${String(collapsed[k] || '').trim().toLowerCase()}`)
     .join('|');
 }
 

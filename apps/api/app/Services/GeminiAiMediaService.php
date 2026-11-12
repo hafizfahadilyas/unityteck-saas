@@ -318,6 +318,48 @@ final class GeminiAiMediaService
     }
 
     /**
+     * Prefer env GEMINI_TEXT_MODEL. New AI Studio keys: 2.5 Flash → 404, use 3.8 Flash.
+     */
+    public static function resolveTextModel(?string $configured = null): string
+    {
+        $model = trim((string) ($configured ?? config('services.gemini.text_model', 'gemini-3.8-flash')));
+        if ($model === '' || $model === 'gemini-2.0-flash' || $model === 'gemini-2.5-flash' || $model === 'gemini-2.5-flash-lite') {
+            return 'gemini-3.8-flash';
+        }
+
+        return $model;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function textModelCandidates(?string $preferred = null): array
+    {
+        $primary = self::resolveTextModel($preferred);
+        $out = [$primary];
+        foreach (['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.5-flash'] as $fallback) {
+            if (! in_array($fallback, $out, true)) {
+                $out[] = $fallback;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<string, mixed>  $base
+     * @return array<string, mixed>
+     */
+    public static function textGenerationConfig(string $model, array $base): array
+    {
+        if (str_starts_with($model, 'gemini-3')) {
+            $base['thinkingConfig'] = ['thinkingLevel' => 'LOW'];
+        }
+
+        return $base;
+    }
+
+    /**
      * Expand a short / multilingual merchant note into a detailed image prompt.
      *
      * @return array{ok: true, prompt: string, model: string}|array{ok: false, code: string, message: string}
@@ -331,11 +373,6 @@ final class GeminiAiMediaService
                 'code' => 'provider_not_connected',
                 'message' => 'AI image provider is not connected. Set GEMINI_API_KEY on the API server.',
             ];
-        }
-
-        $model = trim((string) config('services.gemini.text_model', 'gemini-3.8-flash'));
-        if ($model === '' || $model === 'gemini-2.5-flash' || $model === 'gemini-2.0-flash') {
-            $model = 'gemini-3.8-flash';
         }
 
         $aspect = self::resolveAspect($aspect);
@@ -352,66 +389,78 @@ final class GeminiAiMediaService
         }
         $instruction .= "\n\nMerchant note:\n".trim($rawPrompt);
 
-        $url = 'https://generativelanguage.googleapis.com/v1beta/models/'
-            .rawurlencode($model)
-            .':generateContent?key='.rawurlencode($apiKey);
+        $lastFail = [
+            'ok' => false,
+            'code' => 'provider_error',
+            'message' => 'AI prompt enhance returned an error.',
+        ];
 
-        try {
-            $response = Http::timeout(45)
-                ->acceptJson()
-                ->asJson()
-                ->post($url, [
-                    'contents' => [
-                        ['parts' => [['text' => $instruction]]],
-                    ],
-                    'generationConfig' => [
-                        'temperature' => 0.7,
-                        'maxOutputTokens' => 512,
-                    ],
-                ]);
+        foreach (self::textModelCandidates() as $model) {
+            $url = 'https://generativelanguage.googleapis.com/v1beta/models/'
+                .rawurlencode($model)
+                .':generateContent?key='.rawurlencode($apiKey);
 
-            if (! $response->successful()) {
-                $err = $response->json('error.message') ?: $response->body();
+            try {
+                $response = Http::timeout(35)
+                    ->withOptions(['curl' => self::geminiCurlOpts()])
+                    ->acceptJson()
+                    ->asJson()
+                    ->post($url, [
+                        'contents' => [
+                            ['parts' => [['text' => $instruction]]],
+                        ],
+                        'generationConfig' => self::textGenerationConfig($model, [
+                            'temperature' => 0.7,
+                            'maxOutputTokens' => 512,
+                        ]),
+                    ]);
 
-                return [
-                    'ok' => false,
-                    'code' => 'provider_error',
-                    'message' => is_string($err) && $err !== ''
-                        ? $err
-                        : 'AI prompt enhance returned an error.',
-                ];
-            }
+                if (! $response->successful()) {
+                    $err = $response->json('error.message') ?: $response->body();
+                    $lastFail = [
+                        'ok' => false,
+                        'code' => 'provider_error',
+                        'message' => is_string($err) && $err !== ''
+                            ? $err
+                            : 'AI prompt enhance returned an error.',
+                    ];
+                    continue;
+                }
 
-            $parts = $response->json('candidates.0.content.parts') ?? [];
-            $text = '';
-            if (is_array($parts)) {
-                foreach ($parts as $part) {
-                    if (! empty($part['text'])) {
-                        $text .= (string) $part['text'];
+                $parts = $response->json('candidates.0.content.parts') ?? [];
+                $text = '';
+                if (is_array($parts)) {
+                    foreach ($parts as $part) {
+                        if (! empty($part['text'])) {
+                            $text .= (string) $part['text'];
+                        }
                     }
                 }
-            }
-            $text = trim(preg_replace('/^["“]|["”]$/u', '', trim($text)) ?? '');
-            if (mb_strlen($text) < 12) {
+                $text = trim(preg_replace('/^["“]|["”]$/u', '', trim($text)) ?? '');
+                if (mb_strlen($text) < 12) {
+                    $lastFail = [
+                        'ok' => false,
+                        'code' => 'empty_result',
+                        'message' => 'AI prompt enhance returned empty text.',
+                    ];
+                    continue;
+                }
+
                 return [
+                    'ok' => true,
+                    'prompt' => mb_substr($text, 0, 2000),
+                    'model' => $model,
+                ];
+            } catch (\Throwable $e) {
+                $lastFail = [
                     'ok' => false,
-                    'code' => 'empty_result',
-                    'message' => 'AI prompt enhance returned empty text.',
+                    'code' => 'provider_error',
+                    'message' => 'AI prompt enhance failed: '.$e->getMessage(),
                 ];
             }
-
-            return [
-                'ok' => true,
-                'prompt' => mb_substr($text, 0, 2000),
-                'model' => $model,
-            ];
-        } catch (\Throwable $e) {
-            return [
-                'ok' => false,
-                'code' => 'provider_error',
-                'message' => 'AI prompt enhance failed: '.$e->getMessage(),
-            ];
         }
+
+        return $lastFail;
     }
 
     /**
@@ -449,6 +498,23 @@ final class GeminiAiMediaService
     }
 
     /**
+     * Hostinger shared hosting often hangs on IPv6 to Google ("0 bytes received").
+     *
+     * @return array<int, mixed>
+     */
+    private static function geminiCurlOpts(): array
+    {
+        $opts = [
+            CURLOPT_CONNECTTIMEOUT => 12,
+        ];
+        if (defined('CURL_IPRESOLVE_V4')) {
+            $opts[CURLOPT_IPRESOLVE] = CURL_IPRESOLVE_V4;
+        }
+
+        return $opts;
+    }
+
+    /**
      * @param  array<string, mixed>  $body
      * @return array{ok: true, mime: string, base64: string, model: string}|array{ok: false, code: string, message: string}
      */
@@ -456,6 +522,7 @@ final class GeminiAiMediaService
     {
         try {
             $response = Http::timeout(120)
+                ->withOptions(['curl' => self::geminiCurlOpts()])
                 ->acceptJson()
                 ->asJson()
                 ->post($url, $body);
@@ -566,11 +633,6 @@ final class GeminiAiMediaService
             ];
         }
 
-        $model = trim((string) config('services.gemini.text_model', 'gemini-3.8-flash'));
-        if ($model === '' || $model === 'gemini-2.5-flash' || $model === 'gemini-2.0-flash') {
-            $model = 'gemini-3.8-flash';
-        }
-
         $locale = strtolower(trim((string) ($input['locale'] ?? 'en')));
         $wantAr = str_starts_with($locale, 'ar');
         $name = trim((string) ($input['name'] ?? ''));
@@ -623,81 +685,94 @@ final class GeminiAiMediaService
             implode("\n", $facts),
         ]);
 
-        $url = 'https://generativelanguage.googleapis.com/v1beta/models/'
-            .rawurlencode($model)
-            .':generateContent?key='.rawurlencode($apiKey);
+        $lastFail = [
+            'ok' => false,
+            'code' => 'provider_error',
+            'message' => 'AI product copy returned an error.',
+        ];
 
-        try {
-            $response = Http::timeout(45)
-                ->acceptJson()
-                ->asJson()
-                ->post($url, [
-                    'contents' => [
-                        ['parts' => [['text' => $instruction]]],
-                    ],
-                    'generationConfig' => [
-                        'temperature' => 0.55,
-                        'maxOutputTokens' => 1024,
-                        'responseMimeType' => 'application/json',
-                    ],
-                ]);
+        foreach (self::textModelCandidates() as $model) {
+            $url = 'https://generativelanguage.googleapis.com/v1beta/models/'
+                .rawurlencode($model)
+                .':generateContent?key='.rawurlencode($apiKey);
 
-            if (! $response->successful()) {
-                $err = $response->json('error.message') ?: $response->body();
+            try {
+                $response = Http::timeout(35)
+                    ->withOptions(['curl' => self::geminiCurlOpts()])
+                    ->acceptJson()
+                    ->asJson()
+                    ->post($url, [
+                        'contents' => [
+                            ['parts' => [['text' => $instruction]]],
+                        ],
+                        'generationConfig' => self::textGenerationConfig($model, [
+                            'temperature' => 0.55,
+                            'maxOutputTokens' => 1024,
+                            'responseMimeType' => 'application/json',
+                        ]),
+                    ]);
 
-                return [
-                    'ok' => false,
-                    'code' => 'provider_error',
-                    'message' => is_string($err) && $err !== ''
-                        ? $err
-                        : 'AI product copy returned an error.',
-                ];
-            }
+                if (! $response->successful()) {
+                    $err = $response->json('error.message') ?: $response->body();
+                    $lastFail = [
+                        'ok' => false,
+                        'code' => 'provider_error',
+                        'message' => is_string($err) && $err !== ''
+                            ? $err
+                            : 'AI product copy returned an error.',
+                    ];
+                    continue;
+                }
 
-            $parts = $response->json('candidates.0.content.parts') ?? [];
-            $text = '';
-            if (is_array($parts)) {
-                foreach ($parts as $part) {
-                    if (! empty($part['text'])) {
-                        $text .= (string) $part['text'];
+                $parts = $response->json('candidates.0.content.parts') ?? [];
+                $text = '';
+                if (is_array($parts)) {
+                    foreach ($parts as $part) {
+                        if (! empty($part['text'])) {
+                            $text .= (string) $part['text'];
+                        }
                     }
                 }
-            }
-            $text = trim($text);
-            $text = preg_replace('/^```(?:json)?\s*|\s*```$/u', '', $text) ?? $text;
-            $decoded = json_decode($text, true);
-            if (! is_array($decoded)) {
+                $text = trim($text);
+                $text = preg_replace('/^```(?:json)?\s*|\s*```$/u', '', $text) ?? $text;
+                $decoded = json_decode($text, true);
+                if (! is_array($decoded)) {
+                    $lastFail = [
+                        'ok' => false,
+                        'code' => 'empty_result',
+                        'message' => 'AI product copy returned invalid JSON.',
+                    ];
+                    continue;
+                }
+
+                $title = trim((string) ($decoded['title'] ?? ''));
+                $subtitle = trim((string) ($decoded['subtitle'] ?? ''));
+                $description = trim((string) ($decoded['description'] ?? ''));
+                if (mb_strlen($title) < 2 && mb_strlen($description) < 8) {
+                    $lastFail = [
+                        'ok' => false,
+                        'code' => 'empty_result',
+                        'message' => 'AI product copy returned empty text.',
+                    ];
+                    continue;
+                }
+
                 return [
+                    'ok' => true,
+                    'title' => mb_substr($title, 0, 120),
+                    'subtitle' => mb_substr($subtitle, 0, 200),
+                    'description' => mb_substr($description, 0, 8000),
+                    'model' => $model,
+                ];
+            } catch (\Throwable $e) {
+                $lastFail = [
                     'ok' => false,
-                    'code' => 'empty_result',
-                    'message' => 'AI product copy returned invalid JSON.',
+                    'code' => 'provider_error',
+                    'message' => 'AI product copy failed: '.$e->getMessage(),
                 ];
             }
-
-            $title = trim((string) ($decoded['title'] ?? ''));
-            $subtitle = trim((string) ($decoded['subtitle'] ?? ''));
-            $description = trim((string) ($decoded['description'] ?? ''));
-            if (mb_strlen($title) < 2 && mb_strlen($description) < 8) {
-                return [
-                    'ok' => false,
-                    'code' => 'empty_result',
-                    'message' => 'AI product copy returned empty text.',
-                ];
-            }
-
-            return [
-                'ok' => true,
-                'title' => mb_substr($title, 0, 120),
-                'subtitle' => mb_substr($subtitle, 0, 200),
-                'description' => mb_substr($description, 0, 8000),
-                'model' => $model,
-            ];
-        } catch (\Throwable $e) {
-            return [
-                'ok' => false,
-                'code' => 'provider_error',
-                'message' => 'AI product copy failed: '.$e->getMessage(),
-            ];
         }
+
+        return $lastFail;
     }
 }

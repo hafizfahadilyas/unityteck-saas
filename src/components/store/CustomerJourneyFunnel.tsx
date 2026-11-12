@@ -49,14 +49,14 @@ export const CustomerJourneyFunnel: React.FC<CustomerJourneyFunnelProps> = ({
       labelAr: 'زيارات المتجر',
       count: visits,
       percentage: 100,
-      color: '#2563eb',
+      color: 'var(--accent)',
     },
     {
       label: 'Product Views',
       labelAr: 'مشاهدات المنتجات',
       count: productViews,
       percentage: visits > 0 ? Number(((productViews / visits) * 100).toFixed(1)) : 0,
-      color: '#0ea5e9',
+      color: 'var(--portal-400)',
     },
     {
       label: 'Add to Cart',

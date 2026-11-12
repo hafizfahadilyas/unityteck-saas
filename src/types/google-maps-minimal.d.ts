@@ -4,6 +4,7 @@ declare namespace google.maps {
     constructor(el: HTMLElement, opts?: MapOptions);
     setCenter(latLng: LatLng | LatLngLiteral): void;
     setZoom(zoom: number): void;
+    getZoom(): number | undefined;
     panTo(latLng: LatLng | LatLngLiteral): void;
     fitBounds(bounds: LatLngBounds | LatLngBoundsLiteral): void;
     addListener(eventName: string, handler: (...args: any[]) => void): MapsEventListener;
@@ -116,10 +117,12 @@ declare namespace google.maps {
     address?: string;
     componentRestrictions?: { country?: string | string[] };
     region?: string;
+    language?: string;
   }
 
   interface GeocoderResult {
     formatted_address?: string;
+    types?: string[];
     address_components?: GeocoderAddressComponent[];
     geometry?: { location: LatLng };
   }

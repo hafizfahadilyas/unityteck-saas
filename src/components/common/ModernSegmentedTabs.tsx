@@ -64,7 +64,7 @@ export function ModernSegmentedTabs<T extends string = string>({
     <div
       role="tablist"
       aria-label={ariaLabel}
-      className={`p-1.5 rounded-2xl border flex items-center gap-1.5 overflow-x-auto scrollbar-none font-bold ${
+      className={`p-1.5 rounded-2xl border flex flex-wrap sm:flex-nowrap items-center gap-1.5 overflow-x-auto scrollbar-none font-bold min-w-0 ${
         fullWidth ? 'w-full' : 'w-full sm:w-auto'
       } ${text} ${className}`}
       style={{

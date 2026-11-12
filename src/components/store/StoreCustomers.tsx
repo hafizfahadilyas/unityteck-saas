@@ -198,7 +198,8 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
     const names = new Set<string>();
     customGroups.forEach((g) => names.add(g.name));
     currentCustomers.forEach((c) => {
-      if (c.group?.trim()) names.add(c.group.trim());
+      const groupName = String(c.group ?? '').trim();
+      if (groupName) names.add(groupName);
     });
     return Array.from(names).sort((a, b) => a.localeCompare(b));
   }, [customGroups, currentCustomers]);
@@ -243,7 +244,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
   const groupCustomerCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const c of currentCustomers) {
-      const key = (c.group || '').trim();
+      const key = String(c.group ?? '').trim();
       if (!key) continue;
       counts.set(key, (counts.get(key) || 0) + 1);
     }
@@ -1805,13 +1806,13 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                                 style={{ borderColor: 'var(--border)' }}
                               >
                                 <td className="px-3 py-2 font-semibold" style={{ color: 'var(--text)' }}>
-                                  {getCustomerDisplayName(cust, isAr)}
+                                  {getCustomerDisplayName(cust.name, locale)}
                                 </td>
                                 <td className="px-3 py-2" style={{ color: 'var(--muted)' }}>
                                   {cust.phone || '—'}
                                 </td>
                                 <td className="px-3 py-2" style={{ color: 'var(--text)' }}>
-                                  {cust.group?.trim() || (isAr ? '—' : '—')}
+                                  {String(cust.group ?? '').trim() || '—'}
                                 </td>
                               </tr>
                             ))}

@@ -1033,7 +1033,7 @@ export const StoreChannelPerformance: React.FC = () => {
                         width="12"
                         height={visitsH}
                         rx="2"
-                        fill="#2563eb"
+                        fill="var(--accent)"
                         className="opacity-90"
                       />
                     )}
@@ -1180,7 +1180,7 @@ export const StoreChannelPerformance: React.FC = () => {
                 <path
                   d="M 35 95 Q 85 65 135 75 T 235 45 T 335 25"
                   fill="none"
-                  stroke="#2563eb"
+                  stroke="var(--accent)"
                   strokeWidth="2.5"
                 />
               )}
