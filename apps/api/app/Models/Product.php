@@ -44,6 +44,7 @@ class Product extends Model
         'stock',
         'category',
         'category_ar',
+        'category_list',
         'brand',
         'product_type',
         'google_taxonomy',
@@ -62,6 +63,7 @@ class Product extends Model
         'seo_description',
         'seo_keywords',
         'status',
+        'published_at',
         'is_active',
         'is_featured',
         'discount_start_at',
@@ -91,8 +93,10 @@ class Product extends Model
             'product_options' => 'array',
             'custom_fields' => 'array',
             'conditional_rules' => 'array',
-            'discount_start_at' => 'date:Y-m-d',
-            'discount_end_at' => 'date:Y-m-d',
+            'category_list' => 'array',
+            'published_at' => 'datetime',
+            'discount_start_at' => 'datetime',
+            'discount_end_at' => 'datetime',
         ];
     }
 

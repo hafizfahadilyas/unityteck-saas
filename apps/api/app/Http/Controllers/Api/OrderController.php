@@ -20,6 +20,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -303,7 +304,12 @@ class OrderController extends Controller
             'items' => ['nullable', 'array'],
             'items.*.product_id' => ['nullable', 'string', 'max:64'],
             'items.*.variation_id' => ['nullable', 'string', 'max:64'],
+            'items.*.selected_options' => ['nullable', 'array'],
             'items.*.name' => ['required_with:items', 'string', 'max:191'],
+            'items.*.sku' => ['nullable', 'string', 'max:100'],
+            'items.*.brand' => ['nullable', 'string', 'max:191'],
+            'items.*.category' => ['nullable', 'string', 'max:191'],
+            'items.*.image_url' => ['nullable', 'string'],
             'items.*.quantity' => ['required_with:items', 'integer', 'min:1'],
             'items.*.price' => ['required_with:items', 'numeric', 'min:0'],
         ]);
@@ -311,12 +317,62 @@ class OrderController extends Controller
         return DB::transaction(function () use ($validated, $storeId) {
             $items = $validated['items'] ?? [];
             $lowStockAlerts = [];
+            $hasVariationCol = Schema::hasColumn('order_items', 'variation_id');
+            $hasSelectedOptsCol = Schema::hasColumn('order_items', 'selected_options');
+            $hasSkuCol = Schema::hasColumn('order_items', 'sku');
+            $hasBrandCol = Schema::hasColumn('order_items', 'brand');
+            $hasCategoryCol = Schema::hasColumn('order_items', 'category');
+            $hasImageCol = Schema::hasColumn('order_items', 'image_url');
 
-            // 1. Pre-validate and lock stock for all items
+            // 1. Pre-validate and lock stock for all items (variant inventory wins when variation_id set)
             foreach ($items as $item) {
                 $qty = (int) ($item['quantity'] ?? 1);
                 $productId = $item['product_id'] ?? null;
                 $variationId = $item['variation_id'] ?? null;
+
+                if ($variationId) {
+                    $variation = ProductVariation::query()
+                        ->forStore($storeId)
+                        ->where('id', $variationId)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (! $variation) {
+                        abort(response()->json([
+                            'message' => 'Variation not found for this store.',
+                            'message_ar' => 'التنويع غير موجود لهذا المتجر.',
+                            'variation_id' => $variationId,
+                        ], 422));
+                    }
+
+                    if ($productId && (string) $variation->product_id !== (string) $productId) {
+                        abort(response()->json([
+                            'message' => 'Variation does not belong to the selected product.',
+                            'message_ar' => 'التنويع لا ينتمي للمنتج المحدد.',
+                            'variation_id' => $variationId,
+                            'product_id' => $productId,
+                        ], 422));
+                    }
+
+                    if ($variation->is_active === false) {
+                        abort(response()->json([
+                            'message' => "Variation SKU '{$variation->sku}' is not available.",
+                            'message_ar' => "التنويع '{$variation->sku}' غير متاح.",
+                            'variation_id' => $variation->id,
+                        ], 422));
+                    }
+
+                    if (! (bool) ($variation->unlimited_stock ?? false) && (int) $variation->stock < $qty) {
+                        abort(response()->json([
+                            'message' => "Insufficient stock for variation SKU '{$variation->sku}'. Available: {$variation->stock}, Requested: {$qty}",
+                            'message_ar' => "المخزون غير كافٍ للمتغير '{$variation->sku}'. المتوفر: {$variation->stock}، المطلوب: {$qty}",
+                            'variation_id' => $variation->id,
+                            'available_stock' => $variation->stock,
+                        ], 422));
+                    }
+
+                    continue;
+                }
 
                 if ($productId) {
                     $product = Product::query()
@@ -331,23 +387,6 @@ class OrderController extends Controller
                             'message_ar' => "المخزون غير كافٍ للمنتج '{$product->name}'. المتوفر: {$product->stock}، المطلوب: {$qty}",
                             'product_id' => $product->id,
                             'available_stock' => $product->stock,
-                        ], 422));
-                    }
-                }
-
-                if ($variationId) {
-                    $variation = ProductVariation::query()
-                        ->forStore($storeId)
-                        ->where('id', $variationId)
-                        ->lockForUpdate()
-                        ->first();
-
-                    if ($variation && (int) $variation->stock < $qty) {
-                        abort(response()->json([
-                            'message' => "Insufficient stock for variation SKU '{$variation->sku}'. Available: {$variation->stock}, Requested: {$qty}",
-                            'message_ar' => "المخزون غير كافٍ للمتغير '{$variation->sku}'. المتوفر: {$variation->stock}، المطلوب: {$qty}",
-                            'variation_id' => $variation->id,
-                            'available_stock' => $variation->stock,
                         ], 422));
                     }
                 }
@@ -547,8 +586,46 @@ class OrderController extends Controller
                     $price = (float) ($item['price'] ?? 0);
                     $productId = $item['product_id'] ?? null;
                     $variationId = $item['variation_id'] ?? null;
+                    $selectedOptions = is_array($item['selected_options'] ?? null)
+                        ? $item['selected_options']
+                        : null;
 
-                    OrderItem::query()->create([
+                    $product = null;
+                    if ($productId) {
+                        $product = Product::query()->forStore($storeId)->where('id', $productId)->first();
+                    }
+
+                    $sku = trim((string) ($item['sku'] ?? ''));
+                    $brand = trim((string) ($item['brand'] ?? ''));
+                    $category = trim((string) ($item['category'] ?? ''));
+                    $imageUrl = trim((string) ($item['image_url'] ?? ''));
+                    if ($product) {
+                        if ($sku === '') {
+                            $sku = (string) ($product->sku ?? '');
+                        }
+                        if ($brand === '') {
+                            $brand = (string) ($product->brand ?? '');
+                        }
+                        if ($category === '') {
+                            $category = (string) ($product->category ?? '');
+                        }
+                        if ($imageUrl === '') {
+                            $imageUrl = (string) ($product->image_url ?? '');
+                        }
+                    }
+                    if ($variationId) {
+                        $variationRow = ProductVariation::query()->forStore($storeId)->where('id', $variationId)->first();
+                        if ($variationRow) {
+                            if ($sku === '' || $sku === (string) ($product?->sku ?? '')) {
+                                $sku = (string) ($variationRow->sku ?: $sku);
+                            }
+                            if ($imageUrl === '' && ! empty($variationRow->image_url)) {
+                                $imageUrl = (string) $variationRow->image_url;
+                            }
+                        }
+                    }
+
+                    $line = [
                         'order_id' => $orderId,
                         'store_id' => $storeId,
                         'product_id' => $productId,
@@ -556,9 +633,48 @@ class OrderController extends Controller
                         'quantity' => $qty,
                         'unit_price' => $price,
                         'subtotal' => $qty * $price,
-                    ]);
+                    ];
+                    if ($hasVariationCol) {
+                        $line['variation_id'] = $variationId ?: null;
+                    }
+                    if ($hasSelectedOptsCol) {
+                        $line['selected_options'] = $selectedOptions;
+                    }
+                    if ($hasSkuCol && $sku !== '') {
+                        $line['sku'] = $sku;
+                    }
+                    if ($hasBrandCol && $brand !== '') {
+                        $line['brand'] = $brand;
+                    }
+                    if ($hasCategoryCol && $category !== '') {
+                        $line['category'] = $category;
+                    }
+                    if ($hasImageCol && $imageUrl !== '') {
+                        $line['image_url'] = $imageUrl;
+                    }
 
-                    if ($productId) {
+                    OrderItem::query()->create($line);
+
+                    // Variant line → deduct variation only (never double-deduct parent).
+                    if ($variationId) {
+                        $variation = ProductVariation::query()->forStore($storeId)->where('id', $variationId)->first();
+                        if ($variation && ! (bool) ($variation->unlimited_stock ?? false)) {
+                            $newVarStock = max(0, (int) $variation->stock - $qty);
+                            $variation->stock = $newVarStock;
+                            $variation->save();
+
+                            if ($newVarStock <= 5) {
+                                $lowStockAlerts[] = [
+                                    'product_id' => $variation->product_id,
+                                    'variation_id' => $variation->id,
+                                    'name' => $item['name'],
+                                    'sku' => $variation->sku,
+                                    'remaining_stock' => $newVarStock,
+                                    'is_out_of_stock' => $newVarStock === 0,
+                                ];
+                            }
+                        }
+                    } elseif ($productId) {
                         $product = Product::query()->forStore($storeId)->where('id', $productId)->first();
                         if ($product) {
                             $newStock = max(0, (int) $product->stock - $qty);
@@ -577,15 +693,6 @@ class OrderController extends Controller
                                     'is_out_of_stock' => $newStock === 0,
                                 ];
                             }
-                        }
-                    }
-
-                    if ($variationId) {
-                        $variation = ProductVariation::query()->forStore($storeId)->where('id', $variationId)->first();
-                        if ($variation) {
-                            $newVarStock = max(0, (int) $variation->stock - $qty);
-                            $variation->stock = $newVarStock;
-                            $variation->save();
                         }
                     }
                 }
@@ -829,7 +936,13 @@ class OrderController extends Controller
 
             if ($isInactiveNow && $wasActivePrev && $shouldRestock && !$order->restocked_at) {
                 foreach ($order->items as $item) {
-                    if ($item->product_id) {
+                    if ($item->variation_id) {
+                        $variation = ProductVariation::query()->forStore($storeId)->where('id', $item->variation_id)->first();
+                        if ($variation && ! (bool) ($variation->unlimited_stock ?? false)) {
+                            $variation->stock = (int) $variation->stock + (int) $item->quantity;
+                            $variation->save();
+                        }
+                    } elseif ($item->product_id) {
                         $product = Product::query()->forStore($storeId)->where('id', $item->product_id)->first();
                         if ($product) {
                             $product->stock = (int) $product->stock + (int) $item->quantity;
@@ -839,20 +952,19 @@ class OrderController extends Controller
                             $product->save();
                         }
                     }
-                    if ($item->variation_id) {
-                        $variation = ProductVariation::query()->forStore($storeId)->where('id', $item->variation_id)->first();
-                        if ($variation) {
-                            $variation->stock = (int) $variation->stock + (int) $item->quantity;
-                            $variation->save();
-                        }
-                    }
                 }
                 $order->restocked_at = now();
             }
             // Reactivating an inactive order: re-deduct product inventory
             elseif (!$isInactiveNow && in_array($prevStatus, ['cancelled', 'returned'], true) && $order->restocked_at) {
                 foreach ($order->items as $item) {
-                    if ($item->product_id) {
+                    if ($item->variation_id) {
+                        $variation = ProductVariation::query()->forStore($storeId)->where('id', $item->variation_id)->first();
+                        if ($variation && ! (bool) ($variation->unlimited_stock ?? false)) {
+                            $variation->stock = max(0, (int) $variation->stock - (int) $item->quantity);
+                            $variation->save();
+                        }
+                    } elseif ($item->product_id) {
                         $product = Product::query()->forStore($storeId)->where('id', $item->product_id)->first();
                         if ($product) {
                             $newStock = max(0, (int) $product->stock - (int) $item->quantity);
@@ -861,13 +973,6 @@ class OrderController extends Controller
                                 $product->badge = 'out_of_stock';
                             }
                             $product->save();
-                        }
-                    }
-                    if ($item->variation_id) {
-                        $variation = ProductVariation::query()->forStore($storeId)->where('id', $item->variation_id)->first();
-                        if ($variation) {
-                            $variation->stock = max(0, (int) $variation->stock - (int) $item->quantity);
-                            $variation->save();
                         }
                     }
                 }

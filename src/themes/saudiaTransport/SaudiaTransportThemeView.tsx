@@ -771,12 +771,39 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
             paymentMethod: checkoutForm.paymentMethod === 'cod' ? 'Cash on Delivery' : 'mada',
             paymentStatus: 'pending',
             source: readTrafficSource().source,
-            items: itemsPayload.map((i) => ({
-              id: i.id,
-              name: i.name,
-              quantity: i.quantity,
-              price: i.price,
-            })),
+            items: cart.map((it) => {
+              const sp = it.specs as Record<string, unknown> | undefined;
+              const selectedOptions: Record<string, string> = {};
+              if (it.selectedColor?.nameEn || it.selectedColor?.nameAr) {
+                selectedOptions.color = String(it.selectedColor.nameEn || it.selectedColor.nameAr);
+              }
+              if (it.selectedMaterial) selectedOptions.material = String(it.selectedMaterial);
+              if (it.selectedCoverage) selectedOptions.coverage = String(it.selectedCoverage);
+              if (sp?.brand || sp?.brandNameAr) {
+                selectedOptions.brand = String(sp.brandNameAr || sp.brand || '');
+              }
+              if (sp?.model) selectedOptions.model = String(sp.model);
+              if (sp?.year) selectedOptions.year = String(sp.year);
+              const live = it.product as { variations?: Array<{ id: string; options?: Record<string, string>; isActive?: boolean }> };
+              const matched = (live.variations || []).find((v) => {
+                if (v.isActive === false) return false;
+                const opts = v.options || {};
+                return Object.entries(selectedOptions).every(([k, val]) => {
+                  if (!val) return true;
+                  const have = opts[k];
+                  if (have == null || have === '') return true;
+                  return String(have).trim().toLowerCase() === String(val).trim().toLowerCase();
+                });
+              });
+              return {
+                id: it.product.id,
+                name: `${it.product.nameAr || it.product.name}`.trim(),
+                quantity: it.quantity,
+                price: it.unitPrice,
+                variationId: matched?.id || null,
+                selectedOptions,
+              };
+            }),
           },
           {
             syncOrderFromApi,

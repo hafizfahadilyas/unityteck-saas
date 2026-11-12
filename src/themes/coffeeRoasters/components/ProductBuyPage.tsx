@@ -140,13 +140,15 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
     }
     let cancelled = false;
     setReviewsLoading(true);
-    void fetchStoreReviews(storeId)
+    void fetchStoreReviews(storeId, { productId: product?.id, approvedOnly: true })
       .then((rows) => {
         if (cancelled) return;
         const mapped: StorefrontReviewRow[] = (rows || [])
           .filter((r) => (r as { active?: boolean }).active === true)
           .filter((r) => {
             if (!product?.id && !product?.name) return true;
+            const pid = String((r as { product_id?: string }).product_id || '');
+            if (pid && product?.id) return pid === product.id;
             const prod = String((r as { product?: string }).product || '');
             const prodAr = String((r as { productAr?: string }).productAr || '');
             return (
@@ -480,6 +482,8 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
           image: currentDisplayImage,
           optionSummary: useDynamicOptions ? optionSummary : undefined,
           purchaseNotes: notes.length ? notes : undefined,
+          variationId: useDynamicOptions ? resolvedPick?.variant?.id || null : null,
+          selectedOptions: useDynamicOptions ? { ...optionPick } : null,
         }
       : undefined;
     for (let i = 0; i < quantity; i++) {
@@ -523,6 +527,8 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
           image: currentDisplayImage,
           optionSummary: useDynamicOptions ? optionSummary : undefined,
           purchaseNotes: notes.length ? notes : undefined,
+          variationId: useDynamicOptions ? resolvedPick?.variant?.id || null : null,
+          selectedOptions: useDynamicOptions ? { ...optionPick } : null,
         }
       : undefined;
     for (let i = 0; i < quantity; i++) {
@@ -561,6 +567,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
         city: newCity.trim() || undefined,
         product: `${product.name} / ${selectedColor?.name || 'Default'}`,
         productAr: `${product.nameAr || product.name} / ${selectedColor?.nameAr || selectedColor?.name || 'الافتراضي'}`,
+        product_id: product.id,
         rating: newRating,
         comment: newComment.trim(),
         commentAr: newComment.trim(),

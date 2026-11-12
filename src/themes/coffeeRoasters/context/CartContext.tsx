@@ -500,6 +500,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       image?: string;
       optionSummary?: string;
       purchaseNotes?: string[];
+      variationId?: string | null;
+      selectedOptions?: Record<string, string> | null;
     }
   ) => {
     const selectedColor = color || product.colors?.[0] || {
@@ -517,23 +519,46 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       (warranty ? warranty.price : 0) +
       (bundles ? bundles.reduce((s, b) => s + b.price, 0) : 0);
     const unitPrice = extra?.unitPrice != null ? extra.unitPrice : product.basePrice + extraPrice;
+    const variationId = extra?.variationId || null;
+    const selectedOptions = extra?.selectedOptions || null;
 
-    const newItem: CartItem = {
-      id: `cart_${Date.now()}_${Math.random()}`,
-      productId: product.id,
-      productName: product.name,
-      unitPrice,
-      quantity: 1,
-      image: extra?.image || selectedColor?.image || product.images?.[0] || '',
-      selectedColor,
-      selectedStorage,
-      selectedWarranty: warranty,
-      selectedBundles: bundles,
-      optionSummary: extra?.optionSummary,
-      purchaseNotes: extra?.purchaseNotes,
-    };
-
-    setCart(prev => [newItem, ...prev]);
+    setCart((prev) => {
+      const existingIdx = prev.findIndex(
+        (item) =>
+          item.productId === product.id &&
+          (item.variationId || null) === variationId &&
+          (item.optionSummary || '') === (extra?.optionSummary || '') &&
+          item.selectedColor?.name === selectedColor.name &&
+          item.selectedStorage?.capacity === selectedStorage.capacity,
+      );
+      if (existingIdx >= 0) {
+        const next = [...prev];
+        next[existingIdx] = {
+          ...next[existingIdx],
+          quantity: next[existingIdx].quantity + 1,
+          unitPrice,
+          image: extra?.image || next[existingIdx].image,
+        };
+        return next;
+      }
+      const newItem: CartItem = {
+        id: `cart_${Date.now()}_${Math.random()}`,
+        productId: product.id,
+        productName: product.name,
+        unitPrice,
+        quantity: 1,
+        image: extra?.image || selectedColor?.image || product.images?.[0] || '',
+        selectedColor,
+        selectedStorage,
+        selectedWarranty: warranty,
+        selectedBundles: bundles,
+        optionSummary: extra?.optionSummary,
+        purchaseNotes: extra?.purchaseNotes,
+        variationId,
+        selectedOptions,
+      };
+      return [newItem, ...prev];
+    });
     if (openMiniCart) {
       setIsMiniCartOpen(true);
     }
@@ -884,6 +909,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     dbProducts.forEach((dp: any) => {
       if (dp?.storeId && dp.storeId !== activeStoreId) return;
+      // Storefront: hide archived; drafts stay hidden unless already published.
+      const st = String(dp.status || '').toLowerCase();
+      if (st === 'archived') return;
+      if (st === 'draft' && dp.isActive === false) return;
+      if (st === 'draft' && !dp.isActive && !dp.scheduledPublishAt) return;
+      // Prefer live catalog rows; only use static theme pack for chrome (images/parts) fallback.
       const match = !coffeeCatalog
         ? undefined
         : PRODUCTS.find(
@@ -925,26 +956,36 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         resolvedList.push({
           ...match,
           id: dp.id,
+          sku: dp.sku || match.sku,
+          brand: dp.brand || (match as { brand?: string }).brand,
           name: dp.name || match.name,
           nameAr: dp.nameAr || match.nameAr || dp.name,
           basePrice: sell || (dp.basePrice ?? match.basePrice),
           originalPrice: compareAt,
           category: dp.category || match.category,
           categoryAr: dp.categoryAr || (match as { categoryAr?: string }).categoryAr,
+          categories: Array.isArray(dp.categories) ? dp.categories : undefined,
+          stock: typeof dp.stock === 'number' ? dp.stock : undefined,
+          seoTitle: dp.seoTitle,
+          seoDescription: dp.seoDescription,
+          discountStartAt: dp.discountStartAt,
+          discountEndAt: dp.discountEndAt,
           specComparisonImage: dp.specComparisonImage || match.specComparisonImage,
           specComparisonImageAr: dp.specComparisonImageAr || match.specComparisonImageAr,
           image: primaryImg,
           images: updatedImages,
           colors: story.colors || updatedColors,
-          storageOptions: story.storage || match.storageOptions,
+          storageOptions: story.storage?.length ? story.storage : match.storageOptions,
           partsShowcase: story.parts.length ? story.parts : match.partsShowcase,
-          customFields: story.fields,
-          productOptions: commerce.options?.length ? commerce.options : match.productOptions,
-          variations: commerce.variations?.length ? commerce.variations : match.variations,
-          conditionalRules: Array.isArray(dp.conditionalRules) ? dp.conditionalRules : match.conditionalRules,
-          videoUrl: story.video || undefined,
-          tagline: dp.subtitle || dp.description || match.tagline,
-          taglineAr: dp.subtitleAr || dp.descriptionAr || match.taglineAr,
+          customFields: story.fields?.length ? story.fields : (Array.isArray(dp.customFields) ? dp.customFields : []),
+          productOptions: commerce.options?.length ? commerce.options : [],
+          variations: commerce.variations?.length ? commerce.variations : [],
+          conditionalRules: Array.isArray(dp.conditionalRules) ? dp.conditionalRules : [],
+          videoUrl: story.video || dp.videoUrl || undefined,
+          tagline: dp.subtitle || match.tagline,
+          taglineAr: dp.subtitleAr || match.taglineAr,
+          overview: dp.description || match.overview,
+          overviewAr: dp.descriptionAr || match.overviewAr,
         });
       } else {
         const sellNew = sellingPrice(Number(dp.price) || 0, dp.discountedPrice);
@@ -959,30 +1000,40 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const commerceNew = liveCommerce(dp);
         resolvedList.push({
           id: dp.id,
+          sku: dp.sku,
+          brand: dp.brand,
           name: dp.name,
           nameAr: dp.nameAr || dp.name,
-          tagline: dp.subtitle || dp.description || '',
-          taglineAr: dp.subtitleAr || dp.descriptionAr || '',
+          tagline: dp.subtitle || '',
+          taglineAr: dp.subtitleAr || '',
           category: (dp.category as any) || '',
           categoryAr: dp.categoryAr,
+          categories: Array.isArray(dp.categories) ? dp.categories : undefined,
+          stock: typeof dp.stock === 'number' ? dp.stock : undefined,
+          seoTitle: dp.seoTitle,
+          seoDescription: dp.seoDescription,
+          discountStartAt: dp.discountStartAt,
+          discountEndAt: dp.discountEndAt,
           basePrice: sellNew || (dp.basePrice ?? 0),
           originalPrice: compareNew,
-          badge: dp.tags?.[0] || undefined,
-          badgeAr: dp.tags?.[0] || undefined,
+          badge: dp.badge || dp.tags?.[0] || undefined,
+          badgeAr: dp.badge || dp.tags?.[0] || undefined,
           reviewCount: dp.reviewsCount || 0,
           rating: dp.rating || 0,
-          colors: storyNew.colors || [{ name: 'Default', hex: '#1c1917', image: primaryImg }],
+          colors: storyNew.colors || (primaryImg ? [{ name: 'Default', hex: '#1c1917', image: primaryImg }] : []),
           storageOptions: storyNew.storage || [],
           specs: dp.specs || [],
-          images: [primaryImg, ...(dp.galleryUrls || []).filter((u: string) => u !== primaryImg)],
+          images: primaryImg
+            ? [primaryImg, ...(dp.galleryUrls || []).filter((u: string) => u !== primaryImg)]
+            : [...(dp.galleryUrls || [])],
           overview: dp.description || '',
           overviewAr: dp.descriptionAr || '',
           partsShowcase: storyNew.parts.length ? storyNew.parts : undefined,
-          customFields: storyNew.fields,
-          productOptions: commerceNew.options?.length ? commerceNew.options : undefined,
-          variations: commerceNew.variations?.length ? commerceNew.variations : undefined,
-          conditionalRules: Array.isArray(dp.conditionalRules) ? dp.conditionalRules : undefined,
-          videoUrl: storyNew.video || undefined,
+          customFields: storyNew.fields?.length ? storyNew.fields : (Array.isArray(dp.customFields) ? dp.customFields : []),
+          productOptions: commerceNew.options?.length ? commerceNew.options : [],
+          variations: commerceNew.variations?.length ? commerceNew.variations : [],
+          conditionalRules: Array.isArray(dp.conditionalRules) ? dp.conditionalRules : [],
+          videoUrl: storyNew.video || dp.videoUrl || undefined,
         });
       }
     });

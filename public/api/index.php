@@ -928,10 +928,14 @@ function listStoreProducts(PDO $pdo, string $storeId, array $query, bool $public
     }
     $where = ['store_id = :sid'];
     $params = [':sid' => $storeId];
-    if ($publicCatalog || (($query['status'] ?? '') !== 'archived' && empty($query['status']))) {
+    if ($publicCatalog) {
+        // Storefront: only live published products for this store_id.
+        $where[] = "(status = 'published' OR status IS NULL OR status = '')";
+        $where[] = '(is_active = 1 OR is_active IS NULL)';
+    } elseif (($query['status'] ?? '') !== 'archived' && empty($query['status'])) {
         $where[] = "(status IS NULL OR status != 'archived')";
     }
-    if (!empty($query['status']) && in_array($query['status'], ['published', 'draft', 'archived'], true)) {
+    if (!$publicCatalog && !empty($query['status']) && in_array($query['status'], ['published', 'draft', 'archived'], true)) {
         $where[] = 'status = :status';
         $params[':status'] = $query['status'];
     }

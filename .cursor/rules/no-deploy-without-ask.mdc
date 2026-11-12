@@ -1,0 +1,29 @@
+---
+description: Never deploy unless the user explicitly asks — no auto Hostinger/FTP push
+alwaysApply: true
+---
+
+# No deploy without explicit ask (LOCKED)
+
+**User order:** Deploy **sirf** jab user clearly bole. Agent **khud se** Hostinger / FTP / `deploy:*` / live push **kabhi nahi**.
+
+## Gate
+
+- Code fix / build / test ke baad deploy **auto mat chalao**.
+- “Done”, “fix”, “smoke”, “verify”, “Ho gaya” ≠ deploy permission.
+- Deploy **sirf** jab user explicitly kahe: `deploy`, `deploy karo`, `push live`, `deploy:fast`, `deploy:api`, target name (`flowers` / `central` / `all`), ya clear “Hostinger pe bhejo”.
+
+## Banned without ask
+
+- `npm run deploy:*` / `node scripts/deploy-*.js`
+- Full or delta FTP / Hostinger upload
+- “just in case” live push after a fix
+
+## Allowed without ask
+
+- Local edit, `npm run build`, typecheck, unit/smoke against **already live** URLs (read-only curl/probe)
+- Explain which deploy command **would** be used — do not run it until asked
+
+## When user asks deploy
+
+Follow `ultra-fast-delta-deploy.mdc` (delta only; full only if they say full).

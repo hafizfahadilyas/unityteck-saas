@@ -356,9 +356,22 @@ function souq_order_row(PDO $pdo, array $row, bool $lean = false): array
 {
     $items = [];
     if (!$lean && !empty($row['id']) && !empty($row['store_id'])) {
-        $itemsSt = $pdo->prepare('SELECT product_id, product_name, quantity, unit_price, subtotal FROM order_items WHERE order_id = ? AND store_id = ?');
+        $itemCols = 'product_id, product_name, quantity, unit_price, subtotal';
+        foreach (['variation_id', 'selected_options', 'sku', 'brand', 'category', 'image_url'] as $extraCol) {
+            if (function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'order_items', $extraCol)) {
+                $itemCols .= ', ' . $extraCol;
+            }
+        }
+        $itemsSt = $pdo->prepare("SELECT {$itemCols} FROM order_items WHERE order_id = ? AND store_id = ?");
         $itemsSt->execute([$row['id'], $row['store_id']]);
         while ($it = $itemsSt->fetch()) {
+            $opts = null;
+            if (array_key_exists('selected_options', $it) && $it['selected_options'] !== null && $it['selected_options'] !== '') {
+                $decoded = is_string($it['selected_options'])
+                    ? json_decode((string)$it['selected_options'], true)
+                    : $it['selected_options'];
+                $opts = is_array($decoded) ? $decoded : null;
+            }
             $items[] = [
                 'product_id' => $it['product_id'],
                 'product_name' => $it['product_name'],
@@ -367,6 +380,13 @@ function souq_order_row(PDO $pdo, array $row, bool $lean = false): array
                 'unit_price' => (float)$it['unit_price'],
                 'price' => (float)$it['unit_price'],
                 'subtotal' => (float)$it['subtotal'],
+                'variation_id' => $it['variation_id'] ?? null,
+                'selected_options' => $opts,
+                'sku' => $it['sku'] ?? null,
+                'brand' => $it['brand'] ?? null,
+                'category' => $it['category'] ?? null,
+                'image_url' => $it['image_url'] ?? null,
+                'image' => $it['image_url'] ?? null,
             ];
         }
     }
@@ -466,6 +486,47 @@ function souq_product_stock_restock(PDO $pdo, string $storeId, string $productId
 }
 
 /** Ensure product_variations exists (MySQL Laravel schema or SQLite bridge). */
+/** Ensure order_items can store exact variation ownership (store-isolated rows). */
+function souq_ensure_order_item_variation_columns(PDO $pdo): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    try {
+        $chk = $pdo->query("SHOW TABLES LIKE 'order_items'");
+        if (! $chk || ! $chk->fetch()) {
+            return;
+        }
+    } catch (Throwable) {
+        return;
+    }
+    $alters = [];
+    if (! function_exists('souq_table_has_column') || ! souq_table_has_column($pdo, 'order_items', 'variation_id')) {
+        $alters[] = 'ADD COLUMN variation_id VARCHAR(64) NULL AFTER product_id';
+    }
+    if (! function_exists('souq_table_has_column') || ! souq_table_has_column($pdo, 'order_items', 'selected_options')) {
+        $alters[] = 'ADD COLUMN selected_options JSON NULL AFTER variation_id';
+    }
+    foreach ($alters as $sql) {
+        try {
+            $pdo->exec('ALTER TABLE order_items ' . $sql);
+        } catch (Throwable) {
+            /* column may already exist under race */
+        }
+    }
+    if (function_exists('souq_table_has_column')) {
+        souq_table_has_column($pdo, 'order_items', 'variation_id', true);
+        souq_table_has_column($pdo, 'order_items', 'selected_options', true);
+    }
+    try {
+        $pdo->exec('CREATE INDEX order_items_store_variation_id_index ON order_items (store_id, variation_id)');
+    } catch (Throwable) {
+        /* index may exist */
+    }
+}
+
 function souq_ensure_product_variations_table(PDO $pdo): void
 {
     static $done = false;
@@ -1310,16 +1371,85 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
         $ins->execute($vals);
         try {
             souq_ensure_product_variations_table($pdo);
+            souq_ensure_order_item_variation_columns($pdo);
         } catch (Throwable) {
             /* optional */
         }
-        $itemIns = $pdo->prepare('INSERT INTO order_items (order_id, store_id, product_id, product_name, quantity, unit_price, subtotal) VALUES (?, ?, ?, ?, ?, ?, ?)');
+        $hasVarCol = function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'order_items', 'variation_id');
+        $hasOptsCol = function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'order_items', 'selected_options');
+        $hasSkuCol = function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'order_items', 'sku');
+        $hasBrandCol = function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'order_items', 'brand');
+        $hasCategoryCol = function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'order_items', 'category');
+        $hasImageCol = function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'order_items', 'image_url');
+        $snapCols = [];
+        if ($hasSkuCol) {
+            $snapCols[] = 'sku';
+        }
+        if ($hasBrandCol) {
+            $snapCols[] = 'brand';
+        }
+        if ($hasCategoryCol) {
+            $snapCols[] = 'category';
+        }
+        if ($hasImageCol) {
+            $snapCols[] = 'image_url';
+        }
+        $snapSql = $snapCols !== [] ? (', ' . implode(', ', $snapCols)) : '';
+        $snapPlaceholders = $snapCols !== [] ? (', ' . implode(', ', array_fill(0, count($snapCols), '?'))) : '';
+        if ($hasVarCol && $hasOptsCol) {
+            $itemIns = $pdo->prepare("INSERT INTO order_items (order_id, store_id, product_id, variation_id, selected_options, product_name{$snapSql}, quantity, unit_price, subtotal) VALUES (?, ?, ?, ?, ?, ?{$snapPlaceholders}, ?, ?, ?)");
+        } elseif ($hasVarCol) {
+            $itemIns = $pdo->prepare("INSERT INTO order_items (order_id, store_id, product_id, variation_id, product_name{$snapSql}, quantity, unit_price, subtotal) VALUES (?, ?, ?, ?, ?{$snapPlaceholders}, ?, ?, ?)");
+        } else {
+            $itemIns = $pdo->prepare("INSERT INTO order_items (order_id, store_id, product_id, product_name{$snapSql}, quantity, unit_price, subtotal) VALUES (?, ?, ?, ?{$snapPlaceholders}, ?, ?, ?)");
+        }
         foreach ($items as $item) {
             $qty = max(1, (int)($item['quantity'] ?? 1));
             $price = (float)($item['price'] ?? 0);
             $pid = (string)($item['product_id'] ?? '');
             $vid = trim((string)($item['variation_id'] ?? $item['variationId'] ?? ''));
             $pname = (string)($item['name'] ?? '');
+            $selectedOpts = $item['selected_options'] ?? $item['selectedOptions'] ?? null;
+            $selectedOptsJson = is_array($selectedOpts) ? json_encode($selectedOpts, JSON_UNESCAPED_UNICODE) : null;
+            $sku = trim((string)($item['sku'] ?? ''));
+            $brand = trim((string)($item['brand'] ?? ''));
+            $category = trim((string)($item['category'] ?? ''));
+            $imageUrl = trim((string)($item['image_url'] ?? $item['imageUrl'] ?? $item['image'] ?? ''));
+            if ($pid !== '' && ($sku === '' || $brand === '' || $category === '' || $imageUrl === '')) {
+                try {
+                    $pst = $pdo->prepare('SELECT sku, brand, category, image_url FROM products WHERE id = ? AND store_id = ? LIMIT 1');
+                    $pst->execute([$pid, $storeId]);
+                    $prow = $pst->fetch(PDO::FETCH_ASSOC) ?: [];
+                    if ($sku === '' && !empty($prow['sku'])) {
+                        $sku = (string)$prow['sku'];
+                    }
+                    if ($brand === '' && !empty($prow['brand'])) {
+                        $brand = (string)$prow['brand'];
+                    }
+                    if ($category === '' && !empty($prow['category'])) {
+                        $category = (string)$prow['category'];
+                    }
+                    if ($imageUrl === '' && !empty($prow['image_url'])) {
+                        $imageUrl = (string)$prow['image_url'];
+                    }
+                } catch (Throwable) {
+                    /* optional product snapshot */
+                }
+            }
+            $snapVals = [];
+            if ($hasSkuCol) {
+                $snapVals[] = $sku !== '' ? $sku : null;
+            }
+            if ($hasBrandCol) {
+                $snapVals[] = $brand !== '' ? $brand : null;
+            }
+            if ($hasCategoryCol) {
+                $snapVals[] = $category !== '' ? $category : null;
+            }
+            if ($hasImageCol) {
+                $snapVals[] = $imageUrl !== '' ? $imageUrl : null;
+            }
+            $usedVariationStock = false;
             if ($vid !== '') {
                 try {
                     $vst = $pdo->prepare('SELECT * FROM product_variations WHERE id = ? AND store_id = ? LIMIT 1');
@@ -1340,14 +1470,37 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
                             }
                             $pname .= ' (' . implode(', ', $bits) . ')';
                         }
+                        if ($selectedOptsJson === null && $opts !== []) {
+                            $selectedOptsJson = json_encode($opts, JSON_UNESCAPED_UNICODE);
+                        }
                         souq_variation_stock_deduct($pdo, $storeId, $vid, $qty);
+                        $usedVariationStock = true;
                     }
                 } catch (Throwable) {
                     /* keep posted price */
                 }
             }
-            $itemIns->execute([$orderId, $storeId, $pid, $pname, $qty, $price, $qty * $price]);
-            if ($pid !== '') {
+            if ($hasVarCol && $hasOptsCol) {
+                $itemIns->execute(array_merge(
+                    [$orderId, $storeId, $pid, $vid !== '' ? $vid : null, $selectedOptsJson, $pname],
+                    $snapVals,
+                    [$qty, $price, $qty * $price]
+                ));
+            } elseif ($hasVarCol) {
+                $itemIns->execute(array_merge(
+                    [$orderId, $storeId, $pid, $vid !== '' ? $vid : null, $pname],
+                    $snapVals,
+                    [$qty, $price, $qty * $price]
+                ));
+            } else {
+                $itemIns->execute(array_merge(
+                    [$orderId, $storeId, $pid, $pname],
+                    $snapVals,
+                    [$qty, $price, $qty * $price]
+                ));
+            }
+            // Variant line owns inventory — do not double-deduct parent product stock.
+            if ($pid !== '' && ! $usedVariationStock) {
                 souq_product_stock_deduct($pdo, $storeId, $pid, $qty);
             }
         }

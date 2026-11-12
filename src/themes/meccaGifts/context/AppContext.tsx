@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import { Product, CartItem, Order, Language, OccasionReminder, SavedAddress, AddonOption } from '../types';
-import { PRODUCTS, INITIAL_ORDERS, INITIAL_OCCASIONS, INITIAL_ADDRESSES } from '../data/mockData';
-import { COFFEE_STORE_PRODUCTS } from '../../../data/hadayaMeccaData';
+import { INITIAL_ORDERS, INITIAL_OCCASIONS, INITIAL_ADDRESSES } from '../data/mockData';
 import { useTenant } from '../../../context/TenantContext';
 import { submitPublicStorefrontOrder } from '../../../utils/submitStorefrontOrder';
 import { CouponItem } from '../../../types';
@@ -148,70 +147,56 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (sourceProducts && sourceProducts.length > 0) {
       return sourceProducts.map((p) => {
         const isArName = /[\u0600-\u06FF]/.test(p.nameAr || p.name || '');
-        const nameAr = p.nameAr || (isArName ? p.name : p.subtitleAr || p.name);
-        const nameEn = (!isArName ? p.name : (p.subtitle || p.sku || p.name));
-        const pAny = p as any;
+        const nameAr = p.nameAr || (isArName ? p.name : '');
+        const nameEn = p.nameEn || (!isArName ? p.name : p.nameAr || p.sku || p.name);
+        const pAny = p as Record<string, unknown>;
+        const gallery = p.galleryUrls?.length ? p.galleryUrls : p.image ? [p.image] : [];
         return {
           id: String(p.id),
-          name: nameAr || (isCoffee ? 'محصول قهوة مختصة' : 'باقة ورد طبيعي'),
-          nameEn: nameEn || (isCoffee ? 'Specialty Single Origin Coffee' : 'Fresh Flower Bouquet'),
-          price: Number(p.discountedPrice || p.price || 0),
-          originalPrice: p.originalPrice ? Number(p.originalPrice) : (p.discountedPrice && p.discountedPrice < p.price ? Number(p.price) : undefined),
-          rating: 4.9,
-          reviewsCount: p.salesCount || 135,
-          image: p.image || (isCoffee ? 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=800&q=80' : '/src/assets/images/hadaya_red_roses_bouquet_1791276749666.jpg'),
-          additionalImages: p.galleryUrls && p.galleryUrls.length > 0 ? p.galleryUrls : [p.image],
-          category: p.category || (isCoffee ? 'حبوب القهوة المختصة' : 'باقات الورود الطبيعية'),
-          categoryEn: pAny.categoryEn || p.category || (isCoffee ? 'Specialty Beans' : 'Natural Flower Bouquets'),
-          categoryAr: pAny.categoryAr || p.categoryAr || (isArName ? p.category : undefined),
-          categorySlug: pAny.categorySlug || (p.category ? p.category.toLowerCase().replace(/\s+/g, '-') : (isCoffee ? 'coffee-beans' : 'bouquets')),
-          occasions: p.tags || (isCoffee ? ['قهوة الصباح', 'محاصيل مختارة'] : ['هدايا الحرم', 'مناسبات خاصة']),
-          tags: p.tags || (isCoffee ? ['قهوة مختصة', 'محمصة', 'حبوب بن'] : ['طبيعي', 'هولندي', 'فاخر']),
-          badge: p.originalPrice ? 'عرض خاص' : undefined,
-          badgeEn: p.originalPrice ? 'Special Offer' : undefined,
-          description: p.descriptionAr || p.description || (isCoffee ? 'محصول قهوة مختصة محمص بعناية وإيحاءات فريدة.' : 'تنسيق فاخر من أجود أنواع الزهور والورود الطبيعية.'),
-          descriptionEn: p.description || p.descriptionAr || (isCoffee ? 'Specialty single origin roasted coffee beans.' : 'Luxury fresh floral arrangement crafted with premium blooms.'),
-          flowerTypes: isCoffee ? [] : (pAny.flowerTypes || ['جوري هولندي فاخر', 'بيبي روز', 'يوكاليبتوس']),
-          dimensions: pAny.dimensions || (isCoffee ? '250g' : 'ارتفاع 50 سم × عرض 35 سم'),
-          inStock: p.stock !== undefined ? p.stock > 0 : true,
-          featured: true,
+          name: nameAr || nameEn || '',
+          nameEn: nameEn || nameAr || '',
+          price: Number(p.price || 0),
+          originalPrice:
+            p.originalPrice != null && Number(p.originalPrice) > Number(p.price || 0)
+              ? Number(p.originalPrice)
+              : undefined,
+          rating: typeof p.rating === 'number' ? p.rating : undefined,
+          reviewsCount: typeof p.reviewsCount === 'number' ? p.reviewsCount : undefined,
+          image: p.image || '',
+          additionalImages: gallery,
+          category: p.category || '',
+          categories: p.categories,
+          categoryEn: (pAny.categoryEn as string) || p.category || '',
+          categoryAr: p.categoryAr || '',
+          categorySlug: p.category ? String(p.category).toLowerCase().replace(/\s+/g, '-') : '',
+          occasions: p.tags || [],
+          tags: p.tags || [],
+          badge: p.badge,
+          badgeEn: p.badgeEn,
+          description: p.descriptionAr || p.description || '',
+          descriptionEn: p.description || p.descriptionAr || '',
+          subtitle: p.subtitle,
+          subtitleAr: p.subtitleAr,
+          productOptions: p.productOptions,
+          customFields: p.customFields,
+          conditionalRules: p.conditionalRules,
+          variations: p.variations,
+          seoTitle: p.seoTitle,
+          seoDescription: p.seoDescription,
+          seoKeywords: p.seoKeywords,
+          discountStartAt: p.discountStartAt,
+          discountEndAt: p.discountEndAt,
+          flowerTypes: isCoffee ? [] : ((pAny.flowerTypes as string[]) || []),
+          dimensions: pAny.dimensions,
+          inStock: (p.stock ?? 0) > 0,
+          featured: Boolean(p.isFeatured),
+          stock: p.stock,
         };
       });
     }
 
-    if (isCoffee) {
-      return COFFEE_STORE_PRODUCTS.map((p) => {
-        const isArName = /[\u0600-\u06FF]/.test(p.nameAr || p.name || '');
-        const nameAr = p.nameAr || (isArName ? p.name : p.subtitleAr || p.name);
-        const nameEn = (!isArName ? p.name : (p.subtitle || p.sku || p.name));
-        return {
-          id: String(p.id),
-          name: nameAr || 'محصول قهوة مختصة',
-          nameEn: nameEn || 'Specialty Coffee',
-          price: Number(p.discountedPrice || p.price || 0),
-          originalPrice: p.originalPrice ? Number(p.originalPrice) : undefined,
-          rating: 4.9,
-          reviewsCount: p.salesCount || 140,
-          image: p.image || 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=800&q=80',
-          additionalImages: p.galleryUrls && p.galleryUrls.length > 0 ? p.galleryUrls : [p.image],
-          category: p.category || 'حبوب القهوة المختصة',
-          categoryEn: 'Specialty Beans',
-          categorySlug: 'coffee-beans',
-          occasions: ['قهوة الصباح', 'تحميص طازج'],
-          tags: ['قهوة مختصة', 'محمصة', 'سنجل أوريجن'],
-          badge: p.originalPrice ? 'عرض خاص' : undefined,
-          badgeEn: p.originalPrice ? 'Special Offer' : undefined,
-          description: p.descriptionAr || p.description || 'محصول قهوة مختصة فريد النكهات.',
-          descriptionEn: p.description || 'Specialty single origin beans.',
-          flowerTypes: [],
-          dimensions: '250g',
-          inStock: true,
-          featured: true,
-        };
-      });
-    }
-
-    return PRODUCTS;
+    // Empty catalog = empty storefront (no cross-store / mock pack fallback).
+    return [];
   }, [currentProducts, activeStore, syncTick]);
 
   const resolveValidPage = (raw: string | null | undefined): string | null => {
@@ -359,7 +344,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(() => products[0] || PRODUCTS[0]);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(() => products[0] || null);
 
   useEffect(() => {
     if (selectedProduct) {
@@ -1118,6 +1103,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
       } catch {}
 
+      const lineItems = newOrder.items.map((i) => {
+        const unit = i.unitPrice != null && Number.isFinite(Number(i.unitPrice))
+          ? Number(i.unitPrice)
+          : Number(i.product.price) || 0;
+        const optBits = i.selectedOptions
+          ? Object.entries(i.selectedOptions)
+              .filter(([, v]) => v != null && String(v).trim() !== '')
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(', ')
+          : '';
+        const lineName = optBits ? `${i.product.name} (${optBits})` : i.product.name;
+        const pAny = i.product as {
+          sku?: string;
+          brand?: string;
+          category?: string;
+          image?: string;
+        };
+        return {
+          id: i.productId,
+          name: lineName,
+          quantity: i.quantity,
+          price: unit,
+          variationId: i.variationId || null,
+          selectedOptions: i.selectedOptions || null,
+          sku: pAny.sku || '',
+          brand: pAny.brand || null,
+          category: pAny.category || null,
+          image: pAny.image,
+          total: unit * i.quantity,
+        };
+      });
+
       const storefrontPayload = {
         customerName: newOrder.recipientName,
         customerPhone: newOrder.recipientPhone,
@@ -1129,11 +1146,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         paymentStatus: 'pending',
         source: orderSource,
         sourceDetails: attributionDetails ? JSON.stringify(attributionDetails) : orderSource,
-        items: newOrder.items.map((i) => ({
-          id: i.productId,
-          name: i.product.name,
+        items: lineItems.map((i) => ({
+          id: i.id,
+          name: i.name,
           quantity: i.quantity,
-          price: i.product.price,
+          price: i.price,
+          variationId: i.variationId,
+          selectedOptions: i.selectedOptions || undefined,
+          sku: i.sku || undefined,
+          brand: i.brand || undefined,
+          category: i.category || undefined,
+          imageUrl: i.image || undefined,
         })),
       };
 
@@ -1147,15 +1170,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             customerEmail: user?.email || undefined,
             customerAvatar: 'VIP',
             itemsCount: newOrder.items.length,
-            itemsSummary: newOrder.items.map((i) => i.product.name).join(', '),
-            items: newOrder.items.map((i) => ({
-              id: i.productId,
-              name: i.product.name,
-              sku: (i.product as any).sku || 'HM-ITEM',
-              price: i.product.price,
+            itemsSummary: lineItems.map((i) => i.name).join(', '),
+            items: lineItems.map((i) => ({
+              id: i.id,
+              name: i.name,
+              sku: i.sku,
+              price: i.price,
               quantity: i.quantity,
-              total: i.product.price * i.quantity,
-              image: i.product.image,
+              total: i.total,
+              image: i.image,
+              variationId: i.variationId || undefined,
+              selectedOptions: i.selectedOptions || undefined,
             })),
             subtotal: newOrder.subtotal,
             discountAmount: newOrder.discount,
@@ -1326,7 +1351,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 };
 
 const DEFAULT_FALLBACK_APP_CONTEXT: AppContextType = {
-  products: PRODUCTS,
+  products: [],
   language: 'ar',
   setLanguage: () => {},
   currentPage: 'home',
@@ -1339,9 +1364,9 @@ const DEFAULT_FALLBACK_APP_CONTEXT: AppContextType = {
   isCartOpen: false,
   setIsCartOpen: () => {},
   wishlist: [],
-  orders: INITIAL_ORDERS,
-  lastOrder: INITIAL_ORDERS[0] || null,
-  loyaltyPoints: 120,
+  orders: [],
+  lastOrder: null,
+  loyaltyPoints: 0,
   savedAddresses: INITIAL_ADDRESSES,
   savedOccasions: INITIAL_OCCASIONS,
   toastMessage: null,

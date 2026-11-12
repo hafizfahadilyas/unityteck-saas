@@ -214,6 +214,11 @@ export type CreateProductPayload = {
   stock?: number;
   category?: string;
   category_ar?: string | null;
+  category_list?: string[] | null;
+  categories?: string[] | null;
+  cost_price?: number | null;
+  published_at?: string | null;
+  visibility?: 'active' | 'draft' | 'scheduled';
   image_url?: string;
   original_price?: number | null;
   description?: string | null;
@@ -2712,22 +2717,78 @@ export async function fetchWidgetProducts(
 
 export async function fetchWidgetCategories(
   storeId: string,
-): Promise<Array<{ id: string; store_id?: string; name?: string; name_ar?: string; slug?: string }>> {
-  const res = await apiFetch<{ data?: Array<{ id: string; store_id?: string; name?: string; name_ar?: string; slug?: string }> }>(
-    `/storefront/categories?store_id=${encodeURIComponent(storeId)}`,
+): Promise<
+  Array<{
+    id: string;
+    store_id?: string;
+    name?: string;
+    name_ar?: string;
+    slug?: string;
+    image_url?: string | null;
+    parent_id?: string | null;
+  }>
+> {
+  const res = await apiFetch<{
+    data?: Array<{
+      id: string;
+      store_id?: string;
+      name?: string;
+      name_ar?: string;
+      slug?: string;
+      image_url?: string | null;
+      parent_id?: string | null;
+    }>;
+  }>(`/storefront/categories?store_id=${encodeURIComponent(storeId)}`, {
+    storeId,
+    skipAuth: true,
+  });
+  return res.data ?? [];
+}
+
+export type StoreReviewRow = {
+  id?: string;
+  rating?: number;
+  comment?: string;
+  commentAr?: string;
+  author?: string;
+  product?: string;
+  product_id?: string;
+  verified?: boolean;
+  active?: boolean;
+  media_urls?: string[];
+  image_url?: string;
+  title?: string;
+  titleAr?: string;
+  date?: string;
+};
+
+export async function fetchStoreReviews(
+  storeId: string,
+  query?: { productId?: string; approvedOnly?: boolean },
+): Promise<StoreReviewRow[]> {
+  const params = new URLSearchParams();
+  if (query?.productId) params.set('product_id', query.productId);
+  if (query?.approvedOnly !== false) params.set('approved_only', '1');
+  const qs = params.toString();
+  const res = await apiFetch<{ data?: StoreReviewRow[] }>(
+    `/stores/${encodeURIComponent(storeId)}/reviews${qs ? `?${qs}` : ''}`,
     { storeId, skipAuth: true },
   );
   return res.data ?? [];
 }
 
-export async function fetchStoreReviews(
+export async function fetchStorefrontProduct(
   storeId: string,
-): Promise<Array<{ id?: string; rating?: number; comment?: string; commentAr?: string; author?: string }>> {
-  const res = await apiFetch<{ data?: Array<{ id?: string; rating?: number; comment?: string; commentAr?: string; author?: string }> }>(
-    `/stores/${encodeURIComponent(storeId)}/reviews`,
+  productKey: string,
+): Promise<Product> {
+  const res = await apiFetch<{ data?: ApiProductRow }>(
+    `/storefront/products/${encodeURIComponent(productKey)}?store_id=${encodeURIComponent(storeId)}`,
     { storeId, skipAuth: true },
   );
-  return res.data ?? [];
+  if (!res.data) {
+    throw new Error('Product not found');
+  }
+  return mapProduct(res.data);
 }
 
 export async function subscribeStoreNewsletter(storeId: string, email: string): Promise<void> {

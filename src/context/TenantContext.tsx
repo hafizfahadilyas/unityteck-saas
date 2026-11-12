@@ -471,9 +471,22 @@ interface TenantContextType {
   }) => string; // returns new storeId
 
   // Live Storefront Cart Demo
-  cart: { product: Product; quantity: number }[];
-  addToCart: (product: Product) => void;
-  removeFromCart: (productId: string) => void;
+  cart: Array<{
+    product: Product;
+    quantity: number;
+    variationId?: string | null;
+    selectedOptions?: Record<string, string> | null;
+    unitPrice?: number;
+  }>;
+  addToCart: (
+    product: Product,
+    opts?: {
+      variationId?: string | null;
+      selectedOptions?: Record<string, string> | null;
+      unitPrice?: number;
+    },
+  ) => void;
+  removeFromCart: (productId: string, variationId?: string | null) => void;
   clearCart: () => void;
 
   // Google SEO, Tag Manager, Analytics & Indexing Console
@@ -1479,7 +1492,15 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [mediaMap]);
 
   // Live Storefront Cart
-  const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
+  const [cart, setCart] = useState<
+    Array<{
+      product: Product;
+      quantity: number;
+      variationId?: string | null;
+      selectedOptions?: Record<string, string> | null;
+      unitPrice?: number;
+    }>
+  >([]);
 
   const [showArchDrawer, setShowArchDrawer] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -3557,6 +3578,15 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           sku: prodData.sku,
           stock: prodData.stock,
           category: prodData.category,
+          category_list: prodData.categories?.length ? prodData.categories : undefined,
+          cost_price: prodData.costPrice ?? null,
+          published_at: prodData.scheduledPublishAt ?? null,
+          visibility:
+            prodData.status === 'published'
+              ? 'active'
+              : prodData.scheduledPublishAt
+                ? 'scheduled'
+                : 'draft',
           image_url: prodData.image,
           original_price: apiPricing.original_price,
           description: prodData.description ?? null,
@@ -3773,6 +3803,17 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (patch.sku !== undefined) body.sku = patch.sku;
       if (patch.stock !== undefined) body.stock = patch.stock;
       if (patch.category !== undefined) body.category = patch.category;
+      if (patch.categories !== undefined) body.category_list = patch.categories;
+      if (patch.costPrice !== undefined) body.cost_price = patch.costPrice ?? null;
+      if (patch.scheduledPublishAt !== undefined) body.published_at = patch.scheduledPublishAt ?? null;
+      if (patch.status !== undefined) {
+        body.visibility =
+          patch.status === 'published'
+            ? 'active'
+            : patch.scheduledPublishAt
+              ? 'scheduled'
+              : 'draft';
+      }
       if (patch.image !== undefined) body.image_url = patch.image;
       if (patch.description !== undefined) body.description = patch.description;
       if (patch.subtitle !== undefined) body.subtitle = patch.subtitle;
@@ -5598,19 +5639,56 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return newId;
   };
 
-  // Cart operations
-  const addToCart = (product: Product) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.product.id === product.id);
+  // Cart operations (variation-aware; store_id isolation via active product/store context)
+  const addToCart = (
+    product: Product,
+    opts?: {
+      variationId?: string | null;
+      selectedOptions?: Record<string, string> | null;
+      unitPrice?: number;
+    },
+  ) => {
+    const variationId = opts?.variationId || null;
+    const selectedOptions = opts?.selectedOptions || null;
+    const unitPrice = opts?.unitPrice;
+    setCart((prev) => {
+      const existing = prev.find(
+        (item) =>
+          item.product.id === product.id && (item.variationId || null) === variationId,
+      );
       if (existing) {
-        return prev.map(item => item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+        return prev.map((item) =>
+          item.product.id === product.id && (item.variationId || null) === variationId
+            ? {
+                ...item,
+                quantity: item.quantity + 1,
+                unitPrice: unitPrice != null ? unitPrice : item.unitPrice,
+                selectedOptions: selectedOptions || item.selectedOptions,
+              }
+            : item,
+        );
       }
-      return [...prev, { product, quantity: 1 }];
+      return [
+        ...prev,
+        {
+          product,
+          quantity: 1,
+          variationId,
+          selectedOptions,
+          unitPrice,
+        },
+      ];
     });
   };
 
-  const removeFromCart = (productId: string) => {
-    setCart(prev => prev.filter(item => item.product.id !== productId));
+  const removeFromCart = (productId: string, variationId?: string | null) => {
+    setCart((prev) =>
+      prev.filter((item) => {
+        if (item.product.id !== productId) return true;
+        if (variationId === undefined) return false;
+        return (item.variationId || null) !== (variationId || null);
+      }),
+    );
   };
 
   const clearCart = () => setCart([]);

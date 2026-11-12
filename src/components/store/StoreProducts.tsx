@@ -76,7 +76,6 @@ import {
   periodCountGrowth,
 } from '../../utils/liveSeries';
 import { StoreProductEditorView } from './StoreProductEditorView';
-import { ProductTypePicker } from './ProductTypePicker';
 import {
   ProductEditDrawer,
   DEFAULT_PRODUCT_EDIT_SECTIONS,
@@ -120,8 +119,8 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
   const planInfo = planInfoForStore(activeStore);
   const sub = resolveSubscription(activeStore.id);
 
-  // Navigation / View State: 'list' | 'type-picker' | 'edit' | 'brands' | 'filters'
-  const [currentView, setCurrentView] = useState<'list' | 'type-picker' | 'edit' | 'brands' | 'filters'>('list');
+  // Navigation / View State: 'list' | 'edit' | 'brands' | 'filters'
+  const [currentView, setCurrentView] = useState<'list' | 'edit' | 'brands' | 'filters'>('list');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   /** Grid density: products per row on large screens (3–6). */
   const [gridCols, setGridCols] = useState<3 | 4 | 5 | 6>(3);
@@ -402,16 +401,6 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
     window.addEventListener('unityteck-brands-updated', handleBrandsUpdate);
     return () => window.removeEventListener('unityteck-brands-updated', handleBrandsUpdate);
   }, [activeStore.id]);
-
-  React.useEffect(() => {
-    const handleSubView = (e: any) => {
-      if (e.detail) {
-        setCurrentView(e.detail);
-      }
-    };
-    window.addEventListener('unityteck-product-view', handleSubView);
-    return () => window.removeEventListener('unityteck-product-view', handleSubView);
-  }, []);
 
   // Current editing product (existing) or unsaved create draft
   const editingProduct = useMemo(() => {
@@ -737,8 +726,8 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
     }
   };
 
-  // Open New Product — animated type picker first, then create editor
-  const handleOpenNewProduct = () => {
+  // Open New Product — straight into full editor (default: ready / physical product)
+  const handleOpenNewProduct = useCallback(() => {
     if (!sub.writable) {
       toast(sub.message ?? t('subNotWritable'), 'error');
       return;
@@ -747,37 +736,14 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
       toast(planGate.message, 'error');
       return;
     }
-    setCreatingProduct(null);
-    setEditingProductId(null);
-    setIsSideDrawerOpen(false);
-    setCurrentView('type-picker');
-  };
-
-  // Open blank product editor for selected type (manual fill — no auto fake create)
-  const handleCreateProductWithType = (typeKey: string, typeTitle: string) => {
-    if (!sub.writable) {
-      toast(sub.message ?? t('subNotWritable'), 'error');
-      return;
-    }
-    if (!planGate.ok) {
-      toast(planGate.message, 'error');
-      return;
-    }
-
-    const noShippingTypes = new Set([
-      'digital-product',
-      'gift-card',
-      'custom-service',
-      'booking',
-      'template',
-    ]);
-
+    const readyTypeTitle = isAr ? 'منتج جاهز' : 'Ready Product';
     const draft: Product = {
       id: `draft-${Date.now()}`,
       storeId: activeStore.id,
       name: '',
       sku: '',
       category: categories[0] || 'General',
+      categories: categories[0] ? [categories[0]] : [],
       price: 0,
       discountedPrice: 0,
       costPrice: 0,
@@ -791,12 +757,12 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
       galleryUrls: [],
       description: '',
       subtitle: '',
-      productType: typeTitle,
-      type: typeKey,
+      productType: readyTypeTitle,
+      type: 'ready-product',
       brand: '',
       countryOfOrigin: 'Saudi Arabia',
-      requiresShipping: !noShippingTypes.has(typeKey),
-      trackInventory: typeKey !== 'digital-product' && typeKey !== 'gift-card',
+      requiresShipping: true,
+      trackInventory: true,
       salesCount: 0,
       customUrl: '',
       seoTitle: '',
@@ -804,12 +770,30 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
       tags: [],
       isFeatured: false,
     };
-
     setCreatingProduct(draft);
     setEditingProductId(null);
     setIsSideDrawerOpen(false);
     setCurrentView('edit');
-  };
+  }, [activeStore.id, categories, isAr, planGate, sub, t, toast]);
+
+  useEffect(() => {
+    const handleSubView = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail;
+      if (detail === 'type-picker') {
+        handleOpenNewProduct();
+        return;
+      }
+      if (!detail || detail === 'list') {
+        setCurrentView('list');
+        return;
+      }
+      if (detail === 'edit' || detail === 'brands' || detail === 'filters') {
+        setCurrentView(detail);
+      }
+    };
+    window.addEventListener('unityteck-product-view', handleSubView);
+    return () => window.removeEventListener('unityteck-product-view', handleSubView);
+  }, [handleOpenNewProduct]);
 
   // Soft-delete → Recycle Bin (store-scoped, restoreable)
   const handleDeleteProduct = async (product: Product) => {
@@ -931,18 +915,6 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
       </span>
     );
   };
-
-  // ────────────────────────────────────────────────
-  //  VIEW 1b: Product type picker (create step 0)
-  // ────────────────────────────────────────────────
-  if (currentView === 'type-picker') {
-    return (
-      <ProductTypePicker
-        onSelectType={handleCreateProductWithType}
-        onBack={() => setCurrentView('list')}
-      />
-    );
-  }
 
   // ────────────────────────────────────────────────
   //  VIEW 2: 3-COLUMN PRODUCT EDITOR (Mockup 07 Exact)

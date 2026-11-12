@@ -364,31 +364,14 @@ export const FLOWERS_STATIC_PAGES: Record<
   },
 };
 
-/** Demo variations keyed by product id (size / stem count). */
+/**
+ * @deprecated Mock only — storefront must use product.variations from API/MySQL.
+ * Kept empty so accidental imports never inject fake commerce rows.
+ */
 export const FLOWERS_VARIATIONS: Record<
   string,
   Array<{ id: string; labelAr: string; labelEn: string; priceDelta: number }>
-> = {
-  'prod-1': [
-    { id: 'v-12', labelAr: '١٢ وردة', labelEn: '12 stems', priceDelta: 0 },
-    { id: 'v-24', labelAr: '٢٤ وردة', labelEn: '24 stems', priceDelta: 120 },
-    { id: 'v-36', labelAr: '٣٦ وردة', labelEn: '36 stems', priceDelta: 220 },
-  ],
-  'prod-2': [
-    { id: 'v-std', labelAr: 'فازة قياسية', labelEn: 'Standard vase', priceDelta: 0 },
-    { id: 'v-prem', labelAr: 'فازة كريستال', labelEn: 'Crystal vase', priceDelta: 90 },
-  ],
-  'prod-5': [
-    { id: 'v-s', labelAr: 'صغير', labelEn: 'Small', priceDelta: 0 },
-    { id: 'v-m', labelAr: 'وسط', labelEn: 'Medium', priceDelta: 80 },
-    { id: 'v-l', labelAr: 'كبير', labelEn: 'Large', priceDelta: 150 },
-  ],
-  'prod-6': [
-    { id: 'v-pink', labelAr: 'وردي', labelEn: 'Pink', priceDelta: 0 },
-    { id: 'v-red', labelAr: 'أحمر', labelEn: 'Red', priceDelta: 40 },
-    { id: 'v-mix', labelAr: 'مزيج', labelEn: 'Mixed', priceDelta: 60 },
-  ],
-};
+> = {};
 
 export function isFlowersHomepage(style: string | undefined): style is FlowersHomepage {
   return (FLOWERS_HOMEPAGES as readonly string[]).includes(style || '');

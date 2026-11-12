@@ -15,6 +15,7 @@ import type { Product } from '../../types';
 import { whatsappOrderHref } from './WhatsAppChatFab';
 import { getProductDisplayName, getProductDisplayCategory } from '../../utils/storeLocalization';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
+import { effectiveProductPricing } from '../../utils/productSaleSchedule';
 
 export type ProductCardDesignPreset = 'royal-luxury' | 'classic' | 'minimal';
 
@@ -62,27 +63,32 @@ export const ProductCard: React.FC<Props> = ({
   const displayName = getProductDisplayName(product, ar ? 'ar' : 'en');
   const displayCategory = getProductDisplayCategory(product, ar ? 'ar' : 'en');
 
-  // Subtitle / category descriptor
+  // Subtitle — merchant fields only (never invent filler copy)
   const displaySubtitle = ar
-    ? (product.subtitleAr || (product.categoryAr ? `${product.categoryAr} طبيعية فاخرة` : 'زهور سعودية طبيعية فاخرة'))
-    : (product.subtitle || (product.categoryEn ? `Premium Saudi ${product.categoryEn}` : 'Premium Saudi Fresh Flowers'));
+    ? (product.subtitleAr || product.subtitle || displayCategory || '')
+    : (product.subtitle || product.subtitleAr || displayCategory || '');
 
-  // Calculate discount percentage or show product discount
-  const originalPrice = product.originalPrice || (product.price ? Math.round(product.price * 1.25) : 0);
-  const hasDiscount = originalPrice > product.price;
+  const pricing = effectiveProductPricing(product);
+  const sellPrice = pricing.price;
+  const originalPrice = pricing.compareAt;
+  const hasDiscount = pricing.saleActive && originalPrice != null && originalPrice > sellPrice;
   const discountPercent = hasDiscount
-    ? Math.round(((originalPrice - product.price) / originalPrice) * 100)
-    : 20;
-  const discountBadgeText = ar ? `خصم ${discountPercent}%` : `${discountPercent}% OFF`;
+    ? Math.round(((originalPrice! - sellPrice) / originalPrice!) * 100)
+    : null;
+  const discountBadgeText =
+    discountPercent != null
+      ? ar
+        ? `خصم ${discountPercent}%`
+        : `${discountPercent}% OFF`
+      : null;
 
   // WhatsApp Order message
   const whatsappMessage = [
     ar ? 'السلام عليكم ورحمة الله،' : 'Hello,',
     ar
-      ? `أرغب بطلب: *${displayName}* (كود: ${product.sku})`
-      : `I would like to order: *${displayName}* (SKU: ${product.sku})`,
-    `${ar ? 'السعر' : 'Price'}: ${money(product.price)}`,
-    ar ? 'التوصيل: مكة المكرمة' : 'Delivery: Makkah KSA',
+      ? `أرغب بطلب: *${displayName}*${product.sku ? ` (كود: ${product.sku})` : ''}`
+      : `I would like to order: *${displayName}*${product.sku ? ` (SKU: ${product.sku})` : ''}`,
+    `${ar ? 'السعر' : 'Price'}: ${money(sellPrice)}`,
   ];
   const whatsappLink = whatsappOrderHref(lang, whatsappMessage);
 
@@ -111,12 +117,13 @@ export const ProductCard: React.FC<Props> = ({
             className="w-full h-full object-cover object-center group-hover:scale-106 transition-transform duration-700 ease-out"
           />
 
-          {/* Green Discount Badge (Top Start - Forest Green Pill) */}
-          <div className="absolute top-3.5 start-3.5 z-10">
-            <span className="inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide bg-[#0e4e3e] text-white shadow-md shadow-emerald-950/20">
-              {discountBadgeText}
-            </span>
-          </div>
+          {discountBadgeText ? (
+            <div className="absolute top-3.5 start-3.5 z-10">
+              <span className="inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide bg-[#0e4e3e] text-white shadow-md shadow-emerald-950/20">
+                {discountBadgeText}
+              </span>
+            </div>
+          ) : null}
 
           {/* Quick View Floating Hint on Hover */}
           <button
@@ -145,9 +152,11 @@ export const ProductCard: React.FC<Props> = ({
               >
                 {displayName}
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5 line-clamp-1">
-                {displaySubtitle}
-              </p>
+              {displaySubtitle ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5 line-clamp-1">
+                  {displaySubtitle}
+                </p>
+              ) : null}
             </div>
 
             {/* Circular Wishlist Button */}
@@ -170,16 +179,16 @@ export const ProductCard: React.FC<Props> = ({
             </button>
           </div>
 
-          {/* Pricing Row: SAR 199 in deep emerald/teal + Strikethrough SAR 249 */}
+          {/* Pricing Row — live sale window price */}
           <div className="flex items-baseline gap-2 pt-0.5">
             <span className="text-xl sm:text-2xl font-extrabold text-[#0e4e3e] dark:text-emerald-400 font-mono tracking-tight">
-              {money(product.price)}
+              {money(sellPrice)}
             </span>
-            {hasDiscount && (
+            {hasDiscount && originalPrice != null ? (
               <span className="text-xs sm:text-sm text-slate-400 dark:text-slate-500 line-through font-semibold font-mono">
                 {money(originalPrice)}
               </span>
-            )}
+            ) : null}
           </div>
 
           {/* 3 Trust Badges (Clean Text without Icons for 100% Readability) */}
@@ -329,7 +338,7 @@ export const ProductCard: React.FC<Props> = ({
                   {ar ? 'شامل الضريبة 15%' : 'Incl. VAT'}
                 </span>
                 <span className="text-lg font-black tracking-tight" style={{ color: 'var(--sf-text, #0f172a)' }}>
-                  {money(product.price)}
+                  {money(sellPrice)}
                 </span>
               </div>
             </div>
@@ -407,7 +416,7 @@ export const ProductCard: React.FC<Props> = ({
         </h4>
         <div className="flex items-center justify-between">
           <span className="text-sm font-extrabold text-[#0e4e3e] dark:text-emerald-400 font-mono">
-            {money(product.price)}
+            {money(sellPrice)}
           </span>
           <button
             type="button"

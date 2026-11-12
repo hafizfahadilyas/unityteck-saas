@@ -10,7 +10,7 @@ import type {
   ProductVariation,
 } from '../../types';
 import { customFieldIsFillable } from '../../utils/customFieldTypes';
-import { optionValuesList } from '../../utils/productVariants';
+import { isOptionValueAvailable, optionValuesList } from '../../utils/productVariants';
 import {
   choiceLooksLikeColor,
   choiceLooksLikeImage,
@@ -89,6 +89,7 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
               <div className="flex flex-wrap items-center gap-3">
                 {vals.map((v) => {
                   const on = current === v.label;
+                  const available = isOptionValueAvailable(variations, selected, opt.name, v.label);
                   return (
                     <button
                       key={v.id}
@@ -96,13 +97,19 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
                       title={valueLabel(v)}
                       aria-label={valueLabel(v)}
                       aria-pressed={on}
-                      onClick={() => onSelect({ ...selected, [opt.name]: v.label })}
-                      className={`relative w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-                        on
-                          ? coffee
-                            ? 'ring-2 ring-black ring-offset-2 scale-105'
-                            : 'ring-2 ring-[#102a1c] dark:ring-emerald-400 ring-offset-2'
-                          : 'hover:scale-105 opacity-80 hover:opacity-100'
+                      aria-disabled={!available}
+                      disabled={!available}
+                      onClick={() =>
+                        available && onSelect({ ...selected, [opt.name]: v.label })
+                      }
+                      className={`relative w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+                        !available
+                          ? 'opacity-30 cursor-not-allowed'
+                          : on
+                            ? coffee
+                              ? 'ring-2 ring-black ring-offset-2 scale-105 cursor-pointer'
+                              : 'ring-2 ring-[#102a1c] dark:ring-emerald-400 ring-offset-2 cursor-pointer'
+                            : 'hover:scale-105 opacity-80 hover:opacity-100 cursor-pointer'
                       }`}
                     >
                       <span
@@ -117,19 +124,26 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
               <div className="flex flex-wrap gap-2">
                 {vals.map((v) => {
                   const on = current === v.label;
+                  const available = isOptionValueAvailable(variations, selected, opt.name, v.label);
                   return (
                     <button
                       key={v.id}
                       type="button"
                       aria-label={valueLabel(v)}
                       aria-pressed={on}
-                      onClick={() => onSelect({ ...selected, [opt.name]: v.label })}
-                      className={`w-14 h-14 rounded-xl border-2 overflow-hidden cursor-pointer bg-white ${
-                        on
-                          ? coffee
-                            ? 'border-black ring-2 ring-black/10'
-                            : 'border-[#102a1c] dark:border-emerald-400'
-                          : 'border-neutral-200'
+                      aria-disabled={!available}
+                      disabled={!available}
+                      onClick={() =>
+                        available && onSelect({ ...selected, [opt.name]: v.label })
+                      }
+                      className={`w-14 h-14 rounded-xl border-2 overflow-hidden bg-white ${
+                        !available
+                          ? 'opacity-30 cursor-not-allowed border-neutral-200'
+                          : on
+                            ? coffee
+                              ? 'border-black ring-2 ring-black/10 cursor-pointer'
+                              : 'border-[#102a1c] dark:border-emerald-400 cursor-pointer'
+                            : 'border-neutral-200 cursor-pointer'
                       }`}
                     >
                       {v.imageUrl ? (
@@ -145,6 +159,7 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
               <div className={coffee ? 'grid grid-cols-1 sm:grid-cols-2 gap-3' : 'flex flex-wrap gap-1.5'}>
                 {vals.map((v) => {
                   const on = current === v.label;
+                  const available = isOptionValueAvailable(variations, selected, opt.name, v.label);
                   const quote = resolveSelectionPrice(
                     basePrice,
                     options,
@@ -156,18 +171,26 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
                       key={v.id}
                       type="button"
                       aria-pressed={on}
-                      onClick={() => onSelect({ ...selected, [opt.name]: v.label })}
+                      aria-disabled={!available}
+                      disabled={!available}
+                      onClick={() =>
+                        available && onSelect({ ...selected, [opt.name]: v.label })
+                      }
                       className={
                         coffee
-                          ? `p-4 rounded-2xl text-start transition-all cursor-pointer border ${
-                              on
-                                ? 'border-2 border-black bg-white shadow-xs'
-                                : 'border-neutral-200 bg-white hover:border-neutral-400'
+                          ? `p-4 rounded-2xl text-start transition-all border ${
+                              !available
+                                ? 'opacity-40 cursor-not-allowed border-neutral-200 bg-neutral-50'
+                                : on
+                                  ? 'border-2 border-black bg-white shadow-xs cursor-pointer'
+                                  : 'border-neutral-200 bg-white hover:border-neutral-400 cursor-pointer'
                             }`
-                          : `px-3 py-2 rounded-xl border text-xs font-bold cursor-pointer ${
-                              on
-                                ? 'border-[#102a1c] dark:border-emerald-500 bg-[#102a1c]/5 dark:bg-emerald-950/30'
-                                : 'border-[#d6cfc0] dark:border-slate-700 bg-white dark:bg-slate-900'
+                          : `px-3 py-2 rounded-xl border text-xs font-bold ${
+                              !available
+                                ? 'opacity-40 cursor-not-allowed line-through border-slate-200'
+                                : on
+                                  ? 'border-[#102a1c] dark:border-emerald-500 bg-[#102a1c]/5 dark:bg-emerald-950/30 cursor-pointer'
+                                  : 'border-[#d6cfc0] dark:border-slate-700 bg-white dark:bg-slate-900 cursor-pointer'
                             }`
                       }
                     >

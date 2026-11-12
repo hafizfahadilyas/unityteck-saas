@@ -325,6 +325,35 @@ export function findMatchingVariant(
   return variations.find((v) => optionsFingerprint(v.options || {}) === want) || null;
 }
 
+/**
+ * True when at least one active variant can still match if this option value is chosen
+ * (given the rest of the current selection). Used to disable impossible / OOS choices.
+ */
+export function isOptionValueAvailable(
+  variations: ProductVariation[] | undefined | null,
+  selected: Record<string, string>,
+  optionName: string,
+  value: string,
+  qty = 1,
+): boolean {
+  if (!variations?.length) return true;
+  const probe = { ...selected, [optionName]: value };
+  const active = variations.filter((v) => v.isActive !== false);
+  if (active.length === 0) return false;
+
+  const matches = active.filter((v) => {
+    const opts = v.options || {};
+    return Object.entries(probe).every(([k, val]) => {
+      if (val == null || String(val).trim() === '') return true;
+      const have = opts[k];
+      if (have == null || have === '') return true;
+      return String(have).trim().toLowerCase() === String(val).trim().toLowerCase();
+    });
+  });
+  if (matches.length === 0) return false;
+  return matches.some((v) => isVariantPurchasable(v, qty));
+}
+
 export function sumVariantStock(variations: ProductVariation[] | undefined | null): number {
   if (!variations?.length) return 0;
   return variations.reduce((sum, v) => {
@@ -342,6 +371,29 @@ export function isVariantPurchasable(v: ProductVariation | null | undefined, qty
   if (!v || !v.isActive) return false;
   if (v.unlimitedStock) return true;
   return (Number(v.stock) || 0) >= qty;
+}
+
+/** Human-readable option summary from a variant options map. */
+export function variationOptionsLabel(
+  options: Record<string, string> | undefined | null,
+  isAr = false,
+): string {
+  if (!options) return '';
+  const keyLabel = (k: string) => {
+    if (!isAr) return k;
+    const map: Record<string, string> = {
+      size: 'المقاس',
+      color: 'اللون',
+      weight: 'الوزن',
+      material: 'المادة',
+      custom: 'مخصص',
+    };
+    return map[k.toLowerCase()] || k;
+  };
+  return Object.entries(options)
+    .filter(([, v]) => v != null && String(v).trim() !== '')
+    .map(([k, v]) => `${keyLabel(k)}: ${v}`)
+    .join(' · ');
 }
 
 export function isVariantLowStock(v: ProductVariation): boolean {

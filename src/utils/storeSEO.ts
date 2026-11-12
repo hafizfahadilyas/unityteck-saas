@@ -160,6 +160,11 @@ export function generateStoreSEO(options: {
     }
   }
 
+  // Merchant product SEO overrides (dashboard fields) — never invent
+  if (activeProduct?.seoTitle?.trim()) {
+    title = activeProduct.seoTitle.trim();
+  }
+
   // 2. Dynamic Meta Description (140-160 chars, compelling and natural)
   let description = '';
   if (isCoffeeStore) {
@@ -185,7 +190,11 @@ export function generateStoreSEO(options: {
         ? (seoConfig?.metaDescription || `متجر ${store.name} لتوصيل أرقى باقات الورد الطبيعي الهولندي، فازات الليليوم، وهدايا الحرم المكي مع توصيل سريع خلال ساعتين في مكة المكرمة.`)
         : `Order fresh Dutch roses, luxury lily vases, and Holy Haram VIP gift hampers from ${store.name} with express 2-hour delivery across all Makkah hotels & districts.`;
     }
-  } else {
+  }
+
+  if (activeProduct?.seoDescription?.trim()) {
+    description = activeProduct.seoDescription.trim();
+  } else if (!description) {
     // Dynamic store-neutral description
     const storeName = isArabic ? (store.nameAr || store.name) : (store.nameEn || store.name);
     const storeCategory = isArabic ? (store.categoryAr || store.category || 'متجر إلكتروني') : (store.categoryEn || store.category || 'Official Online Store');

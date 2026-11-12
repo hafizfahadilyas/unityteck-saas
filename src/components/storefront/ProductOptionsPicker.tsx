@@ -6,6 +6,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type { Product, ProductOptionDefinition, ProductVariation } from '../../types';
 import {
   findMatchingVariant,
+  isOptionValueAvailable,
   isVariantLowStock,
   isVariantPurchasable,
   optionValuesList,
@@ -83,17 +84,26 @@ export const ProductOptionsPicker: React.FC<ProductOptionsPickerProps> = ({
                 {vals.map((v) => {
                   const on = selected[opt.name] === v.label;
                   const shown = pickLocaleText(isAr, v.label, v.labelAr);
+                  const available = isOptionValueAvailable(variations, selected, opt.name, v.label);
                   return (
                     <button
                       key={v.id}
                       type="button"
                       title={shown}
-                      onClick={() => setSelected((s) => ({ ...s, [opt.name]: v.label }))}
-                      className={`w-9 h-9 rounded-full border-2 transition-all cursor-pointer ${
-                        on ? 'border-teal-600 ring-2 ring-teal-500/30 scale-110' : 'border-slate-200'
+                      disabled={!available}
+                      onClick={() =>
+                        available && setSelected((s) => ({ ...s, [opt.name]: v.label }))
+                      }
+                      className={`w-9 h-9 rounded-full border-2 transition-all ${
+                        !available
+                          ? 'opacity-30 cursor-not-allowed border-slate-200'
+                          : on
+                            ? 'border-teal-600 ring-2 ring-teal-500/30 scale-110 cursor-pointer'
+                            : 'border-slate-200 cursor-pointer'
                       }`}
                       style={{ backgroundColor: v.colorHex || '#cbd5e1' }}
                       aria-pressed={on}
+                      aria-disabled={!available}
                     />
                   );
                 })}
@@ -103,15 +113,24 @@ export const ProductOptionsPicker: React.FC<ProductOptionsPickerProps> = ({
                 {vals.map((v) => {
                   const on = selected[opt.name] === v.label;
                   const shown = pickLocaleText(isAr, v.label, v.labelAr);
+                  const available = isOptionValueAvailable(variations, selected, opt.name, v.label);
                   return (
                     <button
                       key={v.id}
                       type="button"
-                      onClick={() => setSelected((s) => ({ ...s, [opt.name]: v.label }))}
-                      className={`w-14 h-14 rounded-xl border-2 overflow-hidden cursor-pointer ${
-                        on ? 'border-teal-600 ring-2 ring-teal-500/30' : 'border-slate-200'
+                      disabled={!available}
+                      onClick={() =>
+                        available && setSelected((s) => ({ ...s, [opt.name]: v.label }))
+                      }
+                      className={`w-14 h-14 rounded-xl border-2 overflow-hidden ${
+                        !available
+                          ? 'opacity-30 cursor-not-allowed border-slate-200'
+                          : on
+                            ? 'border-teal-600 ring-2 ring-teal-500/30 cursor-pointer'
+                            : 'border-slate-200 cursor-pointer'
                       }`}
                       aria-pressed={on}
+                      aria-disabled={!available}
                     >
                       {v.imageUrl ? (
                         <img src={v.imageUrl} alt={shown} className="w-full h-full object-cover" />
@@ -126,17 +145,24 @@ export const ProductOptionsPicker: React.FC<ProductOptionsPickerProps> = ({
               <div className="flex flex-wrap gap-2">
                 {vals.map((v) => {
                   const on = selected[opt.name] === v.label;
+                  const available = isOptionValueAvailable(variations, selected, opt.name, v.label);
                   return (
                     <button
                       key={v.id}
                       type="button"
-                      onClick={() => setSelected((s) => ({ ...s, [opt.name]: v.label }))}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border cursor-pointer transition-all ${
-                        on
-                          ? 'bg-teal-600 text-white border-teal-600'
-                          : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                      disabled={!available}
+                      onClick={() =>
+                        available && setSelected((s) => ({ ...s, [opt.name]: v.label }))
+                      }
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                        !available
+                          ? 'opacity-40 cursor-not-allowed border-slate-200 line-through'
+                          : on
+                            ? 'bg-teal-600 text-white border-teal-600 cursor-pointer'
+                            : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 cursor-pointer'
                       }`}
                       aria-pressed={on}
+                      aria-disabled={!available}
                     >
                       {pickLocaleText(isAr, v.label, v.labelAr)}
                     </button>

@@ -23,6 +23,30 @@ const files = [
     remote: 'app/Models/Store.php',
   },
   {
+    local: 'apps/api/app/Models/Product.php',
+    remote: 'app/Models/Product.php',
+  },
+  {
+    local: 'apps/api/app/Models/OrderItem.php',
+    remote: 'app/Models/OrderItem.php',
+  },
+  {
+    local: 'apps/api/app/Support/ProductStorefront.php',
+    remote: 'app/Support/ProductStorefront.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/ProductController.php',
+    remote: 'app/Http/Controllers/Api/ProductController.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/OrderController.php',
+    remote: 'app/Http/Controllers/Api/OrderController.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/StoreReviewsController.php',
+    remote: 'app/Http/Controllers/Api/StoreReviewsController.php',
+  },
+  {
     local: 'apps/api/app/Http/Controllers/Api/StoreController.php',
     remote: 'app/Http/Controllers/Api/StoreController.php',
   },
@@ -35,8 +59,16 @@ const files = [
     remote: 'app/Http/Controllers/Api/AnalyticsReportController.php',
   },
   {
+    local: 'apps/api/routes/api.php',
+    remote: 'routes/api.php',
+  },
+  {
     local: 'apps/api/scripts/ensure-login-email-active-column.php',
     remote: 'scripts/ensure-login-email-active-column.php',
+  },
+  {
+    local: 'apps/api/scripts/ensure-product-order-isolation-columns.php',
+    remote: 'scripts/ensure-product-order-isolation-columns.php',
   },
 ];
 

@@ -207,6 +207,10 @@ async function uploadTarget(target) {
       let attempts = 0;
       while (attempts < 5) {
         try {
+          if (!fs.existsSync(file.full)) {
+            console.warn(`  skip missing local file: ${file.rel}`);
+            break;
+          }
           if (!readyDirs.has(parent)) {
             await client.ensureDir(parent);
             readyDirs.add(parent);
@@ -221,6 +225,10 @@ async function uploadTarget(target) {
         } catch (err) {
           attempts += 1;
           console.warn(`  ${file.rel} retry ${attempts}: ${err.message}`);
+          if (String(err.message || err).includes('ENOENT') && !fs.existsSync(file.full)) {
+            console.warn(`  skip missing local file: ${file.rel}`);
+            break;
+          }
           const baseName = path.posix.basename(remotePath);
           const tempPath = `${parent}/.in.${baseName}.`;
           try {

@@ -312,14 +312,21 @@ export function mapProduct(row: ApiProductRow): Product {
   const status: Product['status'] =
     statusRaw === 'published' || statusRaw === 'archived' ? statusRaw : 'draft';
 
-  const original = row.original_price;
+  const rawSell =
+    row.storefront_price !== undefined && row.storefront_price !== null && row.storefront_price !== ''
+      ? row.storefront_price
+      : row.price;
+  const rawCompare =
+    row.storefront_original_price !== undefined
+      ? row.storefront_original_price
+      : row.original_price;
   const apiOriginal =
-    original === null || original === undefined || original === ''
+    rawCompare === null || rawCompare === undefined || rawCompare === ''
       ? null
-      : num(original);
+      : num(rawCompare);
 
   // API price = selling; original_price = compare-at → editor regular/sale
-  const pricing = fromApiPricing(num(row.price), apiOriginal);
+  const pricing = fromApiPricing(num(rawSell), apiOriginal);
 
   return {
     id: str(row.id),
@@ -329,16 +336,33 @@ export function mapProduct(row: ApiProductRow): Product {
     nameEn: row.name_en ? str(row.name_en) : undefined,
     sku: str(row.sku),
     category: str(row.category, 'General'),
+    categories: (() => {
+      const list = row.category_list ?? row.categories;
+      if (Array.isArray(list) && list.length > 0) {
+        return list.map((c) => str(c)).filter(Boolean);
+      }
+      const primary = str(row.category, '');
+      return primary ? [primary] : undefined;
+    })(),
     categoryAr: row.category_ar ? str(row.category_ar) : undefined,
     categoryEn: row.category_en ? str(row.category_en) : undefined,
     price: pricing.price,
     discountedPrice: pricing.discountedPrice || null,
     originalPrice: pricing.originalPrice,
+    costPrice:
+      row.cost_price === null || row.cost_price === undefined || row.cost_price === ''
+        ? row.costPrice == null
+          ? null
+          : num(row.costPrice)
+        : num(row.cost_price),
     stock: num(row.stock),
     status,
     isActive: row.is_active === undefined ? true : Boolean(row.is_active),
     isStale: false,
-    publishedAt: dateSlice(row.updated_at ?? row.created_at),
+    publishedAt: row.published_at
+      ? String(row.published_at)
+      : dateSlice(row.updated_at ?? row.created_at),
+    scheduledPublishAt: row.published_at ? String(row.published_at) : null,
     image: str(row.image_url ?? row.image, ''),
     imageVersion: row.image_version == null ? null : str(row.image_version),
     galleryUrls: asStringArray(row.gallery_urls),
@@ -573,15 +597,30 @@ export function mapOrder(row: ApiOrderRow): Order {
     itemsCount,
     itemsSummary: row.items_summary != null ? str(row.items_summary) : undefined,
     items: Array.isArray(items)
-      ? items.map((it: any, itIdx: number) => ({
-          id: String(it.id || it.product_id || `it-${itIdx + 1}`),
-          name: String(it.product_name || it.name || ''),
-          sku: String(it.sku || ''),
-          price: num(it.unit_price ?? it.price, 0),
-          quantity: num(it.quantity, 1),
-          total: num(it.subtotal ?? (num(it.unit_price ?? it.price, 0) * num(it.quantity, 1))),
-          image: it.image ? String(it.image) : undefined,
-        }))
+      ? items.map((it: any, itIdx: number) => {
+          const opts = it.selected_options ?? it.selectedOptions;
+          return {
+            id: String(it.id || it.product_id || `it-${itIdx + 1}`),
+            productId: it.product_id ? String(it.product_id) : undefined,
+            variationId: it.variation_id != null ? String(it.variation_id) : it.variationId != null ? String(it.variationId) : null,
+            name: String(it.product_name || it.name || ''),
+            sku: String(it.sku || ''),
+            brand: it.brand != null && String(it.brand) ? String(it.brand) : null,
+            category: it.category != null && String(it.category) ? String(it.category) : null,
+            price: num(it.unit_price ?? it.price, 0),
+            quantity: num(it.quantity, 1),
+            total: num(it.subtotal ?? (num(it.unit_price ?? it.price, 0) * num(it.quantity, 1))),
+            image: it.image_url
+              ? String(it.image_url)
+              : it.image
+                ? String(it.image)
+                : undefined,
+            selectedOptions:
+              opts && typeof opts === 'object' && !Array.isArray(opts)
+                ? (opts as Record<string, string | number | boolean | string[]>)
+                : null,
+          };
+        })
       : undefined,
     total: num(row.total_amount ?? row.total),
     source: mapOrderSource(row.source),

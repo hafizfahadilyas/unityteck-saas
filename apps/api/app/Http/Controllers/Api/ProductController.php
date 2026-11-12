@@ -8,6 +8,7 @@ use App\Models\Category;
 use App\Models\Store;
 use App\Services\GeminiAiMediaService;
 use App\Support\Plans;
+use App\Support\ProductStorefront;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -151,7 +152,7 @@ class ProductController extends Controller
             ->where('id', $id)
             ->firstOrFail();
 
-        $data = $product->toArray();
+        $data = ProductStorefront::enrichRow($product);
         $data['variations'] = $product->variations->map(static function ($v) {
             return [
                 'id' => $v->id,
@@ -196,6 +197,7 @@ class ProductController extends Controller
         }
 
         $data = $request->validate($this->rules());
+        $data = $this->mergeCategoryList($data);
 
         $data['id'] = $data['id'] ?? $this->newId('prod');
         $data['store_id'] = $storeId;
@@ -206,6 +208,7 @@ class ProductController extends Controller
         $data['is_featured'] = $data['is_featured'] ?? false;
         $data['gallery_urls'] = $data['gallery_urls'] ?? [];
         $data['tags'] = $data['tags'] ?? [];
+        $data = $this->applyPublicationState($data);
         $data = $this->onlyExistingJsonColumns($data);
 
         if ($this->skuExists($storeId, $data['sku'])) {
@@ -228,6 +231,7 @@ class ProductController extends Controller
         $product = Product::query()->forStore($storeId)->where('id', $id)->firstOrFail();
 
         $data = $request->validate($this->rules(true));
+        $data = $this->mergeCategoryList($data);
 
         if (isset($data['sku']) && $this->skuExists($storeId, $data['sku'], $product->id)) {
             return response()->json(['message' => 'SKU already exists for this store.'], 422);
@@ -237,6 +241,7 @@ class ProductController extends Controller
             $data['image_version'] = $data['image_version'] ?? (string) now()->timestamp;
         }
 
+        $data = $this->applyPublicationState($data);
         $data = $this->onlyExistingJsonColumns($data);
         $product->fill($data)->save();
 
@@ -366,6 +371,11 @@ class ProductController extends Controller
             'category_id' => ['nullable', 'string', 'max:64'],
             'category' => ['nullable', 'string', 'max:100'],
             'category_ar' => ['nullable', 'string', 'max:100'],
+            'category_list' => ['nullable', 'array'],
+            'category_list.*' => ['string', 'max:191'],
+            'categories' => ['nullable', 'array'],
+            'categories.*' => ['string', 'max:191'],
+            'published_at' => ['nullable', 'date'],
             'brand' => ['nullable', 'string', 'max:191'],
             'product_type' => ['nullable', 'string', 'max:100'],
             'google_taxonomy' => ['nullable', 'string', 'max:500'],
@@ -389,6 +399,7 @@ class ProductController extends Controller
             'seo_description' => ['nullable', 'string'],
             'seo_keywords' => ['nullable', 'string', 'max:500'],
             'status' => ['nullable', Rule::in(['published', 'draft', 'archived'])],
+            'visibility' => ['nullable', Rule::in(['active', 'draft', 'scheduled'])],
             'is_active' => ['nullable', 'boolean'],
             'is_featured' => ['nullable', 'boolean'],
         ];
@@ -409,10 +420,64 @@ class ProductController extends Controller
             'google_taxonomy',
             'discount_start_at',
             'discount_end_at',
+            'category_list',
+            'published_at',
         ] as $column) {
             if (array_key_exists($column, $data) && ! Schema::hasColumn('products', $column)) {
                 unset($data[$column]);
             }
+        }
+
+        return $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function mergeCategoryList(array $data): array
+    {
+        $list = $data['category_list'] ?? $data['categories'] ?? null;
+        unset($data['categories']);
+        if (is_array($list)) {
+            $clean = array_values(array_unique(array_filter(array_map(
+                static fn ($v) => trim((string) $v),
+                $list
+            ))));
+            $data['category_list'] = $clean;
+            if (! empty($clean) && empty($data['category'])) {
+                $data['category'] = $clean[0];
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * Map merchant visibility: active / draft / scheduled via status + published_at.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function applyPublicationState(array $data): array
+    {
+        $visibility = strtolower((string) ($data['visibility'] ?? ''));
+        unset($data['visibility']);
+
+        if ($visibility === 'active') {
+            $data['status'] = 'published';
+            $data['is_active'] = true;
+            $data['published_at'] = $data['published_at'] ?? null;
+        } elseif ($visibility === 'scheduled') {
+            $data['status'] = 'draft';
+            $data['is_active'] = false;
+            if (empty($data['published_at'])) {
+                $data['published_at'] = now()->addDay();
+            }
+        } elseif ($visibility === 'draft') {
+            $data['status'] = 'draft';
+            $data['is_active'] = false;
+            $data['published_at'] = null;
         }
 
         return $data;
@@ -459,11 +524,11 @@ class ProductController extends Controller
             return response()->json(['message' => 'Store not found.'], 404);
         }
 
-        $base = Product::withoutGlobalScope('store')
-            ->where('store_id', $store->id)
-            ->where(function ($q) {
-                $q->whereNull('status')->orWhere('status', '!=', 'archived');
-            });
+        ProductStorefront::promoteDueScheduled($store->id);
+
+        $base = ProductStorefront::visibleScope(
+            Product::withoutGlobalScope('store')->where('store_id', $store->id)
+        );
         $source = (string) $request->query('source', '');
         if ($source === 'featured') {
             $base->where('is_featured', true);
@@ -472,10 +537,19 @@ class ProductController extends Controller
             if ($category !== '') {
                 $base->where(function ($q) use ($category) {
                     $q->where('category', $category)->orWhere('category_id', $category);
+                    if (Schema::hasColumn('products', 'category_list')) {
+                        $q->orWhereJsonContains('category_list', $category);
+                    }
                 });
             }
         } elseif ($source === 'on_sale') {
-            $base->whereNotNull('original_price')->whereColumn('original_price', '>', 'price');
+            $base->whereNotNull('original_price')->whereColumn('original_price', '>', 'price')
+                ->where(function ($q) {
+                    $q->whereNull('discount_start_at')->orWhere('discount_start_at', '<=', now());
+                })
+                ->where(function ($q) {
+                    $q->whereNull('discount_end_at')->orWhere('discount_end_at', '>=', now());
+                });
         } elseif ($source === 'manual') {
             $ids = array_values(array_filter(array_map('trim', explode(',', (string) $request->query('ids', '')))));
             $base->whereIn('id', $ids === [] ? [''] : $ids);
@@ -505,11 +579,13 @@ class ProductController extends Controller
                 'subtitle_ar',
                 'price',
                 'original_price',
+                'cost_price',
                 'sku',
                 'stock',
                 'category',
                 'category_ar',
                 'category_id',
+                Schema::hasColumn('products', 'category_list') ? 'category_list' : null,
                 'image_url',
                 'image_version',
                 'gallery_urls',
@@ -520,6 +596,11 @@ class ProductController extends Controller
                 Schema::hasColumn('products', 'conditional_rules') ? 'conditional_rules' : null,
                 'badge',
                 'badge_en',
+                'seo_title',
+                'seo_description',
+                'seo_keywords',
+                Schema::hasColumn('products', 'discount_start_at') ? 'discount_start_at' : null,
+                Schema::hasColumn('products', 'discount_end_at') ? 'discount_end_at' : null,
                 'status',
                 'is_active',
                 'is_featured',
@@ -527,27 +608,30 @@ class ProductController extends Controller
                 'created_at',
             ])));
 
+        $payloadRows = $rows->map(fn (Product $row) => ProductStorefront::enrichRow($row));
+
         $categories = [];
-        foreach ($rows as $row) {
-            $label = trim((string) ($row->category ?: ''));
-            $labelAr = trim((string) ($row->category_ar ?: $label));
-            if ($label === '' && $labelAr === '') {
-                continue;
+        foreach ($payloadRows as $row) {
+            foreach ($row['categories'] ?? [] as $label) {
+                $label = trim((string) $label);
+                if ($label === '') {
+                    continue;
+                }
+                $id = Str::lower($label);
+                if (! isset($categories[$id])) {
+                    $categories[$id] = [
+                        'id' => $id,
+                        'name' => $label,
+                        'name_ar' => $label,
+                        'count' => 0,
+                    ];
+                }
+                $categories[$id]['count']++;
             }
-            $id = \Illuminate\Support\Str::lower($label !== '' ? $label : $labelAr);
-            if (! isset($categories[$id])) {
-                $categories[$id] = [
-                    'id' => $id,
-                    'name' => $label !== '' ? $label : $labelAr,
-                    'name_ar' => $labelAr !== '' ? $labelAr : $label,
-                    'count' => 0,
-                ];
-            }
-            $categories[$id]['count']++;
         }
 
         return response()->json([
-            'data' => $rows->values(),
+            'data' => $payloadRows->values(),
             'categories' => array_values($categories),
             'store_id' => $store->id,
             'meta' => [
@@ -556,6 +640,67 @@ class ProductController extends Controller
                 'per_page' => $perPage,
                 'last_page' => max(1, (int) ceil($total / $perPage)),
             ],
+        ]);
+    }
+
+    /**
+     * Public single product by id or slug — full PDP payload for one store.
+     */
+    public function storefrontProduct(Request $request, string $productKey): JsonResponse
+    {
+        $key = trim((string) ($request->query('store_id') ?? $request->header('X-Store-Id') ?? ''));
+        if ($key === '') {
+            return response()->json(['message' => 'store_id is required.'], 422);
+        }
+
+        $store = Store::query()->where('id', $key)->orWhere('slug', $key)->first();
+        if (! $store) {
+            return response()->json(['message' => 'Store not found.'], 404);
+        }
+
+        ProductStorefront::promoteDueScheduled($store->id);
+
+        $product = ProductStorefront::visibleScope(
+            Product::withoutGlobalScope('store')->where('store_id', $store->id)
+        )
+            ->with(['variations' => function ($q) use ($store) {
+                $q->withoutGlobalScope('store')->where('store_id', $store->id);
+            }])
+            ->where(function ($q) use ($productKey) {
+                $q->where('id', $productKey)->orWhere('slug', $productKey)->orWhere('sku', $productKey);
+            })
+            ->first();
+
+        if (! $product) {
+            return response()->json(['message' => 'Product not found.'], 404);
+        }
+
+        $data = ProductStorefront::enrichRow($product);
+        $data['variations'] = $product->variations->map(static function ($v) {
+            return [
+                'id' => $v->id,
+                'store_id' => $v->store_id,
+                'product_id' => $v->product_id,
+                'sku' => $v->sku,
+                'barcode' => $v->barcode ?? null,
+                'options' => $v->options ?? [],
+                'price' => $v->price !== null ? (float) $v->price : null,
+                'compare_at_price' => $v->compare_at_price !== null ? (float) $v->compare_at_price : null,
+                'stock' => (int) $v->stock,
+                'weight' => $v->weight !== null ? (float) $v->weight : null,
+                'weight_unit' => $v->weight_unit ?? 'kg',
+                'low_stock_alert' => $v->low_stock_alert !== null ? (int) $v->low_stock_alert : null,
+                'unlimited_stock' => (bool) ($v->unlimited_stock ?? false),
+                'image_url' => $v->image_url,
+                'is_active' => (bool) $v->is_active,
+                'created_at' => $v->created_at,
+                'updated_at' => $v->updated_at,
+            ];
+        })->values()->all();
+
+        return response()->json([
+            'data' => $data,
+            'store_id' => $store->id,
         ]);
     }
 

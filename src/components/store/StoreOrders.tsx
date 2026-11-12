@@ -2078,12 +2078,39 @@ export const StoreOrders: React.FC = () => {
                               style={{ borderColor: 'var(--border)' }}
                             />
                             <div className="min-w-0">
-                              <span className="font-black text-xs block truncate max-w-[140px] text-slate-950 dark:text-white">
+                              <span className="font-black text-xs block truncate max-w-[180px] text-slate-950 dark:text-white">
                                 {getLocalizedItemName(it, locale)}
                               </span>
                               <span className="text-[10px] font-mono font-bold block text-slate-700 dark:text-slate-300 mt-0.5">
-                                SKU: {it.sku || `SKU-${idx + 1}`}
+                                {it.sku
+                                  ? isAr
+                                    ? `رمز المنتج: ${it.sku}`
+                                    : `SKU: ${it.sku}`
+                                  : isAr
+                                    ? 'بدون رمز منتج'
+                                    : 'No SKU'}
                               </span>
+                              {(it.brand || it.category) && (
+                                <span className="text-[10px] font-semibold block mt-0.5" style={{ color: 'var(--muted)' }}>
+                                  {[it.brand, it.category].filter(Boolean).join(' · ')}
+                                </span>
+                              )}
+                              {it.selectedOptions &&
+                                Object.keys(it.selectedOptions).filter((k) => !k.startsWith('_')).length > 0 && (
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {Object.entries(it.selectedOptions)
+                                      .filter(([k]) => !k.startsWith('_'))
+                                      .map(([k, v]) => (
+                                        <span
+                                          key={k}
+                                          className="text-[9px] font-bold px-1.5 py-0.5 rounded-md border"
+                                          style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+                                        >
+                                          {k}: {Array.isArray(v) ? v.join(', ') : String(v)}
+                                        </span>
+                                      ))}
+                                  </div>
+                                )}
                             </div>
                           </div>
                         </td>

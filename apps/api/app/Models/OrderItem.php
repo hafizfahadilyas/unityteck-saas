@@ -14,7 +14,13 @@ class OrderItem extends Model
         'order_id',
         'store_id',
         'product_id',
+        'variation_id',
+        'selected_options',
         'product_name',
+        'sku',
+        'brand',
+        'category',
+        'image_url',
         'quantity',
         'unit_price',
         'subtotal',
@@ -23,6 +29,7 @@ class OrderItem extends Model
     protected function casts(): array
     {
         return [
+            'selected_options' => 'array',
             'quantity' => 'integer',
             'unit_price' => 'decimal:2',
             'subtotal' => 'decimal:2',

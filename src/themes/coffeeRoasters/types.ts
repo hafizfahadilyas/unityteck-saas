@@ -216,6 +216,8 @@ export interface CartItem {
   customCornerSpecs?: CustomCornerOrderSpecs;
   optionSummary?: string;
   purchaseNotes?: string[];
+  variationId?: string | null;
+  selectedOptions?: Record<string, string> | null;
 }
 
 export interface HonorBannerEvent {

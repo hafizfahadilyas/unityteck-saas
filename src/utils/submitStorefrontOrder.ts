@@ -4,6 +4,19 @@ import * as tenantApi from '../api/tenantApi';
 import type { Order } from '../types';
 import { trackStorefrontEvent } from './storefrontAnalytics';
 
+export type StorefrontOrderLine = {
+  id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  variationId?: string | null;
+  selectedOptions?: Record<string, string | number | boolean | string[]> | null;
+  sku?: string | null;
+  brand?: string | null;
+  category?: string | null;
+  imageUrl?: string | null;
+};
+
 export type StorefrontOrderInput = {
   customerName: string;
   customerPhone: string;
@@ -19,7 +32,7 @@ export type StorefrontOrderInput = {
   campaign?: string;
   utmTerm?: string;
   utmContent?: string;
-  items?: Array<{ id: string; name: string; quantity: number; price: number }>;
+  items?: StorefrontOrderLine[];
 };
 
 export function toStorefrontOrderPayload(data: StorefrontOrderInput): Record<string, unknown> {
@@ -40,7 +53,13 @@ export function toStorefrontOrderPayload(data: StorefrontOrderInput): Record<str
     utm_content: data.utmContent || undefined,
     items: (data.items || []).map((i) => ({
       product_id: i.id,
+      variation_id: i.variationId || undefined,
+      selected_options: i.selectedOptions || undefined,
       name: i.name,
+      sku: i.sku || undefined,
+      brand: i.brand || undefined,
+      category: i.category || undefined,
+      image_url: i.imageUrl || undefined,
       quantity: i.quantity,
       price: i.price,
     })),

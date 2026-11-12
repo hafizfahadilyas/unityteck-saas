@@ -5,6 +5,8 @@ alwaysApply: true
 
 # Ultra-fast delta deploy (LOCKED)
 
+**Gate first:** See `no-deploy-without-ask.mdc` — **do not run any deploy** until the user explicitly asks. This file only defines *how* to deploy after that ask.
+
 **User order:** Deploy **only what changed**. Full 1800-file FTP / whole-repo Hostinger push = **banned** for normal fixes. GitHub/local → Hostinger must stay instant.
 
 ## Commands (prefer these)

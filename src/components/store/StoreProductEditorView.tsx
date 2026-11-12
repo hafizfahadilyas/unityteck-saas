@@ -269,8 +269,20 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   const [sku, setSku] = useState(product.sku || '');
   const [category, setCategory] = useState(product.category || (categories[0] || 'General'));
   const [brand, setBrand] = useState(product.brand || availableBrands[0] || storeName);
-  const [productType, setProductType] = useState(product.productType || 'Physical Product');
   const [subtitle, setSubtitle] = useState(product.subtitle || '');
+  const [costPrice, setCostPrice] = useState<number>(product.costPrice ?? 0);
+  const [merchantVisibility, setMerchantVisibility] = useState<'active' | 'draft' | 'scheduled'>(() => {
+    if (product.scheduledPublishAt && product.status !== 'published') return 'scheduled';
+    if (product.status === 'published') return 'active';
+    return 'draft';
+  });
+  const [scheduledPublishAt, setScheduledPublishAt] = useState(
+    product.scheduledPublishAt ? String(product.scheduledPublishAt).slice(0, 16) : '',
+  );
+  const [showNewCategoryModal, setShowNewCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryNameAr, setNewCategoryNameAr] = useState('');
+  const [newCategoryBusy, setNewCategoryBusy] = useState(false);
   const [googleTaxonomy, setGoogleTaxonomy] = useState(product.googleTaxonomy || '');
   const [description, setDescription] = useState(product.description || '');
   /** Manual typing vs AI auto-suggestion for title / description */
@@ -651,10 +663,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   >([]);
   const [fldOptionsInput, setFldOptionsInput] = useState<string[]>([]);
   const [fldOptionDraft, setFldOptionDraft] = useState('');
-  const [fldImageUrl, setFldImageUrl] = useState('');
-  const [fldVideoUrl, setFldVideoUrl] = useState('');
-  const [fldContentEn, setFldContentEn] = useState('');
-  const [fldContentAr, setFldContentAr] = useState('');
 
   const [isRuleModalOpen, setIsRuleModalOpen] = useState(false);
   const [ruleOptionName, setRuleOptionName] = useState(conditionalRule?.optionName || (options[0]?.name ?? ''));
@@ -997,10 +1005,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     setFldConditions([]);
     setFldOptionsInput([]);
     setFldOptionDraft('');
-    setFldImageUrl('');
-    setFldVideoUrl('');
-    setFldContentEn('');
-    setFldContentAr('');
     setIsFieldModalOpen(true);
   };
 
@@ -1017,10 +1021,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     setFldConditions(Array.isArray(field.conditions) ? [...field.conditions] : []);
     setFldOptionsInput(Array.isArray(field.options) ? [...field.options] : []);
     setFldOptionDraft('');
-    setFldImageUrl(field.imageUrl || '');
-    setFldVideoUrl(field.videoUrl || '');
-    setFldContentEn(field.contentEn || '');
-    setFldContentAr(field.contentAr || '');
     setIsFieldModalOpen(true);
   };
 
@@ -1061,10 +1061,11 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       conditionJoin: fldConditionJoin,
       extraPrice: fillable ? Number(fldExtraPriceInput) || 0 : 0,
       options,
-      imageUrl: fldImageUrl.trim(),
-      videoUrl: fldVideoUrl.trim(),
-      contentEn: fldContentEn.trim(),
-      contentAr: fldContentAr.trim(),
+      // Media/content extras removed from custom-field modal UI; preserve existing on edit.
+      imageUrl: fieldModalMode === 'edit' ? editingField?.imageUrl || '' : '',
+      videoUrl: fieldModalMode === 'edit' ? editingField?.videoUrl || '' : '',
+      contentEn: fieldModalMode === 'edit' ? editingField?.contentEn || '' : '',
+      contentAr: fieldModalMode === 'edit' ? editingField?.contentAr || '' : '',
     };
     if (fieldModalMode === 'add') {
       const newFld: CustomFieldItem = {
@@ -1519,7 +1520,11 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       category: primaryCategory,
       categories: productCategories,
       brand,
-      productType,
+      costPrice: Number(costPrice) || 0,
+      status: merchantVisibility === 'active' ? 'published' : 'draft',
+      isActive: merchantVisibility === 'active',
+      scheduledPublishAt:
+        merchantVisibility === 'scheduled' && scheduledPublishAt ? scheduledPublishAt : null,
       subtitle: subtitle.trim() || null,
       googleTaxonomy: googleTaxonomy.trim() || null,
       description,
@@ -1630,7 +1635,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
         name: name.trim() || undefined,
         category: category.trim() || undefined,
         brand: brand.trim() || undefined,
-        product_type: productType.trim() || undefined,
         locale: isAr ? 'ar' : 'en',
       });
       if (fillTitle && data.title) {
@@ -1671,6 +1675,43 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       toast(msg, 'error');
     } finally {
       setAiSuggestBusy(false);
+    }
+  };
+
+  const handleCreateCategory = async () => {
+    const en = newCategoryName.trim();
+    const ar = newCategoryNameAr.trim();
+    if (!en && !ar) {
+      toast(isAr ? 'أدخل اسم التصنيف' : 'Enter a category name', 'error');
+      return;
+    }
+    if (!storeId || !isApiEnabled()) {
+      toast(isAr ? 'يتطلب اتصال الواجهة البرمجية' : 'Live API connection required', 'error');
+      return;
+    }
+    setNewCategoryBusy(true);
+    try {
+      const created = await tenantApi.createCategory(storeId, {
+        name: en || ar,
+        name_ar: ar || null,
+        is_active: true,
+      });
+      const value = isAr ? created.nameAr || created.name : created.name || created.nameEn || '';
+      if (value && !productCategories.includes(value)) {
+        setProductCategories((prev) => [...prev, value]);
+        if (!category) setCategory(value);
+      }
+      window.dispatchEvent(
+        new CustomEvent('unityteck-categories-updated', { detail: { storeId } }),
+      );
+      setShowNewCategoryModal(false);
+      setNewCategoryName('');
+      setNewCategoryNameAr('');
+      toast(isAr ? 'تم إنشاء التصنيف' : 'Category created', 'success');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : isAr ? 'تعذر إنشاء التصنيف' : 'Could not create category', 'error');
+    } finally {
+      setNewCategoryBusy(false);
     }
   };
 
@@ -1806,14 +1847,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   ? 'تعديل المنتج'
                   : 'Edit Product'}
             </span>
-            {product.productType ? (
-              <>
-                <span>&gt;</span>
-                <span className="font-semibold" style={{ color: 'var(--accent)' }}>
-                  {product.productType}
-                </span>
-              </>
-            ) : null}
           </div>
         </div>
 
@@ -2366,18 +2399,29 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
                 <div>
                   <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                    {isAr ? 'نوع المنتج' : 'Product Type'}
+                    {isAr ? 'حالة المنتج' : 'Product status'}
                   </label>
                   <select
-                    value={productType}
-                    onChange={(e) => setProductType(e.target.value)}
+                    value={merchantVisibility}
+                    onChange={(e) =>
+                      setMerchantVisibility(e.target.value as 'active' | 'draft' | 'scheduled')
+                    }
                     className="w-full px-2.5 py-2 rounded-xl border text-xs font-medium cursor-pointer focus:outline-none"
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   >
-                    <option value="Physical Product">{isAr ? 'منتج ملموس' : 'Physical Product'}</option>
-                    <option value="Digital Product">{isAr ? 'منتج رقمي' : 'Digital Product'}</option>
-                    <option value="Service">{isAr ? 'خدمة' : 'Service'}</option>
+                    <option value="active">{isAr ? 'نشط' : 'Active'}</option>
+                    <option value="draft">{isAr ? 'مسودة' : 'Draft'}</option>
+                    <option value="scheduled">{isAr ? 'مجدول' : 'Scheduled'}</option>
                   </select>
+                  {merchantVisibility === 'scheduled' ? (
+                    <input
+                      type="datetime-local"
+                      value={scheduledPublishAt}
+                      onChange={(e) => setScheduledPublishAt(e.target.value)}
+                      className="w-full mt-2 px-2.5 py-2 rounded-xl border text-xs"
+                      style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                    />
+                  ) : null}
                 </div>
               </div>
 
@@ -2520,8 +2564,8 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                 </div>
               </div>
 
-              {/* 3-Column Inputs: Regular Price, Sale Price, Tax Rate */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Regular, sale, cost, tax */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
                   <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
                     {isAr ? 'السعر الأساسي (ر.س)' : 'Regular Price (SAR)'} <span className="text-rose-500">*</span>
@@ -2540,7 +2584,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
                 <div>
                   <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                    {isAr ? 'سعر الخصم (ر.س)' : 'Discount Price (SAR)'}
+                    {isAr ? 'سعر البيع / الخصم (ر.س)' : 'Sale Price (SAR)'}
                   </label>
                   <input
                     type="number"
@@ -2548,6 +2592,21 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     step="0.01"
                     value={discountedPrice}
                     onChange={(e) => setDiscountedPrice(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border text-xs font-bold font-mono focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
+                    {isAr ? 'سعر التكلفة (ر.س)' : 'Cost Price (SAR)'}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={costPrice}
+                    onChange={(e) => setCostPrice(Number(e.target.value))}
                     className="w-full px-3 py-2 rounded-xl border text-xs font-bold font-mono focus:outline-none focus:ring-2 focus:ring-teal-500/20"
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   />
@@ -2577,8 +2636,8 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     {isAr ? 'بداية الخصم' : 'Discount Start'}
                   </label>
                   <input
-                    type="date"
-                    value={discountStartAt ? String(discountStartAt).slice(0, 10) : ''}
+                    type="datetime-local"
+                    value={discountStartAt ? String(discountStartAt).slice(0, 16) : ''}
                     onChange={(e) => setDiscountStartAt(e.target.value)}
                     disabled={!discountedPrice || discountedPrice <= 0}
                     className="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:outline-none disabled:opacity-50"
@@ -2590,8 +2649,8 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     {isAr ? 'نهاية الخصم' : 'Discount End'}
                   </label>
                   <input
-                    type="date"
-                    value={discountEndAt ? String(discountEndAt).slice(0, 10) : ''}
+                    type="datetime-local"
+                    value={discountEndAt ? String(discountEndAt).slice(0, 16) : ''}
                     onChange={(e) => setDiscountEndAt(e.target.value)}
                     disabled={!discountedPrice || discountedPrice <= 0}
                     className="w-full px-3 py-2 rounded-xl border text-xs font-medium focus:outline-none disabled:opacity-50"
@@ -3880,6 +3939,13 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                       </option>
                     ))}
                 </select>
+                <button
+                  type="button"
+                  onClick={() => setShowNewCategoryModal(true)}
+                  className="mt-2 text-xs font-bold unity-btn-primary px-3 py-1.5 rounded-lg"
+                >
+                  {isAr ? 'تصنيف جديد' : 'New category'}
+                </button>
               </div>
 
               {/* Feature / highlight product */}
@@ -4590,57 +4656,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label className="block">
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    {isAr ? 'صورة صفحة التفاصيل' : 'Details page image'}
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="mt-1 block w-full text-[11px]"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      void optimizeImageFile(file, 1200, 200 * 1024)
-                        .then((opt) => setFldImageUrl(opt.webpUrl || URL.createObjectURL(opt.file)))
-                        .catch(() => setFldImageUrl(URL.createObjectURL(file)));
-                    }}
-                  />
-                  {fldImageUrl ? (
-                    <img src={fldImageUrl} alt="" className="mt-2 h-16 w-16 rounded-lg object-cover" />
-                  ) : null}
-                </label>
-                <label className="block">
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    {isAr ? 'رابط الفيديو' : 'Video URL'}
-                  </span>
-                  <input
-                    type="text"
-                    value={fldVideoUrl}
-                    onChange={(e) => setFldVideoUrl(e.target.value)}
-                    className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
-                    placeholder="https://"
-                  />
-                </label>
-                <textarea
-                  value={fldContentEn}
-                  onChange={(e) => setFldContentEn(e.target.value)}
-                  rows={2}
-                  dir="ltr"
-                  placeholder={isAr ? 'النص الإنجليزي' : 'English text'}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
-                />
-                <textarea
-                  value={fldContentAr}
-                  onChange={(e) => setFldContentAr(e.target.value)}
-                  rows={2}
-                  dir="rtl"
-                  placeholder={isAr ? 'النص العربي' : 'Arabic text'}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
-                />
-              </div>
-
               <div>
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
                   {isAr ? 'نوع الحقل' : 'Field Type'}
@@ -5031,6 +5046,88 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
           </div>
         </EditorModal>
       )}
+
+      {showNewCategoryModal ? (
+        <EditorModal onClose={() => setShowNewCategoryModal(false)} dir={isAr ? 'rtl' : 'ltr'}>
+          <div className="space-y-3 min-w-[min(100vw-2rem,24rem)]">
+            <h3 className="text-sm font-bold" style={{ color: 'var(--text)' }}>
+              {isAr ? 'تصنيف جديد' : 'New category'}
+            </h3>
+            <motionField
+              label={isAr ? 'الاسم (إنجليزي)' : 'Name (English)'}
+              value={newCategoryName}
+              onChange={setNewCategoryName}
+              isAr={isAr}
+            />
+            <motionField
+              label={isAr ? 'الاسم (عربي)' : 'Name (Arabic)'}
+              value={newCategoryNameAr}
+              onChange={setNewCategoryNameAr}
+              isAr={isAr}
+            />
+            <motionActions
+              isAr={isAr}
+              busy={newCategoryBusy}
+              onCancel={() => setShowNewCategoryModal(false)}
+              onSave={() => void handleCreateCategory()}
+            />
+          </div>
+        </EditorModal>
+      ) : null}
     </div>
   );
 };
+
+function motionField({
+  label,
+  value,
+  onChange,
+  isAr,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  isAr: boolean;
+}) {
+  return (
+    <div>
+      <label className="text-xs font-bold block mb-1">{label}</label>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        dir={label.includes('عربي') || isAr && label.includes('Arabic') ? 'rtl' : 'ltr'}
+        className="w-full px-3 py-2 rounded-xl border text-sm"
+        style={{ borderColor: 'var(--border)', background: 'var(--input-bg)', color: 'var(--input-fg)' }}
+      />
+    </div>
+  );
+}
+
+function motionActions({
+  isAr,
+  busy,
+  onCancel,
+  onSave,
+}: {
+  isAr: boolean;
+  busy: boolean;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
+  return (
+    <div className="flex justify-end gap-2 pt-2">
+      <button type="button" onClick={onCancel} className="px-4 py-2 rounded-xl border text-xs font-bold">
+        {isAr ? 'إلغاء' : 'Cancel'}
+      </button>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={onSave}
+        className="unity-btn-primary px-4 py-2 rounded-xl text-xs font-bold disabled:opacity-50"
+      >
+        {busy ? (isAr ? 'جاري الحفظ...' : 'Saving…') : isAr ? 'إنشاء' : 'Create'}
+      </button>
+    </div>
+  );
+}

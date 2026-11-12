@@ -67,14 +67,14 @@ import {
   FLOWERS_THEME_ID,
   FLOWERS_HOMEPAGES,
   FLOWERS_HERO_BY_HOME,
-  FLOWERS_VARIATIONS,
-  FLOWERS_CIRCLE_CATEGORIES,
   resolveFlowersHomepage,
   type FlowersSfPage,
 } from '../../themes/flowersPremium/pack';
 import { FlowerFrameHero } from '../../themes/flowersPremium/FlowerFrameHero';
 import { CircleCategories } from '../../themes/flowersPremium/CircleCategories';
+import { buildCircleCategories } from '../../themes/flowersPremium/buildCircleCategories';
 import { SingleProductView } from '../../themes/flowersPremium/SingleProductView';
+import { fetchWidgetCategories } from '../../api/tenantApi';
 import { OfferPopup } from '../../themes/flowersPremium/OfferPopup';
 import {
   consumeOfferPreviewOnce,
@@ -260,6 +260,16 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
   const [couponCode, setCouponCode] = useState('');
   const [couponApplied, setCouponApplied] = useState(false);
   const [storeIdentityTick, setStoreIdentityTick] = useState(0);
+  const [storefrontCategoryRows, setStorefrontCategoryRows] = useState<
+    Array<{
+      id: string;
+      name?: string;
+      name_ar?: string;
+      slug?: string;
+      image_url?: string | null;
+      parent_id?: string | null;
+    }>
+  >([]);
 
   const [themeSettings, setThemeSettings] = useState<AllThemeSettings>(() =>
     readAllThemeSettings(activeStore.id, activeStore),
@@ -451,20 +461,34 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
 
   useEffect(() => {
     if (quickViewProduct) {
-      const vars = FLOWERS_VARIATIONS[quickViewProduct.id];
-      setSelectedVariationId(vars?.[0]?.id ?? null);
+      const vars = (quickViewProduct.variations || []).filter((v) => v.isActive !== false);
+      setSelectedVariationId(vars[0]?.id ?? null);
     } else {
       setSelectedVariationId(null);
     }
   }, [quickViewProduct]);
 
-  const variationDelta = useMemo(() => {
-    if (!quickViewProduct || !selectedVariationId) return 0;
-    return FLOWERS_VARIATIONS[quickViewProduct.id]?.find((v) => v.id === selectedVariationId)?.priceDelta ?? 0;
-  }, [quickViewProduct, selectedVariationId]);
+  const quickViewVariations = useMemo(
+    () => (quickViewProduct?.variations || []).filter((v) => v.isActive !== false),
+    [quickViewProduct],
+  );
+  const selectedQuickVariant = useMemo(
+    () => quickViewVariations.find((v) => v.id === selectedVariationId) || null,
+    [quickViewVariations, selectedVariationId],
+  );
+  const quickViewUnitPrice = useMemo(() => {
+    if (!quickViewProduct) return 0;
+    if (selectedQuickVariant?.price != null) return Number(selectedQuickVariant.price);
+    return sellingPrice(quickViewProduct.price, quickViewProduct.discountedPrice);
+  }, [quickViewProduct, selectedQuickVariant]);
 
   const lineSell = (p: Product) => sellingPrice(p.price, p.discountedPrice);
-  const cartTotal = cart.reduce((sum, item) => sum + lineSell(item.product) * item.quantity, 0);
+  const cartLinePrice = (item: {
+    product: Product;
+    quantity: number;
+    unitPrice?: number;
+  }) => (item.unitPrice != null ? Number(item.unitPrice) : lineSell(item.product));
+  const cartTotal = cart.reduce((sum, item) => sum + cartLinePrice(item) * item.quantity, 0);
   const couponDiscount = (() => {
     if (!couponApplied) return 0;
     const code = couponCode.trim().toUpperCase();
@@ -512,9 +536,10 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
       seoConfig: currentSEOConfig,
       lang: (lang === 'ar' ? 'ar' : 'en') as 'ar' | 'en',
       selectedCategory,
-      activeProduct: quickViewProduct,
+      activeProduct: sfPage === 'product' ? quickViewProduct : null,
+      page: sfPage,
     });
-  }, [activeStore, currentProducts, currentSEOConfig, lang, selectedCategory, quickViewProduct]);
+  }, [activeStore, currentProducts, currentSEOConfig, lang, selectedCategory, quickViewProduct, sfPage]);
 
   // Dynamically update DOM head, title, meta tags, and Schema.org JSON-LD
   useEffect(() => {
@@ -532,15 +557,51 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
   const categoryCounts = useMemo(() => {
     const map: Record<string, number> = {};
     currentProducts.forEach((p) => {
-      map[p.category] = (map[p.category] || 0) + 1;
+      const names = [
+        p.category,
+        ...(Array.isArray(p.categories) ? p.categories : []),
+      ].filter((n): n is string => Boolean(n && String(n).trim()));
+      const unique = Array.from(new Set(names));
+      unique.forEach((name) => {
+        map[name] = (map[name] || 0) + 1;
+      });
     });
     return map;
   }, [currentProducts]);
 
+  useEffect(() => {
+    const sid = activeStore?.id;
+    if (!sid) {
+      setStorefrontCategoryRows([]);
+      return;
+    }
+    let cancelled = false;
+    void fetchWidgetCategories(sid)
+      .then((rows) => {
+        if (!cancelled) setStorefrontCategoryRows(Array.isArray(rows) ? rows : []);
+      })
+      .catch(() => {
+        if (!cancelled) setStorefrontCategoryRows([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeStore?.id]);
+
+  const circleCategories = useMemo(
+    () =>
+      buildCircleCategories(storefrontCategoryRows, currentProducts, {
+        includeAll: true,
+        isAr: lang === 'ar',
+      }),
+    [storefrontCategoryRows, currentProducts, lang],
+  );
+
   const brandCounts = useMemo(() => {
     const map: Record<string, number> = {};
     currentProducts.forEach((p) => {
-      const b = p.brand || 'Dutch Flora';
+      const b = String(p.brand || '').trim();
+      if (!b) return;
       map[b] = (map[b] || 0) + 1;
     });
     return map;
@@ -553,14 +614,25 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
 
   const filteredProducts = useMemo(() => {
     let list = currentProducts.filter((p) => {
-      const matchesCat = selectedCategory === 'All' || p.category === selectedCategory;
+      const catNames = [
+        p.category,
+        ...(Array.isArray(p.categories) ? p.categories : []),
+      ]
+        .filter((n): n is string => Boolean(n && String(n).trim()))
+        .map((n) => n.toLowerCase());
+      const matchesCat =
+        selectedCategory === 'All' ||
+        catNames.includes(selectedCategory.toLowerCase());
       const matchesBrand = selectedBrand === 'All' || p.brand === selectedBrand;
       const matchesInStock = !inStockOnly || p.stock > 0;
+      const q = searchTerm.trim().toLowerCase();
       const matchesSearch =
-        !searchTerm.trim() ||
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.brand && p.brand.toLowerCase().includes(searchTerm.toLowerCase()));
+        !q ||
+        p.name.toLowerCase().includes(q) ||
+        (p.nameAr || '').toLowerCase().includes(q) ||
+        catNames.some((c) => c.includes(q)) ||
+        (p.brand && p.brand.toLowerCase().includes(q)) ||
+        (p.sku && p.sku.toLowerCase().includes(q));
       return matchesCat && matchesBrand && matchesInStock && matchesSearch;
     });
 
@@ -640,12 +712,22 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
             paymentStatus: paymentChoice === 'cod' ? 'pending' : 'paid',
             source: resolvedSource,
             sourceDetails: `Public Storefront Web Checkout · Source: ${resolvedSource} · Makkah Delivery (${districtSnapshot}) · ${customer.email}${utmAttrs.campaign ? ` · Campaign: ${utmAttrs.campaign}` : ''}`,
-            items: cart.map((i) => ({
-              id: i.product.id,
-              name: i.product.name,
-              quantity: i.quantity,
-              price: i.product.price,
-            })),
+            items: cart.map((i) => {
+              const optBits = i.selectedOptions
+                ? Object.entries(i.selectedOptions)
+                    .filter(([, v]) => v != null && String(v).trim() !== '')
+                    .map(([k, v]) => `${k}: ${v}`)
+                    .join(', ')
+                : '';
+              return {
+                id: i.product.id,
+                name: optBits ? `${i.product.name} (${optBits})` : i.product.name,
+                quantity: i.quantity,
+                price: cartLinePrice(i),
+                variationId: i.variationId || null,
+                selectedOptions: i.selectedOptions || null,
+              };
+            }),
           },
           {
             syncOrderFromApi,
@@ -654,7 +736,9 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
               customerName: customer.name,
               customerPhone: customer.phone || '+966 50 000 0000',
               itemsCount: cart.reduce((sum, item) => sum + item.quantity, 0),
-              itemsSummary: cart.map((i) => `${i.product.name} (x${i.quantity})`).join(', '),
+              itemsSummary: cart
+                .map((i) => `${i.product.name} (x${i.quantity})`)
+                .join(', '),
               total: totalSnapshot,
               shippingFee: shippingFee,
               shippingCompany: 'Saudi Post (SPL)',
@@ -1219,7 +1303,7 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
                         {lang === 'ar' ? 'أقسام المتجر الرئيسية' : 'Store Categories'}
                       </span>
                       <div className="space-y-1">
-                        {FLOWERS_CIRCLE_CATEGORIES.map((cat) => (
+                        {circleCategories.map((cat) => (
                           <button
                             key={cat.id}
                             type="button"
@@ -1236,7 +1320,13 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
                             }`}
                           >
                             <div className="flex items-center gap-2.5">
-                              <img src={cat.image} alt="" className="w-6 h-6 rounded-full object-cover border border-emerald-500/30" />
+                              {cat.image ? (
+                                <img src={cat.image} alt="" className="w-6 h-6 rounded-full object-cover border border-emerald-500/30" />
+                              ) : (
+                                <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black flex items-center justify-center">
+                                  {(lang === 'ar' ? cat.nameAr : cat.nameEn).slice(0, 1)}
+                                </span>
+                              )}
                               <span>{lang === 'ar' ? cat.nameAr : cat.nameEn}</span>
                             </div>
                             {typeof categoryCounts[cat.filter] === 'number' && (
@@ -1345,12 +1435,24 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
             products={currentProducts}
             lang={lang}
             money={money}
-            onAddToCart={(p, qty) => {
-              for (let i = 0; i < qty; i++) addToCart(p);
+            onAddToCart={(p, qty, pick) => {
+              for (let i = 0; i < qty; i++) {
+                addToCart(p, {
+                  variationId: pick?.variationId,
+                  selectedOptions: pick?.selectedOptions,
+                  unitPrice: pick?.unitPrice,
+                });
+              }
               setShowCartDrawer(true);
             }}
-            onBuyNow={(p, qty) => {
-              for (let i = 0; i < qty; i++) addToCart(p);
+            onBuyNow={(p, qty, pick) => {
+              for (let i = 0; i < qty; i++) {
+                addToCart(p, {
+                  variationId: pick?.variationId,
+                  selectedOptions: pick?.selectedOptions,
+                  unitPrice: pick?.unitPrice,
+                });
+              }
               setShowCartDrawer(true);
             }}
             onBackToShop={() => setSfPage('shop')}
@@ -1637,6 +1739,7 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
         {/* 6. CIRCLE CATEGORIES (images) */}
         <CircleCategories
           lang={lang}
+          categories={circleCategories}
           selectedFilter={selectedCategory}
           onSelect={(filter) => {
             setSelectedCategory(filter);
@@ -2135,7 +2238,7 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
           phone={storeIdentity.phone}
           lang={lang}
           customMenuItems={themeSettings.general.customNavigationMenu}
-          categories={FLOWERS_CIRCLE_CATEGORIES.map((c) => ({
+          categories={circleCategories.map((c) => ({
             id: c.id,
             name: lang === 'ar' ? c.nameAr : c.nameEn,
             filter: c.filter,
@@ -2289,17 +2392,18 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
               <div className="p-3 bg-emerald-50 dark:bg-emerald-950/60 rounded-2xl border border-emerald-200 dark:border-emerald-800 flex items-center justify-between">
                 <div>
                   <span className="text-[10px] text-emerald-800 dark:text-emerald-300 font-bold block">
-                    {lang === 'ar' ? 'السعر مع الضريبة (15% ZATCA)' : 'Price incl. 15% VAT'}
+                    {lang === 'ar' ? 'السعر مع الضريبة' : 'Price incl. tax'}
                   </span>
                   <span className="text-xl font-black text-emerald-950 dark:text-emerald-100">
-                    {money(quickViewProduct.price + variationDelta)}
+                    {money(quickViewUnitPrice)}
                   </span>
                 </div>
                 <button
                   onClick={() => {
-                    addToCart({
-                      ...quickViewProduct,
-                      price: quickViewProduct.price + variationDelta,
+                    addToCart(quickViewProduct, {
+                      variationId: selectedQuickVariant?.id || null,
+                      selectedOptions: selectedQuickVariant?.options || null,
+                      unitPrice: quickViewUnitPrice,
                     });
                     setQuickViewProduct(null);
                     setShowCartDrawer(true);
@@ -2311,27 +2415,34 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
                 </button>
               </div>
 
-              {FLOWERS_VARIATIONS[quickViewProduct.id] ? (
+              {quickViewVariations.length > 0 ? (
                 <div className="space-y-1.5">
                   <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
                     {lang === 'ar' ? 'اختر النوع / المقاس:' : 'Choose variation:'}
                   </span>
                   <div className="flex flex-wrap gap-1.5">
-                    {FLOWERS_VARIATIONS[quickViewProduct.id].map((v) => (
-                      <button
-                        key={v.id}
-                        type="button"
-                        onClick={() => setSelectedVariationId(v.id)}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer ${
-                          selectedVariationId === v.id
-                            ? 'bg-emerald-700 text-white border-emerald-700'
-                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
-                        }`}
-                      >
-                        {lang === 'ar' ? v.labelAr : v.labelEn}
-                        {v.priceDelta > 0 ? ` (+${money(v.priceDelta)})` : ''}
-                      </button>
-                    ))}
+                    {quickViewVariations.map((v) => {
+                      const label =
+                        Object.values(v.options || {})
+                          .filter(Boolean)
+                          .join(' / ') || v.sku;
+                      const vPrice = v.price != null ? Number(v.price) : lineSell(quickViewProduct);
+                      return (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => setSelectedVariationId(v.id)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer ${
+                            selectedVariationId === v.id
+                              ? 'bg-emerald-700 text-white border-emerald-700'
+                              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                          }`}
+                        >
+                          {label}
+                          {` · ${money(vPrice)}`}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               ) : null}
@@ -2339,7 +2450,7 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
               <div className="flex items-center gap-2 pt-1">
                 <a
                   href={whatsappOrderHref(lang, [
-                    `${quickViewProduct.name} · ${money(quickViewProduct.price + variationDelta)}`,
+                    `${quickViewProduct.name} · ${money(quickViewUnitPrice)}`,
                     `التوصيل: ${selectedMakkahDistrict}`,
                   ])}
                   target="_blank"
@@ -2399,7 +2510,7 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
                     <img src={item.product.image} alt={item.product.name} className="w-14 h-14 rounded-xl object-cover" />
                     <div className="flex-1 min-w-0">
                       <h5 className="font-bold text-xs text-slate-900 truncate">{item.product.name}</h5>
-                      <span className="text-[11px] font-bold text-emerald-700">{money(lineSell(item.product))}</span>
+                      <span className="text-[11px] font-bold text-emerald-700">{money(cartLinePrice(item))}</span>
                       <div className="text-[10px] text-slate-400 mt-0.5">الكمية: {item.quantity}</div>
                     </div>
                     <button 
@@ -2647,7 +2758,9 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
                     </span>
                   </button>
 
-                  {FLOWERS_CIRCLE_CATEGORIES.map((cat) => (
+                  {circleCategories
+                    .filter((cat) => cat.filter !== 'All')
+                    .map((cat) => (
                     <button
                       key={cat.id}
                       type="button"
@@ -2659,11 +2772,17 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
-                        <img
-                          src={cat.image}
-                          alt=""
-                          className="w-6 h-6 rounded-full object-cover shrink-0 ring-1 ring-emerald-500/20"
-                        />
+                        {cat.image ? (
+                          <img
+                            src={cat.image}
+                            alt=""
+                            className="w-6 h-6 rounded-full object-cover shrink-0 ring-1 ring-emerald-500/20"
+                          />
+                        ) : (
+                          <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black flex items-center justify-center shrink-0">
+                            {(lang === 'ar' ? cat.nameAr : cat.nameEn).slice(0, 1)}
+                          </span>
+                        )}
                         <span>{lang === 'ar' ? cat.nameAr : cat.nameEn}</span>
                       </div>
                       <span className="text-[10px] opacity-75 font-mono">

@@ -265,12 +265,14 @@ export const ProductDetailPage: React.FC = () => {
     }
     let cancelled = false;
     setReviewsLoading(true);
-    void fetchStoreReviews(storeId)
+    void fetchStoreReviews(storeId, { productId: product.id, approvedOnly: true })
       .then((rows) => {
         if (cancelled) return;
         const mapped: CustomerReview[] = (rows || [])
           .filter((r) => (r as { active?: boolean }).active !== false)
           .filter((r) => {
+            const pid = String((r as { product_id?: string }).product_id || '');
+            if (pid) return pid === product.id;
             const prod = String((r as { product?: string }).product || '');
             const prodAr = String((r as { productAr?: string }).productAr || '');
             return (
@@ -326,6 +328,7 @@ export const ProductDetailPage: React.FC = () => {
         city: newReviewLocation.trim() || undefined,
         product: product.name || product.id,
         productAr: product.nameAr || product.name,
+        product_id: product.id,
         rating: newReviewRating,
         comment: newReviewComment.trim(),
         commentAr: newReviewComment.trim(),

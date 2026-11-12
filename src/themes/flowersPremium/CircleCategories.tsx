@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Sparkles, Layers } from 'lucide-react';
-import { FLOWERS_CIRCLE_CATEGORIES } from './pack';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import type { CircleCategory } from './pack';
 
 type Props = {
   lang: string;
@@ -9,6 +9,8 @@ type Props = {
   productCounts?: Record<string, number>;
   onSelectBrand?: (brand: string) => void;
   selectedBrand?: string;
+  /** Live store categories (API). Empty → hide strip (no mock Unsplash circles). */
+  categories?: CircleCategory[];
 };
 
 export const CircleCategories: React.FC<Props> = ({
@@ -16,8 +18,8 @@ export const CircleCategories: React.FC<Props> = ({
   selectedFilter,
   onSelect,
   productCounts,
-  onSelectBrand,
   selectedBrand,
+  categories = [],
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -52,6 +54,11 @@ export const CircleCategories: React.FC<Props> = ({
   };
 
   const isAr = lang === 'ar';
+  const list = categories;
+
+  if (list.length === 0) {
+    return null;
+  }
 
   return (
     <div className="w-full relative px-2 sm:px-6 pt-4 pb-2 group/slider">
@@ -85,7 +92,7 @@ export const CircleCategories: React.FC<Props> = ({
         className="w-full flex items-center justify-between sm:justify-around gap-3 sm:gap-6 md:gap-8 overflow-x-auto scrollbar-none px-2 py-3 select-none scroll-smooth"
         style={{ scrollSnapType: 'x mandatory' }}
       >
-        {FLOWERS_CIRCLE_CATEGORIES.map((cat) => {
+        {list.map((cat) => {
           const active = selectedFilter === cat.filter && !selectedBrand;
           const count = productCounts
             ? cat.filter === 'All'
@@ -115,12 +122,25 @@ export const CircleCategories: React.FC<Props> = ({
                       : 'var(--sf-surface, #ffffff)',
                   }}
                 >
-                  <img
-                    src={cat.image}
-                    alt={isAr ? cat.nameAr : cat.nameEn}
-                    className="w-full h-full object-cover rounded-full group-hover:scale-110 transition-transform duration-500"
-                    loading="lazy" decoding="async"
-                  />
+                  {cat.image ? (
+                    <img
+                      src={cat.image}
+                      alt={isAr ? cat.nameAr : cat.nameEn}
+                      className="w-full h-full object-cover rounded-full group-hover:scale-110 transition-transform duration-500"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  ) : (
+                    <div
+                      className="w-full h-full rounded-full flex items-center justify-center text-lg font-black"
+                      style={{
+                        background: 'color-mix(in srgb, var(--accent, #059669) 18%, #f8fafc)',
+                        color: 'var(--accent, #059669)',
+                      }}
+                    >
+                      {(isAr ? cat.nameAr : cat.nameEn).slice(0, 1)}
+                    </div>
+                  )}
                 </div>
 
                 {/* Count Badge */}

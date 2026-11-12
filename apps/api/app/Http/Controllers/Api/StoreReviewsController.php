@@ -23,9 +23,23 @@ class StoreReviewsController extends Controller
             return $id;
         }
 
+        $reviews = $this->readReviews($id);
+        $onlyApproved = $request->boolean('approved_only', ! $request->user());
+        if ($onlyApproved) {
+            $reviews = array_values(array_filter($reviews, static fn ($row) => (bool) ($row['active'] ?? false)));
+        }
+        $productId = trim((string) $request->query('product_id', ''));
+        if ($productId !== '') {
+            $reviews = array_values(array_filter($reviews, static function ($row) use ($productId) {
+                $pid = trim((string) ($row['product_id'] ?? ''));
+
+                return $pid !== '' && $pid === $productId;
+            }));
+        }
+
         return response()->json([
             'success' => true,
-            'data' => $this->readReviews($id),
+            'data' => $reviews,
             'store_id' => $id,
         ]);
     }

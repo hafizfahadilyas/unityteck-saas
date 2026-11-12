@@ -22,7 +22,7 @@ import { saudiCitiesAsEnAr, loadSaudiCityCatalog } from '../../../data/saudiCiti
 import { useSaudiCityOptions } from '../../../hooks/useSaudiCityOptions';
 
 export const CheckoutPage: React.FC = () => {
-  const { cart, cartTotal, clearCart, navigateTo, language, setLastOrder, user, updateSignedInContact } = useCart();
+  const { cart, cartTotal, clearCart, navigateTo, language, setLastOrder, user, updateSignedInContact, products } = useCart();
   const { addOrder, activeStore, syncOrderFromApi } = useTenant();
   const { catalog } = useSaudiCityOptions(activeStore?.id);
   const saudiCities = useMemo(
@@ -225,12 +225,27 @@ export const CheckoutPage: React.FC = () => {
         campaign: traffic.campaign,
         utmTerm: traffic.utmTerm,
         utmContent: traffic.utmContent,
-        items: lineItems.map((item) => ({
-          id: item.id,
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-        })),
+        items: cart.map((it) => {
+          const catalog = products.find((p) => String(p.id) === String(it.productId));
+          const notes = Array.isArray(it.purchaseNotes) ? it.purchaseNotes.filter(Boolean) : [];
+          const selected = {
+            ...(it.selectedOptions || {}),
+            ...(it.optionSummary ? { _option_summary: it.optionSummary } : {}),
+            ...(notes.length ? { _purchase_notes: notes.join(' | ') } : {}),
+          };
+          return {
+            id: it.productId,
+            name: it.optionSummary ? `${it.productName} (${it.optionSummary})` : it.productName,
+            quantity: it.quantity || 1,
+            price: it.unitPrice || 0,
+            variationId: it.variationId || null,
+            selectedOptions: Object.keys(selected).length ? selected : null,
+            sku: (catalog as { sku?: string } | undefined)?.sku || null,
+            brand: (catalog as { brand?: string } | undefined)?.brand || null,
+            category: (catalog as { category?: string } | undefined)?.category || null,
+            imageUrl: it.image || (catalog as { images?: string[] } | undefined)?.images?.[0] || null,
+          };
+        }),
       },
       {
         syncOrderFromApi,

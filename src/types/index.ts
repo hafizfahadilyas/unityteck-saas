@@ -219,6 +219,8 @@ export interface Product {
   isActive?: boolean;
   isStale: boolean;
   publishedAt: string;
+  /** Future publish time when status is draft (scheduled visibility). */
+  scheduledPublishAt?: string | null;
   image: string;
   imageVersion?: string | null;
   galleryUrls?: string[];
@@ -506,6 +508,12 @@ export interface OrderItemDetail {
   quantity: number;
   total: number;
   image?: string;
+  productId?: string;
+  variationId?: string | null;
+  /** Customer-chosen options / custom fields at checkout (store-isolated snapshot). */
+  selectedOptions?: Record<string, string | number | boolean | string[]> | null;
+  brand?: string | null;
+  category?: string | null;
 }
 
 export type CodStatus = 'not_cod' | 'pending_collection' | 'collected_by_courier' | 'remitted_to_bank' | 'failed_collection';
