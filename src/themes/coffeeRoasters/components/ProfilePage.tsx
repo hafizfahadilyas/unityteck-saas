@@ -255,41 +255,64 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
     }
   };
 
-  // Real store orders for this customer
-  const matchedTenantOrders = (currentOrders || []).filter(o => 
-    (user.phone && o.customerPhone && o.customerPhone.includes(user.phone)) ||
-    (user.email && o.customerEmail && o.customerEmail.toLowerCase() === user.email.toLowerCase())
-  ).map((o: any) => ({
-    id: o.orderNumber || o.id,
-    orderNumber: o.orderNumber || o.id,
-    date: o.date || new Date().toLocaleDateString('en-GB'),
-    items: (o.items || []).map((it: any) => ({
-      id: it.id || 'item',
-      productId: it.sku || it.id,
-      productName: it.name,
-      unitPrice: it.price || 0,
-      quantity: it.quantity || 1,
-      image: it.image || '/images/coffee_hero_flagship_machine_1791218907782.jpg',
-      selectedColor: { name: 'Standard', nameAr: 'قياسي', hex: '#333', image: it.image || '' },
-      selectedStorage: { capacity: 'Standard', ram: '', priceDelta: 0 },
-    })),
-    total: o.total || 0,
-    paymentMethod: String(o.paymentMethod || 'mada'),
-    shippingAddress: {
-      name: o.customerName || user.name,
-      phone: o.customerPhone || user.phone,
-      city: o.deliveryLocation || '',
-      district: '',
-      street: '',
-    },
-    status: o.status || 'Confirmed'
-  }));
+  useEffect(() => {
+    try {
+      const s = sessionStorage.getItem('coffee_profile_section') || 'account';
+      sessionStorage.removeItem('coffee_profile_section');
+      const el = document.getElementById(`coffee-profile-${s}`);
+      if (el) {
+        window.setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  // Real store orders for this customer — this store_id only
+  const matchedTenantOrders = (currentOrders || [])
+    .filter((o) => !o.storeId || !activeStore?.id || o.storeId === activeStore.id)
+    .filter(
+      (o) =>
+        (user.phone && o.customerPhone && o.customerPhone.includes(user.phone)) ||
+        (user.email && o.customerEmail && o.customerEmail.toLowerCase() === user.email.toLowerCase()),
+    )
+    .map((o: any) => ({
+      id: o.orderNumber || o.id,
+      orderNumber: o.orderNumber || o.id,
+      date: o.date || new Date().toLocaleDateString('en-GB'),
+      paymentStatus: o.paymentStatus || 'Pending',
+      items: (o.items || []).map((it: any) => ({
+        id: it.id || 'item',
+        productId: it.sku || it.id,
+        productName: it.name,
+        unitPrice: it.price || 0,
+        quantity: it.quantity || 1,
+        image: it.image || '/images/coffee_hero_flagship_machine_1791218907782.jpg',
+        selectedColor: { name: 'Standard', nameAr: 'قياسي', hex: '#333', image: it.image || '' },
+        selectedStorage: { capacity: 'Standard', ram: '', priceDelta: 0 },
+      })),
+      total: o.total || 0,
+      paymentMethod: String(o.paymentMethod || 'mada'),
+      shippingAddress: {
+        name: o.customerName || user.name,
+        phone: o.customerPhone || user.phone,
+        city: o.deliveryLocation || '',
+        district: '',
+        street: '',
+      },
+      status: o.status || 'Confirmed',
+    }));
 
   const allOrders = [
     ...(lastOrder ? [lastOrder] : []),
     ...(user.orders || []),
-    ...matchedTenantOrders
-  ].filter((v, i, a) => a.findIndex(t => t.orderNumber === v.orderNumber) === i);
+    ...matchedTenantOrders,
+  ].filter((v, i, a) => a.findIndex((t) => t.orderNumber === v.orderNumber) === i);
+
+  const pendingPaymentOrders = allOrders.filter((o: any) => {
+    const ps = String(o.paymentStatus || o.status || '').toLowerCase();
+    return ps === 'pending' || ps === 'unpaid' || ps === 'awaiting_payment';
+  });
 
   if (!user.isLoggedIn) {
     return (
@@ -506,18 +529,79 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
           </div>
         </div>
 
-        {activeStore?.id && sfCustomer?.customerId ? (
-          <CustomerLoyaltyProfileSection
-            storeId={activeStore.id}
-            customerId={sfCustomer.customerId}
-            customerName={user.name || sfCustomer.name}
-            customerEmail={user.email || sfCustomer.email}
-            customerPhone={user.phone || sfCustomer.phone}
-          />
-        ) : null}
+        <div id="coffee-profile-account" className="scroll-mt-24" />
+        <div id="coffee-profile-settings" className="scroll-mt-24" />
+        <div id="coffee-profile-notifications" className="rounded-2xl border border-neutral-100 bg-[#F8F9FA] p-5 scroll-mt-24">
+          <h2 className="text-sm font-bold text-neutral-900 mb-1">
+            {language === 'AR' ? 'الإشعارات' : 'Notifications'}
+          </h2>
+          <p className="text-xs text-neutral-500">
+            {language === 'AR'
+              ? 'لا توجد إشعارات جديدة لهذا المتجر.'
+              : 'No new notifications for this store.'}
+          </p>
+        </div>
+
+        <div id="coffee-profile-wishlist" className="rounded-2xl border border-neutral-100 bg-[#F8F9FA] p-5 scroll-mt-24">
+          <h2 className="text-sm font-bold text-neutral-900 mb-1">
+            {language === 'AR' ? 'المفضلة' : 'Wishlist'}
+          </h2>
+          <p className="text-xs text-neutral-500">
+            {language === 'AR' ? 'قائمة المفضلة فارغة لهذا المتجر.' : 'Wishlist is empty for this store.'}
+          </p>
+        </div>
+
+        <div id="coffee-profile-wallet" className="rounded-2xl border border-neutral-100 bg-[#F8F9FA] p-5 scroll-mt-24">
+          <h2 className="text-sm font-bold text-neutral-900 mb-1">
+            {language === 'AR' ? 'محفظتي' : 'My wallet'}
+          </h2>
+          <p className="text-xs text-neutral-500">
+            {language === 'AR'
+              ? 'رصيد المحفظة يظهر هنا بعد عمليات حقيقية في هذا المتجر.'
+              : 'Wallet balance appears here after real activity in this store.'}
+          </p>
+        </div>
+
+        <div id="coffee-profile-loyalty" className="scroll-mt-24">
+          {activeStore?.id && sfCustomer?.customerId ? (
+            <CustomerLoyaltyProfileSection
+              storeId={activeStore.id}
+              customerId={sfCustomer.customerId}
+              customerName={user.name || sfCustomer.name}
+              customerEmail={user.email || sfCustomer.email}
+              customerPhone={user.phone || sfCustomer.phone}
+            />
+          ) : (
+            <div className="rounded-2xl border border-neutral-100 bg-[#F8F9FA] p-5">
+              <h2 className="text-sm font-bold text-neutral-900 mb-1">
+                {language === 'AR' ? 'نقاط الولاء' : 'Loyalty points'}
+              </h2>
+              <p className="text-xs text-neutral-500">
+                {loyaltyPoints} {language === 'AR' ? 'نقطة في هذا المتجر' : 'points in this store'}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div id="coffee-profile-pending_payment" className="space-y-3 scroll-mt-24">
+          <h2 className="text-xl font-bold text-neutral-900 flex items-center gap-2">
+            <Package className="w-5 h-5 text-amber-600" />
+            <span>{language === 'AR' ? 'بانتظار الدفع' : 'Pending payment'}</span>
+          </h2>
+          {pendingPaymentOrders.length === 0 ? (
+            <p className="text-xs text-neutral-500 rounded-2xl border border-neutral-100 bg-[#F8F9FA] p-4">
+              {language === 'AR' ? 'لا توجد طلبات بانتظار الدفع.' : 'No orders awaiting payment.'}
+            </p>
+          ) : (
+            <p className="text-xs font-mono text-amber-800">
+              {pendingPaymentOrders.length}{' '}
+              {language === 'AR' ? 'طلبات بانتظار الدفع' : 'orders awaiting payment'}
+            </p>
+          )}
+        </div>
 
         {/* Order History */}
-        <div className="space-y-4">
+        <div id="coffee-profile-orders" className="space-y-4 scroll-mt-24">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-neutral-900 flex items-center gap-2">
               <Package className="w-5 h-5 text-neutral-700" />

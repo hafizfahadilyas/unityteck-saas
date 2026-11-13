@@ -76,6 +76,22 @@ export const UserCrmPage: React.FC = () => {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   useEffect(() => {
+    try {
+      const section = sessionStorage.getItem('flowers_profile_section');
+      if (!section) return;
+      sessionStorage.removeItem('flowers_profile_section');
+      if (section === 'wishlist') setActiveTab('wishlist');
+      else if (section === 'loyalty' || section === 'wallet') setActiveTab('loyalty');
+      else if (section === 'settings') setActiveTab('addresses');
+      else if (section === 'pending_payment' || section === 'orders' || section === 'notifications' || section === 'account') {
+        setActiveTab('orders');
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
     let isMounted = true;
     const loadRewards = async () => {
       try {

@@ -113,11 +113,8 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
   type BuyTabType = 'configure' | 'bundles' | 'features' | 'specs' | 'reviews' | 'faq';
   const [activeBuyTab, setActiveBuyTab] = useState<BuyTabType>('configure');
 
-  const defaultColor: ProductColor = product?.colors?.[0] || { name: 'Default', hex: '#1c1917', image: product?.image || '' };
-  const defaultStorage: StorageOption = product?.storageOptions?.[0] || { capacity: 'Standard', ram: 'Default', priceDelta: 0 };
-
-  const [selectedColor, setSelectedColor] = useState<ProductColor>(defaultColor);
-  const [selectedStorage, setSelectedStorage] = useState<StorageOption>(defaultStorage);
+  const [selectedColor, setSelectedColor] = useState<ProductColor | undefined>(product?.colors?.[0]);
+  const [selectedStorage, setSelectedStorage] = useState<StorageOption | undefined>(product?.storageOptions?.[0]);
   const [selectedWarranty, setSelectedWarranty] = useState<WarrantyOption | undefined>(undefined);
   const [selectedBundles, setSelectedBundles] = useState<BundleOption[]>([]);
   const [quantity, setQuantity] = useState(1);
@@ -133,11 +130,11 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
     return product?.specComparisonImage || specInfographicImg;
   }, [product?.specComparisonImage, product?.specComparisonImageAr, language]);
 
-  // Sync state whenever selectedProduct changes
+  // Sync state whenever selectedProduct changes — no fake Default/Standard when empty
   useEffect(() => {
     if (product) {
-      setSelectedColor(product.colors?.[0] || defaultColor);
-      setSelectedStorage(product.storageOptions?.[0] || defaultStorage);
+      setSelectedColor(product.colors?.[0]);
+      setSelectedStorage(product.storageOptions?.[0]);
       setSelectedBundles([]);
       setSelectedWarranty(undefined);
       setActiveImageIndex(0);
@@ -440,11 +437,15 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
     }
   };
 
-  const effectiveSelectedColor: ProductColor = {
-    ...selectedColor,
-    image: currentDisplayImage,
-    priceDelta: colorOrImagePriceDelta,
-  };
+  const effectiveSelectedColor: ProductColor | undefined = selectedColor
+    ? {
+        ...selectedColor,
+        image: currentDisplayImage,
+        priceDelta: colorOrImagePriceDelta,
+      }
+    : undefined;
+  const hasLegacyColors = !useDynamicOptions && productColors.length > 0;
+  const hasLegacyStorage = !useDynamicOptions && (product?.storageOptions?.length || 0) > 0;
 
   const optionSummary = liveOptions
     .map((opt) => {
@@ -455,6 +456,11 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
     })
     .filter(Boolean)
     .join(' · ');
+  const badgeLabel = useDynamicOptions && optionSummary
+    ? optionSummary
+    : selectedStorage
+      ? (language === 'AR' && selectedStorage.capacityAr ? selectedStorage.capacityAr : selectedStorage.capacity)
+      : (language === 'AR' ? (product?.badgeAr || product?.badge || '') : (product?.badge || ''));
   const blockedReason = !product
     ? null
     : missingRequiredField(
@@ -478,7 +484,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
     }
     if (e) {
       const rect = e.currentTarget.getBoundingClientRect();
-      triggerFlyToCart(rect, currentDisplayImage || product.colors[0]?.image);
+      triggerFlyToCart(rect, currentDisplayImage || product.colors?.[0]?.image);
     }
     const notes = purchaseNotes(
       purchaseFields as never,
@@ -489,9 +495,9 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
     const labels = optionSummary.split(' · ').filter(Boolean);
     const colorForCart = useDynamicOptions
       ? {
-          ...effectiveSelectedColor,
-          name: labels[0] || effectiveSelectedColor.name,
-          nameAr: labels[0] || effectiveSelectedColor.nameAr,
+          name: labels[0] || effectiveSelectedColor?.name || '',
+          nameAr: labels[0] || effectiveSelectedColor?.nameAr || '',
+          hex: effectiveSelectedColor?.hex || '#1c1917',
           image: currentDisplayImage,
           priceDelta: 0,
         }
@@ -534,9 +540,9 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
     const labels = optionSummary.split(' · ').filter(Boolean);
     const colorForCart = useDynamicOptions
       ? {
-          ...effectiveSelectedColor,
-          name: labels[0] || effectiveSelectedColor.name,
-          nameAr: labels[0] || effectiveSelectedColor.nameAr,
+          name: labels[0] || effectiveSelectedColor?.name || '',
+          nameAr: labels[0] || effectiveSelectedColor?.nameAr || '',
+          hex: effectiveSelectedColor?.hex || '#1c1917',
           image: currentDisplayImage,
           priceDelta: 0,
         }
@@ -593,8 +599,10 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
       await submitStoreReviewApi(storeId, {
         author,
         city: newCity.trim() || undefined,
-        product: `${product.name} / ${selectedColor?.name || 'Default'}`,
-        productAr: `${product.nameAr || product.name} / ${selectedColor?.nameAr || selectedColor?.name || 'الافتراضي'}`,
+        product: selectedColor?.name ? `${product.name} / ${selectedColor.name}` : product.name,
+        productAr: selectedColor?.nameAr || selectedColor?.name
+          ? `${product.nameAr || product.name} / ${selectedColor.nameAr || selectedColor.name}`
+          : (product.nameAr || product.name),
         product_id: product.id,
         rating: newRating,
         comment: newComment.trim(),
@@ -851,16 +859,14 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               onMouseMove={handleMouseMove}
               className="relative w-full h-[300px] sm:h-[350px] flex items-center justify-center select-none bg-white py-2 px-4 group cursor-zoom-in overflow-hidden rounded-2xl"
             >
-              {/* Top-left Spec badge pill (Matches Image 1: Standard 58mm Kit) */}
+              {/* Top-left Spec badge pill — only when real option/badge exists */}
+              {badgeLabel ? (
               <div className="absolute top-2 left-2 sm:top-3 sm:left-4 z-20 pointer-events-none">
                 <span className="px-3.5 sm:px-4 py-1 sm:py-1.5 rounded-full border border-[#D2D2D7] bg-white text-neutral-800 font-normal text-[12px] sm:text-[13px] tracking-wide inline-block shadow-none">
-                  {useDynamicOptions && optionSummary
-                    ? optionSummary
-                    : selectedStorage
-                    ? (language === 'AR' && selectedStorage.capacityAr ? selectedStorage.capacityAr : selectedStorage.capacity)
-                    : (language === 'AR' ? (product.badgeAr || product.badge || 'طقم بورتفلتر 58 مم') : (product.badge || 'Standard 58mm Kit'))}
+                  {badgeLabel}
                 </span>
               </div>
+              ) : null}
 
               {/* Main Product Image (Direct, Unobstructed — gift strip sits below, no overlay) */}
               <img
@@ -1065,13 +1071,13 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               <h1 className={`text-xl sm:text-2xl font-black text-neutral-900 ${
                 language === 'AR' ? 'leading-[1.4] tracking-normal' : 'leading-snug tracking-[-0.01em]'
               }`}>
-                {language === 'AR' && product.nameAr ? product.nameAr : product.name}{' '}
+                {language === 'AR' && product.nameAr ? product.nameAr : product.name}
                 {useDynamicOptions && optionSummary
-                  ? optionSummary
+                  ? ` ${optionSummary}`
                   : (
                     <>
-                      {selectedStorage ? `${(language === 'AR' && selectedStorage.capacityAr ? selectedStorage.capacityAr : selectedStorage.capacity)} ` : ''}
-                      {language === 'AR' && selectedColor?.nameAr ? selectedColor.nameAr : selectedColor?.name}
+                      {selectedStorage ? ` ${(language === 'AR' && selectedStorage.capacityAr ? selectedStorage.capacityAr : selectedStorage.capacity)}` : ''}
+                      {selectedColor ? ` ${(language === 'AR' && selectedColor.nameAr ? selectedColor.nameAr : selectedColor.name)}` : ''}
                     </>
                   )}
               </h1>
@@ -1238,9 +1244,8 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               </p>
             )}
 
-            {/* 2. COLOR SELECTION — catalog products that have no saved option rows */}
-            {!useDynamicOptions && (
-            <>
+            {/* 2. COLOR SELECTION — only real colors (never fake Default) */}
+            {hasLegacyColors && (
             <div className="space-y-3 pt-3 border-t border-neutral-100">
               <h2 className="text-base font-extrabold text-neutral-900 tracking-tight">
                 {language === 'AR' ? 'اللون' : 'Color'}
@@ -1248,7 +1253,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
 
               {/* Swatch circular dots */}
               <div className="flex items-center gap-4">
-                {product.colors.map((c, idx) => {
+                {productColors.map((c, idx) => {
                   const isSelected = selectedColor?.name === c.name;
                   return (
                     <button
@@ -1280,9 +1285,10 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                 </div>
               </div>
             </div>
+            )}
 
             {/* 3. SPECIFICATION EDITIONS (Screenshot 2 Rounded Cards) */}
-            {product.storageOptions && product.storageOptions.length > 0 && (
+            {hasLegacyStorage && product.storageOptions && (
               <div className="space-y-3 pt-3 border-t border-neutral-100">
                 <h2 className="text-base font-extrabold text-neutral-900 tracking-tight">
                   {language === 'AR' ? 'الإصدار / المواصفات' : 'Specification / Edition'}
@@ -1318,8 +1324,6 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                   })}
                 </div>
               </div>
-            )}
-            </>
             )}
 
             {/* 4. OPTIONAL BARISTA ADD-ONS / BUNDLES */}
@@ -1401,17 +1405,25 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                       {language === 'AR' && product.nameAr ? product.nameAr : product.name}
                       {useDynamicOptions && optionSummary
                         ? ` — ${optionSummary}`
-                        : ` ${selectedStorage ? `(${language === 'AR' && selectedStorage.capacityAr ? selectedStorage.capacityAr : selectedStorage.capacity})` : ''} - ${language === 'AR' && selectedColor?.nameAr ? selectedColor.nameAr : selectedColor?.name}`}
+                        : `${selectedStorage ? ` (${language === 'AR' && selectedStorage.capacityAr ? selectedStorage.capacityAr : selectedStorage.capacity})` : ''}${selectedColor ? ` - ${language === 'AR' && selectedColor.nameAr ? selectedColor.nameAr : selectedColor.name}` : ''}`}
                     </h4>
+                    {(useDynamicOptions && optionSummary) || selectedColor || selectedStorage ? (
                     <p className="text-xs text-neutral-500">
                       {useDynamicOptions && optionSummary
                         ? optionSummary
                         : (
                           <>
-                            {language === 'AR' ? 'اللون:' : 'Color:'} {language === 'AR' && selectedColor?.nameAr ? selectedColor.nameAr : selectedColor?.name} · {selectedStorage ? (language === 'AR' && selectedStorage.capacityAr ? selectedStorage.capacityAr : selectedStorage.capacity) : (language === 'AR' ? 'الإصدار المعتمد' : 'Standard Edition')}
+                            {selectedColor
+                              ? `${language === 'AR' ? 'اللون:' : 'Color:'} ${language === 'AR' && selectedColor.nameAr ? selectedColor.nameAr : selectedColor.name}`
+                              : null}
+                            {selectedColor && selectedStorage ? ' · ' : null}
+                            {selectedStorage
+                              ? (language === 'AR' && selectedStorage.capacityAr ? selectedStorage.capacityAr : selectedStorage.capacity)
+                              : null}
                           </>
                         )}
                     </p>
+                    ) : null}
                   </div>
                   <span className="font-bold text-xs sm:text-sm text-neutral-900 shrink-0 font-sans">
                     {language === 'AR' ? `${unitPrice.toLocaleString()}.00 ر.س` : `SAR ${unitPrice.toLocaleString()}.00`}

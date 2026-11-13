@@ -198,9 +198,25 @@ async function uploadTarget(target) {
   const remoteRoot = (target.dir.startsWith('/') ? target.dir : `/${target.dir}`).replace(/\/$/, '') || '';
   let client = await openClient(target);
   const readyDirs = new Set();
+  // Only hashes we successfully upload (or already had from a prior real upload).
+  // Never invent hashes for files that never left the laptop — that caused 404 SPA shells.
   const nextManifest = { ...prev };
   let sent = 0;
+
+  const resetCwd = async () => {
+    try {
+      await client.cd(remoteRoot || '/');
+    } catch {
+      try {
+        await client.cd('/');
+      } catch {
+        /* ignore */
+      }
+    }
+  };
+
   try {
+    await resetCwd();
     for (const file of queue) {
       const remotePath = `${remoteRoot}/${file.rel}`.replace(/\/{2,}/g, '/');
       const parent = path.posix.dirname(remotePath);
@@ -213,6 +229,9 @@ async function uploadTarget(target) {
           }
           if (!readyDirs.has(parent)) {
             await client.ensureDir(parent);
+            // basic-ftp ensureDir leaves CWD inside that folder — absolute uploads then
+            // land under nested paths and the SPA gets 404 for /assets/*.js
+            await resetCwd();
             readyDirs.add(parent);
           }
           await client.uploadFrom(file.full, remotePath);
@@ -245,12 +264,14 @@ async function uploadTarget(target) {
           readyDirs.clear();
           await new Promise((r) => setTimeout(r, 1000 * attempts));
           client = await openClient(target);
+          await resetCwd();
         }
       }
     }
-    // Keep hashes for unchanged files still present in dist
-    for (const f of all) {
-      if (!nextManifest[f.rel]) nextManifest[f.rel] = f.hash;
+    // Drop manifest entries for files no longer in dist (stale hashes).
+    const liveRels = new Set(all.map((f) => f.rel));
+    for (const key of Object.keys(nextManifest)) {
+      if (!liveRels.has(key)) delete nextManifest[key];
     }
     saveManifest(target.name, nextManifest);
     console.log(`Uploaded ${sent} files → ${target.label}`);

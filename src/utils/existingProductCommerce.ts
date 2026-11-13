@@ -1,11 +1,10 @@
 /**
  * Load the options, values, and spec fields a product already has.
- * Saved rows win. Empty rows are filled from real variation maps, then from
- * the coffee catalog that the storefront already sells. Nothing is invented.
- * Missing Arabic labels are enriched from catalog / known bilingual map (locale rule).
+ * Saved productOptions win. Else rebuild from real variation rows.
+ * Never borrow another store’s / static coffee catalog pack (full store isolation).
+ * Missing Arabic labels are enriched from known bilingual map (locale rule).
  */
 import type { Product, ProductCustomField, ProductOptionDefinition, ProductOptionValueItem, ProductVariation } from '../types';
-import { PRODUCTS } from '../themes/coffeeRoasters/data/products';
 import {
   arabicOptionNameFor,
   canonicalOptionName,
@@ -34,11 +33,6 @@ function dedupeByLabel<T extends { label: string }>(rows: T[]): T[] {
     out.push(row);
   }
   return out;
-}
-
-function extraOrNull(n: number | undefined): number | null {
-  if (n == null || !Number.isFinite(n) || n === 0) return null;
-  return n;
 }
 
 const OPTION_NAME_AR: Record<string, string> = {
@@ -227,81 +221,19 @@ export function mergeBilingualProductOptions(
   return out;
 }
 
-function optionsFromCatalog(product: Product, storeId: string): {
+/** No static coffee pack follow — commerce comes only from this product’s saved rows. */
+function optionsFromCatalog(_product: Product, _storeId: string): {
   options: ProductOptionDefinition[];
   fields: ProductCustomField[];
 } {
-  if (storeId !== 'store-coffee') return { options: [], fields: [] };
-  const match = PRODUCTS.find(
-    (row) => row.id === product.id || row.id.toLowerCase() === String(product.sku || '').toLowerCase(),
-  );
-  if (!match) return { options: [], fields: [] };
+  return { options: [], fields: [] };
+}
 
-  const options: ProductOptionDefinition[] = [];
-  const colors = dedupeByLabel(
-    (match.colors || []).map((color) => ({
-      id: slug(color.name),
-      label: color.name,
-      labelAr: color.nameAr,
-      colorHex: color.hex,
-      imageUrl: color.image,
-      selected: true,
-      price: extraOrNull(color.priceDelta),
-      salePrice: extraOrNull(color.priceDelta),
-    })),
-  );
-  if (colors.length > 0) {
-    options.push({
-      id: 'color',
-      name: 'Color',
-      nameAr: 'اللون',
-      type: 'color',
-      visible: true,
-      values: colors,
-    });
-  }
-
-  const editions = dedupeByLabel(
-    (match.storageOptions || []).map((row) => ({
-      id: slug(row.capacity),
-      label: row.capacity,
-      labelAr: row.capacityAr,
-      selected: true,
-      price: extraOrNull(row.priceDelta),
-      salePrice: extraOrNull(row.priceDelta),
-    })),
-  );
-  if (editions.length > 0) {
-    options.push({
-      id: 'edition',
-      name: 'Edition',
-      nameAr: 'الإصدار',
-      type: 'select',
-      visible: true,
-      values: editions,
-    });
-  }
-
-  const fields: ProductCustomField[] = [];
-  const seenFields = new Set<string>();
-  for (const spec of match.specs || []) {
-    const name = String(spec.label || '').trim();
-    const key = name.toLowerCase();
-    if (!name || seenFields.has(key)) continue;
-    seenFields.add(key);
-    fields.push({
-      id: `catalog-spec-${slug(name)}`,
-      name,
-      nameAr: spec.labelAr,
-      type: 'Content',
-      required: false,
-      contentEn: spec.value,
-      contentAr: spec.valueAr || spec.value,
-      extraPrice: 0,
-      options: [],
-    });
-  }
-  return { options, fields };
+/** Rebuild option definitions from variation option maps (Color Black/Silver → Color option). */
+export function optionsFromVariationRows(
+  variations: ProductVariation[] | null | undefined,
+): ProductOptionDefinition[] {
+  return mergeBilingualProductOptions(optionsFromVariations(variations || []));
 }
 
 function savedOptions(product: Product): ProductOptionDefinition[] {
@@ -363,15 +295,17 @@ export function seedExistingCommerce(product: Product, storeId: string): {
   fields: ProductCustomField[];
   variations: ProductVariation[];
 } {
+  void storeId;
   const catalog = optionsFromCatalog(product, storeId);
   const saved = savedOptions(product);
-  const fromRows = optionsFromVariations(product.variations || []);
-  const base = saved.length > 0 ? saved : fromRows.length > 0 ? fromRows : catalog.options;
+  const fromRows = optionsFromVariationRows(product.variations || []);
+  // Saved options first; else auto-show every option found on real variation rows.
+  const base = saved.length > 0 ? saved : fromRows;
   const options = mergeBilingualProductOptions(enrichOptionsAr(base, catalog.options));
   const fields =
     Array.isArray(product.customFields) && product.customFields.length > 0
       ? product.customFields
-      : catalog.fields;
+      : [];
   const variations = normalizeCommerceVariations(
     Array.isArray(product.variations) ? product.variations : [],
   );

@@ -3,6 +3,7 @@ import { useTenant } from '../../context/TenantContext';
 import { FloatingPopover } from '../common/FloatingPopover';
 import {
   fetchProductsPage,
+  fetchProduct,
   fetchStorefrontCatalogPage,
   fetchCategories,
   restoreProduct as restoreProductApi,
@@ -84,6 +85,7 @@ import { ProductFiltersPanel, type ProductFilterCriteria } from './ProductFilter
 import { getProductChannelLabel } from '../../config/productChannels';
 import { resolveGoogleTaxonomyLabel } from '../../config/googleProductTaxonomy';
 import { mergeProductCatalogExtras } from '../../utils/productCatalogExtras';
+import { ProductCategoryMultiPicker } from './ProductCategoryMultiPicker';
 
 /**
  * StoreProducts — Store Admin Products & Catalog Directory & Editor
@@ -126,6 +128,8 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
   const [gridCols, setGridCols] = useState<3 | 4 | 5 | 6>(3);
   const [isSideDrawerOpen, setIsSideDrawerOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  /** Full product (options + variations) fetched on edit open — list rows may omit them. */
+  const [editingProductDetail, setEditingProductDetail] = useState<Product | null>(null);
   /** Unsaved manual create draft — never persisted until user clicks Save */
   const [creatingProduct, setCreatingProduct] = useState<Product | null>(null);
 
@@ -406,12 +410,13 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
   const editingProduct = useMemo(() => {
     if (creatingProduct) return creatingProduct;
     if (!editingProductId) return null;
+    if (editingProductDetail?.id === editingProductId) return editingProductDetail;
     return (
       apiRows.find((p) => p.id === editingProductId) ||
       currentProducts.find((p) => p.id === editingProductId) ||
       null
     );
-  }, [creatingProduct, currentProducts, editingProductId, apiRows]);
+  }, [creatingProduct, currentProducts, editingProductId, apiRows, editingProductDetail]);
   const isCreatingProduct = Boolean(creatingProduct);
 
   // ── 4 KPI Summary Cards matching Mockup 06 (Store Scoped) ──
@@ -699,6 +704,24 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
     updateProduct(productId, { [field]: value }, activeStore.id);
   };
 
+  const productSelectedCategories = (prod: Product): string[] => {
+    if (Array.isArray(prod.categories) && prod.categories.length > 0) {
+      return prod.categories.filter(Boolean);
+    }
+    return prod.category ? [prod.category] : [];
+  };
+
+  const handleInlineCategoriesChange = (productId: string, next: string[], primary: string) => {
+    updateProduct(
+      productId,
+      {
+        categories: next,
+        category: primary || next[0] || '',
+      },
+      activeStore.id,
+    );
+  };
+
   // Checkbox handlers
   const toggleSelectAll = () => {
     if (selectedProductIds.length === pagedProducts.length) {
@@ -714,15 +737,25 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
     );
   };
 
-  // Open Edit Mode (Side Drawer or Full View)
+  // Open Edit Mode (Side Drawer or Full View) — hydrate full options/variations from API
   const handleOpenEdit = (product: Product, openAsFullPage = false) => {
     setCreatingProduct(null);
     setEditingProductId(product.id);
+    setEditingProductDetail(product);
     if (openAsFullPage) {
       setCurrentView('edit');
       setIsSideDrawerOpen(false);
     } else {
       setIsSideDrawerOpen(true);
+    }
+    if (isApiEnabled() && activeStore?.id) {
+      void fetchProduct(activeStore.id, product.id)
+        .then((full) => {
+          setEditingProductDetail(full);
+        })
+        .catch(() => {
+          /* keep list row; editor still loads variations via fetchVariations */
+        });
     }
   };
 
@@ -772,6 +805,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
     };
     setCreatingProduct(draft);
     setEditingProductId(null);
+    setEditingProductDetail(null);
     setIsSideDrawerOpen(false);
     setCurrentView('edit');
   }, [activeStore.id, categories, isAr, planGate, sub, t, toast]);
@@ -811,6 +845,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
       if (editingProductId === product.id) {
         setCurrentView('list');
         setEditingProductId(null);
+        setEditingProductDetail(null);
         setIsSideDrawerOpen(false);
       }
       toast(
@@ -922,6 +957,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
   if (currentView === 'edit' && editingProduct) {
     return (
       <StoreProductEditorView
+        key={editingProduct.id}
         product={editingProduct}
         mode={isCreatingProduct ? 'create' : 'edit'}
         storeName={activeStore.name}
@@ -930,12 +966,14 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
         canMutate={sub.writable}
         onNavigateTab={onNavigateTab}
         categories={categories}
-        categoryOptions={categoryOptions.map((o) => ({ value: o.value, label: o.label }))}
+        categoryOptions={categoryOptions.map((o) => ({ value: o.value, label: o.label, id: o.id, depth: o.depth }))}
+              storeCategories={storeCategoryRows}
         availableBrands={availableStoreBrands.map((b: any) => (typeof b === 'string' ? b : (b.nameEn || b.nameAr || '')))}
         visibleSections={visibleEditSections}
         onBack={() => {
           setCreatingProduct(null);
           setEditingProductId(null);
+          setEditingProductDetail(null);
           setCurrentView('list');
         }}
         onSave={(updatedData) => {
@@ -958,6 +996,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
             );
             setCreatingProduct(null);
             setEditingProductId(null);
+            setEditingProductDetail(null);
             setCurrentView('list');
             toast(t('productCreatedSuccess'), 'success');
             return;
@@ -969,6 +1008,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
           if (isCreatingProduct) {
             setCreatingProduct(null);
             setEditingProductId(null);
+            setEditingProductDetail(null);
             setCurrentView('list');
             return;
           }
@@ -2241,32 +2281,49 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                               </td>
                             )}
 
-                            {/* Category */}
+                            {/* Category — multi select with toggles + Add New */}
                             {visibleColumns.category && (
-                              <td className="py-2.5 px-2 min-w-[130px] font-medium text-xs align-middle" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
+                              <td className="py-2.5 px-2 min-w-[150px] font-medium text-xs align-middle" style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
                                 {isInlineEdit ? (
-                                  <select
-                                    defaultValue={prod.category}
-                                    onChange={(e) => handleInlineFieldChange(prod.id, 'category', e.target.value)}
-                                    className="max-w-[140px] px-2 py-1 text-xs rounded-lg border bg-white dark:bg-slate-900 focus:outline-none"
-                                    style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-                                  >
-                                    {(categoryOptions.length > 0
-                                      ? categoryOptions
-                                      : categories.map((c) => ({
-                                          value: c,
-                                          label: getProductDisplayCategory(c, locale),
-                                        }))
-                                    ).map((c) => (
-                                      <option key={c.value} value={c.value}>
-                                        {c.label}
-                                      </option>
-                                    ))}
-                                  </select>
+                                  <ProductCategoryMultiPicker
+                                    compact
+                                    selected={productSelectedCategories(prod)}
+                                    options={
+                                      categoryOptions.length > 0
+                                        ? categoryOptions
+                                        : categories.map((c) => ({
+                                            value: c,
+                                            label: getProductDisplayCategory(c, locale),
+                                          }))
+                                    }
+                                    storeCategories={storeCategoryRows}
+                                    storeId={activeStore.id}
+                                    isAr={isAr}
+                                    locale={locale}
+                                    onChange={(next, primary) => handleInlineCategoriesChange(prod.id, next, primary)}
+                                    onCategoriesCreated={() => void reloadStoreCategories()}
+                                  />
                                 ) : (
-                                  <span className="truncate block max-w-[140px] whitespace-nowrap" title={getProductDisplayCategory(prod, locale)}>
-                                    {getProductDisplayCategory(prod, locale)}
-                                  </span>
+                                  <div className="flex flex-wrap gap-0.5 max-w-[160px]">
+                                    {productSelectedCategories(prod).length > 0 ? (
+                                      productSelectedCategories(prod).slice(0, 2).map((cat) => (
+                                        <span
+                                          key={cat}
+                                          className="truncate max-w-full px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-semibold"
+                                          title={getProductDisplayCategory(cat, locale)}
+                                        >
+                                          {getProductDisplayCategory(cat, locale)}
+                                        </span>
+                                      ))
+                                    ) : (
+                                      <span className="text-slate-400">-</span>
+                                    )}
+                                    {productSelectedCategories(prod).length > 2 ? (
+                                      <span className="text-[10px] font-bold text-slate-500">
+                                        +{productSelectedCategories(prod).length - 2}
+                                      </span>
+                                    ) : null}
+                                  </div>
                                 )}
                               </td>
                             )}
@@ -2575,18 +2632,21 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
               product={editingProduct}
               storeId={activeStore.id}
               categories={categories}
-              categoryOptions={categoryOptions.map((o) => ({ value: o.value, label: o.label }))}
+              categoryOptions={categoryOptions.map((o) => ({ value: o.value, label: o.label, id: o.id, depth: o.depth }))}
+              storeCategories={storeCategoryRows}
               availableBrands={availableStoreBrands}
               visibleSections={visibleEditSections}
               onClose={() => {
                 setIsSideDrawerOpen(false);
                 setEditingProductId(null);
+                setEditingProductDetail(null);
               }}
               onSave={(updatedData) => {
                 updateProduct(editingProduct.id, updatedData, activeStore.id);
                 toast(t('productSavedSuccess'), 'success');
                 setIsSideDrawerOpen(false);
                 setEditingProductId(null);
+                setEditingProductDetail(null);
               }}
               onExpandFullView={() => {
                 setIsSideDrawerOpen(false);

@@ -158,6 +158,15 @@ function isOrderTombstoned(orderId: string | undefined, now = Date.now()): boole
   return true;
 }
 
+/** Drop rows that belong to another tenant — coffee never keeps flowers, and vice versa. */
+function onlyStoreRows<T extends { storeId?: string }>(storeId: string, rows: T[]): T[] {
+  if (!storeId || !Array.isArray(rows) || rows.length === 0) return Array.isArray(rows) ? rows : [];
+  return rows.filter((row) => {
+    const sid = row?.storeId != null ? String(row.storeId).trim() : '';
+    return !sid || sid === storeId;
+  });
+}
+
 function mergeOrdersKeepItems(prevList: Order[], incoming: Order[]): Order[] {
   const now = Date.now();
   pruneDeletedOrderTombstones(now);
@@ -340,7 +349,7 @@ interface TenantContextType {
   /** Insert or replace an order row returned from Laravel (storefront or authenticated create). */
   syncOrderFromApi: (order: Order, targetStoreId?: string) => void;
   updateOrderStatus: (orderId: string, status: Order['status'], targetStoreId?: string) => void;
-  updateOrder: (orderId: string, patch: Partial<Order>, targetStoreId?: string) => void;
+  updateOrder: (orderId: string, patch: Partial<Order>, targetStoreId?: string) => Promise<void>;
   processOrderReturn: (
     orderId: string,
     returnData: {
@@ -627,7 +636,7 @@ export function createFallbackTenantContext(): TenantContextType {
     addOrder: async () => ({}) as Order,
     syncOrderFromApi: () => {},
     updateOrderStatus: () => {},
-    updateOrder: () => {},
+    updateOrder: async () => {},
     processOrderReturn: async () => {},
     updateOrderCodStatus: async () => {},
     deleteOrder: () => {},
@@ -1090,15 +1099,16 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!storeId || !Array.isArray(products)) return;
     setProductsMap((prev) => {
       const prevList = Array.isArray(prev[storeId]) ? prev[storeId] : [];
-      if (products.length === 0 && prevList.length > 0) {
+      const scoped = onlyStoreRows(storeId, products);
+      if (scoped.length === 0 && prevList.length > 0) {
         return prev;
       }
       const seen = new Set<string>();
       const nextList: Product[] = [];
-      for (const row of products) {
+      for (const row of scoped) {
         if (!row?.id || seen.has(row.id)) continue;
         seen.add(row.id);
-        nextList.push(row);
+        nextList.push(row.storeId ? row : { ...row, storeId });
       }
       const next = { ...prev, [storeId]: nextList };
       saveProductsMap(next);
@@ -1529,62 +1539,90 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         storeLoadedAtRef.current[storeId] = Date.now();
         let productList: Product[] = [];
         let productTotal = 0;
-        try {
-          // Prefer full storefront catalog (auth-independent), then admin page as fallback.
+
+        // Orders/customers must NOT wait on catalog — Orders tab was hanging behind product fetch.
+        const catalogPromise = (async () => {
           try {
-            const catalog = await tenantApi.fetchStorefrontCatalogPage(storeId, 1, 100);
-            productList = catalog.data;
-            productTotal = catalog.total || catalog.data.length;
-          } catch {
-            if (liveAuthed) {
+            try {
+              const catalog = await tenantApi.fetchStorefrontCatalogPage(storeId, 1, 100);
+              return {
+                productList: catalog.data,
+                productTotal: catalog.total || catalog.data.length,
+              };
+            } catch {
+              if (!liveAuthed) return { productList: [] as Product[], productTotal: 0 };
               const page = await tenantApi.fetchProductsPage(storeId, {
                 page: 1,
                 per_page: 100,
                 sort: 'updated_at',
                 dir: 'desc',
               });
-              productList = page.data;
-              productTotal = page.meta?.counts?.total ?? page.meta?.total ?? productList.length;
+              return {
+                productList: page.data,
+                productTotal: page.meta?.counts?.total ?? page.meta?.total ?? page.data.length,
+              };
             }
+          } catch {
+            return { productList: [] as Product[], productTotal: 0 };
           }
+        })();
+
+        if (!liveAuthed) {
+          const cat = await catalogPromise;
+          productList = cat.productList;
+          productTotal = cat.productTotal;
           if (productList.length > 0) {
             applyProductsFromApi(storeId, productList, productTotal > 0 ? productTotal : productList.length);
           }
-        } catch {
-          /* products page / modal fetch their own catalog */
-        }
-        // Without Sanctum PAT, never call /orders or /customers (401 spam on login gate).
-        if (!liveAuthed) {
           return;
         }
-        const settled = await Promise.allSettled([
-          tenantApi.fetchOrders(storeId, { all: true, lean: true }),
-          tenantApi.fetchCustomers(storeId),
-        ]);
-        const [s1, s2] = settled;
-        if (s1.status === 'fulfilled' && Array.isArray(s1.value)) {
+
+        const ordersPromise = tenantApi.fetchOrders(storeId, { all: true, lean: true }).then(
+          (v) => ({ ok: true as const, v }),
+          () => ({ ok: false as const, v: [] as Order[] }),
+        );
+        const customersPromise = tenantApi.fetchCustomers(storeId).then(
+          (v) => ({ ok: true as const, v }),
+          () => ({ ok: false as const, v: [] as Customer[] }),
+        );
+
+        // Paint orders as soon as the lean list returns — do not block on catalog.
+        void ordersPromise.then((ordersSettled) => {
+          if (!ordersSettled.ok || !Array.isArray(ordersSettled.v)) return;
+          const oList = onlyStoreRows(storeId, ordersSettled.v).map((o) =>
+            o.storeId ? o : { ...o, storeId },
+          );
           setOrdersMap((prev) => ({
             ...prev,
-            [storeId]: mergeOrdersKeepItems(prev[storeId] || [], s1.value),
+            [storeId]: mergeOrdersKeepItems(
+              onlyStoreRows(storeId, prev[storeId] || []),
+              oList,
+            ),
           }));
-        }
-        if (s2.status === 'fulfilled' && Array.isArray(s2.value)) {
-          setCustomersMap((prev) => ({ ...prev, [storeId]: s2.value }));
-        }
-        if (productList.length > 0 || s1.status === 'fulfilled') {
-          const oList = s1.status === 'fulfilled' ? s1.value : [];
           const rev = oList.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
           setStores((prev) =>
             prev.map((s) =>
               s.id !== storeId
                 ? s
-                : {
-                    ...s,
-                    productsCount: productTotal > 0 ? productTotal : s.productsCount,
-                    ordersCount: s1.status === 'fulfilled' ? oList.length : s.ordersCount,
-                    revenue: s1.status === 'fulfilled' ? rev : s.revenue,
-                    lastActivity: 'Just now',
-                  },
+                : { ...s, ordersCount: oList.length, revenue: rev, lastActivity: 'Just now' },
+            ),
+          );
+        });
+        void customersPromise.then((customersSettled) => {
+          if (!customersSettled.ok || !Array.isArray(customersSettled.v)) return;
+          setCustomersMap((prev) => ({ ...prev, [storeId]: customersSettled.v }));
+        });
+
+        const [catSettled] = await Promise.all([catalogPromise, ordersPromise, customersPromise]);
+        productList = catSettled.productList;
+        productTotal = catSettled.productTotal;
+        if (productList.length > 0) {
+          applyProductsFromApi(storeId, productList, productTotal > 0 ? productTotal : productList.length);
+          setStores((prev) =>
+            prev.map((s) =>
+              s.id !== storeId
+                ? s
+                : { ...s, productsCount: productTotal > 0 ? productTotal : s.productsCount },
             ),
           );
         }
@@ -1803,9 +1841,16 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try {
         switch (resource) {
           case 'orders': {
-            const orders = await tenantApi.fetchOrders(storeId);
+            // Always lean — line items load on detail/open, never on list refresh.
+            const orders = onlyStoreRows(
+              storeId,
+              await tenantApi.fetchOrders(storeId, { all: true, lean: true }),
+            ).map((o) => (o.storeId ? o : { ...o, storeId }));
             setOrdersMap((prev) => {
-              const merged = mergeOrdersKeepItems(prev[storeId] || [], orders);
+              const merged = mergeOrdersKeepItems(
+                onlyStoreRows(storeId, prev[storeId] || []),
+                orders,
+              );
               const next = { ...prev, [storeId]: merged };
               saveOrdersMap(next);
               return next;
@@ -2291,14 +2336,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return channelsMap[activeStoreId] || [];
   }, [channelsMap, activeStoreId, cacheEpoch]);
 
-  // Isolated Products for currently selected store
+  // Isolated Products for currently selected store (hard reject foreign store_id)
   const currentProducts = useMemo(() => {
-    return productsMap[activeStoreId] || [];
+    return onlyStoreRows(activeStoreId, productsMap[activeStoreId] || []);
   }, [productsMap, activeStoreId, cacheEpoch]);
 
-  // Isolated Orders for currently selected store
+  // Isolated Orders for currently selected store (hard reject foreign store_id)
   const currentOrders = useMemo(() => {
-    return ordersMap[activeStoreId] || [];
+    return onlyStoreRows(activeStoreId, ordersMap[activeStoreId] || []);
   }, [ordersMap, activeStoreId, cacheEpoch]);
 
   // Isolated Coupons
@@ -4384,7 +4429,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const updateOrder = (orderId: string, patch: Partial<Order>, targetStoreId?: string) => {
+  const updateOrder = async (orderId: string, patch: Partial<Order>, targetStoreId?: string) => {
     let resolvedStoreId = targetStoreId || activeStoreId;
     setOrdersMap((prev) => {
       const next = { ...prev };
@@ -4400,25 +4445,40 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     if (dataSourceRef.current === 'api') {
-      void tenantApi
-        .updateOrder(resolvedStoreId, orderId, patch as Record<string, unknown>)
-        .then((updated) => {
-          setOrdersMap((prev) => {
-            const next = {
-              ...prev,
-              [resolvedStoreId]: (prev[resolvedStoreId] || []).map((o) =>
-                o.id === orderId ? updated : o,
-              ),
-            };
-            saveOrdersMap(next);
-            return next;
-          });
-          bumpCacheTag(storeTag(resolvedStoreId, 'orders'));
-          void revalidateResource(resolvedStoreId, 'orders');
-        })
-        .catch((err) => {
-          setApiError(err instanceof Error ? err.message : 'Update order failed');
+      try {
+        const updated = await tenantApi.updateOrder(
+          resolvedStoreId,
+          orderId,
+          patch as Record<string, unknown>,
+        );
+        setOrdersMap((prev) => {
+          const next = {
+            ...prev,
+            [resolvedStoreId]: (prev[resolvedStoreId] || []).map((o) =>
+              o.id === orderId
+                ? {
+                    ...o,
+                    ...updated,
+                    // Keep local fields if API response omits them (older hosts / partial rows).
+                    customerNotes: updated.customerNotes ?? o.customerNotes ?? patch.customerNotes,
+                    internalNotes: updated.internalNotes ?? o.internalNotes ?? patch.internalNotes,
+                    transactionId: updated.transactionId ?? o.transactionId ?? patch.transactionId,
+                    paymentMethod: updated.paymentMethod ?? o.paymentMethod ?? patch.paymentMethod,
+                    paymentStatus: updated.paymentStatus ?? o.paymentStatus ?? patch.paymentStatus,
+                  }
+                : o,
+            ),
+          };
+          saveOrdersMap(next);
+          return next;
         });
+        bumpCacheTag(storeTag(resolvedStoreId, 'orders'));
+        void revalidateResource(resolvedStoreId, 'orders');
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Update order failed';
+        setApiError(message);
+        throw err instanceof Error ? err : new Error(message);
+      }
     }
   };
 

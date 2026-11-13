@@ -944,142 +944,82 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (st === 'archived') return;
       if (st === 'draft' && dp.isActive === false) return;
       if (st === 'draft' && !dp.isActive && !dp.scheduledPublishAt) return;
-      // Prefer live catalog rows; only use static theme pack for chrome (images/parts) fallback.
-      const match = !coffeeCatalog
-        ? undefined
-        : PRODUCTS.find(
-        (p) =>
-          p.id === dp.id ||
-          p.id === dp.sku ||
-          p.id?.toLowerCase() === dp.id?.toLowerCase() ||
-          p.id?.toLowerCase() === dp.sku?.toLowerCase() ||
-          p.name?.toLowerCase() === dp.name?.toLowerCase(),
-      );
+      // Exact-id chrome only — never follow pack by name/SKU (full store isolation).
+      const packChrome =
+        coffeeCatalog
+          ? PRODUCTS.find(
+              (p) =>
+                p.id === dp.id ||
+                String(p.id || '').toLowerCase() === String(dp.id || '').toLowerCase(),
+            )
+          : undefined;
 
       const primaryImg =
         dp.image ||
         (dp.galleryUrls && dp.galleryUrls[0]) ||
-        (coffeeCatalog
-          ? match?.colors?.[0]?.image || match?.images?.[0] || '/images/coffee_hero_flagship_machine_1791218907782.jpg'
-          : '');
+        packChrome?.colors?.[0]?.image ||
+        packChrome?.images?.[0] ||
+        '';
 
-      if (match) {
-        const updatedColors = primaryImg
-          ? (match.colors && match.colors.length > 0
-              ? [{ ...match.colors[0], image: primaryImg }, ...match.colors.slice(1)]
-              : [{ name: 'Default', hex: '#1c1917', image: primaryImg }])
-          : match.colors;
-        const updatedImages = primaryImg
-          ? [primaryImg, ...(dp.galleryUrls || match.images || []).filter((u: string) => u !== primaryImg)]
-          : match.images;
-
-        const listPrice = mergeListPricing(dp);
-        const compareAt =
-          listPrice.originalPrice ??
-          (dp.originalPrice && Number(dp.originalPrice) > listPrice.basePrice
-            ? Number(dp.originalPrice)
-            : match.originalPrice);
-
-        const story = learnMoreBits(dp, primaryImg);
-        const commerce = liveCommerce(dp);
-        resolvedList.push({
-          ...match,
-          id: dp.id,
-          sku: dp.sku || match.sku,
-          brand: dp.brand || (match as { brand?: string }).brand,
-          name: dp.name || match.name,
-          nameAr: dp.nameAr || match.nameAr || dp.name,
-          basePrice: listPrice.basePrice || (dp.basePrice ?? match.basePrice),
-          originalPrice: compareAt,
-          saleActive: listPrice.saleActive,
-          price: listPrice.price,
-          discountedPrice: listPrice.discountedPrice,
-          category: dp.category || match.category,
-          categoryAr: dp.categoryAr || (match as { categoryAr?: string }).categoryAr,
-          categories: Array.isArray(dp.categories) ? dp.categories : undefined,
-          stock: typeof dp.stock === 'number' ? dp.stock : undefined,
-          seoTitle: dp.seoTitle,
-          seoDescription: dp.seoDescription,
-          discountStartAt: dp.discountStartAt,
-          discountEndAt: dp.discountEndAt,
-          specComparisonImage: dp.specComparisonImage || match.specComparisonImage,
-          specComparisonImageAr: dp.specComparisonImageAr || match.specComparisonImageAr,
-          image: primaryImg,
-          images: updatedImages,
-          colors: story.colors || updatedColors,
-          storageOptions: story.storage?.length ? story.storage : match.storageOptions,
-          partsShowcase: story.parts.length ? story.parts : match.partsShowcase,
-          customFields: story.purchaseFields?.length
-            ? story.purchaseFields
-            : (Array.isArray(dp.customFields)
-                ? dp.customFields.filter(
-                    (f: any) =>
-                      customFieldIsFillable(f?.type) && normalizeCustomFieldType(f?.type) !== 'Content',
-                  )
-                : []),
-          productOptions: commerce.options?.length ? commerce.options : [],
-          variations: commerce.variations?.length ? commerce.variations : [],
-          conditionalRules: Array.isArray(dp.conditionalRules) ? dp.conditionalRules : [],
-          videoUrl: story.video || dp.videoUrl || undefined,
-          tagline: dp.subtitle || match.tagline,
-          taglineAr: dp.subtitleAr || match.taglineAr,
-          overview: dp.description || match.overview,
-          overviewAr: dp.descriptionAr || match.overviewAr,
-        });
-      } else {
-        const listPriceNew = mergeListPricing(dp);
-        const compareNew = listPriceNew.originalPrice;
-
-        const storyNew = learnMoreBits(dp, primaryImg);
-        const commerceNew = liveCommerce(dp);
-        resolvedList.push({
-          id: dp.id,
-          sku: dp.sku,
-          brand: dp.brand,
-          name: dp.name,
-          nameAr: dp.nameAr || dp.name,
-          tagline: dp.subtitle || '',
-          taglineAr: dp.subtitleAr || '',
-          category: (dp.category as any) || '',
-          categoryAr: dp.categoryAr,
-          categories: Array.isArray(dp.categories) ? dp.categories : undefined,
-          stock: typeof dp.stock === 'number' ? dp.stock : undefined,
-          seoTitle: dp.seoTitle,
-          seoDescription: dp.seoDescription,
-          discountStartAt: dp.discountStartAt,
-          discountEndAt: dp.discountEndAt,
-          basePrice: listPriceNew.basePrice || (dp.basePrice ?? 0),
-          originalPrice: compareNew,
-          saleActive: listPriceNew.saleActive,
-          price: listPriceNew.price,
-          discountedPrice: listPriceNew.discountedPrice,
-          badge: dp.badge || dp.tags?.[0] || undefined,
-          badgeAr: dp.badge || dp.tags?.[0] || undefined,
-          reviewCount: dp.reviewsCount || 0,
-          rating: dp.rating || 0,
-          colors: storyNew.colors || (primaryImg ? [{ name: 'Default', hex: '#1c1917', image: primaryImg }] : []),
-          storageOptions: storyNew.storage || [],
-          specs: dp.specs || [],
-          images: primaryImg
-            ? [primaryImg, ...(dp.galleryUrls || []).filter((u: string) => u !== primaryImg)]
-            : [...(dp.galleryUrls || [])],
-          overview: dp.description || '',
-          overviewAr: dp.descriptionAr || '',
-          partsShowcase: storyNew.parts.length ? storyNew.parts : undefined,
-          customFields: storyNew.purchaseFields?.length
-            ? storyNew.purchaseFields
-            : (Array.isArray(dp.customFields)
-                ? dp.customFields.filter(
-                    (f: any) =>
-                      customFieldIsFillable(f?.type) && normalizeCustomFieldType(f?.type) !== 'Content',
-                  )
-                : []),
-          productOptions: commerceNew.options?.length ? commerceNew.options : [],
-          variations: commerceNew.variations?.length ? commerceNew.variations : [],
-          conditionalRules: Array.isArray(dp.conditionalRules) ? dp.conditionalRules : [],
-          videoUrl: storyNew.video || dp.videoUrl || undefined,
-        });
-      }
+      const listPriceNew = mergeListPricing(dp);
+      const compareNew = listPriceNew.originalPrice;
+      const commerceNew = liveCommerce(dp);
+      // Derive colors/editions from THIS product’s options/variations only (not pack followers).
+      const storyNew = learnMoreBits(
+        { ...dp, productOptions: commerceNew.options?.length ? commerceNew.options : dp.productOptions },
+        primaryImg,
+      );
+      resolvedList.push({
+        id: dp.id,
+        sku: dp.sku,
+        brand: dp.brand,
+        name: dp.name,
+        nameAr: dp.nameAr || dp.name,
+        tagline: dp.subtitle || '',
+        taglineAr: dp.subtitleAr || '',
+        category: (dp.category as any) || '',
+        categoryAr: dp.categoryAr,
+        categories: Array.isArray(dp.categories) ? dp.categories : undefined,
+        stock: typeof dp.stock === 'number' ? dp.stock : undefined,
+        seoTitle: dp.seoTitle,
+        seoDescription: dp.seoDescription,
+        discountStartAt: dp.discountStartAt,
+        discountEndAt: dp.discountEndAt,
+        basePrice: listPriceNew.basePrice || (dp.basePrice ?? 0),
+        originalPrice: compareNew,
+        saleActive: listPriceNew.saleActive,
+        price: listPriceNew.price,
+        discountedPrice: listPriceNew.discountedPrice,
+        badge: dp.badge || dp.tags?.[0] || undefined,
+        badgeAr: dp.badge || dp.tags?.[0] || undefined,
+        reviewCount: dp.reviewsCount || 0,
+        rating: dp.rating || 0,
+        colors: storyNew.colors?.length ? storyNew.colors : [],
+        storageOptions: storyNew.storage?.length ? storyNew.storage : [],
+        specs: Array.isArray(dp.specs) ? dp.specs : [],
+        images: primaryImg
+          ? [primaryImg, ...(dp.galleryUrls || []).filter((u: string) => u !== primaryImg)]
+          : [...(dp.galleryUrls || [])],
+        overview: dp.description || '',
+        overviewAr: dp.descriptionAr || '',
+        partsShowcase: storyNew.parts.length
+          ? storyNew.parts
+          : packChrome?.partsShowcase,
+        specComparisonImage: dp.specComparisonImage || packChrome?.specComparisonImage,
+        specComparisonImageAr: dp.specComparisonImageAr || packChrome?.specComparisonImageAr,
+        customFields: storyNew.purchaseFields?.length
+          ? storyNew.purchaseFields
+          : (Array.isArray(dp.customFields)
+              ? dp.customFields.filter(
+                  (f: any) =>
+                    customFieldIsFillable(f?.type) && normalizeCustomFieldType(f?.type) !== 'Content',
+                )
+              : []),
+        productOptions: commerceNew.options?.length ? commerceNew.options : [],
+        variations: commerceNew.variations?.length ? commerceNew.variations : [],
+        conditionalRules: Array.isArray(dp.conditionalRules) ? dp.conditionalRules : [],
+        videoUrl: storyNew.video || dp.videoUrl || undefined,
+      });
     });
 
     return resolvedList;

@@ -26,6 +26,11 @@ import {
   ArrowRight,
   Palette
 } from 'lucide-react';
+import {
+  StorefrontAccountMenu,
+  type StorefrontAccountSection,
+} from '../../../components/storefront/StorefrontAccountMenu';
+import { isolateStoreProductImage } from '../../../utils/storeImageIsolation';
 
 type MegaMenuKey = 'machines' | 'mills' | 'cabinets' | 'accessories' | 'offers' | 'explore' | null;
 
@@ -161,8 +166,10 @@ export const Header: React.FC = () => {
     toggleLanguage,
     currentRoute,
     user,
-    products
+    products,
+    logoutUser,
   } = useCart();
+  const { activeStore } = useTenant();
 
   // Dynamic Mega Catalog from live products (AR/EN category + name matching)
   const dynamicMegaCatalog = useMemo(() => {
@@ -176,11 +183,16 @@ export const Header: React.FC = () => {
 
     (products || []).forEach((prod) => {
       const catKey = `${prod.category || ''} ${(prod as { categoryAr?: string }).categoryAr || ''} ${prod.name || ''} ${prod.nameAr || ''}`.toLowerCase();
-      const primaryImg =
+      const rawImg =
         prod.colors?.[0]?.image ||
         prod.images?.[0] ||
         (prod as { image?: string }).image ||
-        '/src/assets/images/hibrew_h7a_flagship_machine.png';
+        '';
+      const primaryImg = isolateStoreProductImage(
+        (prod as { storeId?: string }).storeId || activeStore?.id || 'store-coffee',
+        rawImg,
+        { fallback: true },
+      );
 
       const item: MegaProductItem = {
         id: prod.id,
@@ -237,9 +249,8 @@ export const Header: React.FC = () => {
     });
 
     return catalog;
-  }, [products]);
+  }, [products, activeStore?.id]);
 
-  const { activeStore } = useTenant();
   const [headerVersion, setHeaderVersion] = useState(0);
 
   useEffect(() => {
@@ -269,6 +280,7 @@ export const Header: React.FC = () => {
   const [renderedMegaMenu, setRenderedMegaMenu] = useState<MegaMenuKey>(null);
   const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [mobileSubNavKey, setMobileSubNavKey] = useState<MegaMenuKey | null>(null);
   const [mobileSubFilter, setMobileSubFilter] = useState<string>('latest');
   const [activeSubFilter, setActiveSubFilter] = useState<string>('latest');
@@ -870,21 +882,47 @@ export const Header: React.FC = () => {
               </button>
             )}
 
-            {/* Profile Icon */}
+            {/* Profile Icon + account dropdown (store-scoped) */}
             {headerSettings?.actions?.account?.enabled !== false && (
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveMegaMenu(null);
-                  setMobileMenuOpen(false);
-                  navigateTo('profile');
-                }}
-                className="p-1.5 text-neutral-800 hover:text-black transition-colors cursor-pointer"
-                title={language === 'AR' ? 'حساب العميل' : 'User Profile'}
-                aria-label={language === 'AR' ? 'الحساب' : 'Account'}
-              >
-                <User className="w-5 h-5 stroke-[1.8]" />
-              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveMegaMenu(null);
+                    setMobileMenuOpen(false);
+                    setAccountMenuOpen((v) => !v);
+                  }}
+                  className="p-1.5 text-neutral-800 hover:text-black transition-colors cursor-pointer"
+                  title={language === 'AR' ? 'حساب العميل' : 'User Profile'}
+                  aria-label={language === 'AR' ? 'الحساب' : 'Account'}
+                  aria-expanded={accountMenuOpen}
+                >
+                  <User className="w-5 h-5 stroke-[1.8]" />
+                </button>
+                <StorefrontAccountMenu
+                  open={accountMenuOpen}
+                  onClose={() => setAccountMenuOpen(false)}
+                  isAr={language === 'AR'}
+                  isLoggedIn={Boolean(user.isLoggedIn)}
+                  onLogin={() => navigateTo('profile')}
+                  onLogout={() => {
+                    try {
+                      sessionStorage.removeItem('coffee_profile_section');
+                    } catch {
+                      /* ignore */
+                    }
+                    logoutUser();
+                  }}
+                  onNavigate={(section: StorefrontAccountSection) => {
+                    try {
+                      sessionStorage.setItem('coffee_profile_section', section);
+                    } catch {
+                      /* ignore */
+                    }
+                    navigateTo('profile');
+                  }}
+                />
+              </div>
             )}
 
             {/* Store Pill Button (Desktop only) */}

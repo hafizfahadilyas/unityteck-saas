@@ -417,6 +417,7 @@ function souq_order_row(PDO $pdo, array $row, bool $lean = false): array
     ];
     foreach ([
         'cod_status', 'cod_notes', 'refund_status', 'refund_amount', 'return_reason', 'return_notes',
+        'customer_notes', 'internal_notes',
         'delivery_mode', 'driver_id', 'bank_account_id', 'payment_plan', 'amount_paid', 'remaining_balance',
         'payment_transaction_id', 'is_archived', 'archived_at', 'estimated_delivery_at',
     ] as $extra) {
@@ -1971,6 +1972,9 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
         && !in_array((string)$mOrd[1], ['invoice', 'fulfillment'], true)
     ) {
         $orderId = (string)$mOrd[1];
+        if (function_exists('souq_ensure_order_notes_columns')) {
+            souq_ensure_order_notes_columns($pdo);
+        }
         $st = $pdo->prepare('SELECT * FROM orders WHERE id = ? AND store_id = ? LIMIT 1');
         $st->execute([$orderId, $storeId]);
         $row = $st->fetch();
@@ -2001,6 +2005,8 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             'refund_status' => 'refund_status',
             'return_reason' => 'return_reason',
             'return_notes' => 'return_notes',
+            'customer_notes' => 'customer_notes',
+            'internal_notes' => 'internal_notes',
             'archived_at' => 'archived_at',
             'estimated_delivery_at' => 'estimated_delivery_at',
         ];

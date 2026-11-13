@@ -55,8 +55,11 @@ class OrderController extends Controller
         $query = Order::query()
             ->withoutGlobalScope('store')
             ->forStore($storeId);
-        // Dashboard lists use order columns + items_summary. Line items load on the detail row.
-        if (! $request->boolean('lean')) {
+        // List / all=1 stay lean unless caller explicitly asks for nested rows.
+        // (Eager items+customer+returns on every row was freezing the Orders admin tab.)
+        $wantNested = $request->boolean('with_items')
+            || ($request->has('lean') && ! $request->boolean('lean'));
+        if ($wantNested) {
             $query->with(['items', 'customer', 'returns']);
         }
 
@@ -113,7 +116,8 @@ class OrderController extends Controller
         $page = max(1, (int) $request->query('page', 1));
 
         if ($request->boolean('all')) {
-            $rows = $query->get();
+            // Hard cap — never dump unbounded nested graphs to the SPA.
+            $rows = $query->limit(500)->get();
 
             return response()->json([
                 'data' => $rows,
@@ -125,6 +129,7 @@ class OrderController extends Controller
                     'last_page' => 1,
                     'sort' => $sort,
                     'dir' => $dir,
+                    'capped' => $rows->count() >= 500,
                 ],
             ]);
         }
@@ -813,6 +818,8 @@ class OrderController extends Controller
             'refund_amount' => ['nullable', 'numeric', 'min:0'],
             'return_reason' => ['nullable', 'string', 'max:255'],
             'return_notes' => ['nullable', 'string'],
+            'customer_notes' => ['nullable', 'string'],
+            'internal_notes' => ['nullable', 'string'],
             'restock' => ['nullable', 'boolean'],
             'is_archived' => ['nullable', 'boolean'],
             'archived_at' => ['nullable', 'date'],
@@ -909,6 +916,12 @@ class OrderController extends Controller
             if (isset($data['refund_amount'])) $order->refund_amount = $data['refund_amount'];
             if (isset($data['return_reason'])) $order->return_reason = $data['return_reason'];
             if (isset($data['return_notes'])) $order->return_notes = $data['return_notes'];
+            if (array_key_exists('customer_notes', $data)) {
+                $order->customer_notes = $data['customer_notes'];
+            }
+            if (array_key_exists('internal_notes', $data)) {
+                $order->internal_notes = $data['internal_notes'];
+            }
 
             if (array_key_exists('is_archived', $data)) {
                 $archived = (bool) $data['is_archived'];

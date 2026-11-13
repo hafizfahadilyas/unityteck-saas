@@ -1,11 +1,16 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import type { Order, OrderStatus } from '../../types';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { AdminPageShell } from '../common/AdminPageHeader';
 import { FloatingPopover } from '../common/FloatingPopover';
 import { displayOrderNumber } from '../../utils/orderNumber';
-import { fetchOrder } from '../../api/tenantApi';
+import {
+  fetchOrder,
+  fetchOrders,
+  fetchOrdersSummary,
+  type OrderSummaryResult,
+} from '../../api/tenantApi';
 import {
   ShoppingCart,
   CheckCircle,
@@ -52,8 +57,6 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useToast } from '../common/ToastProvider';
-import { RetailInvoiceModal } from '../common/RetailInvoiceModal';
-import { InvoicePreviewModal } from './invoices/InvoicePreviewModal';
 import { invoiceService, getStoreInvoiceProfile } from '../../services/invoiceService';
 import { getCustomerDisplayName, getLocalizedAddress, getLocalizedItemName } from '../../utils/storeLocalization';
 import {
@@ -63,14 +66,6 @@ import {
   localizeShippingCompany,
 } from '../../utils/domainLabels';
 import type { InvoiceDocument } from '../../types/invoices';
-import { ReturnsManager } from './orders/ReturnsManager';
-import { CodLedgerModal } from './orders/CodLedgerModal';
-import { OrderDetailsModal } from './orders/OrderDetailsModal';
-import { CourierShippingLabelModal } from './orders/CourierShippingLabelModal';
-import { OrderStatusSettingsModal } from './orders/OrderStatusSettingsModal';
-import { ExportTemplateModal } from './orders/ExportTemplateModal';
-import { AutomaticAssignmentModal } from './orders/AutomaticAssignmentModal';
-import { PaymentTransactionsModal } from './orders/PaymentTransactionsModal';
 import {
   DEFAULT_ORDER_EXPORT_FIELDS,
   exportOrdersSpreadsheet,
@@ -80,7 +75,6 @@ import { generateZatcaTlvBase64, generateInvoiceHashSha256 } from '../../utils/z
 import { formatDisplayDate, formatDisplayTime } from '../../utils/dateLocale';
 import { formatRelativeTime } from '../../notification-system/utils/dateFilters';
 import { getOrderDate, orderStatusGrowth, parseOrderDate } from '../../utils/liveSeries';
-import { CreateStoreOrderModal } from './CreateStoreOrderModal';
 import { OrderFilters, type OrderFilterState } from './OrderFilters';
 import { WindowedPagination } from '../common/WindowedPagination';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE, resolveProductThumbnail } from '../../utils/imageFallback';
@@ -97,6 +91,40 @@ import {
   ORDER_STATUS_CATALOG,
   catalogLabel,
 } from '../../utils/orderCatalogOptions';
+
+const RetailInvoiceModal = lazy(() =>
+  import('../common/RetailInvoiceModal').then((m) => ({ default: m.RetailInvoiceModal })),
+);
+const InvoicePreviewModal = lazy(() =>
+  import('./invoices/InvoicePreviewModal').then((m) => ({ default: m.InvoicePreviewModal })),
+);
+const ReturnsManager = lazy(() =>
+  import('./orders/ReturnsManager').then((m) => ({ default: m.ReturnsManager })),
+);
+const CodLedgerModal = lazy(() =>
+  import('./orders/CodLedgerModal').then((m) => ({ default: m.CodLedgerModal })),
+);
+const OrderDetailsModal = lazy(() =>
+  import('./orders/OrderDetailsModal').then((m) => ({ default: m.OrderDetailsModal })),
+);
+const CourierShippingLabelModal = lazy(() =>
+  import('./orders/CourierShippingLabelModal').then((m) => ({ default: m.CourierShippingLabelModal })),
+);
+const OrderStatusSettingsModal = lazy(() =>
+  import('./orders/OrderStatusSettingsModal').then((m) => ({ default: m.OrderStatusSettingsModal })),
+);
+const ExportTemplateModal = lazy(() =>
+  import('./orders/ExportTemplateModal').then((m) => ({ default: m.ExportTemplateModal })),
+);
+const AutomaticAssignmentModal = lazy(() =>
+  import('./orders/AutomaticAssignmentModal').then((m) => ({ default: m.AutomaticAssignmentModal })),
+);
+const PaymentTransactionsModal = lazy(() =>
+  import('./orders/PaymentTransactionsModal').then((m) => ({ default: m.PaymentTransactionsModal })),
+);
+const CreateStoreOrderModal = lazy(() =>
+  import('./CreateStoreOrderModal').then((m) => ({ default: m.CreateStoreOrderModal })),
+);
 
 /**
  * StoreOrders — Store Admin Order Management (100% Pixel Perfect to Mockups 04 & 05)
@@ -120,6 +148,12 @@ export const StoreOrders: React.FC = () => {
   } = useTenant();
   const { t, money, locale, dir } = usePrefs();
   const { toast, confirm, confirmWithReason } = useToast();
+
+  /** Own lean list — do not wait on TenantContext catalog/customers core gate. */
+  const [fastOrders, setFastOrders] = useState<Order[] | null>(null);
+  const [ordersListBusy, setOrdersListBusy] = useState(true);
+  const [ordersSummary, setOrdersSummary] = useState<OrderSummaryResult | null>(null);
+  const ordersFetchGen = useRef(0);
 
   const [activeTab, setActiveTab] = useState<string>('all');
   const [search, setSearch] = useState('');
@@ -230,6 +264,60 @@ export const StoreOrders: React.FC = () => {
 
   const isAr = locale === 'ar';
 
+  // Instant paint from context if warm; always refresh lean list in parallel.
+  useEffect(() => {
+    const storeId = activeStore?.id;
+    if (!storeId) {
+      setFastOrders(null);
+      setOrdersSummary(null);
+      setOrdersListBusy(false);
+      return;
+    }
+    const gen = ++ordersFetchGen.current;
+    const warm = currentOrders;
+    setFastOrders(warm.length > 0 ? warm : null);
+    setOrdersSummary(null);
+    setOrdersListBusy(warm.length === 0);
+    let cancelled = false;
+    void Promise.all([
+      fetchOrders(storeId, { all: true, lean: true }),
+      fetchOrdersSummary(storeId).catch(() => null),
+    ])
+      .then(([orders, summary]) => {
+        if (cancelled || gen !== ordersFetchGen.current) return;
+        setFastOrders(orders);
+        if (summary) setOrdersSummary(summary);
+        setOrdersListBusy(false);
+      })
+      .catch(() => {
+        if (cancelled || gen !== ordersFetchGen.current) return;
+        if (warm.length > 0) setFastOrders(warm);
+        setOrdersListBusy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // currentOrders read once per store switch for warm paint only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeStore?.id]);
+
+  // Keep local list in sync after mutations that update TenantContext.
+  useEffect(() => {
+    if (!currentOrders.length) return;
+    setFastOrders((prev) => {
+      if (!prev || prev.length === 0) return currentOrders;
+      const prevIds = new Set(prev.map((o) => o.id));
+      const curIds = new Set(currentOrders.map((o) => o.id));
+      if (prevIds.size !== curIds.size) return currentOrders;
+      for (const id of curIds) {
+        if (!prevIds.has(id)) return currentOrders;
+      }
+      // Prefer context row when status/payment changed locally.
+      const byId = new Map(currentOrders.map((o) => [o.id, o]));
+      return prev.map((o) => byId.get(o.id) || o);
+    });
+  }, [currentOrders]);
+
   // Refresh relative "untouched" timers every minute
   const [nowTick, setNowTick] = useState(() => Date.now());
   useEffect(() => {
@@ -290,13 +378,7 @@ export const StoreOrders: React.FC = () => {
     if (skuKey && productThumbnailMap.has(skuKey)) return productThumbnailMap.get(skuKey)!;
     const nameKey = (it.name || '').trim().toLowerCase();
     if (nameKey && productThumbnailMap.has(nameKey)) return productThumbnailMap.get(nameKey)!;
-    if (nameKey) {
-      for (const [key, url] of productThumbnailMap.entries()) {
-        if (key.length > 5 && (nameKey.includes(key) || key.includes(nameKey))) {
-          return url;
-        }
-      }
-    }
+    // Exact map keys only — fuzzy scan over whole catalog froze the Orders tab.
     return null;
   };
 
@@ -438,6 +520,7 @@ export const StoreOrders: React.FC = () => {
     paymentStatus: '',
     transactionId: '',
   });
+  const [detailSaving, setDetailSaving] = useState(false);
 
   const detailFieldInputClass =
     'w-full min-w-0 px-2.5 py-1.5 rounded-lg border text-xs font-semibold focus:outline-hidden focus:border-teal-500';
@@ -455,27 +538,48 @@ export const StoreOrders: React.FC = () => {
     setIsEditingInternalNotes(false);
   }, [selectedOrder?.id]);
 
+  const storeOrders = fastOrders ?? currentOrders;
+
   // Active vs Archived separation
-  const activeOrders = useMemo(() => currentOrders.filter((o) => !o.isArchived), [currentOrders]);
-  const archivedOrders = useMemo(() => currentOrders.filter((o) => Boolean(o.isArchived)), [currentOrders]);
+  const activeOrders = useMemo(() => storeOrders.filter((o) => !o.isArchived), [storeOrders]);
+  const archivedOrders = useMemo(() => storeOrders.filter((o) => Boolean(o.isArchived)), [storeOrders]);
 
   // Keep selectedOrder in sync with DB state
   const currentSelectedOrder = useMemo(() => {
     if (!selectedOrder) return null;
-    return currentOrders.find((o) => o.id === selectedOrder.id) || selectedOrder;
-  }, [currentOrders, selectedOrder]);
+    return storeOrders.find((o) => o.id === selectedOrder.id) || selectedOrder;
+  }, [storeOrders, selectedOrder]);
 
   // ── 4 KPI Summary Cards matching Image 1 & Mockup 04 (Store Scoped) ──
   const kpi = useMemo(() => {
-    const total = activeOrders.length;
+    const byStatus = ordersSummary?.by_status || {};
+    const summaryTotal = ordersSummary?.total;
     const pendingOrders = activeOrders.filter((o) => isUntouchedOrderStatus(o));
-    const pending = pendingOrders.length;
-    const inProgress = activeOrders.filter(
+    const pendingFromList = pendingOrders.length;
+    const inProgressFromList = activeOrders.filter(
       (o) => o.status === 'processing' || o.status === 'shipped' || o.status === 'out_for_delivery'
     ).length;
-    const delivered = activeOrders.filter(
+    const deliveredFromList = activeOrders.filter(
       (o) => o.status === 'completed' || o.status === 'delivered',
     ).length;
+
+    const pendingFromSummary =
+      Number(byStatus.pending || 0) +
+      Number(byStatus.awaiting_payment || 0) +
+      Number(byStatus.pending_review || 0) +
+      Number(byStatus.under_review || 0);
+    const inProgressFromSummary =
+      Number(byStatus.processing || 0) +
+      Number(byStatus.shipped || 0) +
+      Number(byStatus.out_for_delivery || 0) +
+      Number(byStatus.preparing || 0);
+    const deliveredFromSummary =
+      Number(byStatus.completed || 0) + Number(byStatus.delivered || 0);
+
+    const total = typeof summaryTotal === 'number' ? summaryTotal : activeOrders.length;
+    const pending = ordersSummary ? pendingFromSummary : pendingFromList;
+    const inProgress = ordersSummary ? inProgressFromSummary : inProgressFromList;
+    const delivered = ordersSummary ? deliveredFromSummary : deliveredFromList;
 
     const totalGrowth = orderStatusGrowth(activeOrders);
     const pendingGrowth = orderStatusGrowth(activeOrders, (o) => isUntouchedOrderStatus(o));
@@ -515,7 +619,7 @@ export const StoreOrders: React.FC = () => {
       inProgressGrowth,
       deliveredGrowth,
     };
-  }, [activeOrders, isAr, locale, nowTick]);
+  }, [activeOrders, isAr, locale, nowTick, ordersSummary]);
 
   const renderKpiTrend = (
     growth: { pct: number; hasData: boolean },
@@ -1145,39 +1249,62 @@ export const StoreOrders: React.FC = () => {
             ]
           : [];
 
-    const handleSaveCustomerNotes = () => {
-      updateOrder(o.id, { customerNotes: customerNotesDraft });
-      setIsEditingCustomerNotes(false);
-      toast(isAr ? 'تم حفظ ملاحظات العميل' : 'Customer notes saved', 'success');
+    const saveOrderPatch = async (
+      patch: Partial<Order>,
+      onSuccess: () => void,
+      successMsg: string,
+    ) => {
+      if (detailSaving) return;
+      setDetailSaving(true);
+      try {
+        await updateOrder(o.id, patch, activeStore?.id);
+        onSuccess();
+        toast(successMsg, 'success');
+      } catch (err: unknown) {
+        const msg =
+          err instanceof Error && err.message
+            ? err.message
+            : isAr
+              ? 'تعذر حفظ التعديلات'
+              : 'Could not save changes';
+        toast(msg, 'error');
+      } finally {
+        setDetailSaving(false);
+      }
     };
 
-    const handleSaveInternalNotes = () => {
-      updateOrder(o.id, { internalNotes: internalNotesDraft });
-      setIsEditingInternalNotes(false);
-      toast(isAr ? 'تم حفظ الملاحظات الداخلية' : 'Internal notes saved', 'success');
-    };
+    const handleSaveCustomerNotes = () =>
+      void saveOrderPatch(
+        { customerNotes: customerNotesDraft },
+        () => setIsEditingCustomerNotes(false),
+        isAr ? 'تم حفظ ملاحظات العميل' : 'Customer notes saved',
+      );
+
+    const handleSaveInternalNotes = () =>
+      void saveOrderPatch(
+        { internalNotes: internalNotesDraft },
+        () => setIsEditingInternalNotes(false),
+        isAr ? 'تم حفظ الملاحظات الداخلية' : 'Internal notes saved',
+      );
 
     const handleSaveCustomerInfo = () => {
       const name = customerInfoDraft.customerName.trim();
       const phone = customerInfoDraft.customerPhone.trim();
-      updateOrder(
-        o.id,
+      void saveOrderPatch(
         {
           customerName: name || o.customerName,
           customerPhone: phone || o.customerPhone,
           customerEmail: customerInfoDraft.customerEmail.trim() || undefined,
           deliveryLocation: customerInfoDraft.deliveryLocation.trim(),
         },
-        activeStore?.id,
+        () => setIsEditingCustomerInfo(false),
+        isAr ? 'تم تحديث بيانات العميل' : 'Customer information updated',
       );
-      setIsEditingCustomerInfo(false);
-      toast(isAr ? 'تم تحديث بيانات العميل' : 'Customer information updated', 'success');
     };
 
     const handleSaveShippingInfo = () => {
       const address = shippingInfoDraft.shippingAddress.trim();
-      updateOrder(
-        o.id,
+      void saveOrderPatch(
         {
           shippingCompany: shippingInfoDraft.shippingCompany.trim() || undefined,
           trackingNumber: shippingInfoDraft.trackingNumber.trim() || undefined,
@@ -1185,25 +1312,21 @@ export const StoreOrders: React.FC = () => {
           shippingAddress: address || undefined,
           deliveryLocation: address || o.deliveryLocation,
         },
-        activeStore?.id,
+        () => setIsEditingShippingInfo(false),
+        isAr ? 'تم تحديث بيانات الشحن' : 'Shipping information updated',
       );
-      setIsEditingShippingInfo(false);
-      toast(isAr ? 'تم تحديث بيانات الشحن' : 'Shipping information updated', 'success');
     };
 
-    const handleSavePaymentInfo = () => {
-      updateOrder(
-        o.id,
+    const handleSavePaymentInfo = () =>
+      void saveOrderPatch(
         {
           paymentMethod: (paymentInfoDraft.paymentMethod.trim() || o.paymentMethod) as Order['paymentMethod'],
           paymentStatus: (paymentInfoDraft.paymentStatus.trim() || o.paymentStatus) as Order['paymentStatus'],
           transactionId: paymentInfoDraft.transactionId.trim() || undefined,
         },
-        activeStore?.id,
+        () => setIsEditingPaymentInfo(false),
+        isAr ? 'تم تحديث بيانات الدفع' : 'Payment information updated',
       );
-      setIsEditingPaymentInfo(false);
-      toast(isAr ? 'تم تحديث بيانات الدفع' : 'Payment information updated', 'success');
-    };
 
     return (
       <AdminPageShell className="pb-40 max-w-[1600px] mx-auto space-y-5">
@@ -1637,10 +1760,12 @@ export const StoreOrders: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleSaveCustomerInfo}
-                    className="mt-1 px-4 py-2 rounded-xl text-xs font-bold text-white cursor-pointer"
+                    disabled={detailSaving}
+                    aria-busy={detailSaving}
+                    className="mt-1 px-4 py-2 rounded-xl text-xs font-bold text-white cursor-pointer disabled:opacity-60"
                     style={{ background: 'var(--portal-cta)' }}
                   >
-                    {isAr ? 'حفظ' : 'Save'}
+                    {detailSaving ? (isAr ? 'جاري الحفظ…' : 'Saving…') : isAr ? 'حفظ' : 'Save'}
                   </button>
                 </div>
               ) : (
@@ -1772,10 +1897,12 @@ export const StoreOrders: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleSaveShippingInfo}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-white cursor-pointer"
+                    disabled={detailSaving}
+                    aria-busy={detailSaving}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-white cursor-pointer disabled:opacity-60"
                     style={{ background: 'var(--portal-cta)' }}
                   >
-                    {isAr ? 'حفظ' : 'Save'}
+                    {detailSaving ? (isAr ? 'جاري الحفظ…' : 'Saving…') : isAr ? 'حفظ' : 'Save'}
                   </button>
                 </div>
               ) : (
@@ -1834,7 +1961,22 @@ export const StoreOrders: React.FC = () => {
 
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-slate-700 dark:text-slate-300">{t('shippingStatus')}</span>
-                    {getStatusBadge(o.shippingStatus || (o.trackingNumber ? 'in_transit' : 'pending'))}
+                    {(() => {
+                      const shipRaw = String(
+                        o.shippingStatus || (o.trackingNumber ? 'in_transit' : 'pending'),
+                      )
+                        .toLowerCase()
+                        .replace(/[\s-]+/g, '_');
+                      // Do not reuse order "Pending Payment" label for shipping.
+                      if (shipRaw === 'pending' || shipRaw === 'awaiting_payment' || shipRaw === 'pending_payment') {
+                        return (
+                          <span className="px-3 py-1 rounded-full text-[11px] font-bold border whitespace-nowrap bg-[#FEF6EB] text-[#D97706] border-[#FDE68A] dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800">
+                            {isAr ? 'بانتظار الشحن' : 'Awaiting Shipment'}
+                          </span>
+                        );
+                      }
+                      return getStatusBadge(o.shippingStatus || (o.trackingNumber ? 'in_transit' : 'pending'));
+                    })()}
                   </div>
 
                   <div className="pt-2">
@@ -1870,11 +2012,22 @@ export const StoreOrders: React.FC = () => {
                       setIsEditingPaymentInfo(false);
                       return;
                     }
-                    setPaymentInfoDraft({
-                      paymentMethod: o.paymentMethod || '',
-                      paymentStatus: o.paymentStatus || 'Pending',
-                      transactionId: o.transactionId || '',
-                    });
+                    {
+                      const rawPay = String(o.paymentStatus || 'Pending').toLowerCase();
+                      const normalizedPay =
+                        rawPay === 'paid'
+                          ? 'Paid'
+                          : rawPay === 'failed'
+                            ? 'Failed'
+                            : rawPay === 'refunded'
+                              ? 'Refunded'
+                              : 'Pending';
+                      setPaymentInfoDraft({
+                        paymentMethod: o.paymentMethod || '',
+                        paymentStatus: normalizedPay,
+                        transactionId: o.transactionId || '',
+                      });
+                    }
                     setIsEditingCustomerInfo(false);
                     setIsEditingShippingInfo(false);
                     setIsEditingPaymentInfo(true);
@@ -1943,10 +2096,12 @@ export const StoreOrders: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleSavePaymentInfo}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-white cursor-pointer"
+                    disabled={detailSaving}
+                    aria-busy={detailSaving}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-white cursor-pointer disabled:opacity-60"
                     style={{ background: 'var(--portal-cta)' }}
                   >
-                    {isAr ? 'حفظ' : 'Save'}
+                    {detailSaving ? (isAr ? 'جاري الحفظ…' : 'Saving…') : isAr ? 'حفظ' : 'Save'}
                   </button>
                 </div>
               ) : (
@@ -2297,8 +2452,12 @@ export const StoreOrders: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  setCustomerNotesDraft(o.customerNotes || (isAr ? 'يرجى التوصيل بعد الساعة 5 مساءً. شكراً لكم!' : 'Please deliver after 5 PM. Thank you!'));
-                  setIsEditingCustomerNotes(!isEditingCustomerNotes);
+                  if (isEditingCustomerNotes) {
+                    setIsEditingCustomerNotes(false);
+                    return;
+                  }
+                  setCustomerNotesDraft(o.customerNotes || '');
+                  setIsEditingCustomerNotes(true);
                 }}
                 className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center gap-1 cursor-pointer"
               >
@@ -2323,18 +2482,20 @@ export const StoreOrders: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleSaveCustomerNotes}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-white cursor-pointer"
+                  disabled={detailSaving}
+                  aria-busy={detailSaving}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white cursor-pointer disabled:opacity-60"
                   style={{ background: 'var(--portal-cta)' }}
                 >
-                  {t('saveNotes')}
+                  {detailSaving ? (isAr ? 'جاري الحفظ…' : 'Saving…') : t('saveNotes')}
                 </button>
               </div>
             ) : (
               <div
                 className="p-3.5 rounded-xl text-xs leading-relaxed bg-slate-50 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-800"
-                style={{ color: 'var(--text)' }}
+                style={{ color: o.customerNotes ? 'var(--text)' : 'var(--muted)' }}
               >
-                {o.customerNotes || (isAr ? 'يرجى التوصيل بعد الساعة 5 مساءً. شكراً لكم!' : 'Please deliver after 5 PM. Thank you!')}
+                {o.customerNotes || (isAr ? 'لا توجد ملاحظات' : 'No notes yet')}
               </div>
             )}
           </div>
@@ -2349,8 +2510,12 @@ export const StoreOrders: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  setInternalNotesDraft(o.internalNotes || (isAr ? 'عميل مميز - يرجى العناية الخاصة بالطلب.' : 'VIP customer. Handle with care.'));
-                  setIsEditingInternalNotes(!isEditingInternalNotes);
+                  if (isEditingInternalNotes) {
+                    setIsEditingInternalNotes(false);
+                    return;
+                  }
+                  setInternalNotesDraft(o.internalNotes || '');
+                  setIsEditingInternalNotes(true);
                 }}
                 className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center gap-1 cursor-pointer"
               >
@@ -2375,38 +2540,43 @@ export const StoreOrders: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleSaveInternalNotes}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-white cursor-pointer"
+                  disabled={detailSaving}
+                  aria-busy={detailSaving}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white cursor-pointer disabled:opacity-60"
                   style={{ background: 'var(--portal-cta)' }}
                 >
-                  {t('saveNotes')}
+                  {detailSaving ? (isAr ? 'جاري الحفظ…' : 'Saving…') : t('saveNotes')}
                 </button>
               </div>
             ) : (
               <div
                 className="p-3.5 rounded-xl text-xs leading-relaxed bg-slate-50 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-800"
-                style={{ color: 'var(--text)' }}
+                style={{ color: o.internalNotes ? 'var(--text)' : 'var(--muted)' }}
               >
-                {o.internalNotes || (isAr ? 'عميل مميز - يرجى العناية الخاصة بالطلب.' : 'VIP customer. Handle with care.')}
+                {o.internalNotes || (isAr ? 'لا توجد ملاحظات' : 'No notes yet')}
               </div>
             )}
           </div>
         </div>
 
         {/* ── MODALS (Invoice Print & Edit Order) ── */}
-        <RetailInvoiceModal
-          isOpen={showInvoiceModal}
-          onClose={() => setShowInvoiceModal(false)}
-          order={invoiceOrder}
-          store={activeStore}
-        />
-
-        {showReturnsModal && (
-          <ReturnsManager
-            isOpen={showReturnsModal}
-            onClose={() => setShowReturnsModal(false)}
-            order={returnsOrder || currentSelectedOrder}
-          />
-        )}
+        <Suspense fallback={null}>
+          {showInvoiceModal && (
+            <RetailInvoiceModal
+              isOpen={showInvoiceModal}
+              onClose={() => setShowInvoiceModal(false)}
+              order={invoiceOrder}
+              store={activeStore}
+            />
+          )}
+          {showReturnsModal && (
+            <ReturnsManager
+              isOpen={showReturnsModal}
+              onClose={() => setShowReturnsModal(false)}
+              order={returnsOrder || currentSelectedOrder}
+            />
+          )}
+        </Suspense>
       </AdminPageShell>
     );
   }
@@ -2416,6 +2586,16 @@ export const StoreOrders: React.FC = () => {
   // ────────────────────────────────────────────────
   return (
     <AdminPageShell className="pb-40 max-w-[1600px] mx-auto space-y-5">
+      {ordersListBusy && storeOrders.length === 0 && (
+        <div
+          className="rounded-2xl border px-4 py-3 text-xs font-semibold flex items-center gap-2"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--muted)' }}
+        >
+          <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" style={{ color: 'var(--accent)' }} />
+          {isAr ? 'جاري تحميل الطلبات…' : 'Loading orders…'}
+        </div>
+      )}
+
       {/* ── TOP HEADER — Title & Subtitle + New Order Button ── */}
       <div className="relative z-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 min-w-0">
         <div className="min-w-0 flex-1">
@@ -3179,175 +3359,185 @@ export const StoreOrders: React.FC = () => {
         );
       })()}
 
-      {/* ── NEW ORDER MODAL (Store scoped) ── */}
-      {showNewOrderModal && (
-        <CreateStoreOrderModal
-          storeName={activeStore.name}
-          storeId={activeStore.id}
-          products={currentProducts}
-          onClose={() => setShowNewOrderModal(false)}
-          onCreate={async (orderData) => {
-            const created = await addOrder(
-              { ...orderData, storeId: activeStore.id } as any,
-              activeStore.id,
-            );
-            setShowNewOrderModal(false);
-            toast(t('orderCreatedSuccess'), 'success');
-            return created;
-          }}
-        />
-      )}
+      <Suspense fallback={null}>
+        {/* ── NEW ORDER MODAL (Store scoped) ── */}
+        {showNewOrderModal && (
+          <CreateStoreOrderModal
+            storeName={activeStore.name}
+            storeId={activeStore.id}
+            products={currentProducts}
+            onClose={() => setShowNewOrderModal(false)}
+            onCreate={async (orderData) => {
+              const created = await addOrder(
+                { ...orderData, storeId: activeStore.id } as any,
+                activeStore.id,
+              );
+              setShowNewOrderModal(false);
+              toast(t('orderCreatedSuccess'), 'success');
+              return created;
+            }}
+          />
+        )}
 
-      {/* ── MODALS (Invoice Print & Edit Order) ── */}
-      {showInvoiceModal && previewInvoiceDoc && (
-        <InvoicePreviewModal
-          isOpen={showInvoiceModal}
-          onClose={() => setShowInvoiceModal(false)}
-          document={previewInvoiceDoc}
-          config={invoiceConfig}
-          onConfigChange={(updated: any) => setInvoiceConfig(updated)}
-        />
-      )}
+        {/* ── MODALS (Invoice Print & Edit Order) ── */}
+        {showInvoiceModal && previewInvoiceDoc && (
+          <InvoicePreviewModal
+            isOpen={showInvoiceModal}
+            onClose={() => setShowInvoiceModal(false)}
+            document={previewInvoiceDoc}
+            config={invoiceConfig}
+            onConfigChange={(updated: any) => setInvoiceConfig(updated)}
+          />
+        )}
 
-      {showReturnsModal && (
-        <ReturnsManager
-          isOpen={showReturnsModal}
-          onClose={() => setShowReturnsModal(false)}
-          order={returnsOrder}
-        />
-      )}
+        {showReturnsModal && (
+          <ReturnsManager
+            isOpen={showReturnsModal}
+            onClose={() => setShowReturnsModal(false)}
+            order={returnsOrder}
+          />
+        )}
 
-      {showCodLedgerModal && (
-        <CodLedgerModal
-          isOpen={showCodLedgerModal}
-          onClose={() => setShowCodLedgerModal(false)}
-          orders={activeOrders}
-        />
-      )}
+        {showCodLedgerModal && (
+          <CodLedgerModal
+            isOpen={showCodLedgerModal}
+            onClose={() => setShowCodLedgerModal(false)}
+            orders={activeOrders}
+          />
+        )}
 
-      {showDetailsModal && (
-        <OrderDetailsModal
-          isOpen={showDetailsModal}
-          onClose={() => {
-            setShowDetailsModal(false);
-            setDetailsModalOrder(null);
-          }}
-          order={detailsModalOrder}
-          onPrintInvoice={(ord) => {
-            setInvoiceOrder(ord);
-            setShowInvoiceModal(true);
-          }}
-          onEditOrder={(ord) => {
-            setShowDetailsModal(false);
-            setDetailsModalOrder(null);
-            setSelectedOrder(ord);
-          }}
-        />
-      )}
+        {showDetailsModal && (
+          <OrderDetailsModal
+            isOpen={showDetailsModal}
+            onClose={() => {
+              setShowDetailsModal(false);
+              setDetailsModalOrder(null);
+            }}
+            order={detailsModalOrder}
+            onPrintInvoice={(ord) => {
+              setInvoiceOrder(ord);
+              setShowInvoiceModal(true);
+            }}
+            onEditOrder={(ord) => {
+              setShowDetailsModal(false);
+              setDetailsModalOrder(null);
+              setSelectedOrder(ord);
+            }}
+          />
+        )}
 
-      {/* Courier Shipping Label Printable Barcode Modal */}
-      {showShippingLabelModal && shippingLabelOrder && (
-        <CourierShippingLabelModal
-          isOpen={showShippingLabelModal}
-          onClose={() => {
-            setShowShippingLabelModal(false);
-            setShippingLabelOrder(null);
-          }}
-          labelData={{
-            carrier: ((shippingLabelOrder.shippingCompany || '').toLowerCase().includes('spl') || (shippingLabelOrder.shippingCompany || '').toLowerCase().includes('post')
-              ? 'spl'
-              : (shippingLabelOrder.shippingCompany || '').toLowerCase().includes('aramex')
-              ? 'aramex'
-              : (shippingLabelOrder.shippingCompany || '').toLowerCase().includes('dhl')
-              ? 'dhl'
-              : (shippingLabelOrder.shippingCompany || '').toLowerCase().includes('smsa')
-              ? 'smsa'
-              : 'generic') as CourierCarrierCode,
-            carrierName: shippingLabelOrder.shippingCompany || (isAr ? 'غير محدد' : 'Not set'),
-            carrierNameAr: (shippingLabelOrder.shippingCompany || '').toLowerCase().includes('spl')
-              ? 'البريد السعودي'
-              : (shippingLabelOrder.shippingCompany || '').toLowerCase().includes('aramex')
-              ? 'أرامكس'
-              : (shippingLabelOrder.shippingCompany || '').toLowerCase().includes('smsa')
-              ? 'سمسا'
-              : (shippingLabelOrder.shippingCompany || 'غير محدد'),
-            trackingNumber: shippingLabelOrder.trackingNumber || '',
-            awbNumber: shippingLabelOrder.trackingNumber || '',
-            orderNumber: shippingLabelOrder.orderNumber,
-            orderDate: shippingLabelOrder.date || '',
-            sender: {
-              name: activeStore.name || '',
-              nameAr: activeStore.nameAr || activeStore.name || '',
-              phone: activeStore.contactPhone || activeStore.phone || '',
-              address: '',
-              city: '',
-              country: isAr ? 'السعودية' : 'Saudi Arabia',
-            },
-            recipient: {
-              name: shippingLabelOrder.customerName,
-              phone: shippingLabelOrder.customerPhone,
-              address: shippingLabelOrder.shippingAddress || shippingLabelOrder.deliveryLocation || '',
-              city: '',
-              country: isAr ? 'السعودية' : 'Saudi Arabia',
-            },
-            packageDetails: {
-              weightKg: 0,
-              pieces: shippingLabelOrder.items?.length || 1,
-              contentDescription: isAr ? 'منتجات الطلب' : 'Order items',
-              contentDescriptionAr: 'منتجات الطلب',
-              declaredValueSar: Number(shippingLabelOrder.total) || 0,
-            },
-            payment: {
-              method: (shippingLabelOrder.paymentMethod || '').toLowerCase().includes('cod') ||
-                (shippingLabelOrder.paymentMethod || '').toLowerCase().includes('cash') ||
-                (shippingLabelOrder.codStatus && shippingLabelOrder.codStatus !== 'not_cod')
-                ? 'cod'
-                : 'prepaid',
-              codAmountSar: Number(shippingLabelOrder.total) || 0,
-              currency: 'SAR',
-            },
-            routing: {
-              hubCode: '',
-              serviceType: '',
-              serviceTypeAr: '',
-              routeCode: '',
-            },
-          }}
-        />
-      )}
+        {/* Courier Shipping Label Printable Barcode Modal */}
+        {showShippingLabelModal && shippingLabelOrder && (
+          <CourierShippingLabelModal
+            isOpen={showShippingLabelModal}
+            onClose={() => {
+              setShowShippingLabelModal(false);
+              setShippingLabelOrder(null);
+            }}
+            labelData={{
+              carrier: ((shippingLabelOrder.shippingCompany || '').toLowerCase().includes('spl') || (shippingLabelOrder.shippingCompany || '').toLowerCase().includes('post')
+                ? 'spl'
+                : (shippingLabelOrder.shippingCompany || '').toLowerCase().includes('aramex')
+                ? 'aramex'
+                : (shippingLabelOrder.shippingCompany || '').toLowerCase().includes('dhl')
+                ? 'dhl'
+                : (shippingLabelOrder.shippingCompany || '').toLowerCase().includes('smsa')
+                ? 'smsa'
+                : 'generic') as CourierCarrierCode,
+              carrierName: shippingLabelOrder.shippingCompany || (isAr ? 'غير محدد' : 'Not set'),
+              carrierNameAr: (shippingLabelOrder.shippingCompany || '').toLowerCase().includes('spl')
+                ? 'البريد السعودي'
+                : (shippingLabelOrder.shippingCompany || '').toLowerCase().includes('aramex')
+                ? 'أرامكس'
+                : (shippingLabelOrder.shippingCompany || '').toLowerCase().includes('smsa')
+                ? 'سمسا'
+                : (shippingLabelOrder.shippingCompany || 'غير محدد'),
+              trackingNumber: shippingLabelOrder.trackingNumber || '',
+              awbNumber: shippingLabelOrder.trackingNumber || '',
+              orderNumber: shippingLabelOrder.orderNumber,
+              orderDate: shippingLabelOrder.date || '',
+              sender: {
+                name: activeStore.name || '',
+                nameAr: activeStore.nameAr || activeStore.name || '',
+                phone: activeStore.contactPhone || activeStore.phone || '',
+                address: '',
+                city: '',
+                country: isAr ? 'السعودية' : 'Saudi Arabia',
+              },
+              recipient: {
+                name: shippingLabelOrder.customerName,
+                phone: shippingLabelOrder.customerPhone,
+                address: shippingLabelOrder.shippingAddress || shippingLabelOrder.deliveryLocation || '',
+                city: '',
+                country: isAr ? 'السعودية' : 'Saudi Arabia',
+              },
+              packageDetails: {
+                weightKg: 0,
+                pieces: shippingLabelOrder.items?.length || 1,
+                contentDescription: isAr ? 'منتجات الطلب' : 'Order items',
+                contentDescriptionAr: 'منتجات الطلب',
+                declaredValueSar: Number(shippingLabelOrder.total) || 0,
+              },
+              payment: {
+                method: (shippingLabelOrder.paymentMethod || '').toLowerCase().includes('cod') ||
+                  (shippingLabelOrder.paymentMethod || '').toLowerCase().includes('cash') ||
+                  (shippingLabelOrder.codStatus && shippingLabelOrder.codStatus !== 'not_cod')
+                  ? 'cod'
+                  : 'prepaid',
+                codAmountSar: Number(shippingLabelOrder.total) || 0,
+                currency: 'SAR',
+              },
+              routing: {
+                hubCode: '',
+                serviceType: '',
+                serviceTypeAr: '',
+                routeCode: '',
+              },
+            }}
+          />
+        )}
 
-      {/* ── SUB-MODALS (Image 1 & Image 2) ── */}
-      <OrderStatusSettingsModal
-        isOpen={showOrderStatusSettings}
-        onClose={() => setShowOrderStatusSettings(false)}
-        storeId={activeStore.id}
-      />
+        {/* ── SUB-MODALS (Image 1 & Image 2) ── */}
+        {showOrderStatusSettings && (
+          <OrderStatusSettingsModal
+            isOpen={showOrderStatusSettings}
+            onClose={() => setShowOrderStatusSettings(false)}
+            storeId={activeStore.id}
+          />
+        )}
 
-      <ExportTemplateModal
-        isOpen={showExportTemplateModal}
-        onClose={() => setShowExportTemplateModal(false)}
-        storeId={activeStore.id}
-        onExport={(fields, format) => {
-          handleExportOrders(
-            filteredOrders,
-            format,
-            `orders_export_${Date.now()}.${format === 'xlsx' ? 'xls' : 'csv'}`,
-            fields,
-          );
-        }}
-      />
+        {showExportTemplateModal && (
+          <ExportTemplateModal
+            isOpen={showExportTemplateModal}
+            onClose={() => setShowExportTemplateModal(false)}
+            storeId={activeStore.id}
+            onExport={(fields, format) => {
+              handleExportOrders(
+                filteredOrders,
+                format,
+                `orders_export_${Date.now()}.${format === 'xlsx' ? 'xls' : 'csv'}`,
+                fields,
+              );
+            }}
+          />
+        )}
 
-      <AutomaticAssignmentModal
-        isOpen={showAutoAssignmentModal}
-        onClose={() => setShowAutoAssignmentModal(false)}
-        storeId={activeStore.id}
-        orders={activeOrders}
-      />
+        {showAutoAssignmentModal && (
+          <AutomaticAssignmentModal
+            isOpen={showAutoAssignmentModal}
+            onClose={() => setShowAutoAssignmentModal(false)}
+            storeId={activeStore.id}
+            orders={activeOrders}
+          />
+        )}
 
-      <PaymentTransactionsModal
-        isOpen={showPaymentTransactionsModal}
-        onClose={() => setShowPaymentTransactionsModal(false)}
-      />
+        {showPaymentTransactionsModal && (
+          <PaymentTransactionsModal
+            isOpen={showPaymentTransactionsModal}
+            onClose={() => setShowPaymentTransactionsModal(false)}
+          />
+        )}
+      </Suspense>
     </AdminPageShell>
   );
 };

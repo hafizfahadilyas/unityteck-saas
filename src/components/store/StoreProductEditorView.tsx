@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
-import type { Product, ProductVariation, ProductColorOption } from '../../types';
+import type { Product, ProductVariation, ProductColorOption, StoreCategory } from '../../types';
+import { ProductCategoryMultiPicker } from './ProductCategoryMultiPicker';
 import { EditorModal } from './EditorModal';
 import { ProductOptionModal, type OptionKind, type OptionValueDraft } from './ProductOptionModal';
 import { usePrefs } from '../../i18n/PrefsContext';
@@ -117,7 +118,8 @@ export interface StoreProductEditorViewProps {
   canMutate?: boolean;
   categories: string[];
   /** Hierarchical labels (category + subcategory). Falls back to `categories`. */
-  categoryOptions?: { value: string; label: string }[];
+  categoryOptions?: { value: string; label: string; depth?: number; id?: string }[];
+  storeCategories?: StoreCategory[];
   availableBrands?: string[];
   onBack: () => void;
   onSave: (updatedData: Partial<Product>) => void;
@@ -189,6 +191,50 @@ function normalizeOptionType(
   return 'text';
 }
 
+function guessColorHex(label: string): string {
+  const l = (label || '').toLowerCase();
+  if (l.includes('red') || l.includes('احمر') || l.includes('أحمر')) return '#ef4444';
+  if (l.includes('white') || l.includes('ابيض') || l.includes('أبيض')) return '#ffffff';
+  if (l.includes('pink') || l.includes('وردي') || l.includes('زهري')) return '#f472b6';
+  if (l.includes('black') || l.includes('اسود') || l.includes('أسود')) return '#18181b';
+  if (l.includes('blue') || l.includes('ازرق') || l.includes('أزرق')) return '#3b82f6';
+  if (l.includes('green') || l.includes('اخضر') || l.includes('أخضر')) return '#22c55e';
+  if (l.includes('yellow') || l.includes('اصفر') || l.includes('أصفر')) return '#eab308';
+  if (l.includes('orange') || l.includes('برتقالي')) return '#f97316';
+  if (l.includes('silver') || l.includes('فضي')) return '#94a3b8';
+  return '#64748b';
+}
+
+function mapCommerceOptionsToItems(
+  seeded: ReturnType<typeof seedExistingCommerce>['options'],
+): ProductOptionItem[] {
+  return mergeBilingualProductOptions(seeded).map((opt) => {
+    const type = normalizeOptionType(opt.type, opt.name);
+    return {
+      id: opt.id,
+      name: opt.name,
+      nameAr: opt.nameAr,
+      type,
+      visible: opt.visible !== false,
+      values: optionValuesList(opt.values).map((v) => ({
+        id: v.id,
+        label: v.label,
+        labelAr: v.labelAr,
+        colorHex: v.colorHex || (type === 'color' ? guessColorHex(v.label) : undefined),
+        imageUrl: v.imageUrl,
+        videoUrl: v.videoUrl,
+        selected: v.selected !== false,
+        price: v.price ?? null,
+        salePrice: v.salePrice ?? null,
+        stock: v.stock ?? null,
+        sku: v.sku,
+        weight: v.weight ?? null,
+        weightUnit: v.weightUnit === 'g' ? 'g' : 'kg',
+      })),
+    };
+  });
+}
+
 function toDraftValue(v: ProductOptionValueItem): OptionValueDraft {
   return {
     id: v.id,
@@ -251,6 +297,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   onNavigateTab,
   categories,
   categoryOptions,
+  storeCategories = [],
   availableBrands = [],
   onBack,
   onSave,
@@ -279,10 +326,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   const [scheduledPublishAt, setScheduledPublishAt] = useState(
     product.scheduledPublishAt ? String(product.scheduledPublishAt).slice(0, 16) : '',
   );
-  const [showNewCategoryModal, setShowNewCategoryModal] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryNameAr, setNewCategoryNameAr] = useState('');
-  const [newCategoryBusy, setNewCategoryBusy] = useState(false);
   const [googleTaxonomy, setGoogleTaxonomy] = useState(product.googleTaxonomy || '');
   const [description, setDescription] = useState(product.description || '');
   /** Manual typing vs AI auto-suggestion for title / description */
@@ -423,33 +466,10 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   const [pendingVariantImageId, setPendingVariantImageId] = useState<string | null>(null);
   const [pendingOptionImage, setPendingOptionImage] = useState<{ optionId: string; valueId: string } | null>(null);
 
-  // ── Product Options State ──
+  // ── Product Options State (auto from saved options / variation rows; Add Option stays) ──
   const [options, setOptions] = useState<ProductOptionItem[]>(() => {
-    const seeded = mergeBilingualProductOptions(seedExistingCommerce(product, storeId).options);
-    if (seeded.length > 0) {
-      return seeded.map((opt) => ({
-        id: opt.id,
-        name: opt.name,
-        nameAr: opt.nameAr,
-        type: normalizeOptionType(opt.type, opt.name),
-        visible: opt.visible !== false,
-        values: optionValuesList(opt.values).map((v) => ({
-          id: v.id,
-          label: v.label,
-          labelAr: v.labelAr,
-          colorHex: v.colorHex,
-          imageUrl: v.imageUrl,
-          videoUrl: v.videoUrl,
-          selected: v.selected !== false,
-          price: v.price ?? null,
-          salePrice: v.salePrice ?? null,
-          stock: v.stock ?? null,
-          sku: v.sku,
-          weight: v.weight ?? null,
-          weightUnit: v.weightUnit === 'g' ? 'g' : 'kg',
-        })),
-      }));
-    }
+    const seeded = mapCommerceOptionsToItems(seedExistingCommerce(product, storeId).options);
+    if (seeded.length > 0) return seeded;
 
     const initialOpts: ProductOptionItem[] = [];
     if (product.colors && Array.isArray(product.colors) && product.colors.length > 0) {
@@ -487,19 +507,8 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     return initialOpts;
   });
 
-  // Helper function for color hexes
   function getColorHex(label: string): string {
-    const l = (label || '').toLowerCase();
-    if (l.includes('red') || l.includes('احمر') || l.includes('أحمر')) return '#ef4444';
-    if (l.includes('white') || l.includes('ابيض') || l.includes('أبيض')) return '#ffffff';
-    if (l.includes('pink') || l.includes('وردي') || l.includes('زهري')) return '#f472b6';
-    if (l.includes('black') || l.includes('اسود') || l.includes('أسود')) return '#18181b';
-    if (l.includes('blue') || l.includes('ازرق') || l.includes('أزرق')) return '#3b82f6';
-    if (l.includes('green') || l.includes('اخضر') || l.includes('أخضر')) return '#22c55e';
-    if (l.includes('yellow') || l.includes('اصفر') || l.includes('أصفر')) return '#eab308';
-    if (l.includes('orange') || l.includes('برتقالي')) return '#f97316';
-    if (l.includes('silver') || l.includes('فضي')) return '#94a3b8';
-    return '#64748b';
+    return guessColorHex(label);
   }
 
   // ── Variations State (Loaded from API or Product - ZERO DUMMY DATA) ──
@@ -538,6 +547,26 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   const [editingOptionId, setEditingOptionId] = useState<string | null>(null);
   const [newOptionValueInput, setNewOptionValueInput] = useState('');
 
+  const applyCommerceFromRows = useCallback(
+    (rows: ProductVariation[]) => {
+      const normalized = normalizeVariantUniqueness(normalizeCommerceVariations(rows));
+      setVariations(normalized);
+      // Auto-show every option found on real variants; keep Add Option for more.
+      setOptions((prev) => {
+        // Never wipe merchant edits; only auto-fill when editor still empty.
+        if (prev.length > 0) return prev;
+        const seeded = mapCommerceOptionsToItems(
+          seedExistingCommerce(
+            { ...product, variations: normalized, productOptions: product.productOptions },
+            storeId,
+          ).options,
+        );
+        return seeded.length > 0 ? seeded : prev;
+      });
+    },
+    [product, storeId],
+  );
+
   const loadVariations = useCallback(async () => {
     if (!storeId || !product.id) return;
     setLoadingVariations(true);
@@ -545,21 +574,21 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       if (isApiEnabled()) {
         const list = await tenantApi.fetchVariations(storeId, product.id);
         if (list && list.length > 0) {
-          setVariations(normalizeVariantUniqueness(normalizeCommerceVariations(list)));
+          applyCommerceFromRows(list);
         } else if (product.variations && product.variations.length > 0) {
-          setVariations(normalizeVariantUniqueness(normalizeCommerceVariations(product.variations)));
+          applyCommerceFromRows(product.variations);
         }
       } else if (product.variations && product.variations.length > 0) {
-        setVariations(normalizeVariantUniqueness(normalizeCommerceVariations(product.variations)));
+        applyCommerceFromRows(product.variations);
       }
     } catch {
       if (product.variations && product.variations.length > 0) {
-        setVariations(normalizeVariantUniqueness(normalizeCommerceVariations(product.variations)));
+        applyCommerceFromRows(product.variations);
       }
     } finally {
       setLoadingVariations(false);
     }
-  }, [storeId, product.id, product.variations]);
+  }, [storeId, product.id, product.variations, applyCommerceFromRows]);
 
   useEffect(() => {
     loadVariations();
@@ -1678,42 +1707,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     }
   };
 
-  const handleCreateCategory = async () => {
-    const en = newCategoryName.trim();
-    const ar = newCategoryNameAr.trim();
-    if (!en && !ar) {
-      toast(isAr ? 'أدخل اسم التصنيف' : 'Enter a category name', 'error');
-      return;
-    }
-    if (!storeId || !isApiEnabled()) {
-      toast(isAr ? 'يتطلب اتصال الواجهة البرمجية' : 'Live API connection required', 'error');
-      return;
-    }
-    setNewCategoryBusy(true);
-    try {
-      const created = await tenantApi.createCategory(storeId, {
-        name: en || ar,
-        name_ar: ar || null,
-        is_active: true,
-      });
-      const value = isAr ? created.nameAr || created.name : created.name || created.nameEn || '';
-      if (value && !productCategories.includes(value)) {
-        setProductCategories((prev) => [...prev, value]);
-        if (!category) setCategory(value);
-      }
-      window.dispatchEvent(
-        new CustomEvent('unityteck-categories-updated', { detail: { storeId } }),
-      );
-      setShowNewCategoryModal(false);
-      setNewCategoryName('');
-      setNewCategoryNameAr('');
-      toast(isAr ? 'تم إنشاء التصنيف' : 'Category created', 'success');
-    } catch (err) {
-      toast(err instanceof Error ? err.message : isAr ? 'تعذر إنشاء التصنيف' : 'Could not create category', 'error');
-    } finally {
-      setNewCategoryBusy(false);
-    }
-  };
 
   const entryModeToggle = (
     modeValue: 'manual' | 'ai',
@@ -3886,66 +3879,30 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   </h3>
                 </div>
               </div>
-
-              {/* Multi-category assignment */}
+              {/* Multi-category assignment — toggles + Add New full */}
               <div>
                 <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
                   {isAr ? 'التصنيفات (متعدد)' : 'Categories (multiple)'}
                 </label>
-                <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-xl border min-h-[42px] mb-2" style={{ borderColor: 'var(--border)' }}>
-                  {productCategories.map((cat) => (
-                    <span
-                      key={cat}
-                      className="px-2.5 py-1 rounded-lg bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-200 text-xs font-semibold flex items-center gap-1"
-                    >
-                      <span>{getProductDisplayCategory(cat, locale)}</span>
-                      {productCategories.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => setProductCategories(productCategories.filter((c) => c !== cat))}
-                          className="hover:text-rose-600 cursor-pointer"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      )}
-                    </span>
-                  ))}
-                </div>
-                <select
-                  value=""
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    if (!next) return;
-                    if (!productCategories.includes(next)) {
-                      setProductCategories([...productCategories, next]);
-                      setCategory(productCategories[0] || next);
-                    }
+                <ProductCategoryMultiPicker
+                  selected={productCategories}
+                  options={
+                    categoryOptions && categoryOptions.length > 0
+                      ? categoryOptions
+                      : categories.map((c) => ({
+                          value: c,
+                          label: getProductDisplayCategory(c, locale),
+                        }))
+                  }
+                  storeCategories={storeCategories}
+                  storeId={storeId}
+                  isAr={isAr}
+                  locale={locale}
+                  onChange={(next, primary) => {
+                    setProductCategories(next);
+                    setCategory(primary || next[0] || '');
                   }}
-                  className="w-full px-2.5 py-2 rounded-xl border text-xs font-medium cursor-pointer focus:outline-none"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                >
-                  <option value="">{isAr ? 'إضافة تصنيف...' : 'Add category...'}</option>
-                  {(categoryOptions && categoryOptions.length > 0
-                    ? categoryOptions
-                    : categories.map((c) => ({
-                        value: c,
-                        label: getProductDisplayCategory(c, locale),
-                      }))
-                  )
-                    .filter((c) => !productCategories.includes(c.value))
-                    .map((c) => (
-                      <option key={c.value} value={c.value}>
-                        {c.label}
-                      </option>
-                    ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => setShowNewCategoryModal(true)}
-                  className="mt-2 text-xs font-bold unity-btn-primary px-3 py-1.5 rounded-lg"
-                >
-                  {isAr ? 'تصنيف جديد' : 'New category'}
-                </button>
+                />
               </div>
 
               {/* Feature / highlight product */}
@@ -5047,87 +5004,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
         </EditorModal>
       )}
 
-      {showNewCategoryModal ? (
-        <EditorModal onClose={() => setShowNewCategoryModal(false)} dir={isAr ? 'rtl' : 'ltr'}>
-          <div className="space-y-3 min-w-[min(100vw-2rem,24rem)]">
-            <h3 className="text-sm font-bold" style={{ color: 'var(--text)' }}>
-              {isAr ? 'تصنيف جديد' : 'New category'}
-            </h3>
-            <motionField
-              label={isAr ? 'الاسم (إنجليزي)' : 'Name (English)'}
-              value={newCategoryName}
-              onChange={setNewCategoryName}
-              isAr={isAr}
-            />
-            <motionField
-              label={isAr ? 'الاسم (عربي)' : 'Name (Arabic)'}
-              value={newCategoryNameAr}
-              onChange={setNewCategoryNameAr}
-              isAr={isAr}
-            />
-            <motionActions
-              isAr={isAr}
-              busy={newCategoryBusy}
-              onCancel={() => setShowNewCategoryModal(false)}
-              onSave={() => void handleCreateCategory()}
-            />
-          </div>
-        </EditorModal>
-      ) : null}
     </div>
   );
 };
 
-function motionField({
-  label,
-  value,
-  onChange,
-  isAr,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  isAr: boolean;
-}) {
-  return (
-    <div>
-      <label className="text-xs font-bold block mb-1">{label}</label>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        dir={label.includes('عربي') || isAr && label.includes('Arabic') ? 'rtl' : 'ltr'}
-        className="w-full px-3 py-2 rounded-xl border text-sm"
-        style={{ borderColor: 'var(--border)', background: 'var(--input-bg)', color: 'var(--input-fg)' }}
-      />
-    </div>
-  );
-}
-
-function motionActions({
-  isAr,
-  busy,
-  onCancel,
-  onSave,
-}: {
-  isAr: boolean;
-  busy: boolean;
-  onCancel: () => void;
-  onSave: () => void;
-}) {
-  return (
-    <div className="flex justify-end gap-2 pt-2">
-      <button type="button" onClick={onCancel} className="px-4 py-2 rounded-xl border text-xs font-bold">
-        {isAr ? 'إلغاء' : 'Cancel'}
-      </button>
-      <button
-        type="button"
-        disabled={busy}
-        onClick={onSave}
-        className="unity-btn-primary px-4 py-2 rounded-xl text-xs font-bold disabled:opacity-50"
-      >
-        {busy ? (isAr ? 'جاري الحفظ...' : 'Saving…') : isAr ? 'إنشاء' : 'Create'}
-      </button>
-    </div>
-  );
-}

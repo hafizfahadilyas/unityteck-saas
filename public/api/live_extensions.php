@@ -62,9 +62,27 @@ function souq_table_has_column(PDO $pdo, string $table, string $column, bool $bu
     }
     try {
         if (souq_driver_is_mysql($pdo)) {
-            $st = $pdo->prepare('SHOW COLUMNS FROM `' . str_replace('`', '', $table) . '` LIKE ?');
-            $st->execute([$column]);
-            $cache[$key] = (bool) $st->fetch(PDO::FETCH_ASSOC);
+            // MySQL often ignores/fails prepared SHOW COLUMNS … LIKE ? — that made
+            // every order PATCH field (except payment_status) silently skip on Hostinger.
+            $safeTable = preg_replace('/[^a-zA-Z0-9_]/', '', $table) ?: 'orders';
+            $safeColumn = preg_replace('/[^a-zA-Z0-9_]/', '', $column) ?: '';
+            if ($safeColumn === '') {
+                $cache[$key] = false;
+                return false;
+            }
+            $st = $pdo->prepare(
+                'SELECT 1 FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?
+                 LIMIT 1'
+            );
+            $st->execute([$safeTable, $safeColumn]);
+            $found = (bool) $st->fetchColumn();
+            if (!$found) {
+                // Fallback for hosts that restrict information_schema reads.
+                $q = $pdo->query('SHOW COLUMNS FROM `' . $safeTable . '` LIKE ' . $pdo->quote($safeColumn));
+                $found = (bool) ($q && $q->fetch(PDO::FETCH_ASSOC));
+            }
+            $cache[$key] = $found;
         } else {
             $safe = preg_replace('/[^a-z0-9_]/i', '', $table) ?: 'stores';
             $cols = $pdo->query('PRAGMA table_info(' . $safe . ')')->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -81,6 +99,34 @@ function souq_table_has_column(PDO $pdo, string $table, string $column, bool $bu
         $cache[$key] = false;
     }
     return $cache[$key];
+}
+
+/** Ensure order note columns exist (customer + internal) on live MySQL/SQLite. */
+function souq_ensure_order_notes_columns(PDO $pdo): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    $add = static function (PDO $pdo, string $column, string $ddl) {
+        if (souq_table_has_column($pdo, 'orders', $column)) {
+            return;
+        }
+        try {
+            $pdo->exec($ddl);
+            souq_table_has_column($pdo, 'orders', $column, true);
+        } catch (Throwable) {
+            /* column may already exist under race */
+        }
+    };
+    if (souq_driver_is_mysql($pdo)) {
+        $add($pdo, 'customer_notes', 'ALTER TABLE `orders` ADD COLUMN `customer_notes` TEXT NULL');
+        $add($pdo, 'internal_notes', 'ALTER TABLE `orders` ADD COLUMN `internal_notes` TEXT NULL');
+        return;
+    }
+    $add($pdo, 'customer_notes', 'ALTER TABLE orders ADD COLUMN customer_notes TEXT');
+    $add($pdo, 'internal_notes', 'ALTER TABLE orders ADD COLUMN internal_notes TEXT');
 }
 
 /**

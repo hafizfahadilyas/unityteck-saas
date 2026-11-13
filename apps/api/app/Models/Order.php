@@ -81,6 +81,8 @@ class Order extends Model
         'refund_amount',
         'return_reason',
         'return_notes',
+        'customer_notes',
+        'internal_notes',
         'returned_at',
         'restocked_at',
         'order_date',

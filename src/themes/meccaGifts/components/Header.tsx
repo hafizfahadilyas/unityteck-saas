@@ -35,6 +35,10 @@ import {
 import { MECCA_WHATSAPP } from '../data/mockData';
 import { useStorefrontCategories } from '../../../hooks/useStorefrontCategories';
 import {
+  StorefrontAccountMenu,
+  type StorefrontAccountSection,
+} from '../../../components/storefront/StorefrontAccountMenu';
+import {
   HeaderCustomSettings,
   HeaderSubElementKey,
   DEFAULT_HEADER_SETTINGS,
@@ -95,8 +99,19 @@ export const Header: React.FC<HeaderProps> = ({
     user,
     setIsAuthModalOpen,
     builderDevice,
+    logout,
   } = useApp();
   const { activeStore } = useTenant();
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+
+  const openAccountSection = (section: StorefrontAccountSection) => {
+    try {
+      sessionStorage.setItem('flowers_profile_section', section);
+    } catch {
+      /* ignore */
+    }
+    setCurrentPage('crm');
+  };
 
   const isCoffee =
     activeStore?.id === 'store-coffee' ||
@@ -566,35 +581,57 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               )}
 
-              {/* User Account / Google Sign-in */}
+              {/* User Account / Google Sign-in + store-scoped account menu */}
               {act.account?.enabled && (
-                <button
-                  onClick={() => setIsAuthModalOpen(true)}
-                  style={{ color: act.account.textColor }}
-                  className="flex items-center gap-2 py-1.5 px-3 rounded-full hover:bg-[#ede9df] transition-all cursor-pointer border border-transparent hover:border-[#d6cfc0]"
-                  aria-label={isAr ? 'الحساب' : 'Account'}
-                >
-                  {user.isLoggedIn ? (
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full overflow-hidden border border-[#102a1c]">
-                        <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
-                      </div>
-                      <span className="text-xs font-bold max-w-[100px] truncate">
-                        {user.name.split(' ')[0]}
-                      </span>
-                      {act.account.showVipCrown && <Crown className="w-3.5 h-3.5 text-[#d4af37]" />}
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5">
-                      <User className="w-5 h-5 stroke-[1.8]" style={{ color: act.account.iconColor }} />
-                      {act.account.showText && (
-                        <span className="text-xs font-bold">
-                          {isAr ? act.account.labelAr : act.account.labelEn}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (user.isLoggedIn) {
+                        setAccountMenuOpen((v) => !v);
+                        return;
+                      }
+                      setIsAuthModalOpen(true);
+                    }}
+                    style={{ color: act.account.textColor }}
+                    className="flex items-center gap-2 py-1.5 px-3 rounded-full hover:bg-[#ede9df] transition-all cursor-pointer border border-transparent hover:border-[#d6cfc0]"
+                    aria-label={isAr ? 'الحساب' : 'Account'}
+                    aria-expanded={accountMenuOpen}
+                  >
+                    {user.isLoggedIn ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full overflow-hidden border border-[#102a1c]">
+                          <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                        </div>
+                        <span className="text-xs font-bold max-w-[100px] truncate">
+                          {user.name.split(' ')[0]}
                         </span>
-                      )}
-                    </div>
-                  )}
-                </button>
+                        {act.account.showVipCrown && <Crown className="w-3.5 h-3.5 text-[#d4af37]" />}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <User className="w-5 h-5 stroke-[1.8]" style={{ color: act.account.iconColor }} />
+                        {act.account.showText && (
+                          <span className="text-xs font-bold">
+                            {isAr ? act.account.labelAr : act.account.labelEn}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </button>
+                  <StorefrontAccountMenu
+                    open={accountMenuOpen && user.isLoggedIn}
+                    onClose={() => setAccountMenuOpen(false)}
+                    isAr={isAr}
+                    isLoggedIn={Boolean(user.isLoggedIn)}
+                    onLogin={() => setIsAuthModalOpen(true)}
+                    onLogout={() => {
+                      logout();
+                      setAccountMenuOpen(false);
+                    }}
+                    onNavigate={openAccountSection}
+                  />
+                </div>
               )}
 
               {/* Shopping Bag with Subtotal */}

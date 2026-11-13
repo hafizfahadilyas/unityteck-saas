@@ -633,16 +633,38 @@ export const MasterOrders: React.FC = () => {
       },
     ];
 
-    const handleSaveCustomerNotes = () => {
-      updateOrder(o.id, { customerNotes: customerNotesDraft });
-      setIsEditingCustomerNotes(false);
-      toast('Customer notes saved', 'success');
+    const handleSaveCustomerNotes = async () => {
+      try {
+        await updateOrder(o.id, { customerNotes: customerNotesDraft });
+        setIsEditingCustomerNotes(false);
+        toast(isAr ? 'تم حفظ ملاحظات العميل' : 'Customer notes saved', 'success');
+      } catch (err: unknown) {
+        toast(
+          err instanceof Error && err.message
+            ? err.message
+            : isAr
+              ? 'تعذر حفظ التعديلات'
+              : 'Could not save changes',
+          'error',
+        );
+      }
     };
 
-    const handleSaveInternalNotes = () => {
-      updateOrder(o.id, { internalNotes: internalNotesDraft });
-      setIsEditingInternalNotes(false);
-      toast('Internal notes saved', 'success');
+    const handleSaveInternalNotes = async () => {
+      try {
+        await updateOrder(o.id, { internalNotes: internalNotesDraft });
+        setIsEditingInternalNotes(false);
+        toast(isAr ? 'تم حفظ الملاحظات الداخلية' : 'Internal notes saved', 'success');
+      } catch (err: unknown) {
+        toast(
+          err instanceof Error && err.message
+            ? err.message
+            : isAr
+              ? 'تعذر حفظ التعديلات'
+              : 'Could not save changes',
+          'error',
+        );
+      }
     };
 
     return (
@@ -1320,8 +1342,12 @@ export const MasterOrders: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  setCustomerNotesDraft(o.customerNotes || (isAr ? 'يرجى التوصيل بعد الساعة 5 مساءً. شكراً لكم!' : 'Please deliver after 5 PM. Thank you!'));
-                  setIsEditingCustomerNotes(!isEditingCustomerNotes);
+                  if (isEditingCustomerNotes) {
+                    setIsEditingCustomerNotes(false);
+                    return;
+                  }
+                  setCustomerNotesDraft(o.customerNotes || '');
+                  setIsEditingCustomerNotes(true);
                 }}
                 className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center gap-1 cursor-pointer"
               >
@@ -1357,7 +1383,7 @@ export const MasterOrders: React.FC = () => {
                 className="p-3.5 rounded-xl text-xs leading-relaxed bg-slate-50 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-800"
                 style={{ color: 'var(--text)' }}
               >
-                {o.customerNotes || (isAr ? 'يرجى التوصيل بعد الساعة 5 مساءً. شكراً لكم!' : 'Please deliver after 5 PM. Thank you!')}
+                {o.customerNotes || (isAr ? 'لا توجد ملاحظات' : 'No notes yet')}
               </div>
             )}
           </div>
@@ -1372,8 +1398,12 @@ export const MasterOrders: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  setInternalNotesDraft(o.internalNotes || (isAr ? 'عميل مميز - يرجى العناية الخاصة بالطلب.' : 'VIP customer. Handle with care.'));
-                  setIsEditingInternalNotes(!isEditingInternalNotes);
+                  if (isEditingInternalNotes) {
+                    setIsEditingInternalNotes(false);
+                    return;
+                  }
+                  setInternalNotesDraft(o.internalNotes || '');
+                  setIsEditingInternalNotes(true);
                 }}
                 className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center gap-1 cursor-pointer"
               >
@@ -1397,7 +1427,7 @@ export const MasterOrders: React.FC = () => {
                 />
                 <button
                   type="button"
-                  onClick={handleSaveInternalNotes}
+                  onClick={() => void handleSaveInternalNotes()}
                   className="px-4 py-2 rounded-xl text-xs font-bold text-white cursor-pointer"
                   style={{ background: 'var(--portal-cta)' }}
                 >
@@ -1407,9 +1437,9 @@ export const MasterOrders: React.FC = () => {
             ) : (
               <div
                 className="p-3.5 rounded-xl text-xs leading-relaxed bg-slate-50 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-800"
-                style={{ color: 'var(--text)' }}
+                style={{ color: o.internalNotes ? 'var(--text)' : 'var(--muted)' }}
               >
-                {o.internalNotes || (isAr ? 'عميل مميز - يرجى العناية الخاصة بالطلب.' : 'VIP customer. Handle with care.')}
+                {o.internalNotes || (isAr ? 'لا توجد ملاحظات' : 'No notes yet')}
               </div>
             )}
           </div>

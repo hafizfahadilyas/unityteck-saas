@@ -285,6 +285,14 @@ export async function updateProduct(
   return mapProduct(res.data);
 }
 
+/** Full product row (options + variations) for edit — list pages often omit heavy fields. */
+export async function fetchProduct(storeId: string, id: string): Promise<Product> {
+  const res = await apiFetch<ItemResponse<ApiProductRow>>(`/products/${id}`, {
+    storeId,
+  });
+  return mapProduct(res.data);
+}
+
 /** Soft-delete → recycle bin (status=archived). */
 export async function deleteProduct(
   storeId: string,
@@ -622,9 +630,12 @@ export type OrderSummaryResult = {
 
 export async function fetchOrders(
   storeId: string,
-  query: OrderListQuery = { all: true },
+  query: OrderListQuery = { all: true, lean: true },
 ): Promise<Order[]> {
-  const res = await fetchOrdersPage(storeId, query);
+  const res = await fetchOrdersPage(storeId, {
+    lean: true,
+    ...query,
+  });
   return res.data;
 }
 

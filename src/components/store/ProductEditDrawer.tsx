@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { Product } from '../../types';
+import type { Product, StoreCategory } from '../../types';
+import { ProductCategoryMultiPicker } from './ProductCategoryMultiPicker';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useTenant } from '../../context/TenantContext';
 import { useToast } from '../common/ToastProvider';
@@ -73,7 +74,8 @@ export interface ProductEditDrawerProps {
   storeId: string;
   categories: string[];
   /** Hierarchical labels (category + subcategory). Falls back to `categories`. */
-  categoryOptions?: { value: string; label: string }[];
+  categoryOptions?: { value: string; label: string; depth?: number; id?: string }[];
+  storeCategories?: StoreCategory[];
   availableBrands?: { id: string; name: string }[];
   onClose: () => void;
   onSave: (updatedData: Partial<Product>) => void;
@@ -90,6 +92,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
   storeId,
   categories,
   categoryOptions,
+  storeCategories = [],
   availableBrands = [],
   onClose,
   onSave,
@@ -121,6 +124,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
   const [subtitle, setSubtitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
+  const [productCategories, setProductCategories] = useState<string[]>([]);
   const [brand, setBrand] = useState('');
   const [badge, setBadge] = useState<string>('');
   const [isFeatured, setIsFeatured] = useState(false);
@@ -166,6 +170,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
       setSubtitle(product.subtitle || '');
       setDescription(typeof product.description === 'string' ? product.description : '');
       setCategory(product.category || (categories[0] || ''));
+      setProductCategories(Array.isArray(product.categories) && product.categories.length ? product.categories : (product.category ? [product.category] : []));
       setBrand(product.brand || '');
       setBadge(product.badge || '');
       setIsFeatured(
@@ -443,7 +448,8 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
       sku,
       subtitle: subtitle.trim() || null,
       description: description || null,
-      category,
+      category: productCategories[0] || category,
+      categories: productCategories,
       brand,
       badge: badge || undefined,
       isFeatured,
@@ -804,27 +810,25 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
                     <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                      {isAr ? 'التصنيف' : 'Category'}
+                      {isAr ? 'التصنيفات' : 'Categories'}
                     </label>
-                    <select
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                      className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-teal-500 cursor-pointer"
-                    >
-                      {(categoryOptions && categoryOptions.length > 0
-                        ? categoryOptions
-                        : categories.map((c) => ({ value: c, label: c }))
-                      ).map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                      {category &&
-                        !(categoryOptions ?? []).some((o) => o.value === category) &&
-                        !categories.includes(category) && (
-                          <option value={category}>{category}</option>
-                        )}
-                    </select>
+                    <ProductCategoryMultiPicker
+                      compact
+                      selected={productCategories}
+                      options={
+                        categoryOptions && categoryOptions.length > 0
+                          ? categoryOptions
+                          : categories.map((c) => ({ value: c, label: c }))
+                      }
+                      storeCategories={storeCategories}
+                      storeId={storeId}
+                      isAr={isAr}
+                      locale={locale}
+                      onChange={(next, primary) => {
+                        setProductCategories(next);
+                        setCategory(primary || next[0] || '');
+                      }}
+                    />
                   </div>
                   <div>
                     <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">

@@ -16,6 +16,7 @@ import type {
   DomainRecord,
 } from '../types';
 import { fromApiPricing } from '../utils/productPricing';
+import { isolateStoreProductImage } from '../utils/storeImageIsolation';
 
 /** Loose API row shapes (snake_case from Laravel). */
 export type ApiStoreRow = Record<string, unknown>;
@@ -327,10 +328,16 @@ export function mapProduct(row: ApiProductRow): Product {
 
   // API price = selling; original_price = compare-at → editor regular/sale
   const pricing = fromApiPricing(num(rawSell), apiOriginal);
+  const storeId = str(row.store_id);
+  const rawImage = str(row.image_url ?? row.image, '');
+  const safeImage = isolateStoreProductImage(storeId, rawImage, { fallback: true });
+  const safeGallery = asStringArray(row.gallery_urls)
+    .map((g) => isolateStoreProductImage(storeId, g, { fallback: false }))
+    .filter(Boolean);
 
   return {
     id: str(row.id),
-    storeId: str(row.store_id),
+    storeId,
     name: str(row.name),
     nameAr: row.name_ar ? str(row.name_ar) : undefined,
     nameEn: row.name_en ? str(row.name_en) : undefined,
@@ -363,9 +370,9 @@ export function mapProduct(row: ApiProductRow): Product {
       ? String(row.published_at)
       : dateSlice(row.updated_at ?? row.created_at),
     scheduledPublishAt: row.published_at ? String(row.published_at) : null,
-    image: str(row.image_url ?? row.image, ''),
+    image: safeImage,
     imageVersion: row.image_version == null ? null : str(row.image_version),
-    galleryUrls: asStringArray(row.gallery_urls),
+    galleryUrls: safeGallery,
     videoUrl: row.video_url == null || row.video_url === '' ? null : str(row.video_url),
     tags: asStringArray(row.tags),
     badge: row.badge ? str(row.badge) : undefined,
@@ -629,10 +636,27 @@ export function mapOrder(row: ApiOrderRow): Order {
     deliveryLocation: str(row.delivery_location, ''),
     status: mapOrderStatus(row.status),
     paymentMethod: mapPaymentMethod(row.payment_method),
-    paymentStatus: rowAny.payment_status ? String(rowAny.payment_status) as any : undefined,
+    paymentStatus: (() => {
+      const raw = rowAny.payment_status != null ? String(rowAny.payment_status).trim() : '';
+      if (!raw) return undefined;
+      const lower = raw.toLowerCase();
+      if (lower === 'paid') return 'Paid';
+      if (lower === 'failed') return 'Failed';
+      if (lower === 'refunded') return 'Refunded';
+      if (lower === 'pending' || lower === 'unpaid' || lower === 'awaiting_payment') return 'Pending';
+      return raw as any;
+    })(),
     transactionId: rowAny.payment_transaction_id
       ? String(rowAny.payment_transaction_id)
       : undefined,
+    customerNotes:
+      rowAny.customer_notes != null && String(rowAny.customer_notes).trim() !== ''
+        ? String(rowAny.customer_notes)
+        : undefined,
+    internalNotes:
+      rowAny.internal_notes != null && String(rowAny.internal_notes).trim() !== ''
+        ? String(rowAny.internal_notes)
+        : undefined,
     shippingStatus: rowAny.shipping_status ? String(rowAny.shipping_status) as any : undefined,
     trackingNumber: rowAny.tracking_number ? String(rowAny.tracking_number) : undefined,
     shippingCompany: rowAny.courier_code ? String(rowAny.courier_code) : undefined,
@@ -704,6 +728,8 @@ export function orderPatchToApi(patch: Record<string, unknown>): Record<string, 
   else if (src.payment_status !== undefined) out.payment_status = src.payment_status;
   assign('paymentMethod', 'payment_method');
   assign('transactionId', 'payment_transaction_id');
+  assign('customerNotes', 'customer_notes');
+  assign('internalNotes', 'internal_notes');
   assign('codStatus', 'cod_status');
   assign('codNotes', 'cod_notes');
   assign('refundStatus', 'refund_status');
