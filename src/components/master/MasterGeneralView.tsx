@@ -59,6 +59,7 @@ import {
   getStoreAdCampaigns,
   getStudioQuota,
 } from '../../services/ksaAutomationEngine';
+import { fetchHealth } from '../../api/tenantApi';
 
 interface MasterGeneralViewProps {
   tab: string;
@@ -207,6 +208,10 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
   const [mktSort, setMktSort] = useState<'share' | 'roas' | 'conv' | 'spend'>('share');
   const [checkingIntegration, setCheckingIntegration] = useState<string | null>(null);
   const [lastChecked, setLastChecked] = useState<Record<string, string>>({});
+  /** Real check results only — default Unknown (never invent Healthy/Connected). */
+  const [integrationHealth, setIntegrationHealth] = useState<
+    Record<string, { label: string; ok: boolean | null }>
+  >({});
   const [disabledGateways, setDisabledGateways] = useState<string[]>([]);
   const [testingCourier, setTestingCourier] = useState<string | null>(null);
   const [blogSearch, setBlogSearch] = useState('');
@@ -1360,22 +1365,43 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
     );
   }
 
-  // 6. ANALYTICS (SaaS Metrics — 100% Real Calculated from Stores & Orders)
+  // 6. ANALYTICS — GMV from orders + plan counts; catalog MRR only from known plan prices (no ×199 invent)
   if (tab === 'analytics') {
+    const CATALOG_PRICE_SAR: Record<string, number | null> = {
+      free: 0,
+      paid: null,
+      pro: 300,
+      premium: 500,
+      custom: null,
+    };
     const realGmv = globalOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
-    const proStoresCount = stores.filter((s) => String(s.plan).toLowerCase() === 'pro' || getStudioQuota(s.id).isPro).length;
-    const freeStoresCount = Math.max(0, stores.length - proStoresCount);
+    const proStoresCount = stores.filter((s) => String(s.plan).toLowerCase() === 'pro').length;
+    const premiumStoresCount = stores.filter((s) => String(s.plan).toLowerCase() === 'premium').length;
+    const freeStoresCount = stores.filter((s) => String(s.plan).toLowerCase() === 'free').length;
     const proConversionPct = stores.length > 0 ? Math.round((proStoresCount / stores.length) * 100) : 0;
-    const realMrr = proStoresCount * 199 + stores.reduce((acc, s) => acc + (getStoreAdWallet(s.id).balanceSar || 0), 0);
+    let catalogMrr = 0;
+    let mrrPricedStores = 0;
+    let mrrUnknownStores = 0;
+    stores.forEach((s) => {
+      const code = String(s.plan || 'free').toLowerCase();
+      const price = CATALOG_PRICE_SAR[code];
+      if (price == null) {
+        mrrUnknownStores += 1;
+        return;
+      }
+      catalogMrr += price;
+      mrrPricedStores += 1;
+    });
 
     const exportAnalytics = () => {
       const headers = isAr ? ['المؤشر', 'القيمة'] : ['Metric', 'Value'];
       const rows = [
-        [isAr ? 'الإيرادات الشهرية المتكررة (ر.س)' : 'MRR (SAR)', realMrr],
+        [isAr ? 'إيراد كتالوج الباقات (ر.س)' : 'Catalog plan MRR (SAR)', catalogMrr],
         [isAr ? 'إجمالي قيمة البضائع (ر.س)' : 'Platform GMV (SAR)', realGmv],
         [isAr ? 'معدل التحويل للباقة الاحترافية %' : 'Pro Plan Conversion %', proConversionPct],
         [isAr ? 'عدد المتاجر' : 'Stores', stores.length],
         [isAr ? 'عدد الطلبات' : 'Orders', globalOrders.length],
+        [isAr ? 'متاجر بسعر غير محدد' : 'Stores with unset plan price', mrrUnknownStores],
       ];
       downloadFile(`saas-analytics-${today()}.csv`, toCsv(headers, rows), 'text/csv;charset=utf-8');
       toast(isAr ? 'تم تصدير تقرير التحليلات' : 'Analytics report exported', 'success');
@@ -1386,12 +1412,12 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">
-              {isAr ? 'تحليلات المنصة متعددة المستأجرين والإيرادات الفعلية' : 'SaaS Multi-Tenant Analytics & Live Revenue'}
+              {isAr ? 'تحليلات المنصة متعددة المستأجرين' : 'SaaS Multi-Tenant Analytics'}
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {isAr
-                ? 'إجمالي قيمة البضائع الفعلية إجمالي قيمة الطلبات وإيرادات باقات الاشتراك النشطة'
-                : 'Live Gross Merchandise Value (GMV) and active store subscription tiers'}
+                ? 'إجمالي الطلبات الفعلي + عدد الباقات · إيراد الكتالوج من أسعار الباقات المعروفة فقط (ليس دفتر دفع)'
+                : 'Live order GMV + plan counts · catalog MRR from known plan prices only (not a payment ledger)'}
             </p>
           </div>
           <button type="button" onClick={exportAnalytics} className={exportBtnClass} style={exportBtnStyle}>
@@ -1402,62 +1428,74 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs space-y-2">
-            <span className="text-xs text-slate-500 font-medium">{isAr ? 'الإيرادات الشهرية والمحافظ الإيراد الشهري' : 'Platform MRR & Active Wallets'}</span>
-            <div className="text-2xl font-black text-slate-900 dark:text-white">{money(realMrr)}</div>
-            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
-              {isAr ? `محسوب من${stores.length}متاجر مسجلة` : `Calculated from ${stores.length} active stores`}
+            <span className="text-xs text-slate-500 font-medium">
+              {isAr ? 'إيراد كتالوج الباقات (تقديري)' : 'Catalog plan MRR (estimate)'}
+            </span>
+            <div className="text-2xl font-black text-slate-900 dark:text-white">{money(catalogMrr)}</div>
+            <span className="text-[10px] text-slate-400 font-bold">
+              {isAr
+                ? `المصدر: كتالوج الباقات · ${mrrPricedStores} متجر بسعر معروف · ${mrrUnknownStores} بدون سعر`
+                : `Source: plans catalog · ${mrrPricedStores} priced · ${mrrUnknownStores} unset`}
             </span>
           </div>
 
           <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs space-y-2">
-            <span className="text-xs text-slate-500 font-medium">{isAr ? 'إجمالي قيمة الطلبات الفعلي إجمالي قيمة الطلبات' : 'Live Platform GMV (Orders Total)'}</span>
+            <span className="text-xs text-slate-500 font-medium">
+              {isAr ? 'إجمالي قيمة الطلبات الفعلي' : 'Live Platform GMV (Orders Total)'}
+            </span>
             <div className="text-2xl font-black text-teal-800 dark:text-teal-300">{money(realGmv)}</div>
             <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
-              {isAr ? `${globalOrders.length}طلب فعلي مسجل` : `Across ${globalOrders.length} live orders`}
+              {isAr ? `${globalOrders.length} طلب مسجل` : `Across ${globalOrders.length} live orders`}
             </span>
           </div>
 
           <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs space-y-2">
-            <span className="text-xs text-slate-500 font-medium">{isAr ? 'معدل الترقية إلى الباقة الاحترافية' : 'Pro Plan Conversion Rate'}</span>
+            <span className="text-xs text-slate-500 font-medium">
+              {isAr ? 'معدل الترقية إلى الباقة الاحترافية' : 'Pro Plan Conversion Rate'}
+            </span>
             <div className="text-2xl font-black text-blue-600 dark:text-blue-400">{proConversionPct}%</div>
             <span className="text-[10px] text-slate-400">
-              {isAr ? `${proStoresCount} متاجر الباقة الاحترافية من أصل ${stores.length}` : `${proStoresCount} of ${stores.length} stores on Pro`}
+              {isAr
+                ? `${proStoresCount} متاجر احترافية من أصل ${stores.length}`
+                : `${proStoresCount} of ${stores.length} stores on Pro`}
             </span>
           </div>
         </div>
 
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs p-6 space-y-4">
-          <h3 className="font-bold text-sm text-slate-900 dark:text-white">{isAr ? 'توزيع باقات الاشتراك الفعلي' : 'Live Subscription Tiers Breakdown'}</h3>
+          <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+            {isAr ? 'توزيع باقات الاشتراك' : 'Subscription tiers breakdown'}
+          </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between mb-2">
                 <span className="font-bold text-xs text-slate-900 dark:text-white">
-                  {isAr ? `الباقة الاحترافية السحابية (${money(199)}/شهريًا)` : `Pro Cloud Plan (${money(199)}/mo)`}
+                  {isAr ? `الباقة الاحترافية (${money(300)}/شهريًا)` : `Pro plan (${money(300)}/mo)`}
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
-                  {isAr ? `${proStoresCount}متاجر` : `${proStoresCount} Stores`}
+                  {isAr ? `${proStoresCount} متاجر` : `${proStoresCount} stores`}
                 </span>
               </div>
               <p className="text-xs text-slate-500 leading-relaxed">
                 {isAr
-                  ? 'تشمل فتح السرعة الكاملة لاستوديو التصميم بالذكاء الاصطناعي، وجدولة السوشيال ميديا السريعة، ومحفظة إعلانات السعودية.'
-                  : 'Includes unlocked Design Studio AI quota, fast Social Media auto-scheduling, and KSA Ad Manager wallet.'}
+                  ? `الباقة المميزة: ${premiumStoresCount} متجر (${money(500)}/شهريًا) · السعر من كتالوج الباقات فقط`
+                  : `Premium: ${premiumStoresCount} stores (${money(500)}/mo) · price from plans catalog only`}
               </p>
             </div>
 
             <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between mb-2">
                 <span className="font-bold text-xs text-slate-900 dark:text-white">
-                  {isAr ? `الباقة المجانية / المبتدئة (${money(0)})` : `Free / Starter Plan (${money(0)})`}
+                  {isAr ? `الباقة المجانية (${money(0)})` : `Free plan (${money(0)})`}
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
-                  {isAr ? `${freeStoresCount}متاجر` : `${freeStoresCount} Stores`}
+                  {isAr ? `${freeStoresCount} متاجر` : `${freeStoresCount} stores`}
                 </span>
               </div>
               <p className="text-xs text-slate-500 leading-relaxed">
                 {isAr
-                  ? 'قاعدة بيانات MySQL معزولة عبر معرّف المتجر، مع حصة يومية مجانية (3 صور يومياً) ومؤقت حماية 24 ساعة.'
-                  : 'Isolated store_id MySQL database with free daily AI quota (3 images/day) and 24-hour protection timers.'}
+                  ? 'لا إيراد تقديري للمحافظ أو بوابات غير مربوطة.'
+                  : 'No estimated wallet or ungated payment revenue.'}
               </p>
             </div>
           </div>
@@ -1466,108 +1504,185 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
     );
   }
 
-  // 7. INTEGRATIONS
+  // 7. INTEGRATIONS — Unknown until a real probe; never invent Healthy / 99.99%
   if (tab === 'integrations') {
+    const unknownLabel = isAr ? 'الحالة: غير معروف' : 'Status: Unknown';
     const integrations = [
       {
         id: 'hostinger',
         badge: 'HOST',
         badgeClass: 'bg-purple-600',
-        title: isAr ? 'واجهة هوستنجر البرمجية و MySQL 8' : 'Hostinger API & MySQL 8',
-        sub: isAr ? 'خلفية Laravel 11 على PHP 8.2' : 'Laravel 11 PHP 8.2 backend',
+        title: isAr ? 'واجهة هوستنجر وقاعدة البيانات' : 'Hostinger API & MySQL',
+        sub: isAr ? 'فحص عبر واجهة صحة المنصة' : 'Probe via platform health API',
         desc: isAr
-          ? 'خادم MySQL 8 مشترك مع فهرسة الصفوف حسب معرّف المتجر وطوابير مهام هوستنجر المؤتمتة.'
-          : 'Shared MySQL 8 instance with store_id row indexing and automated Hostinger cron queues.',
-        status: isAr ? 'الحالة: سليم (زمن الاستجابة 18 مللي ثانية)' : 'Status: Healthy (Latency 18ms)',
+          ? 'خادم MySQL مشترك مع عزل الصفوف حسب معرّف المتجر. الحالة تظهر فقط بعد فحص حقيقي.'
+          : 'Shared MySQL with store_id row isolation. Status only after a real health probe.',
+        canProbe: true as const,
       },
       {
         id: 'vercel',
         badge: 'vercel',
         badgeClass: 'bg-slate-950',
-        title: isAr ? 'واجهات متاجر Vercel Edge' : 'Vercel Edge Storefronts',
-        sub: isAr ? 'نكست مع عرض من الخادم لتحسين محركات البحث' : 'Next.js 15 SSR public SEO',
+        title: isAr ? 'واجهات متاجر الحافة' : 'Edge storefronts',
+        sub: isAr ? 'لا يوجد فحص صحة مربوط' : 'No health probe wired',
         desc: isAr
-          ? 'عرض عبر شبكة CDN عالمية للنطاقات الفرعية الديناميكية للمتاجر مع إعادة تحقق فورية من الذاكرة المؤقتة.'
-          : 'Global CDN edge rendering dynamic store subdomains with 0ms stale cache revalidation.',
-        status: isAr ? 'الحالة: منشور (جاهزية 99.99%)' : 'Status: Deployed (99.99% Uptime)',
+          ? 'عرض المتاجر العامة. بدون أداة مراقبة مربوطة تبقى الحالة غير معروفة.'
+          : 'Public storefront rendering. Without a wired monitor this stays Unknown.',
+        canProbe: false as const,
       },
       {
         id: 'r2',
         badge: 'R2',
         badgeClass: 'bg-amber-600',
-        title: isAr ? 'تخزين الكائنات Cloudflare R2' : 'Cloudflare R2 Object Storage',
-        sub: isAr ? 'روابط وسائط ثابتة ذات إصدارات' : 'Versioned immutable media URLs',
+        title: isAr ? 'تخزين الكائنات' : 'Object storage',
+        sub: isAr ? 'لا يوجد فحص صحة مربوط' : 'No health probe wired',
         desc: isAr
-          ? 'يخزّن صور المنتجات عالية الدقة واللافتات وملفات الفواتير الإلكترونية هيئة الزكاة بدون رسوم نقل بيانات.'
-          : 'Stores high-resolution product photos, banners, and Saudi ZATCA e-invoice PDFs without egress fees.',
-        status: isAr ? 'الحالة: متصل (بدون رسوم نقل)' : 'Status: Connected (Zero Egress)',
+          ? 'وسائط بإصدارات. بدون فحص مزود حقيقي لا تُعرض حالة متصل.'
+          : 'Versioned media. No Connected status without a real provider probe.',
+        canProbe: false as const,
       },
     ];
 
-    const runHealthCheck = (id: string, title: string) => {
+    const runHealthCheck = async (id: string, title: string, canProbe: boolean) => {
       setCheckingIntegration(id);
-      window.setTimeout(() => {
-        setCheckingIntegration(null);
-        const ts = new Date().toLocaleTimeString(isAr ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const ts = new Date().toLocaleTimeString(isAr ? 'ar-SA' : 'en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+      try {
+        if (!canProbe || id !== 'hostinger') {
+          setIntegrationHealth((prev) => ({
+            ...prev,
+            [id]: {
+              ok: null,
+              label: isAr ? 'الحالة: غير معروف (لا فحص مربوط)' : 'Status: Unknown (no probe wired)',
+            },
+          }));
+          toast(
+            isAr
+              ? `${title}: لا يوجد فحص صحة مربوط — غير معروف`
+              : `${title}: no health probe wired — Unknown`,
+            'warning',
+          );
+          return;
+        }
+        const health = await fetchHealth();
+        const mode = String((health as { mode?: string })?.mode || '');
+        const ok =
+          mode.includes('active_live_mysql') ||
+          String((health as { status?: string })?.status || '').toLowerCase() === 'ok' ||
+          Boolean((health as { ok?: boolean })?.ok);
+        setIntegrationHealth((prev) => ({
+          ...prev,
+          [id]: {
+            ok,
+            label: ok
+              ? isAr
+                ? 'الحالة: يعمل (فحص صحة المنصة)'
+                : 'Status: Operational (platform health)'
+              : isAr
+                ? 'الحالة: متوقف أو متدهور'
+                : 'Status: Down or Degraded',
+          },
+        }));
+        toast(
+          ok
+            ? isAr
+              ? `فحص ${title}: يعمل`
+              : `${title} check: Operational`
+            : isAr
+              ? `فحص ${title}: غير سليم`
+              : `${title} check: not healthy`,
+          ok ? 'success' : 'error',
+        );
+      } catch {
+        setIntegrationHealth((prev) => ({
+          ...prev,
+          [id]: {
+            ok: false,
+            label: isAr ? 'الحالة: فشل الفحص' : 'Status: Check failed',
+          },
+        }));
+        toast(isAr ? `فشل فحص ${title}` : `${title} health check failed`, 'error');
+      } finally {
         setLastChecked((prev) => ({ ...prev, [id]: ts }));
-        toast(isAr ? `اكتمل فحص${title}: جميع الخدمات تعمل` : `${title} health check passed: all services operational`, 'success');
-      }, 900);
+        setCheckingIntegration(null);
+      }
     };
 
     return (
       <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
         <div>
           <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">
-            {isAr ? 'البنية التحتية للمنصة والتكاملات السحابية' : 'Platform Infrastructure & Cloud Integrations'}
+            {isAr ? 'التكاملات والإضافات' : 'Integrations & Add-ons'}
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">
             {isAr
-              ? 'مراقبة مركزية لطبقات التقنية المعتمدة (هوستنجر و Vercel و Cloudflare R2 و Laravel Sanctum)'
-              : 'Master monitoring of locked tech stack tiers (Hostinger, Vercel, Cloudflare R2, Laravel Sanctum)'}
+              ? 'لا تُعرض حالة سليم/متصل إلا بعد فحص حقيقي — وإلا غير معروف'
+              : 'Never show Healthy/Connected unless a real probe ran — otherwise Unknown'}
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {integrations.map((it) => (
-            <div key={it.id} className="p-5 bg-white rounded-3xl border border-slate-200/90 shadow-2xs space-y-3">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl ${it.badgeClass} text-white flex items-center justify-center font-bold text-xs`}>
-                  {it.badge === 'vercel' ? (
-                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
-                      <path d="M12 2L2 22h20L12 2z" />
-                    </svg>
-                  ) : (
-                    it.badge
-                  )}
+          {integrations.map((it) => {
+            const health = integrationHealth[it.id];
+            const statusLabel = health?.label || unknownLabel;
+            const tone =
+              health?.ok === true
+                ? 'text-emerald-700 bg-emerald-50 dark:bg-emerald-500/15 dark:text-emerald-300'
+                : health?.ok === false
+                  ? 'text-rose-700 bg-rose-50 dark:bg-rose-500/15 dark:text-rose-300'
+                  : 'text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300';
+            const dot =
+              health?.ok === true ? 'bg-emerald-500' : health?.ok === false ? 'bg-rose-500' : 'bg-slate-400';
+            return (
+              <div key={it.id} className="p-5 bg-white rounded-3xl border border-slate-200/90 shadow-2xs space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl ${it.badgeClass} text-white flex items-center justify-center font-bold text-xs`}>
+                    {it.badge === 'vercel' ? (
+                      <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                        <path d="M12 2L2 22h20L12 2z" />
+                      </svg>
+                    ) : (
+                      it.badge
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-slate-900">{it.title}</h4>
+                    <p className="text-[11px] text-slate-400">{it.sub}</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-bold text-sm text-slate-900">{it.title}</h4>
-                  <p className="text-[11px] text-slate-400">{it.sub}</p>
+                <p className="text-xs text-slate-600 leading-relaxed">{it.desc}</p>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className={`text-[11px] font-bold px-2 py-0.5 rounded-md w-fit flex items-center ${tone}`}>
+                    <span className={`w-2 h-2 rounded-full ${dot} inline-block me-1.5`} />
+                    <span>{statusLabel}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void runHealthCheck(it.id, it.title, it.canProbe)}
+                    disabled={checkingIntegration === it.id}
+                    className="px-2.5 py-1 rounded-lg border border-slate-200 text-[11px] font-semibold flex items-center gap-1 cursor-pointer hover:bg-slate-50 disabled:opacity-60"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${checkingIntegration === it.id ? 'animate-spin' : ''}`} aria-hidden />
+                    {checkingIntegration === it.id
+                      ? isAr
+                        ? 'جارٍ الفحص...'
+                        : 'Checking...'
+                      : isAr
+                        ? 'فحص الحالة'
+                        : 'Run Health Check'}
+                  </button>
                 </div>
+                {lastChecked[it.id] && (
+                  <p className="text-[10px] text-slate-400">
+                    {isAr ? `آخر فحص: ${lastChecked[it.id]}` : `Last checked: ${lastChecked[it.id]}`}
+                  </p>
+                )}
               </div>
-              <p className="text-xs text-slate-600 leading-relaxed">{it.desc}</p>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="text-[11px] text-emerald-700 font-bold bg-emerald-50 dark:bg-emerald-500/15 dark:text-emerald-300 px-2 py-0.5 rounded-md w-fit flex items-center">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block me-1.5 animate-pulse"></span>
-                  <span>{it.status}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => runHealthCheck(it.id, it.title)}
-                  disabled={checkingIntegration === it.id}
-                  className="px-2.5 py-1 rounded-lg border border-slate-200 text-[11px] font-semibold flex items-center gap-1 cursor-pointer hover:bg-slate-50 disabled:opacity-60"
-                >
-                  <RefreshCw className={`w-3 h-3 ${checkingIntegration === it.id ? 'animate-spin' : ''}`} aria-hidden />
-                  {checkingIntegration === it.id ? (isAr ? 'جارٍ الفحص...' : 'Checking...') : (isAr ? 'فحص الحالة' : 'Run Health Check')}
-                </button>
-              </div>
-              {lastChecked[it.id] && (
-                <p className="text-[10px] text-slate-400">
-                  {isAr ? `آخر فحص:${lastChecked[it.id]}` : `Last checked: ${lastChecked[it.id]}`}
-                </p>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );

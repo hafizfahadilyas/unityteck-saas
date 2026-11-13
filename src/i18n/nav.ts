@@ -3,7 +3,16 @@ import type { DictKey } from './dict';
 /** Master sidebar tab id → dictionary key */
 export const MASTER_NAV_KEYS: Record<string, DictKey> = {
   dashboard: 'navDashboard',
+  accounts: 'navAccounts',
   stores: 'navClientStores',
+  plans: 'navPlansSubscriptions',
+  'services-points': 'navServicesPoints',
+  integrations: 'navIntegrations',
+  support: 'navSupportCenter',
+  reports: 'navReports',
+  security: 'navSecurityPermissions',
+  notifications: 'navNotificationsCenter',
+  settings: 'navSettings',
   'control-center': 'navControlCenter',
   onboarding: 'navOnboarding',
   domains: 'navDomains',
@@ -23,9 +32,6 @@ export const MASTER_NAV_KEYS: Record<string, DictKey> = {
   blog: 'navBlog',
   analytics: 'navAnalytics',
   payments: 'navPayments',
-  integrations: 'navIntegrations',
-  reports: 'navReports',
-  settings: 'navSettings',
 };
 
 /** Store sidebar tab id → dictionary key */

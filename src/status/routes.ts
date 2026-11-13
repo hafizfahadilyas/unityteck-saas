@@ -90,6 +90,10 @@ export function isKnownAppPath(path: string): boolean {
     clean === '/master/login' ||
     clean === '/master/forgot-password' ||
     clean === '/master/reset-password' ||
+    clean === '/masteradmin' ||
+    clean === '/masteradmin/' ||
+    clean === '/masteradmin/login' ||
+    clean.startsWith('/masteradmin/') ||
     clean === '/store' ||
     clean === '/store/login' ||
     clean === '/store/forgot-password' ||

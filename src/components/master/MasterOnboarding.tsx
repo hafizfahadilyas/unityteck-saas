@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { PlanType } from '../../types';
 import {
@@ -41,8 +41,8 @@ const FLOW_STEPS = [
     n: '3',
     t: 'Own dashboard + plan',
     tAr: 'لوحة تحكم خاصة + باقة',
-    d: 'Free/Paid/Pro gates; dummy data + themes',
-    dAr: 'صلاحيات مجانية/مدفوعة/احترافية؛ بيانات تجريبية + قوالب',
+    d: 'Free/Paid/Pro gates; empty store until real catalog',
+    dAr: 'صلاحيات مجانية/مدفوعة/احترافية؛ متجر فارغ حتى الكتالوج الحقيقي',
   },
   {
     n: '4',
@@ -84,12 +84,30 @@ export const MasterOnboarding: React.FC = () => {
   const [inviteCurrency, setInviteCurrency] = useState<'SAR' | 'USD' | 'AED' | 'EUR'>('SAR');
   const [inviteTimezone, setInviteTimezone] = useState('Asia/Riyadh');
   const [activeInvite, setActiveInvite] = useState<OnboardingInvite | null>(null);
-  const [inviteTick, setInviteTick] = useState(0);
+  const [invites, setInvites] = useState<OnboardingInvite[]>([]);
+  const [invitesLoading, setInvitesLoading] = useState(false);
+  const [inviteBusy, setInviteBusy] = useState(false);
 
   const [provisionedStoreId, setProvisionedStoreId] = useState<string | null>(null);
   const [copiedStoreId, setCopiedStoreId] = useState(false);
 
-  const invites = useMemo(() => listOnboardingInvites(), [inviteTick, activeInvite]);
+  const refreshInvites = useCallback(async () => {
+    setInvitesLoading(true);
+    try {
+      const rows = await listOnboardingInvites();
+      setInvites(rows);
+    } catch {
+      setInvites([]);
+      toast(isAr ? 'تعذّر تحميل الدعوات من الخادم' : 'Could not load invites from server', 'error');
+    } finally {
+      setInvitesLoading(false);
+    }
+  }, [isAr, toast]);
+
+  useEffect(() => {
+    void refreshInvites();
+  }, [refreshInvites]);
+
   const shareUrl = activeInvite ? buildRegisterUrl(activeInvite.token) : '';
 
   const planLabel = (p: string) => {
@@ -107,24 +125,35 @@ export const MasterOnboarding: React.FC = () => {
     }
   };
 
-  const handleGenerateInvite = () => {
-    const invite = createOnboardingInvite({
-      plan: invitePlan,
-      label: inviteLabel,
-      daysValid: 7,
-      locale: inviteLocale,
-      textDir: inviteDir,
-      currency: inviteCurrency,
-      timezone: inviteTimezone,
-    });
-    setActiveInvite(invite);
-    setInviteTick((n) => n + 1);
-    toast(
-      isAr
-        ? `الدعوة جاهزة · معرّف المتجر${invite.storeId}`
-        : `Invite ready · store_id ${invite.storeId}`,
-      'success',
-    );
+  const handleGenerateInvite = async () => {
+    if (inviteBusy) return;
+    setInviteBusy(true);
+    try {
+      const invite = await createOnboardingInvite({
+        plan: invitePlan,
+        label: inviteLabel,
+        daysValid: 7,
+        locale: inviteLocale,
+        textDir: inviteDir,
+        currency: inviteCurrency,
+        timezone: inviteTimezone,
+      });
+      setActiveInvite(invite);
+      await refreshInvites();
+      toast(
+        isAr
+          ? `الدعوة جاهزة · معرّف المتجر ${invite.storeId}`
+          : `Invite ready · store_id ${invite.storeId}`,
+        'success',
+      );
+    } catch {
+      toast(
+        isAr ? 'فشل إنشاء الدعوة — تحقق من الجلسة والخادم' : 'Invite create failed — check session and API',
+        'error',
+      );
+    } finally {
+      setInviteBusy(false);
+    }
   };
 
   const handleCopyLink = async () => {
@@ -326,8 +355,10 @@ export const MasterOnboarding: React.FC = () => {
           <div className="flex items-end">
             <button
               type="button"
-              onClick={handleGenerateInvite}
-              className="w-full px-4 py-2 bg-teal-400 hover:bg-teal-300 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-md transition-all active:scale-95"
+              onClick={() => void handleGenerateInvite()}
+              disabled={inviteBusy}
+              aria-busy={inviteBusy}
+              className="w-full px-4 py-2 bg-teal-400 hover:bg-teal-300 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-md transition-all active:scale-95 disabled:opacity-60"
             >
               <RefreshCw className="w-4 h-4" />
               <span>{isAr ? 'إنشاء الرابط' : 'Generate link'}</span>
@@ -372,6 +403,12 @@ export const MasterOnboarding: React.FC = () => {
             </span>
           </button>
         </div>
+
+        {invitesLoading && (
+          <p className="text-xs text-teal-200/80">
+            {isAr ? 'جاري تحميل الدعوات…' : 'Loading invites…'}
+          </p>
+        )}
 
         {invites.length > 0 && (
           <div className="overflow-x-auto rounded-xl border border-white/20 bg-black/40">

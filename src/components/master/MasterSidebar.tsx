@@ -8,17 +8,10 @@ import {
   LayoutDashboard,
   Store,
   Package,
-  FolderTree,
   ShoppingCart,
   Users,
-  Megaphone,
-  Percent,
-  Ticket,
   Search,
-  BookOpen,
   Palette,
-  BarChart3,
-  CreditCard,
   Layers,
   FileText,
   Settings,
@@ -33,6 +26,11 @@ import {
   PanelLeftOpen,
   SlidersHorizontal,
   X,
+  Crown,
+  Coins,
+  Headphones,
+  ShieldCheck,
+  Bell,
 } from 'lucide-react';
 import { SouqEMakkahLogo, SouqEMakkahMark } from '../common/SouqEMakkahLogo';
 
@@ -70,9 +68,19 @@ export const MasterSidebar: React.FC<MasterSidebarProps> = ({
   }, [mobileOpen]);
 
   const navItems = useMemo(() => {
+    /** SOUQ PLUS Phase 1 primary sections, then platform ops + authorized oversight. */
     const all = [
       { id: 'dashboard', icon: LayoutDashboard },
+      { id: 'accounts', icon: Users },
       { id: 'stores', icon: Store, count: stores.length },
+      { id: 'plans', icon: Crown },
+      { id: 'services-points', icon: Coins },
+      { id: 'integrations', icon: Layers },
+      { id: 'support', icon: Headphones },
+      { id: 'reports', icon: FileText },
+      { id: 'security', icon: ShieldCheck },
+      { id: 'notifications', icon: Bell },
+      { id: 'settings', icon: Settings },
       { id: 'control-center', icon: SlidersHorizontal },
       { id: 'onboarding', icon: UserPlus },
       { id: 'domains', icon: Globe },
@@ -81,20 +89,9 @@ export const MasterSidebar: React.FC<MasterSidebarProps> = ({
       { id: 'updates', icon: GitBranch },
       { id: 'marketplace', icon: Boxes },
       { id: 'products', icon: Package },
-      { id: 'categories', icon: FolderTree },
       { id: 'orders', icon: ShoppingCart },
-      { id: 'customers', icon: Users },
-      { id: 'marketing', icon: Megaphone },
-      { id: 'promotions', icon: Percent },
-      { id: 'coupons', icon: Ticket },
       { id: 'seo', icon: Search },
-      { id: 'blog', icon: BookOpen },
       { id: 'themes', icon: Palette },
-      { id: 'analytics', icon: BarChart3 },
-      { id: 'payments', icon: CreditCard },
-      { id: 'integrations', icon: Layers },
-      { id: 'reports', icon: FileText },
-      { id: 'settings', icon: Settings },
     ];
     return all.filter((item) => canTab(item.id, 'master'));
   }, [stores.length, canTab]);

@@ -95,6 +95,131 @@ export async function fetchStores(): Promise<Store[]> {
   return rows;
 }
 
+/** SOUQ PLUS Phase 1 — plan catalogue (auth). */
+export async function fetchPlansCatalog(): Promise<{
+  data: Array<Record<string, unknown>>;
+  platform?: Record<string, unknown>;
+}> {
+  return apiFetch('/plans', { portal: 'master' });
+}
+
+/** SOUQ PLUS Phase 1 — Master subscriptions overview. */
+export async function fetchMasterSubscriptions(): Promise<{
+  data: Array<Record<string, unknown>>;
+  meta?: { total?: number; near_expiry?: number; last_refresh?: string; source?: string };
+}> {
+  return apiFetch('/subscriptions', { portal: 'master' });
+}
+
+export async function patchStoreSubscription(
+  storeId: string,
+  payload: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  return apiFetch(`/stores/${encodeURIComponent(storeId)}/subscription`, {
+    method: 'PATCH',
+    portal: 'master',
+    storeId,
+    body: payload,
+  });
+}
+
+/** SOUQ PLUS Phase 1 — Master onboarding invites (server). */
+export async function fetchOnboardingInvites(): Promise<{
+  data: Array<Record<string, unknown>>;
+  meta?: { total?: number; last_refresh?: string; source?: string };
+}> {
+  return apiFetch('/master/onboarding/invites', { portal: 'master' });
+}
+
+export async function createOnboardingInviteApi(
+  payload: Record<string, unknown>,
+): Promise<{ data: Record<string, unknown> }> {
+  return apiFetch('/master/onboarding/invites', {
+    method: 'POST',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+export type InvitePublicCheck =
+  | { ok: true; invite: Record<string, unknown> }
+  | { ok: false; reason: string };
+
+export async function checkOnboardingInviteTokenApi(
+  token: string,
+): Promise<InvitePublicCheck> {
+  try {
+    return await apiFetch<InvitePublicCheck>(
+      `/onboarding/invites/${encodeURIComponent(token)}`,
+      { skipAuth: true },
+    );
+  } catch (e: unknown) {
+    const status =
+      e && typeof e === 'object' && 'status' in e ? Number((e as { status: number }).status) : 0;
+    const payload =
+      e && typeof e === 'object' && 'payload' in e ? (e as { payload: unknown }).payload : null;
+    const reasonFromBody =
+      payload && typeof payload === 'object' && payload !== null && 'reason' in payload
+        ? String((payload as { reason: string }).reason)
+        : '';
+    if (reasonFromBody === 'expired' || status === 410) {
+      return { ok: false, reason: 'expired' };
+    }
+    if (reasonFromBody === 'used') {
+      return { ok: false, reason: 'used' };
+    }
+    return { ok: false, reason: 'invalid' };
+  }
+}
+
+export async function redeemOnboardingInviteApi(
+  token: string,
+  storeId: string,
+): Promise<InvitePublicCheck> {
+  return apiFetch<InvitePublicCheck>(
+    `/onboarding/invites/${encodeURIComponent(token)}/redeem`,
+    { method: 'POST', skipAuth: true, body: { store_id: storeId } },
+  );
+}
+
+export type PlatformSettingsPayload = Record<string, unknown>;
+
+export async function fetchPlatformSettings(): Promise<{
+  data: PlatformSettingsPayload;
+  meta?: { updated_at?: string; source?: string };
+}> {
+  return apiFetch('/platform/settings', { portal: 'master' });
+}
+
+export async function updatePlatformSettings(
+  patch: PlatformSettingsPayload,
+): Promise<{ data: PlatformSettingsPayload; meta?: { updated_at?: string } }> {
+  return apiFetch('/platform/settings', {
+    method: 'PATCH',
+    portal: 'master',
+    body: patch,
+  });
+}
+
+/** SOUQ PLUS Phase 1 — Master audit log. */
+export async function fetchAuditLogs(params?: {
+  page?: number;
+  per_page?: number;
+  action?: string;
+  store_id?: string;
+}): Promise<{
+  data: Array<Record<string, unknown>>;
+  meta?: { total?: number; page?: number; per_page?: number; last_refresh?: string; source?: string };
+}> {
+  const qs = new URLSearchParams();
+  if (params?.page) qs.set('page', String(params.page));
+  if (params?.per_page) qs.set('per_page', String(params.per_page));
+  if (params?.action) qs.set('action', params.action);
+  if (params?.store_id) qs.set('store_id', params.store_id);
+  const q = qs.toString();
+  return apiFetch(`/audit-logs${q ? `?${q}` : ''}`, { portal: 'master' });
+}
+
 export async function createStore(
   payload: Record<string, unknown>,
 ): Promise<Store> {

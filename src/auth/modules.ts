@@ -54,7 +54,13 @@ export const STORE_TAB_ABILITY: Record<string, string | null> = {
 /** Master Admin tab id → required *read* ability. */
 export const MASTER_TAB_ABILITY: Record<string, string | null> = {
   dashboard: null,
+  accounts: 'stores.read',
   stores: 'stores.read',
+  plans: 'stores.read',
+  'services-points': 'stores.read',
+  support: 'stores.read',
+  security: 'settings.read',
+  notifications: null,
   'control-center': 'stores.read',
   onboarding: 'stores.write',
   domains: 'stores.read',

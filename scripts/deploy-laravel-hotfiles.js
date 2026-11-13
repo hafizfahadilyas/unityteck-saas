@@ -63,12 +63,48 @@ const files = [
     remote: 'routes/api.php',
   },
   {
+    local: 'apps/api/app/Http/Controllers/Api/SubscriptionController.php',
+    remote: 'app/Http/Controllers/Api/SubscriptionController.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/AuditLogController.php',
+    remote: 'app/Http/Controllers/Api/AuditLogController.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/OnboardingInviteController.php',
+    remote: 'app/Http/Controllers/Api/OnboardingInviteController.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/PlatformSettingsController.php',
+    remote: 'app/Http/Controllers/Api/PlatformSettingsController.php',
+  },
+  {
+    local: 'apps/api/app/Models/OnboardingInvite.php',
+    remote: 'app/Models/OnboardingInvite.php',
+  },
+  {
+    local: 'apps/api/app/Models/PlatformSetting.php',
+    remote: 'app/Models/PlatformSetting.php',
+  },
+  {
+    local: 'apps/api/app/Support/Audit.php',
+    remote: 'app/Support/Audit.php',
+  },
+  {
+    local: 'apps/api/app/Support/PlatformSettings.php',
+    remote: 'app/Support/PlatformSettings.php',
+  },
+  {
     local: 'apps/api/scripts/ensure-login-email-active-column.php',
     remote: 'scripts/ensure-login-email-active-column.php',
   },
   {
     local: 'apps/api/scripts/ensure-product-order-isolation-columns.php',
     remote: 'scripts/ensure-product-order-isolation-columns.php',
+  },
+  {
+    local: 'apps/api/scripts/ensure-platform-master-phase1-tables.php',
+    remote: 'scripts/ensure-platform-master-phase1-tables.php',
   },
 ];
 

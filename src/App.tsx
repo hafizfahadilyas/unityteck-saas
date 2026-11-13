@@ -32,6 +32,7 @@ import { STORE_TAB_ABILITY, MASTER_TAB_ABILITY } from './auth/modules';
 import { readAuthSession, clearAuthSession, writeAuthSession } from './auth/session';
 import type { AuthPortal, AuthSession } from './auth/session';
 import { logoutPortal, clearAppCache } from './auth/api';
+import { isMasterAdminHost, redirectToCentralMaster } from './auth/masterHost';
 import {
   isKnownAppPath,
   isStatusPath,
@@ -82,6 +83,31 @@ const MasterOrders = lazyWithRetry(() =>
 );
 const MasterProducts = lazyWithRetry(() =>
   import('./components/master/MasterProducts').then((m) => ({ default: m.MasterProducts })),
+);
+const MasterAccountManagement = lazyWithRetry(() =>
+  import('./components/master/MasterAccountManagement').then((m) => ({
+    default: m.MasterAccountManagement,
+  })),
+);
+const MasterPlansSubscriptions = lazyWithRetry(() =>
+  import('./components/master/MasterPlansSubscriptions').then((m) => ({
+    default: m.MasterPlansSubscriptions,
+  })),
+);
+const MasterSecurityCenter = lazyWithRetry(() =>
+  import('./components/master/MasterSecurityCenter').then((m) => ({
+    default: m.MasterSecurityCenter,
+  })),
+);
+const MasterNotificationsHub = lazyWithRetry(() =>
+  import('./components/master/MasterNotificationsHub').then((m) => ({
+    default: m.MasterNotificationsHub,
+  })),
+);
+const MasterCapabilityDeferred = lazyWithRetry(() =>
+  import('./components/master/MasterCapabilityDeferred').then((m) => ({
+    default: m.MasterCapabilityDeferred,
+  })),
 );
 const StoreCustomers = lazyWithRetry(() =>
   import('./components/store/StoreCustomers').then((m) => ({ default: m.StoreCustomers })),
@@ -318,7 +344,8 @@ function TabFallback() {
     !isCoffee && (
       search.includes('portal=master') ||
       search.includes('store=master') ||
-      pathname.startsWith('/master')
+      pathname.startsWith('/master') ||
+      pathname.startsWith('/masteradmin')
     );
 
   const fallbackStoreId = isCar
@@ -727,7 +754,13 @@ const getDefaultStoreTheme = (storeId?: string): string => {
   }, [mobileNavOpen]);
 
   const isMasterLogin =
-    path === '/master/login' || (!session && (path === '/master' || path === '/master/'));
+    path === '/master/login' ||
+    path === '/masteradmin/login' ||
+    (!session &&
+      (path === '/master' ||
+        path === '/master/' ||
+        path === '/masteradmin' ||
+        path === '/masteradmin/'));
   const isStoreLogin =
     path === '/store/login' || (!session && (path === '/store' || path === '/store/'));
   const isAdminLogin =
@@ -812,6 +845,24 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     isClearCache ||
     isPublicStorefront;
 
+  // Master Admin = central Hostinger only (mieraf-ksa.com). Flowers/store hosts bounce away.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onMasterPath =
+      path.startsWith('/master') ||
+      path.startsWith('/masteradmin') ||
+      (typeof window !== 'undefined' &&
+        new URLSearchParams(window.location.search).get('portal') === 'master');
+    if (!onMasterPath) return;
+    if (isMasterAdminHost(window.location.hostname)) return;
+    const search = window.location.search || '';
+    const dest =
+      path.startsWith('/master') || path.startsWith('/masteradmin')
+        ? `${path.startsWith('/masteradmin') ? path.replace(/^\/masteradmin/, '/master') : path}${search}`
+        : `/master/login${search}`;
+    redirectToCentralMaster(dest.startsWith('/master') ? dest : `/master/login${search}`);
+  }, [path]);
+
   // giftshop-sa.com/admin (no ?store=) → keep merchant on flowers admin, never bare frontend.
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -859,6 +910,12 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     } else if (path === '/master' || path === '/master/') {
       if (!session) {
         navigate(`/master/login${search}`, { replace: true });
+      }
+    } else if (path === '/masteradmin' || path === '/masteradmin/') {
+      if (!session) {
+        navigate(`/master/login${search}`, { replace: true });
+      } else {
+        navigate(`/master${search}`, { replace: true });
       }
     } else if (path === '/register') {
       const inv =
@@ -1440,7 +1497,13 @@ const getDefaultStoreTheme = (storeId?: string): string => {
   if (!session && isGate) {
     return (
       <PortalGate
-        onOpenMaster={() => navigate('/master/login')}
+        onOpenMaster={() => {
+          if (typeof window !== 'undefined' && !isMasterAdminHost(window.location.hostname)) {
+            redirectToCentralMaster('/master/login');
+            return;
+          }
+          navigate('/master/login');
+        }}
         onOpenStore={(slug?: string) => navigate(slug ? `/store/login?store=${slug}` : '/store/login')}
         onOpenStorefront={() => navigate('/storefront')}
       />
@@ -1632,9 +1695,21 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                   {masterTab === 'dashboard' && (
                     <MasterDashboard onOpenCreateStore={() => setIsCreateStoreOpen(true)} />
                   )}
+                  {masterTab === 'accounts' && (
+                    <MasterAccountManagement onOpenOnboarding={() => setMasterTab('onboarding')} />
+                  )}
                   {masterTab === 'stores' && (
                     <MasterStores onOpenCreateStore={() => setIsCreateStoreOpen(true)} />
                   )}
+                  {masterTab === 'plans' && <MasterPlansSubscriptions />}
+                  {masterTab === 'services-points' && (
+                    <MasterCapabilityDeferred capabilityId="services-points" />
+                  )}
+                  {masterTab === 'support' && (
+                    <MasterCapabilityDeferred capabilityId="support" />
+                  )}
+                  {masterTab === 'security' && <MasterSecurityCenter />}
+                  {masterTab === 'notifications' && <MasterNotificationsHub />}
                   {masterTab === 'control-center' && <MasterControlCenter />}
                   {masterTab === 'onboarding' && <MasterOnboarding />}
                   {masterTab === 'domains' && <MasterDomains />}
@@ -1649,7 +1724,13 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                   {masterTab === 'settings' && <MasterSettings />}
                   {![
                     'dashboard',
+                    'accounts',
                     'stores',
+                    'plans',
+                    'services-points',
+                    'support',
+                    'security',
+                    'notifications',
                     'control-center',
                     'onboarding',
                     'domains',

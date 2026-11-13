@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { fetchPlatformSettings, updatePlatformSettings } from '../../api/tenantApi';
+import { isApiEnabled } from '../../api/client';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import {
@@ -56,15 +58,90 @@ export const MasterSettings: React.FC = () => {
   });
 
   const [purging, setPurging] = useState(false);
+  const [platformSaving, setPlatformSaving] = useState(false);
+  const [, setPlatformLoaded] = useState(false);
 
-  const handleSavePlatform = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!isApiEnabled()) return;
+    let cancelled = false;
+    void fetchPlatformSettings()
+      .then((res) => {
+        if (cancelled) return;
+        const d = res.data || {};
+        if (isAr && typeof d.platformNameAr === 'string' && d.platformNameAr) {
+          setPlatformName(d.platformNameAr);
+        } else if (typeof d.platformName === 'string' && d.platformName) {
+          setPlatformName(d.platformName);
+        }
+        if (isAr && typeof d.platformTaglineAr === 'string') {
+          setPlatformTagline(d.platformTaglineAr);
+        } else if (typeof d.platformTagline === 'string') {
+          setPlatformTagline(d.platformTagline);
+        }
+        if (typeof d.platformLogo === 'string' && d.platformLogo) {
+          setPlatformLogo(d.platformLogo);
+        }
+        if (typeof d.supportEmail === 'string' && d.supportEmail) {
+          setSupportEmail(d.supportEmail);
+        }
+        if (typeof d.timezone === 'string' && d.timezone) {
+          setTimezone(d.timezone);
+        }
+        if (typeof d.whatsappEnabled === 'boolean') {
+          setWhatsappEnabled(d.whatsappEnabled);
+        }
+        if (typeof d.whatsappNumber === 'string') {
+          setWhatsappNumber(d.whatsappNumber);
+        }
+        const sl = d.socialLinks as typeof socialLinks | undefined;
+        if (sl && typeof sl === 'object') {
+          setSocialLinks((prev) => ({
+            twitter: { ...prev.twitter, ...(sl.twitter || {}) },
+            linkedin: { ...prev.linkedin, ...(sl.linkedin || {}) },
+            instagram: { ...prev.instagram, ...(sl.instagram || {}) },
+            youtube: { ...prev.youtube, ...(sl.youtube || {}) },
+          }));
+        }
+        setPlatformLoaded(true);
+      })
+      .catch(() => {
+        if (!cancelled) setPlatformLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAr]);
+
+  const handleSavePlatform = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast(
-      isAr
-        ? 'تم حفظ إعدادات المنصة بنجاح'
-        : 'Platform settings saved successfully',
-      'success'
-    );
+    if (!isApiEnabled()) {
+      toast(
+        isAr ? 'الخادم غير متصل — لا يمكن الحفظ' : 'API offline — cannot save',
+        'warning',
+      );
+      return;
+    }
+    if (platformSaving) return;
+    setPlatformSaving(true);
+    try {
+      await updatePlatformSettings({
+        platformName: isAr ? undefined : platformName,
+        platformNameAr: isAr ? platformName : undefined,
+        platformTagline: isAr ? undefined : platformTagline,
+        platformTaglineAr: isAr ? platformTagline : undefined,
+        platformLogo,
+        supportEmail,
+        timezone,
+        whatsappEnabled,
+        whatsappNumber,
+        socialLinks,
+      });
+      toast(isAr ? 'تم حفظ إعدادات المنصة' : 'Platform settings saved', 'success');
+    } catch {
+      toast(isAr ? 'فشل الحفظ — تحقق من الجلسة' : 'Save failed — check Master session', 'error');
+    } finally {
+      setPlatformSaving(false);
+    }
   };
 
   const handlePurgeAll = async () => {

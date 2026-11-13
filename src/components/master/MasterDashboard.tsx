@@ -51,6 +51,8 @@ import {
   getProductDisplayCategory,
 } from '../../utils/storeLocalization';
 import { formatRelativeTime } from '../../notification-system/utils/dateFilters';
+import { listOnboardingInvites } from '../../auth/invites';
+import { fetchMasterSubscriptions } from '../../api/tenantApi';
 
 interface MasterDashboardProps {
   onOpenCreateStore: () => void;
@@ -303,6 +305,73 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
     () => stores.filter((s) => s.status === 'active').length,
     [stores],
   );
+  const suspendedStoresCount = useMemo(
+    () => stores.filter((s) => s.status === 'suspended').length,
+    [stores],
+  );
+  /** Merchants ≈ unique store owners (platform Level-1 identity). */
+  const totalMerchantsCount = useMemo(() => {
+    const emails = new Set(
+      stores
+        .map((s) => String(s.ownerEmail || '').trim().toLowerCase())
+        .filter(Boolean),
+    );
+    return emails.size || stores.length;
+  }, [stores]);
+  const activeMerchantsCount = useMemo(() => {
+    const emails = new Set(
+      stores
+        .filter((s) => s.status === 'active')
+        .map((s) => String(s.ownerEmail || '').trim().toLowerCase())
+        .filter(Boolean),
+    );
+    return emails.size || activeStoresCount;
+  }, [stores, activeStoresCount]);
+  const [onboardingOpenCount, setOnboardingOpenCount] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    void listOnboardingInvites()
+      .then((rows) => {
+        if (!cancelled) {
+          setOnboardingOpenCount(rows.filter((inv) => !inv.usedAt).length);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setOnboardingOpenCount(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [stores.length]);
+  const [subNearExpiry, setSubNearExpiry] = useState(0);
+  const [activeSubsCount, setActiveSubsCount] = useState(0);
+  const [kpiRefreshAt, setKpiRefreshAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetchMasterSubscriptions();
+        if (cancelled) return;
+        const rows = Array.isArray(res?.data) ? res.data : [];
+        const active = rows.filter((r) => {
+          const life = (r.lifecycle || {}) as { status?: string };
+          return life.status === 'active' || life.status === 'grace' || life.status === 'trial';
+        }).length;
+        setActiveSubsCount(active);
+        setSubNearExpiry(Number(res?.meta?.near_expiry) || 0);
+        setKpiRefreshAt(res?.meta?.last_refresh || new Date().toISOString());
+      } catch {
+        if (cancelled) return;
+        setActiveSubsCount(0);
+        setSubNearExpiry(0);
+        setKpiRefreshAt(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [stores.length]);
   // Seeded stores.visitors_count is NOT truth — store dashboards use storefront_analytics_events only
   const totalVisitorsCount = useMemo(
     () => Math.max(0, Number(platformMetrics.totalVisitors) || 0),
@@ -646,19 +715,90 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start min-w-0">
         {/* ════ LEFT / MAIN COLUMN (9 cols) ════ */}
         <div className="xl:col-span-9 space-y-5 min-w-0">
-          {/* ── 10 Metric Cards Grid ── */}
-          <div className="space-y-3 sm:space-y-4">
-            {/* Row 1: 4 Cards */}
+          {/* SOUQ PLUS Phase 1 platform KPIs — real stores/subscriptions only */}
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-extrabold" style={{ color: 'var(--text)' }}>
+                {isAr ? 'مؤشرات المنصة' : 'Platform overview'}
+              </h2>
+              <span className="text-[10px]" style={{ color: 'var(--muted)' }}>
+                {isAr ? 'المصدر' : 'Source'}: stores + subscriptions
+                {kpiRefreshAt ? ` · ${kpiRefreshAt.slice(0, 19)}` : ''}
+              </span>
+            </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <OverviewStatCard
+                label={isAr ? 'إجمالي التجار' : 'Total merchants'}
+                value={amount(totalMerchantsCount)}
+                icon={Users}
+                tone="accent"
+                sparkline={[totalMerchantsCount]}
+                delta={null}
+              />
+              <OverviewStatCard
+                label={isAr ? 'تجار نشطون' : 'Active merchants'}
+                value={amount(activeMerchantsCount)}
+                icon={Users}
+                tone="info"
+                sparkline={[activeMerchantsCount]}
+                delta={null}
+              />
               <OverviewStatCard
                 label={t('totalStores') || 'Total Stores'}
                 value={amount(stores.length)}
                 icon={StoreIcon}
                 tone="accent"
                 sparkline={storesSpark}
-                delta={stores.length > 0 ? 100 : null}
-                deltaLabel={vsLastMonth}
+                delta={null}
               />
+              <OverviewStatCard
+                label={isAr ? 'متاجر موقوفة' : 'Suspended stores'}
+                value={amount(suspendedStoresCount)}
+                icon={StoreIcon}
+                tone="danger"
+                sparkline={[suspendedStoresCount]}
+                delta={null}
+              />
+              <OverviewStatCard
+                label={isAr ? 'اشتراكات نشطة' : 'Active subscriptions'}
+                value={amount(activeSubsCount)}
+                icon={Tag}
+                tone="accent"
+                sparkline={[activeSubsCount]}
+                delta={null}
+              />
+              <OverviewStatCard
+                label={isAr ? 'قرب الانتهاء' : 'Near expiry'}
+                value={amount(subNearExpiry)}
+                icon={Clock}
+                tone="danger"
+                sparkline={[subNearExpiry]}
+                delta={null}
+              />
+              <OverviewStatCard
+                label={isAr ? 'طلبات انضمام مفتوحة' : 'Onboarding open'}
+                value={amount(onboardingOpenCount)}
+                icon={Plus}
+                tone="info"
+                sparkline={[onboardingOpenCount]}
+                delta={null}
+              />
+              <OverviewStatCard
+                label={isAr ? 'تذاكر الدعم المفتوحة' : 'Open support tickets'}
+                value={amount(0)}
+                icon={Activity}
+                tone="info"
+                sparkline={[0]}
+                delta={null}
+                deltaLabel={isAr ? 'غير مربوط' : 'Not connected'}
+              />
+            </div>
+          </div>
+
+          {/* ── Commerce Metric Cards Grid ── */}
+          <div className="space-y-3 sm:space-y-4">
+            {/* Row 1: 4 Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <OverviewStatCard
                 label={t('activeStores') || 'Active Stores'}
                 value={amount(activeStoresCount)}
@@ -686,10 +826,6 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
                 delta={ordersDelta}
                 deltaLabel={vsLastMonth}
               />
-            </div>
-
-            {/* Row 2: 4 Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <OverviewStatCard
                 label={t('totalCustomers') || 'Total Customers'}
                 value={amount(totalCustomersCount)}
@@ -699,6 +835,10 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
                 delta={totalCustomersCount > 0 ? 100 : null}
                 deltaLabel={vsLastMonth}
               />
+            </div>
+
+            {/* Row 2: 4 Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <OverviewStatCard
                 label={t('totalRevenue') || 'Total Revenue'}
                 value={money(dateRange === 'all' ? totalRevenue : rangedRevenue)}
@@ -724,6 +864,15 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
                 tone="accent"
                 sparkline={revenueSpark}
                 delta={salesDelta}
+                deltaLabel={vsLastMonth}
+              />
+              <OverviewStatCard
+                label={t('totalStores') || 'Total Stores'}
+                value={amount(stores.length)}
+                icon={StoreIcon}
+                tone="accent"
+                sparkline={storesSpark}
+                delta={stores.length > 0 ? 100 : null}
                 deltaLabel={vsLastMonth}
               />
             </div>

@@ -61,10 +61,31 @@ export const PortalRegister: React.FC<PortalRegisterProps> = ({
   const isAr = locale === 'ar';
 
   const inviteToken = useMemo(() => readInviteFromLocation(), []);
-  const inviteCheck = useMemo(
-    () => checkInviteToken(inviteToken),
-    [inviteToken],
-  );
+  const [inviteCheck, setInviteCheck] = useState<Awaited<ReturnType<typeof checkInviteToken>>>({
+    ok: false,
+    reason: inviteToken ? 'invalid' : 'missing',
+  });
+  const [inviteLoading, setInviteLoading] = useState(Boolean(inviteToken));
+
+  useEffect(() => {
+    if (!inviteToken) {
+      setInviteCheck({ ok: false, reason: 'missing' });
+      setInviteLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setInviteLoading(true);
+    void (async () => {
+      const check = await checkInviteToken(inviteToken);
+      if (!cancelled) {
+        setInviteCheck(check);
+        setInviteLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [inviteToken]);
 
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -191,23 +212,28 @@ export const PortalRegister: React.FC<PortalRegisterProps> = ({
 
     try {
       // Step A: Provision Store in TenantContext
+      const reservedStoreId = inviteCheck.ok ? inviteCheck.invite.storeId : undefined;
+      const invitePlan = inviteCheck.ok
+        ? (inviteCheck.invite.plan === 'free' ? 'free' : 'pro')
+        : plan;
+
       const storeId = registerNewClient({
         clientName: name.trim(),
         email: email.trim(),
         businessName: (storeName || businessName).trim(),
         category: category.trim() || 'General',
-        plan: plan,
-        currency: 'SAR',
-        locale: locale as any,
-        textDirection: dir,
-        timezone: 'Asia/Riyadh',
+        plan: invitePlan,
+        storeId: reservedStoreId,
+        currency: inviteCheck.ok ? inviteCheck.invite.currency : 'SAR',
+        locale: (inviteCheck.ok ? inviteCheck.invite.locale : locale) as 'en' | 'ar',
+        textDirection: inviteCheck.ok ? inviteCheck.invite.textDir : dir,
+        timezone: inviteCheck.ok ? inviteCheck.invite.timezone : 'Asia/Riyadh',
         city: city.trim(),
         phone: phone.trim(),
       });
 
-      // If invite token exists, redeem it
       if (inviteToken && inviteCheck.ok) {
-        redeemInviteToken(inviteToken, storeId);
+        await redeemInviteToken(inviteToken, storeId);
       }
 
       // Register Auth user

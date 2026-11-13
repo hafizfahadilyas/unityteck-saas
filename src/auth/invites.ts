@@ -1,19 +1,22 @@
 /**
- * Master-generated onboarding invites (opaque tokens).
- * Phase 2.5: unique store_id reserved on generate + lang · RTL/LTR · currency · timezone.
- * Register blocked without valid unused invite. Laravel owns invites server-side later.
+ * Master onboarding invites — server truth when API live (Phase 1).
+ * localStorage path retired on production API; dev mock only when API disabled.
  */
 
+import { isApiEnabled } from '../api/client';
+import {
+  checkOnboardingInviteTokenApi,
+  createOnboardingInviteApi,
+  fetchOnboardingInvites,
+  redeemOnboardingInviteApi,
+} from '../api/tenantApi';
+
 export type OnboardingInvite = {
-  /** Opaque public token (URL). Not an email. */
   token: string;
-  /** Reserved unique tenant id — bound at generate, redeemed at register. */
   storeId: string;
   plan: 'free' | 'paid' | 'pro' | 'custom';
   label: string;
-  /** Default storefront/admin language */
   locale: 'en' | 'ar';
-  /** Text direction — usually follows locale; Master may override. */
   textDir: 'ltr' | 'rtl';
   currency: 'SAR' | 'USD' | 'AED' | 'EUR';
   timezone: string;
@@ -22,8 +25,6 @@ export type OnboardingInvite = {
   usedAt?: string | null;
   redeemedStoreId?: string | null;
 };
-
-const INVITES_KEY = 'unityteck_invites_v1';
 
 export const ONBOARD_TIMEZONES = [
   'Asia/Riyadh',
@@ -36,62 +37,28 @@ export const ONBOARD_TIMEZONES = [
   'UTC',
 ] as const;
 
-function readAll(): OnboardingInvite[] {
-  try {
-    const raw = localStorage.getItem(INVITES_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as OnboardingInvite[];
-    if (!Array.isArray(parsed)) return [];
-    // Migrate pre-2.5 invites missing fields
-    return parsed.map((i) => normalizeInvite(i));
-  } catch {
-    return [];
-  }
-}
+export type InviteCheck =
+  | { ok: true; invite: OnboardingInvite }
+  | { ok: false; reason: 'missing' | 'invalid' | 'used' | 'expired' };
 
-function writeAll(list: OnboardingInvite[]): void {
-  localStorage.setItem(INVITES_KEY, JSON.stringify(list));
-}
-
-function randomToken(): string {
-  const bytes = new Uint8Array(24);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-/** Unique store_id allocated when Master generates the invite. */
-export function allocateStoreId(): string {
-  const bytes = new Uint8Array(5);
-  crypto.getRandomValues(bytes);
-  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
-  return `store-${hex}`;
-}
-
-function normalizeInvite(raw: Partial<OnboardingInvite> & { token: string }): OnboardingInvite {
-  const locale = raw.locale === 'ar' ? 'ar' : 'en';
-  const textDir =
-    raw.textDir === 'rtl' || raw.textDir === 'ltr'
-      ? raw.textDir
-      : locale === 'ar'
-        ? 'rtl'
-        : 'ltr';
+function mapRow(row: Record<string, unknown>): OnboardingInvite {
   return {
-    token: raw.token,
-    storeId: raw.storeId && raw.storeId.startsWith('store-') ? raw.storeId : allocateStoreId(),
-    plan: raw.plan ?? 'pro',
-    label: raw.label ?? 'Merchant invite',
-    locale,
-    textDir,
-    currency: (raw.currency as OnboardingInvite['currency']) || 'SAR',
-    timezone: raw.timezone || 'Asia/Riyadh',
-    createdAt: raw.createdAt || new Date().toISOString(),
-    expiresAt: raw.expiresAt || new Date(Date.now() + 7 * 86400000).toISOString(),
-    usedAt: raw.usedAt ?? null,
-    redeemedStoreId: raw.redeemedStoreId ?? null,
+    token: String(row.token ?? ''),
+    storeId: String(row.storeId ?? row.store_id ?? ''),
+    plan: (row.plan as OnboardingInvite['plan']) ?? 'pro',
+    label: String(row.label ?? ''),
+    locale: row.locale === 'ar' ? 'ar' : 'en',
+    textDir: row.textDir === 'rtl' || row.text_dir === 'rtl' ? 'rtl' : 'ltr',
+    currency: (row.currency as OnboardingInvite['currency']) || 'SAR',
+    timezone: String(row.timezone ?? 'Asia/Riyadh'),
+    createdAt: String(row.createdAt ?? row.created_at ?? new Date().toISOString()),
+    expiresAt: String(row.expiresAt ?? row.expires_at ?? ''),
+    usedAt: (row.usedAt ?? row.used_at ?? null) as string | null,
+    redeemedStoreId: (row.redeemedStoreId ?? row.redeemed_store_id ?? null) as string | null,
   };
 }
 
-export function createOnboardingInvite(input?: {
+export async function createOnboardingInvite(input?: {
   plan?: OnboardingInvite['plan'];
   label?: string;
   daysValid?: number;
@@ -100,79 +67,64 @@ export function createOnboardingInvite(input?: {
   currency?: OnboardingInvite['currency'];
   timezone?: string;
   storeId?: string;
-}): OnboardingInvite {
-  const days = input?.daysValid ?? 7;
-  const locale = input?.locale ?? 'en';
-  const invite = normalizeInvite({
-    token: randomToken(),
-    storeId: input?.storeId || allocateStoreId(),
+}): Promise<OnboardingInvite> {
+  if (!isApiEnabled()) {
+    throw new Error('Onboarding invites require live API — enable VITE_USE_API or deploy.');
+  }
+  const res = await createOnboardingInviteApi({
     plan: input?.plan ?? 'pro',
-    label: input?.label?.trim() || 'Merchant invite',
-    locale,
-    textDir: input?.textDir ?? (locale === 'ar' ? 'rtl' : 'ltr'),
+    label: input?.label ?? 'Merchant invite',
+    days_valid: input?.daysValid ?? 7,
+    locale: input?.locale ?? 'en',
+    text_dir: input?.textDir,
     currency: input?.currency ?? 'SAR',
     timezone: input?.timezone ?? 'Asia/Riyadh',
-    createdAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + days * 86400000).toISOString(),
-    usedAt: null,
-    redeemedStoreId: null,
+    store_id: input?.storeId,
   });
+  return mapRow(res.data);
+}
 
-  // Ensure storeId uniqueness among active invites
-  const existing = new Set(readAll().map((i) => i.storeId));
-  let guard = 0;
-  while (existing.has(invite.storeId) && guard < 5) {
-    invite.storeId = allocateStoreId();
-    guard += 1;
+export async function listOnboardingInvites(): Promise<OnboardingInvite[]> {
+  if (!isApiEnabled()) {
+    return [];
   }
-
-  writeAll([invite, ...readAll()].slice(0, 50));
-  return invite;
+  const res = await fetchOnboardingInvites();
+  return (res.data ?? []).map((row) => mapRow(row));
 }
 
-export function listOnboardingInvites(): OnboardingInvite[] {
-  return readAll();
-}
-
-export type InviteCheck =
-  | { ok: true; invite: OnboardingInvite }
-  | { ok: false; reason: 'missing' | 'invalid' | 'used' | 'expired' };
-
-/** Validate invite for the register wizard — no other client PII returned. */
-export function checkInviteToken(token: string | null | undefined): InviteCheck {
+export async function checkInviteToken(
+  token: string | null | undefined,
+): Promise<InviteCheck> {
   const t = (token || '').trim();
   if (!t) return { ok: false, reason: 'missing' };
-  const invite = readAll().find((i) => i.token === t);
-  if (!invite) return { ok: false, reason: 'invalid' };
-  if (invite.usedAt) return { ok: false, reason: 'used' };
-  if (new Date(invite.expiresAt).getTime() < Date.now()) {
-    return { ok: false, reason: 'expired' };
+  if (!isApiEnabled()) {
+    return { ok: false, reason: 'invalid' };
   }
-  return { ok: true, invite: normalizeInvite(invite) };
+  const res = await checkOnboardingInviteTokenApi(t);
+  if (!res.ok) {
+    const reason = res.reason === 'expired' || res.reason === 'used' ? res.reason : 'invalid';
+    return { ok: false, reason };
+  }
+  return { ok: true, invite: mapRow(res.invite) };
 }
 
-export function redeemInviteToken(
+export async function redeemInviteToken(
   token: string,
   storeId: string,
-): InviteCheck {
-  const check = checkInviteToken(token);
-  if (!check.ok) return check;
-  const next = readAll().map((i) =>
-    i.token === token
-      ? {
-          ...normalizeInvite(i),
-          usedAt: new Date().toISOString(),
-          redeemedStoreId: storeId,
-        }
-      : i,
-  );
-  writeAll(next);
-  return { ok: true, invite: next.find((i) => i.token === token)! };
+): Promise<InviteCheck> {
+  if (!isApiEnabled()) {
+    return { ok: false, reason: 'invalid' };
+  }
+  const res = await redeemOnboardingInviteApi(token, storeId);
+  if (!res.ok) {
+    const reason = res.reason === 'expired' || res.reason === 'used' ? res.reason : 'invalid';
+    return { ok: false, reason };
+  }
+  return { ok: true, invite: mapRow(res.invite) };
 }
 
 export function buildRegisterUrl(token: string): string {
-  const origin =
-    typeof window !== 'undefined' ? window.location.origin : '';
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
   return `${origin}/store/register?invite=${encodeURIComponent(token)}`;
 }
 

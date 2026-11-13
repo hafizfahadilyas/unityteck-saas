@@ -148,6 +148,7 @@ export async function apiFetch<T>(
     path.startsWith('/webhooks') ||
     path.startsWith('/resolve-domain') ||
     path.startsWith('/whatsapp') ||
+    path.startsWith('/onboarding/') ||
     path.includes('/blog/');
 
   const token = getAuthToken();

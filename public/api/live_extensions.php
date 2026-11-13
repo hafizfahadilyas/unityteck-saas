@@ -1297,6 +1297,739 @@ function souq_save_binary_media(PDO $pdo, string $storeId, string $binary, strin
     return souq_media_row($st->fetch());
 }
 
+/** @return bool */
+function souq_table_exists(PDO $pdo, string $table): bool
+{
+    try {
+        $driver = (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        if ($driver === 'mysql') {
+            $st = $pdo->prepare(
+                'SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ? LIMIT 1'
+            );
+            $st->execute([$table]);
+            return (bool) $st->fetchColumn();
+        }
+        $st = $pdo->prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ? LIMIT 1");
+        $st->execute([$table]);
+        return (bool) $st->fetchColumn();
+    } catch (Throwable) {
+        return false;
+    }
+}
+
+/** Catalog Free/Paid/Pro/Premium/Custom — matches apps/api Plans support. */
+function souq_plans_catalog(): array
+{
+    return [
+        ['code' => 'free', 'id' => 'plan-free', 'name' => 'Free', 'price_sar' => 0, 'currency' => 'SAR', 'product_limit' => 50, 'order_limit' => 100, 'storage_mb' => 512, 'team_seats' => 1, 'features' => ['catalog', 'orders', 'basic_seo', 'themes_basic', 'media_studio']],
+        ['code' => 'paid', 'id' => 'plan-paid', 'name' => 'Paid', 'price_sar' => null, 'currency' => 'SAR', 'product_limit' => 500, 'order_limit' => 2000, 'storage_mb' => 5120, 'team_seats' => 5, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'media_studio']],
+        ['code' => 'pro', 'id' => 'plan-pro', 'name' => 'Pro', 'price_sar' => 300, 'currency' => 'SAR', 'product_limit' => 5000, 'order_limit' => null, 'storage_mb' => 51200, 'team_seats' => 20, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'themes', 'media_studio', 'custom_domain', 'whatsapp', 'social']],
+        ['code' => 'premium', 'id' => 'plan-premium', 'name' => 'Premium', 'price_sar' => 500, 'currency' => 'SAR', 'product_limit' => null, 'order_limit' => null, 'storage_mb' => 102400, 'team_seats' => 50, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'themes', 'media_studio', 'custom_domain', 'whatsapp', 'social', 'backups', 'zatca', 'ai', 'api_access', 'advanced_seo', 'advanced_analytics']],
+        ['code' => 'custom', 'id' => 'plan-custom', 'name' => 'Custom', 'price_sar' => null, 'currency' => 'SAR', 'product_limit' => null, 'order_limit' => null, 'storage_mb' => null, 'team_seats' => null, 'features' => ['all']],
+    ];
+}
+
+function souq_ensure_phase1_tables(PDO $pdo): void
+{
+    try {
+        if ((string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'mysql') {
+            return;
+        }
+        if (!souq_table_exists($pdo, 'subscriptions')) {
+            $pdo->exec(
+                "CREATE TABLE IF NOT EXISTS `subscriptions` (
+                    `id` VARCHAR(64) NOT NULL,
+                    `store_id` VARCHAR(64) NOT NULL,
+                    `plan_id` VARCHAR(64) NOT NULL,
+                    `status` VARCHAR(32) NOT NULL DEFAULT 'trial',
+                    `billing_interval` VARCHAR(16) NULL DEFAULT 'monthly',
+                    `starts_at` TIMESTAMP NULL DEFAULT NULL,
+                    `ends_at` TIMESTAMP NULL DEFAULT NULL,
+                    `grace_ends_at` TIMESTAMP NULL DEFAULT NULL,
+                    `renewed_at` TIMESTAMP NULL DEFAULT NULL,
+                    `created_at` TIMESTAMP NULL DEFAULT NULL,
+                    `updated_at` TIMESTAMP NULL DEFAULT NULL,
+                    PRIMARY KEY (`id`),
+                    KEY `subscriptions_store_id_index` (`store_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+            );
+        }
+        if (!souq_table_exists($pdo, 'onboarding_invites')) {
+            $pdo->exec(
+                "CREATE TABLE IF NOT EXISTS `onboarding_invites` (
+                    `id` VARCHAR(64) NOT NULL,
+                    `token` VARCHAR(128) NOT NULL,
+                    `store_id` VARCHAR(64) NOT NULL,
+                    `plan` VARCHAR(32) NOT NULL DEFAULT 'pro',
+                    `label` VARCHAR(191) NOT NULL DEFAULT '',
+                    `locale` VARCHAR(8) NOT NULL DEFAULT 'en',
+                    `text_dir` VARCHAR(8) NOT NULL DEFAULT 'ltr',
+                    `currency` VARCHAR(8) NOT NULL DEFAULT 'SAR',
+                    `timezone` VARCHAR(64) NOT NULL DEFAULT 'Asia/Riyadh',
+                    `expires_at` TIMESTAMP NOT NULL,
+                    `used_at` TIMESTAMP NULL DEFAULT NULL,
+                    `redeemed_store_id` VARCHAR(64) NULL DEFAULT NULL,
+                    `created_by_user_id` VARCHAR(64) NULL DEFAULT NULL,
+                    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`id`),
+                    UNIQUE KEY `onboarding_invites_token_unique` (`token`),
+                    UNIQUE KEY `onboarding_invites_store_id_unique` (`store_id`),
+                    KEY `onboarding_invites_expires_used` (`expires_at`, `used_at`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+            );
+        }
+        if (!souq_table_exists($pdo, 'platform_settings')) {
+            $pdo->exec(
+                "CREATE TABLE IF NOT EXISTS `platform_settings` (
+                    `id` VARCHAR(32) NOT NULL,
+                    `settings` JSON NULL,
+                    `updated_by_user_id` VARCHAR(64) NULL DEFAULT NULL,
+                    `updated_at` TIMESTAMP NULL DEFAULT NULL,
+                    `created_at` TIMESTAMP NULL DEFAULT NULL,
+                    PRIMARY KEY (`id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+            );
+        }
+        if (!souq_table_exists($pdo, 'audit_logs')) {
+            $pdo->exec(
+                "CREATE TABLE IF NOT EXISTS `audit_logs` (
+                    `id` VARCHAR(64) NOT NULL,
+                    `store_id` VARCHAR(64) NULL,
+                    `user_id` VARCHAR(64) NULL,
+                    `action` VARCHAR(191) NOT NULL,
+                    `entity_type` VARCHAR(64) NULL,
+                    `entity_id` VARCHAR(64) NULL,
+                    `meta` JSON NULL,
+                    `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`id`),
+                    KEY `audit_logs_store_created` (`store_id`, `created_at`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+            );
+        }
+    } catch (Throwable) {
+        /* ignore — handlers degrade to empty/safe responses */
+    }
+}
+
+function souq_audit_write(PDO $pdo, ?string $storeId, string $action, ?string $entityType, ?string $entityId, ?array $meta): void
+{
+    if (!souq_table_exists($pdo, 'audit_logs')) {
+        return;
+    }
+    try {
+        $id = 'aud-' . bin2hex(random_bytes(8));
+        $safeMeta = $meta;
+        if (is_array($safeMeta)) {
+            foreach (['password', 'token', 'secret', 'api_key', 'otp', 'code'] as $bad) {
+                if (array_key_exists($bad, $safeMeta)) {
+                    $safeMeta[$bad] = '[redacted]';
+                }
+            }
+        }
+        $pdo->prepare(
+            'INSERT INTO audit_logs (id, store_id, user_id, action, entity_type, entity_id, meta, created_at)
+             VALUES (?,?,?,?,?,?,?,?)'
+        )->execute([
+            $id,
+            $storeId,
+            null,
+            $action,
+            $entityType,
+            $entityId,
+            $safeMeta ? json_encode($safeMeta, JSON_UNESCAPED_UNICODE) : null,
+            date('Y-m-d H:i:s'),
+        ]);
+    } catch (Throwable) {
+        /* never break primary mutation */
+    }
+}
+
+/**
+ * SOUQ PLUS Phase 1 Master endpoints on Hostinger PHP gateway (real MySQL).
+ * @return bool true if handled
+ */
+function souq_platform_settings_defaults(): array
+{
+    return [
+        'platformName' => 'Souq Platform',
+        'platformNameAr' => 'منصة سوق',
+        'platformTagline' => '',
+        'platformTaglineAr' => '',
+        'platformLogo' => '/favicon.svg',
+        'supportEmail' => 'admin@unityteck.sa',
+        'timezone' => 'Asia/Riyadh',
+        'defaultLocale' => 'ar',
+        'defaultCurrency' => 'SAR',
+        'whatsappEnabled' => false,
+        'whatsappNumber' => '',
+        'socialLinks' => [
+            'twitter' => ['enabled' => false, 'url' => ''],
+            'linkedin' => ['enabled' => false, 'url' => ''],
+            'instagram' => ['enabled' => false, 'url' => ''],
+            'youtube' => ['enabled' => false, 'url' => ''],
+        ],
+    ];
+}
+
+function souq_platform_settings_merged(PDO $pdo): array
+{
+    $defaults = souq_platform_settings_defaults();
+    if (!souq_table_exists($pdo, 'platform_settings')) {
+        return $defaults;
+    }
+    try {
+        $st = $pdo->query("SELECT settings FROM platform_settings WHERE id = 'platform' LIMIT 1");
+        $row = $st ? $st->fetch(PDO::FETCH_ASSOC) : null;
+        $saved = [];
+        if ($row && isset($row['settings'])) {
+            $decoded = is_string($row['settings']) ? json_decode($row['settings'], true) : $row['settings'];
+            $saved = is_array($decoded) ? $decoded : [];
+        }
+        return array_replace_recursive($defaults, $saved);
+    } catch (Throwable) {
+        return $defaults;
+    }
+}
+
+/** @param array<string,mixed> $row */
+function souq_map_onboarding_invite(array $row): array
+{
+    return [
+        'id' => $row['id'] ?? null,
+        'token' => $row['token'] ?? '',
+        'storeId' => $row['store_id'] ?? '',
+        'plan' => $row['plan'] ?? 'pro',
+        'label' => $row['label'] ?? '',
+        'locale' => $row['locale'] ?? 'en',
+        'textDir' => $row['text_dir'] ?? 'ltr',
+        'currency' => $row['currency'] ?? 'SAR',
+        'timezone' => $row['timezone'] ?? 'Asia/Riyadh',
+        'createdAt' => $row['created_at'] ?? null,
+        'expiresAt' => $row['expires_at'] ?? null,
+        'usedAt' => $row['used_at'] ?? null,
+        'redeemedStoreId' => $row['redeemed_store_id'] ?? null,
+    ];
+}
+
+function souq_allocate_reserved_store_id(PDO $pdo): string
+{
+    for ($i = 0; $i < 8; $i++) {
+        $id = 'store-' . bin2hex(random_bytes(5));
+        $st = $pdo->prepare('SELECT 1 FROM stores WHERE id = ? LIMIT 1');
+        $st->execute([$id]);
+        if ($st->fetchColumn()) {
+            continue;
+        }
+        if (souq_table_exists($pdo, 'onboarding_invites')) {
+            $st2 = $pdo->prepare('SELECT 1 FROM onboarding_invites WHERE store_id = ? LIMIT 1');
+            $st2->execute([$id]);
+            if ($st2->fetchColumn()) {
+                continue;
+            }
+        }
+        return $id;
+    }
+    return 'store-' . bin2hex(random_bytes(8));
+}
+
+function souq_phase1_master_dispatch(PDO $pdo, string $uri, string $method, string $storeId, array $input): bool
+{
+    souq_ensure_phase1_tables($pdo);
+    $portal = strtolower(trim((string) ($_SERVER['HTTP_X_PORTAL'] ?? '')));
+
+    if (preg_match('#^/onboarding/invites/([^/]+)$#', $uri, $om) && $method === 'GET') {
+        $token = (string) $om[1];
+        if (!souq_table_exists($pdo, 'onboarding_invites')) {
+            http_response_code(404);
+            echo json_encode(['ok' => false, 'reason' => 'invalid']);
+            return true;
+        }
+        $st = $pdo->prepare('SELECT * FROM onboarding_invites WHERE token = ? LIMIT 1');
+        $st->execute([$token]);
+        $invite = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$invite) {
+            http_response_code(404);
+            echo json_encode(['ok' => false, 'reason' => 'invalid']);
+            return true;
+        }
+        if (!empty($invite['used_at'])) {
+            http_response_code(410);
+            echo json_encode(['ok' => false, 'reason' => 'used']);
+            return true;
+        }
+        if (!empty($invite['expires_at']) && strtotime((string) $invite['expires_at']) < time()) {
+            http_response_code(410);
+            echo json_encode(['ok' => false, 'reason' => 'expired']);
+            return true;
+        }
+        $mapped = souq_map_onboarding_invite($invite);
+        echo json_encode([
+            'ok' => true,
+            'invite' => [
+                'token' => $mapped['token'],
+                'storeId' => $mapped['storeId'],
+                'plan' => $mapped['plan'],
+                'locale' => $mapped['locale'],
+                'textDir' => $mapped['textDir'],
+                'currency' => $mapped['currency'],
+                'timezone' => $mapped['timezone'],
+                'expiresAt' => $mapped['expiresAt'],
+            ],
+        ], JSON_UNESCAPED_UNICODE);
+        return true;
+    }
+
+    if (preg_match('#^/onboarding/invites/([^/]+)/redeem$#', $uri, $rm) && $method === 'POST') {
+        $token = (string) $rm[1];
+        $redeemStoreId = trim((string) ($input['store_id'] ?? ''));
+        if ($redeemStoreId === '') {
+            http_response_code(422);
+            echo json_encode(['ok' => false, 'reason' => 'store_mismatch']);
+            return true;
+        }
+        $st = $pdo->prepare('SELECT * FROM onboarding_invites WHERE token = ? LIMIT 1');
+        $st->execute([$token]);
+        $invite = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$invite) {
+            http_response_code(404);
+            echo json_encode(['ok' => false, 'reason' => 'invalid']);
+            return true;
+        }
+        if ((string) ($invite['store_id'] ?? '') !== $redeemStoreId) {
+            http_response_code(422);
+            echo json_encode(['ok' => false, 'reason' => 'store_mismatch']);
+            return true;
+        }
+        if (!empty($invite['used_at'])) {
+            if ((string) ($invite['redeemed_store_id'] ?? '') === $redeemStoreId) {
+                echo json_encode(['ok' => true, 'invite' => souq_map_onboarding_invite($invite)], JSON_UNESCAPED_UNICODE);
+                return true;
+            }
+            http_response_code(410);
+            echo json_encode(['ok' => false, 'reason' => 'used']);
+            return true;
+        }
+        if (!empty($invite['expires_at']) && strtotime((string) $invite['expires_at']) < time()) {
+            http_response_code(410);
+            echo json_encode(['ok' => false, 'reason' => 'expired']);
+            return true;
+        }
+        $now = date('Y-m-d H:i:s');
+        $pdo->prepare('UPDATE onboarding_invites SET used_at = ?, redeemed_store_id = ? WHERE id = ?')
+            ->execute([$now, $redeemStoreId, $invite['id']]);
+        $invite['used_at'] = $now;
+        $invite['redeemed_store_id'] = $redeemStoreId;
+        souq_audit_write($pdo, $redeemStoreId, 'onboarding_invite.redeemed', 'onboarding_invite', (string) $invite['id'], ['store_id' => $redeemStoreId]);
+        echo json_encode(['ok' => true, 'invite' => souq_map_onboarding_invite($invite)], JSON_UNESCAPED_UNICODE);
+        return true;
+    }
+
+    if ($uri === '/master/onboarding/invites' && $method === 'GET') {
+        if ($portal !== 'master') {
+            http_response_code(403);
+            echo json_encode(['message' => 'Master portal required.']);
+            return true;
+        }
+        $rows = [];
+        if (souq_table_exists($pdo, 'onboarding_invites')) {
+            $rows = $pdo->query('SELECT * FROM onboarding_invites ORDER BY created_at DESC LIMIT 50')->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        }
+        $data = array_map('souq_map_onboarding_invite', $rows);
+        echo json_encode([
+            'data' => $data,
+            'meta' => [
+                'total' => count($data),
+                'last_refresh' => date('c'),
+                'source' => 'onboarding_invites',
+            ],
+        ], JSON_UNESCAPED_UNICODE);
+        return true;
+    }
+
+    if ($uri === '/master/onboarding/invites' && $method === 'POST') {
+        if ($portal !== 'master') {
+            http_response_code(403);
+            echo json_encode(['message' => 'Master portal required.']);
+            return true;
+        }
+        $plan = strtolower(trim((string) ($input['plan'] ?? 'pro')));
+        if (!in_array($plan, ['free', 'paid', 'pro', 'custom'], true)) {
+            $plan = 'pro';
+        }
+        $label = trim((string) ($input['label'] ?? 'Merchant invite'));
+        $days = max(1, min(90, (int) ($input['days_valid'] ?? 7)));
+        $locale = ($input['locale'] ?? 'en') === 'ar' ? 'ar' : 'en';
+        $textDir = in_array(($input['text_dir'] ?? ''), ['ltr', 'rtl'], true)
+            ? (string) $input['text_dir']
+            : ($locale === 'ar' ? 'rtl' : 'ltr');
+        $currency = in_array(($input['currency'] ?? 'SAR'), ['SAR', 'USD', 'AED', 'EUR'], true)
+            ? (string) $input['currency']
+            : 'SAR';
+        $timezone = trim((string) ($input['timezone'] ?? 'Asia/Riyadh')) ?: 'Asia/Riyadh';
+        $reservedId = trim((string) ($input['store_id'] ?? ''));
+        if ($reservedId === '') {
+            $reservedId = souq_allocate_reserved_store_id($pdo);
+        }
+        $id = 'inv-' . bin2hex(random_bytes(8));
+        $token = bin2hex(random_bytes(24));
+        $expires = date('Y-m-d H:i:s', time() + ($days * 86400));
+        $created = date('Y-m-d H:i:s');
+        $pdo->prepare(
+            'INSERT INTO onboarding_invites (id, token, store_id, plan, label, locale, text_dir, currency, timezone, expires_at, created_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+        )->execute([$id, $token, $reservedId, $plan, $label, $locale, $textDir, $currency, $timezone, $expires, $created]);
+        $row = [
+            'id' => $id,
+            'token' => $token,
+            'store_id' => $reservedId,
+            'plan' => $plan,
+            'label' => $label,
+            'locale' => $locale,
+            'text_dir' => $textDir,
+            'currency' => $currency,
+            'timezone' => $timezone,
+            'created_at' => $created,
+            'expires_at' => $expires,
+            'used_at' => null,
+            'redeemed_store_id' => null,
+        ];
+        souq_audit_write($pdo, null, 'onboarding_invite.created', 'onboarding_invite', $id, ['store_id' => $reservedId, 'plan' => $plan]);
+        http_response_code(201);
+        echo json_encode(['data' => souq_map_onboarding_invite($row)], JSON_UNESCAPED_UNICODE);
+        return true;
+    }
+
+    if ($uri === '/platform/settings' && $method === 'GET') {
+        if ($portal === 'master') {
+            $merged = souq_platform_settings_merged($pdo);
+            $updatedAt = null;
+            if (souq_table_exists($pdo, 'platform_settings')) {
+                $st = $pdo->query("SELECT updated_at FROM platform_settings WHERE id = 'platform' LIMIT 1");
+                $u = $st ? $st->fetch(PDO::FETCH_ASSOC) : null;
+                $updatedAt = $u['updated_at'] ?? null;
+            }
+            echo json_encode([
+                'data' => $merged,
+                'meta' => ['updated_at' => $updatedAt, 'source' => 'platform_settings'],
+            ], JSON_UNESCAPED_UNICODE);
+            return true;
+        }
+        http_response_code(401);
+        echo json_encode(['message' => 'Unauthorized.']);
+        return true;
+    }
+
+    if ($uri === '/platform/settings' && $method === 'PATCH') {
+        if ($portal !== 'master') {
+            http_response_code(403);
+            echo json_encode(['message' => 'Master portal required.']);
+            return true;
+        }
+        $previous = souq_platform_settings_merged($pdo);
+        $patch = is_array($input) ? $input : [];
+        $allowed = [
+            'platformName', 'platformNameAr', 'platformTagline', 'platformTaglineAr',
+            'platformLogo', 'supportEmail', 'timezone', 'defaultLocale', 'defaultCurrency',
+            'whatsappEnabled', 'whatsappNumber', 'socialLinks',
+        ];
+        $delta = [];
+        foreach ($allowed as $key) {
+            if (array_key_exists($key, $patch)) {
+                $delta[$key] = $patch[$key];
+            }
+        }
+        $next = array_replace_recursive($previous, $delta);
+        $now = date('Y-m-d H:i:s');
+        $json = json_encode($next, JSON_UNESCAPED_UNICODE);
+        $exists = $pdo->query("SELECT id FROM platform_settings WHERE id = 'platform' LIMIT 1")->fetchColumn();
+        if ($exists) {
+            $pdo->prepare("UPDATE platform_settings SET settings = ?, updated_at = ? WHERE id = 'platform'")
+                ->execute([$json, $now]);
+        } else {
+            $pdo->prepare("INSERT INTO platform_settings (id, settings, created_at, updated_at) VALUES ('platform', ?, ?, ?)")
+                ->execute([$json, $now, $now]);
+        }
+        souq_audit_write($pdo, null, 'platform_settings.updated', 'platform_settings', 'platform', ['keys' => array_keys($delta)]);
+        echo json_encode([
+            'data' => $next,
+            'meta' => ['updated_at' => $now, 'source' => 'platform_settings'],
+        ], JSON_UNESCAPED_UNICODE);
+        return true;
+    }
+
+    if ($uri === '/plans' && $method === 'GET') {
+        $out = souq_plans_catalog();
+        if (souq_table_exists($pdo, 'plans')) {
+            try {
+                $rows = $pdo->query('SELECT * FROM plans')->fetchAll(PDO::FETCH_ASSOC) ?: [];
+                $byCode = [];
+                foreach ($rows as $r) {
+                    $code = strtolower((string) ($r['code'] ?? ''));
+                    if ($code !== '') {
+                        $byCode[$code] = $r;
+                    }
+                }
+                foreach ($out as &$plan) {
+                    $hit = $byCode[$plan['code']] ?? null;
+                    if (!$hit) {
+                        continue;
+                    }
+                    if (isset($hit['name']) && $hit['name'] !== '') {
+                        $plan['name'] = $hit['name'];
+                    }
+                    if (array_key_exists('price_sar', $hit)) {
+                        $plan['price_sar'] = $hit['price_sar'] === null ? null : (is_numeric($hit['price_sar']) ? (float) $hit['price_sar'] : $plan['price_sar']);
+                    }
+                    if (!empty($hit['id'])) {
+                        $plan['id'] = $hit['id'];
+                    }
+                }
+                unset($plan);
+            } catch (Throwable) {
+                /* keep catalog defaults */
+            }
+        }
+        echo json_encode([
+            'data' => $out,
+            'platform' => [
+                'name_en' => 'Souq Plus',
+                'name_ar' => 'سوق بلس',
+                'package' => 'unityteck-multi-store',
+            ],
+        ], JSON_UNESCAPED_UNICODE);
+        return true;
+    }
+
+    if ($uri === '/subscriptions' && $method === 'GET') {
+        if ($portal !== 'master') {
+            http_response_code(403);
+            echo json_encode(['message' => 'Master portal required.']);
+            return true;
+        }
+        $stores = $pdo->query('SELECT * FROM stores ORDER BY name ASC')->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $rows = [];
+        $nearExpiry = 0;
+        $now = time();
+        foreach ($stores as $store) {
+            $payload = function_exists('souq_store_payload') ? souq_store_payload($store) : $store;
+            $sid = (string) ($store['id'] ?? '');
+            $plan = strtolower((string) ($payload['plan'] ?? souq_store_plan_code($pdo, $sid)));
+            $raw = null;
+            if (souq_table_exists($pdo, 'subscriptions') && $sid !== '') {
+                try {
+                    $st = $pdo->prepare('SELECT * FROM subscriptions WHERE store_id = ? ORDER BY created_at DESC LIMIT 1');
+                    $st->execute([$sid]);
+                    $raw = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+                } catch (Throwable) {
+                    $raw = null;
+                }
+            }
+            $status = strtolower((string) ($raw['status'] ?? ($payload['subscription_status'] ?? 'active')));
+            $endsAt = $raw['ends_at'] ?? null;
+            $lifecycle = [
+                'status' => $status !== '' ? $status : 'active',
+                'billing_interval' => $raw['billing_interval'] ?? 'monthly',
+                'starts_at' => $raw['starts_at'] ?? null,
+                'ends_at' => $endsAt,
+                'grace_ends_at' => $raw['grace_ends_at'] ?? null,
+                'renewed_at' => $raw['renewed_at'] ?? null,
+                'writable' => !in_array($status, ['expired', 'suspended'], true),
+                'message' => null,
+            ];
+            if ($endsAt) {
+                $ts = strtotime((string) $endsAt);
+                if ($ts !== false) {
+                    $days = ($ts - $now) / 86400;
+                    if ($days >= 0 && $days <= 14) {
+                        $nearExpiry++;
+                    }
+                }
+            }
+            $rows[] = [
+                'store_id' => $sid,
+                'store_name' => (string) ($payload['name'] ?? $store['name'] ?? $sid),
+                'plan' => $plan,
+                'subscription_status' => $payload['subscription_status'] ?? null,
+                'lifecycle' => $lifecycle,
+                'raw' => $raw,
+            ];
+        }
+        echo json_encode([
+            'data' => $rows,
+            'meta' => [
+                'total' => count($rows),
+                'near_expiry' => $nearExpiry,
+                'last_refresh' => date('c'),
+                'source' => 'subscriptions+stores',
+            ],
+        ], JSON_UNESCAPED_UNICODE);
+        return true;
+    }
+
+    if ($uri === '/audit-logs' && $method === 'GET') {
+        if ($portal !== 'master') {
+            http_response_code(403);
+            echo json_encode(['message' => 'Master portal required.']);
+            return true;
+        }
+        $perPage = min(100, max(1, (int) ($_GET['per_page'] ?? 50)));
+        $page = max(1, (int) ($_GET['page'] ?? 1));
+        $action = trim((string) ($_GET['action'] ?? ''));
+        $filterStore = trim((string) ($_GET['store_id'] ?? ''));
+        if (!souq_table_exists($pdo, 'audit_logs')) {
+            echo json_encode([
+                'data' => [],
+                'meta' => [
+                    'total' => 0,
+                    'page' => $page,
+                    'per_page' => $perPage,
+                    'last_refresh' => date('c'),
+                    'source' => 'audit_logs',
+                ],
+            ]);
+            return true;
+        }
+        $where = [];
+        $params = [];
+        if ($action !== '') {
+            $where[] = 'action LIKE ?';
+            $params[] = '%' . $action . '%';
+        }
+        if ($filterStore !== '') {
+            $where[] = 'store_id = ?';
+            $params[] = $filterStore;
+        }
+        $sqlWhere = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+        $countSt = $pdo->prepare("SELECT COUNT(*) FROM audit_logs {$sqlWhere}");
+        $countSt->execute($params);
+        $total = (int) $countSt->fetchColumn();
+        $offset = ($page - 1) * $perPage;
+        $st = $pdo->prepare("SELECT * FROM audit_logs {$sqlWhere} ORDER BY created_at DESC LIMIT {$perPage} OFFSET {$offset}");
+        $st->execute($params);
+        $items = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        foreach ($items as &$item) {
+            if (isset($item['meta']) && is_string($item['meta'])) {
+                $decoded = json_decode($item['meta'], true);
+                $item['meta'] = is_array($decoded) ? $decoded : $item['meta'];
+            }
+        }
+        unset($item);
+        echo json_encode([
+            'data' => $items,
+            'meta' => [
+                'total' => $total,
+                'page' => $page,
+                'per_page' => $perPage,
+                'last_refresh' => date('c'),
+                'source' => 'audit_logs',
+            ],
+        ], JSON_UNESCAPED_UNICODE);
+        return true;
+    }
+
+    if (preg_match('#^/stores/([^/]+)/subscription$#', $uri, $m) && $method === 'PATCH') {
+        if ($portal !== 'master') {
+            http_response_code(403);
+            echo json_encode(['message' => 'Master portal required.']);
+            return true;
+        }
+        $targetStoreId = (string) $m[1];
+        $row = souq_store_row($pdo, $targetStoreId);
+        if (!$row) {
+            http_response_code(404);
+            echo json_encode(['message' => 'Store not found.']);
+            return true;
+        }
+        $status = isset($input['status']) ? strtolower(trim((string) $input['status'])) : null;
+        $allowed = ['trial', 'active', 'grace', 'expired', 'suspended'];
+        if ($status !== null && !in_array($status, $allowed, true)) {
+            http_response_code(422);
+            echo json_encode(['message' => 'Invalid subscription status.']);
+            return true;
+        }
+        $reason = isset($input['reason']) ? trim((string) $input['reason']) : null;
+        $before = null;
+        $sub = null;
+        if (souq_table_exists($pdo, 'subscriptions')) {
+            try {
+                $st = $pdo->prepare('SELECT * FROM subscriptions WHERE store_id = ? ORDER BY created_at DESC LIMIT 1');
+                $st->execute([$targetStoreId]);
+                $sub = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+                $before = $sub ? [
+                    'status' => $sub['status'] ?? null,
+                    'ends_at' => $sub['ends_at'] ?? null,
+                ] : null;
+                if (!$sub) {
+                    $planCode = souq_store_plan_code($pdo, $targetStoreId);
+                    $subId = 'sub-' . $targetStoreId;
+                    $pdo->prepare(
+                        'INSERT INTO subscriptions (id, store_id, plan_id, status, billing_interval, starts_at, ends_at, created_at, updated_at)
+                         VALUES (?,?,?,?,?,?,?,?,?)'
+                    )->execute([
+                        $subId,
+                        $targetStoreId,
+                        'plan-' . $planCode,
+                        $status ?: 'trial',
+                        'monthly',
+                        date('Y-m-d H:i:s'),
+                        date('Y-m-d H:i:s', time() + 14 * 86400),
+                        date('Y-m-d H:i:s'),
+                        date('Y-m-d H:i:s'),
+                    ]);
+                    $st->execute([$targetStoreId]);
+                    $sub = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+                } elseif ($status !== null) {
+                    $pdo->prepare('UPDATE subscriptions SET status = ?, updated_at = ? WHERE id = ?')
+                        ->execute([$status, date('Y-m-d H:i:s'), $sub['id']]);
+                    $st->execute([$targetStoreId]);
+                    $sub = $st->fetch(PDO::FETCH_ASSOC) ?: $sub;
+                }
+            } catch (Throwable $e) {
+                http_response_code(500);
+                echo json_encode(['message' => 'Subscription update failed.']);
+                return true;
+            }
+        }
+
+        // Mirror status onto stores.subscription_status when column exists.
+        try {
+            $pdo->prepare('UPDATE stores SET subscription_status = ? WHERE id = ?')->execute([
+                $status ?: ($sub['status'] ?? 'active'),
+                $targetStoreId,
+            ]);
+        } catch (Throwable) {
+            /* column may not exist on older schemas */
+        }
+
+        souq_audit_write($pdo, $targetStoreId, 'subscription.update', 'subscription', $sub['id'] ?? null, [
+            'reason' => $reason,
+            'before' => $before,
+            'after' => [
+                'status' => $sub['status'] ?? $status,
+                'ends_at' => $sub['ends_at'] ?? null,
+            ],
+        ]);
+
+        echo json_encode([
+            'data' => [
+                'status' => $sub['status'] ?? ($status ?: 'active'),
+                'billing_interval' => $sub['billing_interval'] ?? 'monthly',
+                'starts_at' => $sub['starts_at'] ?? null,
+                'ends_at' => $sub['ends_at'] ?? null,
+                'grace_ends_at' => $sub['grace_ends_at'] ?? null,
+                'renewed_at' => $sub['renewed_at'] ?? null,
+                'writable' => true,
+                'message' => null,
+            ],
+            'raw' => $sub,
+            'store_id' => $targetStoreId,
+        ], JSON_UNESCAPED_UNICODE);
+        return true;
+    }
+
+    return false;
+}
+
 /**
  * @return bool true if request handled
  */
@@ -1315,6 +2048,11 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
         require_once __DIR__ . '/google_oauth.php';
     }
     if (souq_google_dispatch($pdo, $uri, $method, $storeId, $input)) {
+        return true;
+    }
+
+    // ── SOUQ PLUS Phase 1 — Master plans / subscriptions / audit (Hostinger gateway) ──
+    if (souq_phase1_master_dispatch($pdo, $uri, $method, $storeId, $input)) {
         return true;
     }
 

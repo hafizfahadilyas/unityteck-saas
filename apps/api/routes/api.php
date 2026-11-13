@@ -25,6 +25,9 @@ use App\Http\Controllers\Api\SeoController;
 use App\Http\Controllers\Api\ShippingController;
 use App\Http\Controllers\Api\StoreController;
 use App\Http\Controllers\Api\SubscriptionController;
+use App\Http\Controllers\Api\AuditLogController;
+use App\Http\Controllers\Api\OnboardingInviteController;
+use App\Http\Controllers\Api\PlatformSettingsController;
 use App\Http\Controllers\Api\GoogleIntegrationController;
 use App\Http\Controllers\Api\ShippingMethodController;
 use App\Http\Controllers\Api\CourierController;
@@ -51,6 +54,12 @@ use App\Http\Controllers\Api\StorefrontSeoBootstrapController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', [HealthController::class, 'show']);
+
+Route::middleware('throttle:40,1')->group(function () {
+    Route::get('/onboarding/invites/{token}', [OnboardingInviteController::class, 'showPublic']);
+    Route::post('/onboarding/invites/{token}/redeem', [OnboardingInviteController::class, 'redeem']);
+});
+
 Route::get('/stores', [StoreController::class, 'index']);
 Route::get('/stores/{id}', [StoreController::class, 'show']);
 Route::get('/stores/{storeId}/reviews', [StoreReviewsController::class, 'index']);
@@ -75,6 +84,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/auth/roles', [AuthController::class, 'roles']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/plans', [PlanController::class, 'index']);
+    Route::get('/platform/settings', [PlatformSettingsController::class, 'show']);
+});
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/master/onboarding/invites', [OnboardingInviteController::class, 'index']);
+    Route::post('/master/onboarding/invites', [OnboardingInviteController::class, 'store']);
+    Route::patch('/platform/settings', [PlatformSettingsController::class, 'update']);
 });
 
 // Phase 2.3–2.7 — auth + store scope + role/plan/subscription enforce
@@ -92,6 +108,8 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     Route::post('/social/posts/{id}/cancel', [SocialController::class, 'cancel']);
     });
     Route::get('/subscriptions/current', [SubscriptionController::class, 'current']);
+    Route::get('/subscriptions', [SubscriptionController::class, 'index']);
+    Route::get('/audit-logs', [AuditLogController::class, 'index']);
     Route::middleware('role.can:stores.write')->patch(
         '/stores/{storeId}/subscription',
         [SubscriptionController::class, 'update']

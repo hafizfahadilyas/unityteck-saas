@@ -61,6 +61,13 @@ DirectoryIndex storefront-shell.php index.html
   RewriteRule ^api/(.*)$ /api/index.php [QSA,L]
   RewriteRule ^api$ /api/index.php [QSA,L]
 
+  # Master Admin = central Hostinger ONLY (mieraf-ksa.com).
+  # Flowers / store hosts must never serve /master* — bounce to central login.
+  RewriteCond %{HTTP_HOST} ^(www\.)?(giftshop-sa\.com|tanjeedmakkah\.com)$ [NC]
+  RewriteRule ^master(?:/.*)?$ https://mieraf-ksa.com/master/login [R=302,L,QSA]
+  RewriteCond %{HTTP_HOST} ^(www\.)?(giftshop-sa\.com|tanjeedmakkah\.com)$ [NC]
+  RewriteRule ^masteradmin(?:/.*)?$ https://mieraf-ksa.com/master/login [R=302,L,QSA]
+
   # Force SPA for auth/admin routes EVEN if a physical /admin folder exists on Hostinger.
   # Without this, /admin → directory → bounce to storefront homepage.
   RewriteRule ^admin/?$ /storefront-shell.php [L,QSA]
