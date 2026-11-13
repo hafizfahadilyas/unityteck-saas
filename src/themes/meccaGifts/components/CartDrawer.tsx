@@ -99,7 +99,7 @@ export const CartDrawer: React.FC = () => {
             <button
               onClick={() => setIsCartOpen(false)}
               className="p-1.5 rounded-full text-[#6c757d] hover:text-[#102a1c] hover:bg-[#ede9df] transition-colors"
-              aria-label="Close cart"
+              aria-label={isAr ? 'إغلاق السلة' : 'Close cart'}
             >
               <X className="w-5 h-5" />
             </button>
@@ -180,7 +180,7 @@ export const CartDrawer: React.FC = () => {
                       <button
                         onClick={() => removeFromCart(item.id)}
                         className="text-[#999] hover:text-[#8b263e] transition-colors p-1"
-                        aria-label="Remove item"
+                        aria-label={isAr ? 'إزالة المنتج' : 'Remove item'}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -211,7 +211,7 @@ export const CartDrawer: React.FC = () => {
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
                           className="p-1 hover:bg-[#f0ede6] text-[#495057] transition-colors"
-                          aria-label="Decrease quantity"
+                          aria-label={isAr ? 'تقليل الكمية' : 'Decrease quantity'}
                         >
                           <Minus className="w-3.5 h-3.5" />
                         </button>
@@ -221,7 +221,7 @@ export const CartDrawer: React.FC = () => {
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
                           className="p-1 hover:bg-[#f0ede6] text-[#495057] transition-colors"
-                          aria-label="Increase quantity"
+                          aria-label={isAr ? 'زيادة الكمية' : 'Increase quantity'}
                         >
                           <Plus className="w-3.5 h-3.5" />
                         </button>

@@ -51,7 +51,7 @@ export const AutomotiveBlogModal: React.FC<AutomotiveBlogModalProps> = ({
   openWhatsAppOrder,
 }) => {
   const [scrollProgress, setScrollProgress] = useState(0);
-  const [likesCount, setLikesCount] = useState(post.likes || 120);
+  const [likesCount, setLikesCount] = useState(Number(post.likes || 0));
   const [hasLiked, setHasLiked] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xlarge'>('normal');

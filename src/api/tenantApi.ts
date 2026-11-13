@@ -2689,7 +2689,7 @@ export async function fetchStorefrontCatalogPage(
   const q = `?store_id=${encodeURIComponent(storeId)}&page=${page}&per_page=${perPage}`;
   const res = await apiFetch<{ data?: ApiProductRow[]; meta?: { total?: number; last_page?: number } }>(
     `/storefront/catalog${q}`,
-    { storeId, skipAuth: true },
+    { storeId, skipAuth: true, timeoutMs: 60_000 },
   );
   const data = (res.data ?? []).map(mapProduct);
   return {

@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { cartChoiceLine } from '../cartLine';
-import { X, Trash2, ShoppingBag, ArrowRight, ShieldCheck, Coffee } from 'lucide-react';
+import { useTenant } from '../../../context/TenantContext';
+import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
+import { X, Trash2, ShoppingBag, ArrowRight, ShieldCheck, Coffee, Tag } from 'lucide-react';
 
 export const MiniCartDrawer: React.FC = () => {
   const {
@@ -13,8 +15,26 @@ export const MiniCartDrawer: React.FC = () => {
     cartTotal,
     cartCount,
     navigateTo,
-    language
+    language,
+    showToast,
+    applyCoupon,
+    removeCoupon,
+    appliedCoupon,
+    couponDiscount,
   } = useCart();
+  const { activeStore } = useTenant();
+  const showCoupon = activeStore?.id
+    ? resolveCoffeeThemeSettings(activeStore.id, activeStore).checkoutFields?.showCoupon !== false
+    : true;
+  const [couponCode, setCouponCode] = useState('');
+  const finalTotal = Math.max(0, cartTotal - couponDiscount);
+
+  const handleApplyCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await applyCoupon(couponCode);
+    showToast(res.message);
+    if (res.success) setCouponCode('');
+  };
 
   if (!isMiniCartOpen) return null;
 
@@ -130,7 +150,7 @@ export const MiniCartDrawer: React.FC = () => {
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
                           className="px-2.5 py-1 text-xs text-neutral-700 hover:bg-neutral-300 rounded-l-lg cursor-pointer transition-colors"
-                          aria-label="Decrease quantity"
+                          aria-label={language === 'AR' ? 'تقليل الكمية' : 'Decrease quantity'}
                         >
                           -
                         </button>
@@ -140,7 +160,7 @@ export const MiniCartDrawer: React.FC = () => {
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
                           className="px-2.5 py-1 text-xs text-neutral-700 hover:bg-neutral-300 rounded-r-lg cursor-pointer transition-colors"
-                          aria-label="Increase quantity"
+                          aria-label={language === 'AR' ? 'زيادة الكمية' : 'Increase quantity'}
                         >
                           +
                         </button>
@@ -170,13 +190,46 @@ export const MiniCartDrawer: React.FC = () => {
                   <span>{language === 'AR' ? 'الشحن والتوصيل' : 'Shipping'}</span>
                   <span>{language === 'AR' ? 'مجاني' : 'FREE'}</span>
                 </div>
+                {couponDiscount > 0 && appliedCoupon?.code ? (
+                  <div className="flex justify-between items-center text-emerald-700 font-medium">
+                    <span className="flex items-center gap-2">
+                      {language === 'AR' ? `خصم (${appliedCoupon.code})` : `Discount (${appliedCoupon.code})`}
+                      <button type="button" onClick={removeCoupon} className="text-[10px] underline text-neutral-500">
+                        {language === 'AR' ? 'إزالة' : 'Remove'}
+                      </button>
+                    </span>
+                    <span className="font-sans">
+                      {language === 'AR' ? `-${couponDiscount.toLocaleString()}.00 ر.س` : `-SAR ${couponDiscount.toLocaleString()}.00`}
+                    </span>
+                  </div>
+                ) : null}
                 <div className="flex justify-between items-center text-sm font-bold text-neutral-900 pt-2 border-t border-neutral-200/60">
                   <span>{language === 'AR' ? 'المبلغ الإجمالي' : 'Total Amount'}</span>
                   <span className="font-mono text-base text-neutral-900">
-                    {language === 'AR' ? `${cartTotal.toLocaleString()}.00 ر.س` : `SAR ${cartTotal.toLocaleString()}.00`}
+                    {language === 'AR' ? `${finalTotal.toLocaleString()}.00 ر.س` : `SAR ${finalTotal.toLocaleString()}.00`}
                   </span>
                 </div>
               </div>
+
+              {showCoupon ? (
+                <form onSubmit={handleApplyCoupon} data-checkout-coupon="on">
+                  <div className="flex gap-2">
+                    <div className="relative flex-1 min-w-0">
+                      <Tag className={`w-4 h-4 text-neutral-400 absolute ${language === 'AR' ? 'right-3' : 'left-3'} top-2.5`} />
+                      <input
+                        type="text"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value)}
+                        placeholder={language === 'AR' ? 'كود الخصم' : 'Promo Code'}
+                        className={`w-full ${language === 'AR' ? 'pr-9 pl-3 text-right' : 'pl-9 pr-3 text-left'} py-2 rounded-xl bg-white border border-neutral-200 text-xs uppercase font-mono`}
+                      />
+                    </div>
+                    <button type="submit" className="px-3 py-2 rounded-xl bg-neutral-900 text-white text-xs font-bold shrink-0">
+                      {language === 'AR' ? 'تطبيق' : 'Apply'}
+                    </button>
+                  </div>
+                </form>
+              ) : null}
 
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <button

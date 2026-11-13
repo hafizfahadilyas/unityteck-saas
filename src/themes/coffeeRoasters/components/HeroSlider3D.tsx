@@ -407,7 +407,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
         ref={containerRef}
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
-        aria-label="Shop Coffee Slider"
+        aria-label={language === 'AR' ? 'شريحة متجر المنتجات' : 'Shop Coffee Slider'}
         className="relative w-full bg-white text-black overflow-hidden select-none border-b border-neutral-100"
       >
         <div className="relative w-full min-h-[500px] sm:min-h-[560px] md:min-h-[580px] lg:min-h-[600px] flex items-center justify-center bg-white px-4 sm:px-8 md:px-12 lg:px-16 py-6 sm:py-8 lg:py-10">
@@ -479,7 +479,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
           <button
             type="button"
             onClick={isRTL ? nextShopSlide : prevShopSlide}
-            aria-label="Previous"
+            aria-label={language === 'AR' ? 'السابق' : 'Previous'}
             className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white/95 border border-neutral-200 shadow-md flex items-center justify-center text-black active:scale-95 transition-transform"
           >
             <ChevronLeft className="w-5 h-5 rtl:rotate-180" />
@@ -487,7 +487,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
           <button
             type="button"
             onClick={isRTL ? prevShopSlide : nextShopSlide}
-            aria-label="Next"
+            aria-label={language === 'AR' ? 'التالي' : 'Next'}
             className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white/95 border border-neutral-200 shadow-md flex items-center justify-center text-black active:scale-95 transition-transform"
           >
             <ChevronRight className="w-5 h-5 rtl:rotate-180" />
@@ -651,7 +651,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
       onMouseLeave={() => setIsPaused(false)}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      aria-label="Coffee Collection Slider"
+      aria-label={language === 'AR' ? 'شريحة مجموعة المنتجات' : 'Coffee Collection Slider'}
       data-customize-section="C-HERO"
       className="relative w-full overflow-hidden select-none bg-white text-neutral-900 border-none"
     >

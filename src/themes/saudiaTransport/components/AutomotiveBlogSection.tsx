@@ -260,7 +260,7 @@ const AutomotiveBlogSectionComponent: React.FC<AutomotiveBlogSectionProps> = ({
                   }`}
                 >
                   <Heart className={`w-3.5 h-3.5 ${likedPostIds[featuredPost.id] ? 'fill-rose-500 text-rose-500' : ''}`} />
-                  <span>{(featuredPost.likes || 120) + (likedPostIds[featuredPost.id] ? 1 : 0)}</span>
+                  <span>{Number(featuredPost.likes || 0) + (likedPostIds[featuredPost.id] ? 1 : 0)}</span>
                 </button>
               </div>
             </div>
@@ -297,7 +297,7 @@ const AutomotiveBlogSectionComponent: React.FC<AutomotiveBlogSectionProps> = ({
                 <button
                   type="button"
                   onClick={e => toggleLike(e, post.id)}
-                  aria-label="Like"
+                  aria-label={isAr ? 'إعجاب' : 'Like'}
                   className={`w-9 h-9 rounded-full bg-black/35 backdrop-blur-md border border-white/15 flex items-center justify-center transition-colors cursor-pointer ${
                     likedPostIds[post.id] ? 'text-rose-400' : 'text-white/80 hover:text-rose-400'
                   }`}

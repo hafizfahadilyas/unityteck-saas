@@ -123,24 +123,39 @@ export function saveSaudiCityCatalog(storeId: string, state: SaudiCityCatalogSta
 }
 
 export function resolveSaudiCities(catalog: SaudiCityCatalogState): SaudiCityOption[] {
-  const removed = new Set(catalog.removedIds);
-  const base = DEFAULT_SAUDI_CITIES.filter((c) => !removed.has(c.id));
-  const seen = new Set(base.map((c) => c.id.toLowerCase()));
-  const extras = catalog.custom.filter((c) => {
-    const key = c.id.toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-  return [...base, ...extras];
+  const removed = new Set((catalog?.removedIds || []).map((id) => String(id)));
+  const normalize = (c: SaudiCityOption): SaudiCityOption | null => {
+    if (!c || typeof c.id !== 'string' || !c.id.trim()) return null;
+    return {
+      id: c.id.trim(),
+      nameEn: String(c.nameEn || c.nameAr || c.id).trim(),
+      nameAr: String(c.nameAr || c.nameEn || c.id).trim(),
+    };
+  };
+  const base = DEFAULT_SAUDI_CITIES.map(normalize).filter(Boolean) as SaudiCityOption[];
+  const filteredBase = base.filter((c) => !removed.has(c.id));
+  const seen = new Set(filteredBase.map((c) => c.id.toLowerCase()));
+  const extras = (catalog?.custom || [])
+    .map(normalize)
+    .filter((c): c is SaudiCityOption => Boolean(c))
+    .filter((c) => {
+      const key = c.id.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  return [...filteredBase, ...extras];
 }
 
 export function cityLabel(city: SaudiCityOption, isAr: boolean): string {
   return isAr ? city.nameAr : city.nameEn;
 }
 
-function cityMatchKey(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, ' ');
+function cityMatchKey(value?: string | null): string {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
 }
 
 /**

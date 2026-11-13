@@ -523,11 +523,19 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                     <span className="bg-purple-100 text-[#3e0f77] text-[11px] font-extrabold px-2.5 py-0.5 rounded-full">
                       {isAr ? 'أرضيات بلاكو الفاخرة' : 'Bleco Luxury Flooring'}
                     </span>
-                    <div className="flex items-center gap-1 text-amber-500 text-xs">
-                      <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                      <span className="font-bold text-slate-900">5.0</span>
-                      <span className="text-[11px] text-slate-400">({product.reviewsCount || 168} {isAr ? 'تقييم موثق' : 'reviews'})</span>
-                    </div>
+                    {Number(product.reviewsCount || 0) > 0 && product.rating != null ? (
+                      <div className="flex items-center gap-1 text-amber-500 text-xs">
+                        <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                        <span className="font-bold text-slate-900">{product.rating}</span>
+                        <span className="text-[11px] text-slate-400">
+                          ({product.reviewsCount} {isAr ? 'تقييم موثق' : 'reviews'})
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-slate-400">
+                        {isAr ? 'بانتظار التقييمات' : 'Waiting for reviews'}
+                      </span>
+                    )}
                   </div>
 
                   <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-2">

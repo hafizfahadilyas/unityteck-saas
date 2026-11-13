@@ -390,7 +390,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
           <button 
             onClick={onClose}
             className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all cursor-pointer shrink-0"
-            aria-label="Close"
+            aria-label={isAr ? 'إغلاق' : 'Close'}
           >
             <X className="w-5 h-5" />
           </button>

@@ -120,13 +120,169 @@ function souq_seo_api_bootstrap(string $host): ?array
 }
 
 /**
+ * Shared-host path/query can force a tenant (mieraf coffee + bleco).
+ * Returns canonical store_id or null when host alone decides.
+ */
+function souq_seo_store_hint_from_request(?string $path = null, ?array $query = null): ?string
+{
+    $path = strtolower((string) ($path ?? ''));
+    $query = is_array($query) ? $query : [];
+    $s = strtolower(trim((string) ($query['store'] ?? $query['storeId'] ?? $query['store_id'] ?? '')));
+
+    $isCar = in_array($s, ['bleco', 'store-bleco', 'cars', 'car', 'alsaeedi'], true)
+        || str_starts_with($path, '/bleco')
+        || str_starts_with($path, '/car');
+    if ($isCar) {
+        return 'store-bleco';
+    }
+
+    $isCoffee = in_array($s, ['coffee', 'store-coffee', 'roasters', 'hibrew'], true)
+        || str_starts_with($path, '/coffee');
+    if ($isCoffee) {
+        return 'store-coffee';
+    }
+
+    return null;
+}
+
+/**
  * @return array{store_id:?string,title:string,description:string,keywords:string,canonical:string,gtm:?string,ga4:?string,gsc:?string,og_image:string,lang:string,dir:string,product_ids:array,page_slugs:array}|null
  */
-function souq_seo_resolve(string $host): ?array
+function souq_seo_resolve_store(string $storeId, string $host = ''): ?array
+{
+    $storeId = trim($storeId);
+    if ($storeId === '') {
+        return null;
+    }
+    $host = souq_seo_normalize_host($host);
+    $pdo = souq_seo_pdo();
+    if (!$pdo) {
+        return null;
+    }
+
+    try {
+        $st = $pdo->prepare(
+            'SELECT id, name, locale, text_direction, logo, custom_domain, domain, demo_domain FROM stores WHERE id = ? LIMIT 1'
+        );
+        $st->execute([$storeId]);
+        $store = $st->fetch() ?: null;
+        if (!$store) {
+            return null;
+        }
+
+        $seoSt = $pdo->prepare(
+            'SELECT meta_title, meta_description, keywords, canonical_url, search_console_tag,
+                    ga4_measurement_id, gtm_container_id, extra
+             FROM seo_configs WHERE store_id = ? LIMIT 1'
+        );
+        $seoSt->execute([$storeId]);
+        $seo = $seoSt->fetch() ?: [];
+        $extra = [];
+        if (!empty($seo['extra'])) {
+            $decoded = json_decode((string) $seo['extra'], true);
+            if (is_array($decoded)) {
+                $extra = $decoded;
+            }
+        }
+
+        $isAr = strtolower((string) ($store['locale'] ?? 'ar')) === 'ar'
+            || strtolower((string) ($store['text_direction'] ?? 'rtl')) === 'rtl';
+
+        // Path/query bleco on shared coffee host: never leave coffee meta if bleco SEO row empty.
+        $fallbackTitle = '';
+        $fallbackDesc = '';
+        if ($storeId === 'store-bleco') {
+            $fallbackTitle = $isAr
+                ? 'متجر السعيدي لخدمات السيارات | تنجيد وتلبيس مقاعد السيارات بمكة المكرمة'
+                : 'Al-Saeedi VIP Automotive Services | Luxury Car Seat Upholstery & Floor Protection Makkah';
+            $fallbackDesc = $isAr
+                ? 'خدمات تنجيد وتلبيس مقاعد السيارات وتفصيل الدعاسات الفاخرة المقاومة للماء والأتربة بأعلى معايير الحرفية بمكة المكرمة'
+                : 'High-precision laser cut automotive seat upholstery, luxury 5D diamond floor mats and interior restoration in Makkah, Saudi Arabia.';
+        } elseif ($storeId === 'store-coffee') {
+            $fallbackTitle = $isAr
+                ? 'هايبرو السعودية | المتجر الرسمي لمكائن ومستلزمات القهوة المختصة'
+                : 'HiBrew KSA | Official Coffee Store - Espresso Machines & Specialty Coffee Gear';
+            $fallbackDesc = $isAr
+                ? 'متخصصون في بيع مكائن القهوة ومستلزماتها ذات الجودة العالية | مكائن ٢٠ بار، مطاحن بن تيتانيوم، أركان ودواليب القهوة الفاخرة بالسعودية'
+                : 'Official HiBrew Saudi Arabia distributor for commercial & home espresso machines, titanium conical grinders and luxury coffee bar setups.';
+        }
+
+        $title = trim((string) (
+            ($isAr ? ($extra['meta_title_ar'] ?? '') : ($extra['meta_title_en'] ?? ''))
+            ?: ($seo['meta_title'] ?? '')
+            ?: $fallbackTitle
+            ?: ($store['name'] ?? '')
+        ));
+        $description = trim((string) (
+            ($isAr ? ($extra['meta_description_ar'] ?? '') : ($extra['meta_description_en'] ?? ''))
+            ?: ($seo['meta_description'] ?? '')
+            ?: $fallbackDesc
+        ));
+        $keywords = trim((string) (
+            ($isAr ? ($extra['keywords_ar'] ?? '') : ($extra['keywords_en'] ?? ''))
+            ?: ($seo['keywords'] ?? '')
+        ));
+        $canonical = trim((string) ($seo['canonical_url'] ?? ''));
+        if ($canonical === '' && $host !== '') {
+            $canonical = 'https://' . $host . '/';
+            if ($storeId === 'store-bleco') {
+                $canonical = 'https://' . $host . '/?store=bleco';
+            }
+        }
+
+        $prodSt = $pdo->prepare(
+            "SELECT id FROM products WHERE store_id = ? AND (status IS NULL OR status != 'archived') ORDER BY updated_at DESC LIMIT 5000"
+        );
+        $prodSt->execute([$storeId]);
+        $productIds = array_column($prodSt->fetchAll() ?: [], 'id');
+
+        $pageSlugs = [];
+        try {
+            $pageSt = $pdo->prepare(
+                "SELECT slug FROM theme_pages WHERE store_id = ? AND status = 'published' AND published_layout IS NOT NULL"
+            );
+            $pageSt->execute([$storeId]);
+            $pageSlugs = array_column($pageSt->fetchAll() ?: [], 'slug');
+        } catch (Throwable $e) {
+            $pageSlugs = [];
+        }
+
+        return [
+            'store_id' => $storeId,
+            'title' => $title,
+            'description' => $description,
+            'keywords' => $keywords,
+            'canonical' => $canonical,
+            'gtm' => trim((string) ($seo['gtm_container_id'] ?? '')) ?: null,
+            'ga4' => trim((string) ($seo['ga4_measurement_id'] ?? '')) ?: null,
+            'gsc' => trim((string) ($seo['search_console_tag'] ?? '')) ?: null,
+            'og_image' => trim((string) ($store['logo'] ?? '')),
+            'lang' => $isAr ? 'ar' : 'en',
+            'dir' => $isAr ? 'rtl' : 'ltr',
+            'product_ids' => $productIds,
+            'page_slugs' => $pageSlugs,
+        ];
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/**
+ * @return array{store_id:?string,title:string,description:string,keywords:string,canonical:string,gtm:?string,ga4:?string,gsc:?string,og_image:string,lang:string,dir:string,product_ids:array,page_slugs:array}|null
+ */
+function souq_seo_resolve(string $host, ?string $path = null, ?array $query = null): ?array
 {
     $host = souq_seo_normalize_host($host);
     if ($host === '') {
         return null;
+    }
+
+    $hint = souq_seo_store_hint_from_request($path, $query);
+    if ($hint) {
+        $byHint = souq_seo_resolve_store($hint, $host);
+        if ($byHint) {
+            return $byHint;
+        }
     }
 
     $api = souq_seo_api_bootstrap($host);
@@ -194,71 +350,7 @@ function souq_seo_resolve(string $host): ?array
             return null;
         }
 
-        $storeId = (string) $store['id'];
-        $seoSt = $pdo->prepare(
-            'SELECT meta_title, meta_description, keywords, canonical_url, search_console_tag,
-                    ga4_measurement_id, gtm_container_id, extra
-             FROM seo_configs WHERE store_id = ? LIMIT 1'
-        );
-        $seoSt->execute([$storeId]);
-        $seo = $seoSt->fetch() ?: [];
-        $extra = [];
-        if (!empty($seo['extra'])) {
-            $decoded = json_decode((string) $seo['extra'], true);
-            if (is_array($decoded)) {
-                $extra = $decoded;
-            }
-        }
-
-        $isAr = strtolower((string) ($store['locale'] ?? 'ar')) === 'ar'
-            || strtolower((string) ($store['text_direction'] ?? 'rtl')) === 'rtl';
-        $title = trim((string) (
-            ($isAr ? ($extra['meta_title_ar'] ?? '') : ($extra['meta_title_en'] ?? ''))
-            ?: ($seo['meta_title'] ?? '')
-            ?: ($store['name'] ?? '')
-        ));
-        $description = trim((string) (
-            ($isAr ? ($extra['meta_description_ar'] ?? '') : ($extra['meta_description_en'] ?? ''))
-            ?: ($seo['meta_description'] ?? '')
-        ));
-        $keywords = trim((string) (
-            ($isAr ? ($extra['keywords_ar'] ?? '') : ($extra['keywords_en'] ?? ''))
-            ?: ($seo['keywords'] ?? '')
-        ));
-        $canonical = trim((string) ($seo['canonical_url'] ?? '')) ?: ('https://' . $host . '/');
-
-        $prodSt = $pdo->prepare(
-            "SELECT id FROM products WHERE store_id = ? AND (status IS NULL OR status != 'archived') ORDER BY updated_at DESC LIMIT 5000"
-        );
-        $prodSt->execute([$storeId]);
-        $productIds = array_column($prodSt->fetchAll() ?: [], 'id');
-
-        $pageSlugs = [];
-        try {
-            $pageSt = $pdo->prepare(
-                "SELECT slug FROM theme_pages WHERE store_id = ? AND status = 'published' AND published_layout IS NOT NULL"
-            );
-            $pageSt->execute([$storeId]);
-            $pageSlugs = array_column($pageSt->fetchAll() ?: [], 'slug');
-        } catch (Throwable $e) {
-            $pageSlugs = [];
-        }
-
-        return [
-            'store_id' => $storeId,
-            'title' => $title,
-            'description' => $description,
-            'keywords' => $keywords,
-            'canonical' => $canonical,
-            'gtm' => trim((string) ($seo['gtm_container_id'] ?? '')) ?: null,
-            'ga4' => trim((string) ($seo['ga4_measurement_id'] ?? '')) ?: null,
-            'gsc' => trim((string) ($seo['search_console_tag'] ?? '')) ?: null,
-            'og_image' => trim((string) ($store['logo'] ?? '')),
-            'lang' => $isAr ? 'ar' : 'en',
-            'dir' => $isAr ? 'rtl' : 'ltr',
-            'product_ids' => $productIds,
-            'page_slugs' => $pageSlugs,
-        ];
+        return souq_seo_resolve_store((string) $store['id'], $host);
     } catch (Throwable $e) {
         return null;
     }

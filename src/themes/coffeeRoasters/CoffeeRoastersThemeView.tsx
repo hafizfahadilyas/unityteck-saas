@@ -57,11 +57,18 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('HiBrew Theme ErrorBoundary caught error:', error, errorInfo);
+    try {
+      (window as unknown as { __HIBREW_LAST_ERROR?: string }).__HIBREW_LAST_ERROR =
+        `${error?.message || error}\n${errorInfo?.componentStack || ''}`.slice(0, 4000);
+    } catch {
+      /* ignore */
+    }
   }
 
   render() {
     if (this.state.hasError) {
       const isAr = typeof document !== 'undefined' ? (document.documentElement.lang === 'ar' || document.documentElement.dir === 'rtl') : true;
+      const detail = this.state.error?.message || '';
       return (
         <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center">
           <div className="max-w-md bg-white p-8 rounded-3xl shadow-sm border border-neutral-200/80">
@@ -73,6 +80,11 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
                 ? 'حدث خطأ غير متوقع أثناء معالجة الصفحة. اضغط أدناه لإعادة التحميل.'
                 : 'An unexpected error occurred while loading this view. Click below to reload.'}
             </p>
+            {detail ? (
+              <p className="text-[11px] text-rose-700 mb-4 break-words font-mono text-start" data-hibrew-error={detail}>
+                {detail}
+              </p>
+            ) : null}
             <button
               onClick={() => {
                 this.setState({ hasError: false });

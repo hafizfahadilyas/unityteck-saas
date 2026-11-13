@@ -283,7 +283,7 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
         className={`fixed z-50 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-tr from-[#128C7E] to-[#25D366] hover:brightness-110 text-white flex items-center justify-center shadow-xl shadow-emerald-950/40 hover:shadow-emerald-500/40 hover:scale-110 active:scale-95 transition-all duration-300 border-2 border-white/80 cursor-pointer group ${
           isAr ? 'left-5 sm:left-7' : 'right-5 sm:right-7'
         } bottom-6 sm:bottom-8`}
-        aria-label="WhatsApp Contact"
+        aria-label={isAr ? 'تواصل واتساب' : 'WhatsApp Contact'}
       >
         {/* WhatsApp Icon */}
         <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current" aria-hidden="true">
@@ -483,8 +483,8 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
                     target="_blank"
                     rel="noreferrer"
                     className="w-8 h-8 rounded-full bg-white/10 hover:bg-[#25D366] text-white flex items-center justify-center transition-all duration-300 hover:scale-110 shadow"
-                    aria-label="Direct WhatsApp"
-                    title="Direct WhatsApp"
+                    aria-label={isAr ? 'واتساب مباشر' : 'Direct WhatsApp'}
+                    title={isAr ? 'واتساب مباشر' : 'Direct WhatsApp'}
                   >
                     <MessageCircle className="w-4 h-4" />
                   </a>
@@ -494,8 +494,8 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
                     target="_blank"
                     rel="noreferrer"
                     className="w-8 h-8 rounded-full bg-white/10 hover:bg-[#d5a027] text-white hover:text-[#1c0537] flex items-center justify-center transition-all duration-300 hover:scale-110 shadow"
-                    aria-label="Google Maps Showroom"
-                    title="Google Maps Showroom"
+                    aria-label={isAr ? 'موقع المعرض على الخريطة' : 'Google Maps Showroom'}
+                    title={isAr ? 'موقع المعرض على الخريطة' : 'Google Maps Showroom'}
                   >
                     <MapPin className="w-4 h-4" />
                   </a>

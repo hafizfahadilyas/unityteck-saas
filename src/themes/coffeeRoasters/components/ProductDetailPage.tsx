@@ -17,7 +17,7 @@ import {
   X
 } from 'lucide-react';
 import { ProductPartShowcase } from '../types';
-import { PRODUCTS, CATEGORIES } from '../data/products';
+import { effectiveProductPricing } from '../../../utils/productSaleSchedule';
 
 interface PartShowcaseBannerProps {
   part: ProductPartShowcase;
@@ -172,12 +172,20 @@ export const ProductDetailPage: React.FC = () => {
     );
   }
 
-  const categoryObj = CATEGORIES.find((c) => c.id === product.category);
-  const categoryLabel = language === 'AR' ? (categoryObj?.nameAr || 'مكائن القهوة') : (categoryObj?.name || 'Coffee Machines');
+  const categoryLabel =
+    language === 'AR'
+      ? String((product as { categoryAr?: string }).categoryAr || product.category || 'منتجات المتجر')
+      : String(product.category || 'Products');
   const specs = product.specs || [];
   const colors = product.colors || [];
   const images = product.images || [];
-  const price = Number(product.basePrice) || 0;
+  const price = effectiveProductPricing({
+    price: Number((product as { price?: number }).price ?? product.basePrice) || 0,
+    discountedPrice: (product as { discountedPrice?: number }).discountedPrice,
+    originalPrice: product.originalPrice,
+    discountStartAt: (product as { discountStartAt?: string }).discountStartAt,
+    discountEndAt: (product as { discountEndAt?: string }).discountEndAt,
+  }).price;
 
   // Video demo controls
   const productVideoUrl = product.videoUrl || '';

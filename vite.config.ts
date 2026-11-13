@@ -67,6 +67,13 @@ export default defineConfig(({mode}) => {
   return {
     envDir: process.cwd(),
     define: {
+      // Storefront + admin must always hit Hostinger /api on production builds.
+      'import.meta.env.VITE_USE_API': JSON.stringify(
+        String(env.VITE_USE_API || 'true').toLowerCase() === 'false' ? 'false' : 'true',
+      ),
+      'import.meta.env.VITE_API_URL': JSON.stringify(
+        String(env.VITE_API_URL || '/api').trim() || '/api',
+      ),
       // Ensure production bundles always receive a real pk_ even if CI secret was empty.
       'import.meta.env.VITE_CLERK_PUBLISHABLE_KEY': JSON.stringify(clerkPublishableKey),
       // Split Maps keys OK (Maps JS / Places New / Geocoding). Hostinger static build bakes from .env.

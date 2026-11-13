@@ -32,7 +32,8 @@ import {
   Megaphone,
   Globe,
 } from 'lucide-react';
-import { PRODUCTS, EIGHT_FEATURED_CATEGORIES, MECCA_WHATSAPP } from '../data/mockData';
+import { MECCA_WHATSAPP } from '../data/mockData';
+import { useStorefrontCategories } from '../../../hooks/useStorefrontCategories';
 import {
   HeaderCustomSettings,
   HeaderSubElementKey,
@@ -120,7 +121,11 @@ export const Header: React.FC<HeaderProps> = ({
   const [megaMenuOpen, setMegaMenuOpen] = useState(false);
 
   const isAr = language === 'ar';
-  const headerProducts = products && products.length > 0 ? products : PRODUCTS;
+  const headerProducts = products && products.length > 0 ? products : [];
+  const { circles: navCircles } = useStorefrontCategories(activeStore?.id, headerProducts, {
+    isAr,
+    includeAll: false,
+  });
 
   // Active settings with fallback to store-isolated default
   const cur = customSettings || fallbackSettings;
@@ -394,7 +399,7 @@ export const Header: React.FC<HeaderProps> = ({
                 type="button"
                 onClick={() => setMobileMenuOpen(true)}
                 className="p-2 text-[#102a1c] hover:bg-[#ede9df] active:bg-[#e2dcd0] rounded-xl transition-all duration-200 cursor-pointer active:scale-95 border border-[#e8e4dc]/80 shadow-2xs"
-                aria-label="Open mobile menu"
+                aria-label={isAr ? 'فتح قائمة الجوال' : 'Open mobile menu'}
               >
                 <Menu className="w-6 h-6 stroke-[2.2]" />
               </button>
@@ -405,7 +410,7 @@ export const Header: React.FC<HeaderProps> = ({
                   onClick={() => setSearchOpen(true)}
                   style={{ color: act.search.iconColor }}
                   className="p-2 hover:bg-[#ede9df] rounded-full transition-colors cursor-pointer"
-                  aria-label="Search"
+                  aria-label={isAr ? 'بحث' : 'Search'}
                 >
                   <Search className="w-5 h-5 stroke-[1.8]" />
                 </button>
@@ -463,7 +468,7 @@ export const Header: React.FC<HeaderProps> = ({
                   onClick={() => setIsAuthModalOpen(true)}
                   style={{ color: act.account.iconColor }}
                   className="p-1.5 cursor-pointer"
-                  aria-label="Account"
+                  aria-label={isAr ? 'الحساب' : 'Account'}
                 >
                   {user.isLoggedIn ? (
                     <div className="w-6 h-6 rounded-full overflow-hidden border border-[#102a1c]">
@@ -481,7 +486,7 @@ export const Header: React.FC<HeaderProps> = ({
                   onClick={() => setIsCartOpen(true)}
                   style={{ color: act.cart.iconColor }}
                   className="p-2 relative hover:bg-[#ede9df] rounded-full transition-colors cursor-pointer"
-                  aria-label="Cart"
+                  aria-label={isAr ? 'سلة التسوق' : 'Cart'}
                 >
                   <CartIconComp className="w-5 h-5 stroke-[1.8]" />
                   {cartCount > 0 && (
@@ -508,7 +513,7 @@ export const Header: React.FC<HeaderProps> = ({
                     color: lang.activeColor,
                   }}
                   className="px-2.5 py-1 rounded-full text-xs font-bold border transition-all shadow-2xs cursor-pointer"
-                  aria-label="Toggle language"
+                  aria-label={isAr ? 'تبديل اللغة' : 'Toggle language'}
                 >
                   {isAr ? 'إنجليزي' : 'عربي'}
                 </button>
@@ -555,7 +560,7 @@ export const Header: React.FC<HeaderProps> = ({
                   onClick={() => setSearchOpen(!searchOpen)}
                   style={{ color: act.search.iconColor }}
                   className="p-2 hover:bg-[#ede9df] rounded-full transition-colors cursor-pointer"
-                  aria-label="Search"
+                  aria-label={isAr ? 'بحث' : 'Search'}
                 >
                   <Search className="w-5 h-5 stroke-[1.8]" />
                 </button>
@@ -567,7 +572,7 @@ export const Header: React.FC<HeaderProps> = ({
                   onClick={() => setIsAuthModalOpen(true)}
                   style={{ color: act.account.textColor }}
                   className="flex items-center gap-2 py-1.5 px-3 rounded-full hover:bg-[#ede9df] transition-all cursor-pointer border border-transparent hover:border-[#d6cfc0]"
-                  aria-label="Account"
+                  aria-label={isAr ? 'الحساب' : 'Account'}
                 >
                   {user.isLoggedIn ? (
                     <div className="flex items-center gap-2">
@@ -598,7 +603,7 @@ export const Header: React.FC<HeaderProps> = ({
                   onClick={() => setIsCartOpen(true)}
                   style={{ backgroundColor: act.cart.pillBg }}
                   className="flex items-center gap-2 px-3 py-1.5 hover:opacity-90 rounded-full transition-colors relative cursor-pointer"
-                  aria-label="Cart"
+                  aria-label={isAr ? 'سلة التسوق' : 'Cart'}
                 >
                   <div className="relative">
                     <CartIconComp className="w-5 h-5 stroke-[1.8]" style={{ color: act.cart.iconColor }} />
@@ -1016,24 +1021,24 @@ export const Header: React.FC<HeaderProps> = ({
                       {isAr ? 'أحدث الباقات والتنسيقات' : 'Featured Floral Edits'}
                     </span>
                     <div className="grid grid-cols-2 gap-2.5">
-                      {EIGHT_FEATURED_CATEGORIES.slice(0, 4).map((cat) => (
+                      {navCircles.slice(0, 8).map((cat) => (
                         <div
                           key={cat.id}
                           onClick={() => {
-                            navigateToCategory(cat.name);
+                            navigateToCategory(cat.nameEn);
                             setMegaMenuOpen(false);
                           }}
                           className="group/item cursor-pointer rounded-2xl overflow-hidden bg-[#f0ece4] aspect-square relative shadow-xs"
                         >
                           <img
                             src={cat.image}
-                            alt={cat.name}
+                            alt={isAr ? cat.nameAr : cat.nameEn}
                             className="w-full h-full object-cover group-hover/item:scale-108 transition-transform duration-300"
                             referrerPolicy="no-referrer"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2">
                             <span className="text-white text-[11px] font-bold leading-tight">
-                              {isAr ? cat.name : cat.nameEn}
+                              {isAr ? cat.nameAr : cat.nameEn}
                             </span>
                           </div>
                         </div>
@@ -1235,7 +1240,7 @@ export const Header: React.FC<HeaderProps> = ({
                     <button
                       onClick={() => setMobileMenuOpen(false)}
                       className="w-9 h-9 rounded-full bg-[#102a1c]/10 hover:bg-[#102a1c] text-[#102a1c] hover:text-[#e6ca98] flex items-center justify-center cursor-pointer transition-colors shadow-2xs active:scale-95"
-                      aria-label="Close menu"
+                      aria-label={isAr ? 'إغلاق القائمة' : 'Close menu'}
                     >
                       <X className="w-5 h-5 stroke-[2.2]" />
                     </button>

@@ -18,7 +18,7 @@ export const MobileBottomNav: React.FC = () => {
   const isAr = language === 'ar';
 
   return (
-    <nav aria-label="Mobile Navigation" className="fixed bottom-0 inset-x-0 z-40 lg:hidden bg-gradient-to-r from-[#041109] via-[#0c2618] to-[#041109] border-t border-[#d4af37]/40 py-1 px-2 shadow-2xl backdrop-blur-lg select-none">
+    <nav aria-label={isAr ? 'التنقل للجوال' : 'Mobile Navigation'} className="fixed bottom-0 inset-x-0 z-40 lg:hidden bg-gradient-to-r from-[#041109] via-[#0c2618] to-[#041109] border-t border-[#d4af37]/40 py-1 px-2 shadow-2xl backdrop-blur-lg select-none">
       <div className="flex items-center justify-around">
         {/* Home */}
         <button
@@ -31,7 +31,7 @@ export const MobileBottomNav: React.FC = () => {
               ? 'text-[#f3e5ab] font-bold scale-105'
               : 'text-white/90 hover:text-white'
           }`}
-          aria-label="Home"
+          aria-label={isAr ? 'الرئيسية' : 'Home'}
         >
           <Home className="w-5 h-5 stroke-[2]" />
           <span className="text-[10px] tracking-wide">{isAr ? 'الرئيسية' : 'Home'}</span>
@@ -49,7 +49,7 @@ export const MobileBottomNav: React.FC = () => {
               ? 'text-[#f3e5ab] font-bold scale-105'
               : 'text-white/90 hover:text-white'
           }`}
-          aria-label="Catalog"
+          aria-label={isAr ? 'المتجر' : 'Catalog'}
         >
           <Grid className="w-5 h-5 stroke-[2]" />
           <span className="text-[10px] tracking-wide">{isAr ? 'الأقسام' : 'Catalog'}</span>
@@ -62,7 +62,7 @@ export const MobileBottomNav: React.FC = () => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
           className="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] px-2 py-1 gap-1 relative text-white/90 hover:text-white transition-all cursor-pointer"
-          aria-label="Wishlist"
+          aria-label={isAr ? 'المفضلة' : 'Wishlist'}
         >
           <Heart className="w-5 h-5 stroke-[2]" />
           {wishlist.length > 0 && (
@@ -77,7 +77,7 @@ export const MobileBottomNav: React.FC = () => {
         <button
           onClick={() => setIsCartOpen(true)}
           className="flex flex-col items-center justify-center min-w-[48px] min-h-[48px] px-2 py-1 gap-1 relative text-white/90 hover:text-white transition-all cursor-pointer"
-          aria-label="Shopping Bag"
+          aria-label={isAr ? 'سلة التسوق' : 'Shopping Bag'}
         >
           <ShoppingBag className="w-5 h-5 stroke-[2]" />
           {cartCount > 0 && (
@@ -103,7 +103,7 @@ export const MobileBottomNav: React.FC = () => {
               ? 'text-[#f3e5ab] font-bold scale-105'
               : 'text-white/90 hover:text-white'
           }`}
-          aria-label="Account"
+          aria-label={isAr ? 'الحساب' : 'Account'}
         >
           {user.isLoggedIn ? (
             <div className="w-5 h-5 rounded-full overflow-hidden border border-[#d4af37]">

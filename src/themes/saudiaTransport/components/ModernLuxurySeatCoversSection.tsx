@@ -157,7 +157,7 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
 
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-normal">
               {isAr 
-                ? 'جلد ألماني نخب أول معالج حرارياً وقماش ياباني بارد مسامي مضاد للحرارة والتعرق · مطابقة تامة لمقاييس الوكالة مع أمان كامل للوسائد الهوائية (Airbag Safe 100%) وتثبيت ليزري محكم بدون فك مقاعد الوكالة.'
+                ? 'جلد ألماني نخب أول معالج حرارياً وقماش ياباني بارد مسامي مضاد للحرارة والتعرق · مطابقة تامة لمقاييس الوكالة مع أمان كامل للوسائد الهوائية وتثبيت ليزري محكم بدون فك مقاعد الوكالة.'
                 : 'Heat-resistant German Nappa leather & cooling Japanese breathable fabric · 100% factory OEM fit with full airbag deployment safety and 2-year warranty.'}
             </p>
 
@@ -169,7 +169,7 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
               </span>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10">
                 <Wind className="w-3.5 h-3.5 text-sky-400" />
-                <span>{isAr ? 'آمن 100% مع الوسائد الهوائية الوسائد الهوائية' : 'Airbag Safe'}</span>
+                <span>{isAr ? 'آمن ١٠٠٪ مع الوسائد الهوائية' : 'Airbag Safe'}</span>
               </span>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10">
                 <Flame className="w-3.5 h-3.5 text-amber-400" />
@@ -347,7 +347,7 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
                     <div className="absolute bottom-2.5 inset-x-2.5 z-10 flex items-center justify-between pointer-events-none">
                       <span className="bg-slate-950/90 text-white text-[9.5px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 border border-white/10 backdrop-blur-xs">
                         <Wind className="w-2.5 h-2.5 text-emerald-400" />
-                        <span>{isAr ? 'آمن مع الإيرباق 100%' : 'Airbag Safe'}</span>
+                        <span>{isAr ? 'آمن مع الوسائد الهوائية ١٠٠٪' : 'Airbag Safe'}</span>
                       </span>
                       <span className="bg-slate-950/90 text-[#f6c344] text-[9.5px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 border border-amber-400/30 backdrop-blur-xs">
                         <Flame className="w-2.5 h-2.5 text-amber-300" />
@@ -358,13 +358,21 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
 
                   {/* 2. CARD CONTENT (RTL Arabic First) */}
                   <div className="pt-3.5 space-y-2">
-                    {/* Star Rating & Reviews */}
+                    {/* Star Rating & Reviews — real API counts only (never invent 5.0 / 140) */}
                     <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-1.5 text-amber-400">
-                        <Star className="w-3.5 h-3.5 fill-[#f6c344] text-[#f6c344]" />
-                        <span className="font-black text-white">{liveProduct.rating || 5.0}</span>
-                        <span className="text-[10.5px] text-slate-300 font-medium">({liveProduct.reviewsCount || 140} {isAr ? 'تقييم موثق' : 'reviews'})</span>
-                      </div>
+                      {Number(liveProduct.reviewsCount || 0) > 0 && liveProduct.rating != null ? (
+                        <div className="flex items-center gap-1.5 text-amber-400">
+                          <Star className="w-3.5 h-3.5 fill-[#f6c344] text-[#f6c344]" />
+                          <span className="font-black text-white">{liveProduct.rating}</span>
+                          <span className="text-[10.5px] text-slate-300 font-medium">
+                            ({liveProduct.reviewsCount} {isAr ? 'تقييم موثق' : 'reviews'})
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-[10.5px] text-slate-400 font-medium">
+                          {isAr ? 'بانتظار التقييمات' : 'Waiting for reviews'}
+                        </span>
+                      )}
                       <span className="text-[10px] text-emerald-300 font-bold bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-500/40 flex items-center gap-1">
                         <CheckCircle2 className="w-2.5 h-2.5" />
                         <span>{isAr ? 'تفصيل ليزري وكالة' : 'OEM Fit'}</span>

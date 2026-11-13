@@ -199,15 +199,17 @@ export const BestSellersSection: React.FC<BestSellersSectionProps> = ({
             const name = isAr ? (item.nameAr || item.name) : (item.nameEn || item.name);
             const itemAny = item as any;
             const subtitle = isAr
-              ? (itemAny.descriptionAr || itemAny.subtitleAr || (item.categoryAr ? `${item.categoryAr} طبيعية فاخرة` : 'زهور سعودية طبيعية فاخرة'))
-              : (itemAny.descriptionEn || itemAny.subtitle || (item.categoryEn ? `Premium Saudi ${item.categoryEn}` : 'Premium Saudi Fresh Flowers'));
+              ? (itemAny.descriptionAr || itemAny.subtitleAr || item.categoryAr || item.category || '')
+              : (itemAny.descriptionEn || itemAny.subtitle || item.categoryEn || item.category || '');
 
-            const origPrice = item.originalPrice || (item.price ? Math.round(item.price * 1.25) : 0);
-            const hasDiscount = origPrice > item.price;
+            const origPrice = item.originalPrice != null ? Number(item.originalPrice) : 0;
+            const hasDiscount = origPrice > Number(item.price || 0);
             const discountPct = hasDiscount
-              ? Math.round(((origPrice - item.price) / origPrice) * 100)
-              : 20;
-            const discountBadge = isAr ? `خصم${discountPct}%` : `${discountPct}% OFF`;
+              ? Math.round(((origPrice - Number(item.price)) / origPrice) * 100)
+              : 0;
+            const discountBadge = hasDiscount
+              ? (isAr ? `خصم${discountPct}%` : `${discountPct}% OFF`)
+              : '';
 
             const waText = isAr
               ? `السلام عليكم، أود طلب المنتج: *${name}* بسعر${item.price}ر.س من متجر${activeStore?.name || 'الزهور'}`
@@ -230,12 +232,13 @@ export const BestSellersSection: React.FC<BestSellersSectionProps> = ({
                     loading="lazy" decoding="async"
                   />
 
-                  {/* 20% OFF Badge (Top-Start Forest Green Pill) */}
-                  <div className="absolute top-3.5 start-3.5 z-10">
-                    <span className="inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide bg-[#0e4e3e] text-white shadow-md shadow-emerald-950/20">
-                      {discountBadge}
-                    </span>
-                  </div>
+                  {hasDiscount && discountBadge ? (
+                    <div className="absolute top-3.5 start-3.5 z-10">
+                      <span className="inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide bg-[#0e4e3e] text-white shadow-md shadow-emerald-950/20">
+                        {discountBadge}
+                      </span>
+                    </div>
+                  ) : null}
 
                   {/* Floating Quick View hint on hover */}
                   <button

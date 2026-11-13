@@ -171,7 +171,7 @@ export const CartPage: React.FC = () => {
                     <button
                       onClick={() => updateQuantity(item.id, item.quantity - 1)}
                       className="px-3 py-1.5 text-xs text-neutral-700 hover:bg-neutral-300 rounded-l-xl cursor-pointer transition-colors"
-                      aria-label="Decrease quantity"
+                      aria-label={language === 'AR' ? 'تقليل الكمية' : 'Decrease quantity'}
                     >
                       -
                     </button>
@@ -181,7 +181,7 @@ export const CartPage: React.FC = () => {
                     <button
                       onClick={() => updateQuantity(item.id, item.quantity + 1)}
                       className="px-3 py-1.5 text-xs text-neutral-700 hover:bg-neutral-300 rounded-r-xl cursor-pointer transition-colors"
-                      aria-label="Increase quantity"
+                      aria-label={language === 'AR' ? 'زيادة الكمية' : 'Increase quantity'}
                     >
                       +
                     </button>

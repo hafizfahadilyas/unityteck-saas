@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { PRODUCTS } from '../data/mockData';
 import { ProductCard } from '../components/ProductCard';
 import { useTenant } from '../../../context/TenantContext';
 import { readStoreIdentity } from '../../settings/storeIdentity';
@@ -57,6 +56,7 @@ export const UserCrmPage: React.FC = () => {
     cancelOrderRequest,
     applyCouponCode,
     addToCart,
+    products,
   } = useApp();
   const { activeStore } = useTenant();
 
@@ -152,7 +152,7 @@ export const UserCrmPage: React.FC = () => {
   };
 
   // Wishlist products
-  const wishlistProducts = PRODUCTS.filter((p) => wishlist.includes(p.id));
+  const wishlistProducts = (products || []).filter((p) => wishlist.includes(p.id));
 
   return (
     <div className="py-8 md:py-14 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">

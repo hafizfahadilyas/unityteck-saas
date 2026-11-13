@@ -261,7 +261,7 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
               </span>
               <span className="flex items-center gap-1 bg-white/90 px-2.5 py-1 rounded-lg border border-slate-200">
                 <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                <span>{isAr ? 'آمن مع الإيرباج' : 'Airbag Safe'}</span>
+                <span>{isAr ? 'آمن مع الوسائد الهوائية' : 'Airbag Safe'}</span>
               </span>
             </div>
           </div>

@@ -18,10 +18,17 @@ export function getApiBase(): string {
 
 /** API live when explicitly enabled or a base URL is configured. */
 export function isApiEnabled(): boolean {
-  return (
-    import.meta.env.VITE_USE_API === 'true' ||
-    Boolean(import.meta.env.VITE_API_URL && String(import.meta.env.VITE_API_URL).trim())
-  );
+  if (import.meta.env.VITE_USE_API === 'true') {
+    return true;
+  }
+  if (import.meta.env.VITE_API_URL && String(import.meta.env.VITE_API_URL).trim()) {
+    return true;
+  }
+  // Hostinger production SPA shares origin with /api — never run storefront in mock-only mode.
+  if (import.meta.env.PROD && typeof window !== 'undefined') {
+    return true;
+  }
+  return false;
 }
 
 function joinUrl(base: string, path: string): string {
@@ -73,7 +80,8 @@ export class ApiRequestError extends Error {
 
 const GET_MEMORY_TTL_MS = 8_000;
 /** One product page is small. 20s covers a slow Hostinger round trip without parking the whole app. */
-const GET_TIMEOUT_MS = 20_000;
+/** Hostinger catalog/list can be slow on flowers host; keep under soft UX limit. */
+const GET_TIMEOUT_MS = 35_000;
 const WRITE_TIMEOUT_MS = 25_000;
 
 type MemHit = { at: number; data: unknown };

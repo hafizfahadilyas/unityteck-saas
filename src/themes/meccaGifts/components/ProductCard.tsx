@@ -33,9 +33,10 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({ product }) 
   const wishlisted = isWishlisted(product.id);
   const productName = isAr ? (product.nameAr || product.name) : (product.nameEn || product.name);
   const productAny = product as any;
+  // Real fields only — never invent marketing copy when description/subtitle empty.
   const subtitle = isAr
-    ? (productAny.descriptionAr || productAny.subtitleAr || (product.categoryAr ? `${product.categoryAr} طبيعية فاخرة` : 'زهور سعودية طبيعية فاخرة'))
-    : (productAny.descriptionEn || productAny.subtitle || (product.categoryEn ? `Premium Saudi ${product.categoryEn}` : 'Premium Saudi Fresh Flowers'));
+    ? (productAny.descriptionAr || productAny.subtitleAr || product.categoryAr || product.category || '')
+    : (productAny.descriptionEn || productAny.subtitle || product.categoryEn || product.category || '');
 
   const themeSettings = React.useMemo(() => {
     return readAllThemeSettings(activeStore?.id || 'store-1', activeStore);
@@ -46,12 +47,14 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({ product }) 
   const showBadges = cardSettings.showFeatureBadges !== false;
   const showWhatsApp = cardSettings.showWhatsAppButton !== false;
 
-  const origPrice = product.originalPrice || (product.price ? Math.round(product.price * 1.25) : 0);
-  const hasDiscount = origPrice > product.price;
+  const origPrice = product.originalPrice != null ? Number(product.originalPrice) : 0;
+  const hasDiscount = origPrice > Number(product.price || 0);
   const discountPct = hasDiscount
-    ? Math.round(((origPrice - product.price) / origPrice) * 100)
-    : 20;
-  const discountBadge = isAr ? `خصم${discountPct}%` : `${discountPct}% OFF`;
+    ? Math.round(((origPrice - Number(product.price)) / origPrice) * 100)
+    : 0;
+  const discountBadge = hasDiscount
+    ? (isAr ? `خصم${discountPct}%` : `${discountPct}% OFF`)
+    : '';
 
   const handleCardClick = () => {
     navigateToProduct(product);
@@ -252,15 +255,23 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({ product }) 
       </div>
 
       <div className="relative z-10 flex items-center justify-between w-full">
-        <span className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full bg-[#102a1c]/90 text-[#e6ca98] text-[10px] sm:text-[11px] font-bold border border-[#d4af37]/40 shadow-lg backdrop-blur-md transform transition-all duration-300 group-hover:scale-105 group-hover:border-[#d4af37] max-w-[70%] truncate">
-          <Sparkles className="w-2.5 h-2.5 text-[#d4af37] shrink-0" />
-          <span className="truncate">{discountBadge}</span>
-        </span>
+        {hasDiscount && discountBadge ? (
+          <span className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full bg-[#102a1c]/90 text-[#e6ca98] text-[10px] sm:text-[11px] font-bold border border-[#d4af37]/40 shadow-lg backdrop-blur-md transform transition-all duration-300 group-hover:scale-105 group-hover:border-[#d4af37] max-w-[70%] truncate">
+            <Sparkles className="w-2.5 h-2.5 text-[#d4af37] shrink-0" />
+            <span className="truncate">{discountBadge}</span>
+          </span>
+        ) : (
+          <span />
+        )}
 
         <button
           type="button"
           onClick={handleWishlistToggle}
-          aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+          aria-label={
+            wishlisted
+              ? (isAr ? 'إزالة من المفضلة' : 'Remove from wishlist')
+              : (isAr ? 'إضافة إلى المفضلة' : 'Add to wishlist')
+          }
           className={`w-9 h-9 sm:w-10 sm:h-10 min-w-[36px] min-h-[36px] rounded-full flex items-center justify-center transition-all duration-300 shadow-lg backdrop-blur-md cursor-pointer transform hover:scale-115 active:scale-90 ${
             wishlisted
               ? 'bg-[#8b263e] text-white shadow-[#8b263e]/40'

@@ -131,18 +131,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const products: Product[] = useMemo(() => {
     const isCoffee = activeStore?.id === 'store-coffee' || (activeStore?.category && activeStore.category.includes('قهوة'));
 
+    // Prefer live TenantContext API catalog for this store_id — never override with stale localStorage when API has rows.
     let sourceProducts = currentProducts;
-    try {
-      if (typeof window !== 'undefined' && activeStore?.id) {
-        const rawMap = localStorage.getItem('unityteck_products_map');
-        if (rawMap) {
-          const map = JSON.parse(rawMap);
-          if (Array.isArray(map[activeStore.id]) && map[activeStore.id].length > 0) {
-            sourceProducts = map[activeStore.id];
+    if (!(sourceProducts && sourceProducts.length > 0)) {
+      try {
+        if (typeof window !== 'undefined' && activeStore?.id) {
+          const rawMap = localStorage.getItem('unityteck_products_map');
+          if (rawMap) {
+            const map = JSON.parse(rawMap);
+            if (Array.isArray(map[activeStore.id]) && map[activeStore.id].length > 0) {
+              sourceProducts = map[activeStore.id];
+            }
           }
         }
-      }
-    } catch {}
+      } catch {}
+    }
 
     if (sourceProducts && sourceProducts.length > 0) {
       return sourceProducts.map((p) => {

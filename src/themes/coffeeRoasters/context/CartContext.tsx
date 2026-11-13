@@ -4,7 +4,9 @@ import { PRODUCTS } from '../data/products';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useTenant } from '../../../context/TenantContext';
 import type { CouponItem } from '../../../types';
-import { sellingPrice } from '../../../utils/productPricing';
+import { fromApiPricing } from '../../../utils/productPricing';
+import { effectiveProductPricing } from '../../../utils/productSaleSchedule';
+import { customFieldIsFillable, normalizeCustomFieldType } from '../../../utils/customFieldTypes';
 import { seedExistingCommerce } from '../../../utils/existingProductCommerce';
 import { buildGeneratedVariants } from '../../../utils/productVariants';
 import { trackStorefrontEvent } from '../../../utils/storefrontAnalytics';
@@ -21,7 +23,11 @@ function optionRows(opt: any): any[] {
 function learnMoreBits(dp: any, image: string) {
   const fields = (Array.isArray(dp.customFields) ? dp.customFields : []).filter((f: any) => !f?.hidden);
   const parts = fields
-    .filter((f: any) => f.imageUrl || f.contentEn || f.contentAr || f.value || f.description)
+    .filter((f: any) => {
+      const kind = normalizeCustomFieldType(f?.type);
+      if (kind === 'Content') return true;
+      return !!(f.imageUrl || f.videoUrl || f.contentEn || f.contentAr);
+    })
     .map((f: any, i: number) => ({
       id: String(f.id || `cf-${i}`),
       tagEn: String(f.name || 'Details'),
@@ -72,7 +78,31 @@ function learnMoreBits(dp: any, image: string) {
         };
       })
     : null;
-  return { fields, parts, video, colors, storage };
+  const purchaseFields = fields.filter(
+    (f: any) =>
+      customFieldIsFillable(f?.type) &&
+      normalizeCustomFieldType(f?.type) !== 'Content' &&
+      !String(f?.id || '').startsWith('catalog-spec-'),
+  );
+  return { purchaseFields, parts, video, colors, storage };
+}
+
+function mergeListPricing(dp: any) {
+  const shaped = fromApiPricing(Number(dp.price) || 0, dp.originalPrice ?? dp.original_price ?? null);
+  const eff = effectiveProductPricing({
+    price: shaped.price,
+    discountedPrice: shaped.discountedPrice,
+    originalPrice: shaped.originalPrice,
+    discountStartAt: dp.discountStartAt ?? dp.discount_start_at ?? null,
+    discountEndAt: dp.discountEndAt ?? dp.discount_end_at ?? null,
+  });
+  return {
+    basePrice: eff.price,
+    originalPrice: eff.compareAt ?? undefined,
+    saleActive: eff.saleActive,
+    price: shaped.price,
+    discountedPrice: eff.saleActive ? shaped.discountedPrice : 0,
+  };
 }
 
 function productIdFromQuery(): string | null {
@@ -943,13 +973,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ? [primaryImg, ...(dp.galleryUrls || match.images || []).filter((u: string) => u !== primaryImg)]
           : match.images;
 
-        const sell = sellingPrice(Number(dp.price) || 0, dp.discountedPrice);
+        const listPrice = mergeListPricing(dp);
         const compareAt =
-          dp.originalPrice && Number(dp.originalPrice) > sell
+          listPrice.originalPrice ??
+          (dp.originalPrice && Number(dp.originalPrice) > listPrice.basePrice
             ? Number(dp.originalPrice)
-            : dp.discountedPrice && Number(dp.discountedPrice) > 0 && Number(dp.discountedPrice) < Number(dp.price)
-              ? Number(dp.price)
-              : match.originalPrice;
+            : match.originalPrice);
 
         const story = learnMoreBits(dp, primaryImg);
         const commerce = liveCommerce(dp);
@@ -960,8 +989,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           brand: dp.brand || (match as { brand?: string }).brand,
           name: dp.name || match.name,
           nameAr: dp.nameAr || match.nameAr || dp.name,
-          basePrice: sell || (dp.basePrice ?? match.basePrice),
+          basePrice: listPrice.basePrice || (dp.basePrice ?? match.basePrice),
           originalPrice: compareAt,
+          saleActive: listPrice.saleActive,
+          price: listPrice.price,
+          discountedPrice: listPrice.discountedPrice,
           category: dp.category || match.category,
           categoryAr: dp.categoryAr || (match as { categoryAr?: string }).categoryAr,
           categories: Array.isArray(dp.categories) ? dp.categories : undefined,
@@ -977,7 +1009,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           colors: story.colors || updatedColors,
           storageOptions: story.storage?.length ? story.storage : match.storageOptions,
           partsShowcase: story.parts.length ? story.parts : match.partsShowcase,
-          customFields: story.fields?.length ? story.fields : (Array.isArray(dp.customFields) ? dp.customFields : []),
+          customFields: story.purchaseFields?.length
+            ? story.purchaseFields
+            : (Array.isArray(dp.customFields)
+                ? dp.customFields.filter(
+                    (f: any) =>
+                      customFieldIsFillable(f?.type) && normalizeCustomFieldType(f?.type) !== 'Content',
+                  )
+                : []),
           productOptions: commerce.options?.length ? commerce.options : [],
           variations: commerce.variations?.length ? commerce.variations : [],
           conditionalRules: Array.isArray(dp.conditionalRules) ? dp.conditionalRules : [],
@@ -988,13 +1027,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           overviewAr: dp.descriptionAr || match.overviewAr,
         });
       } else {
-        const sellNew = sellingPrice(Number(dp.price) || 0, dp.discountedPrice);
-        const compareNew =
-          dp.originalPrice && Number(dp.originalPrice) > sellNew
-            ? Number(dp.originalPrice)
-            : dp.discountedPrice && Number(dp.discountedPrice) > 0 && Number(dp.discountedPrice) < Number(dp.price)
-              ? Number(dp.price)
-              : undefined;
+        const listPriceNew = mergeListPricing(dp);
+        const compareNew = listPriceNew.originalPrice;
 
         const storyNew = learnMoreBits(dp, primaryImg);
         const commerceNew = liveCommerce(dp);
@@ -1014,8 +1048,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           seoDescription: dp.seoDescription,
           discountStartAt: dp.discountStartAt,
           discountEndAt: dp.discountEndAt,
-          basePrice: sellNew || (dp.basePrice ?? 0),
+          basePrice: listPriceNew.basePrice || (dp.basePrice ?? 0),
           originalPrice: compareNew,
+          saleActive: listPriceNew.saleActive,
+          price: listPriceNew.price,
+          discountedPrice: listPriceNew.discountedPrice,
           badge: dp.badge || dp.tags?.[0] || undefined,
           badgeAr: dp.badge || dp.tags?.[0] || undefined,
           reviewCount: dp.reviewsCount || 0,
@@ -1029,7 +1066,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           overview: dp.description || '',
           overviewAr: dp.descriptionAr || '',
           partsShowcase: storyNew.parts.length ? storyNew.parts : undefined,
-          customFields: storyNew.fields?.length ? storyNew.fields : (Array.isArray(dp.customFields) ? dp.customFields : []),
+          customFields: storyNew.purchaseFields?.length
+            ? storyNew.purchaseFields
+            : (Array.isArray(dp.customFields)
+                ? dp.customFields.filter(
+                    (f: any) =>
+                      customFieldIsFillable(f?.type) && normalizeCustomFieldType(f?.type) !== 'Content',
+                  )
+                : []),
           productOptions: commerceNew.options?.length ? commerceNew.options : [],
           variations: commerceNew.variations?.length ? commerceNew.variations : [],
           conditionalRules: Array.isArray(dp.conditionalRules) ? dp.conditionalRules : [],

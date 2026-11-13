@@ -17,7 +17,10 @@ if ($html === '') {
 }
 
 $host = souq_seo_normalize_host($_SERVER['HTTP_HOST'] ?? '');
-$path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+$uri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
+$path = parse_url($uri, PHP_URL_PATH) ?: '/';
+$query = [];
+parse_str((string) (parse_url($uri, PHP_URL_QUERY) ?: ''), $query);
 $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
     || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
 $origin = ($https ? 'https://' : 'http://') . ($host ?: 'localhost');
@@ -33,7 +36,8 @@ $ga4 = null;
 $gsc = null;
 $ogImage = '';
 
-$resolved = $host !== '' ? souq_seo_resolve($host) : null;
+// Shared hosts (mieraf): ?store=bleco / /bleco must not inherit coffee shell title.
+$resolved = $host !== '' ? souq_seo_resolve($host, $path, $query) : null;
 if ($resolved) {
     if ($resolved['title'] !== '') {
         $title = $resolved['title'];

@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useTenant } from '../../../context/TenantContext';
-import { PRODUCTS, EIGHT_FEATURED_CATEGORIES } from '../data/mockData';
 import { ProductCard } from '../components/ProductCard';
 import { Product } from '../types';
 import { readAllThemeSettings } from '../../settings/themeSettingsStore';
+import { useStorefrontCategories } from '../../../hooks/useStorefrontCategories';
 import {
   Filter,
   Search,
@@ -40,6 +40,23 @@ export const CatalogPage: React.FC = () => {
   } = useApp();
   const isAr = language === 'ar';
   const catalogProducts = products || [];
+  const tenant = useTenant();
+  const activeStore = tenant.activeStore;
+  const { expandCategoryFilter, circles, childrenOf, findByName } = useStorefrontCategories(
+    activeStore?.id,
+    catalogProducts as never,
+    { isAr, includeAll: false },
+  );
+  const categoryFilterNames = useMemo(
+    () => expandCategoryFilter(selectedCategory),
+    [expandCategoryFilter, selectedCategory],
+  );
+  const subcategoryChips = useMemo(() => {
+    if (!selectedCategory) return [];
+    const parent = findByName(selectedCategory);
+    if (!parent) return [];
+    return childrenOf(parent.id);
+  }, [selectedCategory, findByName, childrenOf]);
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -75,10 +92,29 @@ export const CatalogPage: React.FC = () => {
     (minRating > 0 ? 1 : 0) +
     (onlyInStock ? 1 : 0);
 
-  // Universal Intelligent Matcher: Ensures no category click ever shows an empty page!
   const isCategoryMatch = (product: Product, targetCat: string | null): boolean => {
     if (!targetCat || targetCat === 'all' || targetCat === 'الكل' || targetCat.trim() === '') {
       return true;
+    }
+
+    const names =
+      categoryFilterNames.length > 0 ? categoryFilterNames : [targetCat];
+    const productCats = [
+      product.category,
+      product.categoryEn,
+      product.categoryAr,
+      product.categorySlug,
+      ...(Array.isArray((product as { categories?: string[] }).categories)
+        ? (product as { categories?: string[] }).categories!
+        : []),
+    ]
+      .filter(Boolean)
+      .map((n) => String(n).toLowerCase().trim());
+
+    for (const name of names) {
+      const t = String(name).toLowerCase().trim();
+      if (!t) continue;
+      if (productCats.some((pc) => pc === t || pc.includes(t) || t.includes(pc))) return true;
     }
 
     const t = targetCat.toLowerCase().trim();
@@ -218,7 +254,6 @@ export const CatalogPage: React.FC = () => {
     setCurrentPageNum(1);
   };
 
-  const { activeStore } = useTenant();
   const isCoffee =
     activeStore?.id === 'store-coffee' ||
     activeStore?.slug === 'coffee-store' ||
@@ -233,63 +268,26 @@ export const CatalogPage: React.FC = () => {
     activeStore?.slug?.includes('transport') ||
     (activeStore?.category && (activeStore.category.includes('سيارات') || activeStore.category.includes('تنجيد')));
 
-  // Quick filter pills isolated per store
-  const coffeePills = [
-    { label: isAr ? 'كافة المحاصيل والمعدات' : 'All Roasts & Gear', cat: null },
-    { label: isAr ? 'حبوب القهوة المختصة' : 'Specialty Beans', cat: 'حبوب القهوة المختصة' },
-    { label: isAr ? 'أدوات التحضير V60' : 'V60 Pour-Over Tools', cat: 'أدوات التحضير المقطرة' },
-    { label: isAr ? 'مكائن وإكسسوارات الإسبريسو' : 'Espresso Gear', cat: 'معدات الإسبريسو' },
-    { label: isAr ? 'محاصيل المايكرولوت النادرة' : 'Rare Micro-Lots', cat: 'محاصيل نادرة' },
-    { label: isAr ? 'أكواب سيراميك وباريستا' : 'Ceramic Mugs', cat: 'أكواب' },
-    { label: isAr ? 'عروض وبكجات التوفير' : 'Bundles & Deals', cat: 'عروض' },
-  ];
-
-  const carPills = [
-    { label: isAr ? 'كافة خدمات السيارات' : 'All Auto Services', cat: null },
-    { label: isAr ? 'تنجيد المراتب الفاخر' : 'Seat Upholstery', cat: 'تنجيد المراتب' },
-    { label: isAr ? 'دعاسات الأرضيات الملكية 7D' : '7D Floor Mats', cat: 'دعاسات 7D' },
-    { label: isAr ? 'إكسسوارات المقصورة' : 'Cabin Accessories', cat: 'إكسسوارات' },
-    { label: isAr ? 'عروض اليوم الوطني 20%' : 'National Day Deals', cat: 'عروض' },
-  ];
-
-  const flowerPills = [
-    { label: isAr ? 'الكل' : 'All', cat: null },
-    { label: isAr ? 'باقات الورد الطبيعي' : 'Natural Flowers', cat: 'باقات الورود الطبيعية' },
-    { label: isAr ? 'فازات ورد طبيعي' : 'Vases', cat: 'فازات ورود طبيعية' },
-    { label: isAr ? 'ورد وشوكولاتة باتشي' : 'Patchi & Roses', cat: 'ورد وشوكولاتة بلجيكية فاخرة' },
-    { label: isAr ? 'ورد وقهوة وحلا' : 'Coffee & Sweets', cat: 'ورد و قهوة و حلا' },
-    { label: isAr ? 'ورد وكيك' : 'Cakes & Roses', cat: 'ورد و كيك' },
-    { label: isAr ? 'باقات مخفضة' : 'Discounted Deals', cat: 'باقات ورود طبيعية مخفضة' },
-    { label: isAr ? 'لوحات مواجيب' : 'Mawajeeb', cat: 'لوحات مواجيب' },
-    { label: isAr ? 'هدايا المواليد' : 'Newborn', cat: 'هدايا المواليد' },
-    { label: isAr ? 'هدايا التخرج' : 'Graduation', cat: 'هدايا التخرج' },
-  ];
-
-  // Dynamic filter pills strictly derived from actual catalog products
   const quickPills = useMemo(() => {
-    if (isCoffee) return coffeePills;
-    if (isCar) return carPills;
-
+    const all = { label: isAr ? 'الكل' : 'All', cat: null as string | null };
+    if (circles.length > 0) {
+      return [
+        all,
+        ...circles.map((c) => ({
+          label: isAr ? c.nameAr : c.nameEn,
+          cat: c.nameEn,
+        })),
+      ];
+    }
     const catMap = new Map<string, { label: string; cat: string }>();
     catalogProducts.forEach((p) => {
       const catVal = isAr ? (p.categoryAr || p.category) : (p.categoryEn || p.category);
       if (catVal && !catMap.has(catVal)) {
-        catMap.set(catVal, {
-          label: catVal,
-          cat: catVal,
-        });
+        catMap.set(catVal, { label: catVal, cat: catVal });
       }
     });
-
-    if (catMap.size > 0) {
-      return [
-        { label: isAr ? 'الكل' : 'All', cat: null },
-        ...Array.from(catMap.values()),
-      ];
-    }
-
-    return flowerPills;
-  }, [catalogProducts, isAr, isCoffee, isCar]);
+    return [all, ...Array.from(catMap.values())];
+  }, [circles, catalogProducts, isAr]);
 
   const themeSettings = useMemo(() => {
     return readAllThemeSettings(activeStore?.id || '', activeStore);
@@ -303,6 +301,28 @@ export const CatalogPage: React.FC = () => {
   return (
     <div className="py-6 md:py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out">
       
+      {subcategoryChips.length > 0 ? (
+        <div className="mb-5 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold text-[#8c8275]">
+            {isAr ? 'التصنيفات الفرعية:' : 'Subcategories:'}
+          </span>
+          {subcategoryChips.map((child) => (
+            <button
+              key={child.id}
+              type="button"
+              onClick={() => setSelectedCategory(String(child.name || ''))}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                selectedCategory === child.name
+                  ? 'bg-[#102a1c] text-[#e6ca98] border-[#102a1c]'
+                  : 'bg-white text-[#102a1c] border-[#d6cfc0] hover:border-[#102a1c]'
+              }`}
+            >
+              {isAr ? child.name_ar || child.name : child.name}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       {/* Breadcrumb */}
       <div className="text-xs text-[#8c8275] mb-5 flex items-center gap-2">
         <button
@@ -584,7 +604,7 @@ export const CatalogPage: React.FC = () => {
                       <button
                         onClick={() => setIsMobileFilterOpen(false)}
                         className="p-1 rounded-lg hover:bg-white/10 text-white cursor-pointer"
-                        aria-label="Close filters"
+                        aria-label={isAr ? 'إغلاق التصفية' : 'Close filters'}
                       >
                         <X className="w-5 h-5" />
                       </button>
@@ -692,7 +712,7 @@ export const CatalogPage: React.FC = () => {
                         className={`p-1.5 transition-colors cursor-pointer ${
                           viewMode === 'grid' ? 'bg-[#102a1c] text-white' : 'text-[#8c8275] hover:text-[#102a1c]'
                         }`}
-                        aria-label="Grid view"
+                        aria-label={isAr ? 'عرض شبكي' : 'Grid view'}
                       >
                         <Grid className="w-4 h-4" />
                       </button>
@@ -701,7 +721,7 @@ export const CatalogPage: React.FC = () => {
                         className={`p-1.5 transition-colors cursor-pointer ${
                           viewMode === 'list' ? 'bg-[#102a1c] text-white' : 'text-[#8c8275] hover:text-[#102a1c]'
                         }`}
-                        aria-label="List view"
+                        aria-label={isAr ? 'عرض قائمة' : 'List view'}
                       >
                         <List className="w-4 h-4" />
                       </button>

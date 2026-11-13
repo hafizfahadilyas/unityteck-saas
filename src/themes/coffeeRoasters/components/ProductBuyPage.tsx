@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useCart } from '../context/CartContext';
 import { ProductColor, StorageOption, WarrantyOption, BundleOption } from '../types';
-import { PRODUCTS, CATEGORIES } from '../data/products';
 import {
   Star,
   ShieldCheck,
@@ -30,7 +29,8 @@ import {
   Coffee,
   RotateCcw,
   Mail,
-  Clock
+  Clock,
+  Tag,
 } from 'lucide-react';
 import { TabbyIcon, TamaraIcon, MadaIcon, ApplePayIcon, VisaIcon, MastercardIcon } from './PaymentIcons';
 import { ProductComparisonSection } from './ProductComparisonSection';
@@ -46,6 +46,10 @@ import {
 } from '../../../utils/storefrontPurchase';
 import { optionValuesList } from '../../../utils/productVariants';
 import { useTenant } from '../../../context/TenantContext';
+import { effectiveProductPricing } from '../../../utils/productSaleSchedule';
+import { saleCountdownParts } from '../../../utils/saleCountdown';
+import { customFieldIsFillable, normalizeCustomFieldType } from '../../../utils/customFieldTypes';
+import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
 import { fetchStoreReviews, submitStoreReviewApi } from '../../../api/tenantApi';
 import baristaKitImg from '../assets/images/hibrew_barista_kit_isolated.jpg';
 import scaleImg from '../assets/images/hibrew_scale_isolated.jpg';
@@ -73,9 +77,38 @@ interface ProductBuyPageProps {
 }
 
 export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false }) => {
-  const { selectedProduct, addToCart, triggerFlyToCart, navigateTo, goBack, language, showToast } = useCart();
+  const {
+    selectedProduct,
+    addToCart,
+    triggerFlyToCart,
+    navigateTo,
+    goBack,
+    language,
+    showToast,
+    applyCoupon,
+    removeCoupon,
+    appliedCoupon,
+    couponDiscount,
+  } = useCart();
   const { activeStore } = useTenant();
   const product = selectedProduct;
+  const showCouponOnBuy = activeStore?.id
+    ? resolveCoffeeThemeSettings(activeStore.id, activeStore).checkoutFields?.showCoupon !== false
+    : true;
+  const [couponCode, setCouponCode] = useState('');
+
+  const listPricing = useMemo(() => {
+    if (!product) {
+      return { price: 0, compareAt: null as number | null, saleActive: false };
+    }
+    return effectiveProductPricing({
+      price: Number((product as { price?: number }).price ?? product.basePrice) || 0,
+      discountedPrice: (product as { discountedPrice?: number }).discountedPrice,
+      originalPrice: product.originalPrice,
+      discountStartAt: (product as { discountStartAt?: string }).discountStartAt,
+      discountEndAt: (product as { discountEndAt?: string }).discountEndAt,
+    });
+  }, [product]);
 
   type BuyTabType = 'configure' | 'bundles' | 'features' | 'specs' | 'reviews' | 'faq';
   const [activeBuyTab, setActiveBuyTab] = useState<BuyTabType>('configure');
@@ -242,7 +275,12 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
     );
   }, [product, useDynamicOptions, liveOptions, optionPick]);
   const purchaseFields = (product?.customFields || []).filter(
-    (field) => field && !field.hidden && !String(field.id || '').startsWith('catalog-spec-'),
+    (field) =>
+      field &&
+      !field.hidden &&
+      customFieldIsFillable(field.type) &&
+      normalizeCustomFieldType(field.type) !== 'Content' &&
+      !String(field.id || '').startsWith('catalog-spec-'),
   );
   const hasCustomFields = purchaseFields.length > 0;
   const fieldExtra = useMemo(
@@ -271,45 +309,38 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
   const bundleExtra = selectedBundles.reduce((s, b) => s + b.price, 0);
   const warrantyExtra = selectedWarranty ? selectedWarranty.price : 0;
   const catalogExtra = useDynamicOptions ? 0 : colorOrImagePriceDelta + (selectedStorage?.priceDelta || 0);
+  const catalogBase = listPricing.price || Number(product?.basePrice) || 0;
   const sellingBase = useDynamicOptions
-    ? (resolvedPick?.selling ?? (Number(product?.basePrice) || 0))
-    : (Number(product?.basePrice) || 0);
+    ? (resolvedPick?.selling ?? catalogBase)
+    : catalogBase;
   const unitPrice = sellingBase + catalogExtra + warrantyExtra + bundleExtra + fieldExtra;
   const totalPrice = unitPrice * quantity;
+  const listCompare = listPricing.compareAt;
   const originalUnitPrice = useDynamicOptions && resolvedPick?.mrp
     ? resolvedPick.mrp + warrantyExtra + bundleExtra + fieldExtra
-    : product?.originalPrice && product.originalPrice > unitPrice
-      ? product.originalPrice + catalogExtra + warrantyExtra + bundleExtra + fieldExtra
-      : unitPrice;
+    : listCompare != null && listCompare > sellingBase
+      ? listCompare + catalogExtra + warrantyExtra + bundleExtra + fieldExtra
+      : product?.originalPrice && product.originalPrice > unitPrice
+        ? product.originalPrice + catalogExtra + warrantyExtra + bundleExtra + fieldExtra
+        : unitPrice;
   const originalPrice = originalUnitPrice * quantity;
   const savingsSAR = originalPrice - totalPrice;
   const installmentSAR = Math.round(totalPrice / 4);
 
-  // Countdown Timer state for Limited Time Offer Banner (Matches Theme Brown Colors)
-  const [timeLeft, setTimeLeft] = useState({
-    days: 1,
-    hours: 7,
-    minutes: 7,
-    seconds: 13,
-  });
+  const saleEndsAt = (product as { discountEndAt?: string })?.discountEndAt;
+  const showSaleBanner = listPricing.saleActive && savingsSAR > 0 && !!saleEndsAt;
+  const [timeLeft, setTimeLeft] = useState(() => saleCountdownParts(saleEndsAt) || { days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev.seconds > 0) {
-          return { ...prev, seconds: prev.seconds - 1 };
-        } else if (prev.minutes > 0) {
-          return { ...prev, minutes: prev.minutes - 1, seconds: 59 };
-        } else if (prev.hours > 0) {
-          return { ...prev, hours: prev.hours - 1, minutes: 59, seconds: 59 };
-        } else if (prev.days > 0) {
-          return { ...prev, days: prev.days - 1, hours: 23, minutes: 59, seconds: 59 };
-        }
-        return prev;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    if (!showSaleBanner || !saleEndsAt) return;
+    const tick = () => {
+      const parts = saleCountdownParts(saleEndsAt);
+      if (parts) setTimeLeft(parts);
+    };
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [showSaleBanner, saleEndsAt]);
 
   // Dynamic Product Highlight Bullets (4 key specs per product - Image 1)
   const productBullets = useMemo(() => {
@@ -334,30 +365,27 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
     if (product.tagline) {
       return product.tagline.split('·').map(t => t.trim()).filter(Boolean).slice(0, 4);
     }
-    return isAr
-      ? [
-          'هندسة استخلاص إيطالية عالية الدقة بضغط متوازن',
-          'نظام تحكم حراري رقمي ذكي لثبات الأداء',
-          'تصميم متين من الفولاذ المقاوم للصدأ عالي الجودة',
-          'ضمان سنتين معتمد من الوكيل الرسمي بالمملكة'
-        ]
-      : [
-          'Commercial Italian high-precision extraction engineering',
-          'Digital smart thermal PID stability control',
-          'Heavy-duty food-grade stainless steel architecture',
-          'Official 2-Year KSA Agency Warranty coverage'
-        ];
+    if (isAr && product.overviewAr) {
+      return product.overviewAr.split(/\n|·/).map((t) => t.trim()).filter(Boolean).slice(0, 4);
+    }
+    if (product.overview) {
+      return product.overview.split(/\n|·/).map((t) => t.trim()).filter(Boolean).slice(0, 4);
+    }
+    return [];
   }, [product, language]);
 
-  // Dynamic Discount calculation per product (Image 1)
   const displayDiscount = useMemo(() => {
-    if (!product) return 0;
+    if (!product || !listPricing.saleActive) return 0;
     if (savingsSAR > 0) return savingsSAR;
-    if (product.originalPrice && product.originalPrice > product.basePrice) {
-      return (product.originalPrice - product.basePrice) * quantity;
-    }
-    return Math.round(unitPrice * 0.15) * quantity || 600;
-  }, [savingsSAR, product?.originalPrice, product?.basePrice, unitPrice, quantity]);
+    return 0;
+  }, [savingsSAR, product, listPricing.saleActive]);
+
+  const handleApplyCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = await applyCoupon(couponCode);
+    showToast(res.message);
+    if (res.success) setCouponCode('');
+  };
 
 
   // Mouse move handler for glass zoom magnifier
@@ -634,8 +662,10 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
     );
   }
 
-  const categoryObj = CATEGORIES.find((c) => c.id === product.category);
-  const categoryLabel = language === 'AR' ? (categoryObj?.nameAr || 'مكائن القهوة') : (categoryObj?.name || 'Coffee Machines');
+  const categoryLabel =
+    language === 'AR'
+      ? String((product as { categoryAr?: string }).categoryAr || product.category || 'منتجات المتجر')
+      : String(product.category || 'Products');
 
   // FAQ items
   const FAQS = [
@@ -1095,7 +1125,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               </div>
             </div>
 
-            {/* 1. KEY PRODUCT HIGHLIGHT BULLETS (Exact 1:1 Match with Image 1) */}
+            {productBullets.length > 0 ? (
             <div className="space-y-2 pt-2.5 pb-2">
               {productBullets.map((bullet, bIdx) => (
                 <div key={bIdx} className="flex items-center gap-2.5 text-xs sm:text-[13px] font-semibold text-neutral-800 leading-snug">
@@ -1104,8 +1134,9 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                 </div>
               ))}
             </div>
+            ) : null}
 
-            {/* 2. BROWN LIMITED TIME OFFER COUNTDOWN BANNER (Matches Theme Brown Colors) */}
+            {showSaleBanner && displayDiscount > 0 ? (
             <div className="relative w-full rounded-2xl bg-gradient-to-r from-[#8B5A2B] via-[#986131] to-[#A46836] p-4 sm:p-4.5 text-white shadow-sm overflow-hidden select-none my-3">
               {/* Top Row: Title + Discount Text + Sparkling Star */}
               <div className="flex items-start justify-between gap-3">
@@ -1184,6 +1215,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                 </div>
               </div>
             </div>
+            ) : null}
 
             {(useDynamicOptions || hasCustomFields) && product && (
               <ProductDynamicPurchase
@@ -1414,6 +1446,48 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                   </div>
                 </div>
               </div>
+
+              {showCouponOnBuy ? (
+                <form onSubmit={handleApplyCoupon} className="pt-1" data-checkout-coupon="on">
+                  <div className="flex gap-2">
+                    <div className="relative flex-1 min-w-0">
+                      <Tag className={`w-4 h-4 text-neutral-400 absolute ${language === 'AR' ? 'right-3' : 'left-3'} top-3`} />
+                      <input
+                        type="text"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value)}
+                        placeholder={language === 'AR' ? 'كود الخصم أو بطاقة الهدية' : 'Promo or gift code'}
+                        className={`w-full ${language === 'AR' ? 'pr-9 pl-3 text-right' : 'pl-9 pr-3 text-left'} py-2.5 rounded-xl bg-white border border-neutral-200 text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-hidden uppercase font-mono`}
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className="px-4 py-2.5 rounded-xl bg-neutral-900 hover:bg-black text-white text-xs font-bold transition-colors cursor-pointer shrink-0"
+                    >
+                      {language === 'AR' ? 'تطبيق' : 'Apply'}
+                    </button>
+                  </div>
+                  {appliedCoupon?.code ? (
+                    <p className="text-[11px] text-emerald-700 mt-1.5 flex items-center justify-between gap-2">
+                      <span>
+                        {language === 'AR'
+                          ? `مطبّق: ${appliedCoupon.code}`
+                          : `Applied: ${appliedCoupon.code}`}
+                      </span>
+                      <button type="button" onClick={removeCoupon} className="underline text-neutral-500">
+                        {language === 'AR' ? 'إزالة' : 'Remove'}
+                      </button>
+                    </p>
+                  ) : null}
+                  {couponDiscount > 0 ? (
+                    <p className="text-[11px] text-emerald-700 mt-1">
+                      {language === 'AR'
+                        ? `خصم السلة: ${couponDiscount.toLocaleString()} ر.س`
+                        : `Cart discount: SAR ${couponDiscount.toLocaleString()}`}
+                    </p>
+                  ) : null}
+                </form>
+              ) : null}
 
               {/* BUY NOW BUTTON (Inside Summary Box - Black Pill capsule matching Image 1) */}
               <div className="pt-2">

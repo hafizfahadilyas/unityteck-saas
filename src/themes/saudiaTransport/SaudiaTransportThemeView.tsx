@@ -458,26 +458,22 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
   const [catalogPageLimit, setCatalogPageLimit] = useState(24);
 
   const storeCatalog = useMemo(() => {
-    let source = currentProducts;
+    // Prefer live API products for this store_id only
+    if (currentProducts && currentProducts.length > 0) {
+      return currentProducts;
+    }
     try {
       if (typeof window !== 'undefined' && activeStore?.id) {
         const rawMap = localStorage.getItem('unityteck_products_map');
         if (rawMap) {
           const map = JSON.parse(rawMap);
           if (Array.isArray(map[activeStore.id]) && map[activeStore.id].length > 0) {
-            source = map[activeStore.id];
+            return map[activeStore.id];
           }
         }
       }
     } catch {}
-
-    const isDefaultTransportStore = !activeStore?.id || activeStore.id === 'store-bleco' || activeStore.id === 'store-transport' || (activeStore as any)?.themeId === 'theme-saudia-transport';
-    if (source && source.length > 0) {
-      return source;
-    }
-    if (isDefaultTransportStore) {
-      return BLECO_STORE_PRODUCTS;
-    }
+    // Empty store → empty catalog (never BLECO mock pack on live path)
     return [];
   }, [currentProducts, activeStore, syncTick]);
 
@@ -1088,7 +1084,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               onClick={() => openWhatsAppOrder()}
               className="w-9 h-9 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full flex items-center justify-center transition-all shadow-md hover:scale-105 cursor-pointer shrink-0"
               title={isAr ? 'تواصل عبر واتساب' : 'WhatsApp Order'}
-              aria-label="WhatsApp"
+              aria-label={isAr ? 'واتساب' : 'WhatsApp'}
             >
               <WhatsAppGlyph className="w-4 h-4" />
             </button>
@@ -1613,7 +1609,13 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                 ======================================================== */}
             <ModernLuxuryFloorMatsSection
               isAr={isAr}
-              mats={FEATURED_FLOOR_MATS}
+              mats={(currentProducts?.filter((p) =>
+                p.type === 'floor-mat' ||
+                p.category?.includes('دعاسات') ||
+                p.categoryAr?.includes('دعاسات') ||
+                String(p.categoryEn || '').toLowerCase().includes('mat') ||
+                String(p.categoryEn || '').toLowerCase().includes('floor'),
+              ) || []).slice(0, 8)}
               onSelectMat={(mat) => setSelectedFloorMatModal(mat)}
               onOpenWhatsApp={(mat, selectedColorName) => {
                 const customMsg = isAr
@@ -1639,9 +1641,9 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                 p.categoryAr?.includes('تلابيس') ||
                 p.categoryEn?.toLowerCase().includes('seat')
               );
-              const displaySeats = (seatsFromStore && seatsFromStore.length >= 8 
-                ? seatsFromStore 
-                : FEATURED_HOME_SEATS).slice(0, 8);
+              const displaySeats = (seatsFromStore && seatsFromStore.length > 0
+                ? seatsFromStore
+                : []).slice(0, 8);
 
               return (
                 <ModernLuxurySeatCoversSection

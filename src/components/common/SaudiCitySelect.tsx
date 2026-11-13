@@ -71,9 +71,9 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
     const q = query.trim().toLowerCase();
     if (!q) return cities;
     return cities.filter((c) => {
-      const en = c.nameEn.toLowerCase();
-      const ar = c.nameAr.toLowerCase();
-      const id = c.id.toLowerCase();
+      const en = String(c?.nameEn || '').toLowerCase();
+      const ar = String(c?.nameAr || '').toLowerCase();
+      const id = String(c?.id || '').toLowerCase();
       return en.includes(q) || ar.includes(q) || id.includes(q);
     });
   }, [cities, query]);

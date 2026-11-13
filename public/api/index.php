@@ -648,7 +648,62 @@ if ($method === 'POST' && is_array($inputData) && !empty($inputData['_method']))
 
 // ── FORMATTERS ──
 
-function formatProduct(array $row): array {
+/**
+ * @return array{price: float, original_price: ?float, on_sale: bool, sale_active: bool}
+ */
+function souq_product_effective_pricing(float $price, ?float $originalPrice, ?string $startAt, ?string $endAt): array {
+    $sell = $price;
+    $compare = ($originalPrice !== null && $originalPrice > $sell + 0.0001) ? $originalPrice : null;
+    if ($compare === null) {
+        return [
+            'price' => $sell,
+            'original_price' => null,
+            'on_sale' => false,
+            'sale_active' => false,
+        ];
+    }
+    $now = time();
+    $inWindow = true;
+    if ($startAt !== null && $startAt !== '') {
+        $ts = strtotime($startAt);
+        if ($ts !== false && $now < $ts) {
+            $inWindow = false;
+        }
+    }
+    if ($endAt !== null && $endAt !== '') {
+        $ts = strtotime($endAt);
+        if ($ts !== false && $now > $ts) {
+            $inWindow = false;
+        }
+    }
+    if ($inWindow) {
+        return [
+            'price' => $sell,
+            'original_price' => $compare,
+            'on_sale' => true,
+            'sale_active' => true,
+        ];
+    }
+    return [
+        'price' => $compare,
+        'original_price' => null,
+        'on_sale' => false,
+        'sale_active' => false,
+    ];
+}
+
+function souq_decode_json_column(mixed $raw): ?array {
+    if ($raw === null || $raw === '') {
+        return null;
+    }
+    if (is_array($raw)) {
+        return $raw;
+    }
+    $decoded = json_decode((string)$raw, true);
+    return is_array($decoded) ? $decoded : null;
+}
+
+function formatProduct(array $row, bool $lite = false): array {
     $full = [];
     if (!empty($row['data'])) {
         $decoded = json_decode($row['data'], true);
@@ -679,7 +734,8 @@ function formatProduct(array $row): array {
     $reviewAvg = null;
     $salesCount = 0;
     $statsPdo = $GLOBALS['souq_pdo'] ?? null;
-    if ($statsPdo instanceof PDO) {
+    // Catalog/list path: skip per-row review/sales queries (was ~45s for 48 products on flowers host).
+    if (!$lite && $statsPdo instanceof PDO) {
         try {
             $rev = $statsPdo->prepare('SELECT COUNT(*) c, AVG(rating) a FROM reviews WHERE store_id = ? AND product_id = ? AND is_active = 1');
             $rev->execute([(string)$row['store_id'], (string)$row['id']]);
@@ -708,9 +764,44 @@ function formatProduct(array $row): array {
     }, $gallery);
 
     $variations = [];
-    if ($statsPdo instanceof PDO && function_exists('souq_product_variations_list')) {
+    if (!$lite && $statsPdo instanceof PDO && function_exists('souq_product_variations_list')) {
         $variations = souq_product_variations_list($statsPdo, (string)$row['store_id'], (string)$row['id']);
     }
+
+    $pdo = $statsPdo instanceof PDO ? $statsPdo : null;
+    foreach ([
+        'product_options' => 'productOptions',
+        'custom_fields' => 'customFields',
+        'conditional_rules' => 'conditionalRules',
+    ] as $dbCol => $apiKey) {
+        if (!array_key_exists($apiKey, $full) || empty($full[$apiKey])) {
+            $colVal = $row[$dbCol] ?? null;
+            if (($colVal === null || $colVal === '') && $pdo && function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'products', $dbCol)) {
+                $colVal = $row[$dbCol] ?? null;
+            }
+            $decoded = souq_decode_json_column($colVal);
+            if ($decoded !== null) {
+                $full[$apiKey] = $decoded;
+            }
+        }
+    }
+
+    $discountStart = $row['discount_start_at'] ?? ($full['discount_start_at'] ?? ($full['discountStartAt'] ?? null));
+    $discountEnd = $row['discount_end_at'] ?? ($full['discount_end_at'] ?? ($full['discountEndAt'] ?? null));
+    if ($discountStart !== null && $discountStart !== '') {
+        $discountStart = (string)$discountStart;
+    } else {
+        $discountStart = null;
+    }
+    if ($discountEnd !== null && $discountEnd !== '') {
+        $discountEnd = (string)$discountEnd;
+    } else {
+        $discountEnd = null;
+    }
+
+    $rawPrice = (float)$row['price'];
+    $rawCompare = !empty($row['original_price']) ? (float)$row['original_price'] : null;
+    $pricing = souq_product_effective_pricing($rawPrice, $rawCompare, $discountStart, $discountEnd);
 
     return array_merge($full, [
         'id' => (string)$row['id'],
@@ -720,9 +811,17 @@ function formatProduct(array $row): array {
         'nameAr' => (string)($row['name_ar'] ?? $row['name']),
         'name_ar' => (string)($row['name_ar'] ?? $row['name']),
         'sku' => (string)$row['sku'],
-        'price' => (float)$row['price'],
-        'originalPrice' => !empty($row['original_price']) ? (float)$row['original_price'] : (float)$row['price'],
-        'original_price' => !empty($row['original_price']) ? (float)$row['original_price'] : (float)$row['price'],
+        'price' => $pricing['price'],
+        'originalPrice' => $pricing['original_price'] ?? $pricing['price'],
+        'original_price' => $pricing['original_price'] ?? $pricing['price'],
+        'storefront_price' => $pricing['price'],
+        'storefront_original_price' => $pricing['original_price'],
+        'storefront_on_sale' => $pricing['on_sale'],
+        'sale_active' => $pricing['sale_active'],
+        'discountStartAt' => $discountStart,
+        'discountEndAt' => $discountEnd,
+        'discount_start_at' => $discountStart,
+        'discount_end_at' => $discountEnd,
         'stock' => (int)$row['stock'],
         'category' => (string)($row['category'] ?? ''),
         'categoryAr' => (string)($row['category_ar'] ?? $row['category'] ?? ''),
@@ -743,7 +842,27 @@ function formatProduct(array $row): array {
         'salesCount' => $salesCount,
         'sales_count' => $salesCount,
         'variations' => $variations,
+        'description' => (string)souq_product_text_field($row, $full, ['description']),
+        'description_ar' => (string)souq_product_text_field($row, $full, ['description_ar', 'descriptionAr']),
+        'descriptionAr' => (string)souq_product_text_field($row, $full, ['description_ar', 'descriptionAr']),
+        'description_en' => (string)souq_product_text_field($row, $full, ['description_en', 'descriptionEn']),
+        'descriptionEn' => (string)souq_product_text_field($row, $full, ['description_en', 'descriptionEn']),
     ]);
+}
+
+/** Prefer non-empty column, then products.data JSON (empty DB column must not wipe saved copy). */
+function souq_product_text_field(array $row, array $full, array $keys): string {
+    foreach ($keys as $k) {
+        if (array_key_exists($k, $row) && $row[$k] !== null && trim((string)$row[$k]) !== '') {
+            return (string)$row[$k];
+        }
+    }
+    foreach ($keys as $k) {
+        if (array_key_exists($k, $full) && $full[$k] !== null && trim((string)$full[$k]) !== '') {
+            return (string)$full[$k];
+        }
+    }
+    return '';
 }
 
 function formatCategory(array $row): array {
@@ -970,7 +1089,7 @@ function listStoreProducts(PDO $pdo, string $storeId, array $query, bool $public
             continue;
         }
         $seen[$id] = true;
-        $products[] = formatProduct($row);
+        $products[] = formatProduct($row, true);
     }
     $catStmt = $pdo->prepare("SELECT category, category_ar, COUNT(*) c FROM products WHERE store_id = :sid AND (status IS NULL OR status != 'archived') GROUP BY category, category_ar");
     $catStmt->execute([':sid' => $storeId]);
@@ -1388,6 +1507,27 @@ if ($uri === '/products' && $method === 'POST') {
             $cols[] = $col;
             $vals[] = $v;
         }
+        foreach ([
+            'description' => ['description'],
+            'description_ar' => ['description_ar', 'descriptionAr'],
+            'description_en' => ['description_en', 'descriptionEn'],
+        ] as $col => $keys) {
+            if (!function_exists('souq_table_has_column') || !souq_table_has_column($pdo, 'products', $col)) {
+                continue;
+            }
+            $v = null;
+            foreach ($keys as $k) {
+                if (array_key_exists($k, $inputData)) {
+                    $v = $inputData[$k];
+                    break;
+                }
+            }
+            if ($v === null) {
+                continue;
+            }
+            $cols[] = $col;
+            $vals[] = $v;
+        }
         if ($isMysql) {
             $cols[] = 'created_at';
             $cols[] = 'updated_at';
@@ -1436,6 +1576,26 @@ if ($uri === '/products' && $method === 'POST') {
             }
         } catch (Throwable) {
             /* ignore */
+        }
+        // Persist learn-more description on create (add column if host schema is missing it).
+        $createDesc = array_key_exists('description', $inputData) ? (string)$inputData['description'] : null;
+        $createDescAr = array_key_exists('description_ar', $inputData)
+            ? (string)$inputData['description_ar']
+            : (array_key_exists('descriptionAr', $inputData) ? (string)$inputData['descriptionAr'] : null);
+        foreach (['description' => $createDesc, 'description_ar' => $createDescAr] as $col => $val) {
+            if ($val === null || $val === '') {
+                continue;
+            }
+            try {
+                $pdo->prepare("UPDATE products SET `{$col}` = ? WHERE id = ? AND store_id = ?")->execute([$val, $id, $storeId]);
+            } catch (Throwable) {
+                try {
+                    $pdo->exec("ALTER TABLE products ADD COLUMN `{$col}` LONGTEXT NULL");
+                    $pdo->prepare("UPDATE products SET `{$col}` = ? WHERE id = ? AND store_id = ?")->execute([$val, $id, $storeId]);
+                } catch (Throwable) {
+                    /* ignore */
+                }
+            }
         }
 
         $fetch = $pdo->prepare('SELECT * FROM products WHERE id = ?');
@@ -1585,9 +1745,81 @@ if (preg_match('#^/products/([^/]+)$#', $uri, $matches) && in_array($method, ['P
                 }
             }
         }
+        foreach ([
+            'description' => ['description'],
+            'description_ar' => ['description_ar', 'descriptionAr'],
+            'description_en' => ['description_en', 'descriptionEn'],
+        ] as $col => $keys) {
+            if (!function_exists('souq_table_has_column') || !souq_table_has_column($pdo, 'products', $col)) {
+                continue;
+            }
+            foreach ($keys as $k) {
+                if (array_key_exists($k, $inputData)) {
+                    $sets[] = "`{$col}` = ?";
+                    $params[] = $inputData[$k];
+                    break;
+                }
+            }
+        }
         $params[] = $existing['id'];
         $upd = $pdo->prepare('UPDATE products SET ' . implode(', ', $sets) . ' WHERE id = ?');
         $upd->execute($params);
+
+        // Force-persist learn-more / description text (column and/or data JSON).
+        $descEn = array_key_exists('description', $inputData)
+            ? (string)$inputData['description']
+            : (array_key_exists('description_en', $inputData) ? (string)$inputData['description_en'] : (array_key_exists('descriptionEn', $inputData) ? (string)$inputData['descriptionEn'] : null));
+        $descAr = array_key_exists('description_ar', $inputData)
+            ? (string)$inputData['description_ar']
+            : (array_key_exists('descriptionAr', $inputData) ? (string)$inputData['descriptionAr'] : null);
+        if ($descEn !== null || $descAr !== null) {
+            $mergedData['description'] = $descEn !== null ? $descEn : (string)($mergedData['description'] ?? '');
+            if ($descAr !== null) {
+                $mergedData['description_ar'] = $descAr;
+                $mergedData['descriptionAr'] = $descAr;
+            }
+            if ($descEn !== null) {
+                $mergedData['description_en'] = $descEn;
+                $mergedData['descriptionEn'] = $descEn;
+            }
+            // Ensure products.data exists, then always persist description JSON blob.
+            try {
+                if (function_exists('souq_table_has_column') && !souq_table_has_column($pdo, 'products', 'data', true)) {
+                    $pdo->exec('ALTER TABLE products ADD COLUMN data LONGTEXT NULL');
+                    souq_table_has_column($pdo, 'products', 'data', true);
+                }
+                $pdo->prepare('UPDATE products SET data = ? WHERE id = ?')->execute([
+                    json_encode($mergedData, JSON_UNESCAPED_UNICODE),
+                    $existing['id'],
+                ]);
+            } catch (Throwable) {
+                /* optional on hosts without ALTER */
+            }
+            foreach (
+                [
+                    'description' => $descEn,
+                    'description_ar' => $descAr,
+                    'description_en' => $descEn,
+                ] as $col => $val
+            ) {
+                if ($val === null) {
+                    continue;
+                }
+                try {
+                    $pdo->prepare("UPDATE products SET `{$col}` = ? WHERE id = ?")->execute([$val, $existing['id']]);
+                } catch (Throwable) {
+                    try {
+                        $pdo->exec("ALTER TABLE products ADD COLUMN `{$col}` LONGTEXT NULL");
+                        if (function_exists('souq_table_has_column')) {
+                            souq_table_has_column($pdo, 'products', $col, true);
+                        }
+                        $pdo->prepare("UPDATE products SET `{$col}` = ? WHERE id = ?")->execute([$val, $existing['id']]);
+                    } catch (Throwable) {
+                        /* ignore */
+                    }
+                }
+            }
+        }
 
         $fetch = $pdo->prepare('SELECT * FROM products WHERE id = ?');
         $fetch->execute([$existing['id']]);

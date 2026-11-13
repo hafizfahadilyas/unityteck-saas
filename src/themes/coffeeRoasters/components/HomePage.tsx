@@ -9,7 +9,7 @@ import {
   customLinkSubtitle,
   customLinkTitle,
 } from '../../settings/themeSettingsStore';
-import { PRODUCTS, CATEGORIES, HONOR_EVENTS } from '../data/products';
+import { HONOR_EVENTS } from '../data/products';
 import { HeroSlider3D } from './HeroSlider3D';
 import { InteractiveBannerCard } from './InteractiveBannerCard';
 import { CoffeeHomeModules } from './CoffeeHomeModules';
@@ -79,8 +79,23 @@ export const HomePage: React.FC = () => {
         nameAr: t.labelAr,
       }));
     }
-    return CATEGORIES.map((c) => ({ id: c.id, name: c.name, nameAr: c.nameAr || c.name }));
-  }, [themeSettings]);
+    // Derive from live store products — never static coffee pack when theme empty
+    const live = products || [];
+    const map = new Map<string, { id: string; name: string; nameAr: string }>();
+    live.forEach((p) => {
+      const id = String(p.category || '').trim();
+      if (!id || map.has(id)) return;
+      map.set(id, {
+        id,
+        name: id,
+        nameAr: String((p as { categoryAr?: string }).categoryAr || id),
+      });
+    });
+    return [
+      { id: 'all', name: 'All Products', nameAr: 'جميع المنتجات' },
+      ...Array.from(map.values()),
+    ];
+  }, [themeSettings, products]);
 
   const homeRailTitle = useMemo(() => {
     const fcp = themeSettings?.featuredCategoriesProducts;
@@ -172,7 +187,7 @@ export const HomePage: React.FC = () => {
     if (!currentShowcase) return [];
     return currentShowcase.companionIds
       .map((id) => (products && products.length > 0 ? products.find((p) => p.id === id) : undefined))
-      .filter(Boolean) as typeof PRODUCTS;
+      .filter(Boolean) as NonNullable<typeof products>;
   }, [filteredCategoryProducts, currentShowcase, products]);
 
   const totalMobileSlides = Math.max(1 + companionProducts.length + 1, 1); // 1 featured + 4 companions + 1 explore card

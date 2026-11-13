@@ -2907,8 +2907,8 @@ export const BLECO_FAQ: BlecoFaqItem[] = [
     aEn: 'Al-Saeedi Store guarantees 100% secure shopping. We connect directly with Saudi banks using enterprise-grade SSL encryption.',
     question: 'هل متجر السعيدي آمن للدفع عبر الإنترنت؟',
     questionEn: 'Is Al-Saeedi Store safe for online payments?',
-    answer: 'يضمن لك متجر السعيدي تجربة تسوق آمنة 100%. الربط مع البنوك والمصارف السعودية مباشرة عبر بوابات مشفرة ومعتمدة بأعلى معايير الأمان SSL.',
-    answerEn: 'Al-Saeedi Store guarantees 100% secure shopping. We connect directly with Saudi banks using enterprise-grade SSL encryption.',
+    answer: 'يضمن لك متجر السعيدي تجربة تسوق آمنة 100%. الربط مع البنوك والمصارف السعودية مباشرة عبر بوابات مشفرة ومعتمدة بأعلى معايير شهادة الأمان.',
+    answerEn: 'Al-Saeedi Store guarantees 100% secure shopping. We connect directly with Saudi banks using enterprise-grade security certificate encryption.',
   },
   {
     number: '02',

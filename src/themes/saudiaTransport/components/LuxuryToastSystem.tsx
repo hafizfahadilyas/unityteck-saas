@@ -199,7 +199,7 @@ const ToastCard: React.FC<{ toast: ToastItem; onDismiss: () => void; isAr: boole
         <button
           onClick={onDismiss}
           className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
-          aria-label="Close"
+          aria-label={isAr ? 'إغلاق' : 'Close'}
         >
           <X className="w-4 h-4" />
         </button>
