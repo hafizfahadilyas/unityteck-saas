@@ -17,6 +17,7 @@ import type {
 } from '../types';
 import { fromApiPricing } from '../utils/productPricing';
 import { isolateStoreProductImage } from '../utils/storeImageIsolation';
+import { resolveStoreLogoSrc } from '../utils/storeLogo';
 
 /** Loose API row shapes (snake_case from Laravel). */
 export type ApiStoreRow = Record<string, unknown>;
@@ -45,7 +46,7 @@ function dateSlice(v: unknown): string {
 
 function mapPlan(plan: unknown): PlanType {
   const p = String(plan || 'free').toLowerCase();
-  if (p === 'paid' || p === 'pro' || p === 'custom' || p === 'free') {
+  if (p === 'paid' || p === 'pro' || p === 'premium' || p === 'custom' || p === 'free') {
     return p;
   }
   return 'free';
@@ -54,8 +55,18 @@ function mapPlan(plan: unknown): PlanType {
 function mapStoreStatus(status: unknown): Store['status'] {
   const s = String(status || 'pending').toLowerCase();
   if (s === 'inactive') return 'suspended';
-  if (s === 'active' || s === 'pending' || s === 'suspended') return s;
+  if (s === 'active' || s === 'pending' || s === 'suspended' || s === 'maintenance') return s;
   return 'pending';
+}
+
+function mapSubscriptionStatus(
+  status: unknown,
+): NonNullable<Store['subscription_status']> {
+  const s = String(status || 'active').toLowerCase();
+  if (s === 'trial' || s === 'grace' || s === 'cancelled' || s === 'pending' || s === 'active') {
+    return s;
+  }
+  return 'active';
 }
 
 export function mapStore(row: ApiStoreRow): Store {
@@ -67,50 +78,14 @@ export function mapStore(row: ApiStoreRow): Store {
   const localeRaw = str(row.locale, 'en').toLowerCase();
   const locale = localeRaw === 'ar' ? 'ar' : 'en';
 
+  // Prefer live MySQL fields only — never hardcode Makkah/coffee/bleco display names.
   const rawName = str(row.name);
-  const isMakkahStore =
-    str(row.id) === 'store-1' ||
-    str(row.id) === '1' ||
-    str(row.slug).includes('giftshop') ||
-    str(row.slug).includes('makkah') ||
-    /هدايا مكة|مكة|gift ?shop/i.test(rawName);
-
-  const nameAr = isMakkahStore
-    ? 'هدايا مكة للزهور والهدايا'
-    : (row.name_ar ? str(row.name_ar) : undefined);
-  const nameEn = isMakkahStore
-    ? 'Makkah Flowers'
-    : (row.name_en ? str(row.name_en) : undefined);
-
   const storeId = str(row.id);
-  const ownerRaw = str(row.owner_name ?? row.owner, 'Owner');
-  const isCoffeeStore =
-    storeId === 'store-coffee' ||
-    str(row.slug).includes('coffee') ||
-    str(row.slug).includes('hibrew') ||
-    /hibrew|هاي\s*برو|قهوة/i.test(rawName);
-  const isBlecoStore =
-    storeId === 'store-bleco' ||
-    str(row.slug).includes('bleco') ||
-    str(row.slug).includes('alsaeedi') ||
-    str(row.slug).includes('tanjeed') ||
-    /سعيدي|بلاكو|bleco|tanjeed/i.test(rawName);
-
-  let ownerAr: string | undefined;
-  let ownerEn: string | undefined;
-  if (isMakkahStore || storeId === 'store-1') {
-    ownerAr = 'متجر هدايا مكة';
-    ownerEn = 'Makkah Gifts Store';
-  } else if (isCoffeeStore) {
-    ownerAr = 'ريان السليمان';
-    ownerEn = 'Rayan Al-Sulaiman';
-  } else if (isBlecoStore) {
-    ownerAr = 'متجر السعيدي لخدمات السيارات';
-    ownerEn = 'Al-Saeedi Car Services';
-  } else if (row.owner_ar || row.owner_en) {
-    ownerAr = row.owner_ar ? str(row.owner_ar) : undefined;
-    ownerEn = row.owner_en ? str(row.owner_en) : undefined;
-  }
+  const nameAr = row.name_ar ? str(row.name_ar) : undefined;
+  const nameEn = row.name_en ? str(row.name_en) : undefined;
+  const ownerRaw = str(row.owner_name ?? row.owner, '');
+  const ownerAr = row.owner_ar ? str(row.owner_ar) : undefined;
+  const ownerEn = row.owner_en ? str(row.owner_en) : undefined;
 
   const domain = str(row.domain);
   const demoDomain = str(row.demo_domain);
@@ -118,12 +93,12 @@ export function mapStore(row: ApiStoreRow): Store {
 
   return {
     id: storeId,
-    name: isMakkahStore ? 'هدايا مكة' : rawName,
+    name: rawName,
     nameAr,
     nameEn,
     slug: str(row.slug),
     category: str(row.category, 'General'),
-    owner: ownerRaw,
+    owner: ownerRaw || 'Owner',
     ownerAr,
     ownerEn,
     ownerEmail: str(row.email ?? row.owner_email, ''),
@@ -138,12 +113,16 @@ export function mapStore(row: ApiStoreRow): Store {
         ? null
         : num(row.canva_templates_per_category, 5),
     status: mapStoreStatus(row.status),
+    subscription_status: mapSubscriptionStatus(
+      row.subscription_status ?? (row as { subscriptionStatus?: unknown }).subscriptionStatus,
+    ),
     productsCount: num(row.products_count),
     ordersCount: num(row.orders_count),
     revenue: num(row.revenue),
     visitorsCount: num(row.visitors_count),
     lastActivity: 'Synced',
-    logo: str(row.logo, 'store'),
+    // Placeholder tokens like "flower"/"store" are not image URLs — keep empty for icon fallback
+    logo: resolveStoreLogoSrc(row.logo),
     accentColor: str(row.accent_color, '#059669'),
     dbIsolation:
       row.db_isolation === 'dedicated_mysql' ? 'dedicated_mysql' : 'shared_store_id',
@@ -158,6 +137,8 @@ export function mapStore(row: ApiStoreRow): Store {
     custom_domain: customDomain || undefined,
     phone: str(row.phone) || undefined,
     email: str(row.email) || undefined,
+    city: str(row.city) || undefined,
+    country: str(row.country) || undefined,
   };
 }
 

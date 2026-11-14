@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AdminPageShell, AdminPageHeader } from '../common/AdminPageHeader';
+import { AdvancedFilterBar } from '../common/AdvancedFilterBar';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
 import {
@@ -26,6 +27,10 @@ export const MasterOpsMonitor: React.FC = () => {
   const [editKey, setEditKey] = useState('');
   const [bodyEn, setBodyEn] = useState('');
   const [bodyAr, setBodyAr] = useState('');
+  const [filters, setFilters] = useState({ result: 'all', severity: 'all', status: 'all' });
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [search, setSearch] = useState('');
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -64,6 +69,55 @@ export const MasterOpsMonitor: React.FC = () => {
     }
   };
 
+  const fromTs = dateFrom ? Date.parse(`${dateFrom}T00:00:00`) : NaN;
+  const toTs = dateTo ? Date.parse(`${dateTo}T23:59:59`) : NaN;
+  const q = search.trim().toLowerCase();
+
+  const filteredJobs = useMemo(() => {
+    return jobs.filter((j) => {
+      if (filters.result !== 'all' && String(j.result || '') !== filters.result) return false;
+      if (q) {
+        const hay = `${j.job_name || ''} ${j.result || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      const ts = j.last_run_at ? Date.parse(String(j.last_run_at)) : NaN;
+      if (!Number.isNaN(fromTs) && !Number.isNaN(ts) && ts < fromTs) return false;
+      if (!Number.isNaN(toTs) && !Number.isNaN(ts) && ts > toTs) return false;
+      return true;
+    });
+  }, [jobs, filters.result, q, fromTs, toTs]);
+
+  const filteredErrors = useMemo(() => {
+    return errors.filter((e) => {
+      if (filters.severity !== 'all' && String(e.severity || '') !== filters.severity) return false;
+      if (filters.status !== 'all' && String(e.status || '') !== filters.status) return false;
+      if (q) {
+        const hay = `${e.module || ''} ${e.message || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      const ts = e.created_at ? Date.parse(String(e.created_at)) : NaN;
+      if (!Number.isNaN(fromTs) && !Number.isNaN(ts) && ts < fromTs) return false;
+      if (!Number.isNaN(toTs) && !Number.isNaN(ts) && ts > toTs) return false;
+      return true;
+    });
+  }, [errors, filters.severity, filters.status, q, fromTs, toTs]);
+
+  const filteredPolicies = useMemo(() => {
+    return policies.filter((p) => {
+      if (!q) return true;
+      const hay = `${p.policy_key || ''} ${p.title_en || ''} ${p.title_ar || ''}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [policies, q]);
+
+  const activeFilterCount =
+    (filters.result !== 'all' ? 1 : 0) +
+    (filters.severity !== 'all' ? 1 : 0) +
+    (filters.status !== 'all' ? 1 : 0) +
+    (dateFrom ? 1 : 0) +
+    (dateTo ? 1 : 0) +
+    (search.trim() ? 1 : 0);
+
   return (
     <AdminPageShell>
       <AdminPageHeader
@@ -92,9 +146,73 @@ export const MasterOpsMonitor: React.FC = () => {
         ]}
       />
 
+      <div className="mt-3 flex flex-col gap-2">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={isAr ? 'بحث…' : 'Search…'}
+          className="w-full sm:w-72 text-xs px-3 py-2 rounded-xl border"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
+        />
+        <AdvancedFilterBar
+          fields={
+            tab === 'jobs'
+              ? [
+                  {
+                    key: 'result',
+                    label: isAr ? 'النتيجة' : 'Result',
+                    options: [
+                      { value: 'all', label: isAr ? 'كل النتائج' : 'All results' },
+                      { value: 'ok', label: isAr ? 'نجاح' : 'OK' },
+                      { value: 'unknown', label: isAr ? 'غير معروف' : 'Unknown' },
+                      { value: 'failed', label: isAr ? 'فشل' : 'Failed' },
+                    ],
+                  },
+                ]
+              : tab === 'errors'
+                ? [
+                    {
+                      key: 'severity',
+                      label: isAr ? 'الخطورة' : 'Severity',
+                      options: [
+                        { value: 'all', label: isAr ? 'الكل' : 'All' },
+                        { value: 'error', label: isAr ? 'خطأ' : 'Error' },
+                        { value: 'warning', label: isAr ? 'تحذير' : 'Warning' },
+                      ],
+                    },
+                    {
+                      key: 'status',
+                      label: isAr ? 'الحالة' : 'Status',
+                      options: [
+                        { value: 'all', label: isAr ? 'كل الحالات' : 'All statuses' },
+                        { value: 'open', label: isAr ? 'مفتوح' : 'Open' },
+                        { value: 'resolved', label: isAr ? 'محلول' : 'Resolved' },
+                      ],
+                    },
+                  ]
+                : []
+          }
+          filterValues={filters}
+          onFilterChange={(key, value) => setFilters((prev) => ({ ...prev, [key]: value }))}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onDateFromChange={setDateFrom}
+          onDateToChange={setDateTo}
+          showDates={tab !== 'policies'}
+          activeCount={activeFilterCount}
+          onReset={() => {
+            setFilters({ result: 'all', severity: 'all', status: 'all' });
+            setDateFrom('');
+            setDateTo('');
+            setSearch('');
+          }}
+        />
+      </div>
+
       {tab === 'jobs' ? (
         <MasterLuxePanel className="mt-4 overflow-x-auto" padding="none">
-          {jobs.length === 0 ? (
+          {filteredJobs.length === 0 ? (
             <div className="p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
               {isAr ? 'بانتظار البيانات' : 'Waiting for Data'}
             </div>
@@ -109,7 +227,7 @@ export const MasterOpsMonitor: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {jobs.map((j) => (
+                {filteredJobs.map((j) => (
                   <tr key={String(j.id)} style={{ borderTop: '1px solid var(--border)' }}>
                     <td className="p-3 font-semibold" style={{ color: 'var(--text)' }}>
                       {String(j.job_name)}
@@ -126,15 +244,15 @@ export const MasterOpsMonitor: React.FC = () => {
           )}
           <MasterMetaLine className="p-3">
             {isAr
-              ? 'النتيجة unknown حتى يكتب المجدول تشغيلاً حقيقياً'
-              : 'result=unknown until a real scheduler writes a run'}
+              ? `المصدر: platform_job_runs · المعروض ${filteredJobs.length}/${jobs.length}`
+              : `Source: platform_job_runs · Showing ${filteredJobs.length}/${jobs.length}`}
           </MasterMetaLine>
         </MasterLuxePanel>
       ) : null}
 
       {tab === 'errors' ? (
         <MasterLuxePanel className="mt-4 overflow-x-auto" padding="none">
-          {errors.length === 0 ? (
+          {filteredErrors.length === 0 ? (
             <div className="p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
               {isAr ? 'لا توجد سجلات' : 'No records found'}
             </div>
@@ -149,7 +267,7 @@ export const MasterOpsMonitor: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {errors.map((e) => (
+                {filteredErrors.map((e) => (
                   <tr key={String(e.id)} style={{ borderTop: '1px solid var(--border)' }}>
                     <td className="p-3 text-xs">{String(e.created_at)}</td>
                     <td className="p-3 text-xs">{String(e.module)}</td>
@@ -168,13 +286,13 @@ export const MasterOpsMonitor: React.FC = () => {
       {tab === 'policies' ? (
         <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
           <MasterLuxePanel padding="none">
-            {policies.length === 0 ? (
+            {filteredPolicies.length === 0 ? (
               <div className="p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
                 {isAr ? 'لا توجد سجلات' : 'No records found'}
               </div>
             ) : (
               <ul className="divide-y" style={{ borderColor: 'var(--border)' }}>
-                {policies.map((p) => (
+                {filteredPolicies.map((p) => (
                   <li key={String(p.id)}>
                     <button
                       type="button"
@@ -207,24 +325,36 @@ export const MasterOpsMonitor: React.FC = () => {
                   ? 'اختر سياسة'
                   : 'Select a policy'}
             </p>
-            <textarea
-              value={bodyAr}
-              onChange={(e) => setBodyAr(e.target.value)}
-              rows={4}
-              disabled={!editKey}
-              placeholder={isAr ? 'المحتوى بالعربية' : 'Arabic body'}
-              className="w-full rounded-xl border text-sm px-3 py-2 bg-transparent disabled:opacity-50"
-              style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-            />
-            <textarea
-              value={bodyEn}
-              onChange={(e) => setBodyEn(e.target.value)}
-              rows={4}
-              disabled={!editKey}
-              placeholder={isAr ? 'المحتوى بالإنجليزية' : 'English body'}
-              className="w-full rounded-xl border text-sm px-3 py-2 bg-transparent disabled:opacity-50"
-              style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-            />
+            <div>
+              <label className="block text-[10px] font-bold mb-1" style={{ color: 'var(--muted)' }}>
+                {isAr ? 'المحتوى (بالعربية)' : 'Body (Arabic)'}
+              </label>
+              <textarea
+                value={bodyAr}
+                onChange={(e) => setBodyAr(e.target.value)}
+                rows={4}
+                dir="rtl"
+                disabled={!editKey}
+                placeholder={isAr ? 'اكتب نص السياسة بالعربية…' : 'Policy body in Arabic…'}
+                className="w-full rounded-xl border text-sm px-3 py-2 bg-transparent disabled:opacity-50"
+                style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold mb-1" style={{ color: 'var(--muted)' }}>
+                {isAr ? 'المحتوى (بالإنجليزية)' : 'Body (English)'}
+              </label>
+              <textarea
+                value={bodyEn}
+                onChange={(e) => setBodyEn(e.target.value)}
+                rows={4}
+                dir="ltr"
+                disabled={!editKey}
+                placeholder={isAr ? 'اكتب نص السياسة بالإنجليزية…' : 'Policy body in English…'}
+                className="w-full rounded-xl border text-sm px-3 py-2 bg-transparent disabled:opacity-50"
+                style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+              />
+            </div>
             <button
               type="button"
               className="unity-btn-primary text-sm"

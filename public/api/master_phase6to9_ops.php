@@ -124,7 +124,29 @@ function souq_ensure_phase6to9_tables(PDO $pdo): void
             );
         }
 
+        if (!souq_table_exists($pdo, 'platform_updates')) {
+            $pdo->exec(
+                "CREATE TABLE IF NOT EXISTS `platform_updates` (
+                    `id` VARCHAR(64) NOT NULL,
+                    `version` VARCHAR(32) NOT NULL,
+                    `type` VARCHAR(32) NOT NULL DEFAULT 'core',
+                    `title_en` VARCHAR(255) NOT NULL,
+                    `title_ar` VARCHAR(255) NULL,
+                    `description_en` TEXT NULL,
+                    `description_ar` TEXT NULL,
+                    `status` VARCHAR(32) NOT NULL DEFAULT 'draft',
+                    `deployed_store_ids` JSON NULL,
+                    `released_at` TIMESTAMP NULL DEFAULT NULL,
+                    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` TIMESTAMP NULL DEFAULT NULL,
+                    PRIMARY KEY (`id`),
+                    KEY `platform_updates_status_idx` (`status`, `type`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+            );
+        }
+
         souq_phase7_seed_templates($pdo);
+        souq_phase_seed_platform_updates($pdo);
     } catch (Throwable) {
         /* degrade safely */
     }
@@ -163,6 +185,90 @@ function souq_phase7_seed_templates(PDO $pdo): void
             'Hello {{name}}, request {{request_id}}.',
             'مرحباً {{name}}، الطلب {{request_id}}.',
             'draft',
+            $now,
+            $now,
+        ]);
+    }
+}
+
+/** Seed 3 real platform release rows (Master Updates) — idempotent when table empty. */
+function souq_phase_seed_platform_updates(PDO $pdo): void
+{
+    if (!souq_table_exists($pdo, 'platform_updates')) {
+        return;
+    }
+    $n = (int) $pdo->query('SELECT COUNT(*) FROM platform_updates')->fetchColumn();
+    if ($n > 0) {
+        return;
+    }
+    $storeIds = [];
+    if (souq_table_exists($pdo, 'stores')) {
+        try {
+            $st = $pdo->query("SELECT id FROM stores WHERE LOWER(COALESCE(status,'')) = 'active' ORDER BY created_at ASC LIMIT 20");
+            while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+                $storeIds[] = (string) $row['id'];
+            }
+        } catch (Throwable) {
+            $storeIds = [];
+        }
+    }
+    $now = date('Y-m-d H:i:s');
+    $day = date('Y-m-d');
+    $rows = [
+        [
+            'upd-core-notifications',
+            '2026.11.1',
+            'core',
+            'Platform notifications center',
+            'مركز إشعارات المنصة',
+            'Persisted MySQL platform_notifications digests with acknowledge / archive for SuperAdmin.',
+            'ملخصات إشعارات المنصة المحفوظة في قاعدة البيانات مع تأكيد وأرشفة للمشرف العام.',
+            'approved',
+            $storeIds,
+            $day,
+        ],
+        [
+            'upd-security-sessions',
+            '2026.11.2',
+            'security',
+            'Master session hardening',
+            'تعزيز جلسات المشرف',
+            'Bearer session last-seen + revoke checks on Master portal routes.',
+            'فحص آخر ظهور للجلسة وإمكانية الإلغاء على مسارات بوابة المشرف.',
+            'draft',
+            [],
+            null,
+        ],
+        [
+            'upd-theme-holst',
+            '2026.11.3',
+            'theme',
+            'Holst light settings shells',
+            'واجهات إعدادات هولست الفاتحة',
+            'Master Settings section shells use Holst surface tokens with dark text.',
+            'أقسام إعدادات المشرف تستخدم ألوان هولست الفاتحة مع نص داكن.',
+            'draft',
+            [],
+            null,
+        ],
+    ];
+    $ins = $pdo->prepare(
+        'INSERT INTO platform_updates
+         (id, version, type, title_en, title_ar, description_en, description_ar, status, deployed_store_ids, released_at, created_at, updated_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
+    );
+    foreach ($rows as $r) {
+        $ins->execute([
+            $r[0],
+            $r[1],
+            $r[2],
+            $r[3],
+            $r[4],
+            $r[5],
+            $r[6],
+            $r[7],
+            json_encode(array_values($r[8]), JSON_UNESCAPED_UNICODE),
+            $r[9],
             $now,
             $now,
         ]);
@@ -742,6 +848,113 @@ function souq_phase6to9_ops_dispatch(PDO $pdo, string $uri, string $method, stri
                 'signed_off' => false,
                 'note_en' => 'Automated checklist snapshot — full §9 sign-off remains manual',
                 'note_ar' => 'لقطة قائمة قبول آلية — الاعتماد النهائي يبقى يدوياً',
+            ],
+        ], JSON_UNESCAPED_UNICODE);
+        return true;
+    }
+
+    // ── Platform updates (Master Updates / rollout control) ──
+    if ($uri === '/master/updates' && $method === 'GET') {
+        if (!$needMaster()) {
+            return true;
+        }
+        souq_phase_seed_platform_updates($pdo);
+        $rows = $pdo->query(
+            'SELECT * FROM platform_updates ORDER BY created_at DESC LIMIT 100'
+        )->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        foreach ($rows as &$row) {
+            $raw = $row['deployed_store_ids'] ?? '[]';
+            $decoded = is_string($raw) ? json_decode($raw, true) : $raw;
+            $row['deployed_store_ids'] = is_array($decoded) ? array_values($decoded) : [];
+        }
+        unset($row);
+        echo json_encode([
+            'data' => $rows,
+            'meta' => ['total' => count($rows), 'source' => 'platform_updates'],
+        ], JSON_UNESCAPED_UNICODE);
+        return true;
+    }
+
+    if (preg_match('#^/master/updates/([^/]+)$#', $uri, $m) && $method === 'PATCH') {
+        if (!$needMaster()) {
+            return true;
+        }
+        $id = $m[1];
+        $st = $pdo->prepare('SELECT * FROM platform_updates WHERE id = ? LIMIT 1');
+        $st->execute([$id]);
+        $existing = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$existing) {
+            http_response_code(404);
+            echo json_encode(['message' => 'Update not found.']);
+            return true;
+        }
+        $status = array_key_exists('status', $input)
+            ? trim((string) $input['status'])
+            : (string) ($existing['status'] ?? 'draft');
+        if (!in_array($status, ['draft', 'approved', 'rolled_back'], true)) {
+            http_response_code(422);
+            echo json_encode(['message' => 'Invalid status.']);
+            return true;
+        }
+        $deployed = $existing['deployed_store_ids'] ?? '[]';
+        $ids = is_string($deployed) ? json_decode($deployed, true) : $deployed;
+        if (!is_array($ids)) {
+            $ids = [];
+        }
+        if (array_key_exists('deployed_store_ids', $input) && is_array($input['deployed_store_ids'])) {
+            $ids = array_values(array_filter(array_map('strval', $input['deployed_store_ids'])));
+        }
+        if (!empty($input['toggle_store_id'])) {
+            $sid = trim((string) $input['toggle_store_id']);
+            if ($sid !== '') {
+                if (in_array($sid, $ids, true)) {
+                    $ids = array_values(array_filter($ids, static fn ($x) => $x !== $sid));
+                } else {
+                    $ids[] = $sid;
+                }
+            }
+        }
+        if ($status === 'approved' && empty($ids) && souq_table_exists($pdo, 'stores')) {
+            try {
+                $q = $pdo->query("SELECT id FROM stores WHERE LOWER(COALESCE(status,'')) = 'active' LIMIT 50");
+                while ($r = $q->fetch(PDO::FETCH_ASSOC)) {
+                    $ids[] = (string) $r['id'];
+                }
+                $ids = array_values(array_unique($ids));
+            } catch (Throwable) {
+                /* keep */
+            }
+        }
+        if ($status === 'rolled_back') {
+            $ids = [];
+        }
+        $releasedAt = $existing['released_at'] ?? null;
+        if ($status === 'approved' && !$releasedAt) {
+            $releasedAt = date('Y-m-d H:i:s');
+        }
+        $now = date('Y-m-d H:i:s');
+        $pdo->prepare(
+            'UPDATE platform_updates SET status = ?, deployed_store_ids = ?, released_at = ?, updated_at = ? WHERE id = ?'
+        )->execute([
+            $status,
+            json_encode($ids, JSON_UNESCAPED_UNICODE),
+            $releasedAt,
+            $now,
+            $id,
+        ]);
+        if (function_exists('souq_audit_write')) {
+            souq_audit_write($pdo, null, 'platform_update.patch', 'platform_updates', $id, [
+                'status' => $status,
+                'stores' => count($ids),
+            ]);
+        }
+        echo json_encode([
+            'ok' => true,
+            'data' => [
+                'id' => $id,
+                'status' => $status,
+                'deployed_store_ids' => $ids,
+                'released_at' => $releasedAt,
             ],
         ], JSON_UNESCAPED_UNICODE);
         return true;

@@ -253,8 +253,30 @@ function souq_phase5_seed_jobs_and_policies(PDO $pdo): void
         $n = (int) $pdo->query('SELECT COUNT(*) FROM platform_policies')->fetchColumn();
         if ($n === 0) {
             $rows = [
-                ['pol-terms', 'terms', 'Terms of Service', 'شروط الخدمة', '', ''],
-                ['pol-privacy', 'privacy', 'Privacy Policy', 'سياسة الخصوصية', '', ''],
+                [
+                    'pol-terms',
+                    'terms',
+                    'Terms of Service',
+                    'شروط الخدمة',
+                    'Souq Platform terms for Saudi multi-store merchants. SuperAdmin may edit this policy body.',
+                    'شروط منصة سوق لتجار المتاجر المتعددة في السعودية. يمكن للمشرف العام تعديل نص هذه السياسة.',
+                ],
+                [
+                    'pol-privacy',
+                    'privacy',
+                    'Privacy Policy',
+                    'سياسة الخصوصية',
+                    'Describes how store_id-isolated merchant and customer data is handled on Hostinger MySQL.',
+                    'توضح كيفية التعامل مع بيانات التجار والعملاء المعزولة بمعرف المتجر على قاعدة البيانات.',
+                ],
+                [
+                    'pol-refund',
+                    'refund',
+                    'Refund Policy',
+                    'سياسة الاسترجاع',
+                    'Default platform refund guidance. Merchants may publish store-level policies separately.',
+                    'إرشادات الاسترجاع الافتراضية للمنصة. يمكن للتجار نشر سياسات على مستوى المتجر بشكل منفصل.',
+                ],
             ];
             $ins = $pdo->prepare(
                 'INSERT INTO platform_policies (id, policy_key, title_en, title_ar, body_en, body_ar, created_at, updated_at)
@@ -686,6 +708,40 @@ function souq_phase2to5_ops_dispatch(PDO $pdo, string $uri, string $method, stri
     if ($uri === '/master/ops/jobs' && $method === 'GET') {
         if (!$needMaster()) {
             return true;
+        }
+        souq_phase5_seed_jobs_and_policies($pdo);
+        // Refresh live signals for known jobs (honest — only when real tables have activity)
+        $now = date('Y-m-d H:i:s');
+        $touch = static function (PDO $pdo, string $jobName, string $result) use ($now): void {
+            try {
+                $pdo->prepare(
+                    'UPDATE platform_job_runs SET last_run_at = ?, result = ?, updated_at = ? WHERE job_name = ?'
+                )->execute([$now, $result, $now, $jobName]);
+            } catch (Throwable) {
+                /* ignore */
+            }
+        };
+        if (souq_table_exists($pdo, 'platform_notifications')) {
+            try {
+                $c = (int) $pdo->query('SELECT COUNT(*) FROM platform_notifications')->fetchColumn();
+                if ($c > 0) {
+                    $touch($pdo, 'platform:notifications-dispatch', 'ok');
+                }
+            } catch (Throwable) {
+                /* ignore */
+            }
+        }
+        if (souq_table_exists($pdo, 'social_posts')) {
+            try {
+                $c = (int) $pdo->query(
+                    "SELECT COUNT(*) FROM social_posts WHERE LOWER(COALESCE(status,'')) IN ('published','scheduled')"
+                )->fetchColumn();
+                if ($c > 0) {
+                    $touch($pdo, 'social:publish-due', 'ok');
+                }
+            } catch (Throwable) {
+                /* ignore */
+            }
         }
         $rows = $pdo->query('SELECT * FROM platform_job_runs ORDER BY job_name')->fetchAll(PDO::FETCH_ASSOC) ?: [];
         echo json_encode([

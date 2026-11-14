@@ -659,6 +659,25 @@ function souq_session_lite_dispatch(PDO $pdo, string $uri, string $method, strin
             $domain = trim((string)$input['domain']);
             $data['domain'] = $domain;
         }
+        if (array_key_exists('name_ar', $input)) {
+            $data['name_ar'] = is_string($input['name_ar']) ? trim($input['name_ar']) : null;
+            $data['nameAr'] = $data['name_ar'];
+        }
+        if (array_key_exists('name_en', $input)) {
+            $data['name_en'] = is_string($input['name_en']) ? trim($input['name_en']) : null;
+            $data['nameEn'] = $data['name_en'];
+            // Prefer English display name as primary `name` when provided.
+            if (is_string($data['name_en']) && $data['name_en'] !== '') {
+                $name = $data['name_en'];
+                $data['name'] = $name;
+            }
+        }
+        if (array_key_exists('custom_domain', $input)) {
+            $data['custom_domain'] = trim((string) $input['custom_domain']);
+        }
+        if (array_key_exists('demo_domain', $input)) {
+            $data['demo_domain'] = trim((string) $input['demo_domain']);
+        }
         $nextEmail = null;
         if (isset($input['email']) && is_string($input['email'])) {
             $nextEmail = strtolower(trim($input['email']));
@@ -679,10 +698,52 @@ function souq_session_lite_dispatch(PDO $pdo, string $uri, string $method, strin
             $loginActive = $parsed === null ? (bool)$input['login_email_active'] : $parsed;
             $data['login_email_active'] = $loginActive;
         }
-        foreach (['plan', 'status', 'phone', 'owner_name', 'city', 'country', 'category', 'logo', 'accent_color'] as $k) {
+        foreach ([
+            'plan',
+            'status',
+            'phone',
+            'owner_name',
+            'city',
+            'country',
+            'category',
+            'logo',
+            'accent_color',
+            'subscription_status',
+            'currency',
+            'locale',
+            'timezone',
+            'text_direction',
+            'master_granted_pro',
+            'db_isolation',
+        ] as $k) {
             if (array_key_exists($k, $input)) {
                 $data[$k] = $input[$k];
             }
+        }
+        if (array_key_exists('master_granted_pro', $input)) {
+            $granted = filter_var($input['master_granted_pro'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            $data['master_granted_pro'] = $granted === null ? (bool) $input['master_granted_pro'] : $granted;
+            $data['masterGrantedPro'] = $data['master_granted_pro'];
+        }
+        if (array_key_exists('status', $input)) {
+            $stIn = strtolower(trim((string) $input['status']));
+            if (!in_array($stIn, ['active', 'pending', 'suspended', 'maintenance'], true)) {
+                http_response_code(422);
+                echo json_encode(['message' => 'Invalid store status.']);
+                return true;
+            }
+            $input['status'] = $stIn;
+            $data['status'] = $stIn;
+        }
+        if (array_key_exists('subscription_status', $input)) {
+            $subIn = strtolower(trim((string) $input['subscription_status']));
+            if (!in_array($subIn, ['active', 'trial', 'grace', 'cancelled', 'pending'], true)) {
+                http_response_code(422);
+                echo json_encode(['message' => 'Invalid subscription_status.']);
+                return true;
+            }
+            $input['subscription_status'] = $subIn;
+            $data['subscription_status'] = $subIn;
         }
 
         $nextStatus = array_key_exists('status', $input) ? (string)$input['status'] : $prevStatus;
@@ -705,17 +766,50 @@ function souq_session_lite_dispatch(PDO $pdo, string $uri, string $method, strin
             if (function_exists('souq_ensure_mysql_store_login_column')) {
                 souq_ensure_mysql_store_login_column($pdo);
             }
+            if (function_exists('souq_ensure_mysql_store_name_i18n_columns')) {
+                souq_ensure_mysql_store_name_i18n_columns($pdo);
+            }
             $sets = ['name = ?', 'slug = ?', 'domain = ?', 'email = ?', 'updated_at = CURRENT_TIMESTAMP'];
             $params = [$name, $slug, $domain, $emailCol !== '' ? $emailCol : null];
             if (function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'stores', 'login_email_active')) {
                 $sets[] = 'login_email_active = ?';
                 $params[] = $loginActive ? 1 : 0;
             }
-            foreach (['plan', 'status', 'phone', 'owner_name', 'city', 'country', 'category', 'logo', 'accent_color'] as $k) {
-                if (array_key_exists($k, $input) && function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'stores', $k)) {
+            foreach ([
+                'plan',
+                'status',
+                'phone',
+                'owner_name',
+                'city',
+                'country',
+                'category',
+                'logo',
+                'accent_color',
+                'subscription_status',
+                'currency',
+                'locale',
+                'timezone',
+                'text_direction',
+                'db_isolation',
+                'custom_domain',
+                'demo_domain',
+                'name_ar',
+                'name_en',
+            ] as $k) {
+                $src = array_key_exists($k, $input) ? $input : $data;
+                if (array_key_exists($k, $src) && function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'stores', $k)) {
                     $sets[] = '`' . $k . '` = ?';
-                    $params[] = $input[$k];
+                    $params[] = $src[$k];
                 }
+            }
+            if (array_key_exists('master_granted_pro', $data) && function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'stores', 'master_granted_pro')) {
+                $sets[] = 'master_granted_pro = ?';
+                $params[] = !empty($data['master_granted_pro']) ? 1 : 0;
+            }
+            // Persist bilingual names into JSON `data` when column exists (MySQL shared path).
+            if ($hasDataCol) {
+                $sets[] = '`data` = ?';
+                $params[] = json_encode($data, JSON_UNESCAPED_UNICODE);
             }
             $params[] = $sid;
             $pdo->prepare('UPDATE stores SET ' . implode(', ', $sets) . ' WHERE id = ?')->execute($params);
@@ -749,6 +843,17 @@ function souq_session_lite_dispatch(PDO $pdo, string $uri, string $method, strin
         $out['owner_email'] = $out['email'];
         $out['ownerEmail'] = $out['email'];
         $out['login_email_active'] = $loginActive;
+        if (array_key_exists('name_ar', $data)) {
+            $out['name_ar'] = $data['name_ar'];
+            $out['nameAr'] = $data['name_ar'];
+        }
+        if (array_key_exists('name_en', $data)) {
+            $out['name_en'] = $data['name_en'];
+            $out['nameEn'] = $data['name_en'];
+        }
+        if (array_key_exists('custom_domain', $data)) {
+            $out['custom_domain'] = $data['custom_domain'];
+        }
         if (array_key_exists('status', $input)) {
             $out['status'] = $nextStatus;
         }

@@ -1,15 +1,17 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AdminPageShell, AdminPageHeader } from '../common/AdminPageHeader';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
 import { getStoreDisplayName } from '../../utils/storeLocalization';
-import { Download, FileText } from 'lucide-react';
+import { Download, FileText, RefreshCw } from 'lucide-react';
 import { MasterLuxePanel, MasterMetaLine, masterGhostBtnClass } from './MasterUiKit';
 import { MasterStoreScopeFilter } from './MasterStoreScopeFilter';
 import { AdvancedFilterBar } from '../common/AdvancedFilterBar';
 import { AdvancedDataTable, type AdvancedTableColumn } from '../common/AdvancedDataTable';
 import { pipelineAdvancedList, useAdvancedListState } from '../../hooks/useAdvancedListState';
+import { fetchOrders } from '../../api/tenantApi';
+import type { Order, Store } from '../../types';
 
 /** Trigger a browser download for in-memory content (CSV / XML). */
 const downloadFile = (filename: string, content: string, mime: string) => {
@@ -24,8 +26,28 @@ const downloadFile = (filename: string, content: string, mime: string) => {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
+const normPay = (v: unknown) => String(v || '').trim().toLowerCase();
+
+type LeanOrder = {
+  id: string;
+  storeId: string;
+  storeName: string;
+  orderNumber: string;
+  date: string;
+  total: number;
+  status: string;
+  paymentStatus: string;
+};
+
 /** SOUQ PLUS Phase 1 §4.8 — operational counts from real orders; no fake compliance claims. */
-type StoreRow = { storeId: string; storeName: string; orders: number; gmv: number };
+type StoreRow = {
+  storeId: string;
+  storeName: string;
+  status: Store['status'] | string;
+  plan: string;
+  orders: number;
+  gmv: number;
+};
 
 export const MasterReportsOps: React.FC = () => {
   const { stores, allOrders } = useTenant();
@@ -37,33 +59,117 @@ export const MasterReportsOps: React.FC = () => {
   const [storeStatus, setStoreStatus] = useState<'all' | 'active' | 'pending' | 'suspended'>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [orderStatus, setOrderStatus] = useState('all');
+  const [paymentStatus, setPaymentStatus] = useState('all');
+  const [busy, setBusy] = useState(false);
+  const [liveByStore, setLiveByStore] = useState<Record<string, LeanOrder[]>>({});
+  const [loadMeta, setLoadMeta] = useState<{ stores: number; orders: number; at?: string }>({
+    stores: 0,
+    orders: 0,
+  });
+
   const list = useAdvancedListState({
     initialPageSize: 10,
     initialSortKey: 'gmv',
     initialSortDir: 'desc',
-    initialFilters: {},
+    initialFilters: { plan: 'all', status: 'all', gmv: 'all', activity: 'all' },
   });
 
+  const loadAllStoreOrders = useCallback(async () => {
+    if (!stores.length) {
+      setLiveByStore({});
+      setLoadMeta({ stores: 0, orders: 0 });
+      return;
+    }
+    setBusy(true);
+    try {
+      const settled = await Promise.all(
+        stores.map(async (store) => {
+          const storeName = getStoreDisplayName(store, locale);
+          try {
+            const rows = await fetchOrders(store.id, { all: true, lean: true });
+            const lean: LeanOrder[] = (Array.isArray(rows) ? rows : []).map((o: Order) => ({
+              id: String(o.id || ''),
+              storeId: store.id,
+              storeName,
+              orderNumber: String(o.orderNumber || o.id || ''),
+              date: String(o.date || o.createdAt || ''),
+              total: Number(o.total) || 0,
+              status: String(o.status || ''),
+              paymentStatus: normPay(o.paymentStatus),
+            }));
+            return { storeId: store.id, lean, ok: true as const };
+          } catch {
+            // Fallback: whatever TenantContext already holds for this store_id
+            const cached = (allOrders?.[store.id] || []) as Order[];
+            const lean: LeanOrder[] = cached.map((o) => ({
+              id: String(o.id || ''),
+              storeId: store.id,
+              storeName,
+              orderNumber: String(o.orderNumber || o.id || ''),
+              date: String(o.date || o.createdAt || ''),
+              total: Number(o.total) || 0,
+              status: String(o.status || ''),
+              paymentStatus: normPay(o.paymentStatus),
+            }));
+            return { storeId: store.id, lean, ok: false as const };
+          }
+        }),
+      );
+      const next: Record<string, LeanOrder[]> = {};
+      let orderTotal = 0;
+      for (const row of settled) {
+        next[row.storeId] = row.lean;
+        orderTotal += row.lean.length;
+      }
+      setLiveByStore(next);
+      setLoadMeta({
+        stores: stores.length,
+        orders: orderTotal,
+        at: new Date().toISOString(),
+      });
+    } catch {
+      toast(isAr ? 'تعذر تحميل الطلبات' : 'Failed to load orders', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }, [stores, locale, allOrders, isAr, toast]);
+
+  useEffect(() => {
+    void loadAllStoreOrders();
+    // Re-fetch when store list changes (new tenant / soft refresh)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stores.map((s) => s.id).join('|')]);
+
   const globalOrders = useMemo(
-    () =>
-      Object.entries(allOrders || {}).flatMap(([storeId, orderList]) => {
-        const store = stores.find((s) => s.id === storeId);
-        const storeName = store ? getStoreDisplayName(store, locale) : storeId;
-        return (orderList || []).map((o) => ({
-          ...o,
-          storeId,
-          storeName,
-          orderNumber: String((o as { orderNumber?: string }).orderNumber || o.id || ''),
-          date: String(
-            (o as { date?: string; createdAt?: string }).date ||
-              (o as { createdAt?: string }).createdAt ||
-              '',
-          ),
-          total: Number((o as { total?: number }).total) || 0,
-        }));
-      }),
-    [allOrders, stores, locale],
+    () => Object.values(liveByStore).flat(),
+    [liveByStore],
   );
+
+  const statusOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const o of globalOrders) {
+      if (o.status) set.add(o.status);
+    }
+    return Array.from(set).sort();
+  }, [globalOrders]);
+
+  const paymentOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const o of globalOrders) {
+      if (o.paymentStatus) set.add(o.paymentStatus);
+    }
+    return Array.from(set).sort();
+  }, [globalOrders]);
+
+  const planOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of stores) {
+      const p = String(s.plan || '').trim();
+      if (p) set.add(p);
+    }
+    return Array.from(set).sort();
+  }, [stores]);
 
   const scopedOrders = useMemo(() => {
     const fromTs = dateFrom ? Date.parse(`${dateFrom}T00:00:00`) : NaN;
@@ -74,6 +180,8 @@ export const MasterReportsOps: React.FC = () => {
         const st = stores.find((s) => s.id === o.storeId);
         if (!st || st.status !== storeStatus) return false;
       }
+      if (orderStatus !== 'all' && o.status !== orderStatus) return false;
+      if (paymentStatus !== 'all' && o.paymentStatus !== paymentStatus) return false;
       if (dateFrom || dateTo) {
         const created = o.date ? Date.parse(String(o.date)) : NaN;
         if (!Number.isNaN(fromTs) && !Number.isNaN(created) && created < fromTs) return false;
@@ -81,7 +189,7 @@ export const MasterReportsOps: React.FC = () => {
       }
       return true;
     });
-  }, [globalOrders, storeScope, storeStatus, stores, dateFrom, dateTo]);
+  }, [globalOrders, storeScope, storeStatus, stores, dateFrom, dateTo, orderStatus, paymentStatus]);
 
   const orderCount = scopedOrders.length;
   const gmv = scopedOrders.reduce((s, o) => s + o.total, 0);
@@ -89,10 +197,29 @@ export const MasterReportsOps: React.FC = () => {
 
   const perStore = useMemo(() => {
     const map = new Map<string, StoreRow>();
+    // Seed every in-scope store so empty tenants stay visible (0 / Waiting — never invent GMV)
+    const seedStores = stores.filter((s) => {
+      if (storeScope !== 'all' && s.id !== storeScope) return false;
+      if (storeStatus !== 'all' && s.status !== storeStatus) return false;
+      return true;
+    });
+    for (const s of seedStores) {
+      map.set(s.id, {
+        storeId: s.id,
+        storeName: getStoreDisplayName(s, locale),
+        status: s.status,
+        plan: String(s.plan || ''),
+        orders: 0,
+        gmv: 0,
+      });
+    }
     for (const o of scopedOrders) {
+      const store = stores.find((s) => s.id === o.storeId);
       const cur = map.get(o.storeId) || {
         storeId: o.storeId,
         storeName: o.storeName,
+        status: store?.status || '',
+        plan: String(store?.plan || ''),
         orders: 0,
         gmv: 0,
       };
@@ -101,15 +228,31 @@ export const MasterReportsOps: React.FC = () => {
       map.set(o.storeId, cur);
     }
     return Array.from(map.values());
-  }, [scopedOrders]);
+  }, [scopedOrders, stores, storeScope, storeStatus, locale]);
 
   const storePipe = useMemo(
     () =>
       pipelineAdvancedList({
         rows: perStore,
         search: list.search,
-        getSearchBlob: (row) => `${row.storeName} ${row.storeId}`,
+        getSearchBlob: (row) => `${row.storeName} ${row.storeId} ${row.plan} ${row.status}`,
         filters: list.filters,
+        matchFilter: (row, key, value) => {
+          if (key === 'plan') return row.plan === value;
+          if (key === 'status') return String(row.status) === value;
+          if (key === 'activity') {
+            if (value === 'with_orders') return row.orders > 0;
+            if (value === 'empty') return row.orders === 0;
+            return true;
+          }
+          if (key === 'gmv') {
+            if (value === 'lt1k') return row.gmv < 1000;
+            if (value === '1k_10k') return row.gmv >= 1000 && row.gmv < 10000;
+            if (value === '10k_plus') return row.gmv >= 10000;
+            return true;
+          }
+          return true;
+        },
         sortKey: list.sortKey,
         sortDir: list.sortDir,
         getSortValue: (row, key) => {
@@ -117,6 +260,8 @@ export const MasterReportsOps: React.FC = () => {
           if (key === 'orders') return row.orders;
           if (key === 'gmv') return row.gmv;
           if (key === 'vat') return (row.gmv * 15) / 115;
+          if (key === 'plan') return row.plan;
+          if (key === 'status') return String(row.status);
           return '';
         },
         page: list.page,
@@ -138,6 +283,26 @@ export const MasterReportsOps: React.FC = () => {
               {row.storeId}
             </div>
           </div>
+        ),
+      },
+      {
+        key: 'plan',
+        header: isAr ? 'الباقة' : 'Plan',
+        sortable: true,
+        render: (row) => (
+          <span className="text-xs font-semibold uppercase" style={{ color: 'var(--muted)' }}>
+            {row.plan || '—'}
+          </span>
+        ),
+      },
+      {
+        key: 'status',
+        header: isAr ? 'حالة المتجر' : 'Store status',
+        sortable: true,
+        render: (row) => (
+          <span className="text-xs font-semibold capitalize" style={{ color: 'var(--text)' }}>
+            {row.status || '—'}
+          </span>
         ),
       },
       {
@@ -192,11 +357,49 @@ export const MasterReportsOps: React.FC = () => {
     );
   };
 
+  const exportBreakdownCsv = () => {
+    const rows = storePipe.filtered;
+    if (rows.length === 0) {
+      toast(isAr ? 'لا توجد سجلات للتصدير' : 'No rows to export', 'warning');
+      return;
+    }
+    const header = ['store_id', 'store_name', 'plan', 'status', 'orders', 'gmv_sar', 'vat_15_sar'];
+    const lines = [
+      header.join(','),
+      ...rows.map((r) =>
+        [
+          r.storeId,
+          `"${r.storeName.replace(/"/g, '""')}"`,
+          r.plan,
+          r.status,
+          r.orders,
+          r.gmv.toFixed(2),
+          ((r.gmv * 15) / 115).toFixed(2),
+        ].join(','),
+      ),
+    ];
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadFile(`store-breakdown-${stamp}.csv`, lines.join('\n'), 'text/csv;charset=utf-8');
+    setExportedAt(new Date().toISOString());
+    toast(isAr ? 'تم تصدير تفصيل المتاجر' : 'Store breakdown CSV exported', 'success');
+  };
+
   const scopeFilterCount =
     (storeScope !== 'all' ? 1 : 0) +
     (storeStatus !== 'all' ? 1 : 0) +
     (dateFrom ? 1 : 0) +
-    (dateTo ? 1 : 0);
+    (dateTo ? 1 : 0) +
+    (orderStatus !== 'all' ? 1 : 0) +
+    (paymentStatus !== 'all' ? 1 : 0);
+
+  const resetScopeFilters = () => {
+    setStoreScope('all');
+    setStoreStatus('all');
+    setDateFrom('');
+    setDateTo('');
+    setOrderStatus('all');
+    setPaymentStatus('all');
+  };
 
   return (
     <AdminPageShell>
@@ -208,23 +411,50 @@ export const MasterReportsOps: React.FC = () => {
             : 'Operational counts from real store orders — no decorative claims'
         }
         actions={
-          <button
-            type="button"
-            className="unity-btn-primary text-sm"
-            onClick={generateZatcaXml}
-            disabled={orderCount === 0}
-          >
-            <Download className="w-3.5 h-3.5" aria-hidden />
-            {isAr ? 'تصدير ملف ضريبة القيمة المضافة' : 'Export VAT XML'}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className={masterGhostBtnClass}
+              onClick={() => void loadAllStoreOrders()}
+              disabled={busy}
+              aria-busy={busy}
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${busy ? 'animate-spin' : ''}`} aria-hidden />
+              {isAr ? 'تحديث' : 'Refresh'}
+            </button>
+            <button
+              type="button"
+              className={masterGhostBtnClass}
+              onClick={exportBreakdownCsv}
+              disabled={storePipe.total === 0}
+            >
+              <Download className="w-3.5 h-3.5" aria-hidden />
+              {isAr ? 'تصدير CSV' : 'Export CSV'}
+            </button>
+            <button
+              type="button"
+              className="unity-btn-primary text-sm"
+              onClick={generateZatcaXml}
+              disabled={orderCount === 0}
+            >
+              <Download className="w-3.5 h-3.5" aria-hidden />
+              {isAr ? 'تصدير ملف ضريبة القيمة المضافة' : 'Export VAT XML'}
+            </button>
+          </div>
         }
       />
 
-      {exportedAt ? (
-        <MasterMetaLine className="mt-2">
-          {isAr ? `آخر تصدير: ${exportedAt.slice(0, 19)}` : `Last export: ${exportedAt.slice(0, 19)}`}
-        </MasterMetaLine>
-      ) : null}
+      <MasterMetaLine className="mt-2">
+        {isAr
+          ? `المصدر: طلبات حية · ${loadMeta.orders} طلب من ${loadMeta.stores} متجر`
+          : `Source: live orders · ${loadMeta.orders} orders across ${loadMeta.stores} stores`}
+        {loadMeta.at ? ` · ${loadMeta.at.slice(0, 19)}` : ''}
+        {exportedAt
+          ? isAr
+            ? ` · آخر تصدير: ${exportedAt.slice(0, 19)}`
+            : ` · Last export: ${exportedAt.slice(0, 19)}`
+          : ''}
+      </MasterMetaLine>
 
       <div className="mt-4 flex flex-col gap-3">
         <MasterStoreScopeFilter
@@ -235,21 +465,36 @@ export const MasterReportsOps: React.FC = () => {
           showStatusChips
         />
         <AdvancedFilterBar
-          fields={[]}
-          filterValues={{}}
-          onFilterChange={() => undefined}
+          fields={[
+            {
+              key: 'order_status',
+              label: isAr ? 'حالة الطلب' : 'Order status',
+              options: [
+                { value: 'all', label: isAr ? 'كل الحالات' : 'All statuses' },
+                ...statusOptions.map((s) => ({ value: s, label: s })),
+              ],
+            },
+            {
+              key: 'payment_status',
+              label: isAr ? 'حالة الدفع' : 'Payment status',
+              options: [
+                { value: 'all', label: isAr ? 'كل المدفوعات' : 'All payments' },
+                ...paymentOptions.map((s) => ({ value: s, label: s })),
+              ],
+            },
+          ]}
+          filterValues={{ order_status: orderStatus, payment_status: paymentStatus }}
+          onFilterChange={(key, value) => {
+            if (key === 'order_status') setOrderStatus(value);
+            if (key === 'payment_status') setPaymentStatus(value);
+          }}
           dateFrom={dateFrom}
           dateTo={dateTo}
           onDateFromChange={setDateFrom}
           onDateToChange={setDateTo}
           showDates
           activeCount={scopeFilterCount}
-          onReset={() => {
-            setStoreScope('all');
-            setStoreStatus('all');
-            setDateFrom('');
-            setDateTo('');
-          }}
+          onReset={resetScopeFilters}
         />
       </div>
 
@@ -312,21 +557,32 @@ export const MasterReportsOps: React.FC = () => {
               ? 'ملف التصدير مبني على الطلبات الحقيقية فقط. لا يُعرض ختم تشفيري أو تسوية يومية آلية بدون دفتر مدفوعات موثوق.'
               : 'Export is built from real orders only. No cryptographic stamp or daily automated payout claim without a trusted payment ledger.'}
           </p>
-          <button
-            type="button"
-            className={masterGhostBtnClass}
-            onClick={generateZatcaXml}
-            disabled={orderCount === 0}
-          >
-            <Download className="w-3.5 h-3.5" aria-hidden />
-            {orderCount === 0
-              ? isAr
-                ? 'لا توجد طلبات'
-                : 'No orders'
-              : isAr
-                ? 'تصدير الآن'
-                : 'Export now'}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className={masterGhostBtnClass}
+              onClick={generateZatcaXml}
+              disabled={orderCount === 0}
+            >
+              <Download className="w-3.5 h-3.5" aria-hidden />
+              {orderCount === 0
+                ? isAr
+                  ? 'لا توجد طلبات'
+                  : 'No orders'
+                : isAr
+                  ? 'تصدير الآن'
+                  : 'Export now'}
+            </button>
+            <button
+              type="button"
+              className={masterGhostBtnClass}
+              onClick={exportBreakdownCsv}
+              disabled={storePipe.total === 0}
+            >
+              <Download className="w-3.5 h-3.5" aria-hidden />
+              {isAr ? 'تصدير تفصيل المتاجر' : 'Export store breakdown'}
+            </button>
+          </div>
         </div>
       </MasterLuxePanel>
 
@@ -356,6 +612,7 @@ export const MasterReportsOps: React.FC = () => {
           onPageChange={list.setPage}
           onPageSizeChange={list.setPageSize}
           total={storePipe.total}
+          loading={busy && storePipe.total === 0}
           emptyMessage={isAr ? 'لا توجد سجلات' : 'No records found'}
           filters={
             <AdvancedFilterBar
@@ -364,6 +621,45 @@ export const MasterReportsOps: React.FC = () => {
               onFilterChange={list.setFilter}
               onReset={list.resetAll}
               activeCount={list.activeFilterCount}
+              fields={[
+                {
+                  key: 'plan',
+                  label: isAr ? 'الباقة' : 'Plan',
+                  options: [
+                    { value: 'all', label: isAr ? 'كل الباقات' : 'All plans' },
+                    ...planOptions.map((p) => ({ value: p, label: p })),
+                  ],
+                },
+                {
+                  key: 'status',
+                  label: isAr ? 'حالة المتجر' : 'Store status',
+                  options: [
+                    { value: 'all', label: isAr ? 'الكل' : 'All' },
+                    { value: 'active', label: isAr ? 'نشط' : 'Active' },
+                    { value: 'pending', label: isAr ? 'قيد الانتظار' : 'Pending' },
+                    { value: 'suspended', label: isAr ? 'موقوف' : 'Suspended' },
+                  ],
+                },
+                {
+                  key: 'activity',
+                  label: isAr ? 'النشاط' : 'Activity',
+                  options: [
+                    { value: 'all', label: isAr ? 'الكل' : 'All' },
+                    { value: 'with_orders', label: isAr ? 'لديه طلبات' : 'With orders' },
+                    { value: 'empty', label: isAr ? 'بدون طلبات' : 'No orders' },
+                  ],
+                },
+                {
+                  key: 'gmv',
+                  label: isAr ? 'نطاق المبيعات' : 'GMV range',
+                  options: [
+                    { value: 'all', label: isAr ? 'كل المبيعات' : 'All GMV' },
+                    { value: 'lt1k', label: isAr ? 'أقل من ١٬٠٠٠' : '< 1,000' },
+                    { value: '1k_10k', label: '1,000 – 9,999' },
+                    { value: '10k_plus', label: isAr ? '١٠٬٠٠٠+' : '10,000+' },
+                  ],
+                },
+              ]}
             />
           }
         />

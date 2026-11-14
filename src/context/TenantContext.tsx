@@ -64,6 +64,7 @@ import {
 } from '../data/mockData';
 import { syncCatalogImagesToMediaAssets } from '../utils/mediaOptimizer';
 import { resolveProductThumbnail, FALLBACK_PRODUCT_IMAGE } from '../utils/imageFallback';
+import { resolveStoreLogoSrc } from '../utils/storeLogo';
 import { getArabCustomerAvatar } from '../utils/customerAvatars';
 import { normalizeProductPricingFields, toApiPricing } from '../utils/productPricing';
 import { nextSequentialOrderNumber } from '../utils/orderNumber';
@@ -231,7 +232,7 @@ const PLACEHOLDER_STORE: Store = {
   revenue: 0,
   visitorsCount: 0,
   lastActivity: '',
-  logo: 'store',
+  logo: '',
   accentColor: '#059669',
   dbIsolation: 'shared_store_id',
   createdAt: '',
@@ -399,6 +400,7 @@ interface TenantContextType {
       ratePerKg?: number;
       minWeightKg?: number;
       maxWeightKg?: number;
+      storeId?: string;
     },
   ) => void;
   deleteShippingCity: (id: string) => Promise<void>;
@@ -435,20 +437,23 @@ interface TenantContextType {
   allPaymentGateways: Record<string, PaymentGatewayItem[]>;
   currentPaymentTransactions: PaymentTransactionItem[];
   allPaymentTransactions: Record<string, PaymentTransactionItem[]>;
-  savePaymentGatewayConfig: (gateway: {
-    provider: PaymentGatewayProvider;
-    title: string;
-    titleAr?: string;
-    isEnabled?: boolean;
-    isSandbox?: boolean;
-    apiKey?: string;
-    secretKey?: string;
-    publicKey?: string;
-    webhookSecret?: string;
-    supportedMethods?: string[];
-    transactionFeePercent?: number;
-    transactionFeeFixed?: number;
-  }) => Promise<{ success: boolean; message: string }>;
+  savePaymentGatewayConfig: (
+    gateway: {
+      provider: PaymentGatewayProvider;
+      title: string;
+      titleAr?: string;
+      isEnabled?: boolean;
+      isSandbox?: boolean;
+      apiKey?: string;
+      secretKey?: string;
+      publicKey?: string;
+      webhookSecret?: string;
+      supportedMethods?: string[];
+      transactionFeePercent?: number;
+      transactionFeeFixed?: number;
+    },
+    targetStoreId?: string,
+  ) => Promise<{ success: boolean; message: string }>;
   testPaymentGatewayConfig: (id: string) => Promise<{ success: boolean; message: string }>;
   verifyOrderPayment: (payload: {
     orderId: string;
@@ -502,6 +507,8 @@ interface TenantContextType {
   seoConfigs: Record<string, StoreSEOConfig>;
   currentSEOConfig: StoreSEOConfig;
   updateStoreSEOConfig: (storeId: string, updates: Partial<StoreSEOConfig>) => void;
+  /** Master health hub: load SEO / payments / shipping for one store without switching active. */
+  prefetchStoreHealthBundle: (storeId: string) => Promise<void>;
   connectGoogleAccount: (storeId: string, email: string) => void;
   disconnectGoogleAccount: (storeId: string) => void;
   submitUrlToGoogleIndexing: (storeId: string, url: string) => void;
@@ -692,6 +699,7 @@ export function createFallbackTenantContext(): TenantContextType {
       topQueries: [],
     },
     updateStoreSEOConfig: () => {},
+    prefetchStoreHealthBundle: async () => {},
     connectGoogleAccount: () => {},
     disconnectGoogleAccount: () => {},
     submitUrlToGoogleIndexing: () => {},
@@ -755,7 +763,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                   owner: savedStore.owner || initStore.owner,
                   ownerAr: initStore.ownerAr || savedStore.ownerAr,
                   ownerEn: initStore.ownerEn || savedStore.ownerEn,
-                  logo: initStore.logo || savedStore.logo,
+                  logo: resolveStoreLogoSrc(savedStore.logo) || resolveStoreLogoSrc(initStore.logo) || '',
                   domain: initStore.domain || savedStore.domain,
                   hosting_id: initStore.hosting_id || savedStore.hosting_id,
                   database_id: initStore.database_id || savedStore.database_id,
@@ -2261,29 +2269,15 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, [activeStoreId, dataSource, applyProductsFromApi, loadStoreScopedData]);
 
-  // Active store object
+  // Active store object — live MySQL / stores[] only (no hardcoded Makkah display overrides).
   const activeStore = useMemo(() => {
-    const raw =
+    return (
       stores.find((s) => s.id === activeStoreId) ||
       INITIAL_STORES.find((s) => s.id === activeStoreId) ||
       stores[0] ||
       INITIAL_STORES[0] ||
-      PLACEHOLDER_STORE;
-    const isMakkah =
-      raw.id === 'store-1' ||
-      raw.id === '1' ||
-      raw.slug === 'giftshop-sa' ||
-      raw.slug === 'makkah-fresh-flowers' ||
-      /هدايا مكة|مكة|gift ?shop/i.test(raw.name);
-    if (isMakkah) {
-      return {
-        ...raw,
-        name: 'هدايا مكة',
-        nameAr: raw.nameAr && !raw.nameAr.includes('(') ? raw.nameAr : 'هدايا مكة للزهور والهدايا',
-        nameEn: raw.nameEn || 'Makkah Flowers',
-      };
-    }
-    return raw;
+      PLACEHOLDER_STORE
+    );
   }, [stores, activeStoreId]);
 
   // Strictly return active store's private themes. No store can see other stores' themes!
@@ -5096,9 +5090,10 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       ratePerKg?: number;
       minWeightKg?: number;
       maxWeightKg?: number;
+      storeId?: string;
     },
   ) => {
-    const sId = activeStoreId;
+    const sId = extras?.storeId || activeStoreId;
     if (!sId) return;
     const region = extras?.region || 'Saudi Arabia';
     try {
@@ -5349,22 +5344,25 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [activeStoreId]);
 
   // ── Payment Gateway Handlers ──
-  const savePaymentGatewayConfig = useCallback(async (gatewayData: {
-    provider: PaymentGatewayProvider;
-    title: string;
-    titleAr?: string;
-    isEnabled?: boolean;
-    isSandbox?: boolean;
-    apiKey?: string;
-    secretKey?: string;
-    publicKey?: string;
-    webhookSecret?: string;
-    supportedMethods?: string[];
-    transactionFeePercent?: number;
-    transactionFeeFixed?: number;
-  }) => {
-    const sId = activeStoreId;
-    if (!sId) return;
+  const savePaymentGatewayConfig = useCallback(async (
+    gatewayData: {
+      provider: PaymentGatewayProvider;
+      title: string;
+      titleAr?: string;
+      isEnabled?: boolean;
+      isSandbox?: boolean;
+      apiKey?: string;
+      secretKey?: string;
+      publicKey?: string;
+      webhookSecret?: string;
+      supportedMethods?: string[];
+      transactionFeePercent?: number;
+      transactionFeeFixed?: number;
+    },
+    targetStoreId?: string,
+  ) => {
+    const sId = targetStoreId || activeStoreId;
+    if (!sId) return { success: false, message: 'No store selected' };
     try {
       const res = await tenantApi.savePaymentGateway(sId, gatewayData as any);
       const gw: PaymentGatewayItem = {
@@ -5525,7 +5523,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       revenue: 0,
       visitorsCount: 0,
       lastActivity: 'Just now',
-      logo: 'flower',
+      logo: '',
       accentColor: '#059669',
       dbIsolation: 'shared_store_id',
       createdAt: new Date().toISOString().split('T')[0],
@@ -5777,6 +5775,34 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
     }
   };
+
+  const prefetchStoreHealthBundle = useCallback(async (storeId: string) => {
+    if (!storeId || !isApiEnabled()) return;
+    const settled = await Promise.allSettled([
+      tenantApi.fetchSeo(storeId),
+      tenantApi.fetchShipping(storeId),
+      tenantApi.fetchShippingMethods(storeId),
+      tenantApi.fetchPaymentGateways(storeId),
+      tenantApi.fetchCouriers(storeId),
+    ]);
+    const [seoS, shipS, methodsS, payS, courS] = settled;
+    if (seoS.status === 'fulfilled' && seoS.value) {
+      setSeoConfigs((prev) => ({ ...prev, [storeId]: seoS.value }));
+    }
+    if (shipS.status === 'fulfilled' && Array.isArray(shipS.value)) {
+      setShippingMap((prev) => ({ ...prev, [storeId]: shipS.value }));
+    }
+    if (methodsS.status === 'fulfilled' && Array.isArray(methodsS.value)) {
+      setShippingMethodsMap((prev) => ({ ...prev, [storeId]: methodsS.value }));
+    }
+    if (payS.status === 'fulfilled' && Array.isArray(payS.value)) {
+      setPaymentGatewaysMap((prev) => ({ ...prev, [storeId]: payS.value }));
+    }
+    if (courS.status === 'fulfilled' && Array.isArray(courS.value)) {
+      setCouriersMap((prev) => ({ ...prev, [storeId]: courS.value }));
+    }
+    setCacheEpoch((n) => n + 1);
+  }, []);
 
   const connectGoogleAccount = (storeId: string, email: string) => {
     const clean = String(email || '').trim().toLowerCase();
@@ -6308,6 +6334,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         seoConfigs,
         currentSEOConfig,
         updateStoreSEOConfig,
+        prefetchStoreHealthBundle,
         connectGoogleAccount,
         disconnectGoogleAccount,
         submitUrlToGoogleIndexing,

@@ -956,7 +956,20 @@ function souq_save_store_data(PDO $pdo, string $storeId, array $data): void
         'city' => 'city',
         'country' => 'country',
         'category' => 'category',
+        'subscription_status' => 'subscription_status',
+        'currency' => 'currency',
+        'locale' => 'locale',
+        'timezone' => 'timezone',
+        'text_direction' => 'text_direction',
+        'db_isolation' => 'db_isolation',
     ];
+    if (array_key_exists('master_granted_pro', $data) || array_key_exists('masterGrantedPro', $data)) {
+        $granted = !empty($data['master_granted_pro']) || !empty($data['masterGrantedPro']);
+        if (function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'stores', 'master_granted_pro')) {
+            $sets[] = 'master_granted_pro = ?';
+            $params[] = $granted ? 1 : 0;
+        }
+    }
     foreach ($map as $src => $col) {
         if (!array_key_exists($src, $data)) {
             continue;

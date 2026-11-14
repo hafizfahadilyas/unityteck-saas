@@ -1757,7 +1757,9 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                   {masterTab === 'reports' && <MasterReportsOps />}
                   {masterTab === 'support' && <MasterSupportCenter />}
                   {masterTab === 'security' && <MasterSecurityCenter />}
-                  {masterTab === 'notifications' && <MasterNotificationsHub />}
+                  {masterTab === 'notifications' && (
+                    <MasterNotificationsHub onNavigateTab={setMasterTab} />
+                  )}
                   {(masterTab === 'payments' || masterTab === 'payments-reconcile') && (
                     <MasterCapabilityDeferred capabilityId="payments-reconcile" />
                   )}

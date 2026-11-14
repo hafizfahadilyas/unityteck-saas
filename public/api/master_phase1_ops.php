@@ -54,19 +54,25 @@ function souq_ensure_phase1_ops_tables(PDO $pdo): void
                 "CREATE TABLE IF NOT EXISTS `platform_notifications` (
                     `id` VARCHAR(64) NOT NULL,
                     `title` VARCHAR(255) NOT NULL,
+                    `title_ar` VARCHAR(255) NULL,
                     `description` TEXT NULL,
+                    `description_ar` TEXT NULL,
                     `category` VARCHAR(64) NOT NULL DEFAULT 'system',
                     `severity` VARCHAR(32) NOT NULL DEFAULT 'Informational',
                     `status` VARCHAR(32) NOT NULL DEFAULT 'New',
                     `source` VARCHAR(64) NULL,
                     `source_ref` VARCHAR(128) NULL,
+                    `store_id` VARCHAR(64) NULL,
+                    `action_tab` VARCHAR(64) NULL,
                     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     `updated_at` TIMESTAMP NULL DEFAULT NULL,
                     PRIMARY KEY (`id`),
-                    KEY `platform_notifications_status_idx` (`status`, `created_at`)
+                    KEY `platform_notifications_status_idx` (`status`, `created_at`),
+                    KEY `platform_notifications_ref_idx` (`source_ref`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
             );
         }
+        souq_ensure_platform_notification_columns($pdo);
         if (!souq_table_exists($pdo, 'platform_services')) {
             $pdo->exec(
                 "CREATE TABLE IF NOT EXISTS `platform_services` (
@@ -245,29 +251,262 @@ function souq_require_master_bearer_ops(PDO $pdo): bool
     return true;
 }
 
-function souq_notify_platform(PDO $pdo, string $title, string $desc, string $category, string $severity, ?string $source = null, ?string $ref = null): void
+function souq_ensure_platform_notification_columns(PDO $pdo): void
 {
     if (!souq_table_exists($pdo, 'platform_notifications')) {
         return;
     }
+    $alters = [
+        'title_ar' => 'VARCHAR(255) NULL',
+        'description_ar' => 'TEXT NULL',
+        'store_id' => 'VARCHAR(64) NULL',
+        'action_tab' => 'VARCHAR(64) NULL',
+    ];
+    foreach ($alters as $col => $def) {
+        $has = function_exists('souq_table_has_column')
+            ? souq_table_has_column($pdo, 'platform_notifications', $col)
+            : false;
+        if ($has) {
+            continue;
+        }
+        try {
+            $pdo->exec("ALTER TABLE `platform_notifications` ADD COLUMN `{$col}` {$def}");
+            if (function_exists('souq_table_has_column')) {
+                souq_table_has_column($pdo, 'platform_notifications', $col, true);
+            }
+        } catch (Throwable) {
+            /* ignore */
+        }
+    }
+}
+
+/**
+ * Insert or refresh a platform notification (idempotent by source_ref when upsert=true).
+ * Live counts stay fresh; acknowledged/archived status is preserved on refresh.
+ *
+ * @param array{title_ar?:?string,description_ar?:?string,store_id?:?string,action_tab?:?string,upsert?:bool} $extra
+ */
+function souq_notify_platform(
+    PDO $pdo,
+    string $title,
+    string $desc,
+    string $category,
+    string $severity,
+    ?string $source = null,
+    ?string $ref = null,
+    array $extra = []
+): void {
+    if (!souq_table_exists($pdo, 'platform_notifications')) {
+        return;
+    }
+    souq_ensure_platform_notification_columns($pdo);
+    $titleAr = isset($extra['title_ar']) ? (string) $extra['title_ar'] : null;
+    $descAr = isset($extra['description_ar']) ? (string) $extra['description_ar'] : null;
+    $storeId = isset($extra['store_id']) ? trim((string) $extra['store_id']) : null;
+    $actionTab = isset($extra['action_tab']) ? trim((string) $extra['action_tab']) : null;
+    $upsert = !empty($extra['upsert']);
+    $now = date('Y-m-d H:i:s');
+    $hasTitleAr = function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'platform_notifications', 'title_ar');
+    $hasDescAr = function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'platform_notifications', 'description_ar');
+    $hasStore = function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'platform_notifications', 'store_id');
+    $hasAction = function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'platform_notifications', 'action_tab');
+
     try {
+        if ($upsert && $ref) {
+            $chk = $pdo->prepare('SELECT id FROM platform_notifications WHERE source_ref = ? LIMIT 1');
+            $chk->execute([$ref]);
+            $existing = $chk->fetch(PDO::FETCH_ASSOC);
+            if ($existing) {
+                $sets = ['title = ?', 'description = ?', 'category = ?', 'severity = ?', 'source = ?', 'updated_at = ?'];
+                $params = [$title, $desc, $category, $severity, $source, $now];
+                if ($hasTitleAr) {
+                    $sets[] = 'title_ar = ?';
+                    $params[] = $titleAr !== '' ? $titleAr : null;
+                }
+                if ($hasDescAr) {
+                    $sets[] = 'description_ar = ?';
+                    $params[] = $descAr !== '' ? $descAr : null;
+                }
+                if ($hasStore) {
+                    $sets[] = 'store_id = ?';
+                    $params[] = $storeId !== '' ? $storeId : null;
+                }
+                if ($hasAction) {
+                    $sets[] = 'action_tab = ?';
+                    $params[] = $actionTab !== '' ? $actionTab : null;
+                }
+                // Preserve status (Acknowledge / Archive stay); only refresh live copy.
+                $params[] = $existing['id'];
+                $pdo->prepare('UPDATE platform_notifications SET ' . implode(', ', $sets) . ' WHERE id = ?')
+                    ->execute($params);
+                return;
+            }
+        }
+
         $id = 'pn-' . bin2hex(random_bytes(8));
+        $cols = ['id', 'title', 'description', 'category', 'severity', 'status', 'source', 'source_ref', 'created_at'];
+        $vals = [$id, $title, $desc, $category, $severity, 'New', $source, $ref, $now];
+        if ($hasTitleAr) {
+            $cols[] = 'title_ar';
+            $vals[] = $titleAr !== '' ? $titleAr : null;
+        }
+        if ($hasDescAr) {
+            $cols[] = 'description_ar';
+            $vals[] = $descAr !== '' ? $descAr : null;
+        }
+        if ($hasStore) {
+            $cols[] = 'store_id';
+            $vals[] = $storeId !== '' ? $storeId : null;
+        }
+        if ($hasAction) {
+            $cols[] = 'action_tab';
+            $vals[] = $actionTab !== '' ? $actionTab : null;
+        }
+        $placeholders = implode(',', array_fill(0, count($cols), '?'));
         $pdo->prepare(
-            'INSERT INTO platform_notifications (id, title, description, category, severity, status, source, source_ref, created_at)
-             VALUES (?,?,?,?,?,?,?,?,?)'
-        )->execute([
-            $id,
-            $title,
-            $desc,
-            $category,
-            $severity,
-            'New',
-            $source,
-            $ref,
-            date('Y-m-d H:i:s'),
-        ]);
+            'INSERT INTO platform_notifications (' . implode(',', $cols) . ') VALUES (' . $placeholders . ')'
+        )->execute($vals);
     } catch (Throwable) {
         /* ignore */
+    }
+}
+
+/** Sync 3 live ops digests + store status signals into platform_notifications (real MySQL counts). */
+function souq_sync_platform_notification_signals(PDO $pdo): void
+{
+    if (!souq_table_exists($pdo, 'platform_notifications')) {
+        return;
+    }
+
+    $scalar = static function (PDO $pdo, string $sql, array $params = []): int {
+        try {
+            $st = $pdo->prepare($sql);
+            $st->execute($params);
+            return (int) ($st->fetchColumn() ?: 0);
+        } catch (Throwable) {
+            return 0;
+        }
+    };
+
+    // 1) Stores digest — always real counts from stores table
+    if (souq_table_exists($pdo, 'stores')) {
+        $total = $scalar($pdo, 'SELECT COUNT(*) FROM stores');
+        $active = $scalar($pdo, "SELECT COUNT(*) FROM stores WHERE LOWER(COALESCE(status,'')) = 'active'");
+        $pending = $scalar($pdo, "SELECT COUNT(*) FROM stores WHERE LOWER(COALESCE(status,'')) = 'pending'");
+        $suspended = $scalar($pdo, "SELECT COUNT(*) FROM stores WHERE LOWER(COALESCE(status,'')) = 'suspended'");
+        $sev = $suspended > 0 ? 'High' : ($pending > 0 ? 'High' : 'Informational');
+        souq_notify_platform(
+            $pdo,
+            'Stores status digest',
+            "{$active} active · {$pending} pending · {$suspended} suspended · {$total} total",
+            'stores',
+            $sev,
+            'ops',
+            'ops-stores-digest',
+            [
+                'title_ar' => 'ملخص حالة المتاجر',
+                'description_ar' => "{$active} نشط · {$pending} قيد المراجعة · {$suspended} موقوف · {$total} الإجمالي",
+                'action_tab' => 'stores',
+                'upsert' => true,
+            ]
+        );
+
+        // Per-store pending/suspended (existing behavior, High severity)
+        foreach (['suspended' => 'High', 'pending' => 'High'] as $stName => $sevRow) {
+            try {
+                $st = $pdo->prepare('SELECT id, name FROM stores WHERE status = ? LIMIT 50');
+                $st->execute([$stName]);
+                while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+                    $ref = $stName . '-' . $row['id'];
+                    $name = (string) ($row['name'] ?? $row['id']);
+                    souq_notify_platform(
+                        $pdo,
+                        $stName === 'suspended' ? 'Store suspended' : 'Store pending review',
+                        $name,
+                        $stName === 'suspended' ? 'stores' : 'onboarding',
+                        $sevRow,
+                        'stores',
+                        $ref,
+                        [
+                            'title_ar' => $stName === 'suspended' ? 'متجر موقوف' : 'متجر بانتظار المراجعة',
+                            'description_ar' => $name,
+                            'store_id' => (string) $row['id'],
+                            'action_tab' => 'stores',
+                            'upsert' => true,
+                        ]
+                    );
+                }
+            } catch (Throwable) {
+                /* ignore */
+            }
+        }
+    }
+
+    // 2) Orders digest — live pending / total from orders table
+    if (souq_table_exists($pdo, 'orders')) {
+        $pendingOrders = $scalar(
+            $pdo,
+            "SELECT COUNT(*) FROM orders WHERE LOWER(COALESCE(status,'')) = 'pending'"
+        );
+        $totalOrders = $scalar($pdo, 'SELECT COUNT(*) FROM orders');
+        $sev = $pendingOrders > 0 ? 'High' : 'Informational';
+        souq_notify_platform(
+            $pdo,
+            'Orders queue digest',
+            "{$pendingOrders} pending · {$totalOrders} total orders across all stores",
+            'orders',
+            $sev,
+            'ops',
+            'ops-orders-digest',
+            [
+                'title_ar' => 'ملخص قائمة الطلبات',
+                'description_ar' => "{$pendingOrders} قيد الانتظار · {$totalOrders} إجمالي الطلبات لجميع المتاجر",
+                'action_tab' => 'reports',
+                'upsert' => true,
+            ]
+        );
+    }
+
+    // 3) Support queue digest — live open tickets (or platform health if no tickets table)
+    if (souq_table_exists($pdo, 'support_tickets')) {
+        $openTickets = $scalar(
+            $pdo,
+            "SELECT COUNT(*) FROM support_tickets WHERE LOWER(COALESCE(status,'')) IN ('open','in_progress','pending')"
+        );
+        $sev = $openTickets > 0 ? 'High' : 'Informational';
+        souq_notify_platform(
+            $pdo,
+            'Support queue digest',
+            "{$openTickets} open support tickets need SuperAdmin attention",
+            'support',
+            $sev,
+            'ops',
+            'ops-support-digest',
+            [
+                'title_ar' => 'ملخص طابور الدعم',
+                'description_ar' => "{$openTickets} تذاكر دعم مفتوحة تحتاج انتباه المشرف العام",
+                'action_tab' => 'support',
+                'upsert' => true,
+            ]
+        );
+    } else {
+        $products = souq_table_exists($pdo, 'products') ? $scalar($pdo, 'SELECT COUNT(*) FROM products') : 0;
+        $customers = souq_table_exists($pdo, 'customers') ? $scalar($pdo, 'SELECT COUNT(*) FROM customers') : 0;
+        souq_notify_platform(
+            $pdo,
+            'Platform health digest',
+            "MySQL live · {$products} products · {$customers} customers indexed",
+            'system',
+            'Informational',
+            'ops',
+            'ops-platform-health',
+            [
+                'title_ar' => 'ملخص صحة المنصة',
+                'description_ar' => "قاعدة البيانات متصلة · {$products} منتج · {$customers} عميل مفهرس",
+                'action_tab' => 'dashboard',
+                'upsert' => true,
+            ]
+        );
     }
 }
 
@@ -634,7 +873,12 @@ function souq_phase1_ops_dispatch(PDO $pdo, string $uri, string $method, string 
         if (function_exists('souq_audit_write')) {
             souq_audit_write($pdo, $input['store_id'] ?? null, 'support_ticket.created', 'support_ticket', $id, ['subject' => $subject]);
         }
-        souq_notify_platform($pdo, 'New support ticket', $subject, 'support', 'High', 'support', $id);
+        souq_notify_platform($pdo, 'New support ticket', $subject, 'support', 'High', 'support', $id, [
+            'title_ar' => 'تذكرة دعم جديدة',
+            'description_ar' => $subject,
+            'store_id' => trim((string) ($input['store_id'] ?? '')) ?: null,
+            'action_tab' => 'support',
+        ]);
         $st = $pdo->prepare('SELECT * FROM support_tickets WHERE id = ?');
         $st->execute([$id]);
         echo json_encode(['data' => $st->fetch(PDO::FETCH_ASSOC)], JSON_UNESCAPED_UNICODE);
@@ -739,27 +983,8 @@ function souq_phase1_ops_dispatch(PDO $pdo, string $uri, string $method, string 
         if (!$needMaster()) {
             return true;
         }
-        // Sync live signals into table (idempotent by source_ref)
-        foreach (['suspended' => ['High', 'stores'], 'pending' => ['Medium', 'onboarding']] as $stName => $meta) {
-            $st = $pdo->prepare('SELECT id, name FROM stores WHERE status = ? LIMIT 50');
-            $st->execute([$stName]);
-            while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
-                $ref = $stName . '-' . $row['id'];
-                $chk = $pdo->prepare('SELECT id FROM platform_notifications WHERE source_ref = ? LIMIT 1');
-                $chk->execute([$ref]);
-                if (!$chk->fetchColumn()) {
-                    souq_notify_platform(
-                        $pdo,
-                        $stName === 'suspended' ? 'Store suspended' : 'Store pending review',
-                        (string) ($row['name'] ?? $row['id']),
-                        $meta[1],
-                        $meta[0],
-                        'stores',
-                        $ref
-                    );
-                }
-            }
-        }
+        // Sync live MySQL digests + store signals (idempotent by source_ref)
+        souq_sync_platform_notification_signals($pdo);
         $status = trim((string) ($_GET['status'] ?? ''));
         $sql = 'SELECT * FROM platform_notifications';
         $params = [];
@@ -767,7 +992,7 @@ function souq_phase1_ops_dispatch(PDO $pdo, string $uri, string $method, string 
             $sql .= ' WHERE status = ?';
             $params[] = $status;
         }
-        $sql .= ' ORDER BY created_at DESC LIMIT 100';
+        $sql .= ' ORDER BY CASE status WHEN \'New\' THEN 0 WHEN \'In Progress\' THEN 1 WHEN \'Acknowledged\' THEN 2 ELSE 3 END, created_at DESC LIMIT 100';
         $q = $pdo->prepare($sql);
         $q->execute($params);
         $rows = $q->fetchAll(PDO::FETCH_ASSOC) ?: [];

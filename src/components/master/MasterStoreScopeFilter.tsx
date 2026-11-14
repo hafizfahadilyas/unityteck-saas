@@ -19,7 +19,13 @@ export type MasterStoreScopeFilterProps = {
   compact?: boolean;
 };
 
-const STATUS_OPTS: Array<'all' | Store['status']> = ['all', 'active', 'pending', 'suspended'];
+const STATUS_OPTS: Array<'all' | Store['status']> = [
+  'all',
+  'active',
+  'pending',
+  'maintenance',
+  'suspended',
+];
 
 /**
  * Searchable store scope for Master pages — scales to 100+ tenants.
@@ -106,6 +112,7 @@ export const MasterStoreScopeFilter: React.FC<MasterStoreScopeFilterProps> = ({
     if (s === 'all') return isAr ? 'الكل' : 'All';
     if (s === 'active') return isAr ? 'نشط' : 'Active';
     if (s === 'pending') return isAr ? 'قيد المراجعة' : 'Pending';
+    if (s === 'maintenance') return isAr ? 'صيانة' : 'Maintenance';
     return isAr ? 'موقوف' : 'Suspended';
   };
 

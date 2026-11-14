@@ -69,6 +69,8 @@ class PlatformSettingsController extends Controller
             'branding.fontWeight' => ['nullable', 'in:light,regular,medium,bold'],
             'branding.customAccentHex' => ['nullable', 'string', 'max:16'],
             'branding.customScrollbarHex' => ['nullable', 'string', 'max:16'],
+            'branding.customBgHex' => ['nullable', 'string', 'max:16'],
+            'branding.customTextHex' => ['nullable', 'string', 'max:16'],
         ]);
 
         $row = PlatformSetting::query()->find(PlatformSetting::ROW_ID);

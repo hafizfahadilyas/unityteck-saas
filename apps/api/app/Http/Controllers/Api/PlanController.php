@@ -26,6 +26,7 @@ class PlanController extends Controller
                 'code' => $code,
                 'id' => $row?->id ?? $meta['id'],
                 'name' => $row?->name ?? $meta['name'],
+                'name_ar' => $meta['name_ar'] ?? null,
                 'price_sar' => $row?->price_sar ?? $meta['price_sar'],
                 'currency' => 'SAR',
                 'product_limit' => $custom ? ($row?->product_limit ?? $meta['product_limit']) : $meta['product_limit'],

@@ -9,9 +9,15 @@ import type {
   PaymentGatewayItem,
   CourierConnectionItem,
   ShippingZone,
+  ShippingMethodItem,
   Product,
   Order,
 } from '../types';
+
+function gatewayEnabled(g: PaymentGatewayItem | Record<string, unknown>): boolean {
+  const row = g as Record<string, unknown>;
+  return Boolean(row.isEnabled ?? row.is_enabled);
+}
 
 export type AlertSeverity = 'critical' | 'action_required' | 'warning' | 'healthy';
 
@@ -91,8 +97,11 @@ export function auditStoreHealth(params: {
   paymentGateways?: PaymentGatewayItem[];
   couriers?: CourierConnectionItem[];
   shippingZones?: ShippingZone[];
+  shippingMethods?: ShippingMethodItem[];
   products?: Product[];
   orders?: Order[];
+  /** When products[] not hydrated yet, trust store.productsCount from API. */
+  catalogCountHint?: number;
 }): StoreHealthReport {
   const {
     store,
@@ -100,8 +109,10 @@ export function auditStoreHealth(params: {
     paymentGateways = [],
     couriers = [],
     shippingZones = [],
+    shippingMethods = [],
     products = [],
     orders = [],
+    catalogCountHint,
   } = params;
 
   const issues: HealthIssue[] = [];
@@ -235,8 +246,8 @@ export function auditStoreHealth(params: {
     });
   }
 
-  // 6. Payment Gateways Check
-  const enabledGateways = paymentGateways.filter((g) => g.isEnabled);
+  // 6. Payment Gateways Check (API may send is_enabled — normalize)
+  const enabledGateways = paymentGateways.filter((g) => gatewayEnabled(g));
   const paymentsConfigured = enabledGateways.length > 0;
   if (!paymentsConfigured) {
     issues.push({
@@ -286,9 +297,10 @@ export function auditStoreHealth(params: {
     });
   }
 
-  // 7. Shipping & Delivery Zones Check
+  // 7. Shipping — zones OR active shipping methods (flat rate / pickup) count as configured
   const activeShippingZones = shippingZones.filter((z) => z.status === 'active');
-  const shippingConfigured = activeShippingZones.length > 0;
+  const activeShippingMethods = shippingMethods.filter((m) => m.isActive !== false);
+  const shippingConfigured = activeShippingZones.length > 0 || activeShippingMethods.length > 0;
   if (!shippingConfigured) {
     issues.push({
       id: `${storeId}-no-shipping-zones`,
@@ -298,10 +310,10 @@ export function auditStoreHealth(params: {
       severity: 'critical',
       title: 'No Active Shipping Zones / Rates',
       titleAr: 'لا توجد مناطق وأسعار شحن مفعلة',
-      description: 'The store has no active delivery zones configured. Customers cannot calculate delivery rates at checkout.',
-      descriptionAr: 'لا توجد مناطق أو مدن شحن مفعلة في المتجر. لن يتمكن المشترون من حساب تكلفة التوصيل.',
-      requiredInfo: 'Configure at least one shipping zone with city/region delivery rates in Shipping Settings.',
-      requiredInfoAr: 'يرجى إضافة منطقة شحن واحدة على الأقل وتحديد أسعار التوصيل في إعدادات الشحن.',
+      description: 'The store has no active delivery zones or shipping methods. Customers cannot calculate delivery rates at checkout.',
+      descriptionAr: 'لا توجد مناطق أو طرق شحن مفعلة في المتجر. لن يتمكن المشترون من حساب تكلفة التوصيل.',
+      requiredInfo: 'Configure at least one shipping zone or shipping method in Shipping Settings.',
+      requiredInfoAr: 'يرجى إضافة منطقة أو طريقة شحن واحدة على الأقل في إعدادات الشحن.',
       targetTab: 'shipping',
       canAutoFix: true,
       impact: 'Delivery address selection will fail at checkout.',
@@ -333,12 +345,15 @@ export function auditStoreHealth(params: {
     });
   }
 
-  // 9. SEO Metadata Check
-  const hasMeta = Boolean(
-    seoConfig?.metaTitle &&
-      seoConfig.metaTitle.trim() !== '' &&
-      seoConfig.metaTitle !== 'Online Store'
-  );
+  // 9. SEO Metadata Check (EN/AR merchant titles count)
+  const metaTitleCombined = [
+    seoConfig?.metaTitle,
+    seoConfig?.metaTitleEn,
+    seoConfig?.metaTitleAr,
+  ]
+    .map((v) => String(v || '').trim())
+    .find((v) => v && v !== 'Online Store');
+  const hasMeta = Boolean(metaTitleCombined);
   const hasSitemap = Boolean(seoConfig?.sitemapUrl && seoConfig.sitemapUrl.trim() !== '');
   if (!hasMeta) {
     issues.push({
@@ -361,9 +376,10 @@ export function auditStoreHealth(params: {
     });
   }
 
-  // 10. Catalog & Products Check
-  const publishedProducts = products.filter((p) => p.status === 'published');
-  const catalogActive = publishedProducts.length > 0;
+  // 10. Catalog & Products Check (Master may not hydrate every store's product rows)
+  const publishedProducts = products.filter((p) => !p.status || p.status === 'published');
+  const hintCount = Number(catalogCountHint ?? store.productsCount ?? 0);
+  const catalogActive = publishedProducts.length > 0 || products.length > 0 || hintCount > 0;
   if (!catalogActive) {
     issues.push({
       id: `${storeId}-no-published-products`,
@@ -437,6 +453,7 @@ export function auditPlatformHealth(params: {
   allPaymentGateways?: Record<string, PaymentGatewayItem[]>;
   allCouriers?: Record<string, CourierConnectionItem[]>;
   allShipping?: Record<string, ShippingZone[]>;
+  allShippingMethods?: Record<string, ShippingMethodItem[]>;
   allProducts?: Record<string, Product[]>;
   allOrders?: Record<string, Order[]>;
 }): PlatformHealthSummary {
@@ -446,6 +463,7 @@ export function auditPlatformHealth(params: {
     allPaymentGateways = {},
     allCouriers = {},
     allShipping = {},
+    allShippingMethods = {},
     allProducts = {},
     allOrders = {},
   } = params;
@@ -469,8 +487,10 @@ export function auditPlatformHealth(params: {
       paymentGateways: allPaymentGateways[store.id] || [],
       couriers: allCouriers[store.id] || [],
       shippingZones: allShipping[store.id] || [],
+      shippingMethods: allShippingMethods[store.id] || [],
       products: allProducts[store.id] || [],
       orders: allOrders[store.id] || [],
+      catalogCountHint: store.productsCount,
     });
 
     storeReports[store.id] = report;

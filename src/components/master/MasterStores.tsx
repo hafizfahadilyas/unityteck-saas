@@ -48,6 +48,7 @@ import {
   getStoreDisplayCategory,
   getStoreDisplayOwner,
 } from '../../utils/storeLocalization';
+import { resolveStoreLogoSrc } from '../../utils/storeLogo';
 import { readAuthSession } from '../../auth/session';
 import { canDeleteEntities } from '../../auth/roles';
 import {
@@ -111,6 +112,68 @@ function resolveDomain(store: StoreType): string {
   return (store.custom_domain || store.domain || store.demo_domain || '').trim();
 }
 
+function storeIconTone(store: StoreType): string {
+  if (store.id.includes('coffee')) return 'var(--tone-warn)';
+  if (store.id.includes('bleco') || store.id.includes('car')) return 'var(--accent)';
+  return 'var(--tone-success)';
+}
+
+const StoreAvatar: React.FC<{
+  store: StoreType;
+  size?: 'sm' | 'md';
+  locale: 'en' | 'ar';
+}> = ({ store, size = 'md', locale }) => {
+  const dim = size === 'sm' ? 'w-8 h-8' : 'w-10 h-10';
+  const name = getStoreDisplayName(store, locale);
+  const tone = storeIconTone(store);
+  const isCoffee = store.id.includes('coffee');
+  const isCars = store.id.includes('bleco') || store.id.includes('car');
+  const logoSrc = resolveStoreLogoSrc(store.logo);
+  const [logoFailed, setLogoFailed] = useState(false);
+
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [logoSrc]);
+
+  if (logoSrc && !logoFailed) {
+    return (
+      <div
+        className={`${dim} rounded-xl border p-0.5 flex items-center justify-center shrink-0 overflow-hidden`}
+        style={{
+          background: 'color-mix(in srgb, var(--accent) 6%, var(--surface))',
+          borderColor: 'var(--border)',
+        }}
+      >
+        <img
+          src={logoSrc}
+          alt={name}
+          className="w-full h-full object-contain"
+          onError={() => setLogoFailed(true)}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <span
+      className={`${dim} rounded-xl flex items-center justify-center shrink-0 border`}
+      style={{
+        background: `color-mix(in srgb, ${tone} 12%, var(--surface))`,
+        color: tone,
+        borderColor: `color-mix(in srgb, ${tone} 30%, var(--border))`,
+      }}
+    >
+      {isCoffee ? (
+        <Coffee className="w-4 h-4" />
+      ) : isCars ? (
+        <Car className="w-4 h-4" />
+      ) : (
+        <Flower2 className="w-4 h-4" />
+      )}
+    </span>
+  );
+};
+
 export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore }) => {
   const {
     stores,
@@ -162,6 +225,7 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
   const statusLabel = (status: string) => {
     if (status === 'active') return isAr ? 'نشط' : 'Active';
     if (status === 'pending') return isAr ? 'معلق' : 'Pending';
+    if (status === 'maintenance') return isAr ? 'صيانة' : 'Maintenance';
     if (status === 'suspended') return isAr ? 'موقوف' : 'Suspended';
     if (status === 'inactive') return isAr ? 'غير نشط' : 'Inactive';
     return status;
@@ -685,58 +749,6 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
         : 'Flowers Hostinger';
   };
 
-  const storeIconTone = (store: StoreType) => {
-    if (store.id.includes('coffee')) return 'var(--tone-warn)';
-    if (store.id.includes('bleco') || store.id.includes('car')) return 'var(--accent)';
-    return 'var(--tone-success)';
-  };
-
-  const StoreAvatar: React.FC<{ store: StoreType; size?: 'sm' | 'md' }> = ({ store, size = 'md' }) => {
-    const dim = size === 'sm' ? 'w-8 h-8' : 'w-10 h-10';
-    const name = getStoreDisplayName(store, locale);
-    const tone = storeIconTone(store);
-    const isCoffee = store.id.includes('coffee');
-    const isCars = store.id.includes('bleco') || store.id.includes('car');
-    if (store.logo) {
-      return (
-        <div
-          className={`${dim} rounded-xl border p-0.5 flex items-center justify-center shrink-0 overflow-hidden`}
-          style={{
-            background: 'color-mix(in srgb, var(--accent) 6%, var(--surface))',
-            borderColor: 'var(--border)',
-          }}
-        >
-          <img
-            src={store.logo}
-            alt={name}
-            className="w-full h-full object-contain"
-            onError={(e) => {
-              (e.currentTarget as HTMLElement).style.display = 'none';
-            }}
-          />
-        </div>
-      );
-    }
-    return (
-      <span
-        className={`${dim} rounded-xl flex items-center justify-center shrink-0 border`}
-        style={{
-          background: `color-mix(in srgb, ${tone} 12%, var(--surface))`,
-          color: tone,
-          borderColor: `color-mix(in srgb, ${tone} 30%, var(--border))`,
-        }}
-      >
-        {isCoffee ? (
-          <Coffee className="w-4 h-4" />
-        ) : isCars ? (
-          <Car className="w-4 h-4" />
-        ) : (
-          <Flower2 className="w-4 h-4" />
-        )}
-      </span>
-    );
-  };
-
   const StatusPill: React.FC<{ store: StoreType }> = ({ store }) => (
     <button
       type="button"
@@ -764,11 +776,17 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                 color: 'var(--tone-danger)',
                 borderColor: 'color-mix(in srgb, var(--tone-danger) 35%, var(--border))',
               }
-            : {
-                background: 'color-mix(in srgb, var(--tone-warn) 12%, var(--surface))',
-                color: 'var(--tone-warn)',
-                borderColor: 'color-mix(in srgb, var(--tone-warn) 35%, var(--border))',
-              }
+            : store.status === 'maintenance'
+              ? {
+                  background: 'color-mix(in srgb, var(--accent) 12%, var(--surface))',
+                  color: 'var(--accent)',
+                  borderColor: 'color-mix(in srgb, var(--accent) 35%, var(--border))',
+                }
+              : {
+                  background: 'color-mix(in srgb, var(--tone-warn) 12%, var(--surface))',
+                  color: 'var(--tone-warn)',
+                  borderColor: 'color-mix(in srgb, var(--tone-warn) 35%, var(--border))',
+                }
       }
     >
       <span
@@ -779,7 +797,9 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
               ? 'var(--tone-success)'
               : store.status === 'suspended'
                 ? 'var(--tone-danger)'
-                : 'var(--tone-warn)',
+                : store.status === 'maintenance'
+                  ? 'var(--accent)'
+                  : 'var(--tone-warn)',
         }}
       />
       {statusLabel(store.status)}
@@ -1348,8 +1368,9 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
             >
               <option value="All">{isAr ? 'جميع الحالات' : 'All Statuses'}</option>
               <option value="active">{isAr ? 'نشط' : 'Active'}</option>
-              <option value="suspended">{isAr ? 'موقوف' : 'Suspended'}</option>
               <option value="pending">{isAr ? 'معلق' : 'Pending'}</option>
+              <option value="maintenance">{isAr ? 'صيانة' : 'Maintenance'}</option>
+              <option value="suspended">{isAr ? 'موقوف' : 'Suspended'}</option>
             </select>
 
             <button
@@ -1584,11 +1605,117 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
         </label>
       </div>
 
-      {/* TABLE VIEW */}
+      {/* TABLE VIEW — table-fixed + breakpoint column hide = zero bottom H-scroll */}
       {viewMode === 'table' && (
-        <div className="u-luxe-panel u-luxe-panel--flush overflow-hidden min-w-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-start text-xs min-w-[980px]">
+        <div className="u-luxe-panel u-luxe-panel--flush overflow-hidden min-w-0 w-full max-w-full">
+          {/* Mobile / tablet: cards (no wide table) */}
+          <div className="md:hidden divide-y" style={{ borderColor: 'var(--border)' }}>
+            {paged.map((store) => {
+              const metrics = getMetrics(store);
+              const name = getStoreDisplayName(store, locale);
+              const cat = getStoreDisplayCategory(store, locale);
+              const domain = resolveDomain(store) || '—';
+              const selected = selectedIds.includes(store.id);
+              const expanded = expandedId === store.id;
+              return (
+                <div key={`m-${store.id}`} className="p-3 space-y-2.5 min-w-0">
+                  <div className="flex items-start gap-2.5 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => toggleSelectOne(store.id)}
+                      className="cursor-pointer shrink-0 mt-1"
+                      style={{ color: selected ? 'var(--accent)' : 'var(--muted)' }}
+                    >
+                      {selected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+                    </button>
+                    <StoreAvatar store={store} size="sm" locale={locale} />
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold truncate text-xs" style={{ color: 'var(--text)' }}>
+                        {name}
+                      </div>
+                      <div className="text-[10px] truncate" style={{ color: 'var(--muted)' }} dir="ltr">
+                        {domain}
+                      </div>
+                      <div className="text-[10px] truncate" style={{ color: 'var(--muted)' }}>
+                        {cat}
+                      </div>
+                    </div>
+                    <StatusPill store={store} />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-[10px] tabular-nums">
+                    <div className="rounded-lg border px-2 py-1.5 min-w-0" style={{ borderColor: 'var(--border)' }}>
+                      <div style={{ color: 'var(--muted)' }}>{isAr ? 'منتجات' : 'Products'}</div>
+                      <div className="font-bold" style={{ color: 'var(--text)' }}>
+                        {amount(metrics.productsCount)}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border px-2 py-1.5 min-w-0" style={{ borderColor: 'var(--border)' }}>
+                      <div style={{ color: 'var(--muted)' }}>{isAr ? 'طلبات' : 'Orders'}</div>
+                      <div className="font-bold" style={{ color: 'var(--text)' }}>
+                        {amount(metrics.ordersCount)}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border px-2 py-1.5 min-w-0" style={{ borderColor: 'var(--border)' }}>
+                      <div style={{ color: 'var(--muted)' }}>{isAr ? 'إيرادات' : 'Revenue'}</div>
+                      <div className="font-bold truncate" style={{ color: 'var(--text)' }}>
+                        {money(metrics.revenue)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span
+                      className="uppercase font-mono text-[10px] px-1.5 py-0.5 rounded font-bold"
+                      style={{
+                        background: 'color-mix(in srgb, var(--accent) 10%, var(--surface))',
+                        color: 'var(--text)',
+                      }}
+                    >
+                      {planLabel(store.plan)}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => switchToStore(store.id)}
+                        className="unity-btn-primary px-2.5 py-1.5 rounded-lg text-[10px] font-extrabold inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        {isAr ? 'دخول' : 'Open'}
+                        <ArrowUpRight className="w-3 h-3 rtl:-scale-x-100" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedId(expanded ? null : store.id)}
+                        className="p-1.5 rounded-lg border cursor-pointer"
+                        style={{ borderColor: 'var(--border)', color: 'var(--accent)' }}
+                      >
+                        {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  {expanded && (
+                    <div className="pt-1 min-w-0 overflow-hidden">
+                      {renderControls(store)}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop table: fits container width — no overflow-x */}
+          <div className="hidden md:block w-full min-w-0 overflow-x-hidden">
+            <table className="w-full max-w-full table-fixed text-start text-xs">
+              <colgroup>
+                <col style={{ width: '2.25rem' }} />
+                <col />
+                <col style={{ width: '6.5rem' }} />
+                <col style={{ width: '6.5rem' }} />
+                <col className="hidden lg:table-column" style={{ width: '12%' }} />
+                <col style={{ width: '4.5rem' }} />
+                <col style={{ width: '4.5rem' }} />
+                <col style={{ width: '7rem' }} />
+                <col className="hidden xl:table-column" style={{ width: '9%' }} />
+                <col style={{ width: '6.5rem' }} />
+              </colgroup>
               <thead>
                 <tr
                   className="border-b text-[11px] font-semibold"
@@ -1598,7 +1725,7 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                     color: 'var(--muted)',
                   }}
                 >
-                  <th className="py-3 px-3 w-10">
+                  <th className="py-2.5 px-1.5 sm:px-2">
                     <button
                       type="button"
                       onClick={toggleSelectAllPage}
@@ -1613,29 +1740,31 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                       )}
                     </button>
                   </th>
-                  <th className="py-3 px-3 text-start">
+                  <th className="py-2.5 px-1.5 sm:px-2 text-start">
                     <SortBtn col="name" label={isAr ? 'المتجر' : 'Store'} />
                   </th>
-                  <th className="py-3 px-3 text-start">
+                  <th className="py-2.5 px-1.5 sm:px-2 text-start">
                     <SortBtn col="status" label={isAr ? 'الحالة' : 'Status'} />
                   </th>
-                  <th className="py-3 px-3 text-start">
+                  <th className="py-2.5 px-1.5 sm:px-2 text-start">
                     <SortBtn col="plan" label={isAr ? 'الباقة' : 'Plan'} />
                   </th>
-                  <th className="py-3 px-3 text-start">
+                  <th className="py-2.5 px-1.5 sm:px-2 text-start hidden lg:table-cell">
                     <SortBtn col="domain" label={isAr ? 'النطاق' : 'Domain'} />
                   </th>
-                  <th className="py-3 px-3 text-end">
+                  <th className="py-2.5 px-1.5 sm:px-2 text-end">
                     <SortBtn col="products" label={isAr ? 'منتجات' : 'Products'} />
                   </th>
-                  <th className="py-3 px-3 text-end">
+                  <th className="py-2.5 px-1.5 sm:px-2 text-end">
                     <SortBtn col="orders" label={isAr ? 'طلبات' : 'Orders'} />
                   </th>
-                  <th className="py-3 px-3 text-end">
+                  <th className="py-2.5 px-1.5 sm:px-2 text-end">
                     <SortBtn col="revenue" label={isAr ? 'إيرادات' : 'Revenue'} />
                   </th>
-                  <th className="py-3 px-3 text-start">{isAr ? 'الاستضافة' : 'Hosting'}</th>
-                  <th className="py-3 px-3 text-end">{isAr ? 'تحكم' : 'Control'}</th>
+                  <th className="py-2.5 px-1.5 sm:px-2 text-start hidden xl:table-cell">
+                    {isAr ? 'الاستضافة' : 'Hosting'}
+                  </th>
+                  <th className="py-2.5 px-1.5 sm:px-2 text-end">{isAr ? 'تحكم' : 'Control'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1660,7 +1789,7 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                               : 'var(--surface)',
                         }}
                       >
-                        <td className="py-3 px-3 align-middle">
+                        <td className="py-2.5 px-1.5 sm:px-2 align-middle">
                           <button
                             type="button"
                             onClick={() => toggleSelectOne(store.id)}
@@ -1674,24 +1803,32 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                             )}
                           </button>
                         </td>
-                        <td className="py-3 px-3 align-middle min-w-[200px]">
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <StoreAvatar store={store} size="sm" />
-                            <div className="min-w-0">
+                        <td className="py-2.5 px-1.5 sm:px-2 align-middle">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <StoreAvatar store={store} size="sm" locale={locale} />
+                            <div className="min-w-0 overflow-hidden">
                               <div className="font-bold truncate" style={{ color: 'var(--text)' }}>
                                 {name}
                               </div>
                               <div className="text-[10px] truncate" style={{ color: 'var(--muted)' }}>
                                 {cat} · {owner}
                               </div>
+                              <div
+                                className="lg:hidden text-[10px] font-mono truncate"
+                                style={{ color: 'var(--muted)' }}
+                                dir="ltr"
+                                title={domain}
+                              >
+                                {domain}
+                              </div>
                             </div>
                           </div>
                         </td>
-                        <td className="py-3 px-3 align-middle">
+                        <td className="py-2.5 px-1.5 sm:px-2 align-middle">
                           <StatusPill store={store} />
                         </td>
-                        <td className="py-3 px-3 align-middle">
-                          <div className="flex items-center gap-1 flex-wrap">
+                        <td className="py-2.5 px-1.5 sm:px-2 align-middle">
+                          <div className="flex items-center gap-1 flex-wrap min-w-0">
                             <span
                               className="uppercase font-mono text-[10px] px-1.5 py-0.5 rounded font-bold"
                               style={{
@@ -1703,7 +1840,7 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                             </span>
                             {store.masterGrantedPro && (
                               <span
-                                className="text-[9px] font-bold border px-1.5 py-0.5 rounded inline-flex items-center gap-0.5"
+                                className="text-[9px] font-bold border px-1 py-0.5 rounded inline-flex items-center gap-0.5"
                                 style={{
                                   background: 'color-mix(in srgb, var(--tone-warn) 12%, var(--surface))',
                                   color: 'var(--tone-warn)',
@@ -1711,46 +1848,56 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                                 }}
                               >
                                 <Crown className="w-2.5 h-2.5" />
-                                {isAr ? 'منحة' : 'Grant'}
+                                <span className="hidden xl:inline">{isAr ? 'منحة' : 'Grant'}</span>
                               </span>
                             )}
                           </div>
                         </td>
-                        <td className="py-3 px-3 align-middle">
-                          <span className="font-mono text-[10px] truncate block max-w-[160px]" dir="ltr" title={domain}>
+                        <td className="py-2.5 px-1.5 sm:px-2 align-middle hidden lg:table-cell">
+                          <span
+                            className="font-mono text-[10px] truncate block"
+                            dir="ltr"
+                            title={domain}
+                          >
                             {domain}
                           </span>
                         </td>
-                        <td className="py-3 px-3 align-middle text-end tabular-nums font-bold">
+                        <td className="py-2.5 px-1.5 sm:px-2 align-middle text-end tabular-nums font-bold">
                           {amount(metrics.productsCount)}
                         </td>
-                        <td className="py-3 px-3 align-middle text-end tabular-nums font-bold">
+                        <td className="py-2.5 px-1.5 sm:px-2 align-middle text-end tabular-nums font-bold">
                           {amount(metrics.ordersCount)}
                         </td>
-                        <td className="py-3 px-3 align-middle text-end tabular-nums font-bold whitespace-nowrap">
-                          {money(metrics.revenue)}
-                        </td>
-                        <td className="py-3 px-3 align-middle">
-                          <span className="inline-flex items-center gap-1 text-[10px]" style={{ color: 'var(--muted)' }}>
-                            <Database className="w-3 h-3" />
-                            {hostLabel(store)}
+                        <td className="py-2.5 px-1.5 sm:px-2 align-middle text-end tabular-nums font-bold">
+                          <span className="truncate block" title={money(metrics.revenue)}>
+                            {money(metrics.revenue)}
                           </span>
                         </td>
-                        <td className="py-3 px-3 align-middle">
-                          <div className="flex items-center justify-end gap-1">
+                        <td className="py-2.5 px-1.5 sm:px-2 align-middle hidden xl:table-cell">
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] min-w-0 max-w-full"
+                            style={{ color: 'var(--muted)' }}
+                            title={hostLabel(store)}
+                          >
+                            <Database className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{hostLabel(store)}</span>
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-1.5 sm:px-2 align-middle">
+                          <div className="flex items-center justify-end gap-1 flex-wrap">
                             <button
                               type="button"
                               onClick={() => switchToStore(store.id)}
-                              className="unity-btn-primary px-2.5 py-1.5 rounded-lg text-[10px] font-extrabold inline-flex items-center gap-1 cursor-pointer"
+                              className="unity-btn-primary px-2 py-1.5 rounded-lg text-[10px] font-extrabold inline-flex items-center gap-1 cursor-pointer shrink-0"
                               title={isAr ? 'الدخول كمتجر' : 'Login as Store'}
                             >
-                              {isAr ? 'دخول' : 'Open'}
+                              <span className="hidden sm:inline">{isAr ? 'دخول' : 'Open'}</span>
                               <ArrowUpRight className="w-3 h-3 rtl:-scale-x-100" />
                             </button>
                             <button
                               type="button"
                               onClick={() => setExpandedId(expanded ? null : store.id)}
-                              className="p-1.5 rounded-lg border cursor-pointer"
+                              className="p-1.5 rounded-lg border cursor-pointer shrink-0"
                               style={{ borderColor: 'var(--border)', color: 'var(--accent)' }}
                               title={isAr ? 'التحكم الكامل' : 'Full controls'}
                             >
@@ -1765,8 +1912,8 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                       </tr>
                       {expanded && (
                         <tr style={{ background: 'color-mix(in srgb, var(--accent) 4%, var(--surface))' }}>
-                          <td colSpan={10} className="px-4 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
-                            <div className="max-w-4xl ms-auto me-0">
+                          <td colSpan={10} className="px-3 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
+                            <div className="w-full max-w-4xl ms-auto me-0 min-w-0 overflow-hidden">
                               <div
                                 className="mb-2 text-[11px] font-extrabold flex items-center gap-1.5"
                                 style={{ color: 'var(--accent)' }}
@@ -1826,7 +1973,7 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                     >
                       {selected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
                     </button>
-                    <StoreAvatar store={store} />
+                    <StoreAvatar store={store} locale={locale} />
                     <div className="min-w-0">
                       <h3 className="font-bold text-sm truncate" style={{ color: 'var(--text)' }}>
                         {name}

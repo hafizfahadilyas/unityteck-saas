@@ -32,6 +32,7 @@ final class Plans
             'free' => [
                 'id' => 'plan-free',
                 'name' => 'Free',
+                'name_ar' => 'مجاني',
                 'price_sar' => 0,
                 'product_limit' => 50,
                 'order_limit' => 100,
@@ -42,6 +43,7 @@ final class Plans
             'paid' => [
                 'id' => 'plan-paid',
                 'name' => 'Paid',
+                'name_ar' => 'مدفوع',
                 'price_sar' => null,
                 'product_limit' => 500,
                 'order_limit' => 2000,
@@ -52,6 +54,7 @@ final class Plans
             'pro' => [
                 'id' => 'plan-pro',
                 'name' => 'Pro',
+                'name_ar' => 'احترافي',
                 'price_sar' => 300,
                 'product_limit' => 5000,
                 'order_limit' => null,
@@ -66,6 +69,7 @@ final class Plans
             'premium' => [
                 'id' => 'plan-premium',
                 'name' => 'Premium',
+                'name_ar' => 'مميز',
                 'price_sar' => 500,
                 'product_limit' => null,
                 'order_limit' => null,
@@ -81,6 +85,7 @@ final class Plans
             'custom' => [
                 'id' => 'plan-custom',
                 'name' => 'Custom',
+                'name_ar' => 'مخصص',
                 'price_sar' => null,
                 'product_limit' => null,
                 'order_limit' => null,

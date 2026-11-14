@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AdminPageShell, AdminPageHeader } from '../common/AdminPageHeader';
+import { AdvancedFilterBar } from '../common/AdvancedFilterBar';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
 import {
@@ -26,6 +27,10 @@ export const MasterMessagingHub: React.FC = () => {
   const [editId, setEditId] = useState('');
   const [bodyEn, setBodyEn] = useState('');
   const [bodyAr, setBodyAr] = useState('');
+  const [filters, setFilters] = useState({ channel: 'all', status: 'all' });
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [search, setSearch] = useState('');
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -60,6 +65,53 @@ export const MasterMessagingHub: React.FC = () => {
     }
   };
 
+  const q = search.trim().toLowerCase();
+  const fromTs = dateFrom ? Date.parse(`${dateFrom}T00:00:00`) : NaN;
+  const toTs = dateTo ? Date.parse(`${dateTo}T23:59:59`) : NaN;
+
+  const filteredChannels = useMemo(() => {
+    return channels.filter((ch) => {
+      if (filters.channel !== 'all' && String(ch.id || '') !== filters.channel) return false;
+      if (filters.status === 'connected' && !ch.connected) return false;
+      if (filters.status === 'disconnected' && ch.connected) return false;
+      if (!q) return true;
+      const hay = `${ch.label_en || ''} ${ch.label_ar || ''} ${ch.id || ''}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [channels, filters, q]);
+
+  const filteredTemplates = useMemo(() => {
+    return templates.filter((t) => {
+      if (filters.channel !== 'all' && String(t.channel || '') !== filters.channel) return false;
+      if (filters.status !== 'all' && String(t.status || '') !== filters.status) return false;
+      if (!q) return true;
+      const hay = `${t.title_en || ''} ${t.title_ar || ''} ${t.template_key || ''}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [templates, filters, q]);
+
+  const filteredDeliveries = useMemo(() => {
+    return deliveries.filter((d) => {
+      if (filters.channel !== 'all' && String(d.channel || '') !== filters.channel) return false;
+      if (filters.status !== 'all' && String(d.status || '') !== filters.status) return false;
+      if (q) {
+        const hay = `${d.recipient || ''} ${d.channel || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      const ts = d.created_at ? Date.parse(String(d.created_at)) : NaN;
+      if (!Number.isNaN(fromTs) && !Number.isNaN(ts) && ts < fromTs) return false;
+      if (!Number.isNaN(toTs) && !Number.isNaN(ts) && ts > toTs) return false;
+      return true;
+    });
+  }, [deliveries, filters, q, fromTs, toTs]);
+
+  const activeFilterCount =
+    (filters.channel !== 'all' ? 1 : 0) +
+    (filters.status !== 'all' ? 1 : 0) +
+    (dateFrom ? 1 : 0) +
+    (dateTo ? 1 : 0) +
+    (search.trim() ? 1 : 0);
+
   return (
     <AdminPageShell>
       <AdminPageHeader
@@ -88,9 +140,73 @@ export const MasterMessagingHub: React.FC = () => {
         ]}
       />
 
+      <div className="mt-3 flex flex-col gap-2">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={isAr ? 'بحث…' : 'Search…'}
+          className="w-full sm:w-72 text-xs px-3 py-2 rounded-xl border"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
+        />
+        <AdvancedFilterBar
+          fields={[
+            {
+              key: 'channel',
+              label: isAr ? 'القناة' : 'Channel',
+              options: [
+                { value: 'all', label: isAr ? 'كل القنوات' : 'All channels' },
+                { value: 'email', label: isAr ? 'البريد الإلكتروني' : 'Email' },
+                { value: 'sms', label: isAr ? 'الرسائل النصية' : 'SMS' },
+                { value: 'in_app', label: isAr ? 'داخل المنصة' : 'In-app' },
+              ],
+            },
+            {
+              key: 'status',
+              label: isAr ? 'الحالة' : 'Status',
+              options:
+                tab === 'channels'
+                  ? [
+                      { value: 'all', label: isAr ? 'الكل' : 'All' },
+                      { value: 'connected', label: isAr ? 'متصل' : 'Connected' },
+                      { value: 'disconnected', label: isAr ? 'غير متصل' : 'Not connected' },
+                    ]
+                  : [
+                      { value: 'all', label: isAr ? 'كل الحالات' : 'All statuses' },
+                      { value: 'draft', label: isAr ? 'مسودة' : 'Draft' },
+                      { value: 'active', label: isAr ? 'نشط' : 'Active' },
+                      { value: 'queued', label: isAr ? 'في الطابور' : 'Queued' },
+                      { value: 'failed', label: isAr ? 'فشل' : 'Failed' },
+                    ],
+            },
+          ]}
+          filterValues={filters}
+          onFilterChange={(key, value) => setFilters((prev) => ({ ...prev, [key]: value }))}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onDateFromChange={setDateFrom}
+          onDateToChange={setDateTo}
+          showDates={tab === 'deliveries'}
+          activeCount={activeFilterCount}
+          onReset={() => {
+            setFilters({ channel: 'all', status: 'all' });
+            setDateFrom('');
+            setDateTo('');
+            setSearch('');
+          }}
+        />
+      </div>
+
       {tab === 'channels' ? (
         <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-          {channels.map((ch) => (
+          {filteredChannels.length === 0 ? (
+            <MasterLuxePanel className="md:col-span-3" padding="lg">
+              <p className="text-center text-sm" style={{ color: 'var(--muted)' }}>
+                {isAr ? 'لا توجد سجلات' : 'No records found'}
+              </p>
+            </MasterLuxePanel>
+          ) : null}
+          {filteredChannels.map((ch) => (
             <MasterLuxePanel key={String(ch.id)} padding="lg" className="space-y-2">
               <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>
                 {isAr ? String(ch.label_ar || ch.label_en) : String(ch.label_en || ch.label_ar)}
@@ -125,13 +241,13 @@ export const MasterMessagingHub: React.FC = () => {
       {tab === 'templates' ? (
         <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
           <MasterLuxePanel padding="none">
-            {templates.length === 0 ? (
+            {filteredTemplates.length === 0 ? (
               <div className="p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
                 {isAr ? 'لا توجد سجلات' : 'No records found'}
               </div>
             ) : (
               <ul className="divide-y" style={{ borderColor: 'var(--border)' }}>
-                {templates.map((t) => (
+                {filteredTemplates.map((t) => (
                   <li key={String(t.id)}>
                     <button
                       type="button"
@@ -167,24 +283,36 @@ export const MasterMessagingHub: React.FC = () => {
             <MasterMetaLine>
               {isAr ? 'المتغيرات: الاسم، رقم الطلب، تاريخ الانتهاء' : 'Variables: name, request_id, expiry_date'}
             </MasterMetaLine>
-            <textarea
-              value={bodyAr}
-              onChange={(e) => setBodyAr(e.target.value)}
-              rows={4}
-              disabled={!editId}
-              placeholder={isAr ? 'المحتوى بالعربية' : 'Arabic body'}
-              className="w-full rounded-xl border text-sm px-3 py-2 bg-transparent disabled:opacity-50"
-              style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-            />
-            <textarea
-              value={bodyEn}
-              onChange={(e) => setBodyEn(e.target.value)}
-              rows={4}
-              disabled={!editId}
-              placeholder={isAr ? 'المحتوى بالإنجليزية' : 'English body'}
-              className="w-full rounded-xl border text-sm px-3 py-2 bg-transparent disabled:opacity-50"
-              style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-            />
+            <div>
+              <label className="block text-[10px] font-bold mb-1" style={{ color: 'var(--muted)' }}>
+                {isAr ? 'المحتوى (بالعربية)' : 'Body (Arabic)'}
+              </label>
+              <textarea
+                value={bodyAr}
+                onChange={(e) => setBodyAr(e.target.value)}
+                rows={4}
+                dir="rtl"
+                disabled={!editId}
+                placeholder={isAr ? 'اكتب نص القالب بالعربية…' : 'Template body in Arabic…'}
+                className="w-full rounded-xl border text-sm px-3 py-2 bg-transparent disabled:opacity-50"
+                style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold mb-1" style={{ color: 'var(--muted)' }}>
+                {isAr ? 'المحتوى (بالإنجليزية)' : 'Body (English)'}
+              </label>
+              <textarea
+                value={bodyEn}
+                onChange={(e) => setBodyEn(e.target.value)}
+                rows={4}
+                dir="ltr"
+                disabled={!editId}
+                placeholder={isAr ? 'اكتب نص القالب بالإنجليزية…' : 'Template body in English…'}
+                className="w-full rounded-xl border text-sm px-3 py-2 bg-transparent disabled:opacity-50"
+                style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+              />
+            </div>
             <button type="button" className="unity-btn-primary text-sm" disabled={!editId} onClick={() => void saveTemplate()}>
               {isAr ? 'حفظ' : 'Save'}
             </button>
@@ -194,7 +322,7 @@ export const MasterMessagingHub: React.FC = () => {
 
       {tab === 'deliveries' ? (
         <MasterLuxePanel className="mt-4 overflow-x-auto" padding="none">
-          {deliveries.length === 0 ? (
+          {filteredDeliveries.length === 0 ? (
             <div className="p-10 text-center space-y-2">
               <p className="text-sm" style={{ color: 'var(--muted)' }}>
                 {isAr ? 'لا توجد سجلات' : 'No records found'}
@@ -216,7 +344,7 @@ export const MasterMessagingHub: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {deliveries.map((d) => (
+                {filteredDeliveries.map((d) => (
                   <tr key={String(d.id)} style={{ borderTop: '1px solid var(--border)' }}>
                     <td className="p-3 text-xs">{String(d.recipient)}</td>
                     <td className="p-3 text-xs">{String(d.channel)}</td>

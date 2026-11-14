@@ -212,13 +212,17 @@ export const MasterPlansSubscriptions: React.FC = () => {
 
   const subscribersByPlan = useMemo(() => {
     const map = new Map<string, number>();
-    for (const row of subs) {
-      const code = String(row.plan || '').toLowerCase();
+    // Prefer live subscription rows; fall back to platform stores.plan when API list empty
+    const source =
+      subs.length > 0
+        ? subs.map((row) => String(row.plan || '').toLowerCase())
+        : stores.map((s) => String(s.plan || '').toLowerCase());
+    for (const code of source) {
       if (!code) continue;
       map.set(code, (map.get(code) || 0) + 1);
     }
     return map;
-  }, [subs]);
+  }, [subs, stores]);
 
   const openPlanSubs = (planCode: string) => {
     setTab('subscriptions');
@@ -407,13 +411,13 @@ export const MasterPlansSubscriptions: React.FC = () => {
       </MasterKpiGrid>
 
       {tab === 'plans' ? (
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 min-w-0 w-full max-w-full overflow-x-hidden">
           {busy && plans.length === 0 ? (
-            <div className="text-sm" style={{ color: 'var(--muted)' }}>
+            <div className="text-sm col-span-full" style={{ color: 'var(--muted)' }}>
               {isAr ? 'جاري التحميل…' : 'Loading…'}
             </div>
           ) : plans.length === 0 ? (
-            <div className="text-sm" style={{ color: 'var(--muted)' }}>
+            <div className="text-sm col-span-full" style={{ color: 'var(--muted)' }}>
               {isAr ? 'لا توجد باقات' : 'No records found'}
             </div>
           ) : (
@@ -425,6 +429,9 @@ export const MasterPlansSubscriptions: React.FC = () => {
                 ? (p.features as string[])
                 : [];
               const subCount = subscribersByPlan.get(code) || 0;
+              const planNameAr = p.name_ar != null ? String(p.name_ar) : '';
+              const planNameEn = String(p.name || p.code || '');
+              const planTitle = isAr && planNameAr ? planNameAr : planNameEn;
               const priceLabel =
                 p.price_sar == null
                   ? isAr
@@ -443,7 +450,7 @@ export const MasterPlansSubscriptions: React.FC = () => {
               return (
                 <article
                   key={String(p.id || p.code)}
-                  className={`u-plan-luxe${featured ? ' u-plan-luxe--featured' : ''}`}
+                  className={`u-plan-luxe min-w-0${featured ? ' u-plan-luxe--featured' : ''}`}
                 >
                   {featured ? (
                     <span className="u-plan-luxe__badge">
@@ -462,7 +469,7 @@ export const MasterPlansSubscriptions: React.FC = () => {
                       <Icon className="w-4 h-4" />
                     </span>
                     <div className="min-w-0 pe-10">
-                      <h3 className="u-plan-luxe__title">{String(p.name || p.code)}</h3>
+                      <h3 className="u-plan-luxe__title">{planTitle}</h3>
                       <p className="u-plan-luxe__code">{code || '—'}</p>
                     </div>
                   </div>

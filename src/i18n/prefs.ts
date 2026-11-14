@@ -130,7 +130,25 @@ function parseBrand(raw: unknown): BrandState {
         ? b.customScrollbarHex.trim()
         : `#${b.customScrollbarHex.trim()}`
       : null;
-  return { palette, font, fontEn, fontAr, iconStyle, fontWeight, customAccentHex, customScrollbarHex };
+  const normalizeHex = (raw: unknown): string | null => {
+    if (typeof raw !== 'string' || !/^#?[0-9a-fA-F]{3,8}$/.test(raw.trim())) return null;
+    const t = raw.trim();
+    return t.startsWith('#') ? t : `#${t}`;
+  };
+  const customBgHex = normalizeHex(b.customBgHex);
+  const customTextHex = normalizeHex(b.customTextHex);
+  return {
+    palette,
+    font,
+    fontEn,
+    fontAr,
+    iconStyle,
+    fontWeight,
+    customAccentHex,
+    customScrollbarHex,
+    customBgHex,
+    customTextHex,
+  };
 }
 
 export function readPrefs(): PrefsState {

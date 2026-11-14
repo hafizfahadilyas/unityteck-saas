@@ -40,7 +40,8 @@ export interface Store {
   masterGrantedPro: boolean;
   /** Master override: Free unlocks N templates per Canva category (null = plan default 5). Pro ignores. */
   canvaTemplatesPerCategory?: number | null;
-  status: 'active' | 'pending' | 'suspended';
+  /** Operational lifecycle — not the same as login_email_active or subscription_status. */
+  status: 'active' | 'pending' | 'suspended' | 'maintenance';
   productsCount: number;
   ordersCount: number;
   revenue: number;
@@ -72,6 +73,8 @@ export interface Store {
   contactPhone?: string;
   phone?: string;
   email?: string;
+  city?: string;
+  country?: string;
   taxNumber?: string;
   crNumber?: string;
   /** Linked local workspace directory path */

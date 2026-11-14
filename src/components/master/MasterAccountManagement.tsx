@@ -65,19 +65,32 @@ type MerchantRow = {
   masterGrantedPro: boolean;
 };
 
+type StoreLifecycleStatus = 'active' | 'suspended' | 'pending' | 'maintenance';
+type SubscriptionLifecycle = 'active' | 'trial' | 'grace' | 'cancelled' | 'pending';
+
 type EditDraft = {
   storeId: string;
   storeName: string;
+  storeNameAr: string;
+  storeNameEn: string;
   email: string;
   originalEmail: string;
   phone: string;
   ownerName: string;
-  status: 'active' | 'suspended' | 'pending';
-  originalStatus: 'active' | 'suspended' | 'pending';
+  category: string;
+  domain: string;
+  customDomain: string;
+  city: string;
+  status: StoreLifecycleStatus;
+  originalStatus: StoreLifecycleStatus;
   plan: PlanType;
   loginEmailActive: boolean;
   originalLoginEmailActive: boolean;
   masterGrantedPro: boolean;
+  subscriptionStatus: SubscriptionLifecycle;
+  currency: 'SAR' | 'USD' | 'AED' | 'EUR';
+  locale: 'en' | 'ar';
+  timezone: string;
   reason: string;
 };
 
@@ -128,7 +141,9 @@ export const MasterAccountManagement: React.FC<{
   const pageSize = 10;
   const [emailAccessEpoch, setEmailAccessEpoch] = useState(0);
   const [storeScope, setStoreScope] = useState<string>('all');
-  const [storeStatus, setStoreStatus] = useState<'all' | 'active' | 'pending' | 'suspended'>('all');
+  const [storeStatus, setStoreStatus] = useState<
+    'all' | 'active' | 'pending' | 'suspended' | 'maintenance'
+  >('all');
 
   const [invites, setInvites] = useState<OnboardingInvite[]>([]);
   const [verifications, setVerifications] = useState<Array<Record<string, unknown>>>([]);
@@ -137,7 +152,7 @@ export const MasterAccountManagement: React.FC<{
   const [verStoreId, setVerStoreId] = useState('');
   const [verReason, setVerReason] = useState('');
   const [actionStoreId, setActionStoreId] = useState<string | null>(null);
-  const [actionStatus, setActionStatus] = useState<'active' | 'suspended' | 'pending'>('active');
+  const [actionStatus, setActionStatus] = useState<StoreLifecycleStatus>('active');
   const [actionReason, setActionReason] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
 
@@ -289,25 +304,49 @@ export const MasterAccountManagement: React.FC<{
   };
 
   const openEdit = (m: MerchantRow) => {
+    const store = stores.find((s) => s.id === m.id);
     const status = (
-      m.status === 'active' || m.status === 'pending' || m.status === 'suspended'
+      m.status === 'active' ||
+      m.status === 'pending' ||
+      m.status === 'suspended' ||
+      m.status === 'maintenance'
         ? m.status
-        : 'suspended'
+        : store?.status === 'maintenance'
+          ? 'maintenance'
+          : 'pending'
     ) as EditDraft['status'];
     const loginActive = isStoreLoginEmailActive(m.id);
+    const subRaw = String(store?.subscription_status || 'active').toLowerCase();
+    const subscriptionStatus = (
+      ['active', 'trial', 'grace', 'cancelled', 'pending'].includes(subRaw)
+        ? subRaw
+        : 'active'
+    ) as SubscriptionLifecycle;
+    const currency = (store?.currency || 'SAR') as EditDraft['currency'];
+    const localeVal = store?.locale === 'ar' ? 'ar' : 'en';
     setEditDraft({
       storeId: m.id,
-      storeName: m.storeName,
+      storeName: store?.name || m.storeName || '',
+      storeNameAr: store?.nameAr || '',
+      storeNameEn: store?.nameEn || store?.name || m.storeName || '',
       email: m.email === '—' ? '' : m.email,
       originalEmail: m.email === '—' ? '' : m.email.trim().toLowerCase(),
-      phone: m.phone || '',
-      ownerName: m.name || '',
+      phone: m.phone || store?.phone || store?.contactPhone || '',
+      ownerName: m.name || store?.owner || '',
+      category: store?.category || '',
+      domain: store?.domain || store?.demo_domain || '',
+      customDomain: store?.custom_domain || '',
+      city: store?.city || '',
       status,
       originalStatus: status,
       plan: (PLAN_OPTIONS.includes(m.plan as PlanType) ? m.plan : 'free') as PlanType,
       loginEmailActive: loginActive,
       originalLoginEmailActive: loginActive,
       masterGrantedPro: m.masterGrantedPro,
+      subscriptionStatus,
+      currency: ['SAR', 'USD', 'AED', 'EUR'].includes(currency) ? currency : 'SAR',
+      locale: localeVal,
+      timezone: store?.timezone || 'Asia/Riyadh',
       reason: '',
     });
   };
@@ -344,9 +383,18 @@ export const MasterAccountManagement: React.FC<{
       return;
     }
 
+    const nextStoreName =
+      editDraft.storeNameEn.trim() ||
+      editDraft.storeName.trim() ||
+      editDraft.storeNameAr.trim();
+    if (!nextStoreName) {
+      toast(isAr ? 'اسم المتجر مطلوب' : 'Store name is required', 'error');
+      return;
+    }
+
     setEditBusy(true);
     const store = stores.find((s) => s.id === editDraft.storeId);
-    const storeName = store ? getStoreDisplayName(store, locale) : editDraft.storeName || editDraft.storeId;
+    const storeName = nextStoreName || (store ? getStoreDisplayName(store, locale) : editDraft.storeId);
     const prevStatus = store?.status || null;
     const auditReason =
       reason ||
@@ -362,14 +410,26 @@ export const MasterAccountManagement: React.FC<{
 
       if (isApiEnabled()) {
         await updateStore(editDraft.storeId, {
+          name: nextStoreName,
+          name_en: editDraft.storeNameEn.trim() || nextStoreName,
+          name_ar: editDraft.storeNameAr.trim() || null,
           email: nextEmail,
           owner_email: nextEmail,
           phone: editDraft.phone.trim() || null,
           owner_name: editDraft.ownerName.trim() || null,
+          category: editDraft.category.trim() || null,
+          domain: editDraft.domain.trim() || null,
+          custom_domain: editDraft.customDomain.trim() || null,
+          city: editDraft.city.trim() || null,
           status: editDraft.status,
           plan: editDraft.plan,
           login_email_active: editDraft.loginEmailActive,
           master_granted_pro: editDraft.masterGrantedPro,
+          subscription_status: editDraft.subscriptionStatus,
+          currency: editDraft.currency,
+          locale: editDraft.locale,
+          text_direction: editDraft.locale === 'ar' ? 'rtl' : 'ltr',
+          timezone: editDraft.timezone,
           reason: auditReason,
         });
       } else if (statusChanged) {
@@ -1116,7 +1176,7 @@ export const MasterAccountManagement: React.FC<{
                   {isAr ? 'تعديل الحساب بالكامل' : 'Full account edit'}
                 </h3>
                 <p className="text-[11px] mt-1 opacity-90 truncate">
-                  {editDraft.storeName}
+                  {editDraft.storeNameEn || editDraft.storeName || editDraft.storeNameAr || '—'}
                   <span className="opacity-80 font-mono ms-1" dir="ltr">
                     · {editDraft.storeId}
                   </span>
@@ -1209,6 +1269,51 @@ export const MasterAccountManagement: React.FC<{
                   </h4>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                      {isAr ? 'اسم المتجر (إنجليزي)' : 'Store name (English)'}
+                    </span>
+                    <input
+                      type="text"
+                      value={editDraft.storeNameEn}
+                      onChange={(e) =>
+                        setEditDraft({
+                          ...editDraft,
+                          storeNameEn: e.target.value,
+                          storeName: e.target.value,
+                        })
+                      }
+                      className="w-full rounded-xl text-sm px-3 py-2.5 outline-none"
+                      style={{
+                        background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
+                        color: 'var(--input-fg, var(--text))',
+                        boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
+                      }}
+                      placeholder={isAr ? 'مثال: Makkah Flowers' : 'e.g. Makkah Flowers'}
+                      disabled={editBusy}
+                    />
+                  </label>
+
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                      {isAr ? 'اسم المتجر (عربي)' : 'Store name (Arabic)'}
+                    </span>
+                    <input
+                      type="text"
+                      dir="rtl"
+                      value={editDraft.storeNameAr}
+                      onChange={(e) => setEditDraft({ ...editDraft, storeNameAr: e.target.value })}
+                      className="w-full rounded-xl text-sm px-3 py-2.5 outline-none"
+                      style={{
+                        background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
+                        color: 'var(--input-fg, var(--text))',
+                        boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
+                      }}
+                      placeholder={isAr ? 'مثال: هدايا مكة' : 'e.g. هدايا مكة'}
+                      disabled={editBusy}
+                    />
+                  </label>
+
                   <label className="block space-y-1.5 sm:col-span-2">
                     <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>
                       {isAr ? 'اسم المالك / التاجر' : 'Owner / merchant name'}
@@ -1249,6 +1354,84 @@ export const MasterAccountManagement: React.FC<{
 
                   <label className="block space-y-1.5">
                     <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                      {isAr ? 'التصنيف' : 'Category'}
+                    </span>
+                    <input
+                      type="text"
+                      value={editDraft.category}
+                      onChange={(e) => setEditDraft({ ...editDraft, category: e.target.value })}
+                      className="w-full rounded-xl text-sm px-3 py-2.5 outline-none"
+                      style={{
+                        background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
+                        color: 'var(--input-fg, var(--text))',
+                        boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
+                      }}
+                      placeholder={isAr ? 'زهور، قهوة، سيارات…' : 'Flowers, Coffee, Cars…'}
+                      disabled={editBusy}
+                    />
+                  </label>
+
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                      {isAr ? 'المدينة' : 'City'}
+                    </span>
+                    <input
+                      type="text"
+                      value={editDraft.city}
+                      onChange={(e) => setEditDraft({ ...editDraft, city: e.target.value })}
+                      className="w-full rounded-xl text-sm px-3 py-2.5 outline-none"
+                      style={{
+                        background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
+                        color: 'var(--input-fg, var(--text))',
+                        boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
+                      }}
+                      placeholder={isAr ? 'مكة المكرمة' : 'Makkah'}
+                      disabled={editBusy}
+                    />
+                  </label>
+
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                      {isAr ? 'النطاق / الدومين' : 'Domain'}
+                    </span>
+                    <input
+                      type="text"
+                      dir="ltr"
+                      value={editDraft.domain}
+                      onChange={(e) => setEditDraft({ ...editDraft, domain: e.target.value })}
+                      className="w-full rounded-xl text-sm px-3 py-2.5 font-mono outline-none"
+                      style={{
+                        background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
+                        color: 'var(--input-fg, var(--text))',
+                        boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
+                      }}
+                      placeholder="giftshop-sa.com"
+                      disabled={editBusy}
+                    />
+                  </label>
+
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                      {isAr ? 'النطاق المخصص' : 'Custom domain'}
+                    </span>
+                    <input
+                      type="text"
+                      dir="ltr"
+                      value={editDraft.customDomain}
+                      onChange={(e) => setEditDraft({ ...editDraft, customDomain: e.target.value })}
+                      className="w-full rounded-xl text-sm px-3 py-2.5 font-mono outline-none"
+                      style={{
+                        background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
+                        color: 'var(--input-fg, var(--text))',
+                        boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
+                      }}
+                      placeholder="www.example.com"
+                      disabled={editBusy}
+                    />
+                  </label>
+
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>
                       {isAr ? 'حالة المتجر' : 'Store status'}
                     </span>
                     <select
@@ -1269,8 +1452,14 @@ export const MasterAccountManagement: React.FC<{
                     >
                       <option value="active">{isAr ? 'نشط' : 'Active'}</option>
                       <option value="pending">{isAr ? 'قيد المراجعة' : 'Pending'}</option>
+                      <option value="maintenance">{isAr ? 'صيانة' : 'Maintenance'}</option>
                       <option value="suspended">{isAr ? 'موقوف' : 'Suspended'}</option>
                     </select>
+                    <span className="text-[10px] block" style={{ color: 'var(--muted)' }}>
+                      {isAr
+                        ? 'نشط = يعمل · قيد المراجعة = انتظار الموافقة · صيانة = إيقاف مؤقت · موقوف = حظر (بحذر)'
+                        : 'Active = live · Pending = under review · Maintenance = temp offline · Suspended = blocked (use carefully)'}
+                    </span>
                   </label>
 
                   <label className="block space-y-1.5">
@@ -1295,6 +1484,122 @@ export const MasterAccountManagement: React.FC<{
                           {planLabel(p, isAr)}
                         </option>
                       ))}
+                    </select>
+                  </label>
+
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                      {isAr ? 'حالة الاشتراك' : 'Subscription status'}
+                    </span>
+                    <select
+                      value={editDraft.subscriptionStatus}
+                      onChange={(e) =>
+                        setEditDraft({
+                          ...editDraft,
+                          subscriptionStatus: e.target.value as SubscriptionLifecycle,
+                        })
+                      }
+                      className="w-full rounded-xl text-sm px-3 py-2.5 outline-none"
+                      style={{
+                        background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
+                        color: 'var(--input-fg, var(--text))',
+                        boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
+                      }}
+                      disabled={editBusy}
+                    >
+                      <option value="active">{isAr ? 'نشط' : 'Active'}</option>
+                      <option value="trial">{isAr ? 'تجريبي' : 'Trial'}</option>
+                      <option value="grace">{isAr ? 'فترة سماح' : 'Grace'}</option>
+                      <option value="pending">{isAr ? 'قيد الانتظار' : 'Pending'}</option>
+                      <option value="cancelled">{isAr ? 'ملغى' : 'Cancelled'}</option>
+                    </select>
+                    <span className="text-[10px] block" style={{ color: 'var(--muted)' }}>
+                      {isAr
+                        ? 'منفصل عن حالة المتجر — دورة الفوترة والاشتراك'
+                        : 'Separate from store status — billing / subscription lifecycle'}
+                    </span>
+                  </label>
+
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                      {isAr ? 'العملة' : 'Currency'}
+                    </span>
+                    <select
+                      value={editDraft.currency}
+                      onChange={(e) =>
+                        setEditDraft({
+                          ...editDraft,
+                          currency: e.target.value as EditDraft['currency'],
+                        })
+                      }
+                      className="w-full rounded-xl text-sm px-3 py-2.5 outline-none"
+                      style={{
+                        background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
+                        color: 'var(--input-fg, var(--text))',
+                        boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
+                      }}
+                      disabled={editBusy}
+                    >
+                      <option value="SAR">{isAr ? 'ريال سعودي' : 'SAR'}</option>
+                      <option value="AED">{isAr ? 'درهم إماراتي' : 'AED'}</option>
+                      <option value="USD">{isAr ? 'دولار أمريكي' : 'USD'}</option>
+                      <option value="EUR">{isAr ? 'يورو' : 'EUR'}</option>
+                    </select>
+                  </label>
+
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                      {isAr ? 'لغة المتجر الافتراضية' : 'Default store locale'}
+                    </span>
+                    <select
+                      value={editDraft.locale}
+                      onChange={(e) =>
+                        setEditDraft({
+                          ...editDraft,
+                          locale: e.target.value as 'en' | 'ar',
+                        })
+                      }
+                      className="w-full rounded-xl text-sm px-3 py-2.5 outline-none"
+                      style={{
+                        background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
+                        color: 'var(--input-fg, var(--text))',
+                        boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
+                      }}
+                      disabled={editBusy}
+                    >
+                      <option value="ar">{isAr ? 'العربية' : 'Arabic'}</option>
+                      <option value="en">{isAr ? 'الإنجليزية' : 'English'}</option>
+                    </select>
+                  </label>
+
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                      {isAr ? 'المنطقة الزمنية' : 'Timezone'}
+                    </span>
+                    <select
+                      value={editDraft.timezone}
+                      onChange={(e) => setEditDraft({ ...editDraft, timezone: e.target.value })}
+                      className="w-full rounded-xl text-sm px-3 py-2.5 outline-none"
+                      style={{
+                        background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
+                        color: 'var(--input-fg, var(--text))',
+                        boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
+                      }}
+                      disabled={editBusy}
+                    >
+                      <option value="Asia/Riyadh">
+                        {isAr ? 'الرياض (السعودية)' : 'Asia/Riyadh (Saudi Arabia)'}
+                      </option>
+                      <option value="Asia/Dubai">
+                        {isAr ? 'دبي (الإمارات)' : 'Asia/Dubai (UAE)'}
+                      </option>
+                      <option value="Asia/Kuwait">
+                        {isAr ? 'الكويت' : 'Asia/Kuwait'}
+                      </option>
+                      <option value="Asia/Bahrain">
+                        {isAr ? 'البحرين' : 'Asia/Bahrain'}
+                      </option>
+                      <option value="UTC">UTC</option>
                     </select>
                   </label>
 

@@ -435,6 +435,25 @@ export async function fetchMasterOpsJobs(): Promise<{
   return apiFetch('/master/ops/jobs', { portal: 'master' });
 }
 
+/** Master Updates — persisted platform_updates (MySQL). */
+export async function fetchMasterUpdates(): Promise<{
+  data: Array<Record<string, unknown>>;
+  meta?: { total?: number; source?: string };
+}> {
+  return apiFetch('/master/updates', { portal: 'master' });
+}
+
+export async function patchMasterUpdate(
+  id: string,
+  payload: Record<string, unknown>,
+): Promise<{ ok?: boolean; data?: Record<string, unknown> }> {
+  return apiFetch(`/master/updates/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    portal: 'master',
+    body: payload,
+  });
+}
+
 export async function fetchMasterOpsErrors(): Promise<{
   data: Array<Record<string, unknown>>;
   meta?: { total?: number; source?: string };
@@ -2930,9 +2949,57 @@ export async function trackCourierShipment(storeId: string, trackingNumber: stri
 
 // ── Real Online Payment Gateway APIs ──
 
-export async function fetchPaymentGateways(storeId: string): Promise<any[]> {
+export function mapPaymentGatewayRow(
+  row: Record<string, unknown>,
+  storeId: string,
+): import('../types').PaymentGatewayItem {
+  const supportedRaw = row.supported_methods ?? row.supportedMethods;
+  const supportedMethods = Array.isArray(supportedRaw)
+    ? (supportedRaw as string[])
+    : typeof supportedRaw === 'string'
+      ? (() => {
+          try {
+            const parsed = JSON.parse(supportedRaw);
+            return Array.isArray(parsed) ? (parsed as string[]) : [];
+          } catch {
+            return [];
+          }
+        })()
+      : [];
+  return {
+    id: String(row.id || ''),
+    storeId: String(row.store_id || row.storeId || storeId),
+    provider: (row.provider as import('../types').PaymentGatewayProvider) || 'cod',
+    title: String(row.title || row.provider || 'Gateway'),
+    titleAr: row.title_ar != null ? String(row.title_ar) : row.titleAr != null ? String(row.titleAr) : undefined,
+    isEnabled: Boolean(row.is_enabled ?? row.isEnabled ?? false),
+    isSandbox: Boolean(row.is_sandbox ?? row.isSandbox ?? false),
+    publicKey: row.public_key != null ? String(row.public_key) : row.publicKey != null ? String(row.publicKey) : undefined,
+    maskedSecretKey:
+      row.masked_secret_key != null
+        ? String(row.masked_secret_key)
+        : row.maskedSecretKey != null
+          ? String(row.maskedSecretKey)
+          : undefined,
+    supportedMethods,
+    transactionFeePercent: Number(row.transaction_fee_percent ?? row.transactionFeePercent ?? 0),
+    transactionFeeFixed: Number(row.transaction_fee_fixed ?? row.transactionFeeFixed ?? 0),
+    status: (row.status as import('../types').PaymentGatewayItem['status']) || 'disconnected',
+    webhookUrl: row.webhook_url != null ? String(row.webhook_url) : row.webhookUrl != null ? String(row.webhookUrl) : undefined,
+    lastTestedAt:
+      row.last_tested_at != null
+        ? String(row.last_tested_at)
+        : row.lastTestedAt != null
+          ? String(row.lastTestedAt)
+          : undefined,
+  };
+}
+
+export async function fetchPaymentGateways(
+  storeId: string,
+): Promise<import('../types').PaymentGatewayItem[]> {
   const res = await apiFetch<ListResponse<any>>('/payment-gateways', { storeId });
-  return res.data ?? [];
+  return (res.data ?? []).map((row) => mapPaymentGatewayRow(row as Record<string, unknown>, storeId));
 }
 
 export async function savePaymentGateway(storeId: string, payload: Record<string, unknown>): Promise<any> {

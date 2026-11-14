@@ -13,49 +13,10 @@ export function getStoreDisplayName(store?: Partial<Store> | null, locale: strin
 
   const isAr = locale === 'ar';
   const rawName = (store.name || '').trim();
-  const slug = (store.slug || '').toLowerCase();
-  const id = String(store.id || '');
 
-  // 1. Check known store IDs / slugs / names first for clean parity
-  if (
-    id === 'store-1' ||
-    id === '1' ||
-    slug === 'giftshop-sa' ||
-    slug === 'makkah-fresh-flowers' ||
-    /هدايا مكة|ورود مكة|gift ?shop|makkah/i.test(rawName)
-  ) {
-    if (isAr) {
-      return store.name || store.nameAr || 'هدايا مكة';
-    }
-    return store.nameEn || 'Makkah Flowers';
-  }
-
-  if (
-    id === 'store-coffee' ||
-    slug === 'coffee-store' ||
-    /قهوة|coffee/i.test(rawName)
-  ) {
-    if (isAr) {
-      return store.nameAr || store.name || 'متجر القهوة المختصة';
-    }
-    return store.nameEn || 'Specialty Coffee Roasters';
-  }
-
-  if (
-    id === 'store-bleco' ||
-    id === 'store-car' ||
-    slug === 'alsaeedi-cars' ||
-    /سعيدي|سيارات|bleco|car/i.test(rawName)
-  ) {
-    if (isAr) {
-      return store.nameAr || store.name || 'متجر السعيدي لخدمات السيارات';
-    }
-    return store.nameEn || 'Al-Saeedi Car Services & Accessories';
-  }
-
-  // 2. Explicit localized fields
+  // Prefer Master-edited bilingual fields first (no hard-locked demo names).
   if (isAr) {
-    if (store.nameAr && !store.nameAr.includes('(')) return store.nameAr;
+    if (store.nameAr && !store.nameAr.includes('(')) return store.nameAr.trim();
     if (/[\u0600-\u06FF]/.test(rawName)) {
       const cleaned = rawName.replace(/\s*\([^)]*\)\s*$/, '').trim();
       const parts = cleaned.split(/[-–—]/);
@@ -65,7 +26,7 @@ export function getStoreDisplayName(store?: Partial<Store> | null, locale: strin
     }
     return store.nameAr || rawName || 'المتجر';
   } else {
-    if (store.nameEn && !/[\u0600-\u06FF]/.test(store.nameEn)) return store.nameEn;
+    if (store.nameEn && !/[\u0600-\u06FF]/.test(store.nameEn)) return store.nameEn.trim();
     // Extract English within parentheses or after hyphen if present
     const matchParen = rawName.match(/\(([^)]+)\)/);
     if (matchParen && /^[A-Za-z0-9\s&'-]+$/.test(matchParen[1].trim())) {
@@ -320,38 +281,21 @@ export function shortStoreOwnerName(name: string): string {
 export function getStoreDisplayOwner(store?: Partial<Store> | null, locale: string = 'ar'): string {
   if (!store) return '';
   const isAr = locale === 'ar';
-  const id = String(store.id || '');
   const owner = (store.owner || '').trim();
   const ownerAr = shortStoreOwnerName((store.ownerAr || '').trim());
   const ownerEn = shortStoreOwnerName((store.ownerEn || '').trim());
 
-  if (id === 'store-1') {
-    return shortStoreOwnerName(
-      isAr ? ownerAr || OWNER_MAP_TO_AR[owner] || 'متجر هدايا مكة' : ownerEn || OWNER_MAP_TO_EN[owner] || 'Makkah Gifts Store',
-    );
-  }
-  if (id === 'store-coffee') {
-    return shortStoreOwnerName(
-      isAr ? ownerAr || OWNER_MAP_TO_AR[owner] || 'ريان السليمان' : ownerEn || OWNER_MAP_TO_EN[owner] || 'Rayan Al-Sulaiman',
-    );
-  }
-  if (id === 'store-bleco') {
-    return shortStoreOwnerName(
-      isAr
-        ? ownerAr || OWNER_MAP_TO_AR[owner] || 'متجر السعيدي لخدمات السيارات'
-        : ownerEn || OWNER_MAP_TO_EN[owner] || 'Al-Saeedi Car Services',
-    );
-  }
-
+  // Master-edited owner_name / owner wins — no hard-locked demo owner labels.
   if (isAr) {
     if (ownerAr) return ownerAr;
+    if (/[\u0600-\u06FF]/.test(owner)) return shortStoreOwnerName(owner);
     if (OWNER_MAP_TO_AR[owner]) return OWNER_MAP_TO_AR[owner];
     return shortStoreOwnerName(owner);
   }
   if (ownerEn && !/[\u0600-\u06FF]/.test(ownerEn)) return ownerEn;
+  if (owner && !/[\u0600-\u06FF]/.test(owner)) return shortStoreOwnerName(owner);
   if (OWNER_MAP_TO_EN[owner]) return OWNER_MAP_TO_EN[owner];
-  if (!/[\u0600-\u06FF]/.test(owner) && owner) return shortStoreOwnerName(owner);
-  return shortStoreOwnerName(ownerEn || OWNER_MAP_TO_EN[owner] || owner);
+  return shortStoreOwnerName(ownerEn || owner);
 }
 
 export function getProductDisplayName(product?: Partial<Product> | null, locale: string = 'ar'): string {

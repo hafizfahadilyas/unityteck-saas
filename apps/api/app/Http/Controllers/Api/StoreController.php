@@ -142,13 +142,21 @@ class StoreController extends Controller
 
         $data = $request->validate([
             'name' => ['sometimes', 'string', 'max:191'],
+            'name_ar' => ['nullable', 'string', 'max:191'],
+            'name_en' => ['nullable', 'string', 'max:191'],
             'slug' => ['sometimes', 'string', 'max:191', Rule::unique('stores', 'slug')->ignore($store->id)],
             'domain' => ['nullable', 'string', 'max:191'],
-            'status' => ['sometimes', Rule::in(['active', 'inactive', 'pending', 'suspended'])],
+            'custom_domain' => ['nullable', 'string', 'max:191'],
+            'demo_domain' => ['nullable', 'string', 'max:191'],
+            'status' => ['sometimes', Rule::in(['active', 'inactive', 'pending', 'suspended', 'maintenance'])],
             'plan' => ['sometimes', Rule::in(['free', 'paid', 'pro', 'premium', 'custom'])],
             'master_granted_pro' => ['sometimes', 'boolean'],
             'canva_templates_per_category' => ['nullable', 'integer', 'min:1', 'max:100'],
             'currency' => ['sometimes', 'string', 'max:10'],
+            'locale' => ['sometimes', Rule::in(['en', 'ar'])],
+            'text_direction' => ['sometimes', Rule::in(['ltr', 'rtl'])],
+            'timezone' => ['nullable', 'string', 'max:64'],
+            'subscription_status' => ['sometimes', Rule::in(['active', 'trial', 'grace', 'cancelled', 'pending'])],
             'phone' => ['nullable', 'string', 'max:32'],
             'email' => ['nullable', 'email', 'max:191'],
             'owner_email' => ['nullable', 'email', 'max:191'],
@@ -187,6 +195,16 @@ class StoreController extends Controller
             $data['email'] = $data['owner_email'];
         }
         unset($data['owner_email']);
+
+        // Bilingual labels may live outside fillable columns; prefer name_en for primary name.
+        $nameEn = array_key_exists('name_en', $data) ? trim((string) ($data['name_en'] ?? '')) : null;
+        $nameAr = array_key_exists('name_ar', $data) ? trim((string) ($data['name_ar'] ?? '')) : null;
+        unset($data['name_en'], $data['name_ar']);
+        if ($nameEn !== null && $nameEn !== '' && ! array_key_exists('name', $data)) {
+            $data['name'] = $nameEn;
+        } elseif ($nameEn !== null && $nameEn !== '') {
+            $data['name'] = $nameEn;
+        }
 
         $previous = [
             'status' => $store->status,

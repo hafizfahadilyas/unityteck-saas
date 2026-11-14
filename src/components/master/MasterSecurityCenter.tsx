@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AdminPageShell, AdminPageHeader } from '../common/AdminPageHeader';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
@@ -16,10 +16,19 @@ import {
   revokeMasterSessions,
 } from '../../api/tenantApi';
 import { readAuthSession, clearAuthSession } from '../../auth/session';
-import { RefreshCw, ShieldCheck, Search, Plus } from 'lucide-react';
+import { RefreshCw, ShieldCheck, Plus } from 'lucide-react';
 import { MasterLuxePanel, MasterMetaLine, MasterTabPills, masterGhostBtnClass } from './MasterUiKit';
+import { MasterStoreScopeFilter } from './MasterStoreScopeFilter';
+import { AdvancedFilterBar } from '../common/AdvancedFilterBar';
+import { AdvancedDataTable, type AdvancedTableColumn } from '../common/AdvancedDataTable';
+import { pipelineAdvancedList, useAdvancedListState } from '../../hooks/useAdvancedListState';
 
 type SecTab = 'audit' | 'sessions' | 'logins' | 'admins' | 'roles';
+
+type AuditRow = Record<string, unknown>;
+type SessionRow = Record<string, unknown>;
+type LoginRow = Record<string, unknown>;
+type AdminRow = Record<string, unknown>;
 
 const ROLE_LABELS: Record<string, { en: string; ar: string }> = {
   super_admin: { en: 'Super Admin', ar: 'المشرف الأعلى' },
@@ -47,26 +56,60 @@ export const MasterSecurityCenter: React.FC = () => {
   const { toast } = useToast();
   const session = readAuthSession();
   const [busy, setBusy] = useState(false);
-  const [rows, setRows] = useState<Array<Record<string, unknown>>>([]);
-  const [sessions, setSessions] = useState<Array<Record<string, unknown>>>([]);
-  const [attempts, setAttempts] = useState<Array<Record<string, unknown>>>([]);
-  const [admins, setAdmins] = useState<Array<Record<string, unknown>>>([]);
+  const [rows, setRows] = useState<AuditRow[]>([]);
+  const [sessions, setSessions] = useState<SessionRow[]>([]);
+  const [attempts, setAttempts] = useState<LoginRow[]>([]);
+  const [admins, setAdmins] = useState<AdminRow[]>([]);
   const [matrix, setMatrix] = useState<Record<string, Record<string, boolean>>>({});
   const [permList, setPermList] = useState<string[]>([]);
   const [meta, setMeta] = useState<{ total?: number; last_refresh?: string; source?: string }>({});
-  const [q, setQ] = useState('');
   const [meEmail, setMeEmail] = useState(session?.user?.email || '');
   const [secTab, setSecTab] = useState<SecTab>('audit');
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newRole, setNewRole] = useState('read_only_auditor');
   const [mfaStatus, setMfaStatus] = useState('deferred');
+  const [storeScope, setStoreScope] = useState<string>('all');
+  const [storeStatus, setStoreStatus] = useState<'all' | 'active' | 'pending' | 'suspended'>('all');
+
+  const auditList = useAdvancedListState({
+    initialPageSize: 10,
+    initialSortKey: 'when',
+    initialSortDir: 'desc',
+    initialFilters: { action: 'all', entity: 'all' },
+  });
+  const sessionList = useAdvancedListState({
+    initialPageSize: 10,
+    initialSortKey: 'email',
+    initialSortDir: 'asc',
+    initialFilters: { status: 'all' },
+  });
+  const loginList = useAdvancedListState({
+    initialPageSize: 10,
+    initialSortKey: 'when',
+    initialSortDir: 'desc',
+    initialFilters: { result: 'all' },
+  });
+  const adminList = useAdvancedListState({
+    initialPageSize: 10,
+    initialSortKey: 'name',
+    initialSortDir: 'asc',
+    initialFilters: { role: 'all', status: 'all' },
+  });
 
   const load = useCallback(async () => {
     setBusy(true);
     try {
+      const actionFilter =
+        auditList.filters.action && auditList.filters.action !== 'all'
+          ? String(auditList.filters.action)
+          : undefined;
       const [logs, me, sess, loginAttempts, adminRes, roleRes, mfa] = await Promise.all([
-        fetchAuditLogs({ per_page: 50, action: q.trim() || undefined }),
+        fetchAuditLogs({
+          per_page: 100,
+          action: actionFilter,
+          store_id: storeScope !== 'all' ? storeScope : undefined,
+        }),
         fetchAuthMe().catch(() => null),
         fetchMasterSessions().catch(() => ({ data: [] })),
         fetchMasterLoginAttempts().catch(() => ({ data: [] })),
@@ -92,21 +135,168 @@ export const MasterSecurityCenter: React.FC = () => {
     } finally {
       setBusy(false);
     }
-  }, [isAr, q, toast]);
+  }, [isAr, toast, auditList.filters.action, storeScope]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const revokeOne = async (id: string) => {
-    try {
-      await revokeMasterSessions({ session_id: id });
-      toast(isAr ? 'تم إنهاء الجلسة' : 'Session terminated', 'success');
-      await load();
-    } catch {
-      toast(isAr ? 'فشل الإنهاء' : 'Revoke failed', 'error');
+  const actionOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      const a = String(r.action || '').trim();
+      if (a) set.add(a);
     }
-  };
+    return Array.from(set).sort();
+  }, [rows]);
+
+  const entityOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      const e = String(r.entity_type || '').trim();
+      if (e) set.add(e);
+    }
+    return Array.from(set).sort();
+  }, [rows]);
+
+  const scopedAudits = useMemo(() => {
+    if (storeScope === 'all') return rows;
+    return rows.filter((r) => String(r.store_id || '') === storeScope);
+  }, [rows, storeScope]);
+
+  const auditPipe = useMemo(
+    () =>
+      pipelineAdvancedList({
+        rows: scopedAudits,
+        search: auditList.search,
+        getSearchBlob: (row) =>
+          `${row.action} ${row.entity_type} ${row.entity_id} ${row.store_id} ${row.user_id}`,
+        filters: auditList.filters,
+        matchFilter: (row, key, value) => {
+          if (key === 'action') return String(row.action || '') === value;
+          if (key === 'entity') return String(row.entity_type || '') === value;
+          return true;
+        },
+        dateFrom: auditList.dateFrom,
+        dateTo: auditList.dateTo,
+        getDate: (row) => (row.created_at ? String(row.created_at) : null),
+        sortKey: auditList.sortKey,
+        sortDir: auditList.sortDir,
+        getSortValue: (row, key) => {
+          if (key === 'when') return String(row.created_at || '');
+          if (key === 'action') return String(row.action || '');
+          if (key === 'entity') return `${row.entity_type || ''}:${row.entity_id || ''}`;
+          if (key === 'store') return String(row.store_id || '');
+          return '';
+        },
+        page: auditList.page,
+        pageSize: auditList.pageSize,
+      }),
+    [scopedAudits, auditList],
+  );
+
+  const sessionPipe = useMemo(
+    () =>
+      pipelineAdvancedList({
+        rows: sessions,
+        search: sessionList.search,
+        getSearchBlob: (row) => `${row.email} ${row.ip_address} ${row.user_agent}`,
+        filters: sessionList.filters,
+        matchFilter: (row, key, value) => {
+          if (key === 'status') {
+            const isActive = Boolean(row.active) && !row.revoked_at;
+            if (value === 'active') return isActive;
+            if (value === 'revoked') return !isActive;
+            return true;
+          }
+          return true;
+        },
+        sortKey: sessionList.sortKey,
+        sortDir: sessionList.sortDir,
+        getSortValue: (row, key) => {
+          if (key === 'email') return String(row.email || '');
+          if (key === 'ip') return String(row.ip_address || '');
+          if (key === 'status') return row.active ? 1 : 0;
+          return '';
+        },
+        page: sessionList.page,
+        pageSize: sessionList.pageSize,
+      }),
+    [sessions, sessionList],
+  );
+
+  const loginPipe = useMemo(
+    () =>
+      pipelineAdvancedList({
+        rows: attempts,
+        search: loginList.search,
+        getSearchBlob: (row) => `${row.email} ${row.ip_address}`,
+        filters: loginList.filters,
+        matchFilter: (row, key, value) => {
+          if (key === 'result') {
+            if (value === 'ok') return Boolean(row.success);
+            if (value === 'fail') return !row.success;
+            return true;
+          }
+          return true;
+        },
+        dateFrom: loginList.dateFrom,
+        dateTo: loginList.dateTo,
+        getDate: (row) => (row.created_at ? String(row.created_at) : null),
+        sortKey: loginList.sortKey,
+        sortDir: loginList.sortDir,
+        getSortValue: (row, key) => {
+          if (key === 'when') return String(row.created_at || '');
+          if (key === 'email') return String(row.email || '');
+          if (key === 'result') return row.success ? 1 : 0;
+          if (key === 'ip') return String(row.ip_address || '');
+          return '';
+        },
+        page: loginList.page,
+        pageSize: loginList.pageSize,
+      }),
+    [attempts, loginList],
+  );
+
+  const adminPipe = useMemo(
+    () =>
+      pipelineAdvancedList({
+        rows: admins,
+        search: adminList.search,
+        getSearchBlob: (row) => `${row.name} ${row.email} ${row.role} ${row.status}`,
+        filters: adminList.filters,
+        matchFilter: (row, key, value) => {
+          if (key === 'role') return String(row.role || '') === value;
+          if (key === 'status') return String(row.status || '') === value;
+          return true;
+        },
+        sortKey: adminList.sortKey,
+        sortDir: adminList.sortDir,
+        getSortValue: (row, key) => {
+          if (key === 'name') return String(row.name || '');
+          if (key === 'email') return String(row.email || '');
+          if (key === 'role') return String(row.role || '');
+          if (key === 'status') return String(row.status || '');
+          return '';
+        },
+        page: adminList.page,
+        pageSize: adminList.pageSize,
+      }),
+    [admins, adminList],
+  );
+
+  const revokeOne = useCallback(
+    async (id: string) => {
+      try {
+        await revokeMasterSessions({ session_id: id });
+        toast(isAr ? 'تم إنهاء الجلسة' : 'Session terminated', 'success');
+        await load();
+      } catch {
+        toast(isAr ? 'فشل الإنهاء' : 'Revoke failed', 'error');
+      }
+    },
+    [isAr, toast, load],
+  );
 
   const revokeAll = async () => {
     try {
@@ -148,15 +338,222 @@ export const MasterSecurityCenter: React.FC = () => {
     }
   };
 
-  const setAdminStatus = async (id: string, status: string) => {
-    try {
-      await patchMasterAdmin(id, { status });
-      toast(isAr ? 'تم تحديث الحالة' : 'Status updated', 'success');
-      await load();
-    } catch {
-      toast(isAr ? 'فشل التحديث' : 'Update failed', 'error');
-    }
-  };
+  const setAdminStatus = useCallback(
+    async (id: string, status: string) => {
+      try {
+        await patchMasterAdmin(id, { status });
+        toast(isAr ? 'تم تحديث الحالة' : 'Status updated', 'success');
+        await load();
+      } catch {
+        toast(isAr ? 'فشل التحديث' : 'Update failed', 'error');
+      }
+    },
+    [isAr, toast, load],
+  );
+
+  const auditColumns = useMemo<AdvancedTableColumn<AuditRow>[]>(
+    () => [
+      {
+        key: 'when',
+        header: isAr ? 'الوقت' : 'When',
+        sortable: true,
+        render: (row) => (
+          <span className="text-xs" style={{ color: 'var(--muted)' }}>
+            {String(row.created_at || '—')}
+          </span>
+        ),
+      },
+      {
+        key: 'action',
+        header: isAr ? 'الإجراء' : 'Action',
+        sortable: true,
+        render: (row) => (
+          <span className="font-semibold" style={{ color: 'var(--text)' }}>
+            {String(row.action || '—')}
+          </span>
+        ),
+      },
+      {
+        key: 'entity',
+        header: isAr ? 'الكيان' : 'Entity',
+        sortable: true,
+        render: (row) => (
+          <span className="text-xs" style={{ color: 'var(--muted)' }}>
+            {row.entity_type ? `${row.entity_type}:${row.entity_id || ''}` : '—'}
+          </span>
+        ),
+      },
+      {
+        key: 'store',
+        header: isAr ? 'المتجر' : 'Store',
+        sortable: true,
+        render: (row) => (
+          <span className="text-xs font-mono" style={{ color: 'var(--muted)' }}>
+            {String(row.store_id || '—')}
+          </span>
+        ),
+      },
+    ],
+    [isAr],
+  );
+
+  const sessionColumns = useMemo<AdvancedTableColumn<SessionRow>[]>(
+    () => [
+      {
+        key: 'email',
+        header: isAr ? 'البريد الإلكتروني' : 'Email',
+        sortable: true,
+        render: (row) => <span className="text-xs">{String(row.email)}</span>,
+      },
+      {
+        key: 'ip',
+        header: isAr ? 'الشبكة' : 'IP',
+        sortable: true,
+        render: (row) => (
+          <span className="text-xs font-mono">{String(row.ip_address || '—')}</span>
+        ),
+      },
+      {
+        key: 'status',
+        header: isAr ? 'الحالة' : 'Status',
+        sortable: true,
+        render: (row) => (
+          <span className="text-xs">
+            {row.active ? (isAr ? 'نشطة' : 'Active') : isAr ? 'منتهية' : 'Revoked'}
+          </span>
+        ),
+      },
+      {
+        key: 'action',
+        header: isAr ? 'إجراء' : 'Action',
+        render: (row) =>
+          row.active ? (
+            <button
+              type="button"
+              className="text-xs font-bold"
+              style={{ color: '#e11d48' }}
+              onClick={() => void revokeOne(String(row.id))}
+            >
+              {isAr ? 'إنهاء' : 'Terminate'}
+            </button>
+          ) : (
+            '—'
+          ),
+      },
+    ],
+    [isAr, revokeOne],
+  );
+
+  const loginColumns = useMemo<AdvancedTableColumn<LoginRow>[]>(
+    () => [
+      {
+        key: 'when',
+        header: isAr ? 'الوقت' : 'When',
+        sortable: true,
+        render: (row) => <span className="text-xs">{String(row.created_at)}</span>,
+      },
+      {
+        key: 'email',
+        header: isAr ? 'البريد الإلكتروني' : 'Email',
+        sortable: true,
+        render: (row) => <span className="text-xs">{String(row.email)}</span>,
+      },
+      {
+        key: 'result',
+        header: isAr ? 'النتيجة' : 'Result',
+        sortable: true,
+        render: (row) => (
+          <span
+            className="text-xs font-bold"
+            style={{ color: row.success ? '#059669' : '#e11d48' }}
+          >
+            {row.success ? (isAr ? 'نجاح' : 'OK') : isAr ? 'فشل' : 'Fail'}
+          </span>
+        ),
+      },
+      {
+        key: 'ip',
+        header: isAr ? 'الشبكة' : 'IP',
+        sortable: true,
+        render: (row) => (
+          <span className="text-xs font-mono">{String(row.ip_address || '—')}</span>
+        ),
+      },
+    ],
+    [isAr],
+  );
+
+  const adminColumns = useMemo<AdvancedTableColumn<AdminRow>[]>(
+    () => [
+      {
+        key: 'name',
+        header: isAr ? 'الاسم' : 'Name',
+        sortable: true,
+        render: (row) => (
+          <span className="font-semibold" style={{ color: 'var(--text)' }}>
+            {String(row.name)}
+          </span>
+        ),
+      },
+      {
+        key: 'email',
+        header: isAr ? 'البريد الإلكتروني' : 'Email',
+        sortable: true,
+        render: (row) => (
+          <span className="text-xs" style={{ color: 'var(--muted)' }}>
+            {String(row.email)}
+          </span>
+        ),
+      },
+      {
+        key: 'role',
+        header: isAr ? 'الدور' : 'Role',
+        sortable: true,
+        render: (row) => (
+          <span className="text-xs">
+            {ROLE_LABELS[String(row.role)]
+              ? isAr
+                ? ROLE_LABELS[String(row.role)].ar
+                : ROLE_LABELS[String(row.role)].en
+              : String(row.role)}
+          </span>
+        ),
+      },
+      {
+        key: 'status',
+        header: isAr ? 'الحالة' : 'Status',
+        sortable: true,
+        render: (row) => <span className="text-xs">{String(row.status)}</span>,
+      },
+      {
+        key: 'action',
+        header: isAr ? 'إجراء' : 'Action',
+        render: (row) =>
+          String(row.status) === 'active' ? (
+            <button
+              type="button"
+              className="text-xs font-bold"
+              style={{ color: '#e11d48' }}
+              onClick={() => void setAdminStatus(String(row.id), 'inactive')}
+            >
+              {isAr ? 'تعطيل' : 'Deactivate'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="text-xs font-bold"
+              style={{ color: '#059669' }}
+              onClick={() => void setAdminStatus(String(row.id), 'active')}
+            >
+              {isAr ? 'تفعيل' : 'Activate'}
+            </button>
+          ),
+      },
+    ],
+    [isAr, setAdminStatus],
+  );
+
+  const scopeFilterCount = (storeScope !== 'all' ? 1 : 0) + (storeStatus !== 'all' ? 1 : 0);
 
   return (
     <AdminPageShell>
@@ -232,153 +629,183 @@ export const MasterSecurityCenter: React.FC = () => {
       />
 
       {secTab === 'audit' ? (
-        <>
-          <div className="mt-4 relative max-w-md">
-            <Search
-              className="absolute top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
-              style={{ [isAr ? 'right' : 'left']: 12, color: 'var(--muted)' }}
-              aria-hidden
-            />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') void load();
-              }}
-              className="w-full rounded-xl border text-sm py-2.5 bg-transparent"
-              style={{
-                borderColor: 'var(--border)',
-                color: 'var(--text)',
-                paddingInlineStart: 36,
-                paddingInlineEnd: 12,
-              }}
-              placeholder={isAr ? 'تصفية حسب نوع الإجراء…' : 'Filter by action type…'}
-            />
-          </div>
+        <div className="mt-4 space-y-3">
+          <MasterStoreScopeFilter
+            value={storeScope}
+            onChange={setStoreScope}
+            statusFilter={storeStatus}
+            onStatusFilterChange={setStoreStatus}
+            showStatusChips
+          />
+          <AdvancedFilterBar
+            fields={[]}
+            filterValues={{}}
+            onFilterChange={() => undefined}
+            dateFrom={auditList.dateFrom}
+            dateTo={auditList.dateTo}
+            onDateFromChange={auditList.setDateFrom}
+            onDateToChange={auditList.setDateTo}
+            showDates
+            activeCount={
+              scopeFilterCount +
+              (auditList.dateFrom ? 1 : 0) +
+              (auditList.dateTo ? 1 : 0)
+            }
+            onReset={() => {
+              setStoreScope('all');
+              setStoreStatus('all');
+              auditList.resetAll();
+            }}
+          />
           <MasterMetaLine>
             {isAr ? 'المصدر' : 'Source'}: {meta.source || 'audit_logs'} · {meta.total ?? rows.length}
           </MasterMetaLine>
-          <MasterLuxePanel className="mt-3 overflow-x-auto" padding="none">
-            {rows.length === 0 ? (
-              <div className="p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
-                {isAr ? 'لا توجد سجلات' : 'No records found'}
-              </div>
-            ) : (
-              <table className="w-full text-sm min-w-[720px]">
-                <thead>
-                  <tr style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                    <th className="text-start p-3 font-semibold">{isAr ? 'الوقت' : 'When'}</th>
-                    <th className="text-start p-3 font-semibold">{isAr ? 'الإجراء' : 'Action'}</th>
-                    <th className="text-start p-3 font-semibold">{isAr ? 'الكيان' : 'Entity'}</th>
-                    <th className="text-start p-3 font-semibold">{isAr ? 'المتجر' : 'Store'}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr key={String(r.id)} style={{ borderTop: '1px solid var(--border)' }}>
-                      <td className="p-3 text-xs" style={{ color: 'var(--muted)' }}>
-                        {String(r.created_at || '—')}
-                      </td>
-                      <td className="p-3 font-semibold" style={{ color: 'var(--text)' }}>
-                        {String(r.action || '—')}
-                      </td>
-                      <td className="p-3 text-xs" style={{ color: 'var(--muted)' }}>
-                        {r.entity_type ? `${r.entity_type}:${r.entity_id || ''}` : '—'}
-                      </td>
-                      <td className="p-3 text-xs font-mono" style={{ color: 'var(--muted)' }}>
-                        {String(r.store_id || '—')}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </MasterLuxePanel>
-        </>
+          <AdvancedDataTable
+            rows={auditPipe.pageRows}
+            columns={auditColumns}
+            rowKey={(row) => String(row.id)}
+            search={auditList.search}
+            onSearchChange={auditList.setSearch}
+            searchPlaceholder={isAr ? 'بحث في الإجراءات…' : 'Search actions…'}
+            sortKey={auditList.sortKey}
+            sortDir={auditList.sortDir}
+            onSort={auditList.onSort}
+            page={auditPipe.safePage}
+            pageSize={auditList.pageSize}
+            onPageChange={auditList.setPage}
+            onPageSizeChange={auditList.setPageSize}
+            total={auditPipe.total}
+            loading={busy && rows.length === 0}
+            emptyMessage={isAr ? 'لا توجد سجلات' : 'No records found'}
+            filters={
+              <AdvancedFilterBar
+                showDates={false}
+                filterValues={auditList.filters}
+                onFilterChange={auditList.setFilter}
+                onReset={auditList.resetAll}
+                activeCount={auditList.activeFilterCount}
+                fields={[
+                  {
+                    key: 'action',
+                    label: isAr ? 'الإجراء' : 'Action',
+                    options: [
+                      { value: 'all', label: isAr ? 'كل الإجراءات' : 'All actions' },
+                      ...actionOptions.map((a) => ({ value: a, label: a })),
+                    ],
+                  },
+                  {
+                    key: 'entity',
+                    label: isAr ? 'الكيان' : 'Entity',
+                    options: [
+                      { value: 'all', label: isAr ? 'كل الكيانات' : 'All entities' },
+                      ...entityOptions.map((e) => ({ value: e, label: e })),
+                    ],
+                  },
+                ]}
+              />
+            }
+          />
+        </div>
       ) : null}
 
       {secTab === 'sessions' ? (
-        <MasterLuxePanel className="mt-4 overflow-x-auto" padding="none">
-          {sessions.length === 0 ? (
-            <div className="p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
-              {isAr
+        <div className="mt-4 space-y-2">
+          <MasterMetaLine>
+            {isAr ? 'المصدر' : 'Source'}: master_sessions · {sessions.length}
+          </MasterMetaLine>
+          <AdvancedDataTable
+            rows={sessionPipe.pageRows}
+            columns={sessionColumns}
+            rowKey={(row) => String(row.id)}
+            search={sessionList.search}
+            onSearchChange={sessionList.setSearch}
+            searchPlaceholder={isAr ? 'بحث بالبريد…' : 'Search email…'}
+            sortKey={sessionList.sortKey}
+            sortDir={sessionList.sortDir}
+            onSort={sessionList.onSort}
+            page={sessionPipe.safePage}
+            pageSize={sessionList.pageSize}
+            onPageChange={sessionList.setPage}
+            onPageSizeChange={sessionList.setPageSize}
+            total={sessionPipe.total}
+            loading={busy && sessions.length === 0}
+            emptyMessage={
+              isAr
                 ? 'لا جلسات مسجّلة بعد — سجّل الدخول مجدداً لتسجيل الجلسة'
-                : 'No session rows yet — sign in again to register a session'}
-            </div>
-          ) : (
-            <table className="w-full text-sm min-w-[640px]">
-              <thead>
-                <tr style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                  <th className="text-start p-3">{isAr ? 'البريد الإلكتروني' : 'Email'}</th>
-                  <th className="text-start p-3">{isAr ? 'الشبكة' : 'IP'}</th>
-                  <th className="text-start p-3">{isAr ? 'الحالة' : 'Status'}</th>
-                  <th className="text-start p-3">{isAr ? 'إجراء' : 'Action'}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sessions.map((s) => (
-                  <tr key={String(s.id)} style={{ borderTop: '1px solid var(--border)' }}>
-                    <td className="p-3 text-xs">{String(s.email)}</td>
-                    <td className="p-3 text-xs font-mono">{String(s.ip_address || '—')}</td>
-                    <td className="p-3 text-xs">
-                      {s.active ? (isAr ? 'نشطة' : 'Active') : isAr ? 'منتهية' : 'Revoked'}
-                    </td>
-                    <td className="p-3">
-                      {s.active ? (
-                        <button
-                          type="button"
-                          className="text-xs font-bold"
-                          style={{ color: '#e11d48' }}
-                          onClick={() => void revokeOne(String(s.id))}
-                        >
-                          {isAr ? 'إنهاء' : 'Terminate'}
-                        </button>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </MasterLuxePanel>
+                : 'No session rows yet — sign in again to register a session'
+            }
+            filters={
+              <AdvancedFilterBar
+                showDates={false}
+                filterValues={sessionList.filters}
+                onFilterChange={sessionList.setFilter}
+                onReset={sessionList.resetAll}
+                activeCount={sessionList.activeFilterCount}
+                fields={[
+                  {
+                    key: 'status',
+                    label: isAr ? 'الحالة' : 'Status',
+                    options: [
+                      { value: 'all', label: isAr ? 'الكل' : 'All' },
+                      { value: 'active', label: isAr ? 'نشطة' : 'Active' },
+                      { value: 'revoked', label: isAr ? 'منتهية' : 'Revoked' },
+                    ],
+                  },
+                ]}
+              />
+            }
+          />
+        </div>
       ) : null}
 
       {secTab === 'logins' ? (
-        <MasterLuxePanel className="mt-4 overflow-x-auto" padding="none">
-          {attempts.length === 0 ? (
-            <div className="p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
-              {isAr ? 'لا توجد محاولات' : 'No login attempts recorded'}
-            </div>
-          ) : (
-            <table className="w-full text-sm min-w-[560px]">
-              <thead>
-                <tr style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                  <th className="text-start p-3">{isAr ? 'الوقت' : 'When'}</th>
-                  <th className="text-start p-3">{isAr ? 'البريد الإلكتروني' : 'Email'}</th>
-                  <th className="text-start p-3">{isAr ? 'النتيجة' : 'Result'}</th>
-                  <th className="text-start p-3">{isAr ? 'الشبكة' : 'IP'}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {attempts.map((a) => (
-                  <tr key={String(a.id)} style={{ borderTop: '1px solid var(--border)' }}>
-                    <td className="p-3 text-xs">{String(a.created_at)}</td>
-                    <td className="p-3 text-xs">{String(a.email)}</td>
-                    <td
-                      className="p-3 text-xs font-bold"
-                      style={{ color: a.success ? '#059669' : '#e11d48' }}
-                    >
-                      {a.success ? (isAr ? 'نجاح' : 'OK') : isAr ? 'فشل' : 'Fail'}
-                    </td>
-                    <td className="p-3 text-xs font-mono">{String(a.ip_address || '—')}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </MasterLuxePanel>
+        <div className="mt-4 space-y-2">
+          <MasterMetaLine>
+            {isAr ? 'المصدر' : 'Source'}: master_login_attempts · {attempts.length}
+          </MasterMetaLine>
+          <AdvancedDataTable
+            rows={loginPipe.pageRows}
+            columns={loginColumns}
+            rowKey={(row) => String(row.id)}
+            search={loginList.search}
+            onSearchChange={loginList.setSearch}
+            searchPlaceholder={isAr ? 'بحث بالبريد…' : 'Search email…'}
+            sortKey={loginList.sortKey}
+            sortDir={loginList.sortDir}
+            onSort={loginList.onSort}
+            page={loginPipe.safePage}
+            pageSize={loginList.pageSize}
+            onPageChange={loginList.setPage}
+            onPageSizeChange={loginList.setPageSize}
+            total={loginPipe.total}
+            loading={busy && attempts.length === 0}
+            emptyMessage={isAr ? 'لا توجد محاولات' : 'No login attempts recorded'}
+            filters={
+              <AdvancedFilterBar
+                showDates
+                dateFrom={loginList.dateFrom}
+                dateTo={loginList.dateTo}
+                onDateFromChange={loginList.setDateFrom}
+                onDateToChange={loginList.setDateTo}
+                filterValues={loginList.filters}
+                onFilterChange={loginList.setFilter}
+                onReset={loginList.resetAll}
+                activeCount={loginList.activeFilterCount}
+                fields={[
+                  {
+                    key: 'result',
+                    label: isAr ? 'النتيجة' : 'Result',
+                    options: [
+                      { value: 'all', label: isAr ? 'الكل' : 'All' },
+                      { value: 'ok', label: isAr ? 'نجاح' : 'OK' },
+                      { value: 'fail', label: isAr ? 'فشل' : 'Fail' },
+                    ],
+                  },
+                ]}
+              />
+            }
+          />
+        </div>
       ) : null}
 
       {secTab === 'admins' ? (
@@ -410,71 +837,64 @@ export const MasterSecurityCenter: React.FC = () => {
                 </option>
               ))}
             </select>
-            <button type="button" className="unity-btn-primary text-sm inline-flex items-center justify-center gap-1.5" onClick={() => void addAdmin()}>
+            <button
+              type="button"
+              className="unity-btn-primary text-sm inline-flex items-center justify-center gap-1.5"
+              onClick={() => void addAdmin()}
+            >
               <Plus className="w-3.5 h-3.5" aria-hidden />
               {isAr ? 'إضافة' : 'Add'}
             </button>
           </MasterLuxePanel>
-          <MasterLuxePanel padding="none" className="overflow-x-auto">
-            {admins.length === 0 ? (
-              <div className="p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
-                {isAr ? 'لا توجد سجلات' : 'No records found'}
-              </div>
-            ) : (
-              <table className="w-full text-sm min-w-[640px]">
-                <thead>
-                  <tr style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                    <th className="text-start p-3">{isAr ? 'الاسم' : 'Name'}</th>
-                    <th className="text-start p-3">{isAr ? 'البريد الإلكتروني' : 'Email'}</th>
-                    <th className="text-start p-3">{isAr ? 'الدور' : 'Role'}</th>
-                    <th className="text-start p-3">{isAr ? 'الحالة' : 'Status'}</th>
-                    <th className="text-start p-3">{isAr ? 'إجراء' : 'Action'}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {admins.map((a) => (
-                    <tr key={String(a.id)} style={{ borderTop: '1px solid var(--border)' }}>
-                      <td className="p-3 font-semibold" style={{ color: 'var(--text)' }}>
-                        {String(a.name)}
-                      </td>
-                      <td className="p-3 text-xs" style={{ color: 'var(--muted)' }}>
-                        {String(a.email)}
-                      </td>
-                      <td className="p-3 text-xs">
-                        {ROLE_LABELS[String(a.role)]
-                          ? isAr
-                            ? ROLE_LABELS[String(a.role)].ar
-                            : ROLE_LABELS[String(a.role)].en
-                          : String(a.role)}
-                      </td>
-                      <td className="p-3 text-xs">{String(a.status)}</td>
-                      <td className="p-3">
-                        {String(a.status) === 'active' ? (
-                          <button
-                            type="button"
-                            className="text-xs font-bold"
-                            style={{ color: '#e11d48' }}
-                            onClick={() => void setAdminStatus(String(a.id), 'inactive')}
-                          >
-                            {isAr ? 'تعطيل' : 'Deactivate'}
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className="text-xs font-bold"
-                            style={{ color: '#059669' }}
-                            onClick={() => void setAdminStatus(String(a.id), 'active')}
-                          >
-                            {isAr ? 'تفعيل' : 'Activate'}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </MasterLuxePanel>
+          <AdvancedDataTable
+            rows={adminPipe.pageRows}
+            columns={adminColumns}
+            rowKey={(row) => String(row.id)}
+            search={adminList.search}
+            onSearchChange={adminList.setSearch}
+            searchPlaceholder={isAr ? 'بحث في المشرفين…' : 'Search admins…'}
+            sortKey={adminList.sortKey}
+            sortDir={adminList.sortDir}
+            onSort={adminList.onSort}
+            page={adminPipe.safePage}
+            pageSize={adminList.pageSize}
+            onPageChange={adminList.setPage}
+            onPageSizeChange={adminList.setPageSize}
+            total={adminPipe.total}
+            loading={busy && admins.length === 0}
+            emptyMessage={isAr ? 'لا توجد سجلات' : 'No records found'}
+            filters={
+              <AdvancedFilterBar
+                showDates={false}
+                filterValues={adminList.filters}
+                onFilterChange={adminList.setFilter}
+                onReset={adminList.resetAll}
+                activeCount={adminList.activeFilterCount}
+                fields={[
+                  {
+                    key: 'role',
+                    label: isAr ? 'الدور' : 'Role',
+                    options: [
+                      { value: 'all', label: isAr ? 'كل الأدوار' : 'All roles' },
+                      ...Object.keys(ROLE_LABELS).map((r) => ({
+                        value: r,
+                        label: isAr ? ROLE_LABELS[r].ar : ROLE_LABELS[r].en,
+                      })),
+                    ],
+                  },
+                  {
+                    key: 'status',
+                    label: isAr ? 'الحالة' : 'Status',
+                    options: [
+                      { value: 'all', label: isAr ? 'الكل' : 'All' },
+                      { value: 'active', label: isAr ? 'نشط' : 'Active' },
+                      { value: 'inactive', label: isAr ? 'غير نشط' : 'Inactive' },
+                    ],
+                  },
+                ]}
+              />
+            }
+          />
           <MasterMetaLine>
             {isAr
               ? 'المصدر: platform_admin_users · المصادقة الثنائية مؤجلة'

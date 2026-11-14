@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -31,6 +31,28 @@ import {
   type HealthCategory,
   type HealthIssue,
 } from '../../utils/healthCheck';
+import type { Store as StoreType } from '../../types';
+
+function storePublicHost(store: StoreType): string {
+  const raw = (store.custom_domain || store.domain || store.demo_domain || '').trim();
+  return raw.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+}
+
+function buildStoreSeoDefaults(store: StoreType) {
+  const host = storePublicHost(store);
+  const nameEn = store.nameEn || store.name;
+  const nameAr = store.nameAr || store.name;
+  return {
+    metaTitle: `${nameEn} | Saudi Online Store`,
+    metaTitleEn: `${nameEn} | Saudi Online Store`,
+    metaTitleAr: `${nameAr} | متجر إلكتروني سعودي`,
+    metaDescription: `Shop ${nameEn} with delivery across Saudi Arabia.`,
+    metaDescriptionEn: `Shop ${nameEn} with delivery across Saudi Arabia.`,
+    metaDescriptionAr: `تسوق من ${nameAr} مع التوصيل في أنحاء المملكة العربية السعودية.`,
+    sitemapUrl: host ? `https://${host}/sitemap.xml` : '',
+    keywords: [nameEn, nameAr, 'Saudi Arabia', 'المملكة العربية السعودية'].filter(Boolean),
+  };
+}
 
 interface MasterHealthAlertsHubProps {
   onNavigateTab?: (tab: string) => void;
@@ -47,12 +69,14 @@ export const MasterHealthAlertsHub: React.FC<MasterHealthAlertsHubProps> = ({
     allPaymentGateways,
     allCouriers,
     allShipping,
+    allShippingMethods,
     allProducts,
     allOrders,
     switchToStore,
     updateStoreSEOConfig,
     addShippingCity,
     savePaymentGatewayConfig,
+    prefetchStoreHealthBundle,
   } = useTenant();
   const { locale, t } = usePrefs();
   const isAr = locale === 'ar';
@@ -63,6 +87,31 @@ export const MasterHealthAlertsHub: React.FC<MasterHealthAlertsHubProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [isAutoFixingAll, setIsAutoFixingAll] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [healthHydrating, setHealthHydrating] = useState(false);
+  const [autoFixedOnce, setAutoFixedOnce] = useState(false);
+  const storeIdsKey = stores.map((s) => s.id).join('|');
+
+  // Load real SEO / payments / shipping for EVERY store (Master used to only hydrate active store → false alarms)
+  useEffect(() => {
+    let cancelled = false;
+    const ids = stores.map((s) => s.id).filter(Boolean);
+    if (!ids.length) return;
+    setHealthHydrating(true);
+    void (async () => {
+      for (const id of ids) {
+        if (cancelled) return;
+        try {
+          await prefetchStoreHealthBundle(id);
+        } catch {
+          /* keep previous maps */
+        }
+      }
+      if (!cancelled) setHealthHydrating(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [storeIdsKey, prefetchStoreHealthBundle]);
 
   const platformHealth = useMemo(() => {
     return auditPlatformHealth({
@@ -71,6 +120,7 @@ export const MasterHealthAlertsHub: React.FC<MasterHealthAlertsHubProps> = ({
       allPaymentGateways,
       allCouriers,
       allShipping,
+      allShippingMethods,
       allProducts,
       allOrders,
     });
@@ -80,6 +130,7 @@ export const MasterHealthAlertsHub: React.FC<MasterHealthAlertsHubProps> = ({
     allPaymentGateways,
     allCouriers,
     allShipping,
+    allShippingMethods,
     allProducts,
     allOrders,
   ]);
@@ -102,28 +153,60 @@ export const MasterHealthAlertsHub: React.FC<MasterHealthAlertsHubProps> = ({
       if (issue.category === 'seo' && issue.id.includes('seo-meta-missing')) {
         const targetStore = stores.find((s) => s.id === issue.storeId);
         if (targetStore) {
-          updateStoreSEOConfig(issue.storeId, {
-            metaTitle: `${targetStore.name} | Official Store`,
-            metaDescription: `Discover the best luxury collections and verified products at ${targetStore.name}. Fast delivery across Saudi Arabia.`,
-            sitemapUrl: `https://${targetStore.slug || 'store'}.saudi-stores.com/sitemap.xml`,
-            keywords: [targetStore.name, 'Saudi Arabia', 'Online Store', 'Fast Delivery'],
-          });
+          updateStoreSEOConfig(issue.storeId, buildStoreSeoDefaults(targetStore));
           toast(
-            isAr ? `تم تحديث تحسين محركات البحث للمتجر${targetStore.name}` : `SEO generated for ${targetStore.name}`,
-            'success'
+            isAr
+              ? `تم تحديث بيانات تحسين محركات البحث لمتجر ${targetStore.name}`
+              : `SEO metadata saved for ${targetStore.name}`,
+            'success',
           );
         }
-      } else if (issue.category === 'payment' && issue.id.includes('no-payment-gateways')) {
-        await savePaymentGatewayConfig({
-          provider: 'cod',
-          title: 'Cash on Delivery',
-          titleAr: 'الدفع عند الاستلام',
-          isEnabled: true,
-          supportedMethods: ['cod'],
+      } else if (issue.category === 'shipping' && issue.id.includes('no-shipping-zones')) {
+        await addShippingCity('Riyadh & Central Region', 25, 300, '2-4 Days', {
+          region: 'Central',
+          ratePerKg: 2,
+          storeId: issue.storeId,
+        });
+        await addShippingCity('Jeddah & Makkah Region', 30, 350, '1-2 Business Days', {
+          region: 'Western',
+          ratePerKg: 3,
+          storeId: issue.storeId,
         });
         toast(
-          isAr ? 'تم تفعيل بوابة الدفع الافتراضية' : 'Default COD gateway enabled',
-          'success'
+          isAr ? 'تم إنشاء مناطق الشحن الأساسية' : 'Standard shipping zones created',
+          'success',
+        );
+      } else if (issue.category === 'payment' && issue.id.includes('no-payment-gateways')) {
+        await savePaymentGatewayConfig(
+          {
+            provider: 'cod',
+            title: 'Cash on Delivery',
+            titleAr: 'الدفع عند الاستلام',
+            isEnabled: true,
+            supportedMethods: ['cod'],
+          },
+          issue.storeId,
+        );
+        await savePaymentGatewayConfig(
+          {
+            provider: 'bank_transfer',
+            title: 'Bank Transfer',
+            titleAr: 'تحويل بنكي',
+            isEnabled: true,
+            supportedMethods: ['bank_transfer'],
+          },
+          issue.storeId,
+        );
+        toast(
+          isAr ? 'تم تفعيل الدفع عند الاستلام والتحويل البنكي' : 'COD + bank transfer enabled',
+          'success',
+        );
+      } else {
+        toast(
+          isAr
+            ? 'هذا التنبيه يحتاج ربط التاجر (مثل جوجل) — لا يمكن تزوير الاتصال'
+            : 'This alert needs a real merchant connection (e.g. Google) — cannot fake Connected',
+          'warning',
         );
       }
     } catch {
@@ -137,17 +220,41 @@ export const MasterHealthAlertsHub: React.FC<MasterHealthAlertsHubProps> = ({
     try {
       for (const issue of autoFixable) {
         await handleAutoFixSingle(issue);
+        await prefetchStoreHealthBundle(issue.storeId);
       }
       toast(
         isAr
-          ? `تمت معالجة${autoFixable.length}مشكلة مؤهلة للإصلاح التلقائي بنجاح`
-          : `Successfully auto-resolved ${autoFixable.length} eligible issues`,
-        'success'
+          ? `تمت معالجة ${autoFixable.length} مشكلة مؤهلة للإصلاح التلقائي`
+          : `Auto-resolved ${autoFixable.length} eligible issues`,
+        'success',
       );
     } finally {
       setIsAutoFixingAll(false);
     }
   };
+
+  // After real maps hydrate: apply eligible fixes once (COD/SEO/zones) — never fake Google Connected
+  useEffect(() => {
+    if (healthHydrating || autoFixedOnce || !stores.length) return;
+    const eligible = platformHealth.allIssues.filter((i) => i.canAutoFix);
+    if (!eligible.length) {
+      setAutoFixedOnce(true);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      for (const issue of eligible) {
+        if (cancelled) return;
+        await handleAutoFixSingle(issue);
+        await prefetchStoreHealthBundle(issue.storeId);
+      }
+      if (!cancelled) setAutoFixedOnce(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot after hydrate
+  }, [healthHydrating, autoFixedOnce, platformHealth.allIssues.length]);
 
   const severityBadge = (sev: AlertSeverity) => {
     switch (sev) {
@@ -206,10 +313,14 @@ export const MasterHealthAlertsHub: React.FC<MasterHealthAlertsHubProps> = ({
                 </h2>
                 {severityBadge(platformHealth.overallStatus)}
               </div>
-              <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--muted)' }}>
-                {isAr
-                  ? 'مراقبة مركزية شاملة لربط جوجل، بوابات الدفع، شركات الشحن، واكتمال بيانات المتاجر.'
-                  : 'Central live diagnostics across Google integration, payment gateways, couriers, and store setup.'}
+              <p className="text-xs mt-0.5 line-clamp-2" style={{ color: 'var(--muted)' }}>
+                {healthHydrating
+                  ? isAr
+                    ? 'جاري مزامنة بيانات الصحة الحقيقية لكل المتاجر…'
+                    : 'Syncing real health data for every store…'
+                  : isAr
+                    ? 'تشخيص حي من قاعدة البيانات — أزرار الإصلاح تعمل للمؤهل فقط. ربط جوجل يحتاج حساب التاجر الحقيقي (لا اتصال وهمي).'
+                    : 'Live DB diagnostics — Auto-Fix works for eligible items only. Google needs a real merchant account (never fake Connected).'}
               </p>
             </div>
           </div>

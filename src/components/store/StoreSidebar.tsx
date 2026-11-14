@@ -44,6 +44,7 @@ import { SouqEMakkahLogo, SouqEMakkahMark } from '../common/SouqEMakkahLogo';
 import { bindStoreChrome, clearStoreChrome, currentChromeRevision, loadStoreChrome, readChromeCache } from '../../i18n/storeChrome';
 import { applyBrandCss } from '../../i18n/branding';
 import { readPrefs } from '../../i18n/prefs';
+import { resolveStoreLogoSrc } from '../../utils/storeLogo';
 
 interface StoreSidebarProps {
   currentTab: string;
@@ -66,6 +67,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
   const { activeStore, switchToMaster, canAccessMaster } = useTenant();
   const { t, locale } = usePrefs();
   const isAr = locale === 'ar';
+  const sidebarLogoSrc = resolveStoreLogoSrc(activeStore?.logo);
   const { canTab } = usePermissions();
   const { unreadCounts } = useNotifications();
   const [collapsed, setCollapsed] = useState(false);
@@ -321,23 +323,20 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
           style={{ borderTop: '1px solid color-mix(in srgb, var(--portal-800) 70%, transparent)' }}
         >
           <div className="unity-icon-box w-9 h-9 flex items-center justify-center shadow-md shrink-0 overflow-hidden p-0.5 rounded-full">
-            <img
-              src={activeStore?.logo || '/favicon.svg'}
-              alt=""
-              className="w-full h-full object-cover rounded-full"
-              onError={(e) => {
-                const el = e.currentTarget;
-                if (el.dataset.fallback === '1') {
+            {sidebarLogoSrc ? (
+              <img
+                src={sidebarLogoSrc}
+                alt=""
+                className="w-full h-full object-cover rounded-full"
+                onError={(e) => {
+                  const el = e.currentTarget;
                   el.style.display = 'none';
                   const sibling = el.nextElementSibling as HTMLElement | null;
                   if (sibling) sibling.classList.remove('hidden');
-                  return;
-                }
-                el.dataset.fallback = '1';
-                el.src = '/favicon.svg';
-              }}
-            />
-            <Store className="w-5 h-5 hidden" aria-hidden />
+                }}
+              />
+            ) : null}
+            <Store className={`w-5 h-5 ${sidebarLogoSrc ? 'hidden' : ''}`} aria-hidden />
           </div>
           {!collapsed && (
             <div className="min-w-0 flex-1">

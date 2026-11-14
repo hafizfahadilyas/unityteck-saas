@@ -389,7 +389,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
           </h1>
           <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--muted)' }}>
             {isAr
-              ? `إدارة المنصة الشاملة، ألوان النظام، خطوط جوجل، العملات وجميع المتاجر (${stores.length})`
+              ? `إدارة المنصة الشاملة، الألوان، الخطوط، العملات وجميع المتاجر (${stores.length})`
               : `Global platform configuration, top 15 palettes, top 15 fonts, multi-currency & ${stores.length} active stores`}
           </p>
         </div>
@@ -406,7 +406,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
             title={isAr ? 'التبديل إلى الإنجليزية' : 'Switch to Arabic'}
           >
             <Globe className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-            <span className="font-bold">{isAr ? 'الإنجليزية' : 'العربية'}</span>
+            <span className="font-bold">{isAr ? 'الإنجليزية' : 'Arabic'}</span>
           </button>
 
           <button
@@ -644,8 +644,8 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
                 <div
                   className="w-16 h-16 rounded-2xl border p-2 flex items-center justify-center shrink-0"
                   style={{
-                    background: 'color-mix(in srgb, #000 30%, #152022)',
-                    borderColor: 'color-mix(in srgb, var(--accent) 28%, #2a3c3e)',
+                    background: 'color-mix(in srgb, var(--accent) 8%, var(--surface))',
+                    borderColor: 'color-mix(in srgb, var(--accent) 22%, var(--border))',
                   }}
                 >
                   <img src={platformLogo} alt="" className="w-10 h-10 object-contain" />
@@ -748,13 +748,13 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
               <div
                 className="rounded-xl border p-3 space-y-2"
                 style={{
-                  borderColor: 'color-mix(in srgb, var(--accent) 22%, transparent)',
-                  background: 'color-mix(in srgb, #000 28%, transparent)',
+                  borderColor: 'color-mix(in srgb, var(--accent) 22%, var(--border))',
+                  background: 'color-mix(in srgb, var(--accent) 6%, var(--surface))',
                 }}
               >
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-bold" style={{ color: '#f7fafa' }}>
+                    <p className="text-xs font-bold" style={{ color: 'var(--text)' }}>
                       {isAr ? 'وضع الصيانة' : 'Maintenance mode'}
                     </p>
                     <p className="text-[10px] u-settings-luxe__muted">
@@ -768,8 +768,13 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
                     onClick={() => setMaintenanceMode((v) => !v)}
                     className="px-3 py-1.5 rounded-lg text-[11px] font-bold border"
                     style={{
-                      borderColor: maintenanceMode ? '#e11d48' : 'color-mix(in srgb, var(--accent) 30%, transparent)',
-                      color: maintenanceMode ? '#fb7185' : 'var(--plan-muted)',
+                      borderColor: maintenanceMode
+                        ? '#e11d48'
+                        : 'color-mix(in srgb, var(--accent) 30%, var(--border))',
+                      color: maintenanceMode ? '#be123c' : 'var(--muted)',
+                      background: maintenanceMode
+                        ? 'color-mix(in srgb, #e11d48 10%, var(--surface))'
+                        : 'var(--surface)',
                     }}
                   >
                     {maintenanceMode
@@ -781,22 +786,40 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
                         : 'OFF'}
                   </button>
                 </div>
-                <textarea
-                  value={maintenanceMessageEn}
-                  onChange={(e) => setMaintenanceMessageEn(e.target.value)}
-                  rows={2}
-                  dir="ltr"
-                  placeholder="Maintenance message (English)…"
-                  className="w-full px-3 py-2 text-xs rounded-xl border"
-                />
-                <textarea
-                  value={maintenanceMessageAr}
-                  onChange={(e) => setMaintenanceMessageAr(e.target.value)}
-                  rows={2}
-                  dir="rtl"
-                  placeholder="رسالة الصيانة (عربي)…"
-                  className="w-full px-3 py-2 text-xs rounded-xl border"
-                />
+                <div>
+                  <label className="block text-[10px] font-bold mb-1 u-settings-luxe__muted">
+                    {isAr ? 'رسالة الصيانة (بالإنجليزية)' : 'Maintenance message (English)'}
+                  </label>
+                  <textarea
+                    value={maintenanceMessageEn}
+                    onChange={(e) => setMaintenanceMessageEn(e.target.value)}
+                    rows={2}
+                    dir="ltr"
+                    placeholder={
+                      isAr
+                        ? 'اكتب رسالة الصيانة بالإنجليزية…'
+                        : 'Maintenance message (English)…'
+                    }
+                    className="w-full px-3 py-2 text-xs rounded-xl border"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold mb-1 u-settings-luxe__muted">
+                    {isAr ? 'رسالة الصيانة (بالعربية)' : 'Maintenance message (Arabic)'}
+                  </label>
+                  <textarea
+                    value={maintenanceMessageAr}
+                    onChange={(e) => setMaintenanceMessageAr(e.target.value)}
+                    rows={2}
+                    dir="rtl"
+                    placeholder={
+                      isAr
+                        ? 'اكتب رسالة الصيانة بالعربية…'
+                        : 'Maintenance message (Arabic)…'
+                    }
+                    className="w-full px-3 py-2 text-xs rounded-xl border"
+                  />
+                </div>
               </div>
 
               <div className="pt-3 flex justify-end">
@@ -862,12 +885,13 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
                     }`}
                     style={{
                       background: active
-                        ? 'color-mix(in srgb, var(--accent) 18%, #0e181a)'
-                        : 'color-mix(in srgb, #000 28%, transparent)',
+                        ? 'color-mix(in srgb, var(--accent) 12%, var(--surface))'
+                        : 'color-mix(in srgb, var(--accent) 4%, var(--surface))',
                       borderColor: active
-                        ? 'color-mix(in srgb, var(--accent) 55%, transparent)'
-                        : 'color-mix(in srgb, var(--accent) 18%, transparent)',
-                      color: '#f4f8f8',
+                        ? 'color-mix(in srgb, var(--accent) 45%, var(--border))'
+                        : 'color-mix(in srgb, var(--accent) 14%, var(--border))',
+                      color: 'var(--text)',
+                      ['--tw-ring-color' as string]: 'color-mix(in srgb, var(--accent) 40%, transparent)',
                     }}
                   >
                     <div>
@@ -875,7 +899,9 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
                         <span>{symbol}</span>
                         <span className="text-[10px] font-mono opacity-80">({curKey})</span>
                       </div>
-                      <div className="text-[11px] opacity-80 mt-0.5">{label}</div>
+                      <div className="text-[11px] mt-0.5" style={{ color: 'var(--muted)' }}>
+                        {label}
+                      </div>
                     </div>
                     {active && <Check className="w-4 h-4 shrink-0" style={{ color: 'var(--accent)' }} />}
                   </button>
@@ -923,16 +949,19 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
                       }`}
                       style={{
                         background: active
-                          ? 'color-mix(in srgb, var(--accent) 18%, #0e181a)'
-                          : 'color-mix(in srgb, #000 28%, transparent)',
+                          ? 'color-mix(in srgb, var(--accent) 12%, var(--surface))'
+                          : 'color-mix(in srgb, var(--accent) 4%, var(--surface))',
                         borderColor: active
-                          ? 'color-mix(in srgb, var(--accent) 55%, transparent)'
-                          : 'color-mix(in srgb, var(--accent) 18%, transparent)',
-                        color: '#f4f8f8',
+                          ? 'color-mix(in srgb, var(--accent) 45%, var(--border))'
+                          : 'color-mix(in srgb, var(--accent) 14%, var(--border))',
+                        color: 'var(--text)',
+                        ['--tw-ring-color' as string]: 'color-mix(in srgb, var(--accent) 40%, transparent)',
                       }}
                     >
                       <div className="text-xs font-bold">{item.label}</div>
-                      <div className="text-[10px] opacity-75 mt-0.5">{item.desc}</div>
+                      <div className="text-[10px] mt-0.5" style={{ color: 'var(--muted)' }}>
+                        {item.desc}
+                      </div>
                     </button>
                   );
                 })}
@@ -1080,7 +1109,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
                             : 'YouTube';
                   return (
                     <div key={key} className="flex items-center gap-2 min-w-0">
-                      <span className="w-24 shrink-0 text-xs font-bold" style={{ color: '#f4f8f8' }}>
+                      <span className="w-24 shrink-0 text-xs font-bold" style={{ color: 'var(--text)' }}>
                         {channelLabel}
                       </span>
                       <input

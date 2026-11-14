@@ -41,6 +41,8 @@ final class PlatformSettings
                 'fontWeight' => 'regular',
                 'customAccentHex' => null,
                 'customScrollbarHex' => null,
+                'customBgHex' => null,
+                'customTextHex' => null,
             ],
         ];
     }

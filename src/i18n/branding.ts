@@ -586,6 +586,10 @@ export type BrandState = {
   customAccentHex?: string | null;
   /** Optional scrollbar hex. Null = follow global --portal-400 / --accent. */
   customScrollbarHex?: string | null;
+  /** Optional page canvas / background hex. Null = follow theme + palette. */
+  customBgHex?: string | null;
+  /** Optional primary text / font color hex. Null = follow theme + palette. */
+  customTextHex?: string | null;
 };
 
 export const DEFAULT_BRAND: BrandState = {
@@ -597,6 +601,8 @@ export const DEFAULT_BRAND: BrandState = {
   fontWeight: 'regular',
   customAccentHex: null,
   customScrollbarHex: null,
+  customBgHex: null,
+  customTextHex: null,
 };
 
 /** Parse #RGB / #RRGGBB → {r,g,b} or null. */
@@ -756,22 +762,41 @@ export function applyBrandCss(brand: BrandState, locale: 'en' | 'ar' = 'en'): vo
   root.style.setProperty('--active-fg', '#ffffff');
   root.style.setProperty('--active-ring', p.p400);
 
-  // Form / modal / page text — same Holst family as header (no slate leftover)
+  // Form / modal / page text — always set BOTH themes (inline light leftovers broke dark mode)
   const isDark = root.getAttribute('data-theme') === 'dark';
+  const customBg = brand.customBgHex && parseHexColor(brand.customBgHex) ? brand.customBgHex : null;
+  const customText = brand.customTextHex && parseHexColor(brand.customTextHex) ? brand.customTextHex : null;
+
   if (!isDark) {
     // ONE global page canvas for Master + Store (design pack: --bg = portal-50)
-    root.style.setProperty('--bg', p.p50);
-    root.style.setProperty('--text', p.p950);
+    root.style.setProperty('--bg', customBg || p.p50);
+    root.style.setProperty('--surface', '#ffffff');
+    root.style.setProperty('--text', customText || p.p950);
     root.style.setProperty('--muted', p.p900);
-    root.style.setProperty('--input-fg', p.p950);
+    root.style.setProperty('--input-bg', '#ffffff');
+    root.style.setProperty('--input-fg', customText || p.p950);
     root.style.setProperty('--input-ph', p.p800);
-    root.style.setProperty('--table-head', p.p950);
-    root.style.setProperty('--card-fg', p.p950);
-    root.style.setProperty('--icon-on-light', p.p950);
-    root.style.setProperty('--icon-box-fg', p.p950);
+    root.style.setProperty('--table-head', customText || p.p950);
+    root.style.setProperty('--card-fg', customText || p.p950);
+    root.style.setProperty('--icon-on-light', customText || p.p950);
+    root.style.setProperty('--icon-box-fg', customText || p.p950);
     root.style.setProperty('--border', p.p200);
   } else {
-    root.style.setProperty('--bg', p.p950);
+    // Deep Holst dark — light text; never leave light-mode dark text stuck inline
+    root.style.setProperty('--bg', customBg || p.p950);
+    root.style.setProperty('--surface', p.p900);
+    root.style.setProperty('--text', customText || '#f2fbf8');
+    root.style.setProperty('--muted', '#cbd5e1');
+    root.style.setProperty('--input-bg', `color-mix(in srgb, ${p.p950} 70%, ${p.p900})`);
+    root.style.setProperty('--input-fg', customText || '#f2fbf8');
+    root.style.setProperty('--input-ph', p.p200);
+    root.style.setProperty('--table-head', customText || '#e2f4f0');
+    root.style.setProperty('--card-fg', customText || '#f2fbf8');
+    root.style.setProperty('--icon-on-light', p.p900);
+    root.style.setProperty('--icon-on-dark', '#e2f4f0');
+    root.style.setProperty('--icon-box-bg', `color-mix(in srgb, ${p.p400} 18%, ${p.p900})`);
+    root.style.setProperty('--icon-box-fg', p.p200);
+    root.style.setProperty('--border', `color-mix(in srgb, ${p.p400} 28%, transparent)`);
   }
 
   // Scrollbar: follow brand by default; optional dedicated luxury color
@@ -795,5 +820,9 @@ export function applyBrandCss(brand: BrandState, locale: 'en' | 'ar' = 'en'): vo
   } else {
     root.removeAttribute('data-custom-accent');
   }
+  if (customBg) root.setAttribute('data-custom-bg', customBg);
+  else root.removeAttribute('data-custom-bg');
+  if (customText) root.setAttribute('data-custom-text', customText);
+  else root.removeAttribute('data-custom-text');
   runChromePainter(root);
 }

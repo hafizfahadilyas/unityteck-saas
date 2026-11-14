@@ -145,7 +145,7 @@ function souq_store_payload(array $row): array
     }
 
     $copyKeys = [
-        'id', 'name', 'slug', 'domain', 'demo_domain', 'custom_domain', 'status', 'plan',
+        'id', 'name', 'name_ar', 'name_en', 'slug', 'domain', 'demo_domain', 'custom_domain', 'status', 'plan',
         'currency', 'locale', 'text_direction', 'timezone', 'phone', 'email', 'owner_name',
         'city', 'country', 'category', 'logo', 'accent_color', 'ssl_status',
         'products_count', 'orders_count', 'revenue', 'visitors_count',
@@ -217,6 +217,30 @@ function souq_ensure_mysql_store_login_column(PDO $pdo): void
         souq_table_has_column($pdo, 'stores', 'login_email_active', true);
     } catch (Throwable) {
         /* column may already exist under race */
+    }
+}
+
+/** Ensure bilingual store name columns exist on Hostinger MySQL. */
+function souq_ensure_mysql_store_name_i18n_columns(PDO $pdo): void
+{
+    if (!function_exists('souq_driver_is_mysql') || !souq_driver_is_mysql($pdo)) {
+        return;
+    }
+    foreach ([
+        'name_ar' => 'ALTER TABLE `stores` ADD COLUMN `name_ar` VARCHAR(191) NULL AFTER `name`',
+        'name_en' => 'ALTER TABLE `stores` ADD COLUMN `name_en` VARCHAR(191) NULL AFTER `name_ar`',
+    ] as $col => $sql) {
+        if (function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'stores', $col)) {
+            continue;
+        }
+        try {
+            $pdo->exec($sql);
+            if (function_exists('souq_table_has_column')) {
+                souq_table_has_column($pdo, 'stores', $col, true);
+            }
+        } catch (Throwable) {
+            /* column may already exist under race */
+        }
     }
 }
 
@@ -1321,11 +1345,11 @@ function souq_table_exists(PDO $pdo, string $table): bool
 function souq_plans_catalog(): array
 {
     return [
-        ['code' => 'free', 'id' => 'plan-free', 'name' => 'Free', 'price_sar' => 0, 'currency' => 'SAR', 'product_limit' => 50, 'order_limit' => 100, 'storage_mb' => 512, 'team_seats' => 1, 'features' => ['catalog', 'orders', 'basic_seo', 'themes_basic', 'media_studio', 'whatsapp']],
-        ['code' => 'paid', 'id' => 'plan-paid', 'name' => 'Paid', 'price_sar' => null, 'currency' => 'SAR', 'product_limit' => 500, 'order_limit' => 2000, 'storage_mb' => 5120, 'team_seats' => 5, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'media_studio', 'whatsapp']],
-        ['code' => 'pro', 'id' => 'plan-pro', 'name' => 'Pro', 'price_sar' => 300, 'currency' => 'SAR', 'product_limit' => 5000, 'order_limit' => null, 'storage_mb' => 51200, 'team_seats' => 20, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'themes', 'media_studio', 'custom_domain', 'whatsapp', 'social']],
-        ['code' => 'premium', 'id' => 'plan-premium', 'name' => 'Premium', 'price_sar' => 500, 'currency' => 'SAR', 'product_limit' => null, 'order_limit' => null, 'storage_mb' => 102400, 'team_seats' => 50, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'themes', 'media_studio', 'custom_domain', 'whatsapp', 'social', 'backups', 'zatca', 'ai', 'api_access', 'advanced_seo', 'advanced_analytics']],
-        ['code' => 'custom', 'id' => 'plan-custom', 'name' => 'Custom', 'price_sar' => null, 'currency' => 'SAR', 'product_limit' => null, 'order_limit' => null, 'storage_mb' => null, 'team_seats' => null, 'features' => ['all']],
+        ['code' => 'free', 'id' => 'plan-free', 'name' => 'Free', 'name_ar' => 'مجاني', 'price_sar' => 0, 'currency' => 'SAR', 'product_limit' => 50, 'order_limit' => 100, 'storage_mb' => 512, 'team_seats' => 1, 'features' => ['catalog', 'orders', 'basic_seo', 'themes_basic', 'media_studio', 'whatsapp']],
+        ['code' => 'paid', 'id' => 'plan-paid', 'name' => 'Paid', 'name_ar' => 'مدفوع', 'price_sar' => null, 'currency' => 'SAR', 'product_limit' => 500, 'order_limit' => 2000, 'storage_mb' => 5120, 'team_seats' => 5, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'media_studio', 'whatsapp']],
+        ['code' => 'pro', 'id' => 'plan-pro', 'name' => 'Pro', 'name_ar' => 'احترافي', 'price_sar' => 300, 'currency' => 'SAR', 'product_limit' => 5000, 'order_limit' => null, 'storage_mb' => 51200, 'team_seats' => 20, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'themes', 'media_studio', 'custom_domain', 'whatsapp', 'social']],
+        ['code' => 'premium', 'id' => 'plan-premium', 'name' => 'Premium', 'name_ar' => 'مميز', 'price_sar' => 500, 'currency' => 'SAR', 'product_limit' => null, 'order_limit' => null, 'storage_mb' => 102400, 'team_seats' => 50, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'themes', 'media_studio', 'custom_domain', 'whatsapp', 'social', 'backups', 'zatca', 'ai', 'api_access', 'advanced_seo', 'advanced_analytics']],
+        ['code' => 'custom', 'id' => 'plan-custom', 'name' => 'Custom', 'name_ar' => 'مخصص', 'price_sar' => null, 'currency' => 'SAR', 'product_limit' => null, 'order_limit' => null, 'storage_mb' => null, 'team_seats' => null, 'features' => ['all']],
     ];
 }
 
@@ -1479,6 +1503,8 @@ function souq_platform_settings_defaults(): array
             'fontWeight' => 'regular',
             'customAccentHex' => null,
             'customScrollbarHex' => null,
+            'customBgHex' => null,
+            'customTextHex' => null,
         ],
     ];
 }

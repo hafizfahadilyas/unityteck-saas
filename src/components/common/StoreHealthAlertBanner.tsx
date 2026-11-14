@@ -37,6 +37,7 @@ export const StoreHealthAlertBanner: React.FC<StoreHealthAlertBannerProps> = ({
     allPaymentGateways,
     allCouriers,
     allShipping,
+    allShippingMethods,
     allProducts,
     allOrders,
     updateStoreSEOConfig,
@@ -55,6 +56,7 @@ export const StoreHealthAlertBanner: React.FC<StoreHealthAlertBannerProps> = ({
   const paymentGateways = allPaymentGateways[activeStore.id] || [];
   const couriers = allCouriers[activeStore.id] || [];
   const shippingZones = allShipping[activeStore.id] || [];
+  const shippingMethods = allShippingMethods[activeStore.id] || [];
   const products = allProducts[activeStore.id] || [];
   const orders = allOrders[activeStore.id] || [];
 
@@ -64,8 +66,10 @@ export const StoreHealthAlertBanner: React.FC<StoreHealthAlertBannerProps> = ({
     paymentGateways,
     couriers,
     shippingZones,
+    shippingMethods,
     products,
     orders,
+    catalogCountHint: activeStore.productsCount,
   });
 
   if (isDismissed || (report.status === 'healthy' && !isExpanded)) {
@@ -76,37 +80,52 @@ export const StoreHealthAlertBanner: React.FC<StoreHealthAlertBannerProps> = ({
     setAutoFixingId(issue.id);
     try {
       if (issue.category === 'seo' && issue.id.includes('seo-meta-missing')) {
+        const host = (activeStore.custom_domain || activeStore.domain || activeStore.demo_domain || '')
+          .trim()
+          .replace(/^https?:\/\//i, '')
+          .replace(/\/$/, '');
+        const nameEn = activeStore.nameEn || activeStore.name;
+        const nameAr = activeStore.nameAr || activeStore.name;
         updateStoreSEOConfig(activeStore.id, {
-          metaTitle: `${activeStore.name} | Official Store`,
-          metaDescription: `Discover the best luxury collections and verified products at ${activeStore.name}. Fast delivery across Saudi Arabia.`,
-          sitemapUrl: `https://${activeStore.slug || 'store'}.saudi-stores.com/sitemap.xml`,
-          keywords: [activeStore.name, 'Saudi Arabia', 'Online Store', 'Fast Delivery'],
+          metaTitle: `${nameEn} | Saudi Online Store`,
+          metaTitleEn: `${nameEn} | Saudi Online Store`,
+          metaTitleAr: `${nameAr} | متجر إلكتروني سعودي`,
+          metaDescription: `Shop ${nameEn} with delivery across Saudi Arabia.`,
+          metaDescriptionEn: `Shop ${nameEn} with delivery across Saudi Arabia.`,
+          metaDescriptionAr: `تسوق من ${nameAr} مع التوصيل في أنحاء المملكة العربية السعودية.`,
+          sitemapUrl: host ? `https://${host}/sitemap.xml` : '',
+          keywords: [nameEn, nameAr, 'Saudi Arabia', 'المملكة العربية السعودية'].filter(Boolean),
         });
         toast(
-          isAr ? 'تم توليد وتطبيق بيانات تحسين محركات البحث الافتراضية بنجاح' : 'Default SEO metadata generated & applied',
+          isAr ? 'تم حفظ بيانات تحسين محركات البحث من هوية المتجر' : 'SEO metadata saved from store identity',
           'success'
         );
       } else if (issue.category === 'shipping' && issue.id.includes('no-shipping-zones')) {
-        addShippingCity('Riyadh & Central Region', 25, 300, 'Same Day (2-4 hrs)', {
+        await addShippingCity('Riyadh & Central Region', 25, 300, '2-4 Days', {
           region: 'Central',
           ratePerKg: 2,
+          storeId: activeStore.id,
         });
-        addShippingCity('Jeddah & Western Region', 30, 350, '1-2 Business Days', {
+        await addShippingCity('Jeddah & Makkah Region', 30, 350, '1-2 Business Days', {
           region: 'Western',
           ratePerKg: 3,
+          storeId: activeStore.id,
         });
         toast(
           isAr ? 'تم إنشاء مناطق الشحن والتوصيل الأساسية بنجاح' : 'Standard shipping zones created',
           'success'
         );
       } else if (issue.category === 'payment' && issue.id.includes('no-payment-gateways')) {
-        await savePaymentGatewayConfig({
-          provider: 'cod',
-          title: 'Cash on Delivery',
-          titleAr: 'الدفع عند الاستلام',
-          isEnabled: true,
-          supportedMethods: ['cod'],
-        });
+        await savePaymentGatewayConfig(
+          {
+            provider: 'cod',
+            title: 'Cash on Delivery',
+            titleAr: 'الدفع عند الاستلام',
+            isEnabled: true,
+            supportedMethods: ['cod'],
+          },
+          activeStore.id,
+        );
         toast(
           isAr ? 'تم تفعيل الدفع عند الاستلام تلقائياً' : 'Cash on Delivery gateway activated',
           'success'
