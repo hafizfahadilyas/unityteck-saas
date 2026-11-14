@@ -63,6 +63,7 @@ import { readAuthSession } from '../../auth/session';
 import { canDeleteEntities } from '../../auth/roles';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE, resolveProductThumbnail } from '../../utils/imageFallback';
 import { orderStatusGrowth } from '../../utils/liveSeries';
+import { MasterStoreScopeFilter } from './MasterStoreScopeFilter';
 
 /**
  * MasterOrders — Platform Order Management (100% Pixel Perfect to Mockups 04 & 05)
@@ -1596,23 +1597,15 @@ export const MasterOrders: React.FC = () => {
 
           {/* Master Store Selector & Filter Buttons */}
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Store filter (Master platform control) */}
-            <select
+            <MasterStoreScopeFilter
               value={selectedStoreId}
-              onChange={(e) => {
-                setSelectedStoreId(e.target.value);
+              onChange={(id) => {
+                setSelectedStoreId(id);
                 setPage(1);
               }}
-              className="px-3 py-2 text-xs font-bold rounded-xl border shadow-xs cursor-pointer"
-              style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
-            >
-              <option value="all">{isAr ? 'جميع المتاجر (المنصة)' : 'All Stores (Platform)'}</option>
-              {stores.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {getStoreDisplayName(s, locale)}
-                </option>
-              ))}
-            </select>
+              showStatusChips={false}
+              compact
+            />
 
             {/* Quick Filters Toggle */}
             <button

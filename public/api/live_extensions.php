@@ -2118,6 +2118,22 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
         return true;
     }
 
+    // ── SOUQ PLUS Phase 2–5 — roles / verification / CS CMS / ops ──
+    if (!function_exists('souq_phase2to5_ops_dispatch')) {
+        require_once __DIR__ . '/master_phase2to5_ops.php';
+    }
+    if (souq_phase2to5_ops_dispatch($pdo, $uri, $method, $storeId, $input)) {
+        return true;
+    }
+
+    // ── SOUQ PLUS Phase 6–9 — attachments / messaging / governance / acceptance ──
+    if (!function_exists('souq_phase6to9_ops_dispatch')) {
+        require_once __DIR__ . '/master_phase6to9_ops.php';
+    }
+    if (souq_phase6to9_ops_dispatch($pdo, $uri, $method, $storeId, $input)) {
+        return true;
+    }
+
     if ($uri === '/design-templates/entitlements' && $method === 'GET') {
         if ($storeId === '') {
             http_response_code(422);

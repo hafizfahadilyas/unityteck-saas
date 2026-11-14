@@ -1,19 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
-import { Store as StoreType, PlanType } from '../../types';
+import { Store as StoreType } from '../../types';
 import {
-  Store, 
-  Search, 
-  Filter, 
-  Plus, 
-  ExternalLink, 
-  ShieldCheck, 
+  Store,
+  Search,
+  Plus,
+  ShieldCheck,
   ShieldAlert,
-  CheckCircle, 
-  Clock, 
-  AlertTriangle, 
-  Trash2, 
-  Globe, 
+  CheckCircle,
+  Trash2,
+  Globe,
   Database,
   ArrowUpRight,
   Flower2,
@@ -26,12 +22,27 @@ import {
   X,
   Mail,
   Pencil,
+  LayoutGrid,
+  List,
+  SlidersHorizontal,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  ArrowUpDown,
+  Server,
+  Package,
+  ShoppingBag,
+  Ban,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 
 import { usePrefs } from '../../i18n/PrefsContext';
 import { OverviewStatCard } from '../common/OverviewStatCard';
 import { useToast } from '../common/ToastProvider';
 import { GlobalModal } from '../common/GlobalModal';
+import { MasterMetaLine, masterGhostBtnClass } from './MasterUiKit';
 import {
   getStoreDisplayName,
   getStoreDisplayCategory,
@@ -57,13 +68,55 @@ interface MasterStoresProps {
   onOpenCreateStore: () => void;
 }
 
+type ViewMode = 'table' | 'cards';
+type SortKey =
+  | 'name'
+  | 'status'
+  | 'plan'
+  | 'products'
+  | 'orders'
+  | 'revenue'
+  | 'domain'
+  | 'createdAt';
+type SortDir = 'asc' | 'desc';
+type HostingFilter = 'All' | 'flowers' | 'central';
+type GrantFilter = 'All' | 'granted' | 'none';
+type LangFilter = 'All' | 'en' | 'ar' | 'both';
+
+type StoreMetrics = {
+  productsCount: number;
+  ordersCount: number;
+  revenue: number;
+};
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+
+const selectCls =
+  'px-2.5 py-1.5 text-xs rounded-xl border focus:outline-none focus:ring-2 min-w-0';
+const selectStyle: React.CSSProperties = {
+  background: 'var(--surface)',
+  borderColor: 'var(--border)',
+  color: 'var(--text)',
+  fontFamily: 'var(--font-ui)',
+};
+
+const chipBase =
+  'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold border cursor-pointer transition-colors whitespace-nowrap';
+
+function hostingOf(store: StoreType): 'flowers' | 'central' {
+  return store.id === 'store-1' ? 'flowers' : 'central';
+}
+
+function resolveDomain(store: StoreType): string {
+  return (store.custom_domain || store.domain || store.demo_domain || '').trim();
+}
+
 export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore }) => {
   const {
     stores,
     switchToStore,
     toggleMasterGrant,
     toggleStoreStatus,
-    updateStorePlan,
     updateCanvaTemplatesPerCategory,
     updateStoreLanguages,
     updateStoreOwnerEmail,
@@ -77,9 +130,83 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
   const { t, money, amount, locale } = usePrefs();
   const { toast, confirm: confirmDialog } = useToast();
   const isAr = locale === 'ar';
-  const loc = isAr ? 'ar-SA' : 'en-US';
   const session = readAuthSession();
   const userCanDelete = canDeleteEntities(session?.user?.role);
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterPlan, setFilterPlan] = useState<string>('All');
+  const [filterStatus, setFilterStatus] = useState<string>('All');
+  const [filterHosting, setFilterHosting] = useState<HostingFilter>('All');
+  const [filterGrant, setFilterGrant] = useState<GrantFilter>('All');
+  const [filterLang, setFilterLang] = useState<LangFilter>('All');
+  const [filterCategory, setFilterCategory] = useState<string>('All');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [emailAccessEpoch, setEmailAccessEpoch] = useState(0);
+  const [editingEmailStoreId, setEditingEmailStoreId] = useState<string | null>(null);
+  const [emailDraft, setEmailDraft] = useState('');
+  const [showWhatsAppQuotasModal, setShowWhatsAppQuotasModal] = useState(false);
+  const [quotasLoading, setQuotasLoading] = useState(false);
+  const [storeQuotas, setStoreQuotas] = useState<MasterStoreWhatsAppQuota[]>([]);
+  const [editingQuotas, setEditingQuotas] = useState<
+    Record<string, { daily_limit: number; monthly_limit: number }>
+  >({});
+  const [savingQuotaStoreId, setSavingQuotaStoreId] = useState<string | null>(null);
+
+  const statusLabel = (status: string) => {
+    if (status === 'active') return isAr ? 'نشط' : 'Active';
+    if (status === 'pending') return isAr ? 'معلق' : 'Pending';
+    if (status === 'suspended') return isAr ? 'موقوف' : 'Suspended';
+    if (status === 'inactive') return isAr ? 'غير نشط' : 'Inactive';
+    return status;
+  };
+
+  const deploymentLabel = (status?: string) => {
+    if (status === 'live' || !status) return isAr ? 'منشور' : 'Live';
+    if (status === 'building' || status === 'deploying') return isAr ? 'قيد التجهيز' : 'Building';
+    if (status === 'failed') return isAr ? 'فشل' : 'Failed';
+    if (status === 'pending') return isAr ? 'معلق' : 'Pending';
+    return status;
+  };
+
+  const planLabel = (plan: string) => {
+    if (plan === 'premium') return isAr ? 'مميزة' : 'Premium';
+    if (plan === 'pro' || plan === 'paid') return isAr ? 'احترافية' : 'Pro';
+    if (plan === 'custom') return isAr ? 'مخصصة' : 'Custom';
+    return isAr ? 'مجانية' : 'Free';
+  };
+
+  const resolveStoreLoginEmail = (store: StoreType): string => {
+    const registered = listRegisteredMerchants().find((m) => m.storeId === store.id);
+    if (registered?.email) return registered.email;
+    const fromOwner = (store.ownerEmail || store.email || '').trim().toLowerCase();
+    if (fromOwner.includes('@')) {
+      const merchant = findRegisteredMerchantByEmail(fromOwner);
+      if (merchant) return merchant.email;
+      return fromOwner;
+    }
+    return '—';
+  };
+
+  const getMetrics = (store: StoreType): StoreMetrics => {
+    const hasProductRows = Object.prototype.hasOwnProperty.call(allProducts || {}, store.id);
+    const hasOrderRows = Object.prototype.hasOwnProperty.call(allOrders || {}, store.id);
+    const storeProducts = allProducts[store.id] || [];
+    const storeOrders = allOrders[store.id] || [];
+    return {
+      productsCount: hasProductRows ? storeProducts.length : Number(store.productsCount) || 0,
+      ordersCount: hasOrderRows ? storeOrders.length : Number(store.ordersCount) || 0,
+      revenue: hasOrderRows
+        ? storeOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0)
+        : Number(store.revenue) || 0,
+    };
+  };
 
   const handleToggleStoreLanguage = (store: StoreType, lang: 'english' | 'arabic') => {
     const current = store.languages || { english: true, arabic: true };
@@ -103,46 +230,14 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
       resource: `Store: ${storeDisplayName}`,
       details: `Language availability: English ${next.english ? 'ON' : 'OFF'}, Arabic ${next.arabic ? 'ON' : 'OFF'}`,
       status: 'success',
-      ipAddress: '185.199.108.153',
+      ipAddress: 'master-console',
     });
     toast(
       isAr
-        ? `تم تحديث لغات المتجر «${storeDisplayName}» (الإنجليزية:${next.english ? 'مفعلة': 'معطلة'}، العربية:${next.arabic ? 'مفعلة': 'معطلة'})`
+        ? `تم تحديث لغات المتجر «${storeDisplayName}» (الإنجليزية: ${next.english ? 'مفعّلة' : 'معطّلة'}، العربية: ${next.arabic ? 'مفعّلة' : 'معطّلة'})`
         : `Language updated for ${storeDisplayName}: English ${next.english ? 'ON' : 'OFF'}, Arabic ${next.arabic ? 'ON' : 'OFF'}`,
       'success',
     );
-  };
-
-  const statusLabel = (status: string) => {
-    if (status === 'active') return isAr ? 'نشط' : 'Active';
-    if (status === 'pending') return isAr ? 'معلق' : 'Pending';
-    return status;
-  };
-
-  const deploymentLabel = (status?: string) => {
-    if (status === 'live' || !status) return isAr ? 'منشور' : 'Live';
-    if (status === 'building') return isAr ? 'قيد التجهيز' : 'Building';
-    return status;
-  };
-
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterPlan, setFilterPlan] = useState<string>('All');
-  const [filterStatus, setFilterStatus] = useState<string>('All');
-  /** Bumps when Master toggles / changes a store login email */
-  const [emailAccessEpoch, setEmailAccessEpoch] = useState(0);
-  const [editingEmailStoreId, setEditingEmailStoreId] = useState<string | null>(null);
-  const [emailDraft, setEmailDraft] = useState('');
-
-  const resolveStoreLoginEmail = (store: StoreType): string => {
-    const registered = listRegisteredMerchants().find((m) => m.storeId === store.id);
-    if (registered?.email) return registered.email;
-    const fromOwner = (store.ownerEmail || store.email || '').trim().toLowerCase();
-    if (fromOwner.includes('@')) {
-      const merchant = findRegisteredMerchantByEmail(fromOwner);
-      if (merchant) return merchant.email;
-      return fromOwner;
-    }
-    return '—';
   };
 
   const handleToggleLoginEmail = async (store: StoreType) => {
@@ -176,7 +271,7 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
       resource: `Store login email: ${loginEmail}`,
       details: `Login email set to ${next ? 'Active' : 'Inactive'} for ${storeDisplayName}`,
       status: 'success',
-      ipAddress: '185.199.108.153',
+      ipAddress: 'master-console',
     });
     toast(
       next
@@ -203,14 +298,9 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
   const saveLoginEmailChange = (store: StoreType) => {
     const nextEmail = emailDraft.trim().toLowerCase();
     if (!nextEmail.includes('@') || !nextEmail.includes('.')) {
-      toast(
-        isAr ? 'يرجى إدخال بريد إلكتروني صحيح' : 'Please enter a valid email address',
-        'error',
-      );
+      toast(isAr ? 'يرجى إدخال بريد إلكتروني صحيح' : 'Please enter a valid email address', 'error');
       return;
     }
-
-    // Another store already owns this login email?
     const taken = findRegisteredMerchantByEmail(nextEmail);
     if (taken && taken.storeId !== store.id) {
       toast(
@@ -221,7 +311,6 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
       );
       return;
     }
-
     try {
       const saved = setStoreLoginEmailOverride(store.id, nextEmail);
       updateStoreOwnerEmail(store.id, saved);
@@ -237,27 +326,18 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
         resource: `Store login email: ${saved}`,
         details: `Changed login email for ${storeDisplayName} to ${saved}`,
         status: 'success',
-        ipAddress: '185.199.108.153',
+        ipAddress: 'master-console',
       });
       toast(
         isAr
-          ? `تم تغيير بريد الدخول لـ «${storeDisplayName}» إلى${saved}`
+          ? `تم تغيير بريد الدخول لـ «${storeDisplayName}» إلى ${saved}`
           : `Login email for ${storeDisplayName} changed to ${saved}`,
         'success',
       );
     } catch {
-      toast(
-        isAr ? 'تعذر حفظ بريد الدخول' : 'Could not save login email',
-        'error',
-      );
+      toast(isAr ? 'تعذر حفظ بريد الدخول' : 'Could not save login email', 'error');
     }
   };
-
-  const [showWhatsAppQuotasModal, setShowWhatsAppQuotasModal] = useState(false);
-  const [quotasLoading, setQuotasLoading] = useState(false);
-  const [storeQuotas, setStoreQuotas] = useState<MasterStoreWhatsAppQuota[]>([]);
-  const [editingQuotas, setEditingQuotas] = useState<Record<string, { daily_limit: number; monthly_limit: number }>>({});
-  const [savingQuotaStoreId, setSavingQuotaStoreId] = useState<string | null>(null);
 
   const handleOpenQuotasModal = async () => {
     setShowWhatsAppQuotasModal(true);
@@ -310,663 +390,1587 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
     }
   };
 
-  const filtered = stores.filter((s) => {
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    stores.forEach((s) => {
+      const c = getStoreDisplayCategory(s, locale).trim();
+      if (c) set.add(c);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [stores, locale]);
+
+  const filtered = useMemo(() => {
     const q = searchTerm.toLowerCase().trim();
-    const displayName = getStoreDisplayName(s, locale).toLowerCase();
-    const displayCategory = getStoreDisplayCategory(s, locale).toLowerCase();
-    const displayOwner = getStoreDisplayOwner(s, locale).toLowerCase();
-    const matchSearch =
-      !q ||
-      s.name.toLowerCase().includes(q) ||
-      (s.nameEn && s.nameEn.toLowerCase().includes(q)) ||
-      (s.nameAr && s.nameAr.toLowerCase().includes(q)) ||
-      displayName.includes(q) ||
-      displayCategory.includes(q) ||
-      displayOwner.includes(q) ||
-      s.owner.toLowerCase().includes(q) ||
-      s.category.toLowerCase().includes(q);
-    const matchPlan = filterPlan === 'All' || s.plan === filterPlan;
-    const matchStatus = filterStatus === 'All' || s.status === filterStatus;
-    return matchSearch && matchPlan && matchStatus;
-  });
+    return stores.filter((s) => {
+      const displayName = getStoreDisplayName(s, locale).toLowerCase();
+      const displayCategory = getStoreDisplayCategory(s, locale).toLowerCase();
+      const displayOwner = getStoreDisplayOwner(s, locale).toLowerCase();
+      const domain = resolveDomain(s).toLowerCase();
+      const loginEmail = resolveStoreLoginEmail(s).toLowerCase();
+      const matchSearch =
+        !q ||
+        s.name.toLowerCase().includes(q) ||
+        (s.nameEn && s.nameEn.toLowerCase().includes(q)) ||
+        (s.nameAr && s.nameAr.toLowerCase().includes(q)) ||
+        displayName.includes(q) ||
+        displayCategory.includes(q) ||
+        displayOwner.includes(q) ||
+        s.owner.toLowerCase().includes(q) ||
+        s.category.toLowerCase().includes(q) ||
+        domain.includes(q) ||
+        loginEmail.includes(q) ||
+        s.id.toLowerCase().includes(q);
+      const matchPlan =
+        filterPlan === 'All' ||
+        s.plan === filterPlan ||
+        (filterPlan === 'pro' && (s.plan === 'pro' || s.plan === 'paid' || s.plan === 'premium'));
+      const matchStatus = filterStatus === 'All' || s.status === filterStatus;
+      const matchHosting = filterHosting === 'All' || hostingOf(s) === filterHosting;
+      const matchGrant =
+        filterGrant === 'All' ||
+        (filterGrant === 'granted' ? !!s.masterGrantedPro : !s.masterGrantedPro);
+      const enOn = s.languages?.english ?? true;
+      const arOn = s.languages?.arabic ?? true;
+      const matchLang =
+        filterLang === 'All' ||
+        (filterLang === 'en' && enOn) ||
+        (filterLang === 'ar' && arOn) ||
+        (filterLang === 'both' && enOn && arOn);
+      const matchCategory =
+        filterCategory === 'All' || getStoreDisplayCategory(s, locale) === filterCategory;
+      return (
+        matchSearch &&
+        matchPlan &&
+        matchStatus &&
+        matchHosting &&
+        matchGrant &&
+        matchLang &&
+        matchCategory
+      );
+    });
+  }, [
+    stores,
+    searchTerm,
+    filterPlan,
+    filterStatus,
+    filterHosting,
+    filterGrant,
+    filterLang,
+    filterCategory,
+    locale,
+    emailAccessEpoch,
+  ]);
+
+  const sorted = useMemo(() => {
+    const rows = [...filtered];
+    const dir = sortDir === 'asc' ? 1 : -1;
+    rows.sort((a, b) => {
+      const ma = getMetrics(a);
+      const mb = getMetrics(b);
+      let cmp = 0;
+      switch (sortKey) {
+        case 'name':
+          cmp = getStoreDisplayName(a, locale).localeCompare(getStoreDisplayName(b, locale));
+          break;
+        case 'status':
+          cmp = a.status.localeCompare(b.status);
+          break;
+        case 'plan':
+          cmp = String(a.plan).localeCompare(String(b.plan));
+          break;
+        case 'products':
+          cmp = ma.productsCount - mb.productsCount;
+          break;
+        case 'orders':
+          cmp = ma.ordersCount - mb.ordersCount;
+          break;
+        case 'revenue':
+          cmp = ma.revenue - mb.revenue;
+          break;
+        case 'domain':
+          cmp = resolveDomain(a).localeCompare(resolveDomain(b));
+          break;
+        case 'createdAt':
+          cmp = String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
+          break;
+        default:
+          cmp = 0;
+      }
+      return cmp * dir;
+    });
+    return rows;
+  }, [filtered, sortKey, sortDir, locale, allProducts, allOrders, cacheEpoch]);
+
+  const totalCount = sorted.length;
+  const pageCount = Math.max(1, Math.ceil(totalCount / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const paged = useMemo(() => {
+    const start = (safePage - 1) * pageSize;
+    return sorted.slice(start, start + pageSize);
+  }, [sorted, safePage, pageSize]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [
+    searchTerm,
+    filterPlan,
+    filterStatus,
+    filterHosting,
+    filterGrant,
+    filterLang,
+    filterCategory,
+    pageSize,
+    viewMode,
+  ]);
+
+  useEffect(() => {
+    setSelectedIds((prev) => prev.filter((id) => stores.some((s) => s.id === id)));
+  }, [stores]);
 
   const totalGMV = useMemo(() => {
-    const flat = Object.values(allOrders || {}).flat();
-    if (flat.length > 0) {
-      return flat.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+    const orderMaps = allOrders || {};
+    const hasOrderMaps = Object.keys(orderMaps).length > 0;
+    if (hasOrderMaps) {
+      return Object.values(orderMaps)
+        .flat()
+        .reduce((sum, o) => sum + (Number(o.total) || 0), 0);
     }
-    return stores.reduce((sum, s) => sum + (s.revenue || 0), 0);
+    return stores.reduce((sum, s) => sum + (Number(s.revenue) || 0), 0);
   }, [allOrders, stores, cacheEpoch]);
 
-  return (
-    <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <Store className="w-5 h-5 text-teal-600" />
-            <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              {isAr ? 'جميع المتاجر والعملاء' : 'All Client Stores & Tenants'}
-            </h1>
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            {isAr
-              ? 'إدارة مركزية للمتاجر: الاشتراكات، عزل قواعد البيانات، النطاقات، وتسجيل الدخول كتاجر.'
-              : 'Centralized merchant control: manage subscriptions, database isolation, domains, and impersonation.'}
-          </p>
-        </div>
+  const totalOrdersPlatform = useMemo(() => {
+    const orderMaps = allOrders || {};
+    if (Object.keys(orderMaps).length > 0) {
+      return Object.values(orderMaps).flat().length;
+    }
+    return stores.reduce((sum, s) => sum + (Number(s.ordersCount) || 0), 0);
+  }, [allOrders, stores, cacheEpoch]);
 
-        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-          <button
-            onClick={handleOpenQuotasModal}
-            className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 dark:text-emerald-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer border border-emerald-200/80 dark:border-emerald-500/30"
-            title={isAr ? 'إدارة حصص واتساب ومكافحة حظر الأرقام لجميع المتاجر' : 'Manage Store WhatsApp Quotas & Anti-Ban Controls'}
-          >
-            <MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span>{isAr ? 'حصص واتساب (مكافحة الحظر)' : 'WhatsApp Quotas (Anti-Ban)'}</span>
-          </button>
+  const activeStoresCount = stores.filter((s) => s.status === 'active').length;
+  const suspendedStoresCount = stores.filter(
+    (s) => s.status === 'suspended' || (s.status as string) === 'inactive',
+  ).length;
+  const proStoresCount = stores.filter(
+    (s) => s.plan === 'pro' || s.plan === 'premium' || s.plan === 'paid' || s.masterGrantedPro,
+  ).length;
+  const grantedCount = stores.filter((s) => s.masterGrantedPro).length;
 
-          <button
-            onClick={async () => {
-              await softRefreshTenantData();
-              toast(isAr ? 'تم تحديث ومزامنة جميع بيانات المتاجر والمنصة بنجاح' : 'All store & platform data synchronized successfully', 'success');
+  const activeFilterCount = [
+    filterPlan !== 'All',
+    filterStatus !== 'All',
+    filterHosting !== 'All',
+    filterGrant !== 'All',
+    filterLang !== 'All',
+    filterCategory !== 'All',
+  ].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setFilterPlan('All');
+    setFilterStatus('All');
+    setFilterHosting('All');
+    setFilterGrant('All');
+    setFilterLang('All');
+    setFilterCategory('All');
+  };
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
+
+  const pageIds = paged.map((s) => s.id);
+  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+
+  const toggleSelectAllPage = () => {
+    if (allPageSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !pageIds.includes(id)));
+    } else {
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...pageIds])));
+    }
+  };
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const selectedStores = useMemo(
+    () => stores.filter((s) => selectedIds.includes(s.id)),
+    [stores, selectedIds],
+  );
+
+  const runBulkStatus = async (target: 'active' | 'suspended') => {
+    if (selectedStores.length === 0) return;
+    const ok = await confirmDialog({
+      title: isAr ? 'تحديث جماعي للحالة' : 'Bulk status update',
+      message: isAr
+        ? `تطبيق الحالة «${statusLabel(target)}» على ${selectedStores.length} متجر؟`
+        : `Set ${selectedStores.length} stores to ${statusLabel(target)}?`,
+      confirmLabel: isAr ? 'تطبيق' : 'Apply',
+      cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+    });
+    if (!ok) return;
+    let changed = 0;
+    selectedStores.forEach((s) => {
+      if (target === 'active' && s.status !== 'active') {
+        toggleStoreStatus(s.id);
+        changed += 1;
+      } else if (target === 'suspended' && s.status === 'active') {
+        toggleStoreStatus(s.id);
+        changed += 1;
+      }
+    });
+    toast(
+      isAr
+        ? `تم تحديث حالة ${changed} متجر`
+        : `Updated status for ${changed} store(s)`,
+      'success',
+    );
+    setSelectedIds([]);
+  };
+
+  const runBulkGrant = async (grant: boolean) => {
+    if (selectedStores.length === 0) return;
+    const ok = await confirmDialog({
+      title: grant
+        ? isAr
+          ? 'منح جماعي للباقة الاحترافية'
+          : 'Bulk grant Pro'
+        : isAr
+          ? 'إلغاء جماعي للمنح'
+          : 'Bulk revoke grants',
+      message: isAr
+        ? `تطبيق على ${selectedStores.length} متجر محدد؟`
+        : `Apply to ${selectedStores.length} selected store(s)?`,
+      confirmLabel: isAr ? 'تطبيق' : 'Apply',
+      cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+    });
+    if (!ok) return;
+    let changed = 0;
+    selectedStores.forEach((s) => {
+      if (Boolean(s.masterGrantedPro) !== grant) {
+        toggleMasterGrant(s.id);
+        changed += 1;
+        addAuditLog({
+          adminId: 'master-admin-01',
+          adminName: 'Souq Platform SuperAdmin',
+          storeId: s.id,
+          action: 'plan_change',
+          resource: `Store: ${getStoreDisplayName(s, locale)}`,
+          details: `Bulk ${grant ? 'grant' : 'revoke'} Master Pro`,
+          status: 'success',
+          ipAddress: 'master-console',
+        });
+      }
+    });
+    toast(
+      isAr ? `تم تحديث المنحة لـ ${changed} متجر` : `Grant updated for ${changed} store(s)`,
+      'success',
+    );
+    setSelectedIds([]);
+  };
+
+  const hostLabel = (store: StoreType) => {
+    const onCentral = hostingOf(store) === 'central';
+    return onCentral
+      ? isAr
+        ? 'الاستضافة المركزية'
+        : 'Central Hostinger'
+      : isAr
+        ? 'استضافة الزهور'
+        : 'Flowers Hostinger';
+  };
+
+  const storeIconTone = (store: StoreType) => {
+    if (store.id.includes('coffee')) return 'var(--tone-warn)';
+    if (store.id.includes('bleco') || store.id.includes('car')) return 'var(--accent)';
+    return 'var(--tone-success)';
+  };
+
+  const StoreAvatar: React.FC<{ store: StoreType; size?: 'sm' | 'md' }> = ({ store, size = 'md' }) => {
+    const dim = size === 'sm' ? 'w-8 h-8' : 'w-10 h-10';
+    const name = getStoreDisplayName(store, locale);
+    const tone = storeIconTone(store);
+    const isCoffee = store.id.includes('coffee');
+    const isCars = store.id.includes('bleco') || store.id.includes('car');
+    if (store.logo) {
+      return (
+        <div
+          className={`${dim} rounded-xl border p-0.5 flex items-center justify-center shrink-0 overflow-hidden`}
+          style={{
+            background: 'color-mix(in srgb, var(--accent) 6%, var(--surface))',
+            borderColor: 'var(--border)',
+          }}
+        >
+          <img
+            src={store.logo}
+            alt={name}
+            className="w-full h-full object-contain"
+            onError={(e) => {
+              (e.currentTarget as HTMLElement).style.display = 'none';
             }}
-            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer border border-slate-200/80 dark:border-slate-700"
-            title={isAr ? 'مزامنة وتحديث بيانات المتاجر' : 'Sync & Refresh Store Data'}
-          >
-            <RefreshCw className="w-3.5 h-3.5 text-teal-600" />
-            <span>{isAr ? 'مزامنة البيانات' : 'Sync Master Data'}</span>
-          </button>
+          />
+        </div>
+      );
+    }
+    return (
+      <span
+        className={`${dim} rounded-xl flex items-center justify-center shrink-0 border`}
+        style={{
+          background: `color-mix(in srgb, ${tone} 12%, var(--surface))`,
+          color: tone,
+          borderColor: `color-mix(in srgb, ${tone} 30%, var(--border))`,
+        }}
+      >
+        {isCoffee ? (
+          <Coffee className="w-4 h-4" />
+        ) : isCars ? (
+          <Car className="w-4 h-4" />
+        ) : (
+          <Flower2 className="w-4 h-4" />
+        )}
+      </span>
+    );
+  };
 
+  const StatusPill: React.FC<{ store: StoreType }> = ({ store }) => (
+    <button
+      type="button"
+      onClick={() => {
+        toggleStoreStatus(store.id);
+        toast(
+          isAr
+            ? `تم تغيير حالة المتجر «${getStoreDisplayName(store, locale)}»`
+            : `Status updated for ${getStoreDisplayName(store, locale)}`,
+          'success',
+        );
+      }}
+      title={isAr ? 'تبديل حالة المتجر' : 'Toggle store status'}
+      className={`${chipBase}`}
+      style={
+        store.status === 'active'
+          ? {
+              background: 'color-mix(in srgb, var(--tone-success) 12%, var(--surface))',
+              color: 'var(--tone-success)',
+              borderColor: 'color-mix(in srgb, var(--tone-success) 35%, var(--border))',
+            }
+          : store.status === 'suspended'
+            ? {
+                background: 'color-mix(in srgb, var(--tone-danger) 12%, var(--surface))',
+                color: 'var(--tone-danger)',
+                borderColor: 'color-mix(in srgb, var(--tone-danger) 35%, var(--border))',
+              }
+            : {
+                background: 'color-mix(in srgb, var(--tone-warn) 12%, var(--surface))',
+                color: 'var(--tone-warn)',
+                borderColor: 'color-mix(in srgb, var(--tone-warn) 35%, var(--border))',
+              }
+      }
+    >
+      <span
+        className="w-1.5 h-1.5 rounded-full"
+        style={{
+          background:
+            store.status === 'active'
+              ? 'var(--tone-success)'
+              : store.status === 'suspended'
+                ? 'var(--tone-danger)'
+                : 'var(--tone-warn)',
+        }}
+      />
+      {statusLabel(store.status)}
+    </button>
+  );
+
+  const renderControls = (store: StoreType) => {
+    const storeDisplayName = getStoreDisplayName(store, locale);
+    const metrics = getMetrics(store);
+    const realDomain = resolveDomain(store);
+    const coffeeStore = store.id === 'store-coffee';
+    const displayDomain =
+      realDomain ||
+      (isAr
+        ? coffeeStore
+          ? 'النطاق المجاني بانتظار الربط'
+          : 'بانتظار النطاق المخصص'
+        : coffeeStore
+          ? 'Included domain not connected'
+          : 'Custom domain not connected');
+    const loginEmail = resolveStoreLoginEmail(store);
+    const emailActive = isStoreLoginEmailActive(store.id);
+    const isEditing = editingEmailStoreId === store.id;
+    void emailAccessEpoch;
+
+    return (
+      <div className="space-y-3 min-w-0" style={{ color: 'var(--muted)' }}>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+          <div
+            className="rounded-xl border p-2.5 min-w-0"
+            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+          >
+            <div className="flex items-center gap-1 mb-1">
+              <Package className="w-3 h-3" style={{ color: 'var(--accent)' }} />
+              <span>{isAr ? 'المنتجات' : 'Products'}</span>
+            </div>
+            <div className="font-extrabold tabular-nums text-sm" style={{ color: 'var(--text)' }}>
+              {amount(metrics.productsCount)}
+            </div>
+          </div>
+          <div
+            className="rounded-xl border p-2.5 min-w-0"
+            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+          >
+            <div className="flex items-center gap-1 mb-1">
+              <ShoppingBag className="w-3 h-3" style={{ color: 'var(--accent)' }} />
+              <span>{isAr ? 'الطلبات' : 'Orders'}</span>
+            </div>
+            <div className="font-extrabold tabular-nums text-sm" style={{ color: 'var(--text)' }}>
+              {amount(metrics.ordersCount)}
+            </div>
+          </div>
+          <div
+            className="rounded-xl border p-2.5 min-w-0 col-span-2 sm:col-span-1"
+            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+          >
+            <div className="flex items-center gap-1 mb-1">
+              <ArrowUpRight className="w-3 h-3" style={{ color: 'var(--accent)' }} />
+              <span>{isAr ? 'الإيرادات' : 'Revenue'}</span>
+            </div>
+            <div className="font-extrabold tabular-nums text-sm truncate" style={{ color: 'var(--text)' }}>
+              {money(metrics.revenue)}
+            </div>
+          </div>
+          <div
+            className="rounded-xl border p-2.5 min-w-0 col-span-2 sm:col-span-1"
+            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+          >
+            <div className="flex items-center gap-1 mb-1">
+              <Server className="w-3 h-3" style={{ color: 'var(--accent)' }} />
+              <span>{isAr ? 'الاستضافة' : 'Hosting'}</span>
+            </div>
+            <div className="font-bold text-[11px] truncate" style={{ color: 'var(--text)' }}>
+              {hostLabel(store)}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+          <span className="inline-flex items-center gap-1">
+            <Globe className="w-3 h-3" />
+            {isAr ? 'النطاق' : 'Domain'}
+          </span>
           <button
-            onClick={onOpenCreateStore}
-            className="px-4 py-2 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+            type="button"
+            dir="ltr"
+            onClick={() => {
+              if (!realDomain) return;
+              void navigator.clipboard?.writeText(realDomain);
+              toast(isAr ? 'تم نسخ النطاق' : 'Domain copied', 'success');
+            }}
+            className="font-mono font-bold truncate max-w-[240px] cursor-pointer"
+            style={{ color: 'var(--text)' }}
+            title={displayDomain}
           >
-            <Plus className="w-4 h-4" />
-            <span>{isAr ? 'إنشاء متجر جديد' : 'Provision New Store'}</span>
+            {displayDomain}
           </button>
-        </div>
-      </div>
-
-      {/* 4 Platform KPI Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <OverviewStatCard
-          label={isAr ? 'إجمالي المتاجر' : 'Total Client Stores'}
-          value={amount(stores.length)}
-          icon={Store}
-          tone="accent"
-          sparkline={[Math.max(1, stores.length - 2), Math.max(1, stores.length - 1), stores.length]}
-          delta={stores.length > 0 ? 100 : null}
-          deltaLabel={isAr ? 'مقارنة بالشهر الماضي' : 'vs last month'}
-        />
-        <OverviewStatCard
-          label={t('activeStores') || (isAr ? 'المتاجر النشطة' : 'Active Stores')}
-          value={amount(stores.filter((s) => s.status === 'active').length)}
-          icon={CheckCircle}
-          tone="success"
-          sparkline={[
-            Math.max(1, stores.filter((s) => s.status === 'active').length - 1),
-            stores.filter((s) => s.status === 'active').length,
-          ]}
-          delta={
-            stores.length > 0
-              ? Math.round(
-                  (stores.filter((s) => s.status === 'active').length / stores.length) * 100,
-                )
-              : null
-          }
-          deltaLabel={isAr ? 'من إجمالي المتاجر' : 'operational'}
-        />
-        <OverviewStatCard
-          label={isAr ? 'اشتراك احترافي ومميز' : 'Pro and Premium'}
-          value={amount(stores.filter((s) => s.plan === 'pro' || s.plan === 'premium' || s.plan === 'paid').length)}
-          icon={Crown}
-          tone="warn"
-          sparkline={[
-            Math.max(0, stores.filter((s) => s.plan === 'pro' || s.plan === 'premium' || s.plan === 'paid').length - 1),
-            stores.filter((s) => s.plan === 'pro' || s.plan === 'premium' || s.plan === 'paid').length,
-          ]}
-          delta={
-            stores.length > 0
-              ? Math.round(
-                  (stores.filter((s) => s.plan === 'pro' || s.plan === 'premium' || s.plan === 'paid').length / stores.length) * 100,
-                )
-              : null
-          }
-          deltaLabel={isAr ? 'من إجمالي المتاجر' : 'of all stores'}
-        />
-        <OverviewStatCard
-          label={isAr ? 'إجمالي مبيعات المنصة' : 'Total Platform GMV'}
-          value={money(totalGMV)}
-          icon={ArrowUpRight}
-          tone="info"
-          sparkline={[Math.round(totalGMV * 0.7), Math.round(totalGMV * 0.85), totalGMV]}
-          delta={totalGMV > 0 ? 100 : null}
-          deltaLabel={isAr ? 'إيرادات' : 'revenue'}
-        />
-      </div>
-
-      {/* Filter Bar */}
-      <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2 flex-1 max-w-md">
-          <div className="relative w-full">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              placeholder={isAr ? 'البحث عن اسم المتجر أو المالك أو التصنيف...' : 'Search store name, merchant owner, category...'}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full ps-8 pe-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-teal-500"
-            />
-          </div>
+          <span
+            className="px-2 py-0.5 rounded-lg text-[10px] font-bold border"
+            style={{
+              background: 'color-mix(in srgb, var(--tone-success) 12%, var(--surface))',
+              color: 'var(--tone-success)',
+              borderColor: 'color-mix(in srgb, var(--tone-success) 35%, var(--border))',
+            }}
+          >
+            {deploymentLabel(store.deployment_status)}
+            {store.deployment_status === 'live' || !store.deployment_status
+              ? ` · ${isAr ? 'شهادة الأمان مفعّلة' : 'SSL Active'}`
+              : ''}
+          </span>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 text-xs">
-            <span className="text-slate-500 dark:text-slate-400">{isAr ? 'الباقة' : 'Plan'}:</span>
-            <select
-              value={filterPlan}
-              onChange={(e) => setFilterPlan(e.target.value)}
-              className="px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 focus:outline-none"
-            >
-              <option value="All">{isAr ? 'جميع الباقات' : 'All Plans'}</option>
-              <option value="pro">{isAr ? 'تاجر الباقة الاحترافية' : 'Pro Merchant'}</option>
-              <option value="free">{isAr ? 'باقة مجانية' : 'Free Tier'}</option>
-            </select>
-          </div>
-
-          <div className="flex items-center gap-1.5 text-xs">
-            <span className="text-slate-500 dark:text-slate-400">{isAr ? 'الحالة' : 'Status'}:</span>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 focus:outline-none"
-            >
-              <option value="All">{isAr ? 'جميع الحالات' : 'All Statuses'}</option>
-              <option value="active">{isAr ? 'نشط' : 'Active'}</option>
-              <option value="pending">{isAr ? 'معلق' : 'Pending'}</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Stores Grid / Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((store) => {
-          const storeProducts = allProducts[store.id] || [];
-          const productsCount = storeProducts.length || store.productsCount;
-          const storeOrders = allOrders[store.id] || [];
-          const ordersCount = storeOrders.length || store.ordersCount;
-          const storeRevenue = storeOrders.length
-            ? storeOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0)
-            : store.revenue;
-
-          const onCentralHost = store.id !== 'store-1';
-          const hostAccount = onCentralHost
-            ? isAr
-              ? 'الاستضافة المركزية'
-              : 'Central Hostinger'
-            : isAr
-              ? 'استضافة الزهور'
-              : 'Flowers Hostinger';
-          const hostDetail = onCentralHost
-            ? isAr
-              ? 'القهوة والسيارات والمتاجر الجديدة'
-              : 'Coffee, cars, and new stores'
-            : isAr
-              ? 'حساب منفصل'
-              : 'Separate account';
-
-          const realDomain = store.custom_domain || store.domain || store.demo_domain || '';
-          const coffeeStore = store.id === 'store-coffee';
-          const displayDomain =
-            realDomain ||
-            (isAr
-              ? coffeeStore
-                ? 'النطاق المجاني بانتظار الربط'
-                : 'بانتظار النطاق المخصص'
-              : coffeeStore
-                ? 'Included domain not connected'
-                : 'Custom domain not connected');
-          const planLabel =
-            store.plan === 'premium'
-              ? isAr
-                ? 'مميزة'
-                : 'Premium'
-              : store.plan === 'pro' || store.plan === 'paid'
-                ? isAr
-                  ? 'احترافية'
-                  : 'Pro'
-                : store.plan === 'custom'
-                  ? isAr
-                    ? 'مخصصة'
-                    : 'Custom'
-                  : isAr
-                    ? 'مجانية'
-                    : 'Free';
-
-              const storeDisplayName = getStoreDisplayName(store, locale);
-              const storeDisplayCategory = getStoreDisplayCategory(store, locale);
-              const storeDisplayOwner = getStoreDisplayOwner(store, locale);
-
+        <div
+          className="pt-2 border-t flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+          style={{ borderColor: 'var(--border)' }}
+        >
+          <span className="text-[11px] font-semibold flex items-center gap-1.5">
+            <Globe className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+            {isAr ? 'لغات المتجر' : 'Store languages'}
+          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {(['english', 'arabic'] as const).map((lang) => {
+              const on = store.languages?.[lang] ?? true;
+              const label = lang === 'english' ? (isAr ? 'الإنجليزية' : 'EN') : isAr ? 'العربية' : 'AR';
               return (
-                <div
-                  key={store.id}
-                  className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between"
-                >
-                  <div>
-                    {/* Top row */}
-                    <div className="flex items-start justify-between gap-3 mb-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        {store.logo ? (
-                          <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 flex items-center justify-center shrink-0 shadow-2xs overflow-hidden">
-                            <img
-                              src={store.logo}
-                              alt={storeDisplayName}
-                              className="w-full h-full object-contain"
-                              onError={(e) => {
-                                (e.currentTarget as HTMLElement).style.display = 'none';
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs border ${
-                            store.id.includes('coffee')
-                              ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30'
-                              : store.id.includes('bleco') || store.id.includes('car')
-                              ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/30'
-                              : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30'
-                          }`}>
-                            {store.id.includes('coffee') ? (
-                              <Coffee className="w-5 h-5 text-amber-700 dark:text-amber-300" />
-                            ) : store.id.includes('bleco') || store.id.includes('car') ? (
-                              <Car className="w-5 h-5 text-blue-600 dark:text-blue-300" />
-                            ) : (
-                              <Flower2 className="w-5 h-5 text-emerald-600 dark:text-emerald-300" />
-                            )}
-                          </span>
-                        )}
-                        <div className="min-w-0">
-                          <h3 className="font-bold text-sm text-slate-900 dark:text-white leading-tight truncate">
-                            {storeDisplayName}
-                          </h3>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                            {storeDisplayCategory} · {isAr ? 'المالك' : 'Owner'}:{' '}
-                            <span className="text-slate-700 dark:text-slate-200 font-medium">{storeDisplayOwner}</span>
-                          </p>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => {
-                          toggleStoreStatus(store.id);
-                          toast(
-                            isAr
-                              ? `تم تغيير حالة المتجر «${storeDisplayName}»`
-                              : `Status updated for ${storeDisplayName}`,
-                            'success',
-                          );
-                        }}
-                        title={isAr ? 'تبديل حالة المتجر' : 'Toggle store status'}
-                        aria-label={isAr ? 'تبديل حالة المتجر' : 'Toggle store status'}
-                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold shrink-0 cursor-pointer ${
-                          store.status === 'active'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30'
-                            : 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30'
-                        }`}
-                      >
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        store.status === 'active' ? 'bg-emerald-500' : 'bg-amber-500'
-                      }`}
-                    />
-                    <span className="capitalize">{statusLabel(store.status)}</span>
-                  </button>
-                </div>
-
-                {/* Metrics Pill Row */}
-                <div className="grid grid-cols-3 gap-2 py-3 border-y border-slate-100 dark:border-slate-800 text-center my-3 text-xs">
-                  <div>
-                    <span className="text-[10px] text-slate-400 block">{isAr ? 'المنتجات' : 'Products'}</span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200 tabular-nums">{productsCount}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 block">{isAr ? 'الطلبات' : 'Orders'}</span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200 tabular-nums">{ordersCount}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-400 block">{isAr ? 'الإيرادات' : 'Revenue'}</span>
-                    <span className="font-bold text-slate-900 dark:text-white tabular-nums">{money(storeRevenue)}</span>
-                  </div>
-                </div>
-
-                {/* Domain & Hostinger Shared DB details */}
-                <div className="space-y-2 text-[11px] text-slate-600 dark:text-slate-300 mb-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-slate-400 flex items-center gap-1 shrink-0">
-                      <Globe className="w-3 h-3 text-slate-400" /> {isAr ? 'النطاق:' : 'Domain:'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void navigator.clipboard?.writeText(displayDomain);
-                        toast(isAr ? 'تم نسخ النطاق' : 'Domain copied', 'success');
-                      }}
-                      className="font-mono text-slate-700 dark:text-slate-200 font-bold truncate text-end select-all max-w-[210px] cursor-pointer hover:text-teal-700 dark:hover:text-teal-300"
-                      title={isAr ? `نسخ${displayDomain}` : `Copy ${displayDomain}`}
-                      dir="ltr"
-                    >
-                      {displayDomain}
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-slate-400 flex items-center gap-1 shrink-0">
-                      <Database className="w-3 h-3 text-slate-400" /> {isAr ? 'الاستضافة:' : 'Hosting:'}
-                    </span>
-                    <span className="font-mono text-slate-700 dark:text-slate-200 truncate text-end">
-                      {hostAccount} ({hostDetail})
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-slate-400 flex items-center gap-1 shrink-0">
-                      <ShieldCheck className="w-3 h-3 text-amber-500" /> {isAr ? 'الباقة والمنحة:' : 'Plan & Grant:'}
-                    </span>
-                    <span className="flex items-center gap-1 shrink-0">
-                      <span className="uppercase font-mono text-[10px] bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 px-1.5 py-0.5 rounded font-bold">
-                        {planLabel}
-                      </span>
-                      {store.masterGrantedPro && (
-                        <span className="text-[10px] text-amber-700 font-bold bg-amber-50 border border-amber-200/80 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
-                          <Crown className="w-3 h-3 text-amber-500 fill-amber-500" />
-                          <span>{isAr ? 'منحة الإدارة' : 'Master Grant'}</span>
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between pt-0.5">
-                    <span className="text-slate-400 flex items-center gap-1 shrink-0">
-                      <CheckCircle className="w-3 h-3 text-emerald-500" /> {isAr ? 'النشر:' : 'Deployment:'}
-                    </span>
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30 px-2 py-0.5 rounded">
-                      {deploymentLabel(store.deployment_status)} ({isAr ? 'شهادة الأمان مفعّلة' : 'SSL Active'})
-                    </span>
-                  </div>
-
-                  {/* Super Admin Language Availability Control */}
-                  <div className="pt-2.5 pb-1 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 shrink-0">
-                      <Globe className="w-3.5 h-3.5 text-teal-600" />
-                      <span>{isAr ? 'لغات المتجر:' : 'Store Languages:'}</span>
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      {/* English Toggle */}
-                      <button
-                        type="button"
-                        onClick={() => handleToggleStoreLanguage(store, 'english')}
-                        className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold border transition-all cursor-pointer flex items-center gap-1 ${
-                          (store.languages?.english ?? true)
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/40'
-                            : 'bg-slate-100 text-slate-400 border-slate-200 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-500 dark:border-slate-700 line-through'
-                        }`}
-                        title={isAr ? 'تفعيل / تعطيل الإنجليزية' : 'Toggle English availability'}
-                      >
-                        <span>🇬🇧 EN</span>
-                        <span className="text-[9px]">{(store.languages?.english ?? true) ? 'ON' : 'OFF'}</span>
-                      </button>
-                      {/* Arabic Toggle */}
-                      <button
-                        type="button"
-                        onClick={() => handleToggleStoreLanguage(store, 'arabic')}
-                        className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold border transition-all cursor-pointer flex items-center gap-1 ${
-                          (store.languages?.arabic ?? true)
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/40'
-                            : 'bg-slate-100 text-slate-400 border-slate-200 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-500 dark:border-slate-700 line-through'
-                        }`}
-                        title={isAr ? 'تفعيل / تعطيل العربية' : 'Toggle Arabic availability'}
-                      >
-                        <span>🇸🇦 AR</span>
-                        <span className="text-[9px]">{(store.languages?.arabic ?? true) ? 'ON' : 'OFF'}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Master SuperAdmin only: login email Active/Inactive + Change */}
-                  {(() => {
-                    const loginEmail = resolveStoreLoginEmail(store);
-                    const emailActive = isStoreLoginEmailActive(store.id);
-                    const isEditing = editingEmailStoreId === store.id;
-                    void emailAccessEpoch;
-                    return (
-                      <div className="pt-2.5 pb-0.5 border-t border-slate-100 dark:border-slate-800 space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5 shrink-0">
-                            <Mail className="w-3.5 h-3.5 text-teal-600" />
-                            <span>{isAr ? 'بريد دخول المتجر:' : 'Store login email:'}</span>
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleToggleLoginEmail(store)}
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border cursor-pointer transition-colors ${
-                              emailActive
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/40'
-                                : 'bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/40'
-                            }`}
-                            title={
-                              isAr
-                                ? 'تفعيل / تعطيل بريد الدخول (سوبر أدمن فقط)'
-                                : 'Activate / deactivate login email (SuperAdmin only)'
-                            }
-                          >
-                            <span
-                              className={`w-1.5 h-1.5 rounded-full ${
-                                emailActive ? 'bg-emerald-500' : 'bg-rose-500'
-                              }`}
-                            />
-                            {emailActive
-                              ? isAr
-                                ? 'نشط'
-                                : 'Active'
-                              : isAr
-                                ? 'غير نشط'
-                                : 'Inactive'}
-                          </button>
-                        </div>
-
-                        {isEditing ? (
-                          <div className="space-y-1.5">
-                            <input
-                              type="email"
-                              value={emailDraft}
-                              onChange={(e) => setEmailDraft(e.target.value)}
-                              dir="ltr"
-                              placeholder="name@example.com"
-                              className="w-full px-2.5 py-1.5 rounded-lg border text-[11px] font-mono outline-none focus:ring-2 focus:ring-teal-500/30 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100"
-                            />
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                type="button"
-                                onClick={cancelEditLoginEmail}
-                                className="px-2 py-1 rounded-lg text-[10px] font-bold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800"
-                              >
-                                {isAr ? 'إلغاء' : 'Cancel'}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => saveLoginEmailChange(store)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-teal-600 text-white hover:bg-teal-700 cursor-pointer"
-                              >
-                                <Save className="w-3 h-3" />
-                                {isAr ? 'حفظ البريد' : 'Save email'}
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-between gap-2">
-                            <p
-                              className="font-mono text-[10px] text-slate-600 dark:text-slate-300 truncate text-start min-w-0"
-                              dir="ltr"
-                              title={loginEmail}
-                            >
-                              {loginEmail}
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => startEditLoginEmail(store)}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-extrabold border border-teal-200 text-teal-700 bg-teal-50 hover:bg-teal-100 dark:bg-teal-500/10 dark:text-teal-300 dark:border-teal-500/30 cursor-pointer shrink-0"
-                              title={
-                                isAr
-                                  ? 'تغيير بريد الدخول (سوبر أدمن فقط)'
-                                  : 'Change login email (SuperAdmin only)'
-                              }
-                            >
-                              <Pencil className="w-3 h-3" />
-                              {isAr ? 'تغيير' : 'Change'}
-                            </button>
-                          </div>
-                        )}
-                        <p className="text-[9px] text-slate-400 dark:text-slate-500">
-                          {isAr
-                            ? 'تغيير بريد الدخول متاح لسوبر أدمن المنصة فقط'
-                            : 'Login email can be changed by platform SuperAdmin only'}
-                        </p>
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-
-              {/* Actions Bottom Bar */}
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => {
-                      toggleMasterGrant(store.id);
-                      addAuditLog({
-                        adminId: 'master-admin-01',
-                        adminName: 'Souq Platform SuperAdmin',
-                        storeId: store.id,
-                        action: 'plan_change',
-                        resource: `Store: ${storeDisplayName}`,
-                        details: `Toggled Master Pro Grant (State: ${!store.masterGrantedPro})`,
-                        status: 'success',
-                        ipAddress: '185.199.108.153',
-                      });
-                      toast(
-                        store.masterGrantedPro
-                          ? isAr
-                            ? `تم إلغاء منحة الباقة الاحترافية لـ «${storeDisplayName}»`
-                            : `Pro grant revoked for ${storeDisplayName}`
-                          : isAr
-                            ? `تم منح الباقة الاحترافية لـ «${storeDisplayName}»`
-                            : `Pro granted to ${storeDisplayName}`,
-                        'success',
-                      );
-                    }}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-xl border transition-colors cursor-pointer ${
-                      store.masterGrantedPro
-                        ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30 dark:hover:bg-amber-500/20'
-                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
-                    }`}
-                    title={isAr ? 'تبديل منحة الباقة الاحترافية المجانية من الإدارة' : 'Toggle Complimentary Master Grant'}
-                  >
-                    {store.masterGrantedPro
-                      ? isAr ? 'إلغاء المنحة' : 'Revoke Grant'
-                      : isAr ? 'منح الباقة الاحترافية' : 'Grant Pro'}
-                  </button>
-
-                  <label
-                    className="flex items-center gap-1.5 px-2 py-1 rounded-xl border text-[10px] font-bold"
-                    style={{ borderColor: 'var(--border)' }}
-                    title={
-                      isAr
-                        ? 'عدد قوالب استوديو التصميم المجانية لكل نوع (فارغ = ٥ أو برو غير محدود)'
-                        : 'Free Design Studio templates per category (empty = 5, or unlimited on Pro)'
-                    }
-                  >
-                    <span className="text-muted whitespace-nowrap">
-                      {isAr ? 'قوالب/نوع' : 'Tpls/type'}
-                    </span>
-                    <input
-                      type="number"
-                      min={1}
-                      max={100}
-                      className="w-12 px-1 py-0.5 rounded-lg border text-[11px] font-mono bg-transparent"
-                      style={{ borderColor: 'var(--border)' }}
-                      value={store.canvaTemplatesPerCategory ?? ''}
-                      placeholder="5"
-                      onChange={(e) => {
-                        const raw = e.target.value.trim();
-                        const next = raw === '' ? null : Number(raw);
-                        updateCanvaTemplatesPerCategory(
-                          store.id,
-                          next == null || Number.isNaN(next) ? null : next,
-                        );
-                        toast(
-                          isAr
-                            ? `تم تحديث حد القوالب لـ «${storeDisplayName}»`
-                            : `Template limit updated for ${storeDisplayName}`,
-                          'success',
-                        );
-                      }}
-                    />
-                  </label>
-
-                  {userCanDelete && (
-                    <button
-                      onClick={async () => {
-                        const ok = await confirmDialog({
-                          title: isAr ? 'حذف المتجر' : 'Delete store',
-                          message: isAr
-                            ? `هل أنت متأكد من حذف «${storeDisplayName}»؟ لا يمكن التراجع عن هذا الإجراء.`
-                            : `Are you sure you want to delete ${storeDisplayName}? This cannot be undone.`,
-                          confirmLabel: isAr ? 'حذف' : 'Delete',
-                          cancelLabel: isAr ? 'إلغاء' : 'Cancel',
-                          danger: true,
-                        });
-                        if (ok) {
-                          deleteStore(store.id);
-                          addAuditLog({
-                            adminId: 'master-admin-01',
-                            adminName: 'Souq Platform SuperAdmin',
-                            storeId: store.id,
-                            action: 'store_update',
-                            resource: `Store: ${storeDisplayName}`,
-                            details: `Permanently removed store from platform`,
-                            status: 'success',
-                            ipAddress: '185.199.108.153',
-                          });
-                          toast(isAr ? `تم حذف «${storeDisplayName}»` : `${storeDisplayName} deleted`, 'success');
-                        }
-                      }}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 dark:hover:text-rose-300 border border-transparent hover:border-rose-100 dark:hover:border-rose-500/30 rounded-xl transition-colors cursor-pointer"
-                      title={isAr ? 'حذف المتجر' : 'Remove Store'}
-                      aria-label={isAr ? 'حذف المتجر' : 'Remove Store'}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Login as Merchant Button */}
                 <button
-                  onClick={() => switchToStore(store.id)}
-                  className="px-3.5 py-1.5 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                  key={lang}
+                  type="button"
+                  onClick={() => handleToggleStoreLanguage(store, lang)}
+                  className={chipBase}
+                  style={
+                    on
+                      ? {
+                          background: 'color-mix(in srgb, var(--tone-success) 12%, var(--surface))',
+                          color: 'var(--tone-success)',
+                          borderColor: 'color-mix(in srgb, var(--tone-success) 40%, var(--border))',
+                        }
+                      : {
+                          background: 'color-mix(in srgb, var(--muted) 8%, var(--surface))',
+                          color: 'var(--muted)',
+                          borderColor: 'var(--border)',
+                          textDecoration: 'line-through',
+                        }
+                  }
                 >
-                  <span>{isAr ? 'الدخول كمتجر' : 'Login as Store'}</span>
-                  <ArrowUpRight className="w-3.5 h-3.5 text-teal-300 rtl:-scale-x-100" />
+                  {label}{' '}
+                  {on ? (isAr ? 'مفعّل' : 'ON') : isAr ? 'معطّل' : 'OFF'}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="pt-2 border-t space-y-2" style={{ borderColor: 'var(--border)' }}>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <span className="text-[11px] font-semibold flex items-center gap-1.5">
+              <Mail className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+              {isAr ? 'بريد دخول المتجر' : 'Store login email'}
+            </span>
+            <button
+              type="button"
+              onClick={() => handleToggleLoginEmail(store)}
+              className={chipBase}
+              style={
+                emailActive
+                  ? {
+                      background: 'color-mix(in srgb, var(--tone-success) 12%, var(--surface))',
+                      color: 'var(--tone-success)',
+                      borderColor: 'color-mix(in srgb, var(--tone-success) 40%, var(--border))',
+                    }
+                  : {
+                      background: 'color-mix(in srgb, var(--tone-danger) 12%, var(--surface))',
+                      color: 'var(--tone-danger)',
+                      borderColor: 'color-mix(in srgb, var(--tone-danger) 40%, var(--border))',
+                    }
+              }
+            >
+              <span
+                className="w-1.5 h-1.5 rounded-full"
+                style={{ background: emailActive ? 'var(--tone-success)' : 'var(--tone-danger)' }}
+              />
+              {emailActive ? (isAr ? 'نشط' : 'Active') : isAr ? 'غير نشط' : 'Inactive'}
+            </button>
+          </div>
+          {isEditing ? (
+            <div className="space-y-1.5">
+              <input
+                type="email"
+                value={emailDraft}
+                onChange={(e) => setEmailDraft(e.target.value)}
+                dir="ltr"
+                placeholder={isAr ? 'البريد@مثال.com' : 'name@example.com'}
+                className="w-full px-2.5 py-1.5 rounded-xl border text-[11px] font-mono outline-none"
+                style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
+              />
+              <div className="flex justify-end gap-1.5">
+                <button
+                  type="button"
+                  onClick={cancelEditLoginEmail}
+                  className="px-2 py-1 rounded-lg text-[10px] font-bold border cursor-pointer"
+                  style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+                >
+                  {isAr ? 'إلغاء' : 'Cancel'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => saveLoginEmailChange(store)}
+                  className="unity-btn-primary inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-extrabold cursor-pointer"
+                >
+                  <Save className="w-3 h-3" />
+                  {isAr ? 'حفظ البريد' : 'Save email'}
                 </button>
               </div>
             </div>
-          );
-        })}
-        {filtered.length === 0 && (
-          <div className="col-span-full p-10 text-center bg-white rounded-2xl border border-dashed border-slate-200 text-xs text-slate-500">
-            {isAr ? 'لا توجد متاجر مطابقة لعوامل التصفية الحالية.' : 'No stores match the current filters.'}
+          ) : (
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-mono text-[10px] truncate flex-1" style={{ color: 'var(--text)' }} dir="ltr">
+                {loginEmail}
+              </p>
+              <button
+                type="button"
+                onClick={() => startEditLoginEmail(store)}
+                className={`${chipBase} shrink-0`}
+                style={{
+                  borderColor: 'color-mix(in srgb, var(--accent) 35%, var(--border))',
+                  color: 'var(--accent)',
+                  background: 'color-mix(in srgb, var(--accent) 10%, var(--surface))',
+                }}
+              >
+                <Pencil className="w-3 h-3" />
+                {isAr ? 'تغيير' : 'Change'}
+              </button>
+            </div>
+          )}
+          <p className="text-[9px]">
+            {isAr
+              ? 'تغيير بريد الدخول متاح للمشرف العام للمنصة فقط'
+              : 'Login email can be changed by platform SuperAdmin only'}
+          </p>
+        </div>
+
+        <div className="pt-2 border-t flex flex-col gap-2.5" style={{ borderColor: 'var(--border)' }}>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => {
+                toggleMasterGrant(store.id);
+                addAuditLog({
+                  adminId: 'master-admin-01',
+                  adminName: 'Souq Platform SuperAdmin',
+                  storeId: store.id,
+                  action: 'plan_change',
+                  resource: `Store: ${storeDisplayName}`,
+                  details: `Toggled Master Pro Grant (State: ${!store.masterGrantedPro})`,
+                  status: 'success',
+                  ipAddress: 'master-console',
+                });
+                toast(
+                  store.masterGrantedPro
+                    ? isAr
+                      ? `تم إلغاء منحة الباقة الاحترافية لـ «${storeDisplayName}»`
+                      : `Pro grant revoked for ${storeDisplayName}`
+                    : isAr
+                      ? `تم منح الباقة الاحترافية لـ «${storeDisplayName}»`
+                      : `Pro granted to ${storeDisplayName}`,
+                  'success',
+                );
+              }}
+              className="px-3 py-1.5 text-xs font-semibold rounded-xl border cursor-pointer whitespace-nowrap"
+              style={
+                store.masterGrantedPro
+                  ? {
+                      background: 'color-mix(in srgb, var(--tone-warn) 12%, var(--surface))',
+                      color: 'var(--tone-warn)',
+                      borderColor: 'color-mix(in srgb, var(--tone-warn) 35%, var(--border))',
+                    }
+                  : {
+                      background: 'color-mix(in srgb, var(--accent) 6%, var(--surface))',
+                      color: 'var(--text)',
+                      borderColor: 'var(--border)',
+                    }
+              }
+            >
+              {store.masterGrantedPro
+                ? isAr
+                  ? 'إلغاء المنحة'
+                  : 'Revoke Grant'
+                : isAr
+                  ? 'منح الباقة الاحترافية'
+                  : 'Grant Pro'}
+            </button>
+
+            <label
+              className="flex items-center gap-1.5 px-2 py-1 rounded-xl border text-[10px] font-bold"
+              style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+            >
+              <span>{isAr ? 'قوالب / نوع' : 'Templates / type'}</span>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                className="w-12 px-1 py-0.5 rounded-lg border text-[11px] font-mono bg-transparent"
+                style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                value={store.canvaTemplatesPerCategory ?? ''}
+                placeholder="5"
+                onChange={(e) => {
+                  const raw = e.target.value.trim();
+                  const next = raw === '' ? null : Number(raw);
+                  updateCanvaTemplatesPerCategory(
+                    store.id,
+                    next == null || Number.isNaN(next) ? null : next,
+                  );
+                  toast(
+                    isAr
+                      ? `تم تحديث حد القوالب لـ «${storeDisplayName}»`
+                      : `Template limit updated for ${storeDisplayName}`,
+                    'success',
+                  );
+                }}
+              />
+            </label>
+
+            {userCanDelete && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const ok = await confirmDialog({
+                    title: isAr ? 'حذف المتجر' : 'Delete store',
+                    message: isAr
+                      ? `هل أنت متأكد من حذف «${storeDisplayName}»؟ لا يمكن التراجع عن هذا الإجراء.`
+                      : `Are you sure you want to delete ${storeDisplayName}? This cannot be undone.`,
+                    confirmLabel: isAr ? 'حذف' : 'Delete',
+                    cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+                    danger: true,
+                  });
+                  if (ok) {
+                    deleteStore(store.id);
+                    addAuditLog({
+                      adminId: 'master-admin-01',
+                      adminName: 'Souq Platform SuperAdmin',
+                      storeId: store.id,
+                      action: 'store_update',
+                      resource: `Store: ${storeDisplayName}`,
+                      details: `Permanently removed store from platform`,
+                      status: 'success',
+                      ipAddress: 'master-console',
+                    });
+                    toast(isAr ? `تم حذف «${storeDisplayName}»` : `${storeDisplayName} deleted`, 'success');
+                    setExpandedId(null);
+                  }
+                }}
+                className="p-1.5 rounded-xl border cursor-pointer"
+                style={{ color: 'var(--muted)', borderColor: 'transparent' }}
+                title={isAr ? 'حذف المتجر' : 'Remove Store'}
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => switchToStore(store.id)}
+            className="unity-btn-primary w-full sm:w-auto self-stretch sm:self-end px-3.5 py-2 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <span>{isAr ? 'الدخول كمتجر' : 'Login as Store'}</span>
+            <ArrowUpRight className="w-3.5 h-3.5 rtl:-scale-x-100" />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const SortBtn: React.FC<{ col: SortKey; label: string }> = ({ col, label }) => (
+    <button
+      type="button"
+      onClick={() => toggleSort(col)}
+      className="inline-flex items-center gap-1 hover:opacity-80 transition-opacity"
+      style={{ color: sortKey === col ? 'var(--accent)' : 'var(--muted)' }}
+    >
+      <span>{label}</span>
+      {sortKey === col ? (
+        sortDir === 'asc' ? (
+          <ChevronUp className="w-3 h-3" />
+        ) : (
+          <ChevronDown className="w-3 h-3" />
+        )
+      ) : (
+        <ArrowUpDown className="w-3 h-3 opacity-40" />
+      )}
+    </button>
+  );
+
+  const from = totalCount === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const to = Math.min(safePage * pageSize, totalCount);
+
+  return (
+    <div
+      className="u-page p-4 sm:p-6 space-y-5 max-w-[1680px] mx-auto w-full min-w-0 overflow-x-hidden"
+      style={{ color: 'var(--text)', fontFamily: 'var(--font-ui)' }}
+    >
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 min-w-0">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <Store className="w-5 h-5 shrink-0" style={{ color: 'var(--accent)' }} />
+            <h1 className="text-xl font-extrabold tracking-tight truncate" style={{ color: 'var(--text)' }}>
+              {isAr ? 'إدارة المتاجر والمنصة' : 'Platform Stores Control'}
+            </h1>
+          </div>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
+            {isAr
+              ? 'تحكم كامل لأكثر من ١٠٠ متجر: الباقات، الدخول، النطاقات، الاستضافة، والمنح — مع تصفية وترتيب وصفحات.'
+              : 'Full control for 100+ stores: plans, login, domains, hosting, and grants — with filter, sort, and pages.'}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 self-start lg:self-auto flex-wrap min-w-0">
+          <button
+            type="button"
+            onClick={handleOpenQuotasModal}
+            className="px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer border"
+            style={{
+              background: 'color-mix(in srgb, var(--tone-success) 12%, var(--surface))',
+              color: 'var(--tone-success)',
+              borderColor: 'color-mix(in srgb, var(--tone-success) 35%, var(--border))',
+            }}
+          >
+            <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+            <span className="whitespace-nowrap">
+              {isAr ? 'حصص واتساب' : 'WhatsApp Quotas'}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={async () => {
+              await softRefreshTenantData();
+              toast(
+                isAr
+                  ? 'تم تحديث ومزامنة جميع بيانات المتاجر والمنصة بنجاح'
+                  : 'All store & platform data synchronized successfully',
+                'success',
+              );
+            }}
+            className={masterGhostBtnClass}
+          >
+            <RefreshCw className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--accent)' }} />
+            <span className="whitespace-nowrap">{isAr ? 'مزامنة' : 'Sync'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenCreateStore}
+            className="unity-btn-primary px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+          >
+            <Plus className="w-4 h-4 shrink-0" />
+            <span className="whitespace-nowrap">{isAr ? 'إنشاء متجر جديد' : 'Provision New Store'}</span>
+          </button>
+        </div>
+      </div>
+
+      <MasterMetaLine>
+        {isAr
+          ? `المصدر: متاجر المنصة الحقيقية · ${amount(stores.length)} متجر · عرض ${from}–${to}`
+          : `Source: live platform stores · ${amount(stores.length)} stores · showing ${from}–${to}`}
+      </MasterMetaLine>
+
+      {/* KPI strip */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 min-w-0">
+        <OverviewStatCard
+          label={isAr ? 'إجمالي المتاجر' : 'Total Stores'}
+          value={amount(stores.length)}
+          icon={Store}
+          tone="accent"
+        />
+        <OverviewStatCard
+          label={t('activeStores') || (isAr ? 'المتاجر النشطة' : 'Active Stores')}
+          value={amount(activeStoresCount)}
+          icon={CheckCircle}
+          tone="success"
+        />
+        <OverviewStatCard
+          label={isAr ? 'موقوف / غير نشط' : 'Suspended'}
+          value={amount(suspendedStoresCount)}
+          icon={Ban}
+          tone="danger"
+        />
+        <OverviewStatCard
+          label={isAr ? 'احترافي ومميز' : 'Pro & Premium'}
+          value={amount(proStoresCount)}
+          icon={Crown}
+          tone="warn"
+          footer={
+            <span className="text-[10px]" style={{ color: 'var(--muted)' }}>
+              {isAr ? `${amount(grantedCount)} منحة إدارة` : `${amount(grantedCount)} master grants`}
+            </span>
+          }
+        />
+        <OverviewStatCard
+          label={isAr ? 'طلبات المنصة' : 'Platform Orders'}
+          value={amount(totalOrdersPlatform)}
+          icon={ShoppingBag}
+          tone="info"
+        />
+        <OverviewStatCard
+          label={isAr ? 'إجمالي مبيعات المنصة' : 'Platform GMV'}
+          value={money(totalGMV)}
+          icon={ArrowUpRight}
+          tone="info"
+          footer={
+            <span className="text-[10px]" style={{ color: 'var(--muted)' }}>
+              {isAr ? 'من الطلبات الحقيقية' : 'From real orders'}
+            </span>
+          }
+        />
+      </div>
+
+      {/* Filter / toolbar */}
+      <div className="u-luxe-panel p-3 sm:p-4 space-y-3 min-w-0">
+        <div className="flex flex-col xl:flex-row xl:items-center gap-3 min-w-0">
+          <div className="relative flex-1 min-w-0">
+            <Search
+              className="w-3.5 h-3.5 absolute start-3 top-1/2 -translate-y-1/2 pointer-events-none"
+              style={{ color: 'var(--muted)' }}
+            />
+            <input
+              type="search"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder={
+                isAr
+                  ? 'بحث: اسم المتجر، المالك، التصنيف، النطاق، البريد، المعرّف…'
+                  : 'Search: store, owner, category, domain, email, id…'
+              }
+              className="w-full ps-8 pe-3 py-2 text-xs rounded-xl border focus:outline-none min-w-0"
+              style={{
+                background: 'color-mix(in srgb, var(--accent) 4%, var(--surface))',
+                borderColor: 'var(--border)',
+                color: 'var(--text)',
+              }}
+            />
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <select
+              value={filterPlan}
+              onChange={(e) => setFilterPlan(e.target.value)}
+              className={selectCls}
+              style={selectStyle}
+              aria-label={isAr ? 'تصفية الباقة' : 'Filter plan'}
+            >
+              <option value="All">{isAr ? 'جميع الباقات' : 'All Plans'}</option>
+              <option value="free">{isAr ? 'مجانية' : 'Free'}</option>
+              <option value="pro">{isAr ? 'احترافية / مدفوعة' : 'Pro / Paid'}</option>
+              <option value="premium">{isAr ? 'مميزة' : 'Premium'}</option>
+              <option value="custom">{isAr ? 'مخصصة' : 'Custom'}</option>
+            </select>
+
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className={selectCls}
+              style={selectStyle}
+              aria-label={isAr ? 'تصفية الحالة' : 'Filter status'}
+            >
+              <option value="All">{isAr ? 'جميع الحالات' : 'All Statuses'}</option>
+              <option value="active">{isAr ? 'نشط' : 'Active'}</option>
+              <option value="suspended">{isAr ? 'موقوف' : 'Suspended'}</option>
+              <option value="pending">{isAr ? 'معلق' : 'Pending'}</option>
+            </select>
+
+            <button
+              type="button"
+              onClick={() => setShowAdvancedFilters((v) => !v)}
+              className={`${masterGhostBtnClass} !py-1.5`}
+              style={
+                activeFilterCount > 0 || showAdvancedFilters
+                  ? {
+                      borderColor: 'color-mix(in srgb, var(--accent) 40%, var(--border))',
+                      color: 'var(--accent)',
+                    }
+                  : undefined
+              }
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>
+                {isAr ? 'تصفية متقدمة' : 'Advanced'}
+                {activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+              </span>
+            </button>
+
+            {(activeFilterCount > 0 || searchTerm) && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold border cursor-pointer"
+                style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+              >
+                <X className="w-3 h-3" />
+                {isAr ? 'مسح' : 'Clear'}
+              </button>
+            )}
+
+            <div
+              className="inline-flex items-center rounded-xl border p-0.5"
+              style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+              role="group"
+              aria-label={isAr ? 'طريقة العرض' : 'View mode'}
+            >
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className="px-2.5 py-1.5 rounded-[10px] text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                style={
+                  viewMode === 'table'
+                    ? { background: 'var(--portal-cta)', color: '#fff' }
+                    : { color: 'var(--muted)' }
+                }
+              >
+                <List className="w-3.5 h-3.5" />
+                {isAr ? 'جدول' : 'Table'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('cards')}
+                className="px-2.5 py-1.5 rounded-[10px] text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                style={
+                  viewMode === 'cards'
+                    ? { background: 'var(--portal-cta)', color: '#fff' }
+                    : { color: 'var(--muted)' }
+                }
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                {isAr ? 'بطاقات' : 'Cards'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {showAdvancedFilters && (
+          <div
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-2 border-t"
+            style={{ borderColor: 'var(--border)' }}
+          >
+            <label className="flex flex-col gap-1 text-[10px] font-bold" style={{ color: 'var(--muted)' }}>
+              {isAr ? 'الاستضافة' : 'Hosting'}
+              <select
+                value={filterHosting}
+                onChange={(e) => setFilterHosting(e.target.value as HostingFilter)}
+                className={selectCls}
+                style={selectStyle}
+              >
+                <option value="All">{isAr ? 'الكل' : 'All'}</option>
+                <option value="flowers">{isAr ? 'استضافة الزهور' : 'Flowers Hostinger'}</option>
+                <option value="central">{isAr ? 'الاستضافة المركزية' : 'Central Hostinger'}</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-[10px] font-bold" style={{ color: 'var(--muted)' }}>
+              {isAr ? 'منحة الإدارة' : 'Master Grant'}
+              <select
+                value={filterGrant}
+                onChange={(e) => setFilterGrant(e.target.value as GrantFilter)}
+                className={selectCls}
+                style={selectStyle}
+              >
+                <option value="All">{isAr ? 'الكل' : 'All'}</option>
+                <option value="granted">{isAr ? 'ممنوح' : 'Granted'}</option>
+                <option value="none">{isAr ? 'بدون منحة' : 'No grant'}</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-[10px] font-bold" style={{ color: 'var(--muted)' }}>
+              {isAr ? 'اللغات' : 'Languages'}
+              <select
+                value={filterLang}
+                onChange={(e) => setFilterLang(e.target.value as LangFilter)}
+                className={selectCls}
+                style={selectStyle}
+              >
+                <option value="All">{isAr ? 'الكل' : 'All'}</option>
+                <option value="both">{isAr ? 'العربية والإنجليزية' : 'AR + EN'}</option>
+                <option value="ar">{isAr ? 'العربية مفعّلة' : 'Arabic on'}</option>
+                <option value="en">{isAr ? 'الإنجليزية مفعّلة' : 'English on'}</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-[10px] font-bold" style={{ color: 'var(--muted)' }}>
+              {isAr ? 'التصنيف' : 'Category'}
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className={selectCls}
+                style={selectStyle}
+              >
+                <option value="All">{isAr ? 'كل التصنيفات' : 'All categories'}</option>
+                {categories.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
+
+        {/* Bulk bar */}
+        {selectedIds.length > 0 && (
+          <div
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border px-3 py-2"
+            style={{
+              borderColor: 'color-mix(in srgb, var(--accent) 35%, var(--border))',
+              background: 'color-mix(in srgb, var(--accent) 8%, var(--surface))',
+            }}
+          >
+            <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+              {isAr
+                ? `${amount(selectedIds.length)} متجر محدد — تحكم جماعي`
+                : `${amount(selectedIds.length)} selected — bulk control`}
+            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => runBulkStatus('active')}
+                className={`${chipBase}`}
+                style={{
+                  background: 'color-mix(in srgb, var(--tone-success) 14%, var(--surface))',
+                  color: 'var(--tone-success)',
+                  borderColor: 'color-mix(in srgb, var(--tone-success) 40%, var(--border))',
+                }}
+              >
+                <CheckCircle className="w-3 h-3" />
+                {isAr ? 'تفعيل' : 'Activate'}
+              </button>
+              <button
+                type="button"
+                onClick={() => runBulkStatus('suspended')}
+                className={chipBase}
+                style={{
+                  background: 'color-mix(in srgb, var(--tone-danger) 12%, var(--surface))',
+                  color: 'var(--tone-danger)',
+                  borderColor: 'color-mix(in srgb, var(--tone-danger) 35%, var(--border))',
+                }}
+              >
+                <Ban className="w-3 h-3" />
+                {isAr ? 'إيقاف' : 'Suspend'}
+              </button>
+              <button
+                type="button"
+                onClick={() => runBulkGrant(true)}
+                className={chipBase}
+                style={{
+                  background: 'color-mix(in srgb, var(--tone-warn) 12%, var(--surface))',
+                  color: 'var(--tone-warn)',
+                  borderColor: 'color-mix(in srgb, var(--tone-warn) 35%, var(--border))',
+                }}
+              >
+                <Crown className="w-3 h-3" />
+                {isAr ? 'منح برو' : 'Grant Pro'}
+              </button>
+              <button
+                type="button"
+                onClick={() => runBulkGrant(false)}
+                className={chipBase}
+                style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+              >
+                {isAr ? 'إلغاء المنح' : 'Revoke'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedIds([])}
+                className={chipBase}
+                style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+              >
+                <X className="w-3 h-3" />
+                {isAr ? 'إلغاء التحديد' : 'Clear'}
+              </button>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Master WhatsApp Quotas & Anti-Ban Modal */}
+      {/* Results meta + page size */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px]" style={{ color: 'var(--muted)' }}>
+        <span>
+          {isAr
+            ? `${amount(totalCount)} نتيجة مطابقة من ${amount(stores.length)} متجر`
+            : `${amount(totalCount)} matched of ${amount(stores.length)} stores`}
+        </span>
+        <label className="inline-flex items-center gap-1.5">
+          <span>{isAr ? 'صفوف الصفحة' : 'Rows / page'}</span>
+          <select
+            value={pageSize}
+            onChange={(e) => setPageSize(Number(e.target.value))}
+            className={selectCls}
+            style={selectStyle}
+          >
+            {PAGE_SIZE_OPTIONS.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {/* TABLE VIEW */}
+      {viewMode === 'table' && (
+        <div className="u-luxe-panel u-luxe-panel--flush overflow-hidden min-w-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-start text-xs min-w-[980px]">
+              <thead>
+                <tr
+                  className="border-b text-[11px] font-semibold"
+                  style={{
+                    borderColor: 'var(--border)',
+                    background: 'color-mix(in srgb, var(--accent) 5%, var(--surface))',
+                    color: 'var(--muted)',
+                  }}
+                >
+                  <th className="py-3 px-3 w-10">
+                    <button
+                      type="button"
+                      onClick={toggleSelectAllPage}
+                      className="cursor-pointer"
+                      aria-label={isAr ? 'تحديد الكل في الصفحة' : 'Select all on page'}
+                      style={{ color: 'var(--accent)' }}
+                    >
+                      {allPageSelected ? (
+                        <CheckSquare className="w-4 h-4" />
+                      ) : (
+                        <Square className="w-4 h-4" />
+                      )}
+                    </button>
+                  </th>
+                  <th className="py-3 px-3 text-start">
+                    <SortBtn col="name" label={isAr ? 'المتجر' : 'Store'} />
+                  </th>
+                  <th className="py-3 px-3 text-start">
+                    <SortBtn col="status" label={isAr ? 'الحالة' : 'Status'} />
+                  </th>
+                  <th className="py-3 px-3 text-start">
+                    <SortBtn col="plan" label={isAr ? 'الباقة' : 'Plan'} />
+                  </th>
+                  <th className="py-3 px-3 text-start">
+                    <SortBtn col="domain" label={isAr ? 'النطاق' : 'Domain'} />
+                  </th>
+                  <th className="py-3 px-3 text-end">
+                    <SortBtn col="products" label={isAr ? 'منتجات' : 'Products'} />
+                  </th>
+                  <th className="py-3 px-3 text-end">
+                    <SortBtn col="orders" label={isAr ? 'طلبات' : 'Orders'} />
+                  </th>
+                  <th className="py-3 px-3 text-end">
+                    <SortBtn col="revenue" label={isAr ? 'إيرادات' : 'Revenue'} />
+                  </th>
+                  <th className="py-3 px-3 text-start">{isAr ? 'الاستضافة' : 'Hosting'}</th>
+                  <th className="py-3 px-3 text-end">{isAr ? 'تحكم' : 'Control'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paged.map((store) => {
+                  const metrics = getMetrics(store);
+                  const name = getStoreDisplayName(store, locale);
+                  const cat = getStoreDisplayCategory(store, locale);
+                  const owner = getStoreDisplayOwner(store, locale);
+                  const domain = resolveDomain(store) || '—';
+                  const selected = selectedIds.includes(store.id);
+                  const expanded = expandedId === store.id;
+                  return (
+                    <React.Fragment key={store.id}>
+                      <tr
+                        className="border-b transition-colors"
+                        style={{
+                          borderColor: 'var(--border)',
+                          background: expanded
+                            ? 'color-mix(in srgb, var(--accent) 6%, var(--surface))'
+                            : selected
+                              ? 'color-mix(in srgb, var(--accent) 4%, var(--surface))'
+                              : 'var(--surface)',
+                        }}
+                      >
+                        <td className="py-3 px-3 align-middle">
+                          <button
+                            type="button"
+                            onClick={() => toggleSelectOne(store.id)}
+                            className="cursor-pointer"
+                            style={{ color: selected ? 'var(--accent)' : 'var(--muted)' }}
+                          >
+                            {selected ? (
+                              <CheckSquare className="w-4 h-4" />
+                            ) : (
+                              <Square className="w-4 h-4" />
+                            )}
+                          </button>
+                        </td>
+                        <td className="py-3 px-3 align-middle min-w-[200px]">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <StoreAvatar store={store} size="sm" />
+                            <div className="min-w-0">
+                              <div className="font-bold truncate" style={{ color: 'var(--text)' }}>
+                                {name}
+                              </div>
+                              <div className="text-[10px] truncate" style={{ color: 'var(--muted)' }}>
+                                {cat} · {owner}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 align-middle">
+                          <StatusPill store={store} />
+                        </td>
+                        <td className="py-3 px-3 align-middle">
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <span
+                              className="uppercase font-mono text-[10px] px-1.5 py-0.5 rounded font-bold"
+                              style={{
+                                background: 'color-mix(in srgb, var(--accent) 10%, var(--surface))',
+                                color: 'var(--text)',
+                              }}
+                            >
+                              {planLabel(store.plan)}
+                            </span>
+                            {store.masterGrantedPro && (
+                              <span
+                                className="text-[9px] font-bold border px-1.5 py-0.5 rounded inline-flex items-center gap-0.5"
+                                style={{
+                                  background: 'color-mix(in srgb, var(--tone-warn) 12%, var(--surface))',
+                                  color: 'var(--tone-warn)',
+                                  borderColor: 'color-mix(in srgb, var(--tone-warn) 35%, var(--border))',
+                                }}
+                              >
+                                <Crown className="w-2.5 h-2.5" />
+                                {isAr ? 'منحة' : 'Grant'}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 align-middle">
+                          <span className="font-mono text-[10px] truncate block max-w-[160px]" dir="ltr" title={domain}>
+                            {domain}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 align-middle text-end tabular-nums font-bold">
+                          {amount(metrics.productsCount)}
+                        </td>
+                        <td className="py-3 px-3 align-middle text-end tabular-nums font-bold">
+                          {amount(metrics.ordersCount)}
+                        </td>
+                        <td className="py-3 px-3 align-middle text-end tabular-nums font-bold whitespace-nowrap">
+                          {money(metrics.revenue)}
+                        </td>
+                        <td className="py-3 px-3 align-middle">
+                          <span className="inline-flex items-center gap-1 text-[10px]" style={{ color: 'var(--muted)' }}>
+                            <Database className="w-3 h-3" />
+                            {hostLabel(store)}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 align-middle">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => switchToStore(store.id)}
+                              className="unity-btn-primary px-2.5 py-1.5 rounded-lg text-[10px] font-extrabold inline-flex items-center gap-1 cursor-pointer"
+                              title={isAr ? 'الدخول كمتجر' : 'Login as Store'}
+                            >
+                              {isAr ? 'دخول' : 'Open'}
+                              <ArrowUpRight className="w-3 h-3 rtl:-scale-x-100" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedId(expanded ? null : store.id)}
+                              className="p-1.5 rounded-lg border cursor-pointer"
+                              style={{ borderColor: 'var(--border)', color: 'var(--accent)' }}
+                              title={isAr ? 'التحكم الكامل' : 'Full controls'}
+                            >
+                              {expanded ? (
+                                <ChevronUp className="w-4 h-4" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      {expanded && (
+                        <tr style={{ background: 'color-mix(in srgb, var(--accent) 4%, var(--surface))' }}>
+                          <td colSpan={10} className="px-4 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
+                            <div className="max-w-4xl ms-auto me-0">
+                              <div
+                                className="mb-2 text-[11px] font-extrabold flex items-center gap-1.5"
+                                style={{ color: 'var(--accent)' }}
+                              >
+                                <ShieldCheck className="w-3.5 h-3.5" />
+                                {isAr ? 'تحكم المشرف العام الكامل' : 'Full SuperAdmin controls'}
+                              </div>
+                              {renderControls(store)}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {paged.length === 0 && (
+            <div className="p-12 text-center text-xs" style={{ color: 'var(--muted)' }}>
+              {isAr ? 'لا توجد متاجر مطابقة لعوامل التصفية الحالية.' : 'No stores match the current filters.'}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* CARDS VIEW */}
+      {viewMode === 'cards' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 min-w-0">
+          {paged.map((store) => {
+            const name = getStoreDisplayName(store, locale);
+            const cat = getStoreDisplayCategory(store, locale);
+            const owner = getStoreDisplayOwner(store, locale);
+            const metrics = getMetrics(store);
+            const selected = selectedIds.includes(store.id);
+            const expanded = expandedId === store.id;
+            return (
+              <div
+                key={store.id}
+                className="u-luxe-panel u-luxe-panel--interactive u-luxe-panel--lg flex flex-col min-w-0 overflow-hidden"
+                style={
+                  selected
+                    ? {
+                        outline: '2px solid color-mix(in srgb, var(--accent) 45%, transparent)',
+                        outlineOffset: 0,
+                      }
+                    : undefined
+                }
+              >
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <button
+                      type="button"
+                      onClick={() => toggleSelectOne(store.id)}
+                      className="cursor-pointer shrink-0"
+                      style={{ color: selected ? 'var(--accent)' : 'var(--muted)' }}
+                    >
+                      {selected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+                    </button>
+                    <StoreAvatar store={store} />
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-sm truncate" style={{ color: 'var(--text)' }}>
+                        {name}
+                      </h3>
+                      <p className="text-[11px] truncate" style={{ color: 'var(--muted)' }}>
+                        {cat} · {owner}
+                      </p>
+                    </div>
+                  </div>
+                  <StatusPill store={store} />
+                </div>
+
+                <div
+                  className="grid grid-cols-3 gap-2 py-2.5 border-y text-center text-xs mb-3"
+                  style={{ borderColor: 'var(--border)' }}
+                >
+                  <div>
+                    <span className="text-[10px] block" style={{ color: 'var(--muted)' }}>
+                      {isAr ? 'المنتجات' : 'Products'}
+                    </span>
+                    <span className="font-bold tabular-nums">{amount(metrics.productsCount)}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] block" style={{ color: 'var(--muted)' }}>
+                      {isAr ? 'الطلبات' : 'Orders'}
+                    </span>
+                    <span className="font-bold tabular-nums">{amount(metrics.ordersCount)}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] block" style={{ color: 'var(--muted)' }}>
+                      {isAr ? 'الإيرادات' : 'Revenue'}
+                    </span>
+                    <span className="font-bold tabular-nums truncate block">{money(metrics.revenue)}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 text-[11px] mb-3 flex-wrap">
+                  <span className="inline-flex items-center gap-1" style={{ color: 'var(--muted)' }}>
+                    <Database className="w-3 h-3" />
+                    {hostLabel(store)}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span
+                      className="uppercase font-mono text-[10px] px-1.5 py-0.5 rounded font-bold"
+                      style={{
+                        background: 'color-mix(in srgb, var(--accent) 10%, var(--surface))',
+                        color: 'var(--text)',
+                      }}
+                    >
+                      {planLabel(store.plan)}
+                    </span>
+                    {store.masterGrantedPro && (
+                      <span
+                        className="text-[9px] font-bold border px-1.5 py-0.5 rounded inline-flex items-center gap-0.5"
+                        style={{
+                          background: 'color-mix(in srgb, var(--tone-warn) 12%, var(--surface))',
+                          color: 'var(--tone-warn)',
+                          borderColor: 'color-mix(in srgb, var(--tone-warn) 35%, var(--border))',
+                        }}
+                      >
+                        <Crown className="w-2.5 h-2.5" />
+                        {isAr ? 'منحة' : 'Grant'}
+                      </span>
+                    )}
+                  </span>
+                </div>
+
+                <div className="mt-auto flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(expanded ? null : store.id)}
+                    className="flex-1 px-3 py-2 rounded-xl text-[11px] font-bold border cursor-pointer inline-flex items-center justify-center gap-1"
+                    style={{ borderColor: 'var(--border)', color: 'var(--accent)' }}
+                  >
+                    {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    {isAr ? 'التحكم الكامل' : 'Full control'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => switchToStore(store.id)}
+                    className="unity-btn-primary px-3 py-2 rounded-xl text-[11px] font-extrabold inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    {isAr ? 'دخول' : 'Open'}
+                    <ArrowUpRight className="w-3.5 h-3.5 rtl:-scale-x-100" />
+                  </button>
+                </div>
+
+                {expanded && (
+                  <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
+                    {renderControls(store)}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {paged.length === 0 && (
+            <div
+              className="col-span-full p-10 text-center rounded-2xl border border-dashed text-xs"
+              style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--muted)' }}
+            >
+              {isAr ? 'لا توجد متاجر مطابقة لعوامل التصفية الحالية.' : 'No stores match the current filters.'}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalCount > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <span className="text-[11px]" style={{ color: 'var(--muted)' }}>
+            {isAr
+              ? `عرض ${from}–${to} من أصل ${amount(totalCount)}`
+              : `Showing ${from}–${to} of ${amount(totalCount)}`}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={safePage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className={`${masterGhostBtnClass} !py-1.5 disabled:opacity-40`}
+            >
+              <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
+              {isAr ? 'السابق' : 'Prev'}
+            </button>
+            <span
+              className="px-3 py-1.5 rounded-xl text-[11px] font-bold border tabular-nums"
+              style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+            >
+              {safePage} / {pageCount}
+            </span>
+            <button
+              type="button"
+              disabled={safePage >= pageCount}
+              onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+              className={`${masterGhostBtnClass} !py-1.5 disabled:opacity-40`}
+            >
+              {isAr ? 'التالي' : 'Next'}
+              <ChevronRight className="w-4 h-4 rtl:rotate-180" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* WhatsApp Quotas Modal */}
       {showWhatsAppQuotasModal && (
         <GlobalModal
           isOpen
@@ -974,108 +1978,138 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
           dir={isAr ? 'rtl' : 'ltr'}
           aria-label={isAr ? 'إدارة حصص واتساب ومكافحة حظر الأرقام' : 'Store WhatsApp Quotas & Anti-Ban Safeguards'}
         >
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            {/* Modal Header */}
-            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+          <div
+            className="rounded-2xl border shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+            style={{
+              background: 'var(--surface)',
+              borderColor: 'var(--border)',
+              color: 'var(--text)',
+              fontFamily: 'var(--font-ui)',
+            }}
+          >
+            <div
+              className="p-5 border-b flex items-center justify-between"
+              style={{
+                borderColor: 'var(--border)',
+                background: 'var(--portal-cta)',
+                color: '#fff',
+              }}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ background: 'rgba(255,255,255,0.15)' }}
+                >
                   <ShieldAlert className="w-5 h-5" />
                 </div>
-                <div>
-                  <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <span>
-                      {isAr
-                        ? 'إدارة حصص واتساب ومكافحة حظر الأرقام'
-                        : 'Store WhatsApp Quotas & Anti-Ban Safeguards'}
-                    </span>
-                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300">
-                      {isAr ? 'الإدارة العامة' : 'Master Admin'}
-                    </span>
-                  </h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                <div className="min-w-0">
+                  <h2 className="text-base font-bold truncate">
                     {isAr
-                      ? 'التحكم المركزي في سقف الرسائل الآلية لكل متجر لحماية شرائح وأرقام التجار من حظر ميتا'
-                      : 'Centralized control: configure daily & monthly automated limits to protect merchant numbers from Meta spam flags'}
+                      ? 'إدارة حصص واتساب ومكافحة حظر الأرقام'
+                      : 'Store WhatsApp Quotas & Anti-Ban Safeguards'}
+                  </h2>
+                  <p className="text-xs opacity-90 truncate">
+                    {isAr
+                      ? 'التحكم المركزي في سقف الرسائل الآلية لكل متجر'
+                      : 'Centralized daily & monthly automated limits per store'}
                   </p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setShowWhatsAppQuotasModal(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg cursor-pointer"
+                style={{ color: '#fff' }}
                 aria-label={isAr ? 'إغلاق النافذة' : 'Close modal'}
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Anti-Ban Protection Policy Card */}
-            <div className="p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border-b border-emerald-100 dark:border-emerald-900/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-emerald-900 dark:text-emerald-200">
-              <div className="flex items-start gap-2.5">
-                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-bold">
-                    {isAr
-                      ? 'سياسة الأمان الافتراضية: 10 رسائل/يومياً و 50 رسائل/شهرياً'
-                      : 'Default Anti-Ban Safety: 10 msgs/day & 50 msgs/month'}
-                  </span>
-                  <p className="text-[11px] text-emerald-700 dark:text-emerald-300/80 mt-0.5">
-                    {isAr
-                      ? 'خوارزميات ميتا تقوم بحظر الأرقام الجديدة عند إرسال رسائل جماعية مفاجئة. الرسائل اليدوية عبر واتساب المباشر مجانية بالكامل مدى الحياة بدون حدود وبدون خطر الحظر.'
-                      : 'Meta spam filters flag phone numbers sending bulk automated messages without prior customer opt-in. The Direct WhatsApp option is 100% Free Lifetime with zero quota limits.'}
-                  </p>
-                </div>
+            <div
+              className="p-4 border-b flex items-start gap-2.5 text-xs"
+              style={{
+                borderColor: 'var(--border)',
+                background: 'color-mix(in srgb, var(--tone-success) 10%, var(--surface))',
+                color: 'var(--text)',
+              }}
+            >
+              <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'var(--tone-success)' }} />
+              <div>
+                <span className="font-bold">
+                  {isAr
+                    ? 'سياسة الأمان الافتراضية: ١٠ رسائل يومياً و ٥٠ شهرياً'
+                    : 'Default Anti-Ban Safety: 10 msgs/day & 50 msgs/month'}
+                </span>
+                <p className="text-[11px] mt-0.5" style={{ color: 'var(--muted)' }}>
+                  {isAr
+                    ? 'الرسائل اليدوية عبر واتساب المباشر مجانية بالكامل مدى الحياة بدون حدود.'
+                    : 'Direct WhatsApp manual messages stay free lifetime with zero quota limits.'}
+                </p>
               </div>
             </div>
 
-            {/* Modal Body: Stores Quota Table */}
             <div className="p-5 overflow-y-auto flex-1 space-y-3">
               {quotasLoading ? (
-                <div className="py-12 text-center text-xs text-slate-500 flex flex-col items-center justify-center gap-2">
-                  <RefreshCw className="w-5 h-5 animate-spin text-teal-600" />
-                  <span>{isAr ? 'جاري تحميل بيانات حصص المتاجر...' : 'Loading store quota records...'}</span>
+                <div className="py-12 text-center text-xs flex flex-col items-center gap-2" style={{ color: 'var(--muted)' }}>
+                  <RefreshCw className="w-5 h-5 animate-spin" style={{ color: 'var(--accent)' }} />
+                  <span>{isAr ? 'جاري تحميل بيانات حصص المتاجر…' : 'Loading store quota records…'}</span>
                 </div>
               ) : storeQuotas.length === 0 ? (
-                <div className="py-12 text-center text-xs text-slate-500">
+                <div className="py-12 text-center text-xs" style={{ color: 'var(--muted)' }}>
                   {isAr ? 'لا توجد بيانات حصص متاحة حالياً.' : 'No store quota records found.'}
                 </div>
               ) : (
-                <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+                <div className="divide-y rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
                   {storeQuotas.map((q) => {
-                    const edit = editingQuotas[q.store_id] || { daily_limit: q.daily_limit, monthly_limit: q.monthly_limit };
+                    const edit = editingQuotas[q.store_id] || {
+                      daily_limit: q.daily_limit,
+                      monthly_limit: q.monthly_limit,
+                    };
                     const isSaving = savingQuotaStoreId === q.store_id;
                     const isNearDaily = q.daily_used >= q.daily_limit;
                     const isNearMonthly = q.monthly_used >= q.monthly_limit;
-
                     return (
                       <div
                         key={q.store_id}
-                        className="p-3.5 bg-white dark:bg-slate-900/60 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs"
+                        className="p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs"
+                        style={{ background: 'var(--surface)' }}
                       >
-                        {/* Store Info */}
                         <div className="min-w-[180px]">
-                          <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                          <div className="font-semibold flex items-center gap-2" style={{ color: 'var(--text)' }}>
                             <span>{isAr ? q.store_name_ar || q.store_name : q.store_name}</span>
-                            {q.is_connected ? (
-                              <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300">
-                                {isAr ? 'متصل بـ ميتا' : 'Connected'}
-                              </span>
-                            ) : (
-                              <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-md bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                                {isAr ? 'غير متصل' : 'Not Connected'}
-                              </span>
-                            )}
+                            <span
+                              className="px-1.5 py-0.5 text-[9px] font-bold rounded-md"
+                              style={
+                                q.is_connected
+                                  ? {
+                                      background: 'color-mix(in srgb, var(--tone-success) 14%, var(--surface))',
+                                      color: 'var(--tone-success)',
+                                    }
+                                  : {
+                                      background: 'color-mix(in srgb, var(--muted) 10%, var(--surface))',
+                                      color: 'var(--muted)',
+                                    }
+                              }
+                            >
+                              {q.is_connected
+                                ? isAr
+                                  ? 'متصل'
+                                  : 'Connected'
+                                : isAr
+                                  ? 'غير متصل'
+                                  : 'Not Connected'}
+                            </span>
                           </div>
-                          <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                          <div className="text-[11px] font-mono mt-0.5" style={{ color: 'var(--muted)' }}>
                             {q.sender_phone || q.store_id}
                           </div>
                         </div>
 
-                        {/* Quota Form Controls */}
                         <div className="flex flex-wrap items-center gap-4">
-                          {/* Daily Quota */}
                           <div className="flex items-center gap-2">
                             <div className="flex flex-col">
-                              <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                              <span className="text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
                                 {isAr ? 'الحد اليومي' : 'Daily Limit'}
                               </span>
                               <input
@@ -1084,27 +2118,31 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                                 max={500}
                                 value={edit.daily_limit}
                                 onChange={(e) => {
-                                  const val = parseInt(e.target.value) || 1;
+                                  const val = parseInt(e.target.value, 10) || 1;
                                   setEditingQuotas((prev) => ({
                                     ...prev,
                                     [q.store_id]: { ...edit, daily_limit: val },
                                   }));
                                 }}
-                                className="w-20 px-2 py-1 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                className="w-20 px-2 py-1 text-xs font-semibold rounded-lg border"
+                                style={{
+                                  background: 'var(--surface)',
+                                  borderColor: 'var(--border)',
+                                  color: 'var(--text)',
+                                }}
                               />
                             </div>
-                            <div className="text-[10px] text-slate-500 dark:text-slate-400 self-end pb-1 font-mono">
-                              <span className={isNearDaily ? 'text-rose-600 font-bold' : ''}>
+                            <div className="text-[10px] self-end pb-1 font-mono" style={{ color: 'var(--muted)' }}>
+                              <span style={isNearDaily ? { color: 'var(--tone-danger)', fontWeight: 700 } : undefined}>
                                 {q.daily_used}
                               </span>
-                              /{edit.daily_limit} {isAr ? 'مستخدم اليوم' : 'used'}
+                              /{edit.daily_limit}
                             </div>
                           </div>
 
-                          {/* Monthly Quota */}
                           <div className="flex items-center gap-2">
                             <div className="flex flex-col">
-                              <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                              <span className="text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
                                 {isAr ? 'الحد الشهري' : 'Monthly Limit'}
                               </span>
                               <input
@@ -1113,29 +2151,35 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
                                 max={2000}
                                 value={edit.monthly_limit}
                                 onChange={(e) => {
-                                  const val = parseInt(e.target.value) || 1;
+                                  const val = parseInt(e.target.value, 10) || 1;
                                   setEditingQuotas((prev) => ({
                                     ...prev,
                                     [q.store_id]: { ...edit, monthly_limit: val },
                                   }));
                                 }}
-                                className="w-20 px-2 py-1 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                className="w-20 px-2 py-1 text-xs font-semibold rounded-lg border"
+                                style={{
+                                  background: 'var(--surface)',
+                                  borderColor: 'var(--border)',
+                                  color: 'var(--text)',
+                                }}
                               />
                             </div>
-                            <div className="text-[10px] text-slate-500 dark:text-slate-400 self-end pb-1 font-mono">
-                              <span className={isNearMonthly ? 'text-rose-600 font-bold' : ''}>
+                            <div className="text-[10px] self-end pb-1 font-mono" style={{ color: 'var(--muted)' }}>
+                              <span
+                                style={isNearMonthly ? { color: 'var(--tone-danger)', fontWeight: 700 } : undefined}
+                              >
                                 {q.monthly_used}
                               </span>
-                              /{edit.monthly_limit} {isAr ? 'مستخدم هذا الشهر' : 'used'}
+                              /{edit.monthly_limit}
                             </div>
                           </div>
 
-                          {/* Save Button */}
                           <button
+                            type="button"
                             onClick={() => handleSaveStoreQuota(q.store_id)}
                             disabled={isSaving}
-                            className="self-end px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                            title={isAr ? 'حفظ الحصة للمتجر' : 'Save Quota'}
+                            className="unity-btn-primary self-end px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
                           >
                             {isSaving ? (
                               <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -1152,16 +2196,22 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
               )}
             </div>
 
-            {/* Modal Footer */}
-            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-between">
-              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+            <div
+              className="p-4 border-t flex items-center justify-between gap-2"
+              style={{
+                borderColor: 'var(--border)',
+                background: 'color-mix(in srgb, var(--accent) 4%, var(--surface))',
+              }}
+            >
+              <span className="text-[11px]" style={{ color: 'var(--muted)' }}>
                 {isAr
-                  ? 'يتم تطبيق الحدود فورياً على واجهات المتاجر وحفظها في قاعدة البيانات'
-                  : 'Changes are written to MySQL store_settings and enforced immediately in real-time'}
+                  ? 'تُحفظ الحدود فوراً في قاعدة البيانات وتُطبَّق على واجهات المتاجر'
+                  : 'Limits are written to MySQL and enforced immediately'}
               </span>
               <button
+                type="button"
                 onClick={() => setShowWhatsAppQuotasModal(false)}
-                className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                className={masterGhostBtnClass}
               >
                 {isAr ? 'إغلاق' : 'Close'}
               </button>
@@ -1172,4 +2222,3 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
     </div>
   );
 };
-

@@ -7,24 +7,13 @@ import { SaudiSidebarFooter } from '../common/SaudiSidebarFooter';
 import {
   LayoutDashboard,
   Store,
-  Package,
-  ShoppingCart,
   Users,
-  Search,
-  Palette,
   Layers,
   FileText,
   Settings,
   ChevronRight,
-  UserPlus,
-  Globe,
-  GitBranch,
-  Boxes,
-  Database,
-  Archive,
   PanelLeftClose,
   PanelLeftOpen,
-  SlidersHorizontal,
   X,
   Crown,
   Coins,
@@ -68,32 +57,21 @@ export const MasterSidebar: React.FC<MasterSidebarProps> = ({
   }, [mobileOpen]);
 
   const navItems = useMemo(() => {
-    /** SOUQ PLUS Phase 1 primary sections, then platform ops + authorized oversight. */
-    const all = [
-      { id: 'dashboard', icon: LayoutDashboard },
-      { id: 'accounts', icon: Users },
-      { id: 'stores', icon: Store, count: stores.length },
-      { id: 'plans', icon: Crown },
-      { id: 'services-points', icon: Coins },
-      { id: 'integrations', icon: Layers },
-      { id: 'support', icon: Headphones },
-      { id: 'reports', icon: FileText },
-      { id: 'security', icon: ShieldCheck },
-      { id: 'notifications', icon: Bell },
-      { id: 'settings', icon: Settings },
-      { id: 'control-center', icon: SlidersHorizontal },
-      { id: 'onboarding', icon: UserPlus },
-      { id: 'domains', icon: Globe },
-      { id: 'database', icon: Database },
-      { id: 'backup', icon: Archive },
-      { id: 'updates', icon: GitBranch },
-      { id: 'marketplace', icon: Boxes },
-      { id: 'products', icon: Package },
-      { id: 'orders', icon: ShoppingCart },
-      { id: 'seo', icon: Search },
-      { id: 'themes', icon: Palette },
+    /** SOUQ PLUS Phase 1 — 11 primary sections only (ops via Platform Settings). */
+    const phase1 = [
+      { id: 'dashboard', icon: LayoutDashboard, showChevron: false },
+      { id: 'accounts', icon: Users, showChevron: true },
+      { id: 'stores', icon: Store, count: stores.length, showChevron: false },
+      { id: 'plans', icon: Crown, showChevron: false },
+      { id: 'services-points', icon: Coins, showChevron: false },
+      { id: 'integrations', icon: Layers, showChevron: true },
+      { id: 'support', icon: Headphones, showChevron: true },
+      { id: 'reports', icon: FileText, showChevron: true },
+      { id: 'security', icon: ShieldCheck, showChevron: true },
+      { id: 'notifications', icon: Bell, showChevron: false },
+      { id: 'settings', icon: Settings, showChevron: true },
     ];
-    return all.filter((item) => canTab(item.id, 'master'));
+    return phase1.filter((item) => canTab(item.id, 'master'));
   }, [stores.length, canTab]);
 
   return (
@@ -195,26 +173,24 @@ export const MasterSidebar: React.FC<MasterSidebarProps> = ({
                     <span className="truncate">{labelForNav(t, MASTER_NAV_KEYS, item.id)}</span>
                   )}
                 </div>
-                {!collapsed && (
-                  item.count !== undefined ? (
-                    <span
-                      className="text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0 tabular-nums"
-                      style={{
-                        background: isActive
-                          ? 'color-mix(in srgb, #000 22%, transparent)'
-                          : 'var(--portal-800)',
-                        color: isActive ? 'var(--active-fg)' : 'var(--portal-200)',
-                      }}
-                    >
-                      {item.count}
-                    </span>
-                  ) : (
-                    <ChevronRight
-                      className={`w-3.5 h-3.5 shrink-0 opacity-35 rtl:rotate-180 ${isActive ? 'opacity-80' : ''}`}
-                      aria-hidden
-                    />
-                  )
-                )}
+                {!collapsed && item.count !== undefined ? (
+                  <span
+                    className="text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0 tabular-nums"
+                    style={{
+                      background: isActive
+                        ? 'color-mix(in srgb, #000 22%, transparent)'
+                        : 'var(--portal-800)',
+                      color: isActive ? 'var(--active-fg)' : 'var(--portal-200)',
+                    }}
+                  >
+                    {item.count}
+                  </span>
+                ) : !collapsed && (item as { showChevron?: boolean }).showChevron ? (
+                  <ChevronRight
+                    className={`w-3.5 h-3.5 shrink-0 opacity-35 rtl:rotate-180 ${isActive ? 'opacity-80' : ''}`}
+                    aria-hidden
+                  />
+                ) : null}
               </button>
             );
           })}

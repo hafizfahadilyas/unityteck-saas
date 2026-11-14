@@ -48,6 +48,7 @@ import {
 import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
 import { RichTextEditor } from '../common/RichTextEditor';
 import { StoreProductEditorView } from '../store/StoreProductEditorView';
+import { MasterStoreScopeFilter } from './MasterStoreScopeFilter';
 
 /**
  * MasterProducts — Master Admin Products & Catalog Directory & Editor
@@ -162,7 +163,7 @@ export const MasterProducts: React.FC = () => {
       storeId: selectedStoreId !== 'all' ? selectedStoreId : defaultStore,
       name: isAr ? 'منتج جديد' : 'New Product',
       subtitle: isAr ? 'وصف مختصر للمنتج' : 'Premium catalog item',
-      sku: `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
+      sku: `SKU-${Date.now().toString(36).slice(-6).toUpperCase()}`,
       category: categories[0] || 'Electronics',
       price: 199,
       discountedPrice: 149,
@@ -335,23 +336,15 @@ export const MasterProducts: React.FC = () => {
             )}
           </div>
 
-          {/* Master Store Selector */}
-          <select
+          <MasterStoreScopeFilter
             value={selectedStoreId}
-            onChange={(e) => {
-              setSelectedStoreId(e.target.value);
+            onChange={(id) => {
+              setSelectedStoreId(id);
               setPage(1);
             }}
-            className="px-3 py-2 text-xs font-bold rounded-xl border shadow-xs cursor-pointer"
-            style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
-          >
-            <option value="all">{t('allStores')}</option>
-            {stores.map((s) => (
-              <option key={s.id} value={s.id}>
-                {getStoreDisplayName(s, locale)}
-              </option>
-            ))}
-          </select>
+            showStatusChips={false}
+            compact
+          />
 
           {/* Filters Toggle Button */}
           <button

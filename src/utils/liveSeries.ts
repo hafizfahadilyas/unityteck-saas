@@ -188,6 +188,42 @@ export function ordersCountByDate(orders: Order[], maxPoints = 7): { label: stri
     .map(([label, value]) => ({ label, value }));
 }
 
+/** Daily new-customer counts from registered / created dates (zero-mock). */
+export function customersCountByDate(
+  customers: Array<{ registeredDate?: string; created_at?: string; createdAt?: string }>,
+  maxPoints = 7,
+): { label: string; value: number }[] {
+  const map = new Map<string, number>();
+  customers.forEach((c) => {
+    const d =
+      parseOrderDate(c.registeredDate) ||
+      parseOrderDate(c.createdAt) ||
+      parseOrderDate(c.created_at);
+    if (!d) return;
+    const key = dayKey(d);
+    map.set(key, (map.get(key) || 0) + 1);
+  });
+  return Array.from(map.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .slice(-maxPoints)
+    .map(([label, value]) => ({ label, value }));
+}
+
+/**
+ * Ensure AreaChart can render (≥2 points). Pads with a zero prior day when only one real point exists.
+ * Never invents a fake trend beyond that.
+ */
+export function ensureChartSeries(
+  series: { label: string; value: number }[],
+  fallbackLabel = '0',
+): { label: string; value: number }[] {
+  if (!series.length) return [{ label: fallbackLabel, value: 0 }, { label: '1', value: 0 }];
+  if (series.length === 1) {
+    return [{ label: fallbackLabel, value: 0 }, series[0]];
+  }
+  return series;
+}
+
 export function revenueByWeek(orders: Order[]): { label: string; value: number }[] {
   if (!orders.length) return [];
   const withDates = orders

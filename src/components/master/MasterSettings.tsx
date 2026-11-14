@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { fetchPlatformSettings, updatePlatformSettings } from '../../api/tenantApi';
 import { isApiEnabled } from '../../api/client';
 import { useTenant } from '../../context/TenantContext';
@@ -22,6 +22,17 @@ import {
   ToggleLeft,
   ToggleRight,
   SlidersHorizontal,
+  LayoutDashboard,
+  Layers,
+  Archive,
+  Store as StoreIcon,
+  FileText,
+  Megaphone,
+  Lock,
+  ChevronRight,
+  Package,
+  ShoppingBag,
+  type LucideIcon,
 } from 'lucide-react';
 import { BrandingPanel } from '../common/BrandingPanel';
 import { DbSyncSettingsCard } from '../common/DbSyncSettingsCard';
@@ -29,14 +40,190 @@ import { bumpCacheTag, platformTag } from '../../api/cacheTags';
 import { useToast } from '../common/ToastProvider';
 import { CURRENCIES, type DisplayCurrency } from '../../i18n/prefs';
 import { MasterControlCenter } from './MasterControlCenter';
+import { MasterKpiGrid, MasterLuxePanel } from './MasterUiKit';
+import { OverviewStatCard } from '../common/OverviewStatCard';
+
+type OpsLink = {
+  id: string;
+  group: 'core' | 'infra' | 'commerce' | 'trust';
+  label: string;
+  hint: string;
+  Icon: LucideIcon;
+  badge?: string | number | null;
+};
 
 type MasterSettingsTab = 'controls' | 'platform' | 'localization' | 'appearance' | 'social' | 'database';
 
-export const MasterSettings: React.FC = () => {
-  const { stores, softRefreshTenantData } = useTenant();
-  const { t, locale, setLocale, currency, setCurrency, theme, toggleTheme, money } = usePrefs();
+type MasterSettingsProps = {
+  onNavigateTab?: (tab: string) => void;
+};
+
+export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab }) => {
+  const { stores, allOrders, allProducts, softRefreshTenantData } = useTenant();
+  const { locale, setLocale, currency, setCurrency, theme, toggleTheme } = usePrefs();
   const { toast } = useToast();
   const isAr = locale === 'ar';
+
+  const opsLive = useMemo(() => {
+    const orderCount = Object.values(allOrders || {}).reduce(
+      (n, list) => n + (Array.isArray(list) ? list.length : 0),
+      0,
+    );
+    const productCount = Object.values(allProducts || {}).reduce(
+      (n, list) => n + (Array.isArray(list) ? list.length : 0),
+      0,
+    );
+    const activeStores = stores.filter((s) => {
+      const st = String((s as { status?: string }).status || 'active').toLowerCase();
+      return st === 'active' || st === 'live';
+    }).length;
+    return {
+      storeCount: stores.length,
+      activeStores,
+      orderCount,
+      productCount,
+    };
+  }, [stores, allOrders, allProducts]);
+
+  const opsLinks = useMemo<OpsLink[]>(() => {
+    const fmt = (n: number) => n.toLocaleString(isAr ? 'ar-SA' : 'en-US');
+    return [
+      {
+        id: 'control-center',
+        group: 'core',
+        label: isAr ? 'مركز التحكم' : 'Control center',
+        hint: isAr ? 'تبديل الصفحات والعناصر' : 'Page & feature toggles',
+        Icon: LayoutDashboard,
+      },
+      {
+        id: 'ops',
+        group: 'core',
+        label: isAr ? 'العمليات والسياسات' : 'Ops & policies',
+        hint: isAr ? 'المهام والأخطاء والسياسات' : 'Jobs, errors & policies',
+        Icon: Server,
+      },
+      {
+        id: 'messaging',
+        group: 'core',
+        label: isAr ? 'الرسائل والقوالب' : 'Messaging',
+        hint: isAr ? 'قوالب المنصة والقنوات' : 'Templates & channels',
+        Icon: Megaphone,
+      },
+      {
+        id: 'governance',
+        group: 'trust',
+        label: isAr ? 'الحوكمة' : 'Governance',
+        hint: isAr ? 'الصيانة وطلبات الخصوصية' : 'Maintenance & privacy',
+        Icon: ShieldCheck,
+      },
+      {
+        id: 'onboarding',
+        group: 'core',
+        label: isAr ? 'طلبات الانضمام' : 'Onboarding',
+        hint: isAr ? 'دعوات المتاجر الجديدة' : 'New store invites',
+        Icon: StoreIcon,
+        badge: opsLive.storeCount > 0 ? fmt(opsLive.storeCount) : null,
+      },
+      {
+        id: 'domains',
+        group: 'infra',
+        label: isAr ? 'النطاقات' : 'Domains',
+        hint: isAr ? 'النطاقات والاستضافة' : 'Domains & hosting',
+        Icon: Globe,
+      },
+      {
+        id: 'database',
+        group: 'infra',
+        label: isAr ? 'قاعدة البيانات' : 'Database',
+        hint: isAr ? 'صحة MySQL والعزل' : 'MySQL health & isolation',
+        Icon: Database,
+      },
+      {
+        id: 'backup',
+        group: 'infra',
+        label: isAr ? 'النسخ الاحتياطي' : 'Backup & restore',
+        hint: isAr ? 'نسخ واستعادة لكل متجر' : 'Per-store ZIP backup',
+        Icon: Archive,
+      },
+      {
+        id: 'updates',
+        group: 'infra',
+        label: isAr ? 'التحديثات' : 'Updates',
+        hint: isAr ? 'طرح تحديثات المنصة' : 'Platform roll-outs',
+        Icon: RefreshCw,
+      },
+      {
+        id: 'marketplace',
+        group: 'commerce',
+        label: isAr ? 'متجر التطبيقات' : 'App store',
+        hint: isAr ? 'إضافات المنصة' : 'Platform add-ons',
+        Icon: Layers,
+      },
+      {
+        id: 'themes',
+        group: 'commerce',
+        label: isAr ? 'السمات' : 'Themes',
+        hint: isAr ? 'حزم السمات للمتاجر' : 'Store theme packs',
+        Icon: Palette,
+      },
+      {
+        id: 'seo',
+        group: 'commerce',
+        label: isAr ? 'تحسين الظهور' : 'SEO',
+        hint: isAr ? 'إعدادات الظهور العامة' : 'Platform SEO defaults',
+        Icon: FileText,
+      },
+      {
+        id: 'orders',
+        group: 'commerce',
+        label: isAr ? 'الطلبات' : 'Orders',
+        hint: isAr ? 'طلبات كل المتاجر' : 'All-store order overview',
+        Icon: ShoppingBag,
+        badge: opsLive.orderCount > 0 ? fmt(opsLive.orderCount) : null,
+      },
+      {
+        id: 'products',
+        group: 'commerce',
+        label: isAr ? 'المنتجات' : 'Products',
+        hint: isAr ? 'كتالوج عبر المتاجر' : 'Cross-store catalog',
+        Icon: Package,
+        badge: opsLive.productCount > 0 ? fmt(opsLive.productCount) : null,
+      },
+      {
+        id: 'security',
+        group: 'trust',
+        label: isAr ? 'الأمان' : 'Security',
+        hint: isAr ? 'المشرفون والصلاحيات' : 'Admins & permissions',
+        Icon: Lock,
+      },
+    ];
+  }, [isAr, opsLive]);
+
+  const opsGroups = useMemo(
+    () =>
+      [
+        {
+          id: 'core' as const,
+          label: isAr ? 'التشغيل الأساسي' : 'Core operations',
+        },
+        {
+          id: 'infra' as const,
+          label: isAr ? 'البنية والاستضافة' : 'Infrastructure',
+        },
+        {
+          id: 'commerce' as const,
+          label: isAr ? 'التجارة والمحتوى' : 'Commerce & content',
+        },
+        {
+          id: 'trust' as const,
+          label: isAr ? 'الثقة والأمان' : 'Trust & security',
+        },
+      ].map((g) => ({
+        ...g,
+        links: opsLinks.filter((l) => l.group === g.id),
+      })),
+    [isAr, opsLinks],
+  );
 
   const [activeTab, setActiveTab] = useState<MasterSettingsTab>('platform');
 
@@ -122,8 +309,8 @@ export const MasterSettings: React.FC = () => {
     };
   }, [isAr]);
 
-  const handleSavePlatform = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSavePlatform = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!isApiEnabled()) {
       toast(
         isAr ? 'الخادم غير متصل — لا يمكن الحفظ' : 'API offline — cannot save',
@@ -260,7 +447,7 @@ export const MasterSettings: React.FC = () => {
               </>
             ) : (
               <>
-                <Moon className="w-4 h-4 text-indigo-500" />
+                <Moon className="w-4 h-4" style={{ color: 'var(--accent)' }} />
                 <span>{isAr ? 'الوضع الداكن' : 'Dark Mode'}</span>
               </>
             )}
@@ -303,6 +490,180 @@ export const MasterSettings: React.FC = () => {
         })}
       </div>
 
+      <MasterKpiGrid cols={6}>
+        <OverviewStatCard
+          label={isAr ? 'إجمالي المتاجر' : 'Total stores'}
+          value={opsLive.storeCount.toLocaleString(isAr ? 'ar-SA' : 'en-US')}
+          icon={StoreIcon}
+          tone="accent"
+        />
+        <OverviewStatCard
+          label={isAr ? 'متاجر نشطة' : 'Active stores'}
+          value={opsLive.activeStores.toLocaleString(isAr ? 'ar-SA' : 'en-US')}
+          icon={Check}
+          tone="success"
+        />
+        <OverviewStatCard
+          label={isAr ? 'طلبات المنصة' : 'Platform orders'}
+          value={opsLive.orderCount.toLocaleString(isAr ? 'ar-SA' : 'en-US')}
+          icon={ShoppingBag}
+          tone="info"
+        />
+        <OverviewStatCard
+          label={isAr ? 'منتجات المنصة' : 'Platform products'}
+          value={opsLive.productCount.toLocaleString(isAr ? 'ar-SA' : 'en-US')}
+          icon={Package}
+          tone="warn"
+        />
+        <OverviewStatCard
+          label={isAr ? 'وحدات التحكم' : 'Control modules'}
+          value={opsLinks.length}
+          icon={LayoutDashboard}
+          tone="violet"
+        />
+        <OverviewStatCard
+          label={isAr ? 'قاعدة البيانات' : 'Database'}
+          value={isAr ? 'متصل' : 'Connected'}
+          icon={Database}
+          tone="accent"
+          footer={
+            <span className="text-[10px]" style={{ color: 'var(--muted)' }}>
+              {isAr ? 'مزامنة Hostinger MySQL' : 'Hostinger MySQL sync'}
+            </span>
+          }
+        />
+      </MasterKpiGrid>
+
+      {onNavigateTab ? (
+        <MasterLuxePanel className="space-y-6" padding="lg">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 min-w-0">
+            <div className="min-w-0">
+              <p className="text-base sm:text-lg font-black tracking-tight" style={{ color: 'var(--text)' }}>
+                {isAr ? 'عمليات المنصة المتقدمة' : 'Advanced platform operations'}
+              </p>
+              <p className="text-xs sm:text-sm leading-relaxed mt-1" style={{ color: 'var(--muted)' }}>
+                {isAr
+                  ? 'النطاقات والنسخ الاحتياطي والتحديثات ومركز التحكم — خارج القائمة الرئيسية ومتاحة بالكامل هنا.'
+                  : 'Domains, backups, updates, and control center — outside the Phase 1 main menu but fully available here.'}
+              </p>
+            </div>
+            <div
+              className="flex flex-wrap items-center gap-2 shrink-0 text-[11px] font-bold tabular-nums"
+              style={{ color: 'var(--muted)' }}
+            >
+              <span
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border"
+                style={{
+                  background: 'color-mix(in srgb, var(--accent) 10%, var(--surface))',
+                  borderColor: 'color-mix(in srgb, var(--accent) 28%, var(--border))',
+                  color: 'var(--accent)',
+                }}
+              >
+                {opsLive.activeStores}/{opsLive.storeCount}{' '}
+                {isAr ? 'متاجر نشطة' : 'active stores'}
+              </span>
+              <span
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border"
+                style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
+              >
+                {opsLive.orderCount.toLocaleString(isAr ? 'ar-SA' : 'en-US')}{' '}
+                {isAr ? 'طلبات' : 'orders'}
+              </span>
+              <span
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border"
+                style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
+              >
+                {opsLive.productCount.toLocaleString(isAr ? 'ar-SA' : 'en-US')}{' '}
+                {isAr ? 'منتجات' : 'products'}
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-5">
+            {opsGroups.map((group) => (
+              <section key={group.id} className="space-y-3" aria-labelledby={`ops-group-${group.id}`}>
+                <h3
+                  id={`ops-group-${group.id}`}
+                  className="text-[11px] font-extrabold uppercase tracking-[0.08em]"
+                  style={{ color: 'var(--muted)' }}
+                >
+                  {group.label}
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                  {group.links.map((link) => {
+                    const Icon = link.Icon;
+                    return (
+                      <button
+                        key={link.id}
+                        type="button"
+                        onClick={() => onNavigateTab(link.id)}
+                        className="group relative flex flex-col gap-4 p-4 sm:p-5 min-h-[7.5rem] border text-start transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 min-w-0"
+                        style={{
+                          background: 'var(--surface)',
+                          borderColor: 'var(--border)',
+                          color: 'var(--text)',
+                          borderRadius: 'var(--radius-ctrl, 1rem)',
+                          boxShadow: '0 1px 0 color-mix(in srgb, var(--border) 65%, transparent)',
+                        }}
+                      >
+                        <div className="flex items-start justify-between gap-3 w-full">
+                          <span
+                            className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105"
+                            style={{
+                              background: 'color-mix(in srgb, var(--accent) 14%, var(--bg))',
+                              color: 'var(--accent)',
+                              boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent)',
+                            }}
+                          >
+                            <Icon className="w-6 h-6 sm:w-7 sm:h-7" strokeWidth={2.1} aria-hidden />
+                          </span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {link.badge != null && link.badge !== '' ? (
+                              <span
+                                className="text-[11px] font-black px-2 py-0.5 rounded-full tabular-nums"
+                                style={{
+                                  background: 'color-mix(in srgb, var(--portal-cta, var(--accent)) 12%, transparent)',
+                                  color: 'var(--portal-cta, var(--accent))',
+                                }}
+                              >
+                                {link.badge}
+                              </span>
+                            ) : null}
+                            <ChevronRight
+                              className="w-4 h-4 opacity-35 transition-all group-hover:opacity-90 group-hover:translate-x-0.5 rtl:rotate-180 rtl:group-hover:-translate-x-0.5"
+                              style={{ color: 'var(--accent)' }}
+                              aria-hidden
+                            />
+                          </div>
+                        </div>
+                        <div className="min-w-0 space-y-1 mt-auto">
+                          <span className="block text-sm sm:text-[15px] font-extrabold leading-snug truncate">
+                            {link.label}
+                          </span>
+                          <span
+                            className="block text-[11px] sm:text-xs leading-relaxed line-clamp-2"
+                            style={{ color: 'var(--muted)' }}
+                          >
+                            {link.hint}
+                          </span>
+                        </div>
+                        <span
+                          className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                          style={{
+                            boxShadow: 'inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 45%, transparent)',
+                          }}
+                          aria-hidden
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        </MasterLuxePanel>
+      ) : null}
+
       {/* ── TAB 0: Central Controls & Toggles ── */}
       {activeTab === 'controls' && (
         <div className="-mx-4 sm:-mx-6 lg:-mx-8">
@@ -331,7 +692,11 @@ export const MasterSettings: React.FC = () => {
                     className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   />
-                  <p className="text-[10px] mt-1 opacity-70">Applies across Master & Store sidebars</p>
+                  <p className="text-[10px] mt-1 opacity-70">
+                    {isAr
+                      ? 'يُطبَّق على الشريط الجانبي للمشرف والمتجر'
+                      : 'Applies across Master & Store sidebars'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -345,7 +710,7 @@ export const MasterSettings: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                    Platform Name
+                    {isAr ? 'اسم المنصة' : 'Platform Name'}
                   </label>
                   <input
                     type="text"
@@ -357,7 +722,7 @@ export const MasterSettings: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                    Master Admin Email
+                    {isAr ? 'بريد الدعم للمنصة' : 'Platform support email'}
                   </label>
                   <input
                     type="email"
@@ -369,7 +734,7 @@ export const MasterSettings: React.FC = () => {
                 </div>
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                    Platform Tagline / Slogan
+                    {isAr ? 'شعار المنصة / العبارة التعريفية' : 'Platform Tagline / Slogan'}
                   </label>
                   <input
                     type="text"
@@ -431,10 +796,15 @@ export const MasterSettings: React.FC = () => {
                   type="submit"
                   disabled={platformSaving}
                   aria-busy={platformSaving}
-                  className="px-5 py-2.5 rounded-xl text-xs font-bold text-white shadow-xs cursor-pointer hover:opacity-90 disabled:opacity-60"
-                  style={{ background: 'var(--portal-cta)' }}
+                  className="unity-btn-primary px-5 py-2.5 rounded-xl text-xs font-bold shadow-xs cursor-pointer disabled:opacity-60"
                 >
-                  Save Platform Settings
+                  {platformSaving
+                    ? isAr
+                      ? 'جاري الحفظ…'
+                      : 'Saving…'
+                    : isAr
+                      ? 'حفظ إعدادات المنصة'
+                      : 'Save Platform Settings'}
                 </button>
               </div>
             </div>
@@ -449,10 +819,12 @@ export const MasterSettings: React.FC = () => {
             <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--border)' }}>
               <div className="flex items-center gap-2">
                 <Coins className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-                <h3 className="font-extrabold text-sm">Platform Currencies</h3>
+                <h3 className="font-extrabold text-sm">
+                  {isAr ? 'عملات المنصة' : 'Platform Currencies'}
+                </h3>
               </div>
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md" style={{ background: 'var(--hover-bg)', color: 'var(--accent)' }}>
-                Active: {currency}
+                {isAr ? `النشطة: ${currency}` : `Active: ${currency}`}
               </span>
             </div>
 
@@ -469,10 +841,13 @@ export const MasterSettings: React.FC = () => {
                     type="button"
                     onClick={() => {
                       setCurrency(curKey);
-                      toast('Currency updated to ' + curKey, 'success');
+                      toast(
+                        isAr ? `تم تحديث العملة إلى ${curKey}` : `Currency updated to ${curKey}`,
+                        'success',
+                      );
                     }}
                     className={`p-3 rounded-xl border text-start cursor-pointer transition-all flex items-center justify-between gap-3 ${
-                      active ? 'ring-2 shadow-xs' : 'hover:border-slate-400'
+                      active ? 'ring-2 shadow-xs' : 'hover:opacity-90'
                     }`}
                     style={{
                       background: active ? 'var(--active-bg)' : 'var(--bg)',
@@ -497,17 +872,27 @@ export const MasterSettings: React.FC = () => {
           <div className="p-5 rounded-2xl border shadow-xs space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
             <div className="flex items-center gap-2 border-b pb-3" style={{ borderColor: 'var(--border)' }}>
               <Globe className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-              <h3 className="font-extrabold text-sm">Language & Timezone</h3>
+              <h3 className="font-extrabold text-sm">
+                {isAr ? 'اللغة والمنطقة الزمنية' : 'Language & Timezone'}
+              </h3>
             </div>
 
             <div className="space-y-3">
               <label className="block text-xs font-bold" style={{ color: 'var(--muted)' }}>
-                Platform Language
+                {isAr ? 'لغة واجهة المنصة' : 'Platform Language'}
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { id: 'en' as const, label: 'English', desc: '100% English' },
-                  { id: 'ar' as const, label: 'العربية', desc: 'عربي بالكامل' },
+                  {
+                    id: 'en' as const,
+                    label: isAr ? 'الإنجليزية' : 'English',
+                    desc: isAr ? 'واجهة إنجليزية بالكامل' : '100% English',
+                  },
+                  {
+                    id: 'ar' as const,
+                    label: isAr ? 'العربية' : 'Arabic',
+                    desc: isAr ? 'عربي بالكامل' : 'Full Arabic UI',
+                  },
                 ].map((item) => {
                   const active = locale === item.id;
                   return (
@@ -516,10 +901,15 @@ export const MasterSettings: React.FC = () => {
                       type="button"
                       onClick={() => {
                         setLocale(item.id);
-                        toast('Language set to ' + item.label, 'success');
+                        toast(
+                          item.id === 'ar'
+                            ? 'تم تحويل النظام إلى العربية'
+                            : 'Language set to English',
+                          'success',
+                        );
                       }}
                       className={`p-3 rounded-xl border text-center cursor-pointer transition-all ${
-                        active ? 'ring-2 font-bold' : 'hover:border-slate-400'
+                        active ? 'ring-2 font-bold' : 'hover:opacity-90'
                       }`}
                       style={{
                         background: active ? 'var(--active-bg)' : 'var(--bg)',
@@ -537,7 +927,7 @@ export const MasterSettings: React.FC = () => {
 
             <div className="space-y-3 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
               <label className="block text-xs font-bold" style={{ color: 'var(--muted)' }}>
-                Platform Timezone
+                {isAr ? 'المنطقة الزمنية للمنصة' : 'Platform Timezone'}
               </label>
               <div className="relative">
                 <Clock className="w-4 h-4 absolute start-3 top-1/2 -translate-y-1/2 opacity-50" />
@@ -547,11 +937,30 @@ export const MasterSettings: React.FC = () => {
                   className="w-full ps-9 pe-3 py-2 text-xs rounded-xl border focus:outline-none"
                   style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                 >
-                  <option value="Asia/Riyadh">Asia/Riyadh (GMT+3) · Saudi Arabia</option>
-                  <option value="Asia/Dubai">Asia/Dubai (GMT+4) · UAE</option>
-                  <option value="Asia/Karachi">Asia/Karachi (GMT+5) · Pakistan</option>
-                  <option value="Europe/London">Europe/London (GMT+0) · UK</option>
+                  <option value="Asia/Riyadh">
+                    {isAr ? 'الرياض (توقيت السعودية)' : 'Asia/Riyadh (GMT+3) · Saudi Arabia'}
+                  </option>
+                  <option value="Asia/Dubai">
+                    {isAr ? 'دبي (توقيت الإمارات)' : 'Asia/Dubai (GMT+4) · UAE'}
+                  </option>
+                  <option value="Asia/Karachi">
+                    {isAr ? 'كراتشي (توقيت باكستان)' : 'Asia/Karachi (GMT+5) · Pakistan'}
+                  </option>
+                  <option value="Europe/London">
+                    {isAr ? 'لندن (توقيت المملكة المتحدة)' : 'Europe/London (GMT+0) · UK'}
+                  </option>
                 </select>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  disabled={platformSaving}
+                  aria-busy={platformSaving}
+                  className="unity-btn-primary text-xs px-4 py-2"
+                  onClick={() => void handleSavePlatform()}
+                >
+                  {isAr ? 'حفظ المنطقة الزمنية' : 'Save timezone'}
+                </button>
               </div>
             </div>
           </div>
@@ -571,82 +980,128 @@ export const MasterSettings: React.FC = () => {
 
       {/* ── TAB 4: WhatsApp & Social ── */}
       {activeTab === 'social' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="p-5 rounded-2xl border shadow-xs space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-            <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--border)' }}>
-              <div className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-emerald-500" />
-                <h3 className="font-extrabold text-sm">Platform WhatsApp Support</h3>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="p-5 rounded-2xl border shadow-xs space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+              <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--border)' }}>
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-emerald-500" />
+                  <h3 className="font-extrabold text-sm">
+                    {isAr ? 'دعم واتساب للمنصة' : 'Platform WhatsApp Support'}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setWhatsappEnabled(!whatsappEnabled)}
+                  className="cursor-pointer"
+                  aria-label={isAr ? 'تبديل واتساب' : 'Toggle WhatsApp'}
+                >
+                  {whatsappEnabled ? (
+                    <ToggleRight className="w-7 h-7 text-emerald-500" />
+                  ) : (
+                    <ToggleLeft className="w-7 h-7 text-slate-400" />
+                  )}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setWhatsappEnabled(!whatsappEnabled)}
-                className="cursor-pointer"
-              >
-                {whatsappEnabled ? (
-                  <ToggleRight className="w-7 h-7 text-emerald-500" />
-                ) : (
-                  <ToggleLeft className="w-7 h-7 text-slate-400" />
-                )}
-              </button>
+              <div className="space-y-3">
+                <label className="block text-xs font-bold" style={{ color: 'var(--muted)' }}>
+                  {isAr ? 'رقم واتساب الدعم' : 'Support WhatsApp Number'}
+                </label>
+                <input
+                  type="tel"
+                  value={whatsappNumber}
+                  onChange={(e) => setWhatsappNumber(e.target.value)}
+                  disabled={!whatsappEnabled}
+                  dir="ltr"
+                  placeholder="+966…"
+                  className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none disabled:opacity-50"
+                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                />
+              </div>
             </div>
-            <div className="space-y-3">
-              <label className="block text-xs font-bold" style={{ color: 'var(--muted)' }}>
-                Support WhatsApp Number
-              </label>
-              <input
-                type="tel"
-                value={whatsappNumber}
-                onChange={(e) => setWhatsappNumber(e.target.value)}
-                disabled={!whatsappEnabled}
-                className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none disabled:opacity-50"
-                style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-              />
+
+            <div className="p-5 rounded-2xl border shadow-xs space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+              <div className="flex items-center gap-2 border-b pb-3" style={{ borderColor: 'var(--border)' }}>
+                <Share2 className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+                <h3 className="font-extrabold text-sm">
+                  {isAr ? 'قنوات التواصل للمنصة' : 'Platform Social Channels'}
+                </h3>
+              </div>
+              <div className="space-y-3">
+                {Object.entries(socialLinks).map(([key, val]) => {
+                  const channelLabel =
+                    key === 'twitter'
+                      ? isAr
+                        ? 'إكس'
+                        : 'X / Twitter'
+                      : key === 'linkedin'
+                        ? isAr
+                          ? 'لينكدإن'
+                          : 'LinkedIn'
+                        : key === 'instagram'
+                          ? isAr
+                            ? 'إنستغرام'
+                            : 'Instagram'
+                          : isAr
+                            ? 'يوتيوب'
+                            : 'YouTube';
+                  return (
+                    <div key={key} className="flex items-center gap-2 min-w-0">
+                      <span className="w-24 shrink-0 text-xs font-bold" style={{ color: 'var(--text)' }}>
+                        {channelLabel}
+                      </span>
+                      <input
+                        type="url"
+                        value={val.url}
+                        onChange={(e) => {
+                          setSocialLinks((prev) => ({
+                            ...prev,
+                            [key]: { ...val, url: e.target.value },
+                          }));
+                        }}
+                        dir="ltr"
+                        className="flex-1 min-w-0 px-3 py-1.5 text-xs rounded-xl border focus:outline-none"
+                        style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSocialLinks((prev) => ({
+                            ...prev,
+                            [key]: { ...val, enabled: !val.enabled },
+                          }));
+                        }}
+                        className="cursor-pointer shrink-0"
+                        aria-label={isAr ? 'تفعيل أو إيقاف القناة' : 'Toggle channel'}
+                      >
+                        {val.enabled ? (
+                          <ToggleRight className="w-6 h-6 text-emerald-500" />
+                        ) : (
+                          <ToggleLeft className="w-6 h-6 text-slate-400" />
+                        )}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
-
-          <div className="p-5 rounded-2xl border shadow-xs space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-            <div className="flex items-center gap-2 border-b pb-3" style={{ borderColor: 'var(--border)' }}>
-              <Share2 className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-              <h3 className="font-extrabold text-sm">Platform Social Channels</h3>
-            </div>
-            <div className="space-y-3">
-              {Object.entries(socialLinks).map(([key, val]) => (
-                <div key={key} className="flex items-center gap-2">
-                  <span className="w-20 text-xs font-bold capitalize" style={{ color: 'var(--text)' }}>
-                    {key}
-                  </span>
-                  <input
-                    type="url"
-                    value={val.url}
-                    onChange={(e) => {
-                      setSocialLinks((prev) => ({
-                        ...prev,
-                        [key]: { ...val, url: e.target.value },
-                      }));
-                    }}
-                    className="flex-1 px-3 py-1.5 text-xs rounded-xl border focus:outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSocialLinks((prev) => ({
-                        ...prev,
-                        [key]: { ...val, enabled: !val.enabled },
-                      }));
-                    }}
-                    className="cursor-pointer"
-                  >
-                    {val.enabled ? (
-                      <ToggleRight className="w-6 h-6 text-emerald-500" />
-                    ) : (
-                      <ToggleLeft className="w-6 h-6 text-slate-400" />
-                    )}
-                  </button>
-                </div>
-              ))}
-            </div>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              disabled={platformSaving}
+              aria-busy={platformSaving}
+              className="unity-btn-primary text-xs px-4 py-2"
+              onClick={() => void handleSavePlatform()}
+            >
+              {platformSaving
+                ? isAr
+                  ? 'جاري الحفظ…'
+                  : 'Saving…'
+                : isAr
+                  ? 'حفظ قنوات التواصل'
+                  : 'Save support channels'}
+            </button>
           </div>
         </div>
       )}
@@ -657,28 +1112,39 @@ export const MasterSettings: React.FC = () => {
           <DbSyncSettingsCard />
 
           <div className="p-5 rounded-2xl border shadow-xs space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-            <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--border)' }}>
-              <div className="flex items-center gap-2">
-                <Server className="w-5 h-5 text-indigo-500" />
-                <h3 className="font-bold text-sm">Multi-Tenant Partition Summary</h3>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-3" style={{ borderColor: 'var(--border)' }}>
+              <div className="flex items-center gap-2 min-w-0">
+                <Server className="w-5 h-5 shrink-0" style={{ color: 'var(--accent)' }} />
+                <h3 className="font-bold text-sm">
+                  {isAr ? 'ملخص عزل المستأجرين' : 'Multi-Tenant Partition Summary'}
+                </h3>
               </div>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase font-mono" style={{ background: 'var(--hover-bg)', color: 'var(--accent)' }}>
-                {stores.length} Stores Provisioned
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold font-mono self-start" style={{ background: 'var(--hover-bg)', color: 'var(--accent)' }}>
+                {isAr ? `${stores.length} متجر مفعّل` : `${stores.length} Stores Provisioned`}
               </span>
             </div>
             <p className="text-xs opacity-75 leading-relaxed">
-              Every store possesses a cryptographically isolated tenant partition. Instant zero-stale cache tags ensure immediate product catalog updates across storefronts without server restarts.
+              {isAr
+                ? 'كل متجر معزول بصفوف معرّف المتجر في قاعدة البيانات الحية. وسوم الكاش الفورية تمنع البيانات القديمة دون إعادة تشغيل الخادم.'
+                : 'Every store is isolated by store_id rows on live MySQL. Zero-stale cache tags push catalog updates across storefronts without server restarts.'}
             </p>
             <div className="pt-2 flex justify-end">
               <button
                 type="button"
                 onClick={handlePurgeAll}
                 disabled={purging}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white shadow-xs cursor-pointer hover:opacity-90"
-                style={{ background: 'var(--portal-cta)' }}
+                className="unity-btn-primary flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-60"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${purging ? 'animate-spin' : ''}`} />
-                <span>{purging ? 'Purging All Tenants…' : 'Purge Global Cache & Sync All Tenants'}</span>
+                <span>
+                  {purging
+                    ? isAr
+                      ? 'جاري تفريغ الكاش…'
+                      : 'Purging All Tenants…'
+                    : isAr
+                      ? 'تفريغ الكاش العام ومزامنة كل المتاجر'
+                      : 'Purge Global Cache & Sync All Tenants'}
+                </span>
               </button>
             </div>
           </div>

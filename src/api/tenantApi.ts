@@ -253,6 +253,36 @@ export async function fetchMasterNotifications(): Promise<{
   return apiFetch('/master/notifications', { portal: 'master' });
 }
 
+export type MasterPlatformOverview = {
+  totals: {
+    products: number;
+    customers: number;
+    orders: number;
+    pending_orders: number;
+    active_coupons: number;
+    revenue: number;
+    sales: number;
+    visitors: number;
+  };
+  series: {
+    orders: { label: string; value: number }[];
+    revenue: { label: string; value: number }[];
+    customers: { label: string; value: number }[];
+    products?: { label: string; value: number }[];
+  };
+  visits_by_weekday?: { dayEn: string; dayAr: string; percentage: number }[];
+  visits_growth?: number | null;
+};
+
+/** Master home KPIs — one aggregate query (scales to 100+ stores). */
+export async function fetchMasterPlatformOverview(range: string): Promise<{
+  data: MasterPlatformOverview;
+  meta?: { range?: string; source?: string; last_refresh?: string };
+}> {
+  const qs = new URLSearchParams({ range: range || 'month' });
+  return apiFetch(`/master/platform-overview?${qs.toString()}`, { portal: 'master' });
+}
+
 export async function markMasterNotifications(payload: {
   ids?: string[];
   status?: string;
@@ -263,6 +293,294 @@ export async function markMasterNotifications(payload: {
     portal: 'master',
     body: payload,
   });
+}
+
+/** SOUQ PLUS Phase 2 — Master admin users + role matrix. */
+export async function fetchMasterAdmins(): Promise<{
+  data: Array<Record<string, unknown>>;
+  meta?: { mfa?: string; source?: string };
+}> {
+  return apiFetch('/master/security/admins', { portal: 'master' });
+}
+
+export async function createMasterAdmin(
+  payload: Record<string, unknown>,
+): Promise<{ data: Record<string, unknown> }> {
+  return apiFetch('/master/security/admins', {
+    method: 'POST',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+export async function patchMasterAdmin(
+  id: string,
+  payload: Record<string, unknown>,
+): Promise<{ data: Record<string, unknown> }> {
+  return apiFetch(`/master/security/admins/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+export async function fetchMasterRoleMatrix(): Promise<{
+  data: Record<string, Record<string, boolean>>;
+  meta?: { roles?: string[]; permissions?: string[]; mfa?: string };
+}> {
+  return apiFetch('/master/security/roles', { portal: 'master' });
+}
+
+export async function putMasterRolePermissions(
+  role: string,
+  permissions: Record<string, boolean>,
+): Promise<{ ok?: boolean }> {
+  return apiFetch(`/master/security/roles/${encodeURIComponent(role)}/permissions`, {
+    method: 'PUT',
+    portal: 'master',
+    body: { permissions },
+  });
+}
+
+/** SOUQ PLUS Phase 3 — Doc verification queue. */
+export async function fetchMasterVerificationQueue(params?: {
+  status?: string;
+}): Promise<{ data: Array<Record<string, unknown>>; meta?: { total?: number; source?: string } }> {
+  const qs = new URLSearchParams();
+  if (params?.status) qs.set('status', params.status);
+  const q = qs.toString();
+  return apiFetch(`/master/accounts/verification${q ? `?${q}` : ''}`, { portal: 'master' });
+}
+
+export async function createMasterVerification(
+  payload: Record<string, unknown>,
+): Promise<{ data: Record<string, unknown> }> {
+  return apiFetch('/master/accounts/verification', {
+    method: 'POST',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+export async function patchMasterVerification(
+  id: string,
+  payload: Record<string, unknown>,
+): Promise<{ ok?: boolean }> {
+  return apiFetch(`/master/accounts/verification/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+/** SOUQ PLUS Phase 4 — CS CMS collections. */
+export type MasterCsCollection =
+  | 'complaints'
+  | 'surveys'
+  | 'announcements'
+  | 'incidents'
+  | 'help';
+
+export async function fetchMasterCsCollection(
+  collection: MasterCsCollection,
+): Promise<{ data: Array<Record<string, unknown>>; meta?: { total?: number; source?: string } }> {
+  return apiFetch(`/master/support/${collection}`, { portal: 'master' });
+}
+
+export async function createMasterCsItem(
+  collection: MasterCsCollection,
+  payload: Record<string, unknown>,
+): Promise<{ data: Record<string, unknown> }> {
+  return apiFetch(`/master/support/${collection}`, {
+    method: 'POST',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+export async function patchMasterCsItem(
+  collection: Exclude<MasterCsCollection, 'help'>,
+  id: string,
+  payload: Record<string, unknown>,
+): Promise<{ ok?: boolean }> {
+  return apiFetch(`/master/support/${collection}/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+/** SOUQ PLUS Phase 5 — Policies / jobs / errors / payments gate. */
+export async function fetchMasterPolicies(): Promise<{
+  data: Array<Record<string, unknown>>;
+  meta?: { source?: string };
+}> {
+  return apiFetch('/master/settings/policies', { portal: 'master' });
+}
+
+export async function patchMasterPolicy(
+  payload: Record<string, unknown>,
+): Promise<{ ok?: boolean }> {
+  return apiFetch('/master/settings/policies', {
+    method: 'PATCH',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+export async function fetchMasterOpsJobs(): Promise<{
+  data: Array<Record<string, unknown>>;
+  meta?: { source?: string; note?: string };
+}> {
+  return apiFetch('/master/ops/jobs', { portal: 'master' });
+}
+
+export async function fetchMasterOpsErrors(): Promise<{
+  data: Array<Record<string, unknown>>;
+  meta?: { total?: number; source?: string };
+}> {
+  return apiFetch('/master/ops/errors', { portal: 'master' });
+}
+
+export async function fetchMasterPaymentsLedger(): Promise<{
+  data: unknown[];
+  meta?: { available?: boolean; reason?: string };
+}> {
+  return apiFetch('/master/payments/ledger', { portal: 'master' });
+}
+
+/** SOUQ PLUS Phase 6 — Attachment metadata. */
+export async function fetchMasterAttachments(params?: {
+  entity_type?: string;
+  entity_id?: string;
+}): Promise<{
+  data: Array<Record<string, unknown>>;
+  meta?: { malware_scan?: string; max_bytes?: number; allowed_ext?: string[] };
+}> {
+  const qs = new URLSearchParams();
+  if (params?.entity_type) qs.set('entity_type', params.entity_type);
+  if (params?.entity_id) qs.set('entity_id', params.entity_id);
+  const q = qs.toString();
+  return apiFetch(`/master/attachments${q ? `?${q}` : ''}`, { portal: 'master' });
+}
+
+export async function createMasterAttachment(
+  payload: Record<string, unknown>,
+): Promise<{ data: Record<string, unknown> }> {
+  return apiFetch('/master/attachments', {
+    method: 'POST',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+/** SOUQ PLUS Phase 7 — Messaging. */
+export async function fetchMasterMessagingChannels(): Promise<{
+  data: Array<Record<string, unknown>>;
+}> {
+  return apiFetch('/master/messaging/channels', { portal: 'master' });
+}
+
+export async function fetchMasterMessageTemplates(): Promise<{
+  data: Array<Record<string, unknown>>;
+  meta?: { variables?: string[] };
+}> {
+  return apiFetch('/master/messaging/templates', { portal: 'master' });
+}
+
+export async function patchMasterMessageTemplate(
+  id: string,
+  payload: Record<string, unknown>,
+): Promise<{ ok?: boolean }> {
+  return apiFetch(`/master/messaging/templates/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+export async function fetchMasterMessageDeliveries(): Promise<{
+  data: Array<Record<string, unknown>>;
+  meta?: { note?: string };
+}> {
+  return apiFetch('/master/messaging/deliveries', { portal: 'master' });
+}
+
+/** SOUQ PLUS Phase 8 — Governance. */
+export async function fetchStoreStatusHistory(storeId?: string): Promise<{
+  data: Array<Record<string, unknown>>;
+}> {
+  const qs = storeId ? `?store_id=${encodeURIComponent(storeId)}` : '';
+  return apiFetch(`/master/stores/status-history${qs}`, { portal: 'master' });
+}
+
+export async function createStoreStatusHistory(
+  payload: Record<string, unknown>,
+): Promise<{ data: Record<string, unknown> }> {
+  return apiFetch('/master/stores/status-history', {
+    method: 'POST',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+export async function fetchMasterMaintenanceEvents(): Promise<{
+  data: Array<Record<string, unknown>>;
+}> {
+  return apiFetch('/master/ops/maintenance', { portal: 'master' });
+}
+
+export async function createMasterMaintenanceEvent(
+  payload: Record<string, unknown>,
+): Promise<{ data: Record<string, unknown> }> {
+  return apiFetch('/master/ops/maintenance', {
+    method: 'POST',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+export async function fetchPrivacyDataRequests(): Promise<{
+  data: Array<Record<string, unknown>>;
+  meta?: { total?: number };
+}> {
+  return apiFetch('/master/privacy/requests', { portal: 'master' });
+}
+
+export async function createPrivacyDataRequest(
+  payload: Record<string, unknown>,
+): Promise<{ data: Record<string, unknown> }> {
+  return apiFetch('/master/privacy/requests', {
+    method: 'POST',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+export async function patchPrivacyDataRequest(
+  id: string,
+  payload: Record<string, unknown>,
+): Promise<{ ok?: boolean }> {
+  return apiFetch(`/master/privacy/requests/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+/** SOUQ PLUS Phase 9 — MFA status + acceptance checklist. */
+export async function fetchMasterMfaStatus(): Promise<{
+  data: { available?: boolean; enrolled?: boolean; status?: string };
+  meta?: { note?: string };
+}> {
+  return apiFetch('/master/security/mfa-status', { portal: 'master' });
+}
+
+export async function fetchMasterAcceptanceChecklist(): Promise<{
+  data: Array<{ id: string; label: string; status: string }>;
+  meta?: { signed_off?: boolean; note?: string };
+}> {
+  return apiFetch('/master/acceptance/checklist', { portal: 'master' });
 }
 
 export async function fetchMasterServices(): Promise<{

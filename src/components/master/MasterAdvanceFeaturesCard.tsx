@@ -56,18 +56,19 @@ export const MasterAdvanceFeaturesCard: React.FC = () => {
   });
 
   const getIcon = (iconName: string) => {
+    const tone = { color: 'var(--accent)' } as const;
     switch (iconName) {
       case 'Globe':
-        return <Globe className="w-5 h-5 text-blue-500" />;
+        return <Globe className="w-5 h-5" style={tone} />;
       case 'Palette':
         return <Palette className="w-5 h-5 text-emerald-500" />;
       case 'Share2':
         return <Share2 className="w-5 h-5 text-amber-500" />;
       case 'Megaphone':
-        return <Megaphone className="w-5 h-5 text-teal-500" />;
+        return <Megaphone className="w-5 h-5" style={tone} />;
       case 'Sparkles':
       default:
-        return <Sparkles className="w-5 h-5 text-purple-500" />;
+        return <Sparkles className="w-5 h-5" style={tone} />;
     }
   };
 

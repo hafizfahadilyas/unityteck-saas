@@ -17,22 +17,22 @@ export const AdminPageHeader: React.FC<Props> = ({
   className = '',
 }) => (
   <div
-    className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 ${className}`.trim()}
+    className={`flex flex-col sm:flex-row sm:items-start lg:items-center justify-between gap-3 sm:gap-4 ${className}`.trim()}
   >
-    <div className="min-w-0">
+    <div className="min-w-0 flex-1">
       <h1
-        className="text-xl sm:text-2xl font-extrabold tracking-tight truncate"
+        className="text-xl sm:text-2xl font-extrabold tracking-tight"
         style={{ color: 'var(--text)', fontFamily: 'var(--font-ui)' }}
       >
         {title}
       </h1>
       {subtitle ? (
-        <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
+        <p className="text-xs mt-0.5 max-w-2xl" style={{ color: 'var(--muted)' }}>
           {subtitle}
         </p>
       ) : null}
     </div>
-    <div className="flex items-center gap-2 flex-wrap shrink-0">
+    <div className="flex items-center gap-2 flex-wrap shrink-0 w-full sm:w-auto sm:justify-end">
       {badge}
       {actions}
     </div>
@@ -46,9 +46,11 @@ export const PAGE_SHELL_CLASS =
 export const AdminPageShell: React.FC<{
   children: React.ReactNode;
   className?: string;
-}> = ({ children, className = '' }) => (
+  /** When true, drop the default max-w + centering so content fills the main pane. */
+  fullWidth?: boolean;
+}> = ({ children, className = '', fullWidth = false }) => (
   <div
-    className={`${PAGE_SHELL_CLASS} ${className}`.trim()}
+    className={`${fullWidth ? PAGE_SHELL_CLASS.replace('max-w-[1650px] mx-auto ', '') : PAGE_SHELL_CLASS} ${className}`.trim()}
     style={{ color: 'var(--text)', fontFamily: 'var(--font-ui)' }}
     data-page-shell="1"
   >

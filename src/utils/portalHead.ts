@@ -4,8 +4,29 @@
  * Store = active store name/brand (when wired) — never force Master assets on Store.
  */
 
-const MASTER_TITLE = 'Souq Platform | Master Admin';
+const MASTER_TITLE_AR = 'منصة سوق | لوحة تحكم المشرف';
+const MASTER_TITLE_EN = 'Souq Platform | Master Admin';
+const STORE_TITLE_AR = 'لوحة تحكم المتجر | منصة سوق';
+const STORE_TITLE_EN = 'Store Admin | Souq Platform';
 const MASTER_FAVICON = '/favicon.svg';
+
+function resolveIsAr(): boolean {
+  if (typeof document === 'undefined') return true;
+  const lang = String(document.documentElement.lang || '').toLowerCase();
+  if (lang === 'ar' || lang === 'ur') return true;
+  if (lang === 'en') return false;
+  try {
+    const raw = localStorage.getItem('unityteck_prefs');
+    if (raw) {
+      const parsed = JSON.parse(raw) as { locale?: string };
+      if (parsed?.locale === 'en') return false;
+      if (parsed?.locale === 'ar') return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return true;
+}
 
 function ensureIconLink(rel: string): HTMLLinkElement {
   let el = document.querySelector(`link[rel="${rel}"]`) as HTMLLinkElement | null;
@@ -49,14 +70,19 @@ export type PortalHeadInput =
 /** Apply title + favicon for the active admin portal. Zero-stale on Master↔Store switch. */
 export function applyPortalHead(input: PortalHeadInput): void {
   if (typeof document === 'undefined') return;
+  const isAr = resolveIsAr();
 
   if (input.portal === 'master') {
-    document.title = MASTER_TITLE;
+    document.title = isAr ? MASTER_TITLE_AR : MASTER_TITLE_EN;
     setFavicon(MASTER_FAVICON);
     return;
   }
 
   const name = (input.storeName || '').trim();
-  document.title = name ? `${name} | Store Admin` : 'Store Admin | Souq Platform';
+  if (name) {
+    document.title = isAr ? `${name} | لوحة تحكم المتجر` : `${name} | Store Admin`;
+  } else {
+    document.title = isAr ? STORE_TITLE_AR : STORE_TITLE_EN;
+  }
   setFavicon(input.faviconUrl?.trim() || MASTER_FAVICON);
 }

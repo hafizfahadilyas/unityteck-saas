@@ -2823,7 +2823,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const toggleStoreStatus = (storeId: string) => {
     const target = stores.find((s) => s.id === storeId);
     if (!target) return;
-    const nextStatus: Store['status'] = target.status === 'active' ? 'pending' : 'active';
+    const nextStatus: Store['status'] =
+      target.status === 'active' ? 'suspended' : 'active';
 
     setStores(prev => prev.map(s => {
       if (s.id === storeId) {

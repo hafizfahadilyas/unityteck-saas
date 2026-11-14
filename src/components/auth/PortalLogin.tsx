@@ -36,6 +36,7 @@ import {
   DEFAULT_LOGIN_SIDE_IMAGE,
   resolveLoginSideImageUrl,
 } from '../../themes/settings/storeIdentity';
+import { applyPortalHead } from '../../utils/portalHead';
 
 type PortalLoginProps = {
   portal: AuthPortal;
@@ -84,18 +85,25 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
   const isMaster = portal === 'master';
   const isAr = locale === 'ar';
 
-  // Login opens in Arabic (KSA default). PrefsSwitcher can still switch to English for this session.
+  // Master login defaults to Arabic (KSA). Store login keeps merchant prefs unless already AR.
+  // PrefsSwitcher can still switch EN for this session.
   useEffect(() => {
+    if (!isMaster) return;
     try {
-      const key = 'unityteck_login_ar_boot';
+      const key = 'unityteck_master_login_ar_boot';
       if (sessionStorage.getItem(key) === '1') return;
       sessionStorage.setItem(key, '1');
     } catch {
       /* sessionStorage may be blocked */
     }
     if (locale !== 'ar') setLocale('ar');
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per browser session on login
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per browser session on master login
+  }, [isMaster]);
+
+  // Login has no session yet — still set Souq Master / Store Admin title (never coffee SEO leak).
+  useEffect(() => {
+    applyPortalHead(isMaster ? { portal: 'master' } : { portal: 'store', storeName: null });
+  }, [isMaster, locale]);
 
   const storeParam = useMemo(() => resolveLoginStoreParam(storeHint), [storeHint]);
   const resolvedStoreId = useMemo(
@@ -631,7 +639,7 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
                       type="email"
                       value={identifier}
                       onChange={(e) => handleIdentifierChange(e.target.value)}
-                      placeholder="name@example.com"
+                      placeholder={isAr ? 'البريد@مثال.com' : 'name@example.com'}
                       required
                       autoComplete="email"
                       className="w-full ps-10 pe-3 py-3 text-sm rounded-2xl border outline-none focus:ring-2 focus:ring-emerald-500/40 font-medium"

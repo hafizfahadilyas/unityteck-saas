@@ -6,8 +6,8 @@ import { DonutChart } from '../common/DonutChart';
 import { CylinderBarChart } from '../common/CylinderBarChart';
 import { OverviewStatCard } from '../common/OverviewStatCard';
 import { MasterHealthAlertsHub } from './MasterHealthAlertsHub';
-import { MasterAdvanceFeaturesCard } from './MasterAdvanceFeaturesCard';
 import { AdminPageShell } from '../common/AdminPageHeader';
+import { MasterLuxePanel, MasterMetaLine } from './MasterUiKit';
 import {
   Crown,
   Calendar,
@@ -35,14 +35,20 @@ import {
   Palette,
   BookOpen,
   ShieldCheck,
+  Headphones,
+  CreditCard,
+  Zap,
 } from 'lucide-react';
 import {
   type DateRangeKey,
   filterOrdersByRange,
   revenueByDate,
   ordersCountByDate,
+  customersCountByDate,
+  ensureChartSeries,
   sparkFromSeries,
   rangeBounds,
+  parseOrderDate,
 } from '../../utils/liveSeries';
 import {
   getStoreDisplayName,
@@ -57,10 +63,13 @@ import {
   fetchAuditLogs,
   fetchMasterSubscriptions,
   fetchMasterSupportTickets,
+  fetchMasterPlatformOverview,
+  type MasterPlatformOverview,
 } from '../../api/tenantApi';
 
 interface MasterDashboardProps {
   onOpenCreateStore: () => void;
+  onNavigateTab?: (tab: string) => void;
 }
 
 const PAGE_SIZE = 5;
@@ -72,6 +81,28 @@ function seriesDelta(series: { value: number }[]): number | null {
   const last = series[series.length - 1].value;
   if (first <= 0) return last > 0 ? 100 : null;
   return Math.round(((last - first) / first) * 100);
+}
+
+function localizeAuditAction(action: string, isAr: boolean): string {
+  const raw = String(action || 'audit').trim();
+  const key = raw.toLowerCase().replace(/\s+/g, '.');
+  const map: Record<string, { en: string; ar: string }> = {
+    audit: { en: 'Platform audit', ar: 'تدقيق المنصة' },
+    'store.create': { en: 'Store created', ar: 'تم إنشاء متجر' },
+    'store.update': { en: 'Store updated', ar: 'تم تحديث المتجر' },
+    'store.suspend': { en: 'Store suspended', ar: 'تم إيقاف المتجر' },
+    'store.activate': { en: 'Store activated', ar: 'تم تفعيل المتجر' },
+    'order.create': { en: 'New order', ar: 'طلب جديد' },
+    'product.create': { en: 'Product created', ar: 'تم إنشاء منتج' },
+    'login.success': { en: 'Successful login', ar: 'تسجيل دخول ناجح' },
+    'login.failed': { en: 'Failed login attempt', ar: 'محاولة تسجيل دخول فاشلة' },
+  };
+  const hit = map[key] || map[raw.toLowerCase()];
+  if (hit) return isAr ? hit.ar : hit.en;
+  if (isAr && /^[\x00-\x7F]+$/.test(raw)) {
+    return 'حدث على المنصة';
+  }
+  return raw;
 }
 
 const MasterLiveClockBadge: React.FC<{ locale: string; isAr: boolean }> = React.memo(({ locale, isAr }) => {
@@ -130,10 +161,9 @@ const MasterLiveClockBadge: React.FC<{ locale: string; isAr: boolean }> = React.
 });
 MasterLiveClockBadge.displayName = 'MasterLiveClockBadge';
 
-export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onOpenCreateStore }) => {
+export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onOpenCreateStore, onNavigateTab }) => {
   const {
     stores,
-    platformMetrics,
     recentActivities,
     switchToStore,
     toggleMasterGrant,
@@ -150,6 +180,9 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
   const [dateRange, setDateRange] = useState<DateRangeKey>('month');
   const [showDateDropdown, setShowDateDropdown] = useState(false);
   const dateDropdownRef = useRef<HTMLDivElement>(null);
+  /** Platform-wide aggregates from MySQL (all stores · one request). */
+  const [platformOverview, setPlatformOverview] = useState<MasterPlatformOverview | null>(null);
+  const [platformOverviewSource, setPlatformOverviewSource] = useState<string | null>(null);
 
   useEffect(() => {
     if (!showDateDropdown) return;
@@ -385,7 +418,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
             const at = String(row.created_at || '');
             return {
               id: String(row.id || `aud-${idx}`),
-              title: action,
+              title: localizeAuditAction(action, isAr),
               subtitle: entity || String(row.store_id || 'platform'),
               timeAgo: at ? formatRelativeTime(at, locale) : (isAr ? 'حديثاً' : 'Recent'),
               icon: ShieldCheck,
@@ -406,22 +439,115 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
       cancelled = true;
     };
   }, [stores.length, locale, isAr]);
-  // Seeded stores.visitors_count is NOT truth — store dashboards use storefront_analytics_events only
-  const totalVisitorsCount = useMemo(
-    () => Math.max(0, Number(platformMetrics.totalVisitors) || 0),
-    [platformMetrics.totalVisitors],
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetchMasterPlatformOverview(dateRange);
+        if (cancelled) return;
+        if (res?.data?.totals) {
+          setPlatformOverview(res.data);
+          setPlatformOverviewSource(res.meta?.source || 'mysql_aggregate');
+        } else {
+          setPlatformOverview(null);
+          setPlatformOverviewSource(null);
+        }
+      } catch {
+        if (!cancelled) {
+          setPlatformOverview(null);
+          setPlatformOverviewSource(null);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [dateRange, cacheEpoch, stores.length]);
+
+  const storeAggregateProducts = useMemo(
+    () => stores.reduce((sum, s) => sum + (Number(s.productsCount) || 0), 0),
+    [stores],
   );
-  const totalCustomersCount = useMemo(
-    () => flatCustomers.length || platformMetrics.totalCustomers || 0,
-    [flatCustomers.length, platformMetrics.totalCustomers],
+  const storeAggregateOrders = useMemo(
+    () => stores.reduce((sum, s) => sum + (Number(s.ordersCount) || 0), 0),
+    [stores],
+  );
+  const storeAggregateRevenue = useMemo(
+    () => stores.reduce((sum, s) => sum + (Number(s.revenue) || 0), 0),
+    [stores],
   );
 
-  const revenueGrowthData = useMemo(() => revenueByDate(rangedOrders, 7), [rangedOrders]);
-  const ordersGrowthData = useMemo(() => ordersCountByDate(rangedOrders, 7), [rangedOrders]);
-  const salesPerformanceData = useMemo(() => revenueByDate(rangedOrders, 7), [rangedOrders]);
+  const dbTotals = platformOverview?.totals;
+  const productCountLive = dbTotals?.products ?? (flatProducts.length || storeAggregateProducts);
+  const customerCountLive = dbTotals?.customers ?? flatCustomers.length;
+  const ordersCountLive =
+    dbTotals?.orders ??
+    (dateRange === 'all' ? flatOrders.length || storeAggregateOrders : rangedOrders.length);
+  const pendingOrdersLive = dbTotals?.pending_orders ?? pendingOrdersCount;
+  const activeCouponsLive = dbTotals?.active_coupons ?? activeCouponsCount;
+  const revenueLive =
+    dbTotals?.revenue ??
+    (dateRange === 'all' ? totalRevenue || storeAggregateRevenue : rangedRevenue);
+  const salesLive = dbTotals?.sales ?? rangedSales;
+  const totalVisitorsCount = useMemo(
+    () => Math.max(0, Number(dbTotals?.visitors) || 0),
+    [dbTotals?.visitors],
+  );
+  const totalCustomersCount = useMemo(() => Math.max(0, customerCountLive), [customerCountLive]);
+
+  const rangedCustomers = useMemo(() => {
+    if (dateRange === 'all') return flatCustomers;
+    const bounds = rangeBounds(dateRange);
+    if (!bounds) return flatCustomers;
+    return flatCustomers.filter((c) => {
+      const d =
+        parseOrderDate(c.registeredDate) ||
+        parseOrderDate((c as { createdAt?: string }).createdAt) ||
+        parseOrderDate((c as { created_at?: string }).created_at);
+      if (!d) return true;
+      return d >= bounds.start && d <= bounds.end;
+    });
+  }, [flatCustomers, dateRange]);
+
+  const revenueGrowthData = useMemo(() => {
+    const fromDb = platformOverview?.series?.revenue;
+    if (fromDb && fromDb.length > 0) return fromDb;
+    return revenueByDate(rangedOrders, 7);
+  }, [platformOverview?.series?.revenue, rangedOrders]);
+  const ordersGrowthData = useMemo(() => {
+    const fromDb = platformOverview?.series?.orders;
+    if (fromDb && fromDb.length > 0) return fromDb;
+    return ordersCountByDate(rangedOrders, 7);
+  }, [platformOverview?.series?.orders, rangedOrders]);
+  const customerGrowthData = useMemo(() => {
+    const fromDb = platformOverview?.series?.customers;
+    if (fromDb && fromDb.length > 0) return fromDb;
+    return customersCountByDate(rangedCustomers, 7);
+  }, [platformOverview?.series?.customers, rangedCustomers]);
+  const visitorGrowthData = useMemo(() => {
+    const days = platformOverview?.visits_by_weekday;
+    if (days && days.length > 0) {
+      return days.map((d) => ({
+        label: isAr ? String(d.dayAr || d.dayEn) : String(d.dayEn || d.dayAr),
+        value: Math.max(0, Number(d.percentage) || 0),
+      }));
+    }
+    return [];
+  }, [platformOverview?.visits_by_weekday, isAr]);
+  const salesPerformanceData = useMemo(() => {
+    const fromDb = platformOverview?.series?.revenue;
+    if (fromDb && fromDb.length > 0) return fromDb;
+    return revenueByDate(rangedOrders, 7);
+  }, [platformOverview?.series?.revenue, rangedOrders]);
 
   const revenueDelta = seriesDelta(revenueGrowthData);
   const ordersDelta = seriesDelta(ordersGrowthData);
+  const customerDelta = seriesDelta(customerGrowthData);
+  const visitorDelta =
+    platformOverview?.visits_growth !== undefined && platformOverview?.visits_growth !== null
+      ? platformOverview.visits_growth
+      : seriesDelta(visitorGrowthData);
   const salesDelta = seriesDelta(salesPerformanceData);
 
   const salesPeak = useMemo(() => {
@@ -450,27 +576,37 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
       }));
   }, [flatProducts, locale, isAr]);
 
-  // Store performance 3D cylinder bars from live stores revenue
+  // Store performance cylinders — revenue from live orders (store.revenue can lag / stay 0)
   const cylinderStoreItems = useMemo(() => {
     if (!stores.length) return [];
-    const totalRev = stores.reduce((sum, s) => sum + (s.revenue || 0), 0);
     const colors = ['#004d5a', '#00838f', '#00acc1', '#64748b'];
+    const revByStore = new Map<string, number>();
+    for (const o of rangedOrders.length ? rangedOrders : flatOrders) {
+      const sid = String(o.storeId || (o as { store_id?: string }).store_id || '').trim();
+      if (!sid) continue;
+      revByStore.set(sid, (revByStore.get(sid) || 0) + (Number(o.total) || 0));
+    }
+    const withRev = stores.map((s) => {
+      const fromOrders = revByStore.get(String(s.id)) || 0;
+      const fromStore = Number(s.revenue) || 0;
+      return { store: s, revenue: fromOrders > 0 ? fromOrders : fromStore };
+    });
+    const totalRev = withRev.reduce((sum, row) => sum + row.revenue, 0);
     if (totalRev === 0) {
-      // Equal fake bars hide zero revenue — show 0% until real sales exist
-      return stores.slice(0, 4).map((s, idx) => ({
-        label: getStoreDisplayName(s, locale),
+      return withRev.slice(0, 4).map((row, idx) => ({
+        label: getStoreDisplayName(row.store, locale),
         percentage: 0,
         color: colors[idx % colors.length],
       }));
     }
-    const sorted = [...stores].sort((a, b) => (b.revenue || 0) - (a.revenue || 0));
+    const sorted = [...withRev].sort((a, b) => b.revenue - a.revenue);
     const top3 = sorted.slice(0, 3);
     const rest = sorted.slice(3);
-    const restRevenue = rest.reduce((sum, s) => sum + (s.revenue || 0), 0);
+    const restRevenue = rest.reduce((sum, row) => sum + row.revenue, 0);
 
-    const items = top3.map((s, idx) => ({
-      label: getStoreDisplayName(s, locale),
-      percentage: Math.round(((s.revenue || 0) / totalRev) * 100),
+    const items = top3.map((row, idx) => ({
+      label: getStoreDisplayName(row.store, locale),
+      percentage: Math.round((row.revenue / totalRev) * 100),
       color: colors[idx % colors.length],
     }));
     if (rest.length > 0) {
@@ -481,7 +617,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
       });
     }
     return items;
-  }, [stores, t, locale, isAr]);
+  }, [stores, rangedOrders, flatOrders, locale, isAr]);
 
   const dateLabel = useMemo(() => {
     const bounds = rangeBounds(dateRange);
@@ -512,9 +648,24 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
   const ordersSpark = useMemo(() => sparkFromSeries(ordersGrowthData), [ordersGrowthData]);
   const storesSpark = useMemo(() => (stores.length ? [stores.length] : [0]), [stores.length]);
   const activeStoresSpark = useMemo(() => (activeStoresCount ? [activeStoresCount] : [0]), [activeStoresCount]);
-  const productsSpark = useMemo(() => (flatProducts.length ? [flatProducts.length] : [0]), [flatProducts.length]);
-  const customersSpark = useMemo(() => (totalCustomersCount ? [totalCustomersCount] : [0]), [totalCustomersCount]);
-  const visitorsSpark = useMemo(() => (totalVisitorsCount ? [totalVisitorsCount] : [0]), [totalVisitorsCount]);
+  const productGrowthData = useMemo(() => {
+    const fromDb = platformOverview?.series?.products;
+    if (fromDb && fromDb.length > 0) return fromDb;
+    return [];
+  }, [platformOverview?.series?.products]);
+  const productsDelta = seriesDelta(productGrowthData);
+  const productsSpark = useMemo(
+    () => sparkFromSeries(ensureChartSeries(productGrowthData)),
+    [productGrowthData],
+  );
+  const customersSpark = useMemo(
+    () => sparkFromSeries(ensureChartSeries(customerGrowthData)),
+    [customerGrowthData],
+  );
+  const visitorsSpark = useMemo(
+    () => sparkFromSeries(ensureChartSeries(visitorGrowthData)),
+    [visitorGrowthData],
+  );
 
   const cycleSort = () => {
     setSortField((prev) =>
@@ -571,7 +722,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
   }, [auditActivities, recentActivities, stores, flatOrders, flatCustomers, money, locale, isAr]);
 
   return (
-    <AdminPageShell className="pb-12">
+    <AdminPageShell fullWidth className="pb-12">
       {/* ─── Top Title & Responsive Date/Time Header ─── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 pb-1">
         {/* Left: Brand Crown Icon + Title & Subtitle */}
@@ -593,7 +744,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
               {t('masterDashTitle') || 'Souq Platform Dashboard'}
             </h1>
             <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--muted)' }}>
-              {t('masterDashManage') || 'Manage your Souq Platform multi-store e-commerce'}
+              {t('masterDashManage')}
             </p>
           </div>
         </div>
@@ -743,25 +894,71 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
       </div>
 
       {/* ── Central Platform Health, Diagnostics & Multi-Store Alerts ── */}
-      <MasterHealthAlertsHub />
+      <MasterHealthAlertsHub onNavigateTab={onNavigateTab} />
 
-      {/* Advance Functions & Coming Soon Governance */}
-      <MasterAdvanceFeaturesCard />
+      {/* Phase 1 quick actions — soft SPA nav only */}
+      {onNavigateTab ? (
+        <MasterLuxePanel className="space-y-3" padding="lg">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-extrabold" style={{ color: 'var(--text)' }}>
+              {isAr ? 'إجراءات سريعة' : 'Quick actions'}
+            </h2>
+            <MasterMetaLine className="mt-0">
+              {isAr ? 'تنقل داخل لوحة التحكم المركزية' : 'Navigate within Central Admin'}
+            </MasterMetaLine>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            {(
+              [
+                { id: 'accounts', en: 'Accounts', ar: 'الحسابات', icon: Users },
+                { id: 'stores', en: 'Stores', ar: 'المتاجر', icon: StoreIcon },
+                { id: 'support', en: 'Support', ar: 'الدعم', icon: Headphones },
+                { id: 'security', en: 'Security', ar: 'الأمان', icon: ShieldCheck },
+                { id: 'plans', en: 'Plans', ar: 'الباقات', icon: Tag },
+                { id: 'notifications', en: 'Alerts', ar: 'التنبيهات', icon: Zap },
+              ] as const
+            ).map((a) => {
+              const Icon = a.icon;
+              return (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => onNavigateTab(a.id)}
+                  className="u-luxe-panel u-luxe-panel--interactive flex flex-col items-center gap-1.5 p-3 text-center"
+                >
+                  <Icon className="w-4 h-4" style={{ color: 'var(--accent)' }} aria-hidden />
+                  <span className="text-[11px] font-bold" style={{ color: 'var(--text)' }}>
+                    {isAr ? a.ar : a.en}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            className="text-xs font-bold inline-flex items-center gap-1"
+            style={{ color: 'var(--muted)' }}
+            onClick={() => onNavigateTab('payments')}
+          >
+            <CreditCard className="w-3.5 h-3.5" aria-hidden />
+            {isAr ? 'المطابقة المالية (مؤجلة)' : 'Payment reconciliation (deferred)'}
+          </button>
+        </MasterLuxePanel>
+      ) : null}
 
-      {/* ─── 2-Column Main Layout: Main Area (9 cols) + Right Rail (3 cols) ─── */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start min-w-0">
-        {/* ════ LEFT / MAIN COLUMN (9 cols) ════ */}
-        <div className="xl:col-span-9 space-y-5 min-w-0">
+      {/* ─── Full-width stack (no 9/3 split — growth + charts + table use full main area) ─── */}
+      <div className="space-y-5 min-w-0 w-full">
           {/* SOUQ PLUS Phase 1 platform KPIs — real stores/subscriptions only */}
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-sm font-extrabold" style={{ color: 'var(--text)' }}>
                 {isAr ? 'مؤشرات المنصة' : 'Platform overview'}
               </h2>
-              <span className="text-[10px]" style={{ color: 'var(--muted)' }}>
-                {isAr ? 'المصدر' : 'Source'}: stores + subscriptions
+              <MasterMetaLine className="mt-0 text-[10px]">
+                {isAr ? 'المصدر' : 'Source'}:{' '}
+                {platformOverviewSource || (isAr ? 'قاعدة البيانات المباشرة' : 'Live MySQL')}
                 {kpiRefreshAt ? ` · ${kpiRefreshAt.slice(0, 19)}` : ''}
-              </span>
+              </MasterMetaLine>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <OverviewStatCard
@@ -846,17 +1043,17 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
                 deltaLabel={locale === 'ar' ? 'من إجمالي المتاجر' : 'active rate'}
               />
               <OverviewStatCard
-                label={t('totalProducts') || 'Total Products'}
-                value={amount(flatProducts.length)}
+                label={t('totalProducts')}
+                value={amount(productCountLive)}
                 icon={Package}
                 tone="info"
                 sparkline={productsSpark}
-                delta={flatProducts.length > 0 ? 100 : null}
+                delta={productsDelta}
                 deltaLabel={vsLastMonth}
               />
               <OverviewStatCard
-                label={t('totalOrders') || 'Total Orders'}
-                value={amount(dateRange === 'all' ? flatOrders.length : rangedOrders.length)}
+                label={t('totalOrders')}
+                value={amount(ordersCountLive)}
                 icon={ShoppingCart}
                 tone="accent"
                 sparkline={ordersSpark}
@@ -869,7 +1066,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
                 icon={Users}
                 tone="info"
                 sparkline={customersSpark}
-                delta={totalCustomersCount > 0 ? 100 : null}
+                delta={customerDelta}
                 deltaLabel={vsLastMonth}
               />
             </div>
@@ -877,8 +1074,8 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
             {/* Row 2: 4 Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <OverviewStatCard
-                label={t('totalRevenue') || 'Total Revenue'}
-                value={money(dateRange === 'all' ? totalRevenue : rangedRevenue)}
+                label={t('totalRevenue')}
+                value={money(revenueLive)}
                 icon={Coins}
                 tone="accent"
                 sparkline={revenueSpark}
@@ -891,12 +1088,12 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
                 icon={Eye}
                 tone="info"
                 sparkline={visitorsSpark}
-                delta={totalVisitorsCount > 0 ? 100 : null}
+                delta={visitorDelta}
                 deltaLabel={vsLastMonth}
               />
               <OverviewStatCard
-                label={t('totalSales') || 'Total Sales'}
-                value={money(rangedSales)}
+                label={t('totalSales')}
+                value={money(salesLive)}
                 icon={TrendingUp}
                 tone="accent"
                 sparkline={revenueSpark}
@@ -904,41 +1101,200 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
                 deltaLabel={vsLastMonth}
               />
               <OverviewStatCard
-                label={t('totalStores') || 'Total Stores'}
-                value={amount(stores.length)}
+                label={t('masterStoresPending')}
+                value={amount(stores.filter((s) => s.status === 'pending').length)}
                 icon={StoreIcon}
-                tone="accent"
-                sparkline={storesSpark}
-                delta={stores.length > 0 ? 100 : null}
-                deltaLabel={vsLastMonth}
+                tone="warn"
+                sparkline={[stores.filter((s) => s.status === 'pending').length]}
+                delta={null}
               />
             </div>
 
             {/* Row 3: 2 Cards (taking first 2 columns) */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <OverviewStatCard
-                label={t('pendingOrders') || 'Pending Orders'}
-                value={amount(pendingOrdersCount)}
+                label={t('pendingOrders')}
+                value={amount(pendingOrdersLive)}
                 icon={Clock}
                 tone="danger"
-                sparkline={[Math.max(0, pendingOrdersCount - 1), pendingOrdersCount]}
-                delta={pendingOrdersCount > 0 ? pendingOrdersCount : null}
+                sparkline={ordersSpark}
+                delta={null}
                 deltaLabel={vsLastWeek}
               />
               <OverviewStatCard
-                label={t('activeCoupons') || (isAr ? 'الكوبونات النشطة' : 'Active Coupons')}
-                value={amount(activeCouponsCount)}
+                label={t('activeCoupons')}
+                value={amount(activeCouponsLive)}
                 icon={Tag}
                 tone="accent"
-                sparkline={[Math.max(0, activeCouponsCount - 1), activeCouponsCount]}
-                delta={activeCouponsCount > 0 ? 100 : null}
+                sparkline={undefined}
+                delta={null}
                 deltaLabel={vsLastMonth}
               />
             </div>
           </div>
 
-          {/* ── Platform Analytics ── */}
-          <div className="u-chart-panel p-4 sm:p-5 rounded-2xl">
+          {/* Create Store + Recent Activity — full-width row (was narrow right rail) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 min-w-0">
+          {/* ── 1. Create New Store Card with Storefront 3D Art ── */}
+          <div
+            className="rounded-2xl p-5 text-white relative overflow-hidden shadow-md"
+            style={{
+              background: 'linear-gradient(145deg, #02383e 0%, #065b63 50%, #0a7c85 100%)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+            }}
+          >
+            <div className="relative z-10">
+              <h3 className="text-base font-extrabold text-white">
+                {isAr ? 'إنشاء متجر جديد' : 'Create New Store'}
+              </h3>
+              <p className="text-xs mt-1" style={{ color: '#b8e4dc' }}>
+                {isAr ? 'ابدأ إطلاق متجر سحابي جديد على المنصة' : 'Start a new store on the platform'}
+              </p>
+              <button
+                type="button"
+                onClick={onOpenCreateStore}
+                className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold shadow-md cursor-pointer transition-all hover:bg-emerald-50"
+                style={{ background: '#ffffff', color: '#04222b' }}
+              >
+                <Plus className="w-3.5 h-3.5" style={{ color: '#0d9488' }} />
+                <span>{isAr ? 'إنشاء متجر' : 'Create Store'}</span>
+              </button>
+            </div>
+
+            {/* Storefront isometric illustration */}
+            <div className="mt-4 flex justify-end">
+              <svg
+                width="140"
+                height="100"
+                viewBox="0 0 140 100"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="opacity-95"
+              >
+                {/* Palms background */}
+                <path
+                  d="M125 45 C120 30 110 32 105 38 C115 35 120 40 125 45 Z"
+                  fill="#022e33"
+                  opacity="0.6"
+                />
+                <path
+                  d="M132 50 C125 35 135 28 138 32 C135 40 133 45 132 50 Z"
+                  fill="#022e33"
+                  opacity="0.6"
+                />
+                <path d="M128 45 L126 70" stroke="#022e33" strokeWidth="2" opacity="0.6" />
+
+                {/* Building Base */}
+                <rect x="25" y="38" width="85" height="48" rx="6" fill="#004d5a" />
+                <rect x="28" y="41" width="79" height="42" rx="4" fill="#065b63" />
+
+                {/* Signboard */}
+                <rect x="35" y="32" width="65" height="12" rx="3" fill="#00353d" />
+                <rect x="42" y="36" width="30" height="4" rx="2" fill="#5eead4" />
+
+                {/* Striped Awning */}
+                <path d="M22 44 L113 44 L107 54 L18 54 Z" fill="#ffffff" />
+                <path d="M22 44 L37 44 L33 54 L18 54 Z" fill="#0d9488" />
+                <path d="M52 44 L67 44 L63 54 L48 54 Z" fill="#0d9488" />
+                <path d="M82 44 L97 44 L93 54 L78 54 Z" fill="#0d9488" />
+                <path d="M105 44 L113 44 L107 54 L101 54 Z" fill="#0d9488" />
+
+                {/* Store Display Window */}
+                <rect x="34" y="58" width="34" height="24" rx="3" fill="#022e33" stroke="#5eead4" strokeWidth="1" />
+                <line x1="34" y1="70" x2="68" y2="70" stroke="#5eead4" strokeWidth="0.8" opacity="0.6" />
+                <line x1="51" y1="58" x2="51" y2="82" stroke="#5eead4" strokeWidth="0.8" opacity="0.6" />
+
+                {/* Store Door */}
+                <rect x="74" y="58" width="26" height="28" rx="3" fill="#002b33" stroke="#2dd4bf" strokeWidth="1" />
+                <circle cx="94" cy="72" r="1.5" fill="#5eead4" />
+                <rect x="78" y="62" width="18" height="10" rx="1.5" fill="#0d9488" opacity="0.5" />
+
+                {/* Planters */}
+                <rect x="23" y="76" width="8" height="10" rx="2" fill="#0f766e" />
+                <circle cx="27" cy="74" r="5" fill="#34d399" />
+                <rect x="104" y="76" width="8" height="10" rx="2" fill="#0f766e" />
+                <circle cx="108" cy="74" r="5" fill="#34d399" />
+              </svg>
+            </div>
+          </div>
+
+          {/* ── 2. Recent Activity Timeline Card ── */}
+          <div className="u-panel p-5 rounded-2xl shadow-sm">
+            <div className="flex items-center justify-between pb-3 mb-4 border-b" style={{ borderColor: 'var(--border)' }}>
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+                <h3 className="font-bold text-sm" style={{ color: 'var(--text)' }}>
+                  {isAr ? 'النشاط الأخير' : 'Recent Activity'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="text-xs font-semibold hover:underline cursor-pointer"
+                style={{ color: 'var(--accent)' }}
+                onClick={() => {
+                  if (onNavigateTab) {
+                    onNavigateTab('notifications');
+                    return;
+                  }
+                  document
+                    .querySelector('[data-panel="store-performance"]')
+                    ?.scrollIntoView({ behavior: 'smooth' });
+                }}
+              >
+                {isAr ? 'عرض الكل' : 'View All'}
+              </button>
+            </div>
+
+            {/* Vertical timeline or clean empty state */}
+            {timelineActivities.length === 0 ? (
+              <div className="py-8 text-center text-xs" style={{ color: 'var(--muted)' }}>
+                {isAr ? 'لا يوجد نشاط حديث للمنصة' : 'No recent platform activity'}
+              </div>
+            ) : (
+              <div className="relative">
+                {/* Vertical line connecting the timeline dots */}
+                <div
+                  className="absolute start-4 top-3 bottom-5 w-px"
+                  style={{ background: 'var(--border)' }}
+                />
+
+                <div className="space-y-4 relative">
+                  {timelineActivities.map((act) => {
+                    const ItemIcon = (act as any).icon || Clock;
+                    return (
+                      <div key={act.id} className="flex items-start gap-3 relative">
+                        <span
+                          className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 z-10 shadow-xs"
+                          style={{
+                            background: 'color-mix(in srgb, var(--accent) 14%, var(--surface))',
+                            color: 'var(--accent)',
+                            border: '2px solid var(--surface)',
+                          }}
+                        >
+                          <ItemIcon className="w-3.5 h-3.5" strokeWidth={2.2} />
+                        </span>
+                        <div className="min-w-0 flex-1 pt-0.5">
+                          <div className="text-xs font-bold truncate leading-tight" style={{ color: 'var(--text)' }}>
+                            {act.title}
+                          </div>
+                          <div className="text-[11px] font-medium truncate mt-0.5" style={{ color: 'var(--muted)' }}>
+                            {act.subtitle}
+                          </div>
+                          <div className="text-[10px] mt-0.5" style={{ color: 'var(--muted)' }}>
+                            {act.timeAgo}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+          </div>
+
+          {/* ── Platform Analytics (full width) ── */}
+          <div className="u-chart-panel p-4 sm:p-5 rounded-2xl w-full min-w-0">
             <div
               className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b"
               style={{ borderColor: 'var(--border)' }}
@@ -1042,7 +1398,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
                 />
               </div>
 
-              {/* 3. Customer Growth */}
+              {/* 3. Customer Growth — live registeredDate series */}
               <div
                 className="p-3.5 rounded-xl border min-w-0"
                 style={{ background: 'var(--hover-bg)', borderColor: 'var(--border)' }}
@@ -1058,14 +1414,20 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
                       color: 'var(--tone-violet)',
                     }}
                   >
-                    {isAr ? 'بانتظار البيانات' : 'Waiting for Data'}
+                    {customerDelta !== null
+                      ? `${customerDelta >= 0 ? '+' : ''}${customerDelta}%`
+                      : totalCustomersCount > 0
+                        ? '+0%'
+                        : isAr
+                          ? 'بانتظار البيانات'
+                          : 'Waiting for Data'}
                   </span>
                 </div>
                 <div className="text-base font-black mb-2 tabular-nums" style={{ color: 'var(--text)' }}>
-                  {amount(totalCustomersCount)}
+                  {amount(dateRange === 'all' ? totalCustomersCount : rangedCustomers.length)}
                 </div>
                 <AreaChart
-                  data={[{ label: '1', value: totalCustomersCount }]}
+                  data={ensureChartSeries(customerGrowthData)}
                   color="var(--portal-400)"
                   fillGradient={['var(--portal-400)', 'var(--portal-600)']}
                   height={60}
@@ -1073,7 +1435,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
                 />
               </div>
 
-              {/* 4. Visitor Growth — seed/counter only until event API wired on Master */}
+              {/* 4. Visitor Growth — storefront_analytics_events per store */}
               <div
                 className="p-3.5 rounded-xl border min-w-0"
                 style={{ background: 'var(--hover-bg)', borderColor: 'var(--border)' }}
@@ -1089,14 +1451,20 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
                       color: 'var(--tone-warn)',
                     }}
                   >
-                    {isAr ? 'بانتظار البيانات' : 'Waiting for Data'}
+                    {visitorDelta !== null
+                      ? `${visitorDelta >= 0 ? '+' : ''}${visitorDelta}%`
+                      : totalVisitorsCount > 0
+                        ? '+0%'
+                        : isAr
+                          ? 'بانتظار البيانات'
+                          : 'Waiting for Data'}
                   </span>
                 </div>
                 <div className="text-base font-black mb-2 tabular-nums" style={{ color: 'var(--text)' }}>
                   {amount(totalVisitorsCount)}
                 </div>
                 <AreaChart
-                  data={[{ label: '1', value: totalVisitorsCount }]}
+                  data={ensureChartSeries(visitorGrowthData)}
                   color="#f97316"
                   fillGradient={['#f97316', '#ea580c']}
                   height={60}
@@ -1106,10 +1474,10 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
             </div>
           </div>
 
-          {/* ── Three Performance Cards Row ── */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {/* ── Three Performance Cards Row (full width) ── */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full min-w-0">
             {/* 1. Product Performance */}
-            <div className="u-chart-panel p-4 sm:p-5 flex flex-col justify-between rounded-2xl">
+            <div className="u-chart-panel p-4 sm:p-5 flex flex-col justify-between rounded-2xl min-w-0">
               <div>
                 <h3 className="font-bold text-sm mb-3" style={{ color: 'var(--text)' }}>
                   {isAr ? 'أداء المنتجات' : 'Product Performance'}
@@ -1173,8 +1541,8 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
             </div>
           </div>
 
-          {/* ── Store Performance Table ── */}
-          <div className="u-panel p-4 sm:p-5 overflow-hidden rounded-2xl" data-panel="store-performance">
+          {/* ── Store Performance Table (full width) ── */}
+          <div className="u-panel p-4 sm:p-5 overflow-hidden rounded-2xl w-full min-w-0" data-panel="store-performance">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-2">
                 <StoreIcon className="w-4 h-4" style={{ color: 'var(--accent)' }} />
@@ -1469,163 +1837,6 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
               </div>
             </div>
           </div>
-        </div>
-
-        {/* ════ RIGHT COLUMN (3 cols) ════ */}
-        <div className="xl:col-span-3 space-y-5 min-w-0">
-          {/* ── 1. Create New Store Card with Storefront 3D Art ── */}
-          <div
-            className="rounded-2xl p-5 text-white relative overflow-hidden shadow-md"
-            style={{
-              background: 'linear-gradient(145deg, #02383e 0%, #065b63 50%, #0a7c85 100%)',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-            }}
-          >
-            <div className="relative z-10">
-              <h3 className="text-base font-extrabold text-white">
-                {isAr ? 'إنشاء متجر جديد' : 'Create New Store'}
-              </h3>
-              <p className="text-xs mt-1" style={{ color: '#b8e4dc' }}>
-                {isAr ? 'ابدأ إطلاق متجر سحابي جديد على المنصة' : 'Start a new store on the platform'}
-              </p>
-              <button
-                type="button"
-                onClick={onOpenCreateStore}
-                className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold shadow-md cursor-pointer transition-all hover:bg-emerald-50"
-                style={{ background: '#ffffff', color: '#04222b' }}
-              >
-                <Plus className="w-3.5 h-3.5" style={{ color: '#0d9488' }} />
-                <span>{isAr ? 'إنشاء متجر' : 'Create Store'}</span>
-              </button>
-            </div>
-
-            {/* Storefront isometric illustration */}
-            <div className="mt-4 flex justify-end">
-              <svg
-                width="140"
-                height="100"
-                viewBox="0 0 140 100"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="opacity-95"
-              >
-                {/* Palms background */}
-                <path
-                  d="M125 45 C120 30 110 32 105 38 C115 35 120 40 125 45 Z"
-                  fill="#022e33"
-                  opacity="0.6"
-                />
-                <path
-                  d="M132 50 C125 35 135 28 138 32 C135 40 133 45 132 50 Z"
-                  fill="#022e33"
-                  opacity="0.6"
-                />
-                <path d="M128 45 L126 70" stroke="#022e33" strokeWidth="2" opacity="0.6" />
-
-                {/* Building Base */}
-                <rect x="25" y="38" width="85" height="48" rx="6" fill="#004d5a" />
-                <rect x="28" y="41" width="79" height="42" rx="4" fill="#065b63" />
-
-                {/* Signboard */}
-                <rect x="35" y="32" width="65" height="12" rx="3" fill="#00353d" />
-                <rect x="42" y="36" width="30" height="4" rx="2" fill="#5eead4" />
-
-                {/* Striped Awning */}
-                <path d="M22 44 L113 44 L107 54 L18 54 Z" fill="#ffffff" />
-                <path d="M22 44 L37 44 L33 54 L18 54 Z" fill="#0d9488" />
-                <path d="M52 44 L67 44 L63 54 L48 54 Z" fill="#0d9488" />
-                <path d="M82 44 L97 44 L93 54 L78 54 Z" fill="#0d9488" />
-                <path d="M105 44 L113 44 L107 54 L101 54 Z" fill="#0d9488" />
-
-                {/* Store Display Window */}
-                <rect x="34" y="58" width="34" height="24" rx="3" fill="#022e33" stroke="#5eead4" strokeWidth="1" />
-                <line x1="34" y1="70" x2="68" y2="70" stroke="#5eead4" strokeWidth="0.8" opacity="0.6" />
-                <line x1="51" y1="58" x2="51" y2="82" stroke="#5eead4" strokeWidth="0.8" opacity="0.6" />
-
-                {/* Store Door */}
-                <rect x="74" y="58" width="26" height="28" rx="3" fill="#002b33" stroke="#2dd4bf" strokeWidth="1" />
-                <circle cx="94" cy="72" r="1.5" fill="#5eead4" />
-                <rect x="78" y="62" width="18" height="10" rx="1.5" fill="#0d9488" opacity="0.5" />
-
-                {/* Planters */}
-                <rect x="23" y="76" width="8" height="10" rx="2" fill="#0f766e" />
-                <circle cx="27" cy="74" r="5" fill="#34d399" />
-                <rect x="104" y="76" width="8" height="10" rx="2" fill="#0f766e" />
-                <circle cx="108" cy="74" r="5" fill="#34d399" />
-              </svg>
-            </div>
-          </div>
-
-          {/* ── 2. Recent Activity Timeline Card ── */}
-          <div className="u-panel p-5 rounded-2xl shadow-sm">
-            <div className="flex items-center justify-between pb-3 mb-4 border-b" style={{ borderColor: 'var(--border)' }}>
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-                <h3 className="font-bold text-sm" style={{ color: 'var(--text)' }}>
-                  {isAr ? 'النشاط الأخير' : 'Recent Activity'}
-                </h3>
-              </div>
-              <button
-                type="button"
-                className="text-xs font-semibold hover:underline cursor-pointer"
-                style={{ color: 'var(--accent)' }}
-                onClick={() => {
-                  document
-                    .querySelector('[data-panel="store-performance"]')
-                    ?.scrollIntoView({ behavior: 'smooth' });
-                }}
-              >
-                {isAr ? 'عرض الكل' : 'View All'}
-              </button>
-            </div>
-
-            {/* Vertical timeline or clean empty state */}
-            {timelineActivities.length === 0 ? (
-              <div className="py-8 text-center text-xs" style={{ color: 'var(--muted)' }}>
-                {isAr ? 'لا يوجد نشاط حديث للمنصة' : 'No recent platform activity'}
-              </div>
-            ) : (
-              <div className="relative">
-                {/* Vertical line connecting the timeline dots */}
-                <div
-                  className="absolute start-4 top-3 bottom-5 w-px"
-                  style={{ background: 'var(--border)' }}
-                />
-
-                <div className="space-y-4 relative">
-                  {timelineActivities.map((act) => {
-                    const ItemIcon = (act as any).icon || Clock;
-                    return (
-                      <div key={act.id} className="flex items-start gap-3 relative">
-                        <span
-                          className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 z-10 shadow-xs"
-                          style={{
-                            background: 'color-mix(in srgb, var(--accent) 14%, var(--surface))',
-                            color: 'var(--accent)',
-                            border: '2px solid var(--surface)',
-                          }}
-                        >
-                          <ItemIcon className="w-3.5 h-3.5" strokeWidth={2.2} />
-                        </span>
-                        <div className="min-w-0 flex-1 pt-0.5">
-                          <div className="text-xs font-bold truncate leading-tight" style={{ color: 'var(--text)' }}>
-                            {act.title}
-                          </div>
-                          <div className="text-[11px] font-medium truncate mt-0.5" style={{ color: 'var(--muted)' }}>
-                            {act.subtitle}
-                          </div>
-                          <div className="text-[10px] mt-0.5" style={{ color: 'var(--muted)' }}>
-                            {act.timeAgo}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
       </div>
     </AdminPageShell>
   );

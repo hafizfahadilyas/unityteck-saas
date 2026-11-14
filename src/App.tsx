@@ -114,6 +114,36 @@ const MasterServicesPoints = lazyWithRetry(() =>
     default: m.MasterServicesPoints,
   })),
 );
+const MasterIntegrationsHub = lazyWithRetry(() =>
+  import('./components/master/MasterIntegrationsHub').then((m) => ({
+    default: m.MasterIntegrationsHub,
+  })),
+);
+const MasterReportsOps = lazyWithRetry(() =>
+  import('./components/master/MasterReportsOps').then((m) => ({
+    default: m.MasterReportsOps,
+  })),
+);
+const MasterCapabilityDeferred = lazyWithRetry(() =>
+  import('./components/master/MasterCapabilityDeferred').then((m) => ({
+    default: m.MasterCapabilityDeferred,
+  })),
+);
+const MasterOpsMonitor = lazyWithRetry(() =>
+  import('./components/master/MasterOpsMonitor').then((m) => ({
+    default: m.MasterOpsMonitor,
+  })),
+);
+const MasterMessagingHub = lazyWithRetry(() =>
+  import('./components/master/MasterMessagingHub').then((m) => ({
+    default: m.MasterMessagingHub,
+  })),
+);
+const MasterGovernanceHub = lazyWithRetry(() =>
+  import('./components/master/MasterGovernanceHub').then((m) => ({
+    default: m.MasterGovernanceHub,
+  })),
+);
 const StoreCustomers = lazyWithRetry(() =>
   import('./components/store/StoreCustomers').then((m) => ({ default: m.StoreCustomers })),
 );
@@ -1257,6 +1287,17 @@ const getDefaultStoreTheme = (storeId?: string): string => {
   }, [navigate]);
 
   useEffect(() => {
+    if (mode === 'master') {
+      document.documentElement.setAttribute('data-sidebar-design', 'luxe');
+    } else {
+      document.documentElement.removeAttribute('data-sidebar-design');
+    }
+    return () => {
+      document.documentElement.removeAttribute('data-sidebar-design');
+    };
+  }, [mode]);
+
+  useEffect(() => {
     if (!session) return;
     document.documentElement.setAttribute('data-portal', session.portal);
     if (session.portal === 'master') {
@@ -1406,7 +1447,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
   // Favicon + <title> per portal (docs/21) — Master platform vs Store brand
   useEffect(() => {
     if (!session) return;
-    if (mode === 'master') {
+    if (mode === 'master' || session.portal === 'master') {
       applyPortalHead({ portal: 'master' });
       return;
     }
@@ -1416,7 +1457,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
       // Store custom favicon URL lands when branding fields are wired (S1 / SEO)
       faviconUrl: null,
     });
-  }, [session, mode, activeStore?.name]);
+  }, [session, mode, activeStore?.name, locale]);
 
   const handleLogout = useCallback(async () => {
     const wasMaster = session?.portal === 'master';
@@ -1694,11 +1735,15 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                 onOpenCreateStore={() => setIsCreateStoreOpen(true)}
                 onSignOut={() => void requestLogout()}
                 onMobileMenuOpen={() => setMobileNavOpen(true)}
+                onNavigateTab={setMasterTab}
               />
               <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden pb-16 touch-pan-y overscroll-y-contain">
                 <Suspense fallback={<TabFallback />}>
                   {masterTab === 'dashboard' && (
-                    <MasterDashboard onOpenCreateStore={() => setIsCreateStoreOpen(true)} />
+                    <MasterDashboard
+                      onOpenCreateStore={() => setIsCreateStoreOpen(true)}
+                      onNavigateTab={setMasterTab}
+                    />
                   )}
                   {masterTab === 'accounts' && (
                     <MasterAccountManagement onOpenOnboarding={() => setMasterTab('onboarding')} />
@@ -1708,9 +1753,17 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                   )}
                   {masterTab === 'plans' && <MasterPlansSubscriptions />}
                   {masterTab === 'services-points' && <MasterServicesPoints />}
+                  {masterTab === 'integrations' && <MasterIntegrationsHub />}
+                  {masterTab === 'reports' && <MasterReportsOps />}
                   {masterTab === 'support' && <MasterSupportCenter />}
                   {masterTab === 'security' && <MasterSecurityCenter />}
                   {masterTab === 'notifications' && <MasterNotificationsHub />}
+                  {(masterTab === 'payments' || masterTab === 'payments-reconcile') && (
+                    <MasterCapabilityDeferred capabilityId="payments-reconcile" />
+                  )}
+                  {masterTab === 'ops' && <MasterOpsMonitor />}
+                  {masterTab === 'messaging' && <MasterMessagingHub />}
+                  {masterTab === 'governance' && <MasterGovernanceHub />}
                   {masterTab === 'control-center' && <MasterControlCenter />}
                   {masterTab === 'onboarding' && <MasterOnboarding />}
                   {masterTab === 'domains' && <MasterDomains />}
@@ -1722,16 +1775,23 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                   {(masterTab === 'backup' || masterTab === 'restore') && <StoreBackupRestoreCenter />}
                   {masterTab === 'orders' && <MasterOrders />}
                   {masterTab === 'products' && <MasterProducts />}
-                  {masterTab === 'settings' && <MasterSettings />}
+                  {masterTab === 'settings' && <MasterSettings onNavigateTab={setMasterTab} />}
                   {![
                     'dashboard',
                     'accounts',
                     'stores',
                     'plans',
                     'services-points',
+                    'integrations',
+                    'reports',
                     'support',
                     'security',
                     'notifications',
+                    'payments',
+                    'payments-reconcile',
+                    'ops',
+                    'messaging',
+                    'governance',
                     'control-center',
                     'onboarding',
                     'domains',

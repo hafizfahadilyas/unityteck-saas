@@ -295,6 +295,277 @@ function souq_phase1_ops_dispatch(PDO $pdo, string $uri, string $method, string 
         return true;
     };
 
+    // ── Platform dashboard KPIs (all stores · single query — scales to 100+ tenants) ──
+    if ($uri === '/master/platform-overview' && $method === 'GET') {
+        if (!$needMaster()) {
+            return true;
+        }
+        $range = strtolower(trim((string) ($_GET['range'] ?? 'month')));
+        if (!in_array($range, ['today', 'yesterday', 'week', 'month', 'year', 'all'], true)) {
+            $range = 'month';
+        }
+        $isMysql = function_exists('souq_driver_is_mysql')
+            ? souq_driver_is_mysql($pdo)
+            : ((string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql');
+
+        $end = new DateTimeImmutable('now');
+        $end = $end->setTime(23, 59, 59);
+        $start = (new DateTimeImmutable('today'))->setTime(0, 0, 0);
+        if ($range === 'yesterday') {
+            $start = $start->modify('-1 day');
+            $end = $start->setTime(23, 59, 59);
+        } elseif ($range === 'week') {
+            $start = $start->modify('-6 days');
+        } elseif ($range === 'month') {
+            $start = $start->modify('-29 days');
+        } elseif ($range === 'year') {
+            $start = $start->modify('-1 year');
+        } elseif ($range === 'all') {
+            $start = null;
+        }
+        $startSql = $start ? $start->format('Y-m-d H:i:s') : null;
+        $endSql = $end->format('Y-m-d H:i:s');
+
+        $scalar = static function (PDO $pdo, string $sql, array $params = []): int {
+            try {
+                $st = $pdo->prepare($sql);
+                $st->execute($params);
+                $v = $st->fetchColumn();
+
+                return (int) ($v ?? 0);
+            } catch (Throwable) {
+                return 0;
+            }
+        };
+        $floatScalar = static function (PDO $pdo, string $sql, array $params = []): float {
+            try {
+                $st = $pdo->prepare($sql);
+                $st->execute($params);
+                $v = $st->fetchColumn();
+
+                return (float) ($v ?? 0);
+            } catch (Throwable) {
+                return 0.0;
+            }
+        };
+
+        $ordersDateWhere = '';
+        $ordersParams = [];
+        if ($startSql !== null) {
+            $ordersDateWhere = ' AND created_at >= ? AND created_at <= ?';
+            $ordersParams = [$startSql, $endSql];
+        }
+
+        $totals = [
+            'products' => $scalar($pdo, 'SELECT COUNT(*) FROM products'),
+            'customers' => $scalar($pdo, 'SELECT COUNT(*) FROM customers'),
+            'orders' => $scalar($pdo, 'SELECT COUNT(*) FROM orders WHERE 1=1' . $ordersDateWhere, $ordersParams),
+            'pending_orders' => $scalar(
+                $pdo,
+                "SELECT COUNT(*) FROM orders WHERE LOWER(COALESCE(status, '')) = 'pending'" . $ordersDateWhere,
+                $ordersParams
+            ),
+            'active_coupons' => $scalar(
+                $pdo,
+                $isMysql
+                    ? 'SELECT COUNT(*) FROM coupons WHERE is_active = 1'
+                    : 'SELECT COUNT(*) FROM coupons WHERE is_active = 1 OR is_active = \'1\''
+            ),
+            'revenue' => $floatScalar(
+                $pdo,
+                "SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE LOWER(COALESCE(status, '')) != 'cancelled'" . $ordersDateWhere,
+                $ordersParams
+            ),
+            'sales' => $floatScalar(
+                $pdo,
+                "SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE LOWER(COALESCE(status, '')) IN ('completed', 'processing', 'paid')" . $ordersDateWhere,
+                $ordersParams
+            ),
+            'visitors' => 0,
+        ];
+
+        try {
+            $vSql = "SELECT
+                COUNT(DISTINCT CASE WHEN session_key IS NOT NULL AND session_key != '' THEN CONCAT(store_id, ':', session_key) END) AS sessions,
+                SUM(CASE WHEN session_key IS NULL OR session_key = '' THEN 1 ELSE 0 END) AS orphans
+             FROM analytics_events
+             WHERE event_name = 'page_view'";
+            $vParams = [];
+            if ($startSql !== null) {
+                $vSql .= ' AND created_at >= ? AND created_at <= ?';
+                $vParams = [$startSql, $endSql];
+            }
+            $st = $pdo->prepare($vSql);
+            $st->execute($vParams);
+            $vr = $st->fetch(PDO::FETCH_ASSOC) ?: [];
+            $totals['visitors'] = (int) ($vr['sessions'] ?? 0) + (int) ($vr['orphans'] ?? 0);
+        } catch (Throwable) {
+            $totals['visitors'] = 0;
+        }
+
+        $seriesDays = $range === 'week' ? 7 : ($range === 'year' ? 12 : 7);
+        if ($range === 'today' || $range === 'yesterday') {
+            $seriesDays = 1;
+        } elseif ($range === 'month') {
+            $seriesDays = 7;
+        } elseif ($range === 'all') {
+            $seriesDays = 7;
+        }
+
+        $bucketExpr = $isMysql ? 'DATE(created_at)' : "DATE(created_at)";
+        $seriesStart = $startSql;
+        if ($seriesStart === null) {
+            $seriesStart = (new DateTimeImmutable('today'))->modify('-' . ($seriesDays - 1) . ' days')->format('Y-m-d 00:00:00');
+        }
+
+        $series = ['orders' => [], 'revenue' => [], 'customers' => [], 'products' => []];
+        try {
+            $oSt = $pdo->prepare(
+                "SELECT {$bucketExpr} AS d, COUNT(*) AS c, COALESCE(SUM(CASE WHEN LOWER(COALESCE(status, '')) != 'cancelled' THEN total_amount ELSE 0 END), 0) AS r
+                 FROM orders WHERE created_at >= ? AND created_at <= ?
+                 GROUP BY d ORDER BY d ASC"
+            );
+            $oSt->execute([$seriesStart, $endSql]);
+            while ($row = $oSt->fetch(PDO::FETCH_ASSOC)) {
+                $label = (string) ($row['d'] ?? '');
+                $series['orders'][] = ['label' => $label, 'value' => (int) ($row['c'] ?? 0)];
+                $series['revenue'][] = ['label' => $label, 'value' => round((float) ($row['r'] ?? 0), 2)];
+            }
+        } catch (Throwable) {
+            /* empty series */
+        }
+        try {
+            $cSt = $pdo->prepare(
+                "SELECT {$bucketExpr} AS d, COUNT(*) AS c FROM customers WHERE created_at >= ? AND created_at <= ? GROUP BY d ORDER BY d ASC"
+            );
+            $cSt->execute([$seriesStart, $endSql]);
+            while ($row = $cSt->fetch(PDO::FETCH_ASSOC)) {
+                $series['customers'][] = [
+                    'label' => (string) ($row['d'] ?? ''),
+                    'value' => (int) ($row['c'] ?? 0),
+                ];
+            }
+        } catch (Throwable) {
+            /* empty */
+        }
+        try {
+            $productBucket = "DATE(COALESCE(created_at, updated_at))";
+            $productDateCol = 'COALESCE(created_at, updated_at)';
+            $pSt = $pdo->prepare(
+                "SELECT {$productBucket} AS d, COUNT(*) AS c FROM products WHERE {$productDateCol} >= ? AND {$productDateCol} <= ? GROUP BY d ORDER BY d ASC"
+            );
+            $pSt->execute([$seriesStart, $endSql]);
+            while ($row = $pSt->fetch(PDO::FETCH_ASSOC)) {
+                $series['products'][] = [
+                    'label' => (string) ($row['d'] ?? ''),
+                    'value' => (int) ($row['c'] ?? 0),
+                ];
+            }
+        } catch (Throwable) {
+            /* empty */
+        }
+
+        $visitsByWeekday = [];
+        $visitsGrowth = null;
+        try {
+            $lookback = $isMysql ? "INTERVAL 7 DAY" : "-7 days";
+            $prevLookback = $isMysql ? "INTERVAL 14 DAY" : "-14 days";
+            $curSql = $isMysql
+                ? "SELECT COUNT(DISTINCT CASE WHEN session_key IS NOT NULL AND session_key != '' THEN CONCAT(store_id, ':', session_key) END)
+                     + SUM(CASE WHEN session_key IS NULL OR session_key = '' THEN 1 ELSE 0 END) AS v
+                   FROM analytics_events WHERE event_name = 'page_view' AND created_at >= (NOW() - {$lookback})"
+                : "SELECT COUNT(DISTINCT CASE WHEN session_key IS NOT NULL AND session_key != '' THEN store_id || ':' || session_key END)
+                     + SUM(CASE WHEN session_key IS NULL OR session_key = '' THEN 1 ELSE 0 END) AS v
+                   FROM analytics_events WHERE event_name = 'page_view' AND created_at >= datetime('now', '-7 days')";
+            $st = $pdo->query($curSql);
+            $curV = (int) ($st ? $st->fetchColumn() : 0);
+            $prevSql = $isMysql
+                ? "SELECT COUNT(DISTINCT CASE WHEN session_key IS NOT NULL AND session_key != '' THEN CONCAT(store_id, ':', session_key) END)
+                     + SUM(CASE WHEN session_key IS NULL OR session_key = '' THEN 1 ELSE 0 END) AS v
+                   FROM analytics_events WHERE event_name = 'page_view'
+                     AND created_at >= (NOW() - {$prevLookback}) AND created_at < (NOW() - {$lookback})"
+                : "SELECT COUNT(DISTINCT CASE WHEN session_key IS NOT NULL AND session_key != '' THEN store_id || ':' || session_key END)
+                     + SUM(CASE WHEN session_key IS NULL OR session_key = '' THEN 1 ELSE 0 END) AS v
+                   FROM analytics_events WHERE event_name = 'page_view'
+                     AND created_at >= datetime('now', '-14 days') AND created_at < datetime('now', '-7 days')";
+            $st2 = $pdo->query($prevSql);
+            $prevV = (int) ($st2 ? $st2->fetchColumn() : 0);
+            if ($prevV > 0) {
+                $visitsGrowth = (int) round((($curV - $prevV) / $prevV) * 100);
+            } elseif ($curV > 0) {
+                $visitsGrowth = 100;
+            } else {
+                $visitsGrowth = 0;
+            }
+
+            $dowSql = $isMysql
+                ? "SELECT DAYOFWEEK(created_at) AS dow, COUNT(*) AS c FROM analytics_events
+                   WHERE event_name = 'page_view' AND created_at >= (NOW() - INTERVAL 7 DAY) GROUP BY dow"
+                : "SELECT CAST(strftime('%w', created_at) AS INTEGER) AS dow, COUNT(*) AS c FROM analytics_events
+                   WHERE event_name = 'page_view' AND created_at >= datetime('now', '-7 days') GROUP BY dow";
+            $dq = $pdo->query($dowSql);
+            $counts = [];
+            $dowTotal = 0;
+            if ($dq) {
+                while ($r = $dq->fetch(PDO::FETCH_ASSOC)) {
+                    $dow = (int) ($r['dow'] ?? 0);
+                    $c = (int) ($r['c'] ?? 0);
+                    $counts[$dow] = $c;
+                    $dowTotal += $c;
+                }
+            }
+            $labels = [
+                1 => ['dayEn' => 'Sun', 'dayAr' => 'الأحد'],
+                2 => ['dayEn' => 'Mon', 'dayAr' => 'الاثنين'],
+                3 => ['dayEn' => 'Tue', 'dayAr' => 'الثلاثاء'],
+                4 => ['dayEn' => 'Wed', 'dayAr' => 'الأربعاء'],
+                5 => ['dayEn' => 'Thu', 'dayAr' => 'الخميس'],
+                6 => ['dayEn' => 'Fri', 'dayAr' => 'الجمعة'],
+                7 => ['dayEn' => 'Sat', 'dayAr' => 'السبت'],
+            ];
+            if (!$isMysql) {
+                $labelsSqlite = [
+                    0 => ['dayEn' => 'Sun', 'dayAr' => 'الأحد'],
+                    1 => ['dayEn' => 'Mon', 'dayAr' => 'الاثنين'],
+                    2 => ['dayEn' => 'Tue', 'dayAr' => 'الثلاثاء'],
+                    3 => ['dayEn' => 'Wed', 'dayAr' => 'الأربعاء'],
+                    4 => ['dayEn' => 'Thu', 'dayAr' => 'الخميس'],
+                    5 => ['dayEn' => 'Fri', 'dayAr' => 'الجمعة'],
+                    6 => ['dayEn' => 'Sat', 'dayAr' => 'السبت'],
+                ];
+                $labels = $labelsSqlite;
+            }
+            $order = $isMysql ? [7, 1, 2, 3, 4, 5, 6] : [6, 0, 1, 2, 3, 4, 5];
+            foreach ($order as $dow) {
+                $c = (int) ($counts[$dow] ?? 0);
+                $pct = $dowTotal > 0 ? (int) round(($c / $dowTotal) * 100) : 0;
+                $visitsByWeekday[] = [
+                    'dayEn' => $labels[$dow]['dayEn'] ?? (string) $dow,
+                    'dayAr' => $labels[$dow]['dayAr'] ?? (string) $dow,
+                    'percentage' => $pct,
+                ];
+            }
+        } catch (Throwable) {
+            $visitsGrowth = null;
+        }
+
+        echo json_encode([
+            'data' => [
+                'totals' => $totals,
+                'series' => $series,
+                'visits_by_weekday' => $visitsByWeekday,
+                'visits_growth' => $visitsGrowth,
+            ],
+            'meta' => [
+                'range' => $range,
+                'source' => 'mysql_aggregate',
+                'last_refresh' => date('c'),
+            ],
+        ], JSON_UNESCAPED_UNICODE);
+
+        return true;
+    }
+
     // ── Support tickets ──
     if ($uri === '/master/support/tickets' && $method === 'GET') {
         if (!$needMaster()) {
@@ -613,8 +884,20 @@ function souq_phase1_ops_dispatch(PDO $pdo, string $uri, string $method, string 
         $status = array_key_exists('status', $input) ? trim((string) $input['status']) : $row['status'];
         $cost = array_key_exists('point_cost', $input) ? max(0, (int) $input['point_cost']) : (int) $row['point_cost'];
         $name = array_key_exists('name', $input) ? trim((string) $input['name']) : $row['name'];
-        $pdo->prepare('UPDATE platform_services SET name = ?, status = ?, point_cost = ?, updated_at = ? WHERE id = ?')
-            ->execute([$name, $status, $cost, date('Y-m-d H:i:s'), $id]);
+        $nameAr = array_key_exists('name_ar', $input) ? trim((string) $input['name_ar']) : ($row['name_ar'] ?? null);
+        $nameAr = $nameAr === '' ? null : $nameAr;
+        $category = array_key_exists('category', $input) ? trim((string) $input['category']) : ($row['category'] ?? 'general');
+        $description = array_key_exists('description', $input) ? trim((string) $input['description']) : ($row['description'] ?? null);
+        $description = $description === '' ? null : $description;
+        $dailyLimit = array_key_exists('daily_limit', $input)
+            ? ($input['daily_limit'] === null || $input['daily_limit'] === '' ? null : (int) $input['daily_limit'])
+            : ($row['daily_limit'] ?? null);
+        $monthlyLimit = array_key_exists('monthly_limit', $input)
+            ? ($input['monthly_limit'] === null || $input['monthly_limit'] === '' ? null : (int) $input['monthly_limit'])
+            : ($row['monthly_limit'] ?? null);
+        $pdo->prepare(
+            'UPDATE platform_services SET name = ?, name_ar = ?, description = ?, category = ?, status = ?, point_cost = ?, daily_limit = ?, monthly_limit = ?, updated_at = ? WHERE id = ?'
+        )->execute([$name, $nameAr, $description, $category, $status, $cost, $dailyLimit, $monthlyLimit, date('Y-m-d H:i:s'), $id]);
         $st->execute([$id]);
         echo json_encode(['data' => $st->fetch(PDO::FETCH_ASSOC)], JSON_UNESCAPED_UNICODE);
         return true;

@@ -276,7 +276,7 @@ export const MasterDomains: React.FC = () => {
             <span>185.199.108.153</span>
           </div>
           <span className="text-[10px] text-emerald-600 font-semibold block mt-1">
-            {isAr ? 'متصل ومحمي بـ Let\'s Encrypt SSL' : 'Connected & Active · 100% Uptime'}
+            {isAr ? 'متصل ومحمي بشهادة أمان مجانية' : 'Connected & Active · 100% Uptime'}
           </span>
         </div>
 
@@ -563,17 +563,21 @@ export const MasterDomains: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <Server className="w-5 h-5 text-emerald-600" />
                   <h3 className="text-base font-black text-slate-900">
-                    Hostinger Shared Hosting API (v2.4 Production Gateway)
+                    {isAr
+                      ? 'واجهة هوستنجر للاستضافة المشتركة (بوابة الإنتاج)'
+                      : 'Hostinger Shared Hosting API (v2.4 Production Gateway)'}
                   </h3>
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Automated provisioning gateway for client shared hosting containers, MySQL tenants and SSL certs.
+                  {isAr
+                    ? 'بوابة تجهيز تلقائي لحاويات الاستضافة المشتركة ومستأجري قواعد البيانات وشهادات الأمان.'
+                    : 'Automated provisioning gateway for client shared hosting containers, MySQL tenants and SSL certs.'}
                 </p>
               </div>
 
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>API Connected & Healthy</span>
+                <span>{isAr ? 'الواجهة متصلة وتعمل' : 'API Connected & Healthy'}</span>
               </span>
             </div>
 

@@ -7,26 +7,47 @@ import {
   fetchPlansCatalog,
   patchStoreSubscription,
 } from '../../api/tenantApi';
-import { Crown, RefreshCw, Search } from 'lucide-react';
+import { Crown, RefreshCw, Users, AlertTriangle, Layers, CheckCircle } from 'lucide-react';
 import { GlobalModal } from '../common/GlobalModal';
+import { OverviewStatCard } from '../common/OverviewStatCard';
+import {
+  MasterKpiGrid,
+  MasterLuxePanel,
+  MasterMetaLine,
+  MasterTabPills,
+  masterGhostBtnClass,
+} from './MasterUiKit';
+import { MasterStoreScopeFilter } from './MasterStoreScopeFilter';
+import { useTenant } from '../../context/TenantContext';
+import { AdvancedDataTable, type AdvancedTableColumn } from '../common/AdvancedDataTable';
+import { AdvancedFilterBar } from '../common/AdvancedFilterBar';
+import { pipelineAdvancedList, useAdvancedListState } from '../../hooks/useAdvancedListState';
 
 type TabKey = 'plans' | 'subscriptions';
 
 /** SOUQ PLUS Phase 1 §4.4 — plan catalogue + subscription lifecycle (real API). */
 export const MasterPlansSubscriptions: React.FC = () => {
-  const { locale, money } = usePrefs();
+  const { locale, money, amount } = usePrefs();
   const isAr = locale === 'ar';
   const { toast } = useToast();
+  const { stores } = useTenant();
+  const [storeScope, setStoreScope] = useState<string>('all');
+  const [storeScopeStatus, setStoreScopeStatus] = useState<'all' | 'active' | 'pending' | 'suspended'>('all');
   const [tab, setTab] = useState<TabKey>('plans');
   const [busy, setBusy] = useState(false);
   const [plans, setPlans] = useState<Array<Record<string, unknown>>>([]);
   const [subs, setSubs] = useState<Array<Record<string, unknown>>>([]);
   const [meta, setMeta] = useState<{ near_expiry?: number; last_refresh?: string; source?: string }>({});
-  const [q, setQ] = useState('');
   const [edit, setEdit] = useState<Record<string, unknown> | null>(null);
   const [reason, setReason] = useState('');
   const [status, setStatus] = useState('active');
   const [saving, setSaving] = useState(false);
+  const list = useAdvancedListState({
+    initialPageSize: 10,
+    initialSortKey: 'store',
+    initialSortDir: 'asc',
+    initialFilters: { status: 'all', plan: 'all' },
+  });
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -51,14 +72,82 @@ export const MasterPlansSubscriptions: React.FC = () => {
     void load();
   }, [load]);
 
-  const filteredSubs = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    if (!needle) return subs;
-    return subs.filter((row) => {
-      const blob = `${row.store_id} ${row.store_name} ${row.plan} ${JSON.stringify(row.lifecycle)}`.toLowerCase();
-      return blob.includes(needle);
-    });
-  }, [subs, q]);
+  const subStats = useMemo(() => {
+    let active = 0;
+    let expired = 0;
+    let trial = 0;
+    for (const row of subs) {
+      const life = (row.lifecycle || {}) as Record<string, unknown>;
+      const st = String(life.status || '');
+      if (st === 'active') active += 1;
+      if (st === 'expired' || st === 'suspended') expired += 1;
+      if (st === 'trial') trial += 1;
+    }
+    return {
+      plans: plans.length,
+      subs: subs.length,
+      active,
+      expired,
+      trial,
+      near: meta.near_expiry ?? 0,
+    };
+  }, [plans.length, subs, meta.near_expiry]);
+
+  const scopedSubs = useMemo(() => {
+    if (storeScope === 'all') return subs;
+    return subs.filter((r) => String(r.store_id) === storeScope);
+  }, [subs, storeScope]);
+
+  const planOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const row of subs) {
+      const p = String(row.plan || '').trim();
+      if (p) set.add(p);
+    }
+    return Array.from(set).sort();
+  }, [subs]);
+
+  const subsPipeline = useMemo(
+    () =>
+      pipelineAdvancedList({
+        rows: scopedSubs,
+        search: list.search,
+        getSearchBlob: (row) =>
+          `${row.store_id} ${row.store_name} ${row.plan} ${JSON.stringify(row.lifecycle)}`,
+        filters: list.filters,
+        matchFilter: (row, key, value) => {
+          const life = (row.lifecycle || {}) as Record<string, unknown>;
+          if (key === 'status') return String(life.status || '') === value;
+          if (key === 'plan') return String(row.plan || '') === value;
+          return true;
+        },
+        dateFrom: list.dateFrom,
+        dateTo: list.dateTo,
+        getDate: (row) => {
+          const life = (row.lifecycle || {}) as Record<string, unknown>;
+          return life.ends_at ? String(life.ends_at) : null;
+        },
+        sortKey: list.sortKey,
+        sortDir: list.sortDir,
+        getSortValue: (row, key) => {
+          const life = (row.lifecycle || {}) as Record<string, unknown>;
+          if (key === 'store') return String(row.store_name || row.store_id || '');
+          if (key === 'plan') return String(row.plan || '');
+          if (key === 'status') return String(life.status || '');
+          if (key === 'ends') return life.ends_at ? String(life.ends_at) : '';
+          return '';
+        },
+        page: list.page,
+        pageSize: list.pageSize,
+      }),
+    [scopedSubs, list],
+  );
+
+  const openPlanSubs = (planCode: string) => {
+    setTab('subscriptions');
+    list.setFilter('plan', planCode);
+    list.setSearch('');
+  };
 
   const openEdit = (row: Record<string, unknown>) => {
     const life = (row.lifecycle || {}) as Record<string, unknown>;
@@ -102,6 +191,71 @@ export const MasterPlansSubscriptions: React.FC = () => {
     return isAr ? hit.ar : hit.en;
   };
 
+  const subColumns = useMemo<AdvancedTableColumn<Record<string, unknown>>[]>(
+    () => [
+      {
+        key: 'store',
+        header: isAr ? 'المتجر' : 'Store',
+        sortable: true,
+        render: (row) => (
+          <div>
+            <div className="font-semibold">{String(row.store_name || row.store_id)}</div>
+            <div className="text-[11px] font-mono" style={{ color: 'var(--muted)' }}>
+              {String(row.store_id)}
+            </div>
+          </div>
+        ),
+      },
+      {
+        key: 'plan',
+        header: isAr ? 'الباقة' : 'Plan',
+        sortable: true,
+        render: (row) => (
+          <span className="capitalize" style={{ color: 'var(--muted)' }}>
+            {String(row.plan || '—')}
+          </span>
+        ),
+      },
+      {
+        key: 'status',
+        header: isAr ? 'الحالة' : 'Status',
+        sortable: true,
+        render: (row) => {
+          const life = (row.lifecycle || {}) as Record<string, unknown>;
+          return statusLabel(String(life.status || ''));
+        },
+      },
+      {
+        key: 'ends',
+        header: isAr ? 'ينتهي' : 'Ends',
+        sortable: true,
+        render: (row) => {
+          const life = (row.lifecycle || {}) as Record<string, unknown>;
+          return (
+            <span className="text-xs" style={{ color: 'var(--muted)' }}>
+              {life.ends_at ? String(life.ends_at).slice(0, 10) : '—'}
+            </span>
+          );
+        },
+      },
+      {
+        key: 'action',
+        header: isAr ? 'إجراء' : 'Action',
+        render: (row) => (
+          <button
+            type="button"
+            className="text-xs font-bold"
+            style={{ color: 'var(--accent)' }}
+            onClick={() => openEdit(row)}
+          >
+            {isAr ? 'تعديل' : 'Edit'}
+          </button>
+        ),
+      },
+    ],
+    [isAr],
+  );
+
   return (
     <AdminPageShell>
       <AdminPageHeader
@@ -114,8 +268,7 @@ export const MasterPlansSubscriptions: React.FC = () => {
         actions={
           <button
             type="button"
-            className="inline-flex items-center gap-2 text-sm px-3 py-2 rounded-xl border"
-            style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+            className={masterGhostBtnClass}
             onClick={() => void load()}
             disabled={busy}
             aria-busy={busy}
@@ -126,34 +279,55 @@ export const MasterPlansSubscriptions: React.FC = () => {
         }
       />
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        {(
-          [
-            { id: 'plans' as const, en: 'Plans', ar: 'الباقات' },
-            { id: 'subscriptions' as const, en: 'Subscriptions', ar: 'الاشتراكات' },
-          ] as const
-        ).map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className="px-3 py-2 rounded-xl text-xs font-bold border"
-            style={{
-              background: tab === t.id ? 'var(--portal-cta)' : 'var(--surface)',
-              color: tab === t.id ? '#fff' : 'var(--text)',
-              borderColor: tab === t.id ? 'var(--portal-cta)' : 'var(--border)',
-            }}
-          >
-            {isAr ? t.ar : t.en}
-          </button>
-        ))}
-      </div>
+      <MasterTabPills
+        className="mt-4"
+        active={tab}
+        onChange={(id) => setTab(id as TabKey)}
+        tabs={[
+          { id: 'plans', label: isAr ? 'الباقات' : 'Plans' },
+          { id: 'subscriptions', label: isAr ? 'الاشتراكات' : 'Subscriptions' },
+        ]}
+      />
 
-      <p className="mt-2 text-[11px]" style={{ color: 'var(--muted)' }}>
+      <MasterMetaLine>
         {isAr ? 'آخر تحديث' : 'Last refresh'}: {meta.last_refresh || '—'} ·{' '}
         {isAr ? 'المصدر' : 'Source'}: {meta.source || 'plans/subscriptions'} ·{' '}
-        {isAr ? 'قرب الانتهاء' : 'Near expiry'}: {meta.near_expiry ?? 0}
-      </p>
+        {isAr ? 'قرب الانتهاء' : 'Near expiry'}: {meta.near_expiry ?? 0} ·{' '}
+        {isAr ? 'متاجر المنصة' : 'Platform stores'}: {amount(stores.length)}
+      </MasterMetaLine>
+
+      <MasterKpiGrid className="mt-3" cols={5}>
+        <OverviewStatCard
+          label={isAr ? 'باقات الكتالوج' : 'Plan tiers'}
+          value={amount(subStats.plans)}
+          icon={Layers}
+          tone="accent"
+        />
+        <OverviewStatCard
+          label={isAr ? 'الاشتراكات' : 'Subscriptions'}
+          value={amount(subStats.subs)}
+          icon={Users}
+          tone="info"
+        />
+        <OverviewStatCard
+          label={isAr ? 'نشطة' : 'Active'}
+          value={amount(subStats.active)}
+          icon={CheckCircle}
+          tone="success"
+        />
+        <OverviewStatCard
+          label={isAr ? 'تجريبية' : 'Trial'}
+          value={amount(subStats.trial)}
+          icon={Crown}
+          tone="warn"
+        />
+        <OverviewStatCard
+          label={isAr ? 'قرب الانتهاء' : 'Near expiry'}
+          value={amount(subStats.near)}
+          icon={AlertTriangle}
+          tone="danger"
+        />
+      </MasterKpiGrid>
 
       {tab === 'plans' ? (
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -167,10 +341,11 @@ export const MasterPlansSubscriptions: React.FC = () => {
             </div>
           ) : (
             plans.map((p) => (
-              <div
+              <MasterLuxePanel
                 key={String(p.id || p.code)}
-                className="rounded-2xl border p-4"
-                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                interactive
+                padding="lg"
+                as="article"
               >
                 <div className="flex items-center gap-2 mb-2">
                   <Crown className="w-4 h-4" style={{ color: 'var(--accent)' }} aria-hidden />
@@ -200,88 +375,78 @@ export const MasterPlansSubscriptions: React.FC = () => {
                     {p.team_seats == null ? '∞' : String(p.team_seats)}
                   </li>
                 </ul>
-              </div>
+                <button
+                  type="button"
+                  className="mt-4 w-full unity-btn-ghost text-xs font-bold py-2"
+                  onClick={() => openPlanSubs(String(p.code || p.id || ''))}
+                >
+                  {isAr ? 'عرض مشتركي هذه الباقة' : 'View subscribers'}
+                </button>
+              </MasterLuxePanel>
             ))
           )}
         </div>
       ) : (
-        <>
-          <div className="mt-4 relative max-w-md">
-            <Search
-              className="absolute top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
-              style={{ [isAr ? 'right' : 'left']: 12, color: 'var(--muted)' }}
-              aria-hidden
-            />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              className="w-full rounded-xl border text-sm py-2.5 bg-transparent"
-              style={{
-                borderColor: 'var(--border)',
-                color: 'var(--text)',
-                paddingInlineStart: 36,
-                paddingInlineEnd: 12,
-              }}
-              placeholder={isAr ? 'بحث بالمتجر أو الباقة…' : 'Search store or plan…'}
-            />
-          </div>
-          <div
-            className="mt-4 rounded-2xl border overflow-x-auto"
-            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-          >
-            {filteredSubs.length === 0 ? (
-              <div className="p-10 text-center text-sm" style={{ color: 'var(--muted)' }}>
-                {isAr ? 'لا توجد سجلات' : 'No records found'}
-              </div>
-            ) : (
-              <table className="w-full text-sm min-w-[640px]">
-                <thead>
-                  <tr style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                    <th className="text-start p-3 font-semibold">{isAr ? 'المتجر' : 'Store'}</th>
-                    <th className="text-start p-3 font-semibold">{isAr ? 'الباقة' : 'Plan'}</th>
-                    <th className="text-start p-3 font-semibold">{isAr ? 'الحالة' : 'Status'}</th>
-                    <th className="text-start p-3 font-semibold">{isAr ? 'ينتهي' : 'Ends'}</th>
-                    <th className="text-start p-3 font-semibold">{isAr ? 'إجراء' : 'Action'}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredSubs.map((row) => {
-                    const life = (row.lifecycle || {}) as Record<string, unknown>;
-                    return (
-                      <tr key={String(row.store_id)} style={{ borderTop: '1px solid var(--border)' }}>
-                        <td className="p-3">
-                          <div className="font-semibold" style={{ color: 'var(--text)' }}>
-                            {String(row.store_name || row.store_id)}
-                          </div>
-                          <div className="text-[11px] font-mono" style={{ color: 'var(--muted)' }}>
-                            {String(row.store_id)}
-                          </div>
-                        </td>
-                        <td className="p-3 capitalize" style={{ color: 'var(--muted)' }}>
-                          {String(row.plan || '—')}
-                        </td>
-                        <td className="p-3">{statusLabel(String(life.status || ''))}</td>
-                        <td className="p-3 text-xs" style={{ color: 'var(--muted)' }}>
-                          {life.ends_at ? String(life.ends_at).slice(0, 10) : '—'}
-                        </td>
-                        <td className="p-3">
-                          <button
-                            type="button"
-                            className="text-xs font-bold"
-                            style={{ color: 'var(--accent)' }}
-                            onClick={() => openEdit(row)}
-                          >
-                            {isAr ? 'تعديل' : 'Edit'}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </>
+        <div className="mt-4 space-y-3 min-w-0">
+          <MasterStoreScopeFilter
+            value={storeScope}
+            onChange={setStoreScope}
+            statusFilter={storeScopeStatus}
+            onStatusFilterChange={setStoreScopeStatus}
+            showStatusChips
+          />
+          <AdvancedDataTable
+            rows={subsPipeline.pageRows}
+            columns={subColumns}
+            rowKey={(row) => String(row.store_id)}
+            search={list.search}
+            onSearchChange={list.setSearch}
+            searchPlaceholder={isAr ? 'بحث بالمتجر أو الباقة…' : 'Search store or plan…'}
+            sortKey={list.sortKey}
+            sortDir={list.sortDir}
+            onSort={list.onSort}
+            page={subsPipeline.safePage}
+            pageSize={list.pageSize}
+            onPageChange={list.setPage}
+            onPageSizeChange={list.setPageSize}
+            total={subsPipeline.total}
+            loading={busy && subs.length === 0}
+            emptyMessage={isAr ? 'لا توجد سجلات' : 'No records found'}
+            filters={
+              <AdvancedFilterBar
+                filterValues={list.filters}
+                onFilterChange={list.setFilter}
+                dateFrom={list.dateFrom}
+                dateTo={list.dateTo}
+                onDateFromChange={list.setDateFrom}
+                onDateToChange={list.setDateTo}
+                onReset={list.resetAll}
+                activeCount={list.activeFilterCount}
+                fields={[
+                  {
+                    key: 'status',
+                    label: isAr ? 'الحالة' : 'Status',
+                    options: [
+                      { value: 'all', label: isAr ? 'كل الحالات' : 'All statuses' },
+                      ...['trial', 'active', 'grace', 'expired', 'suspended'].map((s) => ({
+                        value: s,
+                        label: statusLabel(s),
+                      })),
+                    ],
+                  },
+                  {
+                    key: 'plan',
+                    label: isAr ? 'الباقة' : 'Plan',
+                    options: [
+                      { value: 'all', label: isAr ? 'كل الباقات' : 'All plans' },
+                      ...planOptions.map((p) => ({ value: p, label: p })),
+                    ],
+                  },
+                ]}
+              />
+            }
+          />
+        </div>
       )}
 
       <GlobalModal

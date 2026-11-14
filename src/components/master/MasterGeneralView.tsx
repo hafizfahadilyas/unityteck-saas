@@ -212,7 +212,6 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
   const [integrationHealth, setIntegrationHealth] = useState<
     Record<string, { label: string; ok: boolean | null }>
   >({});
-  const [disabledGateways, setDisabledGateways] = useState<string[]>([]);
   const [testingCourier, setTestingCourier] = useState<string | null>(null);
   const [blogSearch, setBlogSearch] = useState('');
   const [blogCategory, setBlogCategory] = useState('All');
@@ -1759,110 +1758,18 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
     );
   }
 
-  // 8b. PAYMENTS (Platform Rails & Gateways)
+  // 8b. PAYMENTS — decorative rails removed; App routes payments → MasterCapabilityDeferred
   if (tab === 'payments') {
-    const gateways = [
-      { id: 'mada', name: isAr ? 'شبكة مدى' : 'Mada Debit Rails', desc: isAr ? 'شبكة بطاقات الخصم الوطنية السعودية' : 'National Saudi debit card network', fee: `0.8% + ${money(1)}` },
-      { id: 'applepay', name: isAr ? 'آبل باي السريع' : 'Apple Pay Express', desc: isAr ? 'دفع بلمسة واحدة بالمصادقة الحيوية لمتسوقي iOS' : 'Biometric 1-tap checkout for iOS shoppers', fee: `1.5% + ${money(1)}` },
-      { id: 'cards', name: isAr ? 'Visa و Mastercard' : 'Visa & Mastercard', desc: isAr ? 'البطاقات الدولية وبطاقات الشركات' : 'International and corporate cards', fee: `2.2% + ${money(1)}` },
-      { id: 'stcpay', name: isAr ? 'محفظة إس تي سي باي' : 'STC Pay Wallet', desc: isAr ? 'ربط مباشر مع المحفظة الرقمية' : 'Direct digital wallet connection', fee: `1.2% + ${money(1)}` },
-      { id: 'bnpl', name: isAr ? 'تابي وتمارا (اشترِ الآن وادفع لاحقًا)' : 'Tabby & Tamara BNPL', desc: isAr ? 'تقسيط على 4 دفعات بدون فوائد' : 'Split into 4 installments with 0% interest', fee: '3.5%' },
-      { id: 'cod', name: isAr ? 'الدفع عند الاستلام' : 'Cash on Delivery (COD)', desc: isAr ? 'تحصيل نقدي عبر المندوب مع سمسا وأرامكس' : 'Courier cash remittance with SMSA & Aramex', fee: isAr ? `${money}رسوم ثابتة` : `${money(15)} Flat` },
-    ];
-
-    const toggleGateway = (id: string, name: string) => {
-      const willDisable = !disabledGateways.includes(id);
-      setDisabledGateways((prev) => (willDisable ? [...prev, id] : prev.filter((g) => g !== id)));
-      toast(
-        willDisable
-          ? isAr ? `تم إيقاف${name}مؤقتًا على مستوى المنصة` : `${name} paused platform-wide`
-          : isAr ? `تم تفعيل${name}` : `${name} enabled`,
-        willDisable ? 'info' : 'success',
-      );
-    };
-
     return (
-      <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">
-              {isAr ? 'قنوات وبوابات الدفع على مستوى المنصة' : 'Global Platform Payment Rails & Gateways'}
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {isAr
-                ? 'مدى المعتمدة من ساما، و آبل باي السريع، و إس تي سي باي، وقنوات التسوية البنكية عبر الحدود'
-                : 'SAMA Mada, Apple Pay Express, STC Pay, and cross-border bank settlement rails'}
-            </p>
-          </div>
-          <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30 text-xs font-bold rounded-xl flex items-center gap-1.5">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            <span>{isAr ? 'تسوية معتمدة من ساما' : 'SAMA Verified Clearing'}</span>
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs space-y-1">
-            <span className="text-xs text-slate-500 font-medium">{isAr ? 'إجمالي حجم مدفوعات المنصة' : 'Total Platform Payment Volume'}</span>
-            <div className="text-2xl font-black text-slate-900 dark:text-white">
-              {money(globalOrders.reduce((s, o) => s + (Number(o.total) || 0), 0))}
-            </div>
-            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
-              {isAr ? `${globalOrders.length}عملية دفع فعلية` : `Across ${globalOrders.length} real transactions`}
-            </span>
-          </div>
-          <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs space-y-1">
-            <span className="text-xs text-slate-500 font-medium">{isAr ? 'سلامة البوابات' : 'Gateway Health'}</span>
-            <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">99.98%</div>
-            <span className="text-[10px] text-slate-400">
-              {disabledGateways.length === 0
-                ? isAr ? 'جميع القنوات تعمل' : 'All rails operational'
-                : isAr ? `${disabledGateways.length}قناة متوقفة مؤقتًا` : `${disabledGateways.length} rail(s) paused`}
-            </span>
-          </div>
-          <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs space-y-1">
-            <span className="text-xs text-slate-500 font-medium">{isAr ? 'أرقام الآيبان النشطة للتسوية' : 'Active Settlement IBANs'}</span>
-            <div className="text-2xl font-black text-blue-600 dark:text-blue-400">{isAr ? `${stores.length}موثّق` : `${stores.length} Verified`}</div>
-            <span className="text-[10px] text-slate-400">{isAr ? 'صرف يومي آلي' : 'Automated daily disbursements'}</span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {gateways.map((gw) => {
-            const disabled = disabledGateways.includes(gw.id);
-            return (
-              <div key={gw.id} className={`p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-2 ${disabled ? 'opacity-70' : ''}`}>
-                <div className="flex items-center justify-between gap-2">
-                  <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">{gw.name}</h4>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                      disabled
-                        ? 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-500/20 dark:text-slate-300 dark:border-slate-500/30'
-                        : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30'
-                    }`}
-                  >
-                    {disabled ? (isAr ? 'متوقف' : 'Paused') : (isAr ? 'نشط' : 'Active')}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500">{gw.desc}</p>
-                <div className="pt-2 flex items-center justify-between gap-2">
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    {isAr ? 'الرسوم:' : 'Rate: '}
-                    <span className="text-teal-600 dark:text-teal-400">{gw.fee}</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => toggleGateway(gw.id, gw.name)}
-                    className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] font-semibold flex items-center gap-1 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800"
-                    aria-pressed={!disabled}
-                  >
-                    <Power className="w-3 h-3" aria-hidden />
-                    {disabled ? (isAr ? 'تفعيل' : 'Enable') : (isAr ? 'إيقاف مؤقت' : 'Pause')}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      <div className="u-page p-4 sm:p-6 space-y-4 max-w-[1600px] mx-auto w-full min-w-0">
+        <h1 className="text-xl font-extrabold" style={{ color: 'var(--text)' }}>
+          {isAr ? 'المطابقة المالية' : 'Financial Reconciliation'}
+        </h1>
+        <p className="text-sm" style={{ color: 'var(--muted)' }}>
+          {isAr
+            ? 'لا يوجد دفتر موثوق لبوابة دفع — لا بوابات وهمية ولا نسب صحة مزيفة. افتح تبويب المدفوعات من المسار الرئيسي.'
+            : 'No trusted payment gateway ledger — no fake gateways or health percentages. Open the payments tab from the main route.'}
+        </p>
       </div>
     );
   }

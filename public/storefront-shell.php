@@ -36,25 +36,46 @@ $ga4 = null;
 $gsc = null;
 $ogImage = '';
 
-// Shared hosts (mieraf): ?store=bleco / /bleco must not inherit coffee shell title.
-$resolved = $host !== '' ? souq_seo_resolve($host, $path, $query) : null;
-if ($resolved) {
-    if ($resolved['title'] !== '') {
-        $title = $resolved['title'];
+$pathLower = strtolower($path);
+$isMasterPortal = $pathLower === '/master' || str_starts_with($pathLower, '/master/');
+$isAdminPortal =
+    $pathLower === '/admin'
+    || str_starts_with($pathLower, '/admin/')
+    || $pathLower === '/store/login'
+    || str_starts_with($pathLower, '/store/login')
+    || $pathLower === '/store/forgot-password'
+    || $pathLower === '/store/reset-password'
+    || $pathLower === '/master/forgot-password'
+    || $pathLower === '/master/reset-password';
+
+// Master / admin chrome must never inherit coffee/flowers storefront SEO titles.
+if ($isMasterPortal) {
+    $title = 'منصة سوق | لوحة تحكم المشرف';
+    $description = 'لوحة تحكم المشرف لمنصة سوق متعددة المتاجر في المملكة.';
+} elseif ($isAdminPortal) {
+    $title = 'لوحة تحكم المتجر | منصة سوق';
+    $description = 'لوحة تحكم التاجر لمنصة سوق.';
+} else {
+    // Shared hosts (mieraf): ?store=bleco / /bleco must not inherit coffee shell title.
+    $resolved = $host !== '' ? souq_seo_resolve($host, $path, $query) : null;
+    if ($resolved) {
+        if ($resolved['title'] !== '') {
+            $title = $resolved['title'];
+        }
+        if ($resolved['description'] !== '') {
+            $description = $resolved['description'];
+        }
+        $keywords = $resolved['keywords'];
+        if ($resolved['canonical'] !== '') {
+            $canonical = $resolved['canonical'];
+        }
+        $lang = $resolved['lang'] ?: $lang;
+        $dir = $resolved['dir'] ?: $dir;
+        $gtm = $resolved['gtm'];
+        $ga4 = $resolved['ga4'];
+        $gsc = $resolved['gsc'];
+        $ogImage = $resolved['og_image'];
     }
-    if ($resolved['description'] !== '') {
-        $description = $resolved['description'];
-    }
-    $keywords = $resolved['keywords'];
-    if ($resolved['canonical'] !== '') {
-        $canonical = $resolved['canonical'];
-    }
-    $lang = $resolved['lang'] ?: $lang;
-    $dir = $resolved['dir'] ?: $dir;
-    $gtm = $resolved['gtm'];
-    $ga4 = $resolved['ga4'];
-    $gsc = $resolved['gsc'];
-    $ogImage = $resolved['og_image'];
 }
 
 $esc = static function (string $value): string {

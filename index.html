@@ -326,6 +326,25 @@
           var lang = document.documentElement.lang || 'ar';
           var isAr = lang === 'ar' || lang === 'ur';
 
+          // Master portal on central must never inherit coffee/flowers storefront titles
+          var isMasterPortal = p === '/master' || p.indexOf('/master/') === 0;
+          if (isMasterPortal) {
+            var masterTitle = isAr
+              ? 'منصة سوق | لوحة تحكم المشرف'
+              : 'Souq Platform | Master Admin';
+            var masterDesc = isAr
+              ? 'لوحة تحكم المشرف لمنصة سوق متعددة المتاجر في المملكة.'
+              : 'Souq multi-store platform master control for the Kingdom.';
+            document.title = masterTitle;
+            var masterMetaDesc = document.querySelector('meta[name="description"]');
+            if (masterMetaDesc) masterMetaDesc.setAttribute('content', masterDesc);
+            var masterOgTitle = document.querySelector('meta[property="og:title"]');
+            if (masterOgTitle) masterOgTitle.setAttribute('content', masterTitle);
+            var masterOgDesc = document.querySelector('meta[property="og:description"]');
+            if (masterOgDesc) masterOgDesc.setAttribute('content', masterDesc);
+            return;
+          }
+
           // On giftshop-sa.com, self-heal any stale coffee preference unless explicitly requested
           var isGiftshopDomain = h.indexOf('giftshop-sa.com') !== -1 || h.indexOf('hadaya') !== -1;
           var isCoffeeHost = h.indexOf('mieraf-ksa.com') !== -1;
