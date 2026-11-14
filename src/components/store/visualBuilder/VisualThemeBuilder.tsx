@@ -142,6 +142,7 @@ import {
 import { Header } from '../../../themes/meccaGifts/components/Header';
 import { Footer } from '../../../themes/meccaGifts/components/Footer';
 import { HeaderElementInspector } from './header/HeaderElementInspector';
+import { UniversalSectionInspector } from './inspectors/UniversalSectionInspector';
 import {
   HeaderCustomSettings,
   HeaderSubElementKey,
@@ -1448,7 +1449,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
                           onAddColumnWidgetClick?.(b.id, colIdx);
                         }}
                         className="w-8 h-8 rounded-full bg-pink-600 hover:bg-pink-700 text-white flex items-center justify-center shadow-md transition-all hover:scale-115 cursor-pointer"
-                        title={isAr ? `إضافة ويدجت في العمود${ + 1}(+)` : `Add widget to Column ${colIdx + 1} (+)`}
+                        title={isAr ? `إضافة عنصر في العمود ${colIdx + 1}` : `Add widget to Column ${colIdx + 1}`}
                       >
                         <Plus className="w-4 h-4" />
                       </button>
@@ -1790,7 +1791,7 @@ const CanvasSectionInserter: React.FC<{
               type="button"
               onClick={() => setActiveOpenIndex(insertIndex)}
               className="w-7 h-7 rounded-full bg-pink-600 hover:bg-pink-700 text-white flex items-center justify-center shadow-md transition-all hover:scale-125 cursor-pointer"
-              title={isAr ? `إضافة قسم هنا` : `Add section here (#${widget.titleAr})`}
+              title={isAr ? `إضافة قسم هنا (#${insertIndex})` : `Add section here (#${insertIndex})`}
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -2302,10 +2303,23 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     createInitialBlocksForTheme(currentThemeId, activeStore),
   );
 
-  const selectedBlock = useMemo(
-    () => blocks.find((b) => b.id === selectedBlockId) || blocks[0],
-    [blocks, selectedBlockId],
-  );
+  const selectedBlock = useMemo(() => {
+    const raw = blocks.find((b) => b.id === selectedBlockId) || blocks[0];
+    if (!raw) {
+      return {
+        id: '_empty',
+        type: 'section',
+        titleEn: 'No section',
+        titleAr: 'لا يوجد قسم',
+        templateStyle: '',
+        settings: {},
+      } as BlockElement;
+    }
+    return {
+      ...raw,
+      settings: raw.settings && typeof raw.settings === 'object' ? raw.settings : {},
+    };
+  }, [blocks, selectedBlockId]);
 
   // Load Store Isolated Custom Templates on mount & block change
   useEffect(() => {
