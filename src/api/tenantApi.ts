@@ -3155,13 +3155,27 @@ export async function fetchSearchQueriesReportsApi(storeId: string): Promise<any
 // ── Real Theme Settings & Page Builder Persistence (Phase 2.2 / 2.3) ──
 
 export async function fetchThemesCatalogApi(): Promise<any[]> {
-  const res = await apiFetch<{ success: boolean; data: any[] }>('/themes-catalog');
-  return res.data ?? [];
+  try {
+    const res = await apiFetch<{ success: boolean; data: any[] }>('/themes-catalog');
+    return Array.isArray(res.data) ? res.data : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function fetchThemeSettingsApi(storeId: string): Promise<any> {
-  const res = await apiFetch<{ success: boolean; data: any }>(`/stores/${storeId}/theme-settings`, { storeId });
-  return res.data;
+  try {
+    const res = await apiFetch<{ success: boolean; data: any }>(`/stores/${storeId}/theme-settings`, {
+      storeId,
+    });
+    const data = res.data;
+    // Gateway may return settings object at root, or Laravel shape { settings, theme_id }
+    if (data == null || Array.isArray(data)) return null;
+    if (data.settings && typeof data.settings === 'object') return data;
+    return { store_id: storeId, theme_id: data.theme_id, settings: data };
+  } catch {
+    return null;
+  }
 }
 
 export interface StoreReviewRecord {
@@ -3236,14 +3250,27 @@ export async function updateThemeSettingsApi(
 }
 
 export async function fetchBuilderLayoutApi(storeId: string): Promise<any> {
-  const res = await apiFetch<{ success: boolean; data: any; store_id?: string }>(
-    `/stores/${storeId}/builder-layout`,
-    { storeId },
-  );
-  if (typeof res.store_id === 'string' && res.store_id !== storeId) {
-    throw new Error('Store mismatch');
+  try {
+    const res = await apiFetch<{ success: boolean; data: any; store_id?: string }>(
+      `/stores/${storeId}/builder-layout`,
+      { storeId },
+    );
+    if (typeof res.store_id === 'string' && res.store_id !== storeId) {
+      throw new Error('Store mismatch');
+    }
+    const data = res.data;
+    if (data == null || Array.isArray(data)) {
+      return { theme_id: undefined, blocks: [], published_blocks: [] };
+    }
+    return {
+      ...data,
+      blocks: Array.isArray(data.blocks) ? data.blocks : [],
+      published_blocks: Array.isArray(data.published_blocks) ? data.published_blocks : [],
+    };
+  } catch {
+    // Never crash Themes / Page Builder on API 500 / missing route
+    return { theme_id: undefined, blocks: [], published_blocks: [] };
   }
-  return res.data;
 }
 
 export async function saveBuilderLayoutApi(

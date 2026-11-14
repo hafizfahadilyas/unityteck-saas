@@ -15,6 +15,9 @@ export interface VisualCategoryItem {
   count?: number;
 }
 
+/** Builder fallback when no saved categories — live coffee uses storefront catalog API. */
+export const COFFEE_CIRCULAR_CATEGORIES: VisualCategoryItem[] = [];
+
 export interface TopCircularCategoriesProps {
   isBuilderMode?: boolean;
   categories?: VisualCategoryItem[];
