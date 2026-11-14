@@ -42,6 +42,10 @@ import {
   UserPlus,
   Ban,
   CheckCircle2,
+  X,
+  Mail,
+  Shield,
+  Settings2,
 } from 'lucide-react';
 import { MasterLuxePanel, MasterMetaLine, MasterTabPills } from './MasterUiKit';
 import { MasterStoreScopeFilter } from './MasterStoreScopeFilter';
@@ -58,17 +62,45 @@ type MerchantRow = {
   plan: string;
   registered: string;
   storeName: string;
+  masterGrantedPro: boolean;
 };
 
 type EditDraft = {
   storeId: string;
+  storeName: string;
   email: string;
+  originalEmail: string;
+  phone: string;
+  ownerName: string;
   status: 'active' | 'suspended' | 'pending';
+  originalStatus: 'active' | 'suspended' | 'pending';
   plan: PlanType;
   loginEmailActive: boolean;
+  originalLoginEmailActive: boolean;
+  masterGrantedPro: boolean;
+  reason: string;
 };
 
 const PLAN_OPTIONS: PlanType[] = ['free', 'paid', 'pro', 'premium', 'custom'];
+
+const planLabel = (plan: string, isAr: boolean): string => {
+  const key = String(plan || 'free').toLowerCase();
+  if (!isAr) return key.charAt(0).toUpperCase() + key.slice(1);
+  switch (key) {
+    case 'free':
+      return 'مجاني';
+    case 'paid':
+      return 'مدفوع';
+    case 'pro':
+      return 'احترافي';
+    case 'premium':
+      return 'مميز';
+    case 'custom':
+      return 'مخصص';
+    default:
+      return key;
+  }
+};
 
 /** SOUQ PLUS Phase 1 §4.2 — merchants / customers / queue from real tenant data. */
 export const MasterAccountManagement: React.FC<{
@@ -158,12 +190,13 @@ export const MasterAccountManagement: React.FC<{
         id: s.id,
         name: getStoreDisplayOwner(s, locale) || getStoreDisplayName(s, locale),
         email: resolveLoginEmail(s.id, String(s.ownerEmail || s.email || '')),
-        phone: String((s as { phone?: string }).phone || ''),
+        phone: String(s.phone || s.contactPhone || ''),
         status: s.status || 'suspended',
         storeCount: 1,
         plan: s.plan || 'free',
         registered: s.createdAt || '',
         storeName: getStoreDisplayName(s, locale),
+        masterGrantedPro: Boolean(s.masterGrantedPro),
       }))
       .filter((m) => {
         if (!needle) return true;
@@ -256,14 +289,26 @@ export const MasterAccountManagement: React.FC<{
   };
 
   const openEdit = (m: MerchantRow) => {
+    const status = (
+      m.status === 'active' || m.status === 'pending' || m.status === 'suspended'
+        ? m.status
+        : 'suspended'
+    ) as EditDraft['status'];
+    const loginActive = isStoreLoginEmailActive(m.id);
     setEditDraft({
       storeId: m.id,
+      storeName: m.storeName,
       email: m.email === '—' ? '' : m.email,
-      status: (m.status === 'active' || m.status === 'pending' || m.status === 'suspended'
-        ? m.status
-        : 'suspended') as EditDraft['status'],
+      originalEmail: m.email === '—' ? '' : m.email.trim().toLowerCase(),
+      phone: m.phone || '',
+      ownerName: m.name || '',
+      status,
+      originalStatus: status,
       plan: (PLAN_OPTIONS.includes(m.plan as PlanType) ? m.plan : 'free') as PlanType,
-      loginEmailActive: isStoreLoginEmailActive(m.id),
+      loginEmailActive: loginActive,
+      originalLoginEmailActive: loginActive,
+      masterGrantedPro: m.masterGrantedPro,
+      reason: '',
     });
   };
 
@@ -285,10 +330,27 @@ export const MasterAccountManagement: React.FC<{
       return;
     }
 
+    const emailChanged = nextEmail !== editDraft.originalEmail.trim().toLowerCase();
+    const statusChanged = editDraft.status !== editDraft.originalStatus;
+    const loginChanged = editDraft.loginEmailActive !== editDraft.originalLoginEmailActive;
+    const reason = editDraft.reason.trim();
+    if ((emailChanged || statusChanged || loginChanged) && !reason) {
+      toast(
+        isAr
+          ? 'السبب مطلوب عند تغيير البريد أو الحالة أو صلاحية الدخول'
+          : 'Reason is required when changing email, status, or login access',
+        'error',
+      );
+      return;
+    }
+
     setEditBusy(true);
     const store = stores.find((s) => s.id === editDraft.storeId);
-    const storeName = store ? getStoreDisplayName(store, locale) : editDraft.storeId;
+    const storeName = store ? getStoreDisplayName(store, locale) : editDraft.storeName || editDraft.storeId;
     const prevStatus = store?.status || null;
+    const auditReason =
+      reason ||
+      (isAr ? 'تحديث الحساب من إدارة الحسابات' : 'Account update from Account Management');
 
     try {
       setStoreLoginEmailOverride(editDraft.storeId, nextEmail);
@@ -302,15 +364,18 @@ export const MasterAccountManagement: React.FC<{
         await updateStore(editDraft.storeId, {
           email: nextEmail,
           owner_email: nextEmail,
+          phone: editDraft.phone.trim() || null,
+          owner_name: editDraft.ownerName.trim() || null,
           status: editDraft.status,
           plan: editDraft.plan,
           login_email_active: editDraft.loginEmailActive,
-          reason: isAr ? 'تحديث الحساب من إدارة الحسابات' : 'Account update from Account Management',
+          master_granted_pro: editDraft.masterGrantedPro,
+          reason: auditReason,
         });
-      } else if (prevStatus !== editDraft.status) {
+      } else if (statusChanged) {
         await updateStore(editDraft.storeId, {
           status: editDraft.status,
-          reason: isAr ? 'تحديث الحالة من إدارة الحسابات' : 'Status update from Account Management',
+          reason: auditReason,
         });
       }
 
@@ -320,7 +385,7 @@ export const MasterAccountManagement: React.FC<{
             store_id: editDraft.storeId,
             from_status: prevStatus,
             to_status: editDraft.status,
-            reason: isAr ? 'تحديث من إدارة الحسابات' : 'Updated from Account Management',
+            reason: auditReason,
           });
         } catch {
           /* history best-effort */
@@ -333,7 +398,7 @@ export const MasterAccountManagement: React.FC<{
         storeId: editDraft.storeId,
         action: 'store_update',
         resource: `Store: ${storeName}`,
-        details: `Updated email=${nextEmail}, status=${editDraft.status}, plan=${editDraft.plan}, loginActive=${editDraft.loginEmailActive}`,
+        details: `Updated email=${nextEmail}, phone=${editDraft.phone.trim() || '—'}, status=${editDraft.status}, plan=${editDraft.plan}, loginActive=${editDraft.loginEmailActive}, masterPro=${editDraft.masterGrantedPro}; reason=${auditReason}`,
         status: 'success',
         ipAddress: 'master-console',
       });
@@ -493,7 +558,7 @@ export const MasterAccountManagement: React.FC<{
   };
 
   const actionBtnClass =
-    'inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold border transition-opacity hover:opacity-90 cursor-pointer shrink-0';
+    'inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-opacity hover:opacity-90 cursor-pointer shrink-0';
 
   return (
     <AdminPageShell>
@@ -685,18 +750,39 @@ export const MasterAccountManagement: React.FC<{
                       </div>
                     </td>
                     <td className="p-3 align-top">{statusBadge(m.status)}</td>
-                    <td className="p-3 hidden sm:table-cell capitalize align-top" style={{ color: 'var(--muted)' }}>
-                      {m.plan}
+                    <td className="p-3 hidden sm:table-cell align-top" style={{ color: 'var(--muted)' }}>
+                      {planLabel(m.plan, isAr)}
+                      {m.masterGrantedPro ? (
+                        <div className="text-[10px] font-bold mt-0.5" style={{ color: 'var(--accent)' }}>
+                          {isAr ? 'منح احترافي' : 'Master Pro'}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="p-3 align-top">
-                      <div className="flex flex-wrap gap-1.5 max-w-[280px]">
+                      <div className="flex flex-wrap items-center gap-1.5 max-w-[320px]">
+                        <button
+                          type="button"
+                          className={actionBtnClass}
+                          style={{
+                            color: '#fff',
+                            background: 'var(--portal-cta)',
+                          }}
+                          onClick={() => openEdit(m)}
+                          title={
+                            isAr
+                              ? 'تعديل كامل: البريد والحالة والباقة والمزيد'
+                              : 'Full edit: email, status, plan, and more'
+                          }
+                        >
+                          <Pencil className="w-3 h-3" aria-hidden />
+                          {isAr ? 'تعديل كامل' : 'Full edit'}
+                        </button>
                         <button
                           type="button"
                           className={actionBtnClass}
                           style={{
                             color: 'var(--accent)',
-                            borderColor: 'color-mix(in srgb, var(--accent) 35%, var(--border))',
-                            background: 'color-mix(in srgb, var(--accent) 8%, var(--surface))',
+                            background: 'color-mix(in srgb, var(--accent) 10%, transparent)',
                           }}
                           onClick={() => switchToStore(m.id)}
                           title={isAr ? 'فتح المتجر' : 'Open store'}
@@ -708,43 +794,13 @@ export const MasterAccountManagement: React.FC<{
                           type="button"
                           className={actionBtnClass}
                           style={{
-                            color: 'var(--text)',
-                            borderColor: 'var(--border)',
-                            background: 'var(--surface)',
-                          }}
-                          onClick={() => openEdit(m)}
-                          title={isAr ? 'تعديل البريد والحالة والباقة' : 'Edit email, status, plan'}
-                        >
-                          <Pencil className="w-3 h-3" aria-hidden />
-                          {isAr ? 'تعديل' : 'Edit'}
-                        </button>
-                        <button
-                          type="button"
-                          className={actionBtnClass}
-                          style={{
-                            color: 'var(--accent)',
-                            borderColor: 'var(--border)',
-                            background: 'var(--surface)',
-                          }}
-                          onClick={() => openEdit(m)}
-                          title={isAr ? 'تحديث الحساب' : 'Update account'}
-                        >
-                          <Save className="w-3 h-3" aria-hidden />
-                          {isAr ? 'تحديث' : 'Update'}
-                        </button>
-                        <button
-                          type="button"
-                          className={actionBtnClass}
-                          style={{
                             color: 'var(--muted)',
-                            borderColor: 'var(--border)',
-                            background: 'var(--surface)',
+                            background: 'color-mix(in srgb, var(--muted) 10%, transparent)',
                           }}
                           onClick={() => void copyText(m.email || m.id, isAr ? 'البريد / المعرّف' : 'email / id')}
                           title={isAr ? 'نسخ البريد أو المعرّف' : 'Copy email or id'}
                         >
                           <Copy className="w-3 h-3" aria-hidden />
-                          {isAr ? 'نسخ' : 'Copy'}
                         </button>
                         {m.status !== 'active' ? (
                           <button
@@ -752,8 +808,7 @@ export const MasterAccountManagement: React.FC<{
                             className={actionBtnClass}
                             style={{
                               color: '#059669',
-                              borderColor: 'color-mix(in srgb, #10b981 35%, var(--border))',
-                              background: 'color-mix(in srgb, #10b981 8%, var(--surface))',
+                              background: 'color-mix(in srgb, #10b981 12%, transparent)',
                             }}
                             onClick={() => openLifecycle(m.id, 'active')}
                           >
@@ -767,8 +822,7 @@ export const MasterAccountManagement: React.FC<{
                             className={actionBtnClass}
                             style={{
                               color: '#e11d48',
-                              borderColor: 'color-mix(in srgb, #e11d48 35%, var(--border))',
-                              background: 'color-mix(in srgb, #e11d48 8%, var(--surface))',
+                              background: 'color-mix(in srgb, #e11d48 10%, transparent)',
                             }}
                             onClick={() => openLifecycle(m.id, 'suspended')}
                           >
@@ -782,14 +836,12 @@ export const MasterAccountManagement: React.FC<{
                             className={actionBtnClass}
                             style={{
                               color: '#e11d48',
-                              borderColor: 'color-mix(in srgb, #e11d48 35%, var(--border))',
-                              background: 'color-mix(in srgb, #e11d48 8%, var(--surface))',
+                              background: 'color-mix(in srgb, #e11d48 10%, transparent)',
                             }}
                             onClick={() => void handleDelete(m)}
                             title={isAr ? 'حذف المتجر' : 'Delete store'}
                           >
                             <Trash2 className="w-3 h-3" aria-hidden />
-                            {isAr ? 'حذف' : 'Delete'}
                           </button>
                         ) : null}
                       </div>
@@ -836,8 +888,7 @@ export const MasterAccountManagement: React.FC<{
                         className={actionBtnClass}
                         style={{
                           color: 'var(--muted)',
-                          borderColor: 'var(--border)',
-                          background: 'var(--surface)',
+                          background: 'color-mix(in srgb, var(--muted) 10%, transparent)',
                         }}
                         onClick={() =>
                           void copyText(
@@ -854,8 +905,7 @@ export const MasterAccountManagement: React.FC<{
                         className={actionBtnClass}
                         style={{
                           color: 'var(--accent)',
-                          borderColor: 'color-mix(in srgb, var(--accent) 35%, var(--border))',
-                          background: 'color-mix(in srgb, var(--accent) 8%, var(--surface))',
+                          background: 'color-mix(in srgb, var(--accent) 10%, transparent)',
                         }}
                         onClick={() => switchToStore(c.storeId)}
                       >
@@ -916,8 +966,7 @@ export const MasterAccountManagement: React.FC<{
                         className={actionBtnClass}
                         style={{
                           color: 'var(--muted)',
-                          borderColor: 'var(--border)',
-                          background: 'var(--surface)',
+                          background: 'color-mix(in srgb, var(--muted) 10%, transparent)',
                         }}
                         onClick={() =>
                           void copyText(String(inv.token || inv.storeId), isAr ? 'الرمز' : 'token')
@@ -980,8 +1029,7 @@ export const MasterAccountManagement: React.FC<{
                         className={actionBtnClass}
                         style={{
                           color: 'var(--muted)',
-                          borderColor: 'var(--border)',
-                          background: 'var(--surface)',
+                          background: 'color-mix(in srgb, var(--muted) 10%, transparent)',
                         }}
                         onClick={() =>
                           void copyText(
@@ -1044,96 +1092,289 @@ export const MasterAccountManagement: React.FC<{
               : 'Source: platform stores & customers'}
       </MasterMetaLine>
 
-      {/* Edit / Update merchant modal */}
+      {/* Full edit merchant modal — single shell, no nested border */}
       <GlobalModal
         isOpen={Boolean(editDraft)}
         onClose={() => {
           if (!editBusy) setEditDraft(null);
         }}
-        aria-label={isAr ? 'تعديل الحساب' : 'Edit account'}
-        contentClassName="w-full max-w-md mx-4 rounded-2xl border p-5"
+        dir={isAr ? 'rtl' : 'ltr'}
+        aria-label={isAr ? 'تعديل الحساب بالكامل' : 'Full account edit'}
+        contentClassName="w-full max-w-xl mx-2 sm:mx-4"
       >
         {editDraft ? (
           <div
-            className="space-y-3 rounded-2xl border p-4"
-            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+            className="w-full rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[min(92dvh,880px)]"
+            style={{ background: 'var(--surface)', color: 'var(--text)' }}
           >
-            <h3 className="text-sm font-black" style={{ color: 'var(--text)' }}>
-              {isAr ? 'تعديل / تحديث الحساب' : 'Edit / Update account'}
-            </h3>
-            <p className="text-xs" style={{ color: 'var(--muted)' }}>
-              {editDraft.storeId}
-            </p>
-
-            <label className="block text-xs font-bold" style={{ color: 'var(--text)' }}>
-              {isAr ? 'بريد الدخول' : 'Login email'}
-            </label>
-            <input
-              type="email"
-              dir="ltr"
-              value={editDraft.email}
-              onChange={(e) => setEditDraft({ ...editDraft, email: e.target.value })}
-              className="w-full rounded-xl border text-sm p-3 bg-transparent font-mono"
-              style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-              disabled={editBusy}
-            />
-
-            <label className="block text-xs font-bold" style={{ color: 'var(--text)' }}>
-              {isAr ? 'حالة المتجر' : 'Store status'}
-            </label>
-            <select
-              value={editDraft.status}
-              onChange={(e) =>
-                setEditDraft({
-                  ...editDraft,
-                  status: e.target.value as EditDraft['status'],
-                })
-              }
-              className="w-full rounded-xl border text-sm p-3 bg-transparent"
-              style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-              disabled={editBusy}
+            <div
+              className="flex items-start justify-between gap-3 px-5 py-4 shrink-0"
+              style={{ background: 'var(--portal-cta)', color: '#fff' }}
             >
-              <option value="active">{isAr ? 'نشط' : 'Active'}</option>
-              <option value="pending">{isAr ? 'قيد المراجعة' : 'Pending'}</option>
-              <option value="suspended">{isAr ? 'موقوف' : 'Suspended'}</option>
-            </select>
-
-            <label className="block text-xs font-bold" style={{ color: 'var(--text)' }}>
-              {isAr ? 'الباقة' : 'Plan'}
-            </label>
-            <select
-              value={editDraft.plan}
-              onChange={(e) =>
-                setEditDraft({ ...editDraft, plan: e.target.value as PlanType })
-              }
-              className="w-full rounded-xl border text-sm p-3 bg-transparent capitalize"
-              style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-              disabled={editBusy}
-            >
-              {PLAN_OPTIONS.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-
-            <label className="flex items-center gap-2 text-xs font-bold cursor-pointer" style={{ color: 'var(--text)' }}>
-              <input
-                type="checkbox"
-                checked={editDraft.loginEmailActive}
-                onChange={(e) =>
-                  setEditDraft({ ...editDraft, loginEmailActive: e.target.checked })
-                }
-                disabled={editBusy}
-              />
-              {isAr ? 'بريد الدخول نشط (يسمح بتسجيل الدخول)' : 'Login email Active (allows sign-in)'}
-            </label>
-
-            <div className="flex justify-end gap-2 flex-wrap pt-1">
+              <div className="min-w-0">
+                <h3 className="text-base font-black leading-tight">
+                  {isAr ? 'تعديل الحساب بالكامل' : 'Full account edit'}
+                </h3>
+                <p className="text-[11px] mt-1 opacity-90 truncate">
+                  {editDraft.storeName}
+                  <span className="opacity-80 font-mono ms-1" dir="ltr">
+                    · {editDraft.storeId}
+                  </span>
+                </p>
+              </div>
               <button
                 type="button"
-                className="px-3 py-2 rounded-xl border text-sm"
-                style={{ borderColor: 'var(--border)' }}
+                className="p-1.5 rounded-lg shrink-0 hover:bg-white/15 transition-colors"
+                disabled={editBusy}
+                onClick={() => setEditDraft(null)}
+                aria-label={isAr ? 'إغلاق' : 'Close'}
+              >
+                <X className="w-4 h-4" aria-hidden />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+              {/* Login & access */}
+              <section className="space-y-3" aria-labelledby="acct-login-heading">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} aria-hidden />
+                  <h4 id="acct-login-heading" className="text-xs font-black tracking-wide uppercase" style={{ color: 'var(--muted)' }}>
+                    {isAr ? 'بريد الدخول والوصول' : 'Login email & access'}
+                  </h4>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="block space-y-1.5 sm:col-span-2">
+                    <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                      {isAr ? 'تغيير بريد الدخول' : 'Change login email'}
+                    </span>
+                    <input
+                      type="email"
+                      dir="ltr"
+                      value={editDraft.email}
+                      onChange={(e) => setEditDraft({ ...editDraft, email: e.target.value })}
+                      className="w-full rounded-xl text-sm px-3 py-2.5 font-mono outline-none"
+                      style={{
+                        background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
+                        color: 'var(--input-fg, var(--text))',
+                        boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
+                      }}
+                      placeholder="name@example.com"
+                      disabled={editBusy}
+                      autoComplete="off"
+                    />
+                    <span className="text-[10px] block" style={{ color: 'var(--muted)' }}>
+                      {isAr
+                        ? 'هذا البريد فقط يفتح تسجيل دخول المتجر. التغيير من صلاحيات المشرف الأعلى فقط.'
+                        : 'This email alone opens store sign-in. Change is Master SuperAdmin only.'}
+                    </span>
+                  </label>
+
+                  <label
+                    className="flex items-start gap-2.5 rounded-xl px-3 py-2.5 cursor-pointer sm:col-span-2"
+                    style={{
+                      background: editDraft.loginEmailActive
+                        ? 'color-mix(in srgb, #10b981 10%, var(--surface))'
+                        : 'color-mix(in srgb, #e11d48 8%, var(--surface))',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 accent-[var(--accent)]"
+                      checked={editDraft.loginEmailActive}
+                      onChange={(e) =>
+                        setEditDraft({ ...editDraft, loginEmailActive: e.target.checked })
+                      }
+                      disabled={editBusy}
+                    />
+                    <span className="min-w-0">
+                      <span className="text-xs font-bold block" style={{ color: 'var(--text)' }}>
+                        {isAr ? 'بريد الدخول نشط' : 'Login email Active'}
+                      </span>
+                      <span className="text-[10px] block mt-0.5" style={{ color: 'var(--muted)' }}>
+                        {isAr
+                          ? 'عند التعطيل يُرفض تسجيل الدخول لهذا المتجر فوراً.'
+                          : 'When off, sign-in for this store is rejected immediately.'}
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </section>
+
+              {/* Store settings */}
+              <section className="space-y-3" aria-labelledby="acct-store-heading">
+                <div className="flex items-center gap-2">
+                  <Settings2 className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} aria-hidden />
+                  <h4 id="acct-store-heading" className="text-xs font-black tracking-wide uppercase" style={{ color: 'var(--muted)' }}>
+                    {isAr ? 'إعدادات المتجر' : 'Store settings'}
+                  </h4>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="block space-y-1.5 sm:col-span-2">
+                    <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                      {isAr ? 'اسم المالك / التاجر' : 'Owner / merchant name'}
+                    </span>
+                    <input
+                      type="text"
+                      value={editDraft.ownerName}
+                      onChange={(e) => setEditDraft({ ...editDraft, ownerName: e.target.value })}
+                      className="w-full rounded-xl text-sm px-3 py-2.5 outline-none"
+                      style={{
+                        background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
+                        color: 'var(--input-fg, var(--text))',
+                        boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
+                      }}
+                      disabled={editBusy}
+                    />
+                  </label>
+
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                      {isAr ? 'رقم الجوال' : 'Phone'}
+                    </span>
+                    <input
+                      type="tel"
+                      dir="ltr"
+                      value={editDraft.phone}
+                      onChange={(e) => setEditDraft({ ...editDraft, phone: e.target.value })}
+                      className="w-full rounded-xl text-sm px-3 py-2.5 outline-none"
+                      style={{
+                        background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
+                        color: 'var(--input-fg, var(--text))',
+                        boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
+                      }}
+                      placeholder="+966…"
+                      disabled={editBusy}
+                    />
+                  </label>
+
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                      {isAr ? 'حالة المتجر' : 'Store status'}
+                    </span>
+                    <select
+                      value={editDraft.status}
+                      onChange={(e) =>
+                        setEditDraft({
+                          ...editDraft,
+                          status: e.target.value as EditDraft['status'],
+                        })
+                      }
+                      className="w-full rounded-xl text-sm px-3 py-2.5 outline-none"
+                      style={{
+                        background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
+                        color: 'var(--input-fg, var(--text))',
+                        boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
+                      }}
+                      disabled={editBusy}
+                    >
+                      <option value="active">{isAr ? 'نشط' : 'Active'}</option>
+                      <option value="pending">{isAr ? 'قيد المراجعة' : 'Pending'}</option>
+                      <option value="suspended">{isAr ? 'موقوف' : 'Suspended'}</option>
+                    </select>
+                  </label>
+
+                  <label className="block space-y-1.5">
+                    <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                      {isAr ? 'الباقة' : 'Plan'}
+                    </span>
+                    <select
+                      value={editDraft.plan}
+                      onChange={(e) =>
+                        setEditDraft({ ...editDraft, plan: e.target.value as PlanType })
+                      }
+                      className="w-full rounded-xl text-sm px-3 py-2.5 outline-none"
+                      style={{
+                        background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
+                        color: 'var(--input-fg, var(--text))',
+                        boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
+                      }}
+                      disabled={editBusy}
+                    >
+                      {PLAN_OPTIONS.map((p) => (
+                        <option key={p} value={p}>
+                          {planLabel(p, isAr)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label
+                    className="flex items-start gap-2.5 rounded-xl px-3 py-2.5 cursor-pointer sm:col-span-2"
+                    style={{
+                      background: 'color-mix(in srgb, var(--accent) 8%, var(--surface))',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 accent-[var(--accent)]"
+                      checked={editDraft.masterGrantedPro}
+                      onChange={(e) =>
+                        setEditDraft({ ...editDraft, masterGrantedPro: e.target.checked })
+                      }
+                      disabled={editBusy}
+                    />
+                    <span className="min-w-0">
+                      <span className="text-xs font-bold block" style={{ color: 'var(--text)' }}>
+                        {isAr ? 'منح الباقة الاحترافية من المشرف' : 'Master-granted Pro'}
+                      </span>
+                      <span className="text-[10px] block mt-0.5" style={{ color: 'var(--muted)' }}>
+                        {isAr
+                          ? 'يفتح ميزات احترافية لهذا المتجر حتى لو كانت الباقة الأساسية مختلفة.'
+                          : 'Unlocks Pro features for this store even if the base plan differs.'}
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </section>
+
+              {/* Audit reason */}
+              <section className="space-y-3" aria-labelledby="acct-reason-heading">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} aria-hidden />
+                  <h4 id="acct-reason-heading" className="text-xs font-black tracking-wide uppercase" style={{ color: 'var(--muted)' }}>
+                    {isAr ? 'سجل التدقيق' : 'Audit'}
+                  </h4>
+                </div>
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                    {isAr
+                      ? 'سبب التغيير (مطلوب لتغيير البريد / الحالة / الدخول)'
+                      : 'Change reason (required for email / status / login changes)'}
+                  </span>
+                  <textarea
+                    value={editDraft.reason}
+                    onChange={(e) => setEditDraft({ ...editDraft, reason: e.target.value })}
+                    rows={2}
+                    className="w-full rounded-xl text-sm px-3 py-2.5 outline-none resize-y min-h-[64px]"
+                    style={{
+                      background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
+                      color: 'var(--input-fg, var(--text))',
+                      boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
+                    }}
+                    placeholder={
+                      isAr
+                        ? 'مثال: تصحيح بريد التاجر بعد طلب الدعم…'
+                        : 'e.g. Corrected merchant login email after support request…'
+                    }
+                    disabled={editBusy}
+                  />
+                </label>
+              </section>
+            </div>
+
+            <div
+              className="flex flex-wrap justify-end gap-2 px-5 py-3.5 shrink-0"
+              style={{
+                background: 'color-mix(in srgb, var(--muted) 6%, var(--surface))',
+              }}
+            >
+              <button
+                type="button"
+                className="px-4 py-2 rounded-xl text-sm font-bold"
+                style={{
+                  color: 'var(--text)',
+                  background: 'color-mix(in srgb, var(--muted) 12%, transparent)',
+                }}
                 disabled={editBusy}
                 onClick={() => setEditDraft(null)}
               >
@@ -1147,7 +1388,13 @@ export const MasterAccountManagement: React.FC<{
                 onClick={() => void saveEdit()}
               >
                 <Save className="w-3.5 h-3.5" aria-hidden />
-                {isAr ? 'حفظ التحديث' : 'Save update'}
+                {editBusy
+                  ? isAr
+                    ? 'جاري الحفظ…'
+                    : 'Saving…'
+                  : isAr
+                    ? 'حفظ كل التغييرات'
+                    : 'Save all changes'}
               </button>
             </div>
           </div>
@@ -1159,6 +1406,7 @@ export const MasterAccountManagement: React.FC<{
         onClose={() => {
           if (!actionBusy) setActionStoreId(null);
         }}
+        dir={isAr ? 'rtl' : 'ltr'}
         aria-label={
           actionStatus === 'active'
             ? isAr
@@ -1168,55 +1416,81 @@ export const MasterAccountManagement: React.FC<{
               ? 'إيقاف الحساب'
               : 'Suspend account'
         }
-        contentClassName="w-full max-w-md mx-4 rounded-2xl border p-5"
+        contentClassName="w-full max-w-md mx-2 sm:mx-4"
       >
         <div
-          className="space-y-3 rounded-2xl border p-4"
-          style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+          className="w-full rounded-2xl shadow-2xl overflow-hidden"
+          style={{ background: 'var(--surface)', color: 'var(--text)' }}
         >
-          <h3 className="text-sm font-black" style={{ color: 'var(--text)' }}>
-            {actionStatus === 'active'
-              ? isAr
-                ? 'تفعيل الحساب'
-                : 'Activate account'
-              : isAr
-                ? 'إيقاف الحساب'
-                : 'Suspend account'}
-          </h3>
-          <p className="text-sm" style={{ color: 'var(--muted)' }}>
-            {isAr
-              ? 'سيتم تطبيق الحالة على المتجر فوراً. السبب يُسجَّل في سجل التدقيق.'
-              : 'Status applies to the store immediately. Reason is written to the audit log.'}
-          </p>
-          <label className="block text-xs font-bold" style={{ color: 'var(--text)' }}>
-            {isAr ? 'السبب (مطلوب)' : 'Reason (required)'}
-          </label>
-          <textarea
-            value={actionReason}
-            onChange={(e) => setActionReason(e.target.value)}
-            rows={3}
-            className="w-full rounded-xl border text-sm p-3 bg-transparent"
-            style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-          />
-          <div className="flex justify-end gap-2">
+          <div
+            className="flex items-start justify-between gap-3 px-5 py-4"
+            style={{ background: 'var(--portal-cta)', color: '#fff' }}
+          >
+            <h3 className="text-base font-black">
+              {actionStatus === 'active'
+                ? isAr
+                  ? 'تفعيل الحساب'
+                  : 'Activate account'
+                : isAr
+                  ? 'إيقاف الحساب'
+                  : 'Suspend account'}
+            </h3>
             <button
               type="button"
-              className="px-3 py-2 rounded-xl border text-sm"
-              style={{ borderColor: 'var(--border)' }}
+              className="p-1.5 rounded-lg shrink-0 hover:bg-white/15 transition-colors"
               disabled={actionBusy}
               onClick={() => setActionStoreId(null)}
+              aria-label={isAr ? 'إغلاق' : 'Close'}
             >
-              {isAr ? 'إلغاء' : 'Cancel'}
+              <X className="w-4 h-4" aria-hidden />
             </button>
-            <button
-              type="button"
-              className="unity-btn-primary text-sm"
-              disabled={actionBusy}
-              aria-busy={actionBusy}
-              onClick={() => void confirmLifecycle()}
-            >
-              {isAr ? 'تأكيد' : 'Confirm'}
-            </button>
+          </div>
+          <div className="px-5 py-4 space-y-3">
+            <p className="text-sm" style={{ color: 'var(--muted)' }}>
+              {isAr
+                ? 'سيتم تطبيق الحالة على المتجر فوراً. السبب يُسجَّل في سجل التدقيق.'
+                : 'Status applies to the store immediately. Reason is written to the audit log.'}
+            </p>
+            <label className="block space-y-1.5">
+              <span className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                {isAr ? 'السبب (مطلوب)' : 'Reason (required)'}
+              </span>
+              <textarea
+                value={actionReason}
+                onChange={(e) => setActionReason(e.target.value)}
+                rows={3}
+                className="w-full rounded-xl text-sm px-3 py-2.5 outline-none resize-y"
+                style={{
+                  background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
+                  color: 'var(--input-fg, var(--text))',
+                  boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
+                }}
+                disabled={actionBusy}
+              />
+            </label>
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                className="px-4 py-2 rounded-xl text-sm font-bold"
+                style={{
+                  color: 'var(--text)',
+                  background: 'color-mix(in srgb, var(--muted) 12%, transparent)',
+                }}
+                disabled={actionBusy}
+                onClick={() => setActionStoreId(null)}
+              >
+                {isAr ? 'إلغاء' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                className="unity-btn-primary text-sm"
+                disabled={actionBusy}
+                aria-busy={actionBusy}
+                onClick={() => void confirmLifecycle()}
+              >
+                {isAr ? 'تأكيد' : 'Confirm'}
+              </button>
+            </div>
           </div>
         </div>
       </GlobalModal>

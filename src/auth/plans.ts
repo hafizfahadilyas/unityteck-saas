@@ -52,7 +52,7 @@ const CATALOG: Record<
     orderLimit: 100,
     storageMb: 512,
     teamSeats: 1,
-    features: ['catalog', 'orders', 'basic_seo', 'themes_basic', 'media_studio'],
+    features: ['catalog', 'orders', 'basic_seo', 'themes_basic', 'media_studio', 'whatsapp'],
   },
   paid: {
     name: 'Paid',
@@ -61,7 +61,7 @@ const CATALOG: Record<
     orderLimit: 2000,
     storageMb: 5120,
     teamSeats: 5,
-    features: ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'media_studio'],
+    features: ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'media_studio', 'whatsapp'],
   },
   pro: {
     name: 'Pro',

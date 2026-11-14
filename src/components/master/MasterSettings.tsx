@@ -227,9 +227,11 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
 
   const [activeTab, setActiveTab] = useState<MasterSettingsTab>('platform');
 
-  // Platform details
-  const [platformName, setPlatformName] = useState(isAr ? 'منصة سوق' : 'Souq Platform');
-  const [platformTagline, setPlatformTagline] = useState('');
+  // Platform details — dual EN/AR kept always for real testing
+  const [platformNameEn, setPlatformNameEn] = useState('Souq Platform');
+  const [platformNameAr, setPlatformNameAr] = useState('منصة سوق');
+  const [platformTaglineEn, setPlatformTaglineEn] = useState('');
+  const [platformTaglineAr, setPlatformTaglineAr] = useState('');
   const [platformLogo, setPlatformLogo] = useState('/favicon.svg');
   const [supportEmail, setSupportEmail] = useState('admin@unityteck.sa');
   const [timezone, setTimezone] = useState('Asia/Riyadh');
@@ -238,7 +240,8 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
   const [whatsappEnabled, setWhatsappEnabled] = useState(false);
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [maintenanceMode, setMaintenanceMode] = useState(false);
-  const [maintenanceMessage, setMaintenanceMessage] = useState('');
+  const [maintenanceMessageEn, setMaintenanceMessageEn] = useState('');
+  const [maintenanceMessageAr, setMaintenanceMessageAr] = useState('');
   const [socialLinks, setSocialLinks] = useState({
     twitter: { enabled: false, url: '' },
     linkedin: { enabled: false, url: '' },
@@ -257,39 +260,18 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
       .then((res) => {
         if (cancelled) return;
         const d = res.data || {};
-        if (isAr && typeof d.platformNameAr === 'string' && d.platformNameAr) {
-          setPlatformName(d.platformNameAr);
-        } else if (typeof d.platformName === 'string' && d.platformName) {
-          setPlatformName(d.platformName);
-        }
-        if (isAr && typeof d.platformTaglineAr === 'string') {
-          setPlatformTagline(d.platformTaglineAr);
-        } else if (typeof d.platformTagline === 'string') {
-          setPlatformTagline(d.platformTagline);
-        }
-        if (typeof d.platformLogo === 'string' && d.platformLogo) {
-          setPlatformLogo(d.platformLogo);
-        }
-        if (typeof d.supportEmail === 'string' && d.supportEmail) {
-          setSupportEmail(d.supportEmail);
-        }
-        if (typeof d.timezone === 'string' && d.timezone) {
-          setTimezone(d.timezone);
-        }
-        if (typeof d.whatsappEnabled === 'boolean') {
-          setWhatsappEnabled(d.whatsappEnabled);
-        }
-        if (typeof d.whatsappNumber === 'string') {
-          setWhatsappNumber(d.whatsappNumber);
-        }
-        if (typeof d.maintenanceMode === 'boolean') {
-          setMaintenanceMode(d.maintenanceMode);
-        }
-        if (isAr && typeof d.maintenanceMessageAr === 'string') {
-          setMaintenanceMessage(d.maintenanceMessageAr);
-        } else if (typeof d.maintenanceMessage === 'string') {
-          setMaintenanceMessage(d.maintenanceMessage);
-        }
+        if (typeof d.platformName === 'string' && d.platformName) setPlatformNameEn(d.platformName);
+        if (typeof d.platformNameAr === 'string' && d.platformNameAr) setPlatformNameAr(d.platformNameAr);
+        if (typeof d.platformTagline === 'string') setPlatformTaglineEn(d.platformTagline);
+        if (typeof d.platformTaglineAr === 'string') setPlatformTaglineAr(d.platformTaglineAr);
+        if (typeof d.platformLogo === 'string' && d.platformLogo) setPlatformLogo(d.platformLogo);
+        if (typeof d.supportEmail === 'string' && d.supportEmail) setSupportEmail(d.supportEmail);
+        if (typeof d.timezone === 'string' && d.timezone) setTimezone(d.timezone);
+        if (typeof d.whatsappEnabled === 'boolean') setWhatsappEnabled(d.whatsappEnabled);
+        if (typeof d.whatsappNumber === 'string') setWhatsappNumber(d.whatsappNumber);
+        if (typeof d.maintenanceMode === 'boolean') setMaintenanceMode(d.maintenanceMode);
+        if (typeof d.maintenanceMessage === 'string') setMaintenanceMessageEn(d.maintenanceMessage);
+        if (typeof d.maintenanceMessageAr === 'string') setMaintenanceMessageAr(d.maintenanceMessageAr);
         const sl = d.socialLinks as typeof socialLinks | undefined;
         if (sl && typeof sl === 'object') {
           setSocialLinks((prev) => ({
@@ -307,9 +289,9 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
     return () => {
       cancelled = true;
     };
-  }, [isAr]);
+  }, []);
 
-  const handleSavePlatform = async (e?: React.FormEvent) => {
+  const handleSavePlatform = async (e?: React.FormEvent, extra?: Record<string, unknown>) => {
     e?.preventDefault();
     if (!isApiEnabled()) {
       toast(
@@ -322,19 +304,22 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
     setPlatformSaving(true);
     try {
       await updatePlatformSettings({
-        platformName: isAr ? undefined : platformName,
-        platformNameAr: isAr ? platformName : undefined,
-        platformTagline: isAr ? undefined : platformTagline,
-        platformTaglineAr: isAr ? platformTagline : undefined,
+        platformName: platformNameEn.trim() || 'Souq Platform',
+        platformNameAr: platformNameAr.trim() || 'منصة سوق',
+        platformTagline: platformTaglineEn,
+        platformTaglineAr: platformTaglineAr,
         platformLogo,
         supportEmail,
         timezone,
+        defaultLocale: locale,
+        defaultCurrency: currency,
         whatsappEnabled,
         whatsappNumber,
         maintenanceMode,
-        maintenanceMessage: isAr ? undefined : maintenanceMessage,
-        maintenanceMessageAr: isAr ? maintenanceMessage : undefined,
+        maintenanceMessage: maintenanceMessageEn,
+        maintenanceMessageAr: maintenanceMessageAr,
         socialLinks,
+        ...(extra || {}),
       });
       toast(isAr ? 'تم حفظ إعدادات المنصة' : 'Platform settings saved', 'success');
     } catch {
@@ -410,7 +395,6 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Quick Language Switcher Button */}
           <button
             type="button"
             onClick={() => {
@@ -418,31 +402,21 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
               setLocale(next);
               toast(next === 'ar' ? 'تم تحويل النظام إلى العربية' : 'Language set to English', 'success');
             }}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer shadow-xs transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
-            style={{
-              background: 'var(--surface)',
-              borderColor: 'var(--border)',
-              color: 'var(--text)',
-            }}
-            title={isAr ? 'التبديل إلى الإنجليزية' : 'تحويل اللغة إلى العربية'}
+            className="unity-btn-ghost text-xs inline-flex items-center gap-2"
+            title={isAr ? 'التبديل إلى الإنجليزية' : 'Switch to Arabic'}
           >
-            <Globe className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+            <Globe className="w-4 h-4" style={{ color: 'var(--accent)' }} />
             <span className="font-bold">{isAr ? 'الإنجليزية' : 'العربية'}</span>
           </button>
 
           <button
             type="button"
             onClick={toggleTheme}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer shadow-xs transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
-            style={{
-              background: 'var(--surface)',
-              borderColor: 'var(--border)',
-              color: 'var(--text)',
-            }}
+            className="unity-btn-ghost text-xs inline-flex items-center gap-2"
           >
             {theme === 'dark' ? (
               <>
-                <Sun className="w-4 h-4 text-amber-400" />
+                <Sun className="w-4 h-4" style={{ color: 'var(--tone-warn, #f59e0b)' }} />
                 <span>{isAr ? 'الوضع الفاتح' : 'Light Mode'}</span>
               </>
             ) : (
@@ -456,14 +430,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
       </div>
 
       {/* ── Tabs Navigation ── */}
-      <div
-        className="flex items-center gap-1.5 p-1.5 rounded-2xl border overflow-x-auto custom-scroll shadow-xs"
-        style={{
-          background: 'var(--surface)',
-          borderColor: 'var(--border)',
-        }}
-        role="tablist"
-      >
+      <div className="u-settings-tabs custom-scroll" role="tablist">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const active = activeTab === tab.id;
@@ -474,14 +441,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
               role="tab"
               aria-selected={active}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all duration-150 ${
-                active ? 'shadow-xs ring-1' : 'opacity-70 hover:opacity-100'
-              }`}
-              style={{
-                background: active ? 'var(--active-bg)' : 'transparent',
-                color: active ? 'var(--active-fg)' : 'var(--text)',
-                borderColor: active ? 'var(--accent)' : 'transparent',
-              }}
+              className={`u-settings-tab${active ? ' is-active' : ''}`}
             >
               <Icon className="w-4 h-4" />
               <span>{tab.label}</span>
@@ -673,26 +633,36 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
 
       {/* ── TAB 1: Platform Identity ── */}
       {activeTab === 'platform' && (
-        <form onSubmit={handleSavePlatform} className="space-y-6">
+        <form onSubmit={(e) => void handleSavePlatform(e)} className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="p-5 rounded-2xl border shadow-xs space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+            <div className="u-settings-luxe space-y-4">
               <h3 className="font-extrabold text-sm flex items-center gap-2">
                 <ImageIcon className="w-4 h-4" style={{ color: 'var(--accent)' }} />
                 <span>{isAr ? 'شعار المنصة' : 'Platform Brand Mark'}</span>
               </h3>
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl border p-2 flex items-center justify-center shrink-0" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
-                  <img src={platformLogo} alt="Logo" className="w-10 h-10 object-contain" />
+                <div
+                  className="w-16 h-16 rounded-2xl border p-2 flex items-center justify-center shrink-0"
+                  style={{
+                    background: 'color-mix(in srgb, #000 30%, #152022)',
+                    borderColor: 'color-mix(in srgb, var(--accent) 28%, #2a3c3e)',
+                  }}
+                >
+                  <img src={platformLogo} alt="" className="w-10 h-10 object-contain" />
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
+                  <label className="block text-xs font-bold mb-1.5 u-settings-luxe__muted">
+                    {isAr ? 'رابط الشعار' : 'Logo URL'}
+                  </label>
                   <input
                     type="text"
                     value={platformLogo}
                     onChange={(e) => setPlatformLogo(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                    dir="ltr"
+                    className="w-full px-3 py-2 text-xs rounded-xl border"
+                    placeholder="/favicon.svg"
                   />
-                  <p className="text-[10px] mt-1 opacity-70">
+                  <p className="text-[10px] mt-1 u-settings-luxe__muted">
                     {isAr
                       ? 'يُطبَّق على الشريط الجانبي للمشرف والمتجر'
                       : 'Applies across Master & Store sidebars'}
@@ -701,7 +671,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
               </div>
             </div>
 
-            <div className="lg:col-span-2 p-5 rounded-2xl border shadow-xs space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+            <div className="lg:col-span-2 u-settings-luxe u-settings-luxe--accent space-y-4">
               <h3 className="font-extrabold text-sm flex items-center gap-2">
                 <Settings className="w-4 h-4" style={{ color: 'var(--accent)' }} />
                 <span>{isAr ? 'بيانات المنصة الرئيسية' : 'Platform Details'}</span>
@@ -709,56 +679,88 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'اسم المنصة' : 'Platform Name'}
+                  <label className="block text-xs font-bold mb-1.5 u-settings-luxe__muted">
+                    {isAr ? 'اسم المنصة (إنجليزي)' : 'Platform name (English)'}
                   </label>
                   <input
                     type="text"
-                    value={platformName}
-                    onChange={(e) => setPlatformName(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                    value={platformNameEn}
+                    onChange={(e) => setPlatformNameEn(e.target.value)}
+                    dir="ltr"
+                    className="w-full px-3 py-2 text-xs rounded-xl border"
+                    placeholder="Souq Platform"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
+                  <label className="block text-xs font-bold mb-1.5 u-settings-luxe__muted">
+                    {isAr ? 'اسم المنصة (عربي)' : 'Platform name (Arabic)'}
+                  </label>
+                  <input
+                    type="text"
+                    value={platformNameAr}
+                    onChange={(e) => setPlatformNameAr(e.target.value)}
+                    dir="rtl"
+                    className="w-full px-3 py-2 text-xs rounded-xl border"
+                    placeholder="منصة سوق"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold mb-1.5 u-settings-luxe__muted">
                     {isAr ? 'بريد الدعم للمنصة' : 'Platform support email'}
                   </label>
                   <input
                     type="email"
                     value={supportEmail}
                     onChange={(e) => setSupportEmail(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                    dir="ltr"
+                    className="w-full px-3 py-2 text-xs rounded-xl border"
+                    placeholder="admin@unityteck.sa"
                   />
                 </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'شعار المنصة / العبارة التعريفية' : 'Platform Tagline / Slogan'}
+                <div>
+                  <label className="block text-xs font-bold mb-1.5 u-settings-luxe__muted">
+                    {isAr ? 'العبارة التعريفية (إنجليزي)' : 'Tagline (English)'}
                   </label>
                   <input
                     type="text"
-                    value={platformTagline}
-                    onChange={(e) => setPlatformTagline(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                    value={platformTaglineEn}
+                    onChange={(e) => setPlatformTaglineEn(e.target.value)}
+                    dir="ltr"
+                    className="w-full px-3 py-2 text-xs rounded-xl border"
+                    placeholder="Saudi multi-store commerce"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold mb-1.5 u-settings-luxe__muted">
+                    {isAr ? 'العبارة التعريفية (عربي)' : 'Tagline (Arabic)'}
+                  </label>
+                  <input
+                    type="text"
+                    value={platformTaglineAr}
+                    onChange={(e) => setPlatformTaglineAr(e.target.value)}
+                    dir="rtl"
+                    className="w-full px-3 py-2 text-xs rounded-xl border"
+                    placeholder="التجارة الإلكترونية الشاملة في السعودية"
                   />
                 </div>
               </div>
 
               <div
                 className="rounded-xl border p-3 space-y-2"
-                style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
+                style={{
+                  borderColor: 'color-mix(in srgb, var(--accent) 22%, transparent)',
+                  background: 'color-mix(in srgb, #000 28%, transparent)',
+                }}
               >
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                    <p className="text-xs font-bold" style={{ color: '#f7fafa' }}>
                       {isAr ? 'وضع الصيانة' : 'Maintenance mode'}
                     </p>
-                    <p className="text-[10px]" style={{ color: 'var(--muted)' }}>
+                    <p className="text-[10px] u-settings-luxe__muted">
                       {isAr
-                        ? 'يتطلب صلاحية عالية — يُحفظ في إعدادات المنصة'
-                        : 'High-impact — persisted in platform settings'}
+                        ? 'يُحفظ في إعدادات المنصة الحية'
+                        : 'Persisted in live platform settings'}
                     </p>
                   </div>
                   <button
@@ -766,8 +768,8 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
                     onClick={() => setMaintenanceMode((v) => !v)}
                     className="px-3 py-1.5 rounded-lg text-[11px] font-bold border"
                     style={{
-                      borderColor: maintenanceMode ? '#e11d48' : 'var(--border)',
-                      color: maintenanceMode ? '#e11d48' : 'var(--muted)',
+                      borderColor: maintenanceMode ? '#e11d48' : 'color-mix(in srgb, var(--accent) 30%, transparent)',
+                      color: maintenanceMode ? '#fb7185' : 'var(--plan-muted)',
                     }}
                   >
                     {maintenanceMode
@@ -780,14 +782,20 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
                   </button>
                 </div>
                 <textarea
-                  value={maintenanceMessage}
-                  onChange={(e) => setMaintenanceMessage(e.target.value)}
+                  value={maintenanceMessageEn}
+                  onChange={(e) => setMaintenanceMessageEn(e.target.value)}
                   rows={2}
-                  placeholder={
-                    isAr ? 'رسالة الصيانة للمستخدمين…' : 'User-facing maintenance message…'
-                  }
-                  className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                  dir="ltr"
+                  placeholder="Maintenance message (English)…"
+                  className="w-full px-3 py-2 text-xs rounded-xl border"
+                />
+                <textarea
+                  value={maintenanceMessageAr}
+                  onChange={(e) => setMaintenanceMessageAr(e.target.value)}
+                  rows={2}
+                  dir="rtl"
+                  placeholder="رسالة الصيانة (عربي)…"
+                  className="w-full px-3 py-2 text-xs rounded-xl border"
                 />
               </div>
 
@@ -796,7 +804,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
                   type="submit"
                   disabled={platformSaving}
                   aria-busy={platformSaving}
-                  className="unity-btn-primary px-5 py-2.5 rounded-xl text-xs font-bold shadow-xs cursor-pointer disabled:opacity-60"
+                  className="unity-btn-primary px-5 py-2.5 text-xs font-bold disabled:opacity-60"
                 >
                   {platformSaving
                     ? isAr
@@ -815,15 +823,24 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
       {/* ── TAB 2: Multi-Currency & Language ── */}
       {activeTab === 'localization' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="p-5 rounded-2xl border shadow-xs space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-            <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--border)' }}>
+          <div className="u-settings-luxe space-y-4">
+            <div
+              className="flex items-center justify-between border-b pb-3"
+              style={{ borderColor: 'color-mix(in srgb, var(--accent) 22%, transparent)' }}
+            >
               <div className="flex items-center gap-2">
                 <Coins className="w-4 h-4" style={{ color: 'var(--accent)' }} />
                 <h3 className="font-extrabold text-sm">
                   {isAr ? 'عملات المنصة' : 'Platform Currencies'}
                 </h3>
               </div>
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md" style={{ background: 'var(--hover-bg)', color: 'var(--accent)' }}>
+              <span
+                className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md"
+                style={{
+                  background: 'color-mix(in srgb, var(--accent) 16%, transparent)',
+                  color: 'var(--accent)',
+                }}
+              >
                 {isAr ? `النشطة: ${currency}` : `Active: ${currency}`}
               </span>
             </div>
@@ -839,20 +856,18 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
                   <button
                     key={curKey}
                     type="button"
-                    onClick={() => {
-                      setCurrency(curKey);
-                      toast(
-                        isAr ? `تم تحديث العملة إلى ${curKey}` : `Currency updated to ${curKey}`,
-                        'success',
-                      );
-                    }}
+                    onClick={() => setCurrency(curKey)}
                     className={`p-3 rounded-xl border text-start cursor-pointer transition-all flex items-center justify-between gap-3 ${
-                      active ? 'ring-2 shadow-xs' : 'hover:opacity-90'
+                      active ? 'ring-2' : 'hover:opacity-90'
                     }`}
                     style={{
-                      background: active ? 'var(--active-bg)' : 'var(--bg)',
-                      borderColor: active ? 'var(--accent)' : 'var(--border)',
-                      color: active ? 'var(--active-fg)' : 'var(--text)',
+                      background: active
+                        ? 'color-mix(in srgb, var(--accent) 18%, #0e181a)'
+                        : 'color-mix(in srgb, #000 28%, transparent)',
+                      borderColor: active
+                        ? 'color-mix(in srgb, var(--accent) 55%, transparent)'
+                        : 'color-mix(in srgb, var(--accent) 18%, transparent)',
+                      color: '#f4f8f8',
                     }}
                   >
                     <div>
@@ -862,15 +877,18 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
                       </div>
                       <div className="text-[11px] opacity-80 mt-0.5">{label}</div>
                     </div>
-                    {active && <Check className="w-4 h-4 shrink-0" />}
+                    {active && <Check className="w-4 h-4 shrink-0" style={{ color: 'var(--accent)' }} />}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          <div className="p-5 rounded-2xl border shadow-xs space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-            <div className="flex items-center gap-2 border-b pb-3" style={{ borderColor: 'var(--border)' }}>
+          <div className="u-settings-luxe u-settings-luxe--accent space-y-4">
+            <div
+              className="flex items-center gap-2 border-b pb-3"
+              style={{ borderColor: 'color-mix(in srgb, var(--accent) 22%, transparent)' }}
+            >
               <Globe className="w-4 h-4" style={{ color: 'var(--accent)' }} />
               <h3 className="font-extrabold text-sm">
                 {isAr ? 'اللغة والمنطقة الزمنية' : 'Language & Timezone'}
@@ -878,7 +896,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
             </div>
 
             <div className="space-y-3">
-              <label className="block text-xs font-bold" style={{ color: 'var(--muted)' }}>
+              <label className="block text-xs font-bold u-settings-luxe__muted">
                 {isAr ? 'لغة واجهة المنصة' : 'Platform Language'}
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -899,22 +917,18 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
                     <button
                       key={item.id}
                       type="button"
-                      onClick={() => {
-                        setLocale(item.id);
-                        toast(
-                          item.id === 'ar'
-                            ? 'تم تحويل النظام إلى العربية'
-                            : 'Language set to English',
-                          'success',
-                        );
-                      }}
+                      onClick={() => setLocale(item.id)}
                       className={`p-3 rounded-xl border text-center cursor-pointer transition-all ${
                         active ? 'ring-2 font-bold' : 'hover:opacity-90'
                       }`}
                       style={{
-                        background: active ? 'var(--active-bg)' : 'var(--bg)',
-                        borderColor: active ? 'var(--accent)' : 'var(--border)',
-                        color: active ? 'var(--active-fg)' : 'var(--text)',
+                        background: active
+                          ? 'color-mix(in srgb, var(--accent) 18%, #0e181a)'
+                          : 'color-mix(in srgb, #000 28%, transparent)',
+                        borderColor: active
+                          ? 'color-mix(in srgb, var(--accent) 55%, transparent)'
+                          : 'color-mix(in srgb, var(--accent) 18%, transparent)',
+                        color: '#f4f8f8',
                       }}
                     >
                       <div className="text-xs font-bold">{item.label}</div>
@@ -925,8 +939,11 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
               </div>
             </div>
 
-            <div className="space-y-3 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
-              <label className="block text-xs font-bold" style={{ color: 'var(--muted)' }}>
+            <div
+              className="space-y-3 pt-3 border-t"
+              style={{ borderColor: 'color-mix(in srgb, var(--accent) 22%, transparent)' }}
+            >
+              <label className="block text-xs font-bold u-settings-luxe__muted">
                 {isAr ? 'المنطقة الزمنية للمنصة' : 'Platform Timezone'}
               </label>
               <div className="relative">
@@ -934,8 +951,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
                 <select
                   value={timezone}
                   onChange={(e) => setTimezone(e.target.value)}
-                  className="w-full ps-9 pe-3 py-2 text-xs rounded-xl border focus:outline-none"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                  className="w-full ps-9 pe-3 py-2 text-xs rounded-xl border"
                 >
                   <option value="Asia/Riyadh">
                     {isAr ? 'الرياض (توقيت السعودية)' : 'Asia/Riyadh (GMT+3) · Saudi Arabia'}
@@ -959,7 +975,13 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
                   className="unity-btn-primary text-xs px-4 py-2"
                   onClick={() => void handleSavePlatform()}
                 >
-                  {isAr ? 'حفظ المنطقة الزمنية' : 'Save timezone'}
+                  {platformSaving
+                    ? isAr
+                      ? 'جاري الحفظ…'
+                      : 'Saving…'
+                    : isAr
+                      ? 'حفظ اللغة والعملة والمنطقة'
+                      : 'Save language, currency & timezone'}
                 </button>
               </div>
             </div>
@@ -970,6 +992,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
       {/* ── TAB 3: Branding Panel (Top 15 Colors / Fonts / Weights) ── */}
       {activeTab === 'appearance' && (
         <BrandingPanel
+          persistPlatform
           title={
             isAr
               ? 'هوية المنصة العامة · أهم 15 لونًا · أهم 15 خطًا · أوزان الخط'
@@ -982,10 +1005,13 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
       {activeTab === 'social' && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="p-5 rounded-2xl border shadow-xs space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-              <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--border)' }}>
+            <div className="u-settings-luxe space-y-4">
+              <div
+                className="flex items-center justify-between border-b pb-3"
+                style={{ borderColor: 'color-mix(in srgb, var(--accent) 22%, transparent)' }}
+              >
                 <div className="flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-emerald-500" />
+                  <MessageSquare className="w-4 h-4" style={{ color: 'var(--accent)' }} />
                   <h3 className="font-extrabold text-sm">
                     {isAr ? 'دعم واتساب للمنصة' : 'Platform WhatsApp Support'}
                   </h3>
@@ -997,14 +1023,14 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
                   aria-label={isAr ? 'تبديل واتساب' : 'Toggle WhatsApp'}
                 >
                   {whatsappEnabled ? (
-                    <ToggleRight className="w-7 h-7 text-emerald-500" />
+                    <ToggleRight className="w-7 h-7" style={{ color: 'var(--tone-success, #10b981)' }} />
                   ) : (
-                    <ToggleLeft className="w-7 h-7 text-slate-400" />
+                    <ToggleLeft className="w-7 h-7" style={{ color: 'var(--plan-muted)' }} />
                   )}
                 </button>
               </div>
               <div className="space-y-3">
-                <label className="block text-xs font-bold" style={{ color: 'var(--muted)' }}>
+                <label className="block text-xs font-bold u-settings-luxe__muted">
                   {isAr ? 'رقم واتساب الدعم' : 'Support WhatsApp Number'}
                 </label>
                 <input
@@ -1013,15 +1039,22 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
                   onChange={(e) => setWhatsappNumber(e.target.value)}
                   disabled={!whatsappEnabled}
                   dir="ltr"
-                  placeholder="+966…"
-                  className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none disabled:opacity-50"
-                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                  placeholder="+9665…"
+                  className="w-full px-3 py-2 text-xs rounded-xl border"
                 />
+                <p className="text-[10px] u-settings-luxe__muted">
+                  {isAr
+                    ? 'أدخل رقماً واحداً للاختبار ثم احفظ'
+                    : 'Enter one test number, then save'}
+                </p>
               </div>
             </div>
 
-            <div className="p-5 rounded-2xl border shadow-xs space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-              <div className="flex items-center gap-2 border-b pb-3" style={{ borderColor: 'var(--border)' }}>
+            <div className="u-settings-luxe u-settings-luxe--accent space-y-4">
+              <div
+                className="flex items-center gap-2 border-b pb-3"
+                style={{ borderColor: 'color-mix(in srgb, var(--accent) 22%, transparent)' }}
+              >
                 <Share2 className="w-4 h-4" style={{ color: 'var(--accent)' }} />
                 <h3 className="font-extrabold text-sm">
                   {isAr ? 'قنوات التواصل للمنصة' : 'Platform Social Channels'}
@@ -1047,7 +1080,7 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
                             : 'YouTube';
                   return (
                     <div key={key} className="flex items-center gap-2 min-w-0">
-                      <span className="w-24 shrink-0 text-xs font-bold" style={{ color: 'var(--text)' }}>
+                      <span className="w-24 shrink-0 text-xs font-bold" style={{ color: '#f4f8f8' }}>
                         {channelLabel}
                       </span>
                       <input
@@ -1060,8 +1093,8 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
                           }));
                         }}
                         dir="ltr"
-                        className="flex-1 min-w-0 px-3 py-1.5 text-xs rounded-xl border focus:outline-none"
-                        style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                        placeholder="https://"
+                        className="flex-1 min-w-0 px-3 py-1.5 text-xs rounded-xl border"
                       />
                       <button
                         type="button"
@@ -1075,9 +1108,9 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
                         aria-label={isAr ? 'تفعيل أو إيقاف القناة' : 'Toggle channel'}
                       >
                         {val.enabled ? (
-                          <ToggleRight className="w-6 h-6 text-emerald-500" />
+                          <ToggleRight className="w-6 h-6" style={{ color: 'var(--tone-success, #10b981)' }} />
                         ) : (
-                          <ToggleLeft className="w-6 h-6 text-slate-400" />
+                          <ToggleLeft className="w-6 h-6" style={{ color: 'var(--plan-muted)' }} />
                         )}
                       </button>
                     </div>
@@ -1109,21 +1142,32 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
       {/* ── TAB 5: Database & Global Flush ── */}
       {activeTab === 'database' && (
         <div className="space-y-6">
-          <DbSyncSettingsCard />
+          <div className="u-settings-luxe">
+            <DbSyncSettingsCard />
+          </div>
 
-          <div className="p-5 rounded-2xl border shadow-xs space-y-4" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-3" style={{ borderColor: 'var(--border)' }}>
+          <div className="u-settings-luxe u-settings-luxe--accent space-y-4">
+            <div
+              className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-3"
+              style={{ borderColor: 'color-mix(in srgb, var(--accent) 22%, transparent)' }}
+            >
               <div className="flex items-center gap-2 min-w-0">
                 <Server className="w-5 h-5 shrink-0" style={{ color: 'var(--accent)' }} />
                 <h3 className="font-bold text-sm">
                   {isAr ? 'ملخص عزل المستأجرين' : 'Multi-Tenant Partition Summary'}
                 </h3>
               </div>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold font-mono self-start" style={{ background: 'var(--hover-bg)', color: 'var(--accent)' }}>
+              <span
+                className="px-2.5 py-0.5 rounded-full text-xs font-bold font-mono self-start"
+                style={{
+                  background: 'color-mix(in srgb, var(--accent) 16%, transparent)',
+                  color: 'var(--accent)',
+                }}
+              >
                 {isAr ? `${stores.length} متجر مفعّل` : `${stores.length} Stores Provisioned`}
               </span>
             </div>
-            <p className="text-xs opacity-75 leading-relaxed">
+            <p className="text-xs leading-relaxed u-settings-luxe__muted">
               {isAr
                 ? 'كل متجر معزول بصفوف معرّف المتجر في قاعدة البيانات الحية. وسوم الكاش الفورية تمنع البيانات القديمة دون إعادة تشغيل الخادم.'
                 : 'Every store is isolated by store_id rows on live MySQL. Zero-stale cache tags push catalog updates across storefronts without server restarts.'}
@@ -1131,9 +1175,9 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
             <div className="pt-2 flex justify-end">
               <button
                 type="button"
-                onClick={handlePurgeAll}
+                onClick={() => void handlePurgeAll()}
                 disabled={purging}
-                className="unity-btn-primary flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-60"
+                className="unity-btn-primary flex items-center gap-2 px-4 py-2 text-xs font-bold disabled:opacity-60"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${purging ? 'animate-spin' : ''}`} />
                 <span>

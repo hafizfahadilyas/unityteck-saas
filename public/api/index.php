@@ -2213,106 +2213,404 @@ if (preg_match('#^/stores/([^/]+)/banners#', $uri, $mBan) || $uri === '/banners'
     exit;
 }
 
-// ── 9. THEME SETTINGS & PAGE BUILDER LAYOUTS ──
+// ── 9. THEME SETTINGS & PAGE BUILDER LAYOUTS (MySQL store_themes + SQLite legacy) ──
+$souqDefaultThemeId = static function (string $sid): string {
+    $s = strtolower($sid);
+    if (str_contains($s, 'coffee') || str_contains($s, 'hibrew') || str_contains($s, 'roaster')) {
+        return 'theme-coffee-artisan';
+    }
+    if (str_contains($s, 'bleco') || str_contains($s, 'car') || str_contains($s, 'transport')) {
+        return 'theme-saudia-transport';
+    }
+    return 'theme-flora-luxe';
+};
+
+$souqDecodeSettings = static function ($raw): array {
+    if (is_array($raw)) {
+        return $raw;
+    }
+    if (!is_string($raw) || trim($raw) === '') {
+        return [];
+    }
+    $decoded = json_decode($raw, true);
+    return is_array($decoded) ? $decoded : [];
+};
+
+$souqMergeThemeSettings = static function (array $base, array $overlay) use (&$souqMergeThemeSettings): array {
+    foreach ($overlay as $key => $value) {
+        if ($value === null) {
+            continue;
+        }
+        $previous = $base[$key] ?? null;
+        if (is_array($value) && is_array($previous) && !array_is_list($value) && !array_is_list($previous)) {
+            $base[$key] = $souqMergeThemeSettings($previous, $value);
+            continue;
+        }
+        $base[$key] = $value;
+    }
+    return $base;
+};
+
+if ($uri === '/themes-catalog' && in_array($method, ['GET', 'HEAD'], true)) {
+    $isMysql = function_exists('souq_driver_is_mysql') && souq_driver_is_mysql($pdo);
+    try {
+        if ($isMysql && function_exists('souq_table_exists') && souq_table_exists($pdo, 'themes_catalog')) {
+            $rows = $pdo->query('SELECT * FROM themes_catalog ORDER BY is_default DESC, name ASC')->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode(['success' => true, 'data' => $rows ?: []]);
+            exit;
+        }
+    } catch (Throwable $e) {
+        /* fall through to static catalog */
+    }
+    echo json_encode([
+        'success' => true,
+        'data' => [
+            ['id' => 'theme-flora-luxe', 'name' => 'Flora Luxe', 'category' => 'Gifts', 'is_default' => 1, 'preview_color' => '#059669'],
+            ['id' => 'theme-coffee-artisan', 'name' => 'Coffee Artisan', 'category' => 'Coffee', 'is_default' => 0, 'preview_color' => '#6F4E37'],
+            ['id' => 'theme-saudia-transport', 'name' => 'Saudia Transport', 'category' => 'Cars', 'is_default' => 0, 'preview_color' => '#0F766E'],
+            ['id' => 'theme-commerce-starter', 'name' => 'Commerce Starter', 'category' => 'General', 'is_default' => 0, 'preview_color' => '#1d8b94'],
+        ],
+    ]);
+    exit;
+}
+
+if ($uri === '/storefront/theme' && in_array($method, ['GET', 'HEAD'], true)) {
+    $targetStore = trim((string)($_GET['store_id'] ?? $storeId ?? ''));
+    $isMysql = function_exists('souq_driver_is_mysql') && souq_driver_is_mysql($pdo);
+    try {
+        if ($targetStore === '') {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Store not found.']);
+            exit;
+        }
+        $storeRow = null;
+        if ($isMysql) {
+            $stStore = $pdo->prepare('SELECT id, name, slug, domain, logo, accent_color FROM stores WHERE id = ? OR slug = ? LIMIT 1');
+            $stStore->execute([$targetStore, $targetStore]);
+            $storeRow = $stStore->fetch(PDO::FETCH_ASSOC) ?: null;
+        }
+        if (!$storeRow) {
+            $storeRow = ['id' => $targetStore, 'name' => $targetStore, 'slug' => $targetStore, 'domain' => null, 'logo' => null, 'accent_color' => null];
+        }
+        $sid = (string)$storeRow['id'];
+        $themeId = $souqDefaultThemeId($sid);
+        $settings = [];
+        $homepageStyle = null;
+        if ($isMysql) {
+            $st = $pdo->prepare('SELECT theme_id, homepage_style, settings FROM store_themes WHERE store_id = ? LIMIT 1');
+            $st->execute([$sid]);
+            $row = $st->fetch(PDO::FETCH_ASSOC);
+            if ($row) {
+                $themeId = (string)($row['theme_id'] ?: $themeId);
+                $homepageStyle = $row['homepage_style'] ?? null;
+                $settings = $souqDecodeSettings($row['settings'] ?? null);
+            }
+        }
+        unset($settings['draft']);
+        $builder = is_array($settings['builder'] ?? null) ? $settings['builder'] : [];
+        unset($builder['draft_blocks']);
+        $settings['builder'] = $builder;
+        echo json_encode([
+            'success' => true,
+            'store' => [
+                'id' => $sid,
+                'name' => $storeRow['name'] ?? $sid,
+                'slug' => $storeRow['slug'] ?? $sid,
+                'domain' => $storeRow['domain'] ?? null,
+                'logo' => $storeRow['logo'] ?? null,
+            ],
+            'theme' => [
+                'id' => $themeId,
+                'homepage_style' => $homepageStyle,
+                'settings' => $settings,
+                'published_blocks' => $builder['published_blocks'] ?? [],
+            ],
+            'store_id' => $sid,
+        ]);
+        exit;
+    } catch (Throwable $e) {
+        http_response_code(200);
+        echo json_encode([
+            'success' => true,
+            'store' => ['id' => $targetStore],
+            'theme' => ['id' => $souqDefaultThemeId($targetStore), 'settings' => [], 'published_blocks' => []],
+            'store_id' => $targetStore,
+            'warning' => $e->getMessage(),
+        ]);
+        exit;
+    }
+}
+
 if (preg_match('#^/stores/([^/]+)/theme-settings#', $uri, $mTS) || $uri === '/theme-settings') {
     $targetStore = !empty($mTS[1]) ? $mTS[1] : $storeId;
-    $themeId = $_GET['theme_id'] ?? ($inputData['theme_id'] ?? 'theme-flora-luxe');
+    $defaultTheme = $souqDefaultThemeId((string)$targetStore);
+    $themeId = (string)($_GET['theme_id'] ?? ($inputData['theme_id'] ?? $defaultTheme));
     $isMysql = function_exists('souq_driver_is_mysql') && souq_driver_is_mysql($pdo);
     $nowExpr = function_exists('souq_sql_now_expr') ? souq_sql_now_expr($pdo) : "datetime('now')";
 
     try {
         if (in_array($method, ['PUT', 'POST', 'PATCH'], true)) {
-            $payload = json_encode($inputData, JSON_UNESCAPED_UNICODE);
+            $publish = !empty($inputData['publish']);
+            $incomingSettings = is_array($inputData['settings'] ?? null) ? $inputData['settings'] : [];
+            unset($incomingSettings['draft'], $incomingSettings['by_theme'], $incomingSettings['builder'], $incomingSettings['globalStyles']);
             if ($isMysql) {
-                // Laravel store_themes: unique store_id + required id PK
-                $find = $pdo->prepare('SELECT id FROM store_themes WHERE store_id = ? LIMIT 1');
+                $find = $pdo->prepare('SELECT id, theme_id, homepage_style, settings FROM store_themes WHERE store_id = ? LIMIT 1');
                 $find->execute([$targetStore]);
-                $existingThemeId = $find->fetchColumn();
-                if ($existingThemeId) {
-                    $st = $pdo->prepare("UPDATE store_themes SET theme_id = ?, settings = ?, updated_at = {$nowExpr} WHERE store_id = ?");
-                    $st->execute([$themeId, $payload, $targetStore]);
-                } else {
-                    $rowId = 'stheme-' . substr(md5($targetStore . '|' . $themeId . '|' . microtime(true)), 0, 16);
-                    $st = $pdo->prepare("INSERT INTO store_themes (id, store_id, theme_id, settings, created_at, updated_at) VALUES (?, ?, ?, ?, {$nowExpr}, {$nowExpr})");
-                    $st->execute([$rowId, $targetStore, $themeId, $payload]);
+                $existing = $find->fetch(PDO::FETCH_ASSOC) ?: null;
+                $existingSettings = $souqDecodeSettings($existing['settings'] ?? null);
+                $draft = is_array($existingSettings['draft'] ?? null) ? $existingSettings['draft'] : [];
+                if ($incomingSettings !== []) {
+                    $draft = $souqMergeThemeSettings($draft, $incomingSettings);
                 }
-            } else {
-                $st = $pdo->prepare("
-                    INSERT OR REPLACE INTO theme_settings (store_id, theme_id, settings, updated_at)
-                    VALUES (?, ?, ?, {$nowExpr})
-                ");
-                $st->execute([$targetStore, $themeId, $payload]);
+                $existingSettings['draft'] = $draft;
+                if ($publish) {
+                    $existingSettings = $souqMergeThemeSettings($existingSettings, $draft);
+                    $existingSettings['draft'] = $draft;
+                    $existingSettings['theme_published_at'] = gmdate('c');
+                }
+                if (array_key_exists('homepage_style', $inputData)) {
+                    $homepageStyle = $inputData['homepage_style'];
+                } else {
+                    $homepageStyle = $existing['homepage_style'] ?? null;
+                }
+                $nextThemeId = (string)($inputData['theme_id'] ?? ($existing['theme_id'] ?? $themeId));
+                $payloadJson = json_encode($existingSettings, JSON_UNESCAPED_UNICODE);
+                if ($existing) {
+                    $st = $pdo->prepare("UPDATE store_themes SET theme_id = ?, homepage_style = ?, settings = ?, updated_at = {$nowExpr} WHERE store_id = ?");
+                    $st->execute([$nextThemeId, $homepageStyle, $payloadJson, $targetStore]);
+                    $rowId = $existing['id'];
+                } else {
+                    $rowId = 'stheme-' . substr(md5($targetStore . '|' . $nextThemeId . '|' . microtime(true)), 0, 16);
+                    $st = $pdo->prepare("INSERT INTO store_themes (id, store_id, theme_id, homepage_style, settings, created_at, updated_at) VALUES (?, ?, ?, ?, ?, {$nowExpr}, {$nowExpr})");
+                    $st->execute([$rowId, $targetStore, $nextThemeId, $homepageStyle, $payloadJson]);
+                }
+                $outSettings = $souqMergeThemeSettings($existingSettings, $draft);
+                echo json_encode([
+                    'success' => true,
+                    'data' => [
+                        'id' => $rowId,
+                        'store_id' => $targetStore,
+                        'theme_id' => $nextThemeId,
+                        'homepage_style' => $homepageStyle,
+                        'settings' => $outSettings,
+                    ],
+                    'store_id' => $targetStore,
+                    'message' => 'Theme settings updated successfully.',
+                ]);
+                exit;
             }
-            echo json_encode(['success' => true, 'data' => $inputData]);
+            $payload = json_encode($incomingSettings !== [] ? $incomingSettings : $inputData, JSON_UNESCAPED_UNICODE);
+            $st = $pdo->prepare("
+                INSERT OR REPLACE INTO theme_settings (store_id, theme_id, settings, updated_at)
+                VALUES (?, ?, ?, {$nowExpr})
+            ");
+            $st->execute([$targetStore, $themeId, $payload]);
+            echo json_encode(['success' => true, 'data' => ['store_id' => $targetStore, 'theme_id' => $themeId, 'settings' => $incomingSettings], 'store_id' => $targetStore]);
             exit;
         }
 
         if ($isMysql) {
-            $st = $pdo->prepare('SELECT settings FROM store_themes WHERE store_id = ? LIMIT 1');
+            $st = $pdo->prepare('SELECT id, store_id, theme_id, homepage_style, settings, updated_at FROM store_themes WHERE store_id = ? LIMIT 1');
             $st->execute([$targetStore]);
-        } else {
-            $st = $pdo->prepare('SELECT settings FROM theme_settings WHERE store_id = ? AND theme_id = ?');
-            $st->execute([$targetStore, $themeId]);
+            $row = $st->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                echo json_encode(['success' => true, 'data' => null, 'store_id' => $targetStore]);
+                exit;
+            }
+            $settings = $souqDecodeSettings($row['settings'] ?? null);
+            $draft = is_array($settings['draft'] ?? null) ? $settings['draft'] : [];
+            $merged = $souqMergeThemeSettings($settings, $draft);
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'id' => $row['id'],
+                    'store_id' => $row['store_id'],
+                    'theme_id' => $row['theme_id'] ?: $defaultTheme,
+                    'homepage_style' => $row['homepage_style'] ?? null,
+                    'settings' => $merged,
+                    'updated_at' => $row['updated_at'] ?? null,
+                ],
+                'store_id' => $targetStore,
+            ]);
+            exit;
         }
+
+        $st = $pdo->prepare('SELECT settings FROM theme_settings WHERE store_id = ? AND theme_id = ?');
+        $st->execute([$targetStore, $themeId]);
         $raw = $st->fetchColumn();
-        $decoded = $raw ? json_decode((string)$raw, true) : null;
-        echo json_encode(['success' => true, 'data' => is_array($decoded) ? $decoded : []]);
+        $decoded = $souqDecodeSettings($raw);
+        echo json_encode([
+            'success' => true,
+            'data' => [
+                'store_id' => $targetStore,
+                'theme_id' => $themeId,
+                'settings' => $decoded,
+            ],
+            'store_id' => $targetStore,
+        ]);
         exit;
     } catch (Throwable $e) {
-        // Never hang admin theme UI — return empty on missing FK/table
         if (in_array($method, ['GET', 'HEAD'], true)) {
-            echo json_encode(['success' => true, 'data' => [], 'warning' => $e->getMessage()]);
+            echo json_encode(['success' => true, 'data' => null, 'store_id' => $targetStore, 'warning' => $e->getMessage()]);
             exit;
         }
         http_response_code(500);
-        echo json_encode(['message' => 'Theme settings failed', 'error' => $e->getMessage(), 'data' => []]);
+        echo json_encode(['message' => 'Theme settings failed', 'error' => $e->getMessage(), 'data' => null]);
         exit;
     }
 }
 
 if (preg_match('#^/stores/([^/]+)/builder-layout#', $uri, $mBL)) {
     $targetStore = $mBL[1];
-    $themeId = $inputData['theme_id'] ?? ($_GET['theme_id'] ?? 'theme-flora-luxe');
+    $defaultTheme = $souqDefaultThemeId((string)$targetStore);
+    $themeId = (string)($inputData['theme_id'] ?? ($_GET['theme_id'] ?? $defaultTheme));
+    $isMysql = function_exists('souq_driver_is_mysql') && souq_driver_is_mysql($pdo);
+    $nowExpr = function_exists('souq_sql_now_expr') ? souq_sql_now_expr($pdo) : "datetime('now')";
 
-    if (in_array($method, ['PUT', 'POST'])) {
-        $st = $pdo->prepare("
-            INSERT OR REPLACE INTO builder_layouts (
-                store_id, theme_id, blocks, seasonal_theme, typography_settings, header_settings, mobile_menu_icon, is_published, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-        ");
-        $st->execute([
-            $targetStore, $themeId,
-            json_encode($inputData['blocks'] ?? [], JSON_UNESCAPED_UNICODE),
-            json_encode($inputData['seasonal_theme'] ?? [], JSON_UNESCAPED_UNICODE),
-            json_encode($inputData['typography_settings'] ?? [], JSON_UNESCAPED_UNICODE),
-            json_encode($inputData['header_settings'] ?? [], JSON_UNESCAPED_UNICODE),
-            json_encode($inputData['mobile_menu_icon'] ?? [], JSON_UNESCAPED_UNICODE),
-            isset($inputData['is_published']) ? (int)(bool)$inputData['is_published'] : 1
-        ]);
-        echo json_encode(['success' => true, 'data' => $inputData]);
-        exit;
-    }
+    try {
+        if (in_array($method, ['PUT', 'POST', 'PATCH'], true)) {
+            $isPublished = !empty($inputData['is_published']);
+            $blocks = is_array($inputData['blocks'] ?? null) ? $inputData['blocks'] : [];
 
-    $st = $pdo->prepare("SELECT * FROM builder_layouts WHERE store_id = ? AND theme_id = ?");
-    $st->execute([$targetStore, $themeId]);
-    $row = $st->fetch();
-    if ($row) {
+            if ($isMysql) {
+                $find = $pdo->prepare('SELECT id, theme_id, homepage_style, settings FROM store_themes WHERE store_id = ? LIMIT 1');
+                $find->execute([$targetStore]);
+                $existing = $find->fetch(PDO::FETCH_ASSOC) ?: null;
+                $settings = $souqDecodeSettings($existing['settings'] ?? null);
+                $builder = is_array($settings['builder'] ?? null) ? $settings['builder'] : [];
+                $builder['draft_blocks'] = $blocks;
+                if (array_key_exists('seasonal_theme', $inputData)) {
+                    $builder['seasonal_theme'] = $inputData['seasonal_theme'];
+                }
+                if (array_key_exists('typography_settings', $inputData)) {
+                    $builder['typography_settings'] = $inputData['typography_settings'];
+                }
+                if (array_key_exists('header_settings', $inputData)) {
+                    $builder['header_settings'] = $inputData['header_settings'];
+                }
+                if (array_key_exists('mobile_menu_icon', $inputData)) {
+                    $builder['mobile_menu_icon'] = $inputData['mobile_menu_icon'];
+                }
+                $builder['updated_at'] = gmdate('c');
+                if ($isPublished) {
+                    $builder['published_blocks'] = $blocks;
+                    $builder['published_at'] = gmdate('c');
+                }
+                $settings['builder'] = $builder;
+                $nextThemeId = (string)($inputData['theme_id'] ?? ($existing['theme_id'] ?? $themeId));
+                $payloadJson = json_encode($settings, JSON_UNESCAPED_UNICODE);
+                if ($existing) {
+                    $st = $pdo->prepare("UPDATE store_themes SET theme_id = ?, settings = ?, updated_at = {$nowExpr} WHERE store_id = ?");
+                    $st->execute([$nextThemeId, $payloadJson, $targetStore]);
+                } else {
+                    $rowId = 'stheme-' . substr(md5($targetStore . '|builder|' . microtime(true)), 0, 16);
+                    $st = $pdo->prepare("INSERT INTO store_themes (id, store_id, theme_id, settings, created_at, updated_at) VALUES (?, ?, ?, ?, {$nowExpr}, {$nowExpr})");
+                    $st->execute([$rowId, $targetStore, $nextThemeId, $payloadJson]);
+                }
+                echo json_encode([
+                    'success' => true,
+                    'data' => [
+                        'theme_id' => $nextThemeId,
+                        'is_published' => $isPublished,
+                        'blocks_count' => count($blocks),
+                        'updated_at' => $builder['updated_at'],
+                    ],
+                    'store_id' => $targetStore,
+                    'message' => $isPublished
+                        ? 'Page builder layout published successfully to database.'
+                        : 'Page builder draft saved successfully.',
+                ]);
+                exit;
+            }
+
+            $st = $pdo->prepare("
+                INSERT OR REPLACE INTO builder_layouts (
+                    store_id, theme_id, blocks, seasonal_theme, typography_settings, header_settings, mobile_menu_icon, is_published, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, {$nowExpr})
+            ");
+            $st->execute([
+                $targetStore, $themeId,
+                json_encode($blocks, JSON_UNESCAPED_UNICODE),
+                json_encode($inputData['seasonal_theme'] ?? [], JSON_UNESCAPED_UNICODE),
+                json_encode($inputData['typography_settings'] ?? [], JSON_UNESCAPED_UNICODE),
+                json_encode($inputData['header_settings'] ?? [], JSON_UNESCAPED_UNICODE),
+                json_encode($inputData['mobile_menu_icon'] ?? [], JSON_UNESCAPED_UNICODE),
+                $isPublished ? 1 : 0,
+            ]);
+            echo json_encode(['success' => true, 'data' => $inputData, 'store_id' => $targetStore]);
+            exit;
+        }
+
+        // GET builder layout
+        if ($isMysql) {
+            $st = $pdo->prepare('SELECT theme_id, homepage_style, settings, updated_at FROM store_themes WHERE store_id = ? LIMIT 1');
+            $st->execute([$targetStore]);
+            $row = $st->fetch(PDO::FETCH_ASSOC);
+            $settings = $souqDecodeSettings($row['settings'] ?? null);
+            $builder = is_array($settings['builder'] ?? null) ? $settings['builder'] : [];
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'theme_id' => $row['theme_id'] ?? $themeId,
+                    'homepage_style' => $row['homepage_style'] ?? null,
+                    'blocks' => $builder['draft_blocks'] ?? ($builder['published_blocks'] ?? []),
+                    'published_blocks' => $builder['published_blocks'] ?? [],
+                    'seasonal_theme' => $builder['seasonal_theme'] ?? null,
+                    'typography_settings' => $builder['typography_settings'] ?? null,
+                    'header_settings' => $builder['header_settings'] ?? null,
+                    'mobile_menu_icon' => $builder['mobile_menu_icon'] ?? null,
+                    'updated_at' => $builder['updated_at'] ?? ($row['updated_at'] ?? null),
+                ],
+                'store_id' => $targetStore,
+            ]);
+            exit;
+        }
+
+        $st = $pdo->prepare('SELECT * FROM builder_layouts WHERE store_id = ? AND theme_id = ?');
+        $st->execute([$targetStore, $themeId]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if ($row) {
+            echo json_encode([
+                'success' => true,
+                'data' => [
+                    'theme_id' => $row['theme_id'],
+                    'blocks' => json_decode($row['blocks'] ?? '[]', true) ?: [],
+                    'published_blocks' => json_decode($row['blocks'] ?? '[]', true) ?: [],
+                    'seasonal_theme' => json_decode($row['seasonal_theme'] ?? '{}', true),
+                    'typography_settings' => json_decode($row['typography_settings'] ?? '{}', true),
+                    'header_settings' => json_decode($row['header_settings'] ?? '{}', true),
+                    'mobile_menu_icon' => json_decode($row['mobile_menu_icon'] ?? '{}', true),
+                    'is_published' => (bool)$row['is_published'],
+                ],
+                'store_id' => $targetStore,
+            ]);
+            exit;
+        }
         echo json_encode([
             'success' => true,
             'data' => [
-                'theme_id' => $row['theme_id'],
-                'blocks' => json_decode($row['blocks'] ?? '[]', true),
-                'seasonal_theme' => json_decode($row['seasonal_theme'] ?? '{}', true),
-                'typography_settings' => json_decode($row['typography_settings'] ?? '{}', true),
-                'header_settings' => json_decode($row['header_settings'] ?? '{}', true),
-                'mobile_menu_icon' => json_decode($row['mobile_menu_icon'] ?? '{}', true),
-                'is_published' => (bool)$row['is_published']
-            ]
+                'theme_id' => $themeId,
+                'blocks' => [],
+                'published_blocks' => [],
+            ],
+            'store_id' => $targetStore,
+        ]);
+        exit;
+    } catch (Throwable $e) {
+        // Never crash Themes / Page Builder UI — empty draft for this store only
+        http_response_code(200);
+        echo json_encode([
+            'success' => true,
+            'data' => [
+                'theme_id' => $themeId,
+                'blocks' => [],
+                'published_blocks' => [],
+            ],
+            'store_id' => $targetStore,
+            'warning' => $e->getMessage(),
         ]);
         exit;
     }
-    echo json_encode(['success' => true, 'data' => null]);
-    exit;
 }
 
 // ── 10. PAGES & POLICIES ──

@@ -2,8 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CheckCircle2,
   CircleOff,
-  LayoutTemplate,
-  Sparkles,
   SlidersHorizontal,
 } from 'lucide-react';
 import { useTenant } from '../../../../context/TenantContext';
@@ -52,7 +50,7 @@ export const CoffeeThemeSettingsHub: React.FC<{
   onOpenStorefront?: () => void;
   onOpenThemeCustomizer?: (sectionId?: string) => void;
   onOpenPageBuilder?: () => void;
-}> = ({ onOpenStorefront, onOpenThemeCustomizer, onOpenPageBuilder }) => {
+}> = ({ onOpenStorefront, onOpenThemeCustomizer }) => {
   const { activeStore } = useTenant();
   const { locale } = usePrefs();
   const isAr = locale === 'ar';
@@ -102,42 +100,16 @@ export const CoffeeThemeSettingsHub: React.FC<{
       onOpenThemeCustomizer(sectionId);
       return;
     }
-    if (onOpenStorefront) {
-      onOpenStorefront();
-      return;
-    }
     const slug = activeStore?.slug || 'coffee';
-    window.open(`/?store=${slug}&fullscreen=1`, '_blank');
-  };
-
-  const openPageBuilder = () => {
-    onOpenPageBuilder?.();
+    window.open(
+      `/?store=${encodeURIComponent(slug)}&fullscreen=1`,
+      '_blank',
+      'noopener,noreferrer',
+    );
   };
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => openCustomizeThemes('01_store_identity')}
-          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-black uppercase bg-emerald-600 text-white shadow-sm hover:bg-emerald-500 transition-colors cursor-pointer active:scale-[0.98]"
-          title={isAr ? 'فتح مخصص الثيم' : 'Open Customize Themes'}
-        >
-          <Sparkles className="w-3.5 h-3.5 text-amber-200" />
-          {isAr ? 'تخصيص الثيم' : 'Customize Themes'}
-        </button>
-        <button
-          type="button"
-          onClick={openPageBuilder}
-          disabled={!onOpenPageBuilder}
-          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-black uppercase bg-indigo-600 text-white shadow-sm hover:bg-indigo-500 transition-colors cursor-pointer active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-          title={isAr ? 'فتح محرر الصفحات البصري' : 'Open Visual Page Builder'}
-        >
-          <LayoutTemplate className="w-3.5 h-3.5" />
-          {isAr ? 'محرر الصفحات' : 'Page Builder'}
-        </button>
-      </div>
-
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="p-5 rounded-2xl border bg-emerald-50/70 hover:bg-emerald-50/90 dark:bg-emerald-950/30 border-emerald-200/80 dark:border-emerald-900/40 shadow-2xs space-y-1.5 transition-all">
           <div className="flex items-center justify-between">
@@ -152,7 +124,7 @@ export const CoffeeThemeSettingsHub: React.FC<{
             {widgetStats.active}
           </div>
           <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
-            {isAr ? `من أصل${widgetStats.total}قسم` : `of ${widgetStats.total} theme sections`}
+            {isAr ? `من أصل ${widgetStats.total} قسم` : `of ${widgetStats.total} theme sections`}
           </span>
         </div>
 

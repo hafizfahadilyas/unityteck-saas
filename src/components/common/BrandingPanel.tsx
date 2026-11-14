@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Check, Palette, Type, Shapes, Sliders, Zap, Pipette } from 'lucide-react';
+import { Check, Palette, Type, Shapes, Sliders, Zap, Pipette, Save } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import {
   BRAND_FONTS,
@@ -8,36 +8,48 @@ import {
   BRAND_FONT_WEIGHTS,
   BRAND_ICON_RADIUS,
   BRAND_PALETTES,
+  DEFAULT_BRAND,
   TOP_15_PALETTES,
   parseHexColor,
+  type BrandFontArId,
+  type BrandFontEnId,
   type BrandFontId,
   type BrandFontWeight,
   type BrandIconStyle,
   type BrandPaletteId,
+  type BrandState,
 } from '../../i18n/branding';
 import { useToast } from './ToastProvider';
+import { fetchPlatformSettings, updatePlatformSettings } from '../../api/tenantApi';
+import { isApiEnabled } from '../../api/client';
 
 /**
  * Shared Master + Store branding:
  * Top 15 palettes + custom hex · EN/AR fonts · weights · icon shapes.
  * Applies globally via CSS variables (pages, tables, forms, modals).
+ * Master: persistPlatform saves branding into platform_settings (live MySQL).
  */
 export const BrandingPanel: React.FC<{
   title?: string;
   activePalette?: BrandPaletteId | null;
   onPaletteSelect?: (id: BrandPaletteId) => void;
   storeScoped?: boolean;
+  /** Master Settings — load/save branding via /platform/settings */
+  persistPlatform?: boolean;
 }> = ({
   title,
   activePalette,
   onPaletteSelect,
   storeScoped = false,
+  persistPlatform = false,
 }) => {
   const { brand, setBrand, setPalette, setFont, setIconStyle, setFontWeight, locale } = usePrefs();
   const { toast } = useToast();
   const isAr = locale === 'ar';
   const [customHex, setCustomHex] = useState(brand.customAccentHex || '#1d8b94');
   const [scrollbarHex, setScrollbarHex] = useState(brand.customScrollbarHex || '#4fb8b4');
+  const [platformBusy, setPlatformBusy] = useState(false);
+  const [platformHydrated, setPlatformHydrated] = useState(!persistPlatform);
 
   useEffect(() => {
     if (brand.customAccentHex) setCustomHex(brand.customAccentHex);
@@ -46,6 +58,73 @@ export const BrandingPanel: React.FC<{
   useEffect(() => {
     if (brand.customScrollbarHex) setScrollbarHex(brand.customScrollbarHex);
   }, [brand.customScrollbarHex]);
+
+  useEffect(() => {
+    if (!persistPlatform || !isApiEnabled()) {
+      setPlatformHydrated(true);
+      return;
+    }
+    let cancelled = false;
+    void fetchPlatformSettings()
+      .then((res) => {
+        if (cancelled) return;
+        const raw = (res.data?.branding || {}) as Partial<BrandState>;
+        const next: Partial<BrandState> = {
+          palette: (raw.palette as BrandPaletteId) || DEFAULT_BRAND.palette,
+          fontEn: (raw.fontEn as BrandFontEnId) || DEFAULT_BRAND.fontEn,
+          fontAr: (raw.fontAr as BrandFontArId) || DEFAULT_BRAND.fontAr,
+          iconStyle: (raw.iconStyle as BrandIconStyle) || DEFAULT_BRAND.iconStyle,
+          fontWeight: (raw.fontWeight as BrandFontWeight) || DEFAULT_BRAND.fontWeight,
+          customAccentHex: raw.customAccentHex ?? null,
+          customScrollbarHex: raw.customScrollbarHex ?? null,
+        };
+        const activeFont =
+          locale === 'ar'
+            ? (next.fontAr as BrandFontId) || DEFAULT_BRAND.font
+            : (next.fontEn as BrandFontId) || DEFAULT_BRAND.font;
+        setBrand({ ...next, font: activeFont });
+        if (next.customAccentHex) setCustomHex(String(next.customAccentHex));
+        if (next.customScrollbarHex) setScrollbarHex(String(next.customScrollbarHex));
+        setPlatformHydrated(true);
+      })
+      .catch(() => {
+        if (!cancelled) setPlatformHydrated(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [persistPlatform, locale, setBrand]);
+
+  const savePlatformBranding = async () => {
+    if (!persistPlatform) return;
+    if (!isApiEnabled()) {
+      toast(isAr ? 'الخادم غير متصل — لا يمكن الحفظ' : 'API offline — cannot save', 'warning');
+      return;
+    }
+    if (platformBusy) return;
+    setPlatformBusy(true);
+    try {
+      await updatePlatformSettings({
+        branding: {
+          palette: brand.palette,
+          fontEn: brand.fontEn || DEFAULT_BRAND.fontEn,
+          fontAr: brand.fontAr || DEFAULT_BRAND.fontAr,
+          iconStyle: brand.iconStyle,
+          fontWeight: brand.fontWeight || 'regular',
+          customAccentHex: brand.customAccentHex ?? null,
+          customScrollbarHex: brand.customScrollbarHex ?? null,
+        },
+      });
+      toast(
+        isAr ? 'تم حفظ الألوان والخطوط في إعدادات المنصة' : 'Theme & fonts saved to platform settings',
+        'success',
+      );
+    } catch {
+      toast(isAr ? 'فشل حفظ الهوية' : 'Failed to save branding', 'error');
+    } finally {
+      setPlatformBusy(false);
+    }
+  };
 
   const panelTitle =
     title ||
@@ -121,13 +200,8 @@ export const BrandingPanel: React.FC<{
 
   return (
     <div
-      className="p-5 rounded-2xl border shadow-2xs space-y-6"
-      style={{
-        background: 'var(--surface)',
-        borderColor: 'var(--border)',
-        color: 'var(--text)',
-        fontFamily: 'var(--font-ui)',
-      }}
+      className={`u-settings-luxe space-y-6 ${persistPlatform ? 'u-settings-luxe--accent' : ''}`}
+      style={{ fontFamily: 'var(--font-ui)' }}
     >
       <div
         className="flex items-center gap-3 border-b pb-3.5"
@@ -509,21 +583,49 @@ export const BrandingPanel: React.FC<{
         </div>
       </div>
 
-      <p
-        className="text-[11px] opacity-65 leading-relaxed pt-2 border-t flex items-center gap-1.5"
-        style={{ borderColor: 'var(--border)' }}
+      <div
+        className="pt-3 border-t flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+        style={{ borderColor: 'var(--plan-line, var(--border))' }}
       >
-        <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-        <span>
-          {isAr
-            ? storeScoped
-              ? 'الألوان والخط يُحفظان لهذا المتجر ويُطبَّقان فوراً على الصفحات والنوافذ.'
-              : 'كل تغيير في اللون أو الخط يُطبَّق فوراً على كل الصفحات والجداول والنوافذ دون إعادة تحميل.'
-            : storeScoped
-              ? 'Colors and fonts save for this store and apply instantly to pages and modals.'
-              : 'Color and font changes apply instantly across pages, tables, and modals with no reload.'}
-        </span>
-      </p>
+        <p className="text-[11px] leading-relaxed flex items-start gap-1.5" style={{ color: 'var(--plan-muted, var(--muted))' }}>
+          <Zap className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: 'var(--accent)' }} />
+          <span>
+            {!platformHydrated
+              ? isAr
+                ? 'جاري تحميل هوية المنصة…'
+                : 'Loading platform branding…'
+              : isAr
+                ? storeScoped
+                  ? 'الألوان والخط يُحفظان لهذا المتجر ويُطبَّقان فوراً على الصفحات والنوافذ.'
+                  : persistPlatform
+                    ? 'طبّق فوراً ثم احفظ في قاعدة المنصة — اختبار إدخال حقيقي لكل خيار.'
+                    : 'كل تغيير في اللون أو الخط يُطبَّق فوراً على كل الصفحات والجداول والنوافذ دون إعادة تحميل.'
+                : storeScoped
+                  ? 'Colors and fonts save for this store and apply instantly to pages and modals.'
+                  : persistPlatform
+                    ? 'Preview instantly, then save to live platform settings — real entry for every option.'
+                    : 'Color and font changes apply instantly across pages, tables, and modals with no reload.'}
+          </span>
+        </p>
+        {persistPlatform ? (
+          <button
+            type="button"
+            className="unity-btn-primary text-xs inline-flex items-center gap-1.5 shrink-0"
+            disabled={platformBusy || !platformHydrated}
+            aria-busy={platformBusy}
+            onClick={() => void savePlatformBranding()}
+          >
+            <Save className="w-3.5 h-3.5" aria-hidden />
+            {platformBusy
+              ? isAr
+                ? 'جاري الحفظ…'
+                : 'Saving…'
+              : isAr
+                ? 'حفظ في المنصة'
+                : 'Save to platform'}
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 };

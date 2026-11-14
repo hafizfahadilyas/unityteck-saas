@@ -1950,8 +1950,19 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                   {storeTab === 'themes' && (
                     <StoreThemes
                       onOpenStorefront={() => {
-                        const storeSlug = activeStore?.slug || (activeStore?.id === 'store-coffee' ? 'coffee' : activeStore?.id === 'store-bleco' ? 'bleco' : 'flowers');
-                        navigate(`/?store=${storeSlug}&fullscreen=1`);
+                        const storeSlug =
+                          activeStore?.slug ||
+                          (activeStore?.id === 'store-coffee'
+                            ? 'coffee'
+                            : activeStore?.id === 'store-bleco'
+                              ? 'bleco'
+                              : 'flowers');
+                        // Never same-tab navigate — that unmounts /admin into public storefront
+                        window.open(
+                          `/?store=${encodeURIComponent(storeSlug)}&fullscreen=1`,
+                          '_blank',
+                          'noopener,noreferrer',
+                        );
                       }}
                       onCustomizeTheme={(tid, page) => handleOpenCustomizeTheme(tid, page)}
                       onOpenThemeCustomizer={handleOpenThemeCustomizer}
@@ -1983,7 +1994,11 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                             : activeStore?.id === 'store-bleco'
                               ? 'bleco'
                               : 'flowers');
-                        navigate(`/?store=${storeSlug}&fullscreen=1`);
+                        window.open(
+                          `/?store=${encodeURIComponent(storeSlug)}&fullscreen=1`,
+                          '_blank',
+                          'noopener,noreferrer',
+                        );
                       }}
                     />
                   )}

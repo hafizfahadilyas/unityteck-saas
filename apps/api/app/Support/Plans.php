@@ -37,7 +37,7 @@ final class Plans
                 'order_limit' => 100,
                 'storage_mb' => 512,
                 'team_seats' => 1,
-                'features' => ['catalog', 'orders', 'basic_seo', 'themes_basic', 'media_studio'],
+                'features' => ['catalog', 'orders', 'basic_seo', 'themes_basic', 'media_studio', 'whatsapp'],
             ],
             'paid' => [
                 'id' => 'plan-paid',
@@ -47,7 +47,7 @@ final class Plans
                 'order_limit' => 2000,
                 'storage_mb' => 5120,
                 'team_seats' => 5,
-                'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'media_studio'],
+                'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'media_studio', 'whatsapp'],
             ],
             'pro' => [
                 'id' => 'plan-pro',

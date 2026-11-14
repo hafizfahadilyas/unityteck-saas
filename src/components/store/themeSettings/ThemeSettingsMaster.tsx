@@ -405,8 +405,18 @@ export const ThemeSettingsMaster: React.FC<ThemeSettingsMasterProps> = ({
                   if (onOpenStorefront) {
                     onOpenStorefront();
                   } else if (typeof window !== 'undefined') {
-                    const storeSlug = activeStore?.slug || (activeStore?.id === 'store-coffee' ? 'coffee' : activeStore?.id === 'store-bleco' ? 'bleco' : 'flowers');
-                    window.open(`/?store=${storeSlug}&fullscreen=1`, '_blank');
+                    const storeSlug =
+                      activeStore?.slug ||
+                      (activeStore?.id === 'store-coffee'
+                        ? 'coffee'
+                        : activeStore?.id === 'store-bleco'
+                          ? 'bleco'
+                          : 'flowers');
+                    window.open(
+                      `/?store=${encodeURIComponent(storeSlug)}&fullscreen=1`,
+                      '_blank',
+                      'noopener,noreferrer',
+                    );
                   }
                 }}
                 className="px-3.5 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -461,18 +471,6 @@ export const ThemeSettingsMaster: React.FC<ThemeSettingsMasterProps> = ({
             </div>
 
             <div className="flex items-center gap-3 flex-wrap">
-              {onOpenThemeCustomizer && (
-                <button
-                  type="button"
-                  onClick={() => onOpenThemeCustomizer('01_store_identity')}
-                  className="px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 cursor-pointer transition-all shadow-md bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shrink-0 active:scale-[0.98]"
-                  title={isAr ? 'فتح مخصص الثيم التفاعلي المباشر' : 'Launch Live WordPress Customizer'}
-                >
-                  <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-                  <span>{isAr ? 'المخصص المباشر' : 'Live Theme Customizer'}</span>
-                </button>
-              )}
-
               {/* Quick Search */}
               <div className="relative w-full sm:w-72">
                 <Search className="w-4 h-4 absolute start-3 top-2.5 text-muted" />

@@ -7,12 +7,23 @@ import {
   fetchPlansCatalog,
   patchStoreSubscription,
 } from '../../api/tenantApi';
-import { Crown, RefreshCw, Users, AlertTriangle, Layers, CheckCircle } from 'lucide-react';
+import {
+  Crown,
+  RefreshCw,
+  Users,
+  AlertTriangle,
+  Layers,
+  CheckCircle,
+  Check,
+  Sparkles,
+  Gem,
+  Shield,
+  Zap,
+} from 'lucide-react';
 import { GlobalModal } from '../common/GlobalModal';
 import { OverviewStatCard } from '../common/OverviewStatCard';
 import {
   MasterKpiGrid,
-  MasterLuxePanel,
   MasterMetaLine,
   MasterTabPills,
   masterGhostBtnClass,
@@ -24,6 +35,62 @@ import { AdvancedFilterBar } from '../common/AdvancedFilterBar';
 import { pipelineAdvancedList, useAdvancedListState } from '../../hooks/useAdvancedListState';
 
 type TabKey = 'plans' | 'subscriptions';
+
+const FEATURE_LABELS: Record<string, { en: string; ar: string }> = {
+  catalog: { en: 'Product catalog', ar: 'كتالوج المنتجات' },
+  orders: { en: 'Orders management', ar: 'إدارة الطلبات' },
+  basic_seo: { en: 'Basic search optimization', ar: 'تحسين بحث أساسي' },
+  seo: { en: 'Search optimization', ar: 'تحسين محركات البحث' },
+  coupons: { en: 'Coupons & offers', ar: 'القسائم والعروض' },
+  shipping: { en: 'Shipping rules', ar: 'قواعد الشحن' },
+  themes_basic: { en: 'Basic themes', ar: 'قوالب أساسية' },
+  themes: { en: 'Full theme studio', ar: 'استوديو القوالب الكامل' },
+  backups: { en: 'Store backups', ar: 'النسخ الاحتياطي للمتجر' },
+  zatca: { en: 'E-invoicing compliance', ar: 'الامتثال للفوترة الإلكترونية' },
+  analytics: { en: 'Analytics', ar: 'التحليلات' },
+  reports: { en: 'Reports', ar: 'التقارير' },
+  ai: { en: 'AI creative tools', ar: 'أدوات الذكاء الاصطناعي' },
+  media_studio: { en: 'Media studio', ar: 'استوديو الوسائط' },
+  custom_domain: { en: 'Custom domain', ar: 'نطاق مخصص' },
+  whatsapp: { en: 'WhatsApp messaging', ar: 'رسائل واتساب' },
+  social: { en: 'Social publishing', ar: 'النشر على التواصل' },
+  api_access: { en: 'API access', ar: 'وصول واجهة البرمجة' },
+  advanced_seo: { en: 'Advanced search optimization', ar: 'تحسين بحث متقدم' },
+  advanced_analytics: { en: 'Advanced analytics', ar: 'تحليلات متقدمة' },
+  all: { en: 'All platform features', ar: 'جميع ميزات المنصة' },
+};
+
+const PLAN_ICONS: Record<string, typeof Crown> = {
+  free: Shield,
+  paid: Zap,
+  pro: Crown,
+  premium: Gem,
+  custom: Sparkles,
+};
+
+function formatStorageMb(mb: unknown, isAr: boolean): string {
+  if (mb == null) return '∞';
+  const n = Number(mb);
+  if (!Number.isFinite(n)) return '∞';
+  if (n >= 1024) {
+    const gb = n / 1024;
+    const label = Number.isInteger(gb) ? String(gb) : gb.toFixed(1);
+    return isAr ? `${label} جيجابايت` : `${label} GB`;
+  }
+  return isAr ? `${n} ميجابايت` : `${n} MB`;
+}
+
+function formatLimit(v: unknown): string {
+  if (v == null) return '∞';
+  const n = Number(v);
+  return Number.isFinite(n) ? String(n) : '∞';
+}
+
+function featureLabel(code: string, isAr: boolean): string {
+  const hit = FEATURE_LABELS[code];
+  if (hit) return isAr ? hit.ar : hit.en;
+  return code.replace(/_/g, ' ');
+}
 
 /** SOUQ PLUS Phase 1 §4.4 — plan catalogue + subscription lifecycle (real API). */
 export const MasterPlansSubscriptions: React.FC = () => {
@@ -142,6 +209,16 @@ export const MasterPlansSubscriptions: React.FC = () => {
       }),
     [scopedSubs, list],
   );
+
+  const subscribersByPlan = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const row of subs) {
+      const code = String(row.plan || '').toLowerCase();
+      if (!code) continue;
+      map.set(code, (map.get(code) || 0) + 1);
+    }
+    return map;
+  }, [subs]);
 
   const openPlanSubs = (planCode: string) => {
     setTab('subscriptions');
@@ -330,7 +407,7 @@ export const MasterPlansSubscriptions: React.FC = () => {
       </MasterKpiGrid>
 
       {tab === 'plans' ? (
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {busy && plans.length === 0 ? (
             <div className="text-sm" style={{ color: 'var(--muted)' }}>
               {isAr ? 'جاري التحميل…' : 'Loading…'}
@@ -340,50 +417,129 @@ export const MasterPlansSubscriptions: React.FC = () => {
               {isAr ? 'لا توجد باقات' : 'No records found'}
             </div>
           ) : (
-            plans.map((p) => (
-              <MasterLuxePanel
-                key={String(p.id || p.code)}
-                interactive
-                padding="lg"
-                as="article"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Crown className="w-4 h-4" style={{ color: 'var(--accent)' }} aria-hidden />
-                  <h3 className="font-bold text-sm" style={{ color: 'var(--text)' }}>
-                    {String(p.name || p.code)}
-                  </h3>
-                </div>
-                <p className="text-xs" style={{ color: 'var(--muted)' }}>
-                  {String(p.code)} ·{' '}
-                  {p.price_sar == null
-                    ? isAr
-                      ? 'سعر مخصص / غير محدد'
-                      : 'Custom / unset'
-                    : money(Number(p.price_sar) || 0)}
-                </p>
-                <ul className="mt-3 text-[11px] space-y-1" style={{ color: 'var(--muted)' }}>
-                  <li>
-                    {isAr ? 'حد المنتجات' : 'Product limit'}:{' '}
-                    {p.product_limit == null ? '∞' : String(p.product_limit)}
-                  </li>
-                  <li>
-                    {isAr ? 'التخزين (ميجابايت)' : 'Storage (MB)'}:{' '}
-                    {p.storage_mb == null ? '∞' : String(p.storage_mb)}
-                  </li>
-                  <li>
-                    {isAr ? 'مقاعد الفريق' : 'Team seats'}:{' '}
-                    {p.team_seats == null ? '∞' : String(p.team_seats)}
-                  </li>
-                </ul>
-                <button
-                  type="button"
-                  className="mt-4 w-full unity-btn-ghost text-xs font-bold py-2"
-                  onClick={() => openPlanSubs(String(p.code || p.id || ''))}
+            plans.map((p) => {
+              const code = String(p.code || '').toLowerCase();
+              const featured = code === 'pro' || code === 'premium';
+              const Icon = PLAN_ICONS[code] || Crown;
+              const features = Array.isArray(p.features)
+                ? (p.features as string[])
+                : [];
+              const subCount = subscribersByPlan.get(code) || 0;
+              const priceLabel =
+                p.price_sar == null
+                  ? isAr
+                    ? 'سعر مخصص'
+                    : 'Custom pricing'
+                  : money(Number(p.price_sar) || 0);
+              const periodNote =
+                p.price_sar == null
+                  ? isAr
+                    ? 'يُحدد حسب الاتفاق'
+                    : 'Set per agreement'
+                  : isAr
+                    ? 'شهرياً · بالريال السعودي'
+                    : 'Per month · Saudi Riyal';
+
+              return (
+                <article
+                  key={String(p.id || p.code)}
+                  className={`u-plan-luxe${featured ? ' u-plan-luxe--featured' : ''}`}
                 >
-                  {isAr ? 'عرض مشتركي هذه الباقة' : 'View subscribers'}
-                </button>
-              </MasterLuxePanel>
-            ))
+                  {featured ? (
+                    <span className="u-plan-luxe__badge">
+                      {code === 'premium'
+                        ? isAr
+                          ? 'الأعلى'
+                          : 'Top tier'
+                        : isAr
+                          ? 'الأكثر اختياراً'
+                          : 'Popular'}
+                    </span>
+                  ) : null}
+
+                  <div className="u-plan-luxe__head">
+                    <span className="u-plan-luxe__icon" aria-hidden>
+                      <Icon className="w-4 h-4" />
+                    </span>
+                    <div className="min-w-0 pe-10">
+                      <h3 className="u-plan-luxe__title">{String(p.name || p.code)}</h3>
+                      <p className="u-plan-luxe__code">{code || '—'}</p>
+                    </div>
+                  </div>
+
+                  <div className="u-plan-luxe__price">
+                    <div className="u-plan-luxe__price-value">{priceLabel}</div>
+                    <div className="u-plan-luxe__price-note">{periodNote}</div>
+                  </div>
+
+                  <div className="u-plan-luxe__specs">
+                    <div className="u-plan-luxe__spec">
+                      <span className="u-plan-luxe__spec-label">
+                        {isAr ? 'المنتجات' : 'Products'}
+                      </span>
+                      <span className="u-plan-luxe__spec-value">
+                        {formatLimit(p.product_limit)}
+                      </span>
+                    </div>
+                    <div className="u-plan-luxe__spec">
+                      <span className="u-plan-luxe__spec-label">
+                        {isAr ? 'الطلبات' : 'Orders'}
+                      </span>
+                      <span className="u-plan-luxe__spec-value">
+                        {formatLimit(p.order_limit)}
+                      </span>
+                    </div>
+                    <div className="u-plan-luxe__spec">
+                      <span className="u-plan-luxe__spec-label">
+                        {isAr ? 'التخزين' : 'Storage'}
+                      </span>
+                      <span className="u-plan-luxe__spec-value">
+                        {formatStorageMb(p.storage_mb, isAr)}
+                      </span>
+                    </div>
+                    <div className="u-plan-luxe__spec">
+                      <span className="u-plan-luxe__spec-label">
+                        {isAr ? 'مقاعد الفريق' : 'Team seats'}
+                      </span>
+                      <span className="u-plan-luxe__spec-value">
+                        {formatLimit(p.team_seats)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <ul className="u-plan-luxe__features">
+                    {features.length === 0 ? (
+                      <li className="u-plan-luxe__feature" style={{ color: 'var(--plan-muted)' }}>
+                        {isAr ? 'لا ميزات مدرجة' : 'No features listed'}
+                      </li>
+                    ) : (
+                      features.map((f) => (
+                        <li key={f} className="u-plan-luxe__feature">
+                          <Check className="u-plan-luxe__feature-icon" aria-hidden />
+                          <span>{featureLabel(f, isAr)}</span>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+
+                  <div className="u-plan-luxe__foot">
+                    <span className="u-plan-luxe__subs">
+                      <Users className="w-3 h-3" aria-hidden />
+                      {isAr
+                        ? `${amount(subCount)} مشترك`
+                        : `${amount(subCount)} subscriber${subCount === 1 ? '' : 's'}`}
+                    </span>
+                    <button
+                      type="button"
+                      className="u-plan-luxe__cta"
+                      onClick={() => openPlanSubs(String(p.code || p.id || ''))}
+                    >
+                      {isAr ? 'عرض المشتركين' : 'View subscribers'}
+                    </button>
+                  </div>
+                </article>
+              );
+            })
           )}
         </div>
       ) : (

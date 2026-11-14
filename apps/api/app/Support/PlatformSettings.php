@@ -33,6 +33,15 @@ final class PlatformSettings
                 'instagram' => ['enabled' => false, 'url' => ''],
                 'youtube' => ['enabled' => false, 'url' => ''],
             ],
+            'branding' => [
+                'palette' => 'holst',
+                'fontEn' => 'jakarta',
+                'fontAr' => 'ibm-plex-ar',
+                'iconStyle' => 'rounded',
+                'fontWeight' => 'regular',
+                'customAccentHex' => null,
+                'customScrollbarHex' => null,
+            ],
         ];
     }
 

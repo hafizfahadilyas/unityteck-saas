@@ -1321,8 +1321,8 @@ function souq_table_exists(PDO $pdo, string $table): bool
 function souq_plans_catalog(): array
 {
     return [
-        ['code' => 'free', 'id' => 'plan-free', 'name' => 'Free', 'price_sar' => 0, 'currency' => 'SAR', 'product_limit' => 50, 'order_limit' => 100, 'storage_mb' => 512, 'team_seats' => 1, 'features' => ['catalog', 'orders', 'basic_seo', 'themes_basic', 'media_studio']],
-        ['code' => 'paid', 'id' => 'plan-paid', 'name' => 'Paid', 'price_sar' => null, 'currency' => 'SAR', 'product_limit' => 500, 'order_limit' => 2000, 'storage_mb' => 5120, 'team_seats' => 5, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'media_studio']],
+        ['code' => 'free', 'id' => 'plan-free', 'name' => 'Free', 'price_sar' => 0, 'currency' => 'SAR', 'product_limit' => 50, 'order_limit' => 100, 'storage_mb' => 512, 'team_seats' => 1, 'features' => ['catalog', 'orders', 'basic_seo', 'themes_basic', 'media_studio', 'whatsapp']],
+        ['code' => 'paid', 'id' => 'plan-paid', 'name' => 'Paid', 'price_sar' => null, 'currency' => 'SAR', 'product_limit' => 500, 'order_limit' => 2000, 'storage_mb' => 5120, 'team_seats' => 5, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'media_studio', 'whatsapp']],
         ['code' => 'pro', 'id' => 'plan-pro', 'name' => 'Pro', 'price_sar' => 300, 'currency' => 'SAR', 'product_limit' => 5000, 'order_limit' => null, 'storage_mb' => 51200, 'team_seats' => 20, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'themes', 'media_studio', 'custom_domain', 'whatsapp', 'social']],
         ['code' => 'premium', 'id' => 'plan-premium', 'name' => 'Premium', 'price_sar' => 500, 'currency' => 'SAR', 'product_limit' => null, 'order_limit' => null, 'storage_mb' => 102400, 'team_seats' => 50, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'themes', 'media_studio', 'custom_domain', 'whatsapp', 'social', 'backups', 'zatca', 'ai', 'api_access', 'advanced_seo', 'advanced_analytics']],
         ['code' => 'custom', 'id' => 'plan-custom', 'name' => 'Custom', 'price_sar' => null, 'currency' => 'SAR', 'product_limit' => null, 'order_limit' => null, 'storage_mb' => null, 'team_seats' => null, 'features' => ['all']],
@@ -1470,6 +1470,15 @@ function souq_platform_settings_defaults(): array
             'linkedin' => ['enabled' => false, 'url' => ''],
             'instagram' => ['enabled' => false, 'url' => ''],
             'youtube' => ['enabled' => false, 'url' => ''],
+        ],
+        'branding' => [
+            'palette' => 'holst',
+            'fontEn' => 'jakarta',
+            'fontAr' => 'ibm-plex-ar',
+            'iconStyle' => 'rounded',
+            'fontWeight' => 'regular',
+            'customAccentHex' => null,
+            'customScrollbarHex' => null,
         ],
     ];
 }
@@ -1776,7 +1785,7 @@ function souq_phase1_master_dispatch(PDO $pdo, string $uri, string $method, stri
             'platformName', 'platformNameAr', 'platformTagline', 'platformTaglineAr',
             'platformLogo', 'supportEmail', 'timezone', 'defaultLocale', 'defaultCurrency',
             'whatsappEnabled', 'whatsappNumber', 'maintenanceMode', 'maintenanceMessage',
-            'maintenanceMessageAr', 'socialLinks',
+            'maintenanceMessageAr', 'socialLinks', 'branding',
         ];
         $delta = [];
         foreach ($allowed as $key) {

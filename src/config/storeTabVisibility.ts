@@ -6,16 +6,10 @@
  */
 export const STORE_TABS_COMING_SOON = new Set<string>([
   'notifications',
-  'whatsapp',
   'commerce-tools',
-  // Hosting & Domain · Design Studio · AI Image & Video — locked until ready
+  // Hosting & Domain — locked until ready
   'hosting',
-  'canva',
-  'canva-studio',
-  'canva-banner',
-  'canva-logo',
-  'canva-product-card',
-  'ai-media',
+  // Unlocked for all stores: Design Studio (Canva), AI Media, WhatsApp/SMS marketing
 ]);
 
 /** @deprecated use isStoreTabComingSoon — kept so existing imports keep working */

@@ -61,6 +61,14 @@ class PlatformSettingsController extends Controller
             'maintenanceMessage' => ['nullable', 'string', 'max:1000'],
             'maintenanceMessageAr' => ['nullable', 'string', 'max:1000'],
             'socialLinks' => ['nullable', 'array'],
+            'branding' => ['nullable', 'array'],
+            'branding.palette' => ['nullable', 'string', 'max:64'],
+            'branding.fontEn' => ['nullable', 'string', 'max:64'],
+            'branding.fontAr' => ['nullable', 'string', 'max:64'],
+            'branding.iconStyle' => ['nullable', 'in:soft,rounded,sharp'],
+            'branding.fontWeight' => ['nullable', 'in:light,regular,medium,bold'],
+            'branding.customAccentHex' => ['nullable', 'string', 'max:16'],
+            'branding.customScrollbarHex' => ['nullable', 'string', 'max:16'],
         ]);
 
         $row = PlatformSetting::query()->find(PlatformSetting::ROW_ID);
