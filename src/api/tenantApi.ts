@@ -201,6 +201,138 @@ export async function updatePlatformSettings(
   });
 }
 
+/** SOUQ PLUS Phase 1 — Support tickets (Master). */
+export async function fetchMasterSupportTickets(params?: {
+  status?: string;
+}): Promise<{
+  data: Array<Record<string, unknown>>;
+  meta?: { total?: number; open?: number; source?: string };
+}> {
+  const qs = new URLSearchParams();
+  if (params?.status) qs.set('status', params.status);
+  const q = qs.toString();
+  return apiFetch(`/master/support/tickets${q ? `?${q}` : ''}`, { portal: 'master' });
+}
+
+export async function createMasterSupportTicket(
+  payload: Record<string, unknown>,
+): Promise<{ data: Record<string, unknown> }> {
+  return apiFetch('/master/support/tickets', {
+    method: 'POST',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+export async function patchMasterSupportTicket(
+  id: string,
+  payload: Record<string, unknown>,
+): Promise<{ data: Record<string, unknown> }> {
+  return apiFetch(`/master/support/tickets/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+export async function replyMasterSupportTicket(
+  id: string,
+  body: string,
+): Promise<{ data: Record<string, unknown> }> {
+  return apiFetch(`/master/support/tickets/${encodeURIComponent(id)}/replies`, {
+    method: 'POST',
+    portal: 'master',
+    body: { body },
+  });
+}
+
+export async function fetchMasterNotifications(): Promise<{
+  data: Array<Record<string, unknown>>;
+  meta?: { total?: number; new?: number; source?: string };
+}> {
+  return apiFetch('/master/notifications', { portal: 'master' });
+}
+
+export async function markMasterNotifications(payload: {
+  ids?: string[];
+  status?: string;
+  all?: boolean;
+}): Promise<{ ok?: boolean }> {
+  return apiFetch('/master/notifications/mark', {
+    method: 'POST',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+export async function fetchMasterServices(): Promise<{
+  data: Array<Record<string, unknown>>;
+  meta?: { total?: number; source?: string };
+}> {
+  return apiFetch('/master/services', { portal: 'master' });
+}
+
+export async function createMasterService(
+  payload: Record<string, unknown>,
+): Promise<{ data: Record<string, unknown> }> {
+  return apiFetch('/master/services', {
+    method: 'POST',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+export async function patchMasterService(
+  id: string,
+  payload: Record<string, unknown>,
+): Promise<{ data: Record<string, unknown> }> {
+  return apiFetch(`/master/services/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+export async function fetchMasterPointTransactions(): Promise<{
+  data: Array<Record<string, unknown>>;
+  meta?: { total?: number; source?: string; note?: string };
+}> {
+  return apiFetch('/master/points/transactions', { portal: 'master' });
+}
+
+export async function adjustMasterPoints(
+  payload: Record<string, unknown>,
+): Promise<{ data: Record<string, unknown> }> {
+  return apiFetch('/master/points/adjust', {
+    method: 'POST',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+export async function fetchMasterSessions(): Promise<{
+  data: Array<Record<string, unknown>>;
+}> {
+  return apiFetch('/master/security/sessions', { portal: 'master' });
+}
+
+export async function revokeMasterSessions(payload: {
+  session_id?: string;
+  all?: boolean;
+}): Promise<{ ok?: boolean }> {
+  return apiFetch('/master/security/sessions/revoke', {
+    method: 'POST',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+export async function fetchMasterLoginAttempts(): Promise<{
+  data: Array<Record<string, unknown>>;
+}> {
+  return apiFetch('/master/security/login-attempts', { portal: 'master' });
+}
+
 /** SOUQ PLUS Phase 1 — Master audit log. */
 export async function fetchAuditLogs(params?: {
   page?: number;

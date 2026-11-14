@@ -48,13 +48,15 @@ export const MasterSettings: React.FC = () => {
   const [timezone, setTimezone] = useState('Asia/Riyadh');
 
   // Social & WhatsApp
-  const [whatsappEnabled, setWhatsappEnabled] = useState(true);
-  const [whatsappNumber, setWhatsappNumber] = useState('+966500000000');
+  const [whatsappEnabled, setWhatsappEnabled] = useState(false);
+  const [whatsappNumber, setWhatsappNumber] = useState('');
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [maintenanceMessage, setMaintenanceMessage] = useState('');
   const [socialLinks, setSocialLinks] = useState({
-    twitter: { enabled: true, url: 'https://x.com/unityteck' },
-    linkedin: { enabled: true, url: 'https://linkedin.com/company/unityteck' },
-    instagram: { enabled: true, url: 'https://instagram.com/unityteck' },
-    youtube: { enabled: false, url: 'https://youtube.com/@unityteck' },
+    twitter: { enabled: false, url: '' },
+    linkedin: { enabled: false, url: '' },
+    instagram: { enabled: false, url: '' },
+    youtube: { enabled: false, url: '' },
   });
 
   const [purging, setPurging] = useState(false);
@@ -92,6 +94,14 @@ export const MasterSettings: React.FC = () => {
         }
         if (typeof d.whatsappNumber === 'string') {
           setWhatsappNumber(d.whatsappNumber);
+        }
+        if (typeof d.maintenanceMode === 'boolean') {
+          setMaintenanceMode(d.maintenanceMode);
+        }
+        if (isAr && typeof d.maintenanceMessageAr === 'string') {
+          setMaintenanceMessage(d.maintenanceMessageAr);
+        } else if (typeof d.maintenanceMessage === 'string') {
+          setMaintenanceMessage(d.maintenanceMessage);
         }
         const sl = d.socialLinks as typeof socialLinks | undefined;
         if (sl && typeof sl === 'object') {
@@ -134,6 +144,9 @@ export const MasterSettings: React.FC = () => {
         timezone,
         whatsappEnabled,
         whatsappNumber,
+        maintenanceMode,
+        maintenanceMessage: isAr ? undefined : maintenanceMessage,
+        maintenanceMessageAr: isAr ? maintenanceMessage : undefined,
         socialLinks,
       });
       toast(isAr ? 'تم حفظ إعدادات المنصة' : 'Platform settings saved', 'success');
@@ -368,10 +381,57 @@ export const MasterSettings: React.FC = () => {
                 </div>
               </div>
 
+              <div
+                className="rounded-xl border p-3 space-y-2"
+                style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                      {isAr ? 'وضع الصيانة' : 'Maintenance mode'}
+                    </p>
+                    <p className="text-[10px]" style={{ color: 'var(--muted)' }}>
+                      {isAr
+                        ? 'يتطلب صلاحية عالية — يُحفظ في إعدادات المنصة'
+                        : 'High-impact — persisted in platform settings'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMaintenanceMode((v) => !v)}
+                    className="px-3 py-1.5 rounded-lg text-[11px] font-bold border"
+                    style={{
+                      borderColor: maintenanceMode ? '#e11d48' : 'var(--border)',
+                      color: maintenanceMode ? '#e11d48' : 'var(--muted)',
+                    }}
+                  >
+                    {maintenanceMode
+                      ? isAr
+                        ? 'مفعّل'
+                        : 'ON'
+                      : isAr
+                        ? 'متوقف'
+                        : 'OFF'}
+                  </button>
+                </div>
+                <textarea
+                  value={maintenanceMessage}
+                  onChange={(e) => setMaintenanceMessage(e.target.value)}
+                  rows={2}
+                  placeholder={
+                    isAr ? 'رسالة الصيانة للمستخدمين…' : 'User-facing maintenance message…'
+                  }
+                  className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
+                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                />
+              </div>
+
               <div className="pt-3 flex justify-end">
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl text-xs font-bold text-white shadow-xs cursor-pointer hover:opacity-90"
+                  disabled={platformSaving}
+                  aria-busy={platformSaving}
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold text-white shadow-xs cursor-pointer hover:opacity-90 disabled:opacity-60"
                   style={{ background: 'var(--portal-cta)' }}
                 >
                   Save Platform Settings

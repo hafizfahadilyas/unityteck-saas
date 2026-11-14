@@ -182,7 +182,8 @@ export const ClientAuthModal: React.FC<ClientAuthModalProps> = ({
                   type="button"
                   onClick={() => {
                     onClose();
-                    window.location.assign('/master/login');
+                    // Master Admin lives only on central Hostinger.
+                    window.location.assign('https://mieraf-ksa.com/master/login');
                   }}
                   className="text-xs font-semibold transition-colors cursor-pointer inline-flex items-center gap-1 hover:opacity-80"
                   style={{ color: 'var(--accent)' }}

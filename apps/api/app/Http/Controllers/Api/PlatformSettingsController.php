@@ -57,6 +57,9 @@ class PlatformSettingsController extends Controller
             'defaultCurrency' => ['nullable', 'string', 'max:10'],
             'whatsappEnabled' => ['nullable', 'boolean'],
             'whatsappNumber' => ['nullable', 'string', 'max:32'],
+            'maintenanceMode' => ['nullable', 'boolean'],
+            'maintenanceMessage' => ['nullable', 'string', 'max:1000'],
+            'maintenanceMessageAr' => ['nullable', 'string', 'max:1000'],
             'socialLinks' => ['nullable', 'array'],
         ]);
 

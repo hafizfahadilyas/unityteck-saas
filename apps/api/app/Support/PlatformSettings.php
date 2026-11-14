@@ -24,6 +24,9 @@ final class PlatformSettings
             'defaultCurrency' => 'SAR',
             'whatsappEnabled' => false,
             'whatsappNumber' => '',
+            'maintenanceMode' => false,
+            'maintenanceMessage' => '',
+            'maintenanceMessageAr' => '',
             'socialLinks' => [
                 'twitter' => ['enabled' => false, 'url' => ''],
                 'linkedin' => ['enabled' => false, 'url' => ''],

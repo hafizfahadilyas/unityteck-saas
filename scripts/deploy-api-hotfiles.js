@@ -22,6 +22,7 @@ const files = [
   'live_extensions.php',
   'google_oauth.php',
   'session_lite.php',
+  'master_phase1_ops.php',
 ];
 // Only upload .env when explicitly requested — overwriting Hostinger DB host
 // (localhost vs srvXXX) silently drops MySQL → SQLite and looks like data loss.

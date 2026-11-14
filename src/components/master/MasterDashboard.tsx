@@ -34,6 +34,7 @@ import {
   MoreHorizontal,
   Palette,
   BookOpen,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   type DateRangeKey,
@@ -52,7 +53,11 @@ import {
 } from '../../utils/storeLocalization';
 import { formatRelativeTime } from '../../notification-system/utils/dateFilters';
 import { listOnboardingInvites } from '../../auth/invites';
-import { fetchMasterSubscriptions } from '../../api/tenantApi';
+import {
+  fetchAuditLogs,
+  fetchMasterSubscriptions,
+  fetchMasterSupportTickets,
+} from '../../api/tenantApi';
 
 interface MasterDashboardProps {
   onOpenCreateStore: () => void;
@@ -345,33 +350,62 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
   }, [stores.length]);
   const [subNearExpiry, setSubNearExpiry] = useState(0);
   const [activeSubsCount, setActiveSubsCount] = useState(0);
+  const [openSupportTickets, setOpenSupportTickets] = useState(0);
   const [kpiRefreshAt, setKpiRefreshAt] = useState<string | null>(null);
+
+  const [auditActivities, setAuditActivities] = useState<
+    Array<{ id: string; title: string; subtitle: string; timeAgo: string; icon: typeof ShieldCheck; at?: string }>
+  >([]);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetchMasterSubscriptions();
+        const [subsRes, auditRes, ticketsRes] = await Promise.all([
+          fetchMasterSubscriptions(),
+          fetchAuditLogs({ per_page: 12 }),
+          fetchMasterSupportTickets().catch(() => ({ data: [], meta: { open: 0 } })),
+        ]);
         if (cancelled) return;
-        const rows = Array.isArray(res?.data) ? res.data : [];
+        const rows = Array.isArray(subsRes?.data) ? subsRes.data : [];
         const active = rows.filter((r) => {
           const life = (r.lifecycle || {}) as { status?: string };
           return life.status === 'active' || life.status === 'grace' || life.status === 'trial';
         }).length;
         setActiveSubsCount(active);
-        setSubNearExpiry(Number(res?.meta?.near_expiry) || 0);
-        setKpiRefreshAt(res?.meta?.last_refresh || new Date().toISOString());
+        setSubNearExpiry(Number(subsRes?.meta?.near_expiry) || 0);
+        setKpiRefreshAt(subsRes?.meta?.last_refresh || new Date().toISOString());
+        setOpenSupportTickets(Number(ticketsRes?.meta?.open) || 0);
+
+        const audits = Array.isArray(auditRes?.data) ? auditRes.data : [];
+        setAuditActivities(
+          audits.map((row, idx) => {
+            const action = String(row.action || 'audit');
+            const entity = [row.entity_type, row.entity_id].filter(Boolean).join(' ');
+            const at = String(row.created_at || '');
+            return {
+              id: String(row.id || `aud-${idx}`),
+              title: action,
+              subtitle: entity || String(row.store_id || 'platform'),
+              timeAgo: at ? formatRelativeTime(at, locale) : (isAr ? 'حديثاً' : 'Recent'),
+              icon: ShieldCheck,
+              at,
+            };
+          }),
+        );
       } catch {
         if (cancelled) return;
         setActiveSubsCount(0);
         setSubNearExpiry(0);
+        setOpenSupportTickets(0);
         setKpiRefreshAt(null);
+        setAuditActivities([]);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [stores.length]);
+  }, [stores.length, locale, isAr]);
   // Seeded stores.visitors_count is NOT truth — store dashboards use storefront_analytics_events only
   const totalVisitorsCount = useMemo(
     () => Math.max(0, Number(platformMetrics.totalVisitors) || 0),
@@ -489,8 +523,11 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
     setPage(0);
   };
 
-  // Authentic timeline activities from real store, order, customer and activity events (zero mock fallback)
+  // Platform recent activity: prefer audit_logs; else real store/order/customer events (zero mock)
   const timelineActivities = useMemo(() => {
+    if (auditActivities.length > 0) {
+      return auditActivities.slice(0, 8);
+    }
     if (recentActivities && recentActivities.length > 0) {
       return recentActivities.slice(0, 8);
     }
@@ -531,7 +568,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
       });
     }
     return events.slice(0, 8);
-  }, [recentActivities, stores, flatOrders, flatCustomers, money, locale, isAr]);
+  }, [auditActivities, recentActivities, stores, flatOrders, flatCustomers, money, locale, isAr]);
 
   return (
     <AdminPageShell className="pb-12">
@@ -785,12 +822,12 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = React.memo(({ onO
               />
               <OverviewStatCard
                 label={isAr ? 'تذاكر الدعم المفتوحة' : 'Open support tickets'}
-                value={amount(0)}
+                value={amount(openSupportTickets)}
                 icon={Activity}
                 tone="info"
-                sparkline={[0]}
+                sparkline={[openSupportTickets]}
                 delta={null}
-                deltaLabel={isAr ? 'غير مربوط' : 'Not connected'}
+                deltaLabel={isAr ? 'من قاعدة البيانات' : 'From MySQL'}
               />
             </div>
           </div>

@@ -104,9 +104,14 @@ const MasterNotificationsHub = lazyWithRetry(() =>
     default: m.MasterNotificationsHub,
   })),
 );
-const MasterCapabilityDeferred = lazyWithRetry(() =>
-  import('./components/master/MasterCapabilityDeferred').then((m) => ({
-    default: m.MasterCapabilityDeferred,
+const MasterSupportCenter = lazyWithRetry(() =>
+  import('./components/master/MasterSupportCenter').then((m) => ({
+    default: m.MasterSupportCenter,
+  })),
+);
+const MasterServicesPoints = lazyWithRetry(() =>
+  import('./components/master/MasterServicesPoints').then((m) => ({
+    default: m.MasterServicesPoints,
   })),
 );
 const StoreCustomers = lazyWithRetry(() =>
@@ -1702,12 +1707,8 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                     <MasterStores onOpenCreateStore={() => setIsCreateStoreOpen(true)} />
                   )}
                   {masterTab === 'plans' && <MasterPlansSubscriptions />}
-                  {masterTab === 'services-points' && (
-                    <MasterCapabilityDeferred capabilityId="services-points" />
-                  )}
-                  {masterTab === 'support' && (
-                    <MasterCapabilityDeferred capabilityId="support" />
-                  )}
+                  {masterTab === 'services-points' && <MasterServicesPoints />}
+                  {masterTab === 'support' && <MasterSupportCenter />}
                   {masterTab === 'security' && <MasterSecurityCenter />}
                   {masterTab === 'notifications' && <MasterNotificationsHub />}
                   {masterTab === 'control-center' && <MasterControlCenter />}

@@ -8,6 +8,7 @@ use App\Models\Store;
 use App\Models\StoreUser;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Support\Audit;
 use App\Support\DefaultTheme;
 use App\Support\HostingerCloud;
 use App\Support\Plans;
@@ -165,7 +166,21 @@ class StoreController extends Controller
             'orders_count' => ['sometimes', 'integer', 'min:0'],
             'revenue' => ['sometimes', 'numeric', 'min:0'],
             'visitors_count' => ['sometimes', 'integer', 'min:0'],
+            'reason' => ['nullable', 'string', 'max:500'],
         ]);
+
+        $reason = trim((string) ($data['reason'] ?? ''));
+        unset($data['reason']);
+
+        $statusChanging = array_key_exists('status', $data) && (string) $data['status'] !== (string) $store->status;
+        $loginChanging = array_key_exists('login_email_active', $data)
+            && (bool) $data['login_email_active'] !== (bool) $store->login_email_active;
+        if (($statusChanging || $loginChanging) && $reason === '') {
+            return response()->json([
+                'message' => 'Reason is required for status or login email changes.',
+                'errors' => ['reason' => ['Reason is required.']],
+            ], 422);
+        }
 
         // Master login email uses stores.email — accept owner_email alias from SPA.
         if (array_key_exists('owner_email', $data) && ! array_key_exists('email', $data)) {
@@ -173,8 +188,32 @@ class StoreController extends Controller
         }
         unset($data['owner_email']);
 
+        $previous = [
+            'status' => $store->status,
+            'login_email_active' => $store->login_email_active,
+            'email' => $store->email,
+        ];
         $previousEmail = Str::lower(trim((string) $store->email));
         $store->fill($data)->save();
+
+        if ($statusChanging || $loginChanging || array_key_exists('email', $data)) {
+            Audit::fromRequest(
+                $request,
+                'store.master_update',
+                'store',
+                $store->id,
+                [
+                    'previous' => $previous,
+                    'next' => [
+                        'status' => $store->status,
+                        'login_email_active' => $store->login_email_active,
+                        'email' => $store->email,
+                    ],
+                    'reason' => $reason !== '' ? $reason : null,
+                ],
+                $store->id,
+            );
+        }
 
         // Keep store-owner User.email in sync when Master changes login email.
         if (array_key_exists('email', $data)) {

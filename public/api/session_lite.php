@@ -346,11 +346,20 @@ function souq_session_lite_dispatch(PDO $pdo, string $uri, string $method, strin
 
         if ($portal === 'master') {
             if (!souq_lite_is_master_email($email)) {
+                if (!function_exists('souq_master_login_attempt')) {
+                    require_once __DIR__ . '/master_phase1_ops.php';
+                }
+                souq_master_login_attempt($pdo, $email, false);
                 http_response_code(422);
                 echo json_encode(['message' => 'No matching account for this portal.']);
                 return true;
             }
             $token = 'lite|' . bin2hex(random_bytes(24));
+            if (!function_exists('souq_master_session_register')) {
+                require_once __DIR__ . '/master_phase1_ops.php';
+            }
+            souq_master_session_register($pdo, $token, $email);
+            souq_master_login_attempt($pdo, $email, true);
             echo json_encode([
                 'token' => $token,
                 'portal' => 'master',
@@ -480,11 +489,20 @@ function souq_session_lite_dispatch(PDO $pdo, string $uri, string $method, strin
 
         if ($portal === 'master') {
             if (!souq_lite_is_master_email($email)) {
+                if (!function_exists('souq_master_login_attempt')) {
+                    require_once __DIR__ . '/master_phase1_ops.php';
+                }
+                souq_master_login_attempt($pdo, $email, false);
                 http_response_code(422);
                 echo json_encode(['message' => 'No matching account for this portal.']);
                 return true;
             }
             $token = 'lite|' . bin2hex(random_bytes(24));
+            if (!function_exists('souq_master_session_register')) {
+                require_once __DIR__ . '/master_phase1_ops.php';
+            }
+            souq_master_session_register($pdo, $token, $email);
+            souq_master_login_attempt($pdo, $email, true);
             echo json_encode([
                 'token' => $token,
                 'portal' => 'master',
@@ -586,9 +604,24 @@ function souq_session_lite_dispatch(PDO $pdo, string $uri, string $method, strin
         }
     }
 
-    // PATCH /stores/{id} — Master login email + Active/Inactive
+    // PATCH /stores/{id} — Master login email + Active/Inactive (reason + audit for sensitive fields)
     if (preg_match('#^/stores/([^/]+)$#', $uri, $m) && in_array($method, ['PATCH', 'PUT', 'POST'], true)) {
         $sid = (string)$m[1];
+        $portalHdr = strtolower(trim((string)($_SERVER['HTTP_X_PORTAL'] ?? '')));
+        $sensitiveTouch = array_key_exists('status', $input)
+            || array_key_exists('login_email_active', $input)
+            || isset($input['email'])
+            || isset($input['owner_email']);
+        if ($sensitiveTouch) {
+            if ($portalHdr !== 'master') {
+                http_response_code(403);
+                echo json_encode(['message' => 'Master portal required for store lifecycle changes.']);
+                return true;
+            }
+            if (function_exists('souq_require_master_bearer') && !souq_require_master_bearer()) {
+                return true;
+            }
+        }
         $st = $pdo->prepare('SELECT * FROM stores WHERE id = ?');
         $st->execute([$sid]);
         $row = $st->fetch();
@@ -610,6 +643,9 @@ function souq_session_lite_dispatch(PDO $pdo, string $uri, string $method, strin
         $loginActive = array_key_exists('login_email_active', $row) && $row['login_email_active'] !== null
             ? (bool)$row['login_email_active']
             : (array_key_exists('login_email_active', $data) ? (bool)$data['login_email_active'] : true);
+        $prevStatus = (string)($row['status'] ?? ($data['status'] ?? 'pending'));
+        $prevLogin = $loginActive;
+        $prevEmail = $emailCol;
 
         if (isset($input['name']) && is_string($input['name']) && trim($input['name']) !== '') {
             $name = trim($input['name']);
@@ -649,6 +685,20 @@ function souq_session_lite_dispatch(PDO $pdo, string $uri, string $method, strin
             }
         }
 
+        $nextStatus = array_key_exists('status', $input) ? (string)$input['status'] : $prevStatus;
+        $statusChanging = array_key_exists('status', $input) && $nextStatus !== $prevStatus;
+        $loginChanging = array_key_exists('login_email_active', $input) && $loginActive !== $prevLogin;
+        $emailChanging = $nextEmail !== null && $nextEmail !== '' && $nextEmail !== $prevEmail;
+        $reason = trim((string)($input['reason'] ?? ''));
+        if (($statusChanging || $loginChanging) && $reason === '') {
+            http_response_code(422);
+            echo json_encode([
+                'message' => 'Reason is required for status or login email changes.',
+                'errors' => ['reason' => ['Reason is required.']],
+            ]);
+            return true;
+        }
+
         $isMysql = function_exists('souq_driver_is_mysql') && souq_driver_is_mysql($pdo);
         $hasDataCol = function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'stores', 'data');
         if ($isMysql || !$hasDataCol) {
@@ -674,6 +724,22 @@ function souq_session_lite_dispatch(PDO $pdo, string $uri, string $method, strin
                 ->execute([$name, $slug, $domain, json_encode($data, JSON_UNESCAPED_UNICODE), $sid]);
         }
 
+        if (($statusChanging || $loginChanging || $emailChanging) && function_exists('souq_audit_write')) {
+            souq_audit_write($pdo, $sid, 'store.master_update', 'store', $sid, [
+                'previous' => [
+                    'status' => $prevStatus,
+                    'login_email_active' => $prevLogin,
+                    'email' => $prevEmail,
+                ],
+                'next' => [
+                    'status' => $nextStatus,
+                    'login_email_active' => $loginActive,
+                    'email' => $emailCol,
+                ],
+                'reason' => $reason !== '' ? $reason : null,
+            ]);
+        }
+
         $out = $data;
         $out['id'] = $sid;
         $out['name'] = $name;
@@ -683,6 +749,9 @@ function souq_session_lite_dispatch(PDO $pdo, string $uri, string $method, strin
         $out['owner_email'] = $out['email'];
         $out['ownerEmail'] = $out['email'];
         $out['login_email_active'] = $loginActive;
+        if (array_key_exists('status', $input)) {
+            $out['status'] = $nextStatus;
+        }
         echo json_encode(['data' => $out]);
         return true;
     }

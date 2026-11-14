@@ -1462,6 +1462,9 @@ function souq_platform_settings_defaults(): array
         'defaultCurrency' => 'SAR',
         'whatsappEnabled' => false,
         'whatsappNumber' => '',
+        'maintenanceMode' => false,
+        'maintenanceMessage' => '',
+        'maintenanceMessageAr' => '',
         'socialLinks' => [
             'twitter' => ['enabled' => false, 'url' => ''],
             'linkedin' => ['enabled' => false, 'url' => ''],
@@ -1530,6 +1533,36 @@ function souq_allocate_reserved_store_id(PDO $pdo): string
         return $id;
     }
     return 'store-' . bin2hex(random_bytes(8));
+}
+
+/** Master-only routes require a Bearer token (lite|… or Sanctum). Public invite validate/redeem stay open. */
+function souq_require_master_bearer(): bool
+{
+    $auth = trim((string) ($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? ''));
+    if ($auth === '' && function_exists('getallheaders')) {
+        $headers = getallheaders();
+        if (is_array($headers)) {
+            foreach ($headers as $k => $v) {
+                if (strtolower((string) $k) === 'authorization') {
+                    $auth = trim((string) $v);
+                    break;
+                }
+            }
+        }
+    }
+    if (!preg_match('/^Bearer\s+(\S+)/i', $auth, $m)) {
+        http_response_code(401);
+        echo json_encode(['message' => 'Master SuperAdmin session required.']);
+        return false;
+    }
+    $token = trim($m[1]);
+    if ($token === '' || str_starts_with($token, 'mock-')) {
+        http_response_code(401);
+        echo json_encode(['message' => 'Master SuperAdmin session required.']);
+        return false;
+    }
+
+    return true;
 }
 
 function souq_phase1_master_dispatch(PDO $pdo, string $uri, string $method, string $storeId, array $input): bool
@@ -1630,6 +1663,9 @@ function souq_phase1_master_dispatch(PDO $pdo, string $uri, string $method, stri
             echo json_encode(['message' => 'Master portal required.']);
             return true;
         }
+        if (!souq_require_master_bearer()) {
+            return true;
+        }
         $rows = [];
         if (souq_table_exists($pdo, 'onboarding_invites')) {
             $rows = $pdo->query('SELECT * FROM onboarding_invites ORDER BY created_at DESC LIMIT 50')->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -1650,6 +1686,9 @@ function souq_phase1_master_dispatch(PDO $pdo, string $uri, string $method, stri
         if ($portal !== 'master') {
             http_response_code(403);
             echo json_encode(['message' => 'Master portal required.']);
+            return true;
+        }
+        if (!souq_require_master_bearer()) {
             return true;
         }
         $plan = strtolower(trim((string) ($input['plan'] ?? 'pro')));
@@ -1701,6 +1740,9 @@ function souq_phase1_master_dispatch(PDO $pdo, string $uri, string $method, stri
 
     if ($uri === '/platform/settings' && $method === 'GET') {
         if ($portal === 'master') {
+            if (!souq_require_master_bearer()) {
+                return true;
+            }
             $merged = souq_platform_settings_merged($pdo);
             $updatedAt = null;
             if (souq_table_exists($pdo, 'platform_settings')) {
@@ -1725,12 +1767,16 @@ function souq_phase1_master_dispatch(PDO $pdo, string $uri, string $method, stri
             echo json_encode(['message' => 'Master portal required.']);
             return true;
         }
+        if (!souq_require_master_bearer()) {
+            return true;
+        }
         $previous = souq_platform_settings_merged($pdo);
         $patch = is_array($input) ? $input : [];
         $allowed = [
             'platformName', 'platformNameAr', 'platformTagline', 'platformTaglineAr',
             'platformLogo', 'supportEmail', 'timezone', 'defaultLocale', 'defaultCurrency',
-            'whatsappEnabled', 'whatsappNumber', 'socialLinks',
+            'whatsappEnabled', 'whatsappNumber', 'maintenanceMode', 'maintenanceMessage',
+            'maintenanceMessageAr', 'socialLinks',
         ];
         $delta = [];
         foreach ($allowed as $key) {
@@ -1806,6 +1852,9 @@ function souq_phase1_master_dispatch(PDO $pdo, string $uri, string $method, stri
             echo json_encode(['message' => 'Master portal required.']);
             return true;
         }
+        if (!souq_require_master_bearer()) {
+            return true;
+        }
         $stores = $pdo->query('SELECT * FROM stores ORDER BY name ASC')->fetchAll(PDO::FETCH_ASSOC) ?: [];
         $rows = [];
         $nearExpiry = 0;
@@ -1872,6 +1921,9 @@ function souq_phase1_master_dispatch(PDO $pdo, string $uri, string $method, stri
             echo json_encode(['message' => 'Master portal required.']);
             return true;
         }
+        if (!souq_require_master_bearer()) {
+            return true;
+        }
         $perPage = min(100, max(1, (int) ($_GET['per_page'] ?? 50)));
         $page = max(1, (int) ($_GET['page'] ?? 1));
         $action = trim((string) ($_GET['action'] ?? ''));
@@ -1931,6 +1983,9 @@ function souq_phase1_master_dispatch(PDO $pdo, string $uri, string $method, stri
         if ($portal !== 'master') {
             http_response_code(403);
             echo json_encode(['message' => 'Master portal required.']);
+            return true;
+        }
+        if (!souq_require_master_bearer()) {
             return true;
         }
         $targetStoreId = (string) $m[1];
@@ -2053,6 +2108,13 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
 
     // ── SOUQ PLUS Phase 1 — Master plans / subscriptions / audit (Hostinger gateway) ──
     if (souq_phase1_master_dispatch($pdo, $uri, $method, $storeId, $input)) {
+        return true;
+    }
+
+    if (!function_exists('souq_phase1_ops_dispatch')) {
+        require_once __DIR__ . '/master_phase1_ops.php';
+    }
+    if (souq_phase1_ops_dispatch($pdo, $uri, $method, $storeId, $input)) {
         return true;
     }
 

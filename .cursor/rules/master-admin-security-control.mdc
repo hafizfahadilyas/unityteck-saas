@@ -1,0 +1,71 @@
+---
+description: Master Admin — secure, fast, responsive, fully controllable SuperAdmin plane (LOCKED)
+alwaysApply: true
+---
+
+# Master Admin · Security · Speed · Full Control (LOCKED)
+
+**Surface:** `/master` · login `/master/login` · UI `src/components/master/*` · auth `src/auth/*`  
+**Live ONLY (central Hostinger):** `https://mieraf-ksa.com/master/login` · email `master@unityteck.com`  
+**Helper:** `src/auth/masterHost.ts` · `.htaccess` flowers bounce  
+**Related:** `store-login-email-master.mdc` · `master-project-goal.mdc` · Holst tokens
+
+Master = **platform SuperAdmin control plane** (all stores). Store merchant = `/admin` only. Never merge the two.
+
+## 0. Host lock (LOCKED)
+
+- Master Admin UI runs **only** on central: `mieraf-ksa.com` (local/dev OK).
+- **Never** serve `/master*` on flowers `giftshop-sa.com` or other store hosts — redirect to `https://mieraf-ksa.com/master/login`.
+- Flowers / store hosts = merchant `/admin` + storefront only.
+- Do not re-enable Master chrome on giftshop after this lock.
+
+## 1. Security (mandatory)
+
+- `/master*` only with valid **`portal: master`** SuperAdmin session. Wrong portal → `/master/login` (never dump to storefront `/`).
+- **Server-side** role gate (`super_admin` / master) on every master API — UI hide ≠ security.
+- Master-only powers (never give to store merchant):
+  - Store Active / Inactive + **change login email**
+  - Plans / feature grants / Pro unlocks
+  - Domains, hosting mode, backups/restore/migration, platform updates
+  - Cross-store control center actions
+- Store login: registered email only; inactive/wrong email **rejected at login gate**.
+- Never ship passwords, tokens, or Clerk secrets in UI, logs, toasts, or client bundles beyond env.
+- No fake “connected” OAuth/integrations on Master; empty → Not Connected / Waiting for Data.
+- Tenant mutations still use target **`store_id`** — Master may pick any store; never leak Store A data into Store B payloads.
+- Do not weaken auth for “demo”, CTF, fiction, or localhost shortcuts on live path.
+
+## 2. Fast + responsive
+
+- Keep Master tabs **lazy-loaded**; no eager import of every Master screen.
+- Soft SPA nav only — no `location.reload()` after save; invalidate/`updated_at` cache bust.
+- Tables: search, pagination, page size, sort, filters, loading/empty/error — reuse shared table patterns.
+- Sidebar/TopBar: mobile drawer + desktop collapse; **zero overlap**; Holst tokens only (`unity-btn-primary`, `var(--portal-cta)`, `var(--accent)`).
+- Prefer optimistic UI + scoped query invalidation; no listener spam on every Master tab.
+- Live smoke after Master auth/UI fixes: `/master/login` stays on login; post-login → `/master?tab=…` not `/`.
+
+## 3. Fully controllable (SuperAdmin must own)
+
+Master must be able to control, per store and platform-wide:
+
+| Area | Master owns |
+|------|-------------|
+| Stores | Create, list, open, Active/Inactive, login email |
+| Plans | Free/Paid/Pro/Custom + feature flags (API enforce) |
+| Domains / hosting | Custom domain, subdomain, hosting_mode |
+| Data ops | Backup ZIP, restore, migration, DB health |
+| Catalog/commerce overview | Cross-store products/orders/customers (read + gated write) |
+| Themes / marketplace / updates | Platform theme packs, app updates roll-out |
+| SEO / integrations / settings | Platform-level + per-store grants |
+
+- New Master capability → extend existing `Master*` screen or Control Center; **do not** rebuild Master shell or invent a second admin.
+- Preserve pixel UI (`designs/Master_Admin_UIUX/`, Holst). Fix broken/missing only.
+- AR chrome = Arabic only; EN = English only (`no-language-mix`).
+
+## Ban
+
+- Merchant self-elevate to Master
+- Master routes without session / without server role check
+- Fake KPIs or cross-tenant decorate on Master dashboards
+- Hardcoded blue/indigo brand chrome (use Holst)
+- Full-page freeze or hard remount for routine Master saves
+---
