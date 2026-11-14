@@ -44,6 +44,17 @@ final class PlatformSettings
                 'customBgHex' => null,
                 'customTextHex' => null,
             ],
+            'seo' => [
+                'preset' => 'post_name',
+                'dateInUrl' => false,
+                'postType' => 'product',
+                'productPattern' => '/{post_type}/{slug}',
+                'categoryPattern' => '/category/{slug}',
+                'blogPattern' => '/blog/{slug}',
+                'pagePattern' => '/{slug}',
+                'defaultOgImage' => '',
+                'twitterCard' => 'summary_large_image',
+            ],
         ];
     }
 

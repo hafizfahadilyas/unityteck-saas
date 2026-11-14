@@ -71,6 +71,16 @@ class PlatformSettingsController extends Controller
             'branding.customScrollbarHex' => ['nullable', 'string', 'max:16'],
             'branding.customBgHex' => ['nullable', 'string', 'max:16'],
             'branding.customTextHex' => ['nullable', 'string', 'max:16'],
+            'seo' => ['nullable', 'array'],
+            'seo.preset' => ['nullable', 'in:plain,post_name,date,post_type,custom'],
+            'seo.dateInUrl' => ['nullable', 'boolean'],
+            'seo.postType' => ['nullable', 'string', 'max:64'],
+            'seo.productPattern' => ['nullable', 'string', 'max:191'],
+            'seo.categoryPattern' => ['nullable', 'string', 'max:191'],
+            'seo.blogPattern' => ['nullable', 'string', 'max:191'],
+            'seo.pagePattern' => ['nullable', 'string', 'max:191'],
+            'seo.defaultOgImage' => ['nullable', 'string', 'max:500'],
+            'seo.twitterCard' => ['nullable', 'in:summary,summary_large_image'],
         ]);
 
         $row = PlatformSetting::query()->find(PlatformSetting::ROW_ID);

@@ -665,6 +665,8 @@ const getDefaultStoreTheme = (storeId?: string): string => {
       if (typeof window !== 'undefined') {
         const url = new URL(window.location.href);
         url.searchParams.set('tab', tab);
+        // Master URLs stay SEO-clean for the portal — no store=flowers leak.
+        url.searchParams.delete('store');
         window.history.replaceState({}, '', url.toString());
       }
     } catch {}
@@ -768,6 +770,20 @@ const getDefaultStoreTheme = (storeId?: string): string => {
   useEffect(() => {
     setMobileNavOpen(false);
   }, [mode, masterTab, storeTab]);
+
+  // Keep Master portal URLs clean — strip leftover store=flowers from dashboard deep links.
+  useEffect(() => {
+    if (mode !== 'master' || typeof window === 'undefined') return;
+    try {
+      const url = new URL(window.location.href);
+      if (!url.pathname.toLowerCase().startsWith('/master')) return;
+      if (!url.searchParams.has('store')) return;
+      url.searchParams.delete('store');
+      window.history.replaceState({}, '', url.toString());
+    } catch {
+      /* ignore */
+    }
+  }, [mode, masterTab]);
 
   useEffect(() => {
     if (!mobileNavOpen) return;

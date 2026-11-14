@@ -1,10 +1,21 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { Sparkline } from '../common/Sparkline';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
 import { getStoreDisplayName } from '../../utils/storeLocalization';
 import { downloadCsv } from '../../utils/exportSpreadsheet';
+import { fetchPlatformSettings, updatePlatformSettings } from '../../api/tenantApi';
+import { isApiEnabled } from '../../api/client';
+import { setStorefrontSeoLinkSettings } from '../../utils/storefrontLinks';
+import {
+  applySeoPermalinkPreset,
+  buildSeoPublicUrl,
+  DEFAULT_SEO_LINK_SETTINGS,
+  normalizeSeoLinkSettings,
+  type SeoLinkSettings,
+  type SeoPermalinkPreset,
+} from '../../utils/seoPermalink';
 import {
   getMasterGlobalTracking,
   saveMasterGlobalTracking,
@@ -21,6 +32,9 @@ import {
   Flower2,
   Copy,
   Download,
+  Link2,
+  Image as ImageIcon,
+  Save,
 } from 'lucide-react';
 
 const INDEXING_PAYLOAD = `POST https://indexing.googleapis.com/v3/urlNotifications:publish
@@ -42,6 +56,78 @@ export const MasterSEO: React.FC = () => {
   const [masterTracking, setMasterTracking] = useState<MasterGlobalTrackingConfig>(() =>
     getMasterGlobalTracking(),
   );
+  const [seoLinks, setSeoLinks] = useState<SeoLinkSettings>(DEFAULT_SEO_LINK_SETTINGS);
+  const [seoLinksBusy, setSeoLinksBusy] = useState(false);
+
+  useEffect(() => {
+    if (!isApiEnabled()) return;
+    let cancelled = false;
+    void fetchPlatformSettings()
+      .then((res) => {
+        if (cancelled) return;
+        const next = normalizeSeoLinkSettings((res.data as { seo?: unknown })?.seo);
+        setSeoLinks(next);
+        setStorefrontSeoLinkSettings(next);
+      })
+      .catch(() => {
+        /* keep defaults */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const sampleStore = stores[0];
+  const sampleOrigin = useMemo(() => {
+    const host = String(
+      sampleStore?.custom_domain || sampleStore?.domain || sampleStore?.demo_domain || '',
+    )
+      .replace(/^https?:\/\//, '')
+      .split('/')[0]
+      .replace(/^www\./, '');
+    if (host) return `https://${host}`;
+    if (typeof window !== 'undefined') return window.location.origin;
+    return 'https://example.com';
+  }, [sampleStore]);
+
+  const linkPreviews = useMemo(() => {
+    const ctx = {
+      origin: sampleOrigin,
+      storeSlug: sampleStore?.slug || 'store',
+      slug: 'red-rose-bouquet',
+      id: 'prod-demo',
+      useQueryStore: !sampleStore?.custom_domain && !sampleStore?.domain,
+    };
+    return {
+      product: buildSeoPublicUrl(seoLinks, 'product', ctx),
+      category: buildSeoPublicUrl(seoLinks, 'category', { ...ctx, slug: 'flowers' }),
+      blog: buildSeoPublicUrl(seoLinks, 'blog', { ...ctx, slug: 'national-day-gifts' }),
+      page: buildSeoPublicUrl(seoLinks, 'page', { ...ctx, slug: 'about' }),
+    };
+  }, [seoLinks, sampleOrigin, sampleStore]);
+
+  const saveSeoLinks = async () => {
+    if (seoLinksBusy) return;
+    setSeoLinksBusy(true);
+    try {
+      if (isApiEnabled()) {
+        await updatePlatformSettings({ seo: seoLinks });
+      }
+      setStorefrontSeoLinkSettings(seoLinks);
+      toast(isAr ? 'تم حفظ إعدادات الروابط والمشاركة' : 'Link & share settings saved', 'success');
+    } catch (err) {
+      toast(
+        err instanceof Error
+          ? err.message
+          : isAr
+            ? 'فشل الحفظ'
+            : 'Save failed',
+        'error',
+      );
+    } finally {
+      setSeoLinksBusy(false);
+    }
+  };
 
   const handleAutoProvisionAllStores = () => {
     saveMasterGlobalTracking(masterTracking);
@@ -263,6 +349,238 @@ export const MasterSEO: React.FC = () => {
               onChange={(e) => setMasterTracking({ ...masterTracking, indexingTimerMinutes: Number(e.target.value) })}
               className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-mono font-bold text-xs"
             />
+          </div>
+        </div>
+      </div>
+
+      {/* Customizable SEO links + share thumbnail */}
+      <div
+        className="p-5 rounded-3xl border space-y-4"
+        style={{
+          background: 'var(--surface)',
+          borderColor: 'var(--border)',
+          color: 'var(--text)',
+        }}
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-sm sm:text-base font-black flex items-center gap-2">
+              <Link2 className="w-4 h-4" style={{ color: 'var(--accent)' }} aria-hidden />
+              {isAr ? 'هيكل الروابط ومعاينة المشاركة' : 'Link structure & share preview'}
+            </h3>
+            <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
+              {isAr
+                ? 'روابط عامة قابلة للتخصيص (نوع المحتوى / التاريخ / النمط) وصورة مصغّرة تظهر عند المشاركة. روابط لوحة الماستر الداخلية ليست روابط تحسين ظهور عامة.'
+                : 'Fully customizable public URLs (post type / date / pattern) plus a share thumbnail. Master Admin query links are not public SEO URLs.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="unity-btn-primary text-xs inline-flex items-center gap-1.5"
+            disabled={seoLinksBusy}
+            aria-busy={seoLinksBusy}
+            onClick={() => void saveSeoLinks()}
+          >
+            <Save className="w-3.5 h-3.5" aria-hidden />
+            {seoLinksBusy
+              ? isAr
+                ? 'جاري الحفظ…'
+                : 'Saving…'
+              : isAr
+                ? 'حفظ إعدادات الروابط'
+                : 'Save link settings'}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="space-y-3">
+            <label className="block space-y-1.5">
+              <span className="text-xs font-bold">{isAr ? 'نمط الرابط' : 'Permalink preset'}</span>
+              <select
+                className="w-full rounded-xl text-sm px-3 py-2.5 outline-none"
+                style={{
+                  background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
+                  color: 'var(--input-fg, var(--text))',
+                  boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
+                }}
+                value={seoLinks.preset}
+                onChange={(e) => {
+                  const preset = e.target.value as SeoPermalinkPreset;
+                  setSeoLinks(applySeoPermalinkPreset(preset, seoLinks));
+                }}
+              >
+                <option value="post_name">{isAr ? 'اسم المنشور (موصى به)' : 'Post name (recommended)'}</option>
+                <option value="date">{isAr ? 'تاريخ + اسم' : 'Date + name'}</option>
+                <option value="post_type">{isAr ? 'نوع المحتوى + تاريخ' : 'Post type + date'}</option>
+                <option value="plain">{isAr ? 'بسيط (?p=id)' : 'Plain (?p=id)'}</option>
+                <option value="custom">{isAr ? 'مخصص' : 'Custom'}</option>
+              </select>
+            </label>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="block space-y-1.5">
+                <span className="text-xs font-bold">{isAr ? 'نوع المحتوى' : 'Post type'}</span>
+                <input
+                  type="text"
+                  dir="ltr"
+                  value={seoLinks.postType}
+                  onChange={(e) => setSeoLinks({ ...seoLinks, postType: e.target.value, preset: 'custom' })}
+                  className="w-full rounded-xl text-sm px-3 py-2.5 font-mono outline-none"
+                  style={{
+                    background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
+                    color: 'var(--input-fg, var(--text))',
+                    boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
+                  }}
+                  placeholder="product"
+                />
+              </label>
+              <label className="flex items-center gap-2 rounded-xl px-3 py-2.5 mt-5 sm:mt-6 cursor-pointer"
+                style={{ background: 'color-mix(in srgb, var(--accent) 8%, var(--surface))' }}
+              >
+                <input
+                  type="checkbox"
+                  className="accent-[var(--accent)]"
+                  checked={seoLinks.dateInUrl}
+                  onChange={(e) =>
+                    setSeoLinks({ ...seoLinks, dateInUrl: e.target.checked, preset: 'custom' })
+                  }
+                />
+                <span className="text-xs font-bold">
+                  {isAr ? 'إظهار التاريخ في الرابط' : 'Include date in URL'}
+                </span>
+              </label>
+            </div>
+
+            {(
+              [
+                ['productPattern', isAr ? 'نمط المنتج' : 'Product pattern'],
+                ['categoryPattern', isAr ? 'نمط التصنيف' : 'Category pattern'],
+                ['blogPattern', isAr ? 'نمط المقال' : 'Blog pattern'],
+                ['pagePattern', isAr ? 'نمط الصفحة' : 'Page pattern'],
+              ] as const
+            ).map(([key, label]) => (
+              <label key={key} className="block space-y-1.5">
+                <span className="text-xs font-bold">{label}</span>
+                <input
+                  type="text"
+                  dir="ltr"
+                  value={seoLinks[key]}
+                  onChange={(e) =>
+                    setSeoLinks({ ...seoLinks, [key]: e.target.value, preset: 'custom' })
+                  }
+                  className="w-full rounded-xl text-sm px-3 py-2.5 font-mono outline-none"
+                  style={{
+                    background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
+                    color: 'var(--input-fg, var(--text))',
+                    boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
+                  }}
+                />
+              </label>
+            ))}
+            <p className="text-[10px]" style={{ color: 'var(--muted)' }} dir="ltr">
+              Tokens: {'{post_type}'} {'{slug}'} {'{id}'} {'{yyyy}'} {'{mm}'} {'{dd}'} {'{store}'}
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <label className="block space-y-1.5">
+              <span className="text-xs font-bold flex items-center gap-1.5">
+                <ImageIcon className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} aria-hidden />
+                {isAr ? 'صورة المشاركة الافتراضية (OG)' : 'Default share thumbnail (OG)'}
+              </span>
+              <input
+                type="url"
+                dir="ltr"
+                value={seoLinks.defaultOgImage}
+                onChange={(e) => setSeoLinks({ ...seoLinks, defaultOgImage: e.target.value })}
+                className="w-full rounded-xl text-sm px-3 py-2.5 font-mono outline-none"
+                style={{
+                  background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
+                  color: 'var(--input-fg, var(--text))',
+                  boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
+                }}
+                placeholder="https://…/og-1200x630.jpg"
+              />
+            </label>
+
+            <label className="block space-y-1.5">
+              <span className="text-xs font-bold">{isAr ? 'بطاقة تويتر / إكس' : 'Twitter / X card'}</span>
+              <select
+                className="w-full rounded-xl text-sm px-3 py-2.5 outline-none"
+                style={{
+                  background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
+                  color: 'var(--input-fg, var(--text))',
+                  boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
+                }}
+                value={seoLinks.twitterCard}
+                onChange={(e) =>
+                  setSeoLinks({
+                    ...seoLinks,
+                    twitterCard: e.target.value as SeoLinkSettings['twitterCard'],
+                  })
+                }
+              >
+                <option value="summary_large_image">
+                  {isAr ? 'صورة كبيرة (موصى به)' : 'Large image (recommended)'}
+                </option>
+                <option value="summary">{isAr ? 'ملخص صغير' : 'Small summary'}</option>
+              </select>
+            </label>
+
+            {/* Share / GitHub-style link preview card */}
+            <div
+              className="rounded-2xl overflow-hidden border"
+              style={{ borderColor: 'var(--border)' }}
+              aria-label={isAr ? 'معاينة المشاركة' : 'Share preview'}
+            >
+              <div
+                className="aspect-[1.91/1] bg-slate-100 flex items-center justify-center overflow-hidden"
+                style={{ background: 'color-mix(in srgb, var(--muted) 12%, var(--surface))' }}
+              >
+                {seoLinks.defaultOgImage ? (
+                  <img
+                    src={seoLinks.defaultOgImage}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <span className="text-[11px] px-4 text-center" style={{ color: 'var(--muted)' }}>
+                    {isAr
+                      ? 'أضف رابط صورة 1200×630 لتظهر عند المشاركة على واتساب / إكس / جيت هب'
+                      : 'Add a 1200×630 image URL to show when sharing on WhatsApp / X / GitHub'}
+                  </span>
+                )}
+              </div>
+              <div className="p-3 space-y-1">
+                <div className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--muted)' }} dir="ltr">
+                  {(sampleOrigin || '').replace(/^https?:\/\//, '')}
+                </div>
+                <div className="text-sm font-bold truncate">
+                  {sampleStore
+                    ? getStoreDisplayName(sampleStore, locale)
+                    : isAr
+                      ? 'معاينة المتجر'
+                      : 'Store preview'}
+                </div>
+                <div className="text-[11px] line-clamp-2" style={{ color: 'var(--muted)' }}>
+                  {isAr
+                    ? 'هذه المعاينة تظهر عند مشاركة الرابط — الصورة من إعدادات تحسين الظهور أعلاه.'
+                    : 'This card appears when the link is shared — image comes from the OG setting above.'}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl p-3 space-y-1.5 text-[11px] font-mono" dir="ltr"
+              style={{ background: 'color-mix(in srgb, var(--muted) 8%, var(--surface))' }}
+            >
+              <div><span style={{ color: 'var(--muted)' }}>product:</span> {linkPreviews.product}</div>
+              <div><span style={{ color: 'var(--muted)' }}>category:</span> {linkPreviews.category}</div>
+              <div><span style={{ color: 'var(--muted)' }}>blog:</span> {linkPreviews.blog}</div>
+              <div><span style={{ color: 'var(--muted)' }}>page:</span> {linkPreviews.page}</div>
+            </div>
           </div>
         </div>
       </div>

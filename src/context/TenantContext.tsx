@@ -2515,14 +2515,29 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (typeof window !== 'undefined') {
         const url = new URL(window.location.href);
         const p = url.pathname.toLowerCase();
-        if (p.startsWith('/coffee') && storeId === 'store-coffee') {
+        // Master Admin is portal-scoped — never inject store=flowers (or any store) into /master URLs.
+        if (p.startsWith('/master')) {
+          if (url.searchParams.has('store')) {
+            url.searchParams.delete('store');
+            window.history.replaceState({}, '', url.toString());
+          }
+        } else if (p.startsWith('/coffee') && storeId === 'store-coffee') {
           // Path already specifies coffee
         } else if ((p.startsWith('/bleco') || p.startsWith('/car')) && storeId === 'store-bleco') {
           // Path already specifies bleco
         } else if ((p.startsWith('/flowers') || p.startsWith('/hadaya')) && storeId === 'store-1') {
           // Path already specifies flowers
         } else {
-          const slug = storeId === 'store-bleco' ? 'bleco' : storeId === 'store-coffee' ? 'coffee' : 'flowers';
+          const targetStore = storesRef.current.find((s) => s.id === storeId);
+          const slug =
+            (targetStore?.slug && String(targetStore.slug).trim()) ||
+            (storeId === 'store-bleco'
+              ? 'bleco'
+              : storeId === 'store-coffee'
+                ? 'coffee'
+                : storeId === 'store-1'
+                  ? 'flowers'
+                  : storeId);
           if (url.searchParams.get('store') !== slug) {
             url.searchParams.set('store', slug);
             window.history.replaceState({}, '', url.toString());

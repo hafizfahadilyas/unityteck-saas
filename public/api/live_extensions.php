@@ -1506,6 +1506,17 @@ function souq_platform_settings_defaults(): array
             'customBgHex' => null,
             'customTextHex' => null,
         ],
+        'seo' => [
+            'preset' => 'post_name',
+            'dateInUrl' => false,
+            'postType' => 'product',
+            'productPattern' => '/{post_type}/{slug}',
+            'categoryPattern' => '/category/{slug}',
+            'blogPattern' => '/blog/{slug}',
+            'pagePattern' => '/{slug}',
+            'defaultOgImage' => '',
+            'twitterCard' => 'summary_large_image',
+        ],
     ];
 }
 
@@ -1811,7 +1822,7 @@ function souq_phase1_master_dispatch(PDO $pdo, string $uri, string $method, stri
             'platformName', 'platformNameAr', 'platformTagline', 'platformTaglineAr',
             'platformLogo', 'supportEmail', 'timezone', 'defaultLocale', 'defaultCurrency',
             'whatsappEnabled', 'whatsappNumber', 'maintenanceMode', 'maintenanceMessage',
-            'maintenanceMessageAr', 'socialLinks', 'branding',
+            'maintenanceMessageAr', 'socialLinks', 'branding', 'seo',
         ];
         $delta = [];
         foreach ($allowed as $key) {
