@@ -77,7 +77,7 @@ export const MASTER_TAB_ABILITY: Record<string, string | null> = {
   promotions: 'coupons.read',
   coupons: 'coupons.read',
   seo: 'seo.read',
-  blog: 'analytics.read',
+  blog: null,
   analytics: 'analytics.read',
   payments: 'settings.read',
   integrations: 'settings.read',

@@ -117,6 +117,16 @@ const MasterSupportCenter = lazyWithRetry(() =>
     default: m.MasterSupportCenter,
   })),
 );
+const MasterPlatformBlog = lazyWithRetry(() =>
+  import('./components/master/MasterPlatformBlog').then((m) => ({
+    default: m.MasterPlatformBlog,
+  })),
+);
+const PlatformBlogPublicView = lazyWithRetry(() =>
+  import('./components/public/PlatformBlogPublicView').then((m) => ({
+    default: m.PlatformBlogPublicView,
+  })),
+);
 const StoreHelpChatbot = lazyWithRetry(() =>
   import('./components/store/StoreHelpChatbot').then((m) => ({
     default: m.StoreHelpChatbot,
@@ -1554,6 +1564,26 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     );
   }
 
+  const isPlatformBlogPublic =
+    path === '/platform-blog' || path.startsWith('/platform-blog/');
+  if (isPlatformBlogPublic) {
+    const slugRaw = path.replace(/^\/platform-blog\/?/, '');
+    const blogSlug = slugRaw ? decodeURIComponent(slugRaw.split('/')[0] || '') : '';
+    const blogToken =
+      typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('token')
+        : null;
+    return (
+      <Suspense fallback={<TabFallback />}>
+        <PlatformBlogPublicView
+          slug={blogSlug || null}
+          token={blogToken}
+          onNavigate={navigate}
+        />
+      </Suspense>
+    );
+  }
+
   if (activeStatus) {
     const redirectTo =
       typeof window !== 'undefined'
@@ -1785,6 +1815,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                   {masterTab === 'integrations' && <MasterIntegrationsHub />}
                   {masterTab === 'reports' && <MasterReportsOps />}
                   {masterTab === 'support' && <MasterSupportCenter />}
+                  {masterTab === 'blog' && <MasterPlatformBlog />}
                   {masterTab === 'security' && <MasterSecurityCenter />}
                   {masterTab === 'notifications' && (
                     <MasterNotificationsHub onNavigateTab={setMasterTab} />
@@ -1820,6 +1851,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                     'integrations',
                     'reports',
                     'support',
+                    'blog',
                     'security',
                     'notifications',
                     'payments',

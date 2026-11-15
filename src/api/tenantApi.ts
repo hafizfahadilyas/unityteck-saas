@@ -201,6 +201,115 @@ export async function updatePlatformSettings(
   });
 }
 
+/** Master Platform Blog (Google Blogger-style). */
+export type PlatformBlogVisibility = 'live' | 'unlisted' | 'private';
+export type PlatformBlogStatus = 'draft' | 'published';
+
+export interface PlatformBlogPost {
+  id: string;
+  slug: string;
+  title_en: string;
+  title_ar: string;
+  excerpt_en: string;
+  excerpt_ar: string;
+  content_en: string;
+  content_ar: string;
+  labels: string[];
+  category: string;
+  cover_image: string;
+  author_name: string;
+  status: PlatformBlogStatus;
+  visibility: PlatformBlogVisibility;
+  access_token?: string;
+  seo?: {
+    title_en?: string;
+    title_ar?: string;
+    description_en?: string;
+    description_ar?: string;
+    focus_keyword?: string;
+  };
+  views: number;
+  published_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export async function fetchMasterPlatformBlogPosts(params?: {
+  q?: string;
+  status?: string;
+  visibility?: string;
+}): Promise<{
+  success?: boolean;
+  data: PlatformBlogPost[];
+  metrics?: Record<string, number>;
+}> {
+  const qs = new URLSearchParams();
+  if (params?.q) qs.set('q', params.q);
+  if (params?.status) qs.set('status', params.status);
+  if (params?.visibility) qs.set('visibility', params.visibility);
+  const q = qs.toString();
+  return apiFetch(`/master/blog/posts${q ? `?${q}` : ''}`, { portal: 'master' });
+}
+
+export async function createMasterPlatformBlogPost(
+  payload: Record<string, unknown>,
+): Promise<{ success?: boolean; data: PlatformBlogPost }> {
+  return apiFetch('/master/blog/posts', {
+    method: 'POST',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+export async function updateMasterPlatformBlogPost(
+  id: string,
+  payload: Record<string, unknown>,
+): Promise<{ success?: boolean; data: PlatformBlogPost }> {
+  return apiFetch(`/master/blog/posts/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+export async function deleteMasterPlatformBlogPost(
+  id: string,
+): Promise<{ success?: boolean; message?: string }> {
+  return apiFetch(`/master/blog/posts/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    portal: 'master',
+  });
+}
+
+export async function bulkMasterPlatformBlogPosts(
+  action: string,
+  ids: string[],
+): Promise<{ success?: boolean; count?: number }> {
+  return apiFetch('/master/blog/posts/bulk', {
+    method: 'POST',
+    portal: 'master',
+    body: { action, ids },
+  });
+}
+
+/** Public platform blog (live / unlisted+token) — no auth. */
+export async function fetchPublicPlatformBlogPosts(): Promise<{
+  success?: boolean;
+  data: PlatformBlogPost[];
+}> {
+  return apiFetch('/platform/blog/posts', { skipAuth: true });
+}
+
+export async function fetchPublicPlatformBlogPost(
+  slug: string,
+  token?: string,
+): Promise<{ success?: boolean; data: PlatformBlogPost }> {
+  const qs = token ? `?token=${encodeURIComponent(token)}` : '';
+  return apiFetch(`/platform/blog/posts/${encodeURIComponent(slug)}${qs}`, {
+    skipAuth: true,
+  });
+}
+
 /** SOUQ PLUS Phase 1 — Support tickets (Master). */
 export async function fetchMasterSupportTickets(params?: {
   status?: string;

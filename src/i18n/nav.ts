@@ -30,7 +30,7 @@ export const MASTER_NAV_KEYS: Record<string, DictKey> = {
   promotions: 'navPromotions',
   coupons: 'navCoupons',
   seo: 'navSeoMaster',
-  blog: 'navBlog',
+  blog: 'navPlatformBlog',
   analytics: 'navAnalytics',
   payments: 'navPayments',
 };

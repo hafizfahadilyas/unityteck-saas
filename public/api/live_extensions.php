@@ -1346,9 +1346,9 @@ function souq_plans_catalog(): array
 {
     return [
         ['code' => 'free', 'id' => 'plan-free', 'name' => 'Free', 'name_ar' => 'مجاني', 'price_sar' => 0, 'currency' => 'SAR', 'product_limit' => 50, 'order_limit' => 100, 'storage_mb' => 512, 'team_seats' => 1, 'features' => ['catalog', 'orders', 'basic_seo', 'themes_basic', 'media_studio', 'whatsapp']],
-        ['code' => 'paid', 'id' => 'plan-paid', 'name' => 'Paid', 'name_ar' => 'مدفوع', 'price_sar' => null, 'currency' => 'SAR', 'product_limit' => 500, 'order_limit' => 2000, 'storage_mb' => 5120, 'team_seats' => 5, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'media_studio', 'whatsapp']],
-        ['code' => 'pro', 'id' => 'plan-pro', 'name' => 'Pro', 'name_ar' => 'احترافي', 'price_sar' => 300, 'currency' => 'SAR', 'product_limit' => 5000, 'order_limit' => null, 'storage_mb' => 51200, 'team_seats' => 20, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'themes', 'media_studio', 'custom_domain', 'whatsapp', 'social']],
-        ['code' => 'premium', 'id' => 'plan-premium', 'name' => 'Premium', 'name_ar' => 'مميز', 'price_sar' => 500, 'currency' => 'SAR', 'product_limit' => null, 'order_limit' => null, 'storage_mb' => 102400, 'team_seats' => 50, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'themes', 'media_studio', 'custom_domain', 'whatsapp', 'social', 'backups', 'zatca', 'ai', 'api_access', 'advanced_seo', 'advanced_analytics']],
+        ['code' => 'paid', 'id' => 'plan-paid', 'name' => 'Paid', 'name_ar' => 'مدفوع', 'price_sar' => null, 'currency' => 'SAR', 'product_limit' => 500, 'order_limit' => 2000, 'storage_mb' => 5120, 'team_seats' => 5, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'media_studio', 'whatsapp', 'ai'], 'help_chat_ai_monthly' => 100],
+        ['code' => 'pro', 'id' => 'plan-pro', 'name' => 'Pro', 'name_ar' => 'احترافي', 'price_sar' => 300, 'currency' => 'SAR', 'product_limit' => 5000, 'order_limit' => null, 'storage_mb' => 51200, 'team_seats' => 20, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'themes', 'media_studio', 'custom_domain', 'whatsapp', 'social', 'ai'], 'help_chat_ai_monthly' => 300],
+        ['code' => 'premium', 'id' => 'plan-premium', 'name' => 'Premium', 'name_ar' => 'مميز', 'price_sar' => 500, 'currency' => 'SAR', 'product_limit' => null, 'order_limit' => null, 'storage_mb' => 102400, 'team_seats' => 50, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'themes', 'media_studio', 'custom_domain', 'whatsapp', 'social', 'backups', 'zatca', 'ai', 'api_access', 'advanced_seo', 'advanced_analytics'], 'help_chat_ai_monthly' => 500],
         ['code' => 'custom', 'id' => 'plan-custom', 'name' => 'Custom', 'name_ar' => 'مخصص', 'price_sar' => null, 'currency' => 'SAR', 'product_limit' => null, 'order_limit' => null, 'storage_mb' => null, 'team_seats' => null, 'features' => ['all']],
     ];
 }
@@ -2152,6 +2152,14 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
         return true;
     }
 
+    // ── Official Canva Connect (Master testing — separate from Design Studio) ──
+    if (!function_exists('souq_canva_dispatch')) {
+        require_once __DIR__ . '/canva_connect.php';
+    }
+    if (souq_canva_dispatch($pdo, $uri, $method, $storeId, $input)) {
+        return true;
+    }
+
     // ── SOUQ PLUS Phase 1 — Master plans / subscriptions / audit (Hostinger gateway) ──
     if (souq_phase1_master_dispatch($pdo, $uri, $method, $storeId, $input)) {
         return true;
@@ -2161,6 +2169,14 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
         require_once __DIR__ . '/master_phase1_ops.php';
     }
     if (souq_phase1_ops_dispatch($pdo, $uri, $method, $storeId, $input)) {
+        return true;
+    }
+
+    // ── Store Help Chatbot (AI + Master human handoff) ──
+    if (!function_exists('souq_help_chatbot_dispatch')) {
+        require_once __DIR__ . '/help_chatbot.php';
+    }
+    if (souq_help_chatbot_dispatch($pdo, $uri, $method, $storeId, $input)) {
         return true;
     }
 
@@ -2177,6 +2193,14 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
         require_once __DIR__ . '/master_phase6to9_ops.php';
     }
     if (souq_phase6to9_ops_dispatch($pdo, $uri, $method, $storeId, $input)) {
+        return true;
+    }
+
+    // ── Master Platform Blog (Google Blogger-style · EN/AR · live/unlisted/private) ──
+    if (!function_exists('souq_platform_blog_dispatch')) {
+        require_once __DIR__ . '/master_platform_blog.php';
+    }
+    if (souq_platform_blog_dispatch($pdo, $uri, $method, $storeId, $input)) {
         return true;
     }
 

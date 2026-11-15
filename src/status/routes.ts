@@ -106,7 +106,9 @@ export function isKnownAppPath(path: string): boolean {
     clean === '/start' ||
     clean === '/clear-cache' ||
     clean === '/clear' ||
-    clean === '/cache'
+    clean === '/cache' ||
+    clean === '/platform-blog' ||
+    clean.startsWith('/platform-blog/')
   ) {
     return true;
   }

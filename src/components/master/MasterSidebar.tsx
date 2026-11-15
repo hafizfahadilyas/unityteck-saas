@@ -20,6 +20,7 @@ import {
   Headphones,
   ShieldCheck,
   Bell,
+  BookOpen,
 } from 'lucide-react';
 import { SouqEMakkahLogo, SouqEMakkahMark } from '../common/SouqEMakkahLogo';
 
@@ -66,6 +67,7 @@ export const MasterSidebar: React.FC<MasterSidebarProps> = ({
       { id: 'services-points', icon: Coins, showChevron: false },
       { id: 'integrations', icon: Layers, showChevron: true },
       { id: 'support', icon: Headphones, showChevron: true },
+      { id: 'blog', icon: BookOpen, showChevron: false },
       { id: 'reports', icon: FileText, showChevron: true },
       { id: 'security', icon: ShieldCheck, showChevron: true },
       { id: 'notifications', icon: Bell, showChevron: false },

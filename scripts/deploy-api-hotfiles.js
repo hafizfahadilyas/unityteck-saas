@@ -21,10 +21,13 @@ const files = [
   'commerce.php',
   'live_extensions.php',
   'google_oauth.php',
+  'canva_connect.php',
   'session_lite.php',
   'master_phase1_ops.php',
   'master_phase2to5_ops.php',
   'master_phase6to9_ops.php',
+  'master_platform_blog.php',
+  'help_chatbot.php',
 ];
 // Only upload .env when explicitly requested — overwriting Hostinger DB host
 // (localhost vs srvXXX) silently drops MySQL → SQLite and looks like data loss.
