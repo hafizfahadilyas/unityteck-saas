@@ -21,6 +21,7 @@ export const MASTER_NAV_KEYS: Record<string, DictKey> = {
   updates: 'navUpdates',
   themes: 'navThemesMaster',
   marketplace: 'navMarketplace',
+  canva: 'navDesignStudio',
   products: 'navProducts',
   categories: 'navCategories',
   orders: 'navOrders',

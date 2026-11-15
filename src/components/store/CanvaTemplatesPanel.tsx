@@ -225,14 +225,16 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
       setActiveCategory(lockedCategory);
     }
   }, [lockedCategory]);
-  const [nicheFilter, setNicheFilter] = useState<'for_you' | 'blank' | 'all' | 'mine'>('for_you');
+  const [nicheFilter, setNicheFilter] = useState<
+    'for_you' | 'blank' | 'all' | 'mine' | 'master'
+  >('for_you');
   const [search, setSearch] = useState('');
   const [dailyIds, setDailyIds] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     const apiCat = toDailyApiCategory(activeCategory);
-    if (!apiCat || nicheFilter === 'mine') {
+    if (!apiCat || nicheFilter === 'mine' || nicheFilter === 'master') {
       setDailyIds([]);
       return;
     }
@@ -263,7 +265,27 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
     : '';
 
   const filteredMyTemplates = useMemo(() => {
-    let list = myTemplates.filter((t) => t.storeId === store.id);
+    let list = myTemplates.filter(
+      (t) => t.storeId === store.id && !t.fromMaster && t.source !== 'master',
+    );
+    if (activeCategory !== 'all') {
+      list = list.filter((t) => t.category === activeCategory);
+    }
+    if (!search.trim()) return list;
+    const q = search.toLowerCase();
+    return list.filter(
+      (t) =>
+        t.nameEn.toLowerCase().includes(q) ||
+        t.nameAr.includes(search) ||
+        t.category.includes(q),
+    );
+  }, [myTemplates, store.id, activeCategory, search]);
+
+  /** Master Admin distributed designs — editable after open */
+  const filteredMasterTemplates = useMemo(() => {
+    let list = myTemplates.filter(
+      (t) => t.storeId === store.id && (t.fromMaster === true || t.source === 'master'),
+    );
     if (activeCategory !== 'all') {
       list = list.filter((t) => t.category === activeCategory);
     }
@@ -334,7 +356,7 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
   }, [dailyIds]);
 
   const templates = useMemo(() => {
-    if (nicheFilter === 'mine') return [];
+    if (nicheFilter === 'mine' || nicheFilter === 'master') return [];
 
     let list = listCanvaTemplatesForStore(store, activeCategory);
 
@@ -445,11 +467,16 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
         </div>
       </div>
 
-      {/* Niche pills */}
+      {/* Niche pills — Master designs + uploads + premade */}
       <div className="flex flex-wrap gap-1.5">
         {(
           [
             { id: 'for_you' as const, en: nicheLabel, ar: nicheLabel },
+            {
+              id: 'master' as const,
+              en: 'Master',
+              ar: 'الماستر',
+            },
             { id: 'mine' as const, en: 'My uploads', ar: 'قوالبي المرفوعة' },
             { id: 'blank' as const, en: 'Blank', ar: 'فارغ' },
             { id: 'all' as const, en: 'All formats', ar: 'كل المقاسات' },
@@ -471,10 +498,90 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
             }
           >
             {isAr ? p.ar : p.en}
-            {p.id === 'mine' && myTemplates.length > 0 ? ` (${myTemplates.length})` : ''}
+            {p.id === 'mine' && filteredMyTemplates.length > 0
+              ? ` (${filteredMyTemplates.length})`
+              : ''}
+            {p.id === 'master' && filteredMasterTemplates.length > 0
+              ? ` (${filteredMasterTemplates.length})`
+              : ''}
           </button>
         ))}
       </div>
+
+      {nicheFilter === 'master' && (
+        <div className="space-y-2">
+          <p className="text-[10px] text-slate-500 leading-relaxed">
+            {isAr
+              ? 'قوالب أنشأها الماستر وأرسلها لهذا المتجر. نقرة = فتح للتعديل الكامل (نص، خلفية، طبقات).'
+              : 'Designs Master Admin created and sent to this store. One click = open fully editable (text, BG, layers).'}
+          </p>
+          <button
+            type="button"
+            onClick={onOpenUploadTab}
+            className="w-full py-2 rounded-lg border border-dashed border-slate-300 text-[10px] font-black text-slate-700 flex items-center justify-center gap-1.5 cursor-pointer bg-white hover:border-emerald-500"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            {isAr ? 'رفع بي إن جي / جيه بي جيه / بي إس دي للتعديل' : 'Upload PNG / JPG / PSD to edit'}
+          </button>
+          <div className="grid grid-cols-2 gap-2.5 max-h-[min(420px,50vh)] overflow-y-auto pe-1">
+            {filteredMasterTemplates.map((tpl) => {
+              const isSelected = selectedTemplateId === tpl.id;
+              return (
+                <div
+                  key={tpl.id}
+                  className={`group relative rounded-lg border p-1.5 bg-white flex flex-col ${
+                    isSelected ? 'ring-1 border-emerald-500' : 'border-slate-200'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    className="w-full text-start cursor-pointer"
+                    onClick={() => onApplyMyTemplate?.(tpl)}
+                  >
+                    <div
+                      className="relative w-full aspect-square overflow-hidden rounded-lg bg-slate-100"
+                      style={
+                        tpl.previewDataUrl
+                          ? {
+                              backgroundImage: `url(${tpl.previewDataUrl})`,
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center',
+                            }
+                          : undefined
+                      }
+                    >
+                      <span className="absolute top-1 start-1 text-[8px] font-black px-1.5 py-0.5 rounded bg-[var(--accent,#1d8b94)] text-white">
+                        {isAr ? 'ماستر' : 'Master'}
+                      </span>
+                      {!tpl.previewDataUrl && (
+                        <div className="absolute inset-0 flex items-center justify-center text-[9px] text-slate-500 font-bold">
+                          {tpl.layers.length} {isAr ? 'طبقة' : 'layers'}
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-1.5 px-0.5">
+                      <div className="text-[10px] font-black text-slate-800 truncate">
+                        {isAr ? tpl.nameAr || tpl.nameEn : tpl.nameEn}
+                      </div>
+                      <div className="text-[9px] text-slate-500">
+                        {tpl.width}×{tpl.height} · {tpl.layers.length}{' '}
+                        {isAr ? 'طبقة' : 'layers'}
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          {filteredMasterTemplates.length === 0 && (
+            <p className="text-[11px] text-center text-slate-500 py-6 border border-dashed border-slate-200 rounded-xl">
+              {isAr
+                ? 'لا قوالب من الماستر بعد. عندما يحفظ الماستر لمتجرك ستظهر هنا.'
+                : 'No Master templates yet. When Master saves to your store, they appear here.'}
+            </p>
+          )}
+        </div>
+      )}
 
       {nicheFilter === 'mine' && (
         <div className="space-y-2">
@@ -484,7 +591,7 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
             className="w-full py-2 rounded-lg border border-dashed border-slate-300 text-[10px] font-black text-slate-700 flex items-center justify-center gap-1.5 cursor-pointer bg-white hover:border-emerald-500"
           >
             <Upload className="w-3.5 h-3.5" />
-            {isAr ? 'رفع بي إس دي أو صورة' : 'Upload PSD or image'}
+            {isAr ? 'رفع بي إن جي / جيه بي جيه / بي إس دي' : 'Upload PNG / JPG / PSD'}
           </button>
           <div className="grid grid-cols-2 gap-2.5 max-h-[min(420px,50vh)] overflow-y-auto pe-1">
             {filteredMyTemplates.map((tpl) => {

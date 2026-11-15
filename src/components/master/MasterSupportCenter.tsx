@@ -17,9 +17,11 @@ import { MasterLuxePanel, MasterMetaLine, MasterTabPills, masterGhostBtnClass } 
 import { AdvancedDataTable, type AdvancedTableColumn } from '../common/AdvancedDataTable';
 import { AdvancedFilterBar } from '../common/AdvancedFilterBar';
 import { pipelineAdvancedList, useAdvancedListState } from '../../hooks/useAdvancedListState';
+import { MasterHelpChatInbox } from './MasterHelpChatInbox';
 
 type CsTab =
   | 'tickets'
+  | 'aichat'
   | 'complaints'
   | 'surveys'
   | 'announcements'
@@ -74,7 +76,7 @@ export const MasterSupportCenter: React.FC = () => {
   }, [isAr, toast]);
 
   const loadCms = useCallback(
-    async (tab: Exclude<CsTab, 'tickets'>) => {
+    async (tab: Exclude<CsTab, 'tickets' | 'aichat'>) => {
       setBusy(true);
       try {
         const collection = tab as MasterCsCollection;
@@ -93,7 +95,7 @@ export const MasterSupportCenter: React.FC = () => {
 
   useEffect(() => {
     if (csTab === 'tickets') void loadTickets();
-    else void loadCms(csTab);
+    else if (csTab !== 'aichat') void loadCms(csTab);
   }, [csTab, loadTickets, loadCms]);
 
   const create = async () => {
@@ -151,7 +153,7 @@ export const MasterSupportCenter: React.FC = () => {
       toast(isAr ? 'العنوان مطلوب' : 'Title required', 'error');
       return;
     }
-    if (csTab === 'tickets') return;
+    if (csTab === 'tickets' || csTab === 'aichat') return;
     try {
       if (csTab === 'help') {
         await createMasterCsItem('help', {
@@ -177,7 +179,7 @@ export const MasterSupportCenter: React.FC = () => {
   };
 
   const closeCms = async (id: string) => {
-    if (csTab === 'tickets' || csTab === 'help') return;
+    if (csTab === 'tickets' || csTab === 'aichat' || csTab === 'help') return;
     try {
       await patchMasterCsItem(csTab, id, { status: 'closed' });
       toast(isAr ? 'تم الإغلاق' : 'Closed', 'success');
@@ -438,6 +440,7 @@ export const MasterSupportCenter: React.FC = () => {
           </span>
         }
         actions={
+          csTab === 'aichat' ? null : (
           <button
             type="button"
             className={masterGhostBtnClass}
@@ -448,6 +451,7 @@ export const MasterSupportCenter: React.FC = () => {
             <RefreshCw className={`w-3.5 h-3.5 ${busy ? 'animate-spin' : ''}`} aria-hidden />
             {isAr ? 'تحديث' : 'Refresh'}
           </button>
+          )
         }
       />
 
@@ -457,6 +461,7 @@ export const MasterSupportCenter: React.FC = () => {
         onChange={(id) => setCsTab(id as CsTab)}
         tabs={[
           { id: 'tickets', label: isAr ? 'التذاكر' : 'Tickets' },
+          { id: 'aichat', label: isAr ? 'محادثة المساعدة' : 'Help Chat AI' },
           { id: 'complaints', label: isAr ? 'الشكاوى' : 'Complaints' },
           { id: 'surveys', label: isAr ? 'الاستبيانات' : 'Surveys' },
           { id: 'announcements', label: isAr ? 'الإعلانات' : 'Announcements' },
@@ -465,7 +470,11 @@ export const MasterSupportCenter: React.FC = () => {
         ]}
       />
 
-      {csTab === 'tickets' ? (
+      {csTab === 'aichat' ? (
+        <div className="mt-4">
+          <MasterHelpChatInbox />
+        </div>
+      ) : csTab === 'tickets' ? (
         <>
           <div className="mt-4 grid grid-cols-1 xl:grid-cols-3 gap-4">
             <MasterLuxePanel className="space-y-3 xl:col-span-1" padding="lg">

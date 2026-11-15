@@ -1037,12 +1037,26 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
             <button
               type="button"
               onClick={() => {
-                selectTab('settings');
+                window.dispatchEvent(
+                  new CustomEvent('souq-open-help-center', { detail: { intent: 'ask_ai' } }),
+                );
                 setIsHelpOpen(false);
               }}
-              className="w-full py-1.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600/60 text-[11px] font-semibold text-white text-center transition-colors cursor-pointer mb-2.5 shadow-xs"
+              className="w-full py-1.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600/60 text-[11px] font-semibold text-white text-center transition-colors cursor-pointer mb-2 shadow-xs"
             >
-              {isAr ? 'زيارة مركز المساعدة' : 'Visit Help Center'}
+              {isAr ? 'فتح مركز المساعدة' : 'Open Help Center'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                window.dispatchEvent(
+                  new CustomEvent('souq-open-help-center', { detail: { intent: 'contact_human' } }),
+                );
+                setIsHelpOpen(false);
+              }}
+              className="w-full py-1.5 px-3 rounded-xl bg-teal-600/90 hover:bg-teal-500 border border-teal-500/40 text-[11px] font-semibold text-white text-center transition-colors cursor-pointer mb-2.5 shadow-xs"
+            >
+              {isAr ? 'تواصل مع إنسان' : 'Contact Human'}
             </button>
 
             <SaudiSidebarFooter compact />

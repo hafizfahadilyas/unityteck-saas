@@ -68,6 +68,7 @@ export const MASTER_TAB_ABILITY: Record<string, string | null> = {
   updates: 'stores.read',
   themes: 'themes.read',
   marketplace: 'themes.read',
+  canva: 'themes.read',
   products: 'products.read',
   categories: 'products.read',
   orders: 'orders.read',

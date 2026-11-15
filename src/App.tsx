@@ -66,6 +66,14 @@ const MasterUpdates = lazyWithRetry(() =>
 const MasterThemes = lazyWithRetry(() =>
   import('./components/master/MasterThemes').then((m) => ({ default: m.MasterThemes })),
 );
+const MasterCanvaStudio = lazyWithRetry(() =>
+  import('./components/master/MasterCanvaStudio').then((m) => ({ default: m.MasterCanvaStudio })),
+);
+const MasterRealCanvaConnect = lazyWithRetry(() =>
+  import('./components/master/MasterRealCanvaConnect').then((m) => ({
+    default: m.MasterRealCanvaConnect,
+  })),
+);
 const MasterMarketplace = lazyWithRetry(() =>
   import('./components/master/MasterMarketplace').then((m) => ({ default: m.MasterMarketplace })),
 );
@@ -107,6 +115,11 @@ const MasterNotificationsHub = lazyWithRetry(() =>
 const MasterSupportCenter = lazyWithRetry(() =>
   import('./components/master/MasterSupportCenter').then((m) => ({
     default: m.MasterSupportCenter,
+  })),
+);
+const StoreHelpChatbot = lazyWithRetry(() =>
+  import('./components/store/StoreHelpChatbot').then((m) => ({
+    default: m.StoreHelpChatbot,
   })),
 );
 const MasterServicesPoints = lazyWithRetry(() =>
@@ -1787,6 +1800,10 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                   {masterTab === 'domains' && <MasterDomains />}
                   {masterTab === 'updates' && <MasterUpdates />}
                   {masterTab === 'themes' && <MasterThemes />}
+                  {masterTab === 'canva' && <MasterCanvaStudio onNavigateTab={setMasterTab} />}
+                  {masterTab === 'canva-real' && (
+                    <MasterRealCanvaConnect onNavigateTab={setMasterTab} />
+                  )}
                   {masterTab === 'marketplace' && <MasterMarketplace />}
                   {masterTab === 'seo' && <MasterSEO />}
                   {masterTab === 'database' && <MasterDatabase />}
@@ -1818,6 +1835,8 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                     'restore',
                     'updates',
                     'themes',
+                    'canva',
+                    'canva-real',
                     'marketplace',
                     'seo',
                     'orders',
@@ -2033,6 +2052,13 @@ const getDefaultStoreTheme = (storeId?: string): string => {
       </div>
 
       <ArchitectureBanner />
+
+      {/* Per-store AI + human help chatbot (merchant → Master handoff) */}
+      {mode === 'store' && session?.portal === 'store' && activeStore?.id ? (
+        <Suspense fallback={null}>
+          <StoreHelpChatbot />
+        </Suspense>
+      ) : null}
 
       {/* Unified Fullscreen Theme Page Builder */}
       {isVisualBuilderOpen && (

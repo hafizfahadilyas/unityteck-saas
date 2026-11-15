@@ -61,7 +61,8 @@ const CATALOG: Record<
     orderLimit: 2000,
     storageMb: 5120,
     teamSeats: 5,
-    features: ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'media_studio', 'whatsapp'],
+    // Help-chat AI quota: 100 / month (server: souq_help_chat_ai_entitlement)
+    features: ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'media_studio', 'whatsapp', 'ai'],
   },
   pro: {
     name: 'Pro',
@@ -70,6 +71,7 @@ const CATALOG: Record<
     orderLimit: null,
     storageMb: 51200,
     teamSeats: 20,
+    // Help-chat AI quota: 300 / month
     features: [
       'catalog',
       'orders',
@@ -84,6 +86,7 @@ const CATALOG: Record<
       'custom_domain',
       'whatsapp',
       'social',
+      'ai',
     ],
   },
   premium: {

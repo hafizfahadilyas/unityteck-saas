@@ -246,6 +246,294 @@ export async function replyMasterSupportTicket(
   });
 }
 
+/** Store Help Chatbot — AI + Master human handoff (per store_id). */
+export type HelpChatMessage = {
+  id: string;
+  session_id: string;
+  store_id: string;
+  role: 'user' | 'assistant' | 'human' | 'system' | string;
+  body: string;
+  attachment_url?: string | null;
+  attachment_type?: string | null;
+  meta?: Record<string, unknown> | null;
+  created_at?: string;
+};
+
+export type HelpChatSession = {
+  id: string;
+  store_id: string;
+  requester_name?: string | null;
+  requester_email?: string | null;
+  locale?: string;
+  intent?: string | null;
+  status?: string;
+  satisfaction?: string | null;
+  subject?: string | null;
+  ticket_id?: string | null;
+  assignee?: string | null;
+  last_message_at?: string | null;
+  escalated_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type HelpChatSettings = {
+  id?: string;
+  store_id?: string | null;
+  enabled?: number | boolean;
+  bot_name_en?: string;
+  bot_name_ar?: string;
+  welcome_en?: string;
+  welcome_ar?: string;
+  system_prompt_en?: string;
+  system_prompt_ar?: string;
+  voice_enabled?: number | boolean;
+  image_enabled?: number | boolean;
+  human_handoff_enabled?: number | boolean;
+  primary_color?: string | null;
+};
+
+export type HelpChatEntitlement = {
+  plan_code?: string;
+  ai_enabled?: boolean;
+  human_enabled?: boolean;
+  limit?: number;
+  used?: number;
+  remaining?: number;
+  period_key?: string;
+};
+
+export type HelpKbArticle = {
+  id: string;
+  store_id?: string | null;
+  category?: string;
+  title_en?: string;
+  title_ar?: string;
+  body_en?: string;
+  body_ar?: string;
+  suggested?: number | boolean;
+  status?: string;
+  sort_order?: number;
+};
+
+export type HelpChatIntent = 'ask_ai' | 'fix_problem' | 'contact_human';
+
+export async function fetchHelpChatSettings(storeId: string): Promise<{
+  data: HelpChatSettings;
+  entitlement?: HelpChatEntitlement;
+}> {
+  return apiFetch('/help-chat/settings', { storeId, portal: 'store' });
+}
+
+export async function openHelpChatSession(
+  storeId: string,
+  payload: {
+    locale?: string;
+    session_id?: string;
+    requester_name?: string;
+    requester_email?: string;
+    intent?: HelpChatIntent;
+  },
+): Promise<{
+  data: {
+    session: HelpChatSession;
+    messages: HelpChatMessage[];
+    settings?: HelpChatSettings;
+    entitlement?: HelpChatEntitlement;
+    faq?: HelpKbArticle[];
+  };
+}> {
+  return apiFetch('/help-chat/session', {
+    method: 'POST',
+    storeId,
+    portal: 'store',
+    body: payload,
+    timeoutMs: 60_000,
+  });
+}
+
+export async function fetchHelpChatFaq(
+  storeId: string,
+  params?: { suggested?: boolean; limit?: number },
+): Promise<{ data: HelpKbArticle[]; entitlement?: HelpChatEntitlement }> {
+  const qs = new URLSearchParams();
+  if (params?.suggested) qs.set('suggested', '1');
+  if (params?.limit) qs.set('limit', String(params.limit));
+  const q = qs.toString();
+  return apiFetch(`/help-chat/faq${q ? `?${q}` : ''}`, { storeId, portal: 'store' });
+}
+
+export async function fetchHelpChatSession(
+  storeId: string,
+  sessionId: string,
+): Promise<{ data: { session: HelpChatSession; messages: HelpChatMessage[] } }> {
+  return apiFetch(`/help-chat/session/${encodeURIComponent(sessionId)}`, {
+    storeId,
+    portal: 'store',
+  });
+}
+
+export async function sendHelpChatMessage(
+  storeId: string,
+  sessionId: string,
+  payload: { body?: string; attachment_url?: string; attachment_type?: string },
+): Promise<{
+  data: {
+    user_message: HelpChatMessage;
+    assistant_message?: HelpChatMessage | null;
+    session: HelpChatSession;
+    mode?: string;
+    entitlement?: HelpChatEntitlement;
+    ai?: { ok?: boolean; code?: string; message?: string };
+  };
+}> {
+  return apiFetch(`/help-chat/session/${encodeURIComponent(sessionId)}/messages`, {
+    method: 'POST',
+    storeId,
+    portal: 'store',
+    body: payload,
+    timeoutMs: 90_000,
+  });
+}
+
+export async function feedbackHelpChatSession(
+  storeId: string,
+  sessionId: string,
+  payload: { satisfaction: 'satisfied' | 'unsatisfied'; reason?: string },
+): Promise<{ data: { session: HelpChatSession } }> {
+  return apiFetch(`/help-chat/session/${encodeURIComponent(sessionId)}/feedback`, {
+    method: 'POST',
+    storeId,
+    portal: 'store',
+    body: payload,
+  });
+}
+
+export async function fetchMasterHelpChatSessions(params?: {
+  status?: string;
+  store_id?: string;
+  q?: string;
+  page?: number;
+  per_page?: number;
+}): Promise<{
+  data: HelpChatSession[];
+  meta?: {
+    total?: number;
+    waiting?: number;
+    page?: number;
+    per_page?: number;
+    page_count?: number;
+    source?: string;
+  };
+}> {
+  const qs = new URLSearchParams();
+  if (params?.status) qs.set('status', params.status);
+  if (params?.store_id) qs.set('store_id', params.store_id);
+  if (params?.q) qs.set('q', params.q);
+  if (params?.page) qs.set('page', String(params.page));
+  if (params?.per_page) qs.set('per_page', String(params.per_page));
+  const q = qs.toString();
+  return apiFetch(`/master/help-chat/sessions${q ? `?${q}` : ''}`, { portal: 'master' });
+}
+
+export async function fetchMasterHelpChatSession(sessionId: string): Promise<{
+  data: { session: HelpChatSession; messages: HelpChatMessage[] };
+}> {
+  return apiFetch(`/master/help-chat/sessions/${encodeURIComponent(sessionId)}`, {
+    portal: 'master',
+  });
+}
+
+export async function replyMasterHelpChat(
+  sessionId: string,
+  payload: { body: string; attachment_url?: string; attachment_type?: string },
+): Promise<{ data: { message: HelpChatMessage; session: HelpChatSession } }> {
+  return apiFetch(`/master/help-chat/sessions/${encodeURIComponent(sessionId)}/reply`, {
+    method: 'POST',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+export async function masterHelpChatAiReply(
+  sessionId: string,
+  payload?: { hint?: string; send?: boolean },
+): Promise<{
+  data: {
+    draft?: string;
+    message?: HelpChatMessage;
+    session?: HelpChatSession;
+    model?: string;
+  };
+}> {
+  return apiFetch(`/master/help-chat/sessions/${encodeURIComponent(sessionId)}/ai-reply`, {
+    method: 'POST',
+    portal: 'master',
+    body: payload || {},
+    timeoutMs: 90_000,
+  });
+}
+
+export async function fetchMasterHelpChatAnalytics(): Promise<{
+  data: Record<string, number | string>;
+}> {
+  return apiFetch('/master/help-chat/analytics', { portal: 'master' });
+}
+
+export async function fetchMasterHelpChatAgents(): Promise<{
+  data: Array<{ id?: string; name?: string; email?: string; role?: string }>;
+}> {
+  return apiFetch('/master/help-chat/agents', { portal: 'master' });
+}
+
+export async function fetchMasterHelpKb(storeId?: string): Promise<{ data: HelpKbArticle[] }> {
+  const qs = storeId ? `?store_id=${encodeURIComponent(storeId)}` : '';
+  return apiFetch(`/master/help-chat/kb${qs}`, { portal: 'master' });
+}
+
+export async function createMasterHelpKb(
+  payload: Partial<HelpKbArticle>,
+): Promise<{ data: HelpKbArticle }> {
+  return apiFetch('/master/help-chat/kb', { method: 'POST', portal: 'master', body: payload });
+}
+
+export async function patchMasterHelpKb(
+  id: string,
+  payload: Partial<HelpKbArticle>,
+): Promise<{ data: HelpKbArticle }> {
+  return apiFetch(`/master/help-chat/kb/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+export async function patchMasterHelpChatSession(
+  sessionId: string,
+  payload: { status?: string; assignee?: string | null },
+): Promise<{ data: HelpChatSession }> {
+  return apiFetch(`/master/help-chat/sessions/${encodeURIComponent(sessionId)}`, {
+    method: 'PATCH',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+export async function fetchMasterHelpChatSettings(storeId?: string): Promise<{ data: HelpChatSettings }> {
+  const qs = storeId ? `?store_id=${encodeURIComponent(storeId)}` : '';
+  return apiFetch(`/master/help-chat/settings${qs}`, { portal: 'master' });
+}
+
+export async function saveMasterHelpChatSettings(
+  payload: HelpChatSettings & { store_id?: string | null },
+): Promise<{ data: HelpChatSettings }> {
+  return apiFetch('/master/help-chat/settings', {
+    method: 'PUT',
+    portal: 'master',
+    body: payload,
+  });
+}
+
 export async function fetchMasterNotifications(): Promise<{
   data: Array<Record<string, unknown>>;
   meta?: { total?: number; new?: number; source?: string };

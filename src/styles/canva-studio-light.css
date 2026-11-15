@@ -456,4 +456,25 @@
     z-index: 40;
     background: rgba(15, 23, 42, 0.35);
   }
+  .canva-studio-light .cs-dock {
+    width: 3.5rem !important;
+  }
+  .canva-studio-light .cs-dock button span {
+    font-size: 8px !important;
+  }
+}
+
+/* Narrow phones — full-width tool drawer */
+@media (max-width: 480px) {
+  .canva-studio-light .cs-flyout-drawer {
+    inset-inline-start: 3.5rem;
+    max-width: calc(100vw - 3.75rem);
+  }
+  [dir='rtl'] .canva-studio-light .cs-flyout-drawer {
+    inset-inline-end: 3.5rem;
+  }
+  .canva-studio-light .cs-header {
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
 }

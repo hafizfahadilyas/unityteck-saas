@@ -61,7 +61,8 @@ export function contrastRatio(a: string | undefined, b: string | undefined): num
 export function isLightSurface(color: string | undefined, fallbackLight = true): boolean {
   const lum = relativeLuminance(color);
   if (lum == null) return fallbackLight;
-  return lum >= 0.55;
+  // Stricter: mid-dark emerald/gold/espresso count as dark → light ink (never dark-on-dark)
+  return lum >= 0.45;
 }
 
 const DARK_INK = '#0f172a';
@@ -131,16 +132,17 @@ export function resolveCanvasApproxColor(
     'pure-white': '#ffffff',
     'soft-ivory': '#f3ebe3',
     'coffee-cream': '#e8d5b7',
-    'espresso-lux': '#5c3a22',
+    // Use darker stop so contrast engine picks light ink (never dark text on dark BG)
+    'espresso-lux': '#2a170e',
     'floral-blush': '#f9a8d4',
     'petal-ivory': '#fce7f3',
     'sage-mist': '#c5d5c8',
-    'ksa-emerald': '#047857',
-    'royal-gold': '#92400e',
-    'desert-sand': '#b45309',
-    'velvet-rose': '#9f1239',
-    'ocean-blue': '#0369a1',
-    obsidian: '#1e293b',
+    'ksa-emerald': '#022c22',
+    'royal-gold': '#1c1917',
+    'desert-sand': '#451a03',
+    'velvet-rose': '#4c0519',
+    'ocean-blue': '#082f49',
+    obsidian: '#090d16',
   };
   return map[backdropId] || '#faf8f5';
 }

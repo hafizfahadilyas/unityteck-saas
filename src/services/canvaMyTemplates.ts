@@ -19,7 +19,10 @@ export interface CanvaMyTemplate {
   nameAr: string;
   width: number;
   height: number;
-  source: 'psd' | 'image' | 'studio';
+  /** studio/psd/image = merchant; master = pushed from Master Admin */
+  source: 'psd' | 'image' | 'studio' | 'master';
+  /** True when Master Admin distributed this design to the store */
+  fromMaster?: boolean;
   layers: ImportedStudioLayer[];
   previewDataUrl?: string;
   createdAt: string;
@@ -101,6 +104,7 @@ export async function saveMyCanvaTemplate(
     width: input.width,
     height: input.height,
     source: input.source,
+    fromMaster: Boolean(input.fromMaster) || input.source === 'master',
     layers: input.layers || [],
     previewDataUrl: input.previewDataUrl,
     createdAt: existing.find((e) => e.id === input.id)?.createdAt || now,
