@@ -1,6 +1,9 @@
 /**
  * Master Admin → push Canva design into selected stores' Media + Canva library.
  * Each target gets its own store_id row (never shared cross-tenant blobs).
+ *
+ * Also: Master platform media library, local download, Google Drive hand-off
+ * (download file + open Drive — no fake "uploaded" OAuth).
  */
 
 import type { MediaAsset } from '../types/media';
@@ -9,6 +12,15 @@ import type { ImportedStudioLayer } from './canvaPsdImport';
 import { saveMyCanvaTemplate } from './canvaMyTemplates';
 import { saveStudioDesign, type StudioEditorType } from './storeStudioDesigns';
 import { isApiEnabled } from '../api/client';
+
+/** Reserved tenant id for Master Admin media gallery (not a merchant store). */
+export const MASTER_MEDIA_STORE_ID = 'master-platform';
+
+export type MasterCanvaSaveDest =
+  | 'store_media'
+  | 'master_media'
+  | 'local'
+  | 'google_drive';
 
 export type MasterCanvaDistributePayload = {
   dataUrl: string;
@@ -156,4 +168,95 @@ export async function distributeCanvaToStores(opts: {
   }
 
   return results;
+}
+
+function buildMediaFields(
+  payload: MasterCanvaDistributePayload,
+  isAr: boolean | undefined,
+  extraTags: string[],
+  captionEn: string,
+  captionAr: string,
+): Omit<MediaAsset, 'id' | 'storeId' | 'uploadDate' | 'updatedAt' | 'version'> {
+  const fileBase = slugTitle(payload.title);
+  return {
+    fileName: `${fileBase}.webp`,
+    originalUrl: payload.dataUrl,
+    optimizedUrl: payload.dataUrl,
+    webpUrl: payload.dataUrl,
+    thumbnailUrl: payload.dataUrl,
+    fileType: 'image',
+    mimeType: 'image/webp',
+    fileSize: Math.round(payload.dataUrl.length * 0.72),
+    width: payload.width,
+    height: payload.height,
+    title: payload.title,
+    altText: payload.title,
+    caption: isAr ? captionAr : captionEn,
+    folder: 'marketing',
+    tags: ['master-canva', 'studio', payload.category, ...extraTags],
+    processingStatus: 'ready',
+    optimizationStatus: 'optimized',
+    source: 'upload',
+    metadata: {
+      masterDistributed: true,
+      category: payload.category,
+      designJson: payload.designJson,
+    },
+  };
+}
+
+/** Save one copy into Master Admin media gallery (`master-platform`). */
+export function saveCanvaToMasterMedia(opts: {
+  payload: MasterCanvaDistributePayload;
+  addMediaAsset: (
+    asset: Omit<MediaAsset, 'id' | 'storeId' | 'uploadDate' | 'updatedAt' | 'version'>,
+    targetStoreId?: string,
+  ) => MediaAsset;
+  isAr?: boolean;
+}): MediaAsset {
+  const { payload, addMediaAsset, isAr } = opts;
+  return addMediaAsset(
+    buildMediaFields(
+      payload,
+      isAr,
+      ['master-library'],
+      `Master Admin media — ${payload.title}`,
+      `وسائط لوحة الماستر — ${payload.title}`,
+    ),
+    MASTER_MEDIA_STORE_ID,
+  );
+}
+
+/** Download design image to the operator's device (local). */
+export function downloadCanvaLocal(
+  payload: Pick<MasterCanvaDistributePayload, 'dataUrl' | 'title'>,
+  format: 'webp' | 'png' = 'png',
+): void {
+  if (typeof document === 'undefined') return;
+  let href = payload.dataUrl;
+  let ext = format;
+  // Prefer PNG when requested — canvas dataUrl may already be webp
+  if (format === 'png' && payload.dataUrl.startsWith('data:image/webp')) {
+    ext = 'webp';
+  }
+  if (format === 'png' && payload.dataUrl.startsWith('data:image/png')) {
+    ext = 'png';
+  }
+  const a = document.createElement('a');
+  a.href = href;
+  a.download = `${slugTitle(payload.title)}.${ext}`;
+  a.click();
+}
+
+/**
+ * Google Drive: download file locally, then open Drive so the user can upload.
+ * Honest path — never pretends the file was uploaded via OAuth.
+ */
+export function handoffCanvaToGoogleDrive(
+  payload: Pick<MasterCanvaDistributePayload, 'dataUrl' | 'title'>,
+): void {
+  downloadCanvaLocal(payload, 'png');
+  if (typeof window !== 'undefined') {
+    window.open('https://drive.google.com/drive/my-drive', '_blank', 'noopener,noreferrer');
+  }
 }

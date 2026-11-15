@@ -2,9 +2,11 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Bot, Headphones, Loader2, RefreshCw, Save, Send, Sparkles } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
+import { useTenant } from '../../context/TenantContext';
 import { AdvancedDataTable, type AdvancedTableColumn } from '../common/AdvancedDataTable';
 import { AdvancedFilterBar } from '../common/AdvancedFilterBar';
 import { MasterLuxePanel, masterGhostBtnClass } from './MasterUiKit';
+import { getStoreDisplayName } from '../../utils/storeLocalization';
 import {
   createMasterHelpKb,
   fetchMasterHelpChatAgents,
@@ -28,6 +30,7 @@ export const MasterHelpChatInbox: React.FC = () => {
   const { locale } = usePrefs();
   const isAr = locale === 'ar';
   const { toast } = useToast();
+  const { stores } = useTenant();
   const [tab, setTab] = useState<InboxTab>('inbox');
   const [rows, setRows] = useState<HelpChatSession[]>([]);
   const [meta, setMeta] = useState<{
@@ -67,7 +70,8 @@ export const MasterHelpChatInbox: React.FC = () => {
 
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('waiting_human');
+  /** Default: all stores / all statuses so SuperAdmin sees every help thread. */
+  const [statusFilter, setStatusFilter] = useState('all');
   const [storeFilter, setStoreFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -75,6 +79,16 @@ export const MasterHelpChatInbox: React.FC = () => {
   const [pageSize, setPageSize] = useState(25);
   const [sortKey, setSortKey] = useState<string | null>('updated');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const storeLabel = useCallback(
+    (storeId: string | null | undefined) => {
+      const sid = String(storeId || '').trim();
+      if (!sid) return isAr ? '—' : '—';
+      const hit = stores.find((s) => s.id === sid);
+      return hit ? getStoreDisplayName(hit, locale) : sid;
+    },
+    [stores, locale, isAr],
+  );
 
   useEffect(() => {
     const t = window.setTimeout(() => setSearch(searchInput.trim()), 350);
@@ -320,6 +334,19 @@ export const MasterHelpChatInbox: React.FC = () => {
     }
   };
 
+  const statusLabel = (status: string) => {
+    if (!isAr) return status || '—';
+    const map: Record<string, string> = {
+      waiting_human: 'بانتظار الإدارة',
+      human_active: 'محادثة بشرية',
+      ai_active: 'ذكاء اصطناعي',
+      escalated: 'مُصعَّد',
+      resolved: 'مُغلقة',
+      closed: 'مغلقة',
+    };
+    return map[status] || status || '—';
+  };
+
   const columns = useMemo<AdvancedTableColumn<HelpChatSession>[]>(
     () => [
       {
@@ -328,7 +355,9 @@ export const MasterHelpChatInbox: React.FC = () => {
         sortable: true,
         render: (r) => (
           <button type="button" className="text-start w-full" onClick={() => void openSession(String(r.id))}>
-            <div className="font-bold text-sm">{String(r.store_id)}</div>
+            <div className="font-bold text-sm" style={{ color: 'var(--accent)' }}>
+              {storeLabel(r.store_id)}
+            </div>
             <div className="text-[11px] line-clamp-2" style={{ color: 'var(--muted)' }}>
               {String(r.subject || r.requester_email || '—')}
             </div>
@@ -339,7 +368,17 @@ export const MasterHelpChatInbox: React.FC = () => {
         key: 'status',
         header: isAr ? 'الحالة' : 'Status',
         sortable: true,
-        render: (r) => String(r.status || '—'),
+        render: (r) => (
+          <span
+            className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+            style={{
+              background: 'color-mix(in srgb, var(--accent) 10%, transparent)',
+              color: 'var(--accent)',
+            }}
+          >
+            {statusLabel(String(r.status || ''))}
+          </span>
+        ),
       },
       {
         key: 'updated',
@@ -368,7 +407,8 @@ export const MasterHelpChatInbox: React.FC = () => {
         ),
       },
     ],
-    [isAr],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isAr, storeLabel],
   );
 
   const total = meta.total ?? rows.length;
@@ -455,15 +495,6 @@ export const MasterHelpChatInbox: React.FC = () => {
       {tab === 'inbox' ? (
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
           <div className="xl:col-span-3 min-w-0 space-y-2">
-            <div className="flex flex-wrap gap-2">
-              <input
-                value={storeFilter}
-                onChange={(e) => setStoreFilter(e.target.value)}
-                placeholder={isAr ? 'تصفية بمعرّف المتجر' : 'Filter by store_id'}
-                className="rounded-xl border px-3 py-1.5 text-xs min-w-[10rem]"
-                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-              />
-            </div>
             <AdvancedDataTable
               rows={rows}
               columns={columns}
@@ -487,14 +518,16 @@ export const MasterHelpChatInbox: React.FC = () => {
               pageSizeOptions={[10, 25, 50, 100]}
               filters={
                 <AdvancedFilterBar
-                  filterValues={{ status: statusFilter }}
+                  filterValues={{ status: statusFilter, store: storeFilter || 'all' }}
                   onFilterChange={(key, value) => {
                     if (key === 'status') setStatusFilter(value);
+                    if (key === 'store') setStoreFilter(value === 'all' ? '' : value);
                   }}
                   dateFrom={dateFrom}
                   dateTo={dateTo}
                   onDateFromChange={setDateFrom}
                   onDateToChange={setDateTo}
+                  showDates
                   onReset={() => {
                     setStatusFilter('all');
                     setStoreFilter('');
@@ -511,6 +544,17 @@ export const MasterHelpChatInbox: React.FC = () => {
                   }
                   fields={[
                     {
+                      key: 'store',
+                      label: isAr ? 'المتجر' : 'Store',
+                      options: [
+                        { value: 'all', label: isAr ? 'كل المتاجر' : 'All stores' },
+                        ...stores.map((s) => ({
+                          value: s.id,
+                          label: getStoreDisplayName(s, locale),
+                        })),
+                      ],
+                    },
+                    {
                       key: 'status',
                       label: isAr ? 'الحالة' : 'Status',
                       options: [
@@ -518,6 +562,7 @@ export const MasterHelpChatInbox: React.FC = () => {
                         { value: 'waiting_human', label: isAr ? 'بانتظار الإدارة' : 'Waiting human' },
                         { value: 'human_active', label: isAr ? 'محادثة بشرية' : 'Human active' },
                         { value: 'ai_active', label: isAr ? 'ذكاء اصطناعي' : 'AI active' },
+                        { value: 'escalated', label: isAr ? 'مُصعَّد' : 'Escalated' },
                         { value: 'resolved', label: isAr ? 'مُغلقة' : 'Resolved' },
                       ],
                     },
@@ -538,11 +583,11 @@ export const MasterHelpChatInbox: React.FC = () => {
               <>
                 <div className="border-b pb-3 mb-3" style={{ borderColor: 'var(--border)' }}>
                   <div className="text-sm font-bold">
-                    {isAr ? 'متجر' : 'Store'}: {selectedSession?.store_id}
+                    {isAr ? 'المتجر' : 'Store'}: {storeLabel(selectedSession?.store_id)}
                   </div>
                   <div className="text-[11px]" style={{ color: 'var(--muted)' }}>
                     {selectedSession?.requester_email || selectedSession?.requester_name || '—'} ·{' '}
-                    {selectedSession?.status}
+                    {statusLabel(String(selectedSession?.status || ''))}
                   </div>
                 </div>
                 <div className="flex-1 overflow-y-auto space-y-2 max-h-[360px] mb-3">

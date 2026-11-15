@@ -167,6 +167,24 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
         Icon: Palette,
       },
       {
+        id: 'canva',
+        group: 'commerce',
+        label: isAr ? 'استوديو التصميم' : 'Design studio',
+        hint: isAr
+          ? 'تصميم ونشر للمتاجر (وسائط + مكتبة التصميم)'
+          : 'Design & push to stores (Media + Canva library)',
+        Icon: ImageIcon,
+      },
+      {
+        id: 'canva-real',
+        group: 'commerce',
+        label: isAr ? 'كانفا الرسمي (اختبار)' : 'Real Canva (testing)',
+        hint: isAr
+          ? 'ربط واجهة كانفا الرسمية — اختبار الماستر فقط'
+          : 'Official Canva Connect API — Master test only',
+        Icon: Share2,
+      },
+      {
         id: 'seo',
         group: 'commerce',
         label: isAr ? 'تحسين الظهور' : 'SEO',

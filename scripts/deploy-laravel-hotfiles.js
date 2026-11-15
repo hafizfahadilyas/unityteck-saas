@@ -106,6 +106,26 @@ const files = [
     local: 'apps/api/scripts/ensure-platform-master-phase1-tables.php',
     remote: 'scripts/ensure-platform-master-phase1-tables.php',
   },
+  {
+    local: 'apps/api/app/Services/CanvaConnectService.php',
+    remote: 'app/Services/CanvaConnectService.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/CanvaConnectController.php',
+    remote: 'app/Http/Controllers/Api/CanvaConnectController.php',
+  },
+  {
+    local: 'apps/api/app/Models/CanvaOauthConnection.php',
+    remote: 'app/Models/CanvaOauthConnection.php',
+  },
+  {
+    local: 'apps/api/config/services.php',
+    remote: 'config/services.php',
+  },
+  {
+    local: 'apps/api/scripts/ensure-canva-oauth-table.php',
+    remote: 'scripts/ensure-canva-oauth-table.php',
+  },
 ];
 
 function account(name, source) {

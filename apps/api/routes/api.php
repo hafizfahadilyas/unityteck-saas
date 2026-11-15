@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\OnboardingInviteController;
 use App\Http\Controllers\Api\PlatformSettingsController;
 use App\Http\Controllers\Api\GoogleIntegrationController;
+use App\Http\Controllers\Api\CanvaConnectController;
 use App\Http\Controllers\Api\ShippingMethodController;
 use App\Http\Controllers\Api\CourierController;
 use App\Http\Controllers\Api\PaymentGatewayController;
@@ -592,6 +593,17 @@ Route::post('/storefront/payments/verify', [PaymentGatewayController::class, 'st
 // Master Admin: Multi-Store Google Integration Ledger
 Route::middleware(['auth:sanctum', 'role.can:stores.read'])->group(function () {
     Route::get('/master/google/integrations', [GoogleIntegrationController::class, 'masterStoreIntegrations']);
+});
+
+// Master Admin: Official Canva Connect (testing — separate from Design Studio)
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/master/canva-connect/status', [CanvaConnectController::class, 'status']);
+    Route::get('/master/canva-connect/auth-url', [CanvaConnectController::class, 'authUrl']);
+    Route::post('/master/canva-connect/callback', [CanvaConnectController::class, 'callback']);
+    Route::post('/master/canva-connect/disconnect', [CanvaConnectController::class, 'disconnect']);
+    Route::get('/master/canva-connect/designs', [CanvaConnectController::class, 'listDesigns']);
+    Route::post('/master/canva-connect/designs', [CanvaConnectController::class, 'createDesign']);
+    Route::post('/master/canva-connect/designs/{designId}/export', [CanvaConnectController::class, 'exportDesign']);
 });
 
 // Master Admin: Multi-Store WhatsApp Quotas & Anti-Ban Controls

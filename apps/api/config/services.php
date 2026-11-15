@@ -74,6 +74,18 @@ return [
     ],
 
     /*
+    | Official Canva Connect (REST) — Master Admin testing tab only.
+    | Create a public/private app in Canva Developer Portal (user OAuth + PKCE).
+    | Redirect URL must match Master SPA, e.g. https://mieraf-ksa.com/master?tab=canva-real
+    */
+    'canva' => [
+        'client_id' => env('CANVA_CLIENT_ID'),
+        'client_secret' => env('CANVA_CLIENT_SECRET'),
+        'redirect_uri' => env('CANVA_REDIRECT_URI'),
+    ],
+
+
+    /*
     | KSA SMS — Unifonic Cloud and/or Taqnyat (store notification settings may override sender_id).
     */
     'sms' => [

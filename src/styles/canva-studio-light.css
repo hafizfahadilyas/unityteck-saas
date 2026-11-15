@@ -1,5 +1,5 @@
 /**
- * Design Studio chrome — same Holst / portal tokens as Master + Store dashboard.
+ * Design Studio chrome — Holst accent + modern dark luxury (Canva-like).
  * Accent = --accent (#1d8b94). No purple one-offs.
  */
 /* Prevent editor chrome from forcing horizontal scroll in store main */
@@ -8,6 +8,7 @@
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
+  background: #0b0f14;
 }
 
 .canva-studio-light {
@@ -21,9 +22,28 @@
   --cs-accent-soft: color-mix(in srgb, var(--cs-accent) 14%, transparent);
   --cs-accent-ring: var(--active-ring, #4fb8b4);
   --cs-success: var(--tone-success, #059669);
+  --cs-input: var(--input-bg, #ffffff);
   background: var(--cs-bg) !important;
   color: var(--cs-text) !important;
   box-shadow: none !important;
+}
+
+/* Dark luxury chrome (real Canva editor feel) — Holst teal accent kept */
+.canva-studio-light.canva-studio-dark {
+  --cs-bg: #12161c;
+  --cs-panel: #0b0f14;
+  --cs-dock: #080b10;
+  --cs-border: rgba(255, 255, 255, 0.08);
+  --cs-text: #e8eaed;
+  --cs-muted: #9aa3af;
+  --cs-accent: var(--accent, #1d8b94);
+  --cs-accent-soft: color-mix(in srgb, var(--cs-accent) 22%, transparent);
+  --cs-accent-ring: #4fb8b4;
+  --cs-success: #10b981;
+  --cs-input: #1a1f27;
+  background: var(--cs-bg) !important;
+  color: var(--cs-text) !important;
+  border-color: var(--cs-border) !important;
 }
 
 .canva-studio-light,
@@ -118,7 +138,7 @@
 .canva-studio-light .cs-flyout input,
 .canva-studio-light .cs-flyout select,
 .canva-studio-light .cs-flyout textarea {
-  background: var(--input-bg, #ffffff) !important;
+  background: var(--cs-input, var(--input-bg, #ffffff)) !important;
   color: var(--input-fg, var(--cs-text)) !important;
   border-color: var(--cs-border) !important;
 }
@@ -187,6 +207,15 @@
     50% / 16px 16px !important;
   border: 1px solid var(--cs-border) !important;
   border-radius: 4px !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-canvas-frame {
+  background: repeating-conic-gradient(
+      rgba(255, 255, 255, 0.06) 0% 25%,
+      rgba(0, 0, 0, 0.35) 0% 50%
+    )
+    50% / 16px 16px !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45) !important;
 }
 
 .canva-studio-light .cs-footer {
@@ -370,6 +399,91 @@
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--cs-panel) 92%, #ffffff), var(--cs-panel))
       !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-workspace {
+  background:
+    radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--cs-accent) 8%, transparent), transparent 55%),
+    linear-gradient(180deg, #0e1319, #0b0f14) !important;
+}
+
+/* Dark mode: remap common light Tailwind leftovers on chrome (not the artboard pixels) */
+.canva-studio-light.canva-studio-dark .cs-header,
+.canva-studio-light.canva-studio-dark .cs-toolbar,
+.canva-studio-light.canva-studio-dark .cs-footer,
+.canva-studio-light.canva-studio-dark .cs-flyout {
+  background: var(--cs-bg) !important;
+  border-color: var(--cs-border) !important;
+  color: var(--cs-text) !important;
+}
+
+.canva-studio-light.canva-studio-dark .bg-white,
+.canva-studio-light.canva-studio-dark .bg-slate-50,
+.canva-studio-light.canva-studio-dark .hover\:bg-slate-50:hover,
+.canva-studio-light.canva-studio-dark .hover\:bg-slate-100:hover {
+  background-color: var(--cs-input) !important;
+}
+
+.canva-studio-light.canva-studio-dark .text-slate-900,
+.canva-studio-light.canva-studio-dark .text-slate-800,
+.canva-studio-light.canva-studio-dark .text-slate-700,
+.canva-studio-light.canva-studio-dark .text-gray-900 {
+  color: var(--cs-text) !important;
+}
+
+.canva-studio-light.canva-studio-dark .text-slate-600,
+.canva-studio-light.canva-studio-dark .text-slate-500,
+.canva-studio-light.canva-studio-dark .text-slate-400,
+.canva-studio-light.canva-studio-dark .text-gray-500 {
+  color: var(--cs-muted) !important;
+}
+
+.canva-studio-light.canva-studio-dark .border-slate-200,
+.canva-studio-light.canva-studio-dark .border-slate-100,
+.canva-studio-light.canva-studio-dark .border-slate-300 {
+  border-color: var(--cs-border) !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-selection-handle {
+  background: #ffffff !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-selection-toolbar,
+.canva-studio-light.canva-studio-dark .cs-selection-pill,
+.canva-studio-light.canva-studio-dark .cs-spacing-popover {
+  background: #1a1f27 !important;
+  border-color: var(--cs-border) !important;
+  color: var(--cs-text) !important;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45) !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-btn-primary {
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--cs-accent) 35%, transparent);
+}
+
+.canva-studio-light.canva-studio-dark .cs-templates-panel button,
+.canva-studio-light.canva-studio-dark .cs-element-tile,
+.canva-studio-light.canva-studio-dark .cs-layer-row {
+  background: var(--cs-input) !important;
+  border-color: var(--cs-border) !important;
+  color: var(--cs-text) !important;
+}
+
+.canva-studio-light.canva-studio-dark input[type='text'],
+.canva-studio-light.canva-studio-dark input:not([type='range']):not([type='checkbox']):not([type='radio']):not([type='file']),
+.canva-studio-light.canva-studio-dark select,
+.canva-studio-light.canva-studio-dark textarea {
+  background: var(--cs-input) !important;
+  color: var(--cs-text) !important;
+  border-color: var(--cs-border) !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-flyout-backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.canva-studio-light.canva-studio-dark .cs-flyout-drawer {
+  box-shadow: 8px 0 40px rgba(0, 0, 0, 0.5);
 }
 
 /* Force common Tailwind one-offs → Holst accent */

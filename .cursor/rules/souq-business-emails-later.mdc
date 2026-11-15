@@ -1,0 +1,14 @@
+# Souq business emails (LATER — do not run until asked)
+
+**User order (2026-11-14):** Yaad rakhna — abhi mat banao. Baad mein jab user bole tab.
+
+## Plan (when unlocked)
+- Har store / har account ka **apna apna business email** (isolated — flowers ≠ coffee ≠ bleco ≠ master).
+- Branding / domain naming = **Souq** (سوق) ke naam se — Unityteck personal/`master@unityteck.com` temporary hai.
+- **Master Admin** ka login email bhi baad mein Souq business email pe shift hoga (current live: `master@unityteck.com` on `mieraf-ksa.com/master/login`).
+- Store merchant login emails: Master SuperAdmin still owns Active/Inactive + change login email (`store-login-email-master.mdc`).
+
+## Ban until explicit ask
+- Domains / mailbox / DNS / Clerk identity email migration **mat** start karo is chat se auto.
+- Abhi production login emails mat break karo.
+---
