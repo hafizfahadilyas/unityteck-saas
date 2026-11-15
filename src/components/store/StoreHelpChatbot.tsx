@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Bot,
   Headphones,
   ImagePlus,
   Loader2,
@@ -16,6 +15,7 @@ import {
   Sparkles,
   ChevronDown,
   ChevronUp,
+  ShieldCheck,
 } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useTenant } from '../../context/TenantContext';
@@ -26,6 +26,7 @@ import {
   feedbackHelpChatSession,
   fetchHelpChatFaq,
   fetchHelpChatSession,
+  fetchHelpChatSettings,
   openHelpChatSession,
   sendHelpChatMessage,
   type HelpChatEntitlement,
@@ -88,6 +89,18 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+function masterLabel(isAr: boolean, m?: HelpChatMessage | null, settings?: HelpChatSettings | null): string {
+  const meta = (m?.meta || {}) as Record<string, unknown>;
+  if (typeof meta.label_ar === 'string' && isAr && meta.label_ar) return meta.label_ar;
+  if (typeof meta.label_en === 'string' && !isAr && meta.label_en) return meta.label_en;
+  if (meta.from === 'souq_master_admin') {
+    return isAr ? 'إدارة سوق الرئيسية' : 'Souq Master Admin';
+  }
+  return isAr
+    ? settings?.bot_name_ar || 'إدارة سوق الرئيسية'
+    : settings?.bot_name_en || 'Souq Master Admin';
+}
+
 export const StoreHelpChatbot: React.FC = () => {
   const { locale } = usePrefs();
   const isAr = locale === 'ar';
@@ -110,16 +123,24 @@ export const StoreHelpChatbot: React.FC = () => {
   const [faq, setFaq] = useState<HelpKbArticle[]>([]);
   const [intent, setIntent] = useState<HelpChatIntent>('ask_ai');
   const [faqOpenId, setFaqOpenId] = useState<string | null>(null);
-  const [showFaq, setShowFaq] = useState(true);
+  const [showFaq, setShowFaq] = useState(false);
 
   const listRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const pollRef = useRef<number | null>(null);
+  const intentRef = useRef<HelpChatIntent>(intent);
+  const entitlementRef = useRef<HelpChatEntitlement | null>(null);
 
-  const botName = isAr
-    ? settings?.bot_name_ar || 'مساعدة سوق'
-    : settings?.bot_name_en || 'Souq Help';
+  useEffect(() => {
+    intentRef.current = intent;
+  }, [intent]);
+
+  useEffect(() => {
+    entitlementRef.current = entitlement;
+  }, [entitlement]);
+
+  const botName = masterLabel(isAr, null, settings);
   const voiceOn = settings?.voice_enabled !== 0 && settings?.voice_enabled !== false;
   const imageOn = settings?.image_enabled !== 0 && settings?.image_enabled !== false;
   const handoffOn =
@@ -127,6 +148,7 @@ export const StoreHelpChatbot: React.FC = () => {
   const aiAllowed = Boolean(entitlement?.ai_enabled);
   const humanAllowed = entitlement?.human_enabled !== false;
   const humanMode = ['waiting_human', 'human_active'].includes(String(session?.status || ''));
+  const waitingMaster = humanMode && !messages.some((m) => m.role === 'human');
   const accent = settings?.primary_color || 'var(--portal-cta)';
 
   const scrollBottom = useCallback(() => {
@@ -141,7 +163,27 @@ export const StoreHelpChatbot: React.FC = () => {
       setBusy(true);
       try {
         const auth = readAuthSession();
-        const useIntent = forceIntent || intent;
+        let ent = entitlementRef.current;
+        if (!ent) {
+          const pre = await fetchHelpChatSettings(storeId).catch(() => null);
+          if (pre?.data) setSettings(pre.data);
+          if (pre?.entitlement) {
+            ent = pre.entitlement;
+            setEntitlement(pre.entitlement);
+            entitlementRef.current = pre.entitlement;
+          }
+        }
+        const planAllowsAi = Boolean(ent?.ai_enabled);
+        let useIntent = forceIntent || intentRef.current;
+        // Free → Master human path only. Paid → keep Ask AI / Fix / Human as chosen.
+        if (!planAllowsAi) {
+          useIntent = 'contact_human';
+          setIntent('contact_human');
+        } else if (!forceIntent && useIntent === 'contact_human' && !session?.id) {
+          // Fresh paid open defaults to automated Ask AI (still Master-branded welcome).
+          useIntent = 'ask_ai';
+          setIntent('ask_ai');
+        }
         const res = await openHelpChatSession(storeId, {
           locale: isAr ? 'ar' : 'en',
           session_id: forceNew ? undefined : session?.id,
@@ -152,12 +194,18 @@ export const StoreHelpChatbot: React.FC = () => {
         setSession(res.data.session);
         setMessages(Array.isArray(res.data.messages) ? res.data.messages : []);
         if (res.data.settings) setSettings(res.data.settings);
-        if (res.data.entitlement) setEntitlement(res.data.entitlement);
+        if (res.data.entitlement) {
+          setEntitlement(res.data.entitlement);
+          entitlementRef.current = res.data.entitlement;
+        }
         if (Array.isArray(res.data.faq)) setFaq(res.data.faq);
         else {
           const f = await fetchHelpChatFaq(storeId, { suggested: true, limit: 8 }).catch(() => null);
           if (f?.data) setFaq(f.data);
-          if (f?.entitlement) setEntitlement(f.entitlement);
+          if (f?.entitlement) {
+            setEntitlement(f.entitlement);
+            entitlementRef.current = f.entitlement;
+          }
         }
         scrollBottom();
       } catch {
@@ -166,7 +214,7 @@ export const StoreHelpChatbot: React.FC = () => {
         setBusy(false);
       }
     },
-    [storeId, isAr, intent, session?.id, activeStore?.name, toast, scrollBottom],
+    [storeId, isAr, session?.id, activeStore?.name, toast, scrollBottom],
   );
 
   useEffect(() => {
@@ -179,6 +227,27 @@ export const StoreHelpChatbot: React.FC = () => {
     return () => window.removeEventListener('souq-open-help-center', onOpen as EventListener);
   }, []);
 
+  // Per-store isolation: switching merchant store resets this chat session.
+  useEffect(() => {
+    setSession(null);
+    setMessages([]);
+    setSettings(null);
+    setEntitlement(null);
+    entitlementRef.current = null;
+    setFaq([]);
+    setDraft('');
+    setPendingFile(null);
+    setFaqOpenId(null);
+    setShowFaq(false);
+    setIntent('ask_ai');
+  }, [storeId]);
+
+  useEffect(() => {
+    if (entitlement && !entitlement.ai_enabled && intent !== 'contact_human') {
+      setIntent('contact_human');
+    }
+  }, [entitlement, intent]);
+
   useEffect(() => {
     if (open && storeId && !session) void ensureSession();
   }, [open, storeId, session, ensureSession]);
@@ -187,6 +256,7 @@ export const StoreHelpChatbot: React.FC = () => {
     scrollBottom();
   }, [messages, scrollBottom]);
 
+  // Poll while waiting for Master human (Free + paid handoff).
   useEffect(() => {
     if (!open || !storeId || !session?.id || !humanMode) {
       if (pollRef.current) {
@@ -202,7 +272,7 @@ export const StoreHelpChatbot: React.FC = () => {
           setMessages(Array.isArray(res.data.messages) ? res.data.messages : []);
         })
         .catch(() => undefined);
-    }, 5000);
+    }, 4000);
     return () => {
       if (pollRef.current) {
         window.clearInterval(pollRef.current);
@@ -234,13 +304,14 @@ export const StoreHelpChatbot: React.FC = () => {
   };
 
   const switchIntent = async (next: HelpChatIntent) => {
-    if (next === 'ask_ai' && !aiAllowed) {
+    if ((next === 'ask_ai' || next === 'fix_problem') && !aiAllowed) {
       toast(
         isAr
-          ? 'الذكاء الاصطناعي غير متاح على خطتك. استخدم الدعم البشري أو رقِّ الخطة.'
-          : 'AI is not on your plan. Use human support or upgrade.',
+          ? 'الذكاء الاصطناعي غير متاح على الخطة المجانية. اكتب مشكلتك وانتظر رد الإدارة.'
+          : 'AI is not on Free. Leave your problem and wait for Master Admin.',
         'error',
       );
+      setIntent('contact_human');
       return;
     }
     if (next === 'contact_human' && !humanAllowed) {
@@ -382,138 +453,190 @@ export const StoreHelpChatbot: React.FC = () => {
   };
 
   if (!storeId || !isApiEnabled()) return null;
-
-  // Floating FAB removed — open only via sidebar "Need Help?" → souq-open-help-center.
   if (!open) return null;
+
+  const dockSide = isAr ? 'left' : 'right';
+  const statusLine = humanMode
+    ? waitingMaster
+      ? isAr
+        ? 'في انتظار رد الإدارة… اترك مشكلتك هنا'
+        : 'Waiting for Master… leave your problem here'
+      : isAr
+        ? 'الإدارة ترد الآن'
+        : 'Master Admin is replying'
+    : aiAllowed
+      ? isAr
+        ? 'ردود آلية مفعّلة'
+        : 'Automated replies on'
+      : isAr
+        ? 'دعم بشري'
+        : 'Human support';
 
   return (
     <>
+      <button
+        type="button"
+        className="fixed inset-0 z-[79] bg-black/35 sm:hidden"
+        aria-label={isAr ? 'إغلاق' : 'Close'}
+        onClick={() => setOpen(false)}
+      />
       <div
-        className="fixed z-[80] bottom-5 w-[min(100vw-1.5rem,420px)] max-h-[min(82vh,680px)] flex flex-col rounded-2xl border shadow-2xl overflow-hidden"
+        className="souq-help-chat fixed z-[80] flex flex-col overflow-hidden rounded-2xl border shadow-2xl"
         style={{
-          [isAr ? 'left' : 'right']: '1.25rem',
+          width: 'min(23rem, calc(100vw - 1.5rem))',
+          maxWidth: '23rem',
+          height: 'min(34rem, calc(100dvh - 5rem))',
+          maxHeight: 'min(34rem, calc(100dvh - 5rem))',
+          bottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+          [dockSide]: `max(0.75rem, env(safe-area-inset-${dockSide}))`,
           background: 'var(--surface)',
           borderColor: 'var(--border)',
           color: 'var(--text)',
           fontFamily: 'var(--font-ui)',
+          boxShadow: '0 22px 56px rgba(15, 23, 42, 0.32)',
         }}
         dir={isAr ? 'rtl' : 'ltr'}
         role="dialog"
-        aria-label={isAr ? 'مركز المساعدة' : 'Help Center'}
+        aria-modal="true"
+        aria-label={isAr ? 'محادثة المساعدة' : 'Help chat'}
       >
-          <header className="flex items-center justify-between gap-2 px-4 py-3 text-white" style={{ background: accent }}>
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center shrink-0">
-                {humanMode ? <Headphones className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
+        <header
+          className="relative flex items-center justify-between gap-2 px-3 py-3 text-white shrink-0 overflow-hidden"
+          style={{
+            background: `linear-gradient(135deg, ${accent} 0%, color-mix(in srgb, ${accent} 72%, #04222B) 100%)`,
+          }}
+        >
+          <div className="pointer-events-none absolute inset-0 opacity-30" style={{ background: 'radial-gradient(circle at 20% 20%, #fff6, transparent 55%)' }} />
+          <div className="relative flex items-center gap-2.5 min-w-0">
+            <div className="w-10 h-10 rounded-full bg-white/15 ring-2 ring-white/25 flex items-center justify-center shrink-0 shadow-lg">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[13px] font-bold truncate leading-tight">
+                {isAr ? 'المساعدة والدعم' : 'Help & Support'}
               </div>
-              <div className="min-w-0">
-                <div className="text-sm font-bold truncate">
-                  {isAr ? 'مركز المساعدة والدعم' : 'Help & Support Center'}
-                </div>
-                <div className="text-[11px] opacity-90 truncate">
-                  {humanMode
-                    ? isAr
-                      ? 'دعم بشري · الإدارة'
-                      : 'Human support · Master'
-                    : botName}
-                </div>
+              <div className="text-[11px] opacity-95 truncate leading-tight font-semibold">
+                {botName}
+              </div>
+              <div className="text-[10px] opacity-80 truncate leading-tight mt-0.5">
+                {statusLine}
               </div>
             </div>
-            <button type="button" onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-white/15" aria-label={isAr ? 'إغلاق' : 'Close'}>
-              <X className="w-4 h-4" />
-            </button>
-          </header>
-
-          <div className="flex gap-1 p-2 border-b overflow-x-auto" style={{ borderColor: 'var(--border)' }}>
-            <button
-              type="button"
-              className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold shrink-0 ${intent === 'ask_ai' && aiAllowed ? 'unity-btn-primary text-white' : ''}`}
-              style={intent === 'ask_ai' && aiAllowed ? undefined : { border: '1px solid var(--border)', color: 'var(--muted)', opacity: aiAllowed ? 1 : 0.45 }}
-              onClick={() => void switchIntent('ask_ai')}
-              disabled={!aiAllowed && intent !== 'ask_ai'}
-              title={!aiAllowed ? (isAr ? 'غير متاح على المجاني' : 'Not on Free plan') : undefined}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              {isAr ? 'اسأل الذكاء الاصطناعي' : 'Ask AI'}
-            </button>
-            <button
-              type="button"
-              className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold shrink-0 ${intent === 'fix_problem' && aiAllowed ? 'unity-btn-primary text-white' : ''}`}
-              style={intent === 'fix_problem' && aiAllowed ? undefined : { border: '1px solid var(--border)', color: 'var(--muted)', opacity: aiAllowed ? 1 : 0.45 }}
-              onClick={() => void switchIntent('fix_problem')}
-              disabled={!aiAllowed}
-            >
-              <Wrench className="w-3.5 h-3.5" />
-              {isAr ? 'أصلح مشكلتي' : 'Fix My Problem'}
-            </button>
-            <button
-              type="button"
-              className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold shrink-0 ${intent === 'contact_human' || humanMode ? 'unity-btn-primary text-white' : ''}`}
-              style={intent === 'contact_human' || humanMode ? undefined : { border: '1px solid var(--border)', color: 'var(--muted)' }}
-              onClick={() => void switchIntent('contact_human')}
-            >
-              <Headphones className="w-3.5 h-3.5" />
-              {isAr ? 'تواصل مع إنسان' : 'Contact Human'}
-            </button>
           </div>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="relative p-1.5 rounded-lg hover:bg-white/15 shrink-0"
+            aria-label={isAr ? 'إغلاق' : 'Close'}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </header>
 
-          {entitlement ? (
-            <div className="px-3 py-1.5 text-[10px] border-b flex flex-wrap gap-x-2" style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}>
-              <span>
-                {isAr ? 'الخطة' : 'Plan'}: {entitlement.plan_code || '—'}
-              </span>
-              <span>
-                {aiAllowed
-                  ? isAr
-                    ? `ذكاء اصطناعي: ${entitlement.remaining ?? 0}/${entitlement.limit ?? 0}`
-                    : `AI: ${entitlement.remaining ?? 0}/${entitlement.limit ?? 0}`
-                  : isAr
-                    ? 'بدون ذكاء اصطناعي (مجاني)'
-                    : 'No AI (Free)'}
-              </span>
-            </div>
+        <div className="flex gap-1 px-2 py-1.5 border-b overflow-x-auto shrink-0 scrollbar-thin" style={{ borderColor: 'var(--border)' }}>
+          {aiAllowed ? (
+            <>
+              <button
+                type="button"
+                className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] sm:text-xs font-bold shrink-0 ${intent === 'ask_ai' && !humanMode ? 'unity-btn-primary text-white' : ''}`}
+                style={intent === 'ask_ai' && !humanMode ? undefined : { border: '1px solid var(--border)', color: 'var(--muted)' }}
+                onClick={() => void switchIntent('ask_ai')}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                {isAr ? 'ذكاء اصطناعي' : 'Ask AI'}
+              </button>
+              <button
+                type="button"
+                className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] sm:text-xs font-bold shrink-0 ${intent === 'fix_problem' && !humanMode ? 'unity-btn-primary text-white' : ''}`}
+                style={intent === 'fix_problem' && !humanMode ? undefined : { border: '1px solid var(--border)', color: 'var(--muted)' }}
+                onClick={() => void switchIntent('fix_problem')}
+              >
+                <Wrench className="w-3.5 h-3.5" />
+                {isAr ? 'إصلاح' : 'Fix'}
+              </button>
+            </>
           ) : null}
+          <button
+            type="button"
+            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] sm:text-xs font-bold shrink-0 ${intent === 'contact_human' || humanMode || !aiAllowed ? 'unity-btn-primary text-white' : ''}`}
+            style={intent === 'contact_human' || humanMode || !aiAllowed ? undefined : { border: '1px solid var(--border)', color: 'var(--muted)' }}
+            onClick={() => void switchIntent('contact_human')}
+          >
+            <Headphones className="w-3.5 h-3.5" />
+            {isAr ? 'الإدارة' : 'Master'}
+          </button>
+        </div>
 
-          {showFaq && faq.length > 0 ? (
-            <div className="border-b px-2 py-2 max-h-36 overflow-y-auto" style={{ borderColor: 'var(--border)' }}>
+        {entitlement ? (
+          <div
+            className="px-2.5 py-1.5 text-[11px] border-b flex flex-wrap items-center gap-x-2 gap-y-1 shrink-0 leading-snug"
+            style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+          >
+            <span
+              className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide"
+              style={{
+                background: aiAllowed ? 'color-mix(in srgb, var(--accent) 18%, var(--surface))' : 'color-mix(in srgb, var(--muted) 16%, var(--surface))',
+                color: 'var(--text)',
+              }}
+            >
+              {entitlement.plan_code || 'free'}
+            </span>
+            <span>
+              {aiAllowed
+                ? isAr
+                  ? `ذكاء اصطناعي: ${entitlement.remaining ?? 0}/${entitlement.limit ?? 0}`
+                  : `AI: ${entitlement.remaining ?? 0}/${entitlement.limit ?? 0}`
+                : isAr
+                  ? 'مجاني · رد بشري من الإدارة'
+                  : 'Free · Master human reply'}
+            </span>
+          </div>
+        ) : null}
+
+        {faq.length > 0 ? (
+          showFaq ? (
+            <div className="border-b px-2 py-1.5 max-h-28 overflow-y-auto shrink-0" style={{ borderColor: 'var(--border)' }}>
               <button
                 type="button"
                 className="w-full flex items-center justify-between text-[11px] font-bold mb-1"
                 style={{ color: 'var(--muted)' }}
                 onClick={() => setShowFaq(false)}
               >
-                {isAr ? 'أسئلة شائعة ومقترحة' : 'FAQs & suggested'}
+                {isAr ? 'أسئلة شائعة' : 'FAQs'}
                 <ChevronUp className="w-3.5 h-3.5" />
               </button>
-              <div className="flex flex-wrap gap-1 mb-1">
-                {faq.filter((a) => a.suggested).slice(0, 6).map((a) => (
-                  <button
-                    key={`sug-${a.id}`}
-                    type="button"
-                    className="text-[10px] px-2 py-1 rounded-full border"
-                    style={{ borderColor: 'var(--border)', color: 'var(--accent)' }}
-                    onClick={() => askSuggested(a)}
-                  >
-                    {isAr ? a.title_ar || a.title_en : a.title_en || a.title_ar}
-                  </button>
-                ))}
+              <div className="flex flex-wrap gap-1">
+                {faq
+                  .filter((a) => a.suggested)
+                  .slice(0, 4)
+                  .map((a) => (
+                    <button
+                      key={`sug-${a.id}`}
+                      type="button"
+                      className="text-[11px] px-2 py-1 rounded-full border leading-snug"
+                      style={{ borderColor: 'var(--border)', color: 'var(--accent)' }}
+                      onClick={() => askSuggested(a)}
+                    >
+                      {isAr ? a.title_ar || a.title_en : a.title_en || a.title_ar}
+                    </button>
+                  ))}
               </div>
-              {faq.slice(0, 4).map((a) => {
+              {faq.slice(0, 3).map((a) => {
                 const title = isAr ? a.title_ar || a.title_en : a.title_en || a.title_ar;
                 const body = isAr ? a.body_ar || a.body_en : a.body_en || a.body_ar;
                 const openA = faqOpenId === a.id;
                 return (
-                  <div key={a.id} className="mb-1">
+                  <div key={a.id} className="mt-1">
                     <button
                       type="button"
-                      className="w-full flex items-center justify-between gap-2 text-start text-[11px] font-semibold py-1"
+                      className="w-full flex items-center justify-between gap-2 text-start text-[11px] font-semibold py-0.5"
                       onClick={() => setFaqOpenId(openA ? null : a.id)}
                     >
                       <span className="truncate">{title}</span>
                       {openA ? <ChevronUp className="w-3 h-3 shrink-0" /> : <ChevronDown className="w-3 h-3 shrink-0" />}
                     </button>
                     {openA ? (
-                      <p className="text-[10px] whitespace-pre-wrap pb-1" style={{ color: 'var(--muted)' }}>
+                      <p className="text-[11px] whitespace-pre-wrap pb-1 leading-snug" style={{ color: 'var(--muted)' }}>
                         {body}
                       </p>
                     ) : null}
@@ -521,192 +644,256 @@ export const StoreHelpChatbot: React.FC = () => {
                 );
               })}
             </div>
-          ) : faq.length > 0 ? (
+          ) : (
             <button
               type="button"
-              className="px-3 py-1.5 text-[11px] border-b flex items-center gap-1"
+              className="px-2.5 py-1 text-[11px] border-b flex items-center gap-1 shrink-0"
               style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
               onClick={() => setShowFaq(true)}
             >
               <ChevronDown className="w-3.5 h-3.5" />
-              {isAr ? 'إظهار الأسئلة الشائعة' : 'Show FAQs'}
+              {isAr ? 'أسئلة شائعة' : 'FAQs'}
             </button>
-          ) : null}
+          )
+        ) : null}
 
-          <div ref={listRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5 min-h-[180px]">
-            {busy && messages.length === 0 ? (
-              <div className="flex items-center justify-center gap-2 py-10 text-sm" style={{ color: 'var(--muted)' }}>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                {isAr ? 'جاري التحميل…' : 'Loading…'}
-              </div>
-            ) : null}
-            {messages.map((m) => {
-              const mine = m.role === 'user';
-              const human = m.role === 'human';
-              const system = m.role === 'system';
-              return (
+        <div
+          ref={listRef}
+          className="flex-1 overflow-y-auto px-2.5 py-3 space-y-2.5 min-h-0"
+          style={{
+            background:
+              'linear-gradient(180deg, color-mix(in srgb, var(--accent) 4%, var(--surface)) 0%, var(--surface) 40%)',
+          }}
+        >
+          {busy && messages.length === 0 ? (
+            <div className="flex items-center justify-center gap-2 py-8 text-sm" style={{ color: 'var(--muted)' }}>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              {isAr ? 'جاري التحميل…' : 'Loading…'}
+            </div>
+          ) : null}
+          {messages.map((m) => {
+            const mine = m.role === 'user';
+            const human = m.role === 'human';
+            const system = m.role === 'system';
+            const masterSide = !mine && !system;
+            const label = human
+              ? isAr
+                ? 'إدارة سوق الرئيسية'
+                : 'Souq Master Admin'
+              : m.role === 'assistant'
+                ? masterLabel(isAr, m, settings)
+                : null;
+            return (
+              <div
+                key={m.id}
+                className={`flex ${mine ? (isAr ? 'justify-start' : 'justify-end') : isAr ? 'justify-end' : 'justify-start'}`}
+              >
                 <div
-                  key={m.id}
-                  className={`flex ${mine ? (isAr ? 'justify-start' : 'justify-end') : isAr ? 'justify-end' : 'justify-start'}`}
+                  className={`max-w-[88%] rounded-2xl px-3 py-2 text-[13px] sm:text-sm leading-relaxed shadow-sm ${system ? 'w-full text-center text-[12px] shadow-none' : ''}`}
+                  style={{
+                    background: mine
+                      ? accent
+                      : human
+                        ? 'color-mix(in srgb, var(--accent) 16%, var(--surface))'
+                        : system
+                          ? 'transparent'
+                          : 'color-mix(in srgb, var(--border) 55%, var(--surface))',
+                    color: mine ? '#fff' : 'var(--text)',
+                    opacity: system ? 0.88 : 1,
+                    border: masterSide && !system ? '1px solid color-mix(in srgb, var(--accent) 22%, var(--border))' : undefined,
+                  }}
                 >
-                  <div
-                    className={`max-w-[88%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${system ? 'w-full text-center text-xs' : ''}`}
-                    style={{
-                      background: mine
-                        ? accent
-                        : human
-                          ? 'color-mix(in srgb, var(--accent) 18%, var(--surface))'
-                          : system
-                            ? 'transparent'
-                            : 'var(--border)',
-                      color: mine ? '#fff' : 'var(--text)',
-                      opacity: system ? 0.85 : 1,
-                    }}
-                  >
-                    {human ? (
-                      <div className="text-[10px] font-bold mb-1" style={{ color: 'var(--accent)' }}>
-                        {isAr ? 'الإدارة' : 'Master Admin'}
-                      </div>
-                    ) : null}
-                    {!mine && !human && !system && m.role === 'assistant' ? (
-                      <div className="text-[10px] font-bold mb-1 opacity-70">{botName}</div>
-                    ) : null}
-                    <div className="whitespace-pre-wrap break-words">{m.body}</div>
-                    {m.attachment_url ? (
-                      <a href={m.attachment_url} target="_blank" rel="noreferrer" className="block mt-2">
-                        {m.attachment_type === 'image' || /\.(png|jpe?g|gif|webp)(\?|$)/i.test(m.attachment_url) ? (
-                          <img src={m.attachment_url} alt="" className="max-h-40 rounded-lg border object-cover" />
-                        ) : (
-                          <span className="text-[11px] underline">{isAr ? 'مرفق' : 'Attachment'}</span>
-                        )}
-                      </a>
-                    ) : null}
-                    {m.role === 'assistant' && voiceOn ? (
-                      <button type="button" className="mt-1.5 inline-flex items-center gap-1 text-[10px] opacity-80" onClick={() => speak(m.body)}>
-                        <Volume2 className="w-3 h-3" />
-                        {isAr ? 'استماع' : 'Listen'}
-                      </button>
-                    ) : null}
-                  </div>
+                  {label ? (
+                    <div className="text-[11px] font-bold mb-1 flex items-center gap-1" style={{ color: mine ? '#fff' : 'var(--accent)' }}>
+                      <ShieldCheck className="w-3 h-3" />
+                      {label}
+                    </div>
+                  ) : null}
+                  <div className="whitespace-pre-wrap break-words">{m.body}</div>
+                  {m.attachment_url ? (
+                    <a href={m.attachment_url} target="_blank" rel="noreferrer" className="block mt-2">
+                      {m.attachment_type === 'image' || /\.(png|jpe?g|gif|webp)(\?|$)/i.test(m.attachment_url) ? (
+                        <img src={m.attachment_url} alt="" className="max-h-36 rounded-xl border object-cover" />
+                      ) : (
+                        <span className="text-[12px] underline">{isAr ? 'مرفق' : 'Attachment'}</span>
+                      )}
+                    </a>
+                  ) : null}
+                  {m.role === 'assistant' && voiceOn ? (
+                    <button
+                      type="button"
+                      className="mt-1.5 inline-flex items-center gap-1 text-[11px] opacity-80"
+                      onClick={() => speak(m.body)}
+                    >
+                      <Volume2 className="w-3 h-3" />
+                      {isAr ? 'استماع' : 'Listen'}
+                    </button>
+                  ) : null}
                 </div>
-              );
-            })}
-          </div>
-
-          {!humanMode && session && session.status !== 'resolved' && session.status !== 'closed' ? (
-            <div className="flex items-center justify-center gap-2 px-3 py-2 border-t text-[11px] flex-wrap" style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}>
-              {aiAllowed && messages.some((m) => m.role === 'assistant') ? (
-                <>
-                  <span>{isAr ? 'هل كانت الإجابة كافية؟' : 'Was this enough?'}</span>
-                  <button type="button" className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border" style={{ borderColor: 'var(--border)' }} onClick={() => void onFeedback('satisfied')}>
-                    <ThumbsUp className="w-3 h-3" />
-                    {isAr ? 'نعم' : 'Yes'}
-                  </button>
-                </>
-              ) : null}
-              {handoffOn ? (
-                <button type="button" className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border" style={{ borderColor: 'var(--border)' }} onClick={() => void onFeedback('unsatisfied')}>
-                  <ThumbsDown className="w-3 h-3" />
-                  {isAr ? 'تحدّث مع إنسان' : 'Contact Human'}
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-
-          {pendingFile ? (
-            <div className="px-3 pb-1 text-[11px]" style={{ color: 'var(--muted)' }}>
-              {pendingFile.type === 'image' ? (
-                <div className="relative inline-block">
-                  <img src={pendingFile.dataUrl} alt="" className="h-16 rounded-lg border object-cover" style={{ borderColor: 'var(--border)' }} />
-                  <button type="button" className="absolute -top-1 -end-1 w-5 h-5 rounded-full bg-rose-500 text-white text-xs" onClick={() => setPendingFile(null)}>
-                    ×
-                  </button>
-                </div>
-              ) : (
-                <span className="inline-flex items-center gap-2">
-                  <Paperclip className="w-3 h-3" />
-                  {pendingFile.name}
-                  <button type="button" onClick={() => setPendingFile(null)}>
-                    ×
-                  </button>
+              </div>
+            );
+          })}
+          {waitingMaster && messages.some((m) => m.role === 'user') ? (
+            <div className="flex justify-center">
+              <div
+                className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-semibold"
+                style={{
+                  background: 'color-mix(in srgb, var(--accent) 12%, var(--surface))',
+                  color: 'var(--accent)',
+                  border: '1px solid color-mix(in srgb, var(--accent) 25%, var(--border))',
+                }}
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style={{ background: 'var(--accent)' }} />
+                  <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: 'var(--accent)' }} />
                 </span>
-              )}
+                {isAr ? 'بانتظار رد إدارة سوق…' : 'Waiting for Souq Master…'}
+              </div>
             </div>
           ) : null}
+        </div>
 
-          <footer className="border-t p-2.5 flex items-end gap-1.5" style={{ borderColor: 'var(--border)' }}>
-            {imageOn ? (
-              <>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*,.pdf,.txt,application/pdf"
-                  className="hidden"
-                  onChange={(e) => void onPickFile(e.target.files?.[0] || null)}
+        {!humanMode &&
+        session &&
+        session.status !== 'resolved' &&
+        session.status !== 'closed' &&
+        aiAllowed &&
+        messages.some((m) => m.role === 'assistant') ? (
+          <div
+            className="flex items-center justify-center gap-2 px-2 py-1.5 border-t text-[11px] flex-wrap shrink-0"
+            style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+          >
+            <span>{isAr ? 'هل كانت الإجابة كافية؟' : 'Was this enough?'}</span>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border"
+              style={{ borderColor: 'var(--border)' }}
+              onClick={() => void onFeedback('satisfied')}
+            >
+              <ThumbsUp className="w-3 h-3" />
+              {isAr ? 'نعم' : 'Yes'}
+            </button>
+            {handoffOn ? (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border"
+                style={{ borderColor: 'var(--border)' }}
+                onClick={() => void onFeedback('unsatisfied')}
+              >
+                <ThumbsDown className="w-3 h-3" />
+                {isAr ? 'إنسان' : 'Human'}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {pendingFile ? (
+          <div className="px-2.5 pb-1 text-[11px] shrink-0" style={{ color: 'var(--muted)' }}>
+            {pendingFile.type === 'image' ? (
+              <div className="relative inline-block">
+                <img
+                  src={pendingFile.dataUrl}
+                  alt=""
+                  className="h-14 rounded-lg border object-cover"
+                  style={{ borderColor: 'var(--border)' }}
                 />
                 <button
                   type="button"
-                  className="p-2 rounded-xl border shrink-0"
-                  style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
-                  onClick={() => fileRef.current?.click()}
-                  aria-label={isAr ? 'إرفاق صورة أو ملف' : 'Attach image or file'}
+                  className="absolute -top-1 -end-1 w-5 h-5 rounded-full bg-rose-500 text-white text-xs"
+                  onClick={() => setPendingFile(null)}
                 >
-                  <ImagePlus className="w-4 h-4" />
+                  ×
                 </button>
-              </>
-            ) : null}
-            {voiceOn ? (
+              </div>
+            ) : (
+              <span className="inline-flex items-center gap-2">
+                <Paperclip className="w-3 h-3" />
+                {pendingFile.name}
+                <button type="button" onClick={() => setPendingFile(null)}>
+                  ×
+                </button>
+              </span>
+            )}
+          </div>
+        ) : null}
+
+        <footer className="border-t p-2 flex items-end gap-1 shrink-0" style={{ borderColor: 'var(--border)' }}>
+          {imageOn ? (
+            <>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*,.pdf,.txt,application/pdf"
+                className="hidden"
+                onChange={(e) => void onPickFile(e.target.files?.[0] || null)}
+              />
               <button
                 type="button"
-                className={`p-2 rounded-xl border shrink-0 ${listening ? 'ring-2 ring-[var(--accent)]' : ''}`}
-                style={{ borderColor: 'var(--border)', color: listening ? 'var(--accent)' : 'var(--muted)' }}
-                onClick={toggleMic}
+                className="p-2 rounded-xl border shrink-0"
+                style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+                onClick={() => fileRef.current?.click()}
+                aria-label={isAr ? 'إرفاق صورة أو ملف' : 'Attach image or file'}
+                title={isAr ? 'صورة / ملف' : 'Image / file'}
               >
-                {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                <ImagePlus className="w-4 h-4" />
               </button>
-            ) : null}
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  void send();
-                }
-              }}
-              onPaste={(e) => {
-                if (!imageOn) return;
-                const item = Array.from(e.clipboardData.items).find((i) => i.type.startsWith('image/'));
-                if (item) {
-                  const file = item.getAsFile();
-                  if (file) void onPickFile(file);
-                }
-              }}
-              rows={1}
-              placeholder={
-                humanMode
-                  ? isAr
-                    ? 'اكتب للإدارة…'
-                    : 'Message Master Admin…'
-                  : isAr
-                    ? 'اكتب سؤالك أو صف المشكلة…'
-                    : 'Ask a question or describe the issue…'
-              }
-              className="flex-1 resize-none rounded-xl border px-3 py-2 text-sm outline-none max-h-28"
-              style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
-            />
+            </>
+          ) : null}
+          {voiceOn ? (
             <button
               type="button"
-              disabled={sending || (!draft.trim() && !pendingFile)}
-              onClick={() => void send()}
-              className="p-2.5 rounded-xl text-white shrink-0 disabled:opacity-50 unity-btn-primary"
-              style={{ background: accent }}
-              aria-busy={sending}
+              className={`p-2 rounded-xl border shrink-0 ${listening ? 'ring-2 ring-[var(--accent)]' : ''}`}
+              style={{ borderColor: 'var(--border)', color: listening ? 'var(--accent)' : 'var(--muted)' }}
+              onClick={toggleMic}
+              aria-label={isAr ? 'رسالة صوتية' : 'Voice message'}
+              title={isAr ? 'صوت' : 'Voice'}
             >
-              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
             </button>
-          </footer>
-        </div>
+          ) : null}
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                void send();
+              }
+            }}
+            onPaste={(e) => {
+              if (!imageOn) return;
+              const item = Array.from(e.clipboardData.items).find((i) => i.type.startsWith('image/'));
+              if (item) {
+                const file = item.getAsFile();
+                if (file) void onPickFile(file);
+              }
+            }}
+            rows={1}
+            placeholder={
+              humanMode
+                ? isAr
+                  ? 'اكتب مشكلتك للإدارة…'
+                  : 'Leave your problem for Master…'
+                : isAr
+                  ? 'اكتب سؤالك…'
+                  : 'Type your message…'
+            }
+            className="flex-1 resize-none rounded-xl border px-2.5 py-2 text-[13px] sm:text-sm outline-none max-h-24 leading-snug"
+            style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+          />
+          <button
+            type="button"
+            disabled={sending || (!draft.trim() && !pendingFile)}
+            onClick={() => void send()}
+            className="p-2.5 rounded-xl text-white shrink-0 disabled:opacity-50 unity-btn-primary"
+            style={{ background: accent }}
+            aria-busy={sending}
+            aria-label={isAr ? 'إرسال' : 'Send'}
+          >
+            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+          </button>
+        </footer>
+      </div>
     </>
   );
 };

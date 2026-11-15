@@ -26,8 +26,8 @@ function souq_ensure_help_chat_tables(PDO $pdo): void
                     `id` VARCHAR(64) NOT NULL,
                     `store_id` VARCHAR(64) NULL,
                     `enabled` TINYINT(1) NOT NULL DEFAULT 1,
-                    `bot_name_en` VARCHAR(120) NOT NULL DEFAULT 'Souq Help',
-                    `bot_name_ar` VARCHAR(120) NOT NULL DEFAULT 'مساعدة سوق',
+                    `bot_name_en` VARCHAR(120) NOT NULL DEFAULT 'Souq Master Admin',
+                    `bot_name_ar` VARCHAR(120) NOT NULL DEFAULT 'إدارة سوق الرئيسية',
                     `welcome_en` TEXT NULL,
                     `welcome_ar` TEXT NULL,
                     `system_prompt_en` TEXT NULL,
@@ -175,11 +175,11 @@ function souq_help_kb_seed_defaults(PDO $pdo): void
                 "Only Master SuperAdmin can change the store login email or set Active/Inactive. Merchants cannot change login email from Settings.",
                 "فقط الإدارة العليا تغيّر بريد تسجيل دخول المتجر أو تفعّله/تعطّله. التاجر لا يغيّر بريد الدخول من الإعدادات.", 1, 60],
             ['kb-ai-plan', 'billing', 'AI Help Chat plan limits', 'حدود محادثة المساعدة بالذكاء الاصطناعي',
-                "Free: no AI replies (human handoff only). Paid: 100 AI replies/month. Pro: 300. Premium/Custom: 500. Quotas reset monthly (Asia/Riyadh).",
-                "المجاني: بدون ردود ذكاء اصطناعي (تحويل بشري فقط). المدفوع: ١٠٠ رد/شهر. الاحترافي: ٣٠٠. المميز/المخصص: ٥٠٠. تتجدد الحصة شهرياً (توقيت الرياض).", 1, 70],
+                "Free: Souq Master Admin welcome, then wait for human reply (leave your problem). Paid: 100 AI replies/month. Pro: 300. Premium/Custom: 500. Quotas reset monthly (Asia/Riyadh).",
+                "المجاني: ترحيب من إدارة سوق الرئيسية ثم انتظار رد بشري (اترك مشكلتك). المدفوع: ١٠٠ رد/شهر. الاحترافي: ٣٠٠. المميز/المخصص: ٥٠٠. تتجدد الحصة شهرياً (توقيت الرياض).", 1, 70],
             ['kb-escalation', 'support', 'When to contact human support', 'متى أتواصل مع الدعم البشري',
-                "If AI cannot solve the issue, tap Contact Human / Talk to human. Full chat history and attachments go to Master Support.",
-                "إذا لم يحل الذكاء الاصطناعي المشكلة، اضغط تحدّث مع إنسان. يُرسل سجل المحادثة والمرفقات إلى دعم الإدارة.", 0, 80],
+                "On Free, leave your problem after the welcome and wait for Souq Master Admin. On paid plans, if AI cannot solve it, switch to Master. Full chat history and attachments go to Master Support.",
+                "على المجاني اترك مشكلتك بعد الترحيب وانتظر إدارة سوق الرئيسية. على الخطط المدفوعة إذا لم يحل الرد الآلي المشكلة انتقل إلى الإدارة. يُرسل سجل المحادثة والمرفقات إلى دعم الإدارة.", 0, 80],
         ];
         $ins = $pdo->prepare(
             'INSERT INTO help_kb_articles
@@ -301,12 +301,12 @@ function souq_help_chat_default_settings(?string $storeId = null): array
         'id' => $storeId ? ('store-' . $storeId) : 'global',
         'store_id' => $storeId,
         'enabled' => 1,
-        'bot_name_en' => 'Souq Help',
-        'bot_name_ar' => 'مساعدة سوق',
-        'welcome_en' => 'Hi! I am your Souq assistant. Ask anything about your store dashboard. If I cannot help, tap Talk to human.',
-        'welcome_ar' => 'مرحباً! أنا مساعد سوق. اسأل عن أي شيء في لوحة تحكم متجرك. إذا لم أستطع المساعدة، اضغط تحدّث مع إنسان.',
-        'system_prompt_en' => 'You are Souq Help, a bilingual Saudi e-commerce SaaS assistant for store merchants. Answer clearly about products, orders, shipping, payments, marketing, WhatsApp, themes, and settings. Never invent store metrics or claim integrations are connected. If unsure, say so and suggest escalating to Master Admin. Keep answers short and actionable.',
-        'system_prompt_ar' => 'أنت مساعدة سوق لمنصة تجارة إلكترونية سعودية. أجب بوضوح عن المنتجات والطلبات والشحن والمدفوعات والتسويق وواتساب والسمات والإعدادات. لا تخترع أرقاماً ولا تدّعِ أن تكاملاً متصل. إذا لم تكن متأكداً قل ذلك واقترح التحويل إلى الإدارة. أبقِ الإجابات قصيرة وعملية.',
+        'bot_name_en' => 'Souq Master Admin',
+        'bot_name_ar' => 'إدارة سوق الرئيسية',
+        'welcome_en' => 'Welcome, any help?',
+        'welcome_ar' => 'مرحباً، هل تحتاج مساعدة؟',
+        'system_prompt_en' => 'You are Souq Master Admin support for a bilingual Saudi e-commerce SaaS. Answer clearly about products, orders, shipping, payments, marketing, WhatsApp, themes, and settings. Never invent store metrics or claim integrations are connected. If unsure, say so and suggest waiting for a human Master Admin. Keep answers short and actionable.',
+        'system_prompt_ar' => 'أنت دعم إدارة سوق الرئيسية لمنصة تجارة إلكترونية سعودية. أجب بوضوح عن المنتجات والطلبات والشحن والمدفوعات والتسويق وواتساب والسمات والإعدادات. لا تخترع أرقاماً ولا تدّعِ أن تكاملاً متصل. إذا لم تكن متأكداً قل ذلك واقترح انتظار رد بشري من الإدارة. أبقِ الإجابات قصيرة وعملية.',
         'voice_enabled' => 1,
         'image_enabled' => 1,
         'human_handoff_enabled' => 1,
@@ -315,7 +315,69 @@ function souq_help_chat_default_settings(?string $storeId = null): array
     ];
 }
 
+/** Friendly Master-branded auto-ack after merchant leaves a problem (Free / human queue). */
+function souq_help_chat_master_ack_text(string $locale): string
+{
+    return str_starts_with(strtolower($locale), 'ar')
+        ? 'تم استلام رسالتك. اترك مشكلتك هنا وسنرد عليك قريباً — إدارة سوق الرئيسية.'
+        : 'Got your message. Leave your problem here and we will reply soon — Souq Master Admin.';
+}
+
+function souq_help_chat_welcome_text(array $settings, string $locale, string $intent, bool $aiEnabled): string
+{
+    $welcome = $locale === 'ar'
+        ? (string) ($settings['welcome_ar'] ?: $settings['welcome_en'] ?: 'مرحباً، هل تحتاج مساعدة؟')
+        : (string) ($settings['welcome_en'] ?: $settings['welcome_ar'] ?: 'Welcome, any help?');
+
+    if ($intent === 'fix_problem' && $aiEnabled) {
+        return $locale === 'ar'
+            ? 'مرحباً، هل تحتاج مساعدة؟ صف المشكلة أو أرفق صورة وسأرشدك خطوة بخطوة.'
+            : 'Welcome, any help? Describe the issue or attach a screenshot and I will guide you step by step.';
+    }
+    if ($intent === 'contact_human' || !$aiEnabled) {
+        return $locale === 'ar'
+            ? (trim($welcome) !== '' ? $welcome : 'مرحباً، هل تحتاج مساعدة؟')
+            : (trim($welcome) !== '' ? $welcome : 'Welcome, any help?');
+    }
+
+    return trim($welcome) !== '' ? $welcome : ($locale === 'ar' ? 'مرحباً، هل تحتاج مساعدة؟' : 'Welcome, any help?');
+}
+
 /** @return array<string,mixed> */
+function souq_help_chat_normalize_settings_row(array $row, array $defaults): array
+{
+    $merged = array_merge($defaults, $row);
+    // Soft-upgrade legacy AI Studio / Souq Help copy → Master Admin welcome flow.
+    $legacyBotEn = ['Souq Help', 'souq help', 'Help Bot'];
+    $legacyBotAr = ['مساعدة سوق', 'مساعد سوق'];
+    $legacyWelcomeEn = [
+        'Hi! I am your Souq assistant. Ask anything about your store dashboard. If I cannot help, tap Talk to human.',
+        'Hi. Free plan has no AI replies. Use human support or upgrade (100 / 300 / 500 AI replies).',
+    ];
+    $legacyWelcomeAr = [
+        'مرحباً! أنا مساعد سوق. اسأل عن أي شيء في لوحة تحكم متجرك. إذا لم أستطع المساعدة، اضغط تحدّث مع إنسان.',
+        'مرحباً. خطة متجرك المجانية لا تشمل ردود الذكاء الاصطناعي. استخدم الدعم البشري أو رقِّ خطتك (١٠٠ / ٣٠٠ / ٥٠٠).',
+    ];
+    $botEn = trim((string) ($merged['bot_name_en'] ?? ''));
+    $botAr = trim((string) ($merged['bot_name_ar'] ?? ''));
+    $welEn = trim((string) ($merged['welcome_en'] ?? ''));
+    $welAr = trim((string) ($merged['welcome_ar'] ?? ''));
+    if ($botEn === '' || in_array($botEn, $legacyBotEn, true)) {
+        $merged['bot_name_en'] = $defaults['bot_name_en'];
+    }
+    if ($botAr === '' || in_array($botAr, $legacyBotAr, true)) {
+        $merged['bot_name_ar'] = $defaults['bot_name_ar'];
+    }
+    if ($welEn === '' || in_array($welEn, $legacyWelcomeEn, true)) {
+        $merged['welcome_en'] = $defaults['welcome_en'];
+    }
+    if ($welAr === '' || in_array($welAr, $legacyWelcomeAr, true)) {
+        $merged['welcome_ar'] = $defaults['welcome_ar'];
+    }
+
+    return $merged;
+}
+
 function souq_help_chat_get_settings(PDO $pdo, ?string $storeId = null): array
 {
     $defaults = souq_help_chat_default_settings($storeId);
@@ -325,17 +387,17 @@ function souq_help_chat_get_settings(PDO $pdo, ?string $storeId = null): array
             $st->execute([$storeId]);
             $row = $st->fetch(PDO::FETCH_ASSOC);
             if ($row) {
-                return array_merge($defaults, $row);
+                return souq_help_chat_normalize_settings_row($row, $defaults);
             }
         }
         $st = $pdo->prepare('SELECT * FROM help_chatbot_settings WHERE id = ? OR store_id IS NULL LIMIT 1');
         $st->execute(['global']);
         $row = $st->fetch(PDO::FETCH_ASSOC);
         if ($row) {
-            return array_merge($defaults, $row, [
+            return souq_help_chat_normalize_settings_row($row, array_merge($defaults, [
                 'store_id' => $storeId,
                 'id' => $storeId ? ('store-' . $storeId) : 'global',
-            ]);
+            ]));
         }
     } catch (Throwable) {
     }
@@ -356,8 +418,8 @@ function souq_help_chat_save_settings(PDO $pdo, array $patch, ?string $storeId =
         'id' => $id,
         'store_id' => $storeId,
         'enabled' => array_key_exists('enabled', $patch) ? ((int) !!$patch['enabled']) : (int) ($current['enabled'] ?? 1),
-        'bot_name_en' => trim((string) ($patch['bot_name_en'] ?? $current['bot_name_en'] ?? 'Souq Help')),
-        'bot_name_ar' => trim((string) ($patch['bot_name_ar'] ?? $current['bot_name_ar'] ?? 'مساعدة سوق')),
+        'bot_name_en' => trim((string) ($patch['bot_name_en'] ?? $current['bot_name_en'] ?? 'Souq Master Admin')),
+        'bot_name_ar' => trim((string) ($patch['bot_name_ar'] ?? $current['bot_name_ar'] ?? 'إدارة سوق الرئيسية')),
         'welcome_en' => (string) ($patch['welcome_en'] ?? $current['welcome_en'] ?? ''),
         'welcome_ar' => (string) ($patch['welcome_ar'] ?? $current['welcome_ar'] ?? ''),
         'system_prompt_en' => (string) ($patch['system_prompt_en'] ?? $current['system_prompt_en'] ?? ''),
@@ -635,7 +697,7 @@ function souq_help_chat_ai_reply(
     return $lastFail;
 }
 
-function souq_help_chat_escalate(PDO $pdo, array $session, string $reason = ''): array
+function souq_help_chat_escalate(PDO $pdo, array $session, string $reason = '', bool $silentSystem = false): array
 {
     $sessionId = (string) $session['id'];
     $storeId = (string) $session['store_id'];
@@ -700,10 +762,12 @@ function souq_help_chat_escalate(PDO $pdo, array $session, string $reason = ''):
         'UPDATE help_chat_sessions SET status = ?, satisfaction = ?, ticket_id = ?, escalated_at = ?, subject = ?, updated_at = ? WHERE id = ?'
     )->execute(['waiting_human', 'unsatisfied', $ticketId !== '' ? $ticketId : null, $now, $subject, $now, $sessionId]);
 
-    $sysBody = $wantAr
-        ? 'تم تحويل محادثتك إلى الإدارة. سيظهر السؤال في لوحة التحكم الرئيسية وسيصلك إشعار فور الرد.'
-        : 'Your chat was escalated to Master Admin. They will see this store question and you will get a notification when they reply.';
-    souq_help_chat_insert_message($pdo, $sessionId, $storeId, 'system', $sysBody);
+    if (!$silentSystem) {
+        $sysBody = $wantAr
+            ? 'تم تحويل محادثتك إلى الإدارة. سيظهر السؤال في لوحة التحكم الرئيسية وسيصلك إشعار فور الرد.'
+            : 'Your chat was escalated to Master Admin. They will see this store question and you will get a notification when they reply.';
+        souq_help_chat_insert_message($pdo, $sessionId, $storeId, 'system', $sysBody);
+    }
 
     if (function_exists('souq_notify_platform')) {
         $storeLabel = $storeId;
@@ -845,22 +909,45 @@ function souq_help_chatbot_dispatch(PDO $pdo, string $uri, string $method, strin
         if (!in_array($intent, ['ask_ai', 'fix_problem', 'contact_human'], true)) {
             $intent = 'ask_ai';
         }
-        // Free: AI intents fall back to human-capable session (AI replies still gated later)
-        if ($intent === 'contact_human' || (!$entitlement['ai_enabled'] && $intent === 'ask_ai')) {
-            // keep ask_ai for free so UI can show human path; contact_human forces escalate path after open
+        // Free / human intent → wait for Master after welcome (no AI). Paid Ask/Fix → AI session.
+        if (!$entitlement['ai_enabled'] && in_array($intent, ['ask_ai', 'fix_problem'], true)) {
+            $intent = 'contact_human';
         }
+        // Free legacy threads stuck on ai_active → flip to waiting_human (Master wait flow).
+        $migrateFreeHuman = static function (PDO $pdo, array $row, array $entitlement): array {
+            if (!empty($entitlement['ai_enabled'])) {
+                return $row;
+            }
+            if ((string) ($row['status'] ?? '') !== 'ai_active') {
+                return $row;
+            }
+            $now = date('Y-m-d H:i:s');
+            try {
+                $pdo->prepare(
+                    "UPDATE help_chat_sessions SET status = 'waiting_human', intent = 'contact_human', updated_at = ? WHERE id = ? AND store_id = ?"
+                )->execute([$now, $row['id'], $row['store_id']]);
+                $row['status'] = 'waiting_human';
+                $row['intent'] = 'contact_human';
+                $row['updated_at'] = $now;
+            } catch (Throwable) {
+            }
+            return $row;
+        };
+
         $resumeId = trim((string) ($input['session_id'] ?? ''));
         if ($resumeId !== '') {
             $st = $pdo->prepare('SELECT * FROM help_chat_sessions WHERE id = ? AND store_id = ? LIMIT 1');
             $st->execute([$resumeId, $storeId]);
             $existing = $st->fetch(PDO::FETCH_ASSOC);
             if ($existing) {
+                $existing = $migrateFreeHuman($pdo, $existing, $entitlement);
                 echo json_encode([
                     'data' => [
                         'session' => $existing,
                         'messages' => souq_help_chat_list_messages($pdo, $resumeId, $storeId),
                         'settings' => $publicSettings,
                         'entitlement' => $entitlement,
+                        'faq' => souq_help_kb_list($pdo, $storeId, true, 8),
                     ],
                 ], JSON_UNESCAPED_UNICODE);
                 return true;
@@ -876,12 +963,14 @@ function souq_help_chatbot_dispatch(PDO $pdo, string $uri, string $method, strin
         $st->execute([$storeId]);
         $open = $st->fetch(PDO::FETCH_ASSOC);
         if ($open) {
+            $open = $migrateFreeHuman($pdo, $open, $entitlement);
             echo json_encode([
                 'data' => [
                     'session' => $open,
                     'messages' => souq_help_chat_list_messages($pdo, (string) $open['id'], $storeId),
                     'settings' => $publicSettings,
                     'entitlement' => $entitlement,
+                    'faq' => souq_help_kb_list($pdo, $storeId, true, 8),
                 ],
             ], JSON_UNESCAPED_UNICODE);
             return true;
@@ -889,7 +978,10 @@ function souq_help_chatbot_dispatch(PDO $pdo, string $uri, string $method, strin
 
         $id = souq_help_chat_id('hcs');
         $now = date('Y-m-d H:i:s');
-        $startStatus = ($intent === 'contact_human') ? 'waiting_human' : 'ai_active';
+        // Free + Human: welcome then wait. Paid AI intents stay ai_active.
+        $startStatus = (!$entitlement['ai_enabled'] || $intent === 'contact_human')
+            ? 'waiting_human'
+            : 'ai_active';
         try {
             $pdo->prepare(
                 'INSERT INTO help_chat_sessions
@@ -925,40 +1017,35 @@ function souq_help_chatbot_dispatch(PDO $pdo, string $uri, string $method, strin
             ]);
         }
 
-        $welcome = $locale === 'ar'
-            ? (string) ($settings['welcome_ar'] ?: $settings['welcome_en'])
-            : (string) ($settings['welcome_en'] ?: $settings['welcome_ar']);
-        if ($intent === 'fix_problem') {
-            $welcome = $locale === 'ar'
-                ? 'وضع إصلاح المشكلة مفعّل. صف الخطأ أو الصق لقطة شاشة وسأرشدك خطوة بخطوة.'
-                : 'Fix My Problem mode is on. Describe the error or attach a screenshot and I will guide you step by step.';
-        } elseif ($intent === 'contact_human') {
-            $welcome = $locale === 'ar'
-                ? 'تم فتح تذكرة دعم بشري. اكتب سؤالك أو أرفق ملفاً — سيظهر للإدارة مع سجل المحادثة.'
-                : 'Human support ticket opened. Write your question or attach a file — Master Admin will see the full thread.';
-        } elseif (!$entitlement['ai_enabled']) {
-            $welcome = $locale === 'ar'
-                ? 'مرحباً. خطة متجرك المجانية لا تشمل ردود الذكاء الاصطناعي. استخدم الدعم البشري أو رقِّ خطتك (١٠٠ / ٣٠٠ / ٥٠٠).'
-                : 'Hi. Free plan has no AI replies. Use human support or upgrade (100 / 300 / 500 AI replies).';
-        }
+        $welcome = souq_help_chat_welcome_text(
+            $settings,
+            $locale,
+            $intent,
+            !empty($entitlement['ai_enabled'])
+        );
         $messages = [];
         if (trim($welcome) !== '') {
             $messages[] = souq_help_chat_insert_message(
                 $pdo,
                 $id,
                 $storeId,
-                ($entitlement['ai_enabled'] && $intent !== 'contact_human') ? 'assistant' : 'system',
-                $welcome
+                'assistant',
+                $welcome,
+                null,
+                null,
+                [
+                    'kind' => 'welcome',
+                    'from' => 'souq_master_admin',
+                    'label_en' => 'Souq Master Admin',
+                    'label_ar' => 'إدارة سوق الرئيسية',
+                ]
             );
         }
 
         $st = $pdo->prepare('SELECT * FROM help_chat_sessions WHERE id = ?');
         $st->execute([$id]);
         $sessionRow = $st->fetch(PDO::FETCH_ASSOC);
-        if ($intent === 'contact_human' && $sessionRow) {
-            $sessionRow = souq_help_chat_escalate($pdo, $sessionRow, $locale === 'ar' ? 'طلب دعم بشري' : 'Requested human support');
-            $messages = souq_help_chat_list_messages($pdo, $id, $storeId);
-        }
+        // Do NOT escalate on open — wait until merchant leaves a problem/message.
 
         echo json_encode([
             'data' => [
@@ -1044,53 +1131,63 @@ function souq_help_chatbot_dispatch(PDO $pdo, string $uri, string $method, strin
         $assistantMsg = null;
         $aiMeta = null;
         $entitlement = souq_help_support_entitlement($pdo, $storeId);
+        $wantHumanQueue = in_array($status, ['waiting_human', 'human_active'], true)
+            || !$entitlement['ai_enabled']
+            || (int) ($entitlement['remaining'] ?? 0) <= 0;
 
-        if (in_array($status, ['waiting_human', 'human_active'], true)) {
-            // Queue for Master — no AI reply while human owns the thread
-            echo json_encode([
-                'data' => [
-                    'user_message' => $userMsg,
-                    'assistant_message' => null,
-                    'session' => $session,
-                    'mode' => 'human',
-                    'entitlement' => $entitlement,
-                ],
-            ], JSON_UNESCAPED_UNICODE);
-            return true;
-        }
+        if ($wantHumanQueue) {
+            // Free / human / quota: one Master ack after first problem message, then wait for human.
+            $needsTicket = empty($session['ticket_id']) || $status === 'ai_active';
+            if ($needsTicket) {
+                $session = souq_help_chat_escalate(
+                    $pdo,
+                    $session,
+                    $locale === 'ar' ? 'رسالة تاجر للدعم' : 'Merchant support message',
+                    true // silent — Master-branded ack follows instead of system spam
+                );
+                $status = (string) ($session['status'] ?? 'waiting_human');
+            }
 
-        // Free plan / exhausted quota → no AI; steer to human handoff
-        if (!$entitlement['ai_enabled'] || (int) $entitlement['remaining'] <= 0) {
-            $blockText = !$entitlement['ai_enabled']
-                ? ($locale === 'ar'
-                    ? 'الرد بالذكاء الاصطناعي غير متاح على الخطة المجانية. اضغط «تحدّث مع إنسان» لإرسال سؤالك للإدارة، أو رقِّ خطتك (١٠٠ / ٣٠٠ / ٥٠٠).'
-                    : 'AI replies are not available on Free. Tap Talk to human, or upgrade for 100 / 300 / 500 AI replies per month.')
-                : ($locale === 'ar'
-                    ? 'انتهى رصيد ردود الذكاء الاصطناعي لهذا الشهر. اضغط «تحدّث مع إنسان» أو انتظر دورة الفوترة التالية.'
-                    : 'Your monthly AI reply quota is used up. Tap Talk to human or wait for the next billing period.');
-            $assistantMsg = souq_help_chat_insert_message(
-                $pdo,
-                $sessionId,
-                $storeId,
-                'system',
-                $blockText,
-                null,
-                null,
-                ['code' => !$entitlement['ai_enabled'] ? 'plan_no_ai' : 'quota_exhausted']
-            );
+            $prior = souq_help_chat_list_messages($pdo, $sessionId, $storeId, 80);
+            $alreadyAcked = false;
+            foreach ($prior as $pm) {
+                $meta = is_array($pm['meta'] ?? null) ? $pm['meta'] : [];
+                if (($meta['kind'] ?? '') === 'master_ack' || ($meta['code'] ?? '') === 'help_ack') {
+                    $alreadyAcked = true;
+                    break;
+                }
+            }
+
+            if (!$alreadyAcked) {
+                $assistantMsg = souq_help_chat_insert_message(
+                    $pdo,
+                    $sessionId,
+                    $storeId,
+                    'assistant',
+                    souq_help_chat_master_ack_text($locale),
+                    null,
+                    null,
+                    [
+                        'kind' => 'master_ack',
+                        'code' => 'help_ack',
+                        'from' => 'souq_master_admin',
+                        'label_en' => 'Souq Master Admin',
+                        'label_ar' => 'إدارة سوق الرئيسية',
+                    ]
+                );
+            }
+
             $st = $pdo->prepare('SELECT * FROM help_chat_sessions WHERE id = ?');
             $st->execute([$sessionId]);
+            $session = $st->fetch(PDO::FETCH_ASSOC) ?: $session;
+
             echo json_encode([
                 'data' => [
                     'user_message' => $userMsg,
                     'assistant_message' => $assistantMsg,
-                    'session' => $st->fetch(PDO::FETCH_ASSOC),
-                    'mode' => 'blocked',
+                    'session' => $session,
+                    'mode' => 'human',
                     'entitlement' => $entitlement,
-                    'ai' => [
-                        'ok' => false,
-                        'code' => !$entitlement['ai_enabled'] ? 'plan_no_ai' : 'quota_exhausted',
-                    ],
                 ],
             ], JSON_UNESCAPED_UNICODE);
             return true;
