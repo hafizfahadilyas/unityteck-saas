@@ -71,9 +71,9 @@ function CoffeeAnnouncementStrip({
   if (dismissed || (!useBar && !useHeader)) return null;
 
   const deviceHide = [
-    bar?.desktopVersion === false ? 'lg:hidden' : '',
-    bar?.tabletVersion === false ? 'md:max-lg:hidden' : '',
-    bar?.mobileVersion === false ? 'max-md:hidden' : '',
+    bar?.desktopVersion === false ? '@lg:hidden' : '',
+    bar?.tabletVersion === false ? '@md:@max-lg:hidden' : '',
+    bar?.mobileVersion === false ? '@max-md:hidden' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -330,7 +330,7 @@ export const Header: React.FC = () => {
   }, [activeStore, headerVersion]);
 
   const headerSettings = allThemeSettings?.customHeader;
-  // HiBrew header chrome is locked white/neutral — do not recolor the sticky bar from colors.* defaults.
+  // Header chrome uses Store Colors / page-builder tokens: --theme-header-bg / --theme-header-text.
 
   const [activeMegaMenu, setActiveMegaMenu] = useState<MegaMenuKey>(null);
   const [renderedMegaMenu, setRenderedMegaMenu] = useState<MegaMenuKey>(null);
@@ -575,7 +575,7 @@ export const Header: React.FC = () => {
 
       {/* 1. TOP BAR (Honor Style Country/Region Selector Bar) */}
       {countryNoticeVisible && (
-        <div className="w-full bg-[#f7f7f8] border-b border-neutral-200/70 text-[12px] text-neutral-600 py-1.5 px-4 sm:px-6 lg:px-8 transition-all duration-300 overflow-hidden">
+        <div className="w-full bg-[#f7f7f8] border-b border-neutral-200/70 text-[12px] text-neutral-600 py-1.5 px-4 sm:px-6 @lg:px-8 transition-all duration-300 overflow-hidden">
           <div className="max-w-[1440px] mx-auto flex items-center justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <span className="truncate block font-normal text-neutral-700">
@@ -615,14 +615,18 @@ export const Header: React.FC = () => {
         ref={headerRef}
         data-theme-sticky-chrome
         data-customize-section="00_header_builder"
-        className={`sticky top-0 z-50 w-full bg-white text-neutral-900 border-b border-neutral-200/80 transition-all duration-200 ${
+        className={`sticky top-0 z-50 w-full border-b border-neutral-200/80 transition-all duration-200 ${
           isScrolled ? 'shadow-[0_2px_15px_rgba(0,0,0,0.06)]' : ''
         }`}
+        style={{ backgroundColor: 'var(--theme-header-bg, #FFFFFF)', color: 'var(--theme-header-text, #111111)' }}
         onMouseLeave={handleHeaderMouseLeave}
       >
-        <div className="max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between relative bg-white z-50">
-          {/* 1. Desktop Left: Brand Logo */}
-          <div className="hidden lg:flex items-center shrink-0 z-10" onMouseEnter={() => scheduleMenuClose(80)}>
+        <div
+          className="max-w-[1440px] mx-auto px-3 sm:px-6 @lg:px-8 h-16 flex items-center justify-between gap-2 relative z-50 min-w-0 overflow-hidden"
+          style={{ backgroundColor: 'var(--theme-header-bg, #FFFFFF)', color: 'var(--theme-header-text, #111111)' }}
+        >
+          {/* 1. Desktop Left: Brand Logo — container queries so Page Builder canvas width (not window) drives layout */}
+          <div className="hidden @lg:flex items-center shrink-0 z-10" onMouseEnter={() => scheduleMenuClose(80)}>
             <button
               type="button"
               onClick={() => {
@@ -648,7 +652,7 @@ export const Header: React.FC = () => {
           </div>
 
           {/* 1. Mobile Left: Hamburger + Cart + Search (Exact match with Image) */}
-          <div className="flex lg:hidden items-center gap-1 sm:gap-2 shrink-0">
+          <div className="flex @lg:hidden items-center gap-1 sm:gap-2 shrink-0">
             {/* Hamburger Toggle */}
             <button
               type="button"
@@ -701,7 +705,7 @@ export const Header: React.FC = () => {
           {/* 2b. Tablet custom links (md–lg) when merchant set tabletLinks */}
           {customTablet.length > 0 ? (
             <nav
-              className={`hidden md:flex lg:hidden items-center justify-center flex-1 min-w-0 mx-2 gap-2 text-[12px] font-normal text-neutral-800 h-16 whitespace-nowrap ${
+              className={`hidden @md:flex @lg:hidden items-center justify-center flex-1 min-w-0 mx-2 gap-2 text-[12px] font-normal text-neutral-800 h-16 overflow-x-auto no-scrollbar ${
                 navEnabled ? '' : 'invisible pointer-events-none'
               }`}
               data-main-menu-tablet={navEnabled ? 'on' : 'off'}
@@ -722,7 +726,7 @@ export const Header: React.FC = () => {
 
           {/* 2. Center: Desktop Nav Items (Flex in-flow layout ensuring zero overlap in both RTL Arabic and LTR English) */}
           <nav
-            className={`${customTablet.length > 0 ? 'hidden lg:flex' : 'hidden md:flex lg:flex'} items-center justify-center flex-1 min-w-0 mx-2 lg:mx-3 xl:mx-4 2xl:mx-6 gap-2 lg:gap-2.5 xl:gap-3.5 2xl:gap-5 text-[12px] lg:text-[12.5px] xl:text-[13px] 2xl:text-[13.5px] font-normal text-neutral-800 h-16 whitespace-nowrap ${
+            className={`${customTablet.length > 0 ? 'hidden @lg:flex' : 'hidden @md:flex @lg:flex'} items-center justify-center flex-1 min-w-0 mx-2 @lg:mx-3 @xl:mx-4 gap-2 @lg:gap-2.5 @xl:gap-3.5 text-[12px] @lg:text-[12.5px] @xl:text-[13px] font-normal text-neutral-800 h-16 overflow-x-auto no-scrollbar ${
               navEnabled ? '' : 'invisible pointer-events-none'
             }`}
             data-main-menu={navEnabled ? 'on' : 'off'}
@@ -873,12 +877,12 @@ export const Header: React.FC = () => {
                 className="py-2 inline-flex items-center gap-1 text-neutral-700 hover:text-black transition-colors cursor-pointer whitespace-nowrap"
               >
                 <span>{language === 'AR' ? 'الذكاء الاصطناعي' : 'AI'}</span>
-                <Sparkles className="w-3.5 h-3.5 text-[#2563eb] fill-[#2563eb]/20" />
+                <Sparkles className="w-3.5 h-3.5 text-[color:var(--theme-accent,#C88A58)] fill-[color:var(--theme-accent,#C88A58)]/20" />
               </button>
             </div>
 
             {/* 7. Business */}
-            <div className="h-full hidden xl:flex items-center shrink-0" onMouseEnter={() => scheduleMenuClose(80)}>
+            <div className="h-full hidden @xl:flex items-center shrink-0" onMouseEnter={() => scheduleMenuClose(80)}>
               <button
                 onClick={() => {
                   closeMenuImmediately();
@@ -891,7 +895,7 @@ export const Header: React.FC = () => {
             </div>
 
             {/* 8. Support */}
-            <div className="h-full hidden xl:flex items-center shrink-0" onMouseEnter={() => scheduleMenuClose(80)}>
+            <div className="h-full hidden @xl:flex items-center shrink-0" onMouseEnter={() => scheduleMenuClose(80)}>
               <button
                 onClick={() => {
                   closeMenuImmediately();
@@ -907,7 +911,7 @@ export const Header: React.FC = () => {
           </nav>
 
           {/* 3. Desktop Right: Search, Wishlist, Cart, WhatsApp, Profile, Store Pill, Language */}
-          <div className="hidden lg:flex items-center gap-1.5 sm:gap-3 xl:gap-4 shrink-0 z-10" onMouseEnter={() => scheduleMenuClose(80)}>
+          <div className="hidden @lg:flex items-center gap-1.5 sm:gap-3 @xl:gap-4 shrink-0 z-10" onMouseEnter={() => scheduleMenuClose(80)}>
             {/* Search Icon */}
             {headerSettings?.actions?.search?.enabled !== false && (
               <button
@@ -1046,7 +1050,7 @@ export const Header: React.FC = () => {
                 setMobileMenuOpen(false);
                 navigateTo('products');
               }}
-              className="hidden xl:inline-flex items-center justify-center px-4 py-1 rounded-full border border-neutral-300 hover:border-black text-[12px] font-medium text-neutral-800 hover:text-black transition-colors cursor-pointer"
+              className="hidden @xl:inline-flex items-center justify-center px-4 py-1 rounded-full border border-neutral-300 hover:border-black text-[12px] font-medium text-neutral-800 hover:text-black transition-colors cursor-pointer"
             >
               {language === 'AR' ? 'المتجر' : 'Shop'}
             </button>
@@ -1081,15 +1085,15 @@ export const Header: React.FC = () => {
           </div>
 
           {/* 3. Mobile Right: Brand Logo & Language Switcher (Exact match with Image) */}
-          <div className="flex lg:hidden items-center gap-2 shrink-0 z-10">
+          <div className="flex @lg:hidden items-center gap-2 shrink-0 z-10">
             {/* Language Toggle on Mobile */}
             <button
               type="button"
-              onClick={() => setLanguage(language === 'AR' ? 'إنجليزي' : 'AR')}
+              onClick={() => setLanguage(language === 'AR' ? 'EN' : 'AR')}
               className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-neutral-200 bg-neutral-50 text-neutral-800 cursor-pointer active:scale-95"
-              title="Toggle Language"
+              title={language === 'AR' ? 'التبديل إلى الإنجليزية' : 'Switch to Arabic'}
             >
-              {language === 'AR' ? 'إنجليزي' : 'عربي'}
+              {language === 'AR' ? 'EN' : 'AR'}
             </button>
 
             {/* Mobile Brand Logo */}
@@ -1120,7 +1124,7 @@ export const Header: React.FC = () => {
 
         {/* MOBILE QUICK NAVIGATION BAR (Visible on mobile below main header bar) */}
         {currentRoute !== 'product-detail' && currentRoute !== 'product-buy' && (
-          <div className="lg:hidden w-full bg-white border-t border-neutral-100 px-3 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar">
+          <div className="@lg:hidden w-full border-t border-neutral-100 px-3 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar" style={{ backgroundColor: 'var(--theme-header-bg, #FFFFFF)' }}>
             <button
               type="button"
               onClick={() => {
@@ -1251,7 +1255,7 @@ export const Header: React.FC = () => {
         {/* 3. DESKTOP MEGA MENU DROPDOWN PANEL & BACKDROP (Smooth Slide-In & Slide-Out on Hover & Leave) */}
         {/* Backdrop Overlay: Smooth fade, covers page below header, mouseleave/click closes menu */}
         <div
-          className={`hidden lg:block fixed inset-x-0 bottom-0 top-16 bg-black/20 backdrop-blur-[2px] transition-opacity duration-300 ease-out z-40 ${
+          className={`hidden @lg:block fixed inset-x-0 bottom-0 top-16 bg-black/20 backdrop-blur-[2px] transition-opacity duration-300 ease-out z-40 ${
             isMegaMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
           }`}
           onMouseEnter={() => scheduleMenuClose(50)}
@@ -1261,7 +1265,7 @@ export const Header: React.FC = () => {
         {/* Dropdown Panel: Smooth slide down on hover, automatic slide UP on mouse leave */}
         <div
           ref={megaMenuContainerRef}
-          className={`hidden lg:block absolute top-full left-0 right-0 w-full bg-white border-b border-neutral-200/80 shadow-[0_20px_45px_rgba(0,0,0,0.10)] z-50 max-h-[calc(100vh-120px)] overflow-y-auto transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform ${
+          className={`hidden @lg:block absolute top-full left-0 right-0 w-full bg-white border-b border-neutral-200/80 shadow-[0_20px_45px_rgba(0,0,0,0.10)] z-50 max-h-[calc(100vh-120px)] overflow-y-auto transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform ${
             isMegaMenuOpen
               ? 'opacity-100 translate-y-0 pointer-events-auto visible'
               : 'opacity-0 -translate-y-5 pointer-events-none invisible'
@@ -1464,7 +1468,7 @@ export const Header: React.FC = () => {
                 {/* 5 Columns Product Cards Grid (Compact & Sleek Sizing with Bottom Gap) */}
                 <div
                   key={`${currentMenu}-${activeSubFilter}`}
-                  className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-3.5 lg:gap-4.5 w-full items-stretch justify-center"
+                  className="grid grid-cols-2 sm:grid-cols-3 @lg:grid-cols-5 gap-3 sm:gap-3.5 @lg:gap-4.5 w-full items-stretch justify-center"
                 >
                   {activeProducts.map((prod, idx) => {
                     const animClass =
@@ -1488,7 +1492,7 @@ export const Header: React.FC = () => {
                         className={`bg-[#F7F7F8] hover:bg-[#EFEFF2] rounded-[18px] p-3.5 sm:p-4 flex flex-col items-center justify-between text-center transition-all duration-200 cursor-pointer group shadow-none hover:shadow-2xs min-h-[210px] sm:min-h-[225px] border-none ${animClass}`}
                       >
                         {/* Product Image */}
-                        <div className="w-full h-26 sm:h-30 lg:h-32 flex items-center justify-center mb-2 overflow-hidden">
+                        <div className="w-full h-26 sm:h-30 @lg:h-32 flex items-center justify-center mb-2 overflow-hidden">
                           <img
                             src={prod.image}
                             alt={prod.name}
@@ -1570,7 +1574,7 @@ export const Header: React.FC = () => {
 
         {/* 4. HONOR MOBILE DRILLDOWN SLIDE NAVIGATION */}
         {mobileMenuOpen && (
-          <div className="lg:hidden absolute top-full left-0 right-0 w-full max-w-full h-[calc(100vh-4rem)] max-h-[calc(100dvh-4rem)] bg-white z-[100] border-t border-neutral-200 shadow-[0_25px_50px_rgba(0,0,0,0.22)] overflow-y-auto overflow-x-hidden overscroll-contain text-neutral-800 animate-honor-mega" data-mobile-nav="panel" data-theme-menu="mobile">
+          <div className="@lg:hidden absolute top-full left-0 right-0 w-full max-w-full h-[calc(100vh-4rem)] max-h-[calc(100dvh-4rem)] bg-white z-[100] border-t border-neutral-200 shadow-[0_25px_50px_rgba(0,0,0,0.22)] overflow-y-auto overflow-x-hidden overscroll-contain text-neutral-800 animate-honor-mega" data-mobile-nav="panel" data-theme-menu="mobile">
             {/* LEVEL 1: Primary Category List */}
             {!mobileSubNavKey ? (
               <div className="p-4 sm:p-6 pb-24 space-y-4">
@@ -1717,7 +1721,7 @@ export const Header: React.FC = () => {
                   >
                     <span className="inline-flex items-center gap-1.5">
                       <span>{language === 'AR' ? 'الذكاء الاصطناعي وهندسة الآلة' : 'AI & Craft Engineering'}</span>
-                      <Sparkles className="w-3.5 h-3.5 text-[#2563eb] fill-[#2563eb]/20" />
+                      <Sparkles className="w-3.5 h-3.5 text-[color:var(--theme-accent,#C88A58)] fill-[color:var(--theme-accent,#C88A58)]/20" />
                     </span>
                     {language === 'AR' ? <ChevronLeft className="w-4 h-4 text-neutral-400" /> : <ChevronRight className="w-4 h-4 text-neutral-400" />}
                   </button>

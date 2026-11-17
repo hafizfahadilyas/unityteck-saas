@@ -52,6 +52,9 @@
   --coffee-amber: #b87333;
   --coffee-ivory: #faf7f2;
   --coffee-sand: #e6ded3;
+  /* Page Builder + storefront: header @lg/@md respond to this width, not the browser window */
+  container-type: inline-size;
+  container-name: hibrew;
   font-family: 'HONOR Sans Arabic', 'HONOR Sans World', 'Honor Sans Custom', 'PingFang SC', Arial, sans-serif;
   background-color: #FFFFFF;
   color: #0F172A;
@@ -72,10 +75,10 @@
   max-width: 100%;
   height: auto;
 }
-@media (max-width: 900px) {
-  .hibrew-theme-root.coffee-builder-preview .coffee-builder-header {
-    overflow-x: clip;
-  }
+.hibrew-theme-root.coffee-builder-preview .coffee-builder-header,
+.hibrew-theme-root [data-customize-section="00_header_builder"] {
+  overflow-x: clip;
+  max-width: 100%;
 }
 
 /* Honor-Style Typography: Clean Geometric Sans per language */

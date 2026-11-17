@@ -911,7 +911,6 @@ export const HeaderElementsForm: React.FC = () => {
               <button
                 type="button"
                 className={toggleTrack(headerSettings.navigation.enabled !== false)}
-                style={toggleStyle(headerSettings.navigation.enabled !== false)}
                 onClick={() =>
                   setHeaderSettings((p) => ({
                     ...p,

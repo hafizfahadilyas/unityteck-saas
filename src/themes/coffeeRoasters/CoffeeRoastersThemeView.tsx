@@ -421,7 +421,7 @@ function CoffeeStorefrontContent({ initialPage, isAdmin = false }: { initialPage
 
   return (
     <div
-      className="hibrew-theme-root min-h-screen bg-white text-neutral-900 flex flex-col font-sans selection:bg-neutral-900 selection:text-white w-full max-w-full"
+      className="hibrew-theme-root @container min-h-screen bg-white text-neutral-900 flex flex-col font-sans selection:bg-neutral-900 selection:text-white w-full max-w-full"
       dir={isRtl ? 'rtl' : 'ltr'}
       lang={isRtl ? 'ar' : 'en'}
       data-paint-page-background="false"

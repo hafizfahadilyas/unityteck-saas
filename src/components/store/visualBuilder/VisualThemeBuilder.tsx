@@ -244,7 +244,6 @@ import {
   LUXURY_SETS,
   ARTICLES,
 } from '../../../themes/meccaGifts/data/mockData';
-import { BuilderAiAssistant } from './ai/BuilderAiAssistant';
 import { BuilderWidgetLibrary, type WidgetDefinition } from './widgets/BuilderWidgetLibrary';
 import { HeadingWidget } from './widgets/HeadingWidget';
 import { ContentWidget, isContentWidget } from './widgets/ContentWidget';
@@ -383,7 +382,7 @@ export const FeaturedPostsBlock: React.FC<{
       {/* Step 3: Category Heading (H3) */}
       <HeadingTag className="text-xl sm:text-2xl font-bold text-slate-900 mt-2 mb-4 tracking-tight border-b pb-2 border-slate-200/80 flex items-center justify-between">
         <span>{headingText}</span>
-        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-pink-100 text-pink-700 font-bold uppercase">
+        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[color:var(--portal-50)] text-[color:var(--accent)] font-bold uppercase">
           {postSource === 'latest' ? (isAr ? 'الأحدث' : 'Latest') : (isAr ? 'الأكثر إعجاباً' : 'Most Liked')}
         </span>
       </HeadingTag>
@@ -432,7 +431,7 @@ export const FeaturedPostsBlock: React.FC<{
               {showTag && (
                 <div className="flex items-center gap-1 pt-1 flex-wrap">
                   <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">#Featured</span>
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-pink-50 text-pink-700">#TopPick</span>
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[color:var(--portal-50)] text-[color:var(--accent)]">#TopPick</span>
                 </div>
               )}
             </div>
@@ -1396,10 +1395,10 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
         cols === 'bento' ? '2fr 1fr' : 'repeat(auto-fit, minmax(200px, 1fr))';
 
       return wrapBlock(
-        <div className={`p-6 rounded-2xl transition-all ${b.settings.bgColor ? '' : 'bg-white'} ${gridOutline ? 'outline-2 outline-dashed outline-pink-400 bg-pink-50/10 shadow-xs' : 'border border-slate-200'}`}>
+        <div className={`p-6 rounded-2xl transition-all ${b.settings.bgColor ? '' : 'bg-white'} ${gridOutline ? 'outline-2 outline-dashed outline-[color:var(--portal-400)] bg-[color:var(--portal-50)]/10 shadow-xs' : 'border border-slate-200'}`}>
           <div className="w-full space-y-3">
             {gridOutline && (
-              <div className="flex items-center justify-between text-[10px] font-mono text-pink-600 font-bold bg-pink-100/80 px-2.5 py-1 rounded-lg">
+              <div className="flex items-center justify-between text-[10px] font-mono text-[color:var(--accent)] font-bold bg-[color:var(--portal-50)]/80 px-2.5 py-1 rounded-lg">
                 <span>✦ Elementor Container Grid: {cols} Cols</span>
                 <span>Gap: {colGap}px (Wide)</span>
               </div>
@@ -1418,7 +1417,14 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
               }}
             >
               {[...Array(colCount)].map((_, colIdx) => {
-                const colWidgets = b.settings.columnWidgets?.[colIdx] || [];
+                const colWidgets =
+                  (Array.isArray(b.settings.columnsData?.[colIdx])
+                    ? b.settings.columnsData[colIdx]
+                    : null) ??
+                  (Array.isArray(b.settings.columnWidgets?.[colIdx])
+                    ? b.settings.columnWidgets[colIdx]
+                    : []) ??
+                  [];
                 return (
                   <div
                     key={colIdx}
@@ -1441,17 +1447,17 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
                     }}
                     className={`p-4 rounded-2xl border-2 border-dashed flex flex-col justify-between min-h-[170px] transition-all relative ${
                       gridOutline
-                        ? 'border-pink-300 hover:border-pink-500 bg-pink-50/20 text-pink-950 shadow-2xs'
+                        ? 'border-[color:var(--portal-200)] hover:border-[color:var(--accent)] bg-[color:var(--portal-50)]/20 text-[color:var(--portal-950)] shadow-2xs'
                         : 'border-slate-300 hover:border-indigo-400 bg-slate-50/40 text-slate-800'
                     }`}
                   >
                     {/* Header badge */}
                     <div className="flex items-center justify-between pb-2 mb-2 border-b border-dashed border-slate-200/80">
-                      <span className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center shadow-2xs ${gridOutline ? 'bg-pink-600 text-white' : 'bg-slate-700 text-white'}`}>
+                      <span className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center shadow-2xs ${gridOutline ? 'bg-[color:var(--accent)] text-white' : 'bg-slate-700 text-white'}`}>
                         {colIdx + 1}
                       </span>
                       <span className="text-[11px] font-bold text-slate-700">
-                        {isAr ? `العمود${insertIndex}` : `Column ${insertIndex}`}
+                        {isAr ? `العمود ${colIdx + 1}` : `Column ${colIdx + 1}`}
                       </span>
                     </div>
 
@@ -1493,7 +1499,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
                           e.stopPropagation();
                           onAddColumnWidgetClick?.(b.id, colIdx);
                         }}
-                        className="w-8 h-8 rounded-full bg-pink-600 hover:bg-pink-700 text-white flex items-center justify-center shadow-md transition-all hover:scale-115 cursor-pointer"
+                        className="w-8 h-8 rounded-full bg-[color:var(--accent)] hover:bg-[color:var(--portal-800)] text-white flex items-center justify-center shadow-md transition-all hover:scale-115 cursor-pointer"
                         title={isAr ? `إضافة عنصر في العمود ${colIdx + 1}` : `Add widget to Column ${colIdx + 1}`}
                       >
                         <Plus className="w-4 h-4" />
@@ -1603,7 +1609,7 @@ const ELEMENTOR_STRUCTURE_PRESETS = [
     id: '1',
     titleAr: '١ عمود (١٠٠٪)',
     titleEn: '1 Column (100%)',
-    preview: <div className="h-5 w-full bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />,
+    preview: <div className="h-5 w-full bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />,
   },
   {
     id: '2',
@@ -1611,8 +1617,8 @@ const ELEMENTOR_STRUCTURE_PRESETS = [
     titleEn: '2 Columns (50% / 50%)',
     preview: (
       <div className="flex gap-1 h-5 w-full">
-        <div className="flex-1 bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
-        <div className="flex-1 bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
+        <div className="flex-1 bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
+        <div className="flex-1 bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
       </div>
     ),
   },
@@ -1622,9 +1628,9 @@ const ELEMENTOR_STRUCTURE_PRESETS = [
     titleEn: '3 Columns (33% each)',
     preview: (
       <div className="flex gap-1 h-5 w-full">
-        <div className="flex-1 bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
-        <div className="flex-1 bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
-        <div className="flex-1 bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
+        <div className="flex-1 bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
+        <div className="flex-1 bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
+        <div className="flex-1 bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
       </div>
     ),
   },
@@ -1634,9 +1640,9 @@ const ELEMENTOR_STRUCTURE_PRESETS = [
     titleEn: '3 columns (25%, 25%, 50%)',
     preview: (
       <div className="flex gap-1 h-5 w-full">
-        <div className="w-1/4 bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
-        <div className="w-1/4 bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
-        <div className="w-1/2 bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
+        <div className="w-1/4 bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
+        <div className="w-1/4 bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
+        <div className="w-1/2 bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
       </div>
     ),
   },
@@ -1646,9 +1652,9 @@ const ELEMENTOR_STRUCTURE_PRESETS = [
     titleEn: '3 Columns (50%, 25%, 25%)',
     preview: (
       <div className="flex gap-1 h-5 w-full">
-        <div className="w-1/2 bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
-        <div className="w-1/4 bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
-        <div className="w-1/4 bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
+        <div className="w-1/2 bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
+        <div className="w-1/4 bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
+        <div className="w-1/4 bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
       </div>
     ),
   },
@@ -1658,9 +1664,9 @@ const ELEMENTOR_STRUCTURE_PRESETS = [
     titleEn: '3 Columns (25%, 50%, 25%)',
     preview: (
       <div className="flex gap-1 h-5 w-full">
-        <div className="w-1/4 bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
-        <div className="w-1/2 bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
-        <div className="w-1/4 bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
+        <div className="w-1/4 bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
+        <div className="w-1/2 bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
+        <div className="w-1/4 bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
       </div>
     ),
   },
@@ -1670,9 +1676,9 @@ const ELEMENTOR_STRUCTURE_PRESETS = [
     titleEn: '3 Columns (16%, 66%, 16%)',
     preview: (
       <div className="flex gap-1 h-5 w-full">
-        <div className="w-[16%] bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
-        <div className="w-[68%] bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
-        <div className="w-[16%] bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
+        <div className="w-[16%] bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
+        <div className="w-[68%] bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
+        <div className="w-[16%] bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
       </div>
     ),
   },
@@ -1682,10 +1688,10 @@ const ELEMENTOR_STRUCTURE_PRESETS = [
     titleEn: '4 Columns (25% each)',
     preview: (
       <div className="flex gap-0.5 h-5 w-full">
-        <div className="flex-1 bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
-        <div className="flex-1 bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
-        <div className="flex-1 bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
-        <div className="flex-1 bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
+        <div className="flex-1 bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
+        <div className="flex-1 bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
+        <div className="flex-1 bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
+        <div className="flex-1 bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
       </div>
     ),
   },
@@ -1695,8 +1701,8 @@ const ELEMENTOR_STRUCTURE_PRESETS = [
     titleEn: 'Asymmetric Left (66% / 33%)',
     preview: (
       <div className="flex gap-1 h-5 w-full">
-        <div className="flex-2 bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
-        <div className="flex-1 bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
+        <div className="flex-2 bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
+        <div className="flex-1 bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
       </div>
     ),
   },
@@ -1706,8 +1712,8 @@ const ELEMENTOR_STRUCTURE_PRESETS = [
     titleEn: 'Modern Bento Grid',
     preview: (
       <div className="grid grid-cols-3 gap-1 h-5 w-full">
-        <div className="col-span-2 bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
-        <div className="col-span-1 bg-slate-300 rounded-xs group-hover:bg-pink-500 transition-colors" />
+        <div className="col-span-2 bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
+        <div className="col-span-1 bg-slate-300 rounded-xs group-hover:bg-[color:var(--accent)] transition-colors" />
       </div>
     ),
   },
@@ -1749,22 +1755,22 @@ const CanvasSectionInserter: React.FC<{
       }}
       className={`relative transition-all py-1.5 px-4 my-1 z-30 ${
         isOver
-          ? 'py-8 border-2 border-dashed border-pink-500 bg-pink-100/60 rounded-2xl shadow-lg ring-4 ring-pink-300/30'
+          ? 'py-8 border-2 border-dashed border-[color:var(--accent)] bg-[color:var(--portal-50)]/60 rounded-2xl shadow-lg ring-4 ring-[color:var(--portal-200)]/30'
           : isDragging
             ? 'py-4 border-2 border-dashed border-indigo-300 bg-indigo-50/40 rounded-xl'
             : ''
       }`}
     >
       {isOver ? (
-        <div className="flex items-center justify-center gap-2 text-pink-700 font-extrabold text-xs animate-bounce">
+        <div className="flex items-center justify-center gap-2 text-[color:var(--accent)] font-extrabold text-xs animate-bounce">
           <Plus className="w-4 h-4" />
           <span>{isAr ? `أفلت القسم أو العنصر هنا` : `Drop section / widget here (Position #${insertIndex})`}</span>
         </div>
       ) : isOpen ? (
-        <div className="p-6 border-2 border-dashed border-pink-500 rounded-3xl bg-white shadow-xl animate-in fade-in zoom-in-95 duration-150">
+        <div className="p-6 border-2 border-dashed border-[color:var(--accent)] rounded-3xl bg-white shadow-xl animate-in fade-in zoom-in-95 duration-150">
           <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
             <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-lg bg-pink-600 text-white flex items-center justify-center text-xs font-black shadow-xs">
+              <span className="w-6 h-6 rounded-lg bg-[color:var(--accent)] text-white flex items-center justify-center text-xs font-black shadow-xs">
                 +
               </span>
               <div>
@@ -1793,13 +1799,13 @@ const CanvasSectionInserter: React.FC<{
                 onClick={() => {
                   onSelectStructure(st.id, insertIndex);
                 }}
-                className={`group p-2.5 rounded-xl border bg-white hover:border-pink-500 hover:shadow-md transition-all flex flex-col items-center gap-1.5 cursor-pointer ${
-                  st.id === '25-25-50' ? 'border-pink-500 ring-2 ring-pink-300/40 bg-pink-50/20' : 'border-slate-200'
+                className={`group p-2.5 rounded-xl border bg-white hover:border-[color:var(--accent)] hover:shadow-md transition-all flex flex-col items-center gap-1.5 cursor-pointer ${
+                  st.id === '25-25-50' ? 'border-[color:var(--accent)] ring-2 ring-[color:var(--portal-200)]/40 bg-[color:var(--portal-50)]/20' : 'border-slate-200'
                 }`}
                 title={isAr ? st.titleAr : st.titleEn}
               >
                 {st.preview}
-                <span className="text-[9px] font-bold text-slate-600 group-hover:text-pink-600 truncate max-w-full">
+                <span className="text-[9px] font-bold text-slate-600 group-hover:text-[color:var(--accent)] truncate max-w-full">
                   {st.id}
                 </span>
               </button>
@@ -1810,7 +1816,7 @@ const CanvasSectionInserter: React.FC<{
             <button
               type="button"
               onClick={() => onSelectStructure('25-25-50', insertIndex)}
-              className="px-3 py-1.5 rounded-xl bg-pink-50 hover:bg-pink-100 text-pink-700 font-bold text-xs flex items-center gap-1.5 cursor-pointer border border-pink-200 transition-colors"
+              className="px-3 py-1.5 rounded-xl bg-[color:var(--portal-50)] hover:bg-[color:var(--portal-50)] text-[color:var(--accent)] font-bold text-xs flex items-center gap-1.5 cursor-pointer border border-[color:var(--portal-200)] transition-colors"
             >
               <BookOpen className="w-3.5 h-3.5" />
               <span>{isAr ? 'إدراج قسم المقالات المميزة' : 'Insert Featured Posts (25, 25, 50)'}</span>
@@ -1829,13 +1835,13 @@ const CanvasSectionInserter: React.FC<{
       ) : (
         <div className="group/inserter flex items-center justify-center relative py-1">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-dashed border-slate-200 group-hover/inserter:border-pink-400 transition-colors" />
+            <div className="w-full border-t border-dashed border-slate-200 group-hover/inserter:border-[color:var(--portal-400)] transition-colors" />
           </div>
           <div className="relative flex items-center gap-2">
             <button
               type="button"
               onClick={() => setActiveOpenIndex(insertIndex)}
-              className="w-7 h-7 rounded-full bg-pink-600 hover:bg-pink-700 text-white flex items-center justify-center shadow-md transition-all hover:scale-125 cursor-pointer"
+              className="w-7 h-7 rounded-full bg-[color:var(--accent)] hover:bg-[color:var(--portal-800)] text-white flex items-center justify-center shadow-md transition-all hover:scale-125 cursor-pointer"
               title={isAr ? `إضافة قسم هنا (#${insertIndex})` : `Add section here (#${insertIndex})`}
             >
               <Plus className="w-4 h-4" />
@@ -1862,13 +1868,13 @@ const CanvasStructurePicker: React.FC<{
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="p-6 my-6 mx-4 border-2 border-dashed border-slate-300 hover:border-pink-500 rounded-3xl bg-slate-50/70 transition-all text-center">
+    <div className="p-6 my-6 mx-4 border-2 border-dashed border-slate-300 hover:border-[color:var(--accent)] rounded-3xl bg-slate-50/70 transition-all text-center">
       {!isOpen ? (
         <div className="flex flex-col items-center justify-center gap-2">
           <button
             type="button"
             onClick={() => setIsOpen(true)}
-            className="w-12 h-12 rounded-2xl bg-pink-600 hover:bg-pink-700 text-white flex items-center justify-center shadow-lg transition-transform hover:scale-110 cursor-pointer"
+            className="w-12 h-12 rounded-2xl bg-[color:var(--accent)] hover:bg-[color:var(--portal-800)] text-white flex items-center justify-center shadow-lg transition-transform hover:scale-110 cursor-pointer"
             title={isAr ? 'إدراج بنية تقسيم جديدة' : 'Select Structure'}
           >
             <Plus className="w-6 h-6" />
@@ -1904,13 +1910,13 @@ const CanvasStructurePicker: React.FC<{
                   onSelectStructure(st.id);
                   setIsOpen(false);
                 }}
-                className={`group p-2.5 rounded-xl border bg-white hover:border-pink-500 hover:shadow-md transition-all flex flex-col items-center gap-1.5 cursor-pointer ${
-                  st.id === '25-25-50' ? 'border-pink-500 ring-2 ring-pink-300/40 bg-pink-50/20' : 'border-slate-200'
+                className={`group p-2.5 rounded-xl border bg-white hover:border-[color:var(--accent)] hover:shadow-md transition-all flex flex-col items-center gap-1.5 cursor-pointer ${
+                  st.id === '25-25-50' ? 'border-[color:var(--accent)] ring-2 ring-[color:var(--portal-200)]/40 bg-[color:var(--portal-50)]/20' : 'border-slate-200'
                 }`}
                 title={isAr ? st.titleAr : st.titleEn}
               >
                 {st.preview}
-                <span className="text-[9px] font-bold text-slate-600 group-hover:text-pink-600 truncate max-w-full">
+                <span className="text-[9px] font-bold text-slate-600 group-hover:text-[color:var(--accent)] truncate max-w-full">
                   {st.id}
                 </span>
               </button>
@@ -2203,8 +2209,12 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   const [rightSidebarWidth, setRightSidebarWidth] = useState<number>(370);
   const [rightSidebarVisible, setRightSidebarVisible] = useState<boolean>(() => {
     if (typeof window !== 'undefined' && window.innerWidth < 1024) return false;
-    return true;
+    const coffee =
+      activeStore.id === 'store-coffee' ||
+      (activeStore.domain?.includes('coffee') ?? false);
+    return !coffee;
   });
+  const coffeeInspectorDockLeft = isCoffeeStore;
   const [isDraggingLeft, setIsDraggingLeft] = useState<boolean>(false);
   const [isDraggingRight, setIsDraggingRight] = useState<boolean>(false);
   const [draggedBlockIdx, setDraggedBlockIdx] = useState<number | null>(null);
@@ -2939,12 +2949,13 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             settings: {
               ...b.settings,
               columnsData: nested.columnsData,
+              columnWidgets: nested.columnsData,
             },
           };
         }),
       );
       setHasUnsavedChanges(true);
-      toast(isAr ? `تم إضافة العنصر للعمود${ + 1}` : `Widget added to Column ${colIdx + 1}`, 'success');
+      toast(isAr ? `تم إضافة العنصر للعمود ${colIdx + 1}` : `Widget added to Column ${colIdx + 1}`, 'success');
     },
     [isAr, toast],
   );
@@ -2956,28 +2967,28 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         prev.map((b) => {
           if (b.id !== blockId) return b;
           const currentCols = b.settings?.columnsData || {};
-          const currentList = currentCols[colIdx] || [];
+          const columnCount = Array.isArray(b.settings?.columns) ? b.settings.columns.length : colIdx + 1;
           const newWidget = {
             id: `cw_${widgetType}_${Date.now()}`,
             type: widgetType,
             title: label || widgetType,
             settings: customSettings || {},
           };
+          const nested = nestIntoColumns(currentCols, Math.max(columnCount, colIdx + 1), colIdx, newWidget);
+          if (!nested.accepted) return b;
           return {
             ...b,
             settings: {
               ...b.settings,
-              columnsData: {
-                ...currentCols,
-                [colIdx]: [...currentList, newWidget],
-              },
+              columnsData: nested.columnsData,
+              columnWidgets: nested.columnsData,
             },
           };
         }),
       );
       setHasUnsavedChanges(true);
       setColumnPickerTarget(null);
-      toast(isAr ? `تمت إضافة العنصر في العمود${ + 1}` : `Widget added to Column ${colIdx + 1}`, 'success');
+      toast(isAr ? `تمت إضافة العنصر في العمود ${colIdx + 1}` : `Widget added to Column ${colIdx + 1}`, 'success');
     },
     [isAr, toast],
   );
@@ -3178,7 +3189,9 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   const handleSelectBlock = useCallback((id: string) => {
     setSelectedBlockId(id);
     setRightSidebarVisible(true);
-    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+    if (isCoffeeStore) {
+      setLeftSidebarVisible(false);
+    } else if (typeof window !== 'undefined' && window.innerWidth < 1024) {
       setLeftSidebarVisible(false);
     }
     if (previewPage !== 'home') {
@@ -3189,13 +3202,13 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       const el = document.getElementById(`selia_block_${id}`);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.classList.add('ring-4', 'ring-indigo-500', 'ring-offset-2');
+        el.classList.add('ring-4', 'ring-[color:var(--accent)]', 'ring-offset-2');
         setTimeout(() => {
-          el.classList.remove('ring-4', 'ring-indigo-500', 'ring-offset-2');
+          el.classList.remove('ring-4', 'ring-[color:var(--accent)]', 'ring-offset-2');
         }, 1200);
       }
     }, 100);
-  }, [previewPage]);
+  }, [previewPage, isCoffeeStore]);
 
   const handleToggleBlockVisibility = useCallback((id: string) => {
     setBlocks((prev) =>
@@ -4138,7 +4151,9 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             <button
               type="button"
               onClick={() => {
-                setLeftSidebarVisible(!leftSidebarVisible);
+                const next = !leftSidebarVisible;
+                setLeftSidebarVisible(next);
+                if (next && isCoffeeStore) setRightSidebarVisible(false);
                 if (screenSize.isMobile || screenSize.isTablet) setRightSidebarVisible(false);
               }}
               className={`p-1.5 px-2 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
@@ -4153,7 +4168,9 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             <button
               type="button"
               onClick={() => {
-                setRightSidebarVisible(!rightSidebarVisible);
+                const next = !rightSidebarVisible;
+                setRightSidebarVisible(next);
+                if (next && isCoffeeStore) setLeftSidebarVisible(false);
                 if (screenSize.isMobile || screenSize.isTablet) setLeftSidebarVisible(false);
               }}
               className={`p-1.5 px-2 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
@@ -4379,7 +4396,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         {/* ========================================================
             LEFT SIDEBAR: BLOCKS & LAYOUT OUTLINE (RESIZABLE & DRAWER)
             ======================================================== */}
-        {leftSidebarVisible && !previewModeOnly ? (
+        {leftSidebarVisible && !previewModeOnly && !(isCoffeeStore && rightSidebarVisible) ? (
           <>
             {/* Mobile / Tablet Backdrop Overlay */}
             <div
@@ -4917,8 +4934,28 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                 width: screenSize.isMobile ? '92vw' : `${Math.min(rightSidebarWidth, 440)}px`,
                 maxWidth: '460px',
               }}
-              className="fixed top-0 bottom-0 end-0 z-50 bg-white shadow-2xl flex flex-col select-none lg:static lg:z-0 lg:shadow-none border-s border-slate-200 animate-in slide-in-from-end duration-200"
+              className={`fixed top-0 bottom-0 z-50 bg-white shadow-2xl flex flex-col select-none lg:static lg:z-0 lg:shadow-none animate-in duration-200 ${
+                coffeeInspectorDockLeft
+                  ? 'start-0 border-e border-slate-200 slide-in-from-start'
+                  : 'end-0 border-s border-slate-200 slide-in-from-end'
+              }`}
             >
+              {coffeeInspectorDockLeft && (
+                <p className="hidden lg:flex items-center gap-2 px-3 py-2 border-b border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-600 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRightSidebarVisible(false);
+                      setLeftSidebarVisible(true);
+                      setLeftTab('widgets');
+                    }}
+                    className="px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-[color:var(--portal-50)] text-[color:var(--accent)] cursor-pointer"
+                  >
+                    {isAr ? '← العناصر' : '← Widgets'}
+                  </button>
+                  <span>{isAr ? 'إعدادات القسم — معاينة كاملة يميناً' : 'Section settings — full preview on the right'}</span>
+                </p>
+              )}
               {/* Drawer Mobile Top Close Header */}
               <div className="lg:hidden flex items-center justify-between p-3 border-b border-slate-200 bg-slate-50 shrink-0">
                 <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
@@ -5004,16 +5041,21 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
               </div>
             </div>
 
-            {/* Inspector Tabs (5 Elementor Tabs + AI Assistant) */}
+            {/* Inspector Tabs — Content / Style / Layout (AI + unused tabs hidden) */}
             <div className="flex border-b border-slate-200 bg-slate-50/70 text-xs font-bold">
-              {[
-                { id: 'content' as const, labelAr: 'المحتوى', labelEn: 'Content', icon: Type },
-                { id: 'templates' as const, labelAr: 'النماذج', labelEn: 'Templates', icon: Layout },
-                { id: 'styling' as const, labelAr: 'التنسيق', labelEn: 'Style', icon: Palette },
-                { id: 'layout' as const, labelAr: 'المحاذاة', labelEn: 'Layout', icon: Sliders },
-                { id: 'code' as const, labelAr: 'الأكواد', labelEn: 'Code', icon: Code },
-                { id: 'ai' as const, labelAr: 'الذكاء', labelEn: 'AI', icon: Sparkles },
-              ].map((tab) => {
+              {(
+                [
+                  { id: 'content' as const, labelAr: 'المحتوى', labelEn: 'Content', icon: Type },
+                  { id: 'templates' as const, labelAr: 'النماذج', labelEn: 'Templates', icon: Layout },
+                  { id: 'styling' as const, labelAr: 'التنسيق', labelEn: 'Style', icon: Palette },
+                  { id: 'layout' as const, labelAr: 'المحاذاة', labelEn: 'Layout', icon: Sliders },
+                  { id: 'code' as const, labelAr: 'الأكواد', labelEn: 'Code', icon: Code },
+                ].filter((tab) => {
+                  if (tab.id === 'templates' && isCoffeeStore) return false;
+                  if (tab.id === 'code' && isCoffeeStore) return false;
+                  return true;
+                })
+              ).map((tab) => {
                 const TIcon = tab.icon;
                 const isActive = activeTab === tab.id;
                 return (
@@ -5023,7 +5065,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                     onClick={() => setActiveTab(tab.id)}
                     className={`flex-1 py-2.5 flex flex-col items-center justify-center gap-0.5 border-b-2 transition-all cursor-pointer ${
                       isActive
-                        ? 'border-indigo-600 text-indigo-700 bg-white font-extrabold shadow-2xs'
+                        ? 'border-[color:var(--accent)] text-[color:var(--accent)] bg-white font-extrabold shadow-2xs'
                         : 'border-transparent text-slate-500 hover:text-slate-900'
                     }`}
                   >
@@ -5055,28 +5097,6 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                   {/* TAB 1: CONTENT */}
                   {activeTab === 'content' && (
                     <div className="space-y-4">
-                      {/* AI Quick Assistant Banner */}
-                      <div className="p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100 flex items-center justify-between shadow-2xs">
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="w-4 h-4 text-indigo-600 animate-pulse" />
-                          <div>
-                            <span className="text-xs font-bold text-indigo-950 block">
-                              {isAr ? 'مساعد الذكاء الاصطناعي لكتابة النصوص' : 'AI Copywriting Assistant'}
-                            </span>
-                            <span className="text-[10px] text-indigo-600 block">
-                              {isAr ? 'توليد نصوص ترويجية سعودية عالية التحويل' : 'Generate Saudi Arabic copy'}
-                            </span>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setActiveTab('ai')}
-                          className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] cursor-pointer shadow-xs transition-all hover:scale-105"
-                        >
-                          {isAr ? 'فتح' : 'Open'}
-                        </button>
-                      </div>
-
                       {/* Universal Granular Inspector for this section */}
                       <UniversalSectionInspector
                         block={selectedBlock}
@@ -5300,10 +5320,10 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                   <div className="border border-slate-200 rounded-2xl p-4 bg-white shadow-2xs space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                       <span className="font-extrabold text-slate-900 text-xs flex items-center gap-1.5">
-                        <ImageIcon className="w-4 h-4 text-pink-600" />
+                        <ImageIcon className="w-4 h-4 text-[color:var(--accent)]" />
                         <span>{isAr ? 'صورة وخلفية القسم' : 'Background (Classic / Custom X & Y)'}</span>
                       </span>
-                      <span className="text-[10px] font-mono text-pink-600 bg-pink-50 px-2 py-0.5 rounded font-bold">
+                      <span className="text-[10px] font-mono text-[color:var(--accent)] bg-[color:var(--portal-50)] px-2 py-0.5 rounded font-bold">
                         Style Tab
                       </span>
                     </div>
@@ -5327,7 +5347,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                               onClick={() => handleUpdateBlockSetting('bgType', bt.id)}
                               className={`py-1.5 px-2 rounded-xl border text-[10px] font-bold transition-all cursor-pointer truncate ${
                                 isAct
-                                  ? 'bg-pink-600 text-white border-pink-600 shadow-xs'
+                                  ? 'bg-[color:var(--accent)] text-white border-[color:var(--accent)] shadow-xs'
                                   : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                               }`}
                             >
@@ -5361,7 +5381,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                                   'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=1600&q=80'
                                 )
                               }
-                              className="text-[9px] font-bold text-pink-700 hover:text-pink-900 underline cursor-pointer"
+                              className="text-[9px] font-bold text-[color:var(--accent)] hover:text-[color:var(--portal-900)] underline cursor-pointer"
                             >
                               {isAr ? 'استخدام صورة تجريبية' : 'Use Demo 1600px Image'}
                             </button>
@@ -5396,11 +5416,11 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
 
                         {/* Custom X & Y Position sliders (Step 1: X 70px, Y 66px) */}
                         {(selectedBlock.settings?.bgPosition || 'custom') === 'custom' && (
-                          <div className="p-2.5 rounded-xl bg-pink-50/50 border border-pink-200 space-y-2.5">
+                          <div className="p-2.5 rounded-xl bg-[color:var(--portal-50)]/50 border border-[color:var(--portal-200)] space-y-2.5">
                             <div>
                               <div className="flex items-center justify-between text-[10px] font-bold text-slate-700 mb-1">
                                 <span>{isAr ? 'موضع X الأفقي' : 'X Position (px)'}</span>
-                                <span className="font-mono text-pink-600 font-extrabold">{selectedBlock.settings?.bgCustomX ?? 70}px</span>
+                                <span className="font-mono text-[color:var(--accent)] font-extrabold">{selectedBlock.settings?.bgCustomX ?? 70}px</span>
                               </div>
                               <input
                                 type="range"
@@ -5409,14 +5429,14 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                                 step="2"
                                 value={selectedBlock.settings?.bgCustomX ?? 70}
                                 onChange={(e) => handleUpdateBlockSetting('bgCustomX', Number(e.target.value))}
-                                className="w-full accent-pink-600 cursor-pointer"
+                                className="w-full accent-[color:var(--accent)] cursor-pointer"
                               />
                             </div>
 
                             <div>
                               <div className="flex items-center justify-between text-[10px] font-bold text-slate-700 mb-1">
                                 <span>{isAr ? 'موضع Y الرأسي' : 'Y Position (px)'}</span>
-                                <span className="font-mono text-pink-600 font-extrabold">{selectedBlock.settings.bgCustomY ?? 66}px</span>
+                                <span className="font-mono text-[color:var(--accent)] font-extrabold">{selectedBlock.settings.bgCustomY ?? 66}px</span>
                               </div>
                               <input
                                 type="range"
@@ -5425,7 +5445,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                                 step="2"
                                 value={selectedBlock.settings.bgCustomY ?? 66}
                                 onChange={(e) => handleUpdateBlockSetting('bgCustomY', Number(e.target.value))}
-                                className="w-full accent-pink-600 cursor-pointer"
+                                className="w-full accent-[color:var(--accent)] cursor-pointer"
                               />
                             </div>
                           </div>
@@ -5527,7 +5547,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                             onClick={() => handleUpdateBlockSetting('contentWidth', cw.id)}
                             className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                               isAct
-                                ? 'bg-pink-600 text-white border-pink-600 shadow-xs'
+                                ? 'bg-[color:var(--accent)] text-white border-[color:var(--accent)] shadow-xs'
                                 : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                             }`}
                           >
@@ -5544,7 +5564,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                       <span className="font-extrabold text-slate-900 text-xs">
                         {isAr ? 'المسافة بين الأعمدة' : 'Columns Gap'}
                       </span>
-                      <span className="font-mono text-pink-600 text-xs font-extrabold">
+                      <span className="font-mono text-[color:var(--accent)] text-xs font-extrabold">
                         {selectedBlock.settings.columnGap ?? 16}px
                       </span>
                     </div>
@@ -5571,7 +5591,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                             }}
                             className={`py-2 px-1 rounded-xl border transition-all cursor-pointer truncate ${
                               isCurrent
-                                ? 'bg-pink-600 text-white border-pink-600 shadow-xs font-black'
+                                ? 'bg-[color:var(--accent)] text-white border-[color:var(--accent)] shadow-xs font-black'
                                 : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                             }`}
                           >
@@ -5586,10 +5606,10 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                   <div className="border border-slate-200 rounded-2xl p-4 bg-white shadow-2xs space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                       <span className="font-extrabold text-slate-900 text-xs flex items-center gap-1.5">
-                        <LayoutGrid className="w-3.5 h-3.5 text-pink-600" />
+                        <LayoutGrid className="w-3.5 h-3.5 text-[color:var(--accent)]" />
                         <span>{isAr ? 'هيكل وبنية الأعمدة' : 'Structure (25, 25, 50)'}</span>
                       </span>
-                      <span className="text-[10px] font-mono text-pink-600 font-bold bg-pink-50 px-2 py-0.5 rounded">
+                      <span className="text-[10px] font-mono text-[color:var(--accent)] font-bold bg-[color:var(--portal-50)] px-2 py-0.5 rounded">
                         {selectedBlock.settings.layoutColumns || '1'}
                       </span>
                     </div>
@@ -5611,7 +5631,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                             onClick={() => handleUpdateBlockSetting('layoutColumns', st.id)}
                             className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all cursor-pointer truncate ${
                               isCurrent
-                                ? 'bg-pink-600 text-white border-pink-600 shadow-xs'
+                                ? 'bg-[color:var(--accent)] text-white border-[color:var(--accent)] shadow-xs'
                                 : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                             }`}
                           >
@@ -5637,7 +5657,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                       onClick={() => handleUpdateBlockSetting('gridOutline', !selectedBlock.settings.gridOutline)}
                       className={`px-3 py-1 rounded-full text-[10px] font-black tracking-wider uppercase transition-all cursor-pointer shadow-xs ${
                         selectedBlock.settings.gridOutline
-                          ? 'bg-pink-600 text-white ring-2 ring-pink-300'
+                          ? 'bg-[color:var(--accent)] text-white ring-2 ring-[color:var(--portal-200)]'
                           : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
                       }`}
                     >
@@ -6015,19 +6035,6 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                 </div>
               )}
 
-              {/* TAB 6: AI ASSISTANT */}
-              {activeTab === 'ai' && (
-                <div className="space-y-4">
-                  <BuilderAiAssistant
-                    isAr={isAr}
-                    storeName={activeStore.name}
-                    selectedBlockId={selectedBlock.type}
-                    selectedBlockTitle={isAr ? selectedBlock.titleAr : selectedBlock.titleEn}
-                    onApplyContent={handleAiApplyContent}
-                    onAddNewSection={handleAiAddSection}
-                  />
-                </div>
-              )}
             </div>
 
             {/* Inspector Footer Publish Action */}
@@ -6035,7 +6042,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
               <button
                 type="button"
                 onClick={handlePublishLive}
-                className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs shadow-md shadow-indigo-100 cursor-pointer flex items-center justify-center gap-2 transition-all hover:scale-[1.01]"
+                className="w-full py-2.5 rounded-xl unity-btn-primary text-white font-extrabold text-xs shadow-md cursor-pointer flex items-center justify-center gap-2 transition-all hover:scale-[1.01]"
               >
                 <Send className="w-3.5 h-3.5 rtl:-scale-x-100" />
                 <span>{isAr ? 'تطبيق ونشر التعديلات فوراً' : 'Apply & Publish Changes Live'}</span>
@@ -6283,7 +6290,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
           <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <span className="w-8 h-8 rounded-xl bg-pink-600 text-white flex items-center justify-center font-black text-sm shadow-xs">
+                <span className="w-8 h-8 rounded-xl bg-[color:var(--accent)] text-white flex items-center justify-center font-black text-sm shadow-xs">
                   +
                 </span>
                 <div>
@@ -6317,13 +6324,13 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                     { text: String(columnPickerTarget.colIdx + 1), fontSize: 82 }
                   )
                 }
-                className="p-3 rounded-2xl border-2 border-slate-200 hover:border-pink-500 hover:bg-pink-50/20 text-start flex flex-col gap-1 transition-all group cursor-pointer"
+                className="p-3 rounded-2xl border-2 border-slate-200 hover:border-[color:var(--accent)] hover:bg-[color:var(--portal-50)]/20 text-start flex flex-col gap-1 transition-all group cursor-pointer"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xl font-black text-pink-600 group-hover:scale-110 transition-transform">
+                  <span className="text-xl font-black text-[color:var(--accent)] group-hover:scale-110 transition-transform">
                     {columnPickerTarget.colIdx + 1}
                   </span>
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-pink-100 text-pink-700">82px</span>
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[color:var(--portal-50)] text-[color:var(--accent)]">82px</span>
                 </div>
                 <span className="text-xs font-black text-slate-800">
                   {isAr ? 'رقم تسلسلي كبير' : 'Counter Number (82px)'}

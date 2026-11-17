@@ -386,6 +386,16 @@ const COFFEE_EXTRA_WIDGETS: WidgetDefinition[] = [
     templateStyle: 'events-empty',
   },
   {
+    id: 'w_features_section',
+    type: 'features',
+    titleAr: 'قسم المميزات',
+    titleEn: 'Features Section',
+    category: 'sections',
+    icon: Star,
+    defaultSettings: {},
+    templateStyle: 'features-section',
+  },
+  {
     id: 'w_model_comparison',
     type: 'model_comparison',
     titleAr: 'مقارنة الموديلات',
@@ -457,6 +467,28 @@ const COFFEE_HIDDEN_WIDGET_TYPES = new Set([
   'featured_posts', // blog/posts not coffee home
 ]);
 
+/** HiBrew home — 18 ref widgets (doc #3–6, 8–18 + column row). No flower/generic dupes. */
+export const COFFEE_PAGE_BUILDER_WIDGET_IDS = [
+  'w_hero_slider',
+  'w_featured_section_banners',
+  'w_image_banners',
+  'w_product_grid',
+  'w_features',
+  'w_product_carousel',
+  'w_featured_categories',
+  'w_exclusive_benefits',
+  'w_events_masterclasses',
+  'w_features_section',
+  'w_model_comparison',
+  'w_testimonials',
+  'w_faq',
+  'w_commercial_hero',
+  'w_product_slider',
+  'w_product_catalog',
+  'w_product_collection',
+  'w_inner_section',
+] as const;
+
 const COFFEE_WIDGET_OVERRIDES: Partial<
   Record<string, { titleEn: string; titleAr: string; type?: string; defaultSettings?: Record<string, any> }>
 > = {
@@ -504,19 +536,28 @@ export const BuilderWidgetLibrary: React.FC<BuilderWidgetLibraryProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<'all' | 'general' | 'ecommerce' | 'sections'>('all');
 
-  const catalog = [
-    ...BUILDER_WIDGETS.map((w) => {
-      if (!isCoffee) return w;
-      const override = COFFEE_WIDGET_OVERRIDES[w.id];
-      if (!override) return w;
-      return {
-        ...w,
-        ...override,
-        defaultSettings: { ...w.defaultSettings, ...(override.defaultSettings || {}) },
-      };
-    }),
-    ...(isCoffee ? COFFEE_EXTRA_WIDGETS : []),
-  ].filter((w) => !isCoffee || !COFFEE_HIDDEN_WIDGET_TYPES.has(w.type));
+  const withCoffeeOverrides = (w: WidgetDefinition): WidgetDefinition => {
+    const override = COFFEE_WIDGET_OVERRIDES[w.id];
+    if (!override) return w;
+    return {
+      ...w,
+      ...override,
+      defaultSettings: { ...w.defaultSettings, ...(override.defaultSettings || {}) },
+    };
+  };
+
+  const allCoffeeSources = [
+    ...BUILDER_WIDGETS,
+    ...COFFEE_EXTRA_WIDGETS,
+  ].map(withCoffeeOverrides);
+
+  const coffeeById = new Map(allCoffeeSources.map((w) => [w.id, w]));
+
+  const catalog = isCoffee
+    ? COFFEE_PAGE_BUILDER_WIDGET_IDS.map((id) => coffeeById.get(id)).filter(
+        (w): w is WidgetDefinition => Boolean(w),
+      )
+    : BUILDER_WIDGETS;
 
   const filtered = catalog.filter((w) => {
     const matchesCat = activeCategory === 'all' || w.category === activeCategory;
@@ -540,7 +581,7 @@ export const BuilderWidgetLibrary: React.FC<BuilderWidgetLibraryProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={isAr ? 'ابحث عن عنصر أو ويدجت...' : 'Search widgets...'}
-            className="w-full ps-8 pe-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-indigo-500 bg-slate-50"
+            className="w-full ps-8 pe-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:border-[color:var(--accent)] bg-slate-50"
           />
         </div>
 
@@ -558,7 +599,7 @@ export const BuilderWidgetLibrary: React.FC<BuilderWidgetLibraryProps> = ({
               onClick={() => setActiveCategory(cat.id)}
               className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
                 activeCategory === cat.id
-                  ? 'bg-indigo-600 text-white'
+                  ? 'unity-btn-primary text-white'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
@@ -583,16 +624,16 @@ export const BuilderWidgetLibrary: React.FC<BuilderWidgetLibraryProps> = ({
                 e.dataTransfer.effectAllowed = 'copyMove';
               }}
               onClick={() => onAddWidget(w)}
-              className="p-3 rounded-xl border border-slate-200 hover:border-indigo-500 hover:shadow-xs bg-white hover:bg-indigo-50/30 flex flex-col items-center justify-center text-center gap-1.5 transition-all group cursor-grab active:cursor-grabbing relative"
+              className="p-3 rounded-xl border border-slate-200 hover:border-[color:var(--accent)] hover:shadow-xs bg-white hover:bg-[color:var(--portal-50)]/40 flex flex-col items-center justify-center text-center gap-1.5 transition-all group cursor-grab active:cursor-grabbing relative"
               title={isAr ? `انقر للإضافة أو اسحب وأفلت في أي قسم` : `Click to add or drag & drop into any section (${w.titleEn})`}
             >
-              <span className="w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-indigo-600 text-slate-600 group-hover:text-white flex items-center justify-center transition-colors">
+              <span className="w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-[color:var(--portal-cta)] text-slate-600 group-hover:text-white flex items-center justify-center transition-colors">
                 <WIcon className="w-4 h-4" />
               </span>
-              <span className="text-xs font-bold text-slate-800 group-hover:text-indigo-950 truncate max-w-full">
+              <span className="text-xs font-bold text-slate-800 group-hover:text-[color:var(--text)] truncate max-w-full">
                 {isAr ? w.titleAr : w.titleEn}
               </span>
-              <div className="flex items-center gap-1 text-[9px] text-slate-400 group-hover:text-indigo-600 font-mono">
+              <div className="flex items-center gap-1 text-[9px] text-slate-400 group-hover:text-[color:var(--accent)] font-mono">
                 <GripVertical className="w-3 h-3 opacity-60" />
                 <span>{isAr ? 'اسحب / أضف' : 'Drag / Add'}</span>
               </div>
