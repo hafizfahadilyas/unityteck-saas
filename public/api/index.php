@@ -44,38 +44,105 @@ $souqEnv = souq_load_root_env();
 $dbDriver = 'sqlite';
 $pdo = null;
 
+$requestHost = strtolower((string)preg_replace('/:\d+$/', '', (string)($_SERVER['HTTP_HOST'] ?? '')));
+$isFlowersHost = in_array($requestHost, [
+    'giftshop-sa.com',
+    'www.giftshop-sa.com',
+], true)
+    || str_ends_with($requestHost, '.giftshop-sa.com');
+
+// Flowers Hostinger must use FLOWERS_DB_* (giftshop MySQL). Central keeps DB_* / HOSTINGER_DB_*.
 $dbHost = trim((string)($souqEnv['DB_HOST'] ?? getenv('DB_HOST') ?: ''));
 $dbName = trim((string)($souqEnv['DB_DATABASE'] ?? getenv('DB_DATABASE') ?: ''));
 $dbUser = trim((string)($souqEnv['DB_USERNAME'] ?? getenv('DB_USERNAME') ?: ''));
 $dbPass = (string)($souqEnv['DB_PASSWORD'] ?? getenv('DB_PASSWORD') ?: '');
 $dbPort = trim((string)($souqEnv['DB_PORT'] ?? getenv('DB_PORT') ?: '3306'));
+if ($isFlowersHost) {
+    $fHost = trim((string)($souqEnv['FLOWERS_DB_HOST'] ?? getenv('FLOWERS_DB_HOST') ?: ''));
+    $fName = trim((string)($souqEnv['FLOWERS_DB_DATABASE'] ?? getenv('FLOWERS_DB_DATABASE') ?: ''));
+    $fUser = trim((string)($souqEnv['FLOWERS_DB_USERNAME'] ?? getenv('FLOWERS_DB_USERNAME') ?: ''));
+    $fPass = (string)($souqEnv['FLOWERS_DB_PASSWORD'] ?? getenv('FLOWERS_DB_PASSWORD') ?: '');
+    $fPort = trim((string)($souqEnv['FLOWERS_DB_PORT'] ?? getenv('FLOWERS_DB_PORT') ?: ''));
+    if ($fHost !== '' && $fName !== '' && $fUser !== '') {
+        $dbHost = $fHost;
+        $dbName = $fName;
+        $dbUser = $fUser;
+        $dbPass = $fPass;
+        if ($fPort !== '') {
+            $dbPort = $fPort;
+        }
+    }
+}
 
-if ($dbHost !== '' && $dbName !== '' && $dbUser !== '') {
-    // Prefer localhost first on Hostinger — remote srvXXX burns max_connections_per_hour.
-    $normalizedHost = strtolower($dbHost);
+$souqConnectMysql = static function (
+    string $host,
+    string $port,
+    string $name,
+    string $user,
+    string $pass,
+): ?array {
+    $normalizedHost = strtolower($host);
     $mysqlHosts = in_array($normalizedHost, ['localhost', '127.0.0.1'], true)
-        ? [$dbHost]
-        : ['localhost', '127.0.0.1', $dbHost];
-    $port = $dbPort !== '' ? $dbPort : '3306';
+        ? [$host]
+        : ['localhost', '127.0.0.1', $host];
+    $usePort = $port !== '' ? $port : '3306';
     foreach (array_values(array_unique($mysqlHosts)) as $tryHost) {
         try {
             $dsn = sprintf(
                 'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
                 $tryHost,
-                $port,
-                $dbName
+                $usePort,
+                $name
             );
-            $pdo = new PDO($dsn, $dbUser, $dbPass, [
+            $conn = new PDO($dsn, $user, $pass, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
             ]);
-            $dbDriver = 'mysql';
-            $dbHost = $tryHost;
-            break;
+            return ['pdo' => $conn, 'host' => $tryHost, 'name' => $name];
         } catch (Throwable $mysqlErr) {
-            $pdo = null;
-            $dbDriver = 'sqlite';
+            /* try next host */
+        }
+    }
+    return null;
+};
+
+if ($dbHost !== '' && $dbName !== '' && $dbUser !== '') {
+    // Prefer localhost first on Hostinger — remote srvXXX burns max_connections_per_hour.
+    $connected = $souqConnectMysql($dbHost, $dbPort, $dbName, $dbUser, $dbPass);
+    if ($connected) {
+        $pdo = $connected['pdo'];
+        $dbDriver = 'mysql';
+        $dbHost = $connected['host'];
+        $dbName = $connected['name'];
+    } else {
+        $pdo = null;
+        $dbDriver = 'sqlite';
+    }
+}
+
+// Flowers host: if primary connect is empty/wrong, force FLOWERS_DB_* retry when available.
+if ($isFlowersHost && $dbDriver === 'mysql' && $pdo instanceof PDO) {
+    $fHost = trim((string)($souqEnv['FLOWERS_DB_HOST'] ?? getenv('FLOWERS_DB_HOST') ?: ''));
+    $fName = trim((string)($souqEnv['FLOWERS_DB_DATABASE'] ?? getenv('FLOWERS_DB_DATABASE') ?: ''));
+    $fUser = trim((string)($souqEnv['FLOWERS_DB_USERNAME'] ?? getenv('FLOWERS_DB_USERNAME') ?: ''));
+    $fPass = (string)($souqEnv['FLOWERS_DB_PASSWORD'] ?? getenv('FLOWERS_DB_PASSWORD') ?: '');
+    $fPort = trim((string)($souqEnv['FLOWERS_DB_PORT'] ?? getenv('FLOWERS_DB_PORT') ?: $dbPort));
+    if ($fHost !== '' && $fName !== '' && $fUser !== '' && strcasecmp($fName, $dbName) !== 0) {
+        $storeCount = 0;
+        try {
+            $storeCount = (int) $pdo->query('SELECT COUNT(*) FROM stores')->fetchColumn();
+        } catch (Throwable) {
+            $storeCount = 0;
+        }
+        if ($storeCount === 0) {
+            $retry = $souqConnectMysql($fHost, $fPort, $fName, $fUser, $fPass);
+            if ($retry) {
+                $pdo = $retry['pdo'];
+                $dbHost = $retry['host'];
+                $dbName = $retry['name'];
+                $dbDriver = 'mysql';
+            }
         }
     }
 }
@@ -2289,8 +2356,11 @@ if ($uri === '/storefront/theme' && in_array($method, ['GET', 'HEAD'], true)) {
             $stStore->execute([$targetStore, $targetStore]);
             $storeRow = $stStore->fetch(PDO::FETCH_ASSOC) ?: null;
         }
+        // Never invent a phantom store — missing row = 404 (zero-mock / isolation).
         if (!$storeRow) {
-            $storeRow = ['id' => $targetStore, 'name' => $targetStore, 'slug' => $targetStore, 'domain' => null, 'logo' => null, 'accent_color' => null];
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Store not found.', 'store_id' => $targetStore]);
+            exit;
         }
         $sid = (string)$storeRow['id'];
         $themeId = $souqDefaultThemeId($sid);
@@ -2329,13 +2399,11 @@ if ($uri === '/storefront/theme' && in_array($method, ['GET', 'HEAD'], true)) {
         ]);
         exit;
     } catch (Throwable $e) {
-        http_response_code(200);
+        http_response_code(500);
         echo json_encode([
-            'success' => true,
-            'store' => ['id' => $targetStore],
-            'theme' => ['id' => $souqDefaultThemeId($targetStore), 'settings' => [], 'published_blocks' => []],
+            'success' => false,
+            'message' => 'Theme load failed.',
             'store_id' => $targetStore,
-            'warning' => $e->getMessage(),
         ]);
         exit;
     }

@@ -3,7 +3,8 @@ import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
 import { ShieldCheck, Truck, Star, MessageCircle, Wrench, Layers, CreditCard, Palette } from 'lucide-react';
 import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
-import { bi, coffeeModularSeed, coffeeWhatsAppDigits } from '../../settings/coffeeModularSettings';
+import { bi, coffeeWhatsAppDigits } from '../../settings/coffeeModularSettings';
+import { benefitCardFaded, visibleBenefitItems } from './coffeeBenefitsLogic';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   ShieldCheck,
@@ -38,18 +39,11 @@ export const ExclusivePerksBar: React.FC = () => {
     }
   }, [activeStore, tick]);
 
-  const benefits = useMemo(() => {
-    const raw = settings?.exclusiveBenefits;
-    const hasItems = (raw?.items || []).some(
-      (it) => it.enabled !== false && ((it.titleEn || '').trim() || (it.titleAr || '').trim()),
-    );
-    if (hasItems) return raw;
-    // Unconfigured coffee C-BEN → HiBrew seed for display only (merchant clear stays empty via enabled:false)
-    if (raw?.enabled === false) return raw;
-    return coffeeModularSeed().exclusiveBenefits;
-  }, [settings?.exclusiveBenefits]);
+  const benefits = settings?.exclusiveBenefits;
+  const visibleItems = useMemo(() => visibleBenefitItems(benefits), [benefits]);
 
   if (benefits?.enabled === false) return null;
+  if (!visibleItems.length) return null;
 
   const displayPhone =
     storeIdentity?.whatsapp ||
@@ -77,14 +71,14 @@ export const ExclusivePerksBar: React.FC = () => {
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
-  const perks = (benefits?.items || [])
-    .filter((it) => it.enabled !== false)
+  const perks = visibleItems
     .map((it) => {
       const titleEn = (it.titleEn || '').trim();
       const titleAr = (it.titleAr || '').trim();
       const descEn = (it.descriptionEn || '').trim();
       const descAr = (it.descriptionAr || '').trim();
       const blob = `${titleEn} ${titleAr} ${descEn} ${descAr}`.toLowerCase();
+      const buttons = (it.buttons || []).filter((b) => b.enabled !== false && ((b.labelEn || '').trim() || (b.labelAr || '').trim()));
       return {
         id: it.id,
         titleEn: titleEn || titleAr,
@@ -92,6 +86,8 @@ export const ExclusivePerksBar: React.FC = () => {
         descEn: descEn || descAr,
         descAr: descAr || descEn,
         icon: it.icon || 'ShieldCheck',
+        faded: benefitCardFaded(it),
+        buttons,
         isInstallments: /tabby|tamara|install|تقسيط|ادفع لاحقا/.test(blob),
         isCustomAction: /custom|corner|تفصيل|ركن/.test(blob),
       };
@@ -107,21 +103,27 @@ export const ExclusivePerksBar: React.FC = () => {
     isAr ? 'مزايا حصرية وخدمات مخصصة' : 'Exclusive Perks & Custom Services',
   );
   const sectionSubtitle = bi(language, benefits?.subtitleEn, benefits?.subtitleAr);
+  const showTitle = benefits?.showTitle !== false;
+  const showDescription = benefits?.showDescription !== false;
 
   return (
     <section data-customize-section="C-BEN" className="w-full max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-10 select-none">
-      <div className="text-start mb-4 sm:mb-6">
-        <h2
-          className={`text-xl sm:text-2xl lg:text-[28px] font-black text-[#2B1809] ${
-            isAr ? 'tracking-normal' : 'tracking-tight'
-          }`}
-        >
-          {sectionTitle}
-        </h2>
-        {sectionSubtitle ? (
-          <p className="text-xs sm:text-sm text-[#5C422E] mt-1.5 max-w-2xl">{sectionSubtitle}</p>
-        ) : null}
-      </div>
+      {(showTitle || showDescription) && (
+        <div className="text-start mb-4 sm:mb-6">
+          {showTitle ? (
+            <h2
+              className={`text-xl sm:text-2xl lg:text-[28px] font-black text-[#2B1809] ${
+                isAr ? 'tracking-normal' : 'tracking-tight'
+              }`}
+            >
+              {sectionTitle}
+            </h2>
+          ) : null}
+          {showDescription && sectionSubtitle ? (
+            <p className="text-xs sm:text-sm text-[#5C422E] mt-1.5 max-w-2xl">{sectionSubtitle}</p>
+          ) : null}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5 sm:gap-4 lg:gap-5">
         {perks.map((perk) => {
@@ -129,7 +131,9 @@ export const ExclusivePerksBar: React.FC = () => {
           return (
             <div
               key={perk.id}
-              className="col-span-1 bg-gradient-to-b from-[#FDFBF7] via-[#F8F2EA] to-[#F1E5D6] border-0 rounded-xl sm:rounded-2xl p-3 sm:p-5 flex flex-col justify-between items-center text-center hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group cursor-default min-h-[190px] sm:min-h-[235px]"
+              className={`col-span-1 bg-gradient-to-b from-[#FDFBF7] via-[#F8F2EA] to-[#F1E5D6] border-0 rounded-xl sm:rounded-2xl p-3 sm:p-5 flex flex-col justify-between items-center text-center transition-all duration-300 group cursor-default min-h-[190px] sm:min-h-[235px] ${
+                perk.faded ? 'opacity-45 grayscale-[0.65] pointer-events-none' : 'hover:shadow-md hover:-translate-y-0.5'
+              }`}
             >
               <h3 className="font-bold text-xs sm:text-sm lg:text-[15px] text-[#2B1809] line-clamp-1 mb-2 sm:mb-2.5">
                 {isAr ? perk.titleAr : perk.titleEn}
@@ -161,7 +165,37 @@ export const ExclusivePerksBar: React.FC = () => {
                 {isAr ? perk.descAr : perk.descEn}
               </p>
 
-              {perk.isCustomAction ? (
+              {perk.faded ? (
+                <div className="text-[10px] font-bold text-[#7A593D] mt-1">{isAr ? 'غير متاح حالياً' : 'Currently unavailable'}</div>
+              ) : perk.buttons.length > 0 ? (
+                <div className="w-full space-y-1.5 pt-1 border-0">
+                  {perk.buttons.slice(0, 2).map((btn) => {
+                    const label = isAr ? btn.labelAr || btn.labelEn : btn.labelEn || btn.labelAr;
+                    const isWa = btn.style === 'whatsapp' || /wa\.me|whatsapp/i.test(btn.url || '');
+                    return (
+                      <button
+                        key={btn.id}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isWa) {
+                            handleOpenWhatsApp();
+                            return;
+                          }
+                          const href = (btn.url || '').trim();
+                          if (href) window.open(href, '_blank', 'noopener,noreferrer');
+                        }}
+                        className={`w-full py-1.5 px-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs flex items-center justify-center gap-1 ${
+                          isWa ? 'bg-[#25D366] hover:bg-[#20ba59] text-white' : 'bg-[#2B1809] hover:bg-black text-white'
+                        }`}
+                      >
+                        {isWa ? <MessageCircle className="w-3.5 h-3.5 fill-white text-[#25D366]" /> : null}
+                        <span>{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : perk.isCustomAction ? (
                 <div className="w-full space-y-1.5 pt-1 border-0">
                   <button
                     type="button"

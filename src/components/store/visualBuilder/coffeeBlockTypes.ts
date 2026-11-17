@@ -1,0 +1,44 @@
+/** Coffee page-builder block type catalogs (no React). */
+
+export const COFFEE_FULL_BLEED_TYPES = new Set([
+  'announcement_bar',
+  'announcement',
+  'header',
+  'navbar',
+  'hero_banners',
+  'hero_slider',
+  'hero',
+  'footer',
+]);
+
+/** Doc widgets that may reorder — never top bar / navbar / footer. */
+export const COFFEE_MOVABLE_BLOCK_TYPES = new Set([
+  'hero_banners',
+  'hero_slider',
+  'hero',
+  'featured_section_banners',
+  'featured_products',
+  'image_banners',
+  'store_features_bar',
+  'features',
+  'product_carousel',
+  'product_carousel_banner',
+  'featured_categories_products',
+  'exclusive_benefits',
+  'events_masterclasses',
+  'model_comparison',
+  'reviews',
+  'testimonials',
+  'faq',
+  'commercial_hero',
+  'product_slider',
+  'product_catalog',
+  'product_collection',
+  'newsletter',
+  'custom_order',
+]);
+
+export const COFFEE_BUILDER_BLOCK_TYPES = new Set([
+  ...COFFEE_FULL_BLEED_TYPES,
+  ...COFFEE_MOVABLE_BLOCK_TYPES,
+]);

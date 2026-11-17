@@ -20,24 +20,31 @@ const SECTIONS: {
   titleEn: string;
   titleAr: string;
 }[] = [
-  { id: '00_header_builder', settingsKey: 'customHeader', titleEn: 'Header & Navigation', titleAr: 'الهيدر والقوائم' },
+  { id: '00_header_builder', settingsKey: 'customHeader', titleEn: 'Header & Navigation', titleAr: 'الترويسة والقوائم' },
   { id: '03_store_colors', settingsKey: 'colors', titleEn: 'Colors & Background', titleAr: 'الألوان والخلفية' },
   { id: 'C-ANN', settingsKey: 'announcementBar', titleEn: 'Announcement Bar', titleAr: 'شريط الإعلان' },
   { id: 'C-FCP', settingsKey: 'featuredCategoriesProducts', titleEn: 'Categories & Products', titleAr: 'التصنيفات والمنتجات' },
   { id: 'C-HERO', settingsKey: 'heroBanners', titleEn: 'Hero Banners', titleAr: 'بانر الواجهة' },
   { id: 'C-FSB', settingsKey: 'featuredSectionBanners', titleEn: 'Flagship Section', titleAr: 'قسم المنتجات الرائدة' },
   { id: 'C-FP', settingsKey: 'featuredProducts', titleEn: 'Featured Products', titleAr: 'المنتجات المميزة' },
-  { id: 'C-SHOP', settingsKey: 'shop', titleEn: 'Shop and checkout', titleAr: 'المتجر وإتمام الشراء' },
+  { id: 'C-SHOP', settingsKey: 'shop', titleEn: 'Product Catalog', titleAr: 'كتالوج المنتجات' },
   { id: 'C-IMG', settingsKey: 'imageBanners', titleEn: 'Image Banners', titleAr: 'بانرات الصور' },
   { id: 'C-FOOT', settingsKey: 'footer', titleEn: 'Footer', titleAr: 'التذييل' },
   { id: 'C-ICON', settingsKey: 'enhancedFeatures', titleEn: 'Feature Icons', titleAr: 'أيقونات المميزات' },
   { id: 'C-BEN', settingsKey: 'exclusiveBenefits', titleEn: 'Exclusive Benefits', titleAr: 'المزايا الحصرية' },
+  { id: 'C-EVT', settingsKey: 'eventsMasterclasses', titleEn: 'Events & Masterclasses', titleAr: 'الفعاليات وورش العمل' },
+  { id: 'C-FEAT', settingsKey: 'featuresSection', titleEn: 'Features Section', titleAr: 'قسم المميزات' },
+  { id: 'C-CMP', settingsKey: 'modelComparison', titleEn: 'Model Comparison', titleAr: 'مقارنة الموديلات' },
   { id: 'C-PC', settingsKey: 'productCarousel', titleEn: 'Product Carousel', titleAr: 'كاروسيل المنتجات' },
   { id: 'C-PCB', settingsKey: 'productCarouselBanner', titleEn: 'Carousel + Banner', titleAr: 'كاروسيل مع بانر' },
   { id: 'C-EDIT', settingsKey: null, titleEn: 'Product Editor', titleAr: 'محرر المنتجات' },
   { id: 'C-NEWS', settingsKey: 'newsletter', titleEn: 'Newsletter', titleAr: 'النشرة البريدية' },
   { id: 'C-CPB', settingsKey: 'customOrder', titleEn: 'Custom Order', titleAr: 'الطلب المخصص' },
-  { id: 'C-REV', settingsKey: null, titleEn: 'Reviews', titleAr: 'التقييمات' },
+  { id: 'C-REV', settingsKey: 'customerReviews', titleEn: 'Customer Reviews', titleAr: 'تقييمات العملاء' },
+  { id: 'C-FAQ', settingsKey: 'faq', titleEn: 'FAQ', titleAr: 'الأسئلة الشائعة' },
+  { id: 'C-COMM', settingsKey: 'commercialHero', titleEn: 'Commercial Hero', titleAr: 'القسم التجاري الرئيسي' },
+  { id: 'C-PSL', settingsKey: 'productSlider', titleEn: 'Product Slider', titleAr: 'شريط المنتجات' },
+  { id: 'C-COLL', settingsKey: 'productCollection', titleEn: 'Product Collection', titleAr: 'مجموعة المنتجات' },
 ];
 
 function isSectionEnabled(settings: AllThemeSettings, key: keyof AllThemeSettings | null): boolean {

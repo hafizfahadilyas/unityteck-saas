@@ -223,6 +223,13 @@ export function seedCoffeeThemeSettings(base: AllThemeSettings): AllThemeSetting
       bgColor: '#173B35',
       textColor: '#FFFFFF',
       messages: [],
+      showButton: false,
+      buttonText: '',
+      buttonTextEn: '',
+      buttonTextAr: '',
+      buttonLink: '',
+      contentWidth: 'full',
+      barHeight: 'auto',
     },
     enhancedFeatures: {
       ...base.enhancedFeatures,

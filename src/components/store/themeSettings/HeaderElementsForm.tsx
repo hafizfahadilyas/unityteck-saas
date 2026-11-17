@@ -61,7 +61,7 @@ function HeaderNavListEditor({
 }: {
   isAr: boolean;
   title: string;
-  testId: 'desktop' | 'mobile';
+  testId: 'desktop' | 'tablet' | 'mobile';
   links: HeaderNavLink[];
   onChange: (links: HeaderNavLink[]) => void;
 }) {
@@ -87,7 +87,8 @@ function HeaderNavListEditor({
               },
             ]);
           }}
-          className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 font-bold text-[11px] flex items-center gap-1 cursor-pointer hover:bg-emerald-100"
+          className="px-2.5 py-1 rounded-lg font-bold text-[11px] flex items-center gap-1 cursor-pointer"
+          style={{ background: 'color-mix(in srgb, var(--portal-cta) 12%, var(--surface))', color: 'var(--portal-cta)' }}
         >
           <Plus className="w-3.5 h-3.5" />
           <span>{isAr ? 'إضافة رابط' : 'Add link'}</span>
@@ -238,7 +239,7 @@ export const HeaderElementsForm: React.FC = () => {
 
   const toggleTrack = (on: boolean) =>
     `w-10 h-5 flex items-center rounded-full p-0.5 cursor-pointer transition-colors ${
-      on ? 'bg-emerald-600 justify-end' : 'bg-slate-300 dark:bg-slate-700 justify-start'
+      on ? 'justify-end bg-[var(--portal-cta)]' : 'bg-slate-300 dark:bg-slate-700 justify-start'
     }`;
 
   // Safe action icon objects with fallback defaults
@@ -265,9 +266,18 @@ export const HeaderElementsForm: React.FC = () => {
   return (
     <div className="space-y-4 text-slate-900 dark:text-slate-100 font-sans">
       {/* Header Banner */}
-      <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-indigo-500/10 to-transparent border border-emerald-500/20 flex items-center justify-between gap-3">
+      <div
+        className="p-4 rounded-2xl border flex items-center justify-between gap-3"
+        style={{
+          borderColor: 'var(--border)',
+          background: 'color-mix(in srgb, var(--portal-cta) 8%, var(--surface))',
+        }}
+      >
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+          <div
+            className="w-10 h-10 rounded-xl text-white flex items-center justify-center shrink-0 shadow-sm"
+            style={{ background: 'var(--portal-cta)' }}
+          >
             <Layout className="w-5 h-5" />
           </div>
           <div className="min-w-0">
@@ -276,8 +286,8 @@ export const HeaderElementsForm: React.FC = () => {
             </h2>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
               {isAr
-                ? 'تخصيص الشعار، أيقونات الهارت والسلة والواتساب والروابط'
-                : 'Customize logo, heart wishlist, cart, whatsapp and nav links'}
+                ? 'تخصيص الشعار، أيقونات المفضلة والسلة وواتساب والروابط'
+                : 'Customize logo, wishlist, cart, WhatsApp and nav links'}
             </p>
           </div>
         </div>
@@ -286,7 +296,7 @@ export const HeaderElementsForm: React.FC = () => {
           type="button"
           onClick={() => handleSave()}
           disabled={saving}
-          className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm shrink-0 transition-transform active:scale-95"
+          className="unity-btn-primary px-3 py-1.5 rounded-xl text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm shrink-0 transition-transform active:scale-95"
         >
           {savedFlash ? <Check className="w-3.5 h-3.5 stroke-[2.5]" /> : <Save className="w-3.5 h-3.5" />}
           <span>{saving ? (isAr ? 'حفظ…' : 'Saving…') : savedFlash ? (isAr ? 'تم!' : 'Saved!') : (isAr ? 'حفظ' : 'Save')}</span>
@@ -311,9 +321,11 @@ export const HeaderElementsForm: React.FC = () => {
               onClick={() => setActiveSubTab(tab.id as any)}
               className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
                 isActive
-                  ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs'
+                  ? 'bg-white dark:bg-slate-900 shadow-xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
+              style={isActive ? { color: 'var(--accent)' } : undefined}
+              data-header-tab={tab.id}
             >
               <TabIcon className="w-3.5 h-3.5 shrink-0" />
               <span>{isAr ? tab.labelAr : tab.labelEn}</span>
@@ -892,6 +904,307 @@ export const HeaderElementsForm: React.FC = () => {
       {/* ─── TAB 3: DESKTOP AND MOBILE NAV ─── */}
       {activeSubTab === 'navigation' && (
         <div className="space-y-3 animate-in fade-in duration-200 text-xs">
+          {/* DF-03 — Enable + Compare + View More (parity with builder inspector) */}
+          <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3 shadow-2xs" data-nav-controls="word-enable">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-bold">{isAr ? 'تفعيل القائمة الرئيسية' : 'Enable Main Menu'}</span>
+              <button
+                type="button"
+                className={toggleTrack(headerSettings.navigation.enabled !== false)}
+                style={toggleStyle(headerSettings.navigation.enabled !== false)}
+                onClick={() =>
+                  setHeaderSettings((p) => ({
+                    ...p,
+                    navigation: { ...p.navigation, enabled: p.navigation.enabled === false },
+                  }))
+                }
+                aria-label={isAr ? 'تبديل القائمة' : 'Toggle menu'}
+              >
+                <span className="bg-white w-4 h-4 rounded-full shadow-md" />
+              </button>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-bold">{isAr ? 'زر المقارنة' : 'Compare button'}</span>
+              <button
+                type="button"
+                className={toggleTrack(Boolean(headerSettings.navigation.showCompareButton))}
+                onClick={() =>
+                  setHeaderSettings((p) => ({
+                    ...p,
+                    navigation: {
+                      ...p.navigation,
+                      showCompareButton: !p.navigation.showCompareButton,
+                    },
+                  }))
+                }
+              >
+                <span className="bg-white w-4 h-4 rounded-full shadow-md" />
+              </button>
+            </div>
+            {headerSettings.navigation.showCompareButton ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input
+                  className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                  dir="rtl"
+                  value={headerSettings.navigation.compareButtonLabelAr || ''}
+                  onChange={(e) =>
+                    setHeaderSettings((p) => ({
+                      ...p,
+                      navigation: { ...p.navigation, compareButtonLabelAr: e.target.value },
+                    }))
+                  }
+                  placeholder={isAr ? 'نص المقارنة عربي' : 'Arabic compare label'}
+                />
+                <input
+                  className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                  dir="ltr"
+                  value={headerSettings.navigation.compareButtonLabelEn || ''}
+                  onChange={(e) =>
+                    setHeaderSettings((p) => ({
+                      ...p,
+                      navigation: { ...p.navigation, compareButtonLabelEn: e.target.value },
+                    }))
+                  }
+                  placeholder={isAr ? 'نص المقارنة إنجليزي' : 'English compare label'}
+                />
+              </div>
+            ) : null}
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-bold">{isAr ? 'زر عرض المزيد' : 'View more button'}</span>
+              <button
+                type="button"
+                className={toggleTrack(Boolean(headerSettings.navigation.showViewMoreButton))}
+                onClick={() =>
+                  setHeaderSettings((p) => ({
+                    ...p,
+                    navigation: {
+                      ...p.navigation,
+                      showViewMoreButton: !p.navigation.showViewMoreButton,
+                    },
+                  }))
+                }
+              >
+                <span className="bg-white w-4 h-4 rounded-full shadow-md" />
+              </button>
+            </div>
+            {headerSettings.navigation.showViewMoreButton ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input
+                  className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                  dir="rtl"
+                  value={headerSettings.navigation.viewMoreLabelAr || ''}
+                  onChange={(e) =>
+                    setHeaderSettings((p) => ({
+                      ...p,
+                      navigation: { ...p.navigation, viewMoreLabelAr: e.target.value },
+                    }))
+                  }
+                  placeholder={isAr ? 'نص عرض المزيد عربي' : 'Arabic view-more label'}
+                />
+                <input
+                  className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                  dir="ltr"
+                  value={headerSettings.navigation.viewMoreLabelEn || ''}
+                  onChange={(e) =>
+                    setHeaderSettings((p) => ({
+                      ...p,
+                      navigation: { ...p.navigation, viewMoreLabelEn: e.target.value },
+                    }))
+                  }
+                  placeholder={isAr ? 'نص عرض المزيد إنجليزي' : 'English view-more label'}
+                />
+                <input
+                  className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 sm:col-span-2"
+                  dir="ltr"
+                  value={headerSettings.navigation.viewMoreUrl || ''}
+                  onChange={(e) =>
+                    setHeaderSettings((p) => ({
+                      ...p,
+                      navigation: { ...p.navigation, viewMoreUrl: e.target.value },
+                    }))
+                  }
+                  placeholder="/shop"
+                />
+              </div>
+            ) : null}
+          </div>
+
+          <div
+            className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3 shadow-2xs"
+            data-menu-panel="products"
+            data-nav-controls="mega-source"
+          >
+            <h4 className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+              {isAr ? 'منتجات القائمة الكبرى' : 'Mega menu products'}
+            </h4>
+            <label className="block space-y-1">
+              <span className="text-[10px] font-bold text-slate-400">
+                {isAr ? 'مصدر المنتجات' : 'Product source'}
+              </span>
+              <select
+                className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs"
+                value={headerSettings.navigation.menuProductSource || 'category'}
+                onChange={(e) =>
+                  setHeaderSettings((p) => ({
+                    ...p,
+                    navigation: {
+                      ...p.navigation,
+                      menuProductSource: e.target.value as 'category' | 'latest' | 'manual',
+                    },
+                  }))
+                }
+                data-menu-product-source
+              >
+                <option value="category">{isAr ? 'من الفئة النشطة' : 'Active category'}</option>
+                <option value="latest">{isAr ? 'الأحدث' : 'Latest'}</option>
+                <option value="manual">{isAr ? 'يدوي (معرّفات محفوظة)' : 'Manual (saved ids)'}</option>
+              </select>
+            </label>
+            <label className="block space-y-1">
+              <span className="text-[10px] font-bold text-slate-400">
+                {isAr ? 'الترتيب' : 'Sort by'}
+              </span>
+              <select
+                className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs"
+                value={headerSettings.navigation.menuProductSort || 'newest'}
+                onChange={(e) =>
+                  setHeaderSettings((p) => ({
+                    ...p,
+                    navigation: {
+                      ...p.navigation,
+                      menuProductSort: e.target.value as 'manual' | 'price' | 'newest' | 'bestselling',
+                    },
+                  }))
+                }
+              >
+                <option value="newest">{isAr ? 'الأحدث' : 'Newest'}</option>
+                <option value="price">{isAr ? 'السعر' : 'Price'}</option>
+                <option value="bestselling">{isAr ? 'الأكثر مبيعاً' : 'Best selling'}</option>
+                <option value="manual">{isAr ? 'يدوي' : 'Manual'}</option>
+              </select>
+            </label>
+            <label className="block space-y-1">
+              <span className="text-[10px] font-bold text-slate-400">
+                {isAr ? 'عدد المنتجات المعروضة' : 'Products to display'}
+              </span>
+              <input
+                type="number"
+                min={1}
+                max={12}
+                className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs"
+                value={headerSettings.navigation.menuMaxProducts ?? 5}
+                onChange={(e) =>
+                  setHeaderSettings((p) => ({
+                    ...p,
+                    navigation: {
+                      ...p.navigation,
+                      menuMaxProducts: Math.max(1, Math.min(12, Number(e.target.value) || 5)),
+                    },
+                  }))
+                }
+                data-menu-max-products
+              />
+            </label>
+            <p className="text-[10px] text-slate-400">
+              {isAr
+                ? 'المصدر من كتالوج هذا المتجر فقط — بدون صفوف وهمية.'
+                : 'Source is this store catalog only — no fake rows.'}
+            </p>
+          </div>
+
+          <div
+            className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3 shadow-2xs"
+            data-menu-panel="devices"
+            data-nav-controls="menu-devices"
+          >
+            <h4 className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+              {isAr ? 'تخطيط حسب الجهاز' : 'Layout by device'}
+            </h4>
+            {(['desktop', 'tablet', 'mobile'] as const).map((device) => {
+              const row = headerSettings.navigation.deviceLayouts?.[device] || {};
+              const patchDevice = (patch: Partial<typeof row>) =>
+                setHeaderSettings((p) => ({
+                  ...p,
+                  navigation: {
+                    ...p.navigation,
+                    deviceLayouts: {
+                      ...(p.navigation.deviceLayouts || {}),
+                      [device]: { ...(p.navigation.deviceLayouts?.[device] || {}), ...patch },
+                    },
+                  },
+                }));
+              const deviceLabel =
+                device === 'desktop'
+                  ? isAr
+                    ? 'سطح المكتب'
+                    : 'Desktop'
+                  : device === 'tablet'
+                    ? isAr
+                      ? 'جهاز لوحي'
+                      : 'Tablet'
+                    : isAr
+                      ? 'الجوال'
+                      : 'Mobile';
+              return (
+                <div
+                  key={device}
+                  className="rounded-xl border border-slate-100 dark:border-slate-800 p-3 space-y-2"
+                  data-menu-device={device}
+                >
+                  <span className="text-[11px] font-bold text-slate-600">{deviceLabel}</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400">{isAr ? 'التخطيط' : 'Layout'}</span>
+                      <select
+                        className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs"
+                        value={row.layout || 'grid'}
+                        onChange={(e) =>
+                          patchDevice({ layout: e.target.value as 'horizontal' | 'grid' })
+                        }
+                      >
+                        <option value="grid">{isAr ? 'شبكة' : 'Grid'}</option>
+                        <option value="horizontal">{isAr ? 'تمرير أفقي' : 'Horizontal scroll'}</option>
+                      </select>
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-[10px] font-bold text-slate-400">{isAr ? 'الأعمدة' : 'Columns'}</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={6}
+                        className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs"
+                        value={row.columns ?? (device === 'desktop' ? 5 : device === 'tablet' ? 3 : 2)}
+                        onChange={(e) =>
+                          patchDevice({ columns: Math.max(1, Math.min(6, Number(e.target.value) || 2)) })
+                        }
+                      />
+                    </label>
+                  </div>
+                  <div className="flex flex-wrap gap-3 text-[11px] font-semibold text-slate-600">
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={row.showCategoryTabs !== false}
+                        onChange={(e) => patchDevice({ showCategoryTabs: e.target.checked })}
+                        className="accent-[var(--portal-cta)]"
+                      />
+                      {isAr ? 'تبويبات الفئات' : 'Category tabs'}
+                    </label>
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={row.showCompareButton !== false}
+                        onChange={(e) => patchDevice({ showCompareButton: e.target.checked })}
+                        className="accent-[var(--portal-cta)]"
+                      />
+                      {isAr ? 'زر المقارنة' : 'Compare'}
+                    </label>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
           <HeaderNavListEditor
             isAr={isAr}
             title={isAr ? 'روابط سطح المكتب' : 'Desktop links'}
@@ -909,6 +1222,18 @@ export const HeaderElementsForm: React.FC = () => {
           />
           <HeaderNavListEditor
             isAr={isAr}
+            title={isAr ? 'روابط الجهاز اللوحي' : 'Tablet links'}
+            testId="tablet"
+            links={headerSettings.navigation.tabletLinks ?? []}
+            onChange={(links) =>
+              setHeaderSettings((p) => ({
+                ...p,
+                navigation: { ...p.navigation, tabletLinks: links },
+              }))
+            }
+          />
+          <HeaderNavListEditor
+            isAr={isAr}
             title={isAr ? 'روابط الجوال' : 'Mobile links'}
             testId="mobile"
             links={headerSettings.navigation.mobileLinks ?? []}
@@ -919,6 +1244,130 @@ export const HeaderElementsForm: React.FC = () => {
               }))
             }
           />
+          <div
+            className="p-4 rounded-2xl border space-y-3 shadow-2xs"
+            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+            data-nav-controls="mega-source"
+          >
+            <h4 className="text-xs font-bold">{isAr ? 'مصدر منتجات قائمة التصنيفات' : 'Mega menu product source'}</h4>
+            <p className="text-[10px]" style={{ color: 'var(--muted)' }}>
+              {isAr
+                ? 'منتجات المتجر الحقيقية فقط — بدون صفوف وهمية.'
+                : 'Live store catalog only — never invent product rows.'}
+            </p>
+            <label className="block space-y-1 text-[11px] font-semibold">
+              <span style={{ color: 'var(--muted)' }}>{isAr ? 'مصدر المنتجات' : 'Product source'}</span>
+              <select
+                className="w-full px-2 py-1.5 rounded-lg border text-xs"
+                style={{ borderColor: 'var(--border)' }}
+                value={headerSettings.navigation.menuProductSource || 'category'}
+                onChange={(e) =>
+                  setHeaderSettings((p) => ({
+                    ...p,
+                    navigation: {
+                      ...p.navigation,
+                      menuProductSource: e.target.value as 'category' | 'latest' | 'manual',
+                    },
+                  }))
+                }
+              >
+                <option value="category">{isAr ? 'حسب التصنيف' : 'By category'}</option>
+                <option value="latest">{isAr ? 'الأحدث' : 'Latest'}</option>
+                <option value="manual">{isAr ? 'يدوي (معرفات)' : 'Manual IDs'}</option>
+              </select>
+            </label>
+            <label className="block space-y-1 text-[11px] font-semibold">
+              <span style={{ color: 'var(--muted)' }}>{isAr ? 'ترتيب العرض' : 'Sort'}</span>
+              <select
+                className="w-full px-2 py-1.5 rounded-lg border text-xs"
+                style={{ borderColor: 'var(--border)' }}
+                value={headerSettings.navigation.menuProductSort || 'newest'}
+                onChange={(e) =>
+                  setHeaderSettings((p) => ({
+                    ...p,
+                    navigation: {
+                      ...p.navigation,
+                      menuProductSort: e.target.value as 'manual' | 'price' | 'newest' | 'bestselling',
+                    },
+                  }))
+                }
+              >
+                <option value="newest">{isAr ? 'الأحدث' : 'Newest'}</option>
+                <option value="price">{isAr ? 'السعر' : 'Price'}</option>
+                <option value="bestselling">{isAr ? 'الأكثر مبيعاً' : 'Best selling'}</option>
+                <option value="manual">{isAr ? 'يدوي' : 'Manual'}</option>
+              </select>
+            </label>
+            <label className="block space-y-1 text-[11px] font-semibold">
+              <span style={{ color: 'var(--muted)' }}>{isAr ? 'حد المنتجات في القائمة' : 'Max mega products'}</span>
+              <input
+                type="number"
+                min={2}
+                max={12}
+                className="w-full px-2 py-1.5 rounded-lg border text-xs"
+                style={{ borderColor: 'var(--border)' }}
+                value={headerSettings.navigation.menuMaxProducts ?? 5}
+                onChange={(e) =>
+                  setHeaderSettings((p) => ({
+                    ...p,
+                    navigation: {
+                      ...p.navigation,
+                      menuMaxProducts: Math.min(12, Math.max(2, Number(e.target.value) || 5)),
+                    },
+                  }))
+                }
+              />
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2" data-nav-controls="device-layouts">
+              {(['desktop', 'tablet', 'mobile'] as const).map((device) => {
+                const layout = headerSettings.navigation.deviceLayouts?.[device];
+                return (
+                  <label key={device} className="block space-y-1 text-[11px] font-semibold">
+                    <span style={{ color: 'var(--muted)' }}>
+                      {device === 'desktop'
+                        ? isAr
+                          ? 'أعمدة سطح المكتب'
+                          : 'Desktop columns'
+                        : device === 'tablet'
+                          ? isAr
+                            ? 'أعمدة اللوحي'
+                            : 'Tablet columns'
+                          : isAr
+                            ? 'أعمدة الجوال'
+                            : 'Mobile columns'}
+                    </span>
+                    <select
+                      className="w-full px-2 py-1.5 rounded-lg border text-xs"
+                      style={{ borderColor: 'var(--border)' }}
+                      value={layout?.columns ?? (device === 'desktop' ? 5 : device === 'tablet' ? 3 : 2)}
+                      onChange={(e) => {
+                        const columns = Number(e.target.value) || 2;
+                        setHeaderSettings((p) => ({
+                          ...p,
+                          navigation: {
+                            ...p.navigation,
+                            deviceLayouts: {
+                              ...p.navigation.deviceLayouts,
+                              [device]: {
+                                ...(p.navigation.deviceLayouts?.[device] || {}),
+                                columns,
+                              },
+                            },
+                          },
+                        }));
+                      }}
+                    >
+                      {[2, 3, 4, 5, 6].map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
@@ -1166,7 +1615,7 @@ export const HeaderElementsForm: React.FC = () => {
           type="button"
           onClick={() => handleSave()}
           disabled={saving}
-          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-md transition-all active:scale-95"
+          className="unity-btn-primary px-4 py-2 rounded-xl text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-md transition-all active:scale-95"
         >
           {savedFlash ? <Check className="w-4 h-4 stroke-[2.5]" /> : <Save className="w-4 h-4" />}
           <span>{saving ? (isAr ? 'جارٍ الحفظ…' : 'Saving…') : savedFlash ? (isAr ? 'تم الحفظ!' : 'Saved!') : (isAr ? 'تطبيق وحفظ الهيدر' : 'Save Header')}</span>

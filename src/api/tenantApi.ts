@@ -3629,13 +3629,23 @@ export async function fetchThemesCatalogApi(): Promise<any[]> {
 
 export async function fetchThemeSettingsApi(storeId: string): Promise<any> {
   try {
-    const res = await apiFetch<{ success: boolean; data: any }>(`/stores/${storeId}/theme-settings`, {
-      storeId,
-    });
+    const res = await apiFetch<{ success: boolean; data: any; store_id?: string }>(
+      `/stores/${storeId}/theme-settings`,
+      { storeId },
+    );
+    if (typeof res.store_id === 'string' && res.store_id !== storeId) {
+      throw new Error('Store mismatch');
+    }
     const data = res.data;
     // Gateway may return settings object at root, or Laravel shape { settings, theme_id }
     if (data == null || Array.isArray(data)) return null;
-    if (data.settings && typeof data.settings === 'object') return data;
+    if (typeof (data as { store_id?: string }).store_id === 'string'
+      && (data as { store_id?: string }).store_id !== storeId) {
+      throw new Error('Store mismatch');
+    }
+    if (data.settings && typeof data.settings === 'object') {
+      return { ...data, store_id: storeId };
+    }
     return { store_id: storeId, theme_id: data.theme_id, settings: data };
   } catch {
     return null;

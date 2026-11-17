@@ -70,8 +70,10 @@ function DeviceFrame({
                 type="button"
                 onClick={() => setDevice(d.id)}
                 className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${
-                  active ? 'bg-[#2563EB] text-white border-[#2563EB]' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  active ? 'text-white' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                 }`}
+                style={active ? { background: 'var(--portal-cta)', borderColor: 'var(--portal-cta)' } : undefined}
+                data-preview-device={d.id}
               >
                 <Icon className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{isAr ? d.ar : d.en}</span>
@@ -182,7 +184,7 @@ export const CoffeeWordSettingsShell: React.FC<{
             type="button"
             onClick={onSave}
             disabled={saving}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold disabled:opacity-60"
+            className="unity-btn-primary inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-white text-xs font-bold disabled:opacity-60"
           >
             <Save className="w-3.5 h-3.5" />
             {savedFlash

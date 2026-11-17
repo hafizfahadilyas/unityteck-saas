@@ -119,9 +119,26 @@ export const Footer: React.FC = () => {
     ? bi(language, newsletter?.successEn, newsletter?.successAr, language === 'AR' ? 'تم الاشتراك ✓' : 'Subscribed ✓')
     : bi(language, newsletter?.buttonEn, newsletter?.buttonAr, language === 'AR' ? 'اشتراك' : 'Subscribe');
   const showNewsletter = footerCfg?.showNewsletter === false ? false : newsletter?.enabled !== false;
-  const showFooterColumns = footerCfg?.enabled !== false;
-  const footerColumns = (footerCfg?.columns || []).filter((col) => (col.links || []).length > 0 || col.titleEn || col.titleAr);
+  const footerEnabled = footerCfg?.enabled !== false;
+  const showFooterColumns = footerEnabled;
+  const footerColumns = (footerCfg?.columns || []).filter((col) => {
+    if (col.enabled === false) return false;
+    const hasContent = (col.links || []).some((l) => l.enabled !== false) || col.titleEn || col.titleAr;
+    return hasContent;
+  });
   const showSocial = footerCfg?.showSocial !== false;
+  const socialLinks = (footerCfg?.socialLinks || []).filter((s) => s.enabled !== false && (s.url || '').trim());
+  const showContact = footerCfg?.showContact !== false;
+  const showBottomBar = footerCfg?.showBottomBar !== false;
+  const bottomLinks = (footerCfg?.bottomLinks || []).filter((l) => l.enabled !== false && ((l.labelEn || l.labelAr || '').trim() || l.url));
+  const widthCls = footerCfg?.contentWidth === 'full' ? 'w-full px-4 sm:px-8' : 'max-w-[1440px] mx-auto px-4 sm:px-8';
+  const footerBg = footerCfg?.bgColor || '#111111';
+  const footerText = footerCfg?.textColor || undefined;
+  const linkColor = footerCfg?.linkColor || undefined;
+  const fontSizePx = footerCfg?.fontSizePx || 12;
+  const colGap = footerCfg?.columnGapPx || 40;
+  const deskCols = footerCfg?.desktopColumns || 4;
+  const whatsappDigits = (footerCfg?.contactWhatsApp || '').replace(/\D/g, '');
 
   const goFooterLink = (url: string) => {
     const href = (url || '').trim();
@@ -137,11 +154,26 @@ export const Footer: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  if (!footerEnabled) return null;
+
+  const colGridClass =
+    deskCols <= 1
+      ? 'grid-cols-1'
+      : deskCols === 2
+        ? 'grid-cols-2'
+        : deskCols === 3
+          ? 'grid-cols-2 sm:grid-cols-3'
+          : 'grid-cols-2 sm:grid-cols-4';
+
   return (
-    <footer data-customize-section="C-FOOT" className="w-full bg-[#111111] text-neutral-200 text-start text-xs selection:bg-neutral-800 selection:text-white border-t border-neutral-800 relative z-30">
+    <footer
+      data-customize-section="C-FOOT"
+      className="w-full text-neutral-200 text-start selection:bg-neutral-800 selection:text-white border-t border-neutral-800 relative z-30"
+      style={{ backgroundColor: footerBg, color: footerText, fontSize: `${fontSizePx}px` }}
+    >
       {/* 1. Breadcrumb & Back to Top Strip (Screenshot 5) */}
       <div className="border-b border-neutral-800/80 py-3 px-4 sm:px-8">
-        <div className="max-w-[1440px] mx-auto flex items-center justify-between text-neutral-300 text-[11px] font-medium">
+        <div className={`${widthCls} flex items-center justify-between text-neutral-300 text-[11px] font-medium`}>
           <div className="flex items-center gap-1.5 flex-wrap">
             <button onClick={() => navigateTo('home')} className="hover:text-white transition-colors cursor-pointer">
               {storeDisplayName}
@@ -191,8 +223,8 @@ export const Footer: React.FC = () => {
       </div>
 
       {/* 2. Main Footer Body (Screenshot 5 Exact Grid) */}
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-8 py-12 sm:py-16">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14">
+      <div className={`${widthCls} py-12 sm:py-16`}>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14" style={{ gap: undefined }}>
           {/* Left Column: Newsletter Subscription & Official Hotline (5 cols) — Word C-NEWS */}
           <div className="lg:col-span-5 space-y-6">
             {showNewsletter ? (
@@ -262,56 +294,103 @@ export const Footer: React.FC = () => {
             ) : null}
 
             {/* Consumer Hotline Block (Screenshot 5) */}
-            <div className="pt-2 space-y-1.5 text-xs">
+            {showContact ? (
+            <div className="pt-2 space-y-1.5 text-xs" data-footer-contact="on">
               <div className="flex items-center gap-2 text-white font-bold">
                 <Phone className="w-3.5 h-3.5" />
                 <span>{language === 'AR' ? 'خدمة العملاء والرقم المجاني' : 'Consumer hotline'}</span>
               </div>
               <div className="text-white font-mono font-bold text-sm">
-                {storeDisplayPhone} <span className="text-neutral-300 text-xs font-sans font-normal ms-1">{contactHours}</span>
+                <a href={`tel:${storeDisplayPhone.replace(/\s/g, '')}`} className="hover:underline">
+                  {storeDisplayPhone}
+                </a>{' '}
+                <span className="text-neutral-300 text-xs font-sans font-normal ms-1">{contactHours}</span>
               </div>
               <div className="text-neutral-300 font-mono text-xs">
-                {storeDisplayEmail}
+                <a href={`mailto:${storeDisplayEmail}`} className="hover:underline">
+                  {storeDisplayEmail}
+                </a>
               </div>
+              {whatsappDigits ? (
+                <a
+                  href={`https://wa.me/${whatsappDigits}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-neutral-300 hover:text-white text-xs"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span>{language === 'AR' ? 'واتساب' : 'WhatsApp'}</span>
+                </a>
+              ) : null}
               {contactAddress ? <div className="text-neutral-300 text-xs">{contactAddress}</div> : null}
             </div>
+            ) : null}
 
-            {/* Official KSA VAT & Commercial Registration — real store identity only */}
-            {(storeIdentity?.vatNumber || storeIdentity?.commercialReg) ? (
+            {/* Official KSA VAT & Commercial Registration — store identity + optional footer overrides */}
+            {(storeIdentity?.vatNumber ||
+              storeIdentity?.commercialReg ||
+              (footerCfg?.showTaxNumber && footerCfg?.taxNumber) ||
+              (footerCfg?.showCrNumber && footerCfg?.crNumber)) ? (
               <div className="text-[11px] text-neutral-300 space-y-1.5 pt-1 font-mono">
-                {storeIdentity?.vatNumber ? (
+                {(footerCfg?.showTaxNumber && footerCfg?.taxNumber) || storeIdentity?.vatNumber ? (
                   <div>
                     {isAr ? 'الرقم الضريبي / ضريبة القيمة المضافة:' : 'Tax ID / VAT Registration No.'}{' '}
-                    {storeIdentity.vatNumber}
+                    {(footerCfg?.showTaxNumber && footerCfg?.taxNumber) || storeIdentity?.vatNumber}
                   </div>
                 ) : null}
-                {storeIdentity?.commercialReg ? (
+                {(footerCfg?.showCrNumber && footerCfg?.crNumber) || storeIdentity?.commercialReg ? (
                   <div>
                     {isAr ? 'السجل التجاري:' : 'Commercial Registration No.'}{' '}
-                    {storeIdentity.commercialReg}
+                    {(footerCfg?.showCrNumber && footerCfg?.crNumber) || storeIdentity?.commercialReg}
                   </div>
                 ) : null}
               </div>
             ) : null}
 
-            {/* Social Icons Row — C-FOOT showSocial */}
-            {showSocial ? (
-            <div className="flex items-center gap-3 pt-2">
-              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="w-8 h-8 rounded-full bg-neutral-900 hover:bg-neutral-800 text-white flex items-center justify-center transition-colors">
-                <Facebook className="w-4 h-4" />
-              </a>
-              <a href="https://x.com" target="_blank" rel="noopener noreferrer" aria-label="X (Twitter)" className="w-8 h-8 rounded-full bg-neutral-900 hover:bg-neutral-800 text-white flex items-center justify-center transition-colors">
-                <span className="font-bold text-xs">𝕏</span>
-              </a>
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="w-8 h-8 rounded-full bg-neutral-900 hover:bg-neutral-800 text-white flex items-center justify-center transition-colors">
-                <Instagram className="w-4 h-4" />
-              </a>
-              <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" aria-label="YouTube" className="w-8 h-8 rounded-full bg-neutral-900 hover:bg-neutral-800 text-white flex items-center justify-center transition-colors">
-                <Youtube className="w-4 h-4" />
-              </a>
-              <a href="https://tiktok.com" target="_blank" rel="noopener noreferrer" aria-label="TikTok" className="w-8 h-8 rounded-full bg-neutral-900 hover:bg-neutral-800 text-white flex items-center justify-center transition-colors">
-                <span className="font-bold text-xs">♪</span>
-              </a>
+            {/* Social Icons Row — only merchant-configured URLs (no fake network links) */}
+            {showSocial && socialLinks.length > 0 ? (
+            <div className="flex items-center gap-3 pt-2" data-footer-social="on">
+              {socialLinks.map((s) => {
+                const href = s.url.trim();
+                const label =
+                  s.platform === 'instagram'
+                    ? 'Instagram'
+                    : s.platform === 'facebook'
+                      ? 'Facebook'
+                      : s.platform === 'youtube'
+                        ? 'YouTube'
+                        : s.platform === 'tiktok'
+                          ? 'TikTok'
+                          : s.platform === 'x'
+                            ? 'X'
+                            : s.platform === 'whatsapp'
+                              ? 'WhatsApp'
+                              : 'Social';
+                return (
+                  <a
+                    key={s.id}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={label}
+                    className="w-8 h-8 rounded-full bg-neutral-900 hover:bg-neutral-800 text-white flex items-center justify-center transition-colors"
+                  >
+                    {s.platform === 'facebook' ? (
+                      <Facebook className="w-4 h-4" />
+                    ) : s.platform === 'instagram' ? (
+                      <Instagram className="w-4 h-4" />
+                    ) : s.platform === 'youtube' ? (
+                      <Youtube className="w-4 h-4" />
+                    ) : s.platform === 'x' ? (
+                      <span className="font-bold text-xs">𝕏</span>
+                    ) : s.platform === 'whatsapp' ? (
+                      <MessageCircle className="w-4 h-4" />
+                    ) : (
+                      <span className="font-bold text-xs">♪</span>
+                    )}
+                  </a>
+                );
+              })}
             </div>
             ) : null}
             {footerCfg?.showPaymentIcons && paymentLabel ? (
@@ -321,12 +400,18 @@ export const Footer: React.FC = () => {
 
           {/* Right Columns — Word C-FOOT from theme settings */}
           {showFooterColumns ? (
-          <div className={`lg:col-span-7 grid gap-8 text-[11px] text-neutral-300 ${
-            footerColumns.length <= 2 ? 'grid-cols-2' : footerColumns.length === 3 ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'
-          }`}>
+          <div
+            className={`lg:col-span-7 grid text-[11px] text-neutral-300 ${colGridClass}`}
+            style={{ gap: `${colGap}px` }}
+          >
             {footerColumns.length > 0 ? (
               footerColumns.map((col) => (
-                <div key={col.id} className="space-y-3">
+                <div
+                  key={col.id}
+                  className={`space-y-3 ${
+                    col.showDesktop === false ? 'lg:hidden' : ''
+                  } ${col.showMobile === false ? 'hidden lg:block' : ''}`}
+                >
                   <h4 className="text-white font-bold text-xs tracking-wide uppercase">
                     {bi(language, col.titleEn, col.titleAr)}
                   </h4>
@@ -338,12 +423,15 @@ export const Footer: React.FC = () => {
                     ) : null
                   ) : null}
                   <ul className="space-y-2.5">
-                    {(col.links || []).map((link) => (
+                    {(col.links || [])
+                      .filter((link) => link.enabled !== false)
+                      .map((link) => (
                       <li key={link.id}>
                         <button
                           type="button"
                           onClick={() => goFooterLink(link.url)}
-                          className="hover:text-white transition-colors cursor-pointer text-start"
+                          className="transition-colors cursor-pointer text-start hover:opacity-100"
+                          style={{ color: linkColor }}
                         >
                           {bi(language, link.labelEn, link.labelAr)}
                         </button>
@@ -362,18 +450,32 @@ export const Footer: React.FC = () => {
         </div>
 
         {/* 3. Bottom Legal & Country Selector Strip (Screenshot 5) */}
-        <div className="mt-14 pt-8 border-t border-neutral-800/80 flex flex-col md:flex-row items-center justify-between gap-4 text-[11px] text-neutral-300">
-          {/* Legal Links */}
+        {showBottomBar ? (
+        <div className="mt-14 pt-8 border-t border-neutral-800/80 flex flex-col md:flex-row items-center justify-between gap-4 text-[11px] text-neutral-300" data-footer-bottom="on">
+          {/* Legal Links — merchant bottom links when set, else locked HiBrew defaults */}
           <div className="flex items-center gap-4 flex-wrap">
-            <button onClick={() => navigateTo('terms')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'الشروط والأحكام' : 'Terms Of Use'}</button>
-            <span className="text-neutral-600">|</span>
-            <button onClick={() => navigateTo('privacy')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'سياسة الخصوصية' : 'Privacy Statement'}</button>
-            <span className="text-neutral-600">|</span>
-            <a href="/sitemap.xml" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors cursor-pointer">
-              {language === 'AR' ? 'خريطة الموقع' : 'Sitemap'}
-            </a>
-            <span className="text-neutral-600">|</span>
-            <button onClick={() => navigateTo('privacy')} className="hover:text-white transition-colors cursor-pointer">{language === 'AR' ? 'ملفات تعريف الارتباط' : 'Cookie Policy'}</button>
+            {/* DF-04 — empty bottomLinks stay empty (no hardcoded legal invent) */}
+            {bottomLinks.map((link, i) => (
+              <React.Fragment key={link.id}>
+                {i > 0 ? <span className="text-neutral-600">|</span> : null}
+                <button
+                  type="button"
+                  onClick={() => goFooterLink(link.url)}
+                  className="hover:text-white transition-colors cursor-pointer"
+                  style={footerCfg?.linkHoverColor ? undefined : undefined}
+                  onMouseEnter={(e) => {
+                    if (footerCfg?.linkHoverColor) {
+                      (e.currentTarget as HTMLButtonElement).style.color = footerCfg.linkHoverColor;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.color = '';
+                  }}
+                >
+                  {bi(language, link.labelEn, link.labelAr)}
+                </button>
+              </React.Fragment>
+            ))}
           </div>
 
           {/* Country Selector & Copyright */}
@@ -396,6 +498,7 @@ export const Footer: React.FC = () => {
             </span>
           </div>
         </div>
+        ) : null}
       </div>
     </footer>
   );

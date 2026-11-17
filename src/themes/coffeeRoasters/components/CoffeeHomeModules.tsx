@@ -2,26 +2,20 @@ import React from 'react';
 import { useCart } from '../context/CartContext';
 import { bi } from '../../settings/coffeeModularSettings';
 import type { AllThemeSettings } from '../../settings/themeSettingsStore';
+import {
+  itemDisplayImage,
+  itemDisplayName,
+  matchCarouselCategory,
+  resolveCarouselCards,
+} from './coffeeProductCarouselLogic';
+import { benefitCardFaded, visibleBenefitItems } from './coffeeBenefitsLogic';
 
 function productImage(p: { images?: string[]; colors?: { image?: string }[] }): string {
   return p.colors?.[0]?.image || p.images?.[0] || '';
 }
 
 function matchCategory(category: string | undefined, categoryId: string): boolean {
-  if (!categoryId || categoryId === 'all') return true;
-  const cat = (category || '').toLowerCase().trim();
-  const id = categoryId.toLowerCase().trim();
-  if (!cat) return false;
-  if (cat === id || cat.includes(id) || id.includes(cat)) return true;
-  const aliases: Record<string, string[]> = {
-    machines: ['machine', 'espresso', 'مكائن', 'اسبريسو', 'إسبريسو'],
-    mills: ['mill', 'grinder', 'مطاحن', 'مطحنة'],
-    cabinets: ['cabinet', 'bar', 'خزائن', 'خزانة', 'أركان', 'دواليب'],
-    accessories: ['accessor', 'barista', 'مستلزم', 'أكواب', 'إكسسوار'],
-    offers: ['offer', 'bundle', 'عروض', 'باقات'],
-  };
-  const keys = aliases[id] || [id];
-  return keys.some((k) => cat.includes(k));
+  return matchCarouselCategory(category, categoryId);
 }
 
 export type CoffeeHomeModuleKey =
@@ -49,15 +43,28 @@ export const CoffeeHomeModules: React.FC<{
   const imageItems = images?.enabled ? (images.items || []).filter((it) => it.enabled !== false && it.image) : [];
 
   const benefits = settings.exclusiveBenefits;
-  const benefitItems = benefits?.enabled ? (benefits.items || []).filter((it) => it.enabled) : [];
+  const benefitItems = visibleBenefitItems(benefits);
 
   const carousel = settings.productCarousel;
-  const carouselProducts =
-    carousel?.enabled
-      ? (products || [])
-          .filter((p) => matchCategory(p.category, carousel.categoryId))
-          .slice(0, Math.max(carousel.productCount || 0, (products || []).length, 12))
-      : [];
+  const carouselResolved = resolveCarouselCards(
+    carousel,
+    (products || []).map((p) => ({
+      id: p.id,
+      name: p.name,
+      nameAr: p.nameAr,
+      nameEn: p.nameEn,
+      category: p.category,
+      stock: p.stock,
+      price: p.basePrice,
+      basePrice: p.basePrice,
+      originalPrice: p.originalPrice,
+      discountedPrice: p.discountedPrice,
+      image: productImage(p),
+      images: p.images,
+      colors: p.colors,
+    })),
+  );
+  const carouselCards = carouselResolved.cards;
 
   const combo = settings.productCarouselBanner;
   const comboProducts =
@@ -76,19 +83,41 @@ export const CoffeeHomeModules: React.FC<{
 
   return (
     <>
-      {show('imageBanners') && imageItems.length === 0 && emptyHint('بانرات الصور فارغة — اضبطها من تخصيص الثيم', 'Image banners empty — configure in Customize Themes')}
+      {show('imageBanners') && imageItems.length === 0 && emptyHint('لافتات الصور فارغة — اضبطها من تخصيص الثيم', 'Image banners empty — configure in Customize Themes')}
       {show('imageBanners') && imageItems.length > 0 && (
         <section data-customize-section="C-IMG" className="w-full max-w-[1360px] mx-auto px-4 lg:px-8 py-8">
-          <div className={`grid gap-4 ${images.columnsMobile === 2 ? 'grid-cols-2' : 'grid-cols-1'} md:grid-cols-3`}>
-            {imageItems.map((it) => (
+          <div
+            className={
+              images.layout === 'stack'
+                ? 'flex flex-col gap-4'
+                : images.layout === 'row'
+                  ? 'flex overflow-x-auto gap-4'
+                  : `grid gap-4 ${images.columnsMobile === 2 ? 'grid-cols-2' : 'grid-cols-1'} ${
+                      (images.columnsDesktop || 3) >= 4
+                        ? 'md:grid-cols-4'
+                        : (images.columnsDesktop || 3) === 2
+                          ? 'md:grid-cols-2'
+                          : (images.columnsDesktop || 3) === 1
+                            ? 'md:grid-cols-1'
+                            : 'md:grid-cols-3'
+                    }`
+            }
+          >
+            {imageItems.map((it) => {
+              const overlay = it.overlay || 'gradient';
+              return (
               <button
                 key={it.id}
                 type="button"
                 onClick={() => navigateTo(it.link === 'custom-order' ? 'custom-order' : 'products')}
-                className="relative overflow-hidden rounded-3xl min-h-[220px] text-start text-white"
+                className={`relative overflow-hidden rounded-3xl min-h-[220px] text-start text-white ${images.layout === 'row' ? 'min-w-[260px] shrink-0' : ''}`}
               >
                 <img src={it.image} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-black/10" />
+                {overlay === 'none' ? null : overlay === 'dark' ? (
+                  <div className="absolute inset-0 bg-black/50" />
+                ) : (
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-black/10" />
+                )}
                 <div className="relative z-10 p-5 h-full flex flex-col justify-end">
                   <h3 className="font-bold text-lg">{bi(lang, it.titleEn, it.titleAr)}</h3>
                   <p className="text-xs text-white/80">{bi(lang, it.subtitleEn, it.subtitleAr)}</p>
@@ -97,7 +126,7 @@ export const CoffeeHomeModules: React.FC<{
                   )}
                 </div>
               </button>
-            ))}
+            );})}
           </div>
         </section>
       )}
@@ -112,33 +141,79 @@ export const CoffeeHomeModules: React.FC<{
             <p className="text-sm text-neutral-500 text-center mb-6">{bi(lang, benefits.subtitleEn, benefits.subtitleAr)}</p>
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {benefitItems.map((it) => (
-              <div key={it.id} className="rounded-2xl bg-[#F8F9FA] p-4 text-start">
-                <h3 className="font-bold text-sm">{bi(lang, it.titleEn, it.titleAr)}</h3>
-                <p className="text-xs text-neutral-500 mt-1">{bi(lang, it.descriptionEn, it.descriptionAr)}</p>
-              </div>
-            ))}
+            {benefitItems.map((it) => {
+              const faded = benefitCardFaded(it);
+              return (
+                <div
+                  key={it.id}
+                  className="rounded-2xl bg-[#F8F9FA] p-4 text-start"
+                  style={{ opacity: faded ? 0.45 : 1, filter: faded ? 'grayscale(0.65)' : undefined }}
+                >
+                  <h3 className="font-bold text-sm">{bi(lang, it.titleEn, it.titleAr)}</h3>
+                  <p className="text-xs text-neutral-500 mt-1">{bi(lang, it.descriptionEn, it.descriptionAr)}</p>
+                  {faded ? (
+                    <p className="text-[10px] font-bold text-neutral-400 mt-1">
+                      {language === 'AR' ? 'غير متاح حالياً' : 'Currently unavailable'}
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
         </section>
       )}
 
-      {show('productCarousel') && !(carousel?.enabled && carouselProducts.length > 0) && emptyHint('كاروسيل المنتجات فارغ — اضبطه من تخصيص الثيم', 'Product carousel empty — configure in Customize Themes')}
-      {show('productCarousel') && carousel?.enabled && carouselProducts.length > 0 && (
+      {show('productCarousel') && !(carousel?.enabled && carouselCards.length > 0) && emptyHint('كاروسيل المنتجات فارغ — اضبطه من تخصيص الثيم', 'Product carousel empty — configure in Customize Themes')}
+      {show('productCarousel') && carousel?.enabled && carouselCards.length > 0 && (
         <section data-customize-section="C-PC" className="w-full max-w-[1360px] mx-auto px-4 lg:px-8 py-8">
-          <h2 className="text-2xl font-bold text-center">{bi(lang, carousel.titleEn, carousel.titleAr)}</h2>
+          {(carousel.titleEn || carousel.titleAr) ? (
+            <h2 className="text-2xl font-bold text-center">{bi(lang, carousel.titleEn, carousel.titleAr)}</h2>
+          ) : null}
           {(carousel.subtitleEn || carousel.subtitleAr) && (
             <p className="text-sm text-neutral-500 text-center mt-1 mb-5">{bi(lang, carousel.subtitleEn, carousel.subtitleAr)}</p>
           )}
-          <div className="flex gap-4 overflow-x-auto no-scrollbar py-2">
-            {carouselProducts.map((p) => (
-              <button key={p.id} type="button" onClick={() => navigateTo('product-detail', p.id)} className="shrink-0 w-56 rounded-2xl bg-white border border-neutral-100 p-4 text-center">
-                {productImage(p) ? <img src={productImage(p)} alt="" className="h-32 w-full object-contain" /> : null}
-                <div className="font-bold text-sm mt-2">
-                  {language === 'AR' ? (p.nameAr || '').trim() : (p.name || '').trim()}
-                </div>
-                <div className="text-xs mt-1">{language === 'AR' ? `${p.basePrice.toLocaleString()}ر.س` : `SAR ${p.basePrice.toLocaleString()}`}</div>
-              </button>
-            ))}
+          <div
+            className={`flex overflow-x-auto py-2 ${carousel.enableTouchSwipe === false ? '' : 'no-scrollbar'}`}
+            style={{ gap: carousel.itemSpacing ?? 16 }}
+          >
+            {carouselCards.map(({ item, catalog }) => {
+              const pid = item.productId || catalog?.id || '';
+              const name = itemDisplayName(item, lang, catalog);
+              const img = itemDisplayImage(item, catalog);
+              const price =
+                item.discountedPrice != null && item.discountedPrice > 0
+                  ? item.discountedPrice
+                  : item.originalPrice != null
+                    ? item.originalPrice
+                    : catalog?.discountedPrice ?? catalog?.basePrice ?? catalog?.price ?? null;
+              const radius = carousel.cardStyle === 'square' ? 0 : carousel.cardBorderRadius ?? 16;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => (pid ? navigateTo('product-detail', pid) : undefined)}
+                  className="shrink-0 border text-center"
+                  style={{
+                    width: 224,
+                    borderRadius: radius,
+                    padding: carousel.cardPadding ?? 16,
+                    background: carousel.cardBgColor || '#FFFFFF',
+                    borderColor: '#f5f5f5',
+                  }}
+                >
+                  {(item.promoTagEn || item.promoTagAr) ? (
+                    <div className="text-[10px] font-bold mb-1 text-[#173B35]">{bi(lang, item.promoTagEn, item.promoTagAr)}</div>
+                  ) : null}
+                  {img ? <img src={img} alt="" className="h-32 w-full object-contain" /> : null}
+                  <div className="font-bold text-sm mt-2">{name}</div>
+                  {price != null ? (
+                    <div className="text-xs mt-1">
+                      {language === 'AR' ? `${Number(price).toLocaleString()}ر.س` : `SAR ${Number(price).toLocaleString()}`}
+                    </div>
+                  ) : null}
+                </button>
+              );
+            })}
           </div>
         </section>
       )}

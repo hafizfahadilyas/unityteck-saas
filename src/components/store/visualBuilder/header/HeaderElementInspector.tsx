@@ -136,7 +136,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
             { id: 'navigation' as const, labelAr: 'القائمة الرئيسية', labelEn: 'Navigation', icon: Menu },
             { id: 'actions' as const, labelAr: 'الأيقونات والسلة', labelEn: 'Actions & Cart', icon: ShoppingBag },
             { id: 'language' as const, labelAr: 'تبديل اللغة', labelEn: 'Language', icon: Globe },
-            { id: 'general' as const, labelAr: 'حاوية الهيدر', labelEn: 'Container', icon: Sliders },
+            { id: 'general' as const, labelAr: 'حاوية الترويسة', labelEn: 'Container', icon: Sliders },
           ].map((item) => {
             const Icon = item.icon;
             const isCurrent = activeSubElement === item.id;
@@ -509,6 +509,276 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
           {activeSubElement === 'navigation' && (
             <div className="space-y-4">
               <div className="border border-slate-200 rounded-2xl p-3.5 bg-slate-50/50 space-y-3">
+                <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-indigo-950 block">
+                      {isAr ? 'تفعيل القائمة الرئيسية' : 'Enable Main Menu'}
+                    </span>
+                    <span className="text-[10px] text-indigo-700">
+                      {isAr
+                        ? 'إخفاء القائمة يحتفظ بالإعدادات دون حذفها'
+                        : 'Turning off hides the menu but keeps saved settings'}
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.navigation.enabled !== false}
+                    onChange={(e) =>
+                      updateSub('navigation', (prev) => ({ ...prev, enabled: e.target.checked }))
+                    }
+                    className="w-4 h-4 accent-indigo-600 cursor-pointer"
+                  />
+                </div>
+
+                <div className="border border-slate-200 rounded-xl p-3 bg-white space-y-2" data-nav-controls="compare">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800">
+                      {isAr ? 'زر المقارنة' : 'Compare Button'}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(settings.navigation.showCompareButton)}
+                      onChange={(e) =>
+                        updateSub('navigation', (prev) => ({
+                          ...prev,
+                          showCompareButton: e.target.checked,
+                        }))
+                      }
+                      className="w-4 h-4 accent-indigo-600 cursor-pointer"
+                    />
+                  </div>
+                  {settings.navigation.showCompareButton ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        dir="rtl"
+                        value={settings.navigation.compareButtonLabelAr || ''}
+                        onChange={(e) =>
+                          updateSub('navigation', (prev) => ({
+                            ...prev,
+                            compareButtonLabelAr: e.target.value,
+                          }))
+                        }
+                        className="px-2 py-1 text-xs rounded border border-slate-200"
+                        placeholder={isAr ? 'نص المقارنة عربي' : 'Arabic compare label'}
+                      />
+                      <input
+                        type="text"
+                        dir="ltr"
+                        value={settings.navigation.compareButtonLabelEn || ''}
+                        onChange={(e) =>
+                          updateSub('navigation', (prev) => ({
+                            ...prev,
+                            compareButtonLabelEn: e.target.value,
+                          }))
+                        }
+                        className="px-2 py-1 text-xs rounded border border-slate-200"
+                        placeholder={isAr ? 'نص المقارنة إنجليزي' : 'English compare label'}
+                      />
+                      <input
+                        type="number"
+                        min={2}
+                        max={6}
+                        value={settings.navigation.maxCompareProducts ?? 3}
+                        onChange={(e) =>
+                          updateSub('navigation', (prev) => ({
+                            ...prev,
+                            maxCompareProducts: Math.max(2, Math.min(6, Number(e.target.value) || 3)),
+                          }))
+                        }
+                        className="px-2 py-1 text-xs rounded border border-slate-200"
+                        title={isAr ? 'أقصى منتجات للمقارنة' : 'Max products to compare'}
+                      />
+                      <input
+                        type="text"
+                        dir="ltr"
+                        value={settings.navigation.comparePageUrl || ''}
+                        onChange={(e) =>
+                          updateSub('navigation', (prev) => ({
+                            ...prev,
+                            comparePageUrl: e.target.value,
+                          }))
+                        }
+                        className="px-2 py-1 text-xs rounded border border-slate-200 font-mono"
+                        placeholder="/compare"
+                      />
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="border border-slate-200 rounded-xl p-3 bg-white space-y-2" data-nav-controls="view-more">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800">
+                      {isAr ? 'زر عرض المزيد' : 'View More Button'}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(settings.navigation.showViewMoreButton)}
+                      onChange={(e) =>
+                        updateSub('navigation', (prev) => ({
+                          ...prev,
+                          showViewMoreButton: e.target.checked,
+                        }))
+                      }
+                      className="w-4 h-4 accent-[var(--portal-cta)] cursor-pointer"
+                    />
+                  </div>
+                  {settings.navigation.showViewMoreButton ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        dir="rtl"
+                        value={settings.navigation.viewMoreLabelAr || ''}
+                        onChange={(e) =>
+                          updateSub('navigation', (prev) => ({
+                            ...prev,
+                            viewMoreLabelAr: e.target.value,
+                          }))
+                        }
+                        className="px-2 py-1 text-xs rounded border border-slate-200"
+                        placeholder={isAr ? 'عرض المزيد' : 'Arabic label'}
+                      />
+                      <input
+                        type="text"
+                        dir="ltr"
+                        value={settings.navigation.viewMoreLabelEn || ''}
+                        onChange={(e) =>
+                          updateSub('navigation', (prev) => ({
+                            ...prev,
+                            viewMoreLabelEn: e.target.value,
+                          }))
+                        }
+                        className="px-2 py-1 text-xs rounded border border-slate-200"
+                        placeholder={isAr ? 'التسمية الإنجليزية' : 'View more'}
+                      />
+                      <input
+                        type="text"
+                        dir="ltr"
+                        value={settings.navigation.viewMoreUrl || ''}
+                        onChange={(e) =>
+                          updateSub('navigation', (prev) => ({
+                            ...prev,
+                            viewMoreUrl: e.target.value,
+                          }))
+                        }
+                        className="px-2 py-1 text-xs rounded border border-slate-200 font-mono md:col-span-2"
+                        placeholder="/shop"
+                      />
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="border border-slate-200 rounded-xl p-3 bg-white space-y-2" data-menu-panel="products" data-nav-controls="mega-source">
+                  <span className="text-xs font-bold text-slate-800 block">
+                    {isAr ? 'منتجات القائمة الكبرى' : 'Mega menu products'}
+                  </span>
+                  <select
+                    value={settings.navigation.menuProductSource || 'category'}
+                    onChange={(e) =>
+                      updateSub('navigation', (prev) => ({
+                        ...prev,
+                        menuProductSource: e.target.value as 'category' | 'latest' | 'manual',
+                      }))
+                    }
+                    className="w-full px-2 py-1 text-xs rounded border border-slate-200"
+                    data-menu-product-source
+                  >
+                    <option value="category">{isAr ? 'من الفئة النشطة' : 'Active category'}</option>
+                    <option value="latest">{isAr ? 'الأحدث' : 'Latest'}</option>
+                    <option value="manual">{isAr ? 'يدوي' : 'Manual'}</option>
+                  </select>
+                  <input
+                    type="number"
+                    min={1}
+                    max={12}
+                    value={settings.navigation.menuMaxProducts ?? 5}
+                    onChange={(e) =>
+                      updateSub('navigation', (prev) => ({
+                        ...prev,
+                        menuMaxProducts: Math.max(1, Math.min(12, Number(e.target.value) || 5)),
+                      }))
+                    }
+                    className="w-full px-2 py-1 text-xs rounded border border-slate-200"
+                    data-menu-max-products
+                    title={isAr ? 'عدد المنتجات' : 'Product count'}
+                  />
+                </div>
+
+                <div className="border border-slate-200 rounded-xl p-3 bg-white space-y-2" data-menu-panel="devices" data-nav-controls="menu-devices">
+                  <span className="text-xs font-bold text-slate-800 block">
+                    {isAr ? 'تخطيط الأجهزة' : 'Device layouts'}
+                  </span>
+                  {(['desktop', 'tablet', 'mobile'] as const).map((device) => (
+                    <div key={device} className="grid grid-cols-2 gap-2" data-menu-device={device}>
+                      <select
+                        value={settings.navigation.deviceLayouts?.[device]?.layout || 'grid'}
+                        onChange={(e) =>
+                          updateSub('navigation', (prev) => ({
+                            ...prev,
+                            deviceLayouts: {
+                              ...(prev.deviceLayouts || {}),
+                              [device]: {
+                                ...(prev.deviceLayouts?.[device] || {}),
+                                layout: e.target.value as 'horizontal' | 'grid',
+                              },
+                            },
+                          }))
+                        }
+                        className="px-2 py-1 text-xs rounded border border-slate-200"
+                      >
+                        <option value="grid">
+                          {device === 'desktop'
+                            ? isAr
+                              ? 'سطح المكتب — شبكة'
+                              : 'Desktop — grid'
+                            : device === 'tablet'
+                              ? isAr
+                                ? 'لوحي — شبكة'
+                                : 'Tablet — grid'
+                              : isAr
+                                ? 'جوال — شبكة'
+                                : 'Mobile — grid'}
+                        </option>
+                        <option value="horizontal">
+                          {device === 'desktop'
+                            ? isAr
+                              ? 'سطح المكتب — تمرير'
+                              : 'Desktop — scroll'
+                            : device === 'tablet'
+                              ? isAr
+                                ? 'لوحي — تمرير'
+                                : 'Tablet — scroll'
+                              : isAr
+                                ? 'جوال — تمرير'
+                                : 'Mobile — scroll'}
+                        </option>
+                      </select>
+                      <input
+                        type="number"
+                        min={1}
+                        max={6}
+                        value={
+                          settings.navigation.deviceLayouts?.[device]?.columns ??
+                          (device === 'desktop' ? 5 : device === 'tablet' ? 3 : 2)
+                        }
+                        onChange={(e) =>
+                          updateSub('navigation', (prev) => ({
+                            ...prev,
+                            deviceLayouts: {
+                              ...(prev.deviceLayouts || {}),
+                              [device]: {
+                                ...(prev.deviceLayouts?.[device] || {}),
+                                columns: Math.max(1, Math.min(6, Number(e.target.value) || 2)),
+                              },
+                            },
+                          }))
+                        }
+                        className="px-2 py-1 text-xs rounded border border-slate-200"
+                      />
+                    </div>
+                  ))}
+                </div>
+
                 <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                   <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                     <Menu className="w-4 h-4 text-indigo-600" />
@@ -595,7 +865,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
                   <div className="flex items-center justify-between">
                     <label className="text-[11px] font-bold text-rose-950 flex items-center gap-1.5">
                       <Crown className="w-3.5 h-3.5 text-amber-500" />
-                      <span>{isAr ? 'زر "بوابة " المميز' : 'VIP Portal Button'}</span>
+                      <span>{isAr ? 'زر البوابة المميزة' : 'VIP Portal Button'}</span>
                     </label>
                     <input
                       type="checkbox"
@@ -622,7 +892,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
                           }))
                         }
                         className="px-2 py-1 text-xs rounded border border-slate-200 bg-white"
-                        placeholder="بوابة VIP"
+                        placeholder="البوابة المميزة"
                       />
                       <input
                         type="text"
@@ -731,7 +1001,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
                             }));
                           }}
                           className="w-full px-2 py-1 text-xs rounded border border-slate-200 bg-white font-mono text-[11px]"
-                          placeholder="باقات الورود الطبيعية or #magazine"
+                          placeholder={isAr ? 'التصنيف أو الرابط' : 'Category or #link'}
                         />
                       </div>
                     </div>
@@ -986,13 +1256,13 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
           {activeSubElement === 'general' && (
             <div className="border border-slate-200 rounded-2xl p-3.5 bg-slate-50/50 space-y-3">
               <span className="text-xs font-bold text-slate-800 block">
-                {isAr ? 'إعدادات وسلوك الهيدر العام' : 'General Header Behavior'}
+                {isAr ? 'إعدادات وسلوك الترويسة العامة' : 'General Header Behavior'}
               </span>
 
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between p-2 bg-white rounded-xl border border-slate-200">
                   <label className="text-xs font-bold text-slate-700">
-                    {isAr ? 'هيدر ثابت أعلى الصفحة' : 'Sticky Header on Scroll'}
+                    {isAr ? 'ترويسة ثابتة أعلى الصفحة' : 'Sticky Header on Scroll'}
                   </label>
                   <input
                     type="checkbox"
@@ -1023,7 +1293,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
 
                 <div className="p-2 bg-white rounded-xl border border-slate-200">
                   <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                    {isAr ? 'ظل الهيدر' : 'Shadow Depth'}
+                    {isAr ? 'ظل الترويسة' : 'Shadow Depth'}
                   </label>
                   <div className="grid grid-cols-4 gap-1">
                     {(['none', 'sm', 'md', 'lg'] as const).map((sh) => (
@@ -1561,7 +1831,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
               <div className="space-y-3">
                 <div>
                   <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                    {isAr ? 'اللون الأساسي للهيدر' : 'Main Header Color'}
+                    {isAr ? 'اللون الأساسي للترويسة' : 'Main Header Color'}
                   </label>
                   <div className="flex items-center gap-2">
                     <input
@@ -1660,7 +1930,7 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
             <div className="space-y-3">
               <div>
                 <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                  {isAr ? 'حشوة الهيدر الرأسية' : 'Vertical Padding'}:{' '}
+                  {isAr ? 'حشوة الترويسة الرأسية' : 'Vertical Padding'}:{' '}
                   <span className="text-indigo-600 font-mono">{settings.general.paddingY}px</span>
                 </label>
                 <input

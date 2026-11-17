@@ -5,6 +5,14 @@ import { Gift, Zap, CheckCircle2, ShoppingBag, Coffee, Sparkles, ShieldCheck, Ch
 import { resolveProductThumbnail, handleImageError } from '../../../utils/imageFallback';
 import { productCardFlags, type CoffeeFeaturedProductsSettings } from '../../settings/coffeeModularSettings';
 
+type ShopCardExtraFlags = {
+  showGiftLabel?: boolean;
+  showInstallment?: boolean;
+  showBuyNow?: boolean;
+  showLearnMore?: boolean;
+  showOriginalPrice?: boolean;
+};
+
 interface HonorProductCardProps {
   product: Product;
   giftValue?: number;
@@ -13,7 +21,7 @@ interface HonorProductCardProps {
   specLabelAr?: string;
   onBuyNow?: (product: Product) => void;
   onAddToCart?: (product: Product) => void;
-  flags?: Partial<ReturnType<typeof productCardFlags>>;
+  flags?: Partial<ReturnType<typeof productCardFlags>> & ShopCardExtraFlags;
 }
 
 export const HonorProductCard: React.FC<HonorProductCardProps> = ({
@@ -29,6 +37,11 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
   const { navigateTo, language, addToCart, triggerFlyToCart } = useCart();
   const isAr = language === 'AR';
   const card = productCardFlags(flags as CoffeeFeaturedProductsSettings | undefined);
+  const showGiftLabel = flags?.showGiftLabel !== false;
+  const showInstallment = flags?.showInstallment !== false;
+  const showBuyNow = flags?.showBuyNow !== false;
+  const showLearnMore = flags?.showLearnMore !== false;
+  const showOriginalPrice = flags?.showOriginalPrice !== false;
   const stock = (product as Product & { stock?: number }).stock;
 
   // Dynamic calculations
@@ -126,6 +139,7 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
         ) : null}
 
         {/* 2. GIFT PERKS PILL (Warm Coffee Bronze Style with SVG icons) */}
+        {showGiftLabel ? (
         <div className="bg-[#F8F2EC] border-0 rounded-xl sm:rounded-2xl px-2 py-1 sm:px-3 sm:py-1.5 flex items-center justify-between gap-1 sm:gap-2 text-[9px] sm:text-[11px] font-bold text-[#78471A]">
           <div className="flex items-center gap-1 shrink-0 min-w-0">
             <Gift className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#78471A] shrink-0" />
@@ -147,6 +161,7 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
             ))}
           </div>
         </div>
+        ) : null}
 
         {/* 3. BOLD PRICE + INSTALLMENT NOTE */}
         {card.showPrice ? (
@@ -156,7 +171,7 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
               {price.toLocaleString()}
             </span>
             <span className="text-[11px] sm:text-sm font-bold text-neutral-800">{currency}</span>
-            {product.originalPrice && product.originalPrice > price && (
+            {showOriginalPrice && product.originalPrice && product.originalPrice > price && (
               <span className="text-[10px] sm:text-xs text-neutral-400 line-through ms-1 sm:ms-2 font-sans">
                 {product.originalPrice.toLocaleString()} {currency}
               </span>
@@ -164,11 +179,13 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
           </div>
 
           {/* Installment breakdown (Tabby & Tamara style) */}
+          {showInstallment ? (
           <p className="text-[9px] sm:text-[11px] text-neutral-500 font-medium truncate">
             {isAr
               ? `أو يبدأ من${monthlyInstallment}ر.س / شهرياً`
               : `Or from ${monthlyInstallment} SAR / mo`}
           </p>
+          ) : null}
         </div>
         ) : null}
 
@@ -216,9 +233,9 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
 
       {/* 5. BOTTOM ACTION BUTTONS: Dual Buttons [Buy Now + Add to Cart] & Spaced [Learn More] */}
       <div className="pt-2 sm:pt-3 space-y-2">
-        {/* Dual CTA Buttons (Side-by-Side) */}
-        <div className={`${card.showAddToCart ? 'grid grid-cols-2' : 'grid grid-cols-1'} gap-1.5 sm:gap-2`}>
-          {/* Buy Now Button */}
+        {(showBuyNow || card.showAddToCart) ? (
+        <div className={`${showBuyNow && card.showAddToCart ? 'grid grid-cols-2' : 'grid grid-cols-1'} gap-1.5 sm:gap-2`}>
+          {showBuyNow ? (
           <button
             type="button"
             onClick={handleBuy}
@@ -227,6 +244,7 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
             <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-300 shrink-0" />
             <span className="truncate whitespace-nowrap">{isAr ? 'اشتر الآن' : 'Buy Now'}</span>
           </button>
+          ) : null}
 
           {card.showAddToCart ? (
           <button
@@ -252,8 +270,9 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
           </button>
           ) : null}
         </div>
+        ) : null}
 
-        {/* Learn More Button (Subtle, slightly visible with dedicated spacing) */}
+        {showLearnMore ? (
         <button
           type="button"
           onClick={handleLearnMore}
@@ -262,6 +281,7 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
           <span>{isAr ? 'اعرف المزيد' : 'Learn More'}</span>
           <ChevronRight className="w-3.5 h-3.5 text-neutral-400 group-hover/lm:text-black rtl:rotate-180 transition-transform group-hover/lm:translate-x-0.5 rtl:group-hover/lm:-translate-x-0.5" />
         </button>
+        ) : null}
       </div>
     </div>
   );

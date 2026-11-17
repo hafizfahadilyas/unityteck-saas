@@ -12,17 +12,12 @@ import {
   useCoffeeDraft,
 } from './coffeeFormKit';
 import type {
-  FeaturedCategoryEntry,
   FeaturedSectionBanner,
   ImageBannerItem,
-  ExclusiveBenefitItem,
   FooterColumn,
   CustomOrderField,
-  ShopCatalogSettings,
-  CheckoutFieldSettings,
-  SeoDefaultSettings,
 } from '../../../../themes/settings/coffeeModularSettings';
-import { bi, shopGridClass } from '../../../../themes/settings/coffeeModularSettings';
+import { bi } from '../../../../themes/settings/coffeeModularSettings';
 import type { BannerItem } from '../../../../themes/settings/themeSettingsStore';
 import { fetchProducts, updateProduct, fetchStoreReviewsApi, saveStoreReviewsApi, type StoreReviewRecord } from '../../../../api/tenantApi';
 import type { Product } from '../../../../types';
@@ -86,221 +81,7 @@ function wordForm(
   );
 }
 
-export const FeaturedCategoriesProductsForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embedded }) => {
-  const { draft, setDraft, save, saving, savedFlash, isAr } = useCoffeeDraft('featuredCategoriesProducts');
-  const sections = draft?.sections || [];
-  const patchSection = (id: string, patch: Partial<(typeof sections)[number]>) =>
-    setDraft({ ...draft, sections: sections.map((s) => (s.id === id ? { ...s, ...patch } : s)) });
-
-  return wordForm({
-    onBack,
-    embedded,
-    isAr,
-    saving,
-    savedFlash,
-    onSave: save,
-    titleEn: 'Featured Categories & Products',
-    titleAr: 'التصنيفات والمنتجات المميزة',
-    subtitleEn: 'Category rails and product counts. The storefront reads this key after Save.',
-    subtitleAr: 'صفوف التصنيفات وعدد المنتجات. المتجر يقرأ هذا المفتاح بعد الحفظ.',
-    preview: () => (
-      <LinesPreview
-        device="desktop"
-        title={bi(isAr ? 'ar' : 'en', sections[0]?.titleEn, sections[0]?.titleAr) || (isAr ? 'التصنيفات' : 'Categories')}
-        lines={(sections[0]?.categories || []).map((c) => bi(isAr ? 'ar' : 'en', c.labelEn, c.labelAr))}
-        image={sections[0]?.categories?.[0]?.image}
-      />
-    ),
-  }, (
-    <>
-      <EnableRow isAr={isAr} enabled={!!draft?.enabled} onChange={(v) => setDraft({ ...draft, enabled: v })} />
-      <p className="text-[11px] text-slate-500">{isAr ? `الأقسام` : `Sections (${sections.length})`}</p>
-      {sections.length === 0 && (
-        <p className="text-xs text-muted">{isAr ? 'لا توجد أقسام. أضف قسماً لعرضه في المتجر.' : 'No sections yet. Add one to show it on the storefront.'}</p>
-      )}
-      {sections.map((section, index) => (
-        <div key={section.id} className={cardCls} style={cardStyle}>
-          <div className="flex items-center justify-between gap-2">
-            <EnableRow isAr={isAr} enabled={section.enabled} onChange={(v) => patchSection(section.id, { enabled: v })} labelEn="Section" labelAr="القسم" />
-            <RowTools
-              isAr={isAr}
-              visible={section.enabled !== false}
-              onToggleVisible={() => patchSection(section.id, { enabled: section.enabled === false })}
-              index={index}
-              total={sections.length}
-              onUp={() => setDraft({ ...draft, sections: moveItem(sections, index, -1) })}
-              onDown={() => setDraft({ ...draft, sections: moveItem(sections, index, 1) })}
-              onDuplicate={() => setDraft({ ...draft, sections: duplicateAt(sections, index, 'fcp') })}
-              onDelete={() => setDraft({ ...draft, sections: sections.filter((s) => s.id !== section.id) })}
-            />
-          </div>
-          <BiFields isAr={isAr} labelEn="Title" labelAr="العنوان" en={section.titleEn} ar={section.titleAr} max={100} onEn={(v) => patchSection(section.id, { titleEn: v })} onAr={(v) => patchSection(section.id, { titleAr: v })} />
-          <BiFields isAr={isAr} labelEn="Description" labelAr="الوصف" en={section.descriptionEn} ar={section.descriptionAr} max={200} onEn={(v) => patchSection(section.id, { descriptionEn: v })} onAr={(v) => patchSection(section.id, { descriptionAr: v })} />
-          <div className="space-y-2">
-            {(section.categories || []).map((cat, ci) => (
-              <div key={cat.id} className="space-y-2 rounded-xl border p-3" style={{ borderColor: 'var(--border)' }}>
-                <div className="flex items-center justify-between gap-2">
-                  <EnableRow
-                    isAr={isAr}
-                    enabled={cat.enabled !== false}
-                    onChange={(v) => {
-                      const categories = section.categories.map((c, i) => (i === ci ? { ...c, enabled: v } : c));
-                      patchSection(section.id, { categories });
-                    }}
-                    labelEn="Category"
-                    labelAr="التصنيف"
-                  />
-                  <RowTools
-                    isAr={isAr}
-                    visible={cat.enabled !== false}
-                    onToggleVisible={() => {
-                      const categories = section.categories.map((c, i) => (i === ci ? { ...c, enabled: c.enabled === false } : c));
-                      patchSection(section.id, { categories });
-                    }}
-                    index={ci}
-                    total={section.categories.length}
-                    onUp={() => patchSection(section.id, { categories: moveItem(section.categories, ci, -1) })}
-                    onDown={() => patchSection(section.id, { categories: moveItem(section.categories, ci, 1) })}
-                    onDuplicate={() => patchSection(section.id, { categories: duplicateAt(section.categories, ci, 'fcp-cat') })}
-                    onDelete={() => patchSection(section.id, { categories: section.categories.filter((c) => c.id !== cat.id) })}
-                  />
-                </div>
-                <BiFields
-                  isAr={isAr}
-                  labelEn="Label"
-                  labelAr="التسمية"
-                  en={cat.labelEn}
-                  ar={cat.labelAr}
-                  onEn={(v) => {
-                    const categories = section.categories.map((c, i) => (i === ci ? { ...c, labelEn: v } : c));
-                    patchSection(section.id, { categories });
-                  }}
-                  onAr={(v) => {
-                    const categories = section.categories.map((c, i) => (i === ci ? { ...c, labelAr: v } : c));
-                    patchSection(section.id, { categories });
-                  }}
-                />
-                <label className="text-[11px] font-bold space-y-1 block">
-                  <span>{isAr ? 'معرّف التصنيف (فلتر المنتجات)' : 'Category ID (product filter)'}</span>
-                  <input
-                    value={cat.categoryId || ''}
-                    onChange={(e) => {
-                      const categories = section.categories.map((c, i) => (i === ci ? { ...c, categoryId: e.target.value } : c));
-                      patchSection(section.id, { categories });
-                    }}
-                    className="w-full px-2 py-1.5 rounded-lg border text-xs"
-                    style={{ borderColor: 'var(--border)' }}
-                    dir="ltr"
-                    placeholder="machines"
-                  />
-                </label>
-                <MediaUploadField
-                  label={isAr ? 'صورة التصنيف (مكتبة / رفع)' : 'Category image (library / upload)'}
-                  value={cat.image || ''}
-                  onChange={(url) => {
-                    const categories = section.categories.map((c, i) => (i === ci ? { ...c, image: url } : c));
-                    patchSection(section.id, { categories });
-                  }}
-                  aspectRatio="square"
-                  initialFolder="categories"
-                  recommendedSize="600 × 600 px"
-                />
-              </div>
-            ))}
-            <AddButton
-              isAr={isAr}
-              labelEn="Add category"
-              labelAr="إضافة تصنيف"
-              onClick={() => {
-                const row: FeaturedCategoryEntry = {
-                  id: `fcp-cat-${Date.now()}`,
-                  enabled: true,
-                  entryType: 'category',
-                  labelEn: '',
-                  labelAr: '',
-                  categoryId: '',
-                  image: '',
-                  pageUrl: '',
-                };
-                patchSection(section.id, { categories: [...section.categories, row] });
-              }}
-            />
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
-            <label className="font-bold space-y-1">
-              <span>{isAr ? 'عدد المنتجات' : 'Product count'}</span>
-              <input type="number" min={1} max={24} value={section.productCount} onChange={(e) => patchSection(section.id, { productCount: Number(e.target.value) || 1 })} className="w-full px-2 py-1.5 rounded-lg border" style={{ borderColor: 'var(--border)' }} />
-            </label>
-            <label className="font-bold space-y-1">
-              <span>{isAr ? 'أعمدة سطح المكتب' : 'Desktop columns'}</span>
-              <input type="number" min={2} max={6} value={section.columnsDesktop} onChange={(e) => patchSection(section.id, { columnsDesktop: Number(e.target.value) || 4 })} className="w-full px-2 py-1.5 rounded-lg border" style={{ borderColor: 'var(--border)' }} />
-            </label>
-            <label className="flex items-center gap-2 font-bold">
-              <input type="checkbox" checked={section.showPrice} onChange={(e) => patchSection(section.id, { showPrice: e.target.checked })} />
-              {isAr ? 'السعر' : 'Price'}
-            </label>
-            <label className="flex items-center gap-2 font-bold">
-              <input type="checkbox" checked={section.showRating !== false} onChange={(e) => patchSection(section.id, { showRating: e.target.checked })} />
-              {isAr ? 'التقييم' : 'Rating'}
-            </label>
-            <label className="flex items-center gap-2 font-bold">
-              <input type="checkbox" checked={section.showViewMore} onChange={(e) => patchSection(section.id, { showViewMore: e.target.checked })} />
-              {isAr ? 'عرض المزيد' : 'View more'}
-            </label>
-          </div>
-          <BiFields isAr={isAr} labelEn="View more" labelAr="عرض المزيد" en={section.viewMoreEn} ar={section.viewMoreAr} onEn={(v) => patchSection(section.id, { viewMoreEn: v })} onAr={(v) => patchSection(section.id, { viewMoreAr: v })} />
-          <div className="rounded-xl p-3 text-xs" style={{ background: 'var(--hover-bg)' }}>
-            <div className="font-black">{bi(isAr ? 'ar' : 'en', section.titleEn, section.titleAr) || (isAr ? 'بدون عنوان' : 'Untitled')}</div>
-            <div className="text-muted">{(section.categories || []).filter((c) => c.enabled).map((c) => bi(isAr ? 'ar' : 'en', c.labelEn, c.labelAr)).join(' · ') || (isAr ? 'لا تصنيفات' : 'No categories')}</div>
-          </div>
-        </div>
-      ))}
-      <AddButton
-        isAr={isAr}
-        labelEn="Add section"
-        labelAr="إضافة قسم"
-        onClick={() =>
-          setDraft({
-            ...draft,
-            enabled: true,
-            sections: [
-              ...sections,
-              {
-                id: `fcp-${Date.now()}`,
-                enabled: true,
-                titleEn: '',
-                titleAr: '',
-                descriptionEn: '',
-                descriptionAr: '',
-                categories: [],
-                productSource: 'category',
-                productIds: [],
-                sortBy: 'manual',
-                productCount: 8,
-                compareEnabled: false,
-                maxCompare: 3,
-                compareButtonEn: '',
-                compareButtonAr: '',
-                showPrice: true,
-                showRating: true,
-                showDiscount: true,
-                showCompare: false,
-                showViewMore: false,
-                viewMoreEn: '',
-                viewMoreAr: '',
-                viewMoreLink: '',
-                columnsDesktop: 4,
-                columnsMobile: 2,
-                cardStyle: 'rounded',
-                spacing: 'medium',
-              },
-            ],
-          })
-        }
-      />
-    </>
-  ));
-};
+export { FeaturedCategoriesProductsForm } from './CoffeeCategoryShowcaseForm';
 
 export const FeaturedSectionBannersForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embedded }) => {
   const { draft, setDraft, save, saving, savedFlash, isAr } = useCoffeeDraft('featuredSectionBanners');
@@ -324,12 +105,33 @@ export const FeaturedSectionBannersForm: React.FC<CoffeeFormChromeProps> = ({ on
       ),
   }, (
     <>
+      <div data-fsb-panel="content" className="space-y-3">
       <EnableRow isAr={isAr} enabled={!!draft?.enabled} onChange={(v) => setDraft({ ...draft, enabled: v })} />
       <BiFields isAr={isAr} labelEn="Section title" labelAr="عنوان القسم" en={draft?.titleEn || ''} ar={draft?.titleAr || ''} onEn={(v) => setDraft({ ...draft, titleEn: v })} onAr={(v) => setDraft({ ...draft, titleAr: v })} />
       <BiFields isAr={isAr} labelEn="Subtitle" labelAr="الوصف" en={draft?.subtitleEn || ''} ar={draft?.subtitleAr || ''} onEn={(v) => setDraft({ ...draft, subtitleEn: v })} onAr={(v) => setDraft({ ...draft, subtitleAr: v })} />
+      <div className="grid grid-cols-3 gap-2 text-[11px] font-bold" data-fsb-panel="heights">
+        <label className="space-y-1">
+          <span>{isAr ? 'ارتفاع سطح المكتب' : 'Desktop height'}</span>
+          <select className="w-full px-2 py-1.5 rounded-lg border" style={{ borderColor: 'var(--border)' }} value={draft?.heightDesktop ?? 420} onChange={(e) => setDraft({ ...draft, heightDesktop: Number(e.target.value) })}>
+            {[320, 380, 420, 480, 560].map((n) => <option key={n} value={n}>{n}px</option>)}
+          </select>
+        </label>
+        <label className="space-y-1">
+          <span>{isAr ? 'ارتفاع اللوحي' : 'Tablet height'}</span>
+          <select className="w-full px-2 py-1.5 rounded-lg border" style={{ borderColor: 'var(--border)' }} value={draft?.heightTablet ?? 360} onChange={(e) => setDraft({ ...draft, heightTablet: Number(e.target.value) })}>
+            {[280, 320, 360, 400].map((n) => <option key={n} value={n}>{n}px</option>)}
+          </select>
+        </label>
+        <label className="space-y-1">
+          <span>{isAr ? 'ارتفاع الجوال' : 'Mobile height'}</span>
+          <select className="w-full px-2 py-1.5 rounded-lg border" style={{ borderColor: 'var(--border)' }} value={draft?.heightMobile ?? 280} onChange={(e) => setDraft({ ...draft, heightMobile: Number(e.target.value) })}>
+            {[220, 260, 280, 320].map((n) => <option key={n} value={n}>{n}px</option>)}
+          </select>
+        </label>
+      </div>
       {banners.length === 0 && <p className="text-xs text-muted">{isAr ? 'لا بانرات مميزة. القسم يختفي.' : 'No featured banners. The section hides.'}</p>}
       {banners.map((b, index) => (
-        <div key={b.id} className={cardCls} style={{ ...cardStyle, background: b.bgColor || 'var(--surface)' }}>
+        <div key={b.id} className={cardCls} style={{ ...cardStyle, background: b.bgColor || 'var(--surface)' }} data-fsb-banner>
           <div className="flex justify-between gap-2">
             <EnableRow isAr={isAr} enabled={b.enabled} onChange={(v) => patch(b.id, { enabled: v })} labelEn="Banner" labelAr="البانر" />
             <RowTools isAr={isAr} visible={b.enabled !== false} onToggleVisible={() => patch(b.id, { enabled: b.enabled === false })} index={index} total={banners.length} onUp={() => setDraft({ ...draft, banners: moveItem(banners, index, -1) })} onDown={() => setDraft({ ...draft, banners: moveItem(banners, index, 1) })} onDuplicate={() => setDraft({ ...draft, banners: duplicateAt(banners, index, 'fsb') })} onDelete={() => setDraft({ ...draft, banners: banners.filter((x) => x.id !== b.id) })} />
@@ -410,6 +212,17 @@ export const FeaturedSectionBannersForm: React.FC<CoffeeFormChromeProps> = ({ on
               </select>
             </label>
           </div>
+          <label className="block space-y-1 text-[11px] font-bold" data-fsb-panel="overlay">
+            <span>{isAr ? 'شفافية التراكب' : 'Overlay opacity'}</span>
+            <input
+              type="range"
+              min={0}
+              max={80}
+              value={b.overlayOpacity ?? 0}
+              onChange={(e) => patch(b.id, { overlayOpacity: Number(e.target.value) })}
+              className="w-full"
+            />
+          </label>
         </div>
       ))}
       <AddButton
@@ -441,6 +254,7 @@ export const FeaturedSectionBannersForm: React.FC<CoffeeFormChromeProps> = ({ on
           setDraft({ ...draft, enabled: true, banners: [...banners, row] });
         }}
       />
+      </div>
     </>
   ));
 };
@@ -464,10 +278,11 @@ export const FeaturedProductsForm: React.FC<CoffeeFormChromeProps> = ({ onBack, 
       ),
   }, (
     <>
+      <div data-fp-panel="content" className="space-y-3">
       <EnableRow isAr={isAr} enabled={!!draft?.enabled} onChange={(v) => setDraft({ ...draft, enabled: v })} />
       <BiFields isAr={isAr} labelEn="Section title" labelAr="عنوان القسم" en={draft?.titleEn || ''} ar={draft?.titleAr || ''} onEn={(v) => setDraft({ ...draft, titleEn: v })} onAr={(v) => setDraft({ ...draft, titleAr: v })} />
       <BiFields isAr={isAr} labelEn="Description" labelAr="الوصف" en={draft?.descriptionEn || ''} ar={draft?.descriptionAr || ''} onEn={(v) => setDraft({ ...draft, descriptionEn: v })} onAr={(v) => setDraft({ ...draft, descriptionAr: v })} />
-      <div className="grid grid-cols-2 gap-2 text-[11px] font-bold">
+      <div className="grid grid-cols-2 gap-2 text-[11px] font-bold" data-fp-panel="sort">
         <label className="space-y-1">
           <span>{isAr ? 'عدد المنتجات' : 'Product count'}</span>
           <input
@@ -479,6 +294,20 @@ export const FeaturedProductsForm: React.FC<CoffeeFormChromeProps> = ({ onBack, 
             className="w-full px-2 py-1.5 rounded-lg border"
             style={{ borderColor: 'var(--border)' }}
           />
+        </label>
+        <label className="space-y-1">
+          <span>{isAr ? 'الترتيب' : 'Sort by'}</span>
+          <select
+            className="w-full px-2 py-1.5 rounded-lg border"
+            style={{ borderColor: 'var(--border)' }}
+            value={draft?.sortBy || 'manual'}
+            onChange={(e) => setDraft({ ...draft, sortBy: e.target.value as 'manual' | 'price_asc' | 'price_desc' | 'newest' })}
+          >
+            <option value="manual">{isAr ? 'يدوي' : 'Manual'}</option>
+            <option value="price_asc">{isAr ? 'السعر تصاعدي' : 'Price ascending'}</option>
+            <option value="price_desc">{isAr ? 'السعر تنازلي' : 'Price descending'}</option>
+            <option value="newest">{isAr ? 'الأحدث' : 'Newest'}</option>
+          </select>
         </label>
         <label className="flex items-center gap-2 pt-5">
           <input type="checkbox" checked={draft?.highlightFirst !== false} onChange={(e) => setDraft({ ...draft, highlightFirst: e.target.checked })} />
@@ -512,10 +341,14 @@ export const FeaturedProductsForm: React.FC<CoffeeFormChromeProps> = ({ onBack, 
           <input type="checkbox" checked={draft?.showAddToCart !== false} onChange={(e) => setDraft({ ...draft, showAddToCart: e.target.checked })} />
           {isAr ? 'إظهار الإضافة للسلة' : 'Show add to cart'}
         </label>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={draft?.showBuyNow !== false} onChange={(e) => setDraft({ ...draft, showBuyNow: e.target.checked })} />
+          {isAr ? 'إظهار الشراء الآن' : 'Show buy now'}
+        </label>
       </div>
       {tabs.length === 0 && <p className="text-xs text-muted">{isAr ? 'لا تبويبات. أضف تبويباً أو سيُستخدم كتالوج المتجر إن وُجد.' : 'No tabs yet. Add one, or the storefront uses the live catalog when the section is enabled.'}</p>}
       {tabs.map((tab, index) => (
-        <div key={tab.id} className="flex flex-col md:flex-row md:items-end gap-2">
+        <div key={tab.id} className="flex flex-col md:flex-row md:items-end gap-2" data-fp-tab-row>
           <EnableRow
             isAr={isAr}
             enabled={tab.enabled !== false}
@@ -539,6 +372,7 @@ export const FeaturedProductsForm: React.FC<CoffeeFormChromeProps> = ({ onBack, 
         </div>
       ))}
       <AddButton isAr={isAr} labelEn="Add tab" labelAr="إضافة تبويب" onClick={() => setDraft({ ...draft, enabled: true, tabs: [...tabs, { id: `fp-${Date.now()}`, enabled: true, labelEn: '', labelAr: '', categoryId: 'all' }] })} />
+      </div>
     </>
   ));
 };
@@ -563,10 +397,40 @@ export const ImageBannersForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embe
       ),
   }, (
     <>
+      <div data-img-panel="content" className="space-y-3">
       <EnableRow isAr={isAr} enabled={!!draft?.enabled} onChange={(v) => setDraft({ ...draft, enabled: v })} />
+      <div className="grid grid-cols-2 gap-2 text-[11px] font-bold" data-img-panel="layout">
+        <label className="space-y-1">
+          <span>{isAr ? 'نمط التخطيط' : 'Layout style'}</span>
+          <select
+            className="w-full px-2 py-1.5 rounded-lg border"
+            style={{ borderColor: 'var(--border)' }}
+            value={draft?.layout || 'grid'}
+            onChange={(e) => setDraft({ ...draft, layout: e.target.value as 'grid' | 'bento' | 'row' | 'stack' | 'masonry' })}
+          >
+            <option value="grid">{isAr ? 'شبكة' : 'Grid'}</option>
+            <option value="bento">{isAr ? 'بنتو' : 'Bento'}</option>
+            <option value="row">{isAr ? 'صف' : 'Row'}</option>
+            <option value="stack">{isAr ? 'تكديس' : 'Stack'}</option>
+            <option value="masonry">{isAr ? 'بناء متداخل' : 'Masonry'}</option>
+          </select>
+        </label>
+        <label className="space-y-1">
+          <span>{isAr ? 'أعمدة سطح المكتب' : 'Desktop columns'}</span>
+          <select className="w-full px-2 py-1.5 rounded-lg border" style={{ borderColor: 'var(--border)' }} value={draft?.columnsDesktop ?? 3} onChange={(e) => setDraft({ ...draft, columnsDesktop: Number(e.target.value) })}>
+            {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </label>
+        <label className="space-y-1">
+          <span>{isAr ? 'أعمدة الجوال' : 'Mobile columns'}</span>
+          <select className="w-full px-2 py-1.5 rounded-lg border" style={{ borderColor: 'var(--border)' }} value={draft?.columnsMobile ?? 1} onChange={(e) => setDraft({ ...draft, columnsMobile: Number(e.target.value) })}>
+            {[1, 2].map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </label>
+      </div>
       {items.length === 0 && <p className="text-xs text-muted">{isAr ? 'لا صور. الشبكة تختفي.' : 'No images. The grid hides.'}</p>}
       {items.map((it, index) => (
-        <div key={it.id} className={cardCls} style={cardStyle}>
+        <div key={it.id} className={cardCls} style={cardStyle} data-img-tile>
           <div className="flex justify-between">
             <EnableRow isAr={isAr} enabled={it.enabled} onChange={(v) => patch(it.id, { enabled: v })} labelEn="Tile" labelAr="البطاقة" />
             <RowTools isAr={isAr} visible={it.enabled !== false} onToggleVisible={() => patch(it.id, { enabled: it.enabled === false })} index={index} total={items.length} onUp={() => setDraft({ ...draft, items: moveItem(items, index, -1) })} onDown={() => setDraft({ ...draft, items: moveItem(items, index, 1) })} onDuplicate={() => setDraft({ ...draft, items: duplicateAt(items, index, 'img') })} onDelete={() => setDraft({ ...draft, items: items.filter((x) => x.id !== it.id) })} />
@@ -584,6 +448,19 @@ export const ImageBannersForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embe
           <BiFields isAr={isAr} labelEn="Title" labelAr="العنوان" en={it.titleEn} ar={it.titleAr} onEn={(v) => patch(it.id, { titleEn: v })} onAr={(v) => patch(it.id, { titleAr: v })} />
           <BiFields isAr={isAr} labelEn="Subtitle" labelAr="الوصف" en={it.subtitleEn} ar={it.subtitleAr} onEn={(v) => patch(it.id, { subtitleEn: v })} onAr={(v) => patch(it.id, { subtitleAr: v })} />
           <BiFields isAr={isAr} labelEn="Button" labelAr="الزر" en={it.buttonEn} ar={it.buttonAr} onEn={(v) => patch(it.id, { buttonEn: v })} onAr={(v) => patch(it.id, { buttonAr: v })} />
+          <label className="block space-y-1 text-[11px] font-bold" data-img-panel="overlay">
+            <span>{isAr ? 'تراكب البلاطة' : 'Tile overlay'}</span>
+            <select
+              className="w-full px-2 py-1.5 rounded-lg border"
+              style={{ borderColor: 'var(--border)' }}
+              value={it.overlay || 'gradient'}
+              onChange={(e) => patch(it.id, { overlay: e.target.value as 'none' | 'gradient' | 'dark' })}
+            >
+              <option value="none">{isAr ? 'بدون' : 'None'}</option>
+              <option value="gradient">{isAr ? 'تدرج' : 'Gradient'}</option>
+              <option value="dark">{isAr ? 'داكن' : 'Dark'}</option>
+            </select>
+          </label>
         </div>
       ))}
       <AddButton
@@ -591,10 +468,11 @@ export const ImageBannersForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embe
         labelEn="Add image"
         labelAr="إضافة صورة"
         onClick={() => {
-          const row: ImageBannerItem = { id: `img-${Date.now()}`, enabled: true, image: '', titleEn: '', titleAr: '', subtitleEn: '', subtitleAr: '', link: '', buttonEn: '', buttonAr: '' };
+          const row: ImageBannerItem = { id: `img-${Date.now()}`, enabled: true, image: '', titleEn: '', titleAr: '', subtitleEn: '', subtitleAr: '', link: '', buttonEn: '', buttonAr: '', overlay: 'gradient' };
           setDraft({ ...draft, enabled: true, items: [...items, row] });
         }}
       />
+      </div>
     </>
   ));
 };
@@ -602,7 +480,10 @@ export const ImageBannersForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embe
 export const CoffeeFooterForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embedded }) => {
   const { draft, setDraft, save, saving, savedFlash, isAr } = useCoffeeDraft('footer');
   const columns = draft?.columns || [];
-  const patchCol = (id: string, p: Partial<FooterColumn>) => setDraft({ ...draft, columns: columns.map((c) => (c.id === id ? { ...c, ...p } : c)) });
+  const socialLinks = draft?.socialLinks || [];
+  const bottomLinks = draft?.bottomLinks || [];
+  const patchCol = (id: string, p: Partial<FooterColumn>) =>
+    setDraft({ ...draft, columns: columns.map((c) => (c.id === id ? { ...c, ...p } : c)) });
   return wordForm({
     onBack,
     embedded,
@@ -612,34 +493,151 @@ export const CoffeeFooterForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embe
     onSave: save,
     titleEn: 'Footer',
     titleAr: 'التذييل',
-    subtitleEn: 'Footer columns and layout. Layout also syncs into general footer options on Save.',
-    subtitleAr: 'أعمدة التذييل والتخطيط. يُزامَن التخطيط أيضاً مع خيارات التذييل العامة عند الحفظ.',
+    subtitleEn: 'Columns, contact, newsletter, social, and bottom bar — saved per store.',
+    subtitleAr: 'الأعمدة والتواصل والنشرة والتواصل الاجتماعي والشريط السفلي — محفوظ لكل متجر.',
     preview: () => (
         <LinesPreview device="desktop" title={bi(isAr ? 'ar' : 'en', draft?.aboutEn, draft?.aboutAr)} lines={(columns || []).map((c) => bi(isAr ? 'ar' : 'en', c.titleEn, c.titleAr))} />
       ),
   }, (
     <>
+      <div data-footer-tab="content" className="space-y-3">
       <EnableRow isAr={isAr} enabled={!!draft?.enabled} onChange={(v) => setDraft({ ...draft, enabled: v })} />
-      <label className="text-[11px] font-bold space-y-1 block">
-        <span>{isAr ? 'تخطيط التذييل (يُزامَن مع خيارات التذييل العامة)' : 'Footer layout (synced with general footer options)'}</span>
-        <select value={draft?.layout || 'columns'} onChange={(e) => setDraft({ ...draft, layout: e.target.value as 'standard' | 'columns' | 'saudi-minimal' })} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }}>
-          <option value="standard">{isAr ? 'قياسي' : 'Standard'}</option>
-          <option value="columns">{isAr ? 'أعمدة' : 'Columns'}</option>
-          <option value="saudi-minimal">{isAr ? 'سعودي مبسّط' : 'Saudi minimal'}</option>
-        </select>
-      </label>
+
+      <section className={cardCls} style={cardStyle} data-footer-controls="layout">
+        <h3 className="text-sm font-bold">{isAr ? 'إعدادات المظهر' : 'Appearance'}</h3>
+        <label className="text-[11px] font-bold space-y-1 block">
+          <span>{isAr ? 'تخطيط التذييل' : 'Footer layout'}</span>
+          <select value={draft?.layout || 'columns'} onChange={(e) => setDraft({ ...draft, layout: e.target.value as 'standard' | 'columns' | 'saudi-minimal' })} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }}>
+            <option value="standard">{isAr ? 'قياسي' : 'Standard'}</option>
+            <option value="columns">{isAr ? 'أعمدة' : 'Columns'}</option>
+            <option value="saudi-minimal">{isAr ? 'سعودي مبسّط' : 'Saudi minimal'}</option>
+          </select>
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          {(
+            [
+              { id: 'full' as const, ar: 'عرض كامل', en: 'Full Width' },
+              { id: 'boxed' as const, ar: 'محدد داخل حاوية', en: 'Boxed' },
+            ] as const
+          ).map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setDraft({ ...draft, contentWidth: opt.id, enabled: true })}
+              className={`py-2 rounded-xl text-[11px] font-bold border ${
+                (draft?.contentWidth || 'boxed') === opt.id
+                  ? 'bg-emerald-600 text-white border-emerald-600'
+                  : 'bg-white border-slate-200'
+              }`}
+            >
+              {isAr ? opt.ar : opt.en}
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          {(
+            [
+              { id: 1 as const, ar: '١ عمود', en: '1 col' },
+              { id: 2 as const, ar: '٢ عمود', en: '2 cols' },
+              { id: 3 as const, ar: '٣ أعمدة', en: '3 cols' },
+              { id: 4 as const, ar: '٤ أعمدة', en: '4 cols' },
+            ] as const
+          ).map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setDraft({ ...draft, desktopColumns: opt.id, enabled: true })}
+              className={`py-2 rounded-xl text-[11px] font-bold border ${
+                (draft?.desktopColumns || 4) === opt.id
+                  ? 'bg-emerald-600 text-white border-emerald-600'
+                  : 'bg-white border-slate-200'
+              }`}
+            >
+              {isAr ? opt.ar : opt.en}
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="text-[11px] font-bold space-y-1 block">
+            <span>{isAr ? 'لون الخلفية' : 'Background'}</span>
+            <div className="flex gap-2">
+              <input type="color" value={draft?.bgColor || '#111111'} onChange={(e) => setDraft({ ...draft, bgColor: e.target.value })} className="w-10 h-9 rounded border" />
+              <input className="w-full px-2 py-2 rounded-xl border text-xs" dir="ltr" value={draft?.bgColor || '#111111'} onChange={(e) => setDraft({ ...draft, bgColor: e.target.value })} />
+            </div>
+          </label>
+          <label className="text-[11px] font-bold space-y-1 block">
+            <span>{isAr ? 'لون النص' : 'Text color'}</span>
+            <div className="flex gap-2">
+              <input type="color" value={draft?.textColor || '#e5e5e5'} onChange={(e) => setDraft({ ...draft, textColor: e.target.value })} className="w-10 h-9 rounded border" />
+              <input className="w-full px-2 py-2 rounded-xl border text-xs" dir="ltr" value={draft?.textColor || '#e5e5e5'} onChange={(e) => setDraft({ ...draft, textColor: e.target.value })} />
+            </div>
+          </label>
+          <label className="text-[11px] font-bold space-y-1 block">
+            <span>{isAr ? 'لون الروابط' : 'Link color'}</span>
+            <div className="flex gap-2">
+              <input type="color" value={draft?.linkColor || '#d4d4d4'} onChange={(e) => setDraft({ ...draft, linkColor: e.target.value })} className="w-10 h-9 rounded border" />
+              <input className="w-full px-2 py-2 rounded-xl border text-xs" dir="ltr" value={draft?.linkColor || '#d4d4d4'} onChange={(e) => setDraft({ ...draft, linkColor: e.target.value })} />
+            </div>
+          </label>
+          <label className="text-[11px] font-bold space-y-1 block">
+            <span>{isAr ? 'لون التمرير' : 'Link hover'}</span>
+            <div className="flex gap-2">
+              <input type="color" value={draft?.linkHoverColor || '#ffffff'} onChange={(e) => setDraft({ ...draft, linkHoverColor: e.target.value })} className="w-10 h-9 rounded border" />
+              <input className="w-full px-2 py-2 rounded-xl border text-xs" dir="ltr" value={draft?.linkHoverColor || '#ffffff'} onChange={(e) => setDraft({ ...draft, linkHoverColor: e.target.value })} />
+            </div>
+          </label>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="text-[11px] font-bold space-y-1 block">
+            <span>{isAr ? 'حجم الخط (بكسل)' : 'Font size (px)'}</span>
+            <input type="number" min={11} max={18} value={draft?.fontSizePx || 12} onChange={(e) => setDraft({ ...draft, fontSizePx: Number(e.target.value) || 12 })} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} />
+          </label>
+          <label className="text-[11px] font-bold space-y-1 block">
+            <span>{isAr ? 'مسافة الأعمدة' : 'Column gap (px)'}</span>
+            <input type="number" min={8} max={64} value={draft?.columnGapPx || 40} onChange={(e) => setDraft({ ...draft, columnGapPx: Number(e.target.value) || 40 })} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} />
+          </label>
+        </div>
+      </section>
+
       <BiFields isAr={isAr} labelEn="About" labelAr="نبذة" en={draft?.aboutEn || ''} ar={draft?.aboutAr || ''} onEn={(v) => setDraft({ ...draft, aboutEn: v })} onAr={(v) => setDraft({ ...draft, aboutAr: v })} />
       <BiFields isAr={isAr} labelEn="Copyright" labelAr="حقوق النشر" en={draft?.copyrightEn || ''} ar={draft?.copyrightAr || ''} onEn={(v) => setDraft({ ...draft, copyrightEn: v })} onAr={(v) => setDraft({ ...draft, copyrightAr: v })} />
-      <BiFields isAr={isAr} labelEn="Address" labelAr="العنوان" en={draft?.addressEn || ''} ar={draft?.addressAr || ''} onEn={(v) => setDraft({ ...draft, addressEn: v })} onAr={(v) => setDraft({ ...draft, addressAr: v })} />
-      <BiFields isAr={isAr} labelEn="Hours" labelAr="ساعات العمل" en={draft?.hoursEn || ''} ar={draft?.hoursAr || ''} onEn={(v) => setDraft({ ...draft, hoursEn: v })} onAr={(v) => setDraft({ ...draft, hoursAr: v })} />
-      <label className="text-[11px] font-bold space-y-1 block">
-        <span>{isAr ? 'البريد' : 'Email'}</span>
-        <input value={draft?.contactEmail || ''} onChange={(e) => setDraft({ ...draft, contactEmail: e.target.value })} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} dir="ltr" />
-      </label>
-      <label className="text-[11px] font-bold space-y-1 block">
-        <span>{isAr ? 'الهاتف' : 'Phone'}</span>
-        <input value={draft?.contactPhone || ''} onChange={(e) => setDraft({ ...draft, contactPhone: e.target.value })} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} dir="ltr" />
-      </label>
+
+      <section className={cardCls} style={cardStyle} data-footer-controls="contact">
+        <EnableRow isAr={isAr} enabled={draft?.showContact !== false} onChange={(v) => setDraft({ ...draft, showContact: v })} labelEn="Contact section" labelAr="قسم التواصل" />
+        <BiFields isAr={isAr} labelEn="Address" labelAr="العنوان" en={draft?.addressEn || ''} ar={draft?.addressAr || ''} onEn={(v) => setDraft({ ...draft, addressEn: v })} onAr={(v) => setDraft({ ...draft, addressAr: v })} />
+        <BiFields isAr={isAr} labelEn="Hours" labelAr="ساعات العمل" en={draft?.hoursEn || ''} ar={draft?.hoursAr || ''} onEn={(v) => setDraft({ ...draft, hoursEn: v })} onAr={(v) => setDraft({ ...draft, hoursAr: v })} />
+        <label className="text-[11px] font-bold space-y-1 block">
+          <span>{isAr ? 'البريد الإلكتروني' : 'Email'}</span>
+          <input value={draft?.contactEmail || ''} onChange={(e) => setDraft({ ...draft, contactEmail: e.target.value })} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} dir="ltr" />
+        </label>
+        <label className="text-[11px] font-bold space-y-1 block">
+          <span>{isAr ? 'الهاتف' : 'Phone'}</span>
+          <input value={draft?.contactPhone || ''} onChange={(e) => setDraft({ ...draft, contactPhone: e.target.value })} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} dir="ltr" />
+        </label>
+        <label className="text-[11px] font-bold space-y-1 block">
+          <span>{isAr ? 'واتساب' : 'WhatsApp'}</span>
+          <input value={draft?.contactWhatsApp || ''} onChange={(e) => setDraft({ ...draft, contactWhatsApp: e.target.value })} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} dir="ltr" placeholder="+9665…" />
+        </label>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <label className="text-[11px] font-bold space-y-1 block">
+            <span>{isAr ? 'الرقم الضريبي' : 'Tax number'}</span>
+            <input value={draft?.taxNumber || ''} onChange={(e) => setDraft({ ...draft, taxNumber: e.target.value })} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} dir="ltr" />
+          </label>
+          <label className="flex items-center gap-2 text-xs font-bold mt-5">
+            <input type="checkbox" checked={!!draft?.showTaxNumber} onChange={(e) => setDraft({ ...draft, showTaxNumber: e.target.checked })} />
+            {isAr ? 'إظهار الرقم الضريبي' : 'Show tax number'}
+          </label>
+          <label className="text-[11px] font-bold space-y-1 block">
+            <span>{isAr ? 'السجل التجاري' : 'Commercial registration'}</span>
+            <input value={draft?.crNumber || ''} onChange={(e) => setDraft({ ...draft, crNumber: e.target.value })} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} dir="ltr" />
+          </label>
+          <label className="flex items-center gap-2 text-xs font-bold mt-5">
+            <input type="checkbox" checked={!!draft?.showCrNumber} onChange={(e) => setDraft({ ...draft, showCrNumber: e.target.checked })} />
+            {isAr ? 'إظهار السجل التجاري' : 'Show CR number'}
+          </label>
+        </div>
+      </section>
+
       <BiFields isAr={isAr} labelEn="Newsletter title" labelAr="عنوان النشرة" en={draft?.newsletterTitleEn || ''} ar={draft?.newsletterTitleAr || ''} onEn={(v) => setDraft({ ...draft, newsletterTitleEn: v })} onAr={(v) => setDraft({ ...draft, newsletterTitleAr: v })} />
       <label className="flex items-center gap-2 text-xs font-bold">
         <input type="checkbox" checked={draft?.showNewsletter !== false} onChange={(e) => setDraft({ ...draft, showNewsletter: e.target.checked })} />
@@ -650,14 +648,111 @@ export const CoffeeFooterForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embe
         {isAr ? 'إظهار وسائل الدفع' : 'Show payment methods'}
       </label>
       <BiFields isAr={isAr} labelEn="Payment methods" labelAr="وسائل الدفع" en={draft?.paymentsEn || ''} ar={draft?.paymentsAr || ''} onEn={(v) => setDraft({ ...draft, paymentsEn: v })} onAr={(v) => setDraft({ ...draft, paymentsAr: v })} />
+
+      <section className={cardCls} style={cardStyle} data-footer-controls="social">
+        <EnableRow isAr={isAr} enabled={draft?.showSocial !== false} onChange={(v) => setDraft({ ...draft, showSocial: v })} labelEn="Social media" labelAr="وسائل التواصل" />
+        {socialLinks.map((s, index) => (
+          <div key={s.id} className="grid grid-cols-1 md:grid-cols-[140px_1fr_auto_auto] gap-2 items-end">
+            <select
+              value={s.platform}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  socialLinks: socialLinks.map((row, i) =>
+                    i === index ? { ...row, platform: e.target.value as typeof s.platform } : row,
+                  ),
+                })
+              }
+              className="px-2 py-2 rounded-xl border text-xs"
+              style={{ borderColor: 'var(--border)' }}
+            >
+              <option value="instagram">{isAr ? 'إنستغرام' : 'Instagram'}</option>
+              <option value="facebook">{isAr ? 'فيسبوك' : 'Facebook'}</option>
+              <option value="youtube">{isAr ? 'يوتيوب' : 'YouTube'}</option>
+              <option value="tiktok">{isAr ? 'تيك توك' : 'TikTok'}</option>
+              <option value="x">{isAr ? 'منصة إكس' : 'X'}</option>
+              <option value="whatsapp">{isAr ? 'واتساب' : 'WhatsApp'}</option>
+              <option value="other">{isAr ? 'أخرى' : 'Other'}</option>
+            </select>
+            <input
+              value={s.url}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  socialLinks: socialLinks.map((row, i) => (i === index ? { ...row, url: e.target.value } : row)),
+                })
+              }
+              className="px-2 py-2 rounded-xl border text-xs"
+              style={{ borderColor: 'var(--border)' }}
+              dir="ltr"
+              placeholder="https://"
+            />
+            <label className="flex items-center gap-1 text-[11px] font-bold">
+              <input
+                type="checkbox"
+                checked={s.enabled !== false}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    socialLinks: socialLinks.map((row, i) =>
+                      i === index ? { ...row, enabled: e.target.checked } : row,
+                    ),
+                  })
+                }
+              />
+              {isAr ? 'نشط' : 'On'}
+            </label>
+            <button
+              type="button"
+              className="text-[11px] text-rose-600"
+              onClick={() => setDraft({ ...draft, socialLinks: socialLinks.filter((row) => row.id !== s.id) })}
+            >
+              {isAr ? 'حذف' : 'Delete'}
+            </button>
+          </div>
+        ))}
+        <AddButton
+          isAr={isAr}
+          labelEn="Add social link"
+          labelAr="إضافة رابط تواصل"
+          onClick={() =>
+            setDraft({
+              ...draft,
+              showSocial: true,
+              socialLinks: [
+                ...socialLinks,
+                { id: `soc-${Date.now()}`, platform: 'instagram', url: '', enabled: true },
+              ],
+            })
+          }
+        />
+      </section>
+
       {columns.map((col, index) => (
         <div key={col.id} className={cardCls} style={cardStyle}>
-          <div className="flex justify-between">
-            <BiFields isAr={isAr} labelEn="Column" labelAr="العمود" en={col.titleEn} ar={col.titleAr} onEn={(v) => patchCol(col.id, { titleEn: v })} onAr={(v) => patchCol(col.id, { titleAr: v })} />
+          <div className="flex justify-between gap-2 flex-wrap">
+            <EnableRow
+              isAr={isAr}
+              enabled={col.enabled !== false}
+              onChange={(v) => patchCol(col.id, { enabled: v })}
+              labelEn="Column"
+              labelAr="العمود"
+            />
             <RowTools isAr={isAr} index={index} total={columns.length} onUp={() => setDraft({ ...draft, columns: moveItem(columns, index, -1) })} onDown={() => setDraft({ ...draft, columns: moveItem(columns, index, 1) })} onDuplicate={() => setDraft({ ...draft, columns: duplicateAt(columns, index, 'foot').map((c, i) => i === index + 1 ? { ...c, links: (c.links || []).map((l) => ({ ...l, id: `lnk-${Date.now()}-${l.id}` })) } : c) })} onDelete={() => setDraft({ ...draft, columns: columns.filter((c) => c.id !== col.id) })} />
           </div>
+          <BiFields isAr={isAr} labelEn="Column title" labelAr="عنوان العمود" en={col.titleEn} ar={col.titleAr} onEn={(v) => patchCol(col.id, { titleEn: v })} onAr={(v) => patchCol(col.id, { titleAr: v })} />
+          <div className="flex flex-wrap gap-3 text-[11px] font-bold">
+            <label className="inline-flex items-center gap-1">
+              <input type="checkbox" checked={col.showDesktop !== false} onChange={(e) => patchCol(col.id, { showDesktop: e.target.checked })} />
+              {isAr ? 'سطح المكتب' : 'Desktop'}
+            </label>
+            <label className="inline-flex items-center gap-1">
+              <input type="checkbox" checked={col.showMobile !== false} onChange={(e) => patchCol(col.id, { showMobile: e.target.checked })} />
+              {isAr ? 'الجوال' : 'Mobile'}
+            </label>
+          </div>
           {(col.links || []).map((link, li) => (
-            <div key={link.id} className="grid grid-cols-1 md:grid-cols-[1fr_120px_auto] gap-2 items-end">
+            <div key={link.id} className="grid grid-cols-1 md:grid-cols-[1fr_120px_auto_auto] gap-2 items-end">
               <BiFields
                 isAr={isAr}
                 labelEn="Link"
@@ -668,203 +763,99 @@ export const CoffeeFooterForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embe
                 onAr={(v) => patchCol(col.id, { links: col.links.map((l, i) => (i === li ? { ...l, labelAr: v } : l)) })}
               />
               <input value={link.url} onChange={(e) => patchCol(col.id, { links: col.links.map((l, i) => (i === li ? { ...l, url: e.target.value } : l)) })} className="px-2 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} dir="ltr" />
+              <label className="flex items-center gap-1 text-[11px] font-bold">
+                <input
+                  type="checkbox"
+                  checked={link.enabled !== false}
+                  onChange={(e) =>
+                    patchCol(col.id, {
+                      links: col.links.map((l, i) => (i === li ? { ...l, enabled: e.target.checked } : l)),
+                    })
+                  }
+                />
+                {isAr ? 'نشط' : 'On'}
+              </label>
               <button type="button" className="text-[11px] text-rose-600" onClick={() => patchCol(col.id, { links: col.links.filter((l) => l.id !== link.id) })}>
                 {isAr ? 'حذف' : 'Delete'}
               </button>
             </div>
           ))}
-          <AddButton isAr={isAr} labelEn="Add link" labelAr="إضافة رابط" onClick={() => patchCol(col.id, { links: [...col.links, { id: `lnk-${Date.now()}`, labelEn: '', labelAr: '', url: 'home' }] })} />
+          <AddButton isAr={isAr} labelEn="Add link" labelAr="إضافة رابط" onClick={() => patchCol(col.id, { links: [...col.links, { id: `lnk-${Date.now()}`, labelEn: '', labelAr: '', url: 'home', enabled: true }] })} />
         </div>
       ))}
-      <AddButton isAr={isAr} labelEn="Add column" labelAr="إضافة عمود" onClick={() => setDraft({ ...draft, enabled: true, columns: [...columns, { id: `col-${Date.now()}`, titleEn: '', titleAr: '', links: [] }] })} />
-    </>
-  ));
-};
+      <AddButton isAr={isAr} labelEn="Add column" labelAr="إضافة عمود" onClick={() => setDraft({ ...draft, enabled: true, columns: [...columns, { id: `col-${Date.now()}`, titleEn: '', titleAr: '', links: [], enabled: true, showDesktop: true, showMobile: true }] })} />
 
-export const CatalogControlsForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embedded }) => {
-  const shopHook = useCoffeeDraft('shop');
-  const checkoutHook = useCoffeeDraft('checkoutFields');
-  const seoHook = useCoffeeDraft('seoDefaults');
-  const { isAr, activeStore, toast } = shopHook;
-  const shop = shopHook.draft;
-  const checkout = checkoutHook.draft;
-  const seo = seoHook.draft;
-  const [saving, setSaving] = useState(false);
-
-  const saveAll = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!activeStore?.id) return;
-    setSaving(true);
-    try {
-      const { readAllThemeSettings, writeAllThemeSettings, resolveStoreActiveThemeId } = await import('../../../../themes/settings/themeSettingsStore');
-      const full = readAllThemeSettings(activeStore.id, activeStore);
-      full.shop = { columnsDesktop: 4, columnsTablet: 3, columnsMobile: 2, perPage: 24, defaultSort: 'featured', showFilters: true, ...(shop || {}) };
-      full.checkoutFields = { allowGuest: true, showCoupon: true, showOrderNote: false, showShipping: true, ...(checkout || {}) };
-      full.seoDefaults = { titleEn: '', titleAr: '', descriptionEn: '', descriptionAr: '', ogImage: '', ...(seo || {}) };
-      await writeAllThemeSettings(activeStore.id, full);
-      const { isApiEnabled } = await import('../../../../api/client');
-      if (isApiEnabled()) {
-        const { updateThemeSettingsApi } = await import('../../../../api/tenantApi');
-        await updateThemeSettingsApi(activeStore.id, {
-          theme_id: resolveStoreActiveThemeId(activeStore.id) || 'theme-coffee-artisan',
-          settings: { shop: full.shop, checkoutFields: full.checkoutFields, seoDefaults: full.seoDefaults },
-        });
-      }
-      toast(isAr ? 'تم حفظ إعدادات المتجر.' : 'Shop settings saved.', 'success');
-    } catch {
-      toast(isAr ? 'تعذر الحفظ.' : 'Save failed.', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return wordForm({
-    onBack,
-    embedded,
-    isAr,
-    saving,
-    savedFlash: false,
-    onSave: saveAll,
-    titleEn: 'Shop and checkout',
-    titleAr: 'المتجر وإتمام الشراء',
-    subtitleEn: 'Grid, filters, checkout blocks, and SEO templates. Product rows stay untouched.',
-    subtitleAr: 'شبكة المتجر والفلاتر وكتل الشراء وقوالب السيو. صفوف المنتجات تبقى كما هي.',
-    preview: () => <LinesPreview device="desktop" title={isAr ? 'شبكة المتجر' : 'Shop grid'} lines={[String(shop?.columnsDesktop || 4), String(shop?.perPage || 24)]} />,
-  }, (
-    <>
-      <label className="text-[11px] font-bold space-y-1 block">
-        <span>{isAr ? 'أعمدة سطح المكتب' : 'Desktop columns'}</span>
-        <input type="number" min={2} max={4} value={shop?.columnsDesktop || 4} onChange={(e) => shopHook.setDraft({ ...shop, columnsDesktop: Number(e.target.value) || 4 } as ShopCatalogSettings)} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} />
-      </label>
-      <label className="text-[11px] font-bold space-y-1 block">
-        <span>{isAr ? 'أعمدة الجهاز اللوحي' : 'Tablet columns'}</span>
-        <input type="number" min={2} max={4} value={shop?.columnsTablet || 3} onChange={(e) => shopHook.setDraft({ ...shop, columnsTablet: Number(e.target.value) || 3 } as ShopCatalogSettings)} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} />
-      </label>
-      <label className="text-[11px] font-bold space-y-1 block">
-        <span>{isAr ? 'أعمدة الجوال' : 'Mobile columns'}</span>
-        <input type="number" min={1} max={2} value={shop?.columnsMobile || 2} onChange={(e) => shopHook.setDraft({ ...shop, columnsMobile: Number(e.target.value) || 2 } as ShopCatalogSettings)} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} />
-      </label>
-      <label className="text-[11px] font-bold space-y-1 block">
-        <span>{isAr ? 'عدد المنتجات في الصفحة' : 'Products per page'}</span>
-        <input type="number" min={4} max={48} value={shop?.perPage || 24} onChange={(e) => shopHook.setDraft({ ...shop, perPage: Number(e.target.value) || 24 } as ShopCatalogSettings)} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} />
-      </label>
-      <label className="text-[11px] font-bold space-y-1 block">
-        <span>{isAr ? 'الترتيب الافتراضي' : 'Default sort'}</span>
-        <select value={shop?.defaultSort || 'featured'} onChange={(e) => shopHook.setDraft({ ...shop, defaultSort: e.target.value as ShopCatalogSettings['defaultSort'] } as ShopCatalogSettings)} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }}>
-          <option value="featured">{isAr ? 'المميز' : 'Featured'}</option>
-          <option value="price-asc">{isAr ? 'السعر من الأقل' : 'Price low to high'}</option>
-          <option value="price-desc">{isAr ? 'السعر من الأعلى' : 'Price high to low'}</option>
-          <option value="rating">{isAr ? 'التقييم' : 'Rating'}</option>
-        </select>
-      </label>
-      <label className="flex items-center gap-2 text-xs font-bold">
-        <input type="checkbox" checked={shop?.showFilters !== false} onChange={(e) => shopHook.setDraft({ ...shop, showFilters: e.target.checked } as ShopCatalogSettings)} />
-        {isAr ? 'إظهار الفلاتر' : 'Show filters'}
-      </label>
-      <label className="flex items-center gap-2 text-xs font-bold">
-        <input type="checkbox" checked={checkout?.showCoupon !== false} onChange={(e) => checkoutHook.setDraft({ ...checkout, showCoupon: e.target.checked } as CheckoutFieldSettings)} />
-        {isAr ? 'إظهار الكوبون' : 'Show coupon'}
-      </label>
-      <label className="flex items-center gap-2 text-xs font-bold">
-        <input type="checkbox" checked={checkout?.showOrderNote === true} onChange={(e) => checkoutHook.setDraft({ ...checkout, showOrderNote: e.target.checked } as CheckoutFieldSettings)} />
-        {isAr ? 'إظهار ملاحظة الطلب' : 'Show order note'}
-      </label>
-      <label className="flex items-center gap-2 text-xs font-bold">
-        <input type="checkbox" checked={checkout?.showShipping !== false} onChange={(e) => checkoutHook.setDraft({ ...checkout, showShipping: e.target.checked } as CheckoutFieldSettings)} />
-        {isAr ? 'إظهار عنوان الشحن' : 'Show shipping address'}
-      </label>
-      <label className="flex items-center gap-2 text-xs font-bold">
-        <input type="checkbox" checked={checkout?.allowGuest !== false} onChange={(e) => checkoutHook.setDraft({ ...checkout, allowGuest: e.target.checked } as CheckoutFieldSettings)} />
-        {isAr ? 'السماح بالشراء دون حساب' : 'Allow guest checkout'}
-      </label>
-      <BiFields isAr={isAr} labelEn="SEO title" labelAr="عنوان السيو" en={seo?.titleEn || ''} ar={seo?.titleAr || ''} onEn={(v) => seoHook.setDraft({ ...seo, titleEn: v } as SeoDefaultSettings)} onAr={(v) => seoHook.setDraft({ ...seo, titleAr: v } as SeoDefaultSettings)} />
-      <BiFields isAr={isAr} labelEn="SEO description" labelAr="وصف السيو" en={seo?.descriptionEn || ''} ar={seo?.descriptionAr || ''} onEn={(v) => seoHook.setDraft({ ...seo, descriptionEn: v } as SeoDefaultSettings)} onAr={(v) => seoHook.setDraft({ ...seo, descriptionAr: v } as SeoDefaultSettings)} />
-      <MediaUploadField
-        label={isAr ? 'صورة المشاركة' : 'Share image'}
-        value={seo?.ogImage || ''}
-        onChange={(url) => seoHook.setDraft({ ...seo, ogImage: url } as SeoDefaultSettings)}
-        aspectRatio="banner"
-      />
-    </>
-  ));
-};
-
-export const ExclusiveBenefitsForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embedded }) => {
-  const { draft, setDraft, save, saving, savedFlash, isAr } = useCoffeeDraft('exclusiveBenefits');
-  const items = draft?.items || [];
-  const patch = (id: string, p: Partial<ExclusiveBenefitItem>) => setDraft({ ...draft, items: items.map((it) => (it.id === id ? { ...it, ...p } : it)) });
-  return wordForm({
-    onBack,
-    embedded,
-    isAr,
-    saving,
-    savedFlash,
-    onSave: save,
-    titleEn: 'Exclusive Benefits',
-    titleAr: 'المزايا الحصرية',
-    subtitleEn: 'Perk cards for the exclusive benefits strip. Hidden when disabled or empty.',
-    subtitleAr: 'بطاقات المزايا لشريط المزايا الحصرية. يختفي إذا عُطّل أو فرغ.',
-    preview: () => (
-        <LinesPreview device="desktop" title={bi(isAr ? 'ar' : 'en', draft?.titleEn, draft?.titleAr)} lines={(items || []).map((it) => bi(isAr ? 'ar' : 'en', it.titleEn, it.titleAr))} />
-      ),
-  }, (
-    <>
-      <EnableRow isAr={isAr} enabled={!!draft?.enabled} onChange={(v) => setDraft({ ...draft, enabled: v })} />
-      <BiFields isAr={isAr} labelEn="Title" labelAr="العنوان" en={draft?.titleEn || ''} ar={draft?.titleAr || ''} onEn={(v) => setDraft({ ...draft, titleEn: v })} onAr={(v) => setDraft({ ...draft, titleAr: v })} />
-      <BiFields isAr={isAr} labelEn="Subtitle" labelAr="الوصف" en={draft?.subtitleEn || ''} ar={draft?.subtitleAr || ''} onEn={(v) => setDraft({ ...draft, subtitleEn: v })} onAr={(v) => setDraft({ ...draft, subtitleAr: v })} />
-      {items.length === 0 && <p className="text-xs text-muted">{isAr ? 'لا مزايا. القسم يختفي.' : 'No benefits. The section hides.'}</p>}
-      {items.map((it, index) => (
-        <div key={it.id} className={cardCls} style={cardStyle}>
-          <div className="flex justify-between">
-            <EnableRow isAr={isAr} enabled={it.enabled} onChange={(v) => patch(it.id, { enabled: v })} labelEn="Benefit" labelAr="الميزة" />
-            <RowTools isAr={isAr} visible={it.enabled !== false} onToggleVisible={() => patch(it.id, { enabled: it.enabled === false })} index={index} total={items.length} onUp={() => setDraft({ ...draft, items: moveItem(items, index, -1) })} onDown={() => setDraft({ ...draft, items: moveItem(items, index, 1) })} onDuplicate={() => setDraft({ ...draft, items: duplicateAt(items, index, 'ben') })} onDelete={() => setDraft({ ...draft, items: items.filter((x) => x.id !== it.id) })} />
+      <section className={cardCls} style={cardStyle} data-footer-controls="bottom-bar">
+        <EnableRow isAr={isAr} enabled={draft?.showBottomBar !== false} onChange={(v) => setDraft({ ...draft, showBottomBar: v })} labelEn="Bottom bar" labelAr="الشريط السفلي" />
+        {bottomLinks.map((link, li) => (
+          <div key={link.id} className="grid grid-cols-1 md:grid-cols-[1fr_120px_auto] gap-2 items-end">
+            <BiFields
+              isAr={isAr}
+              labelEn="Bottom link"
+              labelAr="رابط سفلي"
+              en={link.labelEn}
+              ar={link.labelAr}
+              onEn={(v) =>
+                setDraft({
+                  ...draft,
+                  bottomLinks: bottomLinks.map((l, i) => (i === li ? { ...l, labelEn: v } : l)),
+                })
+              }
+              onAr={(v) =>
+                setDraft({
+                  ...draft,
+                  bottomLinks: bottomLinks.map((l, i) => (i === li ? { ...l, labelAr: v } : l)),
+                })
+              }
+            />
+            <input
+              value={link.url}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  bottomLinks: bottomLinks.map((l, i) => (i === li ? { ...l, url: e.target.value } : l)),
+                })
+              }
+              className="px-2 py-2 rounded-xl border text-xs"
+              style={{ borderColor: 'var(--border)' }}
+              dir="ltr"
+            />
+            <button
+              type="button"
+              className="text-[11px] text-rose-600"
+              onClick={() => setDraft({ ...draft, bottomLinks: bottomLinks.filter((l) => l.id !== link.id) })}
+            >
+              {isAr ? 'حذف' : 'Delete'}
+            </button>
           </div>
-          <BiFields isAr={isAr} labelEn="Title" labelAr="العنوان" en={it.titleEn} ar={it.titleAr} onEn={(v) => patch(it.id, { titleEn: v })} onAr={(v) => patch(it.id, { titleAr: v })} />
-          <BiFields isAr={isAr} labelEn="Description" labelAr="الوصف" en={it.descriptionEn} ar={it.descriptionAr} onEn={(v) => patch(it.id, { descriptionEn: v })} onAr={(v) => patch(it.id, { descriptionAr: v })} />
-        </div>
-      ))}
-      <AddButton isAr={isAr} labelEn="Add benefit" labelAr="إضافة ميزة" onClick={() => setDraft({ ...draft, enabled: true, items: [...items, { id: `ben-${Date.now()}`, enabled: true, icon: 'ShieldCheck', titleEn: '', titleAr: '', descriptionEn: '', descriptionAr: '' }] })} />
+        ))}
+        <AddButton
+          isAr={isAr}
+          labelEn="Add bottom link"
+          labelAr="إضافة رابط سفلي"
+          onClick={() =>
+            setDraft({
+              ...draft,
+              showBottomBar: true,
+              bottomLinks: [
+                ...bottomLinks,
+                { id: `bl-${Date.now()}`, labelEn: '', labelAr: '', url: 'privacy', enabled: true },
+              ],
+            })
+          }
+        />
+      </section>
+      </div>
     </>
   ));
 };
 
-export const ProductCarouselForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embedded }) => {
-  const { draft, setDraft, save, saving, savedFlash, isAr } = useCoffeeDraft('productCarousel');
-  return wordForm({
-    onBack,
-    embedded,
-    isAr,
-    saving,
-    savedFlash,
-    onSave: save,
-    titleEn: 'Product Carousel',
-    titleAr: 'كاروسيل المنتجات',
-    subtitleEn: 'Carousel title and catalog category. Cards use live products after Save.',
-    subtitleAr: 'عنوان الكاروسيل وتصنيف الكتالوج. البطاقات من المنتجات الحية بعد الحفظ.',
-    preview: () => (
-        <LinesPreview device="desktop" title={bi(isAr ? 'ar' : 'en', draft?.titleEn, draft?.titleAr)} lines={[bi(isAr ? 'ar' : 'en', draft?.subtitleEn, draft?.subtitleAr), draft?.categoryId || '']} />
-      ),
-  }, (
-    <>
-      <EnableRow isAr={isAr} enabled={!!draft?.enabled} onChange={(v) => setDraft({ ...draft, enabled: v })} />
-      <BiFields isAr={isAr} labelEn="Title" labelAr="العنوان" en={draft?.titleEn || ''} ar={draft?.titleAr || ''} onEn={(v) => setDraft({ ...draft, titleEn: v })} onAr={(v) => setDraft({ ...draft, titleAr: v })} />
-      <BiFields isAr={isAr} labelEn="Subtitle" labelAr="الوصف" en={draft?.subtitleEn || ''} ar={draft?.subtitleAr || ''} onEn={(v) => setDraft({ ...draft, subtitleEn: v })} onAr={(v) => setDraft({ ...draft, subtitleAr: v })} />
-      <label className="text-[11px] font-bold space-y-1 block">
-        <span>{isAr ? 'تصنيف الكتالوج (فارغ = الكل)' : 'Catalog category (empty = all)'}</span>
-        <input value={draft?.categoryId || ''} onChange={(e) => setDraft({ ...draft, categoryId: e.target.value })} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} dir="ltr" />
-      </label>
-      <label className="text-[11px] font-bold space-y-1 block">
-        <span>{isAr ? 'عدد المنتجات' : 'Product count'}</span>
-        <input type="number" min={1} max={24} value={draft?.productCount || 8} onChange={(e) => setDraft({ ...draft, productCount: Number(e.target.value) || 8 })} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} />
-      </label>
-      <label className="flex items-center gap-2 text-xs font-bold">
-        <input type="checkbox" checked={draft?.autoplay !== false} onChange={(e) => setDraft({ ...draft, autoplay: e.target.checked })} />
-        {isAr ? 'تشغيل تلقائي للكاروسيل' : 'Carousel autoplay'}
-      </label>
-      <p className="text-[11px] text-muted">{isAr ? 'البطاقات من كتالوج المتجر الحقيقي. إذا لم توجد منتجات يختفي القسم.' : 'Cards use the live catalog. The section hides when no products match.'}</p>
-    </>
-  ));
-};
+/** CW-12 — Product Catalog inspector (filters / sort / card toggles). */
+export { CoffeeProductCatalogForm, CatalogControlsForm } from './CoffeeProductCatalogForm';
+
+export { ExclusiveBenefitsForm } from './CoffeeBenefitsForm';
+
+export { ProductCarouselForm } from './CoffeeProductCarouselForm';
 
 export const CoffeeBannersSectionForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embedded }) => {
   const { draft, setDraft, save, saving, savedFlash, isAr } = useCoffeeDraft('banners');
@@ -1154,103 +1145,13 @@ export const CoffeeProductEditForm: React.FC = () => {
   );
 };
 
-export const CoffeeReviewsForm: React.FC = () => {
-  const { isAr, activeStore, toast } = useCoffeeDraft('newsletter');
-  const [reviews, setReviews] = useState<StoreReviewRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    let cancel = false;
-    fetchStoreReviewsApi(activeStore.id)
-      .then((rows) => {
-        if (!cancel) setReviews(rows);
-      })
-      .catch(() => {
-        if (!cancel) setReviews([]);
-      })
-      .finally(() => {
-        if (!cancel) setLoading(false);
-      });
-    return () => {
-      cancel = true;
-    };
-  }, [activeStore.id]);
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      const next = await saveStoreReviewsApi(activeStore.id, reviews);
-      setReviews(next);
-      toast(isAr ? 'تم حفظ التقييمات عبر واجهة التقييمات' : 'Reviews saved via the reviews API', 'success');
-    } catch {
-      toast(isAr ? 'فشل حفظ التقييمات' : 'Could not save reviews', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <p className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
-        {isAr ? 'التقييمات تُحفظ في واجهة / وليست ضمن الثيم. التقييم الجديد من الواجهة يصل بانتظار الموافقة.' : 'Reviews persist on the reviews API, not theme JSON. Storefront submissions arrive pending approval.'}
-      </p>
-      {loading && <p className="text-xs text-muted">{isAr ? 'جارٍ التحميل…' : 'Loading…'}</p>}
-      {!loading && reviews.length === 0 && (
-        <p className="text-xs text-muted">{isAr ? 'لا تقييمات بعد. المتجر يعرض حالة فارغة حقيقية.' : 'No reviews yet. The storefront shows a real empty state.'}</p>
-      )}
-      {reviews.map((rev, index) => (
-        <div key={rev.id} className={cardCls} style={cardStyle}>
-          <div className="flex justify-between gap-2">
-            <EnableRow isAr={isAr} enabled={rev.active} onChange={(v) => setReviews(reviews.map((r, i) => (i === index ? { ...r, active: v } : r)))} labelEn="Visible" labelAr="ظاهر" />
-            <RowTools
-              isAr={isAr}
-              visible={rev.active !== false}
-              onToggleVisible={() => setReviews(reviews.map((r, i) => (i === index ? { ...r, active: r.active === false } : r)))}
-              index={index}
-              total={reviews.length}
-              onUp={() => setReviews(moveItem(reviews, index, -1))}
-              onDown={() => setReviews(moveItem(reviews, index, 1))}
-              onDelete={() => setReviews(reviews.filter((r) => r.id !== rev.id))}
-            />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            <label className="text-[11px] font-bold space-y-1">
-              <span>{isAr ? 'اسم العميل' : 'Customer name'}</span>
-              <input value={rev.author || ''} onChange={(e) => setReviews(reviews.map((r, i) => (i === index ? { ...r, author: e.target.value } : r)))} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} />
-            </label>
-            <label className="text-[11px] font-bold space-y-1">
-              <span>{isAr ? 'المدينة' : 'City'}</span>
-              <input value={rev.city || ''} onChange={(e) => setReviews(reviews.map((r, i) => (i === index ? { ...r, city: e.target.value } : r)))} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} />
-            </label>
-          </div>
-          <BiFields isAr={isAr} labelEn="Product" labelAr="المنتج" en={rev.product || ''} ar={rev.productAr || ''} onEn={(v) => setReviews(reviews.map((r, i) => (i === index ? { ...r, product: v } : r)))} onAr={(v) => setReviews(reviews.map((r, i) => (i === index ? { ...r, productAr: v } : r)))} />
-          <label className="text-[11px] font-bold space-y-1 block">
-            <span>{isAr ? 'التقييم (١–٥)' : 'Rating (1–5)'}</span>
-            <input type="number" min={1} max={5} value={rev.rating || 5} onChange={(e) => setReviews(reviews.map((r, i) => (i === index ? { ...r, rating: Math.min(5, Math.max(1, Number(e.target.value) || 5)) } : r)))} className="w-24 px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} />
-          </label>
-          <BiFields isAr={isAr} labelEn="Title" labelAr="العنوان" en={rev.title} ar={rev.titleAr || ''} onEn={(v) => setReviews(reviews.map((r, i) => (i === index ? { ...r, title: v } : r)))} onAr={(v) => setReviews(reviews.map((r, i) => (i === index ? { ...r, titleAr: v } : r)))} />
-          <BiFields isAr={isAr} labelEn="Comment" labelAr="التعليق" en={rev.comment} ar={rev.commentAr || ''} onEn={(v) => setReviews(reviews.map((r, i) => (i === index ? { ...r, comment: v } : r)))} onAr={(v) => setReviews(reviews.map((r, i) => (i === index ? { ...r, commentAr: v } : r)))} />
-          <label className="flex items-center gap-2 text-xs font-bold">
-            <input type="checkbox" checked={rev.verified} onChange={(e) => setReviews(reviews.map((r, i) => (i === index ? { ...r, verified: e.target.checked } : r)))} />
-            {isAr ? 'مشتري موثّق' : 'Verified buyer'}
-          </label>
-        </div>
-      ))}
-      <AddButton
-        isAr={isAr}
-        labelEn="Add review"
-        labelAr="إضافة تقييم"
-        onClick={() =>
-          setReviews([
-            ...reviews,
-            { id: `rev-${Date.now()}`, author: '', city: '', product: '', productAr: '', rating: 5, title: '', titleAr: '', comment: '', commentAr: '', verified: true, active: true, likes: 0, date: new Date().toISOString().slice(0, 10) },
-          ])
-        }
-      />
-      <button type="button" disabled={saving} onClick={save} className="px-4 py-2 rounded-xl text-xs font-black bg-emerald-600 text-white">
-        {saving ? (isAr ? 'جارٍ الحفظ…' : 'Saving…') : isAr ? 'حفظ التقييمات' : 'Save reviews'}
-      </button>
-    </div>
-  );
-};
+/** CW-08 — Customer Reviews widget settings + API queue. */
+export { CoffeeCustomerReviewsForm, CoffeeReviewsForm } from './CoffeeCustomerReviewsForm';
+/** CW-09 — FAQ bilingual Q/A. */
+export { CoffeeFaqForm } from './CoffeeFaqForm';
+/** CW-10 — Commercial Hero SKU slides + feature chips. */
+export { CoffeeCommercialHeroForm } from './CoffeeCommercialHeroForm';
+/** CW-11 — Product Slider rail (≠ Product Carousel). */
+export { CoffeeProductSliderForm } from './CoffeeProductSliderForm';
+/** CW-13 — Product Collection promo + products + benefits. */
+export { CoffeeProductCollectionForm } from './CoffeeProductCollectionForm';

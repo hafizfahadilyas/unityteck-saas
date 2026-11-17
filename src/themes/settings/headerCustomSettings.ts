@@ -135,6 +135,39 @@ export interface HeaderNavigationSettings {
   desktopLinks?: HeaderNavLink[];
   /** Mobile menu. Empty means the locked storefront menu stays. */
   mobileLinks?: HeaderNavLink[];
+  /** Tablet menu (md–lg). Empty → reuse desktop links. */
+  tabletLinks?: HeaderNavLink[];
+  /** Doc Main Menu: product compare control (store-scoped). */
+  showCompareButton?: boolean;
+  maxCompareProducts?: number;
+  compareButtonLabelAr?: string;
+  compareButtonLabelEn?: string;
+  comparePageUrl?: string;
+  /** Doc Main Menu: view-more CTA under mega/category. */
+  showViewMoreButton?: boolean;
+  viewMoreLabelAr?: string;
+  viewMoreLabelEn?: string;
+  viewMoreUrl?: string;
+  /** Mega menu product source (store catalog — no fake rows). */
+  menuProductSource?: 'category' | 'latest' | 'manual';
+  menuProductSort?: 'manual' | 'price' | 'newest' | 'bestselling';
+  menuMaxProducts?: number;
+  menuProductIds?: string[];
+  /** Per-device mega product layout; unset keeps locked HiBrew defaults. */
+  deviceLayouts?: {
+    desktop?: HeaderMenuDeviceLayout;
+    tablet?: HeaderMenuDeviceLayout;
+    mobile?: HeaderMenuDeviceLayout;
+  };
+}
+
+export interface HeaderMenuDeviceLayout {
+  layout?: 'horizontal' | 'grid';
+  columns?: number;
+  showCategoryTabs?: boolean;
+  showCompareButton?: boolean;
+  cardStyle?: 'rounded' | 'square';
+  cardSpacing?: 'sm' | 'md' | 'lg';
 }
 
 export interface HeaderLanguageSettings {
@@ -304,6 +337,15 @@ export const DEFAULT_HEADER_SETTINGS: HeaderCustomSettings = {
     vipPortalLabelAr: 'بوابة VIP',
     vipPortalLabelEn: 'VIP Portal',
     vipPortalColor: '#8b263e',
+    menuProductSource: 'category',
+    menuProductSort: 'newest',
+    menuMaxProducts: 5,
+    menuProductIds: [],
+    deviceLayouts: {
+      desktop: { layout: 'grid', columns: 5, showCategoryTabs: true, showCompareButton: true, cardStyle: 'rounded', cardSpacing: 'md' },
+      tablet: { layout: 'grid', columns: 3, showCategoryTabs: true, showCompareButton: true, cardStyle: 'rounded', cardSpacing: 'md' },
+      mobile: { layout: 'horizontal', columns: 2, showCategoryTabs: true, showCompareButton: false, cardStyle: 'rounded', cardSpacing: 'sm' },
+    },
     links: [
       {
         id: 'nav-1',

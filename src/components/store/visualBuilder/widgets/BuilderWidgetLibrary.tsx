@@ -182,7 +182,7 @@ export const BUILDER_WIDGETS: WidgetDefinition[] = [
   {
     id: 'w_discount_3d',
     type: 'discounted_bouquets_3d',
-    titleAr: 'معرض العروض 3D',
+    titleAr: 'معرض العروض ثلاثي الأبعاد',
     titleEn: '3D Discount Gallery',
     category: 'ecommerce',
     icon: Sparkles,
@@ -194,7 +194,7 @@ export const BUILDER_WIDGETS: WidgetDefinition[] = [
   {
     id: 'w_hero_slider',
     type: 'hero_slider',
-    titleAr: 'سلايدر هيرو متحرك',
+    titleAr: 'شريط الواجهة المتحرك',
     titleEn: 'Motion Hero Slider',
     category: 'sections',
     icon: Sparkles,
@@ -234,7 +234,7 @@ export const BUILDER_WIDGETS: WidgetDefinition[] = [
   {
     id: 'w_faq',
     type: 'faq',
-    titleAr: 'الأسئلة الشائعة FAQ',
+    titleAr: 'الأسئلة الشائعة',
     titleEn: 'FAQ Accordion',
     category: 'sections',
     icon: MessageSquare,
@@ -323,6 +323,120 @@ export const BUILDER_WIDGETS: WidgetDefinition[] = [
   },
 ];
 
+/** Extra HiBrew home widgets (doc elements) — coffee builder only. */
+const COFFEE_EXTRA_WIDGETS: WidgetDefinition[] = [
+  {
+    id: 'w_featured_section_banners',
+    type: 'featured_section_banners',
+    titleAr: 'لافتات القسم المميز',
+    titleEn: 'Featured Section Banners',
+    category: 'sections',
+    icon: ImageIcon,
+    defaultSettings: {},
+    templateStyle: 'flagship-dual',
+  },
+  {
+    id: 'w_image_banners',
+    type: 'image_banners',
+    titleAr: 'لافتات الصور',
+    titleEn: 'Image Banners',
+    category: 'sections',
+    icon: Grid,
+    defaultSettings: {},
+    templateStyle: 'img-banners-3col',
+  },
+  {
+    id: 'w_product_carousel',
+    type: 'product_carousel',
+    titleAr: 'عرض المنتجات المتحرك',
+    titleEn: 'Product Carousel',
+    category: 'ecommerce',
+    icon: Package,
+    defaultSettings: {},
+    templateStyle: 'carousel-machines',
+  },
+  {
+    id: 'w_featured_categories',
+    type: 'featured_categories_products',
+    titleAr: 'عرض التصنيفات',
+    titleEn: 'Category Showcase',
+    category: 'ecommerce',
+    icon: Layout,
+    defaultSettings: {},
+    templateStyle: 'cats-products-grid',
+  },
+  {
+    id: 'w_exclusive_benefits',
+    type: 'exclusive_benefits',
+    titleAr: 'المزايا الحصرية',
+    titleEn: 'Exclusive Benefits',
+    category: 'sections',
+    icon: Sparkles,
+    defaultSettings: {},
+    templateStyle: 'perks-row',
+  },
+  {
+    id: 'w_events_masterclasses',
+    type: 'events_masterclasses',
+    titleAr: 'الفعاليات وورش العمل',
+    titleEn: 'Events & Masterclasses',
+    category: 'sections',
+    icon: BookOpen,
+    defaultSettings: {},
+    templateStyle: 'events-empty',
+  },
+  {
+    id: 'w_model_comparison',
+    type: 'model_comparison',
+    titleAr: 'مقارنة الموديلات',
+    titleEn: 'Model Comparison',
+    category: 'ecommerce',
+    icon: Columns,
+    defaultSettings: {},
+    templateStyle: 'compare-live',
+  },
+  {
+    id: 'w_commercial_hero',
+    type: 'commercial_hero',
+    titleAr: 'القسم التجاري الرئيسي',
+    titleEn: 'Commercial Hero',
+    category: 'sections',
+    icon: Flame,
+    defaultSettings: {},
+    templateStyle: 'commercial-flagship',
+  },
+  {
+    id: 'w_product_slider',
+    type: 'product_slider',
+    titleAr: 'شريط المنتجات',
+    titleEn: 'Product Slider',
+    category: 'ecommerce',
+    icon: Sliders,
+    defaultSettings: {},
+    templateStyle: 'product-slider',
+  },
+  {
+    id: 'w_product_catalog',
+    type: 'product_catalog',
+    titleAr: 'كتالوج المنتجات',
+    titleEn: 'Product Catalog',
+    category: 'ecommerce',
+    icon: ShoppingBag,
+    defaultSettings: {},
+    templateStyle: 'catalog-tabs',
+  },
+  {
+    id: 'w_product_collection',
+    type: 'product_collection',
+    titleAr: 'مجموعة المنتجات',
+    titleEn: 'Product Collection',
+    category: 'ecommerce',
+    icon: Layers,
+    defaultSettings: {},
+    templateStyle: 'collection-banner',
+  },
+];
+
 /** Flower-only block types — never offer these on coffee page builder. */
 const COFFEE_HIDDEN_WIDGET_TYPES = new Set([
   'discounted_bouquets_3d',
@@ -358,7 +472,7 @@ const COFFEE_WIDGET_OVERRIDES: Partial<
   },
   w_hero_slider: {
     titleEn: 'Hero Banners',
-    titleAr: 'بانرات الواجهة',
+    titleAr: 'لافتات الواجهة',
     type: 'hero_banners',
   },
   w_features: {
@@ -368,6 +482,10 @@ const COFFEE_WIDGET_OVERRIDES: Partial<
   w_testimonials: {
     titleEn: 'Customer Reviews',
     titleAr: 'تقييمات العملاء',
+  },
+  w_faq: {
+    titleEn: 'FAQ Accordion',
+    titleAr: 'الأسئلة الشائعة',
   },
 };
 
@@ -386,16 +504,19 @@ export const BuilderWidgetLibrary: React.FC<BuilderWidgetLibraryProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<'all' | 'general' | 'ecommerce' | 'sections'>('all');
 
-  const catalog = BUILDER_WIDGETS.map((w) => {
-    if (!isCoffee) return w;
-    const override = COFFEE_WIDGET_OVERRIDES[w.id];
-    if (!override) return w;
-    return {
-      ...w,
-      ...override,
-      defaultSettings: { ...w.defaultSettings, ...(override.defaultSettings || {}) },
-    };
-  }).filter((w) => !isCoffee || !COFFEE_HIDDEN_WIDGET_TYPES.has(w.type));
+  const catalog = [
+    ...BUILDER_WIDGETS.map((w) => {
+      if (!isCoffee) return w;
+      const override = COFFEE_WIDGET_OVERRIDES[w.id];
+      if (!override) return w;
+      return {
+        ...w,
+        ...override,
+        defaultSettings: { ...w.defaultSettings, ...(override.defaultSettings || {}) },
+      };
+    }),
+    ...(isCoffee ? COFFEE_EXTRA_WIDGETS : []),
+  ].filter((w) => !isCoffee || !COFFEE_HIDDEN_WIDGET_TYPES.has(w.type));
 
   const filtered = catalog.filter((w) => {
     const matchesCat = activeCategory === 'all' || w.category === activeCategory;

@@ -207,13 +207,17 @@ import { blocksFromLayout, builderPageFromQuery, builderPageMeta, builderPageTit
 import { deviceStyleCss, frameWidthPx, visibleFrameBlocks } from './builderDeviceFrame';
 import { coffeeCanvasMode, showRestoreAllBanner } from './coffeeCanvasMode';
 import {
-  applyDrop,
+  applyChromeSafeDrop,
   blocksForPublish,
+  clampInsertIndexForChrome,
   columnTemplate,
   countVisibleH1,
   createCoalescedSaver,
-  duplicateBlock,
+  duplicateBlockChromeSafe,
+  isFixedChromeBlock,
+  moveBlockChromeSafe,
   nestIntoColumns,
+  removeBlockChromeSafe,
   rowSection,
   widgetPosition,
   withVisibility,
@@ -563,62 +567,93 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
       }
     }, [b.id, b.customJs]);
 
+    const chromeFixed = isFixedChromeBlock(b);
+
     const renderSectionToolbar = () => (
       <>
-        {/* Elementor Pro Top Tab Handle [ + | ::: | x ] */}
+        {/* Elementor Pro Top Tab Handle [ + | ::: | x ] — chrome: insert only, no drag/delete */}
         <div
-          draggable
+          draggable={!chromeFixed}
           onDragStart={(e) => {
             e.stopPropagation();
+            if (chromeFixed) {
+              e.preventDefault();
+              return;
+            }
             onDragStart(e, idx);
           }}
-          className="absolute -top-3.5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all z-40 flex items-center shadow-md rounded-md bg-cyan-600 hover:bg-cyan-700 text-white text-xs overflow-hidden border border-cyan-400 cursor-grab active:cursor-grabbing select-none"
-          title={isAr ? 'اسحب القسم لنقله مباشرة على الصفحة' : 'Drag to reorder section directly on canvas'}
+          className={`absolute -top-3.5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all z-40 flex items-center shadow-md rounded-md text-white text-xs overflow-hidden border select-none ${
+            chromeFixed
+              ? 'bg-[color:var(--portal-cta)] border-[color:var(--accent)] cursor-default'
+              : 'bg-cyan-600 hover:bg-cyan-700 border-cyan-400 cursor-grab active:cursor-grabbing'
+          }`}
+          title={
+            chromeFixed
+              ? (isAr ? 'عنصر ثابت — التعديل فقط' : 'Fixed chrome — edit only')
+              : (isAr ? 'اسحب القسم لنقله مباشرة على الصفحة' : 'Drag to reorder section directly on canvas')
+          }
         >
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onInsertAbove(idx);
-            }}
-            className="p-1 hover:bg-cyan-700 cursor-pointer"
-            title={isAr ? 'إدراج قسم بالأعلى (+)' : 'Add Section Above (+)'}
-          >
-            <Plus className="w-3.5 h-3.5" />
-          </button>
-          <div
-            className="px-2 py-1 hover:bg-cyan-700 cursor-grab active:cursor-grabbing flex items-center gap-0.5"
-            title={isAr ? 'اسحب لإعادة الترتيب' : 'Drag to Reorder Section'}
-          >
-            <GripVertical className="w-3.5 h-3.5" />
-          </div>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(b.id);
-            }}
-            className="p-1 hover:bg-rose-600 cursor-pointer"
-            title={isAr ? 'حذف القسم' : 'Delete Section'}
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
+          {!chromeFixed && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onInsertAbove(idx);
+              }}
+              className="p-1 hover:bg-cyan-700 cursor-pointer"
+              title={isAr ? 'إدراج قسم بالأعلى (+)' : 'Add Section Above (+)'}
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {!chromeFixed && (
+            <div
+              className="px-2 py-1 hover:bg-cyan-700 cursor-grab active:cursor-grabbing flex items-center gap-0.5"
+              title={isAr ? 'اسحب لإعادة الترتيب' : 'Drag to Reorder Section'}
+            >
+              <GripVertical className="w-3.5 h-3.5" />
+            </div>
+          )}
+          {chromeFixed ? (
+            <div className="px-2 py-1 flex items-center gap-1 font-bold">
+              <span>{isAr ? 'ثابت' : 'Fixed'}</span>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(b.id);
+              }}
+              className="p-1 hover:bg-rose-600 cursor-pointer"
+              title={isAr ? 'حذف القسم' : 'Delete Section'}
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Floating Side Toolbar */}
         <div className="absolute top-2 start-2 end-2 opacity-0 group-hover:opacity-100 transition-opacity z-40 flex items-center justify-between pointer-events-none">
           <div className="pointer-events-auto flex items-center gap-1.5 bg-slate-900/90 text-white text-[11px] font-bold px-3 py-1 rounded-xl shadow-lg backdrop-blur-xs">
-            <span
-              draggable
-              onDragStart={(e) => {
-                e.stopPropagation();
-                onDragStart(e, idx);
-              }}
-              className="text-slate-400 cursor-grab active:cursor-grabbing p-0.5"
-            >
-              <GripVertical className="w-3.5 h-3.5" />
-            </span>
+            {!chromeFixed && (
+              <span
+                draggable
+                onDragStart={(e) => {
+                  e.stopPropagation();
+                  onDragStart(e, idx);
+                }}
+                className="text-slate-400 cursor-grab active:cursor-grabbing p-0.5"
+              >
+                <GripVertical className="w-3.5 h-3.5" />
+              </span>
+            )}
             <span>{isAr ? b.titleAr : b.titleEn}</span>
+            {chromeFixed && (
+              <span className="text-[9px] bg-[color:var(--portal-cta)] px-1.5 py-0.5 rounded text-white">
+                {isAr ? 'ثابت' : 'Fixed'}
+              </span>
+            )}
             <span className="text-[9px] bg-indigo-600 px-1.5 py-0.5 rounded font-mono text-white">
               {b.templateStyle}
             </span>
@@ -627,39 +662,49 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
           <div className="pointer-events-auto flex items-center gap-1 bg-white text-slate-700 p-1 rounded-xl shadow-lg border border-slate-200">
             <button
               type="button"
-              disabled={idx === 0}
+              disabled={chromeFixed || idx === 0}
               onClick={(e) => {
                 e.stopPropagation();
                 onMove(b.id, -1);
               }}
               className="p-1 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg disabled:opacity-20 cursor-pointer"
-              title={isAr ? 'تحريك للأعلى' : 'Move Up'}
+              title={
+                chromeFixed
+                  ? (isAr ? 'عنصر ثابت' : 'Fixed')
+                  : (isAr ? 'تحريك للأعلى' : 'Move Up')
+              }
             >
               <ArrowUp className="w-3.5 h-3.5" />
             </button>
             <button
               type="button"
-              disabled={idx === totalBlocks - 1}
+              disabled={chromeFixed || idx === totalBlocks - 1}
               onClick={(e) => {
                 e.stopPropagation();
                 onMove(b.id, 1);
               }}
               className="p-1 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg disabled:opacity-20 cursor-pointer"
-              title={isAr ? 'تحريك للأسفل' : 'Move Down'}
+              title={
+                chromeFixed
+                  ? (isAr ? 'عنصر ثابت' : 'Fixed')
+                  : (isAr ? 'تحريك للأسفل' : 'Move Down')
+              }
             >
               <ArrowDown className="w-3.5 h-3.5" />
             </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDuplicate(b.id);
-              }}
-              className="p-1 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg cursor-pointer"
-              title={isAr ? 'تكرار القسم' : 'Duplicate Section'}
-            >
-              <Copy className="w-3.5 h-3.5" />
-            </button>
+            {!chromeFixed && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDuplicate(b.id);
+                }}
+                className="p-1 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg cursor-pointer"
+                title={isAr ? 'تكرار القسم' : 'Duplicate Section'}
+              >
+                <Copy className="w-3.5 h-3.5" />
+              </button>
+            )}
             <button
               type="button"
               onClick={(e) => {
@@ -2646,7 +2691,12 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       templateStyle: widget.templateStyle,
       settings: { ...widget.defaultSettings },
     };
-    setBlocks((prev) => [...prev, newBlock]);
+    setBlocks((prev) => {
+      const copy = [...prev];
+      const insertAt = clampInsertIndexForChrome(copy, copy.length);
+      copy.splice(insertAt, 0, newBlock);
+      return copy;
+    });
     setSelectedBlockId(newId);
     setHasUnsavedChanges(true);
     toast(
@@ -2678,12 +2728,14 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     };
 
     setBlocks((prev) => {
-      if (typeof targetIndex === 'number' && targetIndex >= 0 && targetIndex <= prev.length) {
-        const copy = [...prev];
-        copy.splice(targetIndex, 0, newBlock);
-        return copy;
-      }
-      return [...prev, newBlock];
+      const copy = [...prev];
+      const rawIdx =
+        typeof targetIndex === 'number' && targetIndex >= 0 && targetIndex <= prev.length
+          ? targetIndex
+          : prev.length;
+      const insertAt = clampInsertIndexForChrome(copy, rawIdx);
+      copy.splice(insertAt, 0, newBlock);
+      return copy;
     });
 
     setSelectedBlockId(newId);
@@ -2720,7 +2772,8 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             };
             setBlocks((prev) => {
               const copy = [...prev];
-              copy.splice(targetIndex, 0, newBlock);
+              const insertAt = clampInsertIndexForChrome(copy, targetIndex);
+              copy.splice(insertAt, 0, newBlock);
               return copy;
             });
             setSelectedBlockId(newId);
@@ -2742,18 +2795,35 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
           setDraggedBlockIdx(null);
           return;
         }
+        if (isFixedChromeBlock(blocks[draggedBlockIdx])) {
+          setDraggedBlockIdx(null);
+          toast(
+            isAr
+              ? 'الشريط العلوي والقائمة والتذييل ثابتة ولا يمكن سحبها'
+              : 'Top bar, navbar, and footer are fixed and cannot be dragged',
+            'info',
+          );
+          return;
+        }
+        let accepted = false;
         setBlocks((prev) => {
-          const copy = [...prev];
-          const [moved] = copy.splice(draggedBlockIdx, 1);
           const adjTarget = targetIndex > draggedBlockIdx ? targetIndex - 1 : targetIndex;
-          copy.splice(adjTarget, 0, moved);
-          return copy;
+          const moved = applyChromeSafeDrop(prev, draggedBlockIdx, Math.max(0, Math.min(prev.length - 1, adjTarget)));
+          accepted = moved.accepted;
+          return moved.accepted ? moved.items : prev;
         });
         setDraggedBlockIdx(null);
-        toast(isAr ? 'تم نقل القسم بنجاح' : 'Section moved successfully', 'success');
+        toast(
+          accepted
+            ? (isAr ? 'تم نقل القسم بنجاح' : 'Section moved successfully')
+            : (isAr
+              ? 'الشريط العلوي والقائمة والتذييل ثابتة — يمكن ترتيب بقية العناصر فقط'
+              : 'Top bar, navbar, and footer stay fixed — only other widgets can be reordered'),
+          accepted ? 'success' : 'info',
+        );
       }
     },
-    [draggedBlockIdx, isAr, toast],
+    [blocks, draggedBlockIdx, isAr, toast],
   );
 
   // Handle dropping a widget or reordered section directly onto any canvas section
@@ -2781,7 +2851,8 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             const insertIdx = position === 'above' ? targetBlockIdx : targetBlockIdx + 1;
             setBlocks((prev) => {
               const copy = [...prev];
-              copy.splice(insertIdx, 0, newBlock);
+              const clamped = clampInsertIndexForChrome(copy, insertIdx);
+              copy.splice(clamped, 0, newBlock);
               return copy;
             });
             setSelectedBlockId(newId);
@@ -2807,29 +2878,43 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       }
 
       if (sourceIdx !== null && sourceIdx !== undefined && !isNaN(sourceIdx)) {
+        if (isFixedChromeBlock(blocks[sourceIdx]) || isFixedChromeBlock(blocks[targetBlockIdx])) {
+          setDraggedBlockIdx(null);
+          toast(
+            isAr
+              ? 'الشريط العلوي والقائمة والتذييل ثابتة — يمكن ترتيب بقية العناصر فقط'
+              : 'Top bar, navbar, and footer stay fixed — only other widgets can be reordered',
+            'info',
+          );
+          return;
+        }
         let destIdx = position === 'above' ? targetBlockIdx : targetBlockIdx + 1;
         if (sourceIdx === destIdx || (sourceIdx + 1 === destIdx && position === 'below')) {
           setDraggedBlockIdx(null);
           return;
         }
+        let accepted = false;
         setBlocks((prev) => {
-          const copy = [...prev];
-          const [moved] = copy.splice(sourceIdx!, 1);
           const adjustedDest = destIdx > sourceIdx! ? destIdx - 1 : destIdx;
-          copy.splice(adjustedDest, 0, moved);
-          return copy;
+          const moved = applyChromeSafeDrop(prev, sourceIdx!, Math.max(0, Math.min(prev.length - 1, adjustedDest)));
+          accepted = moved.accepted;
+          return moved.accepted ? moved.items : prev;
         });
         setDraggedBlockIdx(null);
-        setHasUnsavedChanges(true);
+        if (accepted) setHasUnsavedChanges(true);
         toast(
-          isAr
-            ? 'تم إعادة ترتيب القسم بالسحب والإفلات المباشر على الصفحة!'
-            : 'Section reordered via direct on-canvas drag & drop!',
-          'success',
+          accepted
+            ? (isAr
+              ? 'تم إعادة ترتيب القسم بالسحب والإفلات المباشر على الصفحة!'
+              : 'Section reordered via direct on-canvas drag & drop!')
+            : (isAr
+              ? 'الشريط العلوي والقائمة والتذييل ثابتة — يمكن ترتيب بقية العناصر فقط'
+              : 'Top bar, navbar, and footer stay fixed — only other widgets can be reordered'),
+          accepted ? 'success' : 'info',
         );
       }
     },
-    [draggedBlockIdx, isAr, toast],
+    [blocks, draggedBlockIdx, isAr, toast],
   );
 
   // Handle dropping a widget into a specific column of a container
@@ -3119,19 +3204,32 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   }, []);
 
   const handleMoveBlock = useCallback((id: string, direction: -1 | 1) => {
-    setBlocks((prev) => {
-      const idx = prev.findIndex((b) => b.id === id);
-      if (idx < 0) return prev;
-      const targetIdx = idx + direction;
-      if (targetIdx < 0 || targetIdx >= prev.length) return prev;
-      const next = [...prev];
-      const [moved] = next.splice(idx, 1);
-      next.splice(targetIdx, 0, moved);
-      return next;
-    });
-  }, []);
+    const block = blocks.find((b) => b.id === id);
+    if (isFixedChromeBlock(block)) {
+      toast(
+        isAr
+          ? 'الشريط العلوي والقائمة والتذييل ثابتة ولا يمكن نقلها'
+          : 'Top bar, navbar, and footer are fixed and cannot be moved',
+        'info',
+      );
+      return;
+    }
+    setBlocks((prev) => moveBlockChromeSafe(prev, id, direction));
+  }, [blocks, isAr, toast]);
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
+    const block = blocks[index];
+    if (isFixedChromeBlock(block)) {
+      e.preventDefault();
+      e.stopPropagation();
+      toast(
+        isAr
+          ? 'الشريط العلوي والقائمة والتذييل ثابتة ولا يمكن سحبها'
+          : 'Top bar, navbar, and footer are fixed and cannot be dragged',
+        'info',
+      );
+      return;
+    }
     setDraggedBlockIdx(index);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', String(index));
@@ -3139,6 +3237,10 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
+    if (isFixedChromeBlock(blocks[index])) {
+      e.dataTransfer.dropEffect = 'none';
+      return;
+    }
     e.dataTransfer.dropEffect = 'move';
     if (dragOverBlockIdx !== index) {
       setDragOverBlockIdx(index);
@@ -3152,27 +3254,58 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       setDragOverBlockIdx(null);
       return;
     }
+    let accepted = false;
     setBlocks((prev) => {
-      const moved = applyDrop(prev, draggedBlockIdx, dropIndex);
+      const moved = applyChromeSafeDrop(prev, draggedBlockIdx, dropIndex);
+      accepted = moved.accepted;
       return moved.accepted ? moved.items : prev;
     });
     setDraggedBlockIdx(null);
     setDragOverBlockIdx(null);
-    toast(isAr ? 'تم إعادة ترتيب القسم بالسحب والإفلات' : 'Section reordered via drag and drop', 'success');
+    if (accepted) {
+      toast(isAr ? 'تم إعادة ترتيب القسم بالسحب والإفلات' : 'Section reordered via drag and drop', 'success');
+    } else {
+      toast(
+        isAr
+          ? 'الشريط العلوي والقائمة والتذييل ثابتة — يمكن ترتيب بقية العناصر فقط'
+          : 'Top bar, navbar, and footer stay fixed — only other widgets can be reordered',
+        'info',
+      );
+    }
   };
 
   const handleDuplicateBlock = (id: string) => {
+    const block = blocks.find((b) => b.id === id);
+    if (isFixedChromeBlock(block)) {
+      toast(
+        isAr
+          ? 'لا يمكن تكرار الشريط العلوي أو القائمة أو التذييل'
+          : 'Top bar, navbar, and footer cannot be duplicated',
+        'info',
+      );
+      return;
+    }
     const newId = `${id}_copy_${Date.now()}`;
-    setBlocks((prev) => duplicateBlock(prev, id, newId));
+    setBlocks((prev) => duplicateBlockChromeSafe(prev, id, newId));
     toast(isAr ? 'تم تكرار القسم بنجاح' : 'Section duplicated successfully', 'success');
   };
 
   const handleDeleteBlock = (id: string) => {
+    const block = blocks.find((b) => b.id === id);
+    if (isFixedChromeBlock(block)) {
+      toast(
+        isAr
+          ? 'لا يمكن حذف الشريط العلوي أو القائمة أو التذييل'
+          : 'Top bar, navbar, and footer cannot be deleted',
+        'info',
+      );
+      return;
+    }
     if (blocks.length <= 1) {
       toast(isAr ? 'لا يمكن حذف كافة الأقسام' : 'Cannot delete all sections', 'info');
       return;
     }
-    setBlocks((prev) => prev.filter((b) => b.id !== id));
+    setBlocks((prev) => removeBlockChromeSafe(prev, id));
     setSelectedBlockId((prev) => (prev === id ? blocks[0].id : prev));
     toast(isAr ? 'تم حذف القسم' : 'Section deleted', 'info');
   };
@@ -4323,10 +4456,11 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                     const isSelected = selectedBlockId === b.id;
                     const BIcon = getBlockIcon(b.type);
                     const isHeaderBlock = b.type === 'header' || b.id === 'header';
+                    const isChromeFixed = isFixedChromeBlock(b);
                     return (
                       <div key={b.id} className="space-y-1">
                         <div
-                          draggable
+                          draggable={!isChromeFixed}
                           onDragStart={(e) => handleDragStart(e, idx)}
                           onDragOver={(e) => handleDragOver(e, idx)}
                           onDrop={(e) => handleDrop(e, idx)}
@@ -4338,7 +4472,12 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                             isSelected
                               ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 shadow-xs font-bold'
                               : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
-                          } ${!b.visible ? 'opacity-50' : ''}`}
+                          } ${!b.visible ? 'opacity-50' : ''} ${isChromeFixed ? 'ring-1 ring-[color:var(--accent)]/30' : ''}`}
+                          title={
+                            isChromeFixed
+                              ? (isAr ? 'عنصر ثابت — يمكن التعديل فقط' : 'Fixed chrome — edit only')
+                              : undefined
+                          }
                         >
                           <div className="flex items-center gap-1.5 min-w-0">
                             {isHeaderBlock && (
@@ -4358,13 +4497,27 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                                 />
                               </button>
                             )}
-                            <GripVertical className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 cursor-grab shrink-0" />
+                            {isChromeFixed ? (
+                              <span
+                                className="w-3.5 h-3.5 text-[color:var(--accent)] shrink-0 flex items-center justify-center text-[9px] font-black"
+                                aria-hidden
+                              >
+                                ⌖
+                              </span>
+                            ) : (
+                              <GripVertical className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 cursor-grab shrink-0" />
+                            )}
                             <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
                               <BIcon className="w-3.5 h-3.5" />
                             </div>
                             <span className="text-xs truncate font-medium">
                               {isAr ? b.titleAr : b.titleEn}
                             </span>
+                            {isChromeFixed && (
+                              <span className="text-[9px] font-bold text-[color:var(--muted)] shrink-0">
+                                {isAr ? 'ثابت' : 'Fixed'}
+                              </span>
+                            )}
                           </div>
 
                           <div className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
@@ -4379,28 +4532,32 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                             >
                               {b.visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3 text-rose-500" />}
                             </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDuplicateBlock(b.id);
-                              }}
-                              className="p-1 hover:bg-indigo-100 hover:text-indigo-700 rounded text-indigo-600 cursor-pointer"
-                              title={isAr ? 'نسخ القسم' : 'Copy / Duplicate'}
-                            >
-                              <Copy className="w-3 h-3" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteBlock(b.id);
-                              }}
-                              className="p-1 hover:bg-rose-100 hover:text-rose-600 rounded text-slate-400 cursor-pointer"
-                              title={isAr ? 'حذف' : 'Delete'}
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
+                            {!isChromeFixed && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDuplicateBlock(b.id);
+                                }}
+                                className="p-1 hover:bg-indigo-100 hover:text-indigo-700 rounded text-indigo-600 cursor-pointer"
+                                title={isAr ? 'نسخ القسم' : 'Copy / Duplicate'}
+                              >
+                                <Copy className="w-3 h-3" />
+                              </button>
+                            )}
+                            {!isChromeFixed && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteBlock(b.id);
+                                }}
+                                className="p-1 hover:bg-rose-100 hover:text-rose-600 rounded text-slate-400 cursor-pointer"
+                                title={isAr ? 'حذف' : 'Delete'}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -4413,7 +4570,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                               { id: 'navigation' as const, labelAr: '🧭 القائمة الرئيسية', labelEn: '🧭 Navigation', icon: Menu },
                               { id: 'actions' as const, labelAr: '🛒 الأيقونات والسلة', labelEn: '🛒 Actions & Cart', icon: ShoppingBag },
                               { id: 'language' as const, labelAr: '🌐 تبديل اللغة', labelEn: '🌐 Language', icon: Globe },
-                              { id: 'general' as const, labelAr: '⚙️ حاوية الهيدر', labelEn: '⚙️ Header Container', icon: Sliders },
+                              { id: 'general' as const, labelAr: '⚙️ حاوية الترويسة', labelEn: '⚙️ Header Container', icon: Sliders },
                             ].map((sub) => {
                               const SubIcon = sub.icon;
                               const isSubSelected = isSelected && headerSubElement === sub.id;
@@ -5159,7 +5316,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                       <div className="grid grid-cols-3 gap-1.5">
                         {[
                           { id: 'none', labelAr: 'بدون', labelEn: 'None' },
-                          { id: 'classic', labelAr: 'كلاسيك (صورة)', labelEn: 'Classic (Image)' },
+                          { id: 'classic', labelAr: 'تقليدي (صورة)', labelEn: 'Classic (Image)' },
                           { id: 'gradient', labelAr: 'تدرج', labelEn: 'Gradient' },
                         ].map((bt) => {
                           const isAct = (selectedBlock.settings.bgType || 'none') === bt.id;
@@ -5440,7 +5597,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {[
                         { id: '3', labelAr: '33, 33, 33', labelEn: '33, 33, 33' },
-                        { id: '25-25-50', labelAr: '25, 25, 50 (Featured)', labelEn: '25, 25, 50 (Featured)' },
+                        { id: '25-25-50', labelAr: '٢٥، ٢٥، ٥٠ (مميز)', labelEn: '25, 25, 50 (Featured)' },
                         { id: '50-25-25', labelAr: '50, 25, 25', labelEn: '50, 25, 25' },
                         { id: '25-50-25', labelAr: '25, 50, 25', labelEn: '25, 50, 25' },
                         { id: '16-66-16', labelAr: '16, 66, 16', labelEn: '16, 66, 16' },
@@ -5511,7 +5668,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                         { key: '8', labelAr: '٨ أعمدة (١٢٪)', labelEn: '8 Cols (12%)' },
                         { key: '2-asym-left', labelAr: '٦٦٪ / ٣٣٪', labelEn: 'Asym-L (66/33)' },
                         { key: '2-asym-right', labelAr: '٣٣٪ / ٦٦٪', labelEn: 'Asym-R (33/66)' },
-                        { key: 'bento', labelAr: 'بينتو', labelEn: 'Bento Grid' },
+                        { key: 'bento', labelAr: 'شبكة مربعات', labelEn: 'Bento Grid' },
                       ].map((col) => {
                         const isCurrent = (selectedBlock.settings.layoutColumns || '1') === col.key;
                         return (
@@ -6172,7 +6329,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                   {isAr ? 'رقم تسلسلي كبير' : 'Counter Number (82px)'}
                 </span>
                 <span className="text-[10px] text-slate-500 leading-tight">
-                  {isAr ? 'رقم الترتيب المخصص 82px كما في الخطوة ٣' : 'Huge 82px counter label as per tutorial Step 3'}
+                  {isAr ? 'رقم الترتيب المخصص بحجم كبير كما في الخطوة ٣' : 'Huge 82px counter label as per tutorial Step 3'}
                 </span>
               </button>
 

@@ -6,14 +6,24 @@ import { CoffeeWordSettingsShell, type CoffeeFormChromeProps, type PreviewDevice
 import { safeFeatureImage } from '../../../../themes/coffeeRoasters/components/CoffeeFeatureIconsBar';
 import { MediaUploadField } from '../../../common/MediaUploadField';
 
-const inputCls = 'w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs text-slate-800 outline-none focus:border-[#2563EB]';
-const cardCls = 'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3';
+const inputCls = 'w-full px-3 py-2 rounded-lg border bg-white text-xs outline-none focus:border-[var(--accent)]';
+const cardCls = 'rounded-2xl border p-4 shadow-sm space-y-3';
+const cardStyle: React.CSSProperties = { borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--text)' };
+const inputStyle: React.CSSProperties = { borderColor: 'var(--border)', color: 'var(--text)' };
+
+type HeroTab = 'content' | 'style' | 'layout';
+const HERO_TABS: { id: HeroTab; en: string; ar: string }[] = [
+  { id: 'content', en: 'Content', ar: 'المحتوى' },
+  { id: 'style', en: 'Style', ar: 'النمط' },
+  { id: 'layout', en: 'Layout', ar: 'التخطيط' },
+];
 
 function blankSlide(): HeroBannerSlideSettings {
   return {
     id: `hero-${Date.now()}`,
     enabled: true,
     image: '',
+    tabletImage: '',
     mobileImage: '',
     promoEn: '',
     promoAr: '',
@@ -26,6 +36,7 @@ function blankSlide(): HeroBannerSlideSettings {
     currency: 'SAR',
     productId: '',
     textColor: '#111111',
+    whatsappEnabled: false,
     buyNowEnabled: false,
     buyNowEn: '',
     buyNowAr: '',
@@ -55,7 +66,13 @@ function HeroPreviewCard({
   if (!slide) {
     return <div className="p-6 text-center text-[11px] text-slate-400">{isAr ? 'لا شريحة للمعاينة' : 'No slide to preview'}</div>;
   }
-  const image = safeFeatureImage(slide.image);
+  const raw =
+    device === 'mobile'
+      ? slide.mobileImage || slide.tabletImage || slide.image
+      : device === 'tablet'
+        ? slide.tabletImage || slide.image
+        : slide.image;
+  const image = safeFeatureImage(raw);
   const promo = bi(isAr ? 'ar' : 'en', slide.promoEn, slide.promoAr);
   const title = bi(isAr ? 'ar' : 'en', slide.titleEn, slide.titleAr);
   const description = bi(isAr ? 'ar' : 'en', slide.descriptionEn, slide.descriptionAr);
@@ -90,6 +107,7 @@ function HeroPreviewCard({
 export const HeroBannersForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embedded }) => {
   const { draft, setDraft, save, saving, savedFlash, isAr } = useCoffeeDraft('heroBanners');
   const banners = draft?.banners || [];
+  const [tab, setTab] = useState<HeroTab>('content');
   const [editId, setEditId] = useState<string | null>(banners[0]?.id || null);
   const editing = banners.find((b) => b.id === editId) || banners[0] || null;
 
@@ -104,53 +122,66 @@ export const HeroBannersForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embed
       onBack={onBack}
       embedded={embedded}
       titleEn="Hero Banners"
-      titleAr="بانرات الهيرو"
+      titleAr="بانرات الواجهة"
       subtitleEn="Slides publish to the storefront hero after Save. Leave images and CTAs empty until you set real content."
-      subtitleAr="الشرائح تُنشر إلى هيرو المتجر بعد الحفظ. اترك الصور والأزرار فارغة حتى تضيف محتوى حقيقيًا."
+      subtitleAr="الشرائح تُنشر إلى واجهة المتجر بعد الحفظ. اترك الصور والأزرار فارغة حتى تضيف محتوى حقيقيًا."
       onSave={() => save()}
       saving={saving}
       savedFlash={savedFlash}
       preview={(device) =>
         draft?.enabled === false ? (
-          <div className="p-6 text-center text-[11px] text-slate-400">{isAr ? 'الهيرو مخفي في المتجر' : 'Hero is hidden on the storefront'}</div>
+          <div className="p-6 text-center text-[11px]" style={{ color: 'var(--muted)' }}>{isAr ? 'الواجهة مخفية في المتجر' : 'Hero is hidden on the storefront'}</div>
         ) : (
           <HeroPreviewCard slide={previewSlide} isAr={isAr} device={device} />
         )
       }
       settings={
         <>
-          <section className={cardCls}>
-            <label className="flex items-center justify-between text-xs font-semibold text-slate-700">
-              <span>{isAr ? 'تفعيل الهيرو' : 'Enable hero'}</span>
+          <div className="flex flex-wrap gap-1 rounded-xl border p-1" style={{ borderColor: 'var(--border)' }} role="tablist">
+            {HERO_TABS.map((t) => {
+              const active = tab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  data-hero-tab={t.id}
+                  aria-selected={active}
+                  onClick={() => setTab(t.id)}
+                  className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border"
+                  style={active ? { background: 'var(--portal-cta)', color: '#fff', borderColor: 'var(--portal-cta)' } : { borderColor: 'transparent', color: 'var(--text)' }}
+                >
+                  {isAr ? t.ar : t.en}
+                </button>
+              );
+            })}
+          </div>
+
+          {tab === 'content' ? (
+          <>
+          <section className={cardCls} style={cardStyle} data-hero-panel="content">
+            <label className="flex items-center justify-between text-xs font-semibold" style={{ color: 'var(--text)' }}>
+              <span>{isAr ? 'تفعيل الواجهة' : 'Enable hero'}</span>
               <button
                 type="button"
                 onClick={() => setDraft({ ...draft, enabled: !draft?.enabled })}
-                className={`w-11 h-6 rounded-full p-0.5 ${draft?.enabled ? 'bg-[#2563EB]' : 'bg-slate-300'}`}
+                className="w-11 h-6 rounded-full p-0.5"
+                style={{ background: draft?.enabled ? 'var(--portal-cta)' : 'var(--border)' }}
               >
                 <span className={`block w-5 h-5 rounded-full bg-white transition-transform ${draft?.enabled ? 'translate-x-5 rtl:-translate-x-5' : ''}`} />
               </button>
             </label>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-700">
-                <input type="checkbox" checked={!!draft?.autoplay} onChange={(e) => setDraft({ ...draft, autoplay: e.target.checked })} />
-                {isAr ? 'تشغيل تلقائي' : 'Autoplay'}
-              </label>
-              <label className="space-y-1 text-[11px] font-semibold text-slate-600">
-                <span>{isAr ? 'المدة (مللي ثانية)' : 'Interval (ms)'}</span>
-                <input type="number" min={2000} className={inputCls} value={draft?.intervalMs || 5000} onChange={(e) => setDraft({ ...draft, intervalMs: Number(e.target.value) || 5000 })} />
-              </label>
-            </div>
-            <p className="text-[11px] text-slate-500">
-              {isAr ? `الشرائح — منفصلة عن بانرات القسم المميز.` : `Slides (${banners.length}) — separate from featured section banners.`}
+            <p className="text-[11px]" style={{ color: 'var(--muted)' }}>
+              {isAr ? `الشرائح (${banners.length}) — منفصلة عن بانرات القسم المميز والبطل التجاري.` : `Slides (${banners.length}) — separate from featured section banners and commercial hero.`}
             </p>
           </section>
 
-          <section className={cardCls}>
+          <section className={cardCls} style={cardStyle} data-hero-panel="slides">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold">{isAr ? 'الشرائح' : 'Slides'}</h3>
               <button
                 type="button"
-                className="px-2.5 py-1.5 rounded-lg bg-[#2563EB] text-white text-[11px] font-bold"
+                className="unity-btn-primary px-2.5 py-1.5 rounded-lg text-[11px] font-bold"
                 onClick={() => {
                   const row = blankSlide();
                   setDraft({ ...draft, enabled: true, banners: [...banners, row] });
@@ -165,7 +196,11 @@ export const HeroBannersForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embed
               {banners.map((b, index) => (
                 <li
                   key={`${b.id}-${index}`}
-                  className={`flex items-center gap-2 rounded-xl border px-2 py-2 cursor-pointer ${editId === b.id ? 'border-[#2563EB] bg-blue-50/40' : 'border-slate-200 bg-slate-50'}`}
+                  className="flex items-center gap-2 rounded-xl border px-2 py-2 cursor-pointer"
+                  style={{
+                    borderColor: editId === b.id ? 'var(--portal-cta)' : 'var(--border)',
+                    background: editId === b.id ? 'color-mix(in srgb, var(--portal-cta) 8%, var(--surface))' : 'var(--surface)',
+                  }}
                   onClick={() => {
                     setEditId(b.id);
                     window.dispatchEvent(new CustomEvent('unityteck-preview-focus', { detail: { section: 'C-HERO', index } }));
@@ -230,6 +265,14 @@ export const HeroBannersForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embed
                 recommendedSize="1920 × 800 px"
               />
               <MediaUploadField
+                label={isAr ? 'صورة الجهاز اللوحي (اختياري)' : 'Tablet image (optional)'}
+                value={editing.tabletImage || ''}
+                onChange={(url) => patch(editing.id, { tabletImage: url })}
+                aspectRatio="banner"
+                initialFolder="banners"
+                recommendedSize="1200 × 900 px"
+              />
+              <MediaUploadField
                 label={isAr ? 'صورة الجوال (اختياري)' : 'Mobile image (optional)'}
                 value={editing.mobileImage || ''}
                 onChange={(url) => patch(editing.id, { mobileImage: url })}
@@ -238,63 +281,43 @@ export const HeroBannersForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embed
                 recommendedSize="750 × 1100 px"
               />
               <div className="grid grid-cols-1 gap-2">
-                <label className="space-y-1 text-[11px] font-semibold text-slate-600">
+                <label className="space-y-1 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
                   <span>{isAr ? 'النص الترويجي' : 'Promo'}</span>
-                  <input
-                    className={inputCls}
-                    dir={isAr ? 'rtl' : 'ltr'}
-                    maxLength={100}
-                    value={isAr ? editing.promoAr : editing.promoEn}
-                    onChange={(e) => patch(editing.id, isAr ? { promoAr: e.target.value } : { promoEn: e.target.value })}
-                  />
+                  <input className={inputCls} style={inputStyle} dir={isAr ? 'rtl' : 'ltr'} maxLength={100} value={isAr ? editing.promoAr : editing.promoEn} onChange={(e) => patch(editing.id, isAr ? { promoAr: e.target.value } : { promoEn: e.target.value })} />
                 </label>
-                <label className="space-y-1 text-[11px] font-semibold text-slate-600">
+                <label className="space-y-1 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
                   <span>{isAr ? 'العنوان' : 'Title'}</span>
-                  <input
-                    className={inputCls}
-                    dir={isAr ? 'rtl' : 'ltr'}
-                    maxLength={100}
-                    value={isAr ? editing.titleAr : editing.titleEn}
-                    onChange={(e) => patch(editing.id, isAr ? { titleAr: e.target.value } : { titleEn: e.target.value })}
-                  />
+                  <input className={inputCls} style={inputStyle} dir={isAr ? 'rtl' : 'ltr'} maxLength={100} value={isAr ? editing.titleAr : editing.titleEn} onChange={(e) => patch(editing.id, isAr ? { titleAr: e.target.value } : { titleEn: e.target.value })} />
                 </label>
-                <label className="space-y-1 text-[11px] font-semibold text-slate-600">
+                <label className="space-y-1 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
                   <span>{isAr ? 'الوصف' : 'Description'}</span>
-                  <input
-                    className={inputCls}
-                    dir={isAr ? 'rtl' : 'ltr'}
-                    maxLength={200}
-                    value={isAr ? editing.descriptionAr : editing.descriptionEn}
-                    onChange={(e) =>
-                      patch(editing.id, isAr ? { descriptionAr: e.target.value } : { descriptionEn: e.target.value })
-                    }
-                  />
+                  <input className={inputCls} style={inputStyle} dir={isAr ? 'rtl' : 'ltr'} maxLength={200} value={isAr ? editing.descriptionAr : editing.descriptionEn} onChange={(e) => patch(editing.id, isAr ? { descriptionAr: e.target.value } : { descriptionEn: e.target.value })} />
                 </label>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <label className="space-y-1 text-[11px] font-semibold text-slate-600">
+                <label className="space-y-1 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
                   <span>{isAr ? 'السعر' : 'Price'}</span>
-                  <input className={inputCls} value={editing.price} onChange={(e) => patch(editing.id, { price: e.target.value })} />
+                  <input className={inputCls} style={inputStyle} value={editing.price} onChange={(e) => patch(editing.id, { price: e.target.value })} />
                 </label>
-                <label className="space-y-1 text-[11px] font-semibold text-slate-600">
+                <label className="space-y-1 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
                   <span>{isAr ? 'معرّف المنتج' : 'Product ID'}</span>
-                  <input className={inputCls} dir="ltr" value={editing.productId} onChange={(e) => patch(editing.id, { productId: e.target.value })} />
+                  <input className={inputCls} style={inputStyle} dir="ltr" value={editing.productId} onChange={(e) => patch(editing.id, { productId: e.target.value })} />
                 </label>
               </div>
               <label className="flex items-center gap-2 text-[11px] font-semibold">
                 <input type="checkbox" checked={editing.showPrice} onChange={(e) => patch(editing.id, { showPrice: e.target.checked })} />
                 {isAr ? 'إظهار السعر' : 'Show price'}
               </label>
-              <div className="space-y-2 rounded-xl border border-slate-200 p-3">
-                <p className="text-[11px] font-bold text-slate-700">{isAr ? 'أزرار الدعوة' : 'Call-to-action buttons'}</p>
+              <div className="space-y-2 rounded-xl border p-3" style={{ borderColor: 'var(--border)' }} data-hero-panel="ctas">
+                <p className="text-[11px] font-bold">{isAr ? 'أزرار الدعوة' : 'Call-to-action buttons'}</p>
                 <label className="flex items-center gap-2 text-[11px] font-semibold">
                   <input type="checkbox" checked={!!editing.buyNowEnabled} onChange={(e) => patch(editing.id, { buyNowEnabled: e.target.checked })} />
                   {isAr ? 'اشترِ الآن' : 'Buy now'}
                 </label>
                 {editing.buyNowEnabled ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <input className={inputCls} dir="ltr" placeholder={isAr ? 'نص إنجليزي' : 'English label'} value={editing.buyNowEn || ''} onChange={(e) => patch(editing.id, { buyNowEn: e.target.value })} />
-                    <input className={inputCls} dir="rtl" placeholder={isAr ? 'نص عربي' : 'Arabic label'} value={editing.buyNowAr || ''} onChange={(e) => patch(editing.id, { buyNowAr: e.target.value })} />
+                    <input className={inputCls} style={inputStyle} dir="ltr" placeholder={isAr ? 'نص إنجليزي' : 'English label'} value={editing.buyNowEn || ''} onChange={(e) => patch(editing.id, { buyNowEn: e.target.value })} />
+                    <input className={inputCls} style={inputStyle} dir="rtl" placeholder={isAr ? 'نص عربي' : 'Arabic label'} value={editing.buyNowAr || ''} onChange={(e) => patch(editing.id, { buyNowAr: e.target.value })} />
                   </div>
                 ) : null}
                 <label className="flex items-center gap-2 text-[11px] font-semibold">
@@ -303,8 +326,8 @@ export const HeroBannersForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embed
                 </label>
                 {editing.addToCartEnabled ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <input className={inputCls} dir="ltr" placeholder={isAr ? 'نص إنجليزي' : 'English label'} value={editing.addToCartEn || ''} onChange={(e) => patch(editing.id, { addToCartEn: e.target.value })} />
-                    <input className={inputCls} dir="rtl" placeholder={isAr ? 'نص عربي' : 'Arabic label'} value={editing.addToCartAr || ''} onChange={(e) => patch(editing.id, { addToCartAr: e.target.value })} />
+                    <input className={inputCls} style={inputStyle} dir="ltr" placeholder={isAr ? 'نص إنجليزي' : 'English label'} value={editing.addToCartEn || ''} onChange={(e) => patch(editing.id, { addToCartEn: e.target.value })} />
+                    <input className={inputCls} style={inputStyle} dir="rtl" placeholder={isAr ? 'نص عربي' : 'Arabic label'} value={editing.addToCartAr || ''} onChange={(e) => patch(editing.id, { addToCartAr: e.target.value })} />
                   </div>
                 ) : null}
                 <label className="flex items-center gap-2 text-[11px] font-semibold">
@@ -313,9 +336,9 @@ export const HeroBannersForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embed
                 </label>
                 {editing.learnMoreEnabled ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <input className={inputCls} dir="ltr" placeholder={isAr ? 'نص إنجليزي' : 'English label'} value={editing.learnMoreEn || ''} onChange={(e) => patch(editing.id, { learnMoreEn: e.target.value })} />
-                    <input className={inputCls} dir="rtl" placeholder={isAr ? 'نص عربي' : 'Arabic label'} value={editing.learnMoreAr || ''} onChange={(e) => patch(editing.id, { learnMoreAr: e.target.value })} />
-                    <input className={`${inputCls} md:col-span-2`} dir="ltr" placeholder={isAr ? 'رابط الزر' : 'Button URL'} value={editing.learnMoreUrl || ''} onChange={(e) => patch(editing.id, { learnMoreUrl: e.target.value })} />
+                    <input className={inputCls} style={inputStyle} dir="ltr" placeholder={isAr ? 'نص إنجليزي' : 'English label'} value={editing.learnMoreEn || ''} onChange={(e) => patch(editing.id, { learnMoreEn: e.target.value })} />
+                    <input className={inputCls} style={inputStyle} dir="rtl" placeholder={isAr ? 'نص عربي' : 'Arabic label'} value={editing.learnMoreAr || ''} onChange={(e) => patch(editing.id, { learnMoreAr: e.target.value })} />
+                    <input className={`${inputCls} md:col-span-2`} style={inputStyle} dir="ltr" placeholder={isAr ? 'رابط الزر' : 'Button URL'} value={editing.learnMoreUrl || ''} onChange={(e) => patch(editing.id, { learnMoreUrl: e.target.value })} />
                   </div>
                 ) : null}
                 <label className="flex items-center gap-2 text-[11px] font-semibold">
@@ -324,12 +347,57 @@ export const HeroBannersForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embed
                 </label>
                 {editing.customOrderEnabled ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <input className={inputCls} dir="ltr" placeholder={isAr ? 'نص إنجليزي' : 'English label'} value={editing.customOrderEn || ''} onChange={(e) => patch(editing.id, { customOrderEn: e.target.value })} />
-                    <input className={inputCls} dir="rtl" placeholder={isAr ? 'نص عربي' : 'Arabic label'} value={editing.customOrderAr || ''} onChange={(e) => patch(editing.id, { customOrderAr: e.target.value })} />
-                    <input className={`${inputCls} md:col-span-2`} dir="ltr" placeholder={isAr ? 'رابط الطلب المخصص' : 'Custom order URL'} value={editing.customOrderUrl || ''} onChange={(e) => patch(editing.id, { customOrderUrl: e.target.value })} />
+                    <input className={inputCls} style={inputStyle} dir="ltr" placeholder={isAr ? 'نص إنجليزي' : 'English label'} value={editing.customOrderEn || ''} onChange={(e) => patch(editing.id, { customOrderEn: e.target.value })} />
+                    <input className={inputCls} style={inputStyle} dir="rtl" placeholder={isAr ? 'نص عربي' : 'Arabic label'} value={editing.customOrderAr || ''} onChange={(e) => patch(editing.id, { customOrderAr: e.target.value })} />
+                    <input className={`${inputCls} md:col-span-2`} style={inputStyle} dir="ltr" placeholder={isAr ? 'رابط الطلب المخصص' : 'Custom order URL'} value={editing.customOrderUrl || ''} onChange={(e) => patch(editing.id, { customOrderUrl: e.target.value })} />
                   </div>
                 ) : null}
+                <label className="flex items-center gap-2 text-[11px] font-semibold">
+                  <input type="checkbox" checked={!!editing.whatsappEnabled} onChange={(e) => patch(editing.id, { whatsappEnabled: e.target.checked })} />
+                  {isAr ? 'واتساب لهذه الشريحة' : 'WhatsApp on this slide'}
+                </label>
               </div>
+            </section>
+          ) : null}
+          </>
+          ) : null}
+
+          {tab === 'style' ? (
+            <section className={cardCls} style={cardStyle} data-hero-panel="style">
+              <label className="flex items-center gap-2 text-[11px] font-semibold">
+                <input type="checkbox" checked={draft?.autoplay !== false} onChange={(e) => setDraft({ ...draft, autoplay: e.target.checked })} />
+                {isAr ? 'تشغيل تلقائي' : 'Autoplay'}
+              </label>
+              <label className="block space-y-1 text-[11px] font-semibold">
+                <span style={{ color: 'var(--muted)' }}>{isAr ? 'المدة (مللي ثانية)' : 'Interval (ms)'}</span>
+                <input type="number" min={2000} className={inputCls} style={inputStyle} value={draft?.intervalMs || 5000} onChange={(e) => setDraft({ ...draft, intervalMs: Number(e.target.value) || 5000 })} />
+              </label>
+              <label className="flex items-center gap-2 text-[11px] font-semibold">
+                <input type="checkbox" checked={draft?.showArrows !== false} onChange={(e) => setDraft({ ...draft, showArrows: e.target.checked })} />
+                {isAr ? 'إظهار الأسهم' : 'Show arrows'}
+              </label>
+              <label className="flex items-center gap-2 text-[11px] font-semibold">
+                <input type="checkbox" checked={draft?.showDots !== false} onChange={(e) => setDraft({ ...draft, showDots: e.target.checked })} />
+                {isAr ? 'إظهار النقاط' : 'Show dots'}
+              </label>
+            </section>
+          ) : null}
+
+          {tab === 'layout' ? (
+            <section className={cardCls} style={cardStyle} data-hero-panel="layout">
+              <label className="flex items-center gap-2 text-[11px] font-semibold">
+                <input type="checkbox" checked={!!draft?.showWhatsapp} onChange={(e) => setDraft({ ...draft, showWhatsapp: e.target.checked })} />
+                {isAr ? 'إظهار واتساب في الواجهة' : 'Show WhatsApp on hero'}
+              </label>
+              {draft?.showWhatsapp ? (
+                <label className="block space-y-1 text-[11px] font-semibold">
+                  <span style={{ color: 'var(--muted)' }}>{isAr ? 'رقم واتساب' : 'WhatsApp number'}</span>
+                  <input className={inputCls} style={inputStyle} dir="ltr" value={draft?.whatsappNumber || ''} onChange={(e) => setDraft({ ...draft, whatsappNumber: e.target.value })} placeholder="9665XXXXXXXX" />
+                </label>
+              ) : null}
+              <p className="text-[11px]" style={{ color: 'var(--muted)' }}>
+                {isAr ? 'صور سطح المكتب / اللوحي / الجوال لكل شريحة من تبويب المحتوى.' : 'Desktop / tablet / mobile images per slide are set in the Content tab.'}
+              </p>
             </section>
           ) : null}
         </>

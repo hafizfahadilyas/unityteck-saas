@@ -1,0 +1,3749 @@
+
+
+
+
+
+
+Homepage Interface Elements
+
+The attached document contains 20 Homepage Theme Elements designed to manage and customize the storefront interface.
+1. Complete List of Elements
+1. Promotional Announcements
+Displays promotional announcements, special offers, discounts, and advertising messages across the storefront.
+2. Main Menu
+Manages the main navigation menu, including categories, subcategories, featured products, and navigation links.
+3. Hero Banners
+Displays the main promotional banners and large advertising campaigns on the storefront homepage.
+4. Featured Section Banners
+Displays promotional banners for featured sections, including images, promotional text, product details, and action buttons.
+5. Featured Products Section
+Displays featured products with category tabs, product cards, highlighted products, and shopping buttons.
+6. Image Banner Section
+Displays promotional images with customizable titles, descriptions, buttons, colors, and visual effects.
+7. Footer Section
+Manages the store footer, including navigation links, contact information, newsletter subscriptions, social media links, and copyright information.
+8. Feature Icons Section
+Displays store benefits and services using icons, titles, and descriptions, such as fast shipping, warranty, returns, and customer support.
+9. Product Carousel Section
+Displays products in a horizontally navigable carousel with product images, prices, options, and purchase buttons.
+10. Category Showcase Section
+Showcases product categories with promotional banners and product listings in a customizable layout.
+11. Benefits Section
+Displays store benefits, services, and customer advantages through customizable cards containing icons, titles, descriptions, and action buttons.
+12. Events & Masterclasses Section
+Displays events, workshops, training sessions, and masterclasses, including event images, descriptions, and registration links.
+13. Features Section
+Displays product features, technical specifications, and key selling points using individual feature cards.
+14. Model Comparison
+Allows customers to compare different products and models based on their images, prices, and technical specifications.
+15. Customer Reviews
+Displays customer ratings, product reviews, feedback, and uploaded customer photos, with review approval controls.
+16. Frequently Asked Questions (FAQ)
+Displays frequently asked questions and answers using expandable and collapsible question items.
+17. Commercial Hero Section
+Displays commercial products with their main information, pricing, purchase buttons, and key technical features.
+18. Product Slider Section
+Displays selected products in a horizontal slider with navigation controls, product cards, and shopping buttons.
+19. Product Catalog Section
+Manages the complete product catalog, including product categories, filtering, sorting, pricing, stock information, and product browsing.
+20. Product Collection Section
+Displays a selected product collection with a promotional card, product slider, and benefit boxes.
+
+Theme Component: Promotional Announcements
+
+
+Promotional Announcements
+1. Action Button & Link
+Controls the promotional banner's call-to-action button.
+Show Action Button: Enable or disable the button.
+Button Text: Customize the button label, such as "Shop Now".
+Link (URL): Set the destination URL that opens when the customer clicks the button.
+2. Display Settings
+Controls how the promotional banner appears on the storefront.
+Display Mode – Full Width: Makes the banner stretch across the full available screen width.
+Display Mode – Boxed: Displays the banner inside a centered container with limited width.
+3. Appearance
+Controls the banner's visual appearance.
+Text Color: Change the color of the banner text using a color picker or HEX code.
+Background Color: Customize the banner background color.
+Banner Height: Control the vertical height of the banner using predefined or custom values.
+4. Responsive Preview
+Allows the administrator to preview the promotional banner on different screen sizes.
+Desktop: Preview the banner on desktop screens.
+Tablet: Preview the banner on tablet screens.
+Mobile: Preview the banner on mobile devices.
+5. Apply & Publish Changes Live
+Saves and publishes the configured banner settings to the live storefront.
+Applies all updated content and design settings.
+Updates the storefront with the latest configuration.
+Makes the changes visible to customers after publishing.
+Important: All sections should remain accessible and editable, without hiding any settings or controls.
+
+
+
+
+
+
+
+Main Menu – Settings & Controls Guide
+Element Name: Main MenuElement ID:main-menu
+Objective: Build a fully functional Main Menu management panel that allows store owners to manage navigation categories, subcategories, featured products, product comparisons, and responsive menu layouts across desktop, tablet, and mobile devices.
+1. Section Information
+Controls the main menu's basic information.
+Enable Section: Enable or disable the main menu.
+Section Title: Set the menu title.
+Section Description: Add an optional description.
+2. Category Tabs – Main Navigation
+Manage the main navigation categories and their hierarchy.
+Add Category: Create a new menu category.
+Category Image: Upload or select a category image.
+Category Name: Enter the category name.
+Category Type: Choose between Main Category, Subcategory, or Custom Page.
+Drag & Drop: Reorder menu categories.
+Edit: Modify category details.
+Delete: Remove a category.
+Parent Category: Assign a subcategory to its main category.
+3. Products Management
+Control the products displayed within the menu.
+Product Source: Select products manually or from existing categories.
+Sort By: Arrange products by Manual Order, Price, Newest, or Best Selling.
+Number of Products to Display: Set the number of products shown.
+Product Selection: Add or remove products from the menu.
+Product Order: Arrange products manually.
+4. Product Comparison Settings
+Control product comparison functionality.
+Enable Compare Button: Enable or disable product comparison.
+Maximum Products to Compare: Set the maximum number of comparable products.
+Comparison Button Text: Customize the comparison button label.
+Comparison Page: Select the destination comparison page.
+Select Products Available for Comparison: Choose eligible products.
+Remove Product: Remove a product from the comparison list.
+5. View More Button Settings
+Manage the button that directs customers to additional products or categories.
+Show View More Button: Enable or disable the button.
+Button Text: Customize the button label.
+Link To: Select the destination, such as Same Category or Custom Page.
+6. Display Settings by Device
+Customize how the main menu appears on different devices.
+Desktop: Configure the desktop menu layout.
+Tablet: Configure the tablet menu layout.
+Mobile: Configure the mobile menu layout.
+Layout Options:
+Horizontal Scroll: Display categories or products in a horizontally scrollable row.
+Grid (2 Columns): Display products in a two-column grid.
+Number of Columns: Set the number of visible columns.
+Show Category Tabs: Show or hide category navigation tabs.
+Show Compare Button: Show or hide the comparison button.
+Card Style: Choose Rounded or Square product cards.
+Card Spacing: Set Small, Medium, or Large spacing between cards.
+7. Device Preview
+Preview the main menu on different screen sizes.
+Desktop Preview: Preview the desktop navigation.
+Tablet Preview: Preview the tablet navigation.
+Mobile Preview: Preview the mobile navigation.
+Live Preview: Display changes immediately while editing.
+8. Apply & Publish Changes Live
+Save all menu settings.
+Apply category and product changes.
+Update the navigation layout.
+Publish changes to the live storefront.
+Display success or error notifications.
+Technical Requirements
+All settings must be functional and connected to the actual storefront.
+Support nested categories and subcategories.
+Allow drag-and-drop category ordering.
+Save category and product configurations in the database.
+Support independent responsive layouts.
+Update the preview immediately when settings change.
+Preserve existing configurations when editing categories.
+Ensure all navigation links work correctly.
+Do not hide or remove any existing controls.
+Maintain responsive behavior across all supported devices.
+Important: The element must function as the store's main navigation menu, not as a standalone product showcase. All categories, subcategories, navigation links, and product interactions must work correctly on the live storefront.
+
+
+
+
+
+Manage Hero Banners – Settings & Controls Guide
+Element Name: Hero BannersElement ID:hero-banners-dual
+Objective: Provide a complete banner management system that allows store owners to create, edit, organize, and customize promotional hero banners, including images, text, product prices, action buttons, custom order links, and WhatsApp contact options.
+1. Banners – Banner Management
+Manage all promotional banners displayed in the main storefront.
+Banners Count: Display the total number of created banners.
+Add Banner: Create a new promotional banner.
+Banner Name: Set a name for each banner.
+Banner Description: Add a short internal description.
+Banner Thumbnail: Display a small preview of the banner image.
+Drag & Drop: Reorder banners by dragging them.
+Enable / Disable: Activate or deactivate each banner independently.
+Edit Banner: Select a banner to modify its settings.
+Delete Banner: Permanently remove a banner.
+Capabilities:
+Create multiple banners.
+Manage each banner independently.
+Control banner visibility.
+Change banner display order.
+Switch between banners without losing their configurations.
+2. Banner Content – Banner Content Settings
+Control the images, promotional text, product name, description, and price of the selected banner.
+Desktop Image
+Change Image: Upload or replace the desktop banner image.
+Recommended Size: 1920 × 800 px (16:9).
+Supported Formats: JPG, PNG, WebP.
+Maximum File Size: 2 MB.
+Mobile Image
+Change Image: Upload a dedicated mobile banner image.
+Recommended Size: 750 × 1334 px (9:16).
+Fallback Image: Automatically use the desktop image if no mobile image is uploaded.
+Promotional Text
+Enter the main promotional headline.
+Example: FRESH DAILY IMPORT.
+Character Counter: Display the number of entered characters and the maximum limit.
+Product Name
+Enter the product or offer name.
+Example: Discover Luxury Floral Bouquets.
+Short Description
+Add a brief description of the product or promotion.
+Display a live character counter.
+Support a maximum of 200 characters.
+Product Price (Optional)
+Currency: Select the currency, such as SAR.
+Price: Enter the product price.
+Show Price: Enable or disable price visibility.
+Capabilities:
+Use different images for desktop and mobile.
+Customize text independently for each banner.
+Display or hide product prices.
+Preview content changes instantly.
+3. Buttons – Banner Action Buttons
+Manage the interactive buttons displayed inside each banner.
+Buy Now
+Enable or disable the button.
+Select its button type.
+Connect it to the direct purchase process.
+Add to Cart
+Enable or disable the button.
+Select its button type.
+Connect it to the shopping cart functionality.
+Learn More
+Enable or disable the button.
+Select its button type.
+Link it to a product page or custom destination.
+Button TypeChoose the action assigned to each button:
+Buy Now.
+Add to Cart.
+Custom Link.
+TargetSelect the destination page or URL associated with the button, depending on its selected action type.
+Capabilities:
+Independently control button visibility.
+Customize button actions.
+Configure navigation destinations.
+Connect buttons to actual store functions.
+Maintain independent settings for each banner.
+4. Custom Made to Order Link – Custom Order Link
+Provide customers with a dedicated link for customized and made-to-order products.
+Enable Toggle: Activate or deactivate the custom order link.
+Text: Customize the displayed link text, such as Custom Made to Order.
+Link Type: Select the destination type.
+Target: Choose the destination page, such as Custom Orders Page.
+Capabilities:
+Provide a dedicated custom-order entry point.
+Redirect customers to the correct order page.
+Customize the link text.
+Enable or disable the feature without deleting its settings.
+5. WhatsApp Contact Icon – WhatsApp Contact Settings
+Add a direct WhatsApp contact option to the banner.
+Enable Toggle: Show or hide the WhatsApp contact icon.
+Country Code: Select the country dialing code, such as +966.
+Phone Number: Enter the store's WhatsApp number.
+Icon Position: Select the icon position, such as Bottom Right.
+Icon Style: Choose the icon shape, such as Circular.
+Capabilities:
+Connect banners to the store's WhatsApp account.
+Customize the icon position.
+Customize the icon appearance.
+Open a direct WhatsApp conversation when customers click the icon.
+6. Display Settings – Display Configuration
+Control how banners appear on the storefront.
+The section is collapsed in the provided screenshot, so its exact internal controls are not visible.
+All existing options inside this section must remain accessible when expanded.
+The section should support the available banner display and responsive configuration options.
+7. Device Preview – Responsive Preview
+Preview the selected banner across different devices.
+Desktop: Preview the desktop banner layout.
+Tablet: Preview the tablet layout.
+Mobile: Preview the mobile layout.
+Live Preview: Reflect changes immediately while editing.
+Capabilities:
+Check image positioning.
+Verify text readability.
+Test button placement.
+Check responsive behavior.
+Identify layout issues before publishing.
+8. Apply & Publish Changes Live
+Apply all modifications and publish them to the live storefront.
+Save banner information.
+Save desktop and mobile images.
+Save promotional text and product details.
+Save product prices and visibility settings.
+Save button configurations and destinations.
+Save custom order link settings.
+Save WhatsApp contact settings.
+Update the live storefront.
+Display success or error notifications after publishing.
+Technical Requirements for the Developer
+Each banner must have its own independent configuration.
+Support creating, editing, deleting, activating, and reordering banners.
+Store desktop and mobile images separately.
+Connect Buy Now to the actual checkout process.
+Connect Add to Cart to the actual shopping cart.
+Ensure all custom links redirect to valid destinations.
+Validate WhatsApp country codes and phone numbers.
+Update the preview immediately when settings change.
+Save all configurations in the database.
+Preserve banner settings when switching between banners.
+Ensure responsive behavior across desktop, tablet, and mobile.
+Do not remove or hide any existing controls.
+Ensure published changes appear correctly on the live storefront.
+Important: This must be a fully functional Hero Banner management system, not just a visual editor. Every setting, toggle, button, image upload, and navigation link must perform its actual intended function.
+
+FEATURED SECTION BANNERS
+Developer Specification — Content, Controls, Saving, and Responsive Behavior
+
+
+Manage Featured Section Banners – Settings & Controls Guide
+Element Name: Featured Section BannersElement ID:featured-banners-dual
+Objective: Provide a complete banner management system that allows store owners to create, edit, organize, and customize featured banners, including images, promotional text, product names, prices, action buttons, and responsive display settings.
+1. Banners – Banner Management
+Manage all banners displayed within the featured section.
+Banners Count: Display the total number of created banners.
+Add Banner: Create a new banner.
+Banner Name: Set an internal name for each banner.
+Banner Description: Add a short description.
+Banner Thumbnail: Display a small banner image preview.
+Drag & Drop: Reorder banners by dragging them.
+Enable / Disable: Activate or deactivate each banner independently.
+Select Banner: Select a banner to edit its settings.
+Capabilities:
+Create multiple banners.
+Edit and delete banners.
+Change banner display order.
+Enable or disable banners independently.
+Preserve each banner's individual configuration.
+2. Banner Content – Banner Content Settings
+Control the images, promotional text, product name, description, and price of the selected banner.
+Enable Banner
+- Enable or disable the selected banner on the storefront.
+Banner Images
+Desktop Image
+Change Image: Upload or replace the desktop banner image.
+Recommended Size: 1920 × 800 px (16:9).
+Supported Formats: JPG, PNG, WebP.
+Maximum File Size: 2 MB.
+Mobile Image
+Change Image: Upload a dedicated mobile banner image.
+Recommended Size: 750 × 1334 px (9:16).
+Fallback Image: Automatically use the desktop image if no mobile image is uploaded.
+Promotional Text (Main)
+Enter the main promotional headline.
+Example: A Fresh Look For Every Moment.
+Character Counter: Display the number of entered characters and the maximum limit.
+Product Name
+Enter the product or collection name.
+Example: Luxury Floral Bouquets.
+Short Description
+Add a short promotional description.
+Support a maximum of 200 characters.
+Display a live character counter.
+Product Price
+Currency: Select the currency, such as SAR.
+Price: Enter the product price.
+Show Price: Enable or disable price visibility.
+Capabilities:
+Upload separate desktop and mobile images.
+Customize banner content independently.
+Control product price visibility.
+Preview content changes instantly.
+3. Buttons – Banner Action Buttons
+Manage the interactive buttons displayed inside each banner.
+Buy Now
+Enable or disable the button.
+Customize the button text.
+Select the link type.
+Connect it to the product purchase process.
+Add to Cart
+Enable or disable the button.
+Customize the button text.
+Select the link type.
+Connect it to the actual shopping cart functionality.
+Learn More
+Enable or disable the button.
+Customize the button text.
+Select the link type.
+Connect it to a product page or another destination.
+Button Text
+- Customize the label displayed on each button.
+Link TypeChoose the destination type:
+Select Product: Link to a selected product.
+Select Page: Link to a selected store page.
+Drag & Drop
+- Reorder the buttons and control their display sequence.
+Capabilities:
+Control each button independently.
+Customize button labels.
+Configure navigation destinations.
+Change button order.
+Connect buttons to actual storefront functions.
+4. Banner Display Settings – Banner Appearance & Display
+Control the banner's appearance, dimensions, and content positioning.
+Banner Height (Desktop)
+Set the banner height on desktop screens.
+Auto: Automatically adjust the height according to the content.
+Allow custom height values.
+Banner Height (Mobile)
+Set the banner height independently on mobile devices.
+Auto: Automatically adjust the height.
+Allow custom height values.
+Content AlignmentChoose the position of banner content:
+Left: Align content to the left.
+Center: Center the content.
+Right: Align content to the right.
+Text Color
+Customize banner text color.
+Support a color picker and HEX color input.
+Overlay Effect (Optional)Add an overlay effect to improve text readability.
+Available options:
+None: No overlay.
+Dark: Dark overlay.
+Light: Light overlay.
+Gradient: Gradient overlay.
+Overlay Opacity
+Control the overlay transparency using a slider.
+Example: 30%.
+Capabilities:
+Customize banner height for each device.
+Control text alignment.
+Change text colors.
+Apply overlay effects.
+Adjust overlay opacity.
+5. Preview – Live Banner Preview
+Display the selected banner while editing its settings.
+Desktop
+Preview the desktop banner.
+Display the image, text, price, and buttons.
+Mobile
+Preview the mobile banner.
+Check image proportions, text readability, and button placement.
+Capabilities:
+Update the preview instantly.
+Review changes before publishing.
+Identify alignment and layout issues.
+Verify the final banner appearance.
+6. Multiple Banners Preview – All Banners Preview
+Display multiple banners together to review their appearance within the featured section.
+Banner Preview: Display each banner independently.
+Banner Image: Show the banner image.
+Promotional Text: Display the promotional headline.
+Product Name: Display the product name.
+Product Price: Display the product price.
+Action Buttons: Preview Buy Now, Add to Cart, and Learn More buttons.
+Capabilities:
+Preview all banners in one place.
+Review design consistency.
+Verify banner ordering.
+Compare colors, images, and content.
+Identify inconsistencies before publishing.
+7. Preview on Different Devices (Responsive)
+Preview the featured banners across different screen sizes.
+Desktop (1920 × 800)
+Preview the desktop banner layout.
+Check image quality and content positioning.
+Tablet (1024 × 1366)
+Preview the tablet layout.
+Ensure the content fits the available screen space.
+Mobile (375 × 812)
+Preview the mobile layout.
+Check image proportions, text readability, and button placement.
+Capabilities:
+Test different screen sizes.
+Prevent image cropping issues.
+Avoid overlapping text and buttons.
+Maintain a consistent responsive design.
+8. Apply & Publish Changes Live
+Save all modifications and publish them to the live storefront.
+Save banner configurations.
+Save desktop and mobile images.
+Save promotional text and descriptions.
+Save product names and prices.
+Save button settings and destinations.
+Save banner height and alignment settings.
+Save colors and overlay effects.
+Update the live storefront.
+Display success or error notifications after publishing.
+Technical Requirements for the Developer
+Each banner must have independent settings and configurations.
+Support creating, editing, deleting, enabling, and reordering banners.
+Store desktop and mobile images separately.
+Support automatic desktop image fallback for mobile.
+Connect all buttons to their actual storefront functions.
+Support independent banner heights for each device.
+Implement text alignment, colors, overlay effects, and opacity controls.
+Provide real-time preview while editing.
+Support multiple banner previews.
+Ensure responsive layouts across desktop, tablet, and mobile.
+Save all configurations in the database.
+Preserve existing settings when switching between banners.
+Do not hide, remove, or omit any existing controls.
+Apply published changes correctly to the live storefront.
+Important: The Featured Section Banners element must function as a complete banner management system, not just a visual editor. Every control, image upload, toggle, button, and display setting must perform its intended function and reflect changes in the live storefront.
+
+
+
+Manage Featured Products Section – Settings & Controls Guide
+Element Name: Featured Products SectionElement ID:featured-products-dual
+Objective: Provide a complete Featured Products management system that allows store owners to manage product tabs, select products, highlight featured products, customize product cards, configure action buttons, and control responsive layouts across desktop, tablet, and mobile devices.
+1. Section Settings
+Controls the basic information and visibility of the featured products section.
+Enable Section: Enable or disable the entire section on the storefront.
+Section Title: Set the section heading, such as Featured Products.
+Section Description (Optional): Add a short description below the title.
+Character Counter: Display the number of entered characters and the maximum allowed.
+Capabilities:
+Customize the section title and description.
+Control section visibility.
+Update the preview immediately after editing.
+2. Tabs Management
+Manage the product category tabs displayed above the products.
+Add Tab: Create a new product tab.
+Tab Name: Set the tab name, such as All Products, Phones, Laptops, or Accessories.
+Tab Image: Upload or select an image or icon for the tab, if supported.
+Drag & Drop: Reorder tabs by dragging them.
+Enable / Disable: Activate or deactivate individual tabs.
+Edit Icon: Modify tab information and settings.
+Delete Icon: Remove a tab.
+Capabilities:
+Create multiple tabs.
+Customize each tab name.
+Control tab display order.
+Connect each tab to a different product collection.
+Enable or disable tabs without deleting them.
+3. Products for Selected Tab
+Manage the products displayed under each selected tab.
+Selected Tab: Choose the tab whose products you want to manage.
+Products Count: Display the number of products assigned to the selected tab.
+Select Products: Open the store's product catalog and select products.
+Product Image: Display each selected product image.
+Product Name: Display the product name.
+Remove Product (X): Remove a product from the tab without deleting it from the store.
+Capabilities:
+Assign different products to each tab.
+Add multiple products.
+Remove or replace selected products.
+Preview selected products.
+Optionally prevent duplicate products within the same tab.
+4. Featured Product (Highlighted)
+Allows the store owner to select one product and display it with a more prominent design.
+Select Product: Choose a featured product from the store catalog.
+Featured Product Image: Display the selected product image.
+Product Name: Display the featured product name.
+Remove Icon (X): Remove or replace the featured product.
+Capabilities:
+Highlight a specific product.
+Display the featured product in a larger card.
+Customize its position and presentation.
+Change the featured product at any time.
+5. Display Options
+Control which product information appears inside product cards.
+Show Product Subtitle
+- Show or hide the product subtitle.
+Show Original Price
+- Show or hide the original price before discount.
+Show Discount Price
+- Show or hide the discounted price.
+Capabilities:
+Control product card information.
+Highlight promotional prices.
+Customize the information displayed to customers.
+Apply display settings to the products in the section.
+6. Button Settings
+Manage the interactive buttons displayed inside product cards.
+Buy Button
+Enable or disable the button.
+Button Text: Customize the button label, such as Buy Now.
+Link Type: Select the button destination, such as Product Page.
+Add to Cart Button
+Enable or disable the button.
+Button Text: Customize the button label, such as Add to Cart.
+Link Type: Configure the button action and connect it to the shopping cart.
+Learn More Button
+Enable or disable the button.
+Button Text: Customize the button label, such as Learn More.
+Link Type: Select the destination, such as Product Page.
+Capabilities:
+Control each button independently.
+Customize button labels.
+Configure button destinations.
+Connect buttons to actual storefront functions.
+Update the preview when settings change.
+7. More Settings
+Control product distribution, card appearance, and product ordering.
+Products per Row (Desktop)
+Set the number of products displayed per row on desktop.
+Example: 3 products.
+Products per Row (Tablet)
+Set the number of products displayed per row on tablet.
+Example: 2 products.
+Products per Row (Mobile)
+Set the number of products displayed per row on mobile.
+Example: 1 product.
+Card StyleChoose the appearance of product cards:
+Rounded: Rounded corners.
+Square: Square corners.
+Card SpacingSet the spacing between product cards:
+Small: Small spacing.
+Medium: Medium spacing.
+Large: Large spacing.
+Sort ByChoose how products are ordered:
+Manual Order: Custom product ordering.
+Newest: Show the newest products first.
+Price: Sort products by price.
+Best Selling: Show the best-selling products first.
+Product Count
+Set the total number of products displayed.
+Plus (+): Increase the product count.
+Minus (-): Decrease the product count.
+Capabilities:
+Customize product columns for each device.
+Change product card appearance.
+Control spacing between cards.
+Configure product sorting.
+Set the total number of displayed products.
+8. Section Preview
+Displays the final appearance of the featured products section while editing.
+Desktop: Preview the section on desktop screens.
+Mobile: Preview the section on mobile devices.
+Display the section title and description.
+Display product category tabs.
+Display product cards and prices.
+Display the featured product.
+Preview Buy, Add to Cart, and Learn More buttons.
+Capabilities:
+Update the preview instantly.
+Test changes before publishing.
+Check product card consistency.
+Review the section across different devices.
+9. Apply & Publish Changes Live
+Save all modifications and publish them to the live storefront.
+Save the section title and description.
+Save tabs and their display order.
+Save products assigned to each tab.
+Save the featured product selection.
+Save display options.
+Save button settings and destinations.
+Save product layout configurations.
+Update the live storefront.
+Display success or error notifications after publishing.
+Technical Requirements for the Developer
+Each tab must have its own independent product selection.
+Support creating, editing, deleting, enabling, and reordering tabs.
+Connect product selection directly to the store's product database.
+Allow selecting one featured product independently.
+Support independent product display settings.
+Connect Buy, Add to Cart, and Learn More buttons to actual storefront functions.
+Support independent product columns for desktop, tablet, and mobile.
+Implement card styles and spacing controls.
+Support product sorting and product count configuration.
+Provide real-time preview while editing.
+Preserve all configurations when switching between tabs.
+Save all settings in the database.
+Apply published changes to the live storefront.
+Do not hide, remove, or omit any existing controls.
+Important: This element must function as a complete Featured Products management system. All tabs, product selections, featured product settings, display options, buttons, and responsive controls must be fully functional and connected to the actual storefront.
+
+
+
+Manage Image Banner Section – Settings & Controls Guide
+Element Name: Image Banner SectionElement ID:image-banner-dual
+Objective: Provide a complete image banner management system that allows store owners to create, edit, organize, and customize multiple promotional images, including titles, descriptions, buttons, colors, gradient overlays, and responsive display settings across desktop, tablet, and mobile devices.
+1. Section Settings
+Controls the basic information and visibility of the image banner section.
+Enable Section: Enable or disable the entire section on the storefront.
+Section Title: Set the main section heading, such as HONOR Activities.
+Section Description (Optional): Add a short description below the title.
+Character Counter: Display the number of entered characters and the maximum allowed.
+Capabilities:
+Customize the section title and description.
+Control section visibility.
+Update the preview immediately after editing.
+2. Layout Settings
+Controls how images are distributed and arranged within the section.
+Columns per Row (Desktop)
+Choose the number of columns displayed on desktop:
+1 Column: Display one image per row.
+2 Columns: Display two images per row.
+3 Columns: Display three images per row.
+4 Columns: Display four images per row.
+Layout Style
+Choose the image arrangement:
+Large Image Top: Display one large image at the top, with smaller images below.
+Equal Images: Display all images in equal sizes.
+Large Image Left: Display a large image on the left.
+Large Image Right: Display a large image on the right.
+Custom Grid: Create a customized grid arrangement.
+Capabilities:
+Change the number of columns.
+Select different image layouts.
+Control image sizes and positions.
+Create different layouts based on the number of images.
+3. Images Management
+The main section for adding, editing, and managing promotional images.
+Add Image
+Add a new promotional image.
+Create an independent image card.
+Support multiple images.
+Image Management Controls
+Drag & Drop: Reorder images by dragging them.
+Image Thumbnail: Display a small image preview.
+Enable: Enable or disable each image independently.
+Delete: Remove an image from the section.
+Replace Image: Replace the existing image with another one.
+Main Title
+Add a main title for each image.
+Example: HONOR MWC 2026.
+Maximum: 100 characters.
+Subtitle
+Add a subtitle or short description for each image.
+Example: AI for a Smarter Future.
+Maximum: 200 characters.
+Button Text
+Set the text displayed on the image button.
+Example: Learn More.
+Link Type
+Choose the destination type associated with the button:
+Product: Direct customers to a specific product.
+Page: Direct customers to a page within the store.
+Custom Link: Enter an external or custom URL.
+Select Product
+Select the product associated with the image when Product is selected.
+Open the product list and choose the desired product.
+Target
+- Select the destination page when Page is selected.
+URL
+- Enter the destination link when Custom Link is selected.
+Capabilities:
+Add multiple images.
+Customize each image independently.
+Control image ordering.
+Enable or disable individual images.
+Connect each image to a product, page, or external URL.
+Delete and replace images.
+4. Text Settings
+Controls the colors of text and buttons displayed on each image.
+Title Color: Customize the main title color.
+Subtitle Color: Customize the subtitle color.
+Button Text Color: Customize the button text color.
+Capabilities:
+Select colors using a color picker.
+Enter HEX color codes.
+Customize text colors independently for each image.
+5. Overlay Settings
+Allows store owners to add a colored overlay over images to improve text readability and enhance the visual appearance.
+Enable Overlay: Enable or disable the overlay.
+Overlay Type: Select the overlay type:
+Linear Gradient: Apply a linear color gradient.
+Custom Gradient: Create a customized gradient.
+Start Color: Select the starting gradient color.
+End Color: Select the ending gradient color.
+Opacity: Control gradient transparency using a slider.
+Capabilities:
+Apply gradient overlays to images.
+Customize gradient starting and ending colors.
+Control overlay transparency.
+Improve text readability over images.
+Configure different overlay effects for each image.
+6. Preview
+Displays the final appearance of the section while editing.
+Desktop: Preview the section on desktop screens.
+Mobile: Preview the section on mobile devices.
+Display the section title and description.
+Display images and their ordering.
+Display titles, subtitles, and buttons.
+Preview colors and gradient effects.
+Capabilities:
+View changes instantly.
+Test different image layouts.
+Check text readability.
+Review image appearance before publishing.
+7. Display Settings
+Controls the overall appearance, spacing, and content positioning of the section.
+Section Spacing
+Control spacing between images and section elements.
+Small: Small spacing.
+Medium: Medium spacing.
+Large: Large spacing.
+Content Alignment
+Choose the alignment of image content:
+Left: Align content to the left.
+Center: Center the content.
+Right: Align content to the right.
+Image Ratio
+Choose the image aspect ratio:
+16:9 (Widescreen): Horizontal image format.
+4:3: Traditional image format.
+1:1 (Square): Square image format.
+9:16 (Portrait): Vertical image format.
+Border Radius
+Control image corner rounding:
+None: No rounded corners.
+Slightly Rounded: Slightly rounded corners.
+Rounded: Medium rounded corners.
+Fully Rounded: Highly rounded corners.
+Show Button
+- Enable or disable buttons displayed on images.
+Button Style
+Choose the button appearance:
+Primary: Primary button style.
+Secondary: Secondary button style.
+Outline: Button with an outline.
+Text: Text-only button without a background.
+Capabilities:
+Control section spacing.
+Set content alignment.
+Change image dimensions.
+Customize image corner rounding.
+Show or hide buttons.
+Customize button appearance.
+8. Mobile Settings
+Controls how images appear when customers browse the store on mobile devices.
+Layout (Mobile)
+Stacked (Vertical): Display images vertically, one below another.
+Grid (2 Columns): Display images in two side-by-side columns.
+Image Height (Mobile)
+Auto: Automatically adjust image height according to its dimensions.
+Custom Height: Allow store owners to specify a custom image height.
+Capabilities:
+Customize mobile image layouts.
+Control the number of columns.
+Set image heights.
+Improve browsing on smaller screens.
+Maintain readable text and buttons.
+9. Apply & Publish Changes Live
+Save all modifications and publish them to the live storefront.
+Save the section title and description.
+Save image layouts.
+Save images and their ordering.
+Save text and color settings.
+Save gradient and opacity settings.
+Save image buttons and destinations.
+Save desktop and mobile display settings.
+Update the live storefront.
+Display success or error notifications after publishing.
+Technical Requirements for the Developer
+Support adding, editing, deleting, enabling, disabling, and reordering multiple images.
+Each image must have independent title, subtitle, button, link, and overlay settings.
+Support product, page, and custom URL destinations.
+Implement independent text colors for each image.
+Support linear and custom gradient overlays.
+Provide start color, end color, and opacity controls.
+Support all five desktop layout styles.
+Implement desktop column configuration.
+Support independent mobile layouts.
+Implement image ratios and border radius controls.
+Provide real-time desktop and mobile previews.
+Save all configurations in the database.
+Preserve image settings when switching between images.
+Apply published changes to the live storefront.
+Do not hide, remove, or omit any existing controls.
+Important: The Image Banner Section must function as a complete image banner management system. Every setting must be functional, and all changes must be accurately reflected in the live storefront.
+
+
+
+
+
+FOOTER SECTION
+Developer Specification
+Complete settings, column and link management, contact information, newsletter, social media, bottom bar, save workflow, and responsive requirements
+1. Purpose and Scope
+The Footer Section is a configurable store-wide component displayed at the bottom of storefront pages. It organizes navigation links, category links, store/contact information, newsletter signup, social media links, country/region selection, copyright text, and legal or utility links. The component must be manageable from the theme editor and responsive across desktop, tablet, and mobile.
+This specification combines the three supplied reference screens: (1) footer appearance and column management, (2) editing a footer column and its links, and (3) contact information, newsletter, social media, and bottom bar settings. Keep this as one Footer Section with logically grouped subsections.
+2. Global Page Actions
+2.1 Back to Dashboard / Back to Columns
+Back to Dashboard returns to the main admin dashboard. Back to Columns returns from the Edit Column view to the main footer-column list. If edits are unsaved, follow the platform’s established draft behavior or warn before discarding them.
+2.2 Preview Store
+Opens the storefront preview using the current draft configuration where supported. Previewing must not publish changes.
+2.3 Save Changes
+Validates and saves the full footer configuration. Show success only after the save operation completes. If saving fails, preserve the current edits where possible and display a useful error. If the platform has a separate publish step, do not claim that the live storefront has changed until publishing is complete.
+3. Enable Footer
+The Enable Footer switch controls whether the entire footer is rendered on the storefront. When off, hide the footer but retain all its settings in the editor. Turning it on restores the saved configuration.
+4. Layout Settings
+4.1 Color Controls
+Background Color: sets the overall footer background.
+Text Color: sets the default footer text color.
+Link Color: sets the default color of footer links.
+Link Hover Color: sets the color used when a visitor hovers over a link on pointer-based devices; use a suitable focus/active treatment for keyboard and touch accessibility.
+Provide a color picker and valid HEX input where shown. Update the preview immediately and validate color values. Ensure the selected colors provide sufficient contrast.
+4.2 Columns (Desktop)
+Selects 1, 2, 3, or 4 columns for the desktop footer layout. The layout must distribute enabled columns consistently and wrap or adapt gracefully if there are more columns than fit.
+4.3 Section Width
+Full Width: footer content spans the available viewport width, while internal padding keeps content away from screen edges.
+Boxed: footer content is constrained to a centered maximum-width container.
+4.4 Font Size
+Sets the default footer font size, for example 14 px. Use a responsive scale where needed and preserve readable sizes on small screens.
+4.5 Column Spacing
+Sets the gap between footer columns, for example 40 px. Reduce spacing responsively when the available width becomes limited.
+4.6 Content Alignment
+Controls alignment, including Right (RTL) for Arabic layouts. Support left-to-right and right-to-left direction without reversing the meaning or destination of links.
+5. Footer Columns
+5.1 Column List
+Lists the configured columns with a drag handle, order number, title, item count/type label, enabled switch, and actions.
+Drag handle: changes the order of the column. The saved order controls storefront order.
+Column number: indicates the current order in the list.
+Column title and item count: identify the column and summarize its contents.
+Enable/Disable switch: hides or shows that column without deleting its configuration.
+Edit: opens the column editor.
+Copy: duplicates the column and its settings/links with a new unique ID; avoid duplicate IDs or unintended duplicate external actions.
+Delete: removes the selected column after confirmation if appropriate. Do not delete its underlying categories, pages, products, or media records.
+5.2 Add Column
+Adds a new footer column. The merchant chooses one of the available column types:
+Categories Column: shows links to product categories/collections.
+Custom Links: lets the merchant create a list of manually configured destinations.
+Information Column: displays configured store information or informational links, depending on the theme’s implementation.
+Contact Column: displays selected contact details.
+Newsletter Column: displays the email subscription form.
+After selection, create a new column with a unique ID, a suitable default title, enabled state, and type-specific empty/default settings. Do not publish placeholder content automatically.
+6. Edit Column
+6.1 Column Title
+Sets the heading shown above the column in the storefront. The reference shows a 50-character limit and a live character counter.
+6.2 Column Type
+Defines the column’s content type, such as Product Categories. Changing type may change which settings are available. Preserve compatible data where possible and warn before discarding incompatible settings.
+6.3 Icon (Optional)
+Allows the merchant to choose an icon for the column heading, change it, or remove it. If no icon is selected, display the title without an icon. Use consistent sizing and accessible labels.
+6.4 Enable Column
+Controls whether the column is eligible to appear in the footer. Disabled columns remain editable and retain their settings.
+6.5 Column Order
+Sets the column position numerically. Changes must synchronize with drag-and-drop ordering and be validated so positions remain consistent.
+6.6 Show in Desktop / Show in Mobile
+Controls visibility by viewport. On tablets, use a defined responsive rule—normally follow desktop visibility at wider tablet widths and mobile visibility at narrow widths, or provide a documented tablet-specific breakpoint. Hiding a column on a device must not delete its content.
+7. Links in This Column
+7.1 Existing Link List
+Each link row contains a drag handle, link title, destination type, destination selector when applicable, enabled switch, Edit action, and Delete action.
+Drag handle: changes the link order within the column.
+Link title: visible clickable text.
+Link type: defines whether the destination is a Category, Page, Product, or External Link.
+Destination selector: selects the specific category/page/product or stores the external URL.
+Enabled switch: hides or shows the link without deleting it.
+Edit: opens the link’s settings for modification.
+Delete: removes the link from this column after confirmation if required.
+7.2 Add Link
+The Add Link area includes Link Title, Link Type, a conditional destination selector, and Add Link.
+Enter the visible link title.
+Choose Category, Page, Product, or External Link.
+Show the matching destination control: category picker, page picker, product picker, or URL field.
+Validate required values and the URL format for external links.
+When Add Link is clicked, append the new link to the current column, assign a unique ID, and update the preview.
+Do not add a blank link or allow a link with a missing required destination.
+External links should be handled safely. If opening a new tab is supported, use safe target/rel behavior. The storefront link must navigate to the configured destination.
+8. Contact Information Section
+This subsection manages contact details that can be displayed in the Contact Column. The section has its own Enable Section switch. Each field has a value and an individual visibility switch.
+Section Title: heading such as “Contact Us”.
+Phone Number: country code and phone number; clicking it on compatible devices should use a tel: link.
+Email Address: clicking it should open the visitor’s email application using a mailto: link.
+WhatsApp Number: country code/full number; link to the correct WhatsApp conversation URL.
+Working Hours: text describing opening hours.
+Tax Number: store tax identifier, shown only when enabled.
+Commercial Registration: commercial registration identifier, shown only when enabled.
+E-commerce Document Number: store e-commerce registration/document identifier, shown only when enabled.
+Validate field formats where appropriate without assuming a single country format. Disabled fields are hidden from the storefront but their values remain saved. Do not expose sensitive administrative data unless the merchant has enabled its display.
+9. Newsletter Subscription Section
+The newsletter section invites visitors to submit an email address to receive store updates and offers. It has its own Enable Section switch.
+Title: main subscription heading.
+Description: supporting text under the heading.
+Placeholder Text: hint displayed inside the email input.
+Button Text: label on the subscribe button.
+Background Color: background of the newsletter area.
+Text Color: title/description/default text color.
+Button Color: subscribe button background color.
+Button Text Color: label color on the button.
+9.1 Newsletter Submission Behavior
+The visitor enters an email address and submits the form.
+Validate that the field is not empty and contains a valid email format.
+Send the email to the configured newsletter/marketing integration or backend endpoint; do not treat a front-end-only success message as a completed subscription.
+Show a clear success or error message and prevent duplicate submissions while processing.
+Handle consent/privacy requirements and any required confirmation workflow configured by the store.
+Ensure keyboard navigation and screen-reader labels are available.
+10. Social Media Section
+The Social Media Section has an Enable Section switch and an Add Social Media action. Each social item includes an icon/platform, URL, enabled switch, edit action, delete action, and drag handle.
+Add Social Media: creates a new social link after the platform and URL are configured.
+Platform/Icon: shows the relevant network icon, such as TikTok, YouTube, Instagram, X, or Facebook.
+URL: the destination profile/page.
+Enabled switch: controls whether the icon appears.
+Edit: changes the platform or URL.
+Delete: removes the social item from the footer.
+Drag handle: changes icon order.
+Validate URLs and use accessible labels (for example, “Visit our Instagram profile”). Icons must remain legible in both desktop and mobile layouts.
+11. Bottom Bar Section
+The Bottom Bar has its own Enable Section switch. It controls the lowest footer row containing copyright information and utility/legal links.
+Copyright Text: editable copyright statement, with a character limit/counter where configured.
+Bottom Links: list of links such as Terms of Use, Privacy Policy, and Site Map.
+Add Link: adds a new bottom-bar link with a title and destination.
+Background Color: background color of the bottom bar.
+Text Color: copyright and default text color.
+Link Color: default link color.
+Link Hover Color: hover/focus state color.
+Alignment: controls alignment, including RTL alignment for Arabic.
+Each bottom link must have a valid destination. On mobile, links may wrap onto multiple lines or move into a compact row without overlapping.
+12. Country / Region Selector and External Footer Elements
+The preview includes a country/region selector (for example, Saudi Arabia) and social icons. If the theme/platform supports localization, the selector should use the store’s configured markets/locales and update the storefront context appropriately. Do not hard-code the country name or create a selector that changes only its label without changing the actual locale/currency/market context. If this selector is outside the Footer Section’s editable scope, document that it is controlled by the platform’s global localization settings.
+13. Live Preview
+13.1 Desktop and Mobile Preview Controls
+The preview switcher lets the merchant inspect the footer at desktop and mobile viewport sizes. Switching preview mode must not alter the configuration. Preview should use current draft values and update promptly after edits.
+13.2 Desktop Preview
+Display footer columns side by side using the selected column count and spacing.
+Show the newsletter area according to its settings.
+Show enabled contact details and social media icons.
+Display the country/region selector and bottom bar when enabled/configured.
+Apply colors, typography, width, alignment, and link states.
+13.3 Mobile Preview
+Reflow columns into a narrow layout; an accordion pattern with plus/minus controls is acceptable and matches the reference.
+Allow visitors to expand and collapse each column’s links using accessible controls.
+Keep newsletter fields and the Subscribe button usable at narrow widths.
+Wrap contact details and legal links without clipping.
+Center or wrap social icons with adequate touch spacing.
+Avoid horizontal overflow and overlapping content.
+14. Responsive Requirements: Desktop, Tablet, and Mobile
+14.1 Desktop
+Use the selected 1–4 column layout.
+Keep column headings, links, newsletter, and contact details aligned and readable.
+Respect Full Width or Boxed container settings.
+Apply configured font size, spacing, colors, and alignment.
+14.2 Tablet
+Reduce columns or wrap them when the available width is insufficient.
+Use moderate column gaps and readable line lengths.
+Keep newsletter controls on one row only when they fit; otherwise stack them.
+Maintain logical reading and keyboard order.
+14.3 Mobile
+Use a compact stacked or accordion layout for footer columns.
+Make interactive controls touch-friendly and avoid tiny links.
+Stack or responsively arrange the email field and subscribe button.
+Ensure phone, email, and WhatsApp links are easy to tap.
+Wrap bottom-bar links and copyright text naturally.
+Keep social icons within the viewport and prevent horizontal scrolling.
+14.4 Recommended Preview Viewports
+Desktop: 1440 × 900 CSS pixels.
+Tablet: 768 × 1024 CSS pixels (portrait) and optionally 1024 × 768 landscape.
+Mobile: 390 × 844 CSS pixels.
+Also test narrow screens around 320–360 CSS pixels and intermediate widths.
+15. What Happens After Filling In and Saving Changes?
+The merchant enables/disables the footer and configures global colors, width, desktop column count, font size, spacing, and alignment.
+The merchant adds columns, chooses their types, sets titles/icons/order/device visibility, and configures their links.
+The merchant enters contact details and toggles the visibility of each field.
+The merchant configures the newsletter content and colors, social media profiles, and bottom-bar copyright/links.
+The preview reflects the draft settings so the merchant can review desktop and mobile layouts before saving.
+The system validates field limits, color values, link types/destinations, URLs, email/phone formats where applicable, and required fields.
+When Save Changes is clicked, persist all footer settings, column order, column visibility, link data/order, contact fields and visibility, newsletter configuration, social media list/order, and bottom-bar configuration.
+Display a success message only after the save operation completes. If it fails, show the error and preserve edits where possible.
+If publishing is separate, the live store is updated only after the required publish action.
+The storefront renders the saved footer on applicable pages and breakpoints. Links navigate to their destinations; phone/email/WhatsApp controls launch their respective actions; newsletter submissions are sent to the configured integration.
+Reload the editor and storefront to confirm settings persist and the footer remains correct on desktop, tablet, and mobile.
+16. Validation, Accessibility, and Error Handling
+Enforce configured character limits and show counters where displayed.
+Validate external URLs and required category/page/product destinations.
+Do not render empty or invalid links.
+Use accessible labels for icon-only buttons and accordion controls.
+Support keyboard navigation, visible focus states, and sufficient color contrast.
+Use appropriate semantic footer/navigation landmarks and form labels.
+Do not expose disabled columns or fields on the storefront, but retain their configuration.
+If a section is disabled, preserve its data rather than deleting it.
+Show clear save/subscription errors and prevent accidental duplicate actions.
+17. Acceptance Criteria
+Footer can be enabled or disabled without losing configuration.
+Global layout colors, width, desktop columns, font size, spacing, and alignment work.
+Columns can be added, edited, copied, reordered, enabled/disabled, and deleted.
+All five column types can be configured according to their intended function.
+Column titles, icons, order, and desktop/mobile visibility work independently.
+Links can be added, edited, enabled/disabled, reordered, and deleted, with all four destination types supported.
+Contact fields and their visibility toggles work correctly.
+Newsletter form validates and submits through a real configured integration.
+Social media links can be added, edited, reordered, enabled/disabled, and deleted.
+Bottom-bar copyright, links, colors, and alignment are configurable.
+Desktop/mobile preview reflects draft settings; tablet responsiveness is verified in testing.
+Arabic RTL and English LTR render correctly.
+Save/publish workflow persists settings and updates the storefront only at the correct stage.
+No clipping, overlap, inaccessible controls, or unintended horizontal scrolling occurs on supported screen sizes.
+18. Implementation Notes
+Treat the footer as one component with separate, independently configurable subsections.
+Use the theme’s existing media, page, product, category, localization, and newsletter integrations.
+Do not hard-code the example brand, contact details, copyright dates, colors, or social URLs from the screenshots.
+Avoid deleting referenced store records when a footer link or column is removed.
+If tablet-specific visibility is not a separate setting, document and consistently apply the responsive breakpoint rules.
+Final Implementation Goal
+Deliver a fully configurable Footer Section with robust column and link management, contact information, newsletter signup, social media, localization support where available, and a bottom bar. The same saved configuration must render cleanly and accessibly across desktop, tablet, and mobile.
+
+FEATURE ICONS SECTION
+Developer Specification | Responsive Theme Component
+
+Manage Feature Icons Section – Settings & Controls Guide
+Element Name: Feature Icons SectionElement ID:feature-icons-dual
+Objective: Provide a complete feature icons management system that allows store owners to display and manage store benefits and services, such as fast shipping, warranty, returns, and customer support. Store owners can customize icons, images, text, colors, sizes, spacing, and responsive layouts across desktop, tablet, and mobile devices.
+1. Section Settings
+Controls the basic information and visibility of the feature section.
+Enable Section: Enable or disable the entire section on the storefront.
+Section Title (Optional): Set the section heading, such as "Why Shop With Us".
+Section Description (Optional): Add a short description below the title.
+Character Counter: Display the number of entered characters and the maximum allowed.
+Capabilities:
+Customize the section title and description.
+Show or hide the entire section.
+Update the preview immediately after editing.
+2. Layout Settings
+Controls how feature icons and text are arranged within the section.
+Items per Row (Desktop)
+Choose the number of items displayed per row on desktop:
+2 Items: Display two items per row.
+3 Items: Display three items per row.
+4 Items: Display four items per row.
+Items per Row (Tablet)
+Choose the number of items displayed per row on tablet:
+1 Item: Display one item per row.
+2 Items: Display two items per row.
+4 Items: Display four items per row.
+Background Color
+Set the background color of the section.
+Use the color picker or enter a HEX color code.
+Content Alignment
+Choose the alignment of feature content:
+Left: Align content to the left.
+Center: Center the content.
+Right: Align content to the right.
+Item Spacing (Desktop)
+Control the distance between items on desktop.
+Set spacing values in pixels (px).
+Item Spacing (Mobile)
+- Control the distance between items on mobile independently.
+Section Padding (Desktop)
+- Adjust the internal spacing of the section on desktop.
+Section Padding (Mobile)
+- Adjust the internal spacing of the section on mobile.
+Border Radius
+Control the rounding of the section background corners.
+Set the radius value in pixels.
+Capabilities:
+Control the number of items per row.
+Customize the section background.
+Set content alignment.
+Adjust internal and external spacing.
+Customize the section layout for different screen sizes.
+3. Items Management
+Manage all feature items displayed on the storefront.
+Add Item
+Create a new feature item.
+Add an independent icon, title, and description.
+Item Management Controls
+Each item includes:
+Drag & Drop: Reorder items by dragging them.
+Item Number: Display the item's position in the list.
+Icon Preview: Display the selected icon.
+Title: Display the feature title.
+Subtitle: Display the short feature description.
+Edit Icon: Open the editing settings for the selected item.
+Duplicate Icon: Create a copy of the item, including its settings.
+Delete Icon: Remove the selected item.
+Capabilities:
+Add multiple feature items.
+Edit each item independently.
+Duplicate items to create similar features quickly.
+Delete items.
+Reorder items using drag and drop.
+Control the display order of features on the storefront.
+4. Edit Item
+Allows store owners to customize all details of the selected feature item.
+Icon / Image
+Choose how the feature is represented:
+Icon: Select a ready-made icon from the built-in icon library.
+Image: Upload a custom image instead of using an icon.
+Icon Library
+Provide a collection of ready-made icons, including:
+Delivery Truck: Shipping and delivery.
+Shield: Warranty and protection.
+Return Arrow: Returns and exchanges.
+Headphones: Customer support.
+Gift: Gifts and special offers.
+Star: Ratings and featured benefits.
+Percentage: Discounts and promotions.
+More Icons: Browse additional available icons.
+Main Title
+Set the main feature title.
+Example: Fast Shipping.
+Maximum: 100 characters.
+Sub Title
+Add a short description of the feature.
+Example: Free delivery on orders over 200 SAR.
+Maximum: 200 characters.
+Link (Optional)
+Optionally connect the feature item to a destination.
+Link Type: Select the supported link type.
+Allow the user to select a store page or enter a custom link, depending on the available link types.
+Icon Style
+Customize the visual appearance of the icon:
+Background Color: Set the icon background color.
+Icon Color: Set the icon color.
+Icon Size: Set the icon size in pixels, such as 40 px.
+Icon Shape: Choose the icon container shape:
+Rounded: Rounded corners.
+Circle: Circular shape.
+Square: Square shape.
+Section Visibility (Optional)
+Control the visibility of each individual feature item by device:
+Show on Desktop: Display the item on desktop devices.
+Show on Tablet: Display the item on tablet devices.
+Show on Mobile: Display the item on mobile devices.
+Capabilities:
+Use ready-made icons or custom images.
+Customize titles and descriptions.
+Change icon and background colors.
+Control icon size and shape.
+Connect individual items to optional links.
+Configure independent device visibility for each item.
+5. Live Preview
+Preview the appearance of the feature section across different devices while editing.
+Live Preview – Desktop
+Display the feature items on desktop screens.
+Preview the number of items per row.
+View icons, titles, and descriptions.
+Live Preview – Tablet
+Display items according to tablet settings.
+Test item distribution and spacing.
+Live Preview – Mobile
+Display items according to mobile settings.
+Check icon and text readability.
+Test item ordering and spacing.
+Capabilities:
+Preview changes independently for each device.
+See the effects of modifications without publishing.
+Verify item consistency.
+Test device-specific visibility settings.
+6. Apply & Publish Changes Live
+Save all modifications and publish them to the live storefront.
+Save section settings.
+Save the title and description.
+Save item layout and ordering.
+Save all icons and uploaded images.
+Save individual item titles and descriptions.
+Save colors, sizes, and shapes.
+Save optional links.
+Save device visibility settings.
+Update the live storefront after publishing.
+Display success or error notifications.
+Technical Requirements for the Developer
+Support adding, editing, duplicating, deleting, and reordering feature items.
+Provide a built-in icon library.
+Support custom image uploads instead of icons.
+Each item must have independent title and subtitle settings.
+Support independent icon background colors and icon colors.
+Support icon size and shape customization.
+Support optional links for individual items.
+Implement independent visibility controls for desktop, tablet, and mobile.
+Support independent item counts per row for desktop and tablet.
+Implement spacing, padding, background color, and border radius controls.
+Provide real-time previews for desktop, tablet, and mobile.
+Save all configurations in the database.
+Preserve each item's settings when switching between items.
+Apply published changes to the live storefront.
+Do not hide, remove, or omit any existing controls.
+Important: The Feature Icons Section must function as a complete feature management system. Every icon, image, text field, visibility toggle, layout setting, and customization control must work correctly and reflect changes in the live storefront.
+
+
+
+Product Carousel Section
+Functional requirements, editor controls, save/publish behavior, and responsive design
+
+
+Manage Product Carousel Section – Settings & Controls Guide
+Element Name: Product Carousel SectionElement ID:product-carousel-dual
+Objective: Provide a complete product carousel management system that allows store owners to display products in a horizontally navigable carousel, manage product images, prices, options, and purchase buttons, and customize the display across desktop, tablet, and mobile devices.
+1. Section Settings
+Controls the basic information and visibility of the product section.
+Enable Section: Enable or disable the entire section on the storefront.
+Section Title: Set the section heading, such as "New Products – HONOR X9e Series".
+Promotional Text (Optional): Add a short promotional description below the title.
+Character Counter: Display the number of entered characters and the maximum allowed.
+Capabilities:
+Customize the section title and promotional text.
+Show or hide the entire section without deleting its content.
+Update the preview immediately after editing.
+2. Layout Settings
+Controls the number of products displayed and the appearance and spacing of product cards.
+Products per Row (Desktop)
+2 Products: Display two products per row.
+3 Products: Display three products per row.
+Products per Row (Tablet)
+1 Product: Display one product per row.
+2 Products: Display two products per row.
+Products per Row (Mobile)
+1 Product: Display one product per row.
+2 Products: Display two products per row.
+Card Style
+Rounded Card: Display product cards with rounded corners.
+Square Card: Display product cards with square corners.
+Card Background Color
+Customize the background color of product cards.
+Use the color picker or enter a HEX color code.
+Card Border Radius
+Control the rounding of product card corners.
+Example: 16 px.
+Card Padding
+Control the internal spacing between the card borders and its content.
+Example: 24 px.
+Item Spacing
+Set the distance between product cards.
+Example: 16 px.
+Capabilities:
+Configure the number of products per row for each device.
+Customize product card appearance.
+Change card background colors.
+Control corner radius and spacing.
+Optimize product distribution for different screen sizes.
+3. Carousel & Navigation Settings
+Controls how customers navigate through the displayed products.
+Show Section Arrows (Desktop)
+Display or hide navigation arrows on desktop.
+Allow customers to move between products horizontally.
+Show Section Arrows (Mobile)
+Display or hide navigation arrows on mobile devices.
+Control arrow visibility according to the mobile layout.
+Enable Touch Swipe
+Enable touch-based horizontal swiping on supported devices.
+Allow customers to swipe through products using their fingers.
+Capabilities:
+Enable or disable navigation arrows.
+Configure arrow visibility independently by device.
+Support touch-based navigation.
+Provide smooth product carousel navigation.
+4. Products Management
+The main section for adding and managing products displayed in the carousel.
+Products Management (4/20)
+- Display the number of selected products compared with the configured maximum.
+Add Product
+- Add a new product from the store's product catalog.
+Product Management Controls
+Each product includes:
+Drag Handle: Reorder products by dragging them.
+Product Number: Display the product's position in the list.
+Product Image: Display a thumbnail of the product.
+Product Name: Display the product name.
+Stock Status: Display product availability, such as In Stock.
+Edit: Open the product editing settings.
+Duplicate: Create a copy of the product and its settings.
+Delete: Remove the product from the carousel without deleting the original product from the store database.
+Capabilities:
+Add multiple products.
+Edit individual products.
+Duplicate products.
+Remove products from the carousel.
+Reorder products.
+Control which products appear in the carousel.
+5. Edit Product
+Clicking the Edit icon opens the product editor, allowing store owners to customize the selected product.
+Product Images
+Main Image: Select the primary product image displayed in the product card.
+Gallery Images: Add multiple product images.
+Click to Upload: Upload images from the device.
+Image Preview: Preview uploaded images.
+Remove Image: Delete a selected image.
+Supported Formats:
+JPG
+PNG
+WebP
+Maximum File Size: 5 MB, according to the displayed design.
+Product Information
+Product Name: Enter or edit the product name.
+Promotional Tag (Optional): Add a short promotional label, such as New or Best Seller.
+Product Link (Optional): Set the link to the product page.
+Capabilities:
+Edit product names.
+Add promotional labels.
+Connect products to their storefront pages.
+Product Options
+Controls the product variations and options customers can select.
+Show Product Options if Available
+- Display product options when they are available in the product data.
+Color Options
+Add available product colors.
+Select a color for each variation.
+Display colors as selectable circles.
+Add or remove color options.
+Storage Options (Example)
+Add storage capacities, such as 128GB, 256GB, and 512GB.
+Define the available options.
+Allow a default option to be selected when supported.
+Other Options (e.g. Accessories)
+Add additional product options, such as accessories and extras.
+Allow customers to select available options.
+Capabilities:
+Manage product colors.
+Manage storage capacities.
+Add accessories and other options.
+Connect options to actual product variations.
+Update price and availability when a selected variation has its own price or stock configuration.
+Price Settings
+Controls the product prices displayed to customers.
+Original Price
+- Enter the product price before the discount.
+Discounted Price
+- Enter the price after the discount.
+Show Original Price (Strikethrough)
+Display the original price with a strikethrough beside the discounted price.
+Hide the original price when this option is disabled.
+Capabilities:
+Set original prices.
+Set discounted prices.
+Visually highlight discounts.
+Update product prices in the carousel card.
+Action Buttons Settings
+Controls the action buttons displayed inside the product card.
+Show Buy Now Button
+Enable or disable the direct purchase button.
+Button Text: Customize the button label, such as Buy Now.
+Show Add to Cart Button
+Enable or disable the add-to-cart button.
+Button Text: Customize the button label, such as Add to Cart.
+Show Learn More Button
+Enable or disable the Learn More button.
+Button Text: Customize the button label, such as Learn More.
+Learn More Button Link Settings
+Link Type: Select the destination type.
+External Link: Redirect customers to an external URL.
+URL: Enter the destination address.
+Open Link In: Choose how the destination opens:
+Same Tab: Open the link in the current browser tab.
+New Tab: Open the link in a new browser tab.
+Capabilities:
+Control each button independently.
+Customize button text.
+Connect buttons to actual store functions.
+Configure the Learn More destination.
+Control how links open.
+6. Live Preview
+The preview panel on the right displays how the product carousel will look after applying the settings.
+Live Preview – Desktop
+Preview product cards on desktop screens.
+Display product images, names, prices, and options.
+Test purchase buttons and navigation.
+Live Preview – Tablet
+Preview products on tablet devices.
+Check the number and arrangement of product cards.
+Live Preview – Mobile
+Preview products on mobile devices.
+Test product images, prices, options, and buttons.
+Capabilities:
+Update the preview immediately after editing.
+Test the design on different devices.
+Review product ordering.
+Verify that all product options appear correctly.
+7. Apply & Publish Changes Live
+Save all modifications and publish them to the live storefront.
+Save product information.
+Save product images and galleries.
+Save product names and promotional labels.
+Save color, storage, and accessory options.
+Save original and discounted prices.
+Save button settings and destinations.
+Save product ordering.
+Apply display settings across supported devices.
+Update the live storefront after publishing.
+Display success or error notifications.
+Technical Requirements for the Developer
+Support adding, editing, duplicating, deleting, and reordering products.
+Connect product selection directly to the store's product database.
+Support primary product images and multiple gallery images.
+Support product colors, storage capacities, and additional options.
+Synchronize product prices with actual product variations where applicable.
+Support original and discounted prices.
+Connect Buy Now to the actual checkout process.
+Connect Add to Cart to the actual shopping cart.
+Support custom destinations for Learn More.
+Implement independent product columns for desktop, tablet, and mobile.
+Support card background, border radius, padding, and spacing.
+Implement carousel navigation arrows and touch swipe.
+Provide real-time previews for desktop, tablet, and mobile.
+Save all product configurations in the database.
+Preserve product settings when editing or switching between products.
+Apply published changes to the live storefront.
+Do not hide, remove, or omit any existing controls.
+Important: The Product Carousel Section must function as a complete product management and display system. All product information, images, options, prices, buttons, navigation controls, and responsive settings must be fully functional and connected to the actual storefront and product database.
+
+
+
+Manage Category Showcase Section – Settings & Controls Guide
+Element Name: Category Showcase SectionElement ID:category-showcase-dual
+Objective: Provide a complete category and product showcase management system that allows store owners to manage promotional banners at the top and product listings below them. The system supports banner customization, product selection, responsive layouts, carousel navigation, and live previews across desktop, tablet, and mobile devices.
+1. Section Settings
+Controls the basic information and visibility of the entire section.
+Enable Section: Enable or disable the entire section on the storefront.
+Main Section Title: Set the main section heading, such as "HiBrew Flagship Machines".
+Section Description (Optional): Add a short description below the heading.
+Capabilities:
+Customize the section title and description.
+Show or hide the entire section without deleting its settings.
+Update the preview immediately after editing.
+2. Showcase Banners (Top)
+Manages the promotional banners displayed above the product listings.
+Add Banner
+Create a new promotional banner.
+Add an independent banner card.
+Banner Management Controls
+Each banner includes:
+Drag Handle: Reorder banners using drag and drop.
+Banner Thumbnail: Display a preview of the banner image.
+Banner Title: Set the banner heading.
+Banner Description: Add a short description.
+Enable Toggle: Enable or disable each banner independently.
+Edit Icon: Open the banner editing settings.
+Delete Icon: Remove the banner from the section.
+Capabilities:
+Add multiple banners.
+Edit each banner independently.
+Reorder banners using drag and drop.
+Enable or disable individual banners.
+Delete banners without affecting other banners.
+Each banner's editing settings should allow customization of its image, title, description, and destination link.
+3. Products Section (Bottom)
+Controls the products displayed below the promotional banners.
+Products Source
+Select the source of the products.
+Select Products Manually: Choose products directly from the store's product catalog.
+Products (6/20)
+Display the number of selected products compared with the configured maximum.
+Example: 6 selected products out of 20.
+Select Products
+Open the store product catalog.
+Select the products to display.
+Add or remove products from the selection.
+Product Cards
+Product Image: Display the product image.
+Product Name: Display the product name.
+Remove Product: Remove a product from this section without deleting it from the store database.
+Capabilities:
+Select products manually.
+Add multiple products.
+Remove products without deleting their original store records.
+Control product display order.
+Preview selected products.
+4. Display & Layout Settings
+Controls the overall section structure and the arrangement of banners and products.
+Section Layout
+Choose the arrangement of the main components:
+Banners Top + Products Below: Display promotional banners at the top and product listings underneath.
+Banner Layout (Top)
+Choose how the banners are arranged:
+3 Columns (Equal): Display three banners with equal dimensions.
+Allow other supported banner arrangements when available.
+Products per Row (Desktop)
+Set the number of products displayed per row on desktop.
+Example: 5 products.
+Products per Row (Tablet)
+Set the number of products displayed per row on tablet.
+Example: 3 products.
+Products per Row (Mobile)
+Set the number of products displayed per row on mobile.
+Example: 2 products.
+Card StyleChoose the appearance of product cards:
+Rounded: Rounded corners.
+Square: Square corners.
+Card SpacingControl the distance between product cards:
+Small: Small spacing.
+Medium: Medium spacing.
+Large: Large spacing.
+Section Spacing (Between Banners & Products)
+Control the distance between the banner group and the product listing.
+Section Background Color
+Customize the section background using a color picker or HEX color code.
+Content AlignmentChoose the content alignment:
+Left: Align content to the left.
+Center: Center the content.
+Right: Align content to the right.
+Capabilities:
+Control the arrangement of banners and products.
+Set the number of product columns for each device.
+Customize product card appearance.
+Adjust spacing, background colors, and alignment.
+Create responsive layouts for different screen sizes.
+5. Banner Settings (Top Cards)
+Controls the visual appearance of the promotional banner cards, including image positioning, text, and links.
+Card Height
+Set the banner card height.
+Auto: Automatically adjust the height according to the content.
+Allow custom height values when supported.
+Text Alignment
+Choose where banner text appears:
+Top Left: Align text to the top left.
+Top Right: Align text to the top right.
+Center: Center the text.
+Bottom Left: Align text to the bottom left.
+Bottom Right: Align text to the bottom right.
+Overlay Effect
+Add a colored overlay to improve text readability over banner images.
+None: No overlay.
+Dark (Gradient): Apply a dark gradient.
+Light: Apply a light overlay.
+Custom Gradient: Create a customized gradient.
+Overlay Opacity
+Control the transparency of the overlay.
+Example: 50%.
+Border Style
+Choose the border style of banner cards.
+Border Radius
+Control the rounding of banner card corners.
+Text Color
+Customize the color of text displayed over banner images.
+Use a color picker or enter a HEX color code.
+Button Style
+Choose the appearance of banner links or action buttons:
+Primary: Primary button style.
+Secondary: Secondary button style.
+Outline: Button with an outline.
+Text with Arrow: Text link with an arrow.
+Capabilities:
+Control banner height.
+Set text positioning.
+Apply colored overlays.
+Adjust overlay transparency.
+Customize borders and rounded corners.
+Change text colors and button styles.
+6. Product Settings (Bottom List)
+Controls which product details appear inside the product cards.
+Show Product Name
+Show or hide the product name.
+Show Price
+Show or hide the current product price.
+Show Original Price
+Show or hide the original price before discount.
+Show Discount
+Show or hide discount information.
+Capabilities:
+Customize product card information.
+Show or hide prices.
+Highlight discounted products.
+Control product name visibility.
+7. Carousel & Interaction
+Controls horizontal navigation and customer interaction with the product listing.
+Enable Product Carousel
+Enable or disable the horizontal product carousel.
+Allow customers to navigate through products horizontally.
+Enable Touch Swipe
+Enable touch-based navigation on supported devices.
+Allow customers to swipe through products using their fingers.
+Show Navigation Arrows
+Control navigation arrow visibility independently for each device:
+Desktop: Show navigation arrows on desktop.
+Tablet: Show navigation arrows on tablet.
+Mobile: Show navigation arrows on mobile.
+Auto Play (Optional)
+Automatically move through products without requiring customer interaction.
+Auto Play Speed
+Set the time interval between automatic transitions.
+Example: 5 seconds.
+Capabilities:
+Enable or disable the product carousel.
+Support navigation arrows.
+Support touch-based swiping.
+Configure arrow visibility for each device.
+Control automatic playback and transition speed.
+8. Live Preview
+Displays the final appearance of the section while editing.
+Desktop Preview
+Preview banners and products on desktop screens.
+Check card arrangement and dimensions.
+Tablet Preview
+Preview banner and product layouts on tablet devices.
+Mobile Preview
+Preview the section on mobile devices.
+Check image, text, and product responsiveness.
+Capabilities:
+Preview changes immediately.
+Test different column configurations.
+Verify banner and product ordering.
+Identify layout and spacing issues before publishing.
+9. Apply & Publish Changes Live
+Save all modifications and publish them to the live storefront.
+Save section information.
+Save banners and their display order.
+Save selected products.
+Save banner design settings.
+Save product display options.
+Save carousel navigation settings.
+Save desktop, tablet, and mobile configurations.
+Update the live storefront after publishing.
+Display success or error notifications.
+
+Technical Requirements for the Developer
+Support adding, editing, deleting, enabling, disabling, and reordering banners.
+Each banner must have independent content, image, and destination settings.
+Connect product selection directly to the store's product database.
+Support adding, removing, and reordering products.
+Support independent product columns for desktop, tablet, and mobile.
+Implement banner height, text alignment, overlays, opacity, and border settings.
+Implement independent product display options.
+Support product carousel navigation and touch swipe.
+Support automatic carousel playback and speed configuration.
+Provide real-time previews for desktop, tablet, and mobile.
+Save all configurations in the database.
+Preserve settings when switching between banners or products.
+Apply published changes to the live storefront.
+Do not hide, remove, or omit any existing controls.
+Important: The Category Showcase Section must function as a complete category banner and product display management system. The top banners and bottom products must be managed independently while remaining connected within the same section. All settings must work correctly and reflect changes in the live storefront.
+Clarify Carousel and Grid BehaviorDefine Banner Link and Image Fields
+
+
+
+
+Benefits Section – Settings & Controls Guide
+Element Name: Benefits SectionElement ID:benefits-1
+Objective: Provide a complete benefits management system that allows store owners to display their services and advantages as individual cards containing icons, titles, descriptions, and optional action buttons. Examples include fast shipping, warranty, installment payments, custom orders, and customer support.
+1. General Settings
+Controls the main title and description of the benefits section.
+Title: Set the section heading, such as "Exclusive HiBrew Benefits".
+Description: Add a short description below the heading.
+Show Title: Show or hide the section title.
+Show Description: Show or hide the section description.
+Capabilities:
+Customize the section title and description.
+Control the visibility of each independently.
+Update the live preview immediately after editing.
+2. Benefit Items
+Manages all benefit cards displayed on the storefront.
+The example includes five benefits:
+2-Year Agency Warranty
+Express KSA Delivery
+Buy Now, Pay Later
+Custom Coffee Corners
+Custom & VIP Care
+Available Controls:
+Drag Handle: Reorder benefit cards using drag and drop.
+Item Title: Display the benefit title.
+Edit Icon: Open the editing settings for the selected benefit.
+Delete Icon: Remove the selected benefit.
+Add Benefit: Create a new benefit card.
+Capabilities:
+Add multiple benefit cards.
+Edit each benefit independently.
+Delete individual benefits.
+Reorder cards using drag and drop.
+Customize the icon, title, description, and buttons for each card.
+3. Edit Benefit
+Opens an independent editing window to customize the selected benefit.
+Icon
+Select an icon that represents the benefit.
+Examples include:
+Shield: Warranty and protection.
+Delivery Truck: Shipping and delivery.
+Tabby: Installment payments.
+Tools: Custom services and maintenance.
+Chat: Customer communication and support.
+Capabilities:
+Select an icon from the available icon library.
+Change the selected icon independently for each benefit.
+Choose an icon that matches the service.
+Title
+Enter the benefit title displayed inside the card.
+Examples:
+2-Year Agency Warranty.
+Express KSA Delivery.
+Custom Coffee Corners.
+Description
+Enter a short description explaining the benefit.
+Example:
+"Authorized service and genuine spare parts."
+Capabilities:
+Edit the benefit title.
+Customize the description.
+Maintain independent content for each benefit card.
+4. Action Buttons (Optional)
+Allows store owners to add interactive buttons inside each benefit card.
+The example supports two buttons per benefit.
+First Button
+Enable Checkbox: Enable or disable the button.
+Button Text: Set the displayed label, such as Custom Order.
+Button Style: Choose the button appearance, such as Primary.
+Second Button
+Enable Checkbox: Enable or disable the button.
+Button Text: Set the displayed label, such as WhatsApp.
+Button Style: Choose the button appearance, such as WhatsApp.
+Delete Icon
+Remove an individual button without deleting the benefit card.
+Button Link
+Set the destination URL that opens when customers click the button.
+Example:
+https://wa.me/966XXXXXXXXX
+Capabilities:
+Add multiple buttons to each benefit.
+Enable or disable buttons independently.
+Customize button labels.
+Select different button styles.
+Connect buttons to external URLs or store pages.
+Edit or remove buttons without affecting the benefit card.
+5. Card Status
+Controls whether the selected benefit is available to customers.
+Enable This Benefit
+Activate the benefit.
+Display its icon, title, description, and available action buttons normally.
+Disable (Show as Unavailable)
+Disable the benefit without deleting it.
+Keep the benefit card visible in the section.
+Display the card using a faded or gray appearance.
+Clearly indicate that the service is currently unavailable.
+Example: The "Custom & VIP Care" card appears faded when the service is unavailable, while its information remains saved.
+Important: Disabling a benefit must not delete it. The card should remain visible with an unavailable status.
+6. Display Options
+Controls how benefit cards appear on the storefront.
+This section is collapsed in the provided screenshot, so its exact internal controls are not visible.
+It should provide the available settings for controlling card presentation, content arrangement, and display behavior. All existing options must remain accessible when expanded.
+7. Spacing
+Controls the spacing and dimensions of the benefits section.
+This section is collapsed in the provided screenshot, so its internal values are not visible.
+It should provide controls for:
+Spacing between benefit cards.
+Internal card padding.
+Section padding.
+Overall spacing between section elements.
+8. Visibility
+Controls where the benefits section appears.
+This section is collapsed in the provided screenshot. All available visibility settings should remain accessible when expanded.
+It should support controlling the section's visibility across desktop, tablet, and mobile devices.
+9. Top Navigation
+The settings panel contains four configuration tabs.
+Content
+Manage benefit items, titles, descriptions, icons, and action buttons.
+Style
+Customize colors, typography, backgrounds, and visual appearance.
+Layout
+Control card arrangement, dimensions, and alignment.
+Advanced
+Access additional element configuration settings.
+10. Device Preview
+Allows store owners to preview the benefits section across different screen sizes.
+Desktop: Preview benefit cards on desktop screens.
+Tablet: Preview the section on tablet devices.
+Mobile: Preview the section on mobile devices.
+The preview should display benefit icons, titles, descriptions, buttons, and availability states.
+Capabilities:
+Preview changes immediately.
+Check card appearance on different devices.
+Verify text and icon alignment.
+Test individual benefit visibility settings.
+11. Apply & Publish Changes Live
+Save all modifications and publish them to the live storefront.
+Save section settings.
+Save benefit titles and descriptions.
+Save selected icons.
+Save action buttons and their URLs.
+Save button styles and visibility.
+Save benefit availability statuses.
+Save display, spacing, and visibility settings.
+Update the storefront after publishing.
+Display success or error notifications.
+
+Technical Requirements for the Developer
+Support adding, editing, deleting, and reordering benefit items.
+Provide a built-in icon library.
+Allow independent titles and descriptions for each benefit.
+Support multiple action buttons per benefit.
+Enable or disable each button independently.
+Provide individual button styling options.
+Connect every button to its actual destination URL.
+Implement both Enable and Disable (Show as Unavailable) states.
+Preserve benefit information when a service is disabled.
+Provide a real-time preview after every modification.
+Save all configurations in the database.
+Editing one benefit must not affect other benefit cards.
+Support responsive layouts across desktop, tablet, and mobile.
+Do not hide, remove, or omit any existing controls.
+Important: The Benefits Section must function as a complete benefit and service management system. Each card must be independently editable and support icons, descriptions, action buttons, links, and availability states. All modifications must be reflected correctly in the live storefront.
+Clarify Exact Collapsed-Section ControlsDefine Button Validation and Empty States
+
+
+
+Manage Events & Masterclasses Section – Settings & Controls Guide
+Element Name: Events & Masterclasses SectionElement ID:events-masterclasses-dual
+Objective: Provide a complete event and masterclass management system that allows store owners to create, edit, organize, and display events, workshops, demonstrations, and community activities. Each event can have its own image, title, description, label, and action button, with responsive layouts and live previews across desktop, tablet, and mobile devices.
+1. Section Settings
+Controls the main information and visibility of the events section.
+Enable Section: Enable or disable the entire section on the storefront.
+Section Tag (Badge): Add a small label above the section title, such as "MASTERCLASSES & COMMUNITY".
+Section Title: Set the main heading, such as "HiBrew Events & Masterclasses".
+Section Description: Add a short description explaining the events and activities.
+Capabilities:
+Customize the section badge, title, and description.
+Enable or disable the entire section without deleting its content.
+Display character counters and enforce the configured text limits.
+Update the live preview immediately after editing.
+2. Layout Settings
+Controls how event cards are arranged and displayed within the section.
+Cards Layout
+Choose the overall event card arrangement:
+One Large + Two Small: Display one large event card and two smaller cards.
+Support additional layout options when available.
+Cards per Row (Bottom)
+Set the number of smaller event cards displayed in each row.
+Control how the smaller cards are distributed below or beside the main card according to the selected layout.
+Card Spacing
+Control the distance between event cards.
+Support Small, Medium, and Large spacing options.
+Card Border Radius
+Control the rounding of event card corners.
+Allow predefined or custom pixel values.
+Section Padding (Vertical)
+Adjust the internal vertical spacing above and below the event content.
+Content Alignment
+Left: Align event content to the left.
+Center: Center event content.
+Right: Align event content to the right.
+Capabilities:
+Change the overall event layout.
+Control the distribution of large and small cards.
+Customize card spacing and corner radius.
+Adjust vertical section padding.
+Control content alignment.
+3. Events Management
+Manage all events and masterclasses displayed in the section.
+Events Management (3/10)
+Display the number of created events compared with the maximum allowed.
+Example: 3 events out of 10.
+Add Event
+Create a new event card.
+Add independent event information and an image.
+Event Management Controls
+Each event includes:
+Drag Handle: Reorder events using drag and drop.
+Event Number: Display the event's position in the list.
+Event Thumbnail: Display a preview of the event image.
+Event Title: Display the event name.
+Event Description: Display a short description.
+Card Size Label: Identify whether the event uses the Large or Small card layout.
+Edit Icon: Open the selected event's editing settings.
+Duplicate Icon: Create a copy of the event and its configuration.
+Delete Icon: Remove the selected event.
+Capabilities:
+Add multiple events and masterclasses.
+Edit each event independently.
+Duplicate events to create similar activities quickly.
+Delete individual events.
+Reorder events using drag and drop.
+Organize events using large and small card layouts.
+4. Edit Event
+Opens an editing panel for customizing the selected event.
+Event Image
+Event Image: Display the current event image.
+Click to Upload: Upload an image from the device.
+Replace Image: Replace the existing image.
+Remove Image: Delete the current image.
+Supported Formats: JPG, PNG, and WebP.
+Maximum File Size: 5 MB.
+Event Details
+Event Title
+Enter the event or masterclass name.
+Example: Riyadh Barista Masterclass 2026.
+Maximum: 100 characters.
+Event Description
+Add a short description explaining the event.
+Example: Hands-on dual-boiler dialing, milk microfoam, and 58mm workflow.
+Maximum: 200 characters.
+Tag / Label
+Add a small label identifying the event.
+Example: Riyadh Masterclass 2026.
+Maximum: 40 characters.
+Character Counters
+Display the number of characters entered.
+Prevent text from exceeding the configured limits.
+Action Button
+Controls the interactive button displayed inside the event card.
+Show Button: Enable or disable the event action button.
+Button Text: Customize the button label, such as Reserve Seat.
+Button Link: Enter the destination URL.
+Button Style: Choose the button appearance, such as Text with Arrow.
+Capabilities:
+Upload and replace event images.
+Customize event titles and descriptions.
+Add event labels.
+Control action button visibility.
+Customize button text and destination.
+Select the button appearance.
+Maintain independent settings for every event.
+5. Live Preview
+Displays the event section as it will appear on the storefront.
+Desktop Preview
+Preview the large event card and smaller event cards.
+Check event images, text, labels, and action buttons.
+Verify the selected card arrangement.
+Tablet Preview
+Preview the event layout on tablet screens.
+Check card distribution and text readability.
+Mobile Preview
+Preview event cards on mobile devices.
+Check image proportions and button placement.
+Ensure event content remains readable.
+Capabilities:
+Update the preview immediately after editing.
+Switch between desktop, tablet, and mobile previews.
+Review the selected layout before publishing.
+Identify image, text, and spacing issues.
+6. Display Options
+Controls which elements appear inside the events section.
+Show Section Tag (Badge)
+Show or hide the badge above the section title.
+Show Descriptions
+Display or hide event descriptions inside the cards.
+Show Action Buttons
+Show or hide event action buttons, such as Reserve Seat or Explore Event.
+Show Card Labels
+Display or hide the labels identifying event categories or types.
+Capabilities:
+Independently control the visibility of each content element.
+Simplify event cards when certain information is unnecessary.
+Apply display settings consistently across the section.
+7. Carousel & Interaction (Large Card)
+Controls the automatic playback and interactive controls of the large event banner.
+Enable Auto Play
+Automatically rotate or switch the large featured event.
+Allow customers to view different featured events without manually navigating.
+Show Controls (Pause / Next)
+Display or hide the carousel navigation controls.
+Allow customers to pause automatic playback or move to the next event.
+Auto Play Speed
+Set the time interval between automatic transitions.
+Example: 5 seconds.
+Capabilities:
+Enable or disable automatic event rotation.
+Show or hide pause and next controls.
+Configure automatic playback speed.
+Allow customers to navigate between featured events manually.
+8. Spacing
+Controls the spacing and dimensions of the events section.
+This panel is collapsed in the provided screenshot, so its exact internal controls and values are not visible.
+Its purpose is to manage spacing around event cards and between section elements. All available controls should remain accessible when the panel is expanded.
+9. Visibility
+Controls where the events section appears.
+This panel is collapsed in the provided screenshot, so its exact internal controls are not visible.
+Its purpose is to manage section visibility across supported devices, including desktop, tablet, and mobile. All available controls should remain accessible when expanded.
+10. Top Navigation
+The editor provides the following configuration tabs:
+Content
+Manage section information, event cards, images, descriptions, and action buttons.
+Templates
+Select predefined designs for the events section when templates are available.
+Style
+Customize colors, typography, backgrounds, borders, and visual appearance.
+Layout
+Control event card arrangement, dimensions, spacing, and alignment.
+Code
+Access supported custom code configuration.
+AI
+Access AI-assisted content generation and related features.
+11. AI Copywriting Assistant
+Helps store owners generate event-related content using AI.
+Open: Launch the AI assistant.
+Generate Section Title: Create suggested section headings.
+Generate Description: Generate introductory section descriptions.
+Generate Event Content: Create event titles and descriptions.
+Improve Existing Text: Rewrite and improve existing event content.
+Generated content should be reviewed and approved before being applied.
+12. Apply & Publish Changes Live
+Save all modifications and publish them to the live storefront.
+Save section settings.
+Save event images and information.
+Save event titles, descriptions, and labels.
+Save action button text, styles, and links.
+Save card layouts and ordering.
+Save display options.
+Save carousel and autoplay settings.
+Save spacing and visibility configurations.
+Update the live storefront after publishing.
+Display success or error notifications.
+
+Technical Requirements for the Developer
+Support adding, editing, duplicating, deleting, enabling, disabling, and reordering events.
+Each event must have independent image, title, description, label, and action button settings.
+Support image uploads in JPG, PNG, and WebP formats.
+Enforce the configured image size and text character limits.
+Support large and small event card configurations.
+Implement the One Large + Two Small layout.
+Connect event action buttons to their configured destination URLs.
+Support independent event content and button visibility.
+Implement automatic carousel playback and manual navigation controls.
+Provide pause, next, and autoplay speed controls.
+Support desktop, tablet, and mobile previews.
+Provide real-time preview while editing.
+Save all event and section configurations in the database.
+Preserve event settings when switching between events.
+Ensure deleting an event does not affect other events.
+Apply published changes to the live storefront.
+Do not hide, remove, or omit any existing controls.
+Important: The Events & Masterclasses Section must function as a complete event management system, not just a visual section editor. Every event, image, text field, action button, layout option, carousel control, and visibility setting must work correctly and reflect changes in the live storefront.
+Clarify responsive layout behaviorDefine event validation and empty states
+
+
+Features Section – Settings & Controls
+The Features Section element allows you to display your store or product features in organized cards. Each card contains an icon, title, and description.
+1. General Settings
+Controls the main content displayed at the top of the section.
+Badge Text: Enter the small label displayed above the main heading, such as "FLAGSHIP ARCHITECTURE".
+Title: Set the main heading of the section.
+Description: Add a short description below the heading.
+Show Badge: Enable or disable the small label.
+Show Description: Show or hide the section description.
+2. Features
+Manage all feature cards displayed in the section.
+Each feature includes:
+Drag Handle: Drag and reorder feature cards.
+Icon: Select an icon that represents the feature.
+Title: Enter the feature name.
+Description: Write a short explanation of the feature.
+Edit: Modify the selected feature.
+Delete: Remove the feature.
+Edit Feature
+When clicking the Edit button, an editing window appears.
+Icon: Choose an icon from the available options.
+Title: Edit the feature title.
+Description: Edit the feature description.
+Cancel: Discard changes.
+Save: Save the updated feature.
+Add Feature
+Click Add Feature to create a new feature card.
+Select an icon.
+Enter the feature title.
+Write the feature description.
+Click Save.
+The new feature will appear in the section preview.
+3. Display Options
+Controls how feature cards are arranged.
+Columns: Choose the number of columns (1, 2, or 3).
+Card Layout: Select the card arrangement.
+Alignment: Control the alignment of card content.
+Icon Position: Choose where the icon appears inside the card.
+4. Spacing
+Controls the spacing and dimensions of the section.
+Section Padding: Adjust the internal spacing of the entire section.
+Card Gap: Control the distance between feature cards.
+Card Padding: Adjust the spacing inside each card.
+Top Spacing: Control the space above the section.
+Bottom Spacing: Control the space below the section.
+5. Visibility
+Controls where the section is displayed.
+Desktop: Control the section's visibility on desktop devices.
+Tablet: Control the section's visibility on tablets.
+Mobile: Control the section's visibility on mobile devices.
+Hide Section: Temporarily hide the entire section without deleting it.
+6. Top Navigation
+The editor includes four main configuration tabs:
+Content: Manage titles, descriptions, and feature cards.
+Style: Customize colors, fonts, backgrounds, and visual appearance.
+Layout: Control the structure and arrangement of elements.
+Advanced: Access additional element settings.
+You can also switch between Desktop, Tablet, and Mobile previews.
+7. Apply & Publish Changes Live
+Click Apply & Publish Changes Live to apply your modifications and publish them to your store.
+Recommended Workflow
+Configure General Settings.
+Add and organize your Features.
+Choose the Display Options.
+Adjust Spacing.
+Configure Visibility.
+Customize the Style.
+Preview the section on all devices.
+Click Apply & Publish Changes Live.
+Important: Each feature should be independently editable. Changing one feature must not affect the content or settings of other feature cards.
+
+
+
+Model Comparison – Settings & Controls Guide
+Element Name: Model ComparisonElement ID:comparison-1
+Objective: Provide a professional product comparison system that allows customers to compare multiple products or models, review their images, prices, and technical specifications, identify differences, and choose the most suitable product.
+1. General Settings
+Controls the main headings and introductory content displayed above the comparison section.
+Badge Text: Enter the small label displayed above the main title, such as "OFFICIAL TECHNICAL SPECIFICATIONS".
+Secondary Label: Add a secondary label next to the main badge, such as "Certified Model Comparison".
+Title: Set the main section heading, such as "Specifications & Model Comparison".
+Description: Add an introductory description explaining the comparison section.
+Visibility Controls:
+Show Badge: Show or hide the main badge.
+Show Secondary Label: Show or hide the secondary label.
+Show Description: Show or hide the section description.
+Capabilities:
+Customize all section headings and descriptions.
+Control the visibility of each element independently.
+Update the live preview immediately after editing.
+Preserve content when an element is hidden.
+2. Models
+Manages the products and models available for comparison.
+Model Management Controls
+Each model includes:
+Drag Handle: Reorder models using drag and drop.
+Product Image: Display a thumbnail of the product.
+Model Name: Display the product or model name.
+Edit Icon: Open the editing settings for the selected model.
+Delete Icon: Remove the model from the comparison.
+Add Model: Add a new model to the comparison.
+Capabilities:
+Add multiple products for comparison.
+Edit each model independently.
+Remove products without deleting them from the store.
+Reorder models using drag and drop.
+Highlight a selected model within the comparison table.
+3. Edit Model
+Opens an independent editing window for the selected product.
+Product Image
+Change Image: Upload or replace the current product image.
+Remove: Delete the current image.
+Model Name
+Enter or edit the product name.
+Example: Lelit Pro H7A Dual-Boiler 20-Bar.
+Price
+Set the product price.
+Support displaying the currency alongside the price.
+Example: SAR 1,899.00.
+Button Text
+Customize the text displayed on the model selection button.
+Example: Selected or Select Model.
+Mark as Selected Model
+Mark the model as the selected or preferred product.
+Highlight it visually within the comparison card.
+Display a "Selected Choice" label when enabled.
+Editing Actions
+Cancel: Discard changes and close the editing window.
+Save: Save the updated model information and refresh the preview.
+Capabilities:
+Edit product images, names, and prices.
+Customize model selection button labels.
+Highlight one selected model.
+Change the selected model without affecting other products.
+4. Specifications (Comparison Fields)
+Manages the technical specification rows displayed in the comparison table.
+Examples of comparison specifications include:
+Extraction Pressure.
+Heating Architecture.
+Temperature Control.
+Water Tank Capacity.
+Power Consumption.
+Dimensions.
+Weight.
+Available Controls:
+Add Specification: Add a new specification row to the comparison table.
+Specification Name: Enter the specification name.
+Specification Values: Enter the corresponding value for each model.
+Edit Specification: Modify the specification name and its values.
+Delete Specification: Remove a specification row.
+Drag & Drop: Change the order of specification rows.
+Capabilities:
+Add multiple technical specifications.
+Assign different values to each product.
+Edit and delete specification rows.
+Reorder comparison specifications.
+Keep specification values correctly associated with their corresponding products.
+Important: Each specification value must remain linked to the correct model. Adding, removing, or reordering products must not cause specification values to become incorrectly assigned.
+5. Display Options
+Controls which elements are visible to customers in the comparison section.
+Recommended controls include:
+Show Product Images: Show or hide product images.
+Show Product Prices: Show or hide product prices.
+Show Selection Buttons: Show or hide model selection buttons.
+Show Specifications: Show or hide the comparison table.
+Highlight Selected Model: Visually distinguish the selected product.
+Show Specification Labels: Show or hide specification names.
+Full Screen: Allow customers to expand the comparison into a full-screen view.
+Capabilities:
+Customize the information displayed to customers.
+Control the visibility of comparison elements.
+Highlight the selected model.
+Allow customers to view the comparison in full-screen mode.
+6. Spacing
+Controls the spacing and dimensions of the comparison section.
+Available settings should include:
+Section Padding: Adjust the internal spacing of the entire section.
+Model Card Gap: Control the distance between product cards.
+Card Padding: Adjust the internal spacing of each product card.
+Specification Row Spacing: Control the distance between specification rows.
+Column Spacing: Adjust the distance between model columns.
+Top Spacing: Control the space above the section.
+Bottom Spacing: Control the space below the section.
+Capabilities:
+Customize spacing between product cards.
+Adjust the internal dimensions of cards.
+Control spacing between comparison rows and columns.
+Maintain a clean and organized comparison layout.
+7. Visibility
+Controls where the comparison section appears across different devices.
+Available settings should include:
+Show on Desktop: Display the comparison on desktop devices.
+Show on Tablet: Display the comparison on tablet devices.
+Show on Mobile: Display the comparison on mobile devices.
+Hide Section: Temporarily hide the entire comparison section without deleting its data.
+Capabilities:
+Configure visibility independently for each device.
+Preserve comparison data when the section is hidden.
+Maintain responsive behavior across supported screen sizes.
+8. Device Preview
+Allows store owners to preview the comparison table across different screen sizes.
+Desktop: Preview product columns and specifications on desktop screens.
+Tablet: Preview model distribution and specification layout on tablet devices.
+Mobile: Preview the comparison on mobile devices, supporting horizontal scrolling when multiple models are displayed.
+Capabilities:
+Preview changes immediately.
+Check product images and prices.
+Test specification table readability.
+Prevent overlapping columns and text.
+Verify responsive behavior before publishing.
+9. Apply & Publish Changes Live
+Save all modifications and publish them to the live storefront.
+Save section headings and descriptions.
+Save product models, images, and prices.
+Save the selected model.
+Save specifications and comparison values.
+Save display and spacing settings.
+Save device visibility settings.
+Update the live storefront after publishing.
+Display success or error notifications.
+
+Technical Requirements for the Developer
+Support adding, editing, deleting, and reordering comparison models.
+Connect model selection to the actual store product database.
+Support independent product images, names, prices, and selection states.
+Allow only one selected model at a time, unless multiple selections are explicitly supported.
+Support adding, editing, deleting, and reordering comparison specifications.
+Associate every specification value with the correct product.
+Automatically update comparison columns when products are added or removed.
+Implement independent display and visibility settings.
+Support responsive comparison layouts across desktop, tablet, and mobile.
+Provide a full-screen comparison option when enabled.
+Provide real-time preview while editing.
+Save all configurations in the database.
+Preserve product and specification data when switching between models.
+Apply published changes to the live storefront.
+Do not hide, remove, or omit any existing controls.
+Important: The Model Comparison element must function as a complete product comparison system, not just a static table of images and text. All models and specifications must remain correctly associated, and every addition, modification, or deletion must be reflected accurately in the live preview and storefront after publishing.
+Define the comparison data modelAdd validation and empty-state behavior
+
+
+
+Customer Reviews – Settings & Controls Guide
+Element Name: Customer ReviewsElement ID:reviews-1
+Objective: Provide a complete customer reviews management system that allows store owners to collect, manage, and display customer ratings and product reviews. Customers can submit star ratings, written feedback, and photos, while store owners can control review approval, display options, and responsive layouts.
+1. General Settings
+Controls the basic information and visibility of the customer reviews section.
+Badge Text: Set the small label displayed above the main heading, such as "VERIFIED CUSTOMER RATINGS IN KSA".
+Title: Set the section heading, such as "Customer Reviews & Feedback".
+Description: Add a short description below the title.
+Show Badge: Show or hide the section badge.
+Show Description: Show or hide the section description.
+Show Ratings Summary: Show or hide the overall rating summary, including the average rating and star distribution.
+Show Review Tabs: Show or hide the review filtering tabs.
+Allow Photo Upload: Allow customers to attach photos to their reviews.
+Enable Write a Review Button: Show or hide the button that opens the review submission form.
+Require Approval: Require administrator approval before submitted reviews become publicly visible.
+Capabilities:
+Customize the section title and description.
+Independently control the visibility of each element.
+Enable or disable customer photo uploads.
+Control the review submission button.
+Prevent unapproved reviews from appearing publicly when approval is enabled.
+Preserve existing reviews when changing display settings.
+2. Review Form Settings
+Controls the review submission form displayed when a customer clicks the Write a Review button.
+Form Title
+Customize the title displayed at the top of the review form.
+Example: "Write a Review".
+Review Text Placeholder
+Set the guidance text displayed inside the review text field.
+Example: "Share your experience with this product..."
+Character Limit
+Set the maximum number of characters allowed in a customer review.
+Example: 500 characters.
+Display a live character counter, such as 0/500.
+Photo Upload Limit
+Set the maximum number of images customers can attach to a review.
+Example: 5 images.
+Support image formats such as JPG and PNG.
+Submit Button Text
+Customize the review submission button label.
+Example: "Submit Review".
+Capabilities:
+Customize the review form title.
+Change the review text placeholder.
+Set the maximum review length.
+Control the number of uploaded images.
+Customize the submission button text.
+Validate required fields before accepting a review.
+3. Customer Review Form
+Provides customers with the interface for submitting product reviews.
+Your Rating
+Allow customers to select a rating from 1 to 5 stars.
+Require a rating before submission.
+Your Review
+Provide a text field for customers to describe their experience.
+Require review text before submission.
+Display a live character counter.
+Add Photos (Optional)
+Allow customers to upload product or experience photos.
+Preview uploaded images before submission.
+Allow customers to remove or replace images.
+Enforce the upload limit configured in Review Form Settings.
+Cancel
+Close the review form without submitting the review.
+Submit Review
+Validate the submitted information.
+Send the review to the store's review management system.
+Place the review in the approval queue when Require Approval is enabled.
+Capabilities:
+Collect customer star ratings.
+Collect written reviews.
+Accept customer photo uploads.
+Validate character and image limits.
+Associate reviews with the correct product and customer.
+Send submitted reviews to the store's review management system.
+4. Display Options
+Controls how customer reviews and their information appear on the storefront.
+The section is collapsed in the provided screenshot, so its exact internal controls are not visible.
+Its purpose is to manage the presentation of review information, including:
+Overall product ratings.
+Star rating distribution.
+Customer review details.
+Uploaded customer photos.
+Review filtering tabs.
+The number of reviews displayed to customers.
+Capabilities:
+Control which review elements are displayed.
+Customize the presentation of customer feedback.
+Manage review information visibility.
+Preserve existing review data when changing display settings.
+5. Spacing
+Controls the spacing and dimensions of the customer reviews section.
+The section is collapsed in the provided screenshot, so its exact internal controls and values are not visible.
+Its purpose is to manage:
+Spacing between the section title and ratings summary.
+Spacing between the ratings summary and review tabs.
+Spacing between individual review cards.
+Internal and external section padding.
+Spacing within the review submission form.
+Capabilities:
+Adjust section spacing.
+Control the distance between review elements.
+Improve the layout and readability of the reviews section.
+6. Visibility
+Controls where the customer reviews section appears across different devices.
+The section is collapsed in the provided screenshot, so its exact internal controls are not visible.
+It should provide independent visibility settings for:
+Desktop: Show or hide the reviews section on desktop devices.
+Tablet: Show or hide the reviews section on tablet devices.
+Mobile: Show or hide the reviews section on mobile devices.
+Capabilities:
+Configure visibility independently for each device.
+Preserve review data when the section is hidden.
+Maintain responsive behavior across different screen sizes.
+7. Ratings Summary
+Displays the overall customer rating and the distribution of star ratings.
+Average Rating
+Display the average customer rating.
+Example: 0.0 when no approved reviews exist.
+Star Rating
+Display the average rating visually using stars.
+Star Distribution
+Display the distribution of reviews across five rating levels:
+5-Star Distribution: Percentage of five-star reviews.
+4-Star Distribution: Percentage of four-star reviews.
+3-Star Distribution: Percentage of three-star reviews.
+2-Star Distribution: Percentage of two-star reviews.
+1-Star Distribution: Percentage of one-star reviews.
+Percentage Bar
+Display a visual progress bar representing the percentage of reviews in each rating category.
+Capabilities:
+Automatically calculate the average rating.
+Calculate the percentage of each star category.
+Update rating statistics when a new review is approved.
+Display an empty state when no approved reviews are available.
+8. Review Tabs
+Provides filtering options for customer reviews.
+All Reviews
+Display all approved customer reviews.
+Show the total number of approved reviews.
+With Photos
+Display only reviews containing uploaded photos.
+Show the number of reviews with photos.
+Capabilities:
+Switch between all reviews and photo reviews.
+Update the review list based on the selected tab.
+Display review counts dynamically.
+9. Device Preview
+Allows store owners to preview the reviews section across different screen sizes.
+Desktop: Preview the reviews section and submission form on desktop screens.
+Tablet: Preview the section on tablet devices.
+Mobile: Preview the section on mobile devices.
+Capabilities:
+Check star ratings and text readability.
+Preview uploaded customer photos.
+Review the submission form layout.
+Verify responsive behavior across supported screen sizes.
+10. Apply & Publish Changes Live
+Save all modifications and publish them to the live storefront.
+Save the section title, description, and badge.
+Save ratings summary display settings.
+Save review form configurations.
+Save character and photo upload limits.
+Save review display settings.
+Save spacing and visibility configurations.
+Update the live storefront after publishing.
+Display success or error notifications after publishing.
+
+Technical Requirements for the Developer
+Support customer ratings from 1 to 5 stars.
+Require a valid rating and review text before submission.
+Support optional customer photo uploads.
+Enforce configurable character and photo upload limits.
+Associate every review with its corresponding product and customer.
+Implement review approval and moderation workflows.
+Do not display pending or rejected reviews publicly.
+Calculate average ratings automatically using approved reviews.
+Calculate star distribution and percentages automatically.
+Implement All Reviews and With Photos filters.
+Update review counts dynamically.
+Preserve existing reviews when changing display settings.
+Provide a real-time preview while editing.
+Support desktop, tablet, and mobile layouts.
+Save all configurations in the database.
+Display appropriate validation, success, and error messages.
+Do not hide, remove, or omit any existing controls.
+Important: The Customer Reviews element must function as a complete customer feedback management system, not just a visual review section. Customer submissions, photo uploads, approval workflows, rating calculations, and review filters must work correctly and remain connected to the actual product review database and storefront.
+
+
+
+FAQ – Settings & Controls Guide
+Element Name: Frequently Asked Questions (FAQ)Element ID:faq-1
+Objective: Provide a complete FAQ management system that allows store owners to create, manage, organize, and display frequently asked questions and answers. Customers can expand questions to view answers, making it easier to find important information about products, warranties, shipping, payments, and store services.
+1. General Settings
+Controls the basic information and introductory content of the FAQ section.
+Badge Text: Set the small label displayed above the main heading, such as "FREQUENTLY ASKED QUESTIONS".
+Title: Set the main section heading, such as "Everything You Need to Know".
+Description: Add a short description explaining the content of the FAQ section.
+Show Badge: Show or hide the section badge.
+Show Description: Show or hide the description below the title.
+Capabilities:
+Customize the section title, description, and badge.
+Independently control the visibility of the badge and description.
+Update the live preview immediately after editing.
+Preserve content when an element is hidden.
+2. Questions
+Manages all questions and answers displayed on the storefront.
+Question Management Controls
+Each question includes:
+Drag Handle: Reorder questions using drag and drop.
+Question Title: Display the question text.
+Edit Icon: Open the editing window for the selected question and answer.
+Delete Icon: Remove the question and its associated answer.
+Add Question: Create a new FAQ item.
+Capabilities:
+Add multiple questions.
+Edit each question and answer independently.
+Delete unwanted questions.
+Reorder questions using drag and drop.
+Update the live preview immediately.
+Save all questions and answers in the database.
+3. Edit Question
+Clicking the Edit icon opens an independent editing window for the selected question.
+Question
+Enter or modify the question text.
+Example: "Is the machine compatible with Saudi Arabia 220V 50/60Hz electrical standards and UK 3-pin plug?"
+This field is required and cannot be saved empty.
+Answer
+Enter or modify the answer associated with the question.
+Example: "Yes absolutely. All our machines fully comply with Saudi Standards, Metrology and Quality Organization (SASO)."
+This field is required and cannot be saved empty.
+Editing Actions
+Cancel: Close the editing window without saving changes.
+Save: Validate and save the updated question and answer, then refresh the preview.
+Capabilities:
+Edit questions and answers independently.
+Support long text content.
+Support both Arabic and English content.
+Validate required fields before saving.
+Update question information without affecting other FAQ items.
+4. Display Options
+Controls how questions and answers appear on the storefront.
+The section is collapsed in the provided screenshot, so its exact internal controls are not visible.
+Recommended configuration options include:
+Accordion Mode: Display questions in expandable and collapsible rows.
+Default Expanded Question: Choose which question opens automatically when the page loads.
+Allow Multiple Open Questions: Allow customers to expand multiple answers simultaneously.
+Show Expand/Collapse Icons: Show or hide the arrows beside questions.
+Show Dividers: Show or hide separator lines between questions.
+Question Alignment: Control the alignment of question text.
+Answer Alignment: Control the alignment of answer text.
+Capabilities:
+Control how answers expand and collapse.
+Choose how many questions can remain open simultaneously.
+Customize arrow and divider visibility.
+Adjust question and answer presentation.
+5. Spacing
+Controls the spacing and dimensions of the FAQ section.
+The section is collapsed in the provided screenshot, so its exact internal values are not visible.
+Recommended settings include:
+Section Padding: Control the internal spacing of the entire section.
+Top Spacing: Adjust the space above the section.
+Bottom Spacing: Adjust the space below the section.
+Question Gap: Control the distance between individual questions.
+Question Padding: Adjust the internal spacing of each question row.
+Answer Spacing: Control the distance between the question and its answer.
+Content Width: Adjust the width of the FAQ content area.
+Capabilities:
+Adjust spacing between questions.
+Control element dimensions.
+Prevent content overcrowding.
+Improve content distribution across different screen sizes.
+6. Visibility
+Controls where the FAQ section appears across supported devices.
+The section is collapsed in the provided screenshot, so its exact internal controls are not visible.
+Available configuration should include:
+Show on Desktop: Display the FAQ section on desktop devices.
+Show on Tablet: Display the section on tablet devices.
+Show on Mobile: Display the section on mobile devices.
+Hide Section: Temporarily hide the entire section without deleting its questions or settings.
+Capabilities:
+Control section visibility independently for each device.
+Preserve existing data when the section is hidden.
+Maintain responsive behavior across different screen sizes.
+7. Device Preview
+Allows store owners to preview the FAQ section on different devices.
+Desktop: Preview the FAQ section on desktop screens.
+Tablet: Preview the FAQ section on tablet devices.
+Mobile: Preview the FAQ section on mobile devices.
+Capabilities:
+Review question ordering.
+Test answer expansion and collapse.
+Check text readability.
+Identify alignment and spacing issues before publishing.
+Verify responsive behavior.
+8. Apply & Publish Changes Live
+Save all modifications and publish them to the live storefront.
+Save the section title, description, and badge.
+Save all questions and answers.
+Save question ordering.
+Save display options.
+Save spacing configurations.
+Save device visibility settings.
+Update the live storefront after publishing.
+Display success or error notifications.
+
+Technical Requirements for the Developer
+Support adding, editing, deleting, and reordering questions.
+Each question must have its own independent answer.
+Require both question and answer fields before saving.
+Support Arabic and English content.
+Implement accordion expand and collapse functionality.
+Support multiple open questions when enabled.
+Update the preview immediately after editing.
+Preserve questions when changing display settings.
+Support independent visibility settings for desktop, tablet, and mobile.
+Save all questions and configurations in the database.
+Ensure deleting one question does not affect other questions.
+Apply published changes to the live storefront.
+Do not hide, remove, or omit any existing controls.
+Important: The FAQ element must function as a complete Questions & Answers management system, not just a static list. Every question and answer must be independently editable, and all changes must be reflected correctly in the live preview and published storefront.
+Separate observed controls from recommendationsDefine exact save and publish behavior
+
+
+
+
+
+
+
+
+Customer Reviews – Settings & Controls Guide
+Element Name: Customer ReviewsElement ID:reviews-1
+Objective: Provide a complete customer reviews management system that allows store owners to collect, manage, and display customer ratings and product reviews. Customers can submit star ratings, written feedback, and photos, while store owners can manage approval workflows, display settings, and responsive layouts.
+1. Header & Device Selector
+Provides basic element controls and device preview options.
+Close (X): Close the element settings panel.
+Element Name: Display the element name, Customer Reviews.
+Element ID: Display the element's unique identifier, reviews-1.
+Copy Icon: Copy or duplicate the element or its settings according to the editor's supported functionality.
+Desktop: Preview the reviews section on desktop screens.
+Tablet: Preview the section on tablet devices.
+Mobile: Preview the section on mobile devices.
+Capabilities:
+Switch between device previews.
+Test the reviews layout on different screen sizes.
+Preserve element settings when switching between devices.
+2. General Settings
+Controls the basic information and review functionality of the section.
+Badge Text: Set the small label displayed above the heading, such as "VERIFIED CUSTOMER RATINGS IN KSA".
+Title: Set the main heading, such as "Customer Reviews & Feedback".
+Description: Add a short description explaining the review section or its review policy.
+Visibility Controls:
+Show Badge: Show or hide the introductory badge.
+Show Description: Show or hide the section description.
+Show Ratings Summary: Show or hide the rating summary, including average ratings and star distribution.
+Show Review Tabs: Show or hide the review filtering tabs.
+Allow Photo Upload: Allow customers to attach photos to their reviews.
+Enable Write a Review Button: Show or hide the button that opens the review submission form.
+Require Approval: Require administrator approval before a submitted review becomes publicly visible.
+Capabilities:
+Control customer review submissions.
+Manage which review elements appear to customers.
+Enable or disable photo uploads.
+Control the Write a Review button.
+Prevent unapproved reviews from appearing publicly.
+Preserve existing reviews when changing settings.
+3. Review Form Settings
+Controls the review submission form displayed when a customer clicks Write a Review.
+Form Title
+Set the title displayed at the top of the review form.
+Example: "Write a Review".
+Review Text Placeholder
+Set the guidance text displayed inside the review text field.
+Example: "Share your experience with this product..."
+Character Limit
+Set the maximum number of characters allowed in a customer review.
+Example: 500 characters.
+Display a live character counter, such as 0/500.
+Photo Upload Limit
+Set the maximum number of images customers can attach to a review.
+Example: 5 images.
+Submit Button Text
+Customize the label displayed on the review submission button.
+Example: "Submit Review".
+Capabilities:
+Customize the review form.
+Control the maximum review length.
+Set the maximum number of uploaded photos.
+Customize the submission button label.
+Validate customer input before accepting a review.
+4. Customer Review Form
+Provides the actual interface customers use to submit their reviews.
+Write a Review
+Display the title of the review submission window.
+Your Rating
+Allow customers to select a rating from 1 to 5 stars.
+Require a rating before submission.
+Your Review
+Provide a text field for customers to describe their experience.
+Require review text before submission.
+Display the number of entered characters and the maximum limit.
+Add Photos (Optional)
+Allow customers to upload product or experience photos.
+Preview uploaded images before submission.
+Allow customers to remove or replace images.
+Enforce the configured photo upload limit.
+Cancel
+Close the review form without submitting the review.
+Submit Review
+Validate the required information.
+Submit the review to the store's review management system.
+Send the review to the approval queue when Require Approval is enabled.
+Capabilities:
+Collect star ratings.
+Collect written customer feedback.
+Accept customer photo uploads.
+Validate submitted information.
+Associate each review with the correct product and customer.
+5. Ratings Summary
+Displays customer rating statistics in the storefront preview.
+Average Rating
+Display the average customer rating.
+Example: 0.0 when no approved reviews exist.
+Star Rating
+Display the average rating visually using stars.
+Star Distribution
+Display the distribution of ratings across five categories:
+5 Stars: Five-star ratings.
+4 Stars: Four-star ratings.
+3 Stars: Three-star ratings.
+2 Stars: Two-star ratings.
+1 Star: One-star ratings.
+Percentage Bar
+Display a visual progress bar representing the percentage of reviews in each rating category.
+Display the corresponding percentage beside each bar.
+Capabilities:
+Automatically calculate the average rating.
+Calculate the number and percentage of reviews in each category.
+Update statistics when a new review is approved.
+Display an empty state when no approved reviews are available.
+6. Review Tabs
+Allow customers to filter the displayed reviews.
+All Reviews
+Display all approved customer reviews.
+Show the total number of approved reviews.
+With Photos
+Display only reviews containing uploaded photos.
+Show the number of photo reviews.
+Capabilities:
+Switch between all reviews and reviews containing photos.
+Update the review list according to the selected tab.
+Update review counts automatically.
+7. Empty State
+Displays a message when there are no approved reviews to show.
+Empty State Icon: Display an icon indicating that no reviews are available.
+Empty State Message: Display a message such as "No approved reviews yet".
+Capabilities:
+Display an informative message instead of an empty space.
+Automatically update the section when the first review is approved.
+Hide the empty state when approved reviews become available.
+8. Display Options
+Controls how customer reviews appear on the storefront.
+This section is collapsed in the provided screenshot, so its exact internal controls are not visible.
+Its purpose is to manage the presentation of customer reviews, including:
+Customer information visibility.
+Uploaded photo visibility.
+Number of reviews displayed.
+Review details shown inside each review.
+Review list presentation.
+All existing options inside this section must remain accessible and editable.
+9. Spacing
+Controls the spacing and dimensions of the reviews section.
+This section is collapsed in the provided screenshot, so its exact internal values are not visible.
+Its purpose is to manage:
+Spacing between the section heading and ratings summary.
+Spacing between the ratings summary and review tabs.
+Spacing between individual review cards.
+Internal and external section padding.
+Spacing within the review submission form.
+10. Visibility
+Controls where the Customer Reviews section appears across different devices.
+This section is collapsed in the provided screenshot, so its exact internal controls are not visible.
+Its purpose is to provide device-specific visibility settings:
+Desktop: Show or hide the section on desktop screens.
+Tablet: Show or hide the section on tablet devices.
+Mobile: Show or hide the section on mobile devices.
+Hide Section: Hide the entire element without deleting reviews or settings.
+Visibility settings should be independently configurable for each device.
+11. Apply & Publish Changes Live
+Saves all modifications and publishes them to the live storefront.
+When clicked, the system should:
+Save section settings.
+Save review form configurations.
+Save character and photo upload limits.
+Save review display options.
+Save spacing and visibility settings.
+Update the live storefront.
+Display a success or error notification after publishing.
+
+Technical Requirements for the Developer
+Connect all general settings to the actual review component.
+Support configurable review text and photo upload limits.
+Validate customer ratings and review text before submission.
+Associate each review with its corresponding product and customer.
+Implement review approval and moderation workflows.
+Prevent pending or rejected reviews from appearing publicly.
+Calculate average ratings using approved reviews only.
+Calculate star distribution and percentages automatically.
+Implement All Reviews and With Photos filtering.
+Implement the empty state when no approved reviews exist.
+Update review counts and statistics dynamically.
+Support desktop, tablet, and mobile visibility.
+Provide a real-time preview while editing.
+Save all configuration settings in the database.
+Preserve existing reviews when changing display settings.
+Apply published changes to the live storefront.
+Do not hide, remove, or omit any existing controls.
+Important: The Customer Reviews element must operate as a complete review management system. Customer submissions, approval workflows, photo uploads, rating calculations, filtering, and display settings must be fully functional and connected to the actual store database.
+Add review moderation controlsDefine review card fields
+
+
+
+
+Hero Banner – Remaining Sections & Features
+1. General Settings
+Controls the main banner content and its visibility.
+Enable Banner: Enable or disable the entire banner without deleting its settings.
+Badge Text: Add a small label above the main heading.
+Show Badge: Show or hide the badge.
+Main Title: Edit the main banner heading.
+Show Title: Show or hide the heading.
+Description: Add a short promotional description.
+Show Description: Show or hide the description.
+Text Direction: Set text direction (RTL / LTR).
+Language: Select Arabic or English.
+Capabilities: Manage all primary banner text elements independently and control their visibility.
+2. Background Image Settings
+Controls the banner background images and visual effects.
+Desktop Image: Upload a dedicated desktop image.
+Tablet Image: Upload a dedicated tablet image.
+Mobile Image: Upload a dedicated mobile image.
+Change Image: Replace the current image.
+Remove Image: Remove the selected image.
+Image Position: Control image positioning.
+Image Fit: Choose Cover or Contain.
+Overlay Color: Set the overlay color.
+Overlay Opacity: Adjust overlay transparency.
+Gradient Overlay: Enable a gradient overlay.
+Capabilities: Use different images for each device and control image positioning, visibility, and background effects.
+3. Content Position
+Controls where the banner content appears.
+Horizontal Position: Left, Center, or Right.
+Vertical Position: Top, Center, or Bottom.
+Content Alignment: Align text and other content.
+Content Width: Set the content area's width.
+Content Padding: Control internal spacing.
+Element Spacing: Adjust spacing between the title, description, and buttons.
+Capabilities: Position and organize banner content without changing the background image.
+4. Buttons Settings
+Controls the banner's interactive buttons.
+Primary Button – Buy Now
+Enable / Disable Button.
+Button Text.
+Button Icon.
+Button Link.
+Link Type.
+Background Color.
+Text Color.
+Button Size.
+Border Radius.
+Secondary Button – Watch Video
+Enable / Disable Button.
+Button Text.
+Button Icon.
+Video Link.
+Background Color.
+Text Color.
+Border Style.
+Capabilities: Customize each button independently, including its text, appearance, destination, and functionality.
+5. Video Settings
+Controls the video connected to the Watch Video button.
+Enable Video: Enable or disable video functionality.
+Video Source: Select the video source.
+Video URL: Enter the video URL.
+Video Type: Select the video format or source type.
+Display Mode: Open video in a popup or fullscreen.
+Autoplay: Automatically play the video.
+Mute: Mute video audio.
+Show Controls: Display playback controls.
+Close Button: Display a video close button.
+Capabilities: Connect promotional or product videos and display them without navigating away from the store page.
+6. Typography Settings
+Controls the appearance of banner text.
+Title Font: Select the heading font.
+Title Size: Adjust heading size.
+Title Weight: Adjust font thickness.
+Title Color: Change heading color.
+Description Font: Select description font.
+Description Size: Adjust description size.
+Description Color: Change description color.
+Line Height: Adjust spacing between lines.
+Letter Spacing: Adjust spacing between letters.
+Capabilities: Customize text appearance and support Arabic and English fonts.
+7. Layout Settings
+Controls the banner dimensions and spacing.
+Banner Height: Set banner height.
+Banner Width: Set banner width.
+Full Width: Expand the banner to full screen width.
+Minimum Height: Set minimum banner height.
+Maximum Height: Set maximum banner height.
+Border Radius: Adjust corner roundness.
+Section Padding: Control internal and external spacing.
+Content Max Width: Set the maximum content width.
+Capabilities: Control the overall banner size, shape, and spacing.
+8. Responsive Settings
+Controls how the banner appears on different devices.
+Desktop
+Set banner height.
+Adjust text sizes.
+Control content position.
+Select background image.
+Tablet
+Customize banner dimensions.
+Adjust heading size.
+Set content alignment.
+Select a dedicated image.
+Mobile
+Set banner height.
+Upload a dedicated mobile image.
+Adjust title and description sizes.
+Control button arrangement.
+Set content position.
+Capabilities: Customize each device independently while maintaining a consistent design.
+9. Floating Icons Settings
+Controls the floating icons displayed on the screen.
+Shopping Bag Icon
+Show / Hide Icon.
+Link to Shopping Cart.
+Display Product Count.
+Set Cart Destination.
+Customer Support Icon
+Show / Hide Icon.
+Connect to WhatsApp or Customer Support.
+Set Contact URL.
+Adjust Icon Size.
+Change Icon Color.
+Set Icon Position.
+Capabilities: Give customers quick access to their shopping cart and customer support.
+Note: If these icons are shared across multiple store pages, manage them through separate global settings.
+10. Animation Settings
+Controls animation effects within the banner.
+Enable Animation: Enable or disable animations.
+Title Animation: Set heading entrance animation.
+Description Animation: Set description entrance animation.
+Button Animation: Set button animation.
+Animation Type: Choose Fade, Slide, or Zoom.
+Animation Duration: Set animation duration.
+Animation Delay: Set animation delay.
+Background Animation: Add background animation effects.
+Capabilities: Create smooth entrance effects and improve the banner's visual presentation.
+11. Advanced Settings
+Provides additional technical and SEO controls.
+Custom CSS Class: Add a custom CSS class.
+Custom ID: Assign a unique banner identifier.
+SEO Heading Tag: Select H1, H2, or H3.
+Image Alt Text: Add alternative text for accessibility and SEO.
+Lazy Loading: Optimize image loading.
+Enable / Disable: Control banner activation.
+Schedule Publishing: Schedule banner publication.
+Start Date: Set the campaign start date.
+End Date: Set the campaign expiration date.
+Capabilities: Customize technical behavior, improve SEO, optimize performance, and schedule promotional campaigns.
+12. Preview & Publish
+Controls previewing and publishing changes.
+Preview: Preview changes before publishing.
+Desktop Preview: Preview desktop appearance.
+Tablet Preview: Preview tablet appearance.
+Mobile Preview: Preview mobile appearance.
+Apply & Publish Changes Live: Save settings and publish changes to the live store.
+Capabilities: Verify the banner's appearance and functionality before publishing changes.
+Developer Implementation Requirements
+All settings must be connected to the actual banner component.
+Do not hide, remove, or omit any existing visual elements.
+Save all settings and changes in the database.
+Provide live preview while editing.
+Support Arabic, English, RTL, and LTR.
+Maintain independent Desktop, Tablet, and Mobile settings.
+Ensure all buttons, links, and video functions work correctly.
+Preserve existing settings when images or designs are updated.
+Apply published changes to the live storefront.
+Display clear success and error messages after saving or publishing.
+Final Objective: Provide complete control over the Hero Banner, allowing the store administrator to customize its content, images, layout, buttons, animations, and functionality without requiring developer intervention for routine changes.
+
+
+
+
+
+Commercial Hero Section – Settings & Features Explanation
+This section allows the store administrator to fully customize the Commercial Hero Banner, including product information, pricing, buttons, product features, slider behavior, layout, and responsive display settings.
+1. Device Settings (Desktop / Tablet / Mobile)
+Controls how the Hero Section is displayed on different devices.
+Desktop: Customize the banner for desktop screens.
+Tablet: Customize the banner for tablet screens.
+Mobile: Customize the banner for mobile screens.
+Capabilities:
+Set independent layouts for each device.
+Adjust content positioning and spacing.
+Customize the image display.
+Control visibility on each device.
+2. General Settings
+Controls the main information displayed inside the banner.
+Badge Text: Add a small label above the main title, such as "OFFICIAL FLAGSHIP".
+Title: Set the main banner heading.
+Subtitle: Add a short description below the title.
+Price: Display the product price.
+Show Badge: Enable or hide the badge.
+Show Subtitle: Enable or hide the subtitle.
+Show Price: Enable or hide the price.
+Capabilities: Edit the main banner information and independently control the visibility of each element.
+3. Action Buttons
+Controls the interactive buttons displayed in the banner.
+Buy Now
+Enable or disable the button.
+Customize button text.
+Select button type (Primary / Secondary).
+Configure the destination link.
+Choose the button icon.
+Add to Cart
+Enable or disable the button.
+Customize button text.
+Select button type (Primary / Secondary).
+Configure the button action.
+Choose the button icon.
+Additional Controls:
+Show Buttons: Display or hide all banner buttons.
+Show Icons: Display or hide button icons.
+Capabilities: Customize button appearance, behavior, order, and destination.
+4. Slider Controls
+Controls how the banner slider works when multiple slides are available.
+Slider Type: Select the slider display type, such as Image Slider.
+Show Arrows: Display previous and next navigation arrows.
+Show Dots: Display slide indicators.
+Autoplay: Automatically switch between slides.
+Transition Speed: Control the transition speed between slides.
+Capabilities:
+Enable manual navigation.
+Enable automatic slide rotation.
+Control slide transition timing.
+Customize navigation indicators.
+5. Features Management
+Controls the product features displayed below the main banner content.
+Each feature contains:
+Icon: Select an icon representing the feature.
+Label: Enter the feature name, such as Pump, System, or Steam.
+Value: Enter the feature description or value, such as Rotary 20-Bar or Dual PID Thermal.
+Available Actions:
+Add Feature: Add a new feature.
+Edit: Modify an existing feature.
+Duplicate: Create a copy of a feature.
+Delete: Remove a feature.
+Drag & Drop: Change the order of features.
+Capabilities: Add unlimited or configurable feature items, customize their icons and information, and organize their display order.
+6. Features Layout
+Controls the arrangement and spacing of the product features.
+Section Padding: Adjust the internal spacing around the features section.
+Content Gap: Control the distance between the main banner content and the features area.
+Capabilities: Customize the feature section layout and maintain consistent spacing.
+7. Spacing Settings
+Provides detailed control over spacing between banner elements.
+Section Padding: Control the space inside the section.
+Content Gap: Adjust the distance between the banner's main content and other elements.
+Features Gap: Adjust the distance between individual feature items.
+Capabilities: Fine-tune the banner spacing and prevent elements from appearing too crowded or too far apart.
+8. Display Options
+Controls the overall banner arrangement.
+Content Alignment: Choose how text and images are positioned relative to each other.
+Left Text – Right Image.
+Right Text – Left Image.
+Centered Content.
+Image Position: Choose the image placement.
+Content Width: Control the available width of the banner content.
+Narrow.
+Medium.
+Wide.
+Full Width.
+Show Features: Enable or disable the product features section.
+Capabilities: Control the banner's visual structure and the relationship between text, images, and features.
+9. Visibility Settings
+Controls where the Hero Section appears.
+Show on Desktop: Display the section on desktop devices.
+Show on Tablet: Display the section on tablet devices.
+Show on Mobile: Display the section on mobile devices.
+Capabilities: Independently enable or disable the section for each device without deleting its content or settings.
+10. Edit Feature Window
+This window appears when adding or editing an individual feature.
+Icon Selection: Choose an icon from the available icon library.
+Label: Enter the feature name.
+Value: Enter the feature description or technical specification.
+Cancel: Discard changes.
+Save: Save the feature information.
+Capabilities: Edit each feature independently without affecting the other features.
+11. Apply & Publish Changes Live
+This button saves and publishes all modifications.
+Save banner content.
+Save button settings.
+Save product features.
+Save layout and spacing settings.
+Apply device-specific configurations.
+Update the live storefront.
+Capabilities: Publish the updated Hero Section to the live store after saving the changes.
+Developer Implementation Requirements
+Every setting must be connected to the actual Hero Section.
+All controls must work, not just appear visually.
+Support adding, editing, duplicating, deleting, and reordering features.
+Save all configurations in the database.
+Maintain independent Desktop, Tablet, and Mobile settings.
+Ensure Buy Now and Add to Cart perform their correct actions.
+Ensure slider arrows, dots, autoplay, and transitions work correctly.
+Support Arabic (RTL) and English (LTR).
+Provide a live preview while editing.
+Do not hide or remove any existing settings or elements.
+Preserve existing configurations when editing individual items.
+Apply published changes to the live storefront.
+Final Objective: Provide complete administrative control over the Commercial Hero Section, allowing the store administrator to manage every visible element, product feature, button, slider behavior, and responsive layout without requiring developer intervention.
+
+
+
+
+Product Slider Section – Settings & Features Explanation
+Element Name: Product Slider SectionElement ID:product-slider-1
+Purpose: Display a collection of products in a horizontal, scrollable slider with full control over product selection, ordering, pricing, product cards, shopping buttons, and responsive display settings.
+1. General Settings
+Controls the main information displayed in the Product Slider Section.
+Title: Edit the main section heading, such as "Luxury 20-Bar Espresso Machines".
+Description: Add a short description below the title.
+Show Title: Show or hide the section title.
+Show Description: Show or hide the section description.
+Capabilities:
+Edit the section title and description.
+Independently control the visibility of text elements.
+Update the content in the live preview.
+2. Product Source
+Controls where the products displayed in the slider come from.
+- Source Type: Select the product source:
+Manual Selection: Select products individually.
+Category: Display products from a selected category.
+Collection: Display products from a specific collection.
+Best Selling: Display best-selling products.
+Latest Products: Display the newest products.
+Featured Products: Display featured products.
+Products: Display the number of selected products.
+Manage Products: Open the product management window.
+Capabilities:
+Add new products to the slider.
+Remove products without deleting them from the store.
+Reorder selected products.
+Select products directly from the store database.
+Change the product source without recreating the section.
+3. Slider Controls
+Controls how customers navigate through the product slider.
+Show Arrows: Display or hide previous and next navigation arrows.
+Show Dots: Display or hide slide indicators.
+Autoplay: Automatically rotate through products.
+Items per View (Desktop): Set the number of visible products on desktop.
+Items per View (Tablet): Set the number of visible products on tablet.
+Items per View (Mobile): Set the number of visible products on mobile.
+Transition Speed: Set the transition speed between slides.
+Capabilities:
+Control the number of visible products on each device.
+Enable manual navigation.
+Enable or disable automatic scrolling.
+Adjust transition speed.
+Customize the browsing experience for different screen sizes.
+4. Product Card Settings
+Controls which elements appear inside each product card.
+Show Price: Show or hide the product price.
+Show Add to Cart: Show or hide the Add to Cart button.
+Show Buy Now: Show or hide the Buy Now button.
+Capabilities:
+Control price visibility across product cards.
+Manage shopping button visibility.
+Allow customers to add products directly to their cart.
+Allow customers to proceed directly to checkout.
+Maintain a consistent design across all product cards.
+5. Display Options
+Controls the overall appearance and arrangement of product cards.
+Content Alignment: Set the alignment of card content.
+Image Position: Set the product image position.
+Image Aspect Ratio: Define the image dimensions and proportions.
+Image Fit: Choose Cover or Contain.
+Card Layout: Define the arrangement of images, titles, prices, and buttons.
+Show Product Description: Show or hide product descriptions.
+Show Product Subtitle: Show or hide product subtitles.
+Show Original Price: Display the original product price.
+Show Discount Price: Display the discounted price.
+Capabilities: Customize the visual structure of product cards and control which product details customers can see.
+6. Spacing Settings
+Controls the spacing between section elements and product cards.
+Section Padding: Adjust the internal spacing of the section.
+Card Spacing: Set the distance between product cards.
+Card Padding: Adjust internal spacing within each card.
+Image Spacing: Set the distance between the product image and text.
+Content Gap: Control the spacing between card elements.
+Section Margin: Adjust the external spacing around the section.
+Capabilities:
+Prevent overlapping product cards.
+Control product display density.
+Adjust spacing for desktop and mobile.
+Maintain a balanced and consistent design.
+7. Visibility Settings
+Controls which devices display the Product Slider Section.
+Show on Desktop: Display the section on desktop devices.
+Show on Tablet: Display the section on tablet devices.
+Show on Mobile: Display the section on mobile devices.
+Capabilities:
+Independently control section visibility on each device.
+Disable the section on a specific device without deleting it.
+Preserve all settings when visibility is disabled.
+8. Edit Product Window
+Allows the administrator to edit each product displayed in the slider independently.
+Product Image
+Current Image: Display the current product image.
+Change Image: Replace the existing image.
+Upload Image: Upload a new product image.
+Image Format: Support PNG, JPG, and WebP.
+Image Size Limit: Set the maximum upload file size.
+Product Information
+Product Title: Edit the product name.
+Product Description: Edit the product description.
+Price (SAR): Set the displayed product price.
+Product Link: Specify the product page URL.
+Product Status
+Show This Product: Control product visibility within the slider.
+Mark as Featured: Mark the product as featured.
+Display Order: Set the product's position within the slider.
+Action Buttons
+Add to Cart: Enable or disable the Add to Cart button.
+Buy Now: Enable or disable the Buy Now button.
+Button Type: Select the button style and type.
+Icon Button: Choose whether to display the button with an icon.
+Primary Button: Define the primary action button.
+Edit Actions
+Save Changes: Save product modifications.
+Cancel: Discard modifications.
+Capabilities: Edit individual product information without affecting other products or changing the original product database records, unless an explicit option is provided to update the original product.
+9. Manage Products
+Provides a dedicated window for managing the products displayed in the slider.
+Add Product: Add a new product.
+Remove Product: Remove a product from the slider.
+Reorder Products: Rearrange products using drag and drop.
+Search Products: Find products by name.
+Filter by Category: Filter products by category.
+Select Multiple Products: Select several products at once.
+Save Selection: Save the selected products.
+Capabilities: Manage the entire slider product collection without opening each product's editing window individually.
+10. Apply & Publish Changes Live
+Saves and publishes all section modifications to the live storefront.
+Save section settings.
+Save product source settings.
+Save product ordering.
+Save slider controls.
+Save product card settings.
+Save device-specific configurations.
+Update the live storefront.
+Capabilities: Publish all modifications to the actual store interface after confirming the changes.
+Developer Implementation Requirements
+Connect every setting to the actual Product Slider component.
+Connect products directly to the store database.
+Support all specified product source types.
+Provide complete product management, including adding, removing, and reordering products.
+Connect Buy Now and Add to Cart buttons to the actual store functions.
+Support both manual and automatic slider navigation.
+Provide independent Desktop, Tablet, and Mobile settings.
+Provide a live preview while editing.
+Do not hide or remove any existing elements from the original design.
+Preserve existing settings when making modifications.
+Support Arabic and English languages, including RTL and LTR layouts.
+Ensure that publishing changes updates the actual live storefront.
+Final Objective: Build a complete administrative control panel that allows store administrators to manage all products displayed in the slider, including their sources, ordering, prices, appearance, and shopping actions, without requiring developer intervention for routine updates.
+
+
+
+Product Catalog Section – Settings & Features Explanation
+Element Name: Product Catalog SectionElement ID:catalog-1
+Purpose: Manage the complete product catalog displayed on the storefront, including product selection, categories, filtering, sorting, pricing, stock information, promotional labels, and shopping buttons.
+The following explains the remaining settings and controls shown in the screenshot.
+1. General Settings
+Controls the main information displayed at the top of the product catalog.
+Catalog Label: Add a small label above the catalog title, such as "OFFICIAL CATALOG · HIBREW KSA OFFICIAL COFFEE STORE".
+Title: Edit the main catalog heading.
+Description: Add a short description explaining the products available in the catalog.
+Show Catalog Label: Show or hide the catalog label.
+Show Title: Show or hide the main heading.
+Show Description: Show or hide the description.
+Capabilities:
+Customize the catalog heading and introductory text.
+Independently control the visibility of each text element.
+Update the storefront preview immediately.
+2. Product Source
+Controls where the products displayed in the catalog come from.
+- Source Type: Select the product source.
+Manual Selection: Select products individually.
+All Products: Display all available products.
+Category: Display products from a selected category.
+Featured Products: Display featured products.
+Best Selling: Display best-selling products.
+Latest Products: Display recently added products.
+Products: Display the number of selected products.
+Manage Products: Open the product management window.
+Capabilities:
+Add products to the catalog.
+Remove products without deleting them from the store.
+Reorder products.
+Search and select products from the database.
+Change the product source.
+3. Category Filters
+Controls the category navigation displayed above the product catalog.
+Show Categories: Display or hide category tabs.
+Show Product Count: Display the number of products in each category.
+Default Category: Select the category displayed when the page first loads.
+Display Type: Choose how categories are displayed, such as horizontal scrolling.
+Category Order: Control the order in which categories appear.
+Manage Categories: Open category management.
+Capabilities:
+Add and remove category tabs.
+Organize categories and subcategories.
+Set the default selected category.
+Display product counts beside category names.
+Allow customers to filter products by selecting a category.
+Control horizontal scrolling of category navigation.
+4. Filter & Sorting
+Controls the filtering and sorting tools available to customers.
+Sorting Settings
+Show Sort Dropdown: Enable or disable the sorting menu.
+Default Sort: Select the default sorting method.
+Suggested sorting options:
+Featured.
+Newest.
+Price: Low to High.
+Price: High to Low.
+Name: A to Z.
+Best Selling.
+Highest Rated.
+Price Filter
+Show Price Filter: Enable or disable price filtering.
+Price Filter Type: Select the filtering method, such as Slider + Presets.
+Suggested options:
+Minimum Price.
+Maximum Price.
+Price Range Slider.
+Predefined Price Ranges.
+Stock Filter
+- Show In-Stock Filter: Allow customers to display available products only.
+Results Settings
+Show Results Count: Display the total number of matching products.
+Items per Page: Set the number of products displayed on each page.
+Load More Type: Choose how additional products are loaded:
+Pagination.
+Load More Button.
+Infinite Scroll.
+Capabilities:
+Allow customers to filter products by price and availability.
+Sort products according to different criteria.
+Control the number of products displayed.
+Improve product discovery and browsing.
+5. Product Card Settings
+Controls the information and interactive elements displayed inside each product card.
+Show Price: Display the product price.
+Show Gift Label: Display promotional gift labels.
+Show Installment Text: Display installment payment information.
+Show Stock Quantity: Display available stock quantity.
+Show Buy Now: Display the direct purchase button.
+Show Add to Cart: Display the Add to Cart button.
+Show Learn More: Display a link to view product details.
+Show Wishlist: Display the wishlist button.
+Show Compare: Display the product comparison button.
+Capabilities:
+Independently control the visibility of product information and actions.
+Display promotional labels and installment information.
+Allow customers to purchase, save, or compare products.
+Maintain a consistent appearance across product cards.
+6. Display Options
+Controls the overall visual presentation of the product catalog.
+Suggested controls for this section:
+Product Grid Layout: Choose the number of columns.
+Card Style: Select the product card design.
+Image Aspect Ratio: Control product image proportions.
+Image Fit: Choose Cover or Contain.
+Image Position: Control image alignment.
+Content Alignment: Align product information.
+Show Product Description: Control description visibility.
+Show Product Labels: Control promotional badges.
+Show Original Price: Display the original price.
+Show Discount Price: Display the discounted price.
+Capabilities:
+Customize the catalog's visual structure.
+Control product card appearance.
+Adjust product images and information.
+Create different layouts for different devices.
+Note: These are recommended controls for the collapsed section; their exact fields are not expanded in the screenshot.
+7. Spacing Settings
+Controls the spacing between catalog elements and product cards.
+Section Padding: Adjust internal section spacing.
+Section Margin: Adjust external section spacing.
+Card Spacing: Control the distance between product cards.
+Card Padding: Adjust internal card spacing.
+Image Spacing: Set the distance between the image and product information.
+Content Gap: Control spacing between card elements.
+Category Spacing: Adjust the distance between category tabs.
+Capabilities:
+Control catalog density.
+Prevent overlapping elements.
+Maintain consistent spacing.
+Improve the appearance on desktop, tablet, and mobile.
+8. Visibility Settings
+Controls where the catalog section appears.
+Show on Desktop: Display the catalog on desktop devices.
+Show on Tablet: Display the catalog on tablet devices.
+Show on Mobile: Display the catalog on mobile devices.
+Capabilities:
+Independently control visibility for each device.
+Preserve catalog settings when visibility is disabled.
+Customize the shopping experience for different screen sizes.
+9. Edit Product Window
+This window allows the administrator to edit individual product information directly from the catalog management interface.
+A. Product Image
+Current Image: Display the existing product image.
+Change Image: Replace the current image.
+Upload Image: Upload a new image.
+Image Formats: Support PNG, JPG, and WebP.
+Maximum File Size: Set the upload size limit.
+B. Product Information
+Product Title: Edit the product name.
+Short Description: Edit the short product description.
+Price (SAR): Set the displayed product price.
+Product Link: Set the product page URL.
+C. Promotional Information
+Gift Text (Optional): Add a promotional message, such as "Gifts 397 SAR".
+Installment Text (Optional): Display installment information, such as "Or from 262.25 SAR / mo".
+D. Stock Management
+Stock Quantity: Set the available product quantity.
+Show Stock Quantity: Display or hide stock information.
+Product Availability: Control whether the product is available for purchase.
+E. Product Status
+Show This Product: Enable or disable the product's visibility in the catalog.
+Mark as Featured: Highlight the product as a featured item.
+Show Gift Label: Enable or disable the promotional gift label.
+Show Installment Text: Enable or disable installment information.
+Show Stock Quantity: Enable or disable stock quantity display.
+F. Action Buttons
+Each product can have its own shopping buttons.
+Buy Now: Enable or disable direct purchasing.
+Add to Cart: Enable or disable adding the product to the shopping cart.
+Learn More: Enable or disable the product details link.
+Button Type: Select the button style, such as Primary Button, Secondary Button, or Text Button.
+G. Display Order
+- Display Order: Define the product's position within the catalog.
+H. Save Actions
+Save Changes: Save the product modifications.
+Cancel: Discard the modifications.
+Capabilities: Edit individual products, promotional information, pricing, stock visibility, and shopping actions without affecting other products.
+10. Manage Products
+Provides complete control over the products included in the catalog.
+Add Product: Add a product to the catalog.
+Remove Product: Remove a product from the catalog without deleting it from the store.
+Search Products: Find products by name.
+Filter Products: Filter by category, price, or availability.
+Select Multiple Products: Add several products simultaneously.
+Reorder Products: Rearrange products using drag and drop.
+Bulk Actions: Enable, disable, or update multiple products.
+Save Selection: Save the selected product collection.
+Capabilities: Manage the catalog's entire product collection from one place.
+11. Apply & Publish Changes Live
+Controls saving and publishing all catalog modifications.
+Save general settings.
+Save product source configurations.
+Save category filters.
+Save sorting and filtering settings.
+Save product card settings.
+Save display and spacing settings.
+Save visibility configurations.
+Publish changes to the live storefront.
+Capabilities: Apply all modifications to the actual store interface and display the updated catalog to customers.
+Developer Implementation Requirements
+Connect all settings to the actual Product Catalog component.
+Connect products and categories directly to the store database.
+Support manual and automatic product sources.
+Implement category navigation and product filtering.
+Implement price filtering and sorting functionality.
+Connect stock quantities to actual inventory data.
+Connect promotional gift and installment information to product records.
+Ensure Buy Now, Add to Cart, Wishlist, and Compare buttons work correctly.
+Support product management, editing, deletion, and reordering.
+Provide independent Desktop, Tablet, and Mobile configurations.
+Provide a live preview while editing.
+Preserve existing settings and product data when making changes.
+Support Arabic and English, including RTL and LTR.
+Ensure publishing updates the actual live storefront.
+Final Objective: Build a complete Product Catalog management system that gives store administrators full control over products, categories, filters, sorting, pricing, inventory information, promotional labels, and customer shopping interactions without requiring developer intervention for routine updates.
+
+
+
+Product Collection Section – Settings & Features Guide
+Element Name: Product Collection SectionElement ID:collection-1
+Purpose:Display a collection of selected products in one section, featuring a promotional card, a product slider, and benefit boxes underneath the products.
+1. General Settings
+Controls the basic configuration of the Product Collection section.
+Section Title: Set the main section heading.
+Show Section Title: Show or hide the heading.
+Section Description: Add a short description.
+Show Section Description: Show or hide the description.
+Section Style: Choose the overall section layout.
+Available Layout Options:
+Promo + Product Slider
+Products Only
+Promo + Products
+Promo + Product Slider + Benefits
+Capabilities:
+Customize the section title and description.
+Enable or disable text elements.
+Change the overall section structure.
+Preserve existing content when switching layouts.
+2. Promo Card
+Controls the large promotional card displayed beside the products.
+Show Promo Card: Enable or disable the promotional card.
+Promo Layout: Choose its position.
+Vertical (Left)
+Vertical (Right)
+Horizontal (Top)
+Horizontal (Bottom)
+Edit Promo Card: Open the promotional card editor.
+Capabilities:
+Change the promotional card position.
+Customize its content and image.
+Configure its button and destination link.
+Promote specific collections, categories, or special offers.
+3. Products Management
+Controls which products appear in the collection.
+Source Type: Select the product source.
+Manual Selection
+Category
+Collection
+Featured Products
+Best Selling
+Latest Products
+Products: Display the number of selected products.
+Manage Products: Open the product management interface.
+Capabilities:
+Add and remove products.
+Search and select multiple products.
+Reorder products using drag and drop.
+Change the product source.
+Update the collection without deleting products from the store.
+4. Product Slider Settings
+Controls product navigation and slider behavior.
+Show Arrows: Display or hide navigation arrows.
+Show Dots: Display or hide slider indicators.
+Autoplay: Automatically rotate products.
+Items per View (Desktop): Set the number of visible products on desktop.
+Items per View (Tablet): Set the number of visible products on tablets.
+Items per View (Mobile): Set the number of visible products on mobile.
+Transition Speed: Control the slider transition speed.
+Capabilities:
+Control the number of visible products per device.
+Enable or disable automatic sliding.
+Allow manual navigation.
+Customize transition speed.
+Provide a responsive browsing experience.
+5. Benefit Boxes
+Controls the service and benefit cards displayed below the products.
+Examples:
+Express KSA Delivery
+Official 2-Year Warranty
+Flexible & Secure Payment
+Pro Barista Consultation
+Settings:
+Show Benefit Boxes: Enable or disable the benefit cards.
+Layout: Choose how the cards are arranged.
+4 Boxes (Row)
+2 Boxes (Grid)
+Horizontal Scroll
+Vertical Stack
+Manage Benefit Boxes: Open the benefit management interface.
+Capabilities:
+Add new benefit boxes.
+Edit existing benefits.
+Delete or reorder benefits.
+Select an icon for each benefit.
+Customize titles and descriptions.
+Control the arrangement of benefit cards.
+6. Display Options
+Controls the visual appearance of the entire section.
+Content Alignment: Set content alignment.
+Product Image Fit: Choose Cover or Contain.
+Image Aspect Ratio: Set product image proportions.
+Card Style: Choose the product card design.
+Card Border: Enable or disable card borders.
+Border Radius: Adjust card corner rounding.
+Show Product Price: Display or hide prices.
+Show Product Buttons: Control product action buttons.
+Promo Card Width: Set the promotional card width.
+Benefits Alignment: Set benefit card alignment.
+Capabilities:
+Customize the overall appearance.
+Control product card styling.
+Adjust image presentation.
+Maintain a consistent design across all elements.
+7. Spacing Settings
+Controls section dimensions and spacing.
+Section Padding: Internal section spacing.
+Section Margin: External section spacing.
+Product Card Gap: Space between product cards.
+Card Padding: Internal spacing within each card.
+Promo Card Spacing: Space between the promotional card and products.
+Benefits Gap: Space between benefit boxes.
+Content Gap: Space between content elements.
+Capabilities:
+Adjust spacing between elements.
+Control layout density.
+Prevent overlapping content.
+Maintain consistent spacing across devices.
+8. Visibility Settings
+Controls which devices display the section.
+Show on Desktop: Display the section on desktop.
+Show on Tablet: Display the section on tablets.
+Show on Mobile: Display the section on mobile devices.
+Capabilities:
+Independently control visibility for each device.
+Hide the section without deleting its content.
+Preserve existing settings when visibility is disabled.
+9. Edit Product
+Provides individual editing controls for each product.
+Product Image
+Current Image: Display the existing product image.
+Change Image: Replace the current image.
+Upload Image: Upload a new image.
+Supported Formats: PNG, JPG, WebP.
+Maximum Size: Configure the maximum upload size.
+Product Information
+Product Title: Edit the product name.
+Price (SAR): Set the displayed price.
+Product Link: Set the product page URL.
+Action Buttons
+Buy: Enable or disable the Buy button.
+Learn More: Enable or disable the Learn More button.
+Button Style: Select the button type.
+Button Link: Configure the button destination.
+Actions
+Save Changes: Save product modifications.
+Cancel: Discard modifications.
+Capabilities:Customize each product's image, title, price, links, and action buttons independently.
+10. Edit Promo Card
+Provides editing controls for the promotional card.
+Badge Text: Edit the small promotional label, such as Pro Series.
+Title: Edit the main promotional heading.
+Button Text: Customize the button label.
+Button Link: Set the destination URL.
+Card Image: Change the promotional image.
+Change Image: Upload or replace the image.
+Actions
+Save Changes
+Cancel
+Capabilities:
+Customize promotional messaging.
+Change images and headings.
+Link the card to a category, collection, or custom page.
+Create different promotional campaigns without changing the section structure.
+11. Edit Benefit Box
+Provides individual editing controls for each benefit card.
+Icon: Select the appropriate icon.
+Title: Edit the benefit heading.
+Description: Edit the benefit description.
+Capabilities:
+Change benefit icons.
+Edit titles and descriptions.
+Add new benefits.
+Delete existing benefits.
+Reorder benefit cards.
+12. Device Settings
+Controls how the section appears across different devices.
+Desktop: Configure the desktop layout.
+Tablet: Configure the tablet layout.
+Mobile: Configure the mobile layout.
+Capabilities:
+Customize the number of visible products.
+Adjust promotional card positioning.
+Control benefit box arrangement.
+Customize image dimensions.
+Adjust spacing and layout.
+Preview each device before publishing.
+13. Apply & Publish Changes Live
+Applies all changes and publishes them to the live storefront.
+Capabilities:
+Save general settings.
+Publish promotional card changes.
+Save selected products.
+Apply slider configurations.
+Publish benefit box changes.
+Apply display and spacing settings.
+Update device-specific configurations.
+Refresh the live storefront.
+The system should display a success or error notification after publishing.
+
+Developer Implementation Requirements
+Connect every setting to the actual Product Collection component.
+Integrate products with the store database.
+Support manual selection and dynamic product sources.
+Implement complete promotional card management.
+Implement complete benefit box management.
+Support adding, editing, deleting, duplicating, and reordering products and benefit boxes.
+Ensure all product links and buttons function correctly.
+Implement slider navigation, autoplay, and transition speed.
+Support independent Desktop, Tablet, and Mobile configurations.
+Provide a real-time preview while editing.
+Preserve existing content and settings when making changes.
+Support Arabic and English, including RTL and LTR layouts.
+Do not hide, remove, or disable any existing elements from the original design unless explicitly requested.
+Ensure publishing updates the actual live storefront.
+Final Objective:
+Build a complete Product Collection management system that provides store administrators with full control over promotional cards, selected products, product sliders, benefit boxes, layouts, and responsive behavior, without requiring developer intervention for routine updates.
+Add explicit field types and validationDefine save, cancel, and publish behavior
+

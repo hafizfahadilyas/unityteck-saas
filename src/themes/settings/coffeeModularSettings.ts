@@ -45,13 +45,59 @@ export interface FeaturedCategoriesSection {
   viewMoreAr: string;
   viewMoreLink: string;
   columnsDesktop: number;
+  columnsTablet?: number;
   columnsMobile: number;
   cardStyle: 'rounded' | 'square';
   spacing: 'small' | 'medium' | 'large';
 }
 
+/** Top promotional banners for Category Showcase (CW-03). */
+export interface CategoryShowcaseBanner {
+  id: string;
+  enabled: boolean;
+  image: string;
+  titleEn: string;
+  titleAr: string;
+  descriptionEn: string;
+  descriptionAr: string;
+  link: string;
+  textAlign?: 'top-left' | 'top-right' | 'center' | 'bottom-left' | 'bottom-right';
+  overlay?: 'none' | 'dark' | 'light';
+  overlayOpacity?: number;
+  textColor?: string;
+  borderRadius?: number;
+}
+
 export interface FeaturedCategoriesProductsSettings {
   enabled: boolean;
+  /** Section chrome title (showcase-level). */
+  titleEn?: string;
+  titleAr?: string;
+  descriptionEn?: string;
+  descriptionAr?: string;
+  banners?: CategoryShowcaseBanner[];
+  /** Manual product ids for bottom grid when productSource is selected. */
+  productIds?: string[];
+  productSource?: 'selected' | 'category' | 'latest';
+  productsPerRowDesktop?: number;
+  productsPerRowTablet?: number;
+  productsPerRowMobile?: number;
+  cardStyle?: 'rounded' | 'square';
+  cardSpacing?: 'small' | 'medium' | 'large';
+  sectionSpacingPx?: number;
+  bgColor?: string;
+  contentAlign?: 'left' | 'center' | 'right';
+  showProductName?: boolean;
+  showPrice?: boolean;
+  showOriginalPrice?: boolean;
+  showDiscount?: boolean;
+  enableCarousel?: boolean;
+  enableTouchSwipe?: boolean;
+  showArrowsDesktop?: boolean;
+  showArrowsTablet?: boolean;
+  showArrowsMobile?: boolean;
+  autoplay?: boolean;
+  autoplaySpeedSec?: number;
   sections: FeaturedCategoriesSection[];
 }
 
@@ -76,6 +122,8 @@ export interface HeroBannerSlideSettings extends HeroBannerButtonFlags {
   id: string;
   enabled: boolean;
   image: string;
+  /** Optional tablet crop — falls back to `image`. */
+  tabletImage?: string;
   mobileImage: string;
   /** Search-engine description for the slide image. Separate from the heading. */
   altEn?: string;
@@ -91,6 +139,8 @@ export interface HeroBannerSlideSettings extends HeroBannerButtonFlags {
   currency: string;
   productId: string;
   textColor: string;
+  /** Per-slide WhatsApp CTA (section `showWhatsapp` must also be on). */
+  whatsappEnabled?: boolean;
 }
 
 export interface HeroBannersSettings {
@@ -143,6 +193,10 @@ export interface FeaturedSectionBannersSettings {
   titleAr: string;
   subtitleEn: string;
   subtitleAr: string;
+  /** Section height presets (px) — CW-14 polish. */
+  heightDesktop?: number;
+  heightTablet?: number;
+  heightMobile?: number;
   banners: FeaturedSectionBanner[];
 }
 
@@ -154,6 +208,8 @@ export interface FeaturedProductTab {
   categoryId: string;
 }
 
+export type FeaturedProductsSort = 'manual' | 'price_asc' | 'price_desc' | 'newest';
+
 export interface CoffeeFeaturedProductsSettings {
   enabled: boolean;
   titleEn: string;
@@ -163,6 +219,7 @@ export interface CoffeeFeaturedProductsSettings {
   tabs: FeaturedProductTab[];
   productCount: number;
   highlightFirst: boolean;
+  sortBy?: FeaturedProductsSort;
   showImage?: boolean;
   showTitle?: boolean;
   showPrice: boolean;
@@ -170,6 +227,7 @@ export interface CoffeeFeaturedProductsSettings {
   showRating: boolean;
   showStock?: boolean;
   showAddToCart?: boolean;
+  showBuyNow?: boolean;
 }
 
 export interface ImageBannerItem {
@@ -185,11 +243,16 @@ export interface ImageBannerItem {
   link: string;
   buttonEn: string;
   buttonAr: string;
+  overlay?: 'none' | 'gradient' | 'dark';
+  gradientFrom?: string;
+  gradientTo?: string;
 }
+
+export type ImageBannersLayout = 'grid' | 'bento' | 'row' | 'stack' | 'masonry';
 
 export interface ImageBannersSettings {
   enabled: boolean;
-  layout: 'grid' | 'bento' | 'row';
+  layout: ImageBannersLayout;
   columnsDesktop: number;
   columnsMobile: number;
   items: ImageBannerItem[];
@@ -200,6 +263,8 @@ export interface FooterColumnLink {
   labelEn: string;
   labelAr: string;
   url: string;
+  /** Hide without deleting. */
+  enabled?: boolean;
 }
 
 export interface FooterColumn {
@@ -207,6 +272,17 @@ export interface FooterColumn {
   titleEn: string;
   titleAr: string;
   links: FooterColumnLink[];
+  /** Hide column without deleting its links. */
+  enabled?: boolean;
+  showDesktop?: boolean;
+  showMobile?: boolean;
+}
+
+export interface FooterSocialLink {
+  id: string;
+  platform: 'instagram' | 'facebook' | 'youtube' | 'tiktok' | 'x' | 'whatsapp' | 'other';
+  url: string;
+  enabled?: boolean;
 }
 
 export interface CoffeeFooterSettings {
@@ -221,6 +297,7 @@ export interface CoffeeFooterSettings {
   showPaymentIcons: boolean;
   contactEmail?: string;
   contactPhone?: string;
+  contactWhatsApp?: string;
   addressEn?: string;
   addressAr?: string;
   hoursEn?: string;
@@ -230,16 +307,48 @@ export interface CoffeeFooterSettings {
   showNewsletter?: boolean;
   paymentsEn?: string;
   paymentsAr?: string;
+  /** Doc layout: colors + width + columns count. */
+  bgColor?: string;
+  textColor?: string;
+  linkColor?: string;
+  linkHoverColor?: string;
+  contentWidth?: 'full' | 'boxed';
+  desktopColumns?: 1 | 2 | 3 | 4;
+  fontSizePx?: number;
+  columnGapPx?: number;
+  /** Contact / bottom / social subsections. */
+  showContact?: boolean;
+  showBottomBar?: boolean;
+  taxNumber?: string;
+  showTaxNumber?: boolean;
+  crNumber?: string;
+  showCrNumber?: boolean;
+  socialLinks?: FooterSocialLink[];
+  bottomLinks?: FooterColumnLink[];
+}
+
+export type ExclusiveBenefitButtonStyle = 'primary' | 'secondary' | 'outline' | 'whatsapp';
+
+export interface ExclusiveBenefitButton {
+  id: string;
+  enabled: boolean;
+  labelEn: string;
+  labelAr: string;
+  style: ExclusiveBenefitButtonStyle;
+  url: string;
 }
 
 export interface ExclusiveBenefitItem {
   id: string;
   enabled: boolean;
+  /** When true, card stays visible but faded (unavailable). */
+  unavailable?: boolean;
   icon: string;
   titleEn: string;
   titleAr: string;
   descriptionEn: string;
   descriptionAr: string;
+  buttons?: ExclusiveBenefitButton[];
 }
 
 export interface ExclusiveBenefitsSettings {
@@ -248,7 +357,62 @@ export interface ExclusiveBenefitsSettings {
   titleAr: string;
   subtitleEn: string;
   subtitleAr: string;
+  showTitle?: boolean;
+  showDescription?: boolean;
+  columnsDesktop?: number;
+  columnsMobile?: number;
+  cardGapPx?: number;
   items: ExclusiveBenefitItem[];
+}
+
+export type ProductCarouselCardStyle = 'rounded' | 'square';
+export type ProductCarouselLearnLinkType = 'none' | 'product' | 'category' | 'page' | 'external';
+export type ProductCarouselOpenIn = 'same' | 'new';
+
+export interface ProductCarouselColorOpt {
+  id: string;
+  labelEn: string;
+  labelAr: string;
+  hex: string;
+}
+
+export interface ProductCarouselChoiceOpt {
+  id: string;
+  labelEn: string;
+  labelAr: string;
+}
+
+/** Carousel card entry — display overrides; storefront prefers live catalog when productId matches. */
+export interface ProductCarouselItem {
+  id: string;
+  productId: string;
+  enabled: boolean;
+  nameEn: string;
+  nameAr: string;
+  promoTagEn: string;
+  promoTagAr: string;
+  imageUrl: string;
+  gallery: string[];
+  productLink: string;
+  showOptions: boolean;
+  colors: ProductCarouselColorOpt[];
+  storage: ProductCarouselChoiceOpt[];
+  otherOptions: ProductCarouselChoiceOpt[];
+  originalPrice: number | null;
+  discountedPrice: number | null;
+  showOriginalPrice: boolean;
+  showBuyNow: boolean;
+  buyNowEn: string;
+  buyNowAr: string;
+  showAddToCart: boolean;
+  addToCartEn: string;
+  addToCartAr: string;
+  showLearnMore: boolean;
+  learnMoreEn: string;
+  learnMoreAr: string;
+  learnMoreLinkType: ProductCarouselLearnLinkType;
+  learnMoreUrl: string;
+  learnMoreOpenIn: ProductCarouselOpenIn;
 }
 
 export interface ProductCarouselSettings {
@@ -260,6 +424,19 @@ export interface ProductCarouselSettings {
   categoryId: string;
   productCount: number;
   autoplay: boolean;
+  productsPerRowDesktop?: 2 | 3;
+  productsPerRowTablet?: 1 | 2;
+  productsPerRowMobile?: 1 | 2;
+  cardStyle?: ProductCarouselCardStyle;
+  cardBgColor?: string;
+  cardBorderRadius?: number;
+  cardPadding?: number;
+  itemSpacing?: number;
+  showArrowsDesktop?: boolean;
+  showArrowsMobile?: boolean;
+  enableTouchSwipe?: boolean;
+  /** Manual curated cards. Empty → fall back to category + productCount from live catalog. */
+  items?: ProductCarouselItem[];
 }
 
 export interface ProductCarouselBannerSettings {
@@ -294,13 +471,109 @@ export interface NewsletterSettings {
   textColor: string;
 }
 
+export type ShopCatalogSort =
+  | 'featured'
+  | 'newest'
+  | 'price-asc'
+  | 'price-desc'
+  | 'name-asc'
+  | 'best_selling'
+  | 'rating';
+
+export type ShopCatalogLoadMore = 'pagination' | 'load_more' | 'infinite';
+export type ShopPriceFilterType = 'slider' | 'presets' | 'both';
+
+/** #19 Product Catalog / shop grid chrome (ProductsListPage + builder product_catalog). */
 export interface ShopCatalogSettings {
+  enabled?: boolean;
+  badgeEn?: string;
+  badgeAr?: string;
+  titleEn?: string;
+  titleAr?: string;
+  descriptionEn?: string;
+  descriptionAr?: string;
+  showBadge?: boolean;
+  showTitle?: boolean;
+  showDescription?: boolean;
   columnsDesktop: number;
   columnsTablet: number;
   columnsMobile: number;
   perPage: number;
-  defaultSort: 'featured' | 'price-asc' | 'price-desc' | 'rating';
+  defaultSort: ShopCatalogSort;
   showFilters: boolean;
+  showCategories?: boolean;
+  showProductCount?: boolean;
+  defaultCategory?: string;
+  showSort?: boolean;
+  showPriceFilter?: boolean;
+  priceFilterType?: ShopPriceFilterType;
+  showInStockFilter?: boolean;
+  showResultsCount?: boolean;
+  loadMoreType?: ShopCatalogLoadMore;
+  showPrice?: boolean;
+  showOriginalPrice?: boolean;
+  showGiftLabel?: boolean;
+  showInstallment?: boolean;
+  showStock?: boolean;
+  showBuyNow?: boolean;
+  showAddToCart?: boolean;
+  showLearnMore?: boolean;
+  showWishlist?: boolean;
+  showCompare?: boolean;
+  showProductDescription?: boolean;
+  sectionPaddingY?: number;
+  cardGapPx?: number;
+  cardPaddingPx?: number;
+  showOnDesktop?: boolean;
+  showOnTablet?: boolean;
+  showOnMobile?: boolean;
+}
+
+export function emptyShopCatalog(): ShopCatalogSettings {
+  return {
+    enabled: true,
+    badgeEn: '',
+    badgeAr: '',
+    titleEn: '',
+    titleAr: '',
+    descriptionEn: '',
+    descriptionAr: '',
+    showBadge: true,
+    showTitle: true,
+    showDescription: true,
+    columnsDesktop: 4,
+    columnsTablet: 3,
+    columnsMobile: 2,
+    perPage: 24,
+    defaultSort: 'featured',
+    showFilters: true,
+    showCategories: true,
+    showProductCount: true,
+    defaultCategory: 'all',
+    showSort: true,
+    showPriceFilter: true,
+    priceFilterType: 'both',
+    showInStockFilter: true,
+    showResultsCount: true,
+    loadMoreType: 'load_more',
+    showPrice: true,
+    showOriginalPrice: true,
+    showGiftLabel: true,
+    showInstallment: true,
+    showStock: true,
+    showBuyNow: true,
+    showAddToCart: true,
+    showLearnMore: true,
+    showWishlist: false,
+    showCompare: false,
+    showProductDescription: false,
+    sectionPaddingY: 32,
+    cardGapPx: 16,
+    cardPaddingPx: 16,
+    showOnDesktop: true,
+    showOnTablet: true,
+    showOnMobile: true,
+  };
 }
 
 export interface CheckoutFieldSettings {
@@ -348,6 +621,155 @@ export interface CustomOrderSettings {
   fields: CustomOrderField[];
 }
 
+export type EventCardSize = 'large' | 'small';
+export type EventButtonStyle = 'primary' | 'secondary' | 'outline' | 'text-arrow';
+export type EventsCardsLayout = 'one-large-two-small' | 'grid';
+
+export interface EventMasterclassItem {
+  id: string;
+  enabled: boolean;
+  cardSize: EventCardSize;
+  image: string;
+  titleEn: string;
+  titleAr: string;
+  descriptionEn: string;
+  descriptionAr: string;
+  tagEn: string;
+  tagAr: string;
+  showButton: boolean;
+  buttonEn: string;
+  buttonAr: string;
+  buttonUrl: string;
+  buttonStyle: EventButtonStyle;
+}
+
+export interface EventsMasterclassesSettings {
+  enabled: boolean;
+  badgeEn: string;
+  badgeAr: string;
+  titleEn: string;
+  titleAr: string;
+  descriptionEn: string;
+  descriptionAr: string;
+  cardsLayout: EventsCardsLayout;
+  cardsPerRowBottom: number;
+  cardSpacing: 'small' | 'medium' | 'large';
+  cardBorderRadius: number;
+  sectionPaddingY: number;
+  contentAlign: 'left' | 'center' | 'right';
+  showSectionTag: boolean;
+  showDescriptions: boolean;
+  showActionButtons: boolean;
+  showCardLabels: boolean;
+  autoplay: boolean;
+  showCarouselControls: boolean;
+  autoplaySpeedSec: number;
+  events: EventMasterclassItem[];
+}
+
+/** #13 Features Section — product/spec cards (≠ enhancedFeatures / C-ICON). */
+export type FeaturesIconPosition = 'top' | 'left' | 'right';
+export type FeaturesCardLayout = 'stacked' | 'inline' | 'centered';
+export type FeaturesContentAlign = 'left' | 'center' | 'right';
+
+export interface FeaturesSectionItem {
+  id: string;
+  enabled: boolean;
+  icon: string;
+  titleEn: string;
+  titleAr: string;
+  descriptionEn: string;
+  descriptionAr: string;
+}
+
+export interface FeaturesSectionSettings {
+  enabled: boolean;
+  badgeEn: string;
+  badgeAr: string;
+  titleEn: string;
+  titleAr: string;
+  descriptionEn: string;
+  descriptionAr: string;
+  showBadge: boolean;
+  showDescription: boolean;
+  columnsDesktop: number;
+  columnsTablet: number;
+  columnsMobile: number;
+  cardLayout: FeaturesCardLayout;
+  contentAlign: FeaturesContentAlign;
+  iconPosition: FeaturesIconPosition;
+  sectionPaddingY: number;
+  cardGapPx: number;
+  cardPaddingPx: number;
+  spacingTopPx: number;
+  spacingBottomPx: number;
+  showOnDesktop: boolean;
+  showOnTablet: boolean;
+  showOnMobile: boolean;
+  items: FeaturesSectionItem[];
+}
+
+/** #14 Model Comparison — merchant models + spec rows (builder `model_comparison`). */
+export interface ModelComparisonSpecValue {
+  valueEn: string;
+  valueAr: string;
+}
+
+export interface ModelComparisonModel {
+  id: string;
+  enabled: boolean;
+  productId: string;
+  image: string;
+  nameEn: string;
+  nameAr: string;
+  price: number | null;
+  buttonEn: string;
+  buttonAr: string;
+  selected: boolean;
+}
+
+export interface ModelComparisonSpec {
+  id: string;
+  enabled: boolean;
+  nameEn: string;
+  nameAr: string;
+  /** Spec cell per model id */
+  values: Record<string, ModelComparisonSpecValue>;
+}
+
+export interface ModelComparisonSettings {
+  enabled: boolean;
+  badgeEn: string;
+  badgeAr: string;
+  secondaryLabelEn: string;
+  secondaryLabelAr: string;
+  titleEn: string;
+  titleAr: string;
+  descriptionEn: string;
+  descriptionAr: string;
+  showBadge: boolean;
+  showSecondaryLabel: boolean;
+  showDescription: boolean;
+  showProductImages: boolean;
+  showProductPrices: boolean;
+  showSelectionButtons: boolean;
+  showSpecifications: boolean;
+  highlightSelectedModel: boolean;
+  showSpecificationLabels: boolean;
+  allowFullScreen: boolean;
+  sectionPaddingY: number;
+  modelGapPx: number;
+  cardPaddingPx: number;
+  specRowGapPx: number;
+  spacingTopPx: number;
+  spacingBottomPx: number;
+  showOnDesktop: boolean;
+  showOnTablet: boolean;
+  showOnMobile: boolean;
+  models: ModelComparisonModel[];
+  specs: ModelComparisonSpec[];
+}
+
 export interface CoffeeModularSlice {
   featuredCategoriesProducts: FeaturedCategoriesProductsSettings;
   heroBanners: HeroBannersSettings;
@@ -360,7 +782,23 @@ export interface CoffeeModularSlice {
   productCarouselBanner: ProductCarouselBannerSettings;
   newsletter: NewsletterSettings;
   customOrder: CustomOrderSettings;
-  shop?: ShopCatalogSettings;
+  eventsMasterclasses: EventsMasterclassesSettings;
+  /** Builder type `features` — not Feature Icons. */
+  featuresSection: FeaturesSectionSettings;
+  /** Builder type `model_comparison`. */
+  modelComparison: ModelComparisonSettings;
+  /** Builder type `reviews` — chrome + form limits (review rows live on reviews API). */
+  customerReviews: CustomerReviewsSettings;
+  /** Builder type `faq` — bilingual Q/A accordion. */
+  faq: FaqSettings;
+  /** Builder type `commercial_hero` — single SKU hero with feature chips (≠ C-FSB / C-HERO). */
+  commercialHero: CommercialHeroSettings;
+  /** Builder type `product_slider` — horizontal product rail (≠ productCarousel). */
+  productSlider: ProductSliderSettings;
+  /** Builder type `product_collection` — promo + products + benefit boxes (≠ slider / PCB). */
+  productCollection: ProductCollectionSettings;
+  /** Builder type `product_catalog` / C-SHOP — shop grid chrome (≠ carousel / slider). */
+  shop: ShopCatalogSettings;
   checkoutFields?: CheckoutFieldSettings;
   seoDefaults?: SeoDefaultSettings;
 }
@@ -377,6 +815,15 @@ export const COFFEE_MODULAR_KEYS = [
   'productCarouselBanner',
   'newsletter',
   'customOrder',
+  'eventsMasterclasses',
+  'featuresSection',
+  'modelComparison',
+  'customerReviews',
+  'faq',
+  'commercialHero',
+  'productSlider',
+  'productCollection',
+  'shop',
 ] as const;
 
 export type CoffeeModularKey = (typeof COFFEE_MODULAR_KEYS)[number];
@@ -403,6 +850,529 @@ function heroSlide(
     customOrderAr: 'تفصيل حسب الطلب',
     customOrderUrl: 'custom-order',
     ...partial,
+  };
+}
+
+export function emptyEventsMasterclasses(enabled = false): EventsMasterclassesSettings {
+  return {
+    enabled,
+    badgeEn: '',
+    badgeAr: '',
+    titleEn: '',
+    titleAr: '',
+    descriptionEn: '',
+    descriptionAr: '',
+    cardsLayout: 'one-large-two-small',
+    cardsPerRowBottom: 2,
+    cardSpacing: 'medium',
+    cardBorderRadius: 16,
+    sectionPaddingY: 48,
+    contentAlign: 'center',
+    showSectionTag: true,
+    showDescriptions: true,
+    showActionButtons: true,
+    showCardLabels: true,
+    autoplay: false,
+    showCarouselControls: true,
+    autoplaySpeedSec: 5,
+    events: [],
+  };
+}
+
+export function emptyFeaturesSection(enabled = false): FeaturesSectionSettings {
+  return {
+    enabled,
+    badgeEn: '',
+    badgeAr: '',
+    titleEn: '',
+    titleAr: '',
+    descriptionEn: '',
+    descriptionAr: '',
+    showBadge: true,
+    showDescription: true,
+    columnsDesktop: 3,
+    columnsTablet: 2,
+    columnsMobile: 1,
+    cardLayout: 'stacked',
+    contentAlign: 'center',
+    iconPosition: 'top',
+    sectionPaddingY: 48,
+    cardGapPx: 16,
+    cardPaddingPx: 20,
+    spacingTopPx: 0,
+    spacingBottomPx: 0,
+    showOnDesktop: true,
+    showOnTablet: true,
+    showOnMobile: true,
+    items: [],
+  };
+}
+
+export function emptyModelComparison(enabled = false): ModelComparisonSettings {
+  return {
+    enabled,
+    badgeEn: '',
+    badgeAr: '',
+    secondaryLabelEn: '',
+    secondaryLabelAr: '',
+    titleEn: '',
+    titleAr: '',
+    descriptionEn: '',
+    descriptionAr: '',
+    showBadge: true,
+    showSecondaryLabel: true,
+    showDescription: true,
+    showProductImages: true,
+    showProductPrices: true,
+    showSelectionButtons: true,
+    showSpecifications: true,
+    highlightSelectedModel: true,
+    showSpecificationLabels: true,
+    allowFullScreen: false,
+    sectionPaddingY: 48,
+    modelGapPx: 16,
+    cardPaddingPx: 16,
+    specRowGapPx: 8,
+    spacingTopPx: 0,
+    spacingBottomPx: 0,
+    showOnDesktop: true,
+    showOnTablet: true,
+    showOnMobile: true,
+    models: [],
+    specs: [],
+  };
+}
+
+/** #15 Customer Reviews — widget chrome; review rows stay on `/reviews` API. */
+export interface CustomerReviewsSettings {
+  enabled: boolean;
+  badgeEn: string;
+  badgeAr: string;
+  titleEn: string;
+  titleAr: string;
+  descriptionEn: string;
+  descriptionAr: string;
+  showBadge: boolean;
+  showDescription: boolean;
+  showRatingsSummary: boolean;
+  showReviewTabs: boolean;
+  allowPhotoUpload: boolean;
+  enableWriteReview: boolean;
+  requireApproval: boolean;
+  formTitleEn: string;
+  formTitleAr: string;
+  placeholderEn: string;
+  placeholderAr: string;
+  characterLimit: number;
+  photoUploadLimit: number;
+  submitButtonEn: string;
+  submitButtonAr: string;
+  writeButtonEn: string;
+  writeButtonAr: string;
+  reviewsPerPage: number;
+  sectionPaddingY: number;
+  cardGapPx: number;
+  spacingTopPx: number;
+  spacingBottomPx: number;
+  showOnDesktop: boolean;
+  showOnTablet: boolean;
+  showOnMobile: boolean;
+}
+
+export function emptyCustomerReviews(enabled = false): CustomerReviewsSettings {
+  return {
+    enabled,
+    badgeEn: '',
+    badgeAr: '',
+    titleEn: '',
+    titleAr: '',
+    descriptionEn: '',
+    descriptionAr: '',
+    showBadge: true,
+    showDescription: true,
+    showRatingsSummary: true,
+    showReviewTabs: true,
+    allowPhotoUpload: true,
+    enableWriteReview: true,
+    requireApproval: true,
+    formTitleEn: '',
+    formTitleAr: '',
+    placeholderEn: '',
+    placeholderAr: '',
+    characterLimit: 500,
+    photoUploadLimit: 5,
+    submitButtonEn: '',
+    submitButtonAr: '',
+    writeButtonEn: '',
+    writeButtonAr: '',
+    reviewsPerPage: 10,
+    sectionPaddingY: 48,
+    cardGapPx: 16,
+    spacingTopPx: 0,
+    spacingBottomPx: 0,
+    showOnDesktop: true,
+    showOnTablet: true,
+    showOnMobile: true,
+  };
+}
+
+/** #16 FAQ — bilingual Q/A accordion (merchant items only; never seed-decorate). */
+export interface FaqItem {
+  id: string;
+  enabled: boolean;
+  qEn: string;
+  qAr: string;
+  aEn: string;
+  aAr: string;
+}
+
+export interface FaqSettings {
+  enabled: boolean;
+  badgeEn: string;
+  badgeAr: string;
+  titleEn: string;
+  titleAr: string;
+  descriptionEn: string;
+  descriptionAr: string;
+  showBadge: boolean;
+  showTitle: boolean;
+  showDescription: boolean;
+  allowMultipleOpen: boolean;
+  openFirstByDefault: boolean;
+  sectionPaddingY: number;
+  itemGapPx: number;
+  spacingTopPx: number;
+  spacingBottomPx: number;
+  showOnDesktop: boolean;
+  showOnTablet: boolean;
+  showOnMobile: boolean;
+  items: FaqItem[];
+}
+
+export function emptyFaq(enabled = false): FaqSettings {
+  return {
+    enabled,
+    badgeEn: '',
+    badgeAr: '',
+    titleEn: '',
+    titleAr: '',
+    descriptionEn: '',
+    descriptionAr: '',
+    showBadge: true,
+    showTitle: true,
+    showDescription: true,
+    allowMultipleOpen: false,
+    openFirstByDefault: true,
+    sectionPaddingY: 48,
+    itemGapPx: 12,
+    spacingTopPx: 0,
+    spacingBottomPx: 0,
+    showOnDesktop: true,
+    showOnTablet: true,
+    showOnMobile: true,
+    items: [],
+  };
+}
+
+/** #17 Commercial Hero — flagship SKU slides + feature chips (≠ heroBanners / FSB). */
+export interface CommercialHeroFeature {
+  id: string;
+  enabled: boolean;
+  icon: string;
+  labelEn: string;
+  labelAr: string;
+  valueEn: string;
+  valueAr: string;
+}
+
+export interface CommercialHeroSlide {
+  id: string;
+  enabled: boolean;
+  image: string;
+  badgeEn: string;
+  badgeAr: string;
+  titleEn: string;
+  titleAr: string;
+  subtitleEn: string;
+  subtitleAr: string;
+  price: number | null;
+  productId: string;
+  buyNowEnabled: boolean;
+  buyNowEn: string;
+  buyNowAr: string;
+  addToCartEnabled: boolean;
+  addToCartEn: string;
+  addToCartAr: string;
+  features: CommercialHeroFeature[];
+}
+
+/** Text left + image right | text right + image left | centered stack. */
+export type CommercialHeroAlign = 'image-right' | 'image-left' | 'centered';
+export type CommercialHeroWidth = 'narrow' | 'medium' | 'wide' | 'full';
+
+export interface CommercialHeroSettings {
+  enabled: boolean;
+  showBadge: boolean;
+  showSubtitle: boolean;
+  showPrice: boolean;
+  showButtons: boolean;
+  showIcons: boolean;
+  showFeatures: boolean;
+  autoplay: boolean;
+  showArrows: boolean;
+  showDots: boolean;
+  transitionSec: number;
+  contentAlign: CommercialHeroAlign;
+  contentWidth: CommercialHeroWidth;
+  sectionPaddingY: number;
+  contentGapPx: number;
+  featuresGapPx: number;
+  showOnDesktop: boolean;
+  showOnTablet: boolean;
+  showOnMobile: boolean;
+  slides: CommercialHeroSlide[];
+}
+
+export function emptyCommercialHero(enabled = false): CommercialHeroSettings {
+  return {
+    enabled,
+    showBadge: true,
+    showSubtitle: true,
+    showPrice: true,
+    showButtons: true,
+    showIcons: true,
+    showFeatures: true,
+    autoplay: false,
+    showArrows: true,
+    showDots: true,
+    transitionSec: 5,
+    contentAlign: 'image-right',
+    contentWidth: 'wide',
+    sectionPaddingY: 48,
+    contentGapPx: 24,
+    featuresGapPx: 12,
+    showOnDesktop: true,
+    showOnTablet: true,
+    showOnMobile: true,
+    slides: [],
+  };
+}
+
+/** #18 Product Slider — horizontal rail (≠ Product Carousel C-PC). */
+export type ProductSliderSource =
+  | 'manual'
+  | 'category'
+  | 'featured'
+  | 'latest'
+  | 'best_selling';
+
+export interface ProductSliderItem {
+  id: string;
+  enabled: boolean;
+  productId: string;
+  nameEn: string;
+  nameAr: string;
+  descriptionEn: string;
+  descriptionAr: string;
+  image: string;
+  price: number | null;
+  originalPrice: number | null;
+  productLink: string;
+  showBuyNow: boolean;
+  showAddToCart: boolean;
+  featured: boolean;
+}
+
+export interface ProductSliderSettings {
+  enabled: boolean;
+  titleEn: string;
+  titleAr: string;
+  descriptionEn: string;
+  descriptionAr: string;
+  showTitle: boolean;
+  showDescription: boolean;
+  sourceType: ProductSliderSource;
+  categoryId: string;
+  productCount: number;
+  showArrows: boolean;
+  showDots: boolean;
+  autoplay: boolean;
+  transitionSec: number;
+  itemsPerViewDesktop: number;
+  itemsPerViewTablet: number;
+  itemsPerViewMobile: number;
+  showPrice: boolean;
+  showOriginalPrice: boolean;
+  showAddToCart: boolean;
+  showBuyNow: boolean;
+  showProductDescription: boolean;
+  sectionPaddingY: number;
+  cardGapPx: number;
+  cardPaddingPx: number;
+  showOnDesktop: boolean;
+  showOnTablet: boolean;
+  showOnMobile: boolean;
+  items: ProductSliderItem[];
+}
+
+export function emptyProductSlider(enabled = false): ProductSliderSettings {
+  return {
+    enabled,
+    titleEn: '',
+    titleAr: '',
+    descriptionEn: '',
+    descriptionAr: '',
+    showTitle: true,
+    showDescription: true,
+    sourceType: 'manual',
+    categoryId: '',
+    productCount: 8,
+    showArrows: true,
+    showDots: false,
+    autoplay: false,
+    transitionSec: 5,
+    itemsPerViewDesktop: 4,
+    itemsPerViewTablet: 2,
+    itemsPerViewMobile: 1,
+    showPrice: true,
+    showOriginalPrice: true,
+    showAddToCart: true,
+    showBuyNow: true,
+    showProductDescription: false,
+    sectionPaddingY: 48,
+    cardGapPx: 16,
+    cardPaddingPx: 16,
+    showOnDesktop: true,
+    showOnTablet: true,
+    showOnMobile: true,
+    items: [],
+  };
+}
+
+/** #20 Product Collection — promo card + products + benefit boxes. */
+export type ProductCollectionLayout =
+  | 'promo_slider'
+  | 'products_only'
+  | 'promo_products'
+  | 'promo_slider_benefits';
+
+export type ProductCollectionPromoLayout =
+  | 'vertical-left'
+  | 'vertical-right'
+  | 'horizontal-top'
+  | 'horizontal-bottom';
+
+export type ProductCollectionBenefitsLayout = 'row4' | 'grid2' | 'scroll' | 'stack';
+
+export interface ProductCollectionPromo {
+  enabled: boolean;
+  badgeEn: string;
+  badgeAr: string;
+  titleEn: string;
+  titleAr: string;
+  buttonEn: string;
+  buttonAr: string;
+  buttonUrl: string;
+  image: string;
+}
+
+export interface ProductCollectionBenefit {
+  id: string;
+  enabled: boolean;
+  icon: string;
+  titleEn: string;
+  titleAr: string;
+  descriptionEn: string;
+  descriptionAr: string;
+}
+
+export interface ProductCollectionSettings {
+  enabled: boolean;
+  titleEn: string;
+  titleAr: string;
+  descriptionEn: string;
+  descriptionAr: string;
+  showTitle: boolean;
+  showDescription: boolean;
+  sectionStyle: ProductCollectionLayout;
+  showPromoCard: boolean;
+  promoLayout: ProductCollectionPromoLayout;
+  promo: ProductCollectionPromo;
+  sourceType: ProductSliderSource;
+  categoryId: string;
+  productCount: number;
+  showArrows: boolean;
+  showDots: boolean;
+  autoplay: boolean;
+  transitionSec: number;
+  itemsPerViewDesktop: number;
+  itemsPerViewTablet: number;
+  itemsPerViewMobile: number;
+  showBenefitBoxes: boolean;
+  benefitsLayout: ProductCollectionBenefitsLayout;
+  showPrice: boolean;
+  showBuyNow: boolean;
+  showAddToCart: boolean;
+  showLearnMore: boolean;
+  sectionPaddingY: number;
+  cardGapPx: number;
+  promoGapPx: number;
+  benefitsGapPx: number;
+  showOnDesktop: boolean;
+  showOnTablet: boolean;
+  showOnMobile: boolean;
+  items: ProductSliderItem[];
+  benefits: ProductCollectionBenefit[];
+}
+
+export function emptyProductCollection(enabled = false): ProductCollectionSettings {
+  return {
+    enabled,
+    titleEn: '',
+    titleAr: '',
+    descriptionEn: '',
+    descriptionAr: '',
+    showTitle: true,
+    showDescription: true,
+    sectionStyle: 'promo_slider_benefits',
+    showPromoCard: true,
+    promoLayout: 'vertical-left',
+    promo: {
+      enabled: true,
+      badgeEn: '',
+      badgeAr: '',
+      titleEn: '',
+      titleAr: '',
+      buttonEn: '',
+      buttonAr: '',
+      buttonUrl: '',
+      image: '',
+    },
+    sourceType: 'manual',
+    categoryId: '',
+    productCount: 8,
+    showArrows: true,
+    showDots: false,
+    autoplay: false,
+    transitionSec: 5,
+    itemsPerViewDesktop: 3,
+    itemsPerViewTablet: 2,
+    itemsPerViewMobile: 1,
+    showBenefitBoxes: true,
+    benefitsLayout: 'row4',
+    showPrice: true,
+    showBuyNow: true,
+    showAddToCart: true,
+    showLearnMore: true,
+    sectionPaddingY: 48,
+    cardGapPx: 16,
+    promoGapPx: 24,
+    benefitsGapPx: 12,
+    showOnDesktop: true,
+    showOnTablet: true,
+    showOnMobile: true,
+    items: [],
+    benefits: [],
   };
 }
 
@@ -455,6 +1425,18 @@ export function emptyCoffeeModular(): CoffeeModularSlice {
       categoryId: '',
       productCount: 8,
       autoplay: false,
+      productsPerRowDesktop: 3,
+      productsPerRowTablet: 2,
+      productsPerRowMobile: 1,
+      cardStyle: 'rounded',
+      cardBgColor: '#FFFFFF',
+      cardBorderRadius: 16,
+      cardPadding: 16,
+      itemSpacing: 16,
+      showArrowsDesktop: true,
+      showArrowsMobile: false,
+      enableTouchSwipe: true,
+      items: [],
     },
     productCarouselBanner: {
       enabled: false,
@@ -499,6 +1481,15 @@ export function emptyCoffeeModular(): CoffeeModularSlice {
       ctaAr: '',
       fields: [],
     },
+    eventsMasterclasses: emptyEventsMasterclasses(false),
+    featuresSection: emptyFeaturesSection(false),
+    modelComparison: emptyModelComparison(false),
+    customerReviews: emptyCustomerReviews(false),
+    faq: emptyFaq(false),
+    commercialHero: emptyCommercialHero(false),
+    productSlider: emptyProductSlider(false),
+    productCollection: emptyProductCollection(false),
+    shop: emptyShopCatalog(),
   };
 }
 
@@ -772,6 +1763,18 @@ export function coffeeModularSeed(): CoffeeModularSlice {
       categoryId: 'machines',
       productCount: 8,
       autoplay: false,
+      productsPerRowDesktop: 3,
+      productsPerRowTablet: 2,
+      productsPerRowMobile: 1,
+      cardStyle: 'rounded',
+      cardBgColor: '#FFFFFF',
+      cardBorderRadius: 16,
+      cardPadding: 16,
+      itemSpacing: 16,
+      showArrowsDesktop: true,
+      showArrowsMobile: false,
+      enableTouchSwipe: true,
+      items: [],
     },
     productCarouselBanner: {
       enabled: true,
@@ -821,6 +1824,24 @@ export function coffeeModularSeed(): CoffeeModularSlice {
         { id: 'co-notes', enabled: true, labelEn: 'Notes', labelAr: 'ملاحظات', type: 'text', required: false },
       ],
     },
+    /** Empty events — never invent HONOR/Mixkit rows (DF-01 / CW-05). */
+    eventsMasterclasses: emptyEventsMasterclasses(false),
+    /** Empty features section — never seed-decorate (CW-06 / DF-01). */
+    featuresSection: emptyFeaturesSection(false),
+    /** Empty model comparison — never invent models (CW-07 / DF-01). */
+    modelComparison: emptyModelComparison(false),
+    /** Reviews chrome empty — rows come from reviews API only (CW-08). */
+    customerReviews: emptyCustomerReviews(false),
+    /** FAQ empty — never invent Q/A rows (CW-09 / DF-01). */
+    faq: emptyFaq(false),
+    /** Commercial Hero empty — never invent flagship slides (CW-10 / DF-01). */
+    commercialHero: emptyCommercialHero(false),
+    /** Product Slider empty — never invent rails (CW-11 / DF-01). */
+    productSlider: emptyProductSlider(false),
+    /** Product Collection empty — never invent promo/products/benefits (CW-13 / DF-01). */
+    productCollection: emptyProductCollection(false),
+    /** Shop catalog chrome — no fake product rows (CW-12 / DF-01). */
+    shop: emptyShopCatalog(),
   };
 }
 
@@ -830,6 +1851,14 @@ const LIST_FIELD: Partial<Record<CoffeeModularKey, string>> = {
   featuredSectionBanners: 'banners',
   imageBanners: 'items',
   exclusiveBenefits: 'items',
+  eventsMasterclasses: 'events',
+  featuresSection: 'items',
+  modelComparison: 'models',
+  productCarousel: 'items',
+  faq: 'items',
+  commercialHero: 'slides',
+  productSlider: 'items',
+  productCollection: 'items',
 };
 
 /**

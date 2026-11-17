@@ -10,17 +10,36 @@ import { HeroSlider3D as CoffeeHeroSlider3D } from '../../../themes/coffeeRoaste
 import { FlagshipThreeJsSection as CoffeeFlagshipSection } from '../../../themes/coffeeRoasters/components/FlagshipThreeJsSection';
 import { CoffeeHomeModules } from '../../../themes/coffeeRoasters/components/CoffeeHomeModules';
 import { ExclusivePerksBar } from '../../../themes/coffeeRoasters/components/ExclusivePerksBar';
+import { CoffeeEventsSection } from '../../../themes/coffeeRoasters/components/CoffeeEventsSection';
+import { visibleEvents } from '../../../themes/coffeeRoasters/components/coffeeEventsLogic';
+import { CoffeeFeaturesSection } from '../../../themes/coffeeRoasters/components/CoffeeFeaturesSection';
+import { visibleFeaturesSectionItems } from '../../../themes/coffeeRoasters/components/coffeeFeaturesSectionLogic';
+import { CoffeeModelComparisonSection } from '../../../themes/coffeeRoasters/components/CoffeeModelComparisonSection';
+import { visibleModels } from '../../../themes/coffeeRoasters/components/coffeeModelComparisonLogic';
+import { CoffeeCustomerReviewsSection } from '../../../themes/coffeeRoasters/components/CoffeeCustomerReviewsSection';
 import {
   announcementMessageLabel,
   eligibleAnnouncements,
   type AllThemeSettings,
 } from '../../../themes/settings/themeSettingsStore';
-import { bi } from '../../../themes/settings/coffeeModularSettings';
+import { bi, type CustomerReviewsSettings } from '../../../themes/settings/coffeeModularSettings';
 import { resolveCoffeeThemeSettings } from '../../../themes/settings/coffeeThemeDefaults';
 import { CoffeeFeatureIconsBar, featureItemsForDevice } from '../../../themes/coffeeRoasters/components/CoffeeFeatureIconsBar';
 import { CartProvider as CoffeeCartProvider, useCart } from '../../../themes/coffeeRoasters/context/CartContext';
-import { ReviewsWidget } from './widgets/ContentWidget';
-import { subscribeStoreNewsletter } from '../../../api/tenantApi';
+import { CoffeeFaqSection } from '../../../themes/coffeeRoasters/components/CoffeeFaqSection';
+import { visibleFaqItems } from '../../../themes/coffeeRoasters/components/coffeeFaqLogic';
+import { CoffeeCommercialHeroSection } from '../../../themes/coffeeRoasters/components/CoffeeCommercialHeroSection';
+import { visibleCommercialHeroSlides } from '../../../themes/coffeeRoasters/components/coffeeCommercialHeroLogic';
+import { CoffeeProductSliderSection } from '../../../themes/coffeeRoasters/components/CoffeeProductSliderSection';
+import { resolveProductSliderCards } from '../../../themes/coffeeRoasters/components/coffeeProductSliderLogic';
+import { CoffeeProductCollectionSection } from '../../../themes/coffeeRoasters/components/CoffeeProductCollectionSection';
+import { collectionHasVisibleContent } from '../../../themes/coffeeRoasters/components/coffeeProductCollectionLogic';
+import { CoffeeProductCatalogSection } from '../../../themes/coffeeRoasters/components/CoffeeProductCatalogSection';
+import { catalogShowsOnDevice } from '../../../themes/coffeeRoasters/components/coffeeProductCatalogLogic';
+import { fetchStoreReviewsApi, subscribeStoreNewsletter, type StoreReviewRecord } from '../../../api/tenantApi';
+import {
+  COFFEE_BUILDER_BLOCK_TYPES,
+} from './coffeeBlockTypes';
 
 type BuilderDevice = 'desktop' | 'laptop' | 'tablet' | 'mobile';
 
@@ -51,34 +70,19 @@ function productLabel(isAr: boolean, p: { name?: string; nameAr?: string }): str
   return (p.name || '').trim();
 }
 
-export const COFFEE_FULL_BLEED_TYPES = new Set([
-  'announcement_bar',
-  'announcement',
-  'header',
-  'navbar',
-  'hero_banners',
-  'hero_slider',
-  'hero',
-  'footer',
-]);
+export {
+  COFFEE_FULL_BLEED_TYPES,
+  COFFEE_MOVABLE_BLOCK_TYPES,
+  COFFEE_BUILDER_BLOCK_TYPES,
+} from './coffeeBlockTypes';
 
-export const COFFEE_BUILDER_BLOCK_TYPES = new Set([
-  ...COFFEE_FULL_BLEED_TYPES,
-  'featured_categories_products',
-  'featured_section_banners',
-  'featured_products',
-  'image_banners',
-  'store_features_bar',
-  'features',
-  'exclusive_benefits',
-  'product_carousel',
-  // 'banners' / C-BAN stacked strip removed from HiBrew
-  'product_carousel_banner',
-  'newsletter',
-  'custom_order',
-  'reviews',
-  'testimonials',
-]);
+function CompactEmpty({ isAr, ar, en }: { isAr: boolean; ar: string; en: string }) {
+  return (
+    <div className="p-6 m-4 text-center text-sm text-neutral-400 border border-dashed border-neutral-200 rounded-2xl bg-neutral-50/80">
+      {isAr ? ar : en}
+    </div>
+  );
+}
 
 function useCoffeeThemeSettings(store: { id?: string; name?: string } | null | undefined): AllThemeSettings | null {
   const [ver, setVer] = useState(0);
@@ -193,10 +197,8 @@ function FeaturedCategoriesPreview({
       cats.find((c) => c.categoryId)?.categoryId ||
       cats[0]?.categoryId ||
       'all';
-    const byCat = catalog.filter((p) => matchCategory(p.category, categoryId)).slice(0, count);
-    if (byCat.length) return byCat;
-    // Fallback: show latest catalog items so builder never shows empty stubs
-    return catalog.slice(0, count);
+    // DF-01 — category miss stays empty (never decorate with unrelated catalog.slice)
+    return catalog.filter((p) => matchCategory(p.category, categoryId)).slice(0, count);
   })();
 
   return (
@@ -259,6 +261,59 @@ function FeaturedCategoriesPreview({
   );
 }
 
+function mapBuilderCatalogDevice(d: BuilderDevice): 'desktop' | 'tablet' | 'mobile' {
+  if (d === 'mobile') return 'mobile';
+  if (d === 'tablet') return 'tablet';
+  return 'desktop';
+}
+
+function ProductCatalogBuilderPreview({
+  settings,
+  isAr,
+  builderDevice,
+}: {
+  settings: AllThemeSettings | null;
+  isAr: boolean;
+  builderDevice: BuilderDevice;
+}) {
+  const { products } = useCart();
+  const shop = settings?.shop;
+  const device = mapBuilderCatalogDevice(builderDevice);
+  if (shop?.enabled === false || !catalogShowsOnDevice(shop, device)) {
+    return (
+      <CompactEmpty
+        isAr={isAr}
+        ar="كتالوج المنتجات مخفي على هذا الجهاز"
+        en="Product catalog hidden on this device"
+      />
+    );
+  }
+  const catalog = (products || []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    nameAr: p.nameAr,
+    category: String(p.category || ''),
+    basePrice: p.basePrice,
+    price: p.basePrice,
+    originalPrice: p.originalPrice ?? null,
+    rating: p.rating,
+    image: p.image,
+    images: p.images,
+    tagline: p.tagline,
+    taglineAr: p.taglineAr,
+    isFeatured: Boolean((p as { isFeatured?: boolean }).isFeatured || (p as { featured?: boolean }).featured),
+    salesCount: Number((p as { salesCount?: number }).salesCount || (p as { soldCount?: number }).soldCount || 0),
+  }));
+  return (
+    <CoffeeProductCatalogSection
+      settings={shop}
+      catalog={catalog}
+      lang={isAr ? 'ar' : 'en'}
+      device={device}
+    />
+  );
+}
+
 function FeaturedProductsPreview({
   settings,
   isAr,
@@ -281,8 +336,8 @@ function FeaturedProductsPreview({
   const count = fp.productCount || 4;
   const catalog = products || [];
   const categoryId = activeTab?.categoryId || 'all';
-  const byCat = catalog.filter((p) => matchCategory(p.category, categoryId)).slice(0, count);
-  const resolved = byCat.length ? byCat : catalog.slice(0, count);
+  // DF-01 — no soft decorate when category has zero matches
+  const resolved = catalog.filter((p) => matchCategory(p.category, categoryId)).slice(0, count);
 
   return (
     <section className="w-full max-w-[1360px] mx-auto px-4 py-10">
@@ -401,18 +456,142 @@ function CustomOrderPreview({ settings, isAr }: { settings: AllThemeSettings | n
         ))}
       </div>
       <button type="button" className="mt-5 w-full py-3 rounded-full bg-[#25D366] text-white text-xs font-bold">
-        {bi(isAr ? 'ar' : 'en', c.ctaEn, c.ctaAr) || 'WhatsApp'}
+        {bi(isAr ? 'ar' : 'en', c.ctaEn, c.ctaAr) || (isAr ? 'واتساب' : 'WhatsApp')}
       </button>
     </section>
   );
 }
 
-function ReviewsPreview({ isAr, storeId }: { isAr: boolean; storeId: string }) {
+
+function ProductSliderBuilderPreview({
+  settings,
+  isAr,
+}: {
+  settings: AllThemeSettings;
+  isAr: boolean;
+}) {
+  const { products } = useCart();
+  const catalog = (products || []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    nameEn: p.name,
+    nameAr: p.nameAr,
+    category: String(p.category || ''),
+    basePrice: p.basePrice,
+    price: p.basePrice,
+    originalPrice: p.originalPrice ?? null,
+    image: p.image,
+    images: p.images,
+    colors: p.colors,
+    tagline: p.tagline,
+    taglineAr: p.taglineAr,
+    overview: p.overview,
+    overviewAr: p.overviewAr,
+  }));
+  const cards = resolveProductSliderCards(settings.productSlider, catalog);
+  if (!cards.length) {
+    return (
+      <CompactEmpty
+        isAr={isAr}
+        ar="لا منتجات في الشريط — بانتظار البيانات"
+        en="No slider products — Waiting for Data"
+      />
+    );
+  }
   return (
-    <section className="w-full max-w-[1100px] mx-auto px-4 py-10">
-      <h2 className="text-2xl font-bold mb-2 text-center">{isAr ? 'تقييمات العملاء' : 'Customer reviews'}</h2>
-      <ReviewsWidget isAr={isAr} storeId={storeId} />
-    </section>
+    <CoffeeProductSliderSection
+      settings={settings.productSlider}
+      catalog={catalog}
+      lang={isAr ? 'ar' : 'en'}
+      device="desktop"
+    />
+  );
+}
+
+function ProductCollectionBuilderPreview({
+  settings,
+  isAr,
+}: {
+  settings: AllThemeSettings;
+  isAr: boolean;
+}) {
+  const { products } = useCart();
+  const catalog = (products || []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    nameEn: p.name,
+    nameAr: p.nameAr,
+    category: String(p.category || ''),
+    basePrice: p.basePrice,
+    price: p.basePrice,
+    originalPrice: p.originalPrice ?? null,
+    image: p.image,
+    images: p.images,
+    colors: p.colors,
+    tagline: p.tagline,
+    taglineAr: p.taglineAr,
+  }));
+  if (!collectionHasVisibleContent(settings.productCollection, catalog)) {
+    return (
+      <CompactEmpty
+        isAr={isAr}
+        ar="لا منتجات في المجموعة — بانتظار البيانات"
+        en="No collection products — Waiting for Data"
+      />
+    );
+  }
+  return (
+    <CoffeeProductCollectionSection
+      settings={settings.productCollection}
+      catalog={catalog}
+      lang={isAr ? 'ar' : 'en'}
+      device="desktop"
+    />
+  );
+}
+
+function CoffeeReviewsBlockPreview({
+  settings,
+  isAr,
+  storeId,
+}: {
+  settings: CustomerReviewsSettings | null | undefined;
+  isAr: boolean;
+  storeId: string;
+}) {
+  const [rows, setRows] = useState<StoreReviewRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let cancel = false;
+    if (!storeId) {
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    fetchStoreReviewsApi(storeId)
+      .then((list) => {
+        if (!cancel) setRows(list);
+      })
+      .catch(() => {
+        if (!cancel) setRows([]);
+      })
+      .finally(() => {
+        if (!cancel) setLoading(false);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [storeId]);
+
+  return (
+    <CoffeeCustomerReviewsSection
+      settings={settings}
+      rows={rows}
+      lang={isAr ? 'ar' : 'en'}
+      device="desktop"
+      loading={loading}
+    />
   );
 }
 
@@ -517,6 +696,22 @@ const CoffeeBuilderBlockInner: React.FC<{
           <CoffeeHomeModules settings={settings} only="productCarousel" />
         </Shell>
       );
+    case 'product_slider':
+      return (
+        <Shell settings={settings}>
+          {settings.productSlider?.enabled === false ? (
+            <CompactEmpty
+              isAr={isAr}
+              ar="شريط المنتجات معطّل"
+              en="Product slider disabled"
+            />
+          ) : (
+            <CoffeeCartProvider>
+              <ProductSliderBuilderPreview settings={settings} isAr={isAr} />
+            </CoffeeCartProvider>
+          )}
+        </Shell>
+      );
     case 'banners':
       return null;
     case 'product_carousel_banner':
@@ -525,24 +720,133 @@ const CoffeeBuilderBlockInner: React.FC<{
           <CoffeeHomeModules settings={settings} only="productCarouselBanner" />
         </Shell>
       );
+    case 'product_collection':
+      return (
+        <Shell settings={settings}>
+          {settings.productCollection?.enabled === false ? (
+            <CompactEmpty
+              isAr={isAr}
+              ar="مجموعة المنتجات معطّلة"
+              en="Product collection disabled"
+            />
+          ) : (
+            <CoffeeCartProvider>
+              <ProductCollectionBuilderPreview settings={settings} isAr={isAr} />
+            </CoffeeCartProvider>
+          )}
+        </Shell>
+      );
     case 'store_features_bar':
-    case 'features':
       return (
         <Shell settings={settings}>
           <FeaturesPreview settings={settings} isAr={isAr} />
+        </Shell>
+      );
+    case 'features':
+      return (
+        <Shell settings={settings}>
+          {visibleFeaturesSectionItems(settings.featuresSection).length === 0 ? (
+            <CompactEmpty
+              isAr={isAr}
+              ar="لا بطاقات مميزات بعد — بانتظار البيانات"
+              en="No feature cards yet — waiting for data"
+            />
+          ) : (
+            <CoffeeCartProvider>
+              <CoffeeFeaturesSection settings={settings.featuresSection} />
+            </CoffeeCartProvider>
+          )}
         </Shell>
       );
     case 'exclusive_benefits':
       return (
         <Shell settings={settings}>
           {settings?.exclusiveBenefits?.enabled === false ? (
-            <div className="p-8 text-center text-sm text-neutral-400 border border-dashed border-neutral-200 rounded-2xl m-4">
-              {isAr ? 'المزايا الحصرية معطّلة' : 'Exclusive benefits disabled'}
-            </div>
+            <CompactEmpty
+              isAr={isAr}
+              ar="المزايا الحصرية معطّلة"
+              en="Exclusive benefits disabled"
+            />
           ) : (
             <CoffeeCartProvider>
               <ExclusivePerksBar />
             </CoffeeCartProvider>
+          )}
+        </Shell>
+      );
+    case 'events_masterclasses':
+      return (
+        <Shell settings={settings}>
+          {visibleEvents(settings.eventsMasterclasses).length === 0 ? (
+            <CompactEmpty
+              isAr={isAr}
+              ar="لا فعاليات أو ورش بعد — بانتظار البيانات"
+              en="No events or masterclasses yet — waiting for data"
+            />
+          ) : (
+            <CoffeeCartProvider>
+              <CoffeeEventsSection settings={settings.eventsMasterclasses} />
+            </CoffeeCartProvider>
+          )}
+        </Shell>
+      );
+    case 'model_comparison':
+      return (
+        <Shell settings={settings}>
+          {visibleModels(settings.modelComparison).length === 0 ? (
+            <CompactEmpty
+              isAr={isAr}
+              ar="لا موديلات للمقارنة بعد — بانتظار البيانات"
+              en="No models to compare yet — waiting for data"
+            />
+          ) : (
+            <CoffeeCartProvider>
+              <CoffeeModelComparisonSection
+                settings={settings.modelComparison}
+                lang={isAr ? 'ar' : 'en'}
+              />
+            </CoffeeCartProvider>
+          )}
+        </Shell>
+      );
+    case 'commercial_hero':
+      return (
+        <Shell settings={settings}>
+          {visibleCommercialHeroSlides(settings.commercialHero).length === 0 ? (
+            <CompactEmpty
+              isAr={isAr}
+              ar="لا شرائح تجارية — بانتظار البيانات"
+              en="No commercial slides — Waiting for Data"
+            />
+          ) : (
+            <CoffeeCartProvider>
+              <CoffeeCommercialHeroSection
+                settings={settings.commercialHero}
+                lang={isAr ? 'ar' : 'en'}
+              />
+            </CoffeeCartProvider>
+          )}
+        </Shell>
+      );
+    case 'product_catalog':
+      return (
+        <Shell settings={settings}>
+          <CoffeeCartProvider>
+            <ProductCatalogBuilderPreview settings={settings} isAr={isAr} builderDevice={builderDevice} />
+          </CoffeeCartProvider>
+        </Shell>
+      );
+    case 'faq':
+      return (
+        <Shell settings={settings}>
+          {visibleFaqItems(settings.faq).length === 0 ? (
+            <CompactEmpty
+              isAr={isAr}
+              ar="لا أسئلة شائعة بعد — بانتظار البيانات"
+              en="No FAQ items yet — waiting for data"
+            />
+          ) : (
+            <CoffeeFaqSection settings={settings.faq} lang={isAr ? 'ar' : 'en'} />
           )}
         </Shell>
       );
@@ -562,7 +866,19 @@ const CoffeeBuilderBlockInner: React.FC<{
     case 'testimonials':
       return (
         <Shell settings={settings}>
-          <ReviewsPreview isAr={isAr} storeId={activeStore?.id || ''} />
+          {settings.customerReviews?.enabled === false ? (
+            <CompactEmpty
+              isAr={isAr}
+              ar="قسم التقييمات معطّل"
+              en="Reviews section disabled"
+            />
+          ) : (
+            <CoffeeReviewsBlockPreview
+              settings={settings.customerReviews}
+              isAr={isAr}
+              storeId={activeStore?.id || ''}
+            />
+          )}
         </Shell>
       );
     case 'footer':
@@ -577,3 +893,4 @@ const CoffeeBuilderBlockInner: React.FC<{
       return null;
   }
 };
+

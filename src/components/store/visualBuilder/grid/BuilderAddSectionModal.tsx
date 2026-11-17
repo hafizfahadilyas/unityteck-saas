@@ -82,7 +82,7 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
     },
     {
       id: '25-25-50' as const,
-      labelAr: '٣ أعمدة (٢٥٪ / ٢٥٪ / ٥٠٪) - Elementor Featured',
+      labelAr: '٣ أعمدة (٢٥٪ / ٢٥٪ / ٥٠٪) — مميز',
       labelEn: '3 Columns (25%, 25%, 50%)',
       preview: (
         <div className="flex gap-1 h-6 w-full">
@@ -310,7 +310,7 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
       titleAr: 'عنصر الكود القصير',
       titleEn: 'Custom Shortcode Block',
       icon: Layers,
-      descAr: 'الصق أي كود قصير [products category="..." limit="6"] لعرض المنتجات في أي مكان تلقائياً',
+      descAr: 'الصق أي رمز قصير لعرض المنتجات تلقائياً في أي مكان',
       descEn: 'Embed any dynamic shortcode to fetch and render products anywhere on page',
       defaultStyle: 'shortcode',
     },
@@ -319,7 +319,7 @@ export const BuilderAddSectionModal: React.FC<BuilderAddSectionModalProps> = ({
       titleAr: 'حاوية أعمدة شبكية / قسم داخلي',
       titleEn: 'Inner Section / Multi-Column Grid',
       icon: Layout,
-      descAr: 'قسم مرن متعدد الأعمدة مثل Elementor Pro (تقسيم 25/25/50، تباعد عريض، وإدراج عناصر داخل كل عمود)',
+      descAr: 'قسم مرن متعدد الأعمدة (تقسيم ٢٥/٢٥/٥٠، تباعد عريض، وإدراج عناصر داخل كل عمود)',
       descEn: 'Elementor Pro inner section with column structures (25, 25, 50), wide gaps, and per-column widgets',
       defaultStyle: 'inner-cols-25-25-50',
     },

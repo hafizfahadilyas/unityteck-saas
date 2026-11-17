@@ -61,80 +61,16 @@ interface HeroBannerSlide {
   customOrderUrl?: string;
 }
 
-// 1. ORIGINAL COFFEE HOME SLIDES (4 Grand Full-Bleed Banners)
-const ORIGINAL_HOME_SLIDES: HeroBannerSlide[] = [
-  {
-    id: 'banner-flagship-dualboiler',
-    productId: 'hb-h10a-dualboiler',
-    titleEn: 'HiBrew Dual-Boiler 20-Bar Barista Pro',
-    titleAr: 'ماكينة إسبريسو هاي برو الاحترافية 20 بار دبل بويلر',
-    priceEn: 'SAR 1,899.00',
-    priceAr: '1,899.00 ر.س',
-    image: bannerImg1,
-    fallbackImage: bannerImg1,
-    taglineEn: 'Dual Independent PID Thermoblock · 20-Bar Italian ULKA · 58mm Commercial Group · Microfoam Steam',
-    taglineAr: 'نظام دبل بويلر بتحكم حراري رقمي · مضخة إيطالية 20 بار · مقياس ضغط عالي الدقة · بورتافلتر تجاري 58مم',
-    badgeEn: 'AI✦ Flagship Choice',
-    badgeAr: 'خيار الفلاجشيب AI✦',
-  },
-  {
-    id: 'banner-titanium-grinder',
-    productId: 'hb-mill-g5-pro',
-    titleEn: 'HiBrew Conical Burr Coffee Mill G5',
-    titleAr: 'مطحنة القهوة الكهربائية بتروس تيتانيوم G5',
-    priceEn: 'SAR 489.00',
-    priceAr: '489.00 ر.س',
-    image: bannerImg2,
-    fallbackImage: bannerImg2,
-    taglineEn: '40mm Titanium CNC Burrs · Stepless Micron Dial · Magnetic Zero-Retention Chute',
-    taglineAr: 'تروس تيتانيوم CNC 40 مم مع ضبط ميكروني فائق الدقة ومنفاخ تفريغ البن بالكامل',
-    badgeEn: 'Titanium Burrs',
-    badgeAr: 'تروس تيتانيوم',
-  },
-  {
-    id: 'banner-barista-classic',
-    productId: 'hb-barista-silver-pro',
-    titleEn: 'HiBrew Barista Classic Pro 20-Bar',
-    titleAr: 'ماكينة إسبريسو هاي برو بارستا كلاسيك 20 بار',
-    priceEn: 'SAR 1,499.00',
-    priceAr: '1,499.00 ر.س',
-    image: bannerImg3,
-    fallbackImage: bannerImg3,
-    taglineEn: 'Italian 20-Bar ULKA Pump · Precision Thermoblock · Commercial 58mm Group',
-    taglineAr: 'مضخة إيطالية 20 بار مع نظام تسخين سريع ومقبس تجاري 58مم لاستخلاص نقي',
-    badgeEn: 'Best Seller',
-    badgeAr: 'الأكثر مبيعاً',
-  },
-  {
-    id: 'banner-luxury-cabinet',
-    productId: 'hb-luxury-corner-station',
-    titleEn: 'HiBrew Master Luxury Oak Coffee Corner',
-    titleAr: 'ركن ودولاب القهوة الفاخر من خشب البلوط الطبيعي',
-    priceEn: 'SAR 2,890.00',
-    priceAr: '2,890.00 ر.س',
-    image: bannerImg4,
-    fallbackImage: bannerImg4,
-    taglineEn: 'Natural Solid Oak Wood · Heat-Proof Sintered Stone · Integrated Barista Power Rails',
-    taglineAr: 'خشب بلوط أمريكي طبيعي مع سطح حجر مقاوم للحرارة ومسار كهربائي مخفي للباريستا',
-    badgeEn: 'Handcrafted',
-    badgeAr: 'تفصيل فاخر',
-  },
-];
-
-// Helper to resolve an image safely (maps broken relative paths to real imported assets)
-const resolveBannerImage = (img: string | undefined, index: number): string => {
-  if (!img) {
-    const fallbacks = [bannerImg1, bannerImg2, bannerImg3, bannerImg4];
-    return fallbacks[index % fallbacks.length];
-  }
+/** DF-01 — merchant image only; never invent stock hero photos. */
+const resolveBannerImage = (img: string | undefined): string => {
+  if (!img) return '';
   const lower = img.toLowerCase();
+  if (lower.startsWith('http') || lower.startsWith('data:') || lower.startsWith('/')) return img;
   if (lower.includes('white_1') || lower.includes('flagship_machine')) return bannerImg1;
   if (lower.includes('white_2') || lower.includes('grinder') || lower.includes('mill')) return bannerImg2;
   if (lower.includes('white_3') || lower.includes('silver_pro') || lower.includes('classic')) return bannerImg3;
   if (lower.includes('cabinet') || lower.includes('corner') || lower.includes('1791217199146')) return bannerImg4;
-  if (lower.startsWith('http') || lower.startsWith('data:') || lower.startsWith('/')) return img;
-  const fallbacks = [bannerImg1, bannerImg2, bannerImg3, bannerImg4];
-  return fallbacks[index % fallbacks.length];
+  return img;
 };
 
 interface SlideSpec {
@@ -279,26 +215,33 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
     );
     if (activeHero.length > 0) {
       return activeHero.map((b, idx) => {
-        const fallback = ORIGINAL_HOME_SLIDES[idx % ORIGINAL_HOME_SLIDES.length];
         const currency = b.currency || 'SAR';
         const price = (b.price || '').trim();
+        const pickHeroImage = () => {
+          if (typeof window === 'undefined') return b.image || b.mobileImage;
+          const w = window.innerWidth;
+          if (w < 640) return b.mobileImage || b.tabletImage || b.image;
+          if (w < 1024) return b.tabletImage || b.image || b.mobileImage;
+          return b.image || b.tabletImage || b.mobileImage;
+        };
+        const image = resolveBannerImage(pickHeroImage());
         return {
-          id: b.id || fallback.id,
-          productId: b.productId || fallback.productId,
-          titleEn: b.titleEn || fallback.titleEn,
-          titleAr: b.titleAr || fallback.titleAr,
-          priceEn: b.showPrice !== false && price ? `${currency} ${price}` : fallback.priceEn,
-          priceAr: b.showPrice !== false && price ? `${price} ر.س` : fallback.priceAr,
-          image: resolveBannerImage(b.image || b.mobileImage, idx),
-          fallbackImage: fallback.image,
-          altEn: b.altEn || b.titleEn || fallback.titleEn,
-          altAr: b.altAr || b.titleAr || fallback.titleAr,
-          taglineEn: b.descriptionEn || fallback.taglineEn,
-          taglineAr: b.descriptionAr || fallback.taglineAr,
-          badgeEn: b.promoEn || fallback.badgeEn,
-          badgeAr: b.promoAr || fallback.badgeAr,
-          buttonTextEn: b.buyNowEn || b.learnMoreEn || fallback.buttonTextEn,
-          buttonTextAr: b.buyNowAr || b.learnMoreAr || fallback.buttonTextAr,
+          id: b.id || `hero-${idx}`,
+          productId: b.productId || '',
+          titleEn: b.titleEn || '',
+          titleAr: b.titleAr || '',
+          priceEn: b.showPrice !== false && price ? `${currency} ${price}` : '',
+          priceAr: b.showPrice !== false && price ? `${price} ر.س` : '',
+          image,
+          fallbackImage: '',
+          altEn: b.altEn || b.titleEn || '',
+          altAr: b.altAr || b.titleAr || '',
+          taglineEn: b.descriptionEn || '',
+          taglineAr: b.descriptionAr || '',
+          badgeEn: b.promoEn || '',
+          badgeAr: b.promoAr || '',
+          buttonTextEn: b.buyNowEn || b.learnMoreEn || '',
+          buttonTextAr: b.buyNowAr || b.learnMoreAr || '',
           buttonLink: learnMoreHref(b.learnMoreUrl, activeStore?.id || '') || '#products',
           buttonBgColor: undefined,
           buttonTextColor: b.textColor || undefined,
@@ -326,21 +269,20 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
       ) ?? false;
     if (configuredSlides && configuredSlides.length > 0 && !flowerLeak) {
       return configuredSlides.map((cs, idx) => {
-        const fallback = ORIGINAL_HOME_SLIDES[idx % ORIGINAL_HOME_SLIDES.length];
-        const safeImage = resolveBannerImage(cs.image, idx);
+        const safeImage = resolveBannerImage(cs.image);
         return {
-          id: cs.id || fallback.id,
-          productId: cs.productId || fallback.productId,
-          titleEn: cs.titleEn || cs.title || fallback.titleEn,
-          titleAr: cs.titleAr || cs.title || fallback.titleAr,
-          priceEn: cs.priceEn || fallback.priceEn,
-          priceAr: cs.priceAr || fallback.priceAr,
+          id: cs.id || `slide-${idx}`,
+          productId: cs.productId || '',
+          titleEn: cs.titleEn || cs.title || '',
+          titleAr: cs.titleAr || cs.title || '',
+          priceEn: cs.priceEn || '',
+          priceAr: cs.priceAr || '',
           image: safeImage,
-          fallbackImage: fallback.image,
-          taglineEn: cs.subtitleEn || cs.subtitle || fallback.taglineEn,
-          taglineAr: cs.subtitleAr || cs.subtitle || fallback.taglineAr,
-          badgeEn: cs.badgeEn || cs.badge || fallback.badgeEn,
-          badgeAr: cs.badgeAr || cs.badge || fallback.badgeAr,
+          fallbackImage: '',
+          taglineEn: cs.subtitleEn || cs.subtitle || '',
+          taglineAr: cs.subtitleAr || cs.subtitle || '',
+          badgeEn: cs.badgeEn || cs.badge || '',
+          badgeAr: cs.badgeAr || cs.badge || '',
           buttonTextEn: cs.buttonTextEn || cs.buttonText,
           buttonTextAr: cs.buttonTextAr || cs.buttonText,
           buttonLink: cs.buttonLink || cs.buttonUrl,
@@ -350,7 +292,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
       });
     }
     return [];
-  }, [themeSettings, banners]);
+  }, [themeSettings, banners, activeStore?.id]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(1);
@@ -636,13 +578,14 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
   const currentTitle = language === 'AR' ? activeSlide.titleAr : activeSlide.titleEn;
   const { boldPart, lightPart } = splitBannerHeading(currentTitle, language);
 
-  const matchedProduct =
-    catalogProducts.find((p) => p.id === activeSlide.productId) ||
-    PRODUCTS.find((p) => p.id === activeSlide.productId);
+  // DF-01 — store catalog only (no seed PRODUCTS invent for empty merchant copy)
+  const matchedProduct = activeSlide.productId
+    ? catalogProducts.find((p) => p.id === activeSlide.productId)
+    : undefined;
   const activeTagline =
     language === 'AR'
-      ? activeSlide.taglineAr || matchedProduct?.taglineAr
-      : activeSlide.taglineEn || matchedProduct?.tagline;
+      ? activeSlide.taglineAr || matchedProduct?.taglineAr || ''
+      : activeSlide.taglineEn || matchedProduct?.tagline || '';
 
   return (
     <section

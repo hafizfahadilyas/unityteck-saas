@@ -56,7 +56,7 @@ const loaders: Record<string, Loader> = {
       default: m.CoffeeAnnouncementsForm,
     })),
   'C-FCP': () =>
-    import('../themeSettings/coffee/CoffeeSectionForms').then((m) => ({
+    import('../themeSettings/coffee/CoffeeCategoryShowcaseForm').then((m) => ({
       default: m.FeaturedCategoriesProductsForm,
     })),
   'C-HERO': () =>
@@ -72,8 +72,8 @@ const loaders: Record<string, Loader> = {
       default: m.FeaturedProductsForm,
     })),
   'C-SHOP': () =>
-    import('../themeSettings/coffee/CoffeeSectionForms').then((m) => ({
-      default: m.CatalogControlsForm,
+    import('../themeSettings/coffee/CoffeeProductCatalogForm').then((m) => ({
+      default: m.CoffeeProductCatalogForm,
     })),
   'C-IMG': () =>
     import('../themeSettings/coffee/CoffeeSectionForms').then((m) => ({
@@ -88,11 +88,23 @@ const loaders: Record<string, Loader> = {
       default: m.CoffeeFeaturesForm,
     })),
   'C-BEN': () =>
-    import('../themeSettings/coffee/CoffeeSectionForms').then((m) => ({
+    import('../themeSettings/coffee/CoffeeBenefitsForm').then((m) => ({
       default: m.ExclusiveBenefitsForm,
     })),
+  'C-EVT': () =>
+    import('../themeSettings/coffee/CoffeeEventsForm').then((m) => ({
+      default: m.CoffeeEventsForm,
+    })),
+  'C-FEAT': () =>
+    import('../themeSettings/coffee/CoffeeFeaturesSectionForm').then((m) => ({
+      default: m.CoffeeFeaturesSectionForm,
+    })),
+  'C-CMP': () =>
+    import('../themeSettings/coffee/CoffeeModelComparisonForm').then((m) => ({
+      default: m.CoffeeModelComparisonForm,
+    })),
   'C-PC': () =>
-    import('../themeSettings/coffee/CoffeeSectionForms').then((m) => ({
+    import('../themeSettings/coffee/CoffeeProductCarouselForm').then((m) => ({
       default: m.ProductCarouselForm,
     })),
   'C-PCB': () =>
@@ -112,8 +124,24 @@ const loaders: Record<string, Loader> = {
       default: m.CustomOrderBuilderForm,
     })),
   'C-REV': () =>
-    import('../themeSettings/coffee/CoffeeSectionForms').then((m) => ({
-      default: m.CoffeeReviewsForm,
+    import('../themeSettings/coffee/CoffeeCustomerReviewsForm').then((m) => ({
+      default: m.CoffeeCustomerReviewsForm,
+    })),
+  'C-FAQ': () =>
+    import('../themeSettings/coffee/CoffeeFaqForm').then((m) => ({
+      default: m.CoffeeFaqForm,
+    })),
+  'C-COMM': () =>
+    import('../themeSettings/coffee/CoffeeCommercialHeroForm').then((m) => ({
+      default: m.CoffeeCommercialHeroForm,
+    })),
+  'C-PSL': () =>
+    import('../themeSettings/coffee/CoffeeProductSliderForm').then((m) => ({
+      default: m.CoffeeProductSliderForm,
+    })),
+  'C-COLL': () =>
+    import('../themeSettings/coffee/CoffeeProductCollectionForm').then((m) => ({
+      default: m.CoffeeProductCollectionForm,
     })),
 };
 

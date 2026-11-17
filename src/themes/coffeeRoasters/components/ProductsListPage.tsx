@@ -9,7 +9,12 @@ import { HonorProductCard } from './HonorProductCard';
 import { ShopFeaturedCarouselSection } from './ShopFeaturedCarouselSection';
 import { resolveProductThumbnail } from '../../../utils/imageFallback';
 import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
-import { productCardFlags, shopGridClass } from '../../settings/coffeeModularSettings';
+import { bi, shopGridClass } from '../../settings/coffeeModularSettings';
+import {
+  catalogPerPage,
+  shopCardFlags,
+  sortCatalogProducts,
+} from './coffeeProductCatalogLogic';
 import {
   Star,
   Search,
@@ -54,10 +59,34 @@ export const ProductsListPage: React.FC = () => {
     : activeStore?.nameEn || activeStore?.name || 'Coffee Store';
 
   const storeCurrency = isAr ? 'ر.س' : (activeStore?.currency || 'SAR');
-  const cardFlags = productCardFlags(
-    activeStore?.id ? resolveCoffeeThemeSettings(activeStore.id, activeStore).featuredProducts : null,
-  );
   const shopSettings = activeStore?.id ? resolveCoffeeThemeSettings(activeStore.id, activeStore).shop : undefined;
+  const shopFlags = shopCardFlags(shopSettings);
+  const cardFlags = {
+    showImage: true,
+    showTitle: true,
+    showPrice: shopFlags.showPrice,
+    showBadge: true,
+    showRating: true,
+    showStock: shopFlags.showStock,
+    showAddToCart: shopFlags.showAddToCart,
+    showGiftLabel: shopFlags.showGiftLabel,
+    showInstallment: shopFlags.showInstallment,
+    showBuyNow: shopFlags.showBuyNow,
+    showLearnMore: shopFlags.showLearnMore,
+    showOriginalPrice: shopFlags.showOriginalPrice,
+  };
+  const langKey = isAr ? 'ar' : 'en';
+  const catalogBadge =
+    bi(langKey, shopSettings?.badgeEn, shopSettings?.badgeAr) ||
+    (isAr ? 'الكتالوج المعتمد' : 'Official Catalog');
+  const catalogTitle =
+    bi(langKey, shopSettings?.titleEn, shopSettings?.titleAr) ||
+    (isAr ? 'استكشف جميع المنتجات والمعدات' : 'Explore All Coffee Gear & Products');
+  const catalogDesc =
+    bi(langKey, shopSettings?.descriptionEn, shopSettings?.descriptionAr) ||
+    (isAr
+      ? 'تصفح تشكيلة مكائن الإسبريسو، المطاحن، دواليب القهوة، ومستلزمات الباريستا مع أسعار شاملة للضريبة.'
+      : 'Browse our collection of espresso machines, mills, stations, and accessories with VAT-inclusive pricing.');
 
   // Master product source: priority to context products (which already merges database/API products)
   const masterProducts: Product[] = useMemo(() => {
@@ -114,13 +143,13 @@ export const ProductsListPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [priceRange, setPriceRange] = useState<number>(1000000);
   const [onlyInStock, setOnlyInStock] = useState<boolean>(false);
-  const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'rating'>(shopSettings?.defaultSort || 'featured');
+  const [sortBy, setSortBy] = useState(shopSettings?.defaultSort || 'featured');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [mobileViewMode, setMobileViewMode] = useState<'carousel' | 'grid'>('grid');
   const [activeMobileSlide, setActiveMobileSlide] = useState(0);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [recentlyAddedId, setRecentlyAddedId] = useState<string | null>(null);
-  const [visibleCount, setVisibleCount] = useState(shopSettings?.perPage || 24);
+  const [visibleCount, setVisibleCount] = useState(catalogPerPage(shopSettings));
   /** Header mega-menu hint: filter by category/name keywords when exact cat id is missing */
   const [catHint, setCatHint] = useState<string | null>(null);
 
@@ -214,23 +243,14 @@ export const ProductsListPage: React.FC = () => {
       result = result.filter(p => (Number(p.basePrice) || 0) > 0);
     }
 
-    // Sorting
-    if (sortBy === 'price-asc') {
-      result.sort((a, b) => (Number(a.basePrice) || 0) - (Number(b.basePrice) || 0));
-    } else if (sortBy === 'price-desc') {
-      result.sort((a, b) => (Number(b.basePrice) || 0) - (Number(a.basePrice) || 0));
-    } else if (sortBy === 'rating') {
-      result.sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0));
-    }
-
-    return result;
+    return sortCatalogProducts(result, sortBy) as Product[];
   }, [masterProducts, selectedCat, catHint, searchQuery, priceRange, onlyInStock, sortBy]);
 
   useEffect(() => {
-    setVisibleCount(shopSettings?.perPage || 24);
-  }, [selectedCat, searchQuery, priceRange, onlyInStock, sortBy]);
+    setVisibleCount(catalogPerPage(shopSettings));
+  }, [selectedCat, searchQuery, priceRange, onlyInStock, sortBy, shopSettings?.perPage]);
 
-  const visibleProducts = filteredProducts;
+  const visibleProducts = filteredProducts.slice(0, visibleCount);
 
   // Active filters count for clear button badge
   const activeFiltersCount = useMemo(() => {
@@ -443,45 +463,66 @@ export const ProductsListPage: React.FC = () => {
       <ShopTripleSlidersSection />
 
       {/* 4. Products Catalog Section with Interactive Filters */}
-      <section className="max-w-[1400px] mx-auto px-4 sm:px-8 py-8 sm:py-12 space-y-6 sm:space-y-8">
+      {shopSettings?.enabled === false ? (
+        <section className="max-w-[1400px] mx-auto px-4 sm:px-8 py-12" data-shop-catalog="off">
+          <div className="p-8 text-center text-sm text-neutral-400 border border-dashed border-neutral-200 rounded-2xl">
+            {isAr ? 'كتالوج المنتجات مخفي' : 'Product catalog is hidden'}
+          </div>
+        </section>
+      ) : (
+      <section
+        className="max-w-[1400px] mx-auto px-4 sm:px-8 py-8 sm:py-12 space-y-6 sm:space-y-8"
+        data-customize-section="C-SHOP"
+        data-shop-catalog="on"
+        style={{ paddingTop: shopSettings?.sectionPaddingY ?? undefined, paddingBottom: shopSettings?.sectionPaddingY ?? undefined }}
+      >
         
         {/* Section Header & Stats */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-neutral-200/80 pb-6">
           <div className="space-y-1.5 text-start">
+            {shopSettings?.showBadge !== false ? (
             <div className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 uppercase tracking-wider">
-              <span>{isAr ? 'الكتالوج المعتمد' : 'Official Catalog'}</span>
+              <span>{catalogBadge}</span>
               <span>·</span>
               <span>{storeName}</span>
             </div>
+            ) : null}
+            {shopSettings?.showTitle !== false ? (
             <h2 className="text-2xl sm:text-3xl font-black text-neutral-900 tracking-tight">
-              {isAr ? 'استكشف جميع المنتجات والمعدات' : 'Explore All Coffee Gear & Products'}
+              {catalogTitle}
             </h2>
+            ) : null}
+            {shopSettings?.showDescription !== false ? (
             <p className="text-xs sm:text-sm text-neutral-500">
-              {isAr
-                ? 'تصفح تشكيلة مكائن الإسبريسو، المطاحن، دواليب القهوة، ومستلزمات الباريستا مع أسعار شاملة للضريبة.'
-                : 'Browse our collection of espresso machines, mills, stations, and accessories with VAT-inclusive pricing.'}
+              {catalogDesc}
             </p>
+            ) : null}
           </div>
 
           {/* Action Toolbar */}
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             
             {/* Sort Dropdown */}
+            {shopSettings?.showSort !== false ? (
             <div className="relative inline-flex items-center">
               <ArrowUpDown className={`w-3.5 h-3.5 text-neutral-500 absolute ${isAr ? 'right-3' : 'left-3'} pointer-events-none`} />
               <select
                 value={sortBy}
-                onChange={e => setSortBy(e.target.value as any)}
+                onChange={e => setSortBy(e.target.value as typeof sortBy)}
                 className={`bg-white border border-neutral-200 text-neutral-800 text-xs font-medium rounded-full py-2 ${
                   isAr ? 'pr-8 pl-4' : 'pl-8 pr-4'
                 } hover:border-neutral-300 focus:outline-hidden focus:ring-1 focus:ring-black cursor-pointer shadow-2xs`}
               >
                 <option value="featured">{isAr ? 'الترتيب: المميز أولاً' : 'Sort: Featured'}</option>
+                <option value="newest">{isAr ? 'الأحدث' : 'Newest'}</option>
                 <option value="price-asc">{isAr ? 'السعر: من الأقل للأعلى' : 'Price: Low to High'}</option>
                 <option value="price-desc">{isAr ? 'السعر: من الأعلى للأقل' : 'Price: High to Low'}</option>
+                <option value="name-asc">{isAr ? 'الاسم' : 'Name A–Z'}</option>
+                <option value="best_selling">{isAr ? 'الأكثر مبيعاً' : 'Best selling'}</option>
                 <option value="rating">{isAr ? 'التقييم: الأعلى تقييماً' : 'Highest Rated'}</option>
               </select>
             </div>
+            ) : null}
 
             {/* Desktop View Mode Toggle (Grid vs List) */}
             <div className="hidden sm:inline-flex items-center bg-neutral-100 p-0.5 rounded-full border border-neutral-200/80">
@@ -550,7 +591,8 @@ export const ProductsListPage: React.FC = () => {
         </div>
 
         {/* Category Pills Strip */}
-        <div className="overflow-x-auto no-scrollbar whitespace-nowrap py-1 -mx-2 px-2">
+        {shopSettings?.showCategories !== false ? (
+        <div className="overflow-x-auto no-scrollbar whitespace-nowrap py-1 -mx-2 px-2" data-shop-categories="on">
           <div className="flex items-center gap-2 sm:gap-2.5 w-max">
             {dynamicCategories.map(cat => {
               const isSelected = selectedCat === cat.id;
@@ -569,6 +611,7 @@ export const ProductsListPage: React.FC = () => {
                   }`}
                 >
                   <span>{isAr ? cat.nameAr : cat.name}</span>
+                  {shopSettings?.showProductCount !== false ? (
                   <span
                     className={`text-[10px] px-1.5 py-0.2 rounded-full font-sans ${
                       isSelected ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-500'
@@ -576,17 +619,20 @@ export const ProductsListPage: React.FC = () => {
                   >
                     {cat.count}
                   </span>
+                  ) : null}
                 </button>
               );
             })}
           </div>
         </div>
+        ) : null}
 
         {shopSettings?.showFilters === false ? null : (
         <div data-shop-filters="on" className="bg-white rounded-2xl p-4 sm:p-5 border border-neutral-200/80 shadow-2xs space-y-3.5">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             
             {/* Price Range Slider */}
+            {shopSettings?.showPriceFilter !== false && (shopSettings?.priceFilterType || 'both') !== 'presets' ? (
             <div className="w-full md:w-auto flex-1 max-w-md space-y-1.5">
               <div className="flex items-center justify-between text-xs font-semibold text-neutral-700">
                 <span className="flex items-center gap-1 text-neutral-600">
@@ -607,8 +653,10 @@ export const ProductsListPage: React.FC = () => {
                 className="w-full accent-black cursor-pointer h-1.5 bg-neutral-200 rounded-lg appearance-none"
               />
             </div>
+            ) : null}
 
             {/* Quick Price Tier Chips */}
+            {shopSettings?.showPriceFilter !== false && (shopSettings?.priceFilterType || 'both') !== 'slider' ? (
             <div className="flex items-center gap-1.5 flex-wrap">
               <button
                 type="button"
@@ -644,9 +692,11 @@ export const ProductsListPage: React.FC = () => {
                 {isAr ? 'جميع الأسعار' : 'All Prices'}
               </button>
             </div>
+            ) : null}
 
             {/* In-Stock Toggle */}
             <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+              {shopSettings?.showInStockFilter !== false ? (
               <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-neutral-700">
                 <input
                   type="checkbox"
@@ -656,12 +706,16 @@ export const ProductsListPage: React.FC = () => {
                 />
                 <span>{isAr ? 'إظهار المتوفر فقط' : 'In-Stock Only'}</span>
               </label>
+              ) : null}
 
+              {shopSettings?.showResultsCount !== false ? (
+              <>
               <span className="text-neutral-300">|</span>
-
               <span className="text-xs text-neutral-500 font-sans">
                 {isAr ? `عرض${filteredProducts.length}من${masterProducts.length}` : `Showing ${filteredProducts.length} of ${masterProducts.length}`}
               </span>
+              </>
+              ) : null}
             </div>
 
           </div>
@@ -1141,6 +1195,7 @@ export const ProductsListPage: React.FC = () => {
         )}
 
       </section>
+      )}
 
       {/* 8.5. Bottom Featured Series Showcase Carousel (Only in Shop Page) */}
       <ShopFeaturedCarouselSection products={masterProducts} storeCurrency={storeCurrency} />

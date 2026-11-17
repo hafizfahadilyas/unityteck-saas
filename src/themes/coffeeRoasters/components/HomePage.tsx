@@ -2,27 +2,27 @@ import React, { Suspense, lazy, useState, useMemo, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
 import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
-import { bi, coffeeWhatsAppDigits } from '../../settings/coffeeModularSettings';
-import {
-  customLinkButton,
-  customLinkCategory,
-  customLinkSubtitle,
-  customLinkTitle,
-} from '../../settings/themeSettingsStore';
-import { HONOR_EVENTS } from '../data/products';
+import { bi } from '../../settings/coffeeModularSettings';
 import { HeroSlider3D } from './HeroSlider3D';
-import { InteractiveBannerCard } from './InteractiveBannerCard';
 import { CoffeeHomeModules } from './CoffeeHomeModules';
 import { CoffeeFeatureIconsBar, featureItemsForDevice } from './CoffeeFeatureIconsBar';
 import { ExclusivePerksBar } from './ExclusivePerksBar';
-import { ChevronRight, ChevronLeft, Sparkles, Truck, RotateCcw, ShieldCheck, Headphones, MessageCircle } from 'lucide-react';
+import { CoffeeEventsSection } from './CoffeeEventsSection';
+import { CoffeeFeaturesSection } from './CoffeeFeaturesSection';
+import { CoffeeModelComparisonSection } from './CoffeeModelComparisonSection';
+import { CoffeeCustomerReviewsHome } from './CoffeeCustomerReviewsHome';
+import { CoffeeFaqSection } from './CoffeeFaqSection';
+import { CoffeeCommercialHeroSection } from './CoffeeCommercialHeroSection';
+import { CoffeeProductSliderSection } from './CoffeeProductSliderSection';
+import { CoffeeProductCollectionSection } from './CoffeeProductCollectionSection';
+import { ChevronRight, ChevronLeft, Sparkles } from 'lucide-react';
 
 const FlagshipThreeJsSection = lazy(() =>
   import('./FlagshipThreeJsSection').then((m) => ({ default: m.FlagshipThreeJsSection })),
 );
 
 export const HomePage: React.FC = () => {
-  const { navigateTo, language, products, storeIdentity } = useCart();
+  const { navigateTo, language, products, storeIdentity, addToCart } = useCart();
   const { activeStore } = useTenant();
   const [activeCategoryTab, setActiveCategoryTab] = useState('all');
   const tabsContainerRef = React.useRef<HTMLDivElement>(null);
@@ -270,6 +270,51 @@ export const HomePage: React.FC = () => {
     <div className="min-h-screen bg-white text-neutral-900 pb-20 selection:bg-neutral-900 selection:text-white w-full max-w-full overflow-x-clip">
       {/* 1. Fast & Smooth Hero Slider (Honor KV Carousel Style) */}
       <HeroSlider3D variant="home" />
+
+      {/* Commercial Hero (C-COMM) — ≠ Hero Banners / FSB; empty slides hide */}
+      <CoffeeCommercialHeroSection
+        settings={themeSettings?.commercialHero}
+        lang={language === 'AR' ? 'ar' : 'en'}
+        onBuyNow={(slide) => {
+          if (slide.productId) navigateTo('product-buy', slide.productId);
+          else navigateTo('products');
+        }}
+        onAddToCart={(slide) => {
+          if (!slide.productId) return;
+          const p = (products || []).find((row) => row.id === slide.productId);
+          if (p) addToCart(p);
+        }}
+      />
+
+      {/* Product Slider (C-PSL) — ≠ Product Carousel; empty hides */}
+      <CoffeeProductSliderSection
+        settings={themeSettings?.productSlider}
+        catalog={products || []}
+        lang={language === 'AR' ? 'ar' : 'en'}
+        onBuyNow={(id) => navigateTo('product-buy', id)}
+        onOpenProduct={(id) => navigateTo('product-detail', id)}
+        onAddToCart={(id) => {
+          const p = (products || []).find((row) => row.id === id);
+          if (p) addToCart(p);
+        }}
+      />
+
+      {/* Product Collection (C-COLL) — promo + products + benefits; ≠ slider / PCB */}
+      <CoffeeProductCollectionSection
+        settings={themeSettings?.productCollection}
+        catalog={products || []}
+        lang={language === 'AR' ? 'ar' : 'en'}
+        onBuyNow={(id) => navigateTo('product-buy', id)}
+        onOpenProduct={(id) => navigateTo('product-detail', id)}
+        onAddToCart={(id) => {
+          const p = (products || []).find((row) => row.id === id);
+          if (p) addToCart(p);
+        }}
+        onPromoClick={(url) => {
+          if (url.startsWith('http')) window.open(url, '_blank', 'noopener,noreferrer');
+          else navigateTo('products');
+        }}
+      />
 
       {/* 2. Key Products Showcase — lazy so customizer/home first paint stays light */}
       <Suspense fallback={<div className="w-full min-h-[240px] bg-[#F9F9F9]" aria-hidden />}>
@@ -734,104 +779,31 @@ export const HomePage: React.FC = () => {
       {/* Exclusive benefits (C-BEN) */}
       {themeSettings?.exclusiveBenefits?.enabled !== false && <ExclusivePerksBar />}
 
-      {/* 5. Honor-Style Events & Masterclasses Section */}
-      <section data-customize-section="C-NEWS" className="w-full max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8 py-8 sm:py-16 space-y-6 sm:space-y-8 select-none overflow-hidden">
-        <div className="text-center max-w-3xl mx-auto py-2 sm:py-4 space-y-3">
-          <span className="inline-block text-xs font-bold text-neutral-600 uppercase tracking-widest bg-neutral-100 px-4 py-1.5 rounded-full">
-            {language === 'AR' ? 'ورش العمل والمجتمع' : 'Masterclasses & Community'}
-          </span>
-          <h2 className={`text-2xl sm:text-4xl font-extrabold text-neutral-900 text-center ${
-            language === 'AR' ? 'leading-[1.38] tracking-normal' : 'leading-tight tracking-[-0.01em]'
-          }`}>
-            {language === 'AR' ? 'فعاليات ومجتمع هايبرو' : 'HiBrew Events & Masterclasses'}
-          </h2>
-          <p className="text-xs sm:text-sm text-neutral-500 max-w-2xl mx-auto">
-            {language === 'AR'
-              ? 'انضم إلى فعاليات التذوق الاحترافية وورش عمل الباريستا المقامة في الرياض وجدة.'
-              : 'Join exclusive barista cupping sessions and technical extraction workshops across Saudi Arabia.'}
-          </p>
-        </div>
+      {/* 5. Events & Masterclasses — C-EVT / eventsMasterclasses only (DF-01: no HONOR/Mixkit invent) */}
+      <CoffeeEventsSection settings={themeSettings?.eventsMasterclasses} />
 
-        {/* 1 Large Main Banner + 2 Companion Cards Layout */}
-        {(() => {
-          const dynamicLinks = themeSettings?.customLinks?.links;
-          const link0 = dynamicLinks?.[0];
-          const link1 = dynamicLinks?.[1];
-          const link2 = dynamicLinks?.[2];
+      {/* Features Section (C-FEAT) — ≠ Feature Icons; empty hides */}
+      <CoffeeFeaturesSection
+        settings={themeSettings?.featuresSection}
+        lang={language === 'AR' ? 'ar' : 'en'}
+      />
 
-          const resolveLinkImage = (img: string | undefined, fallback: string) => {
-            if (!img) return fallback;
-            const lower = img.toLowerCase();
-            if (lower.startsWith('http') || lower.startsWith('data:') || lower.startsWith('/')) return img;
-            return fallback;
-          };
+      {/* Model Comparison (C-CMP) — settings models only; empty hides */}
+      <CoffeeModelComparisonSection
+        settings={themeSettings?.modelComparison}
+        lang={language === 'AR' ? 'ar' : 'en'}
+      />
 
-          return (
-            <div className="space-y-4 sm:space-y-6 w-full max-w-full">
-              {/* Main Full-Width Featured Event Banner */}
-              <InteractiveBannerCard
-                title={customLinkTitle(
-                  link0,
-                  language,
-                  language === 'AR' ? HONOR_EVENTS[0].titleAr || HONOR_EVENTS[0].title : HONOR_EVENTS[0].title,
-                )}
-                subtitle={customLinkSubtitle(
-                  link0,
-                  language,
-                  language === 'AR' ? HONOR_EVENTS[0].subtitleAr || HONOR_EVENTS[0].subtitle : HONOR_EVENTS[0].subtitle,
-                )}
-                image={resolveLinkImage(link0?.image, HONOR_EVENTS[0].image)}
-                videoUrl="https://assets.mixkit.co/videos/preview/mixkit-coffee-being-poured-into-a-cup-from-a-coffee-machine-42861-large.mp4"
-                size="large"
-                badge={customLinkCategory(link0, language, language === 'AR' ? 'ورشة الرياض ٢٠٢٦' : 'Riyadh Masterclass 2026')}
-                onClick={() => navigateTo('products')}
-                ctaText={customLinkButton(link0, language, language === 'AR' ? 'حجز المقعد واستكشاف الورشة' : 'Reserve & Learn More')}
-              />
+      {/* Customer Reviews (C-REV) — chrome from settings; rows from reviews API */}
+      <CoffeeCustomerReviewsHome settings={themeSettings?.customerReviews} />
 
-              {/* 2 Companion Half-Width Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 w-full">
-                <InteractiveBannerCard
-                  title={customLinkTitle(
-                    link1,
-                    language,
-                    language === 'AR' ? HONOR_EVENTS[1].titleAr || HONOR_EVENTS[1].title : HONOR_EVENTS[1].title,
-                  )}
-                  subtitle={customLinkSubtitle(
-                    link1,
-                    language,
-                    language === 'AR' ? HONOR_EVENTS[1].subtitleAr || HONOR_EVENTS[1].subtitle : HONOR_EVENTS[1].subtitle,
-                  )}
-                  image={resolveLinkImage(link1?.image, HONOR_EVENTS[1].image)}
-                  size="half"
-                  badge={customLinkCategory(link1, language, language === 'AR' ? 'استعراض الاستخلاص' : 'Extraction Demo')}
-                  onClick={() => navigateTo('products')}
-                  ctaText={customLinkButton(link1, language, language === 'AR' ? 'تفاصيل الورشة' : 'Learn More')}
-                />
+      {/* FAQ (C-FAQ) — bilingual Q/A from theme settings only */}
+      <CoffeeFaqSection
+        settings={themeSettings?.faq}
+        lang={language === 'AR' ? 'ar' : 'en'}
+      />
 
-                <InteractiveBannerCard
-                  title={customLinkTitle(
-                    link2,
-                    language,
-                    language === 'AR' ? HONOR_EVENTS[2].titleAr || HONOR_EVENTS[2].title : HONOR_EVENTS[2].title,
-                  )}
-                  subtitle={customLinkSubtitle(
-                    link2,
-                    language,
-                    language === 'AR' ? HONOR_EVENTS[2].subtitleAr || HONOR_EVENTS[2].subtitle : HONOR_EVENTS[2].subtitle,
-                  )}
-                  image={resolveLinkImage(link2?.image, HONOR_EVENTS[2].image)}
-                  size="half"
-                  badge={customLinkCategory(link2, language, language === 'AR' ? 'شراكات المحامص' : 'Roastery Partners')}
-                  onClick={() => navigateTo('products')}
-                  ctaText={customLinkButton(link2, language, language === 'AR' ? 'تفاصيل المعرض' : 'Explore Event')}
-                />
-              </div>
-            </div>
-          );
-        })()}
-      </section>
-
-      {/* 6. Feature icons (C-ICON) — Theme Settings driven; fallback keeps storefront look */}
+      {/* 6. Feature icons (C-ICON) — settings only; empty hides (DF-01) */}
       {featureItemsForDevice(themeSettings?.enhancedFeatures, 'responsive').length > 0 ? (
         <CoffeeFeatureIconsBar
           settings={themeSettings?.enhancedFeatures}
@@ -845,103 +817,7 @@ export const HomePage: React.FC = () => {
             ''
           }
         />
-      ) : (
-      <section className="w-full max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8 py-8 sm:py-10 overflow-hidden">
-        <div className="rounded-3xl bg-[#F8F9FA] p-5 sm:p-8 lg:p-12 w-full">
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6 lg:gap-8 text-start">
-            <div className="flex items-center sm:items-start gap-3 sm:gap-4">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-white flex items-center justify-center text-neutral-900 shrink-0 shadow-xs">
-                <Truck className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
-              <div className="space-y-0.5 sm:space-y-1 min-w-0">
-                <h4 className="font-bold text-xs sm:text-sm text-neutral-900 truncate">
-                  {language === 'AR' ? 'شحن فوري سريع' : 'Fast Free Express'}
-                </h4>
-                <p className="text-[11px] sm:text-xs text-neutral-500 line-clamp-2">
-                  {language === 'AR' ? 'مجاني للطلبات فوق 200 ر.س' : 'Free on orders above 200 SAR'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center sm:items-start gap-3 sm:gap-4">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-white flex items-center justify-center text-neutral-900 shrink-0 shadow-xs">
-                <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600" />
-              </div>
-              <div className="space-y-0.5 sm:space-y-1 min-w-0">
-                <h4 className="font-bold text-xs sm:text-sm text-neutral-900 truncate">
-                  {language === 'AR' ? 'ضمان الوكيل سنتين' : '2-Year Agency Warranty'}
-                </h4>
-                <p className="text-[11px] sm:text-xs text-neutral-500 line-clamp-2">
-                  {language === 'AR' ? 'صيانة وقطع غيار أصلية' : 'Authorized agency service center'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center sm:items-start gap-3 sm:gap-4">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-white flex items-center justify-center text-neutral-900 shrink-0 shadow-xs">
-                <RotateCcw className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
-              <div className="space-y-0.5 sm:space-y-1 min-w-0">
-                <h4 className="font-bold text-xs sm:text-sm text-neutral-900 truncate">
-                  {language === 'AR' ? 'استبدال 14 يوماً' : '14-Day Replacement'}
-                </h4>
-                <p className="text-[11px] sm:text-xs text-neutral-500 line-clamp-2">
-                  {language === 'AR' ? 'إرجاع أو استبدال ميسر' : 'Hassle-free return & exchange'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center sm:items-start gap-3 sm:gap-4">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-white flex items-center justify-center text-neutral-900 shrink-0 shadow-xs">
-                <Headphones className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
-              <div className="space-y-0.5 sm:space-y-1 min-w-0">
-                <h4 className="font-bold text-xs sm:text-sm text-neutral-900 truncate">
-                  {language === 'AR' ? 'دعم باريستا 24/7' : 'Barista Support 24/7'}
-                </h4>
-                <p className="text-[11px] sm:text-xs text-neutral-500 line-clamp-2">
-                  {language === 'AR' ? 'مساعدة في الاستخلاص والطحن' : 'Expert dialing-in guidance'}
-                </p>
-              </div>
-            </div>
-
-            <div
-              onClick={() => {
-                const cleanPhone = coffeeWhatsAppDigits(
-                  storeIdentity?.whatsapp ||
-                    (activeStore as any)?.whatsapp ||
-                    storeIdentity?.phone ||
-                    activeStore?.phone ||
-                    '',
-                );
-                if (!cleanPhone) return;
-                const msg = language === 'AR'
-                  ? 'السلام عليكم، أود الاستفسار وطلب تفصيل ركن قهوة مخصص حسب المقاسات والتصميم'
-                  : 'Hello, I would like to inquire about placing a custom coffee corner order.';
-                window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
-              }}
-              className="col-span-2 sm:col-span-1 flex items-center sm:items-start gap-3 sm:gap-4 cursor-pointer group/custom transition-all duration-200 active:scale-95 hover:opacity-90"
-              title={language === 'AR' ? 'تواصل عبر واتساب لطلب تفصيل مخصص' : 'Chat via WhatsApp for Custom Order'}
-            >
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-[#25D366]/10 flex items-center justify-center text-[#25D366] shrink-0 shadow-xs group-hover/custom:shadow-sm transition-shadow">
-                <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 group-hover/custom:scale-110 transition-transform duration-200 fill-[#25D366]" />
-              </div>
-              <div className="space-y-0.5 sm:space-y-1 min-w-0">
-                <h4 className="font-bold text-xs sm:text-sm text-neutral-900 truncate group-hover/custom:text-[#25D366] transition-colors flex items-center gap-1.5">
-                  <span>{language === 'AR' ? 'تصميم وتنفيذ حسب الطلب' : 'Custom Made to Order'}</span>
-                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#25D366]/15 text-[#20ba59]">
-                    {language === 'AR' ? 'واتساب' : 'WhatsApp'}
-                  </span>
-                </h4>
-                <p className="text-[11px] sm:text-xs text-neutral-500 line-clamp-2">
-                  {language === 'AR' ? 'تواصل مباشرة عبر واتساب لتفصيل ركنك' : 'Direct WhatsApp chat for custom coffee station'}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-      )}
+      ) : null}
     </div>
   );
 };

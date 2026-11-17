@@ -455,7 +455,16 @@ export interface AnnouncementBarSettings {
   showSeconds: boolean;
   showButton: boolean;
   buttonText: string;
+  /** Bilingual CTA — AR chrome never falls back to EN when `buttonTextAr` is set. */
+  buttonTextEn?: string;
+  buttonTextAr?: string;
   buttonLink: string;
+  /** Doc: Full Width vs Boxed. */
+  contentWidth?: 'full' | 'boxed';
+  /** Doc: Banner Height. */
+  barHeight?: 'auto' | 'compact' | 'tall';
+  /** Optional custom height in px (overrides preset padding). */
+  heightPx?: number;
   stickyOnScroll: boolean;
   showCloseButton: boolean;
   bgType: 'solid' | 'gradient' | 'glass';
@@ -463,7 +472,19 @@ export interface AnnouncementBarSettings {
   textColor: string;
   iconColor: string;
   desktopVersion: boolean;
+  /** CW-15 — tablet visibility (md–lg). */
+  tabletVersion?: boolean;
   mobileVersion: boolean;
+}
+
+/** Locale-pure announcement CTA label. */
+export function announcementButtonLabel(
+  bar: Pick<AnnouncementBarSettings, 'buttonText' | 'buttonTextEn' | 'buttonTextAr'> | null | undefined,
+  locale: 'ar' | 'en',
+): string {
+  if (!bar) return '';
+  if (locale === 'ar') return (bar.buttonTextAr || bar.buttonText || '').trim();
+  return (bar.buttonTextEn || bar.buttonText || '').trim();
 }
 
 /** Locale-pure announcement label — AR never falls back to EN (and vice versa) except legacy `text`. */
@@ -526,6 +547,8 @@ export interface EnhancedFeatureItem {
   iconColor?: string;
   iconSize?: number;
   iconShape?: FeatureIconShape;
+  /** When false, item is hidden on storefront but kept in settings. Default true. */
+  enabled?: boolean;
   showDesktop?: boolean;
   showTablet?: boolean;
   showMobile?: boolean;
@@ -553,9 +576,13 @@ export interface EnhancedFeaturesSettings {
   bgColor?: string;
   contentAlign?: FeatureContentAlign;
   itemSpacingDesktop?: number;
+  itemSpacingTablet?: number;
   itemSpacingMobile?: number;
   sectionPaddingDesktop?: number;
+  sectionPaddingTablet?: number;
   sectionPaddingMobile?: number;
+  /** Optional merchant CSS class on the storefront section (Code tab). */
+  customCssClass?: string;
 }
 
 export function featureItemTitle(

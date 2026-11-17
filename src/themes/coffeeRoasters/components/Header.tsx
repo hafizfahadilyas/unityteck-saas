@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
 import {
+  announcementButtonLabel,
   announcementMessageLabel,
   eligibleAnnouncements,
   type AnnouncementBarSettings,
@@ -51,9 +52,12 @@ function CoffeeAnnouncementStrip({
   const eligible = (eligibleAnnouncements(bar || undefined, locale) || []).filter(
     (m) => !FLOWER_ANN.test(`${m.text || ''} ${m.textEn || ''} ${m.textAr || ''}`),
   );
-  const useBar = Boolean(bar?.enabled && eligible.length > 0);
-  const useHeader = Boolean(headerAnn?.enabled && (headerAnn?.messages?.length || 0) > 0);
+  // DF-02 — explicit enabled:false hides; otherwise show when eligible messages exist
+  const useBar = Boolean(bar && bar.enabled !== false && eligible.length > 0);
+  // Prefer Word C-ANN `announcementBar` when active; headerAnn is secondary
+  const useHeader = Boolean(!useBar && headerAnn?.enabled && (headerAnn?.messages?.length || 0) > 0);
   const [idx, setIdx] = React.useState(0);
+  const [dismissed, setDismissed] = React.useState(false);
 
   React.useEffect(() => {
     if (!useBar || bar?.displayMode === 'stacked' || eligible.length < 2) return;
@@ -64,22 +68,72 @@ function CoffeeAnnouncementStrip({
     return () => window.clearInterval(t);
   }, [useBar, bar?.displayMode, bar?.animationSpeed, eligible.length]);
 
-  if (!useBar && !useHeader) return null;
+  if (dismissed || (!useBar && !useHeader)) return null;
+
+  const deviceHide = [
+    bar?.desktopVersion === false ? 'lg:hidden' : '',
+    bar?.tabletVersion === false ? 'md:max-lg:hidden' : '',
+    bar?.mobileVersion === false ? 'max-md:hidden' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const customPx = typeof bar?.heightPx === 'number' && bar.heightPx > 0 ? bar.heightPx : undefined;
+  const heightPad =
+    customPx
+      ? ''
+      : bar?.barHeight === 'compact'
+        ? 'py-1.5'
+        : bar?.barHeight === 'tall'
+          ? 'py-3.5'
+          : 'py-2';
+  const heightStyle = customPx ? { minHeight: customPx, paddingTop: 8, paddingBottom: 8 } : undefined;
+  const stickyCls = bar?.stickyOnScroll ? 'sticky top-0 z-[60]' : 'relative z-50';
+  const widthCls =
+    bar?.contentWidth === 'boxed' ? 'max-w-6xl mx-auto w-full px-4' : 'w-full';
+  const ctaLabel = announcementButtonLabel(bar, locale);
+  const ctaHref = (bar?.buttonLink || '').trim();
+  const showCta = Boolean(bar?.showButton && ctaLabel);
+  const showClose = Boolean(bar?.showCloseButton);
+
+  const renderCta = () =>
+    showCta ? (
+      <a
+        href={ctaHref || '#'}
+        className="ms-2 inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-black bg-white/15 hover:bg-white/25 border border-white/30"
+      >
+        {ctaLabel}
+      </a>
+    ) : null;
+
+  const closeBtn = showClose ? (
+    <button
+      type="button"
+      aria-label={language === 'AR' ? 'إغلاق الإعلان' : 'Close announcement'}
+      className="ms-2 p-0.5 opacity-70 hover:opacity-100 cursor-pointer"
+      onClick={() => setDismissed(true)}
+    >
+      ×
+    </button>
+  ) : null;
 
   if (useBar && bar?.displayMode === 'stacked') {
     return (
-      <div className="w-full relative z-50">
+      <div className={`${widthCls} ${stickyCls} ${deviceHide}`} data-ann-chrome="stacked">
         {eligible.map((m) => (
           <div
             key={m.id}
             style={{
               backgroundColor: m.bgColor || bar?.bgColor || '#000000',
               color: m.textColor || bar?.textColor || '#FFFFFF',
+              ...heightStyle,
             }}
-            className="w-full text-xs font-bold py-2 px-4 text-center flex items-center justify-center gap-2"
+            className={`${heightPad} text-xs font-bold px-4 text-center flex items-center justify-center gap-2`}
           >
             <Sparkles className="w-3.5 h-3.5 shrink-0 text-amber-400" />
             <span>{announcementMessageLabel(m, locale)}</span>
+            {renderCta()}
+            {closeBtn}
           </div>
         ))}
       </div>
@@ -95,8 +149,10 @@ function CoffeeAnnouncementStrip({
         style={{
           backgroundColor: m.bgColor || bar?.bgColor || '#000000',
           color: m.textColor || bar?.textColor || '#FFFFFF',
+          ...heightStyle,
         }}
-        className="w-full text-xs font-bold py-2 px-4 text-center transition-all duration-300 relative z-50 flex items-center justify-center gap-2"
+        className={`${widthCls} text-xs font-bold ${heightPad} px-4 text-center transition-all duration-300 ${stickyCls} ${deviceHide} flex items-center justify-center gap-2`}
+        data-ann-chrome="bar"
       >
         {mode === 'single' && eligible.length > 1 ? (
           <button
@@ -110,6 +166,7 @@ function CoffeeAnnouncementStrip({
         ) : null}
         <Sparkles className="w-3.5 h-3.5 shrink-0 text-amber-400" />
         <span>{announcementMessageLabel(m, locale)}</span>
+        {renderCta()}
         {mode === 'single' && eligible.length > 1 ? (
           <button
             type="button"
@@ -120,6 +177,7 @@ function CoffeeAnnouncementStrip({
             <ChevronRight className={`w-3.5 h-3.5 ${isAr ? 'rotate-180' : ''}`} />
           </button>
         ) : null}
+        {closeBtn}
       </div>
     );
   }
@@ -127,16 +185,14 @@ function CoffeeAnnouncementStrip({
   const bg = headerAnn?.bgColor || '#000000';
   const fg = headerAnn?.textColor || '#FFFFFF';
   const text = isAr
-    ? headerAnn?.messages?.[0]?.textAr ||
-      headerAnn?.messages?.[0]?.text ||
-      'شحن سريع لجميع مدن المملكة | ضمان سنتين معتمد'
-    : headerAnn?.messages?.[0]?.textEn ||
-      headerAnn?.messages?.[0]?.text ||
-      'Express delivery across KSA | 2-Year Official Saudi Warranty';
+    ? (headerAnn?.messages?.[0]?.textAr || headerAnn?.messages?.[0]?.text || '').trim()
+    : (headerAnn?.messages?.[0]?.textEn || headerAnn?.messages?.[0]?.text || '').trim();
+  if (!text) return null;
   return (
     <div
       style={{ backgroundColor: bg, color: fg }}
       className="w-full text-xs font-bold py-2 px-4 text-center transition-all duration-300 relative z-50 flex items-center justify-center gap-2"
+      data-ann-chrome="header-fallback"
     >
       <Sparkles className="w-3.5 h-3.5 shrink-0 text-amber-400" />
       <span>{text}</span>
@@ -395,10 +451,27 @@ export const Header: React.FC = () => {
     && (logoUrl.includes('/stores/') || logoUrl.includes('?v='));
   const navLabel = (link: { labelAr?: string; labelEn?: string }) =>
     ((isArLang ? link.labelAr : link.labelEn) || '').trim();
+  const navEnabled = headerSettings?.navigation?.enabled !== false;
+  const showCompareButton = headerSettings?.navigation?.showCompareButton !== false;
+  const showViewMoreButton = headerSettings?.navigation?.showViewMoreButton !== false;
+  const compareLabel = (
+    isArLang
+      ? headerSettings?.navigation?.compareButtonLabelAr
+      : headerSettings?.navigation?.compareButtonLabelEn
+  )?.trim();
+  const viewMoreLabel = (
+    isArLang
+      ? headerSettings?.navigation?.viewMoreLabelAr
+      : headerSettings?.navigation?.viewMoreLabelEn
+  )?.trim();
   const customDesktop = (headerSettings?.navigation?.desktopLinks || [])
+    .filter((link) => link.active !== false && navLabel(link));
+  const customTablet = (headerSettings?.navigation?.tabletLinks || [])
     .filter((link) => link.active !== false && navLabel(link));
   const customMobile = (headerSettings?.navigation?.mobileLinks || [])
     .filter((link) => link.active !== false && navLabel(link));
+  const megaMax = Math.min(12, Math.max(2, Number(headerSettings?.navigation?.menuMaxProducts) || 5));
+  const megaSource = headerSettings?.navigation?.menuProductSource || 'category';
   const openShopWithHint = (hint: string) => {
     try {
       sessionStorage.setItem('unityteck-shop-cat-hint', hint);
@@ -465,14 +538,26 @@ export const Header: React.FC = () => {
     scheduleMenuClose(160);
   };
 
-  // Get active products for current mega menu and sub-filter
+  // Get active products for current mega menu and sub-filter (store catalog only)
   const currentMenu = renderedMegaMenu || activeMegaMenu || 'machines';
   const getActiveProducts = (): MegaProductItem[] => {
     const menuToUse = renderedMegaMenu || activeMegaMenu || 'machines';
     if (!menuToUse || menuToUse === 'explore') return [];
     const cat = dynamicMegaCatalog[menuToUse];
     if (!cat) return [];
-    return cat[activeSubFilter] || cat['latest'] || [];
+    if (megaSource === 'manual') {
+      const ids = (headerSettings?.navigation?.menuProductIds || []).filter(Boolean);
+      const pool = Object.values(cat).flat();
+      const picked = ids
+        .map((id) => pool.find((p) => p.id === id))
+        .filter((p): p is MegaProductItem => Boolean(p));
+      if (picked.length) return picked.slice(0, megaMax);
+    }
+    if (megaSource === 'latest') {
+      return (cat.latest || []).slice(0, megaMax);
+    }
+    const bucket = cat[activeSubFilter] || cat.latest || [];
+    return bucket.slice(0, megaMax);
   };
 
   const activeProducts = getActiveProducts();
@@ -613,8 +698,36 @@ export const Header: React.FC = () => {
             </button>
           </div>
 
+          {/* 2b. Tablet custom links (md–lg) when merchant set tabletLinks */}
+          {customTablet.length > 0 ? (
+            <nav
+              className={`hidden md:flex lg:hidden items-center justify-center flex-1 min-w-0 mx-2 gap-2 text-[12px] font-normal text-neutral-800 h-16 whitespace-nowrap ${
+                navEnabled ? '' : 'invisible pointer-events-none'
+              }`}
+              data-main-menu-tablet={navEnabled ? 'on' : 'off'}
+              aria-hidden={!navEnabled}
+            >
+              {customTablet.map((link) => (
+                <button
+                  key={link.id}
+                  type="button"
+                  onClick={() => followHeaderLink(link.url)}
+                  className="py-2 px-1 transition-colors cursor-pointer relative whitespace-nowrap text-neutral-700 hover:text-black font-normal"
+                >
+                  <span>{navLabel(link)}</span>
+                </button>
+              ))}
+            </nav>
+          ) : null}
+
           {/* 2. Center: Desktop Nav Items (Flex in-flow layout ensuring zero overlap in both RTL Arabic and LTR English) */}
-          <nav className="hidden lg:flex items-center justify-center flex-1 min-w-0 mx-2 lg:mx-3 xl:mx-4 2xl:mx-6 gap-2 lg:gap-2.5 xl:gap-3.5 2xl:gap-5 text-[12px] lg:text-[12.5px] xl:text-[13px] 2xl:text-[13.5px] font-normal text-neutral-800 h-16 whitespace-nowrap">
+          <nav
+            className={`${customTablet.length > 0 ? 'hidden lg:flex' : 'hidden md:flex lg:flex'} items-center justify-center flex-1 min-w-0 mx-2 lg:mx-3 xl:mx-4 2xl:mx-6 gap-2 lg:gap-2.5 xl:gap-3.5 2xl:gap-5 text-[12px] lg:text-[12.5px] xl:text-[13px] 2xl:text-[13.5px] font-normal text-neutral-800 h-16 whitespace-nowrap ${
+              navEnabled ? '' : 'invisible pointer-events-none'
+            }`}
+            data-main-menu={navEnabled ? 'on' : 'off'}
+            aria-hidden={!navEnabled}
+          >
             {customDesktop.length > 0 ? customDesktop.map((link) => (
               <div key={link.id} className="relative h-full flex items-center shrink-0" onMouseEnter={() => scheduleMenuClose(80)}>
                 <button
@@ -1353,7 +1466,7 @@ export const Header: React.FC = () => {
                   key={`${currentMenu}-${activeSubFilter}`}
                   className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-3.5 lg:gap-4.5 w-full items-stretch justify-center"
                 >
-                  {activeProducts.slice(0, 5).map((prod, idx) => {
+                  {activeProducts.map((prod, idx) => {
                     const animClass =
                       idx === 0
                         ? 'animate-honor-card-1'
@@ -1400,34 +1513,57 @@ export const Header: React.FC = () => {
 
                 {/* Bottom Action Pill Buttons */}
                 <div className="flex items-center justify-center gap-3.5 mt-5">
-                  <button
-                    onClick={() => {
-                      closeMenuImmediately();
-                      navigateTo('products');
-                    }}
-                    className="flex items-center gap-2 px-6 py-2 rounded-full border border-[#D2D2D7] hover:border-black text-[12.5px] font-normal text-[#111111] bg-white transition-all duration-200 cursor-pointer shadow-none hover:shadow-2xs"
-                  >
-                    <LayoutGrid className="w-3.5 h-3.5 text-[#111111]" />
-                    <span>{language === 'AR' ? 'عرض المزيد من المنتجات' : 'More Products'}</span>
-                  </button>
+                  {showViewMoreButton ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        closeMenuImmediately();
+                        const moreUrl = (headerSettings?.navigation?.viewMoreUrl || '').trim();
+                        if (moreUrl) {
+                          followHeaderLink(moreUrl);
+                          return;
+                        }
+                        navigateTo('products');
+                      }}
+                      className="flex items-center gap-2 px-6 py-2 rounded-full border border-[#D2D2D7] hover:border-black text-[12.5px] font-normal text-[#111111] bg-white transition-all duration-200 cursor-pointer shadow-none hover:shadow-2xs"
+                      data-nav-view-more="on"
+                    >
+                      <LayoutGrid className="w-3.5 h-3.5 text-[#111111]" />
+                      <span>
+                        {viewMoreLabel ||
+                          (language === 'AR' ? 'عرض المزيد من المنتجات' : 'More Products')}
+                      </span>
+                    </button>
+                  ) : null}
 
-                  <button
-                    onClick={() => {
-                      closeMenuImmediately();
-                      const el = document.getElementById('specs-comparison-section');
-                      if (el) {
-                        el.scrollIntoView({ behavior: 'smooth' });
-                        return;
-                      }
-                      const first = activeProducts[0] || dynamicMegaCatalog.machines.latest[0];
-                      if (first?.id) navigateTo('product-buy', first.id);
-                      else navigateTo('products');
-                    }}
-                    className="flex items-center gap-2 px-6 py-2 rounded-full border border-[#D2D2D7] hover:border-black text-[12.5px] font-normal text-[#111111] bg-white transition-all duration-200 cursor-pointer shadow-none hover:shadow-2xs"
-                  >
-                    <Columns className="w-3.5 h-3.5 text-[#111111]" />
-                    <span>{language === 'AR' ? 'مقارنة المواصفات' : 'Compare'}</span>
-                  </button>
+                  {showCompareButton ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        closeMenuImmediately();
+                        const compareUrl = (headerSettings?.navigation?.comparePageUrl || '').trim();
+                        if (compareUrl) {
+                          followHeaderLink(compareUrl);
+                          return;
+                        }
+                        const el = document.getElementById('specs-comparison-section');
+                        if (el) {
+                          el.scrollIntoView({ behavior: 'smooth' });
+                          return;
+                        }
+                        const first = activeProducts[0] || dynamicMegaCatalog.machines.latest[0];
+                        if (first?.id) navigateTo('product-buy', first.id);
+                        else navigateTo('products');
+                      }}
+                      className="flex items-center gap-2 px-6 py-2 rounded-full border border-[#D2D2D7] hover:border-black text-[12.5px] font-normal text-[#111111] bg-white transition-all duration-200 cursor-pointer shadow-none hover:shadow-2xs"
+                      data-nav-compare="on"
+                    >
+                      <Columns className="w-3.5 h-3.5 text-[#111111]" />
+                      <span>
+                        {compareLabel || (language === 'AR' ? 'مقارنة المواصفات' : 'Compare')}
+                      </span>
+                    </button>
+                  ) : null}
                 </div>
               </div>
           </div>

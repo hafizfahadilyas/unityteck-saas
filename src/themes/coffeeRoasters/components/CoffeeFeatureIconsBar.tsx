@@ -19,16 +19,17 @@ import {
   Truck,
   Wrench,
 } from 'lucide-react';
+import { featureLinkKind, type EnhancedFeatureItem, type EnhancedFeaturesSettings } from '../../settings/themeSettingsStore';
+import { coffeeWhatsAppDigits } from '../../settings/coffeeModularSettings';
 import {
   featureItemDescription,
   featureItemTitle,
-  featureLinkKind,
-  featureShowsOn,
-  type EnhancedFeatureItem,
-  type EnhancedFeaturesSettings,
+  featureItemsForDevice,
+  safeFeatureImage,
   type FeaturePreviewDevice,
-} from '../../settings/themeSettingsStore';
-import { coffeeWhatsAppDigits } from '../../settings/coffeeModularSettings';
+} from './coffeeFeatureIconsLogic';
+
+export { featureItemsForDevice, safeFeatureImage } from './coffeeFeatureIconsLogic';
 
 export const FEATURE_ICON_LIBRARY: { name: string; Icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }> }[] = [
   { name: 'Truck', Icon: Truck },
@@ -52,31 +53,6 @@ export const FEATURE_ICON_LIBRARY: { name: string; Icon: React.ComponentType<{ c
 ];
 
 const ICON_MAP = Object.fromEntries(FEATURE_ICON_LIBRARY.map((row) => [row.name, row.Icon]));
-
-export function safeFeatureImage(url?: string): string {
-  const value = (url || '').trim();
-  if (!value) return '';
-  if (/unsplash\.com|images\.unsplash|picsum\.photos|placeholder\.com/i.test(value)) return '';
-  return value;
-}
-
-export function featureItemsForDevice(
-  settings: EnhancedFeaturesSettings | null | undefined,
-  device: FeaturePreviewDevice | 'responsive',
-  opts?: { includeEmpty?: boolean },
-): EnhancedFeatureItem[] {
-  if (!settings?.enabled) return [];
-  return (settings.features || []).filter((item) => {
-    const title = featureItemTitle(item, 'en') || featureItemTitle(item, 'ar');
-    const description = featureItemDescription(item, 'en') || featureItemDescription(item, 'ar');
-    const image = item.mediaType === 'image' ? safeFeatureImage(item.imageUrl) : '';
-    if (!opts?.includeEmpty && !title && !description && !image) return false;
-    if (device === 'responsive') {
-      return item.showDesktop !== false || item.showTablet !== false || item.showMobile !== false;
-    }
-    return featureShowsOn(item, device);
-  });
-}
 
 function shapeRadius(shape: EnhancedFeatureItem['iconShape']): string {
   if (shape === 'circle') return '999px';
@@ -130,8 +106,18 @@ export const CoffeeFeatureIconsBar: React.FC<{
       : device === 'tablet'
         ? settings.itemsPerRowTablet || 2
         : settings.itemsPerRowDesktop || 4;
-  const gap = device === 'mobile' || device === 'tablet' ? settings.itemSpacingMobile ?? 16 : settings.itemSpacingDesktop ?? 32;
-  const pad = device === 'mobile' ? settings.sectionPaddingMobile ?? 16 : settings.sectionPaddingDesktop ?? 24;
+  const gap =
+    device === 'mobile'
+      ? settings.itemSpacingMobile ?? 16
+      : device === 'tablet'
+        ? settings.itemSpacingTablet ?? settings.itemSpacingMobile ?? 16
+        : settings.itemSpacingDesktop ?? 32;
+  const pad =
+    device === 'mobile'
+      ? settings.sectionPaddingMobile ?? 16
+      : device === 'tablet'
+        ? settings.sectionPaddingTablet ?? settings.sectionPaddingMobile ?? 16
+        : settings.sectionPaddingDesktop ?? 24;
 
   const gridStyle: React.CSSProperties | undefined =
     device === 'responsive'
@@ -252,9 +238,18 @@ export const CoffeeFeatureIconsBar: React.FC<{
     </>
   );
 
+  const cssClass = (settings.customCssClass || '').trim();
+
   if (variant === 'frame') {
-    return <div className="p-2">{body}</div>;
+    return <div className={`p-2 ${cssClass}`.trim()}>{body}</div>;
   }
 
-  return <section data-customize-section="C-ICON" className="w-full max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8 py-8 sm:py-10">{body}</section>;
+  return (
+    <section
+      data-customize-section="C-ICON"
+      className={`w-full max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8 py-8 sm:py-10 ${cssClass}`.trim()}
+    >
+      {body}
+    </section>
+  );
 };

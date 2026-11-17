@@ -385,9 +385,9 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
                 </label>
                 <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-1 rounded-xl">
                   {[
-                    { id: 'slider', labelAr: 'سلايدر كاروسيل', labelEn: 'Carousel' },
+                    { id: 'slider', labelAr: 'عرض متحرك', labelEn: 'Carousel' },
                     { id: 'grid', labelAr: 'شبكة منتجات', labelEn: 'Grid' },
-                    { id: 'bento', labelAr: 'بينتو تفاعلي', labelEn: 'Bento' },
+                    { id: 'bento', labelAr: 'شبكة مربعات تفاعلية', labelEn: 'Bento' },
                   ].map((mode) => (
                     <button
                       key={mode.id}

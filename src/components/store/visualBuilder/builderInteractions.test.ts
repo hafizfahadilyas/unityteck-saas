@@ -1,14 +1,20 @@
 import assert from 'node:assert/strict';
 import {
+  applyChromeSafeDrop,
   applyDrop,
   blocksForPublish,
+  clampInsertIndexForChrome,
   columnTemplate,
   countVisibleH1,
   createCoalescedSaver,
   duplicateBlock,
+  duplicateBlockChromeSafe,
+  isFixedChromeBlock,
   moveBlock,
+  moveBlockChromeSafe,
   nestIntoColumns,
   removeBlock,
+  removeBlockChromeSafe,
   rowSection,
   widgetPosition,
   withVisibility,
@@ -30,6 +36,38 @@ const dropped = applyDrop(['a', 'b', 'c'], 0, 2);
 assert.deepEqual(dropped.items, ['b', 'c', 'a']);
 assert.equal(applyDrop(['a'], 0, 5).accepted, false);
 assert.equal(applyDrop(['a'], 0, 5).items[0], 'a');
+
+// CT-01: top bar / navbar / footer fixed chrome
+assert.equal(isFixedChromeBlock({ type: 'announcement', id: 'announcement' }), true);
+assert.equal(isFixedChromeBlock({ type: 'header', id: 'header' }), true);
+assert.equal(isFixedChromeBlock({ type: 'navbar', id: 'navbar' }), true);
+assert.equal(isFixedChromeBlock({ type: 'footer', id: 'footer' }), true);
+assert.equal(isFixedChromeBlock({ type: 'hero_banners', id: 'hero' }), false);
+
+const chromeTree = [
+  { id: 'announcement', type: 'announcement' },
+  { id: 'header', type: 'header' },
+  { id: 'hero', type: 'hero_banners' },
+  { id: 'products', type: 'featured_products' },
+  { id: 'footer', type: 'footer' },
+];
+assert.equal(applyChromeSafeDrop(chromeTree, 0, 2).accepted, false);
+assert.equal(applyChromeSafeDrop(chromeTree, 4, 2).accepted, false);
+assert.equal(applyChromeSafeDrop(chromeTree, 2, 0).accepted, false);
+const bodyDrop = applyChromeSafeDrop(chromeTree, 2, 3);
+assert.equal(bodyDrop.accepted, true);
+assert.deepEqual(bodyDrop.items.map((b) => b.id), ['announcement', 'header', 'products', 'hero', 'footer']);
+assert.equal(moveBlockChromeSafe(chromeTree, 'header', 1), chromeTree);
+assert.deepEqual(
+  moveBlockChromeSafe(chromeTree, 'hero', 1).map((b) => b.id),
+  ['announcement', 'header', 'products', 'hero', 'footer'],
+);
+assert.equal(duplicateBlockChromeSafe(chromeTree, 'footer', 'footer_copy').length, chromeTree.length);
+assert.equal(removeBlockChromeSafe(chromeTree, 'announcement').length, chromeTree.length);
+assert.equal(removeBlockChromeSafe(chromeTree, 'hero').length, 4);
+assert.equal(clampInsertIndexForChrome(chromeTree, 0), 2);
+assert.equal(clampInsertIndexForChrome(chromeTree, 99), 4);
+assert.equal(clampInsertIndexForChrome(chromeTree, 3), 3);
 
 const nested = nestIntoColumns({ 0: [] }, 2, 1, { id: 'w1' });
 assert.equal(nested.accepted, true);
