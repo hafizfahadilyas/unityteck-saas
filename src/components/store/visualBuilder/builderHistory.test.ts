@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';
-import { isHistoryShortcut, pushHistory, redoHistory, seedHistory, undoHistory } from './builderHistory.ts';
+import {
+  isClipboardShortcut,
+  isHistoryShortcut,
+  pushHistory,
+  redoHistory,
+  seedHistory,
+  undoHistory,
+} from './builderHistory.ts';
 import { blocksFromLayout, builderPageMeta } from './builderPages.ts';
 
 const treeA = [{ id: 'header' }];
@@ -17,6 +24,18 @@ assert.equal(
 assert.equal(
   isHistoryShortcut({ key: 'z', ctrlKey: true, metaKey: false, shiftKey: true, altKey: false }),
   'redo',
+);
+assert.equal(
+  isClipboardShortcut({ key: 'c', ctrlKey: true, metaKey: false, shiftKey: false, altKey: false }),
+  'copy',
+);
+assert.equal(
+  isClipboardShortcut({ key: 'v', ctrlKey: true, metaKey: false, shiftKey: false, altKey: false }),
+  'paste',
+);
+assert.equal(
+  isClipboardShortcut({ key: 'd', ctrlKey: true, metaKey: false, shiftKey: false, altKey: false }),
+  'duplicate',
 );
 assert.equal(builderPageMeta('catalog').slug, 'shop');
 assert.equal(builderPageMeta('home').type, 'home');

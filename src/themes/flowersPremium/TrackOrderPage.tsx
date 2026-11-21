@@ -20,6 +20,7 @@ import type { Order } from '../../types';
 import { isApiEnabled } from '../../api/client';
 import { trackStorefrontOrder, type StorefrontTrackOrderResult } from '../../api/tenantApi';
 import { trackingStatusLabel } from '../../utils/orderTrackingDisplay';
+import { resolveStoreContact } from '../settings/storeContact';
 
 interface TrackOrderPageProps {
   lang: string;
@@ -389,13 +390,21 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
             <span>{isAr ? 'خدمة عملاء زهور مكة متاحة على مدار الساعة' : 'Makkah Florist Concierge 24/7 Available'}</span>
           </span>
-          <a
-            href="tel:+966504428819"
-            className="font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
-          >
-            <Phone className="w-3.5 h-3.5" />
-            <span>+966 50 442 8819</span>
-          </a>
+          {(() => {
+            if (!storeId) return null;
+            const c = resolveStoreContact(storeId);
+            const display = c.phone || c.whatsapp;
+            if (!display) return null;
+            return (
+              <a
+                href={`tel:${c.phoneDigits || c.whatsappDigits}`}
+                className="font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span dir="ltr">{display}</span>
+              </a>
+            );
+          })()}
         </div>
       </div>
     </div>

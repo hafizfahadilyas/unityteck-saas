@@ -51,6 +51,10 @@ const files = [
     remote: 'app/Http/Controllers/Api/StoreController.php',
   },
   {
+    local: 'apps/api/app/Http/Controllers/Api/StoreThemeController.php',
+    remote: 'app/Http/Controllers/Api/StoreThemeController.php',
+  },
+  {
     local: 'apps/api/app/Http/Controllers/Api/AuthController.php',
     remote: 'app/Http/Controllers/Api/AuthController.php',
   },

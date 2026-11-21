@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE, cleanImageUrl } from '../../../utils/imageFallback';
 import { readAllThemeSettings } from '../../settings/themeSettingsStore';
+import { resolveStoreContact } from '../../settings/storeContact';
 
 interface ProductCardProps {
   product: Product;
@@ -70,15 +71,17 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({ product }) 
     toggleWishlist(product.id);
   };
 
-  const storePhone = (activeStore as any)?.phone || '966500000000';
-  const cleanPhone = storePhone.replace(/[^0-9]/g, '');
+  const cleanPhone = activeStore?.id
+    ? resolveStoreContact(activeStore.id, activeStore).whatsappDigits
+    : '';
 
   const handleWhatsAppOrder = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!cleanPhone) return;
     const text = isAr
-      ? `السلام عليكم، أود طلب المنتج: *${productName}* بسعر${product.price}ر.س من متجر${activeStore?.name || 'الزهور'}`
-      : `Hello, I would like to order: *${productName}* for SAR ${product.price} from ${activeStore?.name || 'Flowers Store'}`;
-    const url = `https://wa.me/${cleanPhone || '966500000000'}?text=${encodeURIComponent(text)}`;
+      ? `السلام عليكم، أود طلب المنتج: *${productName}* بسعر${product.price}ر.س من متجر${activeStore?.name || ''}`
+      : `Hello, I would like to order: *${productName}* for SAR ${product.price} from ${activeStore?.name || 'Store'}`;
+    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
     if (typeof window !== 'undefined') {
       window.open(url, '_blank');
     }

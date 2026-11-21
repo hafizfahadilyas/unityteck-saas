@@ -1,0 +1,133 @@
+/**
+ * Visual Theme Builder — Holst chrome (no indigo/pink brand leakage).
+ * Scoped to page builder shell only; HiBrew storefront preview inside canvas unchanged.
+ */
+[data-surface="theme-builder"][data-portal="store"] {
+  --vb-rail-w: min(400px, 34vw);
+  font-family: var(--font-ui);
+  background: var(--bg, #e2f4f0);
+}
+
+[data-surface="theme-builder"] .text-indigo-600,
+[data-surface="theme-builder"] .text-indigo-700,
+[data-surface="theme-builder"] .text-indigo-950,
+[data-surface="theme-builder"] .group-hover\:text-indigo-600,
+[data-surface="theme-builder"] .group-hover\:text-indigo-950,
+[data-surface="theme-builder"] .hover\:text-indigo-600:hover,
+[data-surface="theme-builder"] .hover\:text-indigo-700:hover {
+  color: var(--accent) !important;
+}
+
+[data-surface="theme-builder"] .bg-indigo-600,
+[data-surface="theme-builder"] .hover\:bg-indigo-700:hover,
+[data-surface="theme-builder"] .group-hover\:bg-indigo-600 {
+  background: var(--portal-cta, var(--accent)) !important;
+  color: #fff !important;
+}
+
+[data-surface="theme-builder"] .bg-indigo-50,
+[data-surface="theme-builder"] .hover\:bg-indigo-50:hover,
+[data-surface="theme-builder"] .bg-indigo-50\/80,
+[data-surface="theme-builder"] .hover\:bg-indigo-50\/50:hover {
+  background-color: color-mix(in srgb, var(--portal-50) 85%, white) !important;
+}
+
+[data-surface="theme-builder"] .border-indigo-600,
+[data-surface="theme-builder"] .border-indigo-500,
+[data-surface="theme-builder"] .border-indigo-400,
+[data-surface="theme-builder"] .border-indigo-300,
+[data-surface="theme-builder"] .hover\:border-indigo-600:hover,
+[data-surface="theme-builder"] .hover\:border-indigo-500:hover,
+[data-surface="theme-builder"] .hover\:border-indigo-400:hover {
+  border-color: color-mix(in srgb, var(--accent) 72%, var(--border)) !important;
+}
+
+[data-surface="theme-builder"] .ring-indigo-500,
+[data-surface="theme-builder"] .ring-indigo-500\/20 {
+  --tw-ring-color: color-mix(in srgb, var(--accent) 55%, transparent) !important;
+}
+
+[data-surface="theme-builder"] .border-pink-500,
+[data-surface="theme-builder"] .border-pink-400,
+[data-surface="theme-builder"] .border-pink-300,
+[data-surface="theme-builder"] .hover\:border-pink-500:hover,
+[data-surface="theme-builder"] .hover\:border-pink-400:hover,
+[data-surface="theme-builder"] .outline-pink-400 {
+  border-color: var(--accent) !important;
+  outline-color: var(--accent) !important;
+}
+
+[data-surface="theme-builder"] .bg-pink-50,
+[data-surface="theme-builder"] .bg-pink-50\/10,
+[data-surface="theme-builder"] .bg-pink-50\/20,
+[data-surface="theme-builder"] .text-pink-950 {
+  background-color: color-mix(in srgb, var(--portal-50) 80%, white) !important;
+  color: var(--text) !important;
+}
+
+[data-surface="theme-builder"] .shadow-indigo-100,
+[data-surface="theme-builder"] .shadow-indigo-200 {
+  --tw-shadow-color: color-mix(in srgb, var(--accent) 18%, transparent) !important;
+}
+
+/* Elementor rail: overlay (not flex-push) + canvas padding inset so preview stays centered, no overlap */
+[data-surface="theme-builder"] .vb-workspace {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  contain: layout style;
+}
+
+[data-surface="theme-builder"] .vb-canvas-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  overflow-x: clip;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+  box-sizing: border-box;
+  /* padding-inline-* set inline from builderCanvasRailInset — centers frame in visible area */
+  transition: padding-inline-start 0.2s ease, padding-inline-end 0.2s ease;
+}
+
+[data-surface="theme-builder"] .vb-rail-aside {
+  flex: none !important;
+  max-width: min(460px, 92vw);
+  contain: layout style paint;
+  /* Desktop: absolute overlay inside workspace — canvas width stays constant */
+}
+
+@media (min-width: 1024px) {
+  [data-surface="theme-builder"] .vb-rail-aside {
+    position: absolute !important;
+    top: 0;
+    bottom: 0;
+    z-index: 30;
+  }
+}
+
+/* Inset selection — never ring-offset (that expands box and causes horizontal jump) */
+[data-surface="theme-builder"] .vb-block-selected {
+  outline: 2px solid rgb(6 182 212);
+  outline-offset: -2px;
+  z-index: 20;
+  box-shadow: none;
+}
+
+[data-surface="theme-builder"] .vb-block-flash {
+  outline: 3px solid var(--accent, #0d9488);
+  outline-offset: -3px;
+  z-index: 25;
+}
+
+@media (max-width: 1023px) {
+  [data-surface="theme-builder"] .vb-rail-aside {
+    max-width: 92vw;
+  }
+}

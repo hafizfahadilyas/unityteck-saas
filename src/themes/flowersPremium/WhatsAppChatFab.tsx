@@ -1,7 +1,7 @@
 import React from 'react';
 import { MessageCircle } from 'lucide-react';
 import { FLOWERS_WHATSAPP } from './pack';
-import { readStoreIdentity } from '../settings/storeIdentity';
+import { resolveStoreContact } from '../settings/storeContact';
 
 type Props = {
   lang: string;
@@ -22,9 +22,9 @@ export const WhatsAppChatFab: React.FC<Props> = ({
 }) => {
   if (isAdmin) return null;
 
-  const identity = readStoreIdentity(storeId, { name: storeName });
+  const contact = resolveStoreContact(storeId, { name: storeName, whatsapp: phone, phone });
   // Never fall back to another store's demo number — hide FAB if unset
-  const activePhone = (phone || identity.whatsapp || '').replace(/[^0-9]/g, '');
+  const activePhone = contact.whatsappDigits;
   if (activePhone.length < 9) return null;
 
   const msg =
@@ -47,8 +47,12 @@ export const WhatsAppChatFab: React.FC<Props> = ({
 };
 
 export function whatsappOrderHref(lang: string, lines: string[], phoneOverride?: string, storeId = 'store-1', storeName = 'متجر هدايا'): string {
-  const identity = readStoreIdentity(storeId, { name: storeName });
-  const activePhone = (phoneOverride || identity.whatsapp || '').replace(/[^0-9]/g, '');
+  const contact = resolveStoreContact(storeId, {
+    name: storeName,
+    whatsapp: phoneOverride,
+    phone: phoneOverride,
+  });
+  const activePhone = contact.whatsappDigits;
   if (activePhone.length < 9) return '';
   const header = lang === 'ar' ? FLOWERS_WHATSAPP.defaultMessageAr : FLOWERS_WHATSAPP.defaultMessageEn;
   const body = [header, '', ...lines].join('\n');

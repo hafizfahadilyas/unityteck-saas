@@ -202,7 +202,7 @@ class StoreThemeController extends Controller
             ->first();
 
         $themeSettings = is_array($storeTheme?->settings) ? $storeTheme->settings : [];
-        $builderData = $themeSettings['builder'] ?? [];
+        $builderData = $this->normalizeBuilderSettings($themeSettings['builder'] ?? null);
 
         return response()->json([
             'success' => true,
@@ -257,7 +257,7 @@ class StoreThemeController extends Controller
         }
 
         $settings = is_array($storeTheme->settings) ? $storeTheme->settings : [];
-        $builder = $settings['builder'] ?? [];
+        $builder = $this->normalizeBuilderSettings($settings['builder'] ?? null);
 
         // Save draft blocks
         $builder['draft_blocks'] = $data['blocks'];
@@ -399,7 +399,7 @@ class StoreThemeController extends Controller
 
         $themeSettings = is_array($storeTheme?->settings) ? $storeTheme->settings : [];
         unset($themeSettings['draft']);
-        $builder = $themeSettings['builder'] ?? [];
+        $builder = $this->normalizeBuilderSettings($themeSettings['builder'] ?? null);
         unset($builder['draft_blocks']);
         $themeSettings['builder'] = $builder;
         $publishedBlocks = $builder['published_blocks'] ?? [];
@@ -631,6 +631,28 @@ class StoreThemeController extends Controller
         }
 
         return $store;
+    }
+
+    /**
+     * Builder JSON must be an associative map. Empty list `[]` from MySQL/json
+     * breaks draft_blocks / published_blocks reads — normalize to [].
+     *
+     * @param  mixed  $builder
+     * @return array<string, mixed>
+     */
+    private function normalizeBuilderSettings(mixed $builder): array
+    {
+        if (! is_array($builder)) {
+            return [];
+        }
+        if ($builder === []) {
+            return [];
+        }
+        if (function_exists('array_is_list') && array_is_list($builder)) {
+            return [];
+        }
+
+        return $builder;
     }
 
     /**

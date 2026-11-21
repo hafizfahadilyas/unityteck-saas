@@ -36,7 +36,7 @@ import { customFieldsExtra, missingRequiredField, purchaseNotes, type FieldValue
 import type { Product as CatalogProduct, ProductVariation } from '../../../types';
 import { isVariantPurchasable } from '../../../utils/productVariants';
 import { fetchStoreReviews, submitStoreReviewApi } from '../../../api/tenantApi';
-import { readStoreIdentity } from '../../settings/storeIdentity';
+import { resolveStoreContact } from '../../settings/storeContact';
 
 interface CustomerReview {
   id: string;
@@ -67,8 +67,7 @@ export const ProductDetailPage: React.FC = () => {
   const storeId = activeStore?.id || '';
   const waDigits = useMemo(() => {
     if (!activeStore?.id) return '';
-    const identity = readStoreIdentity(activeStore.id, activeStore);
-    return String(identity.whatsapp || activeStore.phone || '').replace(/[^0-9]/g, '');
+    return resolveStoreContact(activeStore.id, activeStore).whatsappDigits;
   }, [activeStore]);
 
   // Read URL query parameter for product identification

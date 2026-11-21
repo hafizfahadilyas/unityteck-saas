@@ -42,7 +42,7 @@ export const GeneralOptionsForm: React.FC = () => {
     full.general = settings;
     full.customOrder = {
       ...(full.customOrder || {
-        whatsappNumber: '+966549876543',
+        whatsappNumber: '',
         whatsappMessageAr: 'السلام عليكم، أود الاستفسار وطلب تفصيل ركن قهوة مخصص حسب المقاسات والتصميم',
         whatsappMessageEn: 'Hello, I would like to inquire about placing a custom coffee corner order.',
       }),

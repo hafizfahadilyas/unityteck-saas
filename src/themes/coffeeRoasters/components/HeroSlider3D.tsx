@@ -4,6 +4,9 @@ import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
 import { PRODUCTS } from '../data/products';
 import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
+import { coffeeWhatsAppDigits } from '../../settings/coffeeModularSettings';
+import { resolveStoreContact } from '../../settings/storeContact';
+import { resolveCustomMadeWhatsAppHref } from '../customMadeWhatsApp';
 import { learnMoreHref } from '../learnMoreHref';
 import {
   ChevronLeft,
@@ -175,7 +178,7 @@ export interface HeroSlider3DProps {
 }
 
 export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', banners = null }) => {
-  const { navigateTo, language, addToCart, triggerFlyToCart, products } = useCart();
+  const { navigateTo, language, addToCart, triggerFlyToCart, products, storeIdentity } = useCart();
   const { activeStore } = useTenant();
   const catalogProducts = Array.isArray(products) ? products : [];
 
@@ -201,9 +204,31 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
     }
   }, [activeStore, settingsVersion]);
 
+  /** Coffee store contact — identity / API only, never invent or cross-tenant. */
+  const storeContact = useMemo(() => {
+    if (!activeStore?.id) return null;
+    return resolveStoreContact(activeStore.id, activeStore);
+  }, [activeStore, settingsVersion, storeIdentity]);
+
+  const coffeeWhatsAppPhone = useMemo(() => {
+    // Identity (this store only) wins — modular whatsappNumber is a synced mirror
+    return (
+      storeContact?.whatsappDigits ||
+      coffeeWhatsAppDigits(storeIdentity?.whatsapp || storeIdentity?.phone || '') ||
+      coffeeWhatsAppDigits(themeSettings?.customOrder?.whatsappNumber) ||
+      coffeeWhatsAppDigits(themeSettings?.heroBanners?.whatsappNumber) ||
+      ''
+    );
+  }, [
+    themeSettings?.customOrder?.whatsappNumber,
+    themeSettings?.heroBanners?.whatsappNumber,
+    storeContact,
+    storeIdentity,
+  ]);
+
   // Home slides: Word C-HERO `heroBanners` first, then legacy `slider.slides`. Never flowers/MKS.
   const homeSlides: HeroBannerSlide[] = useMemo(() => {
-    const fromBlock = Array.isArray(banners);
+    const fromBlock = Array.isArray(banners) && banners.length > 0;
     const hero = themeSettings?.heroBanners;
     const heroBanners = (fromBlock ? banners : (hero?.enabled !== false ? hero?.banners : [])) || [];
     const activeHero = heroBanners.filter(
@@ -258,7 +283,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
       });
     }
 
-    if (fromBlock) return [];
+    if (fromBlock && activeHero.length === 0) return [];
 
     const configuredSlides = themeSettings?.slider?.slides;
     const flowerLeak =
@@ -659,7 +684,12 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
                     target.src = activeSlide.fallbackImage;
                   }
                 }}
-                className="order-2 flex-1 min-h-0 w-full sm:h-full object-contain object-center sm:object-cover sm:object-[75%_center] sm:object-[75%_center] md:object-[80%_center] lg:object-right shadow-none transition-transform duration-700 ease-out group-hover:scale-[1.01]"
+                className="order-2 relative z-0 flex-1 min-h-[240px] w-full object-cover object-center sm:absolute sm:inset-0 sm:flex-none sm:min-h-0 sm:h-full sm:object-[75%_center] md:object-[80%_center] lg:object-right shadow-none transition-transform duration-700 ease-out group-hover:scale-[1.01]"
+              />
+              {/* Desktop: light scrim so hero copy stays readable on busy lifestyle photos */}
+              <div
+                className="hidden sm:block absolute inset-y-0 start-0 w-[min(100%,58%)] max-w-[620px] bg-gradient-to-r from-white via-white/90 to-transparent z-[5] pointer-events-none"
+                aria-hidden
               />
 
               {/* Text, Price and Action Buttons Overlay */}
@@ -673,7 +703,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
                     initial={{ opacity: 0, y: 14 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.55, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-                    className="w-full max-w-full sm:max-w-[380px] md:max-w-[430px] lg:max-w-[460px] text-start pointer-events-auto bg-transparent shadow-none border-none p-0"
+                    className="w-full max-w-full sm:max-w-[380px] md:max-w-[430px] lg:max-w-[460px] text-start pointer-events-auto sm:bg-white/80 sm:backdrop-blur-[2px] sm:rounded-2xl sm:px-4 sm:py-3 md:px-5 md:py-4 shadow-none border-none p-0"
                   >
                     {/* Badge */}
                     {activeSlide.badgeEn && (
@@ -787,18 +817,42 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
                         />
                       </button>
 
-                      {/* Custom Made Link */}
+                      {/* Custom Made → this coffee store WhatsApp (isolated) */}
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
+                          const label =
+                            language === 'AR'
+                              ? (activeSlide.customOrderAr || 'تفصيل حسب الطلب · تصميم وتنفيذ')
+                              : (activeSlide.customOrderEn || 'Custom Made · Design & Build');
+                          const href = resolveCustomMadeWhatsAppHref({
+                            customOrderUrl: activeSlide.customOrderUrl,
+                            whatsappNumber:
+                              themeSettings?.customOrder?.whatsappNumber || coffeeWhatsAppPhone,
+                            storeWhatsapp: storeContact?.whatsapp || storeIdentity?.whatsapp,
+                            storePhone: storeContact?.phone || storeIdentity?.phone,
+                            label,
+                            language,
+                          });
+                          if (href) {
+                            window.open(href, '_blank', 'noopener,noreferrer');
+                            return;
+                          }
+                          // No WhatsApp configured for this store — custom-order page (no fake number)
                           navigateTo('custom-order');
                         }}
                         className="group/customlink inline-flex items-center gap-1 text-[10.5px] xs:text-[11px] sm:text-sm font-bold text-neutral-900 hover:text-black transition-all cursor-pointer active:scale-95"
-                        title={language === 'AR' ? 'تفصيل حسب الطلب · تصميم وتنفيذ' : 'Custom Made · Design & Build'}
+                        title={
+                          language === 'AR'
+                            ? (activeSlide.customOrderAr || 'تفصيل حسب الطلب · تصميم وتنفيذ')
+                            : (activeSlide.customOrderEn || 'Custom Made · Design & Build')
+                        }
                       >
                         <span className="border-b border-black/60 group-hover/customlink:border-black pb-0.5">
-                          {language === 'AR' ? 'تفصيل حسب الطلب · تصميم وتنفيذ' : 'Custom Made · Design & Build'}
+                          {language === 'AR'
+                            ? (activeSlide.customOrderAr || 'تفصيل حسب الطلب · تصميم وتنفيذ')
+                            : (activeSlide.customOrderEn || 'Custom Made · Design & Build')}
                         </span>
                         <ChevronRight
                           className={`w-3 h-3 text-black stroke-[2.5] shrink-0 transition-transform duration-200 ${
@@ -843,21 +897,29 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
           <ChevronRight className="w-5 h-5 rtl:rotate-180 transition-transform" />
         </button>
 
-        {/* Floating Support Button in Corner */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            const rawPhone = activeStore?.phone || '+9668008440443';
-            const cleanPhone = rawPhone.replace(/\D/g, '') || '9668008440443';
-            window.open(`https://wa.me/${cleanPhone}`, '_blank');
-          }}
-          className="absolute bottom-4 right-4 rtl:right-auto rtl:left-4 z-30 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white border border-neutral-200 shadow-sm flex items-center justify-center text-neutral-800 hover:text-black cursor-pointer active:scale-95 transition-transform"
-          aria-label={language === 'AR' ? 'الدعم' : 'Support'}
-          title={language === 'AR' ? 'تواصل مع الدعم الفني' : 'Contact Support'}
-        >
-          <Headphones className="w-4 h-4 sm:w-4.5 sm:h-4.5 stroke-[2]" />
-        </button>
+        {/* Floating Support → coffee WhatsApp only (hidden when unset) */}
+        {coffeeWhatsAppPhone ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              const msg =
+                language === 'AR'
+                  ? 'السلام عليكم، أحتاج دعماً بخصوص المتجر'
+                  : 'Hello, I need support regarding the store';
+              window.open(
+                `https://wa.me/${coffeeWhatsAppPhone}?text=${encodeURIComponent(msg)}`,
+                '_blank',
+                'noopener,noreferrer',
+              );
+            }}
+            className="absolute bottom-4 right-4 rtl:right-auto rtl:left-4 z-30 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white border border-neutral-200 shadow-sm flex items-center justify-center text-neutral-800 hover:text-black cursor-pointer active:scale-95 transition-transform"
+            aria-label={language === 'AR' ? 'الدعم عبر واتساب' : 'Support via WhatsApp'}
+            title={language === 'AR' ? 'تواصل مع الدعم عبر واتساب' : 'Contact support on WhatsApp'}
+          >
+            <Headphones className="w-4 h-4 sm:w-4.5 sm:h-4.5 stroke-[2]" />
+          </button>
+        ) : null}
 
         {/* ========================================================================= */}
         {/* 3. BOTTOM PILL INDICATORS WITH SMOOTH TIMER PROGRESS                      */}

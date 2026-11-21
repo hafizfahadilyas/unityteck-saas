@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, type ComponentType } from 'react';
+import { CoffeeFormLiveProvider } from '../themeSettings/coffee/coffeeFormLive';
 
 type FormProps = { onBack?: () => void; embedded?: boolean };
 
@@ -170,17 +171,21 @@ function FormFallback({ isAr }: { isAr: boolean }) {
   );
 }
 
-export const CustomizerSectionForm: React.FC<{ sectionId: string; isAr: boolean; onBack?: () => void }> = ({
-  sectionId,
-  isAr,
-  onBack,
-}) => {
+export const CustomizerSectionForm: React.FC<{
+  sectionId: string;
+  isAr: boolean;
+  onBack?: () => void;
+  /** Page Builder: push each field change to main canvas without full page refresh */
+  liveCanvas?: boolean;
+}> = ({ sectionId, isAr, onBack, liveCanvas = false }) => {
   const LazyForm = getLazyForm(sectionId);
   if (!LazyForm) return null;
   return (
-    <Suspense fallback={<FormFallback isAr={isAr} />}>
-      {/* embedded: compact layout inside WordPress customizer sidebar */}
-      <LazyForm onBack={onBack} embedded />
-    </Suspense>
+    <CoffeeFormLiveProvider value={liveCanvas}>
+      <Suspense fallback={<FormFallback isAr={isAr} />}>
+        {/* embedded: compact layout inside WordPress customizer sidebar */}
+        <LazyForm onBack={onBack} embedded />
+      </Suspense>
+    </CoffeeFormLiveProvider>
   );
 };

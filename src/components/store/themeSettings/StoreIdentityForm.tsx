@@ -186,10 +186,15 @@ export const StoreIdentityForm: React.FC = () => {
         </p>
       </div>
 
-      {/* Contact Channels: Phone, WhatsApp, Email */}
+      {/* Contact Channels: Phone, WhatsApp, Email — single source for entire storefront */}
       <div className="space-y-3 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
         <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
           {locale === 'ar' ? 'قنوات التواصل المباشر' : 'Direct Contact Channels'}
+        </p>
+        <p className="text-[10px] leading-relaxed" style={{ color: 'var(--muted)' }}>
+          {locale === 'ar'
+            ? 'رقم واتساب واحد وبريد واحد لهذا المتجر فقط — يُطبَّق تلقائياً على الرأس والتذييلة والسلايدر ومنشئ الصفحات وفاتورة الطلب.'
+            : 'One WhatsApp and one email for this store only — auto-applied to header, footer, slider, page builder, checkout, and invoices.'}
         </p>
         <div className="grid grid-cols-1 gap-3">
           <div className="space-y-1.5">

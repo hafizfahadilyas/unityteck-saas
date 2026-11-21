@@ -1,9 +1,11 @@
 # 34 — Coffee · 20 Homepage Elements · Widget Parity (Ref UI)
 
-**Status:** CLOSED · CW-01–CW-16 **DONE**  
+**Status:** CLOSED · CW-01–CW-16 **DONE** · **CW-17 builder↔customizer inspector bridge DONE**  
 **Scope:** `store-coffee` / HiBrew storefront + Theme Customizer + Page Builder only  
 **Rules:** zero-mock · `store_id` isolation · AR/EN no mix · HiBrew look **locked** · coffee UI lock  
-**Prior:** `docs/33` DF CLOSED · `docs/32` CT CLOSED
+**Prior:** `docs/33` DF CLOSED · `docs/32` CT CLOSED  
+
+**CW-17:** Page Builder coffee blocks open the same `Coffee*Form` panels as Theme Customize (`coffeeBuilderSectionMap` + `CoffeeBuilderSectionInspector`). Widget titles match merchant doc. Generic Layout/Content inspector no longer replaces ref UI on coffee.
 
 ---
 
@@ -83,6 +85,7 @@ Legend: **SF** storefront block · **CUS** Theme Customizer form · **BLD** buil
 | CW-14 | **DONE** | #3–7 + 17b polish — hero/FSB/FP/image/footer tabs + missing controls | `03`–`07`, `17b` + `coffeeCoreSectionsPolish.test.ts` |
 | CW-15 | **DONE** | #1–2 chrome polish (announce + menu) — fixed, not widgets | `01`, `02` + `coffeeChromePolish.test.ts` |
 | CW-16 | **DONE** | Full gate: parity + movable + zero-mock + `npm run build` | exit 0 · catalog `??`/`||` paren fix |
+| CW-17 | **DONE** | Builder inspector = same Coffee*Forms as customizer; doc widget titles | `coffeeBuilderSectionMap.test.ts` + widgets catalog titles |
 
 ---
 

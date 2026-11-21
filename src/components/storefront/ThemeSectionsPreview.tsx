@@ -32,6 +32,8 @@ import {
 import type { AllThemeSettings } from '../../themes/settings/themeSettingsStore';
 import type { Product } from '../../types';
 import { FlowerFrameHero } from '../../themes/flowersPremium/FlowerFrameHero';
+import { useTenant } from '../../context/TenantContext';
+import { storeWhatsAppUrl } from '../../themes/settings/storeContact';
 
 // ==========================================
 // 1. ANNOUNCEMENT BAR (SECTION 13)
@@ -1186,6 +1188,7 @@ export const SfDetailedProductSpotlight: React.FC<{
   onViewProduct?: (p: Product) => void;
 }> = ({ settings, products, lang, money, onAddToCart, onBuyNow, onViewProduct }) => {
   const isAr = lang === 'ar';
+  const { activeStore } = useTenant();
   const [qty, setQty] = useState(1);
   const [showVideo, setShowVideo] = useState(false);
   const [selectedVariationIdx, setSelectedVariationIdx] = useState(0);
@@ -1437,19 +1440,25 @@ export const SfDetailedProductSpotlight: React.FC<{
               )}
             </div>
 
-            {/* WhatsApp CTA */}
-            <a
-              href={`https://wa.me/966504428819?text=${encodeURIComponent(
-                (isAr ? 'السلام عليكم أرغب بطلب باقة الأسبوع الفاخرة:' : 'Hello, I want to order the Spotlight luxury bloom: ') +
-                `${product.name} (${isAr ? demoVariations[selectedVariationIdx].labelAr : demoVariations[selectedVariationIdx].labelEn}) x${qty} · ${money(currentPrice * qty)} · توصيل مكة`
-              )}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full py-2.5 px-4 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <MessageCircle className="w-4 h-4 fill-white" />
-              <span>{isAr ? 'طلب فوري ومخصص عبر واتساب' : 'Order via WhatsApp'}</span>
-            </a>
+            {/* WhatsApp CTA — this store’s number only */}
+            {(() => {
+              const msg =
+                (isAr ? 'السلام عليكم أرغب بطلب:' : 'Hello, I want to order: ') +
+                `${product.name} (${isAr ? demoVariations[selectedVariationIdx].labelAr : demoVariations[selectedVariationIdx].labelEn}) x${qty} · ${money(currentPrice * qty)}`;
+              const href = activeStore?.id ? storeWhatsAppUrl(activeStore.id, msg, activeStore) : '';
+              if (!href) return null;
+              return (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2.5 px-4 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <MessageCircle className="w-4 h-4 fill-white" />
+                  <span>{isAr ? 'طلب فوري ومخصص عبر واتساب' : 'Order via WhatsApp'}</span>
+                </a>
+              );
+            })()}
           </div>
 
           {/* Trust Guarantees */}

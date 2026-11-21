@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
 import { bi, coffeeModularSeed } from '../../settings/coffeeModularSettings';
+import { normalizeWhatsAppDigits, resolveStoreContact } from '../../settings/storeContact';
 
 export const Footer: React.FC = () => {
   const { navigateTo, language, toggleLanguage, storeIdentity, currentRoute, selectedProduct } = useCart();
@@ -56,8 +57,17 @@ export const Footer: React.FC = () => {
     ? rawStoreName
     : rawStoreName.replace(/[\u0600-\u06FF()]/g, '').trim() || 'HiBrew KSA';
 
-  const storeDisplayEmail = footerCfg?.contactEmail?.trim() || storeIdentity?.email || activeStore?.email || 'support@hibrew.sa';
-  const storeDisplayPhone = footerCfg?.contactPhone?.trim() || storeIdentity?.phone || '+966 11 489 2030';
+  // Identity wins — footer fields are mirrors only (never invent demo contacts)
+  const storeDisplayEmail = (
+    storeIdentity?.email ||
+    footerCfg?.contactEmail ||
+    ''
+  ).trim();
+  const storeDisplayPhone = (
+    storeIdentity?.phone ||
+    footerCfg?.contactPhone ||
+    ''
+  ).trim();
   const contactAddress = bi(language, footerCfg?.addressEn, footerCfg?.addressAr);
   const contactHours = bi(
     language,
@@ -128,7 +138,15 @@ export const Footer: React.FC = () => {
   });
   const showSocial = footerCfg?.showSocial !== false;
   const socialLinks = (footerCfg?.socialLinks || []).filter((s) => s.enabled !== false && (s.url || '').trim());
-  const showContact = footerCfg?.showContact !== false;
+  const storeContact = activeStore?.id
+    ? resolveStoreContact(activeStore.id, activeStore, storeIdentity)
+    : null;
+  const whatsappDigits =
+    storeContact?.whatsappDigits ||
+    normalizeWhatsAppDigits(footerCfg?.contactWhatsApp || storeIdentity?.whatsapp);
+  const showContact =
+    footerCfg?.showContact !== false &&
+    Boolean(storeDisplayPhone || storeDisplayEmail || whatsappDigits);
   const showBottomBar = footerCfg?.showBottomBar !== false;
   const bottomLinks = (footerCfg?.bottomLinks || []).filter((l) => l.enabled !== false && ((l.labelEn || l.labelAr || '').trim() || l.url));
   const widthCls = footerCfg?.contentWidth === 'full' ? 'w-full px-4 sm:px-8' : 'max-w-[1440px] mx-auto px-4 sm:px-8';
@@ -138,7 +156,6 @@ export const Footer: React.FC = () => {
   const fontSizePx = footerCfg?.fontSizePx || 12;
   const colGap = footerCfg?.columnGapPx || 40;
   const deskCols = footerCfg?.desktopColumns || 4;
-  const whatsappDigits = (footerCfg?.contactWhatsApp || '').replace(/\D/g, '');
 
   const goFooterLink = (url: string) => {
     const href = (url || '').trim();

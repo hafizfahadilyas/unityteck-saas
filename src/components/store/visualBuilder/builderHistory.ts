@@ -39,3 +39,19 @@ export function isHistoryShortcut(e: {
   if (key === 'y' || (key === 'z' && e.shiftKey)) return 'redo';
   return null;
 }
+
+/** Ctrl/Cmd + C / V / D — copy, paste, duplicate (when not typing in a field). */
+export function isClipboardShortcut(e: {
+  key: string;
+  ctrlKey: boolean;
+  metaKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+}): 'copy' | 'paste' | 'duplicate' | null {
+  if (e.altKey || e.shiftKey || !(e.ctrlKey || e.metaKey)) return null;
+  const key = e.key.toLowerCase();
+  if (key === 'c') return 'copy';
+  if (key === 'v') return 'paste';
+  if (key === 'd') return 'duplicate';
+  return null;
+}

@@ -3,7 +3,7 @@ import { Headphones, Phone, Mail, MessageCircle, X, ShoppingBag, ChevronUp } fro
 import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
 import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
-import { coffeeWhatsAppDigits } from '../../settings/coffeeModularSettings';
+import { resolveStoreContact } from '../../settings/storeContact';
 
 export const FloatingHelpWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -17,30 +17,17 @@ export const FloatingHelpWidget: React.FC = () => {
     const coffee = activeStore?.id
       ? resolveCoffeeThemeSettings(activeStore.id, activeStore)
       : null;
-    const headerWa = coffee?.header?.actions?.whatsapp?.phoneNumber;
-    const footerPhone = coffee?.footer?.contactPhone;
-    const footerEmail = coffee?.footer?.contactEmail;
-    const phoneRaw =
-      storeIdentity?.phone ||
-      footerPhone ||
-      headerWa ||
-      (activeStore as { whatsapp?: string; phone?: string } | undefined)?.whatsapp ||
-      (activeStore as { phone?: string } | undefined)?.phone ||
-      '';
-    const phoneDigits = coffeeWhatsAppDigits(phoneRaw);
-    const email = String(
-      storeIdentity?.email ||
-        footerEmail ||
-        (activeStore as { email?: string; ownerEmail?: string } | undefined)?.email ||
-        (activeStore as { ownerEmail?: string } | undefined)?.ownerEmail ||
-        '',
-    ).trim();
+    const contact = activeStore?.id
+      ? resolveStoreContact(activeStore.id, activeStore, storeIdentity)
+      : null;
+    const phoneDigits = contact?.whatsappDigits || contact?.phoneDigits || '';
+    const email = contact?.email || '';
     const hours =
       (isAr ? coffee?.footer?.hoursAr : coffee?.footer?.hoursEn)?.trim() ||
       (isAr ? 'الأحد – السبت: 9:00–21:00' : 'Sunday – Saturday: 9:00–21:00');
     return {
       phoneDigits,
-      phoneDisplay: phoneRaw || phoneDigits,
+      phoneDisplay: contact?.phone || contact?.whatsapp || phoneDigits,
       email,
       hours,
     };

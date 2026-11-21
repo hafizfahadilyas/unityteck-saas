@@ -24,6 +24,7 @@ import {
   Layout,
   GripVertical,
 } from 'lucide-react';
+import { COFFEE_DOC_WIDGET_TITLES } from '../coffeeBuilderSectionMap';
 
 export interface WidgetDefinition {
   id: string;
@@ -467,7 +468,7 @@ const COFFEE_HIDDEN_WIDGET_TYPES = new Set([
   'featured_posts', // blog/posts not coffee home
 ]);
 
-/** HiBrew home — 18 ref widgets (doc #3–6, 8–18 + column row). No flower/generic dupes. */
+/** HiBrew home — 18 ref widgets (doc #3–6, 8–20 + column row). No flower/generic dupes. */
 export const COFFEE_PAGE_BUILDER_WIDGET_IDS = [
   'w_hero_slider',
   'w_featured_section_banners',
@@ -493,13 +494,13 @@ const COFFEE_WIDGET_OVERRIDES: Partial<
   Record<string, { titleEn: string; titleAr: string; type?: string; defaultSettings?: Record<string, any> }>
 > = {
   w_product_tabs: {
-    titleEn: 'Featured Coffee Products',
-    titleAr: 'منتجات القهوة المميزة',
+    titleEn: 'Featured Products',
+    titleAr: 'المنتجات المميزة',
     defaultSettings: { mainTitleAr: 'المنتجات المميزة', mainTitleEn: 'Featured Products' },
   },
   w_product_grid: {
-    titleEn: 'Coffee Product Grid',
-    titleAr: 'شبكة منتجات القهوة',
+    titleEn: 'Featured Products',
+    titleAr: 'المنتجات المميزة',
     type: 'featured_products',
   },
   w_hero_slider: {
@@ -507,19 +508,88 @@ const COFFEE_WIDGET_OVERRIDES: Partial<
     titleAr: 'لافتات الواجهة',
     type: 'hero_banners',
   },
+  w_featured_section_banners: {
+    titleEn: 'Featured Section Banners',
+    titleAr: 'بانرات القسم المميز',
+  },
+  w_image_banners: {
+    titleEn: 'Image Banner Section',
+    titleAr: 'قسم بانر الصور',
+  },
   w_features: {
     titleEn: 'Feature Icons',
     titleAr: 'أيقونات المميزات',
+  },
+  w_product_carousel: {
+    titleEn: 'Product Carousel',
+    titleAr: 'عرض المنتجات المتحرك',
+  },
+  w_featured_categories: {
+    titleEn: 'Category Showcase',
+    titleAr: 'عرض التصنيفات',
+  },
+  w_exclusive_benefits: {
+    titleEn: 'Benefits',
+    titleAr: 'المزايا',
+  },
+  w_events_masterclasses: {
+    titleEn: 'Events & Masterclasses',
+    titleAr: 'الفعاليات وورش العمل',
+  },
+  w_features_section: {
+    titleEn: 'Features Section',
+    titleAr: 'قسم المميزات',
+  },
+  w_model_comparison: {
+    titleEn: 'Model Comparison',
+    titleAr: 'مقارنة الموديلات',
   },
   w_testimonials: {
     titleEn: 'Customer Reviews',
     titleAr: 'تقييمات العملاء',
   },
   w_faq: {
-    titleEn: 'FAQ Accordion',
+    titleEn: 'FAQ',
     titleAr: 'الأسئلة الشائعة',
   },
+  w_commercial_hero: {
+    titleEn: 'Commercial Hero',
+    titleAr: 'البطل التجاري',
+  },
+  w_product_slider: {
+    titleEn: 'Product Slider',
+    titleAr: 'شريط المنتجات',
+  },
+  w_product_catalog: {
+    titleEn: 'Product Catalog',
+    titleAr: 'كتالوج المنتجات',
+  },
+  w_product_collection: {
+    titleEn: 'Product Collection',
+    titleAr: 'مجموعة المنتجات',
+  },
 };
+
+function withCoffeeWidgetOverrides(w: WidgetDefinition): WidgetDefinition {
+  const docTitles = COFFEE_DOC_WIDGET_TITLES[w.id];
+  const override = COFFEE_WIDGET_OVERRIDES[w.id];
+  if (!override && !docTitles) return w;
+  return {
+    ...w,
+    ...docTitles,
+    ...override,
+    defaultSettings: { ...w.defaultSettings, ...(override?.defaultSettings || {}) },
+  };
+}
+
+/** 18 ref widgets for HiBrew page builder (docs/reference/coffee-widget-ui). */
+export function getCoffeePageBuilderWidgetCatalog(): WidgetDefinition[] {
+  const allCoffeeSources = [...BUILDER_WIDGETS, ...COFFEE_EXTRA_WIDGETS].map(withCoffeeWidgetOverrides);
+  const coffeeById = new Map(allCoffeeSources.map((w) => [w.id, w]));
+  return COFFEE_PAGE_BUILDER_WIDGET_IDS.map((id) => coffeeById.get(id)).filter(
+    (w): w is WidgetDefinition => Boolean(w),
+  );
+}
 
 interface BuilderWidgetLibraryProps {
   isAr: boolean;
@@ -536,28 +606,10 @@ export const BuilderWidgetLibrary: React.FC<BuilderWidgetLibraryProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<'all' | 'general' | 'ecommerce' | 'sections'>('all');
 
-  const withCoffeeOverrides = (w: WidgetDefinition): WidgetDefinition => {
-    const override = COFFEE_WIDGET_OVERRIDES[w.id];
-    if (!override) return w;
-    return {
-      ...w,
-      ...override,
-      defaultSettings: { ...w.defaultSettings, ...(override.defaultSettings || {}) },
-    };
-  };
-
-  const allCoffeeSources = [
-    ...BUILDER_WIDGETS,
-    ...COFFEE_EXTRA_WIDGETS,
-  ].map(withCoffeeOverrides);
-
-  const coffeeById = new Map(allCoffeeSources.map((w) => [w.id, w]));
-
-  const catalog = isCoffee
-    ? COFFEE_PAGE_BUILDER_WIDGET_IDS.map((id) => coffeeById.get(id)).filter(
-        (w): w is WidgetDefinition => Boolean(w),
-      )
-    : BUILDER_WIDGETS;
+  const catalog = React.useMemo(
+    () => (isCoffee ? getCoffeePageBuilderWidgetCatalog() : BUILDER_WIDGETS),
+    [isCoffee],
+  );
 
   const filtered = catalog.filter((w) => {
     const matchesCat = activeCategory === 'all' || w.category === activeCategory;

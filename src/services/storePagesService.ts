@@ -18,6 +18,7 @@ import {
   updateThemePageApi,
   type ThemePageRecord,
 } from '../api/tenantApi';
+import { resolveStoreContact } from '../themes/settings/storeContact';
 
 export interface StoreCustomPage {
   id: string;
@@ -425,8 +426,13 @@ function getStorageKey(storeId: string): string {
 export function replacePlaceholders(text: string, store?: Partial<Store>): string {
   if (!text) return '';
   const storeName = store?.nameAr || store?.name || 'متجرك';
-  const phone = store?.contactPhone || store?.phone || '';
-  const email = store?.email || store?.ownerEmail || '';
+  let phone = store?.contactPhone || store?.phone || '';
+  let email = '';
+  if (store?.id) {
+    const contact = resolveStoreContact(store.id, store);
+    phone = contact.phone || contact.whatsapp || phone;
+    email = contact.email;
+  }
   const cr = store?.crNumber || '';
   const vat = store?.taxNumber || '';
   const city = 'المملكة العربية السعودية';

@@ -204,8 +204,6 @@ interface CartContextType {
   products: Product[];
   storeIdentity?: StoreIdentitySettings;
   selectedPageSlug?: string;
-  countryNoticeVisible: boolean;
-  dismissCountryNotice: () => void;
   language: 'EN' | 'AR';
   setLanguage: (lang: 'EN' | 'AR') => void;
   toggleLanguage: () => void;
@@ -282,7 +280,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     () => productIdFromQuery() || 'hb-h10a-dualboiler',
   );
   const [selectedPageSlug, setSelectedPageSlug] = useState<string>('privacy-policy');
-  const [countryNoticeVisible, setCountryNoticeVisible] = useState(true);
 
   let prefs: ReturnType<typeof usePrefs> | null = null;
   try {
@@ -417,10 +414,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const dismissCountryNotice = () => {
-    setCountryNoticeVisible(false);
-  };
-
   const navigateTo = useCallback((route: string, productId?: string, pageSlug?: string) => {
     if (productId) {
       setSelectedProductId((prev) => (prev !== productId ? productId : prev));
@@ -465,30 +458,38 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       if (typeof window !== 'undefined') {
         const url = new URL(window.location.href);
-        if (targetRoute === 'home') {
-          url.searchParams.delete('page');
-          url.searchParams.delete('product');
-          url.searchParams.delete('productId');
-        } else {
-          url.searchParams.set(
-            'page',
-            targetRoute === 'product-detail'
-              ? 'product'
-              : targetRoute === 'product-buy'
-                ? 'buy'
-                : targetRoute === 'products'
-                  ? 'products'
-                  : targetRoute,
-          );
-          const pid = productId || productIdFromQuery();
-          if ((targetRoute === 'product-detail' || targetRoute === 'product-buy') && pid) {
-            url.searchParams.set('product', pid);
-          } else if (targetRoute !== 'product-detail' && targetRoute !== 'product-buy') {
+        // Never pollute admin page-builder / customizer deep links with storefront page=buy&product=
+        const inAdminChrome =
+          url.pathname.includes('/admin') ||
+          url.searchParams.get('builder') === '1' ||
+          url.searchParams.get('customizer') === '1' ||
+          url.searchParams.get('customize') === '1';
+        if (!inAdminChrome) {
+          if (targetRoute === 'home') {
+            url.searchParams.delete('page');
             url.searchParams.delete('product');
             url.searchParams.delete('productId');
+          } else {
+            url.searchParams.set(
+              'page',
+              targetRoute === 'product-detail'
+                ? 'product'
+                : targetRoute === 'product-buy'
+                  ? 'buy'
+                  : targetRoute === 'products'
+                    ? 'products'
+                    : targetRoute,
+            );
+            const pid = productId || productIdFromQuery();
+            if ((targetRoute === 'product-detail' || targetRoute === 'product-buy') && pid) {
+              url.searchParams.set('product', pid);
+            } else if (targetRoute !== 'product-detail' && targetRoute !== 'product-buy') {
+              url.searchParams.delete('product');
+              url.searchParams.delete('productId');
+            }
           }
+          window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
         }
-        window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
       }
     } catch {}
     setCurrentRoute((prev) => {
@@ -1053,8 +1054,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         products: mergedProducts,
         storeIdentity,
         selectedPageSlug,
-        countryNoticeVisible,
-        dismissCountryNotice,
         language,
         setLanguage,
         toggleLanguage,
@@ -1104,8 +1103,6 @@ const CART_STUB: CartContextType = {
   products: PRODUCTS,
   storeIdentity: undefined,
   selectedPageSlug: 'privacy-policy',
-  countryNoticeVisible: false,
-  dismissCountryNotice: () => undefined,
   language: 'AR',
   setLanguage: () => undefined,
   toggleLanguage: () => undefined,

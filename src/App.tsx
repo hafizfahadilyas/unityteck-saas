@@ -12,7 +12,6 @@ import { CreateStoreModal } from './components/master/CreateStoreModal';
 
 import { StoreSidebar } from './components/store/StoreSidebar';
 import { StoreTopBar } from './components/store/StoreTopBar';
-import { StoreDashboard } from './components/store/StoreDashboard';
 import { SocialOAuthDialogView } from './components/store/SocialOAuthDialogView';
 import { AuthenticateWithRedirectCallback } from '@clerk/clerk-react';
 import { isClerkConfigured } from './auth/clerkSession';
@@ -48,6 +47,9 @@ import { isStoreTabComingSoon } from './config/storeTabVisibility';
 // HolstChromeBar retired — unified MasterTopBar / StoreTopBar (docs/21)
 
 /** Heavy tabs — code-split so dashboard/themes open fast */
+const StoreDashboard = lazyWithRetry(() =>
+  import('./components/store/StoreDashboard').then((m) => ({ default: m.StoreDashboard })),
+);
 const MasterStores = lazyWithRetry(() =>
   import('./components/master/MasterStores').then((m) => ({ default: m.MasterStores })),
 );
@@ -511,9 +513,16 @@ const getDefaultStoreTheme = (storeId?: string): string => {
           sessionStorage.setItem(`unityteck_visual_builder_theme_${activeStore.id}`, currentStoreTheme);
           setVisualBuilderThemeId(currentStoreTheme);
         } else if (url.searchParams.get('builder') === '1' && (!urlTheme || urlTheme !== currentStoreTheme)) {
-          // If builder is active and URL has no specific theme or switched store, update dynamically
-          url.searchParams.set('themeId', currentStoreTheme);
-          window.history.replaceState({}, '', url.toString());
+          // Builder active — keep theme in state/session; omit default coffee themeId from URL
+          if (currentStoreTheme === 'theme-coffee-artisan') {
+            url.searchParams.delete('themeId');
+          } else {
+            url.searchParams.set('themeId', currentStoreTheme);
+          }
+          url.searchParams.delete('page');
+          url.searchParams.delete('product');
+          url.searchParams.delete('productId');
+          window.history.replaceState({}, '', `${url.pathname}?${url.searchParams.toString()}`);
           setVisualBuilderThemeId(currentStoreTheme);
         } else if (visualBuilderThemeId !== currentStoreTheme && (!visualBuilderThemeId || visualBuilderThemeId.includes('[object'))) {
           setVisualBuilderThemeId(currentStoreTheme);
@@ -547,14 +556,27 @@ const getDefaultStoreTheme = (storeId?: string): string => {
         sessionStorage.setItem(`unityteck_visual_builder_theme_${activeStore.id}`, selectedThemeId);
       }
       sessionStorage.setItem('unityteck_visual_builder_theme', selectedThemeId);
+      const page = targetPage || 'home';
+      sessionStorage.setItem('unityteck_visual_builder_page', page);
       if (typeof window !== 'undefined') {
         const url = new URL(window.location.href);
+        // Short clean builder URL — drop storefront preview junk + dashboard clutter
+        url.searchParams.delete('page');
+        url.searchParams.delete('product');
+        url.searchParams.delete('productId');
+        url.searchParams.delete('tab');
+        url.searchParams.delete('customizer');
+        url.searchParams.delete('customize');
+        url.searchParams.delete('section');
         url.searchParams.set('builder', '1');
-        url.searchParams.set('themeId', selectedThemeId);
-        if (targetPage) {
-          url.searchParams.set('builderPage', targetPage);
+        url.searchParams.set('builderPage', page);
+        // theme stays in sessionStorage; keep themeId only when non-default coffee artisan
+        if (selectedThemeId && selectedThemeId !== 'theme-coffee-artisan') {
+          url.searchParams.set('themeId', selectedThemeId);
+        } else {
+          url.searchParams.delete('themeId');
         }
-        window.history.replaceState({}, '', url.toString());
+        window.history.replaceState({}, '', `${url.pathname}?${url.searchParams.toString()}`);
       }
     } catch {}
   }, [activeStore, storeActiveTheme]);
@@ -570,9 +592,9 @@ const getDefaultStoreTheme = (storeId?: string): string => {
         url.searchParams.delete('builder');
         url.searchParams.delete('themeId');
         url.searchParams.delete('builderPage');
-        url.searchParams.set('tab', 'dashboard');
+        url.searchParams.set('tab', 'themes');
         window.history.replaceState({}, '', url.toString());
-        localStorage.setItem('unityteck_store_tab', 'dashboard');
+        localStorage.setItem('unityteck_store_tab', 'themes');
       }
     } catch {}
   }, []);
@@ -2104,7 +2126,6 @@ const getDefaultStoreTheme = (storeId?: string): string => {
             }
             onClose={handleCloseVisualBuilder}
             onPublishSuccess={() => {
-              handleCloseVisualBuilder();
               toast(
                 locale === 'ar'
                   ? 'تم تطبيق ونشر التعديلات بنجاح على المتجر المباشر!'

@@ -68,6 +68,8 @@ import {
   Filter,
   CheckCircle,
   Copy,
+  ClipboardPaste,
+  CopyPlus,
   Trash2,
   LayoutGrid,
   Menu,
@@ -198,14 +200,41 @@ import {
   restoreThemeRevisionApi,
   fetchStoreSettingsApi,
   updateThemePageApi,
+  updateThemeSettingsApi,
   type ThemePageRecord,
 } from '../../../api/tenantApi';
-import { isHistoryShortcut, pushHistory, redoHistory, seedHistory, undoHistory } from './builderHistory';
+import {
+  isClipboardShortcut,
+  isHistoryShortcut,
+  pushHistory,
+  redoHistory,
+  seedHistory,
+  undoHistory,
+} from './builderHistory';
 import { ThemeSuggestPanel } from './ThemeSuggestPanel';
 import { draftAfterSave } from '../../../themes/coffeeRoasters/themeFlow';
-import { blocksFromLayout, builderPageFromQuery, builderPageMeta, builderPageTitles, stashPageDraft } from './builderPages';
+import {
+  blocksFromLayout,
+  builderPageFromQuery,
+  builderPageMeta,
+  builderPageTitles,
+  resolveBuilderPreviewPage,
+  stashPageDraft,
+} from './builderPages';
 import { deviceStyleCss, frameWidthPx, visibleFrameBlocks } from './builderDeviceFrame';
 import { coffeeCanvasMode, showRestoreAllBanner } from './coffeeCanvasMode';
+import {
+  BLOCK_SELECTED_CLASS,
+  builderCanvasRailInset,
+  builderRailAsideClass,
+  flashBlockSelection,
+  scrollBlockIntoCanvasView,
+} from './builderCanvasStability';
+import {
+  CoffeeBuilderSectionInspector,
+  coffeeBlockUsesRefInspector,
+} from './CoffeeBuilderSectionInspector';
+import { coffeeLayerTitle } from './coffeeBuilderSectionMap';
 import {
   applyChromeSafeDrop,
   blocksForPublish,
@@ -217,8 +246,11 @@ import {
   isFixedChromeBlock,
   moveBlockChromeSafe,
   nestIntoColumns,
+  pasteBlockChromeSafe,
   removeBlockChromeSafe,
   rowSection,
+  snapshotBlockForClipboard,
+  stripHeavyDataUrls,
   widgetPosition,
   withVisibility,
   type RowPreset,
@@ -244,7 +276,11 @@ import {
   LUXURY_SETS,
   ARTICLES,
 } from '../../../themes/meccaGifts/data/mockData';
-import { BuilderWidgetLibrary, type WidgetDefinition } from './widgets/BuilderWidgetLibrary';
+import {
+  BuilderWidgetLibrary,
+  getCoffeePageBuilderWidgetCatalog,
+  type WidgetDefinition,
+} from './widgets/BuilderWidgetLibrary';
 import { HeadingWidget } from './widgets/HeadingWidget';
 import { ContentWidget, isContentWidget } from './widgets/ContentWidget';
 
@@ -464,6 +500,7 @@ interface CanvasBlockItemProps {
   onToggleVisibility: (id: string) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
+  onCopy: (id: string) => void;
   onInsertAbove: (idx: number) => void;
   onDragStart: (e: React.DragEvent, idx: number) => void;
   onDropOnColumnWidget?: (blockId: string, colIdx: number, widget: any) => void;
@@ -495,6 +532,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
     onToggleVisibility,
     onDelete,
     onDuplicate,
+    onCopy,
     onInsertAbove,
     onDragStart,
     onDropOnColumnWidget,
@@ -696,12 +734,25 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
+                  onCopy(b.id);
+                }}
+                className="p-1 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg cursor-pointer"
+                title={isAr ? 'نسخ القسم' : 'Copy section'}
+              >
+                <Copy className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {!chromeFixed && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
                   onDuplicate(b.id);
                 }}
                 className="p-1 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg cursor-pointer"
-                title={isAr ? 'تكرار القسم' : 'Duplicate Section'}
+                title={isAr ? 'تكرار القسم' : 'Duplicate section'}
               >
-                <Copy className="w-3.5 h-3.5" />
+                <CopyPlus className="w-3.5 h-3.5" />
               </button>
             )}
             <button
@@ -771,14 +822,14 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
           onDragOver={handleBlockDragOver}
           onDragLeave={handleBlockDragLeave}
           onDrop={handleBlockDrop}
-          className={`group relative transition-all cursor-pointer ${extraClass} ${
+          className={`group relative cursor-pointer ${extraClass} ${
             coffeeNative ? 'bg-transparent' : ''
           } ${
-            isDraggingThisBlock ? 'opacity-35 grayscale ring-2 ring-dashed ring-cyan-400 scale-[0.99]' : ''
+            isDraggingThisBlock ? 'opacity-35 grayscale outline outline-2 outline-dashed outline-cyan-400 outline-offset-[-2px] scale-[0.99]' : ''
           } ${
             isSelected
-              ? 'ring-2 ring-cyan-500 ring-offset-2 z-20 shadow-md outline-cyan-500'
-              : 'hover:ring-1 hover:ring-cyan-300'
+              ? BLOCK_SELECTED_CLASS
+              : 'hover:outline hover:outline-1 hover:outline-cyan-300 hover:outline-offset-[-1px]'
           }`}
           style={{
             paddingTop: coffeeNative
@@ -1448,7 +1499,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
                     className={`p-4 rounded-2xl border-2 border-dashed flex flex-col justify-between min-h-[170px] transition-all relative ${
                       gridOutline
                         ? 'border-[color:var(--portal-200)] hover:border-[color:var(--accent)] bg-[color:var(--portal-50)]/20 text-[color:var(--portal-950)] shadow-2xs'
-                        : 'border-slate-300 hover:border-indigo-400 bg-slate-50/40 text-slate-800'
+                        : 'border-slate-300 hover:border-[color:var(--accent)] bg-slate-50/40 text-slate-800'
                     }`}
                   >
                     {/* Header badge */}
@@ -2036,7 +2087,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     }
   }, [cleanPropThemeId, activeStore.id, storeActiveTheme, themes]);
 
-  // Keep themeId synced to URL & sessionStorage (strictly clean theme string)
+  // Keep themeId synced to sessionStorage; URL stays short (omit default coffee themeId)
   useEffect(() => {
     if (currentThemeId && !currentThemeId.includes('[object')) {
       try {
@@ -2044,12 +2095,21 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         sessionStorage.setItem('unityteck_visual_builder_theme', currentThemeId);
         if (typeof window !== 'undefined') {
           const url = new URL(window.location.href);
-          url.searchParams.set('themeId', currentThemeId);
-          window.history.replaceState({}, '', url.toString());
+          url.searchParams.delete('page');
+          url.searchParams.delete('product');
+          url.searchParams.delete('productId');
+          url.searchParams.delete('tab');
+          url.searchParams.set('builder', '1');
+          if (currentThemeId === 'theme-coffee-artisan' && isCoffeeStore) {
+            url.searchParams.delete('themeId');
+          } else {
+            url.searchParams.set('themeId', currentThemeId);
+          }
+          window.history.replaceState({}, '', `${url.pathname}?${url.searchParams.toString()}`);
         }
       } catch {}
     }
-  }, [currentThemeId, activeStore.id]);
+  }, [currentThemeId, activeStore.id, isCoffeeStore]);
 
   // Real-world screen size detection for responsive Page Builder UI
   const [screenSize, setScreenSize] = useState<{ isMobile: boolean; isTablet: boolean }>(() => {
@@ -2088,12 +2148,11 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   const [previewPage, setPreviewPage] = useState<PreviewPage>(() => {
     try {
       if (typeof window !== 'undefined') {
-        const q = builderPageFromQuery(new URLSearchParams(window.location.search)) as PreviewPage | null;
-        if (q) return q;
-        const saved = sessionStorage.getItem('unityteck_visual_builder_page') as PreviewPage | null;
-        if (saved && saved !== 'crm' && ['home', 'catalog', 'product', 'cart', 'checkout', 'thankyou', 'faq', 'reviews', '404', 'custom', 'about', 'contact', 'location', 'track-order', 'privacy', 'return'].includes(saved)) {
-          return saved;
-        }
+        return resolveBuilderPreviewPage({
+          initialPage,
+          sessionPage: sessionStorage.getItem('unityteck_visual_builder_page'),
+          builderOpen: true,
+        }) as PreviewPage;
       }
     } catch {}
     return initialPage || 'home';
@@ -2114,8 +2173,12 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       sessionStorage.setItem('unityteck_visual_builder_page', previewPage);
       if (typeof window !== 'undefined') {
         const url = new URL(window.location.href);
+        url.searchParams.delete('page');
+        url.searchParams.delete('product');
+        url.searchParams.delete('productId');
+        url.searchParams.set('builder', '1');
         url.searchParams.set('builderPage', previewPage);
-        window.history.replaceState({}, '', url.toString());
+        window.history.replaceState({}, '', `${url.pathname}?${url.searchParams.toString()}`);
       }
     } catch {}
   }, [previewPage]);
@@ -2125,9 +2188,16 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       : 'sec_natural_flowers',
   );
   const [activeTab, setActiveTab] = useState<'content' | 'templates' | 'styling' | 'layout' | 'code' | 'ai'>('content');
+
+  useEffect(() => {
+    if (activeTab === 'ai') setActiveTab('content');
+    if (isCoffeeStore && (activeTab === 'templates' || activeTab === 'code')) setActiveTab('content');
+  }, [isCoffeeStore, activeTab]);
   const [canvasDarkMode, setCanvasDarkMode] = useState(false);
   const [previewModeOnly, setPreviewModeOnly] = useState(false);
-  const [leftTab, setLeftTab] = useState<'widgets' | 'layers'>('widgets');
+  const [leftTab, setLeftTab] = useState<'widgets' | 'layers'>(() =>
+    isCoffeeStore ? 'layers' : 'widgets',
+  );
   const [headerSubElement, setHeaderSubElement] = useState<HeaderSubElementKey>('general');
   const [headerLayerExpanded, setHeaderLayerExpanded] = useState<boolean>(true);
   const [selectedCategoryIndex, setSelectedCategoryIndex] = useState<number | null>(null);
@@ -2207,14 +2277,20 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     return true;
   });
   const [rightSidebarWidth, setRightSidebarWidth] = useState<number>(370);
-  const [rightSidebarVisible, setRightSidebarVisible] = useState<boolean>(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 1024) return false;
-    const coffee =
-      activeStore.id === 'store-coffee' ||
-      (activeStore.domain?.includes('coffee') ?? false);
-    return !coffee;
+  const [rightSidebarVisible, setRightSidebarVisible] = useState<boolean>(false);
+  /** Elementor / Shopify rail: settings left OR widgets — never both + squeezed canvas */
+  const elementorSingleRail = true;
+  const leftRailOpen =
+    leftSidebarVisible && !previewModeOnly && !(elementorSingleRail && rightSidebarVisible);
+  const rightRailOpen = rightSidebarVisible && !previewModeOnly;
+  const canvasRailInset = builderCanvasRailInset({
+    leftOpen: leftRailOpen,
+    rightOpen: rightRailOpen,
+    leftWidth: leftSidebarWidth,
+    rightWidth: rightSidebarWidth,
+    singleRail: elementorSingleRail,
+    desktop: !screenSize.isMobile && !screenSize.isTablet,
   });
-  const coffeeInspectorDockLeft = isCoffeeStore;
   const [isDraggingLeft, setIsDraggingLeft] = useState<boolean>(false);
   const [isDraggingRight, setIsDraggingRight] = useState<boolean>(false);
   const [draggedBlockIdx, setDraggedBlockIdx] = useState<number | null>(null);
@@ -2386,11 +2462,15 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   const [history, setHistory] = useState<BlockElement[][]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
   const historyRef = useRef<{ stack: BlockElement[][]; index: number }>({ stack: [], index: -1 });
+  /** Session clipboard for Copy/Paste (not OS clipboard). Chrome blocks never stored. */
+  const [blockClipboard, setBlockClipboard] = useState<BlockElement | null>(null);
+  const blockClipboardRef = useRef<BlockElement | null>(null);
+  const selectedBlockIdRef = useRef<string | null>(null);
   const skipHistoryRef = useRef(false);
   const blocksRef = useRef<BlockElement[]>([]);
   const pageDraftsRef = useRef<Record<string, BlockElement[]>>({});
   const quietSaveRef = useRef<() => void>(() => {});
-  const saveDebouncerRef = useRef(createCoalescedSaver(500, () => quietSaveRef.current()));
+  const saveDebouncerRef = useRef(createCoalescedSaver(280, () => quietSaveRef.current()));
   const activePageRef = useRef<ThemePageRecord | null>(null);
   const [pageBusy, setPageBusy] = useState(false);
   const [revisionsOpen, setRevisionsOpen] = useState(false);
@@ -2491,20 +2571,95 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   }, [isAr, toast]);
 
   useEffect(() => {
+    selectedBlockIdRef.current = selectedBlockId;
+  }, [selectedBlockId]);
+
+  const handleCopyBlock = useCallback(
+    (id?: string | null) => {
+      const targetId = id || selectedBlockIdRef.current;
+      if (!targetId) {
+        toast(isAr ? 'حدد قسماً أولاً للنسخ' : 'Select a section to copy first', 'info');
+        return;
+      }
+      const snap = snapshotBlockForClipboard(blocksRef.current, targetId);
+      if (!snap) {
+        toast(
+          isAr
+            ? 'لا يمكن نسخ الشريط العلوي أو القائمة أو التذييل'
+            : 'Top bar, navbar, and footer cannot be copied',
+          'info',
+        );
+        return;
+      }
+      blockClipboardRef.current = snap;
+      setBlockClipboard(snap);
+      toast(isAr ? 'تم نسخ القسم' : 'Section copied', 'success');
+    },
+    [isAr, toast],
+  );
+
+  const handlePasteBlock = useCallback(() => {
+    const clip = blockClipboardRef.current;
+    if (!clip) {
+      toast(isAr ? 'لا يوجد قسم منسوخ للصق' : 'Nothing to paste — copy a section first', 'info');
+      return;
+    }
+    const afterId = selectedBlockIdRef.current;
+    const newId = `${clip.id}_paste_${Date.now()}`;
+    setBlocks((prev) => {
+      const next = pasteBlockChromeSafe(prev, clip, newId, afterId);
+      if (next === prev) return prev;
+      return next;
+    });
+    setSelectedBlockId(newId);
+    toast(isAr ? 'تم لصق القسم' : 'Section pasted', 'success');
+  }, [isAr, toast]);
+
+  const handleDuplicateBlock = useCallback(
+    (id: string) => {
+      const block = blocksRef.current.find((b) => b.id === id);
+      if (isFixedChromeBlock(block)) {
+        toast(
+          isAr
+            ? 'لا يمكن تكرار الشريط العلوي أو القائمة أو التذييل'
+            : 'Top bar, navbar, and footer cannot be duplicated',
+          'info',
+        );
+        return;
+      }
+      const newId = `${id}_copy_${Date.now()}`;
+      setBlocks((prev) => duplicateBlockChromeSafe(prev, id, newId));
+      setSelectedBlockId(newId);
+      toast(isAr ? 'تم تكرار القسم بنجاح' : 'Section duplicated successfully', 'success');
+    },
+    [isAr, toast],
+  );
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const action = isHistoryShortcut(e);
-      if (!action) return;
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) {
         return;
       }
+      const historyAction = isHistoryShortcut(e);
+      if (historyAction) {
+        e.preventDefault();
+        if (historyAction === 'undo') handleUndo();
+        else handleRedo();
+        return;
+      }
+      const clipAction = isClipboardShortcut(e);
+      if (!clipAction) return;
       e.preventDefault();
-      if (action === 'undo') handleUndo();
-      else handleRedo();
+      if (clipAction === 'copy') handleCopyBlock();
+      else if (clipAction === 'paste') handlePasteBlock();
+      else if (clipAction === 'duplicate' && selectedBlockIdRef.current) {
+        handleDuplicateBlock(selectedBlockIdRef.current);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [handleUndo, handleRedo]);
+  }, [handleUndo, handleRedo, handleCopyBlock, handlePasteBlock, handleDuplicateBlock]);
 
   // Optimized Throttled Mouse Dragging Listeners
   useEffect(() => {
@@ -2557,6 +2712,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   }, [isDraggingLeft, isDraggingRight, isAr]);
 
   // Session Persistence & Debounced Auto-Save (Store & Theme Isolated)
+  // localStorage mirror + Hostinger draft API via quietSave (store_id only)
   const draftStorageKey = `selia_builder_draft_${activeStore.id}_${currentThemeId}`;
 
   useEffect(() => {
@@ -2575,6 +2731,8 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         setLastSavedTime(new Date().toLocaleTimeString(isAr ? 'ar-SA' : 'en-US'));
         setSaveStatus('saved');
         setHasUnsavedChanges(false);
+        // Debounced MySQL draft write for this store_id only (live canvas already reflects blocks)
+        saveDebouncerRef.current.push();
       } catch {
         setSaveStatus('error');
       }
@@ -3189,26 +3347,17 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   const handleSelectBlock = useCallback((id: string) => {
     setSelectedBlockId(id);
     setRightSidebarVisible(true);
-    if (isCoffeeStore) {
-      setLeftSidebarVisible(false);
-    } else if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-      setLeftSidebarVisible(false);
-    }
+    setLeftSidebarVisible(false);
     if (previewPage !== 'home') {
       setPreviewPage('home');
     }
-    // Smooth scroll to section in canvas
+    // Vertical-only nearest scroll — never yank canvas left/right (ring-offset was shifting page)
     setTimeout(() => {
       const el = document.getElementById(`selia_block_${id}`);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.classList.add('ring-4', 'ring-[color:var(--accent)]', 'ring-offset-2');
-        setTimeout(() => {
-          el.classList.remove('ring-4', 'ring-[color:var(--accent)]', 'ring-offset-2');
-        }, 1200);
-      }
+      scrollBlockIntoCanvasView(el);
+      flashBlockSelection(el);
     }, 100);
-  }, [previewPage, isCoffeeStore]);
+  }, [previewPage]);
 
   const handleToggleBlockVisibility = useCallback((id: string) => {
     setBlocks((prev) =>
@@ -3285,22 +3434,6 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         'info',
       );
     }
-  };
-
-  const handleDuplicateBlock = (id: string) => {
-    const block = blocks.find((b) => b.id === id);
-    if (isFixedChromeBlock(block)) {
-      toast(
-        isAr
-          ? 'لا يمكن تكرار الشريط العلوي أو القائمة أو التذييل'
-          : 'Top bar, navbar, and footer cannot be duplicated',
-        'info',
-      );
-      return;
-    }
-    const newId = `${id}_copy_${Date.now()}`;
-    setBlocks((prev) => duplicateBlockChromeSafe(prev, id, newId));
-    toast(isAr ? 'تم تكرار القسم بنجاح' : 'Section duplicated successfully', 'success');
   };
 
   const handleDeleteBlock = (id: string) => {
@@ -3469,6 +3602,11 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     const meta = builderPageMeta(pageId);
     try {
       const page = await fetchThemePageApi(activeStore.id, meta.slug);
+      if (!page) {
+        rememberPage(null);
+        if (pageDraftsRef.current[pageId]?.length) applyTree(pageDraftsRef.current[pageId], true);
+        return;
+      }
       rememberPage(page);
       const loaded = blocksFromLayout(page.draft_layout);
       if (loaded) applyTree(loaded as BlockElement[], true);
@@ -3490,6 +3628,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     }
     try {
       const existing = await fetchThemePageApi(activeStore.id, meta.slug);
+      if (!existing) throw new Error('page not found');
       return updateThemePageApi(activeStore.id, existing.id, {
         draft_layout: layout,
         updated_at: existing.updated_at,
@@ -3513,14 +3652,29 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   blocksRef.current = blocks;
   quietSaveRef.current = () => {
     if (!isApiEnabled()) return;
-    const layout = {
+    const layout = stripHeavyDataUrls({
       blocks: blocksRef.current,
       themeId: currentThemeId,
       seasonalTheme,
       typographySettings,
       mobileMenuIcon,
-    };
-    void ensureThemePage(layout).then((page) => rememberPage(page)).catch(() => {});
+    });
+    void ensureThemePage(layout)
+      .then((page) => {
+        rememberPage(page);
+        setLastSavedTime(new Date().toLocaleTimeString(isAr ? 'ar-SA' : 'en-US'));
+        setSaveStatus('saved');
+        setHasUnsavedChanges(false);
+        // Live preview listeners (coffee hero / chrome) — same store only
+        try {
+          window.dispatchEvent(new CustomEvent('unityteck-theme-settings', { detail: { storeId: activeStore.id } }));
+        } catch {
+          /* ignore */
+        }
+      })
+      .catch(() => {
+        setSaveStatus('error');
+      });
   };
 
   // Real Database Publish Live Sync
@@ -3530,12 +3684,20 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       toast(isAr ? 'واجهة المتجر غير متصلة' : 'Store API is not connected', 'error');
       return;
     }
+    setPageBusy(true);
     try {
       const full = readAllThemeSettings(activeStore.id, activeStore);
-      const annBlock = blocks.find((b) => b.id === 'announcement');
-      const tabsBlock = blocks.find((b) => b.id === 'product_tabs');
-      const sliderBlock = blocks.find((b) => b.id === 'hero_slider');
-      const headerBlock = blocks.find((b) => b.id === 'header');
+      const annBlock = blocks.find((b) => b.id === 'announcement' || b.type === 'announcement' || b.type === 'announcement_bar');
+      const tabsBlock = blocks.find((b) => b.id === 'product_tabs' || b.type === 'product_tabs' || b.type === 'featured_products');
+      const sliderBlock = blocks.find(
+        (b) =>
+          b.id === 'hero_slider' ||
+          b.id === 'hero_banners' ||
+          b.type === 'hero_slider' ||
+          b.type === 'hero_banners' ||
+          b.type === 'hero',
+      );
+      const headerBlock = blocks.find((b) => b.id === 'header' || b.type === 'header' || b.type === 'navbar');
 
       if (headerBlock?.settings?.headerCustom) {
         full.customHeader = headerBlock.settings.headerCustom;
@@ -3572,12 +3734,14 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
           : Array.isArray(sliderBlock.settings?.slides)
             ? sliderBlock.settings.slides
             : [];
-        full.heroBanners = {
-          ...(full.heroBanners || {}),
-          enabled: banners.length > 0,
-          autoplay: Boolean(sliderBlock.settings?.autoplay ?? sliderBlock.settings?.heroBanners?.autoplay),
-          banners,
-        };
+        if (banners.length > 0) {
+          full.heroBanners = {
+            ...(full.heroBanners || {}),
+            enabled: true,
+            autoplay: Boolean(sliderBlock.settings?.autoplay ?? sliderBlock.settings?.heroBanners?.autoplay),
+            banners,
+          };
+        }
       }
 
       // Save custom fonts and mobile icon into general
@@ -3589,30 +3753,66 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       setStoreTheme(activeStore.id, currentThemeId);
       setStoreHomepageStyle(activeStore.id, seasonalTheme);
 
-      // Write to Store Isolated Theme Database
-      writeAllThemeSettings(activeStore.id, full, currentThemeId);
+      // Write local + await Hostinger theme-settings (coffee hero lives here)
+      const safeSettings = stripHeavyDataUrls(full);
+      writeAllThemeSettings(activeStore.id, safeSettings, currentThemeId, { syncApi: false });
+      await updateThemeSettingsApi(activeStore.id, {
+        theme_id: currentThemeId,
+        settings: safeSettings as unknown as Record<string, unknown>,
+        publish: true,
+      });
 
-      const layout = {
+      const layout = stripHeavyDataUrls({
         blocks: blocksForPublish(blocks),
         themeId: currentThemeId,
         seasonalTheme,
         typographySettings,
         mobileMenuIcon,
-      };
-      setPageBusy(true);
-      const saved = await ensureThemePage(layout);
-      const published = await publishThemePageApi(activeStore.id, saved.id);
-      rememberPage(published);
-      const h1Count = countVisibleH1(published.published_layout ?? blocks);
-      const seoWarnings = published.seo_warnings ?? [];
-      if (h1Count !== 1 || seoWarnings.includes('missing-h1') || seoWarnings.includes('multiple-h1')) {
-        toast(
-          isAr
-            ? 'تحذير: الصفحة تحتاج عنواناً رئيسياً واحداً فقط'
-            : 'Warning: this page needs exactly one main heading',
-          'info',
-        );
+      });
+
+      let pagePublished = false;
+      try {
+        let saved: ThemePageRecord;
+        try {
+          saved = await ensureThemePage(layout);
+        } catch (pageErr: any) {
+          const msg = String(pageErr?.message || '');
+          // Stale stamp — reload page row once then retry
+          if (/updated elsewhere|409|conflict/i.test(msg)) {
+            activePageRef.current = null;
+            saved = await ensureThemePage(layout);
+          } else {
+            throw pageErr;
+          }
+        }
+
+        const published = await publishThemePageApi(activeStore.id, saved.id);
+        rememberPage(published);
+        pagePublished = true;
+        const h1Count = countVisibleH1(published.published_layout ?? blocks);
+        const seoWarnings = published.seo_warnings ?? [];
+        if (h1Count !== 1 || seoWarnings.includes('missing-h1') || seoWarnings.includes('multiple-h1')) {
+          toast(
+            isAr
+              ? 'تحذير: الصفحة تحتاج عنواناً رئيسياً واحداً فقط'
+              : 'Warning: this page needs exactly one main heading',
+            'info',
+          );
+        }
+      } catch (pageErr: any) {
+        // Coffee hero/chrome already persisted via theme-settings — do not fail the whole publish
+        if (isCoffeeStore) {
+          toast(
+            isAr
+              ? 'تم حفظ إعدادات الثيم مباشرة. تخطيط الصفحة سيُعاد لاحقاً.'
+              : 'Theme settings published live. Page layout will retry on next save.',
+            'info',
+          );
+        } else {
+          throw pageErr;
+        }
       }
+
       saveThemeBlocks(activeStore.id, currentThemeId, blocks as any, {
         isPublished: true,
         seasonalTheme,
@@ -3622,13 +3822,15 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       setLastSavedTime(new Date().toLocaleTimeString(isAr ? 'ar-SA' : 'en-US'));
       setHasUnsavedChanges(false);
 
-      toast(
-        isAr
-          ? 'تم نشر التعديلات وتفعيل الثيم بنجاح على المتجر المباشر!'
-          : 'Theme changes and configuration published live!',
-        'success',
-      );
-      if (onPublishSuccess) onPublishSuccess();
+      if (pagePublished || isCoffeeStore) {
+        toast(
+          isAr
+            ? 'تم نشر التعديلات وتفعيل الثيم بنجاح على المتجر المباشر!'
+            : 'Theme changes and configuration published live!',
+          'success',
+        );
+        if (onPublishSuccess) onPublishSuccess();
+      }
     } catch (err: any) {
       toast(
         isAr ? `تعذر النشر المباشر:${err?.message || 'خطأ غير معروف'}` : `Publish failed: ${err?.message || 'Unknown error'}`,
@@ -3698,6 +3900,10 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       if (!page || page.slug !== meta.slug) {
         page = await fetchThemePageApi(activeStore.id, meta.slug);
         rememberPage(page);
+      }
+      if (!page) {
+        setRevisions([]);
+        return;
       }
       const rows = await fetchThemeRevisionsApi(activeStore.id, page.id);
       setRevisions(Array.isArray(rows) ? rows : []);
@@ -3778,9 +3984,14 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col bg-slate-100 text-slate-900 overflow-hidden font-sans animate-in fade-in zoom-in-[0.99] duration-150 ease-out"
+      data-portal="store"
+      data-surface="theme-builder"
+      className={`fixed inset-0 z-50 flex flex-col bg-[color:var(--bg,#e2f4f0)] text-[color:var(--text)] overflow-hidden font-sans ${
+        screenSize.isMobile ? '' : 'animate-in fade-in duration-150 ease-out'
+      }`}
       dir={isAr ? 'rtl' : 'ltr'}
-      style={{ fontFamily: typographySettings.fontFamily }}
+      lang={isAr ? 'ar' : 'en'}
+      style={{ fontFamily: typographySettings.fontFamily || (isAr ? 'var(--font-ui-ar, var(--font-ui))' : 'var(--font-ui-en, var(--font-ui))') }}
     >
       {builderClosed && (
         <p data-builder-unavailable="1" className="m-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -3800,11 +4011,13 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         />
       )}
       {/* ========================================================
-          1. CLEAN, ORGANIZED & FULLY RESPONSIVE TOPBAR (NO OVERLAP / NO SCROLL)
+          1. TWO-ROW TOPBAR — no overlap / no horizontal scroll
           ======================================================== */}
-      <header className="h-14 sm:h-15 px-2 sm:px-4 bg-white border-b border-slate-200/90 shadow-2xs flex items-center justify-between shrink-0 z-[100] gap-1.5 sm:gap-2.5 relative w-full overflow-visible select-none">
+      <header className="px-2 sm:px-3 py-1.5 bg-white border-b border-slate-200/90 shadow-2xs flex flex-col gap-1.5 shrink-0 z-[100] relative w-full overflow-visible select-none">
+        {/* Row 1: Branding + primary publish actions */}
+        <div className="flex items-center justify-between gap-2 w-full min-w-0">
         {/* Left: Branding & All-Pages & Theme Dropdown */}
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0 min-w-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 flex-1 overflow-hidden">
           <button
             type="button"
             onClick={onClose}
@@ -3815,18 +4028,18 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             <ChevronLeft className="w-5 h-5 rtl:rotate-180" />
           </button>
 
-          <div className="hidden 2xl:flex items-center gap-2 min-w-0">
+          <div className="hidden xl:flex items-center gap-2 min-w-0">
             <span className="w-7 h-7 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-xs shadow-indigo-200 shrink-0">
               <Sparkles className="w-3.5 h-3.5" />
             </span>
-            <div className="truncate max-w-[120px]">
+            <div className="truncate max-w-[140px]">
               <span className="font-extrabold text-xs text-slate-900 truncate block">
                 {getStoreDisplayName(activeStore, locale)}
               </span>
             </div>
           </div>
 
-          <div className="h-5 w-px bg-slate-200 mx-0.5 hidden 2xl:block" />
+          <div className="h-5 w-px bg-slate-200 mx-0.5 hidden xl:block" />
 
           {/* ALL PAGES SWITCHER DROPDOWN */}
           <div className="relative" ref={pageDropdownRef}>
@@ -3900,12 +4113,12 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
               title={isAr ? 'اختيار الثيم' : 'Select Theme'}
             >
               <Palette className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-              <span className="truncate max-w-[85px] sm:max-w-[110px] md:max-w-[140px]">
+              <span className="truncate max-w-[80px] sm:max-w-[120px] md:max-w-[160px] lg:max-w-[200px]">
                 {themeDisplayLabel}
               </span>
               {isEditingActiveTheme ? (
                 <span className="hidden sm:inline-block text-[9px] bg-emerald-600 text-white px-1.5 py-0.2 rounded font-bold shrink-0">
-                  {isAr ? 'النشط' : 'Live'}
+                  {isAr ? 'نشط' : 'Live'}
                 </span>
               ) : (
                 <span className="hidden sm:inline-block text-[9px] bg-amber-500 text-white px-1.5 py-0.2 rounded font-bold shrink-0">
@@ -3961,7 +4174,57 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
           </div>
         </div>
 
-        {/* Center: Device Viewport & Editor Undo/Redo & Season (Centered & Responsive) */}
+          {/* Row 1 end: Preview / Suggestions / Save / Publish */}
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setPreviewModeOnly(!previewModeOnly)}
+              className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-2xs shrink-0 ${
+                previewModeOnly
+                  ? 'bg-amber-500 text-white border-amber-600 shadow-amber-200'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+              }`}
+              title={isAr ? 'معاينة حية للمتجر كزائر حقيقي' : 'Live Store Preview'}
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{isAr ? (previewModeOnly ? 'إنهاء' : 'معاينة') : (previewModeOnly ? 'Exit' : 'Preview')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSuggestOpen((open) => !open)}
+              className="hidden md:inline-flex px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 cursor-pointer shrink-0"
+              title={isAr ? 'اقتراحات' : 'Suggestions'}
+            >
+              <span className="whitespace-nowrap">{isAr ? 'اقتراحات' : 'Suggestions'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveDraft}
+              disabled={pageBusy}
+              aria-busy={pageBusy}
+              className="px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-bold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 cursor-pointer inline-flex items-center gap-1 shadow-2xs transition-colors shrink-0 disabled:opacity-50"
+              title={isAr ? 'حفظ المسودة' : 'Save Draft'}
+            >
+              <Save className="w-3.5 h-3.5 text-slate-500" />
+              <span className="hidden sm:inline">{isAr ? 'حفظ' : 'Save'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handlePublishLive}
+              disabled={pageBusy}
+              aria-busy={pageBusy}
+              className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] shadow-xs shadow-indigo-200 cursor-pointer inline-flex items-center gap-1.5 transition-colors shrink-0 disabled:opacity-50"
+              title={isAr ? 'نشر التعديلات للمتجر مباشرة' : 'Publish Live to Store'}
+            >
+              <Send className="w-3.5 h-3.5 rtl:-scale-x-100" />
+              <span className="whitespace-nowrap">{isAr ? 'نشر' : 'Publish'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Row 2: Device viewport + editor tools + sidebars */}
+        <div className="flex items-center justify-between gap-2 w-full min-w-0 flex-wrap">
+        {/* Center: Device Viewport & Editor Undo/Redo & Season */}
         <div className="relative flex items-center justify-center gap-1 sm:gap-1.5 shrink-0">
           {/* Device Viewport Switcher (Always accessible on all screen sizes) */}
           <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 gap-0.5 shrink-0">
@@ -3983,12 +4246,12 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                 title={d.label}
               >
                 {d.icon}
-                <span className="hidden 2xl:inline text-[11px]">{d.label}</span>
+                <span className="hidden lg:inline text-[11px]">{d.label}</span>
               </button>
             ))}
           </div>
 
-          {/* Undo & Redo History in Center Context */}
+          {/* Undo / Redo / Copy / Paste / Duplicate */}
           <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-xl border border-slate-200 shrink-0">
             <button
               type="button"
@@ -4007,6 +4270,33 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
               title={isAr ? 'إعادة' : 'Redo'}
             >
               <Redo2 className="w-3.5 h-3.5 rtl:-scale-x-100" />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleCopyBlock(selectedBlockId)}
+              disabled={!selectedBlockId || isFixedChromeBlock(blocks.find((b) => b.id === selectedBlockId))}
+              className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+              title={isAr ? 'نسخ' : 'Copy'}
+            >
+              <Copy className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={handlePasteBlock}
+              disabled={!blockClipboard}
+              className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+              title={isAr ? 'لصق' : 'Paste'}
+            >
+              <ClipboardPaste className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => selectedBlockId && handleDuplicateBlock(selectedBlockId)}
+              disabled={!selectedBlockId || isFixedChromeBlock(blocks.find((b) => b.id === selectedBlockId))}
+              className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+              title={isAr ? 'تكرار' : 'Duplicate'}
+            >
+              <CopyPlus className="w-3.5 h-3.5" />
             </button>
             <button
               type="button"
@@ -4144,8 +4434,8 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
           </div>
         </div>
 
-        {/* Right: Tools & Action Buttons (Aligned to End) */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 ms-auto">
+        {/* Right: Editor tools (sidebars / language / shortcodes / settings) */}
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 flex-wrap justify-end">
           {/* Toggle Sidebar Buttons (Accessible across all screens) */}
           <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs shrink-0">
             <button
@@ -4153,7 +4443,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
               onClick={() => {
                 const next = !leftSidebarVisible;
                 setLeftSidebarVisible(next);
-                if (next && isCoffeeStore) setRightSidebarVisible(false);
+                if (next && elementorSingleRail) setRightSidebarVisible(false);
                 if (screenSize.isMobile || screenSize.isTablet) setRightSidebarVisible(false);
               }}
               className={`p-1.5 px-2 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
@@ -4162,7 +4452,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
               title={isAr ? 'إظهار / إخفاء أقسام الصفحة' : 'Toggle Left Blocks Outline'}
             >
               <Layers className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline text-[10px]">{isAr ? 'الأقسام' : 'Blocks'}</span>
+              <span className="hidden lg:inline text-[10px]">{isAr ? 'الأقسام' : 'Blocks'}</span>
             </button>
 
             <button
@@ -4170,7 +4460,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
               onClick={() => {
                 const next = !rightSidebarVisible;
                 setRightSidebarVisible(next);
-                if (next && isCoffeeStore) setLeftSidebarVisible(false);
+                if (next && elementorSingleRail) setLeftSidebarVisible(false);
                 if (screenSize.isMobile || screenSize.isTablet) setLeftSidebarVisible(false);
               }}
               className={`p-1.5 px-2 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
@@ -4179,11 +4469,11 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
               title={isAr ? 'إظهار / إخفاء لوحة التعديل' : 'Toggle Right Inspector'}
             >
               <Sliders className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline text-[10px]">{isAr ? 'المفتش' : 'Inspector'}</span>
+              <span className="hidden lg:inline text-[10px]">{isAr ? 'العناصر' : 'Inspector'}</span>
             </button>
           </div>
 
-          {/* Sleek 1-Click Bilingual Language Switcher (Saves 110px compared to dual buttons) */}
+          {/* Sleek 1-Click Bilingual Language Switcher */}
           <button
             type="button"
             onClick={() => handleToggleLanguage(isAr ? 'en' : 'ar')}
@@ -4191,18 +4481,18 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             title={isAr ? 'التبديل إلى الإنجليزية' : 'Switch to Arabic'}
           >
             <Globe className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-            <span className="font-extrabold text-[11px]">{isAr ? 'إنجليزي' : 'Arabic'}</span>
+            <span className="hidden sm:inline font-extrabold text-[11px]">{isAr ? 'إنجليزي' : 'Arabic'}</span>
           </button>
 
-          {/* Shortcode Generator (Visible on 2xl+, in Tools dropdown on < 2xl) */}
+          {/* Shortcode Generator */}
           <button
             type="button"
             onClick={() => setShowShortcodeModal(true)}
-            className="hidden 2xl:inline-flex px-2.5 py-1.5 rounded-xl text-xs font-bold border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 cursor-pointer items-center gap-1 shadow-2xs transition-colors shrink-0"
+            className="inline-flex px-2.5 py-1.5 rounded-xl text-xs font-bold border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 cursor-pointer items-center gap-1 shadow-2xs transition-colors shrink-0"
             title={isAr ? 'توليد ونسخ كود قصير للمنتجات' : 'Generate & Copy Product Shortcodes'}
           >
             <Code className="w-3.5 h-3.5 text-emerald-700" />
-            <span>{isAr ? 'الأكواد' : 'Shortcodes'}</span>
+            <span className="hidden sm:inline">{isAr ? 'الأكواد' : 'Shortcodes'}</span>
           </button>
 
           {/* Tools & View Settings Dropdown */}
@@ -4316,54 +4606,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
               </div>
             )}
           </div>
-
-          {/* Live Preview Mode Toggle */}
-          <button
-            type="button"
-            onClick={() => setPreviewModeOnly(!previewModeOnly)}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-2xs shrink-0 ${
-              previewModeOnly
-                ? 'bg-amber-500 text-white border-amber-600 shadow-amber-200'
-                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
-            }`}
-            title={isAr ? 'معاينة حية للمتجر كزائر حقيقي' : 'Live Store Preview'}
-          >
-            <Eye className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">{isAr ? (previewModeOnly ? 'إنهاء' : 'معاينة') : (previewModeOnly ? 'Exit' : 'Preview')}</span>
-          </button>
-
-          {/* Save Draft */}
-          <button
-            type="button"
-            onClick={() => setSuggestOpen((open) => !open)}
-            className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 cursor-pointer shrink-0"
-          >
-            <span className="whitespace-nowrap">{isAr ? 'اقتراحات' : 'Suggestions'}</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleSaveDraft}
-            disabled={pageBusy}
-            aria-busy={pageBusy}
-            className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 cursor-pointer inline-flex items-center gap-1 shadow-2xs transition-colors shrink-0 disabled:opacity-50"
-            title={isAr ? 'حفظ المسودة' : 'Save Draft'}
-          >
-            <Save className="w-3.5 h-3.5 text-slate-500" />
-            <span className="hidden lg:inline">{isAr ? 'حفظ' : 'Save'}</span>
-          </button>
-
-          {/* Publish Live */}
-          <button
-            type="button"
-            onClick={handlePublishLive}
-            disabled={pageBusy}
-            aria-busy={pageBusy}
-            className="px-3 sm:px-4 py-1.5 rounded-xl text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] shadow-xs shadow-indigo-200 cursor-pointer inline-flex items-center gap-1.5 transition-colors shrink-0 disabled:opacity-50"
-            title={isAr ? 'نشر التعديلات للمتجر مباشرة' : 'Publish Live to Store'}
-          >
-            <Send className="w-3.5 h-3.5 rtl:-scale-x-100" />
-            <span className="whitespace-nowrap">{isAr ? 'نشر مباشر' : 'Publish Live'}</span>
-          </button>
+        </div>
         </div>
       </header>
 
@@ -4392,11 +4635,11 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       {/* ========================================================
           2. THREE-PANEL ELEMENTOR WORKSPACE WITH MOUSE RESIZING
           ======================================================== */}
-      <div className="flex-1 flex overflow-hidden min-h-0 relative z-0">
+      <div className="vb-workspace flex-1 flex overflow-hidden min-h-0 relative z-0">
         {/* ========================================================
             LEFT SIDEBAR: BLOCKS & LAYOUT OUTLINE (RESIZABLE & DRAWER)
             ======================================================== */}
-        {leftSidebarVisible && !previewModeOnly && !(isCoffeeStore && rightSidebarVisible) ? (
+        {leftRailOpen ? (
           <>
             {/* Mobile / Tablet Backdrop Overlay */}
             <div
@@ -4408,7 +4651,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                 width: screenSize.isMobile ? '88vw' : `${Math.min(leftSidebarWidth, 400)}px`,
                 maxWidth: '420px',
               }}
-              className="fixed top-0 bottom-0 start-0 z-50 bg-white shadow-2xl flex flex-col select-none lg:static lg:z-0 lg:shadow-none border-e border-slate-200 animate-in slide-in-from-start duration-200"
+              className={builderRailAsideClass(true)}
             >
               {/* Drawer Mobile Top Close Header */}
               <div className="lg:hidden flex items-center justify-between p-3 border-b border-slate-200 bg-slate-50 shrink-0">
@@ -4528,7 +4771,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                               <BIcon className="w-3.5 h-3.5" />
                             </div>
                             <span className="text-xs truncate font-medium">
-                              {isAr ? b.titleAr : b.titleEn}
+                              {isCoffeeStore ? coffeeLayerTitle(b, isAr) : isAr ? b.titleAr : b.titleEn}
                             </span>
                             {isChromeFixed && (
                               <span className="text-[9px] font-bold text-[color:var(--muted)] shrink-0">
@@ -4554,12 +4797,25 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  handleCopyBlock(b.id);
+                                }}
+                                className="p-1 hover:bg-indigo-100 hover:text-indigo-700 rounded text-indigo-600 cursor-pointer"
+                                title={isAr ? 'نسخ' : 'Copy'}
+                              >
+                                <Copy className="w-3 h-3" />
+                              </button>
+                            )}
+                            {!isChromeFixed && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   handleDuplicateBlock(b.id);
                                 }}
                                 className="p-1 hover:bg-indigo-100 hover:text-indigo-700 rounded text-indigo-600 cursor-pointer"
-                                title={isAr ? 'نسخ القسم' : 'Copy / Duplicate'}
+                                title={isAr ? 'تكرار' : 'Duplicate'}
                               >
-                                <Copy className="w-3 h-3" />
+                                <CopyPlus className="w-3 h-3" />
                               </button>
                             )}
                             {!isChromeFixed && (
@@ -4665,16 +4921,19 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         <main
           id="theme-builder-canvas-scroll"
           tabIndex={0}
-          className={`flex-1 overflow-x-hidden overflow-y-auto overscroll-contain flex flex-col items-center transition-colors scroll-smooth focus:outline-none ${
-            screenSize.isMobile ? 'p-1 pb-24' : 'p-2 sm:p-6'
+          className={`vb-canvas-main flex-1 overflow-x-hidden overflow-y-auto overscroll-contain flex flex-col items-center transition-colors scroll-smooth focus:outline-none ${
+            screenSize.isMobile ? 'p-1 pb-24' : 'p-1 sm:p-3'
           } ${canvasDarkMode ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}
           style={{
             WebkitOverflowScrolling: 'touch',
+            // Themes/Widgets rail overlays — pad canvas so preview stays centered (no left/right overlap)
+            paddingInlineStart: canvasRailInset.startPx || undefined,
+            paddingInlineEnd: canvasRailInset.endPx || undefined,
           }}
         >
           <div
             data-builder-frame-width={framePx}
-            className={`transition-all duration-300 w-full overflow-x-hidden box-border ${
+            className={`transition-[border-radius,box-shadow,border-width] duration-300 w-full max-w-full overflow-x-clip box-border ${
               device === 'mobile'
                 ? screenSize.isMobile
                   ? 'rounded-none border-0 shadow-none my-0 bg-white builder-device-mobile'
@@ -4685,7 +4944,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                     : 'shadow-xl rounded-2xl border-[6px] border-slate-700 bg-white my-6 builder-device-tablet relative'
                   : device === 'laptop'
                     ? 'shadow-lg rounded-xl border border-slate-200 bg-white my-4 builder-device-laptop relative'
-                    : 'shadow-sm rounded-xl border border-slate-200 bg-white my-4 builder-device-desktop relative'
+                    : 'shadow-sm rounded-xl border border-slate-200 bg-white my-1 sm:my-2 builder-device-desktop relative'
             }`}
             style={{ width: '100%', maxWidth: framePx }}
           >
@@ -4788,6 +5047,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                         onToggleVisibility={handleToggleBlockVisibility}
                         onDelete={handleDeleteBlock}
                         onDuplicate={handleDuplicateBlock}
+                        onCopy={handleCopyBlock}
                         onInsertAbove={(insertIdx) => {
                           setInsertTargetIndex(insertIdx);
                           setActiveOpenInserterIndex(insertIdx);
@@ -4934,13 +5194,9 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                 width: screenSize.isMobile ? '92vw' : `${Math.min(rightSidebarWidth, 440)}px`,
                 maxWidth: '460px',
               }}
-              className={`fixed top-0 bottom-0 z-50 bg-white shadow-2xl flex flex-col select-none lg:static lg:z-0 lg:shadow-none animate-in duration-200 ${
-                coffeeInspectorDockLeft
-                  ? 'start-0 border-e border-slate-200 slide-in-from-start'
-                  : 'end-0 border-s border-slate-200 slide-in-from-end'
-              }`}
+              className={builderRailAsideClass(elementorSingleRail)}
             >
-              {coffeeInspectorDockLeft && (
+              {elementorSingleRail && (
                 <p className="hidden lg:flex items-center gap-2 px-3 py-2 border-b border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-600 shrink-0">
                   <button
                     type="button"
@@ -4964,7 +5220,10 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                 </span>
                 <button
                   type="button"
-                  onClick={() => setRightSidebarVisible(false)}
+                  onClick={() => {
+                    setRightSidebarVisible(false);
+                    if (elementorSingleRail) setLeftSidebarVisible(true);
+                  }}
                   className="p-1 rounded-lg text-slate-500 hover:bg-slate-200 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
@@ -4974,7 +5233,9 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
               {/* Right Resize Handle (desktop only) */}
               <div
                 onMouseDown={() => setIsDraggingRight(true)}
-                className="hidden lg:block absolute top-0 bottom-0 start-0 w-1.5 cursor-col-resize hover:bg-indigo-500 transition-colors z-30"
+                className={`hidden lg:block absolute top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[color:var(--accent)] transition-colors z-30 ${
+                  elementorSingleRail ? 'end-0' : 'start-0'
+                }`}
               />
 
             {/* Inspector Top Header */}
@@ -4990,7 +5251,11 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                 })()}
                 <div className="min-w-0">
                   <span className="font-extrabold text-xs text-slate-900 block truncate">
-                    {isAr ? selectedBlock.titleAr : selectedBlock.titleEn}
+                    {isCoffeeStore
+                      ? coffeeLayerTitle(selectedBlock, isAr)
+                      : isAr
+                        ? selectedBlock.titleAr
+                        : selectedBlock.titleEn}
                   </span>
                   <span className="text-[10px] text-slate-400 font-mono">
                     {selectedBlock.templateStyle}
@@ -5041,7 +5306,8 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
               </div>
             </div>
 
-            {/* Inspector Tabs — Content / Style / Layout (AI + unused tabs hidden) */}
+            {/* Coffee: hide generic tabs — Coffee*Form panels already match docs/34 ref UI */}
+            {!(isCoffeeStore && coffeeBlockUsesRefInspector(selectedBlock)) && (
             <div className="flex border-b border-slate-200 bg-slate-50/70 text-xs font-bold">
               {(
                 [
@@ -5075,11 +5341,13 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                 );
               })}
             </div>
+            )}
 
             {/* Inspector Body */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {/* Header Block Granular Element Inspector */}
-              {(selectedBlock.type === 'header' || selectedBlock.id === 'header') &&
+              {isCoffeeStore && coffeeBlockUsesRefInspector(selectedBlock) ? (
+                <CoffeeBuilderSectionInspector block={selectedBlock} isAr={isAr} />
+              ) : (selectedBlock.type === 'header' || selectedBlock.id === 'header') &&
               (activeTab === 'content' || activeTab === 'templates' || activeTab === 'styling' || activeTab === 'layout') ? (
                 <HeaderElementInspector
                   settings={selectedBlock.settings?.headerCustom || getDefaultHeaderSettings(activeStore, currentThemeId)}
@@ -5985,7 +6253,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
               {activeTab === 'code' && (
                 <div className="space-y-4">
                   <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-[11px] text-indigo-900 leading-relaxed">
-                    {isAr ? 'يمكنك هنا إضافة أكواد و و مخصصة يتم تنفيذها بأمان داخل نطاق هذا القسم فقط دون التأثير على بقية المتجر.' : 'Add custom HTML, CSS, and JavaScript scoped safely to this section in an isolated runtime.'}
+                    {isAr ? 'يمكنك هنا إضافة أكواد مخصصة تُنفَّذ بأمان داخل نطاق هذا القسم فقط دون التأثير على بقية المتجر.' : 'Add custom HTML, CSS, and JavaScript scoped safely to this section in an isolated runtime.'}
                   </div>
 
                   {/* Custom HTML */}
@@ -6121,7 +6389,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             ))}
           </div>
 
-          {/* Undo */}
+          {/* Undo / Redo / Copy / Paste / Duplicate */}
           <button
             type="button"
             onClick={handleUndo}
@@ -6130,6 +6398,42 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             title={isAr ? 'تراجع' : 'Undo'}
           >
             <Undo2 className="w-4 h-4 rtl:-scale-x-100" />
+          </button>
+          <button
+            type="button"
+            onClick={handleRedo}
+            disabled={historyIndex >= history.length - 1}
+            className="p-2 text-slate-600 disabled:opacity-20 cursor-pointer"
+            title={isAr ? 'إعادة' : 'Redo'}
+          >
+            <Redo2 className="w-4 h-4 rtl:-scale-x-100" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleCopyBlock(selectedBlockId)}
+            disabled={!selectedBlockId || isFixedChromeBlock(blocks.find((b) => b.id === selectedBlockId))}
+            className="p-2 text-slate-600 disabled:opacity-20 cursor-pointer"
+            title={isAr ? 'نسخ' : 'Copy'}
+          >
+            <Copy className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={handlePasteBlock}
+            disabled={!blockClipboard}
+            className="p-2 text-slate-600 disabled:opacity-20 cursor-pointer"
+            title={isAr ? 'لصق' : 'Paste'}
+          >
+            <ClipboardPaste className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => selectedBlockId && handleDuplicateBlock(selectedBlockId)}
+            disabled={!selectedBlockId || isFixedChromeBlock(blocks.find((b) => b.id === selectedBlockId))}
+            className="p-2 text-slate-600 disabled:opacity-20 cursor-pointer"
+            title={isAr ? 'تكرار' : 'Duplicate'}
+          >
+            <CopyPlus className="w-4 h-4" />
           </button>
 
           {/* Quick Publish Live */}
@@ -6312,6 +6616,37 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             </div>
 
             <div className="grid grid-cols-2 gap-2.5 max-h-[360px] overflow-y-auto p-1">
+              {isCoffeeStore ? (
+                getCoffeePageBuilderWidgetCatalog()
+                  .filter((w) => w.type !== 'columns_container')
+                  .map((w) => {
+                    const WIcon = w.icon;
+                    return (
+                      <button
+                        key={w.id}
+                        type="button"
+                        onClick={() =>
+                          handleAddWidgetToColumn(
+                            columnPickerTarget.blockId,
+                            columnPickerTarget.colIdx,
+                            w.type,
+                            isAr ? w.titleAr : w.titleEn,
+                            { ...w.defaultSettings },
+                          )
+                        }
+                        className="p-3 rounded-2xl border-2 border-slate-200 hover:border-[color:var(--accent)] hover:bg-[color:var(--portal-50)]/30 text-start flex flex-col gap-1 transition-all group cursor-pointer"
+                      >
+                        <span className="w-8 h-8 rounded-lg bg-slate-100 text-[color:var(--accent)] flex items-center justify-center">
+                          <WIcon className="w-4 h-4" />
+                        </span>
+                        <span className="text-xs font-black text-slate-800">
+                          {isAr ? w.titleAr : w.titleEn}
+                        </span>
+                      </button>
+                    );
+                  })
+              ) : (
+                <>
               {/* Step 3 Module 1: Counter Number Label 82px */}
               <button
                 type="button"
@@ -6417,6 +6752,8 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                   {isAr ? 'فقرة نصية حرة قابلة للتعديل' : 'Rich paragraph block'}
                 </span>
               </button>
+                </>
+              )}
             </div>
 
             <div className="flex justify-end pt-2 border-t border-slate-100">

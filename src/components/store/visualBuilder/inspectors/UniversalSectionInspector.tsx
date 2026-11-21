@@ -1098,40 +1098,45 @@ export const UniversalSectionInspector: React.FC<UniversalSectionInspectorProps>
               {/* Sub-element: Contacts & Legal / ZATCA */}
               {selectedSubKey === 'contacts' && (
                 <div className="space-y-2.5">
+                  <p className="text-[10px] text-slate-500 leading-relaxed">
+                    {isAr
+                      ? 'واتساب والبريد يُسحبان تلقائياً من هوية هذا المتجر فقط — لا تُعدّل هنا يدوياً.'
+                      : 'WhatsApp and email auto-fill from this store’s identity only — edit them in Store Identity.'}
+                  </p>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                        {isAr ? 'رقم الواتساب' : 'WhatsApp Number'}
+                        {isAr ? 'رقم الواتساب (تلقائي)' : 'WhatsApp (auto)'}
                       </label>
                       <input
                         type="text"
                         value={s.whatsappNumber || ''}
-                        onChange={(e) => onUpdateSetting('whatsappNumber', e.target.value)}
+                        readOnly
                         placeholder="+966501234567"
-                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white text-xs font-mono"
+                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-slate-50 text-xs font-mono cursor-default"
                       />
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                        {isAr ? 'هاتف الدعم المباشر' : 'Support Phone'}
+                        {isAr ? 'هاتف الدعم (تلقائي)' : 'Support Phone (auto)'}
                       </label>
                       <input
                         type="text"
                         value={s.phoneNumber || ''}
-                        onChange={(e) => onUpdateSetting('phoneNumber', e.target.value)}
-                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white text-xs font-mono"
+                        readOnly
+                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-slate-50 text-xs font-mono cursor-default"
                       />
                     </div>
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                      {isAr ? 'البريد الإلكتروني للدعم' : 'Support Email'}
+                      {isAr ? 'البريد الإلكتروني (تلقائي)' : 'Support Email (auto)'}
                     </label>
                     <input
                       type="email"
                       value={s.emailAddress || ''}
-                      onChange={(e) => onUpdateSetting('emailAddress', e.target.value)}
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white text-xs"
+                      readOnly
+                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-slate-50 text-xs cursor-default"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-2 pt-1 border-t border-emerald-200">

@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *, .dark, .dark *));
 @import "./styles/portal-tokens.css";
+@import "./styles/visual-builder-holst.css";
 
 /* Tailwind font-sans → same Holst brand face (Settings → BrandingPanel) */
 @theme {
@@ -513,8 +514,18 @@
   display: none !important;
 }
 
-.builder-device-tablet .lg\:hidden {
+.builder-device-tablet .lg\:hidden:not(.hidden) {
+  display: block !important;
+}
+.builder-device-tablet .flex.lg\:hidden,
+.builder-device-tablet .inline-flex.lg\:hidden {
   display: flex !important;
+}
+.builder-device-tablet .grid.lg\:hidden {
+  display: grid !important;
+}
+.builder-device-tablet .block.lg\:hidden {
+  display: block !important;
 }
 
 /* Tablet grids: 2 or 3 columns instead of 4 or 5 */
@@ -593,15 +604,107 @@ html[dir='rtl'] button span,
 
 /* ── 3. LAPTOP & DESKTOP MODES ── */
 .builder-device-laptop {
-  max-width: 1024px !important;
+  max-width: 1104px !important;
   margin-left: auto !important;
   margin-right: auto !important;
 }
 
 .builder-device-desktop {
-  max-width: 1400px !important;
+  max-width: 1320px !important;
   margin-left: auto !important;
   margin-right: auto !important;
+}
+
+/* HiBrew home rail: desktop grid must not collapse inside builder laptop frame */
+.builder-device-desktop .hibrew-theme-root #all-equipment-section .hidden.lg\:grid,
+.builder-device-laptop .hibrew-theme-root #all-equipment-section .hidden.lg\:grid {
+  display: grid !important;
+}
+
+.builder-device-desktop .hibrew-theme-root #all-equipment-section .block.lg\:hidden,
+.builder-device-laptop .hibrew-theme-root #all-equipment-section .block.lg\:hidden {
+  display: none !important;
+}
+
+.builder-device-tablet .hibrew-theme-root #all-equipment-section .hidden.lg\:grid {
+  display: none !important;
+}
+
+.builder-device-tablet .hibrew-theme-root #all-equipment-section .block.lg\:hidden {
+  display: block !important;
+}
+
+.builder-device-mobile .hibrew-theme-root #all-equipment-section .hidden.lg\:grid {
+  display: none !important;
+}
+.builder-device-mobile .hibrew-theme-root #all-equipment-section .block.lg\:hidden {
+  display: block !important;
+}
+
+/* Coffee hero stage height inside builder frames */
+.builder-device-mobile .hibrew-theme-root .theme-slider-stage {
+  height: 420px !important;
+  min-height: 420px !important;
+}
+.builder-device-tablet .hibrew-theme-root .theme-slider-stage {
+  height: 520px !important;
+  min-height: 520px !important;
+}
+
+/* Compact vertical padding — reduce blank gaps between coffee sections in canvas */
+.builder-device-mobile .hibrew-theme-root section.py-12,
+.builder-device-mobile .hibrew-theme-root section.py-10,
+.builder-device-mobile .hibrew-theme-root .py-12.sm\:py-16,
+.builder-device-mobile .hibrew-theme-root .py-12.sm\:py-16.lg\:py-20 {
+  padding-top: 1.25rem !important;
+  padding-bottom: 1.25rem !important;
+}
+
+.builder-device-mobile .hibrew-theme-root .grid-cols-1.lg\:grid-cols-2,
+.builder-device-tablet .hibrew-theme-root .grid-cols-1.lg\:grid-cols-2 {
+  grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+}
+.builder-device-desktop .hibrew-theme-root .grid-cols-1.lg\:grid-cols-2,
+.builder-device-laptop .hibrew-theme-root .grid-cols-1.lg\:grid-cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+.builder-device-desktop .hibrew-theme-root .grid-cols-1.lg\:grid-cols-12,
+.builder-device-laptop .hibrew-theme-root .grid-cols-1.lg\:grid-cols-12 {
+  grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+}
+.builder-device-mobile .hibrew-theme-root .grid-cols-1.lg\:grid-cols-12,
+.builder-device-tablet .hibrew-theme-root .grid-cols-1.lg\:grid-cols-12 {
+  grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+}
+
+.builder-device-desktop .hibrew-theme-root .lg\:col-span-6,
+.builder-device-laptop .hibrew-theme-root .lg\:col-span-6 {
+  grid-column: span 6 / span 6 !important;
+}
+.builder-device-desktop .hibrew-theme-root .lg\:col-span-4,
+.builder-device-laptop .hibrew-theme-root .lg\:col-span-4 {
+  grid-column: span 4 / span 4 !important;
+}
+.builder-device-desktop .hibrew-theme-root .lg\:col-span-8,
+.builder-device-laptop .hibrew-theme-root .lg\:col-span-8 {
+  grid-column: span 8 / span 8 !important;
+}
+.builder-device-mobile .hibrew-theme-root .lg\:col-span-6,
+.builder-device-mobile .hibrew-theme-root .lg\:col-span-4,
+.builder-device-mobile .hibrew-theme-root .lg\:col-span-8,
+.builder-device-tablet .hibrew-theme-root .lg\:col-span-6,
+.builder-device-tablet .hibrew-theme-root .lg\:col-span-4,
+.builder-device-tablet .hibrew-theme-root .lg\:col-span-8 {
+  grid-column: span 1 / span 1 !important;
+}
+
+/* PNG product images — transparent slot in builder + live */
+.builder-device-mobile .hibrew-theme-root img.object-contain,
+.builder-device-tablet .hibrew-theme-root img.object-contain,
+.builder-device-laptop .hibrew-theme-root img.object-contain,
+.builder-device-desktop .hibrew-theme-root img.object-contain {
+  background-color: transparent !important;
 }
 
 /* ── Equal-height section cards in one dashboard row (no staggered / age-peeche edges) ── */

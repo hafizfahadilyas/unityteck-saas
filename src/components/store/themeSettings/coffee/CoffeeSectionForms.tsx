@@ -606,17 +606,22 @@ export const CoffeeFooterForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embe
         <EnableRow isAr={isAr} enabled={draft?.showContact !== false} onChange={(v) => setDraft({ ...draft, showContact: v })} labelEn="Contact section" labelAr="قسم التواصل" />
         <BiFields isAr={isAr} labelEn="Address" labelAr="العنوان" en={draft?.addressEn || ''} ar={draft?.addressAr || ''} onEn={(v) => setDraft({ ...draft, addressEn: v })} onAr={(v) => setDraft({ ...draft, addressAr: v })} />
         <BiFields isAr={isAr} labelEn="Hours" labelAr="ساعات العمل" en={draft?.hoursEn || ''} ar={draft?.hoursAr || ''} onEn={(v) => setDraft({ ...draft, hoursEn: v })} onAr={(v) => setDraft({ ...draft, hoursAr: v })} />
+        <p className="text-[10px] font-medium rounded-lg px-2.5 py-2 border" style={{ borderColor: 'var(--border)', color: 'var(--muted)', background: 'var(--surface)' }}>
+          {isAr
+            ? 'البريد وواتساب والهاتف يُسحبون تلقائياً من هوية المتجر (إعدادات المتجر). احفظ الهوية مرة واحدة — تظهر هنا وفي التذييلة والرأس والفاتورة.'
+            : 'Email, WhatsApp, and phone auto-fill from Store Identity. Save identity once — used in footer, header, invoice, and builder.'}
+        </p>
         <label className="text-[11px] font-bold space-y-1 block">
-          <span>{isAr ? 'البريد الإلكتروني' : 'Email'}</span>
-          <input value={draft?.contactEmail || ''} onChange={(e) => setDraft({ ...draft, contactEmail: e.target.value })} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} dir="ltr" />
+          <span>{isAr ? 'البريد الإلكتروني (تلقائي)' : 'Email (auto)'}</span>
+          <input value={draft?.contactEmail || ''} readOnly className="w-full px-3 py-2 rounded-xl border text-xs opacity-90 cursor-default" style={{ borderColor: 'var(--border)', background: 'var(--input-bg)' }} dir="ltr" />
         </label>
         <label className="text-[11px] font-bold space-y-1 block">
-          <span>{isAr ? 'الهاتف' : 'Phone'}</span>
-          <input value={draft?.contactPhone || ''} onChange={(e) => setDraft({ ...draft, contactPhone: e.target.value })} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} dir="ltr" />
+          <span>{isAr ? 'الهاتف (تلقائي)' : 'Phone (auto)'}</span>
+          <input value={draft?.contactPhone || ''} readOnly className="w-full px-3 py-2 rounded-xl border text-xs opacity-90 cursor-default" style={{ borderColor: 'var(--border)', background: 'var(--input-bg)' }} dir="ltr" />
         </label>
         <label className="text-[11px] font-bold space-y-1 block">
-          <span>{isAr ? 'واتساب' : 'WhatsApp'}</span>
-          <input value={draft?.contactWhatsApp || ''} onChange={(e) => setDraft({ ...draft, contactWhatsApp: e.target.value })} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} dir="ltr" placeholder="+9665…" />
+          <span>{isAr ? 'واتساب (تلقائي)' : 'WhatsApp (auto)'}</span>
+          <input value={draft?.contactWhatsApp || ''} readOnly className="w-full px-3 py-2 rounded-xl border text-xs opacity-90 cursor-default" style={{ borderColor: 'var(--border)', background: 'var(--input-bg)' }} dir="ltr" placeholder="+9665…" />
         </label>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           <label className="text-[11px] font-bold space-y-1 block">
@@ -1028,8 +1033,8 @@ export const CustomOrderBuilderForm: React.FC<CoffeeFormChromeProps> = ({ onBack
       <BiFields isAr={isAr} labelEn="Subtitle" labelAr="الوصف" en={draft?.subtitleEn || ''} ar={draft?.subtitleAr || ''} onEn={(v) => setDraft({ ...draft, subtitleEn: v })} onAr={(v) => setDraft({ ...draft, subtitleAr: v })} />
       <BiFields isAr={isAr} labelEn="WhatsApp message" labelAr="رسالة واتساب" en={draft?.whatsappMessageEn || ''} ar={draft?.whatsappMessageAr || ''} onEn={(v) => setDraft({ ...draft, whatsappMessageEn: v })} onAr={(v) => setDraft({ ...draft, whatsappMessageAr: v })} />
       <label className="text-[11px] font-bold space-y-1 block">
-        <span>{isAr ? 'رقم واتساب' : 'WhatsApp number'}</span>
-        <input value={draft?.whatsappNumber || ''} onChange={(e) => setDraft({ ...draft, whatsappNumber: e.target.value })} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} dir="ltr" />
+        <span>{isAr ? 'رقم واتساب (تلقائي من هوية المتجر)' : 'WhatsApp number (auto from Store Identity)'}</span>
+        <input value={draft?.whatsappNumber || ''} readOnly className="w-full px-3 py-2 rounded-xl border text-xs opacity-90 cursor-default" style={{ borderColor: 'var(--border)', background: 'var(--input-bg)' }} dir="ltr" />
       </label>
       <BiFields isAr={isAr} labelEn="Button" labelAr="الزر" en={draft?.ctaEn || ''} ar={draft?.ctaAr || ''} onEn={(v) => setDraft({ ...draft, ctaEn: v })} onAr={(v) => setDraft({ ...draft, ctaAr: v })} />
       {fields.map((f, index) => (

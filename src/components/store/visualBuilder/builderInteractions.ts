@@ -196,6 +196,61 @@ export function duplicateBlockChromeSafe<T extends { id: string; type?: string }
   return duplicateBlock(blocks, id, newId);
 }
 
+/** Deep snapshot for session clipboard. Chrome blocks cannot be copied. */
+export function snapshotBlockForClipboard<T extends { id: string; type?: string }>(
+  blocks: T[],
+  id: string,
+): T | null {
+  const block = blocks.find((item) => item.id === id);
+  if (!block || isFixedChromeBlock(block)) return null;
+  return JSON.parse(JSON.stringify(block)) as T;
+}
+
+/** Fresh ids on paste so clones never share ids with the source tree. */
+export function cloneBlockWithNewIds<T extends { id: string }>(block: T, newId: string): T {
+  const clone = JSON.parse(JSON.stringify(block)) as T & {
+    columns?: Array<{ id?: string; widgets?: Array<{ id?: string } | unknown> }>;
+  };
+  clone.id = newId;
+  if (Array.isArray(clone.columns)) {
+    clone.columns = clone.columns.map((col, colIdx) => {
+      const nextCol = { ...col, id: `${newId}-c${colIdx}` };
+      if (Array.isArray(col.widgets)) {
+        nextCol.widgets = col.widgets.map((widget, widgetIdx) => {
+          if (!widget || typeof widget !== 'object') return widget;
+          return { ...(widget as object), id: `${newId}-c${colIdx}-w${widgetIdx}` };
+        });
+      }
+      return nextCol;
+    });
+  }
+  return clone as T;
+}
+
+/**
+ * Paste clipboard after `afterId` (or at body end). Chrome paste rejected.
+ * Insert index is clamped between top chrome and footer.
+ */
+export function pasteBlockChromeSafe<T extends { id: string; type?: string }>(
+  blocks: T[],
+  clipboard: T | null | undefined,
+  newId: string,
+  afterId?: string | null,
+): T[] {
+  if (!clipboard || isFixedChromeBlock(clipboard)) return blocks;
+  const clone = cloneBlockWithNewIds(clipboard, newId);
+  if (isFixedChromeBlock(clone)) return blocks;
+  let insertAt = blocks.length;
+  if (afterId) {
+    const idx = blocks.findIndex((item) => item.id === afterId);
+    if (idx >= 0) insertAt = idx + 1;
+  }
+  insertAt = clampInsertIndexForChrome(blocks, insertAt);
+  const next = blocks.slice();
+  next.splice(insertAt, 0, clone);
+  return next;
+}
+
 export function moveBlock<T extends { id: string }>(blocks: T[], id: string, direction: -1 | 1): T[] {
   const index = blocks.findIndex((block) => block.id === id);
   const target = index + direction;
@@ -246,6 +301,8 @@ export function withVisibility<T extends { visible?: boolean }>(
 export function blocksForPublish<T extends { visible?: boolean }>(blocks: T[]): T[] {
   return blocks.filter((block) => block.visible !== false);
 }
+
+export { stripHeavyDataUrls, resolveMediaAssetUrl } from '../../../utils/mediaUrl';
 
 export function countVisibleH1(nodes: unknown): number {
   if (Array.isArray(nodes)) {

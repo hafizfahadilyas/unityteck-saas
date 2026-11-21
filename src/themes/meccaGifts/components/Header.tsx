@@ -32,7 +32,7 @@ import {
   Megaphone,
   Globe,
 } from 'lucide-react';
-import { MECCA_WHATSAPP } from '../data/mockData';
+import { storeWhatsAppUrl } from '../../settings/storeContact';
 import { useStorefrontCategories } from '../../../hooks/useStorefrontCategories';
 import {
   StorefrontAccountMenu,
@@ -1404,17 +1404,29 @@ export const Header: React.FC<HeaderProps> = ({
                 {/* Mobile Drawer Bottom Area */}
                 <div className="pt-4 border-t border-[#ded7c4] space-y-3">
                   {/* WhatsApp Concierge direct button */}
-                  <a
-                    href={`https://wa.me/${MECCA_WHATSAPP.replace('+', '')}?text=${encodeURIComponent(
-                      isAr ? 'مرحباً هدايا مكة، أود الاستفسار والمساعدة في الطلب' : 'Hello Hadaya Mecca, I need help ordering'
-                    )}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="w-full py-2.5 px-3.5 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all"
-                  >
-                    <Phone className="w-4 h-4" />
-                    <span>{isAr ? 'محادثة المنسق المباشر (واتساب)' : 'Chat with Florist'}</span>
-                  </a>
+                  {(() => {
+                    const waHref = activeStore?.id
+                      ? storeWhatsAppUrl(
+                          activeStore.id,
+                          isAr
+                            ? 'مرحباً، أود الاستفسار والمساعدة في الطلب'
+                            : 'Hello, I need help ordering',
+                          activeStore,
+                        )
+                      : '';
+                    if (!waHref) return null;
+                    return (
+                      <a
+                        href={waHref}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-full py-2.5 px-3.5 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all"
+                      >
+                        <Phone className="w-4 h-4" />
+                        <span>{isAr ? 'محادثة مباشرة عبر واتساب' : 'Chat on WhatsApp'}</span>
+                      </a>
+                    );
+                  })()}
 
                   {/* Language switch button inside drawer */}
                   <div className="flex items-center justify-between text-xs text-[#7a7164]">

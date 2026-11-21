@@ -1,5 +1,6 @@
 /** Coffee page-builder block type catalogs (no React). */
 
+/** All coffee storefront sections are full-bleed — avoid max-w-7xl double squeeze in canvas. */
 export const COFFEE_FULL_BLEED_TYPES = new Set([
   'announcement_bar',
   'announcement',
@@ -8,6 +9,26 @@ export const COFFEE_FULL_BLEED_TYPES = new Set([
   'hero_banners',
   'hero_slider',
   'hero',
+  'featured_section_banners',
+  'featured_products',
+  'image_banners',
+  'store_features_bar',
+  'features',
+  'product_carousel',
+  'product_carousel_banner',
+  'featured_categories_products',
+  'exclusive_benefits',
+  'events_masterclasses',
+  'model_comparison',
+  'reviews',
+  'testimonials',
+  'faq',
+  'commercial_hero',
+  'product_slider',
+  'product_catalog',
+  'product_collection',
+  'newsletter',
+  'custom_order',
   'footer',
 ]);
 

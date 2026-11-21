@@ -14,6 +14,8 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { FLOWERS_STATIC_PAGES, type FlowersSfPage } from './pack';
+import { useTenant } from '../../context/TenantContext';
+import { resolveStoreContact } from '../settings/storeContact';
 
 type StaticKey = keyof typeof FLOWERS_STATIC_PAGES;
 
@@ -25,6 +27,9 @@ type Props = {
 
 export const FlowersStaticPage: React.FC<Props> = ({ page, lang, onBack }) => {
   const isAr = lang === 'ar';
+  const { activeStore } = useTenant();
+  const contact = activeStore?.id ? resolveStoreContact(activeStore.id, activeStore) : null;
+  const waDisplay = contact?.whatsapp || contact?.phone || '';
   const [formSent, setFormSent] = useState(false);
 
   useEffect(() => {
@@ -320,7 +325,15 @@ export const FlowersStaticPage: React.FC<Props> = ({ page, lang, onBack }) => {
             </div>
             <div>
               <h3 className="font-black text-slate-900 mb-1">{isAr ? '٢. طريقة الاستبدال السريع:' : '2. Rapid Exchange Procedure:'}</h3>
-              <p>{isAr ? 'يرجى إرسال صورة الباقة ورقم الطلب عبر واتساب خدمة العملاء (+966504428819)، وسيقوم فريقنا بإرسال باقة بديلة فوراً دون أي رسوم إضافية.' : 'Send a photo and order ID to our concierge WhatsApp (+966504428819) for an immediate replacement without extra fees.'}</p>
+              <p>
+                {waDisplay
+                  ? isAr
+                    ? `يرجى إرسال صورة الباقة ورقم الطلب عبر واتساب خدمة العملاء (${waDisplay})، وسيقوم فريقنا بإرسال باقة بديلة فوراً دون أي رسوم إضافية.`
+                    : `Send a photo and order ID to our concierge WhatsApp (${waDisplay}) for an immediate replacement without extra fees.`
+                  : isAr
+                    ? 'يرجى إرسال صورة الباقة ورقم الطلب عبر واتساب خدمة العملاء، وسيقوم فريقنا بإرسال باقة بديلة فوراً دون أي رسوم إضافية.'
+                    : 'Send a photo and order ID to our concierge WhatsApp for an immediate replacement without extra fees.'}
+              </p>
             </div>
             <div>
               <h3 className="font-black text-slate-900 mb-1">{isAr ? '٣. استرجاع المبالغ:' : '3. Refunds:'}</h3>

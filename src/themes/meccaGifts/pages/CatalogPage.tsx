@@ -4,6 +4,7 @@ import { useTenant } from '../../../context/TenantContext';
 import { ProductCard } from '../components/ProductCard';
 import { Product } from '../types';
 import { readAllThemeSettings } from '../../settings/themeSettingsStore';
+import { resolveStoreContact } from '../../settings/storeContact';
 import { useStorefrontCategories } from '../../../hooks/useStorefrontCategories';
 import {
   Filter,
@@ -842,7 +843,10 @@ export const CatalogPage: React.FC = () => {
                                   onClick={(e) => {
                                     const sNameAr = activeStore?.nameAr || activeStore?.name || (isCoffee ? 'محمصة القهوة المختصة' : 'متجر هدايا مكة');
                                     const sNameEn = activeStore?.nameEn || activeStore?.name || (isCoffee ? 'Specialty Coffee Roasters' : 'Hadaya Mecca');
-                                    const sPhone = (activeStore?.contactPhone || '966567115867').replace(/[^0-9]/g, '');
+                                    const sPhone = activeStore?.id
+                                      ? resolveStoreContact(activeStore.id, activeStore).whatsappDigits
+                                      : '';
+                                    if (!sPhone) return;
                                     const text = isAr
                                       ? `مرحباً${sNameAr}، أود طلب المنتج: *${pName}* بسعر${product.price}ر.س.`
                                       : `Hello ${sNameEn}, I want to order *${pName}* for ${product.price} SAR.`;

@@ -253,17 +253,37 @@ export function WidgetFields({
   onChange: (key: string, value: any) => void;
 }) {
   if (!isContentWidget(type) && type !== 'hero_slider' && type !== 'hero' && type !== 'slider') return null;
-  const field = (key: string, labelEn: string, labelAr: string, value: string) => (
+  const field = (
+    key: string,
+    labelEn: string,
+    labelAr: string,
+    value: string,
+    syncKeys?: string[],
+  ) => (
     <label key={key} className="block text-[11px] font-bold text-slate-600">
       {isAr ? labelAr : labelEn}
-      <input value={value} onChange={(event) => onChange(key, event.target.value)} className="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-normal" />
+      <input
+        value={value}
+        dir="auto"
+        onChange={(event) => {
+          const v = event.target.value;
+          if (syncKeys?.length) syncKeys.forEach((k) => onChange(k, v));
+          else onChange(key, v);
+        }}
+        className="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-normal"
+      />
     </label>
   );
   if (type === 'rich_text' || type === 'text_editor' || type === 'w_text') {
     return (
       <div className="space-y-2">
-        {field('htmlEn', 'English text', 'النص الإنجليزي', settings.htmlEn || settings.textEn || '')}
-        {field('htmlAr', 'Arabic text', 'النص العربي', settings.htmlAr || settings.textAr || '')}
+        {field(
+          'htmlEn',
+          'Text',
+          'النص',
+          settings.htmlEn || settings.textEn || settings.htmlAr || settings.textAr || '',
+          ['htmlEn', 'textEn', 'htmlAr', 'textAr'],
+        )}
       </div>
     );
   }
@@ -272,8 +292,13 @@ export function WidgetFields({
       <div className="space-y-2">
         {field('src', 'Image address', 'رابط الصورة', settings.src || settings.image || '')}
         {field('mobileSrc', 'Mobile image', 'صورة الجوال', settings.mobileSrc || '')}
-        {field('altEn', 'English description', 'الوصف الإنجليزي', settings.altEn || '')}
-        {field('altAr', 'Arabic description', 'الوصف العربي', settings.altAr || '')}
+        {field(
+          'altEn',
+          'Image description',
+          'وصف الصورة',
+          settings.altEn || settings.altAr || '',
+          ['altEn', 'altAr'],
+        )}
         {field('link', 'Link', 'الرابط', settings.link || '')}
       </div>
     );
@@ -281,8 +306,13 @@ export function WidgetFields({
   if (type === 'button' || type === 'button_cta' || type === 'w_button') {
     return (
       <div className="space-y-2">
-        {field('labelEn', 'English label', 'النص الإنجليزي', settings.labelEn || settings.buttonTextEn || '')}
-        {field('labelAr', 'Arabic label', 'النص العربي', settings.labelAr || settings.buttonTextAr || '')}
+        {field(
+          'labelEn',
+          'Button text',
+          'نص الزر',
+          settings.labelEn || settings.buttonTextEn || settings.labelAr || settings.buttonTextAr || '',
+          ['labelEn', 'buttonTextEn', 'labelAr', 'buttonTextAr'],
+        )}
         {field('buttonUrl', 'Link', 'الرابط', settings.buttonUrl || settings.link || '')}
       </div>
     );

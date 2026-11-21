@@ -98,7 +98,9 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
     let animId: number;
 
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
+      const frame =
+        rowRef.current?.closest('.builder-device-mobile, .builder-device-tablet') != null;
+      setIsMobile(frame || window.innerWidth < 768);
     };
     handleResize();
 
@@ -243,10 +245,10 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
           className={`lg:col-span-7 flex justify-center cursor-pointer w-full max-w-full overflow-hidden ${isReversed ? 'lg:order-1' : 'lg:order-2'}`}
           onClick={() => navigateTo('product-detail', id)}
         >
-          <div className="relative w-full h-[240px] sm:h-[340px] md:h-[400px] lg:h-[450px] flex items-center justify-center gap-2.5 sm:gap-4 p-0.5 sm:p-1 perspective-[1400px] overflow-hidden">
-            {/* Left Full-Height Image */}
+          <div className="relative w-full h-[240px] sm:h-[340px] md:h-[400px] lg:h-[450px] flex items-stretch justify-center gap-2.5 sm:gap-4 p-0.5 sm:p-1 perspective-[1400px] overflow-hidden">
+            {/* Left Full-Height Image — absolute fill so builder CSS cannot leave white slabs */}
             <div
-              className="relative w-1/2 h-full overflow-hidden rounded-2xl sm:rounded-3xl bg-white shadow-xs border-0 border-transparent will-change-transform transform-gpu"
+              className="relative w-1/2 h-full min-h-0 overflow-hidden rounded-2xl sm:rounded-3xl bg-neutral-100 shadow-xs border-0 border-transparent will-change-transform transform-gpu"
               style={{
                 transform: `translateX(${leftSlideX}px) translateY(${leftSlideY}px) rotateY(${leftRotateY}deg) rotateX(${leftRotateX}deg) scale(${scaleEffect})`,
               }}
@@ -254,7 +256,7 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
               <img
                 src={imgLeft}
                 alt={imgLeftAlt}
-                className="w-full h-full object-cover object-center transition-transform duration-700 hover:scale-105"
+                className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-700 hover:scale-105"
                 referrerPolicy="no-referrer"
                 loading="lazy" decoding="async"
               />
@@ -262,7 +264,7 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
 
             {/* Right Full-Height Image */}
             <div
-              className="relative w-1/2 h-full overflow-hidden rounded-2xl sm:rounded-3xl bg-white shadow-xs border-0 border-transparent will-change-transform transform-gpu"
+              className="relative w-1/2 h-full min-h-0 overflow-hidden rounded-2xl sm:rounded-3xl bg-neutral-100 shadow-xs border-0 border-transparent will-change-transform transform-gpu"
               style={{
                 transform: `translateX(${rightSlideX}px) translateY(${rightSlideY}px) rotateY(${rightRotateY}deg) rotateX(${rightRotateX}deg) scale(${scaleEffect})`,
               }}
@@ -270,7 +272,7 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
               <img
                 src={imgRight}
                 alt={imgRightAlt}
-                className="w-full h-full object-cover object-center transition-transform duration-700 hover:scale-105"
+                className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-700 hover:scale-105"
                 referrerPolicy="no-referrer"
                 loading="lazy" decoding="async"
               />

@@ -42,6 +42,7 @@ import {
   type HeaderNavLink,
 } from '../../../themes/settings/headerCustomSettings';
 import { isCoffeeStore } from '../../../themes/settings/coffeeThemeDefaults';
+import { resolveStoreContact } from '../../../themes/settings/storeContact';
 
 const ANNOUNCEMENT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Sparkles,
@@ -172,10 +173,29 @@ export const HeaderElementsForm: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
 
-  // Sync if store changes
+  // Sync if store changes — WhatsApp digits always from THIS store’s identity
   useEffect(() => {
     const full = readAllThemeSettings(activeStore.id, activeStore);
-    setHeaderSettings(full.customHeader || getDefaultHeaderSettings(activeStore));
+    const base = full.customHeader || getDefaultHeaderSettings(activeStore);
+    const contact = resolveStoreContact(activeStore.id, activeStore);
+    const next = {
+      ...base,
+      actions: {
+        ...base.actions,
+        whatsapp: {
+          ...(base.actions?.whatsapp || {
+            enabled: true,
+            phoneNumber: '',
+            tooltipAr: 'تواصل مباشر مع المتجر',
+            tooltipEn: 'Live Store WhatsApp',
+            iconColor: '#25D366',
+            pulseAnimation: true,
+          }),
+          phoneNumber: contact.whatsappDigits || '',
+        },
+      },
+    };
+    setHeaderSettings(next);
   }, [activeStore.id]);
 
   const handleSave = async (e?: React.FormEvent) => {
@@ -253,7 +273,7 @@ export const HeaderElementsForm: React.FC = () => {
   };
   const whatsapp = actions.whatsapp || {
     enabled: true,
-    phoneNumber: '9668008440443',
+    phoneNumber: '',
     tooltipAr: 'تواصل مباشر مع المتجر',
     tooltipEn: 'Live Store WhatsApp',
     iconColor: '#25D366',
@@ -578,23 +598,22 @@ export const HeaderElementsForm: React.FC = () => {
             {whatsapp.enabled && (
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 space-y-2 text-xs">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-400 block mb-1">{isAr ? 'رقم الواتساب الرسمي (بدون + أو فراغات)' : 'WhatsApp Phone Number'}</label>
+                  <label className="text-[10px] font-bold text-slate-400 block mb-1">
+                    {isAr ? 'رقم واتساب المتجر (تلقائي من هوية المتجر)' : 'Store WhatsApp (auto from Store Identity)'}
+                  </label>
                   <input
                     type="text"
-                    value={whatsapp.phoneNumber || '9668008440443'}
-                    onChange={(e) =>
-                      setHeaderSettings((p) => ({
-                        ...p,
-                        actions: {
-                          ...p.actions,
-                          whatsapp: { ...whatsapp, phoneNumber: e.target.value.replace(/\D/g, '') },
-                        },
-                      }))
-                    }
-                    placeholder="966500000000"
+                    value={whatsapp.phoneNumber || ''}
+                    readOnly
+                    placeholder={isAr ? 'يُملأ من إعدادات هوية المتجر' : 'Filled from Store Identity settings'}
                     dir="ltr"
-                    className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-mono"
+                    className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/80 font-mono opacity-90 cursor-default"
                   />
+                  <p className="text-[10px] mt-1" style={{ color: 'var(--muted)' }}>
+                    {isAr
+                      ? 'يُحدَّث تلقائياً عند حفظ رقم واتساب في هوية المتجر — لا يُنسخ من متجر آخر.'
+                      : 'Auto-synced when you save WhatsApp in Store Identity — never copied from another store.'}
+                  </p>
                 </div>
 
                 <div>

@@ -427,6 +427,13 @@ class AuthController extends Controller
             'code' => ['required', 'string', 'size:6'],
         ]);
 
+        // Hostinger MySQL cold-start can be 20–50s — wake PDO before OTP + token writes.
+        try {
+            DB::select('select 1 as ok');
+        } catch (\Throwable) {
+            // createToken / OTP queries will surface a real DB error if still down
+        }
+
         $email = Str::lower($data['email']);
 
         $otp = AuthOtp::query()

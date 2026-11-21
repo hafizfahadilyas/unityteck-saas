@@ -1132,14 +1132,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, []);
 
-  // Public catalog is the list that fills Products. Do this even with a Sanctum
-  // token — /products?all=1 was timing out behind orders and leaving the table empty.
+  // Public catalog fills Products. Own this path alone — core tier must not
+  // double-fetch. Defer slightly so /admin shell paints before Hostinger RTT.
   useEffect(() => {
     if (!API_MODE || !activeStoreId) return;
     let cancelled = false;
-    (async () => {
+    const run = async () => {
       try {
-        const catalog = await tenantApi.fetchStorefrontCatalogPage(activeStoreId, 1, 100);
+        const catalog = await tenantApi.fetchStorefrontCatalogPage(activeStoreId, 1, 48);
         if (cancelled || catalog.data.length === 0) return;
         catalogPageRef.current[activeStoreId] = 1;
         applyProductsFromApi(activeStoreId, catalog.data, catalog.total);
@@ -1148,9 +1148,16 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } catch {
         /* keep whatever catalog is already in memory */
       }
-    })();
+    };
+    const ric = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
+    const idleId = typeof ric === 'function' ? ric(() => { void run(); }, { timeout: 800 }) : 0;
+    const timeoutId = typeof ric === 'function' ? 0 : window.setTimeout(() => { void run(); }, 50);
     return () => {
       cancelled = true;
+      if (idleId && typeof (window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback === 'function') {
+        (window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(idleId);
+      }
+      if (timeoutId) window.clearTimeout(timeoutId);
     };
   }, [activeStoreId, applyProductsFromApi, setApiError]);
 
@@ -1545,56 +1552,31 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       if (runCore) {
         storeLoadedAtRef.current[storeId] = Date.now();
-        let productList: Product[] = [];
-        let productTotal = 0;
 
-        // Orders/customers must NOT wait on catalog — Orders tab was hanging behind product fetch.
-        const catalogPromise = (async () => {
-          try {
-            try {
-              const catalog = await tenantApi.fetchStorefrontCatalogPage(storeId, 1, 100);
-              return {
-                productList: catalog.data,
-                productTotal: catalog.total || catalog.data.length,
-              };
-            } catch {
-              if (!liveAuthed) return { productList: [] as Product[], productTotal: 0 };
-              const page = await tenantApi.fetchProductsPage(storeId, {
-                page: 1,
-                per_page: 100,
-                sort: 'updated_at',
-                dir: 'desc',
-              });
-              return {
-                productList: page.data,
-                productTotal: page.meta?.counts?.total ?? page.meta?.total ?? page.data.length,
-              };
-            }
-          } catch {
-            return { productList: [] as Product[], productTotal: 0 };
-          }
-        })();
-
+        // Catalog is owned by the dedicated activeStoreId effect (deduped).
+        // Dashboard boot only needs a lean recent orders page + customers —
+        // full all=1 list loads when StoreOrders opens.
         if (!liveAuthed) {
-          const cat = await catalogPromise;
-          productList = cat.productList;
-          productTotal = cat.productTotal;
-          if (productList.length > 0) {
-            applyProductsFromApi(storeId, productList, productTotal > 0 ? productTotal : productList.length);
-          }
           return;
         }
 
-        const ordersPromise = tenantApi.fetchOrders(storeId, { all: true, lean: true }).then(
-          (v) => ({ ok: true as const, v }),
-          () => ({ ok: false as const, v: [] as Order[] }),
-        );
+        const ordersPromise = tenantApi
+          .fetchOrders(storeId, {
+            page: 1,
+            per_page: 40,
+            lean: true,
+            sort: 'order_date',
+            dir: 'desc',
+          })
+          .then(
+            (v) => ({ ok: true as const, v }),
+            () => ({ ok: false as const, v: [] as Order[] }),
+          );
         const customersPromise = tenantApi.fetchCustomers(storeId).then(
           (v) => ({ ok: true as const, v }),
           () => ({ ok: false as const, v: [] as Customer[] }),
         );
 
-        // Paint orders as soon as the lean list returns — do not block on catalog.
         void ordersPromise.then((ordersSettled) => {
           if (!ordersSettled.ok || !Array.isArray(ordersSettled.v)) return;
           const oList = onlyStoreRows(storeId, ordersSettled.v).map((o) =>
@@ -1621,19 +1603,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           setCustomersMap((prev) => ({ ...prev, [storeId]: customersSettled.v }));
         });
 
-        const [catSettled] = await Promise.all([catalogPromise, ordersPromise, customersPromise]);
-        productList = catSettled.productList;
-        productTotal = catSettled.productTotal;
-        if (productList.length > 0) {
-          applyProductsFromApi(storeId, productList, productTotal > 0 ? productTotal : productList.length);
-          setStores((prev) =>
-            prev.map((s) =>
-              s.id !== storeId
-                ? s
-                : { ...s, productsCount: productTotal > 0 ? productTotal : s.productsCount },
-            ),
-          );
-        }
+        await Promise.all([ordersPromise, customersPromise]);
       }
 
       if (runRest) {
@@ -2178,9 +2148,16 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         void (async () => {
           await loadStoreScopedData(activeId, { tier: 'core' }).catch(() => undefined);
           if (cancelled) return;
-          window.setTimeout(() => {
+          // Defer rest-tier (9 endpoints) until dashboard shell is idle — do not compete with catalog.
+          const scheduleRest = () => {
             if (!cancelled) void loadStoreScopedData(activeId, { tier: 'rest' });
-          }, 450);
+          };
+          const ric = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
+          if (typeof ric === 'function') {
+            ric(scheduleRest, { timeout: 4000 });
+          } else {
+            window.setTimeout(scheduleRest, 2500);
+          }
           // Other stores load when opened. Prefetching every tenant blocks the active catalog
           // (3 stores now, 100 later).
           if (!cancelled) {
@@ -2259,9 +2236,15 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     let cancelled = false;
     void loadStoreScopedData(activeStoreId, { tier: 'core' }).then(() => {
       if (cancelled) return;
-      window.setTimeout(() => {
+      const scheduleRest = () => {
         if (!cancelled) void loadStoreScopedData(activeStoreId, { tier: 'rest' });
-      }, 450);
+      };
+      const ric = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
+      if (typeof ric === 'function') {
+        ric(scheduleRest, { timeout: 4000 });
+      } else {
+        window.setTimeout(scheduleRest, 2500);
+      }
     });
 
     return () => {

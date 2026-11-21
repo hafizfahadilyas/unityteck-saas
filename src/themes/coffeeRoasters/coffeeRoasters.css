@@ -70,15 +70,46 @@
   color: #0F172A !important;
 }
 
-/* Builder device frames: keep HiBrew light chrome readable on tablet/mobile widths */
+/* Builder: never force height:auto on cover/fill images — that left white slabs under Flagship dual photos */
 .hibrew-theme-root.coffee-builder-preview img {
   max-width: 100%;
+}
+.hibrew-theme-root.coffee-builder-preview img.object-contain {
   height: auto;
+}
+.hibrew-theme-root.coffee-builder-preview img.object-cover,
+.hibrew-theme-root.coffee-builder-preview img.h-full,
+.hibrew-theme-root.coffee-builder-preview .theme-slider-stage img {
+  height: 100%;
+  object-fit: cover;
 }
 .hibrew-theme-root.coffee-builder-preview .coffee-builder-header,
 .hibrew-theme-root [data-customize-section="00_header_builder"] {
   overflow-x: clip;
   max-width: 100%;
+}
+
+/* Page Builder device frames: HiBrew header uses @container — keep desktop nav visible in canvas */
+.builder-device-desktop .hibrew-theme-root.coffee-builder-preview,
+.builder-device-laptop .hibrew-theme-root.coffee-builder-preview {
+  width: 100%;
+  min-width: min(100%, 64rem);
+}
+
+.builder-device-tablet .hibrew-theme-root.coffee-builder-preview {
+  width: 100%;
+  max-width: 48rem;
+}
+
+.builder-device-mobile .hibrew-theme-root.coffee-builder-preview {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Product PNG slots — no forced grey fill (builder + live) */
+.hibrew-theme-root.coffee-builder-preview [data-product-collection-products] img,
+.hibrew-theme-root.coffee-builder-preview [data-customize-section='C-FP C-FCP'] img.object-contain {
+  background: transparent !important;
 }
 
 /* Honor-Style Typography: Clean Geometric Sans per language */

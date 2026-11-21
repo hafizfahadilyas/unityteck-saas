@@ -161,8 +161,8 @@ export const CoffeeWordSettingsShell: React.FC<{
             <p className="text-[11px] text-amber-700 mt-1">
               {embedded
                 ? isAr
-                  ? 'المعاينة الحية على اليمين. احفظ لنشر التغييرات في قاعدة البيانات.'
-                  : 'Live iframe preview is on the right. Save publishes to the database.'
+                  ? 'معاينة مباشرة في اللوحة أدناه وفي منشئ الصفحات. احفظ لنشر التغييرات في قاعدة البيانات.'
+                  : 'Live preview is below and on the page builder canvas. Save publishes to the database.'
                 : isAr
                   ? 'المعاينة مسودة حتى حفظ التغييرات. «معاينة المتجر» تعرض المنشور فقط.'
                   : 'This preview is a draft until Save Changes. Preview in Store shows the published storefront only.'}

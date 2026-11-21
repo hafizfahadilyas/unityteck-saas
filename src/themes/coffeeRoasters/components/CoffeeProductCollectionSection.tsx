@@ -171,7 +171,7 @@ export const CoffeeProductCollectionSection: React.FC<{
       >
         <button
           type="button"
-          className="aspect-square bg-[#F8F3EC] overflow-hidden"
+          className="aspect-square bg-transparent overflow-hidden"
           onClick={() => onOpenProduct?.(pid)}
         >
           {img ? (
@@ -284,17 +284,19 @@ export const CoffeeProductCollectionSection: React.FC<{
     promoLayout === 'vertical-left' ||
     promoLayout === 'horizontal-top';
 
+  /** Never reserve a blank promo column — empty col-span caused huge white left gap on live/builder. */
+  const hasPromoColumn = Boolean(showPromo && promoCard);
   const mainRow = (
     <div
-      className={promoVertical && showPromo ? 'grid grid-cols-1 lg:grid-cols-12 items-stretch' : 'flex flex-col'}
+      className={promoVertical && hasPromoColumn ? 'grid grid-cols-1 lg:grid-cols-12 items-stretch' : 'flex flex-col'}
       style={{ gap: promoGap }}
     >
-      {showPromo && promoFirst ? (
-        <div className={promoVertical ? 'lg:col-span-4' : ''}>{promoCard}</div>
+      {hasPromoColumn && promoFirst ? (
+        <div className={promoVertical ? 'lg:col-span-4 min-w-0' : ''}>{promoCard}</div>
       ) : null}
-      <div className={promoVertical && showPromo ? 'lg:col-span-8 min-w-0' : 'min-w-0'}>{productsBlock}</div>
-      {showPromo && !promoFirst ? (
-        <div className={promoVertical ? 'lg:col-span-4' : ''}>{promoCard}</div>
+      <div className={promoVertical && hasPromoColumn ? 'lg:col-span-8 min-w-0' : 'min-w-0 w-full'}>{productsBlock}</div>
+      {hasPromoColumn && !promoFirst ? (
+        <div className={promoVertical ? 'lg:col-span-4 min-w-0' : ''}>{promoCard}</div>
       ) : null}
     </div>
   );

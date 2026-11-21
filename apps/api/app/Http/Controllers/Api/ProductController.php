@@ -11,6 +11,7 @@ use App\Support\Plans;
 use App\Support\ProductStorefront;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -31,6 +32,67 @@ class ProductController extends Controller
         'updated_at',
         'created_at',
     ];
+
+    /** @var array<string, bool>|null */
+    private static ?array $productColumnMap = null;
+
+    /** One information_schema read — never N× Schema::hasColumn round-trips to Hostinger. */
+    private static function productHasColumn(string $column): bool
+    {
+        if (self::$productColumnMap === null) {
+            try {
+                $cols = Schema::getColumnListing('products');
+                self::$productColumnMap = array_fill_keys($cols, true);
+            } catch (\Throwable) {
+                self::$productColumnMap = [];
+            }
+        }
+
+        return isset(self::$productColumnMap[$column]);
+    }
+
+    private static function resolveStoreFast(string $key): ?Store
+    {
+        if ($key === '') {
+            return null;
+        }
+        // Prefer primary key — avoids orWhere(slug) full scan on remote MySQL.
+        if (str_starts_with($key, 'store-') || preg_match('/^[a-z0-9\-]{3,64}$/i', $key) === 1) {
+            $byId = Store::query()->where('id', $key)->first();
+            if ($byId) {
+                return $byId;
+            }
+        }
+
+        return Store::query()->where('slug', $key)->first();
+    }
+
+    /** File store — never use CACHE_STORE=database (Hostinger RTT kills the win). */
+    private static function localFastCache()
+    {
+        return Cache::store('file');
+    }
+
+    private static function maybePromoteDue(string $storeId): void
+    {
+        $lockKey = 'products:promote_due:'.$storeId;
+        if (self::localFastCache()->has($lockKey)) {
+            return;
+        }
+        ProductStorefront::promoteDueScheduled($storeId);
+        self::localFastCache()->put($lockKey, 1, 60);
+    }
+
+    private static function catalogCacheEpoch(string $storeId): int
+    {
+        return (int) self::localFastCache()->get('sf_catalog_epoch:'.$storeId, 1);
+    }
+
+    private static function bustStorefrontCatalogCache(string $storeId): void
+    {
+        self::localFastCache()->put('sf_catalog_epoch:'.$storeId, self::catalogCacheEpoch($storeId) + 1, 86400);
+        self::localFastCache()->forget('products:promote_due:'.$storeId);
+    }
 
     public function index(Request $request): JsonResponse
     {
@@ -217,6 +279,7 @@ class ProductController extends Controller
 
         $product = Product::query()->create($data);
         $this->syncStoreProductCount($storeId);
+        self::bustStorefrontCatalogCache($storeId);
 
         return response()->json(['data' => $product], 201);
     }
@@ -244,6 +307,7 @@ class ProductController extends Controller
         $data = $this->applyPublicationState($data);
         $data = $this->onlyExistingJsonColumns($data);
         $product->fill($data)->save();
+        self::bustStorefrontCatalogCache($storeId);
 
         return response()->json(['data' => $product->fresh()]);
     }
@@ -263,6 +327,7 @@ class ProductController extends Controller
         $product->is_active = false;
         $product->save();
         $this->syncStoreProductCount($storeId);
+        self::bustStorefrontCatalogCache($storeId);
 
         return response()->json([
             'message' => 'Product moved to recycle bin.',
@@ -423,7 +488,7 @@ class ProductController extends Controller
             'category_list',
             'published_at',
         ] as $column) {
-            if (array_key_exists($column, $data) && ! Schema::hasColumn('products', $column)) {
+            if (array_key_exists($column, $data) && ! self::productHasColumn($column)) {
                 unset($data[$column]);
             }
         }
@@ -519,56 +584,57 @@ class ProductController extends Controller
             return response()->json(['message' => 'store_id is required.'], 422);
         }
 
-        $store = Store::query()->where('id', $key)->orWhere('slug', $key)->first();
-        if (! $store) {
-            return response()->json(['message' => 'Store not found.'], 404);
-        }
-
-        ProductStorefront::promoteDueScheduled($store->id);
-
-        $base = ProductStorefront::visibleScope(
-            Product::withoutGlobalScope('store')->where('store_id', $store->id)
-        );
         $source = (string) $request->query('source', '');
-        if ($source === 'featured') {
-            $base->where('is_featured', true);
-        } elseif ($source === 'category') {
-            $category = trim((string) $request->query('category', ''));
-            if ($category !== '') {
-                $base->where(function ($q) use ($category) {
-                    $q->where('category', $category)->orWhere('category_id', $category);
-                    if (Schema::hasColumn('products', 'category_list')) {
-                        $q->orWhereJsonContains('category_list', $category);
-                    }
-                });
-            }
-        } elseif ($source === 'on_sale') {
-            $base->whereNotNull('original_price')->whereColumn('original_price', '>', 'price')
-                ->where(function ($q) {
-                    $q->whereNull('discount_start_at')->orWhere('discount_start_at', '<=', now());
-                })
-                ->where(function ($q) {
-                    $q->whereNull('discount_end_at')->orWhere('discount_end_at', '>=', now());
-                });
-        } elseif ($source === 'manual') {
-            $ids = array_values(array_filter(array_map('trim', explode(',', (string) $request->query('ids', '')))));
-            $base->whereIn('id', $ids === [] ? [''] : $ids);
-        }
-        $total = (clone $base)->count();
         $perPage = min(100, max(1, (int) $request->query('per_page', 48)));
         if ($request->query('limit') !== null && $request->query('limit') !== '') {
             $perPage = min(48, max(1, (int) $request->query('limit')));
         }
         $page = max(1, (int) $request->query('page', 1));
+        $category = trim((string) $request->query('category', ''));
+        $idsRaw = (string) $request->query('ids', '');
 
-        $rows = (clone $base)
-            ->with(['variations' => function ($q) use ($store) {
-                $q->withoutGlobalScope('store')->where('store_id', $store->id);
-            }])
-            ->when($source !== 'latest', fn ($q) => $q->orderByDesc('is_featured'))
-            ->orderByDesc($source === 'latest' ? 'created_at' : 'updated_at')
-            ->forPage($page, $perPage)
-            ->get(array_values(array_filter([
+        // Cache before any MySQL — warm hits must not pay Hostinger RTT for store resolve.
+        $cacheKey = 'sf_catalog:v3:'.$key.':'.self::catalogCacheEpoch($key).':'.md5(json_encode([
+            $source, $page, $perPage, $category, $idsRaw,
+        ], JSON_THROW_ON_ERROR));
+
+        $payload = self::localFastCache()->remember($cacheKey, 45, function () use ($key, $source, $page, $perPage, $category, $idsRaw) {
+            $store = self::resolveStoreFast($key);
+            if (! $store) {
+                return ['__not_found' => true];
+            }
+
+            self::maybePromoteDue($store->id);
+
+            $base = ProductStorefront::visibleScope(
+                Product::withoutGlobalScope('store')->where('store_id', $store->id)
+            );
+            if ($source === 'featured') {
+                $base->where('is_featured', true);
+            } elseif ($source === 'category') {
+                if ($category !== '') {
+                    $base->where(function ($q) use ($category) {
+                        $q->where('category', $category)->orWhere('category_id', $category);
+                        if (self::productHasColumn('category_list')) {
+                            $q->orWhereJsonContains('category_list', $category);
+                        }
+                    });
+                }
+            } elseif ($source === 'on_sale') {
+                $base->whereNotNull('original_price')->whereColumn('original_price', '>', 'price')
+                    ->where(function ($q) {
+                        $q->whereNull('discount_start_at')->orWhere('discount_start_at', '<=', now());
+                    })
+                    ->where(function ($q) {
+                        $q->whereNull('discount_end_at')->orWhere('discount_end_at', '>=', now());
+                    });
+            } elseif ($source === 'manual') {
+                $ids = array_values(array_filter(array_map('trim', explode(',', $idsRaw))));
+                $base->whereIn('id', $ids === [] ? [''] : $ids);
+            }
+            $total = (clone $base)->count();
+
+            $select = array_values(array_filter([
                 'id',
                 'store_id',
                 'name',
@@ -585,62 +651,80 @@ class ProductController extends Controller
                 'category',
                 'category_ar',
                 'category_id',
-                Schema::hasColumn('products', 'category_list') ? 'category_list' : null,
+                self::productHasColumn('category_list') ? 'category_list' : null,
                 'image_url',
                 'image_version',
                 'gallery_urls',
                 'video_url',
                 'tags',
-                Schema::hasColumn('products', 'product_options') ? 'product_options' : null,
-                Schema::hasColumn('products', 'custom_fields') ? 'custom_fields' : null,
-                Schema::hasColumn('products', 'conditional_rules') ? 'conditional_rules' : null,
+                self::productHasColumn('product_options') ? 'product_options' : null,
+                self::productHasColumn('custom_fields') ? 'custom_fields' : null,
+                self::productHasColumn('conditional_rules') ? 'conditional_rules' : null,
                 'badge',
                 'badge_en',
                 'seo_title',
                 'seo_description',
                 'seo_keywords',
-                Schema::hasColumn('products', 'discount_start_at') ? 'discount_start_at' : null,
-                Schema::hasColumn('products', 'discount_end_at') ? 'discount_end_at' : null,
+                self::productHasColumn('discount_start_at') ? 'discount_start_at' : null,
+                self::productHasColumn('discount_end_at') ? 'discount_end_at' : null,
                 'status',
                 'is_active',
                 'is_featured',
                 'updated_at',
                 'created_at',
-            ])));
+            ]));
 
-        $payloadRows = $rows->map(fn (Product $row) => ProductStorefront::enrichRow($row));
+            $rows = (clone $base)
+                ->with(['variations' => function ($q) use ($store) {
+                    $q->withoutGlobalScope('store')->where('store_id', $store->id);
+                }])
+                ->when($source !== 'latest', fn ($q) => $q->orderByDesc('is_featured'))
+                ->orderByDesc($source === 'latest' ? 'created_at' : 'updated_at')
+                ->forPage($page, $perPage)
+                ->get($select);
 
-        $categories = [];
-        foreach ($payloadRows as $row) {
-            foreach ($row['categories'] ?? [] as $label) {
-                $label = trim((string) $label);
-                if ($label === '') {
-                    continue;
+            $payloadRows = $rows->map(fn (Product $row) => ProductStorefront::enrichRow($row));
+
+            $categories = [];
+            foreach ($payloadRows as $row) {
+                foreach ($row['categories'] ?? [] as $label) {
+                    $label = trim((string) $label);
+                    if ($label === '') {
+                        continue;
+                    }
+                    $id = Str::lower($label);
+                    if (! isset($categories[$id])) {
+                        $categories[$id] = [
+                            'id' => $id,
+                            'name' => $label,
+                            'name_ar' => $label,
+                            'count' => 0,
+                        ];
+                    }
+                    $categories[$id]['count']++;
                 }
-                $id = Str::lower($label);
-                if (! isset($categories[$id])) {
-                    $categories[$id] = [
-                        'id' => $id,
-                        'name' => $label,
-                        'name_ar' => $label,
-                        'count' => 0,
-                    ];
-                }
-                $categories[$id]['count']++;
             }
+
+            return [
+                'data' => $payloadRows->values()->all(),
+                'categories' => array_values($categories),
+                'store_id' => $store->id,
+                'meta' => [
+                    'total' => $total,
+                    'page' => $page,
+                    'per_page' => $perPage,
+                    'last_page' => max(1, (int) ceil($total / max(1, $perPage))),
+                ],
+            ];
+        });
+
+        if (is_array($payload) && ($payload['__not_found'] ?? false) === true) {
+            self::localFastCache()->forget($cacheKey);
+
+            return response()->json(['message' => 'Store not found.'], 404);
         }
 
-        return response()->json([
-            'data' => $payloadRows->values(),
-            'categories' => array_values($categories),
-            'store_id' => $store->id,
-            'meta' => [
-                'total' => $total,
-                'page' => $page,
-                'per_page' => $perPage,
-                'last_page' => max(1, (int) ceil($total / $perPage)),
-            ],
-        ]);
+        return response()->json($payload);
     }
 
     /**

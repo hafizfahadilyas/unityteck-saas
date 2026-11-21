@@ -1011,22 +1011,41 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
               </h4>
 
               <div className="space-y-2 text-neutral-600">
-                <div className="flex items-center justify-between">
-                  <span className="text-neutral-400">{isAr ? 'الرقم المجاني:' : 'Toll Free:'}</span>
-                  <span className="font-bold text-black font-mono">8008440443</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-neutral-400">{isAr ? 'البريد الإلكتروني:' : 'Email:'}</span>
-                  <span className="font-bold text-black font-mono">sa.support@hibrew.com</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-neutral-400">{isAr ? 'السجل التجاري:' : 'CR No:'}</span>
-                  <span className="font-bold text-black font-mono">1010754462</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-neutral-400">{isAr ? 'الرقم الضريبي:' : 'VAT No:'}</span>
-                  <span className="font-bold text-black font-mono">311123479500003</span>
-                </div>
+                {storeIdentity?.phone || cleanPhone ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-neutral-400">{isAr ? 'الهاتف:' : 'Phone:'}</span>
+                    <span className="font-bold text-black font-mono" dir="ltr">
+                      {storeIdentity?.phone || storeIdentity?.whatsapp || cleanPhone}
+                    </span>
+                  </div>
+                ) : null}
+                {storeIdentity?.email ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-neutral-400">{isAr ? 'البريد الإلكتروني:' : 'Email:'}</span>
+                    <span className="font-bold text-black font-mono">{storeIdentity.email}</span>
+                  </div>
+                ) : null}
+                {storeIdentity?.commercialReg ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-neutral-400">{isAr ? 'السجل التجاري:' : 'CR No:'}</span>
+                    <span className="font-bold text-black font-mono">{storeIdentity.commercialReg}</span>
+                  </div>
+                ) : null}
+                {storeIdentity?.vatNumber ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-neutral-400">{isAr ? 'الرقم الضريبي:' : 'VAT No:'}</span>
+                    <span className="font-bold text-black font-mono">{storeIdentity.vatNumber}</span>
+                  </div>
+                ) : null}
+                {!storeIdentity?.phone &&
+                !cleanPhone &&
+                !storeIdentity?.email &&
+                !storeIdentity?.commercialReg &&
+                !storeIdentity?.vatNumber ? (
+                  <p className="text-neutral-400 text-[11px]">
+                    {isAr ? 'لا توجد بيانات اتصال بعد' : 'No contact details yet'}
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>

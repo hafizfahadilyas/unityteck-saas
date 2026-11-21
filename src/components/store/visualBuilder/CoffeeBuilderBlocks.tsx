@@ -35,6 +35,7 @@ import { resolveProductSliderCards } from '../../../themes/coffeeRoasters/compon
 import { CoffeeProductCollectionSection } from '../../../themes/coffeeRoasters/components/CoffeeProductCollectionSection';
 import { collectionHasVisibleContent } from '../../../themes/coffeeRoasters/components/coffeeProductCollectionLogic';
 import { CoffeeProductCatalogSection } from '../../../themes/coffeeRoasters/components/CoffeeProductCatalogSection';
+import { CoffeeEquipmentRailSection } from '../../../themes/coffeeRoasters/components/CoffeeEquipmentRailSection';
 import { catalogShowsOnDevice } from '../../../themes/coffeeRoasters/components/coffeeProductCatalogLogic';
 import { fetchStoreReviewsApi, subscribeStoreNewsletter, type StoreReviewRecord } from '../../../api/tenantApi';
 import {
@@ -78,10 +79,16 @@ export {
 
 function CompactEmpty({ isAr, ar, en }: { isAr: boolean; ar: string; en: string }) {
   return (
-    <div className="p-6 m-4 text-center text-sm text-neutral-400 border border-dashed border-neutral-200 rounded-2xl bg-neutral-50/80">
+    <div className="py-3 px-3 mx-2 my-1 text-center text-[11px] text-neutral-400 border border-dashed border-neutral-200 rounded-xl bg-neutral-50/80">
       {isAr ? ar : en}
     </div>
   );
+}
+
+function mapBuilderSectionDevice(d: BuilderDevice): 'desktop' | 'tablet' | 'mobile' {
+  if (d === 'mobile') return 'mobile';
+  if (d === 'tablet') return 'tablet';
+  return 'desktop';
 }
 
 function useCoffeeThemeSettings(store: { id?: string; name?: string } | null | undefined): AllThemeSettings | null {
@@ -261,12 +268,6 @@ function FeaturedCategoriesPreview({
   );
 }
 
-function mapBuilderCatalogDevice(d: BuilderDevice): 'desktop' | 'tablet' | 'mobile' {
-  if (d === 'mobile') return 'mobile';
-  if (d === 'tablet') return 'tablet';
-  return 'desktop';
-}
-
 function ProductCatalogBuilderPreview({
   settings,
   isAr,
@@ -278,7 +279,7 @@ function ProductCatalogBuilderPreview({
 }) {
   const { products } = useCart();
   const shop = settings?.shop;
-  const device = mapBuilderCatalogDevice(builderDevice);
+  const device = mapBuilderSectionDevice(builderDevice);
   if (shop?.enabled === false || !catalogShowsOnDevice(shop, device)) {
     return (
       <CompactEmpty
@@ -387,16 +388,23 @@ function FeaturedProductsPreview({
   );
 }
 
-function FeaturesPreview({ settings, isAr }: { settings: AllThemeSettings | null; isAr: boolean }) {
+function FeaturesPreview({
+  settings,
+  isAr,
+  builderDevice,
+}: {
+  settings: AllThemeSettings | null;
+  isAr: boolean;
+  builderDevice: BuilderDevice;
+}) {
   const feat = settings?.enhancedFeatures;
-  if (!featureItemsForDevice(feat, 'responsive').length) {
+  const device = mapBuilderSectionDevice(builderDevice);
+  if (!featureItemsForDevice(feat, device).length) {
     return (
-      <div className="p-8 text-center text-sm text-neutral-400">
-        {isAr ? 'أيقونات المميزات فارغة' : 'Feature icons empty'}
-      </div>
+      <CompactEmpty isAr={isAr} ar="أيقونات المميزات فارغة" en="Feature icons empty" />
     );
   }
-  return <CoffeeFeatureIconsBar settings={feat} lang={isAr ? 'ar' : 'en'} device="responsive" />;
+  return <CoffeeFeatureIconsBar settings={feat} lang={isAr ? 'ar' : 'en'} device={device} />;
 }
 
 function NewsletterPreview({ settings, isAr, storeId }: { settings: AllThemeSettings | null; isAr: boolean; storeId: string }) {
@@ -466,9 +474,11 @@ function CustomOrderPreview({ settings, isAr }: { settings: AllThemeSettings | n
 function ProductSliderBuilderPreview({
   settings,
   isAr,
+  builderDevice,
 }: {
   settings: AllThemeSettings;
   isAr: boolean;
+  builderDevice: BuilderDevice;
 }) {
   const { products } = useCart();
   const catalog = (products || []).map((p) => ({
@@ -503,7 +513,7 @@ function ProductSliderBuilderPreview({
       settings={settings.productSlider}
       catalog={catalog}
       lang={isAr ? 'ar' : 'en'}
-      device="desktop"
+      device={mapBuilderSectionDevice(builderDevice)}
     />
   );
 }
@@ -511,9 +521,11 @@ function ProductSliderBuilderPreview({
 function ProductCollectionBuilderPreview({
   settings,
   isAr,
+  builderDevice,
 }: {
   settings: AllThemeSettings;
   isAr: boolean;
+  builderDevice: BuilderDevice;
 }) {
   const { products } = useCart();
   const catalog = (products || []).map((p) => ({
@@ -545,7 +557,7 @@ function ProductCollectionBuilderPreview({
       settings={settings.productCollection}
       catalog={catalog}
       lang={isAr ? 'ar' : 'en'}
-      device="desktop"
+      device={mapBuilderSectionDevice(builderDevice)}
     />
   );
 }
@@ -554,10 +566,12 @@ function CoffeeReviewsBlockPreview({
   settings,
   isAr,
   storeId,
+  builderDevice,
 }: {
   settings: CustomerReviewsSettings | null | undefined;
   isAr: boolean;
   storeId: string;
+  builderDevice: BuilderDevice;
 }) {
   const [rows, setRows] = useState<StoreReviewRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -589,7 +603,7 @@ function CoffeeReviewsBlockPreview({
       settings={settings}
       rows={rows}
       lang={isAr ? 'ar' : 'en'}
-      device="desktop"
+      device={mapBuilderSectionDevice(builderDevice)}
       loading={loading}
     />
   );
@@ -644,8 +658,7 @@ const CoffeeBuilderBlockInner: React.FC<{
     case 'navbar':
       return (
         <Shell settings={settings}>
-          {/* Reserve top strip for cyan Elementor toolbar so nav never collides */}
-          <div className="coffee-builder-header [&_[data-coffee-announcement]]:hidden">
+          <div className="coffee-builder-header" data-builder-header-preview="1">
             <CoffeeCartProvider>
               <CoffeeHeader />
             </CoffeeCartProvider>
@@ -656,10 +669,12 @@ const CoffeeBuilderBlockInner: React.FC<{
     case 'hero_slider':
     case 'hero': {
       const slides = blockSettings?.heroBanners?.banners ?? blockSettings?.slides;
+      // Empty [] must not lock the canvas — fall back to live theme-settings hero
+      const bannersProp = Array.isArray(slides) && slides.length > 0 ? slides : null;
       return (
         <Shell settings={settings}>
           <CoffeeCartProvider>
-            <CoffeeHeroSlider3D banners={Array.isArray(slides) ? slides : null} />
+            <CoffeeHeroSlider3D banners={bannersProp} />
           </CoffeeCartProvider>
         </Shell>
       );
@@ -667,7 +682,9 @@ const CoffeeBuilderBlockInner: React.FC<{
     case 'featured_categories_products':
       return (
         <Shell settings={settings}>
-          <FeaturedCategoriesPreview settings={settings} isAr={isAr} />
+          <CoffeeCartProvider>
+            <CoffeeEquipmentRailSection themeSettings={settings} />
+          </CoffeeCartProvider>
         </Shell>
       );
     case 'featured_section_banners':
@@ -681,7 +698,9 @@ const CoffeeBuilderBlockInner: React.FC<{
     case 'featured_products':
       return (
         <Shell settings={settings}>
-          <FeaturedProductsPreview settings={settings} isAr={isAr} />
+          <CoffeeCartProvider>
+            <CoffeeEquipmentRailSection themeSettings={settings} />
+          </CoffeeCartProvider>
         </Shell>
       );
     case 'image_banners':
@@ -707,7 +726,7 @@ const CoffeeBuilderBlockInner: React.FC<{
             />
           ) : (
             <CoffeeCartProvider>
-              <ProductSliderBuilderPreview settings={settings} isAr={isAr} />
+              <ProductSliderBuilderPreview settings={settings} isAr={isAr} builderDevice={builderDevice} />
             </CoffeeCartProvider>
           )}
         </Shell>
@@ -731,7 +750,7 @@ const CoffeeBuilderBlockInner: React.FC<{
             />
           ) : (
             <CoffeeCartProvider>
-              <ProductCollectionBuilderPreview settings={settings} isAr={isAr} />
+              <ProductCollectionBuilderPreview settings={settings} isAr={isAr} builderDevice={builderDevice} />
             </CoffeeCartProvider>
           )}
         </Shell>
@@ -739,7 +758,7 @@ const CoffeeBuilderBlockInner: React.FC<{
     case 'store_features_bar':
       return (
         <Shell settings={settings}>
-          <FeaturesPreview settings={settings} isAr={isAr} />
+          <FeaturesPreview settings={settings} isAr={isAr} builderDevice={builderDevice} />
         </Shell>
       );
     case 'features':
@@ -753,7 +772,10 @@ const CoffeeBuilderBlockInner: React.FC<{
             />
           ) : (
             <CoffeeCartProvider>
-              <CoffeeFeaturesSection settings={settings.featuresSection} />
+              <CoffeeFeaturesSection
+                settings={settings.featuresSection}
+                device={mapBuilderSectionDevice(builderDevice)}
+              />
             </CoffeeCartProvider>
           )}
         </Shell>
@@ -804,6 +826,7 @@ const CoffeeBuilderBlockInner: React.FC<{
               <CoffeeModelComparisonSection
                 settings={settings.modelComparison}
                 lang={isAr ? 'ar' : 'en'}
+                device={mapBuilderSectionDevice(builderDevice)}
               />
             </CoffeeCartProvider>
           )}
@@ -823,6 +846,7 @@ const CoffeeBuilderBlockInner: React.FC<{
               <CoffeeCommercialHeroSection
                 settings={settings.commercialHero}
                 lang={isAr ? 'ar' : 'en'}
+                device={mapBuilderSectionDevice(builderDevice)}
               />
             </CoffeeCartProvider>
           )}
@@ -846,7 +870,11 @@ const CoffeeBuilderBlockInner: React.FC<{
               en="No FAQ items yet — waiting for data"
             />
           ) : (
-            <CoffeeFaqSection settings={settings.faq} lang={isAr ? 'ar' : 'en'} />
+            <CoffeeFaqSection
+              settings={settings.faq}
+              lang={isAr ? 'ar' : 'en'}
+              device={mapBuilderSectionDevice(builderDevice)}
+            />
           )}
         </Shell>
       );
@@ -877,6 +905,7 @@ const CoffeeBuilderBlockInner: React.FC<{
               settings={settings.customerReviews}
               isAr={isAr}
               storeId={activeStore?.id || ''}
+              builderDevice={builderDevice}
             />
           )}
         </Shell>

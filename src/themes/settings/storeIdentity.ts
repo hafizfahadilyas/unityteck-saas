@@ -4,6 +4,7 @@
  */
 
 import { bumpStore } from '../../api/cacheTags';
+import { isRetiredContactDigits, scrubPublicEmail, syncStoreContactIntoTheme } from './storeContact';
 
 /** Default portal login left-panel image (replaceable per store in Theme Settings → Identity). */
 export const DEFAULT_LOGIN_SIDE_IMAGE = '/images/login-side-saudi-sheikh-laptop.jpg';
@@ -57,10 +58,10 @@ export function defaultStoreIdentity(store: {
         ? store.logo
         : '/src/assets/images/coffee_hero_flagship_machine_1791218907782.jpg',
       loginSideImageUrl: DEFAULT_LOGIN_SIDE_IMAGE,
-      // No invented contact numbers — merchant / API fills these
+      // Contact = merchant / API only — never invent numbers or use login email as public email
       phone: (store as { phone?: string }).phone || '',
       whatsapp: (store as { whatsapp?: string }).whatsapp || '',
-      email: store.ownerEmail || '',
+      email: '',
       addressEn: 'Riyadh Showroom, King Fahd Road, Saudi Arabia',
       addressAr: 'معرض الرياض الرئيسي، طريق الملك فهد، المملكة العربية السعودية',
       city: 'Riyadh',
@@ -80,9 +81,9 @@ export function defaultStoreIdentity(store: {
         ? store.logo
         : 'https://cdn.salla.sa/cdn-cgi/image/fit=scale-down,width=400,height=400,onerror=redirect,format=auto/wYYVD/OZbzrkkW0icMZlcDNOiZnU4PSjwq6WxXgCkwT0PQ.png',
       loginSideImageUrl: DEFAULT_LOGIN_SIDE_IMAGE,
-      phone: '+966 59 775 7086',
-      whatsapp: '+966 59 775 7086',
-      email: store.ownerEmail || 'support@tanjeedmakkah.com',
+      phone: (store as { phone?: string }).phone || '',
+      whatsapp: (store as { whatsapp?: string }).whatsapp || '',
+      email: '',
       addressEn: 'Al-Shawqiyyah, Makkah Al-Mukarramah, Saudi Arabia',
       addressAr: 'حي الشوقية، مكة المكرمة، المملكة العربية السعودية',
       city: 'Makkah',
@@ -99,9 +100,9 @@ export function defaultStoreIdentity(store: {
     taglineAr: 'باقات ورد طبيعي وهدايا الحرم المكي الشريف',
     logoUrl: (store.logo && store.logo.startsWith('http')) ? store.logo : 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?auto=format&fit=crop&w=300&q=80',
     loginSideImageUrl: DEFAULT_LOGIN_SIDE_IMAGE,
-    phone: '+966 12 555 8920',
-    whatsapp: '+966 50 442 8819',
-    email: store.ownerEmail || 'p4pakistan098@gmail.com',
+    phone: (store as { phone?: string }).phone || '',
+    whatsapp: (store as { whatsapp?: string }).whatsapp || '',
+    email: '',
     addressEn: 'Al-Aziziyah, Makkah Al-Mukarramah',
     addressAr: 'العزيزية، مكة المكرمة',
     city: 'Makkah',
@@ -114,15 +115,11 @@ export function defaultStoreIdentity(store: {
 
 const storageKey = (storeId: string) => `unityteck_theme_identity_${storeId}`;
 
-function stripInventedCoffeeContacts(storeId: string, data: StoreIdentitySettings): StoreIdentitySettings {
-  if (storeId !== 'store-coffee') return data;
-  const digits = (v: string) => String(v || '').replace(/\D/g, '');
-  // Retired seed placeholders — never treat as live merchant numbers
-  const fakeWa = new Set(['966549876543', '549876543']);
-  const fakePhone = new Set(['966114892030', '114892030']);
+function stripInventedContacts(data: StoreIdentitySettings): StoreIdentitySettings {
   const next = { ...data };
-  if (fakeWa.has(digits(next.whatsapp))) next.whatsapp = '';
-  if (fakePhone.has(digits(next.phone))) next.phone = '';
+  if (isRetiredContactDigits(next.whatsapp)) next.whatsapp = '';
+  if (isRetiredContactDigits(next.phone)) next.phone = '';
+  next.email = scrubPublicEmail(next.email);
   return next;
 }
 
@@ -147,7 +144,7 @@ export function readStoreIdentity(
   try {
     const raw = localStorage.getItem(storageKey(storeId));
     if (raw) {
-      return stripInventedCoffeeContacts(storeId, {
+      return stripInventedContacts({
         ...defaultStoreIdentity(fallbackWithId),
         ...JSON.parse(raw),
       });
@@ -155,12 +152,14 @@ export function readStoreIdentity(
   } catch {
     /* ignore */
   }
-  return stripInventedCoffeeContacts(storeId, defaultStoreIdentity(fallbackWithId));
+  return stripInventedContacts(defaultStoreIdentity(fallbackWithId));
 }
 
 export function writeStoreIdentity(storeId: string, data: StoreIdentitySettings): void {
-  const next = { ...data, updatedAt: new Date().toISOString() };
+  const next = stripInventedContacts({ ...data, updatedAt: new Date().toISOString() });
   localStorage.setItem(storageKey(storeId), JSON.stringify(next));
+  // Auto-propagate this store’s WhatsApp + email into header/footer/slider/builder mirrors
+  syncStoreContactIntoTheme(storeId, next);
   if (typeof window !== 'undefined') {
     bumpStore(storeId, 'settings');
     bumpStore(storeId, 'theme');

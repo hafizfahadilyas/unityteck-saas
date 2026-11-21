@@ -2,7 +2,7 @@ import React from 'react';
 import { useApp } from '../context/AppContext';
 import { useTenant } from '../../../context/TenantContext';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
-import { MECCA_WHATSAPP } from '../data/mockData';
+import { storeWhatsAppUrl } from '../../settings/storeContact';
 
 export interface CustomGiftBannerProps {
   settings?: Record<string, any>;
@@ -68,10 +68,10 @@ export const CustomGiftBanner: React.FC<CustomGiftBannerProps> = ({
       ? 'مرحباً، أود تصميم وتنسيق باقة ورد / طقم هدية مخصص وفريد حسب رغبتي.'
       : 'Hello, I would like to design and order a custom bespoke flower bouquet or gift set.';
 
-    const wa =
-      activeStore?.contactPhone?.replace('+', '') ||
-      MECCA_WHATSAPP.replace('+', '');
-    window.open(`https://wa.me/${wa}?text=${encodeURIComponent(text)}`, '_blank');
+    if (!activeStore?.id) return;
+    const href = storeWhatsAppUrl(activeStore.id, text, activeStore);
+    if (!href) return;
+    window.open(href, '_blank');
   };
 
   const defaultBgImage = isCoffee

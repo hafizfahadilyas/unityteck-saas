@@ -473,6 +473,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     let isMounted = true;
     const targetStoreId = activeStore?.id || '__no_store__';
     const loadConfig = async () => {
+      if (targetStoreId === 'store-coffee' || targetStoreId.includes('coffee')) {
+        return;
+      }
       try {
         const cfg = await fetchCartInterceptSettingsApi(targetStoreId);
         if (cfg && isMounted) {

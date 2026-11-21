@@ -874,7 +874,7 @@ function buildRawDefaultThemeSettings(fallback: {
           buttonText: 'Custom Made to Order',
           buttonTextAr: 'تفصيل حسب الطلب',
           buttonTextEn: 'Custom Made to Order',
-          buttonUrl: 'https://wa.me/966549876543',
+          buttonUrl: '',
           buttonBgColor: '#78350f',
           buttonTextColor: '#FFFFFF',
           buttonIcon: 'Sparkles',
@@ -1580,7 +1580,7 @@ function buildRawDefaultThemeSettings(fallback: {
       showCountdown: true,
       showWhatsapp: true,
       showEmailSubscribe: true,
-      whatsappNumber: '+966581617712',
+      whatsappNumber: '',
     },
     updatedAt: new Date().toISOString(),
   };

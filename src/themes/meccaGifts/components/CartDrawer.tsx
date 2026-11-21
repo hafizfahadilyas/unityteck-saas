@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useTenant } from '../../../context/TenantContext';
-import { readStoreIdentity } from '../../settings/storeIdentity';
+import { resolveStoreContact } from '../../settings/storeContact';
 import {
   X,
   ShoppingBag,
@@ -41,8 +41,7 @@ export const CartDrawer: React.FC = () => {
 
   const waDigits = useMemo(() => {
     if (!activeStore?.id) return '';
-    const identity = readStoreIdentity(activeStore.id, activeStore);
-    return String(identity.whatsapp || activeStore.phone || '').replace(/[^0-9]/g, '');
+    return resolveStoreContact(activeStore.id, activeStore).whatsappDigits;
   }, [activeStore]);
 
   if (!isCartOpen) return null;

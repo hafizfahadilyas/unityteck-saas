@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useTenant } from '../../../context/TenantContext';
-import { readStoreIdentity } from '../../settings/storeIdentity';
+import { resolveStoreContact } from '../../settings/storeContact';
 import { MessageCircle, ArrowUp, ArrowDown, X } from 'lucide-react';
 
 export const WhatsAppFloatingButton: React.FC<{ isAdmin?: boolean }> = ({ isAdmin = false }) => {
@@ -13,9 +13,7 @@ export const WhatsAppFloatingButton: React.FC<{ isAdmin?: boolean }> = ({ isAdmi
 
   const waDigits = useMemo(() => {
     if (!activeStore?.id) return '';
-    const identity = readStoreIdentity(activeStore.id, activeStore);
-    const raw = identity.whatsapp || activeStore.phone || '';
-    return String(raw).replace(/[^0-9]/g, '');
+    return resolveStoreContact(activeStore.id, activeStore).whatsappDigits;
   }, [activeStore]);
 
   const [showScrollControls, setShowScrollControls] = useState(false);

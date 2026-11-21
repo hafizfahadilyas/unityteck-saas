@@ -1,6 +1,8 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { MECCA_VIDEO, MECCA_WHATSAPP } from '../data/mockData';
+import { useTenant } from '../../../context/TenantContext';
+import { MECCA_VIDEO } from '../data/mockData';
+import { storeWhatsAppUrl } from '../../settings/storeContact';
 import {
   Play,
   Pause,
@@ -23,6 +25,7 @@ import {
 
 export const OfferVideoBanner: React.FC = () => {
   const { language, setCurrentPage, setSelectedCategory } = useApp();
+  const { activeStore } = useTenant();
   const isAr = language === 'ar';
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -110,11 +113,15 @@ export const OfferVideoBanner: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const cleanPhone = MECCA_WHATSAPP.replace(/[^\d]/g, '');
+  const storeLabel = isAr
+    ? (activeStore?.nameAr || activeStore?.name || '')
+    : (activeStore?.nameEn || activeStore?.name || '');
   const whatsappMessage = isAr
-    ? `مرحباً هدايا مكة، أرغب في الاستفادة من عرض الفيديو الخاص مع كود الخصم (${PROMO_CODE}).`
-    : `Hello Mecca Gifts, I would like to order with the Special Video Offer discount code (${PROMO_CODE}).`;
-  const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(whatsappMessage)}`;
+    ? `مرحباً ${storeLabel}، أرغب في الاستفادة من عرض الفيديو الخاص مع كود الخصم (${PROMO_CODE}).`
+    : `Hello ${storeLabel}, I would like to order with the Special Video Offer discount code (${PROMO_CODE}).`;
+  const whatsappUrl = activeStore?.id
+    ? storeWhatsAppUrl(activeStore.id, whatsappMessage, activeStore)
+    : '';
 
   return (
     <section id="offer-video-banner" className="py-12 sm:py-16 md:py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto scroll-mt-24">
@@ -299,15 +306,17 @@ export const OfferVideoBanner: React.FC = () => {
               )}
             </button>
 
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-6 sm:px-8 py-3.5 rounded-full bg-emerald-600/90 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm border border-emerald-400/40 shadow-xl hover:shadow-2xl hover:-translate-y-0.5 inline-flex items-center gap-2 transition-all duration-300 active:scale-95"
-            >
-              <MessageCircle className="w-4 h-4" />
-              <span>{isAr ? 'طلب سريع عبر واتساب' : 'Quick WhatsApp Order'}</span>
-            </a>
+            {whatsappUrl ? (
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-6 sm:px-8 py-3.5 rounded-full bg-emerald-600/90 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm border border-emerald-400/40 shadow-xl hover:shadow-2xl hover:-translate-y-0.5 inline-flex items-center gap-2 transition-all duration-300 active:scale-95"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>{isAr ? 'طلب سريع عبر واتساب' : 'Quick WhatsApp Order'}</span>
+              </a>
+            ) : null}
           </div>
 
         </div>

@@ -18,6 +18,7 @@ import { generateZatcaTlvBase64, generateQrSvgDataUri } from '../../utils/zatca'
 import { portalFontFamily } from '../../utils/portalFont';
 import { WhatsAppBrandIcon } from './BrandIcons';
 import { GlobalModal } from './GlobalModal';
+import { resolveStoreContact } from '../../themes/settings/storeContact';
 
 interface RetailInvoiceModalProps {
   isOpen: boolean;
@@ -51,6 +52,13 @@ function resolveStoreInvoiceProfile(store?: Partial<Store> | null): StoreInvoice
   // General multi-tenant invoice identity — always from this store only (100+ stores)
   const fallbackName = store?.name || 'المتجر الإلكتروني';
   const cleanInitials = fallbackName.slice(0, 2).toUpperCase();
+  let phone = store?.contactPhone || store?.phone || '';
+  let email = '';
+  if (store?.id) {
+    const contact = resolveStoreContact(store.id, store);
+    phone = contact.phone || contact.whatsapp || phone;
+    email = contact.email;
+  }
   return {
     name: store?.nameEn || store?.name || 'Online Store',
     nameAr: store?.nameAr || store?.name || 'المتجر الإلكتروني',
@@ -58,8 +66,8 @@ function resolveStoreInvoiceProfile(store?: Partial<Store> | null): StoreInvoice
     subtitleEn: 'Official Simplified Tax Invoice',
     address: store?.domain ? `Saudi Arabia • ${store.domain}` : 'Kingdom of Saudi Arabia',
     addressAr: store?.domain ? `المملكة العربية السعودية • ${store.domain}` : 'المملكة العربية السعودية',
-    phone: store?.contactPhone || store?.phone || '',
-    email: store?.ownerEmail || store?.email || '',
+    phone,
+    email,
     taxNumber: store?.taxNumber || '',
     crNumber: store?.crNumber || '',
     initials: cleanInitials,

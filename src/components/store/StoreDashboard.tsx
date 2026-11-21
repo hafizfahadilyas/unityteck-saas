@@ -1,8 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { DashboardOrdersTable } from './DashboardOrdersTable';
-import { CreateStoreOrderModal } from './CreateStoreOrderModal';
 import { AdminPageShell } from '../common/AdminPageHeader';
 import { useToast } from '../common/ToastProvider';
 import { StoreOverviewHeader } from './dashboard/StoreOverviewHeader';
@@ -27,6 +26,11 @@ import {
   type DashboardHomeAnalytics,
 } from '../../api/tenantApi';
 import type { DayVisitPoint } from './dashboard/VisitsByDayChart';
+import { lazyWithRetry } from '../../utils/lazyWithRetry';
+
+const CreateStoreOrderModal = lazyWithRetry(() =>
+  import('./CreateStoreOrderModal').then((m) => ({ default: m.CreateStoreOrderModal })),
+);
 
 interface StoreDashboardProps {
   onNavigateTab: (tab: string) => void;
@@ -64,22 +68,33 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
       return;
     }
     let cancelled = false;
-    void fetchDashboardHomeAnalytics(storeId)
-      .then((data) => {
-        if (!cancelled) setHomeAnalytics(data);
-      })
-      .catch(() => {
-        if (!cancelled) setHomeAnalytics(null);
-      });
-    void fetchStoreRecentActivitiesApi(storeId, 40)
-      .then((rows) => {
-        if (!cancelled) setStorefrontActivities(Array.isArray(rows) ? rows : []);
-      })
-      .catch(() => {
-        if (!cancelled) setStorefrontActivities([]);
-      });
+    // Let sidebar + KPI shell paint first; analytics are non-blocking widgets.
+    const run = () => {
+      if (cancelled) return;
+      void fetchDashboardHomeAnalytics(storeId)
+        .then((data) => {
+          if (!cancelled) setHomeAnalytics(data);
+        })
+        .catch(() => {
+          if (!cancelled) setHomeAnalytics(null);
+        });
+      void fetchStoreRecentActivitiesApi(storeId, 24)
+        .then((rows) => {
+          if (!cancelled) setStorefrontActivities(Array.isArray(rows) ? rows : []);
+        })
+        .catch(() => {
+          if (!cancelled) setStorefrontActivities([]);
+        });
+    };
+    const ric = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
+    const idleId = typeof ric === 'function' ? ric(run, { timeout: 1200 }) : 0;
+    const timeoutId = typeof ric === 'function' ? 0 : window.setTimeout(run, 120);
     return () => {
       cancelled = true;
+      if (idleId && typeof (window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback === 'function') {
+        (window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(idleId);
+      }
+      if (timeoutId) window.clearTimeout(timeoutId);
     };
   }, [activeStore?.id]);
 
@@ -363,32 +378,34 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
         />
       </div>
 
-      {/* ── Create Order Modal ── */}
+      {/* ── Create Order Modal (lazy — keep dashboard chunk light) ── */}
       {isCreateOrderModalOpen && (
-        <CreateStoreOrderModal
-          isOpen={isCreateOrderModalOpen}
-          storeId={activeStore.id}
-          storeName={activeStore.name}
-          products={currentProducts}
-          onClose={() => setIsCreateOrderModalOpen(false)}
-          onCreate={async (orderData) => {
-            try {
-              await addOrder(orderData as any, activeStore.id);
-              toast(
-                isAr
-                  ? 'تم إنشاء الطلب الجديد وإضافته بنجاح إلى قاعدة البيانات!'
-                  : 'New order created and saved to database successfully!',
-                'success',
-              );
-              setIsCreateOrderModalOpen(false);
-            } catch (err) {
-              toast(
-                isAr ? 'حدث خطأ أثناء حفظ الطلب' : 'Failed to save new order',
-                'error',
-              );
-            }
-          }}
-        />
+        <Suspense fallback={null}>
+          <CreateStoreOrderModal
+            isOpen={isCreateOrderModalOpen}
+            storeId={activeStore.id}
+            storeName={activeStore.name}
+            products={currentProducts}
+            onClose={() => setIsCreateOrderModalOpen(false)}
+            onCreate={async (orderData) => {
+              try {
+                await addOrder(orderData as any, activeStore.id);
+                toast(
+                  isAr
+                    ? 'تم إنشاء الطلب الجديد وإضافته بنجاح إلى قاعدة البيانات!'
+                    : 'New order created and saved to database successfully!',
+                  'success',
+                );
+                setIsCreateOrderModalOpen(false);
+              } catch (err) {
+                toast(
+                  isAr ? 'حدث خطأ أثناء حفظ الطلب' : 'Failed to save new order',
+                  'error',
+                );
+              }
+            }}
+          />
+        </Suspense>
       )}
     </AdminPageShell>
   );

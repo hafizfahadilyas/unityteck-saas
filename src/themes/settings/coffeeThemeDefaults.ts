@@ -7,6 +7,7 @@
 import { readAllThemeSettings, type AllThemeSettings } from './themeSettingsStore';
 import { applyMissingModularSeeds } from './coffeeModularSettings';
 import { resolveCoffeeMediaUrl, cleanImageUrl } from '../../utils/imageFallback';
+import { resolveStoreContact } from './storeContact';
 
 export function isCoffeeStore(store: { id?: string; name?: string; category?: string }): boolean {
   const id = (store.id || '').toLowerCase();
@@ -655,11 +656,48 @@ export function healCoffeeBrokenMedia(settings: AllThemeSettings): AllThemeSetti
  */
 export function resolveCoffeeThemeSettings(
   storeId: string,
-  fallbackStore: { id?: string; name?: string },
+  fallbackStore: { id?: string; name?: string; phone?: string; whatsapp?: string; email?: string },
 ): AllThemeSettings {
   const raw = readAllThemeSettings(storeId, fallbackStore as any);
   const base = coffeeSectionsNeedSeed(raw) ? seedCoffeeThemeSettings(raw) : raw;
-  return healCoffeeBrokenMedia(applyMissingModularSeeds(base));
+  const healed = healCoffeeBrokenMedia(applyMissingModularSeeds(base));
+  // Always overlay THIS store’s identity WhatsApp / email onto modular mirrors
+  const contact = resolveStoreContact(storeId, fallbackStore);
+  const wa = contact.whatsapp || contact.whatsappDigits || '';
+  const phone = contact.phone || wa;
+  const email = contact.email || '';
+  return {
+    ...healed,
+    heroBanners: healed.heroBanners
+      ? { ...healed.heroBanners, whatsappNumber: wa || healed.heroBanners.whatsappNumber || '' }
+      : healed.heroBanners,
+    customOrder: healed.customOrder
+      ? { ...healed.customOrder, whatsappNumber: wa || healed.customOrder.whatsappNumber || '' }
+      : healed.customOrder,
+    footer: healed.footer
+      ? {
+          ...healed.footer,
+          contactWhatsApp: wa || healed.footer.contactWhatsApp || '',
+          contactPhone: phone || healed.footer.contactPhone || '',
+          contactEmail: email || healed.footer.contactEmail || '',
+        }
+      : healed.footer,
+    maintenance: healed.maintenance
+      ? { ...healed.maintenance, whatsappNumber: wa || healed.maintenance.whatsappNumber || '' }
+      : healed.maintenance,
+    customHeader: healed.customHeader?.actions?.whatsapp
+      ? {
+          ...healed.customHeader,
+          actions: {
+            ...healed.customHeader.actions,
+            whatsapp: {
+              ...healed.customHeader.actions.whatsapp,
+              phoneNumber: contact.whatsappDigits || healed.customHeader.actions.whatsapp.phoneNumber || '',
+            },
+          },
+        }
+      : healed.customHeader,
+  };
 }
 
 /**

@@ -1084,6 +1084,8 @@ export async function requestOtp(
       method: 'POST',
       body: { email: email.trim(), portal, purpose },
       skipAuth: true,
+      // Hostinger MySQL + mailer path — local can need >25s default write timeout
+      timeoutMs: 60_000,
     });
 
     const delivery = (res.delivery || '').toLowerCase();
@@ -1500,11 +1502,14 @@ export async function loginWithEmailOtp(
   }
 
   try {
+    // Remote Hostinger MySQL + Sanctum token write often needs 10–40s locally.
+    const OTP_VERIFY_TIMEOUT_MS = 90_000;
     const data = await Promise.race([
       apiFetch<LoginResponse & { ok?: boolean; verified?: boolean }>('/auth/otp/verify', {
         method: 'POST',
         body: { email: cleanEmail, portal, purpose: 'login', code: cleanCode },
         skipAuth: true,
+        timeoutMs: OTP_VERIFY_TIMEOUT_MS,
       }),
       new Promise<never>((_, reject) => {
         setTimeout(
@@ -1517,7 +1522,7 @@ export async function loginWithEmailOtp(
                 ),
               ),
             ),
-          45_000,
+          OTP_VERIFY_TIMEOUT_MS + 5_000,
         );
       }),
     ]);

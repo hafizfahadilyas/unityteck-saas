@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '../context/AppContext';
-import { MECCA_WHATSAPP } from '../data/mockData';
+import { useTenant } from '../../../context/TenantContext';
+import { storeWhatsAppUrl } from '../../settings/storeContact';
 import {
   Sparkles,
   ArrowLeft,
@@ -108,6 +109,7 @@ export const SAUDI_COFFEE_PANELS: VideoAccordionPanel[] = [
 
 export const SocialReelsSection: React.FC = () => {
   const { language, navigateToCategory } = useApp();
+  const { activeStore } = useTenant();
   const isAr = language === 'ar';
 
   const [activeIndex, setActiveIndex] = useState(0);
@@ -199,16 +201,17 @@ export const SocialReelsSection: React.FC = () => {
     e.stopPropagation();
     if (panel.categoryFilter) {
       navigateToCategory(panel.categoryFilter);
-    } else {
-      const url = `https://wa.me/${MECCA_WHATSAPP.replace('+', '')}?text=${encodeURIComponent(panel.whatsAppText)}`;
-      window.open(url, '_blank');
+    } else if (activeStore?.id) {
+      const url = storeWhatsAppUrl(activeStore.id, panel.whatsAppText, activeStore);
+      if (url) window.open(url, '_blank');
     }
   };
 
   const handleWhatsAppDirect = (panel: VideoAccordionPanel, e: React.MouseEvent) => {
     e.stopPropagation();
-    const url = `https://wa.me/${MECCA_WHATSAPP.replace('+', '')}?text=${encodeURIComponent(panel.whatsAppText)}`;
-    window.open(url, '_blank');
+    if (!activeStore?.id) return;
+    const url = storeWhatsAppUrl(activeStore.id, panel.whatsAppText, activeStore);
+    if (url) window.open(url, '_blank');
   };
 
   const activePanel = SAUDI_COFFEE_PANELS[activeIndex];

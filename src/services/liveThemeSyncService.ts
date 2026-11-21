@@ -203,8 +203,8 @@ export function createCanonicalBlocks(themeId: string, store?: any): ThemeBlockE
       {
         id: 'featured_categories_products',
         type: 'featured_categories_products',
-        titleEn: 'Featured Categories & Products',
-        titleAr: 'التصنيفات والمنتجات المميزة',
+        titleEn: 'Category Showcase',
+        titleAr: 'عرض التصنيفات',
         visible: true,
         templateStyle: 'cats-products-grid',
         settings: {},
@@ -221,8 +221,8 @@ export function createCanonicalBlocks(themeId: string, store?: any): ThemeBlockE
       {
         id: 'featured_products',
         type: 'featured_products',
-        titleEn: 'Featured Products Section',
-        titleAr: 'قسم المنتجات المميزة',
+        titleEn: 'Featured Products',
+        titleAr: 'المنتجات المميزة',
         visible: true,
         templateStyle: 'featured-tabs',
         settings: {},
@@ -239,8 +239,8 @@ export function createCanonicalBlocks(themeId: string, store?: any): ThemeBlockE
       {
         id: 'store_features_bar',
         type: 'store_features_bar',
-        titleEn: 'Feature Icons Section',
-        titleAr: 'قسم أيقونات المميزات',
+        titleEn: 'Feature Icons',
+        titleAr: 'أيقونات المميزات',
         visible: true,
         templateStyle: 'features-icons-row',
         settings: {},
@@ -248,8 +248,8 @@ export function createCanonicalBlocks(themeId: string, store?: any): ThemeBlockE
       {
         id: 'exclusive_benefits',
         type: 'exclusive_benefits',
-        titleEn: 'Exclusive Benefits',
-        titleAr: 'المزايا الحصرية',
+        titleEn: 'Benefits',
+        titleAr: 'المزايا',
         visible: true,
         templateStyle: 'perks-row',
         settings: {},
@@ -257,7 +257,7 @@ export function createCanonicalBlocks(themeId: string, store?: any): ThemeBlockE
       {
         id: 'product_carousel',
         type: 'product_carousel',
-        titleEn: 'Product Carousel Section',
+        titleEn: 'Product Carousel',
         titleAr: 'عرض المنتجات المتحرك',
         visible: true,
         templateStyle: 'carousel-machines',

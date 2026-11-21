@@ -12,8 +12,9 @@ import {
   Phone,
   Heart,
 } from 'lucide-react';
-import { MECCA_LOGO, MECCA_WHATSAPP } from '../../data/hadayaMeccaData';
+import { MECCA_LOGO } from '../../data/hadayaMeccaData';
 import { WhatsAppBrandIcon } from '../common/BrandIcons';
+import { normalizeWhatsAppDigits } from '../../themes/settings/storeContact';
 
 export interface MaintenanceConfig {
   enabled: boolean;
@@ -80,11 +81,14 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
     setSubscribed(true);
   };
 
-  const whatsappUrl = `https://wa.me/${(config.whatsappNumber || MECCA_WHATSAPP).replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-    isAr
-      ? 'مرحباً، أود الاستفسار عن الطلبات والمنتجات!'
-      : 'Hello, I would like to inquire about orders and products!'
-  )}`;
+  const waDigits = normalizeWhatsAppDigits(config.whatsappNumber);
+  const whatsappUrl = waDigits
+    ? `https://wa.me/${waDigits}?text=${encodeURIComponent(
+        isAr
+          ? 'مرحباً، أود الاستفسار عن الطلبات والمنتجات!'
+          : 'Hello, I would like to inquire about orders and products!',
+      )}`
+    : '';
 
   return (
     <div
@@ -226,8 +230,8 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
           </div>
         )}
 
-        {/* VIP WhatsApp Direct Order Button */}
-        {config.showWhatsapp !== false && (
+        {/* VIP WhatsApp Direct Order Button — only when THIS store has a number */}
+        {config.showWhatsapp !== false && whatsappUrl && (
           <div className="flex flex-col sm:flex-row items-center gap-3">
             <a
               href={whatsappUrl}

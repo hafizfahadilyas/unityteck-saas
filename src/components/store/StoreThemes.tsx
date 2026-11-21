@@ -122,6 +122,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
   }, [currentThemeId, activeStore.id]);
 
   const openVisualBuilder = (targetThemeId?: string, builderPage?: string) => {
+    const resolvedPage = builderPage || 'home';
     preloadVisualThemeBuilder();
     const cleanTarget =
       typeof targetThemeId === 'string' &&
@@ -133,7 +134,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
         : undefined;
 
     const tid = cleanTarget || currentThemeId;
-    if (builderPage) setBuilderInitialPage(builderPage);
+    setBuilderInitialPage(resolvedPage);
     if (onCustomizeTheme) {
       onCustomizeTheme(tid);
       return;
@@ -147,12 +148,12 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
         sessionStorage.setItem(`unityteck_visual_builder_theme_${activeStore.id}`, tid);
         sessionStorage.setItem('unityteck_visual_builder_theme', tid);
       }
-      if (builderPage) sessionStorage.setItem('unityteck_visual_builder_page', builderPage);
+      sessionStorage.setItem('unityteck_visual_builder_page', resolvedPage);
       if (typeof window !== 'undefined') {
         const url = new URL(window.location.href);
         url.searchParams.set('builder', '1');
         if (tid) url.searchParams.set('themeId', tid);
-        if (builderPage) url.searchParams.set('builderPage', builderPage);
+        url.searchParams.set('builderPage', resolvedPage);
         window.history.replaceState({}, '', url.toString());
       }
     } catch {
@@ -325,7 +326,6 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
             initialPage={builderInitialPage as any}
             onClose={closeVisualBuilder}
             onPublishSuccess={() => {
-              closeVisualBuilder();
               toast(
                 isAr ? 'تم نشر التعديلات بنجاح على المتجر المباشر!' : 'Changes published successfully to live store!',
                 'success',

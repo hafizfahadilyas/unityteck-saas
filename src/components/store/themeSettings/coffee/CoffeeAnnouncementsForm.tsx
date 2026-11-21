@@ -254,10 +254,11 @@ export const CoffeeAnnouncementsForm: React.FC<CoffeeFormChromeProps> = ({ onBac
                       <span>{isAr ? 'نص الإعلان' : 'Announcement text'}</span>
                       <input
                         className={inputCls}
-                        dir={isAr ? 'rtl' : 'ltr'}
-                        value={isAr ? (m.textAr || '') : (m.textEn || m.text || '')}
+                        dir="auto"
+                        placeholder={isAr ? 'اكتب النص بأي لغة' : 'Type in any language'}
+                        value={m.textEn || m.textAr || m.text || ''}
                         onChange={(e) =>
-                          patchMsg(m.id, isAr ? { textAr: e.target.value } : { textEn: e.target.value })
+                          patchMsg(m.id, { textEn: e.target.value, textAr: e.target.value, text: e.target.value })
                         }
                       />
                     </label>
@@ -309,10 +310,13 @@ export const CoffeeAnnouncementsForm: React.FC<CoffeeFormChromeProps> = ({ onBac
                     <span>{isAr ? 'نص الإعلان' : 'Announcement text'}</span>
                     <input
                       className={inputCls}
-                      dir={isAr ? 'rtl' : 'ltr'}
+                      dir="auto"
                       placeholder={isAr ? 'مثال: شحن مجاني للطلبات فوق 200 ريال' : 'Example: Free shipping on orders over SAR 200'}
-                      value={isAr ? newTextAr : newTextEn}
-                      onChange={(e) => (isAr ? setNewTextAr(e.target.value) : setNewTextEn(e.target.value))}
+                      value={newTextEn || newTextAr}
+                      onChange={(e) => {
+                        setNewTextEn(e.target.value);
+                        setNewTextAr(e.target.value);
+                      }}
                     />
                   </label>
                   <label className="space-y-1 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
@@ -359,22 +363,25 @@ export const CoffeeAnnouncementsForm: React.FC<CoffeeFormChromeProps> = ({ onBac
                   label={isAr ? 'إظهار زر الإجراء' : 'Show Action Button'}
                 />
                 {draft?.showButton ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 gap-2">
                     <label className="space-y-1 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
-                      <span>{isAr ? 'نص الزر (عربي)' : 'Button text (Arabic)'}</span>
-                      <input className={inputCls} dir="rtl" value={draft?.buttonTextAr || ''} onChange={(e) => setDraft({ ...draft, buttonTextAr: e.target.value })} placeholder={isAr ? 'تسوق الآن' : 'Shop now (AR)'} />
-                    </label>
-                    <label className="space-y-1 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
-                      <span>{isAr ? 'نص الزر (إنجليزي)' : 'Button text (English)'}</span>
+                      <span>{isAr ? 'نص الزر' : 'Button text'}</span>
                       <input
                         className={inputCls}
-                        dir="ltr"
-                        value={draft?.buttonTextEn || draft?.buttonText || ''}
-                        onChange={(e) => setDraft({ ...draft, buttonTextEn: e.target.value, buttonText: e.target.value })}
-                        placeholder="Shop Now"
+                        dir="auto"
+                        value={draft?.buttonTextEn || draft?.buttonTextAr || draft?.buttonText || ''}
+                        onChange={(e) =>
+                          setDraft({
+                            ...draft,
+                            buttonTextEn: e.target.value,
+                            buttonTextAr: e.target.value,
+                            buttonText: e.target.value,
+                          })
+                        }
+                        placeholder={isAr ? 'تسوق الآن' : 'Shop Now'}
                       />
                     </label>
-                    <label className="space-y-1 text-[11px] font-semibold md:col-span-2" style={{ color: 'var(--muted)' }}>
+                    <label className="space-y-1 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
                       <span>{isAr ? 'رابط الزر' : 'Button link (URL)'}</span>
                       <input className={inputCls} dir="ltr" value={draft?.buttonLink || ''} onChange={(e) => setDraft({ ...draft, buttonLink: e.target.value })} placeholder="/shop" />
                     </label>

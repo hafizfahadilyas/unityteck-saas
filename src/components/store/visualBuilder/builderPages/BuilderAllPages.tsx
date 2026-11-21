@@ -34,6 +34,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useTenant } from '../../../../context/TenantContext';
+import { storeWhatsAppUrl } from '../../../../themes/settings/storeContact';
 
 interface BuilderPageProps {
   isAr: boolean;
@@ -335,15 +336,27 @@ export const BuilderProductPage: React.FC<BuilderPageProps> = ({
               <span>{isAr ? 'شراء فوري عبر مدى / أبل باي' : 'Express 1-Click Checkout'}</span>
             </button>
 
-            <a
-              href="https://wa.me/966504428819?text=السلام%20عليكم%20أرغب%20في%20طلب%20حامل%20الورود%20المخملية"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full py-2.5 rounded-2xl font-bold text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 transition-all cursor-pointer flex items-center justify-center gap-2"
-            >
-              <MessageCircle className="w-4 h-4 text-emerald-600" />
-              <span>{isAr ? 'طلب مباشر عبر واتساب المتجر' : 'Instant WhatsApp Order'}</span>
-            </a>
+            {(() => {
+              const waHref = activeStore?.id
+                ? storeWhatsAppUrl(
+                    activeStore.id,
+                    isAr ? 'السلام عليكم، أرغب في الطلب عبر واتساب' : 'Hello, I would like to order via WhatsApp',
+                    activeStore,
+                  )
+                : '';
+              if (!waHref) return null;
+              return (
+                <a
+                  href={waHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2.5 rounded-2xl font-bold text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <MessageCircle className="w-4 h-4 text-emerald-600" />
+                  <span>{isAr ? 'طلب مباشر عبر واتساب المتجر' : 'Instant WhatsApp Order'}</span>
+                </a>
+              );
+            })()}
           </div>
 
           {/* Guarantees */}

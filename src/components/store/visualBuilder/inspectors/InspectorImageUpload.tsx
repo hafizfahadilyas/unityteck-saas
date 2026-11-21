@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { MediaPickerModal } from '../../../common/MediaPickerModal';
 import type { MediaAsset } from '../../../../types/media';
+import { resolveMediaAssetUrl } from '../../../../utils/mediaUrl';
 
 export interface InspectorImageUploadProps {
   labelAr: string;
@@ -85,9 +86,11 @@ export const InspectorImageUpload: React.FC<InspectorImageUploadProps> = ({
   const handleMediaModalSelect = (selected: MediaAsset | MediaAsset[]) => {
     const asset = Array.isArray(selected) ? selected[0] : selected;
     if (asset) {
-      const chosenUrl = asset.optimizedUrl || asset.originalUrl || asset.thumbnailUrl || '';
-      onChange(chosenUrl);
-      setUrlDraft(chosenUrl);
+      const chosenUrl = resolveMediaAssetUrl(asset);
+      if (chosenUrl) {
+        onChange(chosenUrl);
+        setUrlDraft(chosenUrl);
+      }
     }
     setIsMediaModalOpen(false);
   };

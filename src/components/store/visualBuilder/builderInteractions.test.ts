@@ -6,6 +6,7 @@ import {
   clampInsertIndexForChrome,
   columnTemplate,
   countVisibleH1,
+  cloneBlockWithNewIds,
   createCoalescedSaver,
   duplicateBlock,
   duplicateBlockChromeSafe,
@@ -13,13 +14,23 @@ import {
   moveBlock,
   moveBlockChromeSafe,
   nestIntoColumns,
+  pasteBlockChromeSafe,
   removeBlock,
   removeBlockChromeSafe,
+  resolveMediaAssetUrl,
   rowSection,
+  snapshotBlockForClipboard,
+  stripHeavyDataUrls,
   widgetPosition,
   withVisibility,
 } from './builderInteractions.ts';
-import { pushHistory, redoHistory, seedHistory, undoHistory } from './builderHistory.ts';
+import {
+  isClipboardShortcut,
+  pushHistory,
+  redoHistory,
+  seedHistory,
+  undoHistory,
+} from './builderHistory.ts';
 import { stashPageDraft } from './builderPages.ts';
 
 const row = rowSection('25-25-50', 'sec-1');
@@ -63,6 +74,37 @@ assert.deepEqual(
   ['announcement', 'header', 'products', 'hero', 'footer'],
 );
 assert.equal(duplicateBlockChromeSafe(chromeTree, 'footer', 'footer_copy').length, chromeTree.length);
+assert.equal(snapshotBlockForClipboard(chromeTree, 'footer'), null);
+assert.equal(snapshotBlockForClipboard(chromeTree, 'announcement'), null);
+const clipHero = snapshotBlockForClipboard(chromeTree, 'hero');
+assert.ok(clipHero);
+assert.equal(clipHero!.id, 'hero');
+assert.notEqual(clipHero, chromeTree[2]);
+const pasted = pasteBlockChromeSafe(chromeTree, clipHero, 'hero_paste', 'hero');
+assert.deepEqual(
+  pasted.map((b) => b.id),
+  ['announcement', 'header', 'hero', 'hero_paste', 'products', 'footer'],
+);
+assert.equal(pasteBlockChromeSafe(chromeTree, { id: 'x', type: 'footer' }, 'x2').length, chromeTree.length);
+const nestedClone = cloneBlockWithNewIds(
+  { id: 'row', columns: [{ id: 'old-c0', widgets: [{ id: 'old-w0' }] }] },
+  'row_new',
+);
+assert.equal(nestedClone.id, 'row_new');
+assert.equal(nestedClone.columns[0].id, 'row_new-c0');
+assert.equal((nestedClone.columns[0].widgets[0] as { id: string }).id, 'row_new-c0-w0');
+assert.equal(
+  isClipboardShortcut({ key: 'c', ctrlKey: true, metaKey: false, shiftKey: false, altKey: false }),
+  'copy',
+);
+assert.equal(
+  isClipboardShortcut({ key: 'v', ctrlKey: true, metaKey: false, shiftKey: false, altKey: false }),
+  'paste',
+);
+assert.equal(
+  isClipboardShortcut({ key: 'd', metaKey: true, ctrlKey: false, shiftKey: false, altKey: false }),
+  'duplicate',
+);
 assert.equal(removeBlockChromeSafe(chromeTree, 'announcement').length, chromeTree.length);
 assert.equal(removeBlockChromeSafe(chromeTree, 'hero').length, 4);
 assert.equal(clampInsertIndexForChrome(chromeTree, 0), 2);
@@ -84,6 +126,13 @@ assert.equal(removeBlock(copied, 'a').length, 1);
 
 const hidden = withVisibility({ id: 'x', visible: true }, { visible: false, visibleMobile: false });
 assert.equal(blocksForPublish([hidden, { id: 'y', visible: true }]).length, 1);
+
+const heavy = `data:image/png;base64,${'A'.repeat(9000)}`;
+assert.equal(stripHeavyDataUrls({ image: heavy, ok: 'https://cdn.example/a.jpg' }).image, '');
+assert.equal(stripHeavyDataUrls({ image: heavy, ok: 'https://cdn.example/a.jpg' }).ok, 'https://cdn.example/a.jpg');
+assert.equal(resolveMediaAssetUrl({ optimizedUrl: '', originalUrl: '', thumbnailUrl: 'https://cdn.example/t.jpg' }), 'https://cdn.example/t.jpg');
+assert.equal(resolveMediaAssetUrl({ optimizedUrl: heavy, originalUrl: 'https://cdn.example/a.jpg' }), 'https://cdn.example/a.jpg');
+assert.equal(resolveMediaAssetUrl({ optimizedUrl: '', originalUrl: heavy }), '');
 assert.equal(countVisibleH1([
   { type: 'heading', settings: { tag: 'h1', textEn: 'One' } },
   { type: 'heading', visible: false, settings: { tag: 'h1', textEn: 'Hidden' } },

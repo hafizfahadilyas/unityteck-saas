@@ -1,10 +1,13 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
+import { useTenant } from '../../../context/TenantContext';
 import { X, Printer, MessageCircle, CheckCircle, ShieldCheck, Download } from 'lucide-react';
-import { MECCA_LOGO, MECCA_WHATSAPP } from '../data/mockData';
+import { MECCA_LOGO } from '../data/mockData';
+import { storeWhatsAppUrl } from '../../settings/storeContact';
 
 export const InvoiceAlertModal: React.FC = () => {
   const { language, lastOrder, showInvoiceModal, setShowInvoiceModal } = useApp();
+  const { activeStore } = useTenant();
   const isAr = language === 'ar';
 
   if (!showInvoiceModal || !lastOrder) return null;
@@ -14,10 +17,16 @@ export const InvoiceAlertModal: React.FC = () => {
   };
 
   const handleWhatsAppShare = () => {
+    if (!activeStore?.id) return;
+    const storeLabel = isAr
+      ? (activeStore.nameAr || activeStore.name || '')
+      : (activeStore.nameEn || activeStore.name || '');
     const text = isAr
-      ? `فاتورة طلب هدايا مكة رقم: *${lastOrder.orderId}*\nالمستلم:${lastOrder.recipientName}\nالمدينة:${lastOrder.city}\nالمبلغ الإجمالي:${lastOrder.total}ر.س شامل الضريبة.\nشكراً لاختياركم هدايا مكة.`
-      : `Hadaya Mecca Invoice #${lastOrder.orderId} - Total: ${lastOrder.total} SAR.`;
-    window.open(`https://wa.me/${MECCA_WHATSAPP.replace('+', '')}?text=${encodeURIComponent(text)}`, '_blank');
+      ? `فاتورة طلب ${storeLabel} رقم: *${lastOrder.orderId}*\nالمستلم:${lastOrder.recipientName}\nالمدينة:${lastOrder.city}\nالمبلغ الإجمالي:${lastOrder.total}ر.س شامل الضريبة.`
+      : `${storeLabel} Invoice #${lastOrder.orderId} - Total: ${lastOrder.total} SAR.`;
+    const href = storeWhatsAppUrl(activeStore.id, text, activeStore);
+    if (!href) return;
+    window.open(href, '_blank');
   };
 
   const vatAmount = (lastOrder.total * 0.15 / 1.15).toFixed(2);

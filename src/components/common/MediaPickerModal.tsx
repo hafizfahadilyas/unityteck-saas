@@ -34,6 +34,7 @@ import {
   extractVideoMetadata,
   parseGoogleDriveUrl
 } from '../../utils/mediaOptimizer';
+import { resolveMediaAssetUrl } from '../../utils/mediaUrl';
 
 export interface MediaPickerModalProps {
   isOpen: boolean;
@@ -84,17 +85,32 @@ export const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
   const isAr = locale === 'ar';
 
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedType, setSelectedType] = useState<string>('all');
+  const [selectedFolder, setSelectedFolder] = useState<string>(initialFolder || 'all');
+  const [extraFolderSlugs, setExtraFolderSlugs] = useState<string[]>([]);
+  const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
+  const [focusedAsset, setFocusedAsset] = useState<MediaAsset | null>(null);
+  const [displayLimit, setDisplayLimit] = useState(24);
+  const [apiMedia, setApiMedia] = useState<MediaAsset[]>([]);
 
   React.useEffect(() => {
     if (isOpen) {
       if (initialTab) setActiveTab(initialTab);
+      setSelectedFolder(initialFolder || 'all');
+      setSelectedAssetIds([]);
+      setFocusedAsset(null);
       syncProductImagesToMedia(activeStore.id);
+      if (isApiEnabled() && activeStore?.id) {
+        void import('../../api/tenantApi')
+          .then(({ fetchMedia }) => fetchMedia(activeStore.id))
+          .then((rows) => setApiMedia(Array.isArray(rows) ? rows : []))
+          .catch(() => setApiMedia([]));
+      } else {
+        setApiMedia([]);
+      }
     }
-  }, [isOpen, initialTab, activeStore.id, syncProductImagesToMedia]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedType, setSelectedType] = useState<string>('all');
-  const [selectedFolder, setSelectedFolder] = useState<string>(initialFolder);
-  const [extraFolderSlugs, setExtraFolderSlugs] = useState<string[]>([]);
+  }, [isOpen, initialTab, initialFolder, activeStore.id, syncProductImagesToMedia]);
 
   useEffect(() => {
     if (!isOpen || !isApiEnabled()) {
@@ -112,11 +128,11 @@ export const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
     currentMedia.forEach((m) => {
       if (m.folder) slugs.add(m.folder);
     });
+    apiMedia.forEach((m) => {
+      if (m.folder) slugs.add(m.folder);
+    });
     return Array.from(slugs).sort();
-  }, [extraFolderSlugs, currentMedia]);
-  const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
-  const [focusedAsset, setFocusedAsset] = useState<MediaAsset | null>(null);
-  const [displayLimit, setDisplayLimit] = useState(24);
+  }, [extraFolderSlugs, currentMedia, apiMedia]);
 
   // Reset pagination on filter or open change
   React.useEffect(() => {
@@ -144,9 +160,25 @@ export const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
   const [gdriveType, setGdriveType] = useState<MediaType>('image');
   const [gdriveImporting, setGdriveImporting] = useState(false);
 
+  // Merge Hostinger API media with local store media (API URLs win for same id)
+  const libraryMedia = useMemo(() => {
+    const byId = new Map<string, MediaAsset>();
+    for (const asset of currentMedia) byId.set(asset.id, asset);
+    for (const asset of apiMedia) {
+      const prev = byId.get(asset.id);
+      const nextUrl = resolveMediaAssetUrl(asset);
+      if (!prev || (nextUrl && !resolveMediaAssetUrl(prev))) {
+        byId.set(asset.id, asset);
+      } else if (nextUrl) {
+        byId.set(asset.id, { ...prev, ...asset, originalUrl: asset.originalUrl || prev.originalUrl });
+      }
+    }
+    return Array.from(byId.values());
+  }, [currentMedia, apiMedia]);
+
   // Filter media based on tab, query, type, folder
   const filteredMedia = useMemo(() => {
-    return currentMedia.filter((asset) => {
+    return libraryMedia.filter((asset) => {
       // Allowed types filter
       if (allowedTypes && allowedTypes.length > 0) {
         if (!allowedTypes.includes(asset.fileType)) return false;
@@ -180,7 +212,7 @@ export const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
 
       return true;
     });
-  }, [currentMedia, allowedTypes, selectedType, selectedFolder, searchQuery]);
+  }, [libraryMedia, allowedTypes, selectedType, selectedFolder, searchQuery]);
 
   if (!isOpen) return null;
 
@@ -201,21 +233,41 @@ export const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
   // Submit selection
   const handleConfirmSelection = () => {
     if (selectedAssetIds.length === 0 && focusedAsset) {
+      if (!resolveMediaAssetUrl(focusedAsset)) {
+        toast(
+          isAr
+            ? 'هذا الملف بلا رابط صالح. ارفع الصورة من جديد.'
+            : 'This file has no usable URL. Re-upload the image.',
+          'error',
+        );
+        return;
+      }
       onSelect(multiple ? [focusedAsset] : focusedAsset);
       onClose();
       return;
     }
 
-    const selectedAssets = currentMedia.filter((m) => selectedAssetIds.includes(m.id));
+    const selectedAssets = libraryMedia.filter((m) => selectedAssetIds.includes(m.id));
     if (selectedAssets.length === 0) {
       toast(isAr ? 'الرجاء اختيار ملف وسائط' : 'Please select at least one media item', 'info');
       return;
     }
 
+    const usable = selectedAssets.filter((a) => !!resolveMediaAssetUrl(a));
+    if (usable.length === 0) {
+      toast(
+        isAr
+          ? 'الملفات المختارة بلا روابط صالحة. ارفع الصور من جديد.'
+          : 'Selected files have no usable URLs. Re-upload the images.',
+        'error',
+      );
+      return;
+    }
+
     if (multiple) {
-      onSelect(selectedAssets);
+      onSelect(usable);
     } else {
-      onSelect(selectedAssets[0]);
+      onSelect(usable[0]);
     }
     onClose();
   };
@@ -684,6 +736,19 @@ export const MediaPickerModal: React.FC<MediaPickerModalProps> = ({
                         <div
                           key={asset.id}
                           onClick={() => handleToggleSelect(asset)}
+                          onDoubleClick={() => {
+                            if (!resolveMediaAssetUrl(asset)) {
+                              toast(
+                                isAr
+                                  ? 'هذا الملف بلا رابط صالح. ارفع الصورة من جديد.'
+                                  : 'This file has no usable URL. Re-upload the image.',
+                                'error',
+                              );
+                              return;
+                            }
+                            onSelect(multiple ? [asset] : asset);
+                            onClose();
+                          }}
                           className={`group relative rounded-2xl border overflow-hidden transition-all duration-150 cursor-pointer flex flex-col ${
                             isSelected
                               ? 'ring-2 ring-blue-500 border-blue-500 shadow-md scale-[0.99]'

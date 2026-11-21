@@ -5,6 +5,8 @@
  * Empty collections stay empty once a merchant has cleared them (see modularHasContent).
  */
 
+import { normalizeWhatsAppDigits } from './storeContact';
+
 const H1 = '/images/coffee_hero_flagship_machine_1791218907782.jpg';
 const H2 = '/images/coffee_grinder_mill_banner_1791218928342.jpg';
 const H3 = '/images/coffee_corner_luxury_station_1791219182840.jpg';
@@ -1541,7 +1543,7 @@ export function coffeeModularSeed(): CoffeeModularSlice {
       showArrows: true,
       showDots: true,
       showWhatsapp: true,
-      whatsappNumber: '+966549876543',
+      whatsappNumber: '',
       textColor: '#111111',
       banners: [
         heroSlide({
@@ -1812,7 +1814,7 @@ export function coffeeModularSeed(): CoffeeModularSlice {
       titleAr: 'ركن قهوة حسب الطلب',
       subtitleEn: 'Send your width, wood, and stone choices. We confirm on WhatsApp.',
       subtitleAr: 'أرسل العرض ونوع الخشب والحجر. نؤكد الطلب عبر واتساب.',
-      whatsappNumber: '+966549876543',
+      whatsappNumber: '',
       whatsappMessageEn: 'Hello, I would like a custom HiBrew coffee corner.',
       whatsappMessageAr: 'السلام عليكم، أود طلب ركن قهوة هايبرو حسب المقاس.',
       ctaEn: 'Send on WhatsApp',
@@ -1928,9 +1930,5 @@ export function bi(lang: 'AR' | 'EN' | 'ar' | 'en' | string | undefined, en?: st
 
 /** Digits-only WhatsApp / phone for wa.me — empty when merchant has not set a number (no fake fallback). */
 export function coffeeWhatsAppDigits(raw?: string | null): string {
-  let clean = String(raw || '').replace(/\D/g, '');
-  if (!clean) return '';
-  if (clean.startsWith('05')) clean = `966${clean.slice(1)}`;
-  else if (clean.startsWith('5') && clean.length === 9) clean = `966${clean}`;
-  return clean;
+  return normalizeWhatsAppDigits(raw);
 }

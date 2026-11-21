@@ -10,6 +10,7 @@ import {
 } from '../../settings/themeSettingsStore';
 import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
 import { coffeeWhatsAppDigits } from '../../settings/coffeeModularSettings';
+import { resolveStoreContact } from '../../settings/storeContact';
 import {
   Search,
   ShoppingBag,
@@ -32,6 +33,7 @@ import {
   type StorefrontAccountSection,
 } from '../../../components/storefront/StorefrontAccountMenu';
 import { isolateStoreProductImage } from '../../../utils/storeImageIsolation';
+import { coffeeIsolatedCardImage } from '../utils/coffeeIsolatedImage';
 
 type MegaMenuKey = 'machines' | 'mills' | 'cabinets' | 'accessories' | 'offers' | 'explore' | null;
 
@@ -215,8 +217,6 @@ export const Header: React.FC = () => {
     setIsMiniCartOpen,
     setIsSearchOpen,
     navigateTo,
-    countryNoticeVisible,
-    dismissCountryNotice,
     language,
     setLanguage,
     toggleLanguage,
@@ -244,11 +244,12 @@ export const Header: React.FC = () => {
         prod.images?.[0] ||
         (prod as { image?: string }).image ||
         '';
-      const primaryImg = isolateStoreProductImage(
+      const safeImg = isolateStoreProductImage(
         (prod as { storeId?: string }).storeId || activeStore?.id || 'store-coffee',
         rawImg,
         { fallback: true },
       );
+      const primaryImg = coffeeIsolatedCardImage(prod.id, safeImg);
 
       const item: MegaProductItem = {
         id: prod.id,
@@ -366,7 +367,7 @@ export const Header: React.FC = () => {
     if (announcementRef.current) observer.observe(announcementRef.current);
     if (headerRef.current) observer.observe(headerRef.current);
     return () => observer.disconnect();
-  }, [countryNoticeVisible, language, headerVersion]);
+  }, [language, headerVersion]);
 
   // Track window scroll for sticky border & shadow
   useEffect(() => {
@@ -573,44 +574,7 @@ export const Header: React.FC = () => {
         />
       </div>
 
-      {/* 1. TOP BAR (Honor Style Country/Region Selector Bar) */}
-      {countryNoticeVisible && (
-        <div className="w-full bg-[#f7f7f8] border-b border-neutral-200/70 text-[12px] text-neutral-600 py-1.5 px-4 sm:px-6 @lg:px-8 transition-all duration-300 overflow-hidden">
-          <div className="max-w-[1440px] mx-auto flex items-center justify-between gap-3 sm:gap-4">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <span className="truncate block font-normal text-neutral-700">
-                {language === 'AR'
-                  ? 'اختر دولتك أو منطقتك للاطلاع على المحتوى المخصص والشراء مباشرة مع الشحن الفوري بالمملكة.'
-                  : 'Choose your country or region to see content related to you and shop directly with express KSA delivery.'}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              <div className="hidden sm:flex items-center gap-1.5 bg-white px-3 py-0.5 rounded-full border border-neutral-300/80 text-[11px] font-medium text-neutral-800 shadow-2xs">
-                <span>{language === 'AR' ? 'المملكة العربية السعودية / العربية' : 'Saudi Arabia / English'}</span>
-              </div>
-
-              <button
-                onClick={dismissCountryNotice}
-                className="hibrew-inherit-btn px-3.5 py-0.5 rounded-full bg-black text-white text-[11px] font-semibold hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
-              >
-                {language === 'AR' ? 'متابعة' : 'Continue'}
-              </button>
-
-              <button
-                onClick={dismissCountryNotice}
-                className="p-1 text-neutral-400 hover:text-black transition-colors cursor-pointer shrink-0"
-                title="Close"
-                aria-label={language === 'AR' ? 'إغلاق اختيار المنطقة' : 'Close region selector'}
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 2. MAIN HEADER NAVIGATION BAR (Sticky Fixed on Scroll with Honor Slim Profile & Perfect Center Alignment) */}
+      {/* MAIN HEADER NAVIGATION BAR (Sticky Fixed on Scroll with Honor Slim Profile & Perfect Center Alignment) */}
       <header
         ref={headerRef}
         data-theme-sticky-chrome
@@ -982,12 +946,12 @@ export const Header: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  const cleanPhone = coffeeWhatsAppDigits(
-                    headerSettings?.actions?.whatsapp?.phoneNumber ||
-                      (activeStore as any)?.whatsapp ||
-                      activeStore?.phone ||
-                      '',
-                  );
+                  const contact = activeStore?.id
+                    ? resolveStoreContact(activeStore.id, activeStore)
+                    : null;
+                  const cleanPhone =
+                    contact?.whatsappDigits ||
+                    coffeeWhatsAppDigits(headerSettings?.actions?.whatsapp?.phoneNumber);
                   if (!cleanPhone) return;
                   window.open(`https://wa.me/${cleanPhone}`, '_blank');
                 }}
@@ -1492,11 +1456,11 @@ export const Header: React.FC = () => {
                         className={`bg-[#F7F7F8] hover:bg-[#EFEFF2] rounded-[18px] p-3.5 sm:p-4 flex flex-col items-center justify-between text-center transition-all duration-200 cursor-pointer group shadow-none hover:shadow-2xs min-h-[210px] sm:min-h-[225px] border-none ${animClass}`}
                       >
                         {/* Product Image */}
-                        <div className="w-full h-26 sm:h-30 @lg:h-32 flex items-center justify-center mb-2 overflow-hidden">
+                        <div className="w-full h-26 sm:h-30 @lg:h-32 flex items-center justify-center mb-2 overflow-hidden bg-transparent">
                           <img
                             src={prod.image}
                             alt={prod.name}
-                            className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300 ease-out"
+                            className="max-h-full max-w-full object-contain bg-transparent group-hover:scale-105 transition-transform duration-300 ease-out"
                             referrerPolicy="no-referrer"
                           />
                         </div>
@@ -1949,11 +1913,11 @@ export const Header: React.FC = () => {
                       }}
                       className="bg-[#F7F7F8] active:bg-[#EFEFF2] rounded-[16px] p-3 flex flex-col items-center justify-between text-center cursor-pointer shadow-2xs"
                     >
-                      <div className="w-full h-24 flex items-center justify-center mb-2 bg-white rounded-lg p-1 border border-neutral-100/60">
+                      <div className="w-full h-24 flex items-center justify-center mb-2 bg-transparent p-1">
                         <img
                           src={prod.image}
                           alt={prod.name}
-                          className="max-h-full max-w-full object-contain"
+                          className="max-h-full max-w-full object-contain bg-transparent"
                           referrerPolicy="no-referrer"
                         />
                       </div>

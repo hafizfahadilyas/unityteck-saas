@@ -16,6 +16,7 @@ import {
 import type { Product } from '../types';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../../utils/imageFallback';
 import { readAllThemeSettings } from '../../settings/themeSettingsStore';
+import { resolveStoreContact } from '../../settings/storeContact';
 
 export interface BestSellersSectionProps {
   settings?: Record<string, any>;
@@ -117,8 +118,9 @@ export const BestSellersSection: React.FC<BestSellersSectionProps> = ({
     }
   };
 
-  const storePhone = (activeStore as any)?.phone || '966500000000';
-  const cleanPhone = storePhone.replace(/[^0-9]/g, '');
+  const cleanPhone = activeStore?.id
+    ? resolveStoreContact(activeStore.id, activeStore).whatsappDigits
+    : '';
 
   return (
     <section className="py-10 sm:py-14 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -214,7 +216,9 @@ export const BestSellersSection: React.FC<BestSellersSectionProps> = ({
             const waText = isAr
               ? `السلام عليكم، أود طلب المنتج: *${name}* بسعر${item.price}ر.س من متجر${activeStore?.name || 'الزهور'}`
               : `Hello, I would like to order: *${name}* for SAR ${item.price} from ${activeStore?.name || 'Flowers Store'}`;
-            const waUrl = `https://wa.me/${cleanPhone || '966500000000'}?text=${encodeURIComponent(waText)}`;
+            const waUrl = cleanPhone
+              ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(waText)}`
+              : '';
 
             return (
               <article

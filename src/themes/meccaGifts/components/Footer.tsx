@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   Edit3,
 } from 'lucide-react';
-import { MECCA_WHATSAPP } from '../data/mockData';
+import { resolveStoreContact } from '../../settings/storeContact';
 import {
   InstagramBrandIcon,
   XBrandIcon,
@@ -77,9 +77,12 @@ export const Footer: React.FC<FooterCustomProps> = ({
       : ['زهور طبيعية', 'هدايا وشوكولاتة', 'كيك ومناسبات', 'تشكيلات فاخرة'];
   }, [products, isCoffee, isAuto]);
 
-  const whatsappNumber = s.whatsappNumber || activeStore?.contactPhone || MECCA_WHATSAPP;
-  const phoneNumber = s.phoneNumber || activeStore?.contactPhone || '';
-  const emailAddress = s.emailAddress || activeStore?.email || '';
+  const contact = activeStore?.id
+    ? resolveStoreContact(activeStore.id, activeStore)
+    : null;
+  const whatsappNumber = contact?.whatsapp || contact?.whatsappDigits || s.whatsappNumber || '';
+  const phoneNumber = contact?.phone || s.phoneNumber || '';
+  const emailAddress = contact?.email || s.emailAddress || '';
   const vatNumber = s.vatNumber || activeStore?.taxNumber || '';
   const crNumber = s.crNumber || activeStore?.crNumber || '';
 

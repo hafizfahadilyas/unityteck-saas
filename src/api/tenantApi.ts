@@ -2388,7 +2388,8 @@ export async function updateMedia(
 }
 
 export async function fetchMediaFolders(storeId: string): Promise<MediaFolderRecord[]> {
-  const res = await apiFetch<ListResponse<any>>('/media-folders', { storeId });
+  const res = await apiFetch<ListResponse<any> | null>('/media-folders', { storeId, allowNotFound: true });
+  if (!res) return [];
   return (res.data ?? []).map((row: any) => ({
     id: row.id,
     storeId: row.store_id || storeId,
@@ -3922,12 +3923,12 @@ export async function fetchThemePagesApi(storeId: string): Promise<ThemePageReco
   return res.data ?? [];
 }
 
-export async function fetchThemePageApi(storeId: string, pageKey: string): Promise<ThemePageRecord> {
-  const res = await apiFetch<{ success: boolean; data: ThemePageRecord }>(
+export async function fetchThemePageApi(storeId: string, pageKey: string): Promise<ThemePageRecord | null> {
+  const res = await apiFetch<{ success: boolean; data: ThemePageRecord } | null>(
     `/stores/${storeId}/pages/${encodeURIComponent(pageKey)}`,
-    { storeId },
+    { storeId, allowNotFound: true },
   );
-  return res.data;
+  return res?.data ?? null;
 }
 
 export async function createThemePageApi(
@@ -4893,12 +4894,12 @@ export interface CartInterceptCustomerRewards {
   }>;
 }
 
-export async function fetchCartInterceptSettingsApi(storeId: string): Promise<CartInterceptConfig> {
-  const res = await apiFetch<{ success: boolean; data: CartInterceptConfig }>(
+export async function fetchCartInterceptSettingsApi(storeId: string): Promise<CartInterceptConfig | null> {
+  const res = await apiFetch<{ success: boolean; data: CartInterceptConfig } | null>(
     `/storefront/cart-intercept/${storeId}/settings`,
-    { storeId, skipAuth: true }
+    { storeId, skipAuth: true, allowNotFound: true },
   );
-  return res.data;
+  return res?.data ?? null;
 }
 
 export async function updateCartInterceptSettingsApi(
@@ -5152,11 +5153,11 @@ export async function deleteSpecialOfferApi(storeId: string, id: string): Promis
 export async function fetchStorefrontActiveSpecialOfferApi(
   storeId: string,
 ): Promise<SpecialOffer | null> {
-  const res = await apiFetch<{ success: boolean; data: Record<string, unknown> | null }>(
+  const res = await apiFetch<{ success: boolean; data: Record<string, unknown> | null } | null>(
     `/storefront/special-offers/active?store_id=${encodeURIComponent(storeId)}`,
-    { storeId, skipAuth: true },
+    { storeId, skipAuth: true, allowNotFound: true },
   );
-  if (!res.data) return null;
+  if (!res?.data) return null;
   return mapApiSpecialOfferRow(res.data, storeId);
 }
 

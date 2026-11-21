@@ -14,18 +14,27 @@ export const ThemeBuilderLoadingShell: React.FC = () => {
       aria-live="polite"
       aria-busy="true"
     >
-      {/* Topbar skeleton mimicking visual builder topbar to prevent layout jump */}
-      <div className="h-14 sm:h-16 px-4 bg-white/5 border-b border-white/10 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-white/10 animate-pulse" />
-          <div className="w-32 h-6 rounded-lg bg-white/10 animate-pulse" />
+      {/* Topbar skeleton — two rows (matches VisualThemeBuilder) */}
+      <div className="px-4 py-1.5 bg-white/5 border-b border-white/10 flex flex-col gap-1.5 shrink-0">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-white/10 animate-pulse" />
+            <div className="w-32 h-6 rounded-lg bg-white/10 animate-pulse" />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-20 h-8 rounded-xl bg-white/10 animate-pulse" />
+            <div className="w-24 h-8 rounded-xl bg-emerald-500/20 animate-pulse" />
+          </div>
         </div>
-        <div className="hidden sm:flex items-center gap-2">
-          <div className="w-24 h-8 rounded-xl bg-white/10 animate-pulse" />
-          <div className="w-24 h-8 rounded-xl bg-white/10 animate-pulse" />
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-24 h-8 rounded-xl bg-emerald-500/20 animate-pulse" />
+        <div className="flex items-center justify-between gap-2">
+          <div className="hidden sm:flex items-center gap-2">
+            <div className="w-40 h-8 rounded-xl bg-white/10 animate-pulse" />
+            <div className="w-28 h-8 rounded-xl bg-white/10 animate-pulse" />
+          </div>
+          <div className="flex items-center gap-2 ms-auto">
+            <div className="w-24 h-8 rounded-xl bg-white/10 animate-pulse" />
+            <div className="w-20 h-8 rounded-xl bg-white/10 animate-pulse" />
+          </div>
         </div>
       </div>
 

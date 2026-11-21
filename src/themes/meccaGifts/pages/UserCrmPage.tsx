@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { ProductCard } from '../components/ProductCard';
 import { useTenant } from '../../../context/TenantContext';
-import { readStoreIdentity } from '../../settings/storeIdentity';
+import { resolveStoreContact } from '../../settings/storeContact';
 import {
   fetchCartInterceptCustomerProfileApi,
   CartInterceptCustomerRewards,
@@ -61,11 +61,9 @@ export const UserCrmPage: React.FC = () => {
   const { activeStore } = useTenant();
 
   const isAr = language === 'ar';
-  const waDigits = (() => {
-    if (!activeStore?.id) return '';
-    const identity = readStoreIdentity(activeStore.id, activeStore);
-    return String(identity.whatsapp || activeStore.phone || '').replace(/[^0-9]/g, '');
-  })();
+  const waDigits = activeStore?.id
+    ? resolveStoreContact(activeStore.id, activeStore).whatsappDigits
+    : '';
   const [activeTab, setActiveTab] = useState<'orders' | 'loyalty' | 'gift_cards' | 'saved_cart' | 'occasions' | 'addresses' | 'wishlist'>('orders');
   const [customerRewards, setCustomerRewards] = useState<CartInterceptCustomerRewards>({
     loyalty_points: 0,

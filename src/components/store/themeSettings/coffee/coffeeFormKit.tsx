@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useCoffeeFormLive } from './coffeeFormLive';
 import { ChevronDown, ChevronUp, Copy, Eye, EyeOff, Plus, Save, Trash2 } from 'lucide-react';
 import { useTenant } from '../../../../context/TenantContext';
 import { usePrefs } from '../../../../i18n/PrefsContext';
@@ -75,18 +76,87 @@ export function moveItem<T>(list: T[], index: number, dir: -1 | 1): T[] {
   return next;
 }
 
+function applyCoffeeDraftSlice<K extends keyof AllThemeSettings>(
+  storeId: string,
+  store: { id?: string; name?: string; category?: string },
+  key: K,
+  draft: AllThemeSettings[K],
+): void {
+  const full = editorThemeSettings(storeId, store);
+  (full as unknown as Record<string, unknown>)[key as string] = draft;
+  if (key === 'heroBanners' && draft && typeof draft === 'object') {
+    const hero = draft as AllThemeSettings['heroBanners'];
+    full.slider = {
+      ...full.slider,
+      enabled: hero.enabled !== false,
+      autoPlay: !!hero.autoplay,
+      transitionDuration: Math.max(3, Math.round((hero.intervalMs || 5000) / 1000)),
+      slides: (hero.banners || []).map((b) => ({
+        id: b.id,
+        type: 'image' as const,
+        image: b.image || '',
+        title: b.titleEn || b.titleAr || '',
+        titleEn: b.titleEn || '',
+        titleAr: b.titleAr || '',
+        subtitle: b.descriptionEn || b.descriptionAr || '',
+        subtitleEn: b.descriptionEn || '',
+        subtitleAr: b.descriptionAr || '',
+        badge: b.promoEn || b.promoAr || '',
+        badgeEn: b.promoEn || '',
+        badgeAr: b.promoAr || '',
+        buttonText: b.buyNowEn || b.learnMoreEn || '',
+        buttonTextEn: b.buyNowEn || '',
+        buttonTextAr: b.buyNowAr || '',
+        buttonUrl: b.learnMoreUrl || '',
+        buttonLink: b.learnMoreUrl || '',
+        productId: b.productId || '',
+        priceEn: b.price || '',
+        priceAr: b.price || '',
+      })),
+    };
+  }
+  if (key === 'footer' && draft && typeof draft === 'object') {
+    const foot = draft as AllThemeSettings['footer'];
+    full.general = {
+      ...full.general,
+      footerLayout: foot?.layout || full.general?.footerLayout || 'columns',
+    };
+  }
+  writeAllThemeSettings(storeId, full, undefined, { syncApi: false });
+}
+
 export function useCoffeeDraft<K extends keyof AllThemeSettings>(key: K) {
   const { activeStore } = useTenant();
   const { locale } = usePrefs();
   const { toast } = useToast();
   const isAr = locale === 'ar';
-  const [draft, setDraft] = useState(() => editorThemeSettings(activeStore.id, activeStore)[key]);
+  const liveCanvas = useCoffeeFormLive();
+  const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const livePrimedRef = useRef(false);
+  const [draft, setDraftState] = useState(() => editorThemeSettings(activeStore.id, activeStore)[key]);
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
 
+  const setDraft = useCallback(
+    (next: React.SetStateAction<AllThemeSettings[K]>) => {
+      setDraftState((prev) => {
+        const resolved = typeof next === 'function' ? (next as (p: AllThemeSettings[K]) => AllThemeSettings[K])(prev) : next;
+        if (liveCanvas && livePrimedRef.current && activeStore?.id) {
+          if (liveTimerRef.current) clearTimeout(liveTimerRef.current);
+          liveTimerRef.current = setTimeout(() => {
+            applyCoffeeDraftSlice(activeStore.id, activeStore, key, resolved);
+          }, 220);
+        }
+        return resolved;
+      });
+    },
+    [activeStore, key, liveCanvas],
+  );
+
   useEffect(() => {
+    livePrimedRef.current = false;
     const local = editorThemeSettings(activeStore.id, activeStore);
-    setDraft(local[key]);
+    setDraftState(local[key]);
 
     let cancelled = false;
     void import('../../../../api/client')
@@ -103,7 +173,7 @@ export function useCoffeeDraft<K extends keyof AllThemeSettings>(key: K) {
                 const remote = (remoteSettings[key as string] ?? byTheme?.[key as string]) as AllThemeSettings[K] | undefined;
         if (remote == null || typeof remote !== 'object') return;
         const picked = preferVisibleSlice(String(key), local[key], remote);
-        setDraft(picked);
+        setDraftState(picked);
         const field = SLICE_LIST[String(key)];
         const remoteEmpty = field && listLength(remote, field) === 0 && listLength(local[key], field) > 0;
         if (remoteEmpty) return;
@@ -115,8 +185,13 @@ export function useCoffeeDraft<K extends keyof AllThemeSettings>(key: K) {
         /* keep local draft */
       });
 
+    const prime = setTimeout(() => {
+      livePrimedRef.current = true;
+    }, 500);
     return () => {
       cancelled = true;
+      clearTimeout(prime);
+      if (liveTimerRef.current) clearTimeout(liveTimerRef.current);
     };
   }, [activeStore.id, key]);
 
@@ -264,7 +339,10 @@ export const EnableRow: React.FC<{
   </label>
 );
 
-/** One locale field only — AR chrome edits Arabic; EN chrome edits English. Other lang value stays as saved. */
+/**
+ * One merchant text box — type Arabic, English, or mixed.
+ * Writes the same value to both *_en and *_ar so storefront bi() stays filled.
+ */
 export const BiFields: React.FC<{
   isAr: boolean;
   labelEn: string;
@@ -274,9 +352,9 @@ export const BiFields: React.FC<{
   onEn: (v: string) => void;
   onAr: (v: string) => void;
   max?: number;
-}> = ({ isAr, labelEn, labelAr, en, ar, onEn, onAr, max }) => {
-  const value = isAr ? ar : en;
-  const onChange = isAr ? onAr : onEn;
+  placeholder?: string;
+}> = ({ isAr, labelEn, labelAr, en, ar, onEn, onAr, max, placeholder }) => {
+  const value = (en || ar || '').trim() ? (en || ar || '') : '';
   const label = isAr ? labelAr : labelEn;
   return (
     <label className="text-[11px] font-bold space-y-1 block">
@@ -285,16 +363,30 @@ export const BiFields: React.FC<{
         {max ? ` · ${(value || '').length}/${max}` : ''}
       </span>
       <input
-        value={value || ''}
+        value={value}
         maxLength={max}
-        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder || (isAr ? 'اكتب النص بأي لغة' : 'Type text in any language')}
+        onChange={(e) => {
+          const v = e.target.value;
+          onEn(v);
+          onAr(v);
+        }}
         className="w-full px-3 py-2 rounded-xl border text-xs"
         style={{ background: 'var(--input-bg)', borderColor: 'var(--border)' }}
-        dir={isAr ? 'rtl' : 'ltr'}
+        dir="auto"
       />
     </label>
   );
 };
+
+/** Single free-text CTA/label input — syncs En+Ar storage keys. */
+export function syncBilingualPatch<T extends Record<string, unknown>>(
+  enKey: keyof T & string,
+  arKey: keyof T & string,
+  value: string,
+): Pick<T, typeof enKey | typeof arKey> {
+  return { [enKey]: value, [arKey]: value } as Pick<T, typeof enKey | typeof arKey>;
+}
 
 export const RowTools: React.FC<{
   index: number;

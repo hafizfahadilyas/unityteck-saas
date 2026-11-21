@@ -12,6 +12,7 @@ import type {
 import type { Order, Store } from '../types';
 import { generateZatcaTlvBase64, generateInvoiceHashSha256 } from '../utils/zatca';
 import { getLocalizedItemName, getCustomerDisplayName, getLocalizedAddress } from '../utils/storeLocalization';
+import { resolveStoreContact } from '../themes/settings/storeContact';
 
 const INVOICES_STORAGE_KEY = 'unityteck_invoices_v1';
 const TEMPLATES_STORAGE_KEY = 'unityteck_invoice_templates_v1';
@@ -79,6 +80,10 @@ export function isCarStoreId(storeId: string, store?: Partial<Store>): boolean {
 }
 
 export function getStoreInvoiceProfile(storeId: string, store?: Partial<Store>): StoreInvoiceProfile {
+  const contact = resolveStoreContact(storeId, store);
+  const contactEmail = contact.email;
+  const contactPhone = contact.phone || contact.whatsapp || '';
+
   if (isCoffeeStoreId(storeId, store)) {
     return {
       storeId,
@@ -86,8 +91,8 @@ export function getStoreInvoiceProfile(storeId: string, store?: Partial<Store>):
       nameAr: (store as any)?.nameAr || 'متجر مكائن ومستلزمات القهوة (HiBrew KSA)',
       companyNameEn: 'HiBrew Specialty Coffee & Equipment Est.',
       companyNameAr: 'مؤسسة هاي برو لتقنيات ومعدات القهوة المختصة',
-      email: (store as any)?.email || store?.ownerEmail || 'billing@mieraf-ksa.com',
-      phone: (store as any)?.phone || '+966 11 489 2030',
+      email: contactEmail,
+      phone: contactPhone,
       addressEn: 'Riyadh Showroom, King Fahd Road, Al-Olaya',
       addressAr: 'معرض الرياض الرئيسي، طريق الملك فهد، حي العليا',
       cityEn: 'Riyadh',
@@ -115,8 +120,8 @@ export function getStoreInvoiceProfile(storeId: string, store?: Partial<Store>):
       nameAr: (store as any)?.nameAr || 'متجر السعيدي لخدمات السيارات (مؤسسة بلاكو)',
       companyNameEn: 'Bleco Automotive Customization & Upholstery Est.',
       companyNameAr: 'مؤسسة بلاكو لخدمات وتجهيز السيارات',
-      email: (store as any)?.email || store?.ownerEmail || 'billing@tanjeedmakkah.com',
-      phone: (store as any)?.phone || '+966 59 775 7086',
+      email: contactEmail,
+      phone: contactPhone,
       addressEn: 'Al-Shawqiyyah District, Ring Road, Makkah',
       addressAr: 'حي الشوقية، الطريق الدائري، مكة المكرمة',
       cityEn: 'Makkah',
@@ -148,8 +153,8 @@ export function getStoreInvoiceProfile(storeId: string, store?: Partial<Store>):
       nameAr: storeNameAr,
       companyNameEn: `${storeName} Commercial Est.`,
       companyNameAr: `مؤسسة ${storeNameAr} التجارية`,
-      email: (store as any)?.email || store?.ownerEmail || '',
-      phone: (store as any)?.phone || '',
+      email: contactEmail,
+      phone: contactPhone,
       addressEn: '',
       addressAr: '',
       cityEn: '',
@@ -170,15 +175,15 @@ export function getStoreInvoiceProfile(storeId: string, store?: Partial<Store>):
     };
   }
 
-  // Flower store
+  // Flower store — contact always from THIS store identity (never demo WhatsApp/email)
   return {
     storeId,
     nameEn: store?.name || 'Makkah Gifts & Luxury Flowers Est.',
     nameAr: (store as any)?.nameAr || 'مؤسسة هدايا مكة والزهور الفاخرة',
     companyNameEn: 'Makkah Gifts Commercial Est.',
     companyNameAr: 'مؤسسة هدايا مكة التجارية',
-    email: (store as any)?.email || store?.ownerEmail || 'billing@makkah-gifts.sa',
-    phone: (store as any)?.phone || '+966 12 555 8899',
+    email: contactEmail,
+    phone: contactPhone,
     addressEn: 'Ibrahim Al-Khalil Road, Jabal Omar District, Makkah',
     addressAr: 'طريق إبراهيم الخليل، منطقة جبل عمر، مكة المكرمة',
     cityEn: 'Makkah',
@@ -189,8 +194,8 @@ export function getStoreInvoiceProfile(storeId: string, store?: Partial<Store>):
     crNumber: (store as any)?.crNumber || '1010892341',
     bankDetailsEn: 'Al Rajhi Bank | IBAN: SA4480000204608010123456 | Beneficiary: Makkah Gifts Est.',
     bankDetailsAr: 'مصرف الراجحي | الآيبان: SA4480000204608010123456 | المستفيد: مؤسسة هدايا مكة',
-    customNotesEn: 'Thank you for choosing Makkah Gifts. For customer support or corporate gifting, contact us via WhatsApp +966 58 161 7712.',
-    customNotesAr: 'شكراً لاختياركم هدايا مكة. لخدمة العملاء وطلبات الشركات يرجى التواصل عبر واتساب +966 58 161 7712.',
+    customNotesEn: 'Thank you for choosing Makkah Gifts. For customer support or corporate gifting, contact us via the store WhatsApp or email.',
+    customNotesAr: 'شكراً لاختياركم هدايا مكة. لخدمة العملاء وطلبات الشركات يرجى التواصل عبر واتساب أو بريد المتجر.',
     customTermsEn: 'All goods are delivered with guaranteed freshness. Return/Exchange window is 24 hours for fresh items and 14 days for luxury packaging.',
     customTermsAr: 'تضمن المؤسسة وصول الورود والهدايا بأعلى درجات النضارة والفخامة. الاسترجاع خلال 24 ساعة للزهور و14 يوماً للهدايا المغلفة.',
     primaryColor: '#0f172a',
@@ -214,8 +219,8 @@ export const DEFAULT_TEMPLATE_CONFIG: InvoiceTemplateConfig = {
   crNumber: '1010892341',
   headerAddressEn: 'Ibrahim Al-Khalil Road, Jabal Omar District, Makkah, Saudi Arabia',
   headerAddressAr: 'طريق إبراهيم الخليل، منطقة جبل عمر، مكة المكرمة، المملكة العربية السعودية',
-  contactEmail: 'billing@makkah-gifts.sa',
-  contactPhone: '+966 12 555 8899',
+  contactEmail: '',
+  contactPhone: '',
   columns: {
     sku: true,
     image: true,

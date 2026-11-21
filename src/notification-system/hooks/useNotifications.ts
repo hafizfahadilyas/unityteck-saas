@@ -167,8 +167,22 @@ function useNotificationsInternal(): NotificationsContextValue {
   }, [computeNotifications]);
 
   useEffect(() => {
-    void loadDeliveryNotifications();
-  }, [loadDeliveryNotifications, currentOrders.length]);
+    // Defer delivery fetch so /admin dashboard shell is not competing with catalog/orders.
+    let cancelled = false;
+    const run = () => {
+      if (!cancelled) void loadDeliveryNotifications();
+    };
+    const ric = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
+    const idleId = typeof ric === 'function' ? ric(run, { timeout: 3500 }) : 0;
+    const timeoutId = typeof ric === 'function' ? 0 : window.setTimeout(run, 2000);
+    return () => {
+      cancelled = true;
+      if (idleId && typeof (window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback === 'function') {
+        (window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(idleId);
+      }
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, [loadDeliveryNotifications]);
 
   // Realtime background sync every 120s (reduced from 30s to eliminate CPU spikes)
   useRealtimeSync(computeNotifications, 120000);

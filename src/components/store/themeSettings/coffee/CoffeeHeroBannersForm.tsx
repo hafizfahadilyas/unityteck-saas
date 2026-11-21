@@ -283,15 +283,15 @@ export const HeroBannersForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embed
               <div className="grid grid-cols-1 gap-2">
                 <label className="space-y-1 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
                   <span>{isAr ? 'النص الترويجي' : 'Promo'}</span>
-                  <input className={inputCls} style={inputStyle} dir={isAr ? 'rtl' : 'ltr'} maxLength={100} value={isAr ? editing.promoAr : editing.promoEn} onChange={(e) => patch(editing.id, isAr ? { promoAr: e.target.value } : { promoEn: e.target.value })} />
+                  <input className={inputCls} style={inputStyle} dir="auto" maxLength={100} placeholder={isAr ? 'اكتب النص بأي لغة' : 'Type in any language'} value={editing.promoEn || editing.promoAr || ''} onChange={(e) => patch(editing.id, { promoEn: e.target.value, promoAr: e.target.value })} />
                 </label>
                 <label className="space-y-1 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
                   <span>{isAr ? 'العنوان' : 'Title'}</span>
-                  <input className={inputCls} style={inputStyle} dir={isAr ? 'rtl' : 'ltr'} maxLength={100} value={isAr ? editing.titleAr : editing.titleEn} onChange={(e) => patch(editing.id, isAr ? { titleAr: e.target.value } : { titleEn: e.target.value })} />
+                  <input className={inputCls} style={inputStyle} dir="auto" maxLength={100} placeholder={isAr ? 'اكتب النص بأي لغة' : 'Type in any language'} value={editing.titleEn || editing.titleAr || ''} onChange={(e) => patch(editing.id, { titleEn: e.target.value, titleAr: e.target.value })} />
                 </label>
                 <label className="space-y-1 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
                   <span>{isAr ? 'الوصف' : 'Description'}</span>
-                  <input className={inputCls} style={inputStyle} dir={isAr ? 'rtl' : 'ltr'} maxLength={200} value={isAr ? editing.descriptionAr : editing.descriptionEn} onChange={(e) => patch(editing.id, isAr ? { descriptionAr: e.target.value } : { descriptionEn: e.target.value })} />
+                  <input className={inputCls} style={inputStyle} dir="auto" maxLength={200} placeholder={isAr ? 'اكتب النص بأي لغة' : 'Type in any language'} value={editing.descriptionEn || editing.descriptionAr || ''} onChange={(e) => patch(editing.id, { descriptionEn: e.target.value, descriptionAr: e.target.value })} />
                 </label>
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -315,30 +315,44 @@ export const HeroBannersForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embed
                   {isAr ? 'اشترِ الآن' : 'Buy now'}
                 </label>
                 {editing.buyNowEnabled ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <input className={inputCls} style={inputStyle} dir="ltr" placeholder={isAr ? 'نص إنجليزي' : 'English label'} value={editing.buyNowEn || ''} onChange={(e) => patch(editing.id, { buyNowEn: e.target.value })} />
-                    <input className={inputCls} style={inputStyle} dir="rtl" placeholder={isAr ? 'نص عربي' : 'Arabic label'} value={editing.buyNowAr || ''} onChange={(e) => patch(editing.id, { buyNowAr: e.target.value })} />
-                  </div>
+                  <input
+                    className={inputCls}
+                    style={inputStyle}
+                    dir="auto"
+                    placeholder={isAr ? 'نص الزر بأي لغة' : 'Button text — any language'}
+                    value={editing.buyNowEn || editing.buyNowAr || ''}
+                    onChange={(e) => patch(editing.id, { buyNowEn: e.target.value, buyNowAr: e.target.value })}
+                  />
                 ) : null}
                 <label className="flex items-center gap-2 text-[11px] font-semibold">
                   <input type="checkbox" checked={!!editing.addToCartEnabled} onChange={(e) => patch(editing.id, { addToCartEnabled: e.target.checked })} />
                   {isAr ? 'أضف إلى السلة' : 'Add to cart'}
                 </label>
                 {editing.addToCartEnabled ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <input className={inputCls} style={inputStyle} dir="ltr" placeholder={isAr ? 'نص إنجليزي' : 'English label'} value={editing.addToCartEn || ''} onChange={(e) => patch(editing.id, { addToCartEn: e.target.value })} />
-                    <input className={inputCls} style={inputStyle} dir="rtl" placeholder={isAr ? 'نص عربي' : 'Arabic label'} value={editing.addToCartAr || ''} onChange={(e) => patch(editing.id, { addToCartAr: e.target.value })} />
-                  </div>
+                  <input
+                    className={inputCls}
+                    style={inputStyle}
+                    dir="auto"
+                    placeholder={isAr ? 'نص الزر بأي لغة' : 'Button text — any language'}
+                    value={editing.addToCartEn || editing.addToCartAr || ''}
+                    onChange={(e) => patch(editing.id, { addToCartEn: e.target.value, addToCartAr: e.target.value })}
+                  />
                 ) : null}
                 <label className="flex items-center gap-2 text-[11px] font-semibold">
                   <input type="checkbox" checked={!!editing.learnMoreEnabled} onChange={(e) => patch(editing.id, { learnMoreEnabled: e.target.checked })} />
                   {isAr ? 'تعرف على المزيد' : 'Learn more'}
                 </label>
                 {editing.learnMoreEnabled ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <input className={inputCls} style={inputStyle} dir="ltr" placeholder={isAr ? 'نص إنجليزي' : 'English label'} value={editing.learnMoreEn || ''} onChange={(e) => patch(editing.id, { learnMoreEn: e.target.value })} />
-                    <input className={inputCls} style={inputStyle} dir="rtl" placeholder={isAr ? 'نص عربي' : 'Arabic label'} value={editing.learnMoreAr || ''} onChange={(e) => patch(editing.id, { learnMoreAr: e.target.value })} />
-                    <input className={`${inputCls} md:col-span-2`} style={inputStyle} dir="ltr" placeholder={isAr ? 'رابط الزر' : 'Button URL'} value={editing.learnMoreUrl || ''} onChange={(e) => patch(editing.id, { learnMoreUrl: e.target.value })} />
+                  <div className="space-y-2">
+                    <input
+                      className={inputCls}
+                      style={inputStyle}
+                      dir="auto"
+                      placeholder={isAr ? 'نص الزر بأي لغة' : 'Button text — any language'}
+                      value={editing.learnMoreEn || editing.learnMoreAr || ''}
+                      onChange={(e) => patch(editing.id, { learnMoreEn: e.target.value, learnMoreAr: e.target.value })}
+                    />
+                    <input className={inputCls} style={inputStyle} dir="ltr" placeholder={isAr ? 'رابط الزر' : 'Button URL'} value={editing.learnMoreUrl || ''} onChange={(e) => patch(editing.id, { learnMoreUrl: e.target.value })} />
                   </div>
                 ) : null}
                 <label className="flex items-center gap-2 text-[11px] font-semibold">
@@ -346,10 +360,16 @@ export const HeroBannersForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embed
                   {isAr ? 'طلب مخصص' : 'Custom order'}
                 </label>
                 {editing.customOrderEnabled ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <input className={inputCls} style={inputStyle} dir="ltr" placeholder={isAr ? 'نص إنجليزي' : 'English label'} value={editing.customOrderEn || ''} onChange={(e) => patch(editing.id, { customOrderEn: e.target.value })} />
-                    <input className={inputCls} style={inputStyle} dir="rtl" placeholder={isAr ? 'نص عربي' : 'Arabic label'} value={editing.customOrderAr || ''} onChange={(e) => patch(editing.id, { customOrderAr: e.target.value })} />
-                    <input className={`${inputCls} md:col-span-2`} style={inputStyle} dir="ltr" placeholder={isAr ? 'رابط الطلب المخصص' : 'Custom order URL'} value={editing.customOrderUrl || ''} onChange={(e) => patch(editing.id, { customOrderUrl: e.target.value })} />
+                  <div className="space-y-2">
+                    <input
+                      className={inputCls}
+                      style={inputStyle}
+                      dir="auto"
+                      placeholder={isAr ? 'نص الزر بأي لغة' : 'Button text — any language'}
+                      value={editing.customOrderEn || editing.customOrderAr || ''}
+                      onChange={(e) => patch(editing.id, { customOrderEn: e.target.value, customOrderAr: e.target.value })}
+                    />
+                    <input className={inputCls} style={inputStyle} dir="ltr" placeholder={isAr ? 'رابط الطلب المخصص' : 'Custom order URL'} value={editing.customOrderUrl || ''} onChange={(e) => patch(editing.id, { customOrderUrl: e.target.value })} />
                   </div>
                 ) : null}
                 <label className="flex items-center gap-2 text-[11px] font-semibold">
@@ -392,7 +412,10 @@ export const HeroBannersForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embed
               {draft?.showWhatsapp ? (
                 <label className="block space-y-1 text-[11px] font-semibold">
                   <span style={{ color: 'var(--muted)' }}>{isAr ? 'رقم واتساب' : 'WhatsApp number'}</span>
-                  <input className={inputCls} style={inputStyle} dir="ltr" value={draft?.whatsappNumber || ''} onChange={(e) => setDraft({ ...draft, whatsappNumber: e.target.value })} placeholder="9665XXXXXXXX" />
+                  <input className={inputCls} style={{ ...inputStyle, opacity: 0.9, cursor: 'default' }} dir="ltr" value={draft?.whatsappNumber || ''} readOnly placeholder={isAr ? 'من هوية المتجر' : 'From Store Identity'} />
+                  <span className="text-[10px] font-medium" style={{ color: 'var(--muted)' }}>
+                    {isAr ? 'يُحدَّث تلقائياً من رقم واتساب في هوية المتجر' : 'Auto-synced from Store Identity WhatsApp'}
+                  </span>
                 </label>
               ) : null}
               <p className="text-[11px]" style={{ color: 'var(--muted)' }}>

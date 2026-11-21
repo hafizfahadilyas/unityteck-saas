@@ -61,6 +61,8 @@ export type ApiFetchOptions = {
   authRetried?: boolean;
   /** Override default abort timeout (ms). AI image gen needs ~120s. */
   timeoutMs?: number;
+  /** GET optional module — return null on 404 instead of throwing (empty store / route lag). */
+  allowNotFound?: boolean;
 };
 
 /** Structured API failure — preserves business `code` + payload for UI handling. */
@@ -234,6 +236,9 @@ export async function apiFetch<T>(
     }
 
     if (!res.ok) {
+      if (res.status === 404 && options.allowNotFound && isGet) {
+        return null as T;
+      }
       if (res.status === 401 && !authRetried && !skipAuth && token?.includes('|')) {
         const renewed = await renewLifetimeToken();
         if (renewed) {

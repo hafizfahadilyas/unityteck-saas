@@ -64,6 +64,27 @@ export function builderPageFromQuery(params: URLSearchParams): string | null {
   return known.has(raw) ? raw : null;
 }
 
+/** Default builder canvas = home (not stale shop/catalog from session). */
+export function resolveBuilderPreviewPage(opts: {
+  urlSearch?: string;
+  initialPage?: string;
+  sessionPage?: string | null;
+  builderOpen?: boolean;
+}): string {
+  const params = new URLSearchParams(opts.urlSearch || (typeof window !== 'undefined' ? window.location.search : ''));
+  const fromQuery = builderPageFromQuery(params);
+  if (fromQuery) return fromQuery;
+  if (opts.initialPage) return opts.initialPage;
+  const builderActive =
+    opts.builderOpen ??
+    (params.get('builder') === '1' || params.get('builder') === 'true' || params.get('tab') === 'builder');
+  if (builderActive) return 'home';
+  const saved = (opts.sessionPage || '').trim();
+  const known = new Set<string>(['home', 'catalog', 'product', 'cart', 'checkout', 'thankyou', 'faq', 'reviews', '404', 'custom', 'about', 'contact', 'location', 'track-order', 'privacy', 'return']);
+  if (saved && saved !== 'crm' && known.has(saved)) return saved;
+  return 'home';
+}
+
 export function stashPageDraft<T>(drafts: Record<string, T>, pageId: string, blocks: T): Record<string, T> {
   return { ...drafts, [pageId]: blocks };
 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
   Clock,
@@ -121,6 +121,7 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
   const [otpExpiresIn, setOtpExpiresIn] = useState(0);
   const [devOtpHint, setDevOtpHint] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const verifyGenRef = useRef(0);
   const [securityWarning, setSecurityWarning] = useState<string | null>(null);
   const [rateLimit, setRateLimit] = useState<RateLimitStatus>({
     isLocked: false,
@@ -268,6 +269,27 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
     }, 1000);
     return () => clearInterval(interval);
   }, [otpExpiresIn]);
+
+  // HMR / remount can leave busy=true with a dead in-flight verify — never stick forever.
+  useEffect(() => {
+    if (!busy) return;
+    const timer = window.setTimeout(() => {
+      setBusy(false);
+      toast(
+        isAr
+          ? 'انتهت مهلة التحقق. أعد طلب الرمز أو أعد المحاولة.'
+          : 'Verification timed out. Request a new code or try again.',
+        'error',
+      );
+    }, 95_000);
+    return () => window.clearTimeout(timer);
+  }, [busy, isAr, toast]);
+
+  useEffect(() => {
+    return () => {
+      verifyGenRef.current += 1;
+    };
+  }, []);
 
   const handleIdentifierChange = (val: string) => {
     setIdentifier(val);
@@ -430,10 +452,12 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
       return;
     }
 
+    const gen = ++verifyGenRef.current;
     setBusy(true);
     try {
       gateEmailForPortal(email);
       const session = await loginWithEmailOtp(portal, email, code);
+      if (gen !== verifyGenRef.current) return;
       resetRateLimit(email);
       try {
         localStorage.setItem('unityteck_last_login_email', email);
@@ -453,6 +477,7 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
       );
       onSuccess(session.portal, session.storeId, session);
     } catch (err) {
+      if (gen !== verifyGenRef.current) return;
       const nextRate = recordFailedAttempt(email);
       setRateLimit(nextRate);
       toast(
@@ -464,7 +489,7 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
         'error',
       );
     } finally {
-      setBusy(false);
+      if (gen === verifyGenRef.current) setBusy(false);
     }
   };
 
