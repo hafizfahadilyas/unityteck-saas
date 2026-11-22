@@ -10,6 +10,11 @@ import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { CartProvider, useCart, RouteType } from './context/CartContext';
 import { useTenant } from '../../context/TenantContext';
 import { resolveCoffeeThemeSettings } from '../settings/coffeeThemeDefaults';
+import { readAllThemeSettings } from '../settings/themeSettingsStore';
+import {
+  applyStoreCustomCodeLive,
+  normalizeStoreCustomCode,
+} from '../settings/storeScopedCustomCode';
 import { Header } from './components/Header';
 import { HomePage } from './components/HomePage';
 import { MiniCartDrawer } from './components/MiniCartDrawer';
@@ -253,24 +258,53 @@ function CoffeeStorefrontContent({ initialPage, isAdmin = false }: { initialPage
     return true;
   }, [coffeeSettings]);
 
+  // Store-scoped custom font + CSS from theme-settings (this store_id only)
+  useEffect(() => {
+    const storeId = tenant?.activeStore?.id;
+    if (!storeId) return;
+    try {
+      const full = readAllThemeSettings(storeId, tenant.activeStore);
+      const code = normalizeStoreCustomCode({
+        ...(full.customCode || {}),
+        customFontFamily:
+          full.customCode?.customFontFamily || full.general?.fontFamily || '',
+        customFontUrl: full.customCode?.customFontUrl || full.general?.customFontUrl || '',
+      });
+      applyStoreCustomCodeLive(storeId, code);
+    } catch {
+      /* empty */
+    }
+  }, [tenant?.activeStore, settingsVer]);
+
   // Accent and widget tokens only. Never paint page background from colors.background.
   const themeColorStyle = useMemo(() => {
     const c = coffeeSettings?.colors;
     const button = globalTokens?.colors?.button;
+    let merchantFont = globalTokens?.fontFamily;
+    try {
+      const storeId = tenant?.activeStore?.id;
+      if (storeId) {
+        const full = readAllThemeSettings(storeId, tenant.activeStore);
+        merchantFont =
+          full.customCode?.customFontFamily || full.general?.fontFamily || merchantFont;
+      }
+    } catch {
+      /* keep token font */
+    }
     const style: React.CSSProperties = {
       ['--theme-accent' as string]: c?.promoLabelBgColor || '#C88A58',
       ['--theme-header-bg' as string]: c?.headerBgColor || '#FFFFFF',
       ['--theme-header-text' as string]: c?.headerTextColor || '#111111',
     };
     if (button) style['--theme-button' as string] = button;
-    if (globalTokens?.fontFamily) style.fontFamily = globalTokens.fontFamily;
+    if (merchantFont) style.fontFamily = merchantFont;
     if (typeof globalTokens?.radius === 'number') style['--theme-radius' as string] = `${globalTokens.radius}px`;
     if (typeof globalTokens?.containerWidth === 'number') {
       style['--theme-container' as string] = `${globalTokens.containerWidth}px`;
     }
     delete (style as { backgroundColor?: string }).backgroundColor;
     return style;
-  }, [coffeeSettings, globalTokens]);
+  }, [coffeeSettings, globalTokens, tenant?.activeStore, settingsVer]);
 
   useEffect(() => {
     if (currentRoute === 'custom-order' && !isCustomOrderEnabled) {
@@ -425,6 +459,7 @@ function CoffeeStorefrontContent({ initialPage, isAdmin = false }: { initialPage
       dir={isRtl ? 'rtl' : 'ltr'}
       lang={isRtl ? 'ar' : 'en'}
       data-paint-page-background="false"
+      data-store-id={tenant?.activeStore?.id || undefined}
       style={themeColorStyle}
     >
       <style>{`.hibrew-theme-root .unityteck-customize-focus{outline:2px solid #4f46e5;outline-offset:3px;border-radius:12px}${globalTokens?.colors?.button ? '.hibrew-theme-root .hibrew-inherit-btn{background-color:var(--theme-button);border-radius:var(--theme-radius,9999px)}' : ''}`}</style>

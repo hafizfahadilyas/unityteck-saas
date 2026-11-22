@@ -7,6 +7,12 @@ import { generateStoreSEO, applySEOToDOM } from '../../utils/storeSEO';
 import { captureTrafficSource } from '../../utils/trafficSource';
 import { trackStorefrontEvent } from '../../utils/storefrontAnalytics';
 import { RefreshCw } from 'lucide-react';
+import { readAllThemeSettings } from '../../themes/settings/themeSettingsStore';
+import {
+  applyStoreCustomCodeLive,
+  normalizeStoreCustomCode,
+} from '../../themes/settings/storeScopedCustomCode';
+import { DashboardLoader } from '../common/DashboardLoader';
 
 export interface DynamicThemeRendererProps {
   storeId?: string;
@@ -76,9 +82,6 @@ class ThemeErrorBoundary extends React.Component<ThemeErrorBoundaryProps, ThemeE
     return this.props.children;
   }
 }
-
-import { DashboardLoader } from '../common/DashboardLoader';
-import { readAllThemeSettings } from '../../themes/settings/themeSettingsStore';
 
 /** Thin route paint — never block first paint with full brand splash unless merchant enabled it. */
 function LightThemeFallback() {
@@ -225,25 +228,25 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
     });
   }, [effectiveStoreId, activeStore, stores, currentSEOConfig, allProducts, currentProducts, locale, category, resolvedInitialPage, isAdmin, isPreviewEmbed]);
 
-  // Live inject custom CSS if configured for the active store
+  // Live inject store-scoped custom CSS + font (theme-settings / MySQL — not cross-tenant)
   useEffect(() => {
     if (!effectiveStoreId) return;
     try {
-      const raw = localStorage.getItem(`unityteck_custom_code_${effectiveStoreId}`);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed.enableCustomCss && parsed.customCss) {
-          let tag = document.getElementById('unityteck-live-custom-css') as HTMLStyleElement | null;
-          if (!tag) {
-            tag = document.createElement('style');
-            tag.id = 'unityteck-live-custom-css';
-            document.head.appendChild(tag);
-          }
-          tag.textContent = parsed.customCss;
-        }
-      }
-    } catch {}
-  }, [effectiveStoreId]);
+      const fallback = stores?.find((s: { id?: string }) => s.id === effectiveStoreId) ||
+        activeStore ||
+        { name: '' };
+      const full = readAllThemeSettings(effectiveStoreId, fallback);
+      const code = normalizeStoreCustomCode({
+        ...(full.customCode || {}),
+        customFontFamily:
+          full.customCode?.customFontFamily || full.general?.fontFamily || '',
+        customFontUrl: full.customCode?.customFontUrl || full.general?.customFontUrl || '',
+      });
+      applyStoreCustomCodeLive(effectiveStoreId, code);
+    } catch {
+      /* empty stays empty */
+    }
+  }, [effectiveStoreId, stores, activeStore, syncTick]);
 
   // CSS variables for isolated theme scoping
   const scopeStyles = useMemo(
@@ -288,6 +291,7 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
     <div
       data-theme-id={manifest.id}
       data-theme-slug={manifest.slug}
+      data-store-id={effectiveStoreId}
       className={`unity-theme-container theme-${manifest.slug} w-full min-h-screen`}
       style={scopeStyles}
     >

@@ -1,6 +1,7 @@
 /**
- * Design Studio chrome — Holst accent + modern dark luxury (Canva-like).
- * Accent = --accent (#1d8b94). No purple one-offs.
+ * Design Studio chrome — SAME global Holst glass as store admin.
+ * Uses --glass-fill / --glass-border / --glass-blur / --text / --muted.
+ * Dark portal bg → white text; light frosted glass → dark ink (global rule).
  */
 /* Prevent editor chrome from forcing horizontal scroll in store main */
 .canva-studio-shell {
@@ -8,24 +9,47 @@
   max-width: 100%;
   min-width: 0;
   overflow: visible;
-  background: #0b0f14;
+  background: transparent;
 }
 
 .canva-studio-light {
-  --cs-bg: var(--surface, #ffffff);
-  --cs-panel: var(--bg, #f8fafc);
-  --cs-dock: var(--portal-950, #04222b);
-  --cs-border: var(--border, #e2e8f0);
-  --cs-text: var(--text, #020617);
-  --cs-muted: var(--muted, #334155);
+  /* Fallback glass when Master (or host) has no store --glass-* yet */
+  --cs-glass-fill: var(--glass-fill, rgba(255, 255, 255, 0.48));
+  --cs-glass-fill-strong: var(--glass-fill-strong, rgba(255, 255, 255, 0.68));
+  --cs-glass-border: var(--glass-border, rgba(255, 255, 255, 0.55));
+  --cs-glass-border-soft: var(--glass-border-soft, rgba(255, 255, 255, 0.35));
+  --cs-glass-shadow: var(--glass-shadow, 0 10px 36px rgba(15, 23, 42, 0.12));
+  --cs-glass-blur: var(--glass-blur, blur(18px) saturate(1.4));
+  --cs-glass-blur-shell: var(--glass-blur-shell, blur(20px) saturate(1.45));
+  --cs-bg: var(--cs-glass-fill);
+  --cs-panel: transparent;
+  --cs-dock: var(--cs-glass-fill-strong);
+  --cs-border: var(--cs-glass-border);
+  --cs-text: var(--text, #0f172a);
+  --cs-muted: var(--muted, #475569);
   --cs-accent: var(--accent, #1d8b94);
   --cs-accent-soft: color-mix(in srgb, var(--cs-accent) 14%, transparent);
   --cs-accent-ring: var(--active-ring, #4fb8b4);
   --cs-success: var(--tone-success, #059669);
-  --cs-input: var(--input-bg, #ffffff);
-  background: var(--cs-bg) !important;
+  --cs-input: var(--input-bg, rgba(255, 255, 255, 0.82));
+  background: transparent !important;
   color: var(--cs-text) !important;
   box-shadow: none !important;
+  border-color: var(--cs-border) !important;
+}
+
+/* Dark portal theme — same global: dark glass + white readable text */
+[data-theme='dark'] .canva-studio-light,
+[data-theme='dark'].canva-studio-light {
+  --cs-glass-fill: var(--glass-fill, rgba(15, 23, 42, 0.48));
+  --cs-glass-fill-strong: var(--glass-fill-strong, rgba(15, 23, 42, 0.68));
+  --cs-glass-border: var(--glass-border, rgba(255, 255, 255, 0.14));
+  --cs-glass-border-soft: var(--glass-border-soft, rgba(255, 255, 255, 0.08));
+  --cs-glass-shadow: var(--glass-shadow, 0 10px 36px rgba(0, 0, 0, 0.45));
+  --cs-text: var(--text, #ffffff);
+  --cs-muted: var(--muted, #cbd5e1);
+  --cs-input: var(--input-bg, rgba(15, 23, 42, 0.82));
+  color: var(--cs-text) !important;
 }
 
 /* Dark luxury chrome (real Canva editor feel) — Holst teal accent kept */
@@ -56,22 +80,22 @@
   text-shadow: none !important;
 }
 
-/* Opaque popovers — never translucent / ghost-stack over canvas */
+/* Popovers — strong glass fill (readable, no ghost stack over canvas) */
 .unity-shell .canva-studio-light .cs-dropdown,
 .canva-studio-light .cs-dropdown {
   position: absolute;
   z-index: 80;
-  background: #ffffff !important;
-  background-color: #ffffff !important;
-  color: #0f172a !important;
-  border: 1px solid #e2e8f0 !important;
-  border-radius: 0.75rem;
-  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.22) !important;
+  background: var(--cs-glass-fill-strong, rgba(255, 255, 255, 0.92)) !important;
+  background-color: var(--cs-glass-fill-strong, rgba(255, 255, 255, 0.92)) !important;
+  color: var(--cs-text, #0f172a) !important;
+  border: 1px solid var(--cs-glass-border, rgba(255, 255, 255, 0.55)) !important;
+  border-radius: var(--glass-radius-sm, 0.75rem);
+  box-shadow: var(--cs-glass-shadow, 0 12px 36px rgba(15, 23, 42, 0.22)) !important;
   isolation: isolate;
   mix-blend-mode: normal;
   opacity: 1 !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+  backdrop-filter: var(--cs-glass-blur, blur(18px) saturate(1.4)) !important;
+  -webkit-backdrop-filter: var(--cs-glass-blur, blur(18px) saturate(1.4)) !important;
   filter: none !important;
   transform: none;
   text-shadow: none !important;
@@ -79,16 +103,16 @@
 }
 .canva-studio-light .cs-dropdown button {
   background: transparent !important;
-  color: #0f172a !important;
+  color: var(--cs-text, #0f172a) !important;
   text-shadow: none !important;
   opacity: 1 !important;
   filter: none !important;
 }
 .canva-studio-light .cs-dropdown button:hover {
-  background: #f1f5f9 !important;
+  background: color-mix(in srgb, var(--cs-accent) 12%, transparent) !important;
 }
 .canva-studio-light .cs-dropdown .cs-dropdown-muted {
-  color: #64748b !important;
+  color: var(--cs-muted, #64748b) !important;
 }
 .canva-studio-light.canva-studio-dark .cs-dropdown {
   background: #1a1f27 !important;
@@ -156,16 +180,16 @@
 }
 
 .canva-studio-light .cs-header {
-  background: var(--cs-bg) !important;
   border-color: var(--cs-border) !important;
   color: var(--cs-text) !important;
 }
 
-/* Header chips — always solid + readable (beats glass / portal remaps) */
+/* Header chips — frosted glass chips (global glass rim) */
 .canva-studio-light .cs-header-chip {
-  background: #ffffff !important;
-  color: #0f172a !important;
-  border: 1px solid #cbd5e1 !important;
+  background: var(--cs-glass-fill-strong) !important;
+  color: var(--cs-text) !important;
+  border: 1px solid var(--cs-glass-border) !important;
+  box-shadow: var(--cs-glass-shadow) !important;
   font-weight: 800 !important;
   opacity: 1 !important;
   text-shadow: none !important;
@@ -175,9 +199,9 @@
 }
 
 .canva-studio-light .cs-header-chip:hover {
-  background: #f1f5f9 !important;
+  background: color-mix(in srgb, var(--cs-accent) 12%, var(--cs-glass-fill-strong)) !important;
   border-color: var(--cs-accent, #1d8b94) !important;
-  color: #020617 !important;
+  color: var(--cs-text) !important;
 }
 
 .canva-studio-light .cs-header-chip:disabled {
@@ -191,20 +215,102 @@
 }
 
 .canva-studio-light .cs-header-title {
-  color: #0f172a !important;
+  color: var(--cs-text) !important;
   font-weight: 800 !important;
   opacity: 1 !important;
   text-shadow: none !important;
 }
 
 .canva-studio-light .cs-header-status {
-  color: #334155 !important;
+  color: var(--cs-muted) !important;
   font-weight: 700 !important;
   opacity: 1 !important;
 }
 
 .canva-studio-light .cs-header-status.is-ok {
   color: var(--cs-accent, #1d8b94) !important;
+}
+
+/*
+ * Global Holst glass — same as store topbar / sidebar / cards.
+ * Shell chrome blurs once; nested tiles inherit fill without extra blur budget.
+ */
+.canva-studio-light .cs-glass {
+  background: var(--cs-glass-fill) !important;
+  backdrop-filter: var(--cs-glass-blur-shell) !important;
+  -webkit-backdrop-filter: var(--cs-glass-blur-shell) !important;
+  border-color: var(--cs-glass-border) !important;
+  color: var(--cs-text) !important;
+  box-shadow: var(--cs-glass-shadow) !important;
+}
+
+.canva-studio-light .cs-header.cs-glass,
+.canva-studio-light .cs-toolbar.cs-glass,
+.canva-studio-light .cs-footer.cs-glass,
+.canva-studio-light .cs-dock.cs-glass {
+  background: var(--cs-glass-fill) !important;
+  color: var(--cs-text) !important;
+  border-color: var(--cs-glass-border) !important;
+}
+
+/* Flyout sits beside dock — fill only (parent shell already blurs) */
+.canva-studio-light .cs-flyout.cs-glass {
+  background: var(--cs-glass-fill-strong) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  color: var(--cs-text) !important;
+  border-color: var(--cs-glass-border) !important;
+  box-shadow: var(--cs-glass-shadow) !important;
+}
+
+.canva-studio-light,
+.canva-studio-light .cs-header,
+.canva-studio-light .cs-toolbar,
+.canva-studio-light .cs-footer,
+.canva-studio-light .cs-flyout,
+.canva-studio-light .cs-dock {
+  color: var(--cs-text) !important;
+}
+
+/* Keep intentional CTA white text; remap only chrome leftovers below */
+.canva-studio-light .cs-header .text-white:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active),
+.canva-studio-light .cs-toolbar .text-white:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active),
+.canva-studio-light .cs-footer .text-white:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active),
+.canva-studio-light .cs-flyout .text-white:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active),
+/* Remap white→ink on dock labels only — NEVER the Create (+) orb (black-on-black bug) */
+.canva-studio-light .cs-dock .text-white:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active):not(.cs-dock-create-orb):not(.cs-dock-create-orb *) {
+  color: var(--cs-text) !important;
+}
+
+.canva-studio-light .text-slate-200,
+.canva-studio-light .text-slate-300,
+.canva-studio-light .text-slate-400,
+.canva-studio-light .text-slate-500,
+.canva-studio-light .text-slate-600 {
+  color: var(--cs-muted) !important;
+  opacity: 1 !important;
+}
+
+.canva-studio-light .text-slate-700,
+.canva-studio-light .text-slate-800,
+.canva-studio-light .text-slate-900,
+.canva-studio-light .text-gray-900 {
+  color: var(--cs-text) !important;
+  opacity: 1 !important;
+}
+
+.canva-studio-light input:not([type='range']):not([type='checkbox']):not([type='radio']):not([type='file']):not([type='color']),
+.canva-studio-light select,
+.canva-studio-light textarea {
+  background: var(--cs-input) !important;
+  color: var(--cs-text) !important;
+  border-color: var(--cs-glass-border-soft) !important;
+}
+
+.canva-studio-light input::placeholder,
+.canva-studio-light textarea::placeholder {
+  color: var(--input-ph, var(--cs-muted)) !important;
+  opacity: 1 !important;
 }
 
 .canva-studio-light.canva-studio-dark .cs-header.cs-glass {
@@ -259,20 +365,162 @@
 
 .canva-studio-light .cs-dock {
   background: var(--cs-dock) !important;
-  border-color: color-mix(in srgb, var(--portal-400, #4fb8b4) 22%, transparent) !important;
-  color: var(--portal-200, #98d8d0) !important;
+  border-color: var(--cs-border) !important;
+  color: var(--cs-text) !important;
 }
 
 .canva-studio-light .cs-dock button {
-  color: color-mix(in srgb, #ffffff 72%, transparent) !important;
+  color: var(--cs-muted) !important;
   border-color: transparent !important;
   background: transparent !important;
+  font-weight: 700;
+}
+
+.canva-studio-light .cs-dock button:hover {
+  color: var(--cs-text) !important;
+  background: color-mix(in srgb, var(--cs-accent) 12%, transparent) !important;
+}
+
+.canva-studio-light .cs-dock button.cs-dock-create .cs-dock-create-orb {
+  background: var(--cs-accent, #1d8b94) !important;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--cs-accent, #1d8b94) 40%, transparent);
+  color: #ffffff !important;
+}
+
+/* Create (+) always white on accent — never inherit dark dock ink */
+.canva-studio-light .cs-dock-create-orb,
+.canva-studio-light .cs-dock-create-orb svg,
+.canva-studio-light .cs-dock-create-orb .text-white,
+.canva-studio-light .cs-dock button.cs-dock-create .cs-dock-create-orb,
+.canva-studio-light .cs-dock button.cs-dock-create .cs-dock-create-orb svg,
+.canva-studio-light .cs-dock button.cs-dock-create .cs-dock-create-orb .text-white,
+.unity-shell main .canva-studio-light .cs-dock-create-orb,
+.unity-shell main .canva-studio-light .cs-dock-create-orb svg,
+.unity-shell main .canva-studio-light .cs-dock-create-orb .text-white {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  stroke: #ffffff !important;
+  fill: none !important;
+  opacity: 1 !important;
+}
+
+.canva-studio-light .cs-dock button.cs-dock-create.cs-dock-active .cs-dock-create-orb,
+.canva-studio-light .cs-dock button.cs-dock-create:hover .cs-dock-create-orb {
+  filter: brightness(1.08);
+}
+
+/*
+ * Dock contrast lock — frosted glass over dark wallpaper must stay readable.
+ * Light: opaque light rail + dark labels. Dark: opaque dark rail + white labels.
+ */
+[data-theme='light'] .canva-studio-light .cs-dock.cs-glass,
+[data-theme='light'] .unity-shell main .canva-studio-light .cs-dock.cs-glass {
+  background: color-mix(in srgb, #ffffff 90%, var(--surface, #f8fafc)) !important;
+  background-color: rgba(255, 255, 255, 0.92) !important;
+  --cs-text: #0f172a;
+  --cs-muted: #334155;
+  color: #0f172a !important;
+}
+
+[data-theme='dark'] .canva-studio-light .cs-dock.cs-glass,
+[data-theme='dark'] .unity-shell main .canva-studio-light .cs-dock.cs-glass {
+  background: rgba(8, 11, 16, 0.94) !important;
+  background-color: rgba(8, 11, 16, 0.94) !important;
+  --cs-text: #ffffff;
+  --cs-muted: #e2e8f0;
+  color: #ffffff !important;
+}
+
+[data-theme='light'] .canva-studio-light .cs-dock button:not(.cs-dock-create),
+[data-theme='light'] .canva-studio-light .cs-dock button:not(.cs-dock-create) span,
+[data-theme='light'] .canva-studio-light .cs-dock button:not(.cs-dock-create) svg {
+  color: #334155 !important;
+}
+
+[data-theme='light'] .canva-studio-light .cs-dock button.cs-dock-create > span:not(.cs-dock-create-orb) {
+  color: #334155 !important;
+}
+
+[data-theme='light'] .canva-studio-light .cs-dock button:not(.cs-dock-create):hover,
+[data-theme='light'] .canva-studio-light .cs-dock button:not(.cs-dock-create):hover span,
+[data-theme='light'] .canva-studio-light .cs-dock button:not(.cs-dock-create):hover svg,
+[data-theme='light'] .canva-studio-light .cs-dock button.cs-dock-active:not(.cs-dock-create),
+[data-theme='light'] .canva-studio-light .cs-dock button.cs-dock-active:not(.cs-dock-create) span,
+[data-theme='light'] .canva-studio-light .cs-dock button.cs-dock-active:not(.cs-dock-create) svg {
+  color: #0f172a !important;
+}
+
+[data-theme='dark'] .canva-studio-light .cs-dock button:not(.cs-dock-create),
+[data-theme='dark'] .canva-studio-light .cs-dock button:not(.cs-dock-create) span,
+[data-theme='dark'] .canva-studio-light .cs-dock button:not(.cs-dock-create) svg {
+  color: #e2e8f0 !important;
+}
+
+[data-theme='dark'] .canva-studio-light .cs-dock button.cs-dock-create > span:not(.cs-dock-create-orb) {
+  color: #e2e8f0 !important;
+}
+
+[data-theme='dark'] .canva-studio-light .cs-dock button:not(.cs-dock-create):hover,
+[data-theme='dark'] .canva-studio-light .cs-dock button:not(.cs-dock-create):hover span,
+[data-theme='dark'] .canva-studio-light .cs-dock button:not(.cs-dock-create):hover svg,
+[data-theme='dark'] .canva-studio-light .cs-dock button.cs-dock-active:not(.cs-dock-create),
+[data-theme='dark'] .canva-studio-light .cs-dock button.cs-dock-active:not(.cs-dock-create) span,
+[data-theme='dark'] .canva-studio-light .cs-dock button.cs-dock-active:not(.cs-dock-create) svg {
+  color: #ffffff !important;
+}
+
+.canva-studio-light .cs-create-tile {
+  background: var(--cs-glass-fill-strong, rgba(255, 255, 255, 0.75)) !important;
+  border: 1px solid var(--cs-glass-border, rgba(255, 255, 255, 0.55)) !important;
+  color: var(--cs-text, #0f172a) !important;
+}
+
+.canva-studio-light .cs-create-tile:hover {
+  border-color: color-mix(in srgb, var(--cs-accent, #1d8b94) 45%, transparent) !important;
+  background: color-mix(in srgb, var(--cs-accent, #1d8b94) 10%, transparent) !important;
 }
 
 .canva-studio-light .cs-dock button.cs-dock-active {
-  background: color-mix(in srgb, var(--cs-accent) 22%, transparent) !important;
-  color: var(--portal-200, #98d8d0) !important;
-  border-color: color-mix(in srgb, var(--cs-accent) 45%, transparent) !important;
+  background: var(--cs-accent-soft) !important;
+  color: var(--cs-accent) !important;
+  border-color: color-mix(in srgb, var(--cs-accent) 40%, var(--cs-border)) !important;
+}
+
+.canva-studio-light .cs-dock button span,
+.canva-studio-light .cs-dock button svg {
+  color: inherit !important;
+  opacity: 1 !important;
+}
+
+/*
+ * Global glass ink: frosted light panels → dark readable text
+ * (same as Branding / KPI cards on dark wallpaper).
+ * Dark theme → white text on dark glass.
+ */
+[data-theme='light'] .canva-studio-light .cs-glass,
+[data-theme='light'] .canva-studio-light .cs-header,
+[data-theme='light'] .canva-studio-light .cs-toolbar,
+[data-theme='light'] .canva-studio-light .cs-footer,
+[data-theme='light'] .canva-studio-light .cs-flyout,
+[data-theme='light'] .canva-studio-light .cs-dock,
+[data-theme='light'] .canva-studio-light .cs-layer-row,
+[data-theme='light'] .canva-studio-light .cs-element-tile {
+  --cs-text: #0f172a;
+  --cs-muted: #475569;
+  color: #0f172a !important;
+}
+
+[data-theme='dark'] .canva-studio-light .cs-glass,
+[data-theme='dark'] .canva-studio-light .cs-header,
+[data-theme='dark'] .canva-studio-light .cs-toolbar,
+[data-theme='dark'] .canva-studio-light .cs-footer,
+[data-theme='dark'] .canva-studio-light .cs-flyout,
+[data-theme='dark'] .canva-studio-light .cs-dock,
+[data-theme='dark'] .canva-studio-light .cs-layer-row,
+[data-theme='dark'] .canva-studio-light .cs-element-tile {
+  --cs-text: #ffffff;
+  --cs-muted: #cbd5e1;
+  color: #ffffff !important;
 }
 
 .canva-studio-light .cs-flyout {
@@ -281,7 +529,7 @@
   color: var(--cs-text) !important;
 }
 
-.canva-studio-light .cs-flyout .text-white,
+.canva-studio-light .cs-flyout .text-white:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active):not(button[style*='background']),
 .canva-studio-light .cs-flyout .text-slate-200,
 .canva-studio-light .cs-flyout .text-slate-300 {
   color: var(--cs-text) !important;
@@ -300,9 +548,9 @@
   border-color: var(--cs-border) !important;
 }
 
-.canva-studio-light .cs-flyout button:not([style*='background']):not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active):not(.bg-emerald-500):not(.bg-emerald-600) {
-  background: var(--cs-bg) !important;
-  border-color: var(--cs-border) !important;
+.canva-studio-light .cs-flyout button:not([style*='background']):not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active):not(.cs-format-card):not(.bg-emerald-500):not(.bg-emerald-600) {
+  background: var(--cs-glass-fill-strong, var(--cs-bg)) !important;
+  border-color: var(--cs-glass-border, var(--cs-border)) !important;
   color: var(--cs-text) !important;
 }
 
@@ -312,6 +560,9 @@
   border-color: var(--cs-border) !important;
 }
 
+.canva-studio-light .cs-flyout .bg-white,
+.canva-studio-light .cs-flyout .bg-slate-50,
+.canva-studio-light .cs-flyout .bg-slate-100,
 .canva-studio-light .cs-flyout .bg-slate-800,
 .canva-studio-light .cs-flyout .bg-slate-800\/80,
 .canva-studio-light .cs-flyout .bg-slate-800\/60,
@@ -320,7 +571,9 @@
 .canva-studio-light .cs-flyout .bg-black\/40,
 .canva-studio-light .cs-flyout .bg-surface\/40,
 .canva-studio-light .cs-flyout .bg-surface\/50 {
-  background: var(--cs-panel) !important;
+  background: var(--cs-glass-fill-strong, var(--cs-bg)) !important;
+  border-color: var(--cs-glass-border, var(--cs-border)) !important;
+  color: var(--cs-text) !important;
 }
 
 .canva-studio-light .cs-workspace {
@@ -329,16 +582,15 @@
 }
 
 .canva-studio-light .cs-toolbar {
-  background: var(--cs-bg) !important;
   border: 1px solid var(--cs-border) !important;
   color: var(--cs-text) !important;
 }
 
-.canva-studio-light .cs-toolbar .text-white,
+.canva-studio-light .cs-toolbar .text-white:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active):not(.cs-add-layer-btn),
 .canva-studio-light .cs-toolbar .text-slate-300,
 .canva-studio-light .cs-toolbar .text-slate-400,
 .canva-studio-light .cs-toolbar .text-slate-500,
-.canva-studio-light .cs-toolbar span,
+.canva-studio-light .cs-toolbar button:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active):not(.cs-add-layer-btn) span,
 .canva-studio-light .cs-toolbar label {
   color: var(--cs-text) !important;
   opacity: 1 !important;
@@ -363,6 +615,219 @@
 .canva-studio-light input[type='range'].accent-violet-600,
 .canva-studio-light input[type='range'].accent-purple-500 {
   accent-color: var(--cs-accent) !important;
+}
+
+/* Canva-style multi-page chrome — vertical stack + floating bar on each page */
+.canva-studio-light .cs-page-stack {
+  scroll-behavior: smooth;
+}
+
+.canva-studio-light .cs-page-stack-item {
+  position: relative;
+  z-index: 1;
+}
+
+.canva-studio-light .cs-page-stack-item.is-active {
+  z-index: 2;
+}
+
+.canva-studio-light .cs-page-toolbar {
+  color: var(--cs-text, #0f172a);
+}
+
+/* Float the page tools bar on top of this page layer (Canva-style) */
+.canva-studio-light .cs-page-toolbar-float {
+  position: sticky;
+  top: 0.35rem;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.canva-studio-light .cs-page-toolbar-float > * {
+  pointer-events: auto;
+}
+
+.canva-studio-light .cs-page-toolbar-label {
+  color: var(--cs-muted, #64748b) !important;
+}
+
+.canva-studio-light .cs-page-toolbar-float.is-active .cs-page-toolbar-label {
+  color: var(--cs-text, #0f172a) !important;
+}
+
+/* Canva: tools + page title = ONE horizontal bar (never wrap to 2 rows) */
+.canva-studio-light .cs-page-bar {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 0.35rem !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  overflow: hidden;
+}
+
+.canva-studio-light .cs-page-bar-tools {
+  flex-shrink: 0;
+}
+
+.canva-studio-light .cs-page-bar-title {
+  min-width: 0;
+  flex: 1 1 auto;
+  justify-content: flex-end;
+}
+
+.canva-studio-light .cs-page-toolbar-title-input {
+  color: var(--cs-text, #0f172a) !important;
+  -webkit-text-fill-color: var(--cs-text, #0f172a) !important;
+  opacity: 1 !important;
+}
+
+.canva-studio-light .cs-page-toolbar-title-input::placeholder {
+  color: var(--cs-muted, #64748b) !important;
+  opacity: 0.85 !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-page-toolbar-title-input {
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+}
+
+.canva-studio-light .cs-page-inactive-frame {
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.08);
+}
+
+.canva-studio-light .cs-page-inactive-hint {
+  background: color-mix(in srgb, var(--cs-glass-fill-strong, rgba(255, 255, 255, 0.85)) 90%, transparent);
+  color: var(--cs-muted, #64748b);
+  border: 1px solid var(--cs-glass-border, rgba(255, 255, 255, 0.55));
+  backdrop-filter: var(--cs-glass-blur, blur(12px) saturate(1.3));
+  -webkit-backdrop-filter: var(--cs-glass-blur, blur(12px) saturate(1.3));
+}
+
+.canva-studio-light.canva-studio-dark .cs-page-inactive-hint {
+  background: rgba(15, 23, 42, 0.72);
+  color: #e2e8f0;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.canva-studio-light .cs-page-tools {
+  background: var(--cs-glass-fill-strong, rgba(255, 255, 255, 0.78)) !important;
+  border: 1px solid var(--cs-glass-border, rgba(255, 255, 255, 0.55)) !important;
+  box-shadow: var(--cs-glass-shadow, 0 8px 22px rgba(15, 23, 42, 0.12)) !important;
+  backdrop-filter: var(--cs-glass-blur, blur(16px) saturate(1.4)) !important;
+  -webkit-backdrop-filter: var(--cs-glass-blur, blur(16px) saturate(1.4)) !important;
+}
+
+.canva-studio-light .cs-page-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.05rem;
+  height: 2.05rem;
+  padding: 0;
+  border-radius: 0.7rem;
+  border: 1px solid transparent;
+  background: transparent !important;
+  color: var(--cs-text, #0f172a) !important;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.12s ease;
+}
+
+.canva-studio-light .cs-page-tool-btn svg {
+  color: inherit !important;
+  stroke: currentColor;
+  opacity: 1 !important;
+}
+
+.canva-studio-light .cs-page-tool-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--cs-accent, #1d8b94) 14%, transparent) !important;
+  border-color: color-mix(in srgb, var(--cs-accent, #1d8b94) 28%, transparent) !important;
+  color: var(--cs-accent, #1d8b94) !important;
+  transform: translateY(-1px);
+}
+
+.canva-studio-light .cs-page-tool-btn:focus-visible {
+  outline: 2px solid var(--cs-accent, #1d8b94);
+  outline-offset: 1px;
+}
+
+.canva-studio-light .cs-page-tool-btn:disabled {
+  opacity: 0.32 !important;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.canva-studio-light .cs-page-tool-btn.cs-page-tool-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, #e11d48 12%, transparent) !important;
+  border-color: color-mix(in srgb, #e11d48 28%, transparent) !important;
+  color: #e11d48 !important;
+}
+
+.canva-studio-light .cs-page-tool-btn.is-on {
+  background: color-mix(in srgb, var(--cs-accent, #1d8b94) 16%, transparent) !important;
+  border-color: color-mix(in srgb, var(--cs-accent, #1d8b94) 35%, transparent) !important;
+  color: var(--cs-accent, #1d8b94) !important;
+}
+
+.canva-studio-light .cs-page-tool-btn.is-lock {
+  background: color-mix(in srgb, #d97706 16%, transparent) !important;
+  border-color: color-mix(in srgb, #d97706 35%, transparent) !important;
+  color: #d97706 !important;
+}
+
+.canva-studio-light .cs-page-tool-btn.is-hide {
+  color: var(--cs-muted, #64748b) !important;
+  opacity: 0.85;
+}
+
+.canva-studio-light .cs-page-tool-sep {
+  width: 1px;
+  height: 1.15rem;
+  margin: 0 0.15rem;
+  background: color-mix(in srgb, var(--cs-border, #cbd5e1) 80%, transparent);
+  flex-shrink: 0;
+}
+
+.canva-studio-light .cs-page-pill {
+  background: var(--cs-glass-fill-strong, rgba(255, 255, 255, 0.78)) !important;
+  border: 1px solid var(--cs-glass-border, rgba(255, 255, 255, 0.55)) !important;
+  color: var(--cs-text, #0f172a) !important;
+  backdrop-filter: var(--cs-glass-blur, blur(12px) saturate(1.3)) !important;
+  -webkit-backdrop-filter: var(--cs-glass-blur, blur(12px) saturate(1.3)) !important;
+}
+
+.canva-studio-light .cs-page-pill-active {
+  background: var(--cs-accent, #1d8b94) !important;
+  border-color: var(--cs-accent, #1d8b94) !important;
+  color: #fff !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-page-tools,
+.canva-studio-light.canva-studio-dark .cs-page-pill {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35) !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-page-tool-btn {
+  color: #f8fafc !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-page-toolbar-label {
+  color: #cbd5e1 !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-page-tool-sep {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.canva-studio-light .cs-canvas-frame.cs-page-hidden {
+  filter: grayscale(0.35);
 }
 
 .canva-studio-light .cs-canvas-frame {
@@ -467,7 +932,7 @@
   color: var(--cs-muted) !important;
 }
 
-.canva-studio-light .cs-header .text-white {
+.canva-studio-light .cs-header .text-white:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active) {
   color: var(--cs-text) !important;
 }
 
@@ -540,6 +1005,93 @@
   color: var(--cs-text) !important;
 }
 
+/* Formats & premade — glass tiles (no loud color fills) */
+.canva-studio-light .cs-format-card {
+  background: var(--cs-glass-fill-strong, rgba(255, 255, 255, 0.72)) !important;
+  border: 1px solid var(--cs-glass-border, rgba(255, 255, 255, 0.55)) !important;
+  box-shadow: var(--cs-glass-shadow, 0 6px 18px rgba(15, 23, 42, 0.08)) !important;
+  backdrop-filter: var(--cs-glass-blur, blur(14px) saturate(1.35)) !important;
+  -webkit-backdrop-filter: var(--cs-glass-blur, blur(14px) saturate(1.35)) !important;
+  color: var(--cs-text, #0f172a) !important;
+}
+
+.canva-studio-light .cs-format-card:hover {
+  border-color: color-mix(in srgb, var(--cs-accent, #1d8b94) 45%, var(--cs-glass-border)) !important;
+  background: color-mix(
+    in srgb,
+    var(--cs-accent, #1d8b94) 10%,
+    var(--cs-glass-fill-strong, rgba(255, 255, 255, 0.78))
+  ) !important;
+  transform: translateY(-1px);
+}
+
+.canva-studio-light .cs-format-card-active {
+  border-color: var(--cs-accent, #1d8b94) !important;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--cs-accent, #1d8b94) 35%, transparent),
+    var(--cs-glass-shadow, 0 6px 18px rgba(15, 23, 42, 0.1)) !important;
+  background: color-mix(
+    in srgb,
+    var(--cs-accent, #1d8b94) 14%,
+    var(--cs-glass-fill-strong, rgba(255, 255, 255, 0.8))
+  ) !important;
+}
+
+.canva-studio-light .cs-format-card-icon {
+  background: color-mix(in srgb, var(--cs-accent, #1d8b94) 12%, transparent) !important;
+  color: var(--cs-accent, #1d8b94) !important;
+  border: 1px solid color-mix(in srgb, var(--cs-accent, #1d8b94) 22%, transparent) !important;
+}
+
+.canva-studio-light .cs-format-card-ratio {
+  background: color-mix(in srgb, var(--cs-accent, #1d8b94) 12%, transparent) !important;
+  color: var(--cs-accent, #1d8b94) !important;
+  border: 1.5px solid color-mix(in srgb, var(--cs-accent, #1d8b94) 40%, transparent) !important;
+  border-radius: 4px;
+  flex-shrink: 0;
+  max-height: 36px;
+}
+
+.canva-studio-light .cs-format-card-active .cs-format-card-icon {
+  background: var(--cs-accent, #1d8b94) !important;
+  color: #ffffff !important;
+  border-color: var(--cs-accent, #1d8b94) !important;
+}
+
+.canva-studio-light .cs-format-card-size {
+  color: var(--cs-muted, #64748b) !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-format-card {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #f8fafc !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28) !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-format-card:hover,
+.canva-studio-light.canva-studio-dark .cs-format-card-active {
+  background: color-mix(in srgb, var(--cs-accent, #1d8b94) 22%, rgba(255, 255, 255, 0.08)) !important;
+  border-color: color-mix(in srgb, var(--cs-accent, #1d8b94) 55%, rgba(255, 255, 255, 0.2)) !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-format-card-size {
+  color: #94a3b8 !important;
+}
+
+.canva-studio-light .cs-format-custom {
+  background: var(--cs-glass-fill-strong, rgba(255, 255, 255, 0.72)) !important;
+  border: 1px solid var(--cs-glass-border, rgba(255, 255, 255, 0.55)) !important;
+  box-shadow: var(--cs-glass-shadow, 0 6px 18px rgba(15, 23, 42, 0.08)) !important;
+  backdrop-filter: var(--cs-glass-blur, blur(14px) saturate(1.35)) !important;
+  -webkit-backdrop-filter: var(--cs-glass-blur, blur(14px) saturate(1.35)) !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-format-custom {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
 .canva-studio-light .cs-add-layer-btn {
   background: var(--cs-accent, #1d8b94) !important;
   color: #ffffff !important;
@@ -563,9 +1115,10 @@
 }
 
 .canva-studio-light .cs-layer-row {
-  background: var(--cs-bg) !important;
-  border: 1px solid var(--cs-border) !important;
+  background: var(--cs-glass-fill-strong, var(--cs-bg)) !important;
+  border: 1px solid var(--cs-glass-border, var(--cs-border)) !important;
   color: var(--cs-text) !important;
+  box-shadow: none !important;
   cursor: pointer;
   transition:
     background 120ms ease,
@@ -687,10 +1240,11 @@
 }
 
 .canva-studio-light .cs-element-tile {
-  background: var(--cs-bg) !important;
-  border: 1px solid var(--cs-border) !important;
+  background: var(--cs-glass-fill-strong, var(--cs-bg)) !important;
+  border: 1px solid var(--cs-glass-border, var(--cs-border)) !important;
   border-radius: 12px !important;
   color: var(--cs-text) !important;
+  box-shadow: none !important;
   transition:
     border-color 140ms ease,
     background 140ms ease,
@@ -712,11 +1266,9 @@
   transform: scale(0.96);
 }
 
-/* Soft checker workspace like Canva editor */
+/* Workspace — transparent so global wallpaper shows through glass chrome */
 .canva-studio-light .cs-workspace {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--cs-panel) 92%, #ffffff), var(--cs-panel))
-      !important;
+  background: transparent !important;
 }
 
 .canva-studio-light.canva-studio-dark .cs-workspace {
@@ -852,7 +1404,7 @@
   box-shadow: 0 4px 16px color-mix(in srgb, var(--cs-accent) 35%, transparent);
 }
 
-.canva-studio-light.canva-studio-dark .cs-templates-panel button,
+.canva-studio-light.canva-studio-dark .cs-templates-panel button:not(.text-white):not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active):not(.cs-format-card),
 .canva-studio-light.canva-studio-dark .cs-element-tile,
 .canva-studio-light.canva-studio-dark .cs-layer-row {
   background: var(--cs-input) !important;
@@ -1068,7 +1620,7 @@
 .canva-studio-light.canva-studio-dark .cs-toolbar .text-slate-500,
 .canva-studio-light.canva-studio-dark .cs-toolbar .cs-toolbar-muted,
 .canva-studio-light.canva-studio-dark .cs-toolbar label,
-.canva-studio-light.canva-studio-dark .cs-toolbar span {
+.canva-studio-light.canva-studio-dark .cs-toolbar button:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active) span {
   color: #f1f5f9 !important;
   opacity: 1 !important;
 }
@@ -1143,14 +1695,14 @@
 }
 
 [data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar button:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active):not(.bg-rose-50):not(.text-rose-600),
-[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar span,
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar button:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active) span,
 [data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar label,
 [data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar select,
 [data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar input:not([type='range']):not([type='color']),
 [data-theme='light'][data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar button:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active):not(.bg-rose-50):not(.text-rose-600),
-[data-theme='light'][data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar span,
+[data-theme='light'][data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar button:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active) span,
 [data-theme='dark'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar button:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active):not(.bg-rose-50):not(.text-rose-600),
-[data-theme='dark'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar span {
+[data-theme='dark'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar button:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active) span {
   color: #f8fafc !important;
   opacity: 1 !important;
   text-shadow: none !important;
@@ -1200,4 +1752,272 @@
   background-color: #1a1f27 !important;
   border-color: rgba(255, 255, 255, 0.16) !important;
   color: #f8fafc !important;
+}
+
+/*
+ * Portal glass lock — Design Studio chrome follows global Holst glass.
+ * Never force opaque white; keep blur + glass rim. Dark theme → white text.
+ */
+.unity-shell[data-portal='store'] main .canva-studio-shell,
+.unity-shell[data-portal='master'] main .canva-studio-shell {
+  background: transparent !important;
+}
+
+.unity-shell[data-portal='store'] main .canva-studio-light,
+.unity-shell[data-portal='master'] main .canva-studio-light {
+  background: transparent !important;
+  color: var(--cs-text, var(--text, #0f172a)) !important;
+}
+
+.unity-shell[data-portal='store'] main .canva-studio-light .cs-header.cs-glass,
+.unity-shell[data-portal='store'] main .canva-studio-light .cs-toolbar.cs-glass,
+.unity-shell[data-portal='store'] main .canva-studio-light .cs-footer.cs-glass,
+.unity-shell[data-portal='store'] main .canva-studio-light .cs-dock.cs-glass,
+.unity-shell[data-portal='master'] main .canva-studio-light .cs-header.cs-glass,
+.unity-shell[data-portal='master'] main .canva-studio-light .cs-toolbar.cs-glass,
+.unity-shell[data-portal='master'] main .canva-studio-light .cs-footer.cs-glass,
+.unity-shell[data-portal='master'] main .canva-studio-light .cs-dock.cs-glass {
+  background: var(--glass-fill, var(--cs-glass-fill, rgba(255, 255, 255, 0.48))) !important;
+  backdrop-filter: var(--glass-blur-shell, blur(20px) saturate(1.45)) !important;
+  -webkit-backdrop-filter: var(--glass-blur-shell, blur(20px) saturate(1.45)) !important;
+  border-color: var(--glass-border, rgba(255, 255, 255, 0.55)) !important;
+  box-shadow: var(--glass-shadow, 0 10px 36px rgba(15, 23, 42, 0.12)) !important;
+  color: var(--text, #0f172a) !important;
+}
+
+.unity-shell[data-portal='store'] main .canva-studio-light .cs-flyout.cs-glass,
+.unity-shell[data-portal='master'] main .canva-studio-light .cs-flyout.cs-glass {
+  background: var(--glass-fill-strong, rgba(255, 255, 255, 0.68)) !important;
+  border-color: var(--glass-border, rgba(255, 255, 255, 0.55)) !important;
+  color: var(--text, #0f172a) !important;
+}
+
+[data-theme='dark'] .unity-shell[data-portal='store'] main .canva-studio-light .cs-header.cs-glass,
+[data-theme='dark'] .unity-shell[data-portal='store'] main .canva-studio-light .cs-toolbar.cs-glass,
+[data-theme='dark'] .unity-shell[data-portal='store'] main .canva-studio-light .cs-footer.cs-glass,
+[data-theme='dark'] .unity-shell[data-portal='store'] main .canva-studio-light .cs-dock.cs-glass,
+[data-theme='dark'] .unity-shell[data-portal='store'] main .canva-studio-light .cs-flyout.cs-glass,
+[data-theme='dark'] .unity-shell[data-portal='master'] main .canva-studio-light .cs-header.cs-glass,
+[data-theme='dark'] .unity-shell[data-portal='master'] main .canva-studio-light .cs-toolbar.cs-glass,
+[data-theme='dark'] .unity-shell[data-portal='master'] main .canva-studio-light .cs-footer.cs-glass,
+[data-theme='dark'] .unity-shell[data-portal='master'] main .canva-studio-light .cs-dock.cs-glass,
+[data-theme='dark'] .unity-shell[data-portal='master'] main .canva-studio-light .cs-flyout.cs-glass {
+  color: #ffffff !important;
+}
+
+[data-theme='dark'] .unity-shell[data-portal='store'] main .canva-studio-light .cs-toolbar button:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active) span,
+[data-theme='dark'] .unity-shell[data-portal='store'] main .canva-studio-light .cs-toolbar label,
+[data-theme='dark'] .unity-shell[data-portal='store'] main .canva-studio-light .cs-toolbar button:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active):not(.bg-rose-50):not(.text-rose-600),
+[data-theme='dark'] .unity-shell[data-portal='store'] main .canva-studio-light .cs-layer-name,
+[data-theme='dark'] .unity-shell[data-portal='store'] main .canva-studio-light .cs-header-title,
+[data-theme='dark'] .unity-shell[data-portal='store'] main .canva-studio-light .cs-header-chip,
+[data-theme='dark'] .unity-shell[data-portal='master'] main .canva-studio-light .cs-toolbar button:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active) span,
+[data-theme='dark'] .unity-shell[data-portal='master'] main .canva-studio-light .cs-toolbar label,
+[data-theme='dark'] .unity-shell[data-portal='master'] main .canva-studio-light .cs-toolbar button:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active):not(.bg-rose-50):not(.text-rose-600),
+[data-theme='dark'] .unity-shell[data-portal='master'] main .canva-studio-light .cs-layer-name,
+[data-theme='dark'] .unity-shell[data-portal='master'] main .canva-studio-light .cs-header-title,
+[data-theme='dark'] .unity-shell[data-portal='master'] main .canva-studio-light .cs-header-chip {
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+[data-theme='dark'] .unity-shell[data-portal='store'] main .canva-studio-light .cs-dropdown,
+[data-theme='dark'] .unity-shell[data-portal='master'] main .canva-studio-light .cs-dropdown {
+  background: var(--glass-fill-strong, rgba(15, 23, 42, 0.92)) !important;
+  color: #ffffff !important;
+  border-color: var(--glass-border, rgba(255, 255, 255, 0.14)) !important;
+}
+
+[data-theme='dark'] .unity-shell[data-portal='store'] main .canva-studio-light .cs-dropdown button,
+[data-theme='dark'] .unity-shell[data-portal='master'] main .canva-studio-light .cs-dropdown button {
+  color: #ffffff !important;
+}
+
+/*
+ * CTA ink lock — accent / primary buttons always white on dark fill.
+ * Beats glass remaps that forced --cs-text onto .text-white / span inside CTAs.
+ */
+.canva-studio-light .cs-btn-primary,
+.canva-studio-light .cs-btn-primary span,
+.canva-studio-light .cs-btn-primary svg,
+.canva-studio-light .cs-btn-success,
+.canva-studio-light .cs-btn-success span,
+.canva-studio-light .cs-btn-success svg,
+.canva-studio-light .cs-active,
+.canva-studio-light .cs-active span,
+.canva-studio-light .cs-active svg,
+.canva-studio-light .cs-add-layer-btn,
+.canva-studio-light .cs-add-layer-btn span,
+.canva-studio-light .cs-add-layer-btn svg,
+.canva-studio-light .cs-header .cs-btn-primary,
+.canva-studio-light .cs-header .cs-btn-primary span,
+.canva-studio-light .cs-header .cs-btn-primary svg,
+.canva-studio-light .cs-toolbar .cs-btn-primary,
+.canva-studio-light .cs-toolbar .cs-btn-primary span,
+.canva-studio-light .cs-toolbar .cs-btn-primary svg,
+.canva-studio-light .cs-footer .cs-add-layer-btn,
+.canva-studio-light .cs-footer .cs-add-layer-btn span,
+.canva-studio-light .cs-footer .cs-add-layer-btn svg,
+.canva-studio-light .cs-flyout button.text-white,
+.canva-studio-light .cs-flyout button.text-white span,
+.canva-studio-light .cs-flyout button.text-white svg,
+.canva-studio-light .cs-templates-panel button.text-white,
+.canva-studio-light .cs-templates-panel button.text-white span,
+.canva-studio-light .cs-templates-panel button.text-white svg,
+.unity-shell main .canva-studio-light .cs-btn-primary,
+.unity-shell main .canva-studio-light .cs-btn-primary span,
+.unity-shell main .canva-studio-light .cs-btn-primary svg,
+.unity-shell main .canva-studio-light .cs-add-layer-btn,
+.unity-shell main .canva-studio-light .cs-add-layer-btn span,
+.unity-shell main .canva-studio-light .cs-toolbar .cs-btn-primary span,
+.unity-shell main .canva-studio-light .cs-header .cs-btn-primary span,
+.unity-shell main .canva-studio-light .cs-templates-panel button.text-white,
+.canva-studio-light .cs-dock-create-orb,
+.canva-studio-light .cs-dock-create-orb span,
+.canva-studio-light .cs-dock-create-orb svg,
+.unity-shell main .canva-studio-light .cs-dock-create-orb,
+.unity-shell main .canva-studio-light .cs-dock-create-orb span,
+.unity-shell main .canva-studio-light .cs-dock-create-orb svg {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+
+/* —— Canva Design Studio home: frosted glass — wallpaper must read through —— */
+.cs-canva-home {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.cs-canva-home > .cs-canva-home-glass,
+.unity-shell main .cs-canva-home > .cs-canva-home-glass {
+  /* Frosted wash — wallpaper shows + enough fill for global dark ink contrast */
+  background: rgba(255, 255, 255, 0.32) !important;
+  background-color: rgba(255, 255, 255, 0.32) !important;
+  border: 1px solid rgba(255, 255, 255, 0.48) !important;
+  box-shadow:
+    0 10px 36px rgba(15, 23, 42, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
+  backdrop-filter: blur(22px) saturate(1.55) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(1.55) !important;
+  /* Panel ink = global Holst --text (dark on frost; shell luma remaps page chrome only) */
+  --text: #0f172a;
+  --muted: #475569;
+  color: #0f172a;
+  /* Do NOT use isolation: isolate — it blocks wallpaper backdrop-filter */
+}
+
+[data-theme='dark'] .cs-canva-home > .cs-canva-home-glass,
+[data-theme='dark'] .unity-shell main .cs-canva-home > .cs-canva-home-glass {
+  background: rgba(15, 23, 42, 0.42) !important;
+  background-color: rgba(15, 23, 42, 0.42) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  box-shadow:
+    0 10px 36px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  --text: #f8fafc;
+  --muted: #cbd5e1;
+  color: #f8fafc;
+}
+
+/* Soft accent wash only — keep translucent so bg image still shows */
+.cs-canva-home > .cs-canva-home-hero.cs-canva-home-glass,
+.unity-shell main .cs-canva-home > .cs-canva-home-hero.cs-canva-home-glass {
+  background:
+    radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--accent, #1d8b94) 14%, transparent), transparent 55%),
+    radial-gradient(90% 70% at 100% 10%, color-mix(in srgb, var(--accent, #1d8b94) 8%, transparent), transparent 50%),
+    linear-gradient(rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.3)) !important;
+}
+
+[data-theme='dark'] .cs-canva-home > .cs-canva-home-hero.cs-canva-home-glass,
+[data-theme='dark'] .unity-shell main .cs-canva-home > .cs-canva-home-hero.cs-canva-home-glass {
+  background:
+    radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--accent, #1d8b94) 18%, transparent), transparent 55%),
+    radial-gradient(90% 70% at 100% 10%, color-mix(in srgb, var(--accent, #1d8b94) 10%, transparent), transparent 50%),
+    linear-gradient(rgba(15, 23, 42, 0.26), rgba(15, 23, 42, 0.26)) !important;
+}
+
+.cs-canva-home-hero-glow {
+  position: absolute;
+  inset: -20% auto auto -10%;
+  width: 55%;
+  height: 70%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent, #1d8b94) 22%, transparent), transparent 70%);
+  filter: blur(28px);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.cs-canva-home-pill {
+  background: color-mix(in srgb, var(--glass-fill-strong, rgba(255, 255, 255, 0.72)) 88%, transparent) !important;
+  backdrop-filter: var(--glass-blur, blur(12px) saturate(1.3));
+  -webkit-backdrop-filter: var(--glass-blur, blur(12px) saturate(1.3));
+}
+
+.cs-canva-home-search {
+  background: var(--glass-fill-strong, rgba(255, 255, 255, 0.78)) !important;
+  border-color: var(--glass-border, rgba(255, 255, 255, 0.55)) !important;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+  backdrop-filter: var(--glass-blur, blur(14px) saturate(1.35));
+  -webkit-backdrop-filter: var(--glass-blur, blur(14px) saturate(1.35));
+}
+
+[data-theme='dark'] .cs-canva-home-search,
+[data-theme='dark'] .cs-canva-home-pill {
+  background: var(--glass-fill-strong, rgba(15, 23, 42, 0.72)) !important;
+  border-color: var(--glass-border, rgba(255, 255, 255, 0.14)) !important;
+}
+
+.cs-canva-home-nav {
+  background: var(--glass-fill-strong, rgba(255, 255, 255, 0.85)) !important;
+  border-color: var(--glass-border, rgba(255, 255, 255, 0.55)) !important;
+  color: var(--text, #0f172a) !important;
+  box-shadow: var(--glass-shadow, 0 6px 18px rgba(15, 23, 42, 0.12)) !important;
+  backdrop-filter: var(--glass-blur, blur(12px) saturate(1.3));
+  -webkit-backdrop-filter: var(--glass-blur, blur(12px) saturate(1.3));
+}
+
+[data-theme='dark'] .cs-canva-home-nav {
+  background: var(--glass-fill-strong, rgba(15, 23, 42, 0.85)) !important;
+  color: #ffffff !important;
+}
+
+.cs-canva-home-empty {
+  border-color: rgba(15, 23, 42, 0.18) !important;
+  color: #475569 !important;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.cs-canva-home-glass .cs-canva-home-title,
+.cs-canva-home-glass h2.cs-canva-home-title {
+  color: #0f172a !important;
+  text-shadow: none !important;
+}
+
+.cs-canva-home-glass .cs-canva-home-link {
+  color: var(--accent, #0f172a) !important;
+}
+
+[data-theme='dark'] .cs-canva-home-glass .cs-canva-home-title,
+[data-theme='dark'] .cs-canva-home-glass h2.cs-canva-home-title {
+  color: #f8fafc !important;
+}
+
+[data-theme='dark'] .cs-canva-home-empty {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: #cbd5e1 !important;
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.cs-canva-home-chip span:first-child {
+  background: linear-gradient(145deg, var(--accent, #1d8b94), color-mix(in srgb, var(--accent, #1d8b94) 70%, #0f172a)) !important;
+}
+
+/* Home template row — equal visual height (Canva-like, no jagged tall cards) */
+.cs-canva-home-card {
+  align-self: flex-start;
+}
+.cs-canva-home .cs-canva-home-card > div:first-child {
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
 }

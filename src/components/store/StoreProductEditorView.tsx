@@ -48,6 +48,15 @@ import { isApiEnabled } from '../../api/client';
 import { commerceTerm } from '../../i18n/commerceTerms';
 import { buildStorefrontProductUrl } from '../../utils/storefrontLinks';
 import type { ProductEditSectionKey } from './ProductEditDrawer';
+import { CoffeeLearnMoreProductSection } from './CoffeeLearnMoreProductSection';
+import { MediaUploadField } from '../common/MediaUploadField';
+import {
+  isCoffeeProductEditorStore,
+  isPurchaseCustomField,
+  comparisonBannerUrlFromFields,
+  upsertComparisonBannerField,
+  isComparisonBannerField,
+} from '../../utils/coffeeLearnMoreFields';
 import {
   Eye,
   EyeOff,
@@ -92,6 +101,7 @@ type EditorSectionKey =
   | 'options'
   | 'category_tags'
   | 'custom_fields'
+  | 'learn_more'
   | 'seo';
 
 const EDITOR_TO_FILTER_KEY: Partial<Record<EditorSectionKey, ProductEditSectionKey>> = {
@@ -103,6 +113,7 @@ const EDITOR_TO_FILTER_KEY: Partial<Record<EditorSectionKey, ProductEditSectionK
   options: 'variations',
   category_tags: 'categoryTags',
   custom_fields: 'customFields',
+  learn_more: 'learnMore',
   seo: 'seo',
 };
 
@@ -308,8 +319,18 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 }) => {
   const { t, locale, currency, money } = usePrefs();
   const { toast } = useToast();
+  const { storeActiveTheme, activeStore, updateProduct } = useTenant();
   const isAr = locale === 'ar';
   const isCreateMode = mode === 'create';
+  const coffeeThemeId =
+    (storeId && storeActiveTheme?.[storeId]) ||
+    (activeStore?.id && storeActiveTheme?.[activeStore.id]) ||
+    '';
+  const showCoffeeLearnMore = isCoffeeProductEditorStore({
+    storeId: storeId || activeStore?.id,
+    themeId: coffeeThemeId,
+    slug: activeStore?.slug || storeSlug,
+  });
 
   // ── Form State ──
   const [name, setName] = useState(product.name || '');
@@ -448,7 +469,6 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     return list.length > 0 ? list : [product.image || ''];
   });
 
-  const { updateProduct } = useTenant();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isMediaPickerOpen, setIsMediaPickerOpen] = useState(false);
   const [mediaPickerTarget, setMediaPickerTarget] = useState<'main' | 'gallery' | 'variant' | 'thumbnail' | 'optionValue'>('gallery');
@@ -711,6 +731,9 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     product.customUrl || (product.name || 'product').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
   );
 
+  // ── Coffee Learn More (per-SKU PDP content) ──
+  const [learnMoreVideoUrl, setLearnMoreVideoUrl] = useState(product.videoUrl || '');
+
   // ── Section Visibility (card header toggles + list Filter popover) ──
   const [localSectionVisibility, setLocalSectionVisibility] = useState<Record<EditorSectionKey, boolean>>({
     images: true,
@@ -721,6 +744,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     options: true,
     category_tags: true,
     custom_fields: true,
+    learn_more: true,
     seo: true,
   });
 
@@ -736,6 +760,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       options: visibleSections.variations !== false,
       category_tags: visibleSections.categoryTags !== false,
       custom_fields: visibleSections.customFields !== false,
+      learn_more: visibleSections.learnMore !== false,
       seo: visibleSections.seo !== false,
     }));
   }, [visibleSections]);
@@ -761,6 +786,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
         inventory: sectionVisibility.inventory,
         variations: sectionVisibility.variations,
         customFields: sectionVisibility.custom_fields,
+        learnMore: sectionVisibility.learn_more,
         seo: sectionVisibility.seo,
         categoryTags: sectionVisibility.category_tags,
         ...(visibleSections || {}),
@@ -780,6 +806,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       options: true,
       category_tags: true,
       custom_fields: true,
+      learn_more: true,
       seo: true,
     };
     setLocalSectionVisibility(allOn);
@@ -790,6 +817,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       inventory: true,
       variations: true,
       customFields: true,
+      learnMore: true,
       seo: true,
       categoryTags: true,
     });
@@ -803,10 +831,14 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       ['inventory', isAr ? 'المخزون والشحن' : 'Inventory & Shipping'],
       ['variations', isAr ? 'الخيارات والتنوعات' : 'Options & Variations'],
       ['category_tags', isAr ? 'التصنيف والوسوم' : 'Category & Tags'],
+      ['learn_more', isAr ? 'صفحة اعرف المزيد' : 'Learn More Page'],
       ['custom_fields', isAr ? 'الحقول المخصصة' : 'Custom Fields'],
       ['seo', isAr ? 'إعدادات تحسين محركات البحث' : 'SEO Settings'],
     ] as Array<[EditorSectionKey, string]>
-  ).filter(([key]) => !sectionVisibility[key]);
+  ).filter(([key]) => {
+    if (key === 'learn_more' && !showCoffeeLearnMore) return false;
+    return !sectionVisibility[key];
+  });
 
   // ── Handlers ──
   const handleMainFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1634,6 +1666,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       seoTitle,
       seoDescription,
       customUrl: urlSlug,
+      videoUrl: learnMoreVideoUrl.trim() || null,
     };
 
     onSave(payload);
@@ -3621,6 +3654,17 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
           </div>
         )}
 
+        {/* Coffee Learn More — per-SKU product-detail content */}
+        {showCoffeeLearnMore && sectionVisibility.learn_more && (
+          <CoffeeLearnMoreProductSection
+            isAr={isAr}
+            videoUrl={learnMoreVideoUrl}
+            onVideoUrlChange={setLearnMoreVideoUrl}
+            customFields={customFields}
+            onCustomFieldsChange={setCustomFields}
+          />
+        )}
+
         {/* ROW 4: Custom Fields (Full Width, 100% Pixel-Perfect to Reference Screenshot) */}
         {sectionVisibility.custom_fields && (
           <div
@@ -3640,8 +3684,12 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     {isAr
-                      ? 'حقول الشراء ومحتوى صفحة التفاصيل خاص بهذا المنتج: صورة ونص وفيديو.'
-                      : 'Purchase fields and the details page content for this product: image, text, and video.'}
+                      ? showCoffeeLearnMore
+                        ? 'حقول الشراء لهذا المنتج فقط. محتوى اعرف المزيد في القسم أعلاه.'
+                        : 'حقول الشراء ومحتوى صفحة التفاصيل خاص بهذا المنتج: صورة ونص وفيديو.'
+                      : showCoffeeLearnMore
+                        ? 'Purchase fields for this product only. Learn More content is in the section above.'
+                        : 'Purchase fields and the details page content for this product: image, text, and video.'}
                   </p>
                 </div>
               </div>
@@ -3671,7 +3719,10 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70">
-                  {customFields.length === 0 ? (
+                  {(showCoffeeLearnMore
+                    ? customFields.filter((f) => isPurchaseCustomField(f))
+                    : customFields
+                  ).length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
                         {isAr
@@ -3680,7 +3731,10 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                       </td>
                     </tr>
                   ) : (
-                    customFields.map((field) => (
+                    (showCoffeeLearnMore
+                      ? customFields.filter((f) => isPurchaseCustomField(f))
+                      : customFields
+                    ).map((field) => (
                       <tr
                         key={field.id}
                         className="transition-colors hover:bg-slate-50/60 dark:hover:bg-slate-900/30"

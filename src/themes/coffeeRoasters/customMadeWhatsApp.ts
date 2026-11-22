@@ -27,7 +27,7 @@ export function resolveCustomMadeWhatsAppHref(input: CustomMadeWhatsAppInput): s
   const isAr = input.language === 'AR';
   const label =
     (input.label || '').trim() ||
-    (isAr ? 'تفصيل حسب الطلب · تصميم وتنفيذ' : 'Custom Made · Design & Build');
+    (isAr ? 'تفصيل حسب الطلب' : 'Custom Made to Order');
   const msg = isAr
     ? `السلام عليكم، أود الاستفسار عن ${label}`
     : `Hello, I would like to inquire about ${label}`;

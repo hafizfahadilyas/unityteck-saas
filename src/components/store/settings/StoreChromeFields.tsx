@@ -5,7 +5,8 @@ import { usePrefs } from '../../../i18n/PrefsContext';
 import {
   applySidebarDesign,
   CHROME_GRADIENTS,
-  SHELL_WALLPAPER_PRESETS,
+  DEFAULT_SHELL_WALLPAPER_URL,
+  isDefaultShellWallpaper,
   SIDEBAR_DESIGNS,
   type ShellTextMode,
   type StoreChromeBrand,
@@ -289,57 +290,21 @@ export const StoreChromeFields: React.FC<{
         </div>
         <p className="text-[11px] opacity-70">
           {isAr
-            ? 'خلفية ضبابية خلف البطاقات الشفافة. يمكن تغييرها في أي وقت لهذا المتجر فقط.'
-            : 'Blurred wallpaper behind frosted glass panels. Change anytime for this store only.'}
+            ? 'خلفية صورة ثابتة خلف البطاقات الشفافة لجميع المتاجر. يمكن رفع صورة مخصصة لهذا المتجر فقط.'
+            : 'Fixed photo wallpaper behind frosted glass for every store. Upload a custom image for this store only.'}
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {SHELL_WALLPAPER_PRESETS.map((p) => {
-            const active =
-              !chrome.shellWallpaper && (chrome.shellWallpaperPreset || 'city-warm') === p.id;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() =>
-                  onChange({
-                    ...chrome,
-                    shellWallpaperPreset: p.id,
-                    shellWallpaper: '',
-                  })
-                }
-                className={`p-2 rounded-xl text-start cursor-pointer transition-shadow ${
-                  active ? 'ring-2' : ''
-                }`}
-                style={{
-                  background: 'var(--glass-fill, var(--surface))',
-                  boxShadow: active ? '0 0 0 2px var(--accent)' : 'var(--glass-shadow, none)',
-                }}
-              >
-                <span
-                  className="block h-10 rounded-lg mb-1.5"
-                  data-shell-wallpaper-preview={p.id}
-                  style={{
-                    background:
-                      p.id === 'city-warm'
-                        ? 'radial-gradient(circle at 20% 30%, #fbbf24aa, transparent 40%), radial-gradient(circle at 80% 20%, #f472b6aa, transparent 35%), linear-gradient(135deg, #7c6a5a, #4a5568)'
-                        : p.id === 'peach-lavender'
-                          ? 'linear-gradient(135deg, #f5d0c5, #d4c4e8, #c9b8a8)'
-                          : 'radial-gradient(circle at 30% 40%, #38bdf8aa, transparent 45%), linear-gradient(165deg, #0f172a, #1e293b)',
-                  }}
-                />
-                <span className="text-[10px] font-bold">{isAr ? p.labelAr : p.label}</span>
-              </button>
-            );
-          })}
-        </div>
         <MediaUploadField
           label={isAr ? 'رفع خلفية مخصصة' : 'Upload custom wallpaper'}
-          value={chrome.shellWallpaper}
+          value={
+            isDefaultShellWallpaper(chrome.shellWallpaper)
+              ? DEFAULT_SHELL_WALLPAPER_URL
+              : chrome.shellWallpaper
+          }
           onChange={(url) =>
             onChange({
               ...chrome,
-              shellWallpaperPreset: url ? 'custom' : 'city-warm',
-              shellWallpaper: url,
+              shellWallpaperPreset: 'custom',
+              shellWallpaper: url?.trim() ? url : DEFAULT_SHELL_WALLPAPER_URL,
             })
           }
           aspectRatio="banner"
@@ -349,54 +314,56 @@ export const StoreChromeFields: React.FC<{
           initialFolder="chrome"
           placeholder={isAr ? 'https://… رابط الصورة' : 'https://… image URL'}
         />
-        {chrome.shellWallpaper ? (
-          <div className="space-y-3 pt-1">
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-[11px] font-bold">
-                <span>{isAr ? 'ضبابية الخلفية' : 'Background blur'}</span>
-                <span className="font-mono opacity-70">{chrome.shellWallpaperBlur ?? 10}px</span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={24}
-                step={1}
-                value={chrome.shellWallpaperBlur ?? 10}
-                onChange={(e) =>
-                  onChange({
-                    ...chrome,
-                    shellWallpaperPreset: 'custom',
-                    shellWallpaperBlur: Number(e.target.value),
-                  })
-                }
-                className="w-full cursor-pointer accent-[var(--accent)]"
-                aria-label={isAr ? 'ضبابية صورة الخلفية' : 'Wallpaper blur'}
-              />
+        <div className="space-y-3 pt-1">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-[11px] font-bold">
+              <span>{isAr ? 'ضبابية الخلفية' : 'Background blur'}</span>
+              <span className="font-mono opacity-70">{chrome.shellWallpaperBlur ?? 10}px</span>
             </div>
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-[11px] font-bold">
-                <span>{isAr ? 'شفافية الخلفية' : 'Background opacity'}</span>
-                <span className="font-mono opacity-70">
-                  {Math.round((chrome.shellWallpaperOpacity ?? 0.92) * 100)}%
-                </span>
-              </div>
-              <input
-                type="range"
-                min={15}
-                max={100}
-                step={1}
-                value={Math.round((chrome.shellWallpaperOpacity ?? 0.92) * 100)}
-                onChange={(e) =>
-                  onChange({
-                    ...chrome,
-                    shellWallpaperPreset: 'custom',
-                    shellWallpaperOpacity: Number(e.target.value) / 100,
-                  })
-                }
-                className="w-full cursor-pointer accent-[var(--accent)]"
-                aria-label={isAr ? 'شفافية صورة الخلفية' : 'Wallpaper opacity'}
-              />
+            <input
+              type="range"
+              min={0}
+              max={24}
+              step={1}
+              value={chrome.shellWallpaperBlur ?? 10}
+              onChange={(e) =>
+                onChange({
+                  ...chrome,
+                  shellWallpaperPreset: 'custom',
+                  shellWallpaper: chrome.shellWallpaper || DEFAULT_SHELL_WALLPAPER_URL,
+                  shellWallpaperBlur: Number(e.target.value),
+                })
+              }
+              className="w-full cursor-pointer accent-[var(--accent)]"
+              aria-label={isAr ? 'ضبابية صورة الخلفية' : 'Wallpaper blur'}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-[11px] font-bold">
+              <span>{isAr ? 'شفافية الخلفية' : 'Background opacity'}</span>
+              <span className="font-mono opacity-70">
+                {Math.round((chrome.shellWallpaperOpacity ?? 0.92) * 100)}%
+              </span>
             </div>
+            <input
+              type="range"
+              min={15}
+              max={100}
+              step={1}
+              value={Math.round((chrome.shellWallpaperOpacity ?? 0.92) * 100)}
+              onChange={(e) =>
+                onChange({
+                  ...chrome,
+                  shellWallpaperPreset: 'custom',
+                  shellWallpaper: chrome.shellWallpaper || DEFAULT_SHELL_WALLPAPER_URL,
+                  shellWallpaperOpacity: Number(e.target.value) / 100,
+                })
+              }
+              className="w-full cursor-pointer accent-[var(--accent)]"
+              aria-label={isAr ? 'شفافية صورة الخلفية' : 'Wallpaper opacity'}
+            />
+          </div>
+          {!isDefaultShellWallpaper(chrome.shellWallpaper) ? (
             <button
               type="button"
               className="text-[11px] font-semibold cursor-pointer"
@@ -404,15 +371,15 @@ export const StoreChromeFields: React.FC<{
               onClick={() =>
                 onChange({
                   ...chrome,
-                  shellWallpaperPreset: 'city-warm',
-                  shellWallpaper: '',
+                  shellWallpaperPreset: 'custom',
+                  shellWallpaper: DEFAULT_SHELL_WALLPAPER_URL,
                 })
               }
             >
-              {isAr ? 'إزالة الخلفية المخصصة' : 'Remove custom wallpaper'}
+              {isAr ? 'إعادة الخلفية الافتراضية' : 'Reset to default wallpaper'}
             </button>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
 
       <div className="space-y-2">

@@ -26,9 +26,13 @@ export function CoffeeBuilderSectionInspector({
         className="mb-2 px-1 text-[10px] font-bold"
         style={{ color: 'var(--muted)' }}
       >
-        {isAr
-          ? 'لوحة إعدادات القهوة — نفس تخصيص الثيم (مرجع الواجهة)'
-          : 'Coffee settings panel — same as Theme Customize (ref UI)'}
+        {sectionId === '00_header_builder'
+          ? isAr
+            ? 'القائمة الرئيسية — إظهار/إخفاء عناصر الشريط، إضافة روابط، وتبويب القائمة الكبرى للمنتجات. مرّر أو انقر على المكائن/المطاحن في المعاينة.'
+            : 'Main Menu — show/hide navbar items, add extra links, and Mega Menu products. Hover or click Machines/Mills in the preview.'
+          : isAr
+            ? 'لوحة إعدادات القهوة — نفس تخصيص الثيم (مرجع الواجهة)'
+            : 'Coffee settings panel — same as Theme Customize (ref UI)'}
       </p>
       <CustomizerSectionForm sectionId={sectionId} isAr={isAr} liveCanvas />
     </div>

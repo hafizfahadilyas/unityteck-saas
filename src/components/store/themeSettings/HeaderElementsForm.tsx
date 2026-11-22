@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Save,
   Check,
@@ -24,9 +24,15 @@ import {
   Clock,
   Gift,
   Percent,
+  Pencil,
+  X,
+  Eye,
+  EyeOff,
+  Menu,
 } from 'lucide-react';
 import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
+import { autoBilingualLabels } from '../../../i18n/autoBilingual';
 import { useToast } from '../../common/ToastProvider';
 import { MediaUploadField } from '../../common/MediaUploadField';
 import { WhatsAppBrandIcon } from '../../common/BrandIcons';
@@ -43,6 +49,16 @@ import {
 } from '../../../themes/settings/headerCustomSettings';
 import { isCoffeeStore } from '../../../themes/settings/coffeeThemeDefaults';
 import { resolveStoreContact } from '../../../themes/settings/storeContact';
+import { useCoffeeFormLive } from './coffee/coffeeFormLive';
+
+type HeaderSubTab = 'icons' | 'logo' | 'navigation' | 'announcement' | 'style';
+
+type MegaCatalogRow = {
+  id: string;
+  name: string;
+  nameAr?: string;
+  image?: string;
+};
 
 const ANNOUNCEMENT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Sparkles,
@@ -53,6 +69,20 @@ const ANNOUNCEMENT_ICONS: Record<string, React.ComponentType<{ className?: strin
   Percent,
 };
 
+/** Same labels as live HiBrew header menu (desktop + mobile home). */
+const COFFEE_LOCKED_NAV_ITEMS: Array<{ key: string; labelAr: string; labelEn: string }> = [
+  { key: 'home', labelAr: 'الرئيسية', labelEn: 'Home' },
+  { key: 'shop', labelAr: 'المتجر', labelEn: 'Shop' },
+  { key: 'machines', labelAr: 'المكائن', labelEn: 'Machines' },
+  { key: 'mills', labelAr: 'المطاحن', labelEn: 'Mills' },
+  { key: 'cabinets', labelAr: 'أركان ودواليب القهوة', labelEn: 'Coffee Bars' },
+  { key: 'accessories', labelAr: 'الأكواب والمستلزمات', labelEn: 'Accessories' },
+  { key: 'offers', labelAr: 'العروض والباقات', labelEn: 'HiBrew CHOICE' },
+  { key: 'ai', labelAr: 'الذكاء الاصطناعي', labelEn: 'AI' },
+  { key: 'business', labelAr: 'قطاع الأعمال', labelEn: 'Business' },
+  { key: 'support', labelAr: 'الدعم والضمان', labelEn: 'Support' },
+];
+
 function HeaderNavListEditor({
   isAr,
   title,
@@ -62,7 +92,7 @@ function HeaderNavListEditor({
 }: {
   isAr: boolean;
   title: string;
-  testId: 'desktop' | 'tablet' | 'mobile';
+  testId: 'desktop' | 'tablet' | 'mobile' | 'extra';
   links: HeaderNavLink[];
   onChange: (links: HeaderNavLink[]) => void;
 }) {
@@ -101,10 +131,14 @@ function HeaderNavListEditor({
         </p>
       ) : (
         <div className="space-y-2 max-h-72 overflow-y-auto pe-1">
-          {links.map((link, idx) => (
+          {links.map((link, idx) => {
+            const isVisible = link.active !== false;
+            return (
             <div
               key={link.id}
-              className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-850 space-y-2"
+              className={`p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-850 space-y-2 ${
+                isVisible ? '' : 'opacity-60'
+              }`}
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="w-5 h-5 rounded-md bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-500">
@@ -112,19 +146,32 @@ function HeaderNavListEditor({
                 </span>
                 <input
                   type="text"
-                  value={isAr ? link.labelAr : link.labelEn}
+                  value={isAr ? (link.labelAr || link.labelEn) : (link.labelEn || link.labelAr)}
                   onChange={(e) => {
+                    const labels = autoBilingualLabels(e.target.value);
                     const copy = [...links];
-                    copy[idx] = {
-                      ...copy[idx],
-                      ...(isAr ? { labelAr: e.target.value } : { labelEn: e.target.value }),
-                    };
+                    copy[idx] = { ...copy[idx], ...labels };
                     onChange(copy);
                   }}
-                  placeholder={isAr ? 'الاسم' : 'Name'}
+                  placeholder={isAr ? 'الاسم — ترجمة تلقائية' : 'Name — auto-translates'}
                   className="flex-1 px-2 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-bold"
                   dir={isAr ? 'rtl' : 'ltr'}
                 />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const copy = [...links];
+                    copy[idx] = { ...copy[idx], active: !isVisible };
+                    onChange(copy);
+                  }}
+                  className={`p-1 rounded-lg cursor-pointer ${
+                    isVisible ? 'text-emerald-600 hover:bg-emerald-50' : 'text-slate-400 hover:bg-slate-100'
+                  }`}
+                  title={isVisible ? (isAr ? 'إخفاء' : 'Hide') : (isAr ? 'إظهار' : 'Show')}
+                  aria-label={isVisible ? (isAr ? 'إخفاء' : 'Hide') : (isAr ? 'إظهار' : 'Show')}
+                >
+                  {isVisible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                </button>
                 <button
                   type="button"
                   onClick={() => onChange(links.filter((_, i) => i !== idx))}
@@ -151,30 +198,122 @@ function HeaderNavListEditor({
                 />
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
 
-export const HeaderElementsForm: React.FC = () => {
-  const { activeStore } = useTenant();
+export const HeaderElementsForm: React.FC<{ onBack?: () => void; embedded?: boolean }> = ({
+  embedded = false,
+}) => {
+  const { activeStore, currentProducts, allProducts } = useTenant();
   const { locale } = usePrefs();
   const { toast } = useToast();
   const isAr = locale === 'ar';
+  const coffee = isCoffeeStore(activeStore);
+  const liveCanvas = useCoffeeFormLive();
+  const megaPanelRef = useRef<HTMLDivElement>(null);
+  const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const livePrimedRef = useRef(false);
+  const [megaSearch, setMegaSearch] = useState('');
+  const [megaEditId, setMegaEditId] = useState<string | null>(null);
+  const [megaPickOpen, setMegaPickOpen] = useState(false);
+  const [desktopOverrideOpen, setDesktopOverrideOpen] = useState(false);
 
   const [headerSettings, setHeaderSettings] = useState<HeaderCustomSettings>(() => {
     const full = readAllThemeSettings(activeStore.id, activeStore);
     return full.customHeader || getDefaultHeaderSettings(activeStore);
   });
 
-  const [activeSubTab, setActiveSubTab] = useState<'icons' | 'logo' | 'navigation' | 'announcement' | 'style'>('icons');
+  /** Page Builder → Main Menu opens straight on mega / nav controls */
+  const [activeSubTab, setActiveSubTab] = useState<HeaderSubTab>(() =>
+    embedded ? 'navigation' : 'icons',
+  );
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
 
+  /** Page Builder liveCanvas: push customHeader to canvas without waiting for Save */
+  const pushHeaderLive = (next: HeaderCustomSettings) => {
+    if (!liveCanvas || !livePrimedRef.current || !activeStore?.id) return;
+    if (liveTimerRef.current) clearTimeout(liveTimerRef.current);
+    liveTimerRef.current = setTimeout(() => {
+      const full = readAllThemeSettings(activeStore.id, activeStore);
+      full.customHeader = next;
+      writeAllThemeSettings(activeStore.id, full, undefined, { syncApi: false });
+    }, 220);
+  };
+
+  const patchHeaderSettings = (updater: React.SetStateAction<HeaderCustomSettings>) => {
+    setHeaderSettings((prev) => {
+      const resolved = typeof updater === 'function' ? updater(prev) : updater;
+      pushHeaderLive(resolved);
+      return resolved;
+    });
+  };
+
+  const storeCatalog: MegaCatalogRow[] = useMemo(() => {
+    const rows =
+      (allProducts?.[activeStore.id] && allProducts[activeStore.id].length
+        ? allProducts[activeStore.id]
+        : currentProducts) || [];
+    return rows.map((p) => ({
+      id: p.id,
+      name: p.name || '',
+      nameAr: p.nameAr || '',
+      image:
+        p.colors?.[0]?.image ||
+        p.images?.[0] ||
+        (p as { image?: string }).image ||
+        '',
+    }));
+  }, [allProducts, activeStore.id, currentProducts]);
+
+  const megaIds = headerSettings.navigation.menuProductIds || [];
+  const megaOverrides = headerSettings.navigation.menuProductOverrides || {};
+  const megaMax = Math.min(12, Math.max(1, Number(headerSettings.navigation.menuMaxProducts) || 5));
+
+  const patchMegaIds = (ids: string[]) =>
+    patchHeaderSettings((p) => ({
+      ...p,
+      navigation: {
+        ...p.navigation,
+        menuProductSource: 'manual',
+        menuProductIds: ids.slice(0, 12),
+      },
+    }));
+
+  const patchMegaOverride = (
+    productId: string,
+    patch: { image?: string; nameEn?: string; nameAr?: string },
+  ) =>
+    patchHeaderSettings((p) => ({
+      ...p,
+      navigation: {
+        ...p.navigation,
+        menuProductOverrides: {
+          ...(p.navigation.menuProductOverrides || {}),
+          [productId]: {
+            ...((p.navigation.menuProductOverrides || {})[productId] || {}),
+            ...patch,
+          },
+        },
+      },
+    }));
+
+  useEffect(() => {
+    if (!embedded || activeSubTab !== 'navigation') return;
+    const t = window.setTimeout(() => {
+      megaPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+    return () => window.clearTimeout(t);
+  }, [embedded, activeSubTab]);
+
   // Sync if store changes — WhatsApp digits always from THIS store’s identity
   useEffect(() => {
+    livePrimedRef.current = false;
     const full = readAllThemeSettings(activeStore.id, activeStore);
     const base = full.customHeader || getDefaultHeaderSettings(activeStore);
     const contact = resolveStoreContact(activeStore.id, activeStore);
@@ -196,6 +335,13 @@ export const HeaderElementsForm: React.FC = () => {
       },
     };
     setHeaderSettings(next);
+    const prime = window.setTimeout(() => {
+      livePrimedRef.current = true;
+    }, 500);
+    return () => {
+      window.clearTimeout(prime);
+      if (liveTimerRef.current) clearTimeout(liveTimerRef.current);
+    };
   }, [activeStore.id]);
 
   const handleSave = async (e?: React.FormEvent) => {
@@ -250,7 +396,7 @@ export const HeaderElementsForm: React.FC = () => {
 
   const handleReset = () => {
     const fresh = getDefaultHeaderSettings(activeStore);
-    setHeaderSettings(fresh);
+    patchHeaderSettings(fresh);
     const full = readAllThemeSettings(activeStore.id, activeStore);
     full.customHeader = fresh;
     writeAllThemeSettings(activeStore.id, full);
@@ -302,12 +448,22 @@ export const HeaderElementsForm: React.FC = () => {
           </div>
           <div className="min-w-0">
             <h2 className="text-sm font-black truncate">
-              {isAr ? 'مخصص عناصر الهيدر والشعار' : 'Header, Logo & Action Icons'}
+              {coffee
+                ? isAr
+                  ? 'القائمة الرئيسية والقائمة الكبرى'
+                  : 'Main Menu & Mega Menu'
+                : isAr
+                  ? 'مخصص عناصر الهيدر والشعار'
+                  : 'Header, Logo & Action Icons'}
             </h2>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-              {isAr
-                ? 'تخصيص الشعار، أيقونات المفضلة والسلة وواتساب والروابط'
-                : 'Customize logo, wishlist, cart, WhatsApp and nav links'}
+              {coffee
+                ? isAr
+                  ? 'تبويب القائمة الكبرى: منتجات وصور وأزرار — التغيير يظهر في المعاينة مباشرة'
+                  : 'Mega Menu tab: products, images, buttons — edits show live in the preview'
+                : isAr
+                  ? 'تخصيص الشعار، أيقونات المفضلة والسلة وواتساب والروابط'
+                  : 'Customize logo, wishlist, cart, WhatsApp and nav links'}
             </p>
           </div>
         </div>
@@ -328,7 +484,12 @@ export const HeaderElementsForm: React.FC = () => {
         {[
           { id: 'icons', labelAr: 'أيقونات الإجراءات', labelEn: 'Action Icons', icon: Heart },
           { id: 'logo', labelAr: 'الشعار والهوية', labelEn: 'Logo & Title', icon: Palette },
-          { id: 'navigation', labelAr: 'روابط القائمة', labelEn: 'Nav Links', icon: Sliders },
+          {
+            id: 'navigation',
+            labelAr: coffee ? 'القائمة الكبرى' : 'روابط القائمة',
+            labelEn: coffee ? 'Mega Menu' : 'Nav Links',
+            icon: Sliders,
+          },
           { id: 'announcement', labelAr: 'شريط الإعلانات', labelEn: 'Top Marquee', icon: Megaphone },
           { id: 'style', labelAr: 'المظهر والتثبيت', labelEn: 'Header Style', icon: Layout },
         ].map((tab) => {
@@ -338,7 +499,7 @@ export const HeaderElementsForm: React.FC = () => {
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveSubTab(tab.id as any)}
+              onClick={() => setActiveSubTab(tab.id as HeaderSubTab)}
               className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
                 isActive
                   ? 'bg-white dark:bg-slate-900 shadow-xs'
@@ -372,7 +533,7 @@ export const HeaderElementsForm: React.FC = () => {
               <button
                 type="button"
                 onClick={() =>
-                  setHeaderSettings((p) => ({
+                  patchHeaderSettings((p) => ({
                     ...p,
                     actions: {
                       ...p.actions,
@@ -396,7 +557,7 @@ export const HeaderElementsForm: React.FC = () => {
                       type="color"
                       value={wishlist.iconColor || '#e11d48'}
                       onChange={(e) =>
-                        setHeaderSettings((p) => ({
+                        patchHeaderSettings((p) => ({
                           ...p,
                           actions: {
                             ...p.actions,
@@ -410,7 +571,7 @@ export const HeaderElementsForm: React.FC = () => {
                       type="text"
                       value={wishlist.iconColor || '#e11d48'}
                       onChange={(e) =>
-                        setHeaderSettings((p) => ({
+                        patchHeaderSettings((p) => ({
                           ...p,
                           actions: {
                             ...p.actions,
@@ -428,7 +589,7 @@ export const HeaderElementsForm: React.FC = () => {
                   <button
                     type="button"
                     onClick={() =>
-                      setHeaderSettings((p) => ({
+                      patchHeaderSettings((p) => ({
                         ...p,
                         actions: {
                           ...p.actions,
@@ -461,7 +622,7 @@ export const HeaderElementsForm: React.FC = () => {
               <button
                 type="button"
                 onClick={() =>
-                  setHeaderSettings((p) => ({
+                  patchHeaderSettings((p) => ({
                     ...p,
                     actions: {
                       ...p.actions,
@@ -484,7 +645,7 @@ export const HeaderElementsForm: React.FC = () => {
                       key={ic}
                       type="button"
                       onClick={() =>
-                        setHeaderSettings((p) => ({
+                        patchHeaderSettings((p) => ({
                           ...p,
                           actions: {
                             ...p.actions,
@@ -514,7 +675,7 @@ export const HeaderElementsForm: React.FC = () => {
                         type="color"
                         value={cartAction.badgeBg || '#c88a58'}
                         onChange={(e) =>
-                          setHeaderSettings((p) => ({
+                          patchHeaderSettings((p) => ({
                             ...p,
                             actions: {
                               ...p.actions,
@@ -528,7 +689,7 @@ export const HeaderElementsForm: React.FC = () => {
                         type="text"
                         value={cartAction.badgeBg || '#c88a58'}
                         onChange={(e) =>
-                          setHeaderSettings((p) => ({
+                          patchHeaderSettings((p) => ({
                             ...p,
                             actions: {
                               ...p.actions,
@@ -546,7 +707,7 @@ export const HeaderElementsForm: React.FC = () => {
                     <button
                       type="button"
                       onClick={() =>
-                        setHeaderSettings((p) => ({
+                        patchHeaderSettings((p) => ({
                           ...p,
                           actions: {
                             ...p.actions,
@@ -580,7 +741,7 @@ export const HeaderElementsForm: React.FC = () => {
               <button
                 type="button"
                 onClick={() =>
-                  setHeaderSettings((p) => ({
+                  patchHeaderSettings((p) => ({
                     ...p,
                     actions: {
                       ...p.actions,
@@ -623,7 +784,7 @@ export const HeaderElementsForm: React.FC = () => {
                     dir={isAr ? 'rtl' : 'ltr'}
                     value={isAr ? whatsapp.tooltipAr || '' : whatsapp.tooltipEn || ''}
                     onChange={(e) =>
-                      setHeaderSettings((p) => ({
+                      patchHeaderSettings((p) => ({
                         ...p,
                         actions: {
                           ...p.actions,
@@ -643,7 +804,7 @@ export const HeaderElementsForm: React.FC = () => {
                   <button
                     type="button"
                     onClick={() =>
-                      setHeaderSettings((p) => ({
+                      patchHeaderSettings((p) => ({
                         ...p,
                         actions: {
                           ...p.actions,
@@ -676,7 +837,7 @@ export const HeaderElementsForm: React.FC = () => {
               <button
                 type="button"
                 onClick={() =>
-                  setHeaderSettings((p) => ({
+                  patchHeaderSettings((p) => ({
                     ...p,
                     actions: {
                       ...p.actions,
@@ -699,7 +860,7 @@ export const HeaderElementsForm: React.FC = () => {
                   dir={isAr ? 'rtl' : 'ltr'}
                   value={isAr ? accountAction.labelAr || 'حسابي' : accountAction.labelEn || 'Sign In'}
                   onChange={(e) =>
-                    setHeaderSettings((p) => ({
+                    patchHeaderSettings((p) => ({
                       ...p,
                       actions: {
                         ...p.actions,
@@ -731,7 +892,7 @@ export const HeaderElementsForm: React.FC = () => {
               <button
                 type="button"
                 onClick={() =>
-                  setHeaderSettings((p) => ({
+                  patchHeaderSettings((p) => ({
                     ...p,
                     actions: {
                       ...p.actions,
@@ -763,7 +924,7 @@ export const HeaderElementsForm: React.FC = () => {
                           ''
                     }
                     onChange={(e) =>
-                      setHeaderSettings((p) => ({
+                      patchHeaderSettings((p) => ({
                         ...p,
                         actions: {
                           ...p.actions,
@@ -800,7 +961,7 @@ export const HeaderElementsForm: React.FC = () => {
                   key={m.id}
                   type="button"
                   onClick={() =>
-                    setHeaderSettings((p) => ({
+                    patchHeaderSettings((p) => ({
                       ...p,
                       logo: { ...p.logo, mode: m.id as any },
                     }))
@@ -821,7 +982,7 @@ export const HeaderElementsForm: React.FC = () => {
             label={isAr ? 'صورة الشعار' : 'Logo image'}
             value={headerSettings.logo.imageUrl || ''}
             onChange={(url) =>
-              setHeaderSettings((p) => ({
+              patchHeaderSettings((p) => ({
                 ...p,
                 logo: { ...p.logo, imageUrl: url },
               }))
@@ -839,7 +1000,7 @@ export const HeaderElementsForm: React.FC = () => {
               dir={isAr ? 'rtl' : 'ltr'}
               value={isAr ? headerSettings.logo.titleAr || '' : headerSettings.logo.titleEn || ''}
               onChange={(e) =>
-                setHeaderSettings((p) => ({
+                patchHeaderSettings((p) => ({
                   ...p,
                   logo: {
                     ...p.logo,
@@ -859,7 +1020,7 @@ export const HeaderElementsForm: React.FC = () => {
               dir={isAr ? 'rtl' : 'ltr'}
               value={isAr ? headerSettings.logo.subtitleAr || '' : headerSettings.logo.subtitleEn || ''}
               onChange={(e) =>
-                setHeaderSettings((p) => ({
+                patchHeaderSettings((p) => ({
                   ...p,
                   logo: {
                     ...p.logo,
@@ -880,7 +1041,7 @@ export const HeaderElementsForm: React.FC = () => {
                 max="100"
                 value={headerSettings.logo.logoHeight || 44}
                 onChange={(e) =>
-                  setHeaderSettings((p) => ({
+                  patchHeaderSettings((p) => ({
                     ...p,
                     logo: { ...p.logo, logoHeight: Number(e.target.value) },
                   }))
@@ -896,7 +1057,7 @@ export const HeaderElementsForm: React.FC = () => {
                   type="color"
                   value={headerSettings.logo.titleColor || '#000000'}
                   onChange={(e) =>
-                    setHeaderSettings((p) => ({
+                    patchHeaderSettings((p) => ({
                       ...p,
                       logo: { ...p.logo, titleColor: e.target.value },
                     }))
@@ -907,7 +1068,7 @@ export const HeaderElementsForm: React.FC = () => {
                   type="text"
                   value={headerSettings.logo.titleColor || '#000000'}
                   onChange={(e) =>
-                    setHeaderSettings((p) => ({
+                    patchHeaderSettings((p) => ({
                       ...p,
                       logo: { ...p.logo, titleColor: e.target.value },
                     }))
@@ -931,7 +1092,7 @@ export const HeaderElementsForm: React.FC = () => {
                 type="button"
                 className={toggleTrack(headerSettings.navigation.enabled !== false)}
                 onClick={() =>
-                  setHeaderSettings((p) => ({
+                  patchHeaderSettings((p) => ({
                     ...p,
                     navigation: { ...p.navigation, enabled: p.navigation.enabled === false },
                   }))
@@ -947,7 +1108,7 @@ export const HeaderElementsForm: React.FC = () => {
                 type="button"
                 className={toggleTrack(Boolean(headerSettings.navigation.showCompareButton))}
                 onClick={() =>
-                  setHeaderSettings((p) => ({
+                  patchHeaderSettings((p) => ({
                     ...p,
                     navigation: {
                       ...p.navigation,
@@ -966,7 +1127,7 @@ export const HeaderElementsForm: React.FC = () => {
                   dir="rtl"
                   value={headerSettings.navigation.compareButtonLabelAr || ''}
                   onChange={(e) =>
-                    setHeaderSettings((p) => ({
+                    patchHeaderSettings((p) => ({
                       ...p,
                       navigation: { ...p.navigation, compareButtonLabelAr: e.target.value },
                     }))
@@ -978,7 +1139,7 @@ export const HeaderElementsForm: React.FC = () => {
                   dir="ltr"
                   value={headerSettings.navigation.compareButtonLabelEn || ''}
                   onChange={(e) =>
-                    setHeaderSettings((p) => ({
+                    patchHeaderSettings((p) => ({
                       ...p,
                       navigation: { ...p.navigation, compareButtonLabelEn: e.target.value },
                     }))
@@ -993,7 +1154,7 @@ export const HeaderElementsForm: React.FC = () => {
                 type="button"
                 className={toggleTrack(Boolean(headerSettings.navigation.showViewMoreButton))}
                 onClick={() =>
-                  setHeaderSettings((p) => ({
+                  patchHeaderSettings((p) => ({
                     ...p,
                     navigation: {
                       ...p.navigation,
@@ -1012,7 +1173,7 @@ export const HeaderElementsForm: React.FC = () => {
                   dir="rtl"
                   value={headerSettings.navigation.viewMoreLabelAr || ''}
                   onChange={(e) =>
-                    setHeaderSettings((p) => ({
+                    patchHeaderSettings((p) => ({
                       ...p,
                       navigation: { ...p.navigation, viewMoreLabelAr: e.target.value },
                     }))
@@ -1024,7 +1185,7 @@ export const HeaderElementsForm: React.FC = () => {
                   dir="ltr"
                   value={headerSettings.navigation.viewMoreLabelEn || ''}
                   onChange={(e) =>
-                    setHeaderSettings((p) => ({
+                    patchHeaderSettings((p) => ({
                       ...p,
                       navigation: { ...p.navigation, viewMoreLabelEn: e.target.value },
                     }))
@@ -1036,7 +1197,7 @@ export const HeaderElementsForm: React.FC = () => {
                   dir="ltr"
                   value={headerSettings.navigation.viewMoreUrl || ''}
                   onChange={(e) =>
-                    setHeaderSettings((p) => ({
+                    patchHeaderSettings((p) => ({
                       ...p,
                       navigation: { ...p.navigation, viewMoreUrl: e.target.value },
                     }))
@@ -1047,14 +1208,110 @@ export const HeaderElementsForm: React.FC = () => {
             ) : null}
           </div>
 
+          {coffee ? (
+            <div
+              className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3 shadow-2xs"
+              data-nav-controls="coffee-locked-items"
+            >
+              <div className="flex items-start gap-2">
+                <Menu className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'var(--accent)' }} />
+                <div className="min-w-0">
+                  <h4 className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                    {isAr ? 'عناصر شريط التنقل' : 'Navbar items'}
+                  </h4>
+                  <p className="text-[10px]" style={{ color: 'var(--muted)' }}>
+                    {isAr
+                      ? 'إظهار أو إخفاء عناصر القائمة الكبرى دون استبدال التخطيط. أضف روابط إضافية في الأسفل.'
+                      : 'Show or hide mega-menu items without replacing the HiBrew layout. Add extra links below.'}
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                {COFFEE_LOCKED_NAV_ITEMS.map((item) => {
+                  const hidden = (headerSettings.navigation.hiddenNavKeys || []).includes(item.key);
+                  const visible = !hidden;
+                  return (
+                    <div
+                      key={item.key}
+                      className="flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-850"
+                      data-nav-item-key={item.key}
+                    >
+                      <span className="text-[11px] font-bold truncate" style={{ color: 'var(--text)' }}>
+                        {isAr ? item.labelAr : item.labelEn}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          patchHeaderSettings((p) => {
+                            const prev = p.navigation.hiddenNavKeys || [];
+                            const next = visible
+                              ? [...prev, item.key]
+                              : prev.filter((k) => k !== item.key);
+                            return {
+                              ...p,
+                              navigation: { ...p.navigation, hiddenNavKeys: next },
+                            };
+                          })
+                        }
+                        className={`p-1.5 rounded-lg cursor-pointer ${
+                          visible ? 'text-emerald-600 hover:bg-emerald-50' : 'text-slate-400 hover:bg-slate-100'
+                        }`}
+                        title={visible ? (isAr ? 'إخفاء' : 'Hide') : (isAr ? 'إظهار' : 'Show')}
+                        aria-label={visible ? (isAr ? 'إخفاء' : 'Hide') : (isAr ? 'إظهار' : 'Show')}
+                      >
+                        {visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <HeaderNavListEditor
+                isAr={isAr}
+                title={isAr ? 'روابط إضافية (بعد القائمة الكبرى)' : 'Extra links (after mega menu)'}
+                testId="extra"
+                links={headerSettings.navigation.extraLinks ?? []}
+                onChange={(links) =>
+                  patchHeaderSettings((p) => ({
+                    ...p,
+                    navigation: { ...p.navigation, extraLinks: links },
+                  }))
+                }
+              />
+            </div>
+          ) : null}
+
           <div
-            className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3 shadow-2xs"
+            ref={megaPanelRef}
+            className="p-4 rounded-2xl bg-white dark:bg-slate-900 border-2 space-y-3 shadow-2xs"
+            style={{
+              borderColor: 'color-mix(in srgb, var(--portal-cta) 35%, var(--border))',
+              background: 'color-mix(in srgb, var(--portal-cta) 5%, var(--surface))',
+            }}
             data-menu-panel="products"
             data-nav-controls="mega-source"
+            data-mega-edit="products"
+            data-mega-menu-section="1"
           >
-            <h4 className="text-xs font-bold" style={{ color: 'var(--text)' }}>
-              {isAr ? 'منتجات القائمة الكبرى' : 'Mega menu products'}
-            </h4>
+            <div className="flex items-start gap-2">
+              <span
+                className="shrink-0 mt-0.5 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wide text-white"
+                style={{ background: 'var(--portal-cta)' }}
+              >
+                {isAr ? 'القائمة الكبرى' : 'Mega Menu'}
+              </span>
+              <div className="min-w-0 space-y-0.5">
+                <h4 className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+                  {isAr
+                    ? 'محتوى القائمة الكبرى — منتجات وصور ونصوص وأزرار'
+                    : 'Mega menu content — products, images, text & buttons'}
+                </h4>
+                <p className="text-[10px]" style={{ color: 'var(--muted)' }}>
+                  {isAr
+                    ? 'هذا القسم فقط للقائمة المنسدلة عند التمرير على المكائن / المطاحن / العروض. غيّر هنا — المعاينة تتحدّث مباشرة. احفظ للنشر على الموقع.'
+                    : 'This section only controls the dropdown on Machines / Mills / Offers hover. Edit here — preview updates live. Save to publish to the storefront.'}
+                </p>
+              </div>
+            </div>
             <label className="block space-y-1">
               <span className="text-[10px] font-bold text-slate-400">
                 {isAr ? 'مصدر المنتجات' : 'Product source'}
@@ -1063,7 +1320,7 @@ export const HeaderElementsForm: React.FC = () => {
                 className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs"
                 value={headerSettings.navigation.menuProductSource || 'category'}
                 onChange={(e) =>
-                  setHeaderSettings((p) => ({
+                  patchHeaderSettings((p) => ({
                     ...p,
                     navigation: {
                       ...p.navigation,
@@ -1075,7 +1332,7 @@ export const HeaderElementsForm: React.FC = () => {
               >
                 <option value="category">{isAr ? 'من الفئة النشطة' : 'Active category'}</option>
                 <option value="latest">{isAr ? 'الأحدث' : 'Latest'}</option>
-                <option value="manual">{isAr ? 'يدوي (معرّفات محفوظة)' : 'Manual (saved ids)'}</option>
+                <option value="manual">{isAr ? 'يدوي — اختيار من الكتالوج' : 'Manual — pick from catalog'}</option>
               </select>
             </label>
             <label className="block space-y-1">
@@ -1086,7 +1343,7 @@ export const HeaderElementsForm: React.FC = () => {
                 className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs"
                 value={headerSettings.navigation.menuProductSort || 'newest'}
                 onChange={(e) =>
-                  setHeaderSettings((p) => ({
+                  patchHeaderSettings((p) => ({
                     ...p,
                     navigation: {
                       ...p.navigation,
@@ -1112,7 +1369,7 @@ export const HeaderElementsForm: React.FC = () => {
                 className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs"
                 value={headerSettings.navigation.menuMaxProducts ?? 5}
                 onChange={(e) =>
-                  setHeaderSettings((p) => ({
+                  patchHeaderSettings((p) => ({
                     ...p,
                     navigation: {
                       ...p.navigation,
@@ -1123,6 +1380,215 @@ export const HeaderElementsForm: React.FC = () => {
                 data-menu-max-products
               />
             </label>
+
+            {(headerSettings.navigation.menuProductSource || 'category') === 'manual' ? (
+              <div className="space-y-2 rounded-xl border border-slate-100 dark:border-slate-800 p-3" data-mega-picker="manual">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-bold" style={{ color: 'var(--text)' }}>
+                    {isAr
+                      ? `المحدد (${megaIds.length}/${megaMax})`
+                      : `Selected (${megaIds.length}/${megaMax})`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setMegaPickOpen((v) => !v)}
+                    className="px-2.5 py-1 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                    style={{
+                      background: 'color-mix(in srgb, var(--portal-cta) 12%, var(--surface))',
+                      color: 'var(--portal-cta)',
+                    }}
+                    data-mega-add-products
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    {isAr ? 'إضافة منتجات' : 'Add products'}
+                  </button>
+                </div>
+
+                {megaIds.length === 0 ? (
+                  <p className="text-[10px]" style={{ color: 'var(--muted)' }}>
+                    {isAr
+                      ? 'لا منتجات محددة — اختر من كتالوج هذا المتجر.'
+                      : 'No products selected — pick from this store catalog.'}
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-72 overflow-y-auto">
+                    {megaIds.map((id) => {
+                      const cat = storeCatalog.find((p) => p.id === id);
+                      const ov = megaOverrides[id] || {};
+                      const title =
+                        (isAr ? ov.nameAr || cat?.nameAr || cat?.name : ov.nameEn || cat?.name) ||
+                        id;
+                      const thumb = ov.image || cat?.image || '';
+                      const editing = megaEditId === id;
+                      return (
+                        <div
+                          key={id}
+                          className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-850 p-2 space-y-2"
+                          data-mega-product-row={id}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
+                              {thumb ? (
+                                <img src={thumb} alt="" className="max-w-full max-h-full object-contain" />
+                              ) : (
+                                <ShoppingBag className="w-4 h-4 text-slate-300" />
+                              )}
+                            </div>
+                            <span className="flex-1 text-[11px] font-bold truncate" style={{ color: 'var(--text)' }}>
+                              {title}
+                            </span>
+                            <button
+                              type="button"
+                              className="p-1 rounded-lg text-slate-500 hover:text-[color:var(--accent)] cursor-pointer"
+                              onClick={() => setMegaEditId(editing ? null : id)}
+                              title={isAr ? 'تعديل الصورة والنص' : 'Edit image & text'}
+                              data-mega-edit-row={id}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              className="p-1 rounded-lg text-rose-500 cursor-pointer"
+                              onClick={() => {
+                                patchMegaIds(megaIds.filter((x) => x !== id));
+                                if (megaEditId === id) setMegaEditId(null);
+                              }}
+                              aria-label={isAr ? 'حذف' : 'Remove'}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          {editing ? (
+                            <div className="space-y-2 pt-1 border-t border-slate-200 dark:border-slate-700">
+                              <MediaUploadField
+                                label={isAr ? 'صورة القائمة الكبرى' : 'Mega menu image'}
+                                value={ov.image || cat?.image || ''}
+                                onChange={(url) => patchMegaOverride(id, { image: url })}
+                                aspectRatio="square"
+                                initialFolder="products"
+                                recommendedSize="800 × 800 px"
+                              />
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <label className="block space-y-1">
+                                  <span className="text-[10px] font-bold text-slate-400">
+                                    {isAr ? 'العنوان إنجليزي' : 'Title EN'}
+                                  </span>
+                                  <input
+                                    className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                                    dir="ltr"
+                                    value={ov.nameEn ?? cat?.name ?? ''}
+                                    onChange={(e) => patchMegaOverride(id, { nameEn: e.target.value })}
+                                  />
+                                </label>
+                                <label className="block space-y-1">
+                                  <span className="text-[10px] font-bold text-slate-400">
+                                    {isAr ? 'العنوان عربي' : 'Title AR'}
+                                  </span>
+                                  <input
+                                    className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                                    dir="rtl"
+                                    value={ov.nameAr ?? cat?.nameAr ?? ''}
+                                    onChange={(e) => patchMegaOverride(id, { nameAr: e.target.value })}
+                                  />
+                                </label>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {megaPickOpen ? (
+                  <div
+                    className="rounded-xl border border-slate-200 dark:border-slate-700 p-2 space-y-2 bg-white dark:bg-slate-900"
+                    data-mega-catalog-picker
+                  >
+                    <div className="flex items-center gap-2">
+                      <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <input
+                        className="flex-1 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs"
+                        value={megaSearch}
+                        onChange={(e) => setMegaSearch(e.target.value)}
+                        placeholder={isAr ? 'بحث في الكتالوج…' : 'Search catalog…'}
+                        dir={isAr ? 'rtl' : 'ltr'}
+                      />
+                      <button
+                        type="button"
+                        className="p-1 text-slate-400 cursor-pointer"
+                        onClick={() => setMegaPickOpen(false)}
+                        aria-label={isAr ? 'إغلاق' : 'Close'}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto space-y-1">
+                      {!storeCatalog.length ? (
+                        <p className="text-[10px] px-1" style={{ color: 'var(--muted)' }}>
+                          {isAr ? 'لا منتجات في الكتالوج' : 'No products in catalog'}
+                        </p>
+                      ) : (
+                        storeCatalog
+                          .filter((p) => {
+                            const q = megaSearch.trim().toLowerCase();
+                            if (!q) return true;
+                            return `${p.name} ${p.nameAr || ''} ${p.id}`.toLowerCase().includes(q);
+                          })
+                          .map((p) => {
+                            const selected = megaIds.includes(p.id);
+                            const full = megaIds.length >= megaMax;
+                            return (
+                              <button
+                                key={p.id}
+                                type="button"
+                                disabled={selected || full}
+                                className="w-full text-start rounded-lg border px-2 py-1.5 text-[11px] disabled:opacity-40 cursor-pointer flex items-center gap-2"
+                                style={{ borderColor: 'var(--border)' }}
+                                onClick={() => {
+                                  if (selected || full) return;
+                                  patchMegaIds([...megaIds, p.id]);
+                                }}
+                              >
+                                <span className="w-8 h-8 rounded-md bg-slate-100 overflow-hidden shrink-0 flex items-center justify-center">
+                                  {p.image ? (
+                                    <img src={p.image} alt="" className="max-w-full max-h-full object-contain" />
+                                  ) : (
+                                    <ShoppingBag className="w-3.5 h-3.5 text-slate-300" />
+                                  )}
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                  <span className="font-bold block truncate">
+                                    {isAr ? p.nameAr || p.name : p.name}
+                                  </span>
+                                  <span className="text-[10px]" style={{ color: 'var(--muted)' }}>
+                                    {selected
+                                      ? isAr
+                                        ? 'محدد'
+                                        : 'Selected'
+                                      : full
+                                        ? isAr
+                                          ? 'الحد الأقصى'
+                                          : 'Limit reached'
+                                        : p.id}
+                                  </span>
+                                </span>
+                              </button>
+                            );
+                          })
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-[10px] rounded-lg border border-dashed border-slate-200 px-2 py-2" style={{ color: 'var(--muted)' }}>
+                {isAr
+                  ? 'لتغيير الصور والنصوص يدوياً: اختر المصدر «يدوي» ثم أضف منتجات وعدّل كل صف.'
+                  : 'To change images & titles: set source to Manual, add products, then edit each row.'}
+              </p>
+            )}
+
             <p className="text-[10px] text-slate-400">
               {isAr
                 ? 'المصدر من كتالوج هذا المتجر فقط — بدون صفوف وهمية.'
@@ -1141,7 +1607,7 @@ export const HeaderElementsForm: React.FC = () => {
             {(['desktop', 'tablet', 'mobile'] as const).map((device) => {
               const row = headerSettings.navigation.deviceLayouts?.[device] || {};
               const patchDevice = (patch: Partial<typeof row>) =>
-                setHeaderSettings((p) => ({
+                patchHeaderSettings((p) => ({
                   ...p,
                   navigation: {
                     ...p.navigation,
@@ -1223,169 +1689,118 @@ export const HeaderElementsForm: React.FC = () => {
             })}
           </div>
 
-          <HeaderNavListEditor
-            isAr={isAr}
-            title={isAr ? 'روابط سطح المكتب' : 'Desktop links'}
-            testId="desktop"
-            links={
-              headerSettings.navigation.desktopLinks
-              ?? (isCoffeeStore(activeStore) ? [] : headerSettings.navigation.links)
-            }
-            onChange={(links) =>
-              setHeaderSettings((p) => ({
-                ...p,
-                navigation: { ...p.navigation, desktopLinks: links, links },
-              }))
-            }
-          />
-          <HeaderNavListEditor
-            isAr={isAr}
-            title={isAr ? 'روابط الجهاز اللوحي' : 'Tablet links'}
-            testId="tablet"
-            links={headerSettings.navigation.tabletLinks ?? []}
-            onChange={(links) =>
-              setHeaderSettings((p) => ({
-                ...p,
-                navigation: { ...p.navigation, tabletLinks: links },
-              }))
-            }
-          />
-          <HeaderNavListEditor
-            isAr={isAr}
-            title={isAr ? 'روابط الجوال' : 'Mobile links'}
-            testId="mobile"
-            links={headerSettings.navigation.mobileLinks ?? []}
-            onChange={(links) =>
-              setHeaderSettings((p) => ({
-                ...p,
-                navigation: { ...p.navigation, mobileLinks: links },
-              }))
-            }
-          />
-          <div
-            className="p-4 rounded-2xl border space-y-3 shadow-2xs"
-            style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
-            data-nav-controls="mega-source"
-          >
-            <h4 className="text-xs font-bold">{isAr ? 'مصدر منتجات قائمة التصنيفات' : 'Mega menu product source'}</h4>
-            <p className="text-[10px]" style={{ color: 'var(--muted)' }}>
-              {isAr
-                ? 'منتجات المتجر الحقيقية فقط — بدون صفوف وهمية.'
-                : 'Live store catalog only — never invent product rows.'}
-            </p>
-            <label className="block space-y-1 text-[11px] font-semibold">
-              <span style={{ color: 'var(--muted)' }}>{isAr ? 'مصدر المنتجات' : 'Product source'}</span>
-              <select
-                className="w-full px-2 py-1.5 rounded-lg border text-xs"
-                style={{ borderColor: 'var(--border)' }}
-                value={headerSettings.navigation.menuProductSource || 'category'}
-                onChange={(e) =>
-                  setHeaderSettings((p) => ({
-                    ...p,
-                    navigation: {
-                      ...p.navigation,
-                      menuProductSource: e.target.value as 'category' | 'latest' | 'manual',
-                    },
-                  }))
-                }
+          {coffee ? (
+            <div
+              className="rounded-2xl border border-amber-200/80 dark:border-amber-900/40 bg-amber-50/50 dark:bg-amber-950/20 overflow-hidden"
+              data-nav-override="advanced"
+            >
+              <button
+                type="button"
+                className="w-full flex items-center justify-between gap-2 px-3.5 py-3 text-start cursor-pointer"
+                onClick={() => setDesktopOverrideOpen((v) => !v)}
+                aria-expanded={desktopOverrideOpen}
               >
-                <option value="category">{isAr ? 'حسب التصنيف' : 'By category'}</option>
-                <option value="latest">{isAr ? 'الأحدث' : 'Latest'}</option>
-                <option value="manual">{isAr ? 'يدوي (معرفات)' : 'Manual IDs'}</option>
-              </select>
-            </label>
-            <label className="block space-y-1 text-[11px] font-semibold">
-              <span style={{ color: 'var(--muted)' }}>{isAr ? 'ترتيب العرض' : 'Sort'}</span>
-              <select
-                className="w-full px-2 py-1.5 rounded-lg border text-xs"
-                style={{ borderColor: 'var(--border)' }}
-                value={headerSettings.navigation.menuProductSort || 'newest'}
-                onChange={(e) =>
-                  setHeaderSettings((p) => ({
-                    ...p,
-                    navigation: {
-                      ...p.navigation,
-                      menuProductSort: e.target.value as 'manual' | 'price' | 'newest' | 'bestselling',
-                    },
-                  }))
+                <div className="min-w-0">
+                  <span className="text-[11px] font-bold block" style={{ color: 'var(--text)' }}>
+                    {isAr ? 'متقدم — استبدال روابط القائمة' : 'Advanced — replace menu links'}
+                  </span>
+                  <span className="text-[10px]" style={{ color: 'var(--muted)' }}>
+                    {isAr
+                      ? 'اترك روابط سطح المكتب فارغة لتبقى القائمة الكبرى (مكائن / مطاحن…). أي رابط هنا يستبدل القائمة الكبرى.'
+                      : 'Keep Desktop links empty to keep the HiBrew mega menu (Machines / Mills…). Any link here replaces the mega menu.'}
+                  </span>
+                </div>
+                <ChevronDown
+                  className={`w-4 h-4 shrink-0 transition-transform ${desktopOverrideOpen ? 'rotate-180' : ''}`}
+                  style={{ color: 'var(--muted)' }}
+                />
+              </button>
+              {desktopOverrideOpen ||
+              (headerSettings.navigation.desktopLinks || []).length > 0 ||
+              (headerSettings.navigation.tabletLinks || []).length > 0 ||
+              (headerSettings.navigation.mobileLinks || []).length > 0 ? (
+                <div className="px-3.5 pb-3.5 space-y-3 border-t border-amber-200/60 dark:border-amber-900/30 pt-3">
+                  <HeaderNavListEditor
+                    isAr={isAr}
+                    title={isAr ? 'روابط سطح المكتب' : 'Desktop links'}
+                    testId="desktop"
+                    links={headerSettings.navigation.desktopLinks ?? []}
+                    onChange={(links) =>
+                      patchHeaderSettings((p) => ({
+                        ...p,
+                        navigation: { ...p.navigation, desktopLinks: links, links },
+                      }))
+                    }
+                  />
+                  <HeaderNavListEditor
+                    isAr={isAr}
+                    title={isAr ? 'روابط الجهاز اللوحي' : 'Tablet links'}
+                    testId="tablet"
+                    links={headerSettings.navigation.tabletLinks ?? []}
+                    onChange={(links) =>
+                      patchHeaderSettings((p) => ({
+                        ...p,
+                        navigation: { ...p.navigation, tabletLinks: links },
+                      }))
+                    }
+                  />
+                  <HeaderNavListEditor
+                    isAr={isAr}
+                    title={isAr ? 'روابط الجوال' : 'Mobile links'}
+                    testId="mobile"
+                    links={headerSettings.navigation.mobileLinks ?? []}
+                    onChange={(links) =>
+                      patchHeaderSettings((p) => ({
+                        ...p,
+                        navigation: { ...p.navigation, mobileLinks: links },
+                      }))
+                    }
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <>
+              <HeaderNavListEditor
+                isAr={isAr}
+                title={isAr ? 'روابط سطح المكتب' : 'Desktop links'}
+                testId="desktop"
+                links={
+                  headerSettings.navigation.desktopLinks ?? headerSettings.navigation.links
                 }
-              >
-                <option value="newest">{isAr ? 'الأحدث' : 'Newest'}</option>
-                <option value="price">{isAr ? 'السعر' : 'Price'}</option>
-                <option value="bestselling">{isAr ? 'الأكثر مبيعاً' : 'Best selling'}</option>
-                <option value="manual">{isAr ? 'يدوي' : 'Manual'}</option>
-              </select>
-            </label>
-            <label className="block space-y-1 text-[11px] font-semibold">
-              <span style={{ color: 'var(--muted)' }}>{isAr ? 'حد المنتجات في القائمة' : 'Max mega products'}</span>
-              <input
-                type="number"
-                min={2}
-                max={12}
-                className="w-full px-2 py-1.5 rounded-lg border text-xs"
-                style={{ borderColor: 'var(--border)' }}
-                value={headerSettings.navigation.menuMaxProducts ?? 5}
-                onChange={(e) =>
-                  setHeaderSettings((p) => ({
+                onChange={(links) =>
+                  patchHeaderSettings((p) => ({
                     ...p,
-                    navigation: {
-                      ...p.navigation,
-                      menuMaxProducts: Math.min(12, Math.max(2, Number(e.target.value) || 5)),
-                    },
+                    navigation: { ...p.navigation, desktopLinks: links, links },
                   }))
                 }
               />
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2" data-nav-controls="device-layouts">
-              {(['desktop', 'tablet', 'mobile'] as const).map((device) => {
-                const layout = headerSettings.navigation.deviceLayouts?.[device];
-                return (
-                  <label key={device} className="block space-y-1 text-[11px] font-semibold">
-                    <span style={{ color: 'var(--muted)' }}>
-                      {device === 'desktop'
-                        ? isAr
-                          ? 'أعمدة سطح المكتب'
-                          : 'Desktop columns'
-                        : device === 'tablet'
-                          ? isAr
-                            ? 'أعمدة اللوحي'
-                            : 'Tablet columns'
-                          : isAr
-                            ? 'أعمدة الجوال'
-                            : 'Mobile columns'}
-                    </span>
-                    <select
-                      className="w-full px-2 py-1.5 rounded-lg border text-xs"
-                      style={{ borderColor: 'var(--border)' }}
-                      value={layout?.columns ?? (device === 'desktop' ? 5 : device === 'tablet' ? 3 : 2)}
-                      onChange={(e) => {
-                        const columns = Number(e.target.value) || 2;
-                        setHeaderSettings((p) => ({
-                          ...p,
-                          navigation: {
-                            ...p.navigation,
-                            deviceLayouts: {
-                              ...p.navigation.deviceLayouts,
-                              [device]: {
-                                ...(p.navigation.deviceLayouts?.[device] || {}),
-                                columns,
-                              },
-                            },
-                          },
-                        }));
-                      }}
-                    >
-                      {[2, 3, 4, 5, 6].map((n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
+              <HeaderNavListEditor
+                isAr={isAr}
+                title={isAr ? 'روابط الجهاز اللوحي' : 'Tablet links'}
+                testId="tablet"
+                links={headerSettings.navigation.tabletLinks ?? []}
+                onChange={(links) =>
+                  patchHeaderSettings((p) => ({
+                    ...p,
+                    navigation: { ...p.navigation, tabletLinks: links },
+                  }))
+                }
+              />
+              <HeaderNavListEditor
+                isAr={isAr}
+                title={isAr ? 'روابط الجوال' : 'Mobile links'}
+                testId="mobile"
+                links={headerSettings.navigation.mobileLinks ?? []}
+                onChange={(links) =>
+                  patchHeaderSettings((p) => ({
+                    ...p,
+                    navigation: { ...p.navigation, mobileLinks: links },
+                  }))
+                }
+              />
+            </>
+          )}
         </div>
       )}
 
@@ -1400,7 +1815,7 @@ export const HeaderElementsForm: React.FC = () => {
             <button
               type="button"
               onClick={() =>
-                setHeaderSettings((p) => ({
+                patchHeaderSettings((p) => ({
                   ...p,
                   announcement: { ...p.announcement, enabled: !p.announcement.enabled },
                 }))
@@ -1422,7 +1837,7 @@ export const HeaderElementsForm: React.FC = () => {
                       type="color"
                       value={headerSettings.announcement.bgColor || '#0d0704'}
                       onChange={(e) =>
-                        setHeaderSettings((p) => ({
+                        patchHeaderSettings((p) => ({
                           ...p,
                           announcement: { ...p.announcement, bgColor: e.target.value },
                         }))
@@ -1433,7 +1848,7 @@ export const HeaderElementsForm: React.FC = () => {
                       type="text"
                       value={headerSettings.announcement.bgColor || '#0d0704'}
                       onChange={(e) =>
-                        setHeaderSettings((p) => ({
+                        patchHeaderSettings((p) => ({
                           ...p,
                           announcement: { ...p.announcement, bgColor: e.target.value },
                         }))
@@ -1450,7 +1865,7 @@ export const HeaderElementsForm: React.FC = () => {
                       type="color"
                       value={headerSettings.announcement.textColor || '#ffffff'}
                       onChange={(e) =>
-                        setHeaderSettings((p) => ({
+                        patchHeaderSettings((p) => ({
                           ...p,
                           announcement: { ...p.announcement, textColor: e.target.value },
                         }))
@@ -1461,7 +1876,7 @@ export const HeaderElementsForm: React.FC = () => {
                       type="text"
                       value={headerSettings.announcement.textColor || '#ffffff'}
                       onChange={(e) =>
-                        setHeaderSettings((p) => ({
+                        patchHeaderSettings((p) => ({
                           ...p,
                           announcement: { ...p.announcement, textColor: e.target.value },
                         }))
@@ -1486,7 +1901,7 @@ export const HeaderElementsForm: React.FC = () => {
                         textEn: 'New Promotion Message',
                         active: true,
                       };
-                      setHeaderSettings((p) => ({
+                      patchHeaderSettings((p) => ({
                         ...p,
                         announcement: {
                           ...p.announcement,
@@ -1509,7 +1924,7 @@ export const HeaderElementsForm: React.FC = () => {
                         onChange={(e) => {
                           const copy = [...headerSettings.announcement.messages];
                           copy[mIdx] = { ...copy[mIdx], textAr: e.target.value };
-                          setHeaderSettings((p) => ({ ...p, announcement: { ...p.announcement, messages: copy } }));
+                          patchHeaderSettings((p) => ({ ...p, announcement: { ...p.announcement, messages: copy } }));
                         }}
                         className="flex-1 px-2 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
                       />
@@ -1517,7 +1932,7 @@ export const HeaderElementsForm: React.FC = () => {
                         type="button"
                         onClick={() => {
                           const filtered = headerSettings.announcement.messages.filter((_, i) => i !== mIdx);
-                          setHeaderSettings((p) => ({ ...p, announcement: { ...p.announcement, messages: filtered } }));
+                          patchHeaderSettings((p) => ({ ...p, announcement: { ...p.announcement, messages: filtered } }));
                         }}
                         className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer"
                       >
@@ -1540,7 +1955,7 @@ export const HeaderElementsForm: React.FC = () => {
             <button
               type="button"
               onClick={() =>
-                setHeaderSettings((p) => ({
+                patchHeaderSettings((p) => ({
                   ...p,
                   general: { ...p.general, sticky: !p.general.sticky },
                 }))
@@ -1557,7 +1972,7 @@ export const HeaderElementsForm: React.FC = () => {
             <button
               type="button"
               onClick={() =>
-                setHeaderSettings((p) => ({
+                patchHeaderSettings((p) => ({
                   ...p,
                   general: { ...p.general, backdropBlur: !p.general.backdropBlur },
                 }))
@@ -1577,7 +1992,7 @@ export const HeaderElementsForm: React.FC = () => {
                   type="color"
                   value={headerSettings.general.bgColor || '#ffffff'}
                   onChange={(e) =>
-                    setHeaderSettings((p) => ({
+                    patchHeaderSettings((p) => ({
                       ...p,
                       general: { ...p.general, bgColor: e.target.value },
                     }))
@@ -1588,7 +2003,7 @@ export const HeaderElementsForm: React.FC = () => {
                   type="text"
                   value={headerSettings.general.bgColor || '#ffffff'}
                   onChange={(e) =>
-                    setHeaderSettings((p) => ({
+                    patchHeaderSettings((p) => ({
                       ...p,
                       general: { ...p.general, bgColor: e.target.value },
                     }))
@@ -1606,7 +2021,7 @@ export const HeaderElementsForm: React.FC = () => {
                 max="30"
                 value={headerSettings.general.paddingY || 10}
                 onChange={(e) =>
-                  setHeaderSettings((p) => ({
+                  patchHeaderSettings((p) => ({
                     ...p,
                     general: { ...p.general, paddingY: Number(e.target.value) },
                   }))

@@ -7,6 +7,12 @@ import type { CouponItem } from '../../../types';
 import { fromApiPricing } from '../../../utils/productPricing';
 import { effectiveProductPricing } from '../../../utils/productSaleSchedule';
 import { customFieldIsFillable, normalizeCustomFieldType } from '../../../utils/customFieldTypes';
+import {
+  isLearnMoreSectionField,
+  isLearnMoreSpecField,
+  isPurchaseCustomField,
+  specsFromLearnMoreFields,
+} from '../../../utils/coffeeLearnMoreFields';
 import { seedExistingCommerce } from '../../../utils/existingProductCommerce';
 import { buildGeneratedVariants } from '../../../utils/productVariants';
 import { trackStorefrontEvent } from '../../../utils/storefrontAnalytics';
@@ -23,22 +29,23 @@ function optionRows(opt: any): any[] {
 function learnMoreBits(dp: any, image: string) {
   const fields = (Array.isArray(dp.customFields) ? dp.customFields : []).filter((f: any) => !f?.hidden);
   const parts = fields
-    .filter((f: any) => {
-      const kind = normalizeCustomFieldType(f?.type);
-      if (kind === 'Content') return true;
-      return !!(f.imageUrl || f.videoUrl || f.contentEn || f.contentAr);
-    })
-    .map((f: any, i: number) => ({
-      id: String(f.id || `cf-${i}`),
-      tagEn: String(f.name || 'Details'),
-      tagAr: String(f.name || 'التفاصيل'),
-      titleEn: String(f.name || ''),
-      titleAr: String(f.name || ''),
-      descriptionEn: String(f.contentEn || f.description || f.value || ''),
-      descriptionAr: String(f.contentAr || f.description || f.value || ''),
-      image: String(f.imageUrl || image),
-    }));
-  const video = String(fields.find((f: any) => f.videoUrl)?.videoUrl || dp.videoUrl || '');
+    .filter((f: any) => isLearnMoreSectionField(f))
+    .map((f: any, i: number) => {
+      const titleEn = String(f.name || 'Details');
+      const titleAr = String(f.nameAr || f.name || 'التفاصيل');
+      return {
+        id: String(f.id || `cf-${i}`),
+        tagEn: titleEn,
+        tagAr: titleAr,
+        titleEn,
+        titleAr,
+        descriptionEn: String(f.contentEn || f.description || f.value || ''),
+        descriptionAr: String(f.contentAr || f.description || f.value || ''),
+        image: String(f.imageUrl || image),
+      };
+    });
+  const specs = specsFromLearnMoreFields(fields);
+  const video = String(dp.videoUrl || fields.find((f: any) => f.videoUrl)?.videoUrl || '');
   const opts = (Array.isArray(dp.productOptions) ? dp.productOptions : []).filter((o: any) => o?.visible !== false);
   const colorOpt = opts.find((o: any) => String(o.type || '').toLowerCase() === 'color');
   const editionOpt = opts.find((o: any) => o !== colorOpt && String(o.type || '').toLowerCase() !== 'image');
@@ -80,11 +87,12 @@ function learnMoreBits(dp: any, image: string) {
     : null;
   const purchaseFields = fields.filter(
     (f: any) =>
+      isPurchaseCustomField(f) &&
       customFieldIsFillable(f?.type) &&
       normalizeCustomFieldType(f?.type) !== 'Content' &&
-      !String(f?.id || '').startsWith('catalog-spec-'),
+      !isLearnMoreSpecField(f),
   );
-  return { purchaseFields, parts, video, colors, storage };
+  return { purchaseFields, parts, specs, video, colors, storage };
 }
 
 function mergeListPricing(dp: any) {
@@ -997,7 +1005,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         rating: dp.rating || 0,
         colors: storyNew.colors?.length ? storyNew.colors : [],
         storageOptions: storyNew.storage?.length ? storyNew.storage : [],
-        specs: Array.isArray(dp.specs) ? dp.specs : [],
+        specs: storyNew.specs?.length
+          ? storyNew.specs
+          : Array.isArray(dp.specs)
+            ? dp.specs
+            : packChrome?.specs || [],
         images: primaryImg
           ? [primaryImg, ...(dp.galleryUrls || []).filter((u: string) => u !== primaryImg)]
           : [...(dp.galleryUrls || [])],
@@ -1006,6 +1018,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         partsShowcase: storyNew.parts.length
           ? storyNew.parts
           : packChrome?.partsShowcase,
+        heroBanner: packChrome?.heroBanner
+          ? {
+              ...packChrome.heroBanner,
+              headlineEn: dp.name || packChrome.heroBanner.headlineEn,
+              headlineAr: dp.nameAr || packChrome.heroBanner.headlineAr,
+              sloganEn: dp.subtitle || packChrome.heroBanner.sloganEn,
+              sloganAr: dp.subtitleAr || packChrome.heroBanner.sloganAr,
+              heroImage: primaryImg || packChrome.heroBanner.heroImage,
+            }
+          : undefined,
         specComparisonImage: dp.specComparisonImage || packChrome?.specComparisonImage,
         specComparisonImageAr: dp.specComparisonImageAr || packChrome?.specComparisonImageAr,
         customFields: storyNew.purchaseFields?.length
@@ -1013,7 +1035,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           : (Array.isArray(dp.customFields)
               ? dp.customFields.filter(
                   (f: any) =>
-                    customFieldIsFillable(f?.type) && normalizeCustomFieldType(f?.type) !== 'Content',
+                    isPurchaseCustomField(f) &&
+                    customFieldIsFillable(f?.type) &&
+                    normalizeCustomFieldType(f?.type) !== 'Content',
                 )
               : []),
         productOptions: commerceNew.options?.length ? commerceNew.options : [],

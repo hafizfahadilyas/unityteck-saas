@@ -44,7 +44,14 @@ export interface ProductPartShowcase {
   descriptionEn: string;
   descriptionAr: string;
   image: string;
-  stats?: { labelEn: string; labelAr: string; value: string }[];
+  /** value / valueEn = English; valueAr = Arabic. Never mix locales in one chip. */
+  stats?: {
+    labelEn: string;
+    labelAr: string;
+    value?: string;
+    valueEn?: string;
+    valueAr?: string;
+  }[];
 }
 
 export interface ProductHeroBanner {

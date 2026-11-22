@@ -318,7 +318,7 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
   initialSectionId = null,
   targetThemeId,
 }) => {
-  const { activeStore, storeActiveTheme } = useTenant();
+  const { activeStore, storeActiveTheme, allProducts, currentProducts } = useTenant();
   const { locale, setLocale } = usePrefs();
   const isAr = locale === 'ar';
   const { toast } = useToast();
@@ -332,6 +332,8 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
   const [mobileTab, setMobileTab] = useState<'controls' | 'preview'>('controls');
   const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
   const [previewPage, setPreviewPage] = useState<string>('home');
+  /** Coffee PDP preview SKU — same template, different ?product= */
+  const [previewProductId, setPreviewProductId] = useState<string>('');
   const [isPageDropdownOpen, setIsPageDropdownOpen] = useState(false);
   const [isSaved, setIsSaved] = useState(true);
   /** Mount preview on next frame — chrome paints first, iframe boots without idle delay */
@@ -346,6 +348,26 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
 
   const pageDropdownRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  /** Learn More row → Customize page: open C-PDP for that SKU */
+  useEffect(() => {
+    if (!isOpen || !coffeeStore) return;
+    const onCustomize = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ productId?: string; sectionId?: string }>).detail || {};
+      const pid = String(detail.productId || '').trim();
+      if (pid) setPreviewProductId(pid);
+      setPreviewPage('product-detail');
+      setActiveSectionId(detail.sectionId || 'C-PDP');
+      setPreviewRefreshKey((k) => k + 1);
+      setMobileTab('controls');
+      toast(
+        isAr ? 'تم فتح تخطيط صفحة المنتج لهذا المنتج' : 'Opened product page layout for this product',
+        'info',
+      );
+    };
+    window.addEventListener('unityteck-open-pdp-customize', onCustomize as EventListener);
+    return () => window.removeEventListener('unityteck-open-pdp-customize', onCustomize as EventListener);
+  }, [isOpen, coffeeStore, isAr, toast]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -478,6 +500,15 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
     [activeThemeId, coffeeStore],
   );
 
+  const previewCatalog = useMemo(() => {
+    if (!coffeeStore) return [] as { id: string; name: string; nameAr?: string }[];
+    const rows =
+      (allProducts?.[activeStore?.id || '']?.length
+        ? allProducts[activeStore.id]
+        : currentProducts) || [];
+    return rows.map((p) => ({ id: p.id, name: p.name || p.id, nameAr: p.nameAr }));
+  }, [coffeeStore, allProducts, activeStore?.id, currentProducts]);
+
   // Compute isolated live storefront preview URL
   const previewIframeUrl = useMemo(() => {
     const slug =
@@ -491,10 +522,24 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
     params.set('store', slug);
     if (activeThemeId) params.set('theme', activeThemeId);
     if (previewPage) params.set('page', previewPage);
+    if (
+      coffeeStore &&
+      (previewPage === 'product-detail' || previewPage === 'product' || previewPage === 'product-buy') &&
+      previewProductId
+    ) {
+      params.set('product', previewProductId);
+    }
     params.set('preview', '1');
     params.set('fullscreen', '1');
     return `/?${params.toString()}`;
-  }, [activeStore?.slug, activeStore?.id, activeThemeId, previewPage]);
+  }, [
+    activeStore?.slug,
+    activeStore?.id,
+    activeThemeId,
+    previewPage,
+    previewProductId,
+    coffeeStore,
+  ]);
 
   const activeSection = useMemo(() => {
     return sectionCatalog.find((s) => s.id === activeSectionId) || null;
@@ -1787,6 +1832,43 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
                 </button>
               </div>
 
+              {coffeeStore &&
+              (previewPage === 'product-detail' ||
+                previewPage === 'product' ||
+                previewPage === 'product-buy') ? (
+                <label
+                  className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-300"
+                  data-pdp-preview-switcher
+                  title={
+                    isAr
+                      ? 'بدّل بين كل منتجات المتجر في نفس القالب'
+                      : 'Switch any store product in the same template'
+                  }
+                >
+                  <span className="hidden sm:inline whitespace-nowrap">
+                    {isAr
+                      ? `تبديل المنتج${previewCatalog.length ? ` (${previewCatalog.length})` : ''}`
+                      : `Switch product${previewCatalog.length ? ` (${previewCatalog.length})` : ''}`}
+                  </span>
+                  <select
+                    className="max-w-[160px] sm:max-w-[220px] px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[11px] font-bold"
+                    value={previewProductId}
+                    onChange={(e) => {
+                      setPreviewProductId(e.target.value);
+                      setPreviewRefreshKey((k) => k + 1);
+                    }}
+                    aria-label={isAr ? 'اختر منتجاً للمعاينة' : 'Choose product to preview'}
+                  >
+                    <option value="">{isAr ? 'الافتراضي' : 'Default'}</option>
+                    {previewCatalog.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {isAr ? p.nameAr || p.name : p.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+
               <button
                 type="button"
                 onClick={() => {
@@ -1851,7 +1933,7 @@ export const WordPressThemeCustomizer: React.FC<WordPressThemeCustomizerProps> =
               {previewMounted ? (
                 <iframe
                   ref={iframeRef}
-                  key={`${previewPage}-${activeThemeId}`}
+                  key={`${previewPage}-${activeThemeId}-${previewProductId}-${previewRefreshKey}`}
                   src={`${previewIframeUrl}${previewRefreshKey ? `&_k=${previewRefreshKey}` : ''}`}
                   title={isAr ? 'معاينة المتجر الحية' : 'Live Storefront Sync Preview'}
                   data-storefront-preview="live"

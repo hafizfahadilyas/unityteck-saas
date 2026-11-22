@@ -39,18 +39,23 @@ assert.match(headerForm, /data-menu-panel="products"/);
 assert.match(headerForm, /data-menu-panel="devices"/);
 assert.match(headerForm, /data-menu-device=\{device\}/);
 assert.match(headerForm, /data-nav-controls="mega-source"/);
+assert.match(headerForm, /data-mega-edit="products"/);
+assert.match(headerForm, /data-mega-picker="manual"/);
 assert.match(headerForm, /menuProductSource/);
 assert.match(headerForm, /menuMaxProducts/);
+assert.match(headerForm, /menuProductOverrides/);
 assert.match(headerForm, /deviceLayouts/);
 assert.match(headerForm, /tabletLinks/);
 assert.match(headerForm, /unity-btn-primary/);
 assert.match(headerForm, /var\(--portal-cta\)/);
+assert.match(headerForm, /embedded \? 'navigation'/);
 
 const headerSettings = readFileSync(
   join(root, 'src/themes/settings/headerCustomSettings.ts'),
   'utf8',
 );
 assert.match(headerSettings, /menuProductSource\?:/);
+assert.match(headerSettings, /menuProductOverrides\?:/);
 assert.match(headerSettings, /HeaderMenuDeviceLayout/);
 assert.match(headerSettings, /deviceLayouts\?:/);
 
@@ -60,6 +65,8 @@ const headerSf = readFileSync(
 );
 assert.match(headerSf, /menuMaxProducts/);
 assert.match(headerSf, /menuProductSource/);
+assert.match(headerSf, /menuProductOverrides/);
+assert.match(headerSf, /applyMegaOverride/);
 assert.match(headerSf, /megaMax/);
 
 const inspector = readFileSync(

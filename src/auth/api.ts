@@ -373,15 +373,23 @@ export function restoreDemoAuth(): void {
 }
 
 /**
- * Full local cache wipe for demo: auth, clients, invites, prefs, sessionStorage.
- * Then hard-navigate so browser + Vite drop stale UI.
+ * Full local cache wipe: auth, prefs, Canva drafts/favorites, sessionStorage,
+ * Cache Storage, service workers, Design Studio IndexedDB — then hard reload.
  */
 export function clearAppCache(): void {
   try {
     const keys: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && k.startsWith('unityteck_')) keys.push(k);
+      if (
+        k &&
+        (k.startsWith('unityteck_') ||
+          k.startsWith('unityteck-') ||
+          k.includes('canva') ||
+          k.includes('Canva'))
+      ) {
+        keys.push(k);
+      }
     }
     keys.forEach((k) => localStorage.removeItem(k));
     sessionStorage.clear();
@@ -394,6 +402,38 @@ export function clearAppCache(): void {
     }
   }
   clearAuthSession(true);
+
+  // Drop Cache API + SW so hashed JS/CSS cannot stick
+  try {
+    if (typeof caches !== 'undefined' && caches.keys) {
+      void caches.keys().then((names) => {
+        names.forEach((name) => {
+          void caches.delete(name);
+        });
+      });
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
+    if (typeof navigator !== 'undefined' && navigator.serviceWorker?.getRegistrations) {
+      void navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((reg) => {
+          void reg.unregister();
+        });
+      });
+    }
+  } catch {
+    /* ignore */
+  }
+  // Design Studio My Templates IndexedDB (store-scoped rows stay recreatable)
+  try {
+    if (typeof indexedDB !== 'undefined' && indexedDB.deleteDatabase) {
+      indexedDB.deleteDatabase('unityteck_canva_my_templates');
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
 function readDemoClients(): DemoClient[] {

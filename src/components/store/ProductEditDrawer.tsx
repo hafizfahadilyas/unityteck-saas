@@ -38,6 +38,7 @@ export type ProductEditSectionKey =
   | 'inventory'
   | 'variations'
   | 'customFields'
+  | 'learnMore'
   | 'seo'
   | 'categoryTags';
 
@@ -49,6 +50,7 @@ export const DEFAULT_PRODUCT_EDIT_SECTIONS: Record<ProductEditSectionKey, boolea
   inventory: true,
   variations: true,
   customFields: true,
+  learnMore: true,
   seo: true,
   categoryTags: true,
 };
@@ -64,6 +66,7 @@ export const PRODUCT_EDIT_SECTION_OPTIONS: {
   { id: 'inventory', labelEn: 'Inventory & Shipping', labelAr: 'المخزون والشحن' },
   { id: 'variations', labelEn: 'Product Options & Variations', labelAr: 'خيارات وتنوعات المنتج' },
   { id: 'categoryTags', labelEn: 'Category & Tags', labelAr: 'التصنيف والوسوم' },
+  { id: 'learnMore', labelEn: 'Learn More Page', labelAr: 'صفحة اعرف المزيد' },
   { id: 'customFields', labelEn: 'Custom Fields', labelAr: 'الحقول المخصصة' },
   { id: 'seo', labelEn: 'SEO Settings', labelAr: 'إعدادات تحسين محركات البحث' },
 ];

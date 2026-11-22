@@ -53,7 +53,6 @@ import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
 import { fetchStoreReviews, submitStoreReviewApi } from '../../../api/tenantApi';
 import baristaKitImg from '../assets/images/hibrew_barista_kit_isolated.jpg';
 import scaleImg from '../assets/images/hibrew_scale_isolated.jpg';
-import specInfographicImg from '../assets/images/hibrew_specs_comparison_infographic.png';
 
 type StorefrontReviewRow = {
   id: string;
@@ -121,14 +120,6 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [optionPick, setOptionPick] = useState<Record<string, string>>({});
   const [fieldValues, setFieldValues] = useState<FieldValueMap>({});
-
-  // Comparison banner image directly from product entity (API / Database-backed)
-  const customSpecImg = useMemo(() => {
-    if (language === 'AR' && product?.specComparisonImageAr) {
-      return product.specComparisonImageAr;
-    }
-    return product?.specComparisonImage || specInfographicImg;
-  }, [product?.specComparisonImage, product?.specComparisonImageAr, language]);
 
   // Sync state whenever selectedProduct changes — no fake Default/Standard when empty
   useEffect(() => {
@@ -350,11 +341,19 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
       return product.heroBanner.featuresEn.slice(0, 4);
     }
     if (product.specs && product.specs.length > 0) {
-      return product.specs.slice(0, 4).map(s =>
-        isAr
-          ? `${s.labelAr || s.label}: ${s.valueAr || s.value}`
-          : `${s.label}: ${s.value}`
-      );
+      return product.specs
+        .slice(0, 4)
+        .map((s) => {
+          if (isAr) {
+            const label = (s.labelAr || '').trim();
+            const value = (s.valueAr || '').trim();
+            return [label, value].filter(Boolean).join(': ');
+          }
+          const label = (s.label || '').trim();
+          const value = (s.value || '').trim();
+          return [label, value].filter(Boolean).join(': ');
+        })
+        .filter(Boolean);
     }
     if (isAr && product.taglineAr) {
       return product.taglineAr.split('·').map(t => t.trim()).filter(Boolean).slice(0, 4);
@@ -1689,16 +1688,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
         {/* ========================================================================= */}
         {/* 5. HARDWARE SPECIFICATIONS & DYNAMIC MODEL COMPARISON (Image 1 & Image 2)  */}
         {/* ========================================================================= */}
-        <ProductComparisonSection
-          currentProduct={product}
-          language={language}
-          onNavigateToProduct={(targetId) => {
-            navigateTo('product-buy', targetId);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          customSpecImgUrl={customSpecImg}
-          isAdmin={isAdmin}
-        />
+        <ProductComparisonSection currentProduct={product} language={language} />
 
         {/* ========================================================================= */}
         {/* 6. HONOR-STYLE CUSTOMER REVIEWS (Screenshot 4)                            */}

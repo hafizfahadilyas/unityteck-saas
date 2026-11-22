@@ -265,6 +265,20 @@ export const CoffeeProductCatalogForm: React.FC<CoffeeFormChromeProps> = ({ onBa
                 <Toggle on={draft?.showBuyNow !== false} onChange={(v) => patch({ showBuyNow: v })} label={isAr ? 'إظهار اشترِ الآن' : 'Show Buy Now'} />
                 <Toggle on={draft?.showAddToCart !== false} onChange={(v) => patch({ showAddToCart: v })} label={isAr ? 'إظهار أضف إلى السلة' : 'Show Add to Cart'} />
                 <Toggle on={draft?.showLearnMore !== false} onChange={(v) => patch({ showLearnMore: v })} label={isAr ? 'إظهار اعرف المزيد' : 'Show Learn More'} />
+                <div
+                  className="rounded-xl border px-3 py-2.5 space-y-1.5"
+                  style={{ borderColor: 'var(--border)', background: 'color-mix(in srgb, var(--portal-cta) 6%, var(--surface))' }}
+                  data-learn-more-customize-hint
+                >
+                  <p className="text-[11px] font-bold" style={{ color: 'var(--text)' }}>
+                    {isAr ? 'تخصيص الصفحة = مكان اعرف المزيد' : 'Page customize = Learn More spot'}
+                  </p>
+                  <p className="text-[10px]" style={{ color: 'var(--muted)' }}>
+                    {isAr
+                      ? 'على البطاقة يظهر زر «تخصيص الصفحة» في صف اعرف المزيد. للكل أو لمنتجات محددة افتح تخطيط صفحة المنتج.'
+                      : 'On the card, “Customize page” sits on the Learn More row. For all or specific SKUs open Product Page Layout.'}
+                  </p>
+                </div>
                 <Toggle on={!!draft?.showWishlist} onChange={(v) => patch({ showWishlist: v })} label={isAr ? 'إظهار المفضلة' : 'Show Wishlist'} />
                 <Toggle on={!!draft?.showCompare} onChange={(v) => patch({ showCompare: v })} label={isAr ? 'إظهار المقارنة' : 'Show Compare'} />
                 <Toggle on={!!draft?.showProductDescription} onChange={(v) => patch({ showProductDescription: v })} label={isAr ? 'إظهار وصف المنتج' : 'Show Product Description'} />

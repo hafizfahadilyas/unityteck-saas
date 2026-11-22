@@ -118,11 +118,17 @@
   background: #fff;
 }
 
-/* Page Builder device frames: HiBrew header uses @container — keep desktop nav visible in canvas */
+/*
+ * Page Builder desktop/laptop: HiBrew header uses @container @lg (≥64rem).
+ * Sidebars often shrink the frame below 1024px — min(100%, 64rem) never expands,
+ * so mega stayed display:none. Force 64rem container width + show mega/nav.
+ */
 .builder-device-desktop .hibrew-theme-root.coffee-builder-preview,
-.builder-device-laptop .hibrew-theme-root.coffee-builder-preview {
+.builder-device-laptop .hibrew-theme-root.coffee-builder-preview,
+.builder-device-desktop .hibrew-theme-root.coffee-builder-header,
+.builder-device-laptop .hibrew-theme-root.coffee-builder-header {
   width: 100%;
-  min-width: min(100%, 64rem);
+  min-width: 64rem;
 }
 
 /* Builder canvas: do not clip coffee mega-menu under the next section / frame */
@@ -145,6 +151,19 @@
 .builder-device-desktop [data-customize-section='00_header_builder'][data-mega-open='1'],
 .builder-device-laptop [data-customize-section='00_header_builder'][data-mega-open='1'] {
   z-index: 80;
+}
+
+/* Force desktop mega + center nav even when container query @lg has not fired yet */
+.builder-device-desktop [data-mega-menu-panel='on'],
+.builder-device-laptop [data-mega-menu-panel='on'],
+.builder-device-desktop [data-mega-menu-backdrop='on'],
+.builder-device-laptop [data-mega-menu-backdrop='on'] {
+  display: block !important;
+}
+
+.builder-device-desktop [data-main-menu='on'],
+.builder-device-laptop [data-main-menu='on'] {
+  display: flex !important;
 }
 
 .builder-device-tablet .hibrew-theme-root.coffee-builder-preview {

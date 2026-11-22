@@ -21,9 +21,9 @@ assert.equal(
   resolveCustomMadeWhatsAppHref({
     whatsappNumber: '966511122233',
     language: 'AR',
-    label: 'تفصيل حسب الطلب · تصميم وتنفيذ',
+    label: 'تفصيل حسب الطلب',
   }),
-  `https://wa.me/966511122233?text=${encodeURIComponent('السلام عليكم، أود الاستفسار عن تفصيل حسب الطلب · تصميم وتنفيذ')}`,
+  `https://wa.me/966511122233?text=${encodeURIComponent('السلام عليكم، أود الاستفسار عن تفصيل حسب الطلب')}`,
 );
 
 // No fake fallback when store has no WhatsApp

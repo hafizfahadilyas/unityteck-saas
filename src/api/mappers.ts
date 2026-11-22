@@ -18,6 +18,7 @@ import type {
 import { fromApiPricing } from '../utils/productPricing';
 import { isolateStoreProductImage } from '../utils/storeImageIsolation';
 import { resolveStoreLogoSrc } from '../utils/storeLogo';
+import { comparisonBannerUrlFromFields } from '../utils/coffeeLearnMoreFields';
 
 /** Loose API row shapes (snake_case from Laravel). */
 export type ApiStoreRow = Record<string, unknown>;
@@ -315,6 +316,17 @@ export function mapProduct(row: ApiProductRow): Product {
   const safeGallery = asStringArray(row.gallery_urls)
     .map((g) => isolateStoreProductImage(storeId, g, { fallback: false }))
     .filter(Boolean);
+  const customFields = mapCustomFields(row.custom_fields ?? row.customFields);
+  const bannerFromFields = comparisonBannerUrlFromFields(customFields);
+  const specComparisonImage =
+    (row.spec_comparison_image ? str(row.spec_comparison_image) : '') ||
+    (row.specComparisonImage ? str(row.specComparisonImage) : '') ||
+    bannerFromFields ||
+    undefined;
+  const specComparisonImageAr =
+    (row.spec_comparison_image_ar ? str(row.spec_comparison_image_ar) : '') ||
+    (row.specComparisonImageAr ? str(row.specComparisonImageAr) : '') ||
+    undefined;
 
   return {
     id: str(row.id),
@@ -372,12 +384,10 @@ export function mapProduct(row: ApiProductRow): Product {
         : str(row.seo_description),
     seoKeywords:
       row.seo_keywords == null || row.seo_keywords === '' ? null : str(row.seo_keywords),
-    specComparisonImage:
-      row.spec_comparison_image ? str(row.spec_comparison_image) : (row.specComparisonImage ? str(row.specComparisonImage) : undefined),
-    specComparisonImageAr:
-      row.spec_comparison_image_ar ? str(row.spec_comparison_image_ar) : (row.specComparisonImageAr ? str(row.specComparisonImageAr) : undefined),
+    specComparisonImage: specComparisonImage || undefined,
+    specComparisonImageAr: specComparisonImageAr || undefined,
     productOptions: mapProductOptions(row.product_options ?? row.productOptions),
-    customFields: mapCustomFields(row.custom_fields ?? row.customFields),
+    customFields,
     conditionalRules: mapConditionalRules(row.conditional_rules ?? row.conditionalRules),
     variations: mapVariationRows(row.variations),
     brand: row.brand == null || row.brand === '' ? undefined : str(row.brand),

@@ -296,17 +296,23 @@ const COFFEE_STORE_PRODUCTS_RAW: Product[] = [
           {
             "labelEn": "Pump Pressure",
             "labelAr": "قوة الضغط",
-            "value": "20-Bar ULKA"
+            "value": "20-Bar ULKA",
+            "valueEn": "20-Bar ULKA",
+            "valueAr": "مضخة ٢٠ بار ULKA"
           },
           {
             "labelEn": "Heating Units",
             "labelAr": "وحدات التسخين",
-            "value": "Dual PID"
+            "value": "Dual PID",
+            "valueEn": "Dual PID",
+            "valueAr": "دبل PID"
           },
           {
             "labelEn": "Temp Stability",
             "labelAr": "ثبات الحرارة",
-            "value": "±0.5°C"
+            "value": "±0.5°C",
+            "valueEn": "±0.5°C",
+            "valueAr": "±٠٫٥°م"
           }
         ]
       },
@@ -323,17 +329,23 @@ const COFFEE_STORE_PRODUCTS_RAW: Product[] = [
           {
             "labelEn": "Portafilter Size",
             "labelAr": "مقاس البورتافلتر",
-            "value": "58.4mm"
+            "value": "58.4mm",
+            "valueEn": "58.4mm",
+            "valueAr": "٥٨٫٤ مم"
           },
           {
             "labelEn": "Pre-Infusion",
             "labelAr": "الترطيب المسبق",
-            "value": "1-10s"
+            "value": "1-10s",
+            "valueEn": "1-10s",
+            "valueAr": "١–١٠ ث"
           },
           {
             "labelEn": "Crema Texture",
             "labelAr": "قوام الكريمة",
-            "value": "Dense Microfoam"
+            "value": "Dense Microfoam",
+            "valueEn": "Dense Microfoam",
+            "valueAr": "رغوة كثيفة"
           }
         ]
       },
@@ -350,17 +362,23 @@ const COFFEE_STORE_PRODUCTS_RAW: Product[] = [
           {
             "labelEn": "Optimal Zone",
             "labelAr": "المنطقة الذهبية",
-            "value": "9 – 12 Bar"
+            "value": "9 – 12 Bar",
+            "valueEn": "9 – 12 Bar",
+            "valueAr": "٩ – ١٢ بار"
           },
           {
             "labelEn": "Max Pressure",
             "labelAr": "الضغط الأقصى",
-            "value": "20 Bar"
+            "value": "20 Bar",
+            "valueEn": "20 Bar",
+            "valueAr": "٢٠ بار"
           },
           {
             "labelEn": "Gauge Material",
             "labelAr": "خامة المؤشر",
-            "value": "Polished Brass"
+            "value": "Polished Brass",
+            "valueEn": "Polished Brass",
+            "valueAr": "نحاس مصقول"
           }
         ]
       },
@@ -377,17 +395,23 @@ const COFFEE_STORE_PRODUCTS_RAW: Product[] = [
           {
             "labelEn": "Steam Nozzle",
             "labelAr": "فتحات التبخير",
-            "value": "3-Hole Precision"
+            "value": "3-Hole Precision",
+            "valueEn": "3-Hole Precision",
+            "valueAr": "٣ فتحات دقيقة"
           },
           {
             "labelEn": "Steam Temp",
             "labelAr": "حرارة البخار",
-            "value": "135°C Dry"
+            "value": "135°C Dry",
+            "valueEn": "135°C Dry",
+            "valueAr": "١٣٥°م جاف"
           },
           {
             "labelEn": "Handle Grip",
             "labelAr": "مقبض الأمان",
-            "value": "Cool-Touch Silicon"
+            "value": "Cool-Touch Silicon",
+            "valueEn": "Cool-Touch Silicon",
+            "valueAr": "سيليكون عازل للحرارة"
           }
         ]
       },
@@ -404,17 +428,23 @@ const COFFEE_STORE_PRODUCTS_RAW: Product[] = [
           {
             "labelEn": "Agency Warranty",
             "labelAr": "ضمان الوكيل",
-            "value": "2 Years Full"
+            "value": "2 Years Full",
+            "valueEn": "2 Years Full",
+            "valueAr": "سنتان كاملتان"
           },
           {
             "labelEn": "Water Tank",
             "labelAr": "سعة الخزان",
-            "value": "2.5L BPA-Free"
+            "value": "2.5L BPA-Free",
+            "valueEn": "2.5L BPA-Free",
+            "valueAr": "٢٫٥ لتر خالٍ من BPA"
           },
           {
             "labelEn": "Chassis Material",
             "labelAr": "خامة الهيكل",
-            "value": "304 Solid Steel"
+            "value": "304 Solid Steel",
+            "valueEn": "304 Solid Steel",
+            "valueAr": "فولاذ ٣٠٤ متين"
           }
         ]
       }

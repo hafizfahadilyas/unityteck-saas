@@ -70,6 +70,11 @@ import {
   SendToBack,
   ArrowUp,
   ArrowDown,
+  ChevronUp,
+  CopyPlus,
+  Group,
+  Ungroup,
+  FilePlus2,
   PanelLeft,
   Settings,
   FileJson,
@@ -78,6 +83,7 @@ import {
   Play,
   Pause,
   SkipBack,
+  Archive,
 } from 'lucide-react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
@@ -90,6 +96,7 @@ import {
 } from '../../services/ksaAutomationEngine';
 import {
   CANVA_FONT_FAMILIES,
+  getCanvaTemplate,
   getDefaultBlankTemplate,
   resolveCanvaLayerLabel,
   type CanvaDesignTemplate,
@@ -119,6 +126,13 @@ import {
 } from '../../services/canvaTimeline';
 import { exportAnimatedGif, exportMotionVideo } from '../../services/canvaMotionExport';
 import { downscaleDataUrlToPng } from '../../services/canvaStudioPreview';
+import { snapElementCenter, type SnapGuide } from '../../services/canvaSnapGuides';
+import {
+  MAGIC_RESIZE_PRESETS,
+  magicResizeLayers,
+  deriveBrandPalette,
+} from '../../services/canvaMagicResize';
+import JSZip from 'jszip';
 import {
   deleteMyCanvaTemplate,
   listMyCanvaTemplates,
@@ -134,6 +148,14 @@ import {
   loadCanvaStudioDraft,
   saveCanvaStudioDraft,
 } from '../../services/canvaStudioDraft';
+import {
+  defaultPageName,
+  insertAfterIndex,
+  moveListItem,
+  newStudioPageId,
+  remapLayerIds,
+  type CanvaStudioPageJson,
+} from '../../services/canvaStudioPages';
 import { saveStudioDesign, type StudioEditorType } from '../../services/storeStudioDesigns';
 import { isApiEnabled } from '../../api/client';
 import {
@@ -172,6 +194,14 @@ export type CanvaSavePayload = {
   source?: 'psd' | 'image' | 'pptx' | 'studio' | 'master';
 };
 
+/** Launch Design Studio editor from Canva home (template / blank / saved). */
+export type CanvaHomeLaunch = {
+  key: string;
+  premadeId?: string;
+  myTemplate?: CanvaMyTemplate;
+  blank?: { width: number; height: number; blankId?: string; label?: string };
+};
+
 export interface CanvaImageStudioModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -181,6 +211,8 @@ export interface CanvaImageStudioModalProps {
   editorKind?: CanvaEditorKind;
   lockCategory?: boolean;
   initialAsset?: MediaAsset | null;
+  /** From Canva home — open editor on this template / blank (skips stale draft). */
+  homeLaunch?: CanvaHomeLaunch | null;
   onSaveNewAsset: (dataUrl: string, title: string, width: number, height: number) => void;
   onReplaceAsset?: (assetId: string, dataUrl: string, width: number, height: number) => void;
   onOpenSocialHub?: () => void;
@@ -225,12 +257,23 @@ export interface CanvasElement {
   icon?: string;
   fontFamily?: string;
   // Shape & decorative styling
-  shapeType?: 'circle' | 'rectangle' | 'triangle' | 'star' | 'badge' | 'dot_grid' | 'wave_curve' | 'line';
+  shapeType?:
+    | 'circle'
+    | 'rectangle'
+    | 'triangle'
+    | 'star'
+    | 'badge'
+    | 'dot_grid'
+    | 'wave_curve'
+    | 'line'
+    | 'arrow';
   strokeColor?: string;
   strokeWidth?: number;
   opacity?: number;
   imageUrl?: string;
   locked?: boolean;
+  /** Shared id when layers are grouped (Canva Group) */
+  groupId?: string;
   /** Text / image drop shadow (on design, not UI chrome) */
   shadowEnabled?: boolean;
   shadowColor?: string;
@@ -264,6 +307,28 @@ export interface CanvasElement {
   animEase?: CanvaAnimEase;
 }
 
+/** One Canva-style design page (content + lock / hide meta). */
+type StudioPageLocal = {
+  id: string;
+  name: string;
+  locked: boolean;
+  hidden: boolean;
+  backdrop: string;
+  customSolidColor: string;
+  productPos: { x: number; y: number; scale: number };
+  flipH: boolean;
+  flipV: boolean;
+  bgRemoved: boolean;
+  bgTolerance: number;
+  filters: {
+    brightness: number;
+    contrast: number;
+    saturation: number;
+    blur: number;
+  };
+  elements: CanvasElement[];
+};
+
 // History snapshot for Undo / Redo
 interface StudioHistorySnapshot {
   elements: CanvasElement[];
@@ -277,6 +342,30 @@ interface StudioHistorySnapshot {
     contrast: number;
     saturation: number;
     blur: number;
+  };
+  pages: StudioPageLocal[];
+  activePageId: string;
+}
+
+function makeBlankStudioPage(
+  index: number,
+  isAr: boolean,
+  opts?: Partial<StudioPageLocal>,
+): StudioPageLocal {
+  return {
+    id: opts?.id || newStudioPageId(),
+    name: opts?.name || defaultPageName(index, isAr),
+    locked: false,
+    hidden: false,
+    backdrop: opts?.backdrop ?? 'soft-ivory',
+    customSolidColor: opts?.customSolidColor ?? '#faf8f5',
+    productPos: opts?.productPos ?? { x: 540, y: 540, scale: 0 },
+    flipH: false,
+    flipV: false,
+    bgRemoved: false,
+    bgTolerance: 38,
+    filters: opts?.filters ?? { brightness: 100, contrast: 100, saturation: 100, blur: 0 },
+    elements: opts?.elements ? JSON.parse(JSON.stringify(opts.elements)) : [],
   };
 }
 
@@ -420,6 +509,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
   editorKind,
   lockCategory = false,
   initialAsset = null,
+  homeLaunch = null,
   onSaveNewAsset,
   onReplaceAsset,
   onOpenSocialHub,
@@ -434,6 +524,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasFrameRef = useRef<HTMLDivElement | null>(null);
+  /** Canva vertical page stack — scroll active page into view */
+  const pageBlockRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const imageCacheRef = useRef<Record<string, HTMLImageElement>>({});
   const layoutCacheRef = useRef<Record<string, StudioRect>>({});
@@ -450,6 +542,23 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
   );
   const [autoSaveAt, setAutoSaveAt] = useState<string | null>(null);
   const bootKeyRef = useRef<string | null>(null);
+  const applyImportedDesignRef = useRef<
+    | ((
+        design: ImportedStudioDesign,
+        opts?: { templateId?: string; keepCategory?: boolean },
+      ) => void)
+    | null
+  >(null);
+  const pendingHomeMineRef = useRef<{
+    width: number;
+    height: number;
+    name: string;
+    source: 'psd' | 'image' | 'pptx';
+    layers: ImportedStudioLayer[];
+    previewDataUrl?: string;
+    categoryHint?: CanvaTemplateCategory;
+    templateId: string;
+  } | null>(null);
   const skipAutosaveRef = useRef(true);
   const applyProjectJsonRef = useRef<(
     project: ReturnType<typeof parseCanvaDesignProject>,
@@ -464,6 +573,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
   // Active Tool Tab
   const [activeTab, setActiveTab] = useState<
+    | 'create'
     | 'templates'
     | 'elements'
     | 'text'
@@ -475,7 +585,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     | 'settings'
     | 'timeline'
     | 'bg_remove'
-  >('templates');
+  >('create');
   /** Canva Position panel: Arrange vs Layers */
   const [layersSubTab, setLayersSubTab] = useState<'arrange' | 'layers'>('layers');
   /** Canva Layers filter: All vs Overlapping */
@@ -522,7 +632,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
   // 1-Click AI Background Removal
   const [bgRemoved, setBgRemoved] = useState(false);
-  const [bgTolerance, setBgTolerance] = useState(38);
+  const [bgTolerance, setBgTolerance] = useState(42);
   const [isProcessingAi, setIsProcessingAi] = useState(false);
 
   // Filters & Adjustments
@@ -533,6 +643,11 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
   // Interactive Elements List
   const [elements, setElements] = useState<CanvasElement[]>([]);
+  /** Canva multi-page — active page content is mirrored in `elements` */
+  const [studioPages, setStudioPages] = useState<StudioPageLocal[]>(() => [
+    makeBlankStudioPage(0, false, { id: 'page-1', name: 'Page 1' }),
+  ]);
+  const [activePageId, setActivePageId] = useState('page-1');
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   /** Multi-select (Shift+click) — drag moves all selected layers together */
   const [selectedElementIds, setSelectedElementIds] = useState<string[]>([]);
@@ -548,6 +663,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
   const [iconSearch, setIconSearch] = useState('');
   const customIconInputRef = useRef<HTMLInputElement | null>(null);
   const multiDragOriginsRef = useRef<Record<string, { x: number; y: number }> | null>(null);
+  /** Temporary alignment guides while dragging */
+  const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
   const [isDraggingElement, setIsDraggingElement] = useState(false);
   const [isDraggingProduct, setIsDraggingProduct] = useState(false);
   const [productHeroSelected, setProductHeroSelected] = useState(false);
@@ -564,7 +681,46 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     canvasHoverCursorRef.current = next;
     setCanvasHoverCursor(next);
   };
-  const [viewZoom, setViewZoom] = useState(1);
+  /** Comfortable default — tall Story (9:16) fits without looking like a square */
+  const DEFAULT_VIEW_ZOOM = 0.6;
+  const [viewZoom, setViewZoom] = useState(DEFAULT_VIEW_ZOOM);
+
+  const canvasFrameBoxStyle = (w: number, h: number): React.CSSProperties => {
+    const pageMode = variant === 'page';
+    const portrait = h > w * 1.05;
+    const landscape = w > h * 1.2;
+    const maxH = pageMode ? 'min(72vh, 760px)' : 'min(60vh, 580px)';
+    if (portrait) {
+      return {
+        aspectRatio: `${w} / ${h}`,
+        height: maxH,
+        width: 'auto',
+        maxWidth: 'min(92%, 400px)',
+        maxHeight: maxH,
+        transform: `scale(${viewZoom})`,
+        transformOrigin: 'center top',
+      };
+    }
+    if (landscape) {
+      return {
+        aspectRatio: `${w} / ${h}`,
+        width: '100%',
+        maxWidth: 'min(100%, 920px)',
+        maxHeight: maxH,
+        height: 'auto',
+        transform: `scale(${viewZoom})`,
+        transformOrigin: 'center center',
+      };
+    }
+    return {
+      aspectRatio: '1 / 1',
+      width: 'min(100%, 520px)',
+      maxHeight: maxH,
+      height: 'auto',
+      transform: `scale(${viewZoom})`,
+      transformOrigin: 'center center',
+    };
+  };
   const [layoutEpoch, setLayoutEpoch] = useState(0);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [initialResizeState, setInitialResizeState] = useState<{
@@ -703,7 +859,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       editorKind: editorKind || null,
       assetId,
     });
-    const bootKey = `${storeId}::${scope}`;
+    const launchKey = homeLaunch?.key || 'default';
+    const bootKey = `${storeId}::${scope}::${launchKey}`;
     if (bootKeyRef.current === bootKey) return;
     bootKeyRef.current = bootKey;
     skipAutosaveRef.current = true;
@@ -720,7 +877,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       : '';
 
     // Restore local draft (template / layers) before blank bootstrap — fixes refresh data loss
-    if (!initialAsset && storeId) {
+    // Skip when launching from Canva home (explicit template / blank / saved design)
+    if (!initialAsset && !homeLaunch && storeId) {
       const draft = loadCanvaStudioDraft(storeId, scope);
       if (draftHasWork(draft) && draft) {
         applyProjectJsonRef.current(draft.project, {
@@ -732,6 +890,49 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
         skipAutosaveRef.current = false;
         return;
       }
+    }
+
+    // Saved design from home → layers via applyProject path after import helper is ready
+    if (!initialAsset && homeLaunch?.myTemplate) {
+      const tpl = homeLaunch.myTemplate;
+      const payload = myTemplateToDesignPayload(tpl);
+      pendingHomeMineRef.current = {
+        width: payload.width,
+        height: payload.height,
+        name: isAr ? tpl.nameAr || tpl.nameEn : tpl.nameEn,
+        source:
+          tpl.source === 'psd' ? 'psd' : tpl.source === 'pptx' ? 'pptx' : 'image',
+        layers: payload.layers,
+        previewDataUrl: payload.previewDataUrl,
+        categoryHint: tpl.category,
+        templateId: tpl.id,
+      };
+      // Minimal blank canvas until microtask applies layers
+      setCanvasW(payload.width);
+      setCanvasH(payload.height);
+      setElements([]);
+      setSelectedTemplateId(tpl.id);
+      setDocTitle(isAr ? tpl.nameAr || tpl.nameEn : tpl.nameEn);
+      setUploadCategory(tpl.category);
+      skipAutosaveRef.current = false;
+      void Promise.resolve().then(() => {
+        const pending = pendingHomeMineRef.current;
+        if (!pending) return;
+        pendingHomeMineRef.current = null;
+        applyImportedDesignRef.current?.(
+          {
+            width: pending.width,
+            height: pending.height,
+            name: pending.name,
+            source: pending.source,
+            layers: pending.layers,
+            previewDataUrl: pending.previewDataUrl,
+            categoryHint: pending.categoryHint,
+          },
+          { templateId: pending.templateId, keepCategory: true },
+        );
+      });
+      return;
     }
 
     // Media image / PNG → open as editable layer design
@@ -776,7 +977,16 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
         setDocTitle(name);
         setActiveTab('layers');
         setLayersSubTab('layers');
-        setViewZoom(1);
+        setViewZoom(DEFAULT_VIEW_ZOOM);
+
+        const bootPage = makeBlankStudioPage(0, isAr, {
+          backdrop: 'transparent',
+          customSolidColor: '#ffffff',
+          productPos: { x: Math.round(w / 2), y: Math.round(h / 2), scale: 0 },
+          elements: [layer],
+        });
+        setStudioPages([bootPage]);
+        setActivePageId(bootPage.id);
 
         const probe = new Image();
         probe.crossOrigin = 'anonymous';
@@ -796,6 +1006,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
             bgRemoved: false,
             bgTolerance: 38,
             filters: { brightness: 100, contrast: 100, saturation: 100, blur: 0 },
+            pages: [bootPage],
+            activePageId: bootPage.id,
           },
         ]);
         historyIndexRef.current = 0;
@@ -827,7 +1039,27 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     const fallbackUrl = currentProducts[0]?.image || activeStore.logo || '';
     loadStudioImage(fallbackUrl);
 
-    const starter = getDefaultBlankTemplate('square');
+    let starter = getDefaultBlankTemplate('square');
+    if (homeLaunch?.premadeId) {
+      starter = getCanvaTemplate(homeLaunch.premadeId) || starter;
+    } else if (homeLaunch?.blank) {
+      const blankTpl =
+        (homeLaunch.blank.blankId && getCanvaTemplate(homeLaunch.blank.blankId)) ||
+        getDefaultBlankTemplate(
+          homeLaunch.blank.height > homeLaunch.blank.width * 1.2
+            ? 'story'
+            : homeLaunch.blank.width > homeLaunch.blank.height * 1.2
+              ? 'banner'
+              : 'square',
+        );
+      starter = {
+        ...blankTpl,
+        width: homeLaunch.blank.width,
+        height: homeLaunch.blank.height,
+        nameEn: homeLaunch.blank.label || blankTpl.nameEn,
+        nameAr: homeLaunch.blank.label || blankTpl.nameAr,
+      };
+    }
 
     const mapped: CanvasElement[] = starter.elements.map((layer, idx) => ({
       id: `el-${Date.now()}-${idx}`,
@@ -876,6 +1108,15 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
           : starter.nameEn,
     );
 
+    const bootPage = makeBlankStudioPage(0, isAr, {
+      backdrop: starter.backdropId || 'soft-ivory',
+      customSolidColor: starter.customSolidColor || '#faf8f5',
+      productPos: { x: px, y: py, scale: 0 },
+      elements: mapped,
+    });
+    setStudioPages([bootPage]);
+    setActivePageId(bootPage.id);
+
     setHistory([
       {
         elements: mapped,
@@ -885,6 +1126,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
         bgRemoved: false,
         bgTolerance: 38,
         filters: { brightness: 100, contrast: 100, saturation: 100, blur: 0 },
+        pages: [bootPage],
+        activePageId: bootPage.id,
       },
     ]);
     historyIndexRef.current = 0;
@@ -892,11 +1135,77 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     skipAutosaveRef.current = false;
     // intentionally omit resolveCandidateUrl / currentProducts — product soft-refresh must not wipe canvas
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, initialAsset?.id, activeStore?.id, editorKind, masterMode]);
+  }, [isOpen, initialAsset?.id, activeStore?.id, editorKind, masterMode, homeLaunch?.key]);
+
+  const activePageMeta = studioPages.find((p) => p.id === activePageId) || studioPages[0];
+  const activePageLocked = Boolean(activePageMeta?.locked);
+  const activePageHidden = Boolean(activePageMeta?.hidden);
+
+  const flushPagesFromEditor = useCallback(
+    (overrideElements?: CanvasElement[]): StudioPageLocal[] => {
+      const els = overrideElements ?? elements;
+      return studioPages.map((page) => {
+        if (page.id !== activePageId) return page;
+        return {
+          ...page,
+          backdrop: selectedBackdrop,
+          customSolidColor,
+          productPos: { x: productPosX, y: productPosY, scale: productScale },
+          flipH,
+          flipV,
+          bgRemoved,
+          bgTolerance,
+          filters: { brightness, contrast, saturation, blur: blurAmount },
+          elements: JSON.parse(JSON.stringify(els)) as CanvasElement[],
+        };
+      });
+    },
+    [
+      studioPages,
+      activePageId,
+      elements,
+      selectedBackdrop,
+      customSolidColor,
+      productPosX,
+      productPosY,
+      productScale,
+      flipH,
+      flipV,
+      bgRemoved,
+      bgTolerance,
+      brightness,
+      contrast,
+      saturation,
+      blurAmount,
+    ],
+  );
+
+  const hydrateEditorFromPage = useCallback((page: StudioPageLocal) => {
+    setActivePageId(page.id);
+    setSelectedBackdrop(page.backdrop);
+    setCustomSolidColor(page.customSolidColor);
+    setProductPosX(page.productPos.x);
+    setProductPosY(page.productPos.y);
+    setProductScale(page.productPos.scale);
+    setFlipH(Boolean(page.flipH));
+    setFlipV(Boolean(page.flipV));
+    setBgRemoved(Boolean(page.bgRemoved));
+    setBgTolerance(page.bgTolerance ?? 38);
+    setBrightness(page.filters.brightness);
+    setContrast(page.filters.contrast);
+    setSaturation(page.filters.saturation);
+    setBlurAmount(page.filters.blur);
+    setElements(JSON.parse(JSON.stringify(page.elements)) as CanvasElement[]);
+    setSelectedElementId(null);
+    setSelectedElementIds([]);
+    setProductHeroSelected(false);
+    setCtxMenu(null);
+  }, []);
 
   // Snapshot State for Undo / Redo
   const pushHistorySnapshot = useCallback(
     (overrideElements?: CanvasElement[]) => {
+      const pagesSnap = flushPagesFromEditor(overrideElements);
       const snap: StudioHistorySnapshot = {
         elements: JSON.parse(JSON.stringify(overrideElements ?? elements)),
         productPos: { x: productPosX, y: productPosY, scale: productScale },
@@ -905,7 +1214,10 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
         bgRemoved,
         bgTolerance,
         filters: { brightness, contrast, saturation, blur: blurAmount },
+        pages: JSON.parse(JSON.stringify(pagesSnap)),
+        activePageId,
       };
+      setStudioPages(pagesSnap);
       setSavedToMediaLibrary(false);
       setHistory((prev) => {
         const idx = historyIndexRef.current;
@@ -916,6 +1228,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       });
     },
     [
+      flushPagesFromEditor,
       elements,
       productPosX,
       productPosY,
@@ -928,10 +1241,15 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       contrast,
       saturation,
       blurAmount,
+      activePageId,
     ],
   );
 
   const applyHistorySnap = useCallback((snap: StudioHistorySnapshot) => {
+    if (snap.pages?.length) {
+      setStudioPages(JSON.parse(JSON.stringify(snap.pages)));
+      setActivePageId(snap.activePageId || snap.pages[0].id);
+    }
     setElements(JSON.parse(JSON.stringify(snap.elements)));
     setProductPosX(snap.productPos.x);
     setProductPosY(snap.productPos.y);
@@ -1203,18 +1521,31 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
               ctx.fill();
             }
           }
-        } else if (el.shapeType === 'line') {
+        } else if (el.shapeType === 'line' || el.shapeType === 'arrow') {
+          const stroke = el.strokeColor || el.bgColor || '#0f172a';
+          const lw = el.strokeWidth || 3;
           ctx.beginPath();
           ctx.moveTo(el.x - w / 2, el.y);
-          ctx.lineTo(el.x + w / 2, el.y);
-          ctx.strokeStyle = el.strokeColor || el.bgColor || '#0f172a';
-          ctx.lineWidth = el.strokeWidth || 3;
+          ctx.lineTo(el.x + w / 2 - (el.shapeType === 'arrow' ? Math.min(18, w * 0.12) : 0), el.y);
+          ctx.strokeStyle = stroke;
+          ctx.lineWidth = lw;
+          ctx.lineCap = 'round';
           ctx.stroke();
+          if (el.shapeType === 'arrow') {
+            const head = Math.min(22, Math.max(12, w * 0.14));
+            ctx.beginPath();
+            ctx.moveTo(el.x + w / 2, el.y);
+            ctx.lineTo(el.x + w / 2 - head, el.y - head * 0.55);
+            ctx.lineTo(el.x + w / 2 - head, el.y + head * 0.55);
+            ctx.closePath();
+            ctx.fillStyle = stroke;
+            ctx.fill();
+          }
           layoutCacheRef.current[el.id] = {
             x: el.x - w / 2,
-            y: el.y - (el.strokeWidth || 3) - 6,
+            y: el.y - Math.max(lw, 12) - 6,
             w,
-            h: (el.strokeWidth || 3) * 2 + 12,
+            h: Math.max(lw, 12) * 2 + 12,
           };
         } else {
           // Rounded Rectangle
@@ -1654,8 +1985,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       toast(
         nextOn
           ? isAr
-            ? 'تمت إزالة خلفية الطبقة المحددة.'
-            : 'Selected layer background removed.'
+            ? 'تم عزل خلفية الطبقة محلياً (قطع لوني).'
+            : 'Layer background isolated locally (chroma cutout).'
           : isAr
             ? 'أُعيدت خلفية الطبقة.'
             : 'Layer background restored.',
@@ -1673,8 +2004,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     toast(
       next
         ? isAr
-          ? 'تمت إزالة خلفية صورة المنتج على اللوحة.'
-          : 'Product image background removed on canvas.'
+          ? 'تم عزل خلفية صورة المنتج محلياً — ليس ذكاء اصطناعي.'
+          : 'Product background isolated locally — not AI.'
         : isAr
           ? 'أُعيدت خلفية صورة المنتج.'
           : 'Product image background restored.',
@@ -1721,6 +2052,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     setLastImported(null); // clear prior PNG/PSD so old layers never bleed into premade
     setCanvasW(template.width);
     setCanvasH(template.height);
+    setViewZoom(DEFAULT_VIEW_ZOOM);
     setSelectedBackdrop(template.backdropId);
     if (template.customSolidColor) {
       setCustomSolidColor(template.customSolidColor);
@@ -1785,6 +2117,18 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       })
       .filter((el): el is CanvasElement => el != null);
 
+    const page = makeBlankStudioPage(0, isAr, {
+      backdrop: template.backdropId,
+      customSolidColor: template.customSolidColor || customSolidColor,
+      productPos: {
+        x: Math.round(template.productPosPct.x * template.width),
+        y: Math.round(template.productPosPct.y * template.height),
+        scale: template.productPosPct.scale,
+      },
+      elements: mapped,
+    });
+    setStudioPages([page]);
+    setActivePageId(page.id);
     setElements(mapped);
     setSelectedElementId(mapped[0]?.id || null);
     setProductHeroSelected(false);
@@ -1873,6 +2217,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
   ) => {
     setCanvasW(design.width);
     setCanvasH(design.height);
+    setViewZoom(DEFAULT_VIEW_ZOOM);
     setSelectedBackdrop('custom');
     setCustomSolidColor('#ffffff');
     setProductScale(0);
@@ -1880,6 +2225,18 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     setProductPosY(Math.round(design.height / 2));
 
     const mapped = mapImportedLayers(design.layers);
+    const page = makeBlankStudioPage(0, isAr, {
+      backdrop: 'custom',
+      customSolidColor: '#ffffff',
+      productPos: {
+        x: Math.round(design.width / 2),
+        y: Math.round(design.height / 2),
+        scale: 0,
+      },
+      elements: mapped,
+    });
+    setStudioPages([page]);
+    setActivePageId(page.id);
     setElements(mapped);
     setSelectedElementId(mapped[0]?.id || null);
     setDocTitle(design.name);
@@ -1903,6 +2260,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       'success',
     );
   };
+  applyImportedDesignRef.current = applyImportedDesign;
 
   const refreshMyTemplates = useCallback(async () => {
     if (!activeStore?.id) {
@@ -1977,6 +2335,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
             backdrop: selectedBackdrop,
             customSolidColor,
             filters: { brightness, contrast, saturation, blur: blurAmount },
+            pages: pagesToProjectJson(flushPagesFromEditor()),
+            activePageId,
           },
           source: 'studio',
         });
@@ -2009,7 +2369,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
   const handleAddShape = (shapeType: CanvasElement['shapeType']) => {
     const isWave = shapeType === 'wave_curve';
     const isDots = shapeType === 'dot_grid';
-    const isLine = shapeType === 'line';
+    const isLine = shapeType === 'line' || shapeType === 'arrow';
     const newShape: CanvasElement = {
       id: `shape-${Date.now()}`,
       type: 'shape',
@@ -2139,6 +2499,10 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
   // Delete Selected Element(s) — supports multi-select
   const handleDeleteSelected = () => {
+    if (activePageLocked) {
+      toast(isAr ? 'الصفحة مقفلة' : 'Page is locked', 'info');
+      return;
+    }
     const ids = selectedElementIds.length
       ? selectedElementIds
       : selectedElementId
@@ -2286,6 +2650,10 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
   // Duplicate Selected Element(s) — same as Canva Ctrl+D
   const handleDuplicateSelected = () => {
+    if (activePageLocked) {
+      toast(isAr ? 'الصفحة مقفلة' : 'Page is locked', 'info');
+      return;
+    }
     const targets = getSelectedElements();
     if (!targets.length) return;
     elementClipboardRef.current = targets.map((t) => ({ ...t }));
@@ -2294,6 +2662,10 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
   };
 
   const handleToggleLockSelected = () => {
+    if (activePageLocked) {
+      toast(isAr ? 'الصفحة مقفلة' : 'Page is locked', 'info');
+      return;
+    }
     const targets = getSelectedElements();
     if (!targets.length) return;
     const lockNext = !targets.every((t) => t.locked);
@@ -2306,6 +2678,294 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       return next;
     });
   };
+
+  const pushPageHistory = (pagesNext: StudioPageLocal[], nextActiveId: string) => {
+    const active = pagesNext.find((p) => p.id === nextActiveId) || pagesNext[0];
+    if (!active) return;
+    const snap: StudioHistorySnapshot = {
+      elements: JSON.parse(JSON.stringify(active.elements)),
+      productPos: { ...active.productPos },
+      selectedBackdrop: active.backdrop,
+      customSolidColor: active.customSolidColor,
+      bgRemoved: active.bgRemoved,
+      bgTolerance: active.bgTolerance,
+      filters: { ...active.filters },
+      pages: JSON.parse(JSON.stringify(pagesNext)),
+      activePageId: active.id,
+    };
+    setSavedToMediaLibrary(false);
+    setHistory((prev) => {
+      const idx = historyIndexRef.current;
+      const next = [...prev.slice(0, idx + 1), snap].slice(-40);
+      historyIndexRef.current = next.length - 1;
+      setHistoryIndex(next.length - 1);
+      return next;
+    });
+  };
+
+  /** Canva: blank page inserted below the given (or active) page */
+  const handleAddBlankPage = (afterPageId?: string) => {
+    const flushed = flushPagesFromEditor();
+    const afterId = afterPageId || activePageId;
+    const afterIdx = Math.max(
+      0,
+      flushed.findIndex((p) => p.id === afterId),
+    );
+    const blank = makeBlankStudioPage(afterIdx + 1, isAr, {
+      backdrop: selectedBackdrop === 'original' ? 'soft-ivory' : selectedBackdrop,
+      customSolidColor,
+      productPos: { x: Math.round(canvasW / 2), y: Math.round(canvasH / 2), scale: 0 },
+      filters: { brightness: 100, contrast: 100, saturation: 100, blur: 0 },
+      elements: [],
+    });
+    const pagesNext = insertAfterIndex(flushed, afterIdx, blank);
+    setStudioPages(pagesNext);
+    hydrateEditorFromPage(blank);
+    pushPageHistory(pagesNext, blank.id);
+    toast(isAr ? 'تمت إضافة صفحة فارغة' : 'Blank page added below', 'success');
+  };
+
+  /** Canva: duplicate page design as a new page below it */
+  const handleDuplicatePage = (pageId?: string) => {
+    const flushed = flushPagesFromEditor();
+    const tid = pageId || activePageId;
+    const srcIdx = Math.max(
+      0,
+      flushed.findIndex((p) => p.id === tid),
+    );
+    const src = flushed[srcIdx] || flushed.find((p) => p.id === tid);
+    if (!src) return;
+    const clone: StudioPageLocal = {
+      ...JSON.parse(JSON.stringify(src)),
+      id: newStudioPageId(),
+      name: isAr ? `${src.name} · نسخة` : `${src.name} · copy`,
+      locked: false,
+      elements: remapLayerIds(JSON.parse(JSON.stringify(src.elements)) as CanvasElement[]),
+    };
+    const pagesNext = insertAfterIndex(flushed, srcIdx, clone);
+    setStudioPages(pagesNext);
+    hydrateEditorFromPage(clone);
+    pushPageHistory(pagesNext, clone.id);
+    toast(isAr ? 'تم تكرار الصفحة' : 'Page duplicated below', 'success');
+  };
+
+  const handleDeletePage = (pageId?: string) => {
+    if (studioPages.length <= 1) {
+      toast(isAr ? 'لا يمكن حذف الصفحة الوحيدة' : 'Cannot delete the only page', 'info');
+      return;
+    }
+    const flushed = flushPagesFromEditor();
+    const tid = pageId || activePageId;
+    const delIdx = flushed.findIndex((p) => p.id === tid);
+    if (delIdx < 0) return;
+    const pagesNext = flushed.filter((p) => p.id !== tid);
+    const nextIdx = Math.min(Math.max(0, delIdx), pagesNext.length - 1);
+    const nextPage = pagesNext[nextIdx];
+    setStudioPages(pagesNext);
+    hydrateEditorFromPage(nextPage);
+    pushPageHistory(pagesNext, nextPage.id);
+    toast(isAr ? 'تم حذف الصفحة' : 'Page deleted', 'success');
+  };
+
+  const handleTogglePageLock = (pageId?: string) => {
+    const flushed = flushPagesFromEditor();
+    const tid = pageId || activePageId;
+    const pagesNext = flushed.map((p) =>
+      p.id === tid ? { ...p, locked: !p.locked } : p,
+    );
+    setStudioPages(pagesNext);
+    pushPageHistory(pagesNext, activePageId === tid ? tid : activePageId);
+    const nowLocked = pagesNext.find((p) => p.id === tid)?.locked;
+    toast(
+      nowLocked
+        ? isAr
+          ? 'تم قفل الصفحة'
+          : 'Page locked'
+        : isAr
+          ? 'تم فتح قفل الصفحة'
+          : 'Page unlocked',
+      'info',
+    );
+  };
+
+  const handleTogglePageHidden = (pageId?: string) => {
+    const flushed = flushPagesFromEditor();
+    const tid = pageId || activePageId;
+    const pagesNext = flushed.map((p) =>
+      p.id === tid ? { ...p, hidden: !p.hidden } : p,
+    );
+    setStudioPages(pagesNext);
+    pushPageHistory(pagesNext, activePageId === tid ? tid : activePageId);
+    const nowHidden = pagesNext.find((p) => p.id === tid)?.hidden;
+    toast(
+      nowHidden
+        ? isAr
+          ? 'تم إخفاء الصفحة'
+          : 'Page hidden'
+        : isAr
+          ? 'تم إظهار الصفحة'
+          : 'Page visible',
+      'info',
+    );
+  };
+
+  const handleRenamePage = (pageId: string, raw: string) => {
+    const name = raw.replace(/\s+/g, ' ').trim().slice(0, 80);
+    const flushed = flushPagesFromEditor();
+    const pagesNext = flushed.map((p) => (p.id === pageId ? { ...p, name } : p));
+    setStudioPages(pagesNext);
+    if (pageId === activePageId) {
+      pushPageHistory(pagesNext, activePageId);
+    }
+  };
+
+  const handleGroupSelected = () => {
+    const ids =
+      selectedElementIds.length > 1
+        ? selectedElementIds
+        : selectedElementId
+          ? [selectedElementId]
+          : [];
+    if (ids.length < 2) {
+      toast(
+        isAr ? 'حدد طبقتين أو أكثر للتجميع (Shift).' : 'Select 2+ layers to group (Shift).',
+        'info',
+      );
+      return;
+    }
+    const gid = `grp-${Date.now()}`;
+    setElements((prev) => {
+      const next = prev.map((el) => (ids.includes(el.id) ? { ...el, groupId: gid } : el));
+      queueMicrotask(() => pushHistorySnapshot(next));
+      return next;
+    });
+    toast(isAr ? 'تم تجميع الطبقات' : 'Layers grouped', 'success');
+  };
+
+  const handleUngroupSelected = () => {
+    const ids = new Set(
+      selectedElementIds.length
+        ? selectedElementIds
+        : selectedElementId
+          ? [selectedElementId]
+          : [],
+    );
+    const gid =
+      elements.find((el) => ids.has(el.id) && el.groupId)?.groupId ||
+      elements.find((el) => el.id === selectedElementId)?.groupId;
+    if (!gid) {
+      toast(isAr ? 'لا توجد مجموعة محددة' : 'No group selected', 'info');
+      return;
+    }
+    setElements((prev) => {
+      const next = prev.map((el) =>
+        el.groupId === gid ? { ...el, groupId: undefined } : el,
+      );
+      queueMicrotask(() => pushHistorySnapshot(next));
+      return next;
+    });
+    toast(isAr ? 'تم فك التجميع' : 'Ungrouped', 'success');
+  };
+
+  const handleMagicResize = (toW: number, toH: number, label: string) => {
+    const nextLayers = magicResizeLayers(elements, canvasW, canvasH, toW, toH);
+    setCanvasW(toW);
+    setCanvasH(toH);
+    setViewZoom(DEFAULT_VIEW_ZOOM);
+    setElements(nextLayers);
+    setProductPosX(Math.round(productPosX * (toW / Math.max(1, canvasW))));
+    setProductPosY(Math.round(productPosY * (toH / Math.max(1, canvasH))));
+    queueMicrotask(() => pushHistorySnapshot(nextLayers));
+    setShowExportMenu(false);
+    toast(
+      isAr
+        ? `تم تغيير المقاس إلى ${label} (${toW}×${toH}) — تحجيم نسبي، بدون ذكاء اصطناعي.`
+        : `Resized to ${label} (${toW}×${toH}) — proportional scale, not AI.`,
+      'success',
+    );
+  };
+
+  const handleExportPagesZip = async () => {
+    setShowExportMenu(false);
+    try {
+      const zip = new JSZip();
+      const activePng = exportCanvasDataUrl('image/png');
+      if (activePng) {
+        const b64 = activePng.split(',')[1] || '';
+        zip.file(`page-active-${canvasW}x${canvasH}.png`, b64, { base64: true });
+      }
+      const flushed = flushPagesFromEditor();
+      const project = buildCanvaDesignProject({
+        title: docTitle || (isAr ? 'تصميم' : 'Design'),
+        width: canvasW,
+        height: canvasH,
+        category: uploadCategory,
+        backdrop: selectedBackdrop,
+        customSolidColor,
+        gradient: {
+          type: gradientType,
+          angle: gradientAngle,
+          c1: gradientColor1,
+          c2: gradientColor2,
+          c3: gradientColor3,
+        },
+        product: { x: productPosX, y: productPosY, scale: productScale, flipH, flipV },
+        filters: { brightness, contrast, saturation, blur: blurAmount },
+        layers: layersToProjectPayload(elements),
+        pages: pagesToProjectJson(flushed),
+        activePageId,
+      });
+      zip.file('project.json', JSON.stringify(project, null, 2));
+      zip.file(
+        'README.txt',
+        isAr
+          ? `حزمة تصميم Unityteck\nالصفحات: ${flushed.length}\nPNG = الصفحة النشطة فقط.\nproject.json يحتوي كل الصفحات والطبقات.`
+          : `Unityteck design pack\nPages: ${flushed.length}\nPNG = active page only.\nproject.json holds all pages and layers.`,
+      );
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(docTitle || 'studio-design').toLowerCase().replace(/\s+/g, '-')}-pages.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast(
+        isAr
+          ? `تم تنزيل الحزمة: PNG للصفحة النشطة + ملف المشروع (${flushed.length} صفحة).`
+          : `ZIP downloaded: active PNG + project JSON (${flushed.length} pages).`,
+        'success',
+      );
+    } catch {
+      toast(isAr ? 'فشل تصدير الحزمة.' : 'ZIP export failed.', 'error');
+    }
+  };
+
+  const handleMovePage = (dir: -1 | 1, pageId?: string) => {
+    const flushed = flushPagesFromEditor();
+    const tid = pageId || activePageId;
+    const from = flushed.findIndex((p) => p.id === tid);
+    const to = from + dir;
+    if (from < 0 || to < 0 || to >= flushed.length) return;
+    const pagesNext = moveListItem(flushed, from, to);
+    setStudioPages(pagesNext);
+    pushPageHistory(pagesNext, tid);
+  };
+
+  const handleSelectPage = (pageId: string) => {
+    if (pageId === activePageId) return;
+    const flushed = flushPagesFromEditor();
+    const target = flushed.find((p) => p.id === pageId);
+    if (!target) return;
+    setStudioPages(flushed);
+    hydrateEditorFromPage(target);
+  };
+
+  useEffect(() => {
+    if (!isOpen || !activePageId) return;
+    const block = pageBlockRefs.current[activePageId];
+    if (!block) return;
+    block.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [activePageId, isOpen, studioPages.length]);
 
   const hitTestElementAt = (x: number, y: number): CanvasElement | null => {
     for (let i = elements.length - 1; i >= 0; i--) {
@@ -2394,7 +3054,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
   // Update selected element — commit=true pushes undo snapshot
   const updateSelectedElement = (updates: Partial<CanvasElement>, commit = true) => {
-    if (!selectedElementId) return;
+    if (!selectedElementId || activePageLocked) return;
     setElements((prev) => {
       const next = prev.map((el) =>
         el.id === selectedElementId ? { ...el, ...updates } : el,
@@ -2577,6 +3237,21 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
   const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
     if (isResizingElement || isResizingProduct) return;
+    if (activePageLocked) {
+      // Allow selection only — no drag / resize while page is locked
+      const { x, y } = getCanvasCoords(e);
+      for (let i = elements.length - 1; i >= 0; i--) {
+        const el = elements[i];
+        if (el.hidden) continue;
+        const bounds = layoutCacheRef.current[el.id] || estimateElementBounds(el);
+        if (rectContainsPoint(bounds, x, y, 8)) {
+          selectSingleLayer(el.id);
+          return;
+        }
+      }
+      selectSingleLayer(null);
+      return;
+    }
     const { x, y } = getCanvasCoords(e);
     const shift =
       'shiftKey' in e
@@ -2604,6 +3279,11 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
           if (keepGroup) {
             setSelectedElementId(el.id);
             dragIds = selectedElementIds;
+          } else if (el.groupId) {
+            const mates = elements.filter((row) => row.groupId === el.groupId).map((row) => row.id);
+            setSelectedElementIds(mates);
+            setSelectedElementId(el.id);
+            dragIds = mates;
           } else {
             selectSingleLayer(el.id);
             dragIds = [el.id];
@@ -2706,8 +3386,37 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     }
 
     if (isDraggingElement && selectedElementId) {
-      const nextX = Math.max(15, Math.min(canvasW - 15, x - dragOffset.x));
-      const nextY = Math.max(15, Math.min(canvasH - 15, y - dragOffset.y));
+      let nextX = Math.max(15, Math.min(canvasW - 15, x - dragOffset.x));
+      let nextY = Math.max(15, Math.min(canvasH - 15, y - dragOffset.y));
+      const moving = elements.find((el) => el.id === selectedElementId);
+      const bounds = moving
+        ? layoutCacheRef.current[moving.id] || estimateElementBounds(moving)
+        : null;
+      const mw = bounds?.w || moving?.width || 120;
+      const mh = bounds?.h || moving?.height || 40;
+      const others = elements
+        .filter((el) => {
+          if (el.id === selectedElementId || el.hidden) return false;
+          const origins = multiDragOriginsRef.current;
+          if (origins && origins[el.id]) return false;
+          return true;
+        })
+        .map((el) => {
+          const b = layoutCacheRef.current[el.id] || estimateElementBounds(el);
+          return { id: el.id, cx: el.x, cy: el.y, w: b.w, h: b.h };
+        });
+      const snapped = snapElementCenter({
+        cx: nextX,
+        cy: nextY,
+        w: mw,
+        h: mh,
+        canvasW,
+        canvasH,
+        others,
+      });
+      nextX = Math.max(15, Math.min(canvasW - 15, snapped.cx));
+      nextY = Math.max(15, Math.min(canvasH - 15, snapped.cy));
+      setSnapGuides(snapped.guides);
       const origins = multiDragOriginsRef.current;
       if (origins && Object.keys(origins).length > 1 && origins[selectedElementId]) {
         const ox = origins[selectedElementId].x;
@@ -2731,8 +3440,25 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
         );
       }
     } else if (isDraggingProduct) {
-      const nextX = Math.max(30, Math.min(canvasW - 30, x - dragOffset.x));
-      const nextY = Math.max(30, Math.min(canvasH - 30, y - dragOffset.y));
+      let nextX = Math.max(30, Math.min(canvasW - 30, x - dragOffset.x));
+      let nextY = Math.max(30, Math.min(canvasH - 30, y - dragOffset.y));
+      const snapped = snapElementCenter({
+        cx: nextX,
+        cy: nextY,
+        w: 120,
+        h: 120,
+        canvasW,
+        canvasH,
+        others: elements
+          .filter((el) => !el.hidden)
+          .map((el) => {
+            const b = layoutCacheRef.current[el.id] || estimateElementBounds(el);
+            return { id: el.id, cx: el.x, cy: el.y, w: b.w, h: b.h };
+          }),
+      });
+      nextX = snapped.cx;
+      nextY = snapped.cy;
+      setSnapGuides(snapped.guides);
       setProductPosX(nextX);
       setProductPosY(nextY);
     }
@@ -2746,6 +3472,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       setIsResizingProduct(false);
       setResizeCorner(null);
       multiDragOriginsRef.current = null;
+      setSnapGuides([]);
       setCanvasHoverCursorSafe('grab');
       pushHistorySnapshot();
     }
@@ -3065,8 +3792,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     }
   };
 
-  const layersToProjectPayload = (): CanvaProjectLayer[] =>
-    elements.map((el) => ({
+  const layersToProjectPayload = (els: CanvasElement[] = elements): CanvaProjectLayer[] =>
+    els.map((el) => ({
       id: el.id,
       type: el.type,
       text: el.text,
@@ -3106,6 +3833,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       verticalAlign: el.verticalAlign,
       icon: el.icon,
       badgeStyle: el.badgeStyle,
+      groupId: el.groupId,
       bgRemoved: el.bgRemoved,
       brightness: el.brightness,
       contrast: el.contrast,
@@ -3119,7 +3847,92 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       animEase: el.animEase,
     }));
 
+  const pagesToProjectJson = (pages: StudioPageLocal[]): CanvaStudioPageJson[] =>
+    pages.map((page) => ({
+      id: page.id,
+      name: page.name,
+      locked: page.locked,
+      hidden: page.hidden,
+      backdrop: page.backdrop,
+      customSolidColor: page.customSolidColor,
+      product: {
+        x: page.productPos.x,
+        y: page.productPos.y,
+        scale: page.productPos.scale,
+        flipH: page.flipH,
+        flipV: page.flipV,
+      },
+      filters: { ...page.filters },
+      bgRemoved: page.bgRemoved,
+      bgTolerance: page.bgTolerance,
+      layers: layersToProjectPayload(page.elements),
+    }));
+
+  const mapProjectLayersToElements = (projectLayers: CanvaProjectLayer[]): CanvasElement[] =>
+    mapImportedLayers(
+      projectLayers.map((layer) => ({
+        id: layer.id,
+        type: layer.type as ImportedStudioLayer['type'],
+        text: layer.text,
+        x: layer.x,
+        y: layer.y,
+        width: layer.width || 120,
+        height: layer.height || 120,
+        fontSize: layer.fontSize,
+        fontColor: layer.fontColor,
+        bgColor: layer.bgColor,
+        isBold: layer.isBold,
+        isItalic: layer.isItalic,
+        textAlign: layer.textAlign,
+        opacity: layer.opacity,
+        imageUrl: layer.imageUrl,
+        locked: layer.locked,
+      })),
+    ).map((el, idx) => {
+      const src = projectLayers[idx];
+      if (!src) return el;
+      return {
+        ...el,
+        rotation: src.rotation,
+        fontFamily: src.fontFamily || el.fontFamily,
+        fontWeight: src.fontWeight as CanvasElement['fontWeight'],
+        underline: src.underline,
+        strikethrough: src.strikethrough,
+        shapeType: src.shapeType as CanvasElement['shapeType'],
+        strokeColor: src.strokeColor,
+        strokeWidth: src.strokeWidth,
+        hidden: src.hidden,
+        shadowEnabled: src.shadowEnabled,
+        shadowColor: src.shadowColor,
+        shadowBlur: src.shadowBlur,
+        shadowOffsetX: src.shadowOffsetX,
+        shadowOffsetY: src.shadowOffsetY,
+        flipH: src.flipH,
+        flipV: src.flipV,
+        letterSpacing: src.letterSpacing,
+        lineHeight: src.lineHeight,
+        verticalAlign: src.verticalAlign,
+        icon: src.icon,
+        badgeStyle: src.badgeStyle as CanvasElement['badgeStyle'],
+        groupId: src.groupId,
+        bgRemoved: src.bgRemoved,
+        borderRadius: src.borderRadius,
+        bgPadding: src.bgPadding,
+        brightness: src.brightness,
+        contrast: src.contrast,
+        saturation: src.saturation,
+        blur: src.blur,
+        animIn: src.animIn as CanvasElement['animIn'],
+        animOut: src.animOut as CanvasElement['animOut'],
+        animDurationMs: src.animDurationMs,
+        animOutDurationMs: src.animOutDurationMs,
+        animDelayMs: src.animDelayMs,
+        animEase: src.animEase as CanvasElement['animEase'],
+      };
+    });
+
   const handleExportProjectJson = () => {
+    const flushed = flushPagesFromEditor();
     const project = buildCanvaDesignProject({
       title: docTitle || (isAr ? 'تصميم' : 'Design'),
       width: canvasW,
@@ -3137,6 +3950,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       product: { x: productPosX, y: productPosY, scale: productScale, flipH, flipV },
       filters: { brightness, contrast, saturation, blur: blurAmount },
       layers: layersToProjectPayload(),
+      pages: pagesToProjectJson(flushed),
+      activePageId,
     });
     const slug = (docTitle || 'studio-design').toLowerCase().replace(/\s+/g, '-').slice(0, 48);
     downloadJsonFile(`${slug}.canva-project.json`, project);
@@ -3149,6 +3964,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     opts?: { silent?: boolean; templateId?: string | null },
   ) => {
     setCanvasW(project.width);
+    setViewZoom(DEFAULT_VIEW_ZOOM);
     setCanvasH(project.height);
     setDocTitle(project.title);
     setSelectedBackdrop(project.backdrop || 'custom');
@@ -3224,6 +4040,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
         verticalAlign: src.verticalAlign,
         icon: src.icon,
         badgeStyle: src.badgeStyle as CanvasElement['badgeStyle'],
+        groupId: src.groupId,
         bgRemoved: src.bgRemoved,
         borderRadius: src.borderRadius,
         bgPadding: src.bgPadding,
@@ -3269,6 +4086,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       editorKind: editorKind || null,
       assetId: initialAsset?.id || null,
     });
+    const flushed = flushPagesFromEditor();
     const project = buildDraftProject({
       title: docTitle || 'Untitled Design',
       width: canvasW,
@@ -3286,6 +4104,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       product: { x: productPosX, y: productPosY, scale: productScale, flipH, flipV },
       filters: { brightness, contrast, saturation, blur: blurAmount },
       layers: layersToProjectPayload(),
+      pages: pagesToProjectJson(flushed),
+      activePageId,
     });
     return saveCanvaStudioDraft({
       storeId,
@@ -3337,6 +4157,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     saturation,
     blurAmount,
     selectedTemplateId,
+    studioPages,
+    activePageId,
   ]);
 
   // Persist before tab hide / page unload / unmount (stable listeners via ref)
@@ -3529,6 +4351,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
         filters: { brightness, contrast, saturation, blur: blurAmount },
         flipH,
         flipV,
+        pages: pagesToProjectJson(flushPagesFromEditor()),
+        activePageId,
       },
     };
   };
@@ -3596,7 +4420,9 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     />
   );
 
+  /** Canva-like: Create (+) first, Templates (القوالب) second */
   const studioTabs = [
+    { id: 'create' as const, label: isAr ? 'إنشاء' : 'Create', icon: Plus, create: true },
     { id: 'templates' as const, label: isAr ? 'القوالب' : 'Templates', icon: FolderKanban },
     { id: 'elements' as const, label: isAr ? 'العناصر' : 'Elements', icon: Compass },
     { id: 'text' as const, label: isAr ? 'النص' : 'Text', icon: Type },
@@ -3608,6 +4434,13 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     { id: 'filters' as const, label: isAr ? 'الضبط' : 'Adjust', icon: Sliders },
     { id: 'settings' as const, label: isAr ? 'الإعدادات' : 'Settings', icon: Settings },
   ];
+
+  const openCreatePanel = () => {
+    setActiveTab('create');
+    setFlyoutOpen(true);
+    setShowAddLayerMenu(true);
+    setLayersSubTab('layers');
+  };
 
   const layerLabel = (el: CanvasElement) => {
     if (el.type === 'image') return el.text || (isAr ? 'صورة' : 'Image');
@@ -3653,7 +4486,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
   const studioPanel = (
       <div
-        className={`canva-studio-light canva-studio-dark w-full overflow-x-hidden overflow-y-visible flex flex-col select-none isolate ${
+        className={`canva-studio-light w-full overflow-x-hidden overflow-y-visible flex flex-col select-none isolate ${
           isPage
             ? 'h-full min-h-0 rounded-none border-0'
             : 'max-w-7xl h-[95vh] rounded-xl border'
@@ -3703,13 +4536,14 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                     {isAr ? 'تغيير أبعاد التصميم' : 'Design size'}
                   </div>
                   {[
-                    { label: 'Instagram Square (1:1)', w: 1080, h: 1080 },
-                    { label: 'Instagram / TikTok Story (9:16)', w: 1080, h: 1920 },
-                    { label: 'Feed Portrait (4:5)', w: 1080, h: 1350 },
-                    { label: 'Store Hero Banner (16:9)', w: 1600, h: 600 },
-                    { label: 'Meta & Google Ads Banner', w: 1200, h: 628 },
-                    { label: 'Logo & Brand Badge (1:1)', w: 800, h: 800 },
-                    { label: 'Category Wide Cover', w: 1200, h: 800 },
+                    { label: isAr ? 'مربع (١:١)' : 'Square (1:1)', w: 1080, h: 1080 },
+                    { label: isAr ? 'ستوري (٩:١٦)' : 'Story (9:16)', w: 1080, h: 1920 },
+                    { label: isAr ? 'عمودي (٤:٥)' : 'Portrait (4:5)', w: 1080, h: 1350 },
+                    { label: isAr ? 'بنر المتجر' : 'Store banner', w: 1600, h: 600 },
+                    { label: isAr ? 'إعلان ميتا / جوجل' : 'Meta / Google ads', w: 1200, h: 628 },
+                    { label: isAr ? 'شعار' : 'Logo', w: 800, h: 800 },
+                    { label: isAr ? 'غلاف تصنيف' : 'Category cover', w: 1200, h: 800 },
+                    { label: isAr ? 'أفقي (١٦:٩)' : 'Landscape (16:9)', w: 1920, h: 1080 },
                   ].map((preset) => (
                     <button
                       key={preset.label}
@@ -3717,8 +4551,14 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                       onClick={() => {
                         setCanvasW(preset.w);
                         setCanvasH(preset.h);
+                        setViewZoom(DEFAULT_VIEW_ZOOM);
                         setShowResizeMenu(false);
-                        toast(isAr ? `تم تغيير المقاس إلى${preset.w}×${preset.h}` : `Resized to ${preset.w}×${preset.h}`, 'info');
+                        toast(
+                          isAr
+                            ? `تم تغيير المقاس إلى ${preset.w}×${preset.h}`
+                            : `Resized to ${preset.w}×${preset.h}`,
+                          'info',
+                        );
                       }}
                       className="w-full px-2.5 py-1.5 rounded-lg text-start text-xs font-bold flex items-center justify-between cursor-pointer"
                     >
@@ -3924,6 +4764,39 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                     <FileJson className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--accent, #1d8b94)' }} />
                     {isAr ? 'ملف المشروع (طبقات)' : 'Project JSON (layers)'}
                   </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => void handleExportPagesZip()}
+                    className="w-full px-2.5 py-2 rounded-lg text-start text-xs font-bold cursor-pointer flex items-center gap-2"
+                  >
+                    <Archive className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--accent, #1d8b94)' }} />
+                    {isAr ? 'حزمة صفحات (مضغوط)' : 'Pages pack (ZIP)'}
+                  </button>
+                  <div className="border-t border-slate-200/80 my-1" />
+                  <p className="px-2.5 pt-1 pb-0.5 text-[9px] font-black uppercase tracking-wide cs-dropdown-muted">
+                    {isAr ? 'تغيير المقاس (نسبي)' : 'Resize (proportional)'}
+                  </p>
+                  {MAGIC_RESIZE_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      role="menuitem"
+                      onClick={() =>
+                        handleMagicResize(
+                          preset.width,
+                          preset.height,
+                          isAr ? preset.labelAr : preset.labelEn,
+                        )
+                      }
+                      className="w-full px-2.5 py-2 rounded-lg text-start text-xs font-bold cursor-pointer flex items-center justify-between"
+                    >
+                      <span>{isAr ? preset.labelAr : preset.labelEn}</span>
+                      <span className="cs-dropdown-muted text-[10px] font-mono">
+                        {preset.width}×{preset.height}
+                      </span>
+                    </button>
+                  ))}
                 </div>
               )}
               <div className="relative">
@@ -4103,16 +4976,26 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
             {studioTabs.map((tab) => {
               const active = activeTab === tab.id;
               const Icon = tab.icon;
+              const isCreate = Boolean((tab as { create?: boolean }).create);
               return (
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => {
+                    if (isCreate) openCreatePanel();
+                    else setActiveTab(tab.id);
+                  }}
                   className={`w-14 py-2.5 px-1 rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer transition-all text-center ${
-                    active ? 'cs-dock-active' : ''
-                  }`}
+                    isCreate ? 'cs-dock-create' : ''
+                  } ${active ? 'cs-dock-active' : ''}`}
                 >
-                  <Icon className="w-5 h-5 shrink-0" />
+                  {isCreate ? (
+                    <span className="cs-dock-create-orb flex items-center justify-center w-8 h-8 rounded-full">
+                      <Plus className="w-4 h-4 text-white" strokeWidth={2.75} />
+                    </span>
+                  ) : (
+                    <Icon className="w-5 h-5 shrink-0" />
+                  )}
                   <span className="text-[9.5px] font-bold truncate max-w-full leading-tight">
                     {tab.label}
                   </span>
@@ -4141,72 +5024,165 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
           {/* Left Flyout Subpanel — white / black like Canva */}
           <div
-            className={`cs-flyout cs-flyout-drawer cs-glass lg:static w-80 border-e border-slate-200 flex-col shrink-0 overflow-y-auto p-4 space-y-4 bg-white text-slate-900 ${
+            className={`cs-flyout cs-flyout-drawer cs-glass lg:static w-80 border-e flex-col shrink-0 overflow-y-auto p-4 space-y-4 ${
               flyoutOpen ? 'flex' : 'hidden'
             } lg:flex`}
             data-open={flyoutOpen ? 'true' : 'false'}
           >
-            {/* 1. TEMPLATES TAB */}
-            {activeTab === 'templates' && (
-              <div className="cs-templates-panel">
-                <CanvaTemplatesPanel
-                  store={activeStore}
-                  isAr={isAr}
-                  selectedTemplateId={selectedTemplateId}
-                  lockedCategory={
-                    lockCategory
-                      ? uploadCategory
-                      : editorKind === 'logo'
-                        ? 'logo'
-                        : editorKind === 'product_card'
-                          ? 'product'
-                          : editorKind === 'banner'
-                            ? 'banner'
-                            : undefined
-                  }
-                  activeImageUrl={activeImageUrl}
-                  previewProduct={currentProducts[0] || null}
-                  myTemplates={myTemplates}
-                  onApply={applyCanvaTemplate}
-                  onApplyMyTemplate={(tpl) => {
-                    const payload = myTemplateToDesignPayload(tpl);
-                    applyImportedDesign(
-                      {
-                        width: payload.width,
-                        height: payload.height,
-                        name: isAr ? tpl.nameAr || tpl.nameEn : tpl.nameEn,
-                        source:
-                          tpl.source === 'psd'
-                            ? 'psd'
-                            : tpl.source === 'pptx'
-                              ? 'pptx'
-                              : 'image',
-                        layers: payload.layers,
-                        previewDataUrl: payload.previewDataUrl,
-                        categoryHint: tpl.category,
-                      },
-                      { templateId: tpl.id, keepCategory: true },
-                    );
-                    setUploadCategory(tpl.category);
-                  }}
-                  onDeleteMyTemplate={async (tplId) => {
-                    await deleteMyCanvaTemplate(activeStore.id, tplId);
-                    await refreshMyTemplates();
-                    toast(isAr ? 'تم حذف القالب.' : 'Template deleted.', 'info');
-                  }}
-                  onOpenUploadTab={() => setActiveTab('media')}
-                  onRequestPro={() => {
-                    toast(
-                      isAr ? 'القوالب الإضافية متاحة مع باقة برو.' : 'Extra templates unlock with Pro.',
-                      'info',
-                    );
-                  }}
-                  onSelectFormatPreset={(w, h, label) => {
-                    setCanvasW(w);
-                    setCanvasH(h);
-                    toast(isAr ? `المقاس:${label}` : `Design size: ${label}`, 'info');
-                  }}
-                />
+            {/* 0+1. CREATE / TEMPLATES — create tools + all templates (no extra Browse click) */}
+            {(activeTab === 'create' || activeTab === 'templates') && (
+              <div className="cs-create-panel space-y-4">
+                {activeTab === 'create' && (
+                  <>
+                    <div>
+                      <h3 className="text-sm font-black" style={{ color: 'var(--cs-text)' }}>
+                        {isAr ? 'إنشاء تصميم' : 'Create design'}
+                      </h3>
+                      <p className="text-[11px] mt-1 leading-relaxed" style={{ color: 'var(--cs-muted)' }}>
+                        {isAr
+                          ? 'أضف طبقات أو اختر قالباً جاهزاً من الأسفل مباشرة.'
+                          : 'Add layers or pick a ready template below — no extra browse step.'}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleAddTextElement(
+                            'headline',
+                            isAr ? 'عنوان عريض وجذاب' : 'Add a heading',
+                          );
+                          openPositionPanel('layers');
+                        }}
+                        className="cs-create-tile flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer"
+                      >
+                        <Type className="w-5 h-5" style={{ color: 'var(--cs-accent,#1d8b94)' }} />
+                        <span className="text-[11px] font-black">{isAr ? 'نص' : 'Text'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleAddShape('rectangle');
+                          openPositionPanel('layers');
+                        }}
+                        className="cs-create-tile flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer"
+                      >
+                        <Square className="w-5 h-5" style={{ color: 'var(--cs-accent,#1d8b94)' }} />
+                        <span className="text-[11px] font-black">{isAr ? 'شكل' : 'Shape'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('media');
+                          designFileInputRef.current?.click();
+                        }}
+                        className="cs-create-tile flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer"
+                      >
+                        <ImageIcon className="w-5 h-5" style={{ color: 'var(--cs-accent,#1d8b94)' }} />
+                        <span className="text-[11px] font-black">{isAr ? 'صورة' : 'Image'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const blank = getDefaultBlankTemplate('square');
+                          applyCanvaTemplate(blank);
+                          openPositionPanel('layers');
+                        }}
+                        className="cs-create-tile flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer"
+                      >
+                        <FilePlus2 className="w-5 h-5" style={{ color: 'var(--cs-accent,#1d8b94)' }} />
+                        <span className="text-[11px] font-black">{isAr ? 'لوحة فارغة' : 'Blank'}</span>
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openPositionPanel('layers')}
+                      className="cs-btn-primary w-full py-2.5 rounded-xl text-[12px] font-black text-white flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Layers className="w-4 h-4" />
+                      {isAr ? 'فتح الطبقات' : 'Open layers'}
+                    </button>
+                    <div className="pt-1 border-t border-slate-200/80">
+                      <h4 className="text-[11px] font-black mb-2" style={{ color: 'var(--cs-text)' }}>
+                        {isAr ? 'كل القوالب' : 'All templates'}
+                      </h4>
+                    </div>
+                  </>
+                )}
+                {activeTab === 'templates' && (
+                  <div>
+                    <h3 className="text-sm font-black" style={{ color: 'var(--cs-text)' }}>
+                      {isAr ? 'القوالب' : 'Templates'}
+                    </h3>
+                    <p className="text-[11px] mt-1 mb-2 leading-relaxed" style={{ color: 'var(--cs-muted)' }}>
+                      {isAr
+                        ? 'كل القوالب الجاهزة لهذا المتجر — الماستر والمرفوعة والمعدة مسبقاً.'
+                        : 'All ready designs for this store — Master, uploads, and premades.'}
+                    </p>
+                  </div>
+                )}
+                <div className="cs-templates-panel">
+                  <CanvaTemplatesPanel
+                    store={activeStore}
+                    isAr={isAr}
+                    selectedTemplateId={selectedTemplateId}
+                    defaultNiche="library"
+                    lockedCategory={
+                      lockCategory
+                        ? uploadCategory
+                        : editorKind === 'logo'
+                          ? 'logo'
+                          : editorKind === 'product_card'
+                            ? 'product'
+                            : editorKind === 'banner'
+                              ? 'banner'
+                              : undefined
+                    }
+                    activeImageUrl={activeImageUrl}
+                    previewProduct={currentProducts[0] || null}
+                    myTemplates={myTemplates}
+                    onApply={applyCanvaTemplate}
+                    onApplyMyTemplate={(tpl) => {
+                      const payload = myTemplateToDesignPayload(tpl);
+                      applyImportedDesign(
+                        {
+                          width: payload.width,
+                          height: payload.height,
+                          name: isAr ? tpl.nameAr || tpl.nameEn : tpl.nameEn,
+                          source:
+                            tpl.source === 'psd'
+                              ? 'psd'
+                              : tpl.source === 'pptx'
+                                ? 'pptx'
+                                : 'image',
+                          layers: payload.layers,
+                          previewDataUrl: payload.previewDataUrl,
+                          categoryHint: tpl.category,
+                        },
+                        { templateId: tpl.id, keepCategory: true },
+                      );
+                      setUploadCategory(tpl.category);
+                    }}
+                    onDeleteMyTemplate={async (tplId) => {
+                      await deleteMyCanvaTemplate(activeStore.id, tplId);
+                      await refreshMyTemplates();
+                      toast(isAr ? 'تم حذف القالب.' : 'Template deleted.', 'info');
+                    }}
+                    onOpenUploadTab={() => setActiveTab('media')}
+                    onRequestPro={() => {
+                      toast(
+                        isAr ? 'القوالب الإضافية متاحة مع باقة برو.' : 'Extra templates unlock with Pro.',
+                        'info',
+                      );
+                    }}
+                    onSelectFormatPreset={(w, h, label) => {
+                      setCanvasW(w);
+                      setCanvasH(h);
+                      setViewZoom(DEFAULT_VIEW_ZOOM);
+                      toast(isAr ? `المقاس: ${label}` : `Design size: ${label}`, 'info');
+                    }}
+                  />
+                </div>
               </div>
             )}
 
@@ -4225,6 +5201,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                         ['triangle', Triangle, isAr ? 'مثلث' : 'Triangle'],
                         ['star', Star, isAr ? 'نجمة' : 'Star'],
                         ['line', Minus, isAr ? 'خط' : 'Line'],
+                        ['arrow', ArrowRight, isAr ? 'سهم' : 'Arrow'],
                         ['wave_curve', Compass, isAr ? 'منحنى' : 'Wave'],
                         ['dot_grid', Sparkles, isAr ? 'نقاط' : 'Dots'],
                         ['badge', Award, isAr ? 'شارة' : 'Badge'],
@@ -4759,6 +5736,32 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                         ? 'Shift + نقرة = تحديد طبقات متعددة · اسحب للتحريك معاً.'
                         : 'Shift + click = multi-select · hover shows grab cursor · drag to reorder.'}
                     </p>
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={handleGroupSelected}
+                        disabled={selectedElementIds.length < 2}
+                        className="flex-1 py-1.5 rounded-lg border border-slate-200 bg-white text-[10px] font-bold text-slate-700 cursor-pointer disabled:opacity-40 flex items-center justify-center gap-1"
+                      >
+                        <Group className="w-3.5 h-3.5" style={{ color: 'var(--accent, #1d8b94)' }} />
+                        {isAr ? 'تجميع' : 'Group'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleUngroupSelected}
+                        disabled={
+                          !elements.some(
+                            (el) =>
+                              el.groupId &&
+                              (el.id === selectedElementId || selectedElementIds.includes(el.id)),
+                          )
+                        }
+                        className="flex-1 py-1.5 rounded-lg border border-slate-200 bg-white text-[10px] font-bold text-slate-700 cursor-pointer disabled:opacity-40 flex items-center justify-center gap-1"
+                      >
+                        <Ungroup className="w-3.5 h-3.5" style={{ color: 'var(--accent, #1d8b94)' }} />
+                        {isAr ? 'فك التجميع' : 'Ungroup'}
+                      </button>
+                    </div>
                     <div className="cs-layers-filter flex rounded-lg border border-slate-200 overflow-hidden bg-white">
                       <button
                         type="button"
@@ -5083,40 +6086,133 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                   </div>
                 </div>
 
-                {/* Store Logo */}
-                {activeStore.logo && (
-                  <div className="pt-2 border-t border-slate-200">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newLogoEl: CanvasElement = {
-                          id: `logo-${Date.now()}`,
-                          type: 'image',
-                          text: isAr ? activeStore.nameAr || activeStore.name : activeStore.name,
-                          imageUrl: activeStore.logo,
-                          x: Math.round(canvasW * 0.15),
-                          y: Math.round(canvasH * 0.12),
-                          width: 120,
-                          height: 120,
-                          fontSize: 16,
-                          fontColor: '#0f172a',
-                          borderRadius: 16,
-                        };
-                        setElements((prev) => {
-                          const next = [...prev, newLogoEl];
-                          queueMicrotask(() => pushHistorySnapshot(next));
-                          return next;
-                        });
-                        setSelectedElementId(newLogoEl.id);
-                        toast(isAr ? 'تمت إضافة شعار المتجر!' : 'Store logo added to canvas!', 'info');
-                      }}
-                      className="w-full p-2.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <ImageIcon className="w-4 h-4" />
-                      <span>{isAr ? 'إدراج شعار المتجر على التصميم' : 'Insert store logo'}</span>
-                    </button>
-                  </div>
-                )}
+                {/* Brand Kit — real store logo + accent only */}
+                <div className="pt-2 border-t border-slate-200 space-y-2">
+                  <span className="text-xs font-black uppercase text-slate-500">
+                    {isAr ? 'طقم العلامة' : 'Brand Kit'}
+                  </span>
+                  {(() => {
+                    const accent = String(activeStore.accentColor || '').trim();
+                    const palette = deriveBrandPalette(accent);
+                    const logoUrl = String(activeStore.logo || '').trim();
+                    return (
+                      <>
+                        {logoUrl ? (
+                          <div className="flex items-center gap-2 p-2 rounded-xl border border-slate-200 bg-white">
+                            <img
+                              src={logoUrl}
+                              alt=""
+                              className="w-10 h-10 rounded-lg object-contain bg-slate-50 border border-slate-100"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11px] font-bold truncate" style={{ color: 'var(--text)' }}>
+                                {isAr ? activeStore.nameAr || activeStore.name : activeStore.name}
+                              </p>
+                              <p className="text-[9px]" style={{ color: 'var(--muted)' }}>
+                                {isAr ? 'شعار المتجر' : 'Store logo'}
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-slate-500">
+                            {isAr ? 'لا يوجد شعار للمتجر بعد.' : 'No store logo yet.'}
+                          </p>
+                        )}
+                        {palette.length > 0 ? (
+                          <div className="space-y-1.5">
+                            <p className="text-[10px] font-bold text-slate-500">
+                              {isAr ? 'ألوان مشتقة من لون العلامة' : 'Palette from store accent'}
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {palette.map((color) => (
+                                <button
+                                  key={color}
+                                  type="button"
+                                  title={color}
+                                  onClick={() => {
+                                    if (!selectedElementId) {
+                                      toast(
+                                        isAr ? 'حدد طبقة أولاً' : 'Select a layer first',
+                                        'info',
+                                      );
+                                      return;
+                                    }
+                                    const isShape = selectedElement?.type === 'shape';
+                                    const isText =
+                                      selectedElement?.type === 'headline' ||
+                                      selectedElement?.type === 'subtitle' ||
+                                      selectedElement?.type === 'custom_text' ||
+                                      selectedElement?.type === 'badge' ||
+                                      selectedElement?.type === 'price';
+                                    updateSelectedElement({
+                                      ...(isText ? { fontColor: color } : {}),
+                                      ...(isShape
+                                        ? { bgColor: color, strokeColor: color }
+                                        : !isText
+                                          ? { fontColor: color, bgColor: color }
+                                          : {}),
+                                    });
+                                    toast(
+                                      isAr ? 'تم تطبيق لون العلامة' : 'Brand color applied',
+                                      'info',
+                                    );
+                                  }}
+                                  className="w-8 h-8 rounded-lg border border-slate-200 cursor-pointer shadow-sm"
+                                  style={{ background: color }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-slate-500">
+                            {isAr
+                              ? 'لا يوجد لون علامة محفوظ لهذا المتجر.'
+                              : 'No store accent color saved yet.'}
+                          </p>
+                        )}
+                        {logoUrl ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newLogoEl: CanvasElement = {
+                                id: `logo-${Date.now()}`,
+                                type: 'image',
+                                text: isAr
+                                  ? activeStore.nameAr || activeStore.name
+                                  : activeStore.name,
+                                imageUrl: logoUrl,
+                                x: Math.round(canvasW * 0.15),
+                                y: Math.round(canvasH * 0.12),
+                                width: 120,
+                                height: 120,
+                                fontSize: 16,
+                                fontColor: '#0f172a',
+                                borderRadius: 16,
+                              };
+                              setElements((prev) => {
+                                const next = [...prev, newLogoEl];
+                                queueMicrotask(() => pushHistorySnapshot(next));
+                                return next;
+                              });
+                              setSelectedElementId(newLogoEl.id);
+                              toast(
+                                isAr ? 'تمت إضافة شعار المتجر!' : 'Store logo added to canvas!',
+                                'info',
+                              );
+                            }}
+                            className="w-full p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer text-white"
+                            style={{ background: 'var(--accent, #1d8b94)' }}
+                          >
+                            <ImageIcon className="w-4 h-4" />
+                            <span>
+                              {isAr ? 'تطبيق الشعار كطبقة صورة' : 'Apply logo as image layer'}
+                            </span>
+                          </button>
+                        ) : null}
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
             )}
 
@@ -5480,12 +6576,12 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
               <div className="space-y-4">
                 <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
                   <span className="cs-section-label">
-                    {isAr ? 'إزالة الخلفية' : 'Background remove'}
+                    {isAr ? 'عزل الخلفية (محلي)' : 'Background isolate (local)'}
                   </span>
                   <p className="text-[10px] text-slate-500 leading-relaxed">
                     {isAr
-                      ? 'حدد طبقة صورة ثم اضغط — أو طبّق على صورة المنتج. كل طبقة تبقى قابلة للتعديل.'
-                      : 'Select an image layer then tap — or apply to the product hero. Every layer stays editable.'}
+                      ? 'قطع لوني محلي على الجهاز — ليس ذكاءً اصطناعياً سحابياً. حدد طبقة صورة أو صورة المنتج ثم اضبط الحساسية.'
+                      : 'On-device chroma cutout — not cloud AI. Select an image layer or product hero, then tune sensitivity.'}
                   </p>
                   <button
                     type="button"
@@ -5498,34 +6594,42 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                     <span>
                       {isProcessingAi
                         ? isAr
-                          ? 'جارٍ إزالة الخلفية...'
-                          : 'Removing background...'
+                          ? 'جارٍ العزل المحلي...'
+                          : 'Running local cutout...'
                         : selectedElement?.type === 'image' && selectedElement.bgRemoved
                           ? isAr
-                            ? '✓ خلفية الطبقة أُزيلت — استعادة'
-                            : '✓ Layer BG removed — restore'
+                            ? '✓ عُزلت الطبقة — استعادة'
+                            : '✓ Layer isolated — restore'
                           : bgRemoved && selectedElement?.type !== 'image'
                             ? isAr
-                              ? '✓ خلفية المنتج أُزيلت — استعادة'
-                              : '✓ Product BG removed — restore'
+                              ? '✓ عُزلت صورة المنتج — استعادة'
+                              : '✓ Product isolated — restore'
                             : isAr
-                              ? 'إزالة خلفية الصورة'
-                              : 'Remove image background'}
+                              ? 'عزل الخلفية (محلي)'
+                              : 'Isolate background (local)'}
                     </span>
                   </button>
                   <div className="space-y-1">
                     <div className="flex justify-between text-[11px] font-bold text-slate-700">
-                      <span>{isAr ? 'حساسية العزل' : 'Cutout sensitivity'}</span>
+                      <span>{isAr ? 'تسامح العزل' : 'Cutout tolerance'}</span>
                       <span className="font-mono">{bgTolerance}</span>
                     </div>
                     <input
                       type="range"
-                      min={10}
-                      max={90}
+                      min={8}
+                      max={96}
+                      step={1}
                       value={bgTolerance}
                       onChange={(e) => setBgTolerance(Number(e.target.value))}
+                      onMouseUp={() => pushHistorySnapshot()}
+                      onTouchEnd={() => pushHistorySnapshot()}
                       className="w-full accent-[var(--cs-accent,#1d8b94)] cursor-pointer"
                     />
+                    <p className="text-[9px] text-slate-500">
+                      {isAr
+                        ? 'أقل = حواف أدق · أعلى = عزل أوسع للخلفيات المتشابهة.'
+                        : 'Lower = tighter edges · Higher = wider cutout for similar backgrounds.'}
+                    </p>
                   </div>
                 </div>
 
@@ -6489,11 +7593,11 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                         <Wand2 className="w-3.5 h-3.5" />
                         {selectedElement.bgRemoved
                           ? isAr
-                            ? 'خلفية أُزيلت'
-                            : 'BG off'
+                            ? 'عزل مفعّل'
+                            : 'Isolated'
                           : isAr
-                            ? 'إزالة الخلفية'
-                            : 'Remove BG'}
+                            ? 'عزل محلي'
+                            : 'Local cutout'}
                       </button>
                       <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg border border-slate-200 bg-white">
                         <span className="text-[10px] text-slate-500">{isAr ? 'عرض' : 'W'}</span>
@@ -6802,21 +7906,25 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                   disabled={isProcessingAi}
                   className="px-2.5 py-1 rounded-lg text-[10px] font-black text-white flex items-center gap-1 cursor-pointer disabled:opacity-60 cs-btn-primary"
                   style={{ background: 'var(--accent, #1d8b94)' }}
-                  title={isAr ? 'إزالة خلفية الصورة' : 'Remove image background'}
+                  title={
+                    isAr
+                      ? 'عزل الخلفية محلياً (ليس ذكاء اصطناعي)'
+                      : 'Local background cutout (not AI)'
+                  }
                 >
                   <Wand2 className="w-3.5 h-3.5" />
                   <span>
                     {isProcessingAi
                       ? isAr
-                        ? 'جارٍ الإزالة...'
-                        : 'Removing...'
+                        ? 'جارٍ العزل...'
+                        : 'Cutting out...'
                       : bgRemoved
                         ? isAr
-                          ? 'أُزيلت الخلفية'
-                          : 'BG removed'
+                          ? 'عزل مفعّل'
+                          : 'Isolated'
                         : isAr
-                          ? 'إزالة الخلفية'
-                          : 'Remove BG'}
+                          ? 'عزل محلي'
+                          : 'Local cutout'}
                   </span>
                 </button>
                 <button
@@ -6840,145 +7948,437 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
               </div>
             </div>
 
-            {/* Canvas Container */}
+            {/* Canvas Container — Canva multi-page vertical stack (toolbar floats on top of each page) */}
             <div
               ref={containerRef}
-              className="flex-1 flex items-center justify-center min-h-[280px] sm:min-h-[350px] overflow-auto p-2 sm:p-4 pt-10"
+              className="cs-page-stack flex-1 flex flex-col items-center min-h-[280px] sm:min-h-[350px] overflow-auto p-2 sm:p-4 pt-4 gap-8"
             >
-              <div
-                ref={canvasFrameRef}
-                className={`cs-canvas-frame relative overflow-visible flex items-center justify-center select-none w-full max-w-full${
-                  selectedBackdrop === 'transparent' ? ' cs-canvas-transparent-border' : ''
-                }${selectedBackdrop === 'pure-white' ? ' cs-canvas-pure-white' : ''}${
-                  canvasHoverCursor === 'grab' || canvasHoverCursor === 'grabbing'
-                    ? ' is-layer-hover'
-                    : ' is-pan-ready'
-                }`}
-                style={{
-                  aspectRatio: `${canvasW} / ${canvasH}`,
-                  maxHeight: isPage ? 'min(70vh, 720px)' : 'min(58vh, 560px)',
-                  maxWidth: 'min(100%, 920px)',
-                  width: '100%',
-                  transform: `scale(${viewZoom})`,
-                  transformOrigin: 'center center',
-                  cursor:
-                    isDraggingElement || isDraggingProduct
-                      ? 'grabbing'
-                      : isResizingElement || isResizingProduct
-                        ? 'nwse-resize'
-                        : canvasHoverCursor === 'grab'
-                          ? 'grab'
-                          : canvasHoverCursor === 'move'
-                            ? 'move'
-                            : 'default',
-                }}
-                onMouseDown={(e) => {
-                  if (ctxMenu) setCtxMenu(null);
-                  handlePointerDown(e);
-                }}
-                onMouseMove={handlePointerMove}
-                onMouseUp={handlePointerUp}
-                onMouseLeave={() => {
-                  if (!isDraggingElement && !isDraggingProduct) setCanvasHoverCursorSafe('default');
-                }}
-                onTouchStart={handlePointerDown}
-                onTouchMove={handlePointerMove}
-                onTouchEnd={handlePointerUp}
-                onContextMenu={handleCanvasContextMenu}
-              >
-                <canvas ref={canvasRef} className="w-full h-full object-contain pointer-events-none" />
-
-                {imageLoading && (
-                  <div className="absolute inset-0 bg-white/80 flex flex-col items-center justify-center gap-2 text-slate-800">
-                    <RefreshCw className="w-7 h-7 text-[var(--cs-accent,#1d8b94)] animate-spin" />
-                    <span className="text-xs font-bold">
-                      {isAr ? 'جارٍ تحميل الصورة...' : 'Loading image...'}
-                    </span>
-                  </div>
-                )}
-
-                {selectedElementIds
-                  .filter((id) => id !== selectedElementId)
-                  .map((id) => {
-                    const el = elements.find((x) => x.id === id);
-                    if (!el || el.hidden) return null;
-                    const r = layoutCacheRef.current[id] ?? estimateElementBounds(el);
-                    return (
-                      <div
-                        key={`sel-multi-${id}-${layoutEpoch}`}
-                        className="cs-selection-box absolute pointer-events-none opacity-70"
-                        style={rectToPercentStyle(r, canvasW, canvasH)}
-                      />
-                    );
-                  })}
-
-                {selectedElement && elementSelectionRect && (
+              {studioPages.map((page, idx) => {
+                const isActive = page.id === activePageId;
+                const pageLocked = Boolean(page.locked);
+                const pageHidden = Boolean(page.hidden);
+                const pageLabel =
+                  page.name || defaultPageName(idx, isAr) || (isAr ? `الصفحة ${idx + 1}` : `Page ${idx + 1}`);
+                return (
                   <div
-                    key={`sel-el-${selectedElement.id}-${layoutEpoch}`}
-                    className="cs-selection-box absolute"
-                    style={rectToPercentStyle(elementSelectionRect, canvasW, canvasH)}
+                    key={page.id}
+                    ref={(el) => {
+                      pageBlockRefs.current[page.id] = el;
+                    }}
+                    className={`cs-page-stack-item relative w-full max-w-[920px] flex flex-col items-center gap-2${
+                      isActive ? ' is-active' : ''
+                    }`}
+                    data-page-id={page.id}
                   >
+                    {/* One Canva-style bar: tools + page title on the SAME line */}
                     <div
-                      className="cs-selection-toolbar cs-selection-pill absolute -top-11 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-lg px-2 py-1 whitespace-nowrap text-[11px] text-slate-800"
-                      onClick={(e) => e.stopPropagation()}
+                      className={`cs-page-toolbar cs-page-toolbar-float w-full${
+                        isActive ? ' is-active' : ''
+                      }`}
+                      dir={isAr ? 'rtl' : 'ltr'}
                     >
-                      <button
-                        type="button"
-                        onClick={() => updateSelectedElement({ locked: !selectedElement.locked })}
-                        className="p-1 rounded text-slate-600 hover:bg-slate-100"
-                        title={selectedElement.locked ? (isAr ? 'فتح القفل' : 'Unlock') : isAr ? 'قفل' : 'Lock'}
+                      <div
+                        className="cs-page-tools cs-page-bar flex flex-nowrap items-center gap-1 w-full min-w-0 px-1.5 py-1 rounded-2xl"
+                        role="toolbar"
+                        aria-label={isAr ? 'أدوات الصفحة' : 'Page tools'}
                       >
-                        {selectedElement.locked ? (
-                          <LockKeyhole className="w-3.5 h-3.5 text-amber-500" />
-                        ) : (
-                          <Unlock className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleDuplicateSelected}
-                        className="p-1 rounded text-slate-600 hover:bg-slate-100"
-                        title={isAr ? 'تكرار' : 'Duplicate'}
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleDeleteSelected}
-                        className="p-1 rounded text-rose-600 hover:bg-rose-50"
-                        title={isAr ? 'حذف' : 'Delete'}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                        <div className="cs-page-bar-tools flex flex-nowrap items-center gap-0.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleAddBlankPage(page.id)}
+                            className="cs-page-tool-btn"
+                            title={isAr ? 'إضافة صفحة فارغة أسفل الحالية' : 'Add blank page below'}
+                          >
+                            <FilePlus2 className="w-4 h-4" strokeWidth={2.25} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePage(page.id)}
+                            className="cs-page-tool-btn cs-page-tool-danger"
+                            title={isAr ? 'حذف الصفحة' : 'Delete page'}
+                          >
+                            <Trash2 className="w-4 h-4" strokeWidth={2.25} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDuplicatePage(page.id)}
+                            className="cs-page-tool-btn"
+                            title={isAr ? 'تكرار الصفحة أسفل الحالية' : 'Duplicate page below'}
+                          >
+                            <CopyPlus className="w-4 h-4" strokeWidth={2.25} />
+                          </button>
+                          <span className="cs-page-tool-sep" aria-hidden />
+                          <button
+                            type="button"
+                            onClick={() => handleTogglePageLock(page.id)}
+                            className={`cs-page-tool-btn ${pageLocked ? 'is-on is-lock' : ''}`}
+                            title={
+                              pageLocked
+                                ? isAr
+                                  ? 'فتح قفل الصفحة'
+                                  : 'Unlock page'
+                                : isAr
+                                  ? 'قفل الصفحة'
+                                  : 'Lock page'
+                            }
+                          >
+                            {pageLocked ? (
+                              <LockKeyhole className="w-4 h-4" strokeWidth={2.25} />
+                            ) : (
+                              <Unlock className="w-4 h-4" strokeWidth={2.25} />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleTogglePageHidden(page.id)}
+                            className={`cs-page-tool-btn ${pageHidden ? 'is-on is-hide' : ''}`}
+                            title={
+                              pageHidden
+                                ? isAr
+                                  ? 'إظهار الصفحة'
+                                  : 'Show page'
+                                : isAr
+                                  ? 'إخفاء الصفحة'
+                                  : 'Hide page'
+                            }
+                          >
+                            {pageHidden ? (
+                              <EyeOff className="w-4 h-4" strokeWidth={2.25} />
+                            ) : (
+                              <Eye className="w-4 h-4" strokeWidth={2.25} />
+                            )}
+                          </button>
+                          <span className="cs-page-tool-sep" aria-hidden />
+                          <button
+                            type="button"
+                            onClick={() => handleMovePage(1, page.id)}
+                            disabled={idx >= studioPages.length - 1}
+                            className="cs-page-tool-btn"
+                            title={isAr ? 'نقل الصفحة لأسفل' : 'Move page down'}
+                          >
+                            <ChevronDown className="w-4 h-4" strokeWidth={2.25} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleMovePage(-1, page.id)}
+                            disabled={idx <= 0}
+                            className="cs-page-tool-btn"
+                            title={isAr ? 'نقل الصفحة لأعلى' : 'Move page up'}
+                          >
+                            <ChevronUp className="w-4 h-4" strokeWidth={2.25} />
+                          </button>
+                        </div>
+                        <div className="cs-page-bar-title flex flex-nowrap items-center gap-1.5 min-w-0 flex-1 justify-end ms-auto">
+                          <span className="cs-page-toolbar-label shrink-0 text-[12px] font-semibold whitespace-nowrap">
+                            {isAr ? `الصفحة ${idx + 1}` : `Page ${idx + 1}`}
+                            <span className="opacity-50 mx-1">-</span>
+                          </span>
+                          <input
+                            type="text"
+                            className="cs-page-toolbar-title-input min-w-0 flex-1 max-w-[220px] text-[12px] font-semibold bg-transparent border-0 outline-none truncate text-end"
+                            value={page.name || ''}
+                            placeholder={isAr ? 'إضافة عنوان للصفحة' : 'Add a page title'}
+                            onFocus={() => handleSelectPage(page.id)}
+                            onChange={(e) => handleRenamePage(page.id, e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            title={pageLabel}
+                            aria-label={isAr ? 'عنوان الصفحة' : 'Page title'}
+                          />
+                        </div>
+                      </div>
                     </div>
-                    {resizeHandle('nw', { left: 0, top: 0 }, 'nwse-resize', startElementResize)}
-                    {resizeHandle('ne', { left: '100%', top: 0 }, 'nesw-resize', startElementResize)}
-                    {resizeHandle('sw', { left: 0, top: '100%' }, 'nesw-resize', startElementResize)}
-                    {resizeHandle('se', { left: '100%', top: '100%' }, 'nwse-resize', startElementResize)}
-                    {(selectedElement.type === 'image' || selectedElement.type === 'shape') && (
-                      <>
-                        {resizeHandle('n', { left: '50%', top: 0 }, 'ns-resize', startElementResize, true)}
-                        {resizeHandle('e', { left: '100%', top: '50%' }, 'ew-resize', startElementResize, true)}
-                        {resizeHandle('s', { left: '50%', top: '100%' }, 'ns-resize', startElementResize, true)}
-                        {resizeHandle('w', { left: 0, top: '50%' }, 'ew-resize', startElementResize, true)}
-                      </>
+
+                    {isActive ? (
+                      <div
+                        ref={canvasFrameRef}
+                        className={`cs-canvas-frame relative overflow-visible flex items-center justify-center select-none w-full max-w-full${
+                          selectedBackdrop === 'transparent' ? ' cs-canvas-transparent-border' : ''
+                        }${selectedBackdrop === 'pure-white' ? ' cs-canvas-pure-white' : ''}${
+                          canvasHoverCursor === 'grab' || canvasHoverCursor === 'grabbing'
+                            ? ' is-layer-hover'
+                            : ' is-pan-ready'
+                        }${pageHidden ? ' cs-page-hidden' : ''}${pageLocked ? ' cs-page-locked' : ''}`}
+                        style={{
+                          ...canvasFrameBoxStyle(canvasW, canvasH),
+                          cursor: pageLocked
+                            ? 'not-allowed'
+                            : isDraggingElement || isDraggingProduct
+                              ? 'grabbing'
+                              : isResizingElement || isResizingProduct
+                                ? 'nwse-resize'
+                                : canvasHoverCursor === 'grab'
+                                  ? 'grab'
+                                  : canvasHoverCursor === 'move'
+                                    ? 'move'
+                                    : 'default',
+                          opacity: pageHidden ? 0.35 : 1,
+                        }}
+                        onMouseDown={(e) => {
+                          if (ctxMenu) setCtxMenu(null);
+                          handlePointerDown(e);
+                        }}
+                        onMouseMove={handlePointerMove}
+                        onMouseUp={handlePointerUp}
+                        onMouseLeave={() => {
+                          if (!isDraggingElement && !isDraggingProduct) setCanvasHoverCursorSafe('default');
+                        }}
+                        onTouchStart={handlePointerDown}
+                        onTouchMove={handlePointerMove}
+                        onTouchEnd={handlePointerUp}
+                        onContextMenu={handleCanvasContextMenu}
+                      >
+                        <canvas ref={canvasRef} className="w-full h-full object-contain pointer-events-none" />
+                        {snapGuides.length > 0 && (
+                          <div className="absolute inset-0 pointer-events-none z-20">
+                            {snapGuides.map((g, i) =>
+                              g.axis === 'v' ? (
+                                <div
+                                  key={`sg-v-${i}-${g.at}`}
+                                  className="absolute top-0 bottom-0 w-px"
+                                  style={{
+                                    left: `${(g.at / Math.max(1, canvasW)) * 100}%`,
+                                    background: 'var(--accent, #1d8b94)',
+                                    boxShadow: '0 0 0 1px rgba(255,255,255,0.55)',
+                                  }}
+                                />
+                              ) : (
+                                <div
+                                  key={`sg-h-${i}-${g.at}`}
+                                  className="absolute left-0 right-0 h-px"
+                                  style={{
+                                    top: `${(g.at / Math.max(1, canvasH)) * 100}%`,
+                                    background: 'var(--accent, #1d8b94)',
+                                    boxShadow: '0 0 0 1px rgba(255,255,255,0.55)',
+                                  }}
+                                />
+                              ),
+                            )}
+                          </div>
+                        )}
+                        {pageHidden && (
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                            <span className="px-3 py-1.5 rounded-lg bg-slate-900/70 text-white text-xs font-bold">
+                              {isAr ? 'الصفحة مخفية' : 'Page hidden'}
+                            </span>
+                          </div>
+                        )}
+                        {pageLocked && !pageHidden && (
+                          <div className="absolute top-2 end-2 pointer-events-none z-10">
+                            <span className="px-2 py-1 rounded-md bg-amber-500/90 text-white text-[10px] font-bold flex items-center gap-1">
+                              <LockKeyhole className="w-3 h-3" />
+                              {isAr ? 'مقفل' : 'Locked'}
+                            </span>
+                          </div>
+                        )}
+
+                        {imageLoading && (
+                          <div className="absolute inset-0 bg-white/80 flex flex-col items-center justify-center gap-2 text-slate-800">
+                            <RefreshCw className="w-7 h-7 text-[var(--cs-accent,#1d8b94)] animate-spin" />
+                            <span className="text-xs font-bold">
+                              {isAr ? 'جارٍ تحميل الصورة...' : 'Loading image...'}
+                            </span>
+                          </div>
+                        )}
+
+                        {snapGuides.length > 0 &&
+                          (isDraggingElement || isDraggingProduct) &&
+                          snapGuides.map((g, gi) =>
+                            g.v != null ? (
+                              <div
+                                key={`snap-v-${gi}-${g.v}`}
+                                className="absolute top-0 bottom-0 pointer-events-none z-20"
+                                style={{
+                                  left: `${(g.v / canvasW) * 100}%`,
+                                  width: 1,
+                                  background: 'var(--accent, #1d8b94)',
+                                  boxShadow: '0 0 0 0.5px rgba(255,255,255,0.7)',
+                                }}
+                              />
+                            ) : g.h != null ? (
+                              <div
+                                key={`snap-h-${gi}-${g.h}`}
+                                className="absolute start-0 end-0 pointer-events-none z-20"
+                                style={{
+                                  top: `${(g.h / canvasH) * 100}%`,
+                                  height: 1,
+                                  background: 'var(--accent, #1d8b94)',
+                                  boxShadow: '0 0 0 0.5px rgba(255,255,255,0.7)',
+                                }}
+                              />
+                            ) : null,
+                          )}
+
+                        {selectedElementIds
+                          .filter((id) => id !== selectedElementId)
+                          .map((id) => {
+                            const el = elements.find((x) => x.id === id);
+                            if (!el || el.hidden) return null;
+                            const r = layoutCacheRef.current[id] ?? estimateElementBounds(el);
+                            return (
+                              <div
+                                key={`sel-multi-${id}-${layoutEpoch}`}
+                                className="cs-selection-box absolute pointer-events-none opacity-70"
+                                style={rectToPercentStyle(r, canvasW, canvasH)}
+                              />
+                            );
+                          })}
+
+                        {selectedElement && elementSelectionRect && (
+                          <div
+                            key={`sel-el-${selectedElement.id}-${layoutEpoch}`}
+                            className="cs-selection-box absolute"
+                            style={rectToPercentStyle(elementSelectionRect, canvasW, canvasH)}
+                          >
+                            <div
+                              className="cs-selection-toolbar cs-selection-pill absolute -top-11 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-lg px-2 py-1 whitespace-nowrap text-[11px] text-slate-800"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => updateSelectedElement({ locked: !selectedElement.locked })}
+                                className="p-1 rounded text-slate-600 hover:bg-slate-100"
+                                title={
+                                  selectedElement.locked
+                                    ? isAr
+                                      ? 'فتح القفل'
+                                      : 'Unlock'
+                                    : isAr
+                                      ? 'قفل'
+                                      : 'Lock'
+                                }
+                              >
+                                {selectedElement.locked ? (
+                                  <LockKeyhole className="w-3.5 h-3.5 text-amber-500" />
+                                ) : (
+                                  <Unlock className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateSelectedElement({ hidden: !selectedElement.hidden })
+                                }
+                                className="p-1 rounded text-slate-600 hover:bg-slate-100"
+                                title={
+                                  selectedElement.hidden
+                                    ? isAr
+                                      ? 'إظهار الطبقة'
+                                      : 'Show layer'
+                                    : isAr
+                                      ? 'إخفاء الطبقة'
+                                      : 'Hide layer'
+                                }
+                              >
+                                {selectedElement.hidden ? (
+                                  <EyeOff className="w-3.5 h-3.5" />
+                                ) : (
+                                  <Eye className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleDuplicateSelected}
+                                className="p-1 rounded text-slate-600 hover:bg-slate-100"
+                                title={isAr ? 'تكرار' : 'Duplicate'}
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+                              {selectedElementIds.length >= 2 ? (
+                                <button
+                                  type="button"
+                                  onClick={handleGroupSelected}
+                                  className="p-1 rounded text-slate-600 hover:bg-slate-100"
+                                  title={isAr ? 'تجميع' : 'Group'}
+                                >
+                                  <Group className="w-3.5 h-3.5" style={{ color: 'var(--accent, #1d8b94)' }} />
+                                </button>
+                              ) : null}
+                              {selectedElement.groupId ? (
+                                <button
+                                  type="button"
+                                  onClick={handleUngroupSelected}
+                                  className="p-1 rounded text-slate-600 hover:bg-slate-100"
+                                  title={isAr ? 'فك التجميع' : 'Ungroup'}
+                                >
+                                  <Ungroup className="w-3.5 h-3.5" style={{ color: 'var(--accent, #1d8b94)' }} />
+                                </button>
+                              ) : null}
+                              <button
+                                type="button"
+                                onClick={handleDeleteSelected}
+                                className="p-1 rounded text-rose-600 hover:bg-rose-50"
+                                title={isAr ? 'حذف' : 'Delete'}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            {resizeHandle('nw', { left: 0, top: 0 }, 'nwse-resize', startElementResize)}
+                            {resizeHandle('ne', { left: '100%', top: 0 }, 'nesw-resize', startElementResize)}
+                            {resizeHandle('sw', { left: 0, top: '100%' }, 'nesw-resize', startElementResize)}
+                            {resizeHandle('se', { left: '100%', top: '100%' }, 'nwse-resize', startElementResize)}
+                            {(selectedElement.type === 'image' || selectedElement.type === 'shape') && (
+                              <>
+                                {resizeHandle('n', { left: '50%', top: 0 }, 'ns-resize', startElementResize, true)}
+                                {resizeHandle(
+                                  'e',
+                                  { left: '100%', top: '50%' },
+                                  'ew-resize',
+                                  startElementResize,
+                                  true,
+                                )}
+                                {resizeHandle(
+                                  's',
+                                  { left: '50%', top: '100%' },
+                                  'ns-resize',
+                                  startElementResize,
+                                  true,
+                                )}
+                                {resizeHandle('w', { left: 0, top: '50%' }, 'ew-resize', startElementResize, true)}
+                              </>
+                            )}
+                          </div>
+                        )}
+
+                        {productSelectionRect && (
+                          <div
+                            key={`sel-product-${layoutEpoch}`}
+                            className="cs-selection-box absolute"
+                            style={rectToPercentStyle(productSelectionRect, canvasW, canvasH)}
+                          >
+                            <div className="cs-selection-toolbar absolute -top-11 left-1/2 -translate-x-1/2 rounded-lg px-2.5 py-1 text-[10px] font-bold text-slate-700 whitespace-nowrap">
+                              {isAr
+                                ? 'صورة المنتج · اسحب الزاوية لتكبير'
+                                : 'Product · drag corner to resize'}
+                            </div>
+                            {resizeHandle('se', { left: '100%', top: '100%' }, 'nwse-resize', (_, e) =>
+                              startProductResize(e),
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className={`cs-page-inactive-frame cs-canvas-frame relative overflow-hidden flex items-center justify-center select-none w-full max-w-full border-0 p-0 cursor-pointer${
+                          pageHidden ? ' cs-page-hidden' : ''
+                        }${pageLocked ? ' cs-page-locked' : ''}`}
+                        style={{
+                          ...canvasFrameBoxStyle(canvasW, canvasH),
+                          opacity: pageHidden ? 0.35 : 0.92,
+                        }}
+                        onClick={() => handleSelectPage(page.id)}
+                        title={isAr ? 'انقر لفتح الصفحة' : 'Click to edit page'}
+                        aria-label={isAr ? `فتح ${pageLabel}` : `Open ${pageLabel}`}
+                      >
+                        <span className="cs-page-inactive-hint pointer-events-none px-3 py-1.5 rounded-lg text-[11px] font-bold">
+                          {pageLocked ? (isAr ? 'مقفل · ' : 'Locked · ') : ''}
+                          {isAr ? 'انقر للتعديل' : 'Click to edit'}
+                        </span>
+                      </button>
                     )}
                   </div>
-                )}
-
-                {productSelectionRect && (
-                  <div
-                    key={`sel-product-${layoutEpoch}`}
-                    className="cs-selection-box absolute"
-                    style={rectToPercentStyle(productSelectionRect, canvasW, canvasH)}
-                  >
-                    <div className="cs-selection-toolbar absolute -top-11 left-1/2 -translate-x-1/2 rounded-lg px-2.5 py-1 text-[10px] font-bold text-slate-700 whitespace-nowrap">
-                      {isAr ? 'صورة المنتج · اسحب الزاوية لتكبير' : 'Product · drag corner to resize'}
-                    </div>
-                    {resizeHandle('se', { left: '100%', top: '100%' }, 'nwse-resize', (_, e) => startProductResize(e))}
-                  </div>
-                )}
-              </div>
+                );
+              })}
             </div>
 
             <div className="cs-footer cs-glass pt-2.5 mt-2 border-t border-slate-200 flex items-center justify-between text-xs gap-3 flex-wrap">
@@ -7005,7 +8405,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
               <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-1.5 py-0.5">
                 <button
                   type="button"
-                  onClick={() => setViewZoom((z) => Math.max(0.5, Math.round((z - 0.1) * 100) / 100))}
+                  onClick={() => setViewZoom((z) => Math.max(0.3, Math.round((z - 0.1) * 100) / 100))}
                   className="p-1 hover:bg-slate-100 rounded text-slate-700"
                   title={isAr ? 'تصغير' : 'Zoom out'}
                 >
@@ -7024,7 +8424,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setViewZoom(1)}
+                  onClick={() => setViewZoom(DEFAULT_VIEW_ZOOM)}
                   className="px-1.5 py-0.5 text-[10px] font-bold hover:bg-slate-100 rounded text-slate-600"
                 >
                   {isAr ? 'ملاءمة' : 'Fit'}
@@ -7121,6 +8521,12 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
           elementClipboardRef.current.length > 0 || styleClipboardRef.current != null
         }
         hasSelection={Boolean(selectedElementId || selectedElementIds.length)}
+        canGroup={selectedElementIds.length >= 2}
+        canUngroup={elements.some(
+          (el) =>
+            el.groupId &&
+            (el.id === selectedElementId || selectedElementIds.includes(el.id)),
+        )}
         onClose={() => setCtxMenu(null)}
         onCopy={handleCopySelected}
         onCopyStyle={handleCopyStyleSelected}
@@ -7128,6 +8534,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
         onDuplicate={handleDuplicateSelected}
         onDelete={handleDeleteSelected}
         onToggleLock={handleToggleLockSelected}
+        onGroup={handleGroupSelected}
+        onUngroup={handleUngroupSelected}
         onLayer={(action) => {
           if (action === 'forward') bringElementForward();
           else if (action === 'backward') sendElementBackward();

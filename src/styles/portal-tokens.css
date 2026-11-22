@@ -3192,49 +3192,25 @@ button:active:not(:disabled) {
 }
 
 /* ── Shell wallpapers (html[data-shell-wallpaper] from store settings) ── */
+/* Color gradient presets retired — all stores use photo wallpaper (platform default or custom). */
 [data-theme="light"][data-portal="store"].unity-shell,
 [data-theme="light"] .unity-shell[data-portal="store"] {
-  background-color: #8a7a6a !important;
+  background-color: #e2e8f0 !important;
   background-attachment: fixed;
   background-size: cover !important;
   background-position: center !important;
   background-repeat: no-repeat !important;
 }
 
-/* Default / city-warm — warm city night bokeh (design screenshot) */
-html[data-shell-wallpaper='city-warm'] [data-theme="light"][data-portal="store"].unity-shell,
-html[data-shell-wallpaper='city-warm'] [data-theme="light"] .unity-shell[data-portal="store"],
+/* Platform default + legacy color preset attrs → same photo layer as custom */
 html:not([data-shell-wallpaper]) [data-theme="light"][data-portal="store"].unity-shell,
 html:not([data-shell-wallpaper]) [data-theme="light"] .unity-shell[data-portal="store"],
-html[data-shell-wallpaper='city-warm'][data-theme="light"] .unity-shell[data-portal="store"] {
-  background-image:
-    radial-gradient(circle at 18% 22%, rgba(255, 180, 60, 0.55) 0%, transparent 22%),
-    radial-gradient(circle at 42% 18%, rgba(255, 120, 90, 0.35) 0%, transparent 18%),
-    radial-gradient(circle at 72% 28%, rgba(255, 90, 140, 0.4) 0%, transparent 24%),
-    radial-gradient(circle at 88% 16%, rgba(120, 180, 255, 0.35) 0%, transparent 20%),
-    radial-gradient(circle at 60% 70%, rgba(255, 160, 80, 0.28) 0%, transparent 30%),
-    radial-gradient(circle at 25% 78%, rgba(80, 140, 220, 0.25) 0%, transparent 28%),
-    linear-gradient(165deg, #6b5a4e 0%, #5a4a55 40%, #3d4555 75%, #2a3340 100%) !important;
-  filter: none;
-}
-
+html[data-shell-wallpaper='city-warm'] [data-theme="light"][data-portal="store"].unity-shell,
+html[data-shell-wallpaper='city-warm'] [data-theme="light"] .unity-shell[data-portal="store"],
 html[data-shell-wallpaper='peach-lavender'] [data-theme="light"][data-portal="store"].unity-shell,
-html[data-shell-wallpaper='peach-lavender'] [data-theme="light"] .unity-shell[data-portal="store"] {
-  background-image:
-    radial-gradient(ellipse 70% 50% at 15% 20%, rgba(251, 191, 36, 0.22), transparent 55%),
-    radial-gradient(ellipse 60% 45% at 85% 15%, rgba(196, 181, 253, 0.35), transparent 50%),
-    linear-gradient(165deg, #f5d0c5 0%, #e8d4c8 35%, #d4c4e0 70%, #c9b8a8 100%) !important;
-}
-
+html[data-shell-wallpaper='peach-lavender'] [data-theme="light"] .unity-shell[data-portal="store"],
 html[data-shell-wallpaper='soft-night'] [data-theme="light"][data-portal="store"].unity-shell,
-html[data-shell-wallpaper='soft-night'] [data-theme="light"] .unity-shell[data-portal="store"] {
-  background-image:
-    radial-gradient(circle at 30% 40%, rgba(56, 189, 248, 0.35), transparent 40%),
-    radial-gradient(circle at 75% 25%, rgba(167, 139, 250, 0.3), transparent 35%),
-    linear-gradient(165deg, #0f172a 0%, #1e293b 55%, #334155 100%) !important;
-}
-
-/* Custom wallpaper: image on ::before; scrim + title ink follow data-shell-luma (sampled) */
+html[data-shell-wallpaper='soft-night'] [data-theme="light"] .unity-shell[data-portal="store"],
 html[data-shell-wallpaper='custom'] [data-theme="light"][data-portal="store"].unity-shell,
 html[data-shell-wallpaper='custom'] [data-theme="light"] .unity-shell[data-portal="store"],
 html[data-shell-wallpaper='custom'][data-theme="light"] .unity-shell[data-portal="store"],
@@ -3242,8 +3218,9 @@ html[data-shell-wallpaper='custom'][data-theme="light"][data-portal="store"] .un
 html[data-shell-wallpaper='custom'] .unity-shell[data-theme="light"][data-portal="store"] {
   position: relative;
   isolation: isolate;
-  background-color: #1e293b !important;
-  background-image: linear-gradient(180deg, rgba(15, 23, 42, 0.55), rgba(15, 23, 42, 0.68)) !important;
+  background-color: #e2e8f0 !important;
+  background-image: linear-gradient(180deg, rgba(248, 250, 252, 0.55), rgba(241, 245, 249, 0.42)) !important;
+  filter: none;
 }
 
 /* Bright custom photos → light shell wash + dark page titles (same as city-warm) */
@@ -3254,6 +3231,14 @@ html[data-shell-luma='light'][data-shell-wallpaper='custom'][data-theme="light"]
   background-image: linear-gradient(180deg, rgba(248, 250, 252, 0.55), rgba(241, 245, 249, 0.42)) !important;
 }
 
+html:not([data-shell-wallpaper]) [data-theme="light"][data-portal="store"].unity-shell::before,
+html:not([data-shell-wallpaper]) [data-theme="light"] .unity-shell[data-portal="store"]::before,
+html[data-shell-wallpaper='city-warm'] [data-theme="light"][data-portal="store"].unity-shell::before,
+html[data-shell-wallpaper='city-warm'] [data-theme="light"] .unity-shell[data-portal="store"]::before,
+html[data-shell-wallpaper='peach-lavender'] [data-theme="light"][data-portal="store"].unity-shell::before,
+html[data-shell-wallpaper='peach-lavender'] [data-theme="light"] .unity-shell[data-portal="store"]::before,
+html[data-shell-wallpaper='soft-night'] [data-theme="light"][data-portal="store"].unity-shell::before,
+html[data-shell-wallpaper='soft-night'] [data-theme="light"] .unity-shell[data-portal="store"]::before,
 html[data-shell-wallpaper='custom'] [data-theme="light"][data-portal="store"].unity-shell::before,
 html[data-shell-wallpaper='custom'] [data-theme="light"] .unity-shell[data-portal="store"]::before,
 html[data-shell-wallpaper='custom'][data-theme="light"] .unity-shell[data-portal="store"]::before,
@@ -3263,7 +3248,7 @@ html[data-shell-wallpaper='custom'] .unity-shell[data-theme="light"][data-portal
   inset: -24px;
   z-index: -1;
   pointer-events: none;
-  background-image: var(--store-shell-wallpaper, none);
+  background-image: var(--store-shell-wallpaper, url('/images/shell-wallpaper-default.webp'));
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -3334,52 +3319,15 @@ html[data-shell-luma='light'][data-shell-wallpaper='custom'][data-theme="light"]
   background-image: none !important;
 }
 
-/* Dark default wash — only when no wallpaper attribute (presets/custom have own rules) */
+/* Dark theme: same photo wallpaper as light (scrim for readable glass cards) */
 html:not([data-shell-wallpaper]) [data-theme="dark"][data-portal="store"].unity-shell,
-html:not([data-shell-wallpaper]) [data-theme="dark"] .unity-shell[data-portal="store"] {
-  background-color: #0f172a !important;
-  background-image:
-    radial-gradient(ellipse 70% 50% at 15% 20%, rgba(51, 65, 85, 0.5), transparent 55%),
-    linear-gradient(165deg, #0f172a 0%, #1e293b 55%, #0f172a 100%) !important;
-  background-attachment: fixed;
-  background-size: cover !important;
-}
-
-/* Dark theme: same wallpaper presets as light (readable navy wash under glass cards) */
+html:not([data-shell-wallpaper]) [data-theme="dark"] .unity-shell[data-portal="store"],
 html[data-shell-wallpaper='city-warm'] [data-theme="dark"][data-portal="store"].unity-shell,
-html[data-shell-wallpaper='city-warm'] [data-theme="dark"] .unity-shell[data-portal="store"] {
-  background-color: #1e293b !important;
-  background-image:
-    radial-gradient(circle at 18% 22%, rgba(255, 180, 60, 0.35) 0%, transparent 22%),
-    radial-gradient(circle at 72% 28%, rgba(255, 90, 140, 0.28) 0%, transparent 24%),
-    linear-gradient(165deg, #1e293b 0%, #0f172a 55%, #020617 100%) !important;
-  background-attachment: fixed;
-  background-size: cover !important;
-}
-
+html[data-shell-wallpaper='city-warm'] [data-theme="dark"] .unity-shell[data-portal="store"],
 html[data-shell-wallpaper='peach-lavender'] [data-theme="dark"][data-portal="store"].unity-shell,
-html[data-shell-wallpaper='peach-lavender'] [data-theme="dark"] .unity-shell[data-portal="store"] {
-  background-color: #1e1b2e !important;
-  background-image:
-    radial-gradient(ellipse 70% 50% at 15% 20%, rgba(251, 191, 36, 0.16), transparent 55%),
-    radial-gradient(ellipse 60% 45% at 85% 15%, rgba(196, 181, 253, 0.22), transparent 50%),
-    linear-gradient(165deg, #2a2438 0%, #1e1b2e 55%, #0f172a 100%) !important;
-  background-attachment: fixed;
-  background-size: cover !important;
-}
-
+html[data-shell-wallpaper='peach-lavender'] [data-theme="dark"] .unity-shell[data-portal="store"],
 html[data-shell-wallpaper='soft-night'] [data-theme="dark"][data-portal="store"].unity-shell,
-html[data-shell-wallpaper='soft-night'] [data-theme="dark"] .unity-shell[data-portal="store"] {
-  background-color: #0f172a !important;
-  background-image:
-    radial-gradient(circle at 30% 40%, rgba(56, 189, 248, 0.28), transparent 40%),
-    radial-gradient(circle at 75% 25%, rgba(167, 139, 250, 0.24), transparent 35%),
-    linear-gradient(165deg, #0f172a 0%, #1e293b 55%, #020617 100%) !important;
-  background-attachment: fixed;
-  background-size: cover !important;
-}
-
-/* Dark custom wallpaper image layer (blur on ::before — UI chrome stays sharp + readable) */
+html[data-shell-wallpaper='soft-night'] [data-theme="dark"] .unity-shell[data-portal="store"],
 html[data-shell-wallpaper='custom'] [data-theme="dark"][data-portal="store"].unity-shell,
 html[data-shell-wallpaper='custom'] [data-theme="dark"] .unity-shell[data-portal="store"] {
   position: relative;
@@ -3390,6 +3338,14 @@ html[data-shell-wallpaper='custom'] [data-theme="dark"] .unity-shell[data-portal
   background-size: cover !important;
 }
 
+html:not([data-shell-wallpaper]) [data-theme="dark"][data-portal="store"].unity-shell::before,
+html:not([data-shell-wallpaper]) [data-theme="dark"] .unity-shell[data-portal="store"]::before,
+html[data-shell-wallpaper='city-warm'] [data-theme="dark"][data-portal="store"].unity-shell::before,
+html[data-shell-wallpaper='city-warm'] [data-theme="dark"] .unity-shell[data-portal="store"]::before,
+html[data-shell-wallpaper='peach-lavender'] [data-theme="dark"][data-portal="store"].unity-shell::before,
+html[data-shell-wallpaper='peach-lavender'] [data-theme="dark"] .unity-shell[data-portal="store"]::before,
+html[data-shell-wallpaper='soft-night'] [data-theme="dark"][data-portal="store"].unity-shell::before,
+html[data-shell-wallpaper='soft-night'] [data-theme="dark"] .unity-shell[data-portal="store"]::before,
 html[data-shell-wallpaper='custom'] [data-theme="dark"][data-portal="store"].unity-shell::before,
 html[data-shell-wallpaper='custom'] [data-theme="dark"] .unity-shell[data-portal="store"]::before {
   content: '';
@@ -3397,7 +3353,7 @@ html[data-shell-wallpaper='custom'] [data-theme="dark"] .unity-shell[data-portal
   inset: -24px;
   z-index: -1;
   pointer-events: none;
-  background-image: var(--store-shell-wallpaper, none);
+  background-image: var(--store-shell-wallpaper, url('/images/shell-wallpaper-default.webp'));
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -3760,9 +3716,11 @@ html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .roun
 html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .rounded-3xl.border,
 html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .rounded-xl.border,
 html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .rounded-\[1\.25rem\],
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .cs-canva-home-glass,
 html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .u-card,
 html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .u-settings-luxe,
 html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .u-hub-card,
+html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .cs-canva-home-glass,
 html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main [style*="var(--surface)"] {
   --text: #0f172a;
   --muted: #475569;
@@ -3772,6 +3730,38 @@ html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store
   --plan-muted: #475569;
   --card-fg: #0f172a;
   color: #0f172a !important;
+}
+
+/* Canva home glass panels — same global dark-ink-on-frost as Branding / cards */
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .cs-canva-home-glass h1,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .cs-canva-home-glass h2,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .cs-canva-home-glass h3,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .cs-canva-home-glass p,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .cs-canva-home-glass label,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .cs-canva-home-glass span,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .cs-canva-home-glass .cs-canva-home-empty,
+html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .cs-canva-home-glass h1,
+html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .cs-canva-home-glass h2,
+html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .cs-canva-home-glass p,
+html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .cs-canva-home-glass span,
+html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .cs-canva-home-glass .cs-canva-home-empty {
+  color: #0f172a !important;
+  text-shadow: none !important;
+}
+
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .cs-canva-home-glass .cs-canva-home-empty,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .cs-canva-home-glass p[style*='var(--muted)'],
+html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .cs-canva-home-glass .cs-canva-home-empty {
+  color: #475569 !important;
+}
+
+/* Keep CTA / active chips white on navy inside Canva home glass */
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .cs-canva-home-glass .text-white,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .cs-canva-home-glass button.text-white,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .cs-canva-home-glass button.text-white span,
+html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .cs-canva-home-glass .text-white,
+html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .cs-canva-home-glass button.text-white span {
+  color: #ffffff !important;
 }
 
 /* Branding / settings luxe headings + body must not keep page light --text */
@@ -3795,9 +3785,21 @@ html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store
   color: #475569 !important;
 }
 
-/* Selected brand chips stay white-on-navy */
+/* Selected brand chips + primary CTAs stay white-on-navy (readable) */
 html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .u-settings-luxe [data-brand-chip='active'],
-html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .u-settings-luxe [data-brand-chip='active'] span {
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .u-settings-luxe [data-brand-chip='active'] span,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .u-settings-luxe [data-brand-chip='active'] svg,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .u-settings-luxe button[style*='--active-bg'],
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .u-settings-luxe button[style*='--active-bg'] span,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .u-settings-luxe button[style*='--active-bg'] svg,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .u-settings-luxe .unity-btn-primary,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .u-settings-luxe .unity-btn-primary *,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .u-settings-luxe button.text-white,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .u-settings-luxe button.text-white *,
+html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .u-settings-luxe [data-brand-chip='active'],
+html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .u-settings-luxe [data-brand-chip='active'] span,
+html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .u-settings-luxe .unity-btn-primary,
+html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .u-settings-luxe .unity-btn-primary * {
   color: #ffffff !important;
 }
 

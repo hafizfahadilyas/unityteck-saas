@@ -1,5 +1,24 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Lock, Search, Sparkles, FilePlus2, Upload, Trash2 } from 'lucide-react';
+import {
+  Lock,
+  Search,
+  Sparkles,
+  FilePlus2,
+  Upload,
+  Trash2,
+  RectangleHorizontal,
+  Images,
+  Smartphone,
+  Megaphone,
+  Package,
+  Ratio,
+  Award,
+  LayoutTemplate,
+  Monitor,
+  Ruler,
+  Check,
+  type LucideIcon,
+} from 'lucide-react';
 import type { Store } from '../../types';
 import {
   CANVA_TEMPLATE_CATEGORIES,
@@ -59,6 +78,11 @@ export interface CanvaTemplatesPanelProps {
   onSelectFormatPreset?: (width: number, height: number, label: string) => void;
   /** When set, category tabs are hidden and list is scoped to this category */
   lockedCategory?: CanvaTemplateCategory;
+  /**
+   * library = القوالب hub: premade + master + uploads for everyone on this store.
+   * for_you = niche-filtered starter list.
+   */
+  defaultNiche?: 'library' | 'for_you' | 'blank' | 'all' | 'mine' | 'master';
 }
 
 /** True mini-canvas preview — safe bands only (no stacked overlap / unreadable text). */
@@ -74,17 +98,11 @@ const TemplatePreviewCard: React.FC<{
 }> = ({ template, isAr, activeImageUrl, storeName, productName, priceLabel, categoryName }) => {
   const isBlank = template.niche === 'blank';
   const isLogo = template.category === 'logo';
-  const isLandscape = template.width > template.height * 1.25;
+  const isLandscape = template.width > template.height * 1.2;
+  const isPortrait = template.height > template.width * 1.05;
 
   // Live store/product image only — no cross-tenant sample product photos
   const previewImg = activeImageUrl || '';
-
-  const aspectClass =
-    template.width > template.height * 1.5
-      ? 'aspect-[16/7]'
-      : template.height > template.width * 1.4
-        ? 'aspect-[9/16]'
-        : 'aspect-square';
 
   const canvasApprox = resolveCanvasApproxColor(template.backdropId, template.customSolidColor || '#ffffff');
 
@@ -101,9 +119,15 @@ const TemplatePreviewCard: React.FC<{
   })();
 
   return (
+    <div className="w-full flex items-center justify-center rounded-lg bg-slate-100/60 dark:bg-white/5 p-1.5 min-h-[7.5rem]">
     <div
-      className={`relative w-full ${aspectClass} overflow-hidden select-none rounded-lg ring-1 ring-slate-200`}
-      style={{ background: template.previewGradient }}
+      className="relative overflow-hidden select-none rounded-md ring-1 ring-slate-200 w-full"
+      style={{
+        aspectRatio: `${template.width} / ${template.height}`,
+        maxHeight: isPortrait ? 168 : isLandscape ? 96 : 120,
+        maxWidth: isPortrait ? 96 : '100%',
+        background: template.previewGradient,
+      }}
     >
       {/* Product / subject — capped scale, mid zone only (never covers text band) */}
       {!isBlank && !isLogo && template.productPosPct.scale > 0 && previewImg && (
@@ -197,20 +221,19 @@ const TemplatePreviewCard: React.FC<{
       })}
 
       {isBlank && (
-        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-1 text-slate-600 pointer-events-none pb-4">
-          <FilePlus2 className="w-5 h-5 opacity-80" />
-          <span className="text-[9px] font-bold tracking-wide text-slate-700">
-            {isAr ? 'فارغ' : 'BLANK'}
-          </span>
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-1 text-slate-600 pointer-events-none">
+          <FilePlus2 className="w-5 h-5 opacity-80" aria-hidden />
+          <span className="sr-only">{isAr ? 'فارغ' : 'BLANK'}</span>
         </div>
       )}
 
       {/* Size chip — solid opaque so it never looks blurry on gradients */}
-      <div className={`absolute z-30 ${isBlank ? 'top-1.5 start-1.5' : 'bottom-1.5 end-1.5'}`}>
+      <div className={`absolute z-30 ${isBlank ? 'top-1.5 end-1.5' : 'bottom-1.5 end-1.5'}`}>
         <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-white text-slate-900 border border-slate-300">
           {template.width}×{template.height}
         </span>
       </div>
+    </div>
     </div>
   );
 };
@@ -229,6 +252,7 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
   onRequestPro,
   onSelectFormatPreset,
   lockedCategory,
+  defaultNiche = 'library',
 }) => {
   const storeNiche = useMemo(() => resolveStoreCanvaNiche(store), [store]);
   const [activeCategory, setActiveCategory] = useState<CanvaTemplateCategory | 'all'>(
@@ -241,10 +265,20 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
     }
   }, [lockedCategory]);
   const [nicheFilter, setNicheFilter] = useState<
-    'for_you' | 'blank' | 'all' | 'mine' | 'master'
-  >('for_you');
+    'library' | 'for_you' | 'blank' | 'all' | 'mine' | 'master'
+  >(defaultNiche === 'for_you' ? 'for_you' : defaultNiche || 'library');
+
+  useEffect(() => {
+    if (defaultNiche) setNicheFilter(defaultNiche);
+  }, [defaultNiche]);
   const [search, setSearch] = useState('');
   const [dailyIds, setDailyIds] = useState<string[]>([]);
+  /** Selected format size — templates list filters to matching WxH (full layers for that size) */
+  const [selectedFormatId, setSelectedFormatId] = useState<string | null>(null);
+  const [sizeFilter, setSizeFilter] = useState<{ w: number; h: number } | null>(null);
+  const [customW, setCustomW] = useState(1080);
+  const [customH, setCustomH] = useState(1080);
+  const [showCustomSize, setShowCustomSize] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -327,51 +361,172 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
     );
   }, [myTemplates, store.id, activeCategory, search]);
 
-  const canvaExploreCards = [
+  const canvaExploreCards: Array<{
+    id: string;
+    labelEn: string;
+    labelAr: string;
+    w: number;
+    h: number;
+    Icon: LucideIcon;
+    blankId?: string;
+    category?: CanvaTemplateCategory | 'all';
+    isCustom?: boolean;
+  }> = [
     {
       id: 'blank',
       labelEn: 'Blank',
       labelAr: 'فارغ',
-      size: '1080×1080',
-      grad: 'linear-gradient(135deg, #f8fafc, #e2e8f0)',
-      dark: true,
+      w: 1080,
+      h: 1080,
+      Icon: FilePlus2,
+      blankId: 'blank-square',
+      category: 'all',
+    },
+    {
+      id: 'story',
+      labelEn: 'Story',
+      labelAr: 'ستوري',
+      w: 1080,
+      h: 1920,
+      Icon: Smartphone,
+      blankId: 'blank-story',
+      category: 'social',
+    },
+    {
+      id: 'portrait',
+      labelEn: 'Portrait',
+      labelAr: 'عمودي',
+      w: 1080,
+      h: 1350,
+      Icon: Ratio,
+      blankId: 'blank-portrait',
+      category: 'social',
     },
     {
       id: 'banner',
       labelEn: 'Banner',
       labelAr: 'بنر',
-      size: '1600×600',
-      grad: 'linear-gradient(135deg, #f59e0b, #d97706)',
-    },
-    {
-      id: 'social',
-      labelEn: 'Instagram',
-      labelAr: 'إنستغرام',
-      size: '1080×1080',
-      grad: 'linear-gradient(135deg, #ec4899, #a855f7)',
-    },
-    {
-      id: 'social_story',
-      labelEn: 'Story',
-      labelAr: 'ستوري',
-      size: '1080×1920',
-      grad: 'linear-gradient(135deg, #f43f5e, #fb7185)',
+      w: 1600,
+      h: 600,
+      Icon: RectangleHorizontal,
+      blankId: 'blank-banner',
+      category: 'banner',
     },
     {
       id: 'ads',
       labelEn: 'Ads',
       labelAr: 'إعلان',
-      size: '1200×628',
-      grad: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+      w: 1200,
+      h: 628,
+      Icon: Megaphone,
+      blankId: 'blank-ads',
+      category: 'ads',
+    },
+    {
+      id: 'instagram',
+      labelEn: 'Post',
+      labelAr: 'منشور',
+      w: 1080,
+      h: 1080,
+      Icon: Images,
+      blankId: 'blank-square',
+      category: 'social',
     },
     {
       id: 'product',
       labelEn: 'Product',
       labelAr: 'منتج',
-      size: '1080×1080',
-      grad: 'linear-gradient(135deg, #10b981, #059669)',
+      w: 1080,
+      h: 1080,
+      Icon: Package,
+      blankId: 'blank-product',
+      category: 'product',
+    },
+    {
+      id: 'logo',
+      labelEn: 'Logo',
+      labelAr: 'شعار',
+      w: 800,
+      h: 800,
+      Icon: Award,
+      blankId: 'blank-logo',
+      category: 'logo',
+    },
+    {
+      id: 'cover',
+      labelEn: 'Cover',
+      labelAr: 'غلاف',
+      w: 1200,
+      h: 800,
+      Icon: LayoutTemplate,
+      blankId: 'blank-category',
+      category: 'category',
+    },
+    {
+      id: 'landscape',
+      labelEn: 'Landscape',
+      labelAr: 'أفقي',
+      w: 1920,
+      h: 1080,
+      Icon: Monitor,
+      blankId: 'blank-landscape',
+      category: 'banner',
+    },
+    {
+      id: 'custom',
+      labelEn: 'Custom',
+      labelAr: 'مخصص',
+      w: 0,
+      h: 0,
+      Icon: Ruler,
+      isCustom: true,
     },
   ];
+
+  const applyFormatSize = (opts: {
+    id: string;
+    w: number;
+    h: number;
+    labelEn: string;
+    labelAr: string;
+    blankId?: string;
+    category?: CanvaTemplateCategory | 'all';
+  }) => {
+    const w = Math.max(64, Math.min(4000, Math.round(opts.w)));
+    const h = Math.max(64, Math.min(4000, Math.round(opts.h)));
+    setSelectedFormatId(opts.id);
+    setSizeFilter({ w, h });
+    setShowCustomSize(opts.id === 'custom');
+    if (opts.category === 'all') {
+      setActiveCategory('all');
+      setNicheFilter('blank');
+    } else if (opts.category) {
+      setActiveCategory(opts.category);
+      setNicheFilter('for_you');
+    }
+    const label = isAr ? opts.labelAr : opts.labelEn;
+    onSelectFormatPreset?.(w, h, `${label} ${w}×${h}`);
+    if (opts.blankId) {
+      const blank = getCanvaTemplate(opts.blankId);
+      if (blank) onApply(blank);
+    } else {
+      onApply({
+        id: `blank-custom-${w}x${h}`,
+        category: 'social',
+        sort: 0,
+        tier: 'free',
+        niche: 'blank',
+        nameEn: `Custom ${w}×${h}`,
+        nameAr: `مخصص ${w}×${h}`,
+        width: w,
+        height: h,
+        backdropId: 'pure-white',
+        productPosPct: { x: 0.5, y: 0.5, scale: 0 },
+        previewGradient: 'linear-gradient(135deg,#ffffff,#f1f5f9)',
+        elements: [],
+      });
+    }
+  };
 
   // Generic chrome only — never surface coffee/flowers pack names in UI
   const nicheLabel = isAr ? 'قوالب متجرك' : 'Your templates';
@@ -394,6 +549,16 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
       list = list.filter(
         (t) => t.niche === 'blank' || t.niche === storeNiche || t.niche === 'general',
       );
+    } else if (nicheFilter === 'library' || nicheFilter === 'all') {
+      // Full catalog for القوالب — blank + store niche + general (no fake cross-tenant rows)
+      list = list.filter(
+        (t) =>
+          t.niche === 'blank' ||
+          t.niche === storeNiche ||
+          t.niche === 'general' ||
+          t.tier === 'free' ||
+          t.tier === 'pro',
+      );
     }
 
     if (search.trim()) {
@@ -411,6 +576,14 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
       );
     }
 
+    // Size lock — only full templates that match the chosen canvas WxH
+    if (sizeFilter) {
+      list = list.filter(
+        (t) =>
+          Math.abs(t.width - sizeFilter.w) <= 2 && Math.abs(t.height - sizeFilter.h) <= 2,
+      );
+    }
+
     // Surface today's 5 first when API returned real catalog IDs
     if (dailyIds.length > 0) {
       const dailySet = new Set(dailyIds);
@@ -421,7 +594,7 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
     }
 
     return list;
-  }, [activeCategory, search, store, nicheFilter, storeNiche, dailyIds]);
+  }, [activeCategory, search, store, nicheFilter, storeNiche, dailyIds, sizeFilter]);
 
   const counts = useMemo(() => {
     if (activeCategory === 'all') {
@@ -440,65 +613,162 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
             {isAr ? 'مقاسات وقوالب جاهزة' : 'Formats & premade'}
           </span>
           <span className="text-[10px] text-muted shrink-0">
+            {sizeFilter ? `${sizeFilter.w}×${sizeFilter.h} · ` : ''}
             {templates.length} {isAr ? 'قالب' : 'templates'}
           </span>
         </div>
 
-        <div className="grid grid-cols-3 sm:grid-cols-3 gap-1.5">
-          {canvaExploreCards.map((card) => (
-            <button
-              key={card.id}
-              type="button"
-              onClick={() => {
-                if (card.id === 'blank') {
-                  setNicheFilter('blank');
-                  setActiveCategory('all');
-                  onSelectFormatPreset?.(1080, 1080, 'Blank');
-                  const blank = getCanvaTemplate('blank-square');
-                  if (blank) onApply(blank);
-                  return;
-                }
-                if (card.id === 'social_story') {
-                  setActiveCategory('social');
-                  setNicheFilter('for_you');
-                  onSelectFormatPreset?.(1080, 1920, 'Story (9:16)');
-                } else {
-                  setActiveCategory(card.id as CanvaTemplateCategory);
-                  setNicheFilter('for_you');
-                  const [w, h] = card.size.split('×').map(Number);
-                  onSelectFormatPreset?.(w, h, card.labelEn);
-                }
-              }}
-              className={`p-2 rounded-lg text-start cursor-pointer transition-colors flex flex-col justify-between h-14 relative overflow-hidden border ${
-                card.dark
-                  ? 'cs-format-blank text-slate-800 border-slate-200'
-                  : 'text-white border-transparent'
-              }`}
-              style={{ background: card.grad }}
-            >
-              <div
-                className={`text-[10px] sm:text-[11px] font-black leading-tight ${
-                  card.dark ? 'text-slate-800' : 'text-white'
+        <div className="grid grid-cols-3 gap-2">
+          {canvaExploreCards.map((card) => {
+            const Icon = card.Icon;
+            const isActive = selectedFormatId === card.id;
+            return (
+              <button
+                key={card.id}
+                type="button"
+                onClick={() => {
+                  if (card.isCustom) {
+                    setSelectedFormatId('custom');
+                    setShowCustomSize(true);
+                    return;
+                  }
+                  applyFormatSize({
+                    id: card.id,
+                    w: card.w,
+                    h: card.h,
+                    labelEn: card.labelEn,
+                    labelAr: card.labelAr,
+                    blankId: card.blankId,
+                    category: card.category,
+                  });
+                }}
+                className={`cs-format-card group relative flex flex-col items-center justify-center gap-1 min-h-[5rem] px-1.5 py-2 rounded-xl cursor-pointer text-center transition-all ${
+                  isActive ? 'cs-format-card-active' : ''
                 }`}
+                title={
+                  card.isCustom
+                    ? isAr
+                      ? 'مقاس مخصص'
+                      : 'Custom size'
+                    : `${isAr ? card.labelAr : card.labelEn} · ${card.w}×${card.h}`
+                }
               >
-                {isAr ? card.labelAr : card.labelEn}
-              </div>
-              <div
-                className={`text-[8px] font-bold font-mono ${
-                  card.dark ? 'text-slate-600' : 'text-white/90'
-                }`}
-              >
-                {card.size}
-              </div>
-            </button>
-          ))}
+                <span
+                  className={`cs-format-card-ratio flex items-center justify-center ${
+                    card.isCustom ? 'cs-format-card-icon w-7 h-7 rounded-lg' : ''
+                  }`}
+                  style={
+                    card.isCustom
+                      ? undefined
+                      : {
+                          aspectRatio: `${card.w} / ${card.h}`,
+                          width:
+                            card.h > card.w * 1.05
+                              ? 16
+                              : card.w > card.h * 1.2
+                                ? 32
+                                : 22,
+                        }
+                  }
+                  aria-hidden
+                >
+                  <Icon
+                    className={card.isCustom ? 'w-3.5 h-3.5' : 'w-2.5 h-2.5'}
+                    strokeWidth={2.25}
+                  />
+                </span>
+                <span className="text-[10px] sm:text-[11px] font-black leading-tight tracking-tight">
+                  {isAr ? card.labelAr : card.labelEn}
+                </span>
+                <span className="cs-format-card-size text-[8px] font-bold font-mono tabular-nums leading-none">
+                  {card.isCustom
+                    ? isAr
+                      ? 'عرض × ارتفاع'
+                      : 'W × H'
+                    : `${card.w}×${card.h}`}
+                </span>
+              </button>
+            );
+          })}
         </div>
+
+        {showCustomSize && (
+          <div className="cs-format-custom flex flex-col gap-2 p-2.5 rounded-xl">
+            <div className="flex items-center gap-2">
+              <label className="flex-1 space-y-1">
+                <span className="text-[9px] font-bold text-muted block">
+                  {isAr ? 'العرض' : 'Width'}
+                </span>
+                <input
+                  type="number"
+                  min={64}
+                  max={4000}
+                  value={customW}
+                  onChange={(e) => setCustomW(Number(e.target.value) || 64)}
+                  className="w-full px-2 py-1.5 rounded-lg text-xs font-mono border border-slate-200 bg-white text-slate-900"
+                />
+              </label>
+              <span className="text-muted text-xs font-black pt-4">×</span>
+              <label className="flex-1 space-y-1">
+                <span className="text-[9px] font-bold text-muted block">
+                  {isAr ? 'الارتفاع' : 'Height'}
+                </span>
+                <input
+                  type="number"
+                  min={64}
+                  max={4000}
+                  value={customH}
+                  onChange={(e) => setCustomH(Number(e.target.value) || 64)}
+                  className="w-full px-2 py-1.5 rounded-lg text-xs font-mono border border-slate-200 bg-white text-slate-900"
+                />
+              </label>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                applyFormatSize({
+                  id: 'custom',
+                  w: customW,
+                  h: customH,
+                  labelEn: 'Custom',
+                  labelAr: 'مخصص',
+                  category: 'all',
+                })
+              }
+              className="cs-btn-primary w-full py-2 rounded-lg text-[11px] font-black text-white flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <Check className="w-3.5 h-3.5" />
+              {isAr ? 'تطبيق المقاس المخصص' : 'Apply custom size'}
+            </button>
+          </div>
+        )}
+
+        {sizeFilter && (
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedFormatId(null);
+              setSizeFilter(null);
+              setShowCustomSize(false);
+              setActiveCategory(lockedCategory || 'all');
+              setNicheFilter('for_you');
+            }}
+            className="text-[10px] font-bold text-muted hover:text-[var(--accent,#1d8b94)] cursor-pointer"
+          >
+            {isAr ? 'إظهار كل المقاسات' : 'Show all sizes'}
+          </button>
+        )}
       </div>
 
-      {/* Niche pills — Master designs + uploads + premade */}
+      {/* Niche pills — library hub first (القوالب = everyone sees ready designs) */}
       <div className="flex flex-wrap gap-1.5">
         {(
           [
+            {
+              id: 'library' as const,
+              en: 'All templates',
+              ar: 'كل القوالب',
+            },
             { id: 'for_you' as const, en: nicheLabel, ar: nicheLabel },
             {
               id: 'master' as const,
@@ -535,6 +805,76 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
           </button>
         ))}
       </div>
+
+      {nicheFilter === 'library' && (
+        <div className="space-y-3 pb-2 border-b border-slate-200">
+          <p className="text-[10px] text-slate-500 leading-relaxed">
+            {isAr
+              ? 'كل القوالب الجاهزة لهذا المتجر: الماستر، المرفوعة، والقوالب السعودية — ظاهرة للجميع هنا.'
+              : 'All ready designs for this store: Master, uploads, and KSA premades — visible here for everyone.'}
+          </p>
+          {filteredMasterTemplates.length > 0 && (
+            <div className="space-y-1.5">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                {isAr ? `من الماستر (${filteredMasterTemplates.length})` : `From Master (${filteredMasterTemplates.length})`}
+              </span>
+              <div className="grid grid-cols-2 gap-2 max-h-[180px] overflow-y-auto pe-1">
+                {filteredMasterTemplates.slice(0, 8).map((tpl) => (
+                  <button
+                    key={`lib-m-${tpl.id}`}
+                    type="button"
+                    onClick={() => onApplyMyTemplate?.(tpl)}
+                    className="rounded-lg border border-slate-200 bg-white p-1.5 text-start cursor-pointer hover:border-[var(--accent,#1d8b94)]"
+                  >
+                    <div className="relative aspect-square rounded-md overflow-hidden bg-slate-100 mb-1">
+                      {tpl.previewDataUrl ? (
+                        <img src={tpl.previewDataUrl} alt="" className="w-full h-full object-contain" loading="lazy" />
+                      ) : (
+                        <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-slate-500">
+                          {tpl.layers.length} {isAr ? 'طبقة' : 'layers'}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[9px] font-black truncate block text-slate-800">
+                      {isAr ? tpl.nameAr || tpl.nameEn : tpl.nameEn}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {filteredMyTemplates.length > 0 && (
+            <div className="space-y-1.5">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                {isAr ? `مرفوعات المتجر (${filteredMyTemplates.length})` : `Store uploads (${filteredMyTemplates.length})`}
+              </span>
+              <div className="grid grid-cols-2 gap-2 max-h-[180px] overflow-y-auto pe-1">
+                {filteredMyTemplates.slice(0, 8).map((tpl) => (
+                  <button
+                    key={`lib-u-${tpl.id}`}
+                    type="button"
+                    onClick={() => onApplyMyTemplate?.(tpl)}
+                    className="rounded-lg border border-slate-200 bg-white p-1.5 text-start cursor-pointer hover:border-[var(--accent,#1d8b94)]"
+                  >
+                    <div className="relative aspect-square rounded-md overflow-hidden bg-slate-100 mb-1">
+                      {tpl.previewDataUrl ? (
+                        <img src={tpl.previewDataUrl} alt="" className="w-full h-full object-contain" loading="lazy" />
+                      ) : (
+                        <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-slate-500">
+                          {tpl.layers.length} {isAr ? 'طبقة' : 'layers'}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[9px] font-black truncate block text-slate-800">
+                      {isAr ? tpl.nameAr || tpl.nameEn : tpl.nameEn}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {nicheFilter === 'master' && (
         <div className="space-y-2">
@@ -894,7 +1234,7 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
                   <button
                     type="button"
                     onClick={() => onApply(tpl)}
-                    className="shrink-0 px-2 py-1 rounded-lg text-[9px] font-black text-white cursor-pointer"
+                    className="cs-btn-primary shrink-0 px-2 py-1 rounded-lg text-[9px] font-black text-white cursor-pointer"
                     style={{ background: 'var(--accent, #1d8b94)' }}
                   >
                     {isAr ? 'تطبيق' : 'Use'}

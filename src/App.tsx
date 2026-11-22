@@ -197,26 +197,8 @@ const StoreProducts = lazyWithRetry(() =>
 const StoreMediaLibrary = lazyWithRetry(() =>
   import('./components/store/StoreMediaLibrary').then((m) => ({ default: m.StoreMediaLibrary })),
 );
-const StoreDesignStudioHub = lazyWithRetry(() =>
-  import('./components/store/StoreDesignStudioHub').then((m) => ({ default: m.StoreDesignStudioHub })),
-);
 const StoreCanvaStudio = lazyWithRetry(() =>
   import('./components/store/StoreCanvaStudio').then((m) => ({ default: m.StoreCanvaStudio })),
-);
-const StoreBannerDesignEditor = lazyWithRetry(() =>
-  import('./components/store/editors/StoreBannerDesignEditor').then((m) => ({
-    default: m.StoreBannerDesignEditor,
-  })),
-);
-const StoreLogoDesignEditor = lazyWithRetry(() =>
-  import('./components/store/editors/StoreLogoDesignEditor').then((m) => ({
-    default: m.StoreLogoDesignEditor,
-  })),
-);
-const StoreProductCardDesignEditor = lazyWithRetry(() =>
-  import('./components/store/editors/StoreProductCardDesignEditor').then((m) => ({
-    default: m.StoreProductCardDesignEditor,
-  })),
 );
 const StoreAiMediaGenerator = lazyWithRetry(() =>
   import('./components/store/StoreAiMediaGenerator').then((m) => ({ default: m.StoreAiMediaGenerator })),
@@ -673,6 +655,29 @@ const getDefaultStoreTheme = (storeId?: string): string => {
       }
     } catch {}
   }, []);
+
+  // Sidebar → Theme Settings opens the real customizer page (not a dead click)
+  useEffect(() => {
+    const openFromSidebar = () => {
+      try {
+        sessionStorage.removeItem('unityteck-theme-intent');
+      } catch {
+        /* storage may be unavailable */
+      }
+      handleOpenThemeCustomizer('01_store_identity');
+    };
+    window.addEventListener('unityteck-open-theme-settings', openFromSidebar as EventListener);
+    try {
+      if (sessionStorage.getItem('unityteck-theme-intent') === 'theme-settings') {
+        openFromSidebar();
+      }
+    } catch {
+      /* storage may be unavailable */
+    }
+    return () => {
+      window.removeEventListener('unityteck-open-theme-settings', openFromSidebar as EventListener);
+    };
+  }, [handleOpenThemeCustomizer]);
 
   const [path, navigate] = useSoftPath();
   const [session, setSession] = useState<AuthSession | null>(() => readAuthSession());
@@ -2030,14 +2035,13 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                   {storeTab === 'seo' && <StoreSEO onNavigateTab={setStoreTab} />}
                   {storeTab === 'products' && <StoreProducts onNavigateTab={setStoreTab} />}
                   {storeTab === 'media' && <StoreMediaLibrary />}
-                  {storeTab === 'canva' && <StoreDesignStudioHub onNavigateTab={setStoreTab} />}
-                  {storeTab === 'canva-studio' && <StoreCanvaStudio onNavigateTab={setStoreTab} />}
-                  {storeTab === 'canva-banner' && (
-                    <StoreBannerDesignEditor onNavigateTab={setStoreTab} />
-                  )}
-                  {storeTab === 'canva-logo' && <StoreLogoDesignEditor onNavigateTab={setStoreTab} />}
-                  {storeTab === 'canva-product-card' && (
-                    <StoreProductCardDesignEditor onNavigateTab={setStoreTab} />
+                  {/* Design Tools → open Full Design Studio directly (no 4-card hub) */}
+                  {(storeTab === 'canva' ||
+                    storeTab === 'canva-studio' ||
+                    storeTab === 'canva-banner' ||
+                    storeTab === 'canva-logo' ||
+                    storeTab === 'canva-product-card') && (
+                    <StoreCanvaStudio onNavigateTab={setStoreTab} />
                   )}
                   {storeTab === 'ai-media' && <StoreAiMediaGenerator onNavigateTab={setStoreTab} />}
                   {storeTab === 'categories' && <StoreCategories />}

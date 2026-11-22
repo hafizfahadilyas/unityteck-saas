@@ -152,13 +152,31 @@ export interface HeaderNavigationSettings {
   menuProductSource?: 'category' | 'latest' | 'manual';
   menuProductSort?: 'manual' | 'price' | 'newest' | 'bestselling';
   menuMaxProducts?: number;
+  /** Manual mega picks — product ids from THIS store catalog only. */
   menuProductIds?: string[];
+  /** Optional per-product image/title overrides for mega cards (store-scoped). */
+  menuProductOverrides?: Record<
+    string,
+    { image?: string; nameEn?: string; nameAr?: string }
+  >;
   /** Per-device mega product layout; unset keeps locked HiBrew defaults. */
   deviceLayouts?: {
     desktop?: HeaderMenuDeviceLayout;
     tablet?: HeaderMenuDeviceLayout;
     mobile?: HeaderMenuDeviceLayout;
   };
+  /**
+   * Coffee locked mega nav: keys to hide without replacing the whole menu
+   * (shop | machines | mills | cabinets | accessories | offers | ai | business | support | home).
+   */
+  hiddenNavKeys?: string[];
+  /**
+   * Optional EN/AR renames for locked coffee nav keys (empty = HiBrew default label).
+   * Keys match hiddenNavKeys (shop | machines | mills | …).
+   */
+  navLabelOverrides?: Record<string, { labelEn?: string; labelAr?: string }>;
+  /** Extra links appended after the locked coffee mega items (when desktopLinks is empty). */
+  extraLinks?: HeaderNavLink[];
 }
 
 export interface HeaderMenuDeviceLayout {
@@ -341,9 +359,10 @@ export const DEFAULT_HEADER_SETTINGS: HeaderCustomSettings = {
     menuProductSort: 'newest',
     menuMaxProducts: 5,
     menuProductIds: [],
+    menuProductOverrides: {},
     deviceLayouts: {
-      desktop: { layout: 'grid', columns: 5, showCategoryTabs: true, showCompareButton: true, cardStyle: 'rounded', cardSpacing: 'md' },
-      tablet: { layout: 'grid', columns: 3, showCategoryTabs: true, showCompareButton: true, cardStyle: 'rounded', cardSpacing: 'md' },
+      desktop: { layout: 'grid', columns: 5, showCategoryTabs: true, showCompareButton: false, cardStyle: 'rounded', cardSpacing: 'md' },
+      tablet: { layout: 'grid', columns: 3, showCategoryTabs: true, showCompareButton: false, cardStyle: 'rounded', cardSpacing: 'md' },
       mobile: { layout: 'horizontal', columns: 2, showCategoryTabs: true, showCompareButton: false, cardStyle: 'rounded', cardSpacing: 'sm' },
     },
     links: [

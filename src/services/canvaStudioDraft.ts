@@ -10,7 +10,8 @@ import {
   type CanvaProjectLayer,
 } from './canvaDesignProject';
 
-export const CANVA_DRAFT_VERSION = 1 as const;
+/** Bump when draft shape / studio UX changes so stale local drafts never restore. */
+export const CANVA_DRAFT_VERSION = 2 as const;
 
 export type CanvaStudioDraft = {
   version: typeof CANVA_DRAFT_VERSION;
@@ -103,6 +104,8 @@ export function buildDraftProject(input: {
   product?: CanvaDesignProject['product'];
   filters?: CanvaDesignProject['filters'];
   layers: CanvaProjectLayer[];
+  pages?: CanvaDesignProject['pages'];
+  activePageId?: string;
 }): CanvaDesignProject {
   return buildCanvaDesignProject(input);
 }
@@ -110,6 +113,9 @@ export function buildDraftProject(input: {
 /** Meaningful work worth restoring (layers or non-default product hero). */
 export function draftHasWork(draft: CanvaStudioDraft | null): boolean {
   if (!draft?.project) return false;
+  const pages = draft.project.pages || [];
+  if (pages.length > 1) return true;
+  if (pages.some((p) => (p.layers || []).length > 0)) return true;
   const layers = draft.project.layers || [];
   if (layers.length > 0) return true;
   const scale = draft.project.product?.scale ?? 0;

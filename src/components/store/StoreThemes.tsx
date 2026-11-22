@@ -189,7 +189,9 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
       const intentRaw = sessionStorage.getItem('unityteck-theme-intent');
       if (intentRaw) {
         sessionStorage.removeItem('unityteck-theme-intent');
-        if (intentRaw !== 'theme-settings') {
+        if (intentRaw === 'theme-settings') {
+          onOpenThemeCustomizer?.('01_store_identity');
+        } else if (intentRaw !== 'installed') {
           try {
             const parsed = JSON.parse(intentRaw) as { type?: string; page?: string };
             if (parsed?.type === 'builder') {
@@ -210,7 +212,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
     return () => {
       window.removeEventListener('unityteck-open-visual-builder', openFromSidebar as EventListener);
     };
-  }, [currentThemeId, onCustomizeTheme, activeStore.id]);
+  }, [currentThemeId, onCustomizeTheme, onOpenThemeCustomizer, activeStore.id]);
 
   return (
     <div

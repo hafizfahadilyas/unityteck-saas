@@ -233,21 +233,23 @@ export async function hydrateChromeImageUrl(
 
 /**
  * Ensure chrome-idb:// refs are live-paintable.
- * When `restoreMissingShell` is true and URL is empty, restore latest IDB shell / sidebar images
+ * When restore flags are true and URL is empty, restore latest IDB shell / sidebar images
  * (used after cache wipe races — not after an intentional clear).
  */
 export async function hydrateStoreChromeImages(
   storeId: string,
   chrome: { shellWallpaper?: string; bgImage?: string },
-  opts?: { restoreMissingShell?: boolean },
+  opts?: { restoreMissingShell?: boolean; restoreMissingBg?: boolean },
 ): Promise<{ shellWallpaper: string; bgImage: string }> {
   let shellWallpaper = (chrome.shellWallpaper || '').trim();
   let bgImage = (chrome.bgImage || '').trim();
+  const restoreShell = Boolean(opts?.restoreMissingShell);
+  const restoreBg = opts?.restoreMissingBg != null ? Boolean(opts.restoreMissingBg) : restoreShell;
 
   if (isChromeIdbUrl(shellWallpaper)) {
     const hydrated = await hydrateChromeImageUrl(storeId, 'shellWallpaper', shellWallpaper);
     if (hydrated) shellWallpaper = hydrated;
-  } else if (!shellWallpaper && opts?.restoreMissingShell) {
+  } else if (!shellWallpaper && restoreShell) {
     const hydrated = await hydrateChromeImageUrl(storeId, 'shellWallpaper');
     if (hydrated) shellWallpaper = hydrated;
   }
@@ -255,7 +257,7 @@ export async function hydrateStoreChromeImages(
   if (isChromeIdbUrl(bgImage)) {
     const hydrated = await hydrateChromeImageUrl(storeId, 'bgImage', bgImage);
     if (hydrated) bgImage = hydrated;
-  } else if (!bgImage && opts?.restoreMissingShell) {
+  } else if (!bgImage && restoreBg) {
     const hydrated = await hydrateChromeImageUrl(storeId, 'bgImage');
     if (hydrated) bgImage = hydrated;
   }

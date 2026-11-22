@@ -11,6 +11,7 @@ import {
   type AllThemeSettings,
 } from '../../../../themes/settings/themeSettingsStore';
 import { isCoffeeStore, resolveCoffeeThemeSettings } from '../../../../themes/settings/coffeeThemeDefaults';
+import { autoBilingualPair } from '../../../../i18n/autoBilingual';
 
 const SLICE_LIST: Partial<Record<string, string>> = {
   heroBanners: 'banners',
@@ -340,8 +341,8 @@ export const EnableRow: React.FC<{
 );
 
 /**
- * One merchant text box — type Arabic, English, or mixed.
- * Writes the same value to both *_en and *_ar so storefront bi() stays filled.
+ * One merchant text box (global rule — all stores / elements).
+ * Auto-fills EN+AR via glossary when known; otherwise mirrors both sides.
  */
 export const BiFields: React.FC<{
   isAr: boolean;
@@ -354,7 +355,7 @@ export const BiFields: React.FC<{
   max?: number;
   placeholder?: string;
 }> = ({ isAr, labelEn, labelAr, en, ar, onEn, onAr, max, placeholder }) => {
-  const value = (en || ar || '').trim() ? (en || ar || '') : '';
+  const value = isAr ? (ar || en || '') : (en || ar || '');
   const label = isAr ? labelAr : labelEn;
   return (
     <label className="text-[11px] font-bold space-y-1 block">
@@ -365,27 +366,28 @@ export const BiFields: React.FC<{
       <input
         value={value}
         maxLength={max}
-        placeholder={placeholder || (isAr ? 'اكتب النص بأي لغة' : 'Type text in any language')}
+        placeholder={placeholder || (isAr ? 'اكتب النص — الترجمة تلقائية' : 'Type text — auto-translates')}
         onChange={(e) => {
-          const v = e.target.value;
-          onEn(v);
-          onAr(v);
+          const pair = autoBilingualPair(e.target.value);
+          onEn(pair.en);
+          onAr(pair.ar);
         }}
         className="w-full px-3 py-2 rounded-xl border text-xs"
         style={{ background: 'var(--input-bg)', borderColor: 'var(--border)' }}
-        dir="auto"
+        dir={isAr ? 'rtl' : 'ltr'}
       />
     </label>
   );
 };
 
-/** Single free-text CTA/label input — syncs En+Ar storage keys. */
+/** Single free-text CTA/label input — auto EN+AR via global bilingual rule. */
 export function syncBilingualPatch<T extends Record<string, unknown>>(
   enKey: keyof T & string,
   arKey: keyof T & string,
   value: string,
 ): Pick<T, typeof enKey | typeof arKey> {
-  return { [enKey]: value, [arKey]: value } as Pick<T, typeof enKey | typeof arKey>;
+  const pair = autoBilingualPair(value);
+  return { [enKey]: pair.en, [arKey]: pair.ar } as Pick<T, typeof enKey | typeof arKey>;
 }
 
 export const RowTools: React.FC<{

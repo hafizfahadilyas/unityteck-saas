@@ -116,6 +116,10 @@ const loaders: Record<string, Loader> = {
     import('../themeSettings/coffee/CoffeeSectionForms').then((m) => ({
       default: m.CoffeeProductEditForm,
     })),
+  'C-PDP': () =>
+    import('../themeSettings/coffee/CoffeeProductDetailPageForm').then((m) => ({
+      default: m.CoffeeProductDetailPageForm,
+    })),
   'C-NEWS': () =>
     import('../themeSettings/coffee/CoffeeSectionForms').then((m) => ({
       default: m.NewsletterForm,

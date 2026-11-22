@@ -132,7 +132,7 @@ class StoreThemeController extends Controller
         if (isset($data['settings']) || $request->boolean('publish')) {
             $draft = is_array($existing['draft'] ?? null) ? $existing['draft'] : [];
             if (isset($data['settings'])) {
-                $incoming = ThemeSettingsGuard::withoutLoginEmail($data['settings']);
+                $incoming = ThemeSettingsGuard::withoutLoginEmail($data['settings'], $id);
                 unset($incoming['draft'], $incoming['by_theme'], $incoming['builder'], $incoming['globalStyles']);
                 $draft = $this->mergeThemeSettings($draft, $incoming);
             }
@@ -170,7 +170,7 @@ class StoreThemeController extends Controller
 
         $storeTheme->theme_id = $newThemeId;
         $savedSettings = is_array($storeTheme->settings) ? $storeTheme->settings : [];
-        $storeTheme->settings = ThemeSettingsGuard::withoutLoginEmail($savedSettings);
+        $storeTheme->settings = ThemeSettingsGuard::withoutLoginEmail($savedSettings, $id);
         $storeTheme->save();
         $storeTheme->load('theme');
 

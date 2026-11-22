@@ -11,8 +11,12 @@ import {
 } from '../api/client';
 import { setChromePainter } from './chromePainter';
 import {
+  AR_FONTS,
   BRAND_PALETTES,
+  applyStoreArabicTypography,
   isBrandPaletteId,
+  type BrandFontArId,
+  type BrandFontWeight,
   type BrandPalette,
   type BrandPaletteId,
 } from './branding';
@@ -35,6 +39,35 @@ export type ChromeFill = 'palette' | 'gradient' | 'custom' | 'image';
 export type SidebarDesignId = 'classic' | 'navy' | 'emerald' | 'minimal' | 'luxe';
 /** Glass admin shell wallpaper behind frosted panels (store portal only). */
 export type ShellWallpaperPreset = 'city-warm' | 'peach-lavender' | 'soft-night' | 'custom';
+/**
+ * Platform default glass wallpaper (all stores after login).
+ * Color gradient presets are retired — empty chrome always resolves here.
+ */
+export const DEFAULT_SHELL_WALLPAPER_URL = '/images/shell-wallpaper-default.webp';
+
+/** Resolve paint/upload URL: merchant custom wins, else platform default image. */
+export function resolveShellWallpaperUrl(
+  urlOrChrome?: string | { shellWallpaper?: string | null } | null,
+): string {
+  const raw =
+    typeof urlOrChrome === 'string'
+      ? urlOrChrome
+      : typeof urlOrChrome?.shellWallpaper === 'string'
+        ? urlOrChrome.shellWallpaper
+        : '';
+  const trimmed = raw.trim();
+  return trimmed || DEFAULT_SHELL_WALLPAPER_URL;
+}
+
+/** True when URL is empty or the shared platform default (not a merchant upload). */
+export function isDefaultShellWallpaper(url: unknown): boolean {
+  if (typeof url !== 'string') return true;
+  const t = url.trim();
+  if (!t) return true;
+  if (t === DEFAULT_SHELL_WALLPAPER_URL) return true;
+  return /(^|\/)images\/shell-wallpaper-default\.webp(\?|#|$)/i.test(t);
+}
+
 /** Full dashboard look packs (sidebar + wallpaper + colors) — exactly 2. */
 export type DashboardLookId = 'glass' | 'night';
 
@@ -70,6 +103,14 @@ export type StoreChromeBrand = {
   shellTextMode?: ShellTextMode;
   /** Active full-dashboard look pack (glass | night). */
   dashboardLookId?: DashboardLookId;
+  /** Per-store Arabic UI font (store_id isolated). */
+  fontAr?: BrandFontArId;
+  /** Per-store font weight: light | regular | bold | medium. */
+  fontWeight?: BrandFontWeight;
+  /** Custom Arabic family when fontAr === custom-ar. */
+  customFontFamilyAr?: string | null;
+  /** Optional Google Fonts / CSS URL for custom Arabic face. */
+  customFontUrlAr?: string | null;
   /** Last local/API write — newer cache must not be wiped by stale remote load. */
   updatedAt?: number;
 };
@@ -80,6 +121,57 @@ export function isShellTextMode(value: unknown): value is ShellTextMode {
 
 /** In-memory live wallpaper while upload is still ephemeral (blob/data). */
 const pendingChromeByStore = new Map<string, StoreChromeBrand>();
+
+/** Survives refresh — blocks IDB/cache restore after intentional wallpaper/bg remove. */
+const clearFlagsKey = (storeId: string) => `unityteck_chrome_cleared_${storeId}`;
+
+type ChromeClearFlags = { shellWallpaper?: number; bgImage?: number };
+
+function readClearFlags(storeId: string): ChromeClearFlags {
+  if (!storeId || typeof localStorage === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(clearFlagsKey(storeId));
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as ChromeClearFlags;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeClearFlags(storeId: string, flags: ChromeClearFlags): void {
+  if (!storeId || typeof localStorage === 'undefined') return;
+  try {
+    const next = { ...readClearFlags(storeId), ...flags };
+    if (!next.shellWallpaper && !next.bgImage) {
+      localStorage.removeItem(clearFlagsKey(storeId));
+      return;
+    }
+    localStorage.setItem(clearFlagsKey(storeId), JSON.stringify(next));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Call when merchant clears or uploads glass wallpaper / sidebar bg. */
+export function markChromeImageCleared(
+  storeId: string,
+  field: ChromeImageField,
+  cleared: boolean,
+): void {
+  if (!storeId) return;
+  const flags = readClearFlags(storeId);
+  if (cleared) {
+    flags[field] = Date.now();
+  } else {
+    delete flags[field];
+  }
+  writeClearFlags(storeId, flags);
+}
+
+function isChromeImageCleared(storeId: string, field: ChromeImageField): boolean {
+  return Boolean(readClearFlags(storeId)[field]);
+}
 
 function clampBlur(n: unknown): number {
   const v = typeof n === 'number' ? n : Number(n);
@@ -93,15 +185,12 @@ function clampOpacity(n: unknown): number {
   return Math.max(0.15, Math.min(1, Math.round(v * 100) / 100));
 }
 
+/** @deprecated Color gradient presets removed — default is always the platform image. */
 export const SHELL_WALLPAPER_PRESETS: Array<{
   id: Exclude<ShellWallpaperPreset, 'custom'>;
   label: string;
   labelAr: string;
-}> = [
-  { id: 'city-warm', label: 'Warm city glass', labelAr: 'زجاج مدينة دافئ' },
-  { id: 'peach-lavender', label: 'Peach lavender', labelAr: 'خوخ وخزامى' },
-  { id: 'soft-night', label: 'Soft night', labelAr: 'ليل ناعم' },
-];
+}> = [];
 
 export function isShellWallpaperPreset(value: unknown): value is ShellWallpaperPreset {
   return value === 'city-warm' || value === 'peach-lavender' || value === 'soft-night' || value === 'custom';
@@ -198,8 +287,8 @@ export function applySidebarDesign(chrome: StoreChromeBrand, id: SidebarDesignId
   const keepBg = Boolean((chrome.bgImage || '').trim());
   return {
     ...chrome,
-    shellWallpaperPreset: chrome.shellWallpaperPreset || 'city-warm',
-    shellWallpaper: chrome.shellWallpaper || '',
+    shellWallpaperPreset: 'custom',
+    shellWallpaper: resolveShellWallpaperUrl(chrome),
     shellWallpaperBlur: clampBlur(chrome.shellWallpaperBlur),
     shellWallpaperOpacity: clampOpacity(chrome.shellWallpaperOpacity),
     sidebarDesign: preset.id,
@@ -234,7 +323,7 @@ export type DashboardLookPack = {
   >;
 };
 
-/** Exactly two full-dashboard looks — sidebar + wallpaper + colors. */
+/** Exactly two full-dashboard looks — sidebar + colors (wallpaper = fixed platform image). */
 export const DASHBOARD_LOOK_PACKS: DashboardLookPack[] = [
   {
     id: 'glass',
@@ -249,7 +338,7 @@ export const DASHBOARD_LOOK_PACKS: DashboardLookPack[] = [
       gradientFrom: '#0A3D4A',
       gradientTo: '#1D8B94',
       sidebarDesign: 'classic',
-      shellWallpaperPreset: 'city-warm',
+      shellWallpaperPreset: 'custom',
       shellWallpaperBlur: 10,
       shellWallpaperOpacity: 0.92,
     },
@@ -267,7 +356,7 @@ export const DASHBOARD_LOOK_PACKS: DashboardLookPack[] = [
       gradientFrom: '#2A2118',
       gradientTo: '#6B4E2E',
       sidebarDesign: 'luxe',
-      shellWallpaperPreset: 'soft-night',
+      shellWallpaperPreset: 'custom',
       shellWallpaperBlur: 12,
       shellWallpaperOpacity: 0.9,
     },
@@ -281,35 +370,30 @@ export function isDashboardLookId(value: unknown): value is DashboardLookId {
 /** Infer pack from chrome when dashboardLookId missing (legacy rows). */
 export function resolveDashboardLookId(chrome: StoreChromeBrand): DashboardLookId {
   if (isDashboardLookId(chrome.dashboardLookId)) return chrome.dashboardLookId;
-  if (
-    chrome.shellWallpaperPreset === 'soft-night' ||
-    chrome.sidebarDesign === 'luxe' ||
-    chrome.sidebarDesign === 'navy'
-  ) {
+  if (chrome.sidebarDesign === 'luxe' || chrome.sidebarDesign === 'navy') {
     return 'night';
   }
   return 'glass';
 }
 
 /**
- * Apply a full dashboard look pack (colors + presets).
+ * Apply a full dashboard look pack (sidebar + colors).
  * Merchant custom wallpaper / sidebar images are kept — never wiped by a look toggle.
+ * Empty wallpaper falls back to the platform default image (not color gradients).
  */
 export function applyDashboardLookPack(
   chrome: StoreChromeBrand,
   id: DashboardLookId,
 ): StoreChromeBrand {
   const pack = DASHBOARD_LOOK_PACKS.find((p) => p.id === id) ?? DASHBOARD_LOOK_PACKS[0];
-  const keepShell = Boolean((chrome.shellWallpaper || '').trim());
+  const keepShell = Boolean((chrome.shellWallpaper || '').trim()) && !isDefaultShellWallpaper(chrome.shellWallpaper);
   const keepBg = Boolean((chrome.bgImage || '').trim());
   return {
     ...chrome,
     ...pack.chrome,
     dashboardLookId: pack.id,
-    shellWallpaper: keepShell ? chrome.shellWallpaper : '',
-    shellWallpaperPreset: keepShell
-      ? 'custom'
-      : pack.chrome.shellWallpaperPreset || 'city-warm',
+    shellWallpaper: keepShell ? chrome.shellWallpaper : DEFAULT_SHELL_WALLPAPER_URL,
+    shellWallpaperPreset: 'custom',
     shellWallpaperBlur: keepShell
       ? clampBlur(chrome.shellWallpaperBlur)
       : pack.chrome.shellWallpaperBlur,
@@ -350,8 +434,8 @@ export function defaultStoreChrome(): StoreChromeBrand {
     gradientTo: '#8A6A2F',
     bgImage: '',
     sidebarDesign: 'classic',
-    shellWallpaperPreset: 'city-warm',
-    shellWallpaper: '',
+    shellWallpaperPreset: 'custom',
+    shellWallpaper: DEFAULT_SHELL_WALLPAPER_URL,
     shellWallpaperBlur: 10,
     shellWallpaperOpacity: 0.92,
     pageBgColor: '',
@@ -446,6 +530,14 @@ export function absolutePaintUrl(url: string, storeId?: string | null): string {
   if (isChromeIdbUrl(trimmed)) return fromIdb || '';
   if (fromIdb && fromIdb !== trimmed) return fromIdb;
   if (trimmed.startsWith('/') && !trimmed.startsWith('//')) {
+    // Bundled platform default stays on the admin SPA host (public/), never Hostinger /uploads
+    if (isDefaultShellWallpaper(trimmed)) {
+      const pathOnly = trimmed.split(/[?#]/)[0] || DEFAULT_SHELL_WALLPAPER_URL;
+      if (typeof window !== 'undefined' && window.location?.origin) {
+        return `${window.location.origin}${pathOnly}`;
+      }
+      return pathOnly;
+    }
     const sid = storeId || boundStoreId;
     const isUploadPath =
       trimmed.startsWith('/images/') ||
@@ -481,12 +573,10 @@ export function parseStoreChrome(raw: unknown): StoreChromeBrand {
   const row = raw as Partial<StoreChromeBrand>;
   const fill: ChromeFill =
     row.fill === 'gradient' || row.fill === 'custom' || row.fill === 'image' ? row.fill : 'palette';
-  const shellWallpaper = safeImage(row.shellWallpaper, { allowEphemeral: true });
-  const shellWallpaperPreset: ShellWallpaperPreset = shellWallpaper
-    ? 'custom'
-    : isShellWallpaperPreset(row.shellWallpaperPreset)
-      ? row.shellWallpaperPreset
-      : base.shellWallpaperPreset;
+  // Empty / legacy color presets → platform default image (all stores)
+  const shellWallpaper =
+    safeImage(row.shellWallpaper, { allowEphemeral: true }) || DEFAULT_SHELL_WALLPAPER_URL;
+  const shellWallpaperPreset: ShellWallpaperPreset = 'custom';
   const updatedAtRaw = (row as { updatedAt?: unknown }).updatedAt;
   const updatedAt =
     typeof updatedAtRaw === 'number' && Number.isFinite(updatedAtRaw) && updatedAtRaw > 0
@@ -502,6 +592,30 @@ export function parseStoreChrome(raw: unknown): StoreChromeBrand {
     : pageTextColor
       ? 'custom'
       : 'auto';
+  const fontArRaw = typeof row.fontAr === 'string' ? row.fontAr : '';
+  const fontAr: BrandFontArId | undefined = AR_FONTS.includes(fontArRaw as BrandFontArId)
+    ? (fontArRaw as BrandFontArId)
+    : undefined;
+  const fontWeightRaw = typeof row.fontWeight === 'string' ? row.fontWeight : '';
+  const fontWeight: BrandFontWeight | undefined =
+    fontWeightRaw === 'light' ||
+    fontWeightRaw === 'regular' ||
+    fontWeightRaw === 'bold' ||
+    fontWeightRaw === 'medium'
+      ? fontWeightRaw
+      : undefined;
+  const customFontFamilyAr =
+    typeof row.customFontFamilyAr === 'string' && row.customFontFamilyAr.trim()
+      ? row.customFontFamilyAr.trim().slice(0, 80)
+      : row.customFontFamilyAr === null
+        ? null
+        : undefined;
+  const customFontUrlAr =
+    typeof row.customFontUrlAr === 'string' && row.customFontUrlAr.trim()
+      ? row.customFontUrlAr.trim().slice(0, 500)
+      : row.customFontUrlAr === null
+        ? null
+        : undefined;
   return {
     palette: isBrandPaletteId(row.palette) ? row.palette : base.palette,
     fill,
@@ -522,12 +636,20 @@ export function parseStoreChrome(raw: unknown): StoreChromeBrand {
     pageTextColor,
     shellTextMode,
     ...(dashboardLookId ? { dashboardLookId } : {}),
+    ...(fontAr ? { fontAr } : {}),
+    ...(fontWeight ? { fontWeight } : {}),
+    ...(customFontFamilyAr !== undefined ? { customFontFamilyAr } : {}),
+    ...(customFontUrlAr !== undefined ? { customFontUrlAr } : {}),
     ...(updatedAt ? { updatedAt } : {}),
   };
 }
 
 /** Prefer newer chrome; never let empty remote wipe local wallpaper / blur / design. */
-function mergeChromePreferNewest(remote: StoreChromeBrand, local: StoreChromeBrand): StoreChromeBrand {
+function mergeChromePreferNewest(
+  remote: StoreChromeBrand,
+  local: StoreChromeBrand,
+  storeId?: string,
+): StoreChromeBrand {
   const remoteTs = remote.updatedAt || 0;
   const localTs = local.updatedAt || 0;
   // Equal / missing timestamps → keep local cache (stops settings snap-back after load)
@@ -537,24 +659,31 @@ function mergeChromePreferNewest(remote: StoreChromeBrand, local: StoreChromeBra
   let shellWallpaper = newer.shellWallpaper;
   let bgImage = newer.bgImage;
   /*
-   * Empty preferred side must NOT wipe durable art from the other side.
-   * Live API often stores '' while this device still has chrome-idb / CDN —
-   * that race made center + sidebar backgrounds vanish a few seconds after upload.
-   * Intentional clears go through pendingChromeByStore (`''`) via mergePendingChrome.
+   * Empty preferred side must NOT wipe durable art from the other side —
+   * unless merchant intentionally cleared (pending / clear-flag / newer stamp + '').
+   * Cleared glass wallpaper restores the platform default image (not color gradients).
    */
-  if (!shellWallpaper && older.shellWallpaper) {
+  const shellCleared =
+    Boolean(storeId && isChromeImageCleared(storeId, 'shellWallpaper')) ||
+    (isDefaultShellWallpaper(newer.shellWallpaper) &&
+      !isDefaultShellWallpaper(older.shellWallpaper) &&
+      (newer.updatedAt || 0) > (older.updatedAt || 0)) ||
+    (!newer.shellWallpaper && (newer.updatedAt || 0) > (older.updatedAt || 0));
+  const bgCleared =
+    Boolean(storeId && isChromeImageCleared(storeId, 'bgImage')) ||
+    (!newer.bgImage && (newer.updatedAt || 0) > (older.updatedAt || 0));
+  if (shellCleared) {
+    shellWallpaper = DEFAULT_SHELL_WALLPAPER_URL;
+  } else if (isDefaultShellWallpaper(shellWallpaper) && !isDefaultShellWallpaper(older.shellWallpaper)) {
+    shellWallpaper = older.shellWallpaper;
+  } else if (!shellWallpaper && older.shellWallpaper) {
     shellWallpaper = older.shellWallpaper;
   }
-  if (!bgImage && older.bgImage) {
+  if (!bgImage && older.bgImage && !bgCleared) {
     bgImage = older.bgImage;
   }
-  const shellWallpaperPreset: ShellWallpaperPreset = shellWallpaper
-    ? 'custom'
-    : isShellWallpaperPreset(newer.shellWallpaperPreset)
-      ? newer.shellWallpaperPreset
-      : isShellWallpaperPreset(older.shellWallpaperPreset)
-        ? older.shellWallpaperPreset
-        : 'city-warm';
+  shellWallpaper = resolveShellWallpaperUrl(shellWallpaper);
+  const shellWallpaperPreset: ShellWallpaperPreset = 'custom';
   return {
     ...older,
     ...newer,
@@ -652,16 +781,13 @@ async function syncChromeImagesToApi(
 
 /** Strip blob/data before localStorage. Keep chrome-idb:// + remote URLs. */
 function persistableStoreChrome(chrome: StoreChromeBrand): StoreChromeBrand {
-  const shellWallpaper = safeImage(chrome.shellWallpaper, { allowIdb: true });
+  const shellWallpaper =
+    safeImage(chrome.shellWallpaper, { allowIdb: true }) || DEFAULT_SHELL_WALLPAPER_URL;
   const bgImage = safeImage(chrome.bgImage, { allowIdb: true });
   return {
     ...chrome,
     shellWallpaper,
-    shellWallpaperPreset: shellWallpaper
-      ? 'custom'
-      : chrome.shellWallpaperPreset === 'custom'
-        ? 'city-warm'
-        : chrome.shellWallpaperPreset || 'city-warm',
+    shellWallpaperPreset: 'custom',
     bgImage,
     fill: chrome.fill === 'image' && !bgImage ? 'palette' : chrome.fill,
   };
@@ -687,17 +813,15 @@ function apiPersistableStoreChrome(
   if (!bgImage && bgPendingLocal) {
     bgImage = apiSafeImage(previousRemote?.bgImage) || '';
   }
-  // Intentional clear (empty string, not pending local) must reach the API as empty.
-  if (!chrome.shellWallpaper && !shellPendingLocal) shellWallpaper = '';
+  // Intentional clear → platform default image (never empty color presets).
+  if ((!chrome.shellWallpaper || isDefaultShellWallpaper(chrome.shellWallpaper)) && !shellPendingLocal) {
+    shellWallpaper = DEFAULT_SHELL_WALLPAPER_URL;
+  }
   if (!chrome.bgImage && !bgPendingLocal) bgImage = '';
   return {
     ...chrome,
-    shellWallpaper,
-    shellWallpaperPreset: shellWallpaper
-      ? 'custom'
-      : chrome.shellWallpaperPreset === 'custom'
-        ? 'city-warm'
-        : chrome.shellWallpaperPreset || 'city-warm',
+    shellWallpaper: shellWallpaper || DEFAULT_SHELL_WALLPAPER_URL,
+    shellWallpaperPreset: 'custom',
     bgImage,
     fill: bgImage ? 'image' : chrome.fill === 'image' ? 'palette' : chrome.fill,
   };
@@ -928,17 +1052,27 @@ function paint(root: HTMLElement): void {
   root.setAttribute('data-sidebar-design', chrome.sidebarDesign || 'classic');
   root.setAttribute('data-brand', chrome.fill === 'palette' ? chrome.palette : 'custom');
 
-  // Glass shell wallpaper (behind frosted panels) — CSS var + ::before blur layer
-  const wallpaperPreset =
-    chrome.shellWallpaper || chrome.shellWallpaperPreset === 'custom'
-      ? 'custom'
-      : chrome.shellWallpaperPreset || 'city-warm';
-  root.setAttribute('data-shell-wallpaper', wallpaperPreset);
+  // Per-store Arabic font + weight (isolated by store_id chromeBrand)
+  if (chrome.fontAr || chrome.fontWeight || chrome.customFontFamilyAr || chrome.customFontUrlAr) {
+    const localeAttr = (root.getAttribute('lang') || 'ar') === 'en' ? 'en' : 'ar';
+    applyStoreArabicTypography(
+      {
+        fontAr: chrome.fontAr,
+        fontWeight: chrome.fontWeight,
+        customFontFamilyAr: chrome.customFontFamilyAr,
+        customFontUrlAr: chrome.customFontUrlAr,
+      },
+      localeAttr,
+    );
+  }
+
+  // Glass shell wallpaper — always a photo (platform default or merchant custom). Color presets retired.
+  const wallpaperUrl = resolveShellWallpaperUrl(chrome);
+  root.setAttribute('data-shell-wallpaper', 'custom');
   /*
    * Page title ink:
    * - shellTextMode light/dark/custom → store owner force
-   * - Soft night → dark shell; city/peach → light shell
-   * - Custom photo + auto → sample image luma
+   * - Photo + auto → sample image luma (default mountain is bright → light shell)
    */
   const textMode: ShellTextMode = isShellTextMode(chrome.shellTextMode)
     ? chrome.shellTextMode
@@ -954,41 +1088,38 @@ function paint(root: HTMLElement): void {
           ? isDarkHexColor(ownerText)
             ? 'light'
             : 'dark'
-          : wallpaperPreset === 'soft-night'
-            ? 'dark'
-            : wallpaperPreset === 'custom'
-              ? 'dark'
-              : 'light';
+          : isDefaultShellWallpaper(wallpaperUrl)
+            ? 'light'
+            : 'dark';
   root.setAttribute('data-shell-text-mode', textMode);
-  if (wallpaperPreset === 'custom' && chrome.shellWallpaper) {
-    const paintUrl = absolutePaintUrl(chrome.shellWallpaper, boundStoreId);
+  {
+    const paintUrl = absolutePaintUrl(wallpaperUrl, boundStoreId);
     const allowAutoLuma = textMode === 'auto';
     const cachedLuma = allowAutoLuma && paintUrl ? cachedShellWallpaperLuma(paintUrl) : null;
     if (cachedLuma) shellLuma = cachedLuma;
     root.setAttribute('data-shell-luma', shellLuma);
     if (paintUrl) {
       applyShellInlineWallpaper(
-        chrome.shellWallpaper,
+        wallpaperUrl,
         chrome.shellWallpaperBlur,
         chrome.shellWallpaperOpacity,
         chrome.updatedAt || Date.now(),
         shellLuma,
       );
-      // Async sample only in auto mode
       if (allowAutoLuma) {
         const storeId = boundStoreId;
-        const pendingUrl = chrome.shellWallpaper;
+        const pendingUrl = wallpaperUrl;
         void sampleShellWallpaperLuma(paintUrl).then((luma) => {
           if (boundStoreId !== storeId) return;
-          if (boundChrome?.shellWallpaper !== pendingUrl) return;
-          if ((boundChrome.shellTextMode || 'auto') !== 'auto') return;
+          if (resolveShellWallpaperUrl(boundChrome) !== pendingUrl) return;
+          if ((boundChrome?.shellTextMode || 'auto') !== 'auto') return;
           const html = document.documentElement;
           if (html.getAttribute('data-shell-luma') === luma) {
             applyShellInlineWallpaper(
               pendingUrl,
-              boundChrome.shellWallpaperBlur,
-              boundChrome.shellWallpaperOpacity,
-              boundChrome.updatedAt || Date.now(),
+              boundChrome!.shellWallpaperBlur,
+              boundChrome!.shellWallpaperOpacity,
+              boundChrome!.updatedAt || Date.now(),
               luma,
             );
             return;
@@ -996,31 +1127,35 @@ function paint(root: HTMLElement): void {
           html.setAttribute('data-shell-luma', luma);
           applyShellInlineWallpaper(
             pendingUrl,
-            boundChrome.shellWallpaperBlur,
-            boundChrome.shellWallpaperOpacity,
-            boundChrome.updatedAt || Date.now(),
+            boundChrome!.shellWallpaperBlur,
+            boundChrome!.shellWallpaperOpacity,
+            boundChrome!.updatedAt || Date.now(),
             luma,
           );
         });
       }
-    } else if (isChromeIdbUrl(chrome.shellWallpaper)) {
+    } else if (isChromeIdbUrl(wallpaperUrl)) {
       const storeId = boundStoreId;
-      const pendingUrl = chrome.shellWallpaper;
+      const pendingUrl = wallpaperUrl;
       const parsed = parseChromeIdbUrl(pendingUrl);
       if (storeId && parsed) {
         void hydrateChromeImageUrl(storeId, parsed.field, pendingUrl).then((idbUrl) => {
           if (!idbUrl) return;
           if (boundStoreId !== storeId) return;
-          if (boundChrome?.shellWallpaper !== pendingUrl) return;
+          if (resolveShellWallpaperUrl(boundChrome) !== pendingUrl) return;
           paint(document.documentElement);
         });
       }
     } else {
-      clearShellInlineWallpaper();
+      // Absolute path missing → still paint platform default from public/
+      applyShellInlineWallpaper(
+        DEFAULT_SHELL_WALLPAPER_URL,
+        chrome.shellWallpaperBlur,
+        chrome.shellWallpaperOpacity,
+        chrome.updatedAt || Date.now(),
+        shellLuma,
+      );
     }
-  } else {
-    root.setAttribute('data-shell-luma', shellLuma);
-    clearShellInlineWallpaper();
   }
 
   // ONE global page canvas — owner pageBgColor wins when set
@@ -1162,10 +1297,8 @@ function mergePendingChrome(storeId: string, base: StoreChromeBrand): StoreChrom
   // Pending is latest merchant intent — including intentional clears ('' must win over remote).
   return {
     ...base,
-    shellWallpaper: pending.shellWallpaper,
-    shellWallpaperPreset: pending.shellWallpaper
-      ? 'custom'
-      : pending.shellWallpaperPreset || 'city-warm',
+    shellWallpaper: resolveShellWallpaperUrl(pending.shellWallpaper),
+    shellWallpaperPreset: 'custom',
     shellWallpaperBlur: clampBlur(pending.shellWallpaperBlur ?? base.shellWallpaperBlur),
     shellWallpaperOpacity: clampOpacity(
       pending.shellWallpaperOpacity ?? base.shellWallpaperOpacity,
@@ -1180,25 +1313,38 @@ function mergePendingChrome(storeId: string, base: StoreChromeBrand): StoreChrom
     pageBgColor: pending.pageBgColor ?? '',
     pageTextColor: pending.pageTextColor ?? '',
     shellTextMode: isShellTextMode(pending.shellTextMode) ? pending.shellTextMode : 'auto',
+    fontAr: pending.fontAr ?? base.fontAr,
+    fontWeight: pending.fontWeight ?? base.fontWeight,
+    customFontFamilyAr:
+      pending.customFontFamilyAr !== undefined
+        ? pending.customFontFamilyAr
+        : base.customFontFamilyAr,
+    customFontUrlAr:
+      pending.customFontUrlAr !== undefined ? pending.customFontUrlAr : base.customFontUrlAr,
   };
 }
 
 async function withHydratedImages(
   storeId: string,
   chrome: StoreChromeBrand,
-  opts?: { restoreEmptyShellFromIdb?: boolean },
+  opts?: { restoreEmptyShellFromIdb?: boolean; restoreEmptyBgFromIdb?: boolean },
 ): Promise<StoreChromeBrand> {
   const hydrated = await hydrateStoreChromeImages(
     storeId,
     { shellWallpaper: chrome.shellWallpaper, bgImage: chrome.bgImage },
-    { restoreMissingShell: Boolean(opts?.restoreEmptyShellFromIdb) },
+    {
+      restoreMissingShell: Boolean(opts?.restoreEmptyShellFromIdb),
+      restoreMissingBg: Boolean(opts?.restoreEmptyBgFromIdb),
+    },
   );
-  const shellWallpaper = hydrated.shellWallpaper || chrome.shellWallpaper;
+  const shellWallpaper = resolveShellWallpaperUrl(
+    hydrated.shellWallpaper || chrome.shellWallpaper,
+  );
   const bgImage = hydrated.bgImage || chrome.bgImage;
   return {
     ...chrome,
     shellWallpaper,
-    shellWallpaperPreset: shellWallpaper ? 'custom' : chrome.shellWallpaperPreset,
+    shellWallpaperPreset: 'custom',
     bgImage,
     fill: bgImage ? 'image' : chrome.fill === 'image' ? 'palette' : chrome.fill,
   };
@@ -1240,13 +1386,15 @@ export async function loadStoreChrome(storeId: string): Promise<StoreChromeBrand
     }
 
     const hasPending = pendingChromeByStore.has(storeId);
+    const shellCleared = isChromeImageCleared(storeId, 'shellWallpaper');
+    const bgCleared = isChromeImageCleared(storeId, 'bgImage');
     // Newer local cache / pending must win — stops "settings change after loading"
     let merged = hasPending
-      ? mergePendingChrome(storeId, mergeChromePreferNewest(remote, cached))
-      : mergeChromePreferNewest(remote, cached);
+      ? mergePendingChrome(storeId, mergeChromePreferNewest(remote, cached, storeId))
+      : mergeChromePreferNewest(remote, cached, storeId);
 
-    // Never let empty remote wipe local durable images unless merchant cleared (pending)
-    if (!hasPending) {
+    // Never let empty remote wipe local durable images unless merchant cleared
+    if (!hasPending && !shellCleared) {
       if (!merged.shellWallpaper && cached.shellWallpaper) {
         merged = {
           ...merged,
@@ -1254,6 +1402,8 @@ export async function loadStoreChrome(storeId: string): Promise<StoreChromeBrand
           shellWallpaperPreset: 'custom',
         };
       }
+    }
+    if (!hasPending && !bgCleared) {
       if (!merged.bgImage && cached.bgImage) {
         merged = {
           ...merged,
@@ -1263,10 +1413,42 @@ export async function loadStoreChrome(storeId: string): Promise<StoreChromeBrand
       }
     }
 
-    // Restore durable IDB art when cache/API empty (look-pack wipe race) — skip if merchant pending clear
+    // Honor intentional remove — restore platform default image (never color presets / IDB resurrect)
+    if (shellCleared) {
+      merged = {
+        ...merged,
+        shellWallpaper: DEFAULT_SHELL_WALLPAPER_URL,
+        shellWallpaperPreset: 'custom',
+      };
+    }
+    if (bgCleared) {
+      merged = {
+        ...merged,
+        bgImage: '',
+        fill: merged.fill === 'image' ? 'palette' : merged.fill,
+      };
+    }
+
+    // Restore durable IDB art when cache/API empty (look-pack wipe race) — skip if merchant cleared
     merged = await withHydratedImages(storeId, merged, {
-      restoreEmptyShellFromIdb: !hasPending,
+      restoreEmptyShellFromIdb: !hasPending && !shellCleared,
+      restoreEmptyBgFromIdb: !hasPending && !bgCleared,
     });
+    if (shellCleared) {
+      merged = {
+        ...merged,
+        shellWallpaper: DEFAULT_SHELL_WALLPAPER_URL,
+        shellWallpaperPreset: 'custom',
+      };
+    }
+    if (bgCleared) {
+      merged = { ...merged, bgImage: '', fill: merged.fill === 'image' ? 'palette' : merged.fill };
+    }
+    merged = {
+      ...merged,
+      shellWallpaper: resolveShellWallpaperUrl(merged.shellWallpaper),
+      shellWallpaperPreset: 'custom',
+    };
 
     // If wallpaper still only on this device, push to media + store_settings when API is up
     const beforeSync = merged;
@@ -1314,16 +1496,26 @@ export async function loadStoreChrome(storeId: string): Promise<StoreChromeBrand
 export async function saveStoreChrome(storeId: string, chrome: StoreChromeBrand): Promise<void> {
   const live = parseStoreChrome({ ...chrome, updatedAt: Date.now() });
   const next = persistableStoreChrome(live);
+  const shellWallpaper = resolveShellWallpaperUrl(live.shellWallpaper);
   let painted: StoreChromeBrand = {
     ...next,
-    shellWallpaper: live.shellWallpaper || next.shellWallpaper,
-    shellWallpaperPreset: live.shellWallpaper ? 'custom' : next.shellWallpaperPreset,
+    shellWallpaper,
+    shellWallpaperPreset: 'custom',
     shellWallpaperBlur: live.shellWallpaperBlur,
     shellWallpaperOpacity: live.shellWallpaperOpacity,
-    bgImage: live.bgImage || next.bgImage,
-    fill: live.bgImage ? 'image' : next.fill,
+    bgImage: live.bgImage,
+    fill: live.bgImage ? 'image' : live.fill === 'image' ? 'palette' : live.fill,
     updatedAt: live.updatedAt || Date.now(),
   };
+  // Default platform image = cleared merchant upload (block IDB resurrect)
+  if (isDefaultShellWallpaper(painted.shellWallpaper)) {
+    markChromeImageCleared(storeId, 'shellWallpaper', true);
+  } else {
+    markChromeImageCleared(storeId, 'shellWallpaper', false);
+  }
+  if (!painted.bgImage) markChromeImageCleared(storeId, 'bgImage', true);
+  else markChromeImageCleared(storeId, 'bgImage', false);
+
   bindStoreChrome(storeId, painted);
   pendingChromeByStore.set(storeId, painted);
 
@@ -1332,13 +1524,20 @@ export async function saveStoreChrome(storeId: string, chrome: StoreChromeBrand)
     const prev = readChromeCache(storeId);
     writeChromeCache(storeId, {
       ...next,
-      shellWallpaper: next.shellWallpaper || prev.shellWallpaper,
+      shellWallpaper: next.shellWallpaper || (isEphemeralImageUrl(live.shellWallpaper) ? prev.shellWallpaper : ''),
       shellWallpaperPreset:
-        next.shellWallpaper || prev.shellWallpaper ? 'custom' : next.shellWallpaperPreset,
+        next.shellWallpaper || (isEphemeralImageUrl(live.shellWallpaper) && prev.shellWallpaper)
+          ? 'custom'
+          : next.shellWallpaperPreset,
       shellWallpaperBlur: live.shellWallpaperBlur,
       shellWallpaperOpacity: live.shellWallpaperOpacity,
-      bgImage: next.bgImage || prev.bgImage,
-      fill: live.fill === 'image' || next.bgImage || prev.bgImage ? 'image' : next.fill,
+      bgImage: next.bgImage || (isEphemeralImageUrl(live.bgImage) ? prev.bgImage : ''),
+      fill:
+        live.bgImage || next.bgImage || (isEphemeralImageUrl(live.bgImage) && prev.bgImage)
+          ? 'image'
+          : next.fill === 'image'
+            ? 'palette'
+            : next.fill,
       updatedAt: painted.updatedAt,
     });
     return;
@@ -1385,11 +1584,46 @@ export async function saveStoreChrome(storeId: string, chrome: StoreChromeBrand)
       timeoutMs: apiOpts.timeoutMs,
       body: { settings: { chromeBrand: apiBody } },
     });
+    // Coffee/bleco primary = mieraf; local Vite proxy often wrote wallpaper to giftshop — clear orphan
+    if (!apiBody.shellWallpaper || !apiBody.bgImage) {
+      await clearOrphanChromeImagesOnAltHost(storeId, apiBody);
+    }
     // Only clear pending after a successful DB write of the full chrome snapshot
     if (!chromeHasLocalOnlyImages(painted)) {
       pendingChromeByStore.delete(storeId);
     }
   } catch {
     // Local cache + IDB stay — retry on next load/save
+  }
+}
+
+/** Clear empty image fields on the other Hostinger host (stale giftshop coffee wallpaper). */
+async function clearOrphanChromeImagesOnAltHost(
+  storeId: string,
+  apiBody: StoreChromeBrand,
+): Promise<void> {
+  const primary = liveApiBaseForStore(storeId);
+  if (!/mieraf-ksa\.com/i.test(primary)) return;
+  const alt = 'https://giftshop-sa.com/api';
+  const patch: Partial<StoreChromeBrand> = { updatedAt: Date.now() };
+  if (!apiBody.shellWallpaper || isDefaultShellWallpaper(apiBody.shellWallpaper)) {
+    patch.shellWallpaper = DEFAULT_SHELL_WALLPAPER_URL;
+    patch.shellWallpaperPreset = 'custom';
+  }
+  if (!apiBody.bgImage) {
+    patch.bgImage = '';
+    if (apiBody.fill === 'image') patch.fill = 'palette';
+  }
+  if (patch.shellWallpaper === undefined && patch.bgImage === undefined) return;
+  try {
+    await apiFetch(`/stores/${encodeURIComponent(storeId)}/store-settings`, {
+      method: 'PUT',
+      storeId,
+      baseUrl: alt,
+      timeoutMs: 20_000,
+      body: { settings: { chromeBrand: patch } },
+    });
+  } catch {
+    /* orphan host may be down — primary save already succeeded */
   }
 }

@@ -120,6 +120,37 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
     navigateTo('product-detail', String(product.id));
   };
 
+  /** Theme Builder / customizer canvas — Customize sits on the Learn More row */
+  const isBuilderChrome = React.useMemo(() => {
+    try {
+      if (typeof window === 'undefined') return false;
+      if (window.parent !== window && document.querySelector('[data-surface="theme-builder"]')) return true;
+      const q = new URLSearchParams(window.location.search);
+      return q.get('builder') === '1' || q.get('preview') === '1';
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const handleCustomizePage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigateTo('product-detail', String(product.id));
+    try {
+      window.dispatchEvent(
+        new CustomEvent('unityteck-open-pdp-customize', {
+          detail: { productId: String(product.id), sectionId: 'C-PDP' },
+        }),
+      );
+      window.parent?.dispatchEvent?.(
+        new CustomEvent('unityteck-open-pdp-customize', {
+          detail: { productId: String(product.id), sectionId: 'C-PDP' },
+        }),
+      );
+    } catch {
+      /* cross-origin iframe parent may block */
+    }
+  };
+
   return (
     <div
       onClick={() => navigateTo('product-detail', String(product.id))}
@@ -272,15 +303,31 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
         </div>
         ) : null}
 
-        {showLearnMore ? (
-        <button
-          type="button"
-          onClick={handleLearnMore}
-          className="w-full py-1.5 sm:py-2 px-3 rounded-full text-[11px] sm:text-xs font-semibold text-neutral-600 hover:text-black bg-neutral-50/90 hover:bg-neutral-100 border-0 transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 group/lm shadow-2xs"
-        >
-          <span>{isAr ? 'اعرف المزيد' : 'Learn More'}</span>
-          <ChevronRight className="w-3.5 h-3.5 text-neutral-400 group-hover/lm:text-black rtl:rotate-180 transition-transform group-hover/lm:translate-x-0.5 rtl:group-hover/lm:-translate-x-0.5" />
-        </button>
+        {showLearnMore || isBuilderChrome ? (
+        <div className="space-y-1.5" data-card-cta-learn-more>
+          {showLearnMore ? (
+          <button
+            type="button"
+            onClick={handleLearnMore}
+            className="w-full py-1.5 sm:py-2 px-3 rounded-full text-[11px] sm:text-xs font-semibold text-neutral-600 hover:text-black bg-neutral-50/90 hover:bg-neutral-100 border-0 transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 group/lm shadow-2xs"
+          >
+            <span>{isAr ? 'اعرف المزيد' : 'Learn More'}</span>
+            <ChevronRight className="w-3.5 h-3.5 text-neutral-400 group-hover/lm:text-black rtl:rotate-180 transition-transform group-hover/lm:translate-x-0.5 rtl:group-hover/lm:-translate-x-0.5" />
+          </button>
+          ) : null}
+          {isBuilderChrome ? (
+          <button
+            type="button"
+            onClick={handleCustomizePage}
+            data-card-customize-pdp={String(product.id)}
+            className="w-full py-1.5 sm:py-2 px-3 rounded-full text-[11px] sm:text-xs font-bold text-white border-0 transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 shadow-2xs"
+            style={{ background: 'var(--portal-cta, #0d9488)' }}
+            title={isAr ? 'تخصيص صفحة هذا المنتج' : 'Customize this product page'}
+          >
+            <span>{isAr ? 'تخصيص الصفحة' : 'Customize page'}</span>
+          </button>
+          ) : null}
+        </div>
         ) : null}
       </div>
     </div>

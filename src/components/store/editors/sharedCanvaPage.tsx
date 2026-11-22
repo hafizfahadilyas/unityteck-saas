@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   CanvaImageStudioModal,
   type CanvaEditorKind,
+  type CanvaHomeLaunch,
   type CanvaSavePayload,
 } from '../CanvaImageStudioModal';
+import { CanvaStudioHome, type CanvaHomeOpenTarget } from '../CanvaStudioHome';
 import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
@@ -18,10 +20,29 @@ type Props = {
 
 /** Store Canva — SAME editor as Master. Save = this store_id only (Media + Canva library). */
 export const SharedCanvaEditorPage: React.FC<Props> = ({ editorKind, onNavigateTab }) => {
-  const { activeStore, addMediaAsset } = useTenant();
+  const { activeStore, addMediaAsset, currentProducts } = useTenant();
   const { locale } = usePrefs();
   const { toast } = useToast();
   const isAr = locale === 'ar';
+  const [view, setView] = useState<'home' | 'editor'>('home');
+  const [homeLaunch, setHomeLaunch] = useState<CanvaHomeLaunch | null>(null);
+
+  const previewProduct = useMemo(() => {
+    const p = currentProducts?.[0];
+    if (!p) return null;
+    return {
+      name: p.name,
+      nameAr: p.nameAr,
+      price: p.discountedPrice ?? p.price,
+      category: p.category,
+      categoryAr: p.categoryAr,
+    };
+  }, [currentProducts]);
+
+  const activeImageUrl = useMemo(() => {
+    const p = currentProducts?.[0];
+    return String(p?.image || p?.imageUrl || activeStore?.logo || '');
+  }, [currentProducts, activeStore?.logo]);
 
   if (!activeStore) {
     return (
@@ -106,14 +127,55 @@ export const SharedCanvaEditorPage: React.FC<Props> = ({ editorKind, onNavigateT
     );
   };
 
+  const openFromHome = (target: CanvaHomeOpenTarget) => {
+    const key = `home-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    if (target.kind === 'premade') {
+      setHomeLaunch({ key, premadeId: target.template.id });
+    } else if (target.kind === 'mine') {
+      setHomeLaunch({ key, myTemplate: target.template });
+    } else {
+      setHomeLaunch({
+        key,
+        blank: {
+          width: target.width,
+          height: target.height,
+          blankId: target.blankId,
+          label: target.label,
+        },
+      });
+    }
+    setView('editor');
+  };
+
+  if (view === 'home' && !editorKind) {
+    return (
+      <CanvaStudioHome
+        store={activeStore}
+        isAr={isAr}
+        activeImageUrl={activeImageUrl || undefined}
+        previewProduct={previewProduct}
+        onOpenEditor={openFromHome}
+      />
+    );
+  }
+
   return (
     <div className="w-full min-w-0 max-w-full overflow-hidden">
       <CanvaImageStudioModal
+        key={homeLaunch?.key || `editor-${editorKind || 'full'}`}
         isOpen
         variant="page"
         editorKind={editorKind}
         lockCategory={Boolean(editorKind)}
-        onClose={() => onNavigateTab?.('canva')}
+        homeLaunch={homeLaunch}
+        onClose={() => {
+          if (editorKind) {
+            onNavigateTab?.('canva');
+            return;
+          }
+          setHomeLaunch(null);
+          setView('home');
+        }}
         initialAsset={null}
         onOpenSocialHub={() => onNavigateTab?.('social')}
         onSaveNewAsset={(dataUrl, title, width, height) => {

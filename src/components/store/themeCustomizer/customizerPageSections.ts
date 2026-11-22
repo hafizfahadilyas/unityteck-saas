@@ -57,8 +57,8 @@ const FLOWERS_HOME = [
 export const COFFEE_PAGE_SECTIONS: Record<string, readonly string[]> = {
   home: COFFEE_HOME,
   products: [...SITEWIDE_CORE, 'C-FCP', 'C-FP', 'C-SHOP', 'C-EDIT', 'C-FOOT', 'C-ICON'],
-  'product-detail': [...SITEWIDE_CORE, 'C-EDIT', 'C-FP', 'C-SHOP', 'C-FOOT', 'C-ICON'],
-  'product-buy': [...SITEWIDE_CORE, 'C-EDIT', 'C-FOOT'],
+  'product-detail': [...SITEWIDE_CORE, 'C-PDP', 'C-EDIT', 'C-FP', 'C-SHOP', 'C-FOOT', 'C-ICON'],
+  'product-buy': [...SITEWIDE_CORE, 'C-PDP', 'C-EDIT', 'C-FOOT'],
   cart: [...SITEWIDE_CORE, 'C-SHOP', 'C-FOOT', 'C-BEN'],
   checkout: [...SITEWIDE_CORE, 'C-SHOP', 'C-FOOT'],
   reviews: [...SITEWIDE_CORE, 'C-REV', 'C-FOOT'],

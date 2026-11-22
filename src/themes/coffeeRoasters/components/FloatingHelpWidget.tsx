@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Headphones, Phone, Mail, MessageCircle, X, ShoppingBag, ChevronUp } from 'lucide-react';
+import { Headphones, Phone, Mail, X, ShoppingBag, ChevronUp } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
 import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
+import { bi } from '../../settings/coffeeModularSettings';
 import { resolveStoreContact } from '../../settings/storeContact';
 
 export const FloatingHelpWidget: React.FC = () => {
@@ -20,18 +21,22 @@ export const FloatingHelpWidget: React.FC = () => {
     const contact = activeStore?.id
       ? resolveStoreContact(activeStore.id, activeStore, storeIdentity)
       : null;
-    const phoneDigits = contact?.whatsappDigits || contact?.phoneDigits || '';
+    const phoneDigits = contact?.phoneDigits || '';
     const email = contact?.email || '';
-    const hours =
-      (isAr ? coffee?.footer?.hoursAr : coffee?.footer?.hoursEn)?.trim() ||
-      (isAr ? 'الأحد – السبت: 9:00–21:00' : 'Sunday – Saturday: 9:00–21:00');
+    // Same hours source as Footer (theme hours first; shared coffee support window)
+    const hours = bi(
+      language,
+      coffee?.footer?.hoursEn,
+      coffee?.footer?.hoursAr,
+      isAr ? 'الأحد – السبت: 9:00–21:00' : 'Sunday – Saturday: 9:00–21:00',
+    ).trim();
     return {
       phoneDigits,
-      phoneDisplay: contact?.phone || contact?.whatsapp || phoneDigits,
+      phoneDisplay: contact?.phone || phoneDigits,
       email,
       hours,
     };
-  }, [activeStore, isAr, storeIdentity]);
+  }, [activeStore, isAr, language, storeIdentity]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -57,7 +62,7 @@ export const FloatingHelpWidget: React.FC = () => {
   };
 
   const isLearnMorePage = currentRoute === 'product-detail';
-  const hasAnyContact = Boolean(contacts.phoneDigits || contacts.email);
+  const hasAnyContact = Boolean(contacts.phoneDigits || contacts.email || contacts.hours);
 
   if (isMiniCartOpen) return null;
 
@@ -65,8 +70,8 @@ export const FloatingHelpWidget: React.FC = () => {
     <aside
       aria-label={isAr ? 'دعم العملاء' : 'Customer Support Dock'}
       ref={widgetRef}
-      dir="ltr"
-      className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 select-none"
+      dir={isAr ? 'rtl' : 'ltr'}
+      className="fixed bottom-6 end-6 z-50 flex flex-col items-end gap-3 select-none"
     >
       {isOpen && hasAnyContact && (
         <div
@@ -75,25 +80,26 @@ export const FloatingHelpWidget: React.FC = () => {
           className="relative bg-white text-neutral-900 rounded-[20px] shadow-[0_12px_40px_rgba(0,0,0,0.14)] border border-neutral-100 p-5 w-[280px] sm:w-[300px] mb-2 animate-fadeIn transition-all duration-300"
         >
           <button
+            type="button"
             onClick={() => setIsOpen(false)}
-            aria-label={isAr ? 'إغلاق' : 'Close Support Details'}
-            className="absolute top-3.5 right-3.5 text-neutral-400 hover:text-black p-1 rounded-full hover:bg-neutral-100 transition-colors"
+            aria-label={isAr ? 'إغلاق' : 'Close'}
+            className="absolute top-3.5 end-3.5 text-neutral-400 hover:text-black p-1 rounded-full hover:bg-neutral-100 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
 
-          <div className="space-y-4 pt-1">
+          <div className="space-y-3 pt-1 pe-5">
             {contacts.phoneDigits ? (
               <a
                 href={`tel:${contacts.phoneDigits}`}
                 className="flex items-start gap-3.5 group hover:bg-neutral-50 p-2 rounded-xl transition-colors"
               >
-                <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-800 shrink-0 group-hover:bg-black group-hover:text-white transition-colors">
+                <div className="w-9 h-9 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-800 shrink-0 group-hover:bg-black group-hover:text-white transition-colors">
                   <Phone className="w-4 h-4" />
                 </div>
-                <div className="text-start">
-                  <div className="text-xs font-semibold text-neutral-500">
-                    {isAr ? 'الرقم المجاني' : 'Hotline'}
+                <div className="text-start min-w-0">
+                  <div className="text-xs font-medium text-neutral-500">
+                    {isAr ? 'الخط الساخن' : 'Hotline'}
                   </div>
                   <div className="text-sm font-bold text-neutral-900 tracking-wide">
                     {contacts.phoneDisplay}
@@ -107,52 +113,34 @@ export const FloatingHelpWidget: React.FC = () => {
                 href={`mailto:${contacts.email}`}
                 className="flex items-start gap-3.5 group hover:bg-neutral-50 p-2 rounded-xl transition-colors"
               >
-                <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-800 shrink-0 group-hover:bg-black group-hover:text-white transition-colors">
+                <div className="w-9 h-9 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-800 shrink-0 group-hover:bg-black group-hover:text-white transition-colors">
                   <Mail className="w-4 h-4" />
                 </div>
-                <div className="text-start">
-                  <div className="text-xs font-semibold text-neutral-500">
+                <div className="text-start min-w-0">
+                  <div className="text-xs font-medium text-neutral-500">
                     {isAr ? 'البريد الإلكتروني' : 'Email'}
                   </div>
-                  <div className="text-xs font-bold text-neutral-900 break-all">{contacts.email}</div>
+                  <div className="text-sm font-bold text-neutral-900 break-all">{contacts.email}</div>
                 </div>
               </a>
             ) : null}
 
             {contacts.hours ? (
               <div className="flex items-start gap-3.5 p-2 rounded-xl">
-                <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-800 shrink-0">
+                <div className="w-9 h-9 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-800 shrink-0">
                   <Headphones className="w-4 h-4" />
                 </div>
-                <div className="text-start">
-                  <div className="text-xs font-semibold text-neutral-900">
+                <div className="text-start min-w-0">
+                  <div className="text-sm font-bold text-neutral-900">
                     {isAr ? 'ساعات الدعم' : 'Support hours'}
                   </div>
-                  <div className="text-[11px] font-medium text-neutral-500 mt-0.5">{contacts.hours}</div>
+                  <div className="text-[12px] font-medium text-neutral-500 mt-0.5">{contacts.hours}</div>
                 </div>
               </div>
             ) : null}
-
-            {contacts.phoneDigits ? (
-              <a
-                href={`https://wa.me/${contacts.phoneDigits}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3.5 group hover:bg-emerald-50 p-2 rounded-xl transition-colors"
-              >
-                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                  <MessageCircle className="w-4 h-4" />
-                </div>
-                <div className="text-start">
-                  <div className="text-xs font-bold text-neutral-900 group-hover:text-emerald-700 transition-colors">
-                    {isAr ? 'واتساب' : 'WhatsApp'}
-                  </div>
-                </div>
-              </a>
-            ) : null}
           </div>
 
-          <div className="absolute -bottom-2 right-5 w-4 h-4 bg-white rotate-45 border-r border-b border-neutral-100"></div>
+          <div className="absolute -bottom-2 end-5 w-4 h-4 bg-white rotate-45 border-e border-b border-neutral-100" />
         </div>
       )}
 
@@ -175,12 +163,11 @@ export const FloatingHelpWidget: React.FC = () => {
 
             {hasAnyContact ? (
               <button
+                type="button"
                 onClick={() => setIsOpen(!isOpen)}
-                aria-label={isAr ? 'خدمة العملاء' : 'Customer Support and Assistance'}
+                aria-label={isAr ? 'خدمة العملاء' : 'Customer Support'}
                 aria-expanded={isOpen}
-                className={`w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 ${
-                  isOpen ? 'bg-black text-white' : 'bg-white hover:bg-neutral-100 text-neutral-900'
-                }`}
+                className="w-11 h-11 rounded-full bg-black text-white flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 hover:bg-neutral-900"
                 title={isAr ? 'خدمة العملاء' : 'Customer Support'}
               >
                 <Headphones className="w-5 h-5 stroke-[1.8]" />
@@ -209,12 +196,11 @@ export const FloatingHelpWidget: React.FC = () => {
         <div className="flex flex-col items-center gap-2.5">
           {hasAnyContact ? (
             <button
+              type="button"
               onClick={() => setIsOpen(!isOpen)}
-              aria-label={isAr ? 'خدمة العملاء' : 'Customer Support and Assistance'}
+              aria-label={isAr ? 'خدمة العملاء' : 'Customer Support'}
               aria-expanded={isOpen}
-              className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(0,0,0,0.15)] border border-neutral-200/80 transition-all duration-300 hover:scale-105 active:scale-95 ${
-                isOpen ? 'bg-black text-white' : 'bg-white hover:bg-neutral-50 text-neutral-900'
-              }`}
+              className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-black text-white flex items-center justify-center shadow-[0_4px_20px_rgba(0,0,0,0.18)] transition-all duration-300 hover:scale-105 active:scale-95 hover:bg-neutral-900"
               title={isAr ? 'خدمة العملاء' : 'Customer Support'}
             >
               <Headphones className="w-5 h-5 sm:w-5.5 sm:h-5.5 stroke-[1.8]" />

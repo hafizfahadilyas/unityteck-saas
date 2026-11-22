@@ -140,6 +140,9 @@ const COFFEE_LAYER_TITLE_BY_TYPE: Record<string, { titleEn: string; titleAr: str
   product_slider: { titleEn: 'Product Slider', titleAr: 'شريط المنتجات' },
   product_catalog: { titleEn: 'Product Catalog', titleAr: 'كتالوج المنتجات' },
   product_collection: { titleEn: 'Product Collection', titleAr: 'مجموعة المنتجات' },
+  product_carousel_banner: { titleEn: 'Product Carousel Banner', titleAr: 'بانر عرض المنتجات' },
+  newsletter: { titleEn: 'Newsletter & Subscribe', titleAr: 'النشرة البريدية والاشتراك' },
+  custom_order: { titleEn: 'Custom Product Order', titleAr: 'طلب منتج مخصص' },
 };
 
 export function coffeeLayerTitle(

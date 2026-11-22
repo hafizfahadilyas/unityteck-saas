@@ -55,8 +55,10 @@ import {
   bindStoreChrome,
   cacheStoreChromeNow,
   currentChromeRevision,
+  isDefaultShellWallpaper,
   isEphemeralImageUrl,
   loadStoreChrome,
+  markChromeImageCleared,
   readChromeCache,
   rememberPendingChrome,
   resolveDashboardLookId,
@@ -78,7 +80,7 @@ type SettingsTab =
 
 export const StoreSettings: React.FC = () => {
   const { activeStore, updateStorePlan, softRefreshTenantData, currentSEOConfig } = useTenant();
-  const { t, locale, setLocale, currency, setCurrency, money, allowedLocales } = usePrefs();
+  const { t, locale, setLocale, currency, setCurrency, money, allowedLocales, setBrand } = usePrefs();
   const { toast } = useToast();
   const isAr = locale === 'ar';
   const [chrome, setChrome] = useState<StoreChromeBrand>(() => readChromeCache(activeStore.id));
@@ -87,12 +89,29 @@ export const StoreSettings: React.FC = () => {
   const [showGoogleConnect, setShowGoogleConnect] = useState(false);
   const [settingsFocus, setSettingsFocus] = useState<'search_console' | 'tag_manager'>('search_console');
 
+  const hydrateStoreTypography = (next: StoreChromeBrand) => {
+    if (!next.fontAr && !next.fontWeight && !next.customFontFamilyAr && !next.customFontUrlAr) {
+      return;
+    }
+    setBrand({
+      ...(next.fontAr
+        ? { fontAr: next.fontAr, font: next.fontAr }
+        : {}),
+      ...(next.fontWeight ? { fontWeight: next.fontWeight } : {}),
+      ...(next.customFontFamilyAr !== undefined
+        ? { customFontFamilyAr: next.customFontFamilyAr }
+        : {}),
+      ...(next.customFontUrlAr !== undefined ? { customFontUrlAr: next.customFontUrlAr } : {}),
+    });
+  };
+
   useEffect(() => {
     let stop = false;
     const cached = readChromeCache(activeStore.id);
     setChrome(cached);
     setChromeDirty(false);
     bindStoreChrome(activeStore.id, cached);
+    hydrateStoreTypography(cached);
     const seen = currentChromeRevision();
     void loadStoreChrome(activeStore.id).then((next) => {
       // Skip if merchant already painted a newer chrome (upload / slider) during fetch
@@ -110,10 +129,13 @@ export const StoreSettings: React.FC = () => {
         next.shellWallpaperOpacity === cached.shellWallpaperOpacity &&
         next.shellWallpaper === cached.shellWallpaper &&
         next.bgImage === cached.bgImage &&
-        next.dashboardLookId === cached.dashboardLookId;
+        next.dashboardLookId === cached.dashboardLookId &&
+        next.fontAr === cached.fontAr &&
+        next.fontWeight === cached.fontWeight;
       if (sameDesign) return;
       setChrome(next);
       bindStoreChrome(activeStore.id, next);
+      hydrateStoreTypography(next);
     });
     return () => {
       stop = true;
@@ -130,14 +152,26 @@ export const StoreSettings: React.FC = () => {
         typeof next.shellWallpaperOpacity === 'number' ? next.shellWallpaperOpacity : 0.92,
       updatedAt: Date.now(),
     };
-    if (!normalized.shellWallpaper && chrome.shellWallpaper) {
+    // Reset to platform default image (or empty) clears merchant upload — not color presets
+    const clearedShell =
+      (isDefaultShellWallpaper(normalized.shellWallpaper) || !normalized.shellWallpaper) &&
+      Boolean(chrome.shellWallpaper) &&
+      !isDefaultShellWallpaper(chrome.shellWallpaper);
+    const clearedBg = !normalized.bgImage && Boolean(chrome.bgImage);
+    if (clearedShell) {
+      markChromeImageCleared(activeStore.id, 'shellWallpaper', true);
       void deleteChromeImage(activeStore.id, 'shellWallpaper');
       void import('../../i18n/shellWallpaperLuma').then(({ clearShellWallpaperLumaCache }) => {
         clearShellWallpaperLumaCache();
       });
+    } else if (normalized.shellWallpaper && !isDefaultShellWallpaper(normalized.shellWallpaper)) {
+      markChromeImageCleared(activeStore.id, 'shellWallpaper', false);
     }
-    if (!normalized.bgImage && chrome.bgImage) {
+    if (clearedBg) {
+      markChromeImageCleared(activeStore.id, 'bgImage', true);
       void deleteChromeImage(activeStore.id, 'bgImage');
+    } else if (normalized.bgImage) {
+      markChromeImageCleared(activeStore.id, 'bgImage', false);
     }
     setChrome(normalized);
     setChromeDirty(true);
@@ -145,6 +179,12 @@ export const StoreSettings: React.FC = () => {
     bindStoreChrome(activeStore.id, normalized);
     rememberPendingChrome(activeStore.id, normalized);
     cacheStoreChromeNow(activeStore.id, normalized);
+    // Glass wallpaper / sidebar bg remove must hit live MySQL immediately (local OK, live was restoring)
+    if (clearedShell || clearedBg) {
+      void saveStoreChrome(activeStore.id, normalized).then(() => {
+        setChromeDirty(false);
+      });
+    }
   };
 
   const saveChromeAppearance = async () => {
@@ -1025,6 +1065,27 @@ export const StoreSettings: React.FC = () => {
                 pageBgColor: bg || '',
                 pageTextColor: text || '',
                 shellTextMode: text ? 'custom' : 'auto',
+              })
+            }
+            initialStoreTypography={{
+              fontAr: chrome.fontAr,
+              fontWeight: chrome.fontWeight,
+              customFontFamilyAr: chrome.customFontFamilyAr,
+              customFontUrlAr: chrome.customFontUrlAr,
+            }}
+            onStoreTypographyChange={(next) =>
+              updateChrome({
+                ...chrome,
+                fontAr: next.fontAr ?? chrome.fontAr,
+                fontWeight: next.fontWeight ?? chrome.fontWeight,
+                customFontFamilyAr:
+                  next.customFontFamilyAr !== undefined
+                    ? next.customFontFamilyAr
+                    : chrome.customFontFamilyAr,
+                customFontUrlAr:
+                  next.customFontUrlAr !== undefined
+                    ? next.customFontUrlAr
+                    : chrome.customFontUrlAr,
               })
             }
             title={isAr ? 'تخصيص الهوية والألوان والخطوط' : 'Store Branding, Colors & Typography'}

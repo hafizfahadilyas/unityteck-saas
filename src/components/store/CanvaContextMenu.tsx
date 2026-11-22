@@ -19,6 +19,8 @@ import {
   ArrowUp,
   ArrowDown,
   PlusSquare,
+  Group,
+  Ungroup,
 } from 'lucide-react';
 
 export type CanvaContextMenuPos = {
@@ -36,6 +38,8 @@ type Props = {
   locked: boolean;
   hasClipboard: boolean;
   hasSelection: boolean;
+  canGroup?: boolean;
+  canUngroup?: boolean;
   onClose: () => void;
   onCopy: () => void;
   onCopyStyle: () => void;
@@ -43,6 +47,8 @@ type Props = {
   onDuplicate: () => void;
   onDelete: () => void;
   onToggleLock: () => void;
+  onGroup?: () => void;
+  onUngroup?: () => void;
   onLayer: (action: 'forward' | 'backward' | 'front' | 'back') => void;
   onAlign: (mode: 'h-center' | 'v-center' | 'left' | 'right' | 'top' | 'bottom') => void;
 };
@@ -55,6 +61,8 @@ export const CanvaContextMenu: React.FC<Props> = ({
   locked,
   hasClipboard,
   hasSelection,
+  canGroup = false,
+  canUngroup = false,
   onClose,
   onCopy,
   onCopyStyle,
@@ -62,6 +70,8 @@ export const CanvaContextMenu: React.FC<Props> = ({
   onDuplicate,
   onDelete,
   onToggleLock,
+  onGroup,
+  onUngroup,
   onLayer,
   onAlign,
 }) => {
@@ -304,6 +314,25 @@ export const CanvaContextMenu: React.FC<Props> = ({
           ])}
         </div>
       </div>
+
+      <div className="my-1 border-t border-slate-100" />
+
+      {row(
+        'group',
+        isAr ? 'تجميع' : 'Group',
+        null,
+        Group,
+        () => onGroup?.(),
+        { disabled: !canGroup || !onGroup },
+      )}
+      {row(
+        'ungroup',
+        isAr ? 'فك التجميع' : 'Ungroup',
+        null,
+        Ungroup,
+        () => onUngroup?.(),
+        { disabled: !canUngroup || !onUngroup },
+      )}
 
       <div className="my-1 border-t border-slate-100" />
 

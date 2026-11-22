@@ -154,9 +154,9 @@ export const PRODUCTS: Product[] = [
         descriptionAr: 'وحدتا تسخين إلكترونيتان مستقلتان تعملان بتقنية PID الذكية؛ وحدة للاستخلاص عند حرارة 92°-94° مئوية، ووحدة مستقلة للتبخير الفوري عند 130° مئوية في آن واحد دون انخفاض في الضغط.',
         image: '/images/hibrew_barista_pro_exploded_parts_1791364960592.jpg',
         stats: [
-          { labelEn: 'Pump Pressure', labelAr: 'قوة الضغط', value: '20-Bar ULKA' },
-          { labelEn: 'Heating Units', labelAr: 'وحدات التسخين', value: 'Dual PID' },
-          { labelEn: 'Temp Stability', labelAr: 'ثبات الحرارة', value: '±0.5°C' }
+          { labelEn: 'Pump Pressure', labelAr: 'قوة الضغط', value: '20-Bar ULKA', valueEn: '20-Bar ULKA', valueAr: 'مضخة ٢٠ بار ULKA' },
+          { labelEn: 'Heating Units', labelAr: 'وحدات التسخين', value: 'Dual PID', valueEn: 'Dual PID', valueAr: 'دبل PID' },
+          { labelEn: 'Temp Stability', labelAr: 'ثبات الحرارة', value: '±0.5°C', valueEn: '±0.5°C', valueAr: '±٠٫٥°م' }
         ]
       },
       {
@@ -169,9 +169,9 @@ export const PRODUCTS: Product[] = [
         descriptionAr: 'شاهد تدفق الإسبريسو الذهبي الثخين عند ضغط 9-12 بار المثالي. يقوم نظام الترطيب المسبق بتشبيع البن تدريجياً لضمان استخلاص متجانس بدون أي قنوات مائية.',
         image: '/images/coffee_making_crema_flow_1791221127339.jpg',
         stats: [
-          { labelEn: 'Portafilter Size', labelAr: 'مقاس البورتافلتر', value: '58.4mm' },
-          { labelEn: 'Pre-Infusion', labelAr: 'الترطيب المسبق', value: '1-10s' },
-          { labelEn: 'Crema Texture', labelAr: 'قوام الكريمة', value: 'Dense Microfoam' }
+          { labelEn: 'Portafilter Size', labelAr: 'مقاس البورتافلتر', value: '58.4mm', valueEn: '58.4mm', valueAr: '٥٨٫٤ مم' },
+          { labelEn: 'Pre-Infusion', labelAr: 'الترطيب المسبق', value: '1-10s', valueEn: '1-10s', valueAr: '١–١٠ ث' },
+          { labelEn: 'Crema Texture', labelAr: 'قوام الكريمة', value: 'Dense Microfoam', valueEn: 'Dense Microfoam', valueAr: 'رغوة كثيفة' }
         ]
       },
       {
@@ -184,9 +184,9 @@ export const PRODUCTS: Product[] = [
         descriptionAr: 'مؤشر عقارب كلاسيكي أنيق يعرض ضغط الاستخلاص الفعلي لحظة بلحظة؛ يمنحك رؤية فورية لمنطقة الاستخلاص الذهبي بين 9 و 12 بار للتأكد من تناسق طحنة البن وثبات النكهة في كل فنجان.',
         image: '/images/hibrew_barista_pro_details_showcase_1791364980884.jpg',
         stats: [
-          { labelEn: 'Optimal Zone', labelAr: 'المنطقة الذهبية', value: '9 – 12 Bar' },
-          { labelEn: 'Max Pressure', labelAr: 'الضغط الأقصى', value: '20 Bar' },
-          { labelEn: 'Gauge Material', labelAr: 'خامة المؤشر', value: 'Polished Brass' }
+          { labelEn: 'Optimal Zone', labelAr: 'المنطقة الذهبية', value: '9 – 12 Bar', valueEn: '9 – 12 Bar', valueAr: '٩ – ١٢ بار' },
+          { labelEn: 'Max Pressure', labelAr: 'الضغط الأقصى', value: '20 Bar', valueEn: '20 Bar', valueAr: '٢٠ بار' },
+          { labelEn: 'Gauge Material', labelAr: 'خامة المؤشر', value: 'Polished Brass', valueEn: 'Polished Brass', valueAr: 'نحاس مصقول' }
         ]
       },
       {
@@ -199,9 +199,9 @@ export const PRODUCTS: Product[] = [
         descriptionAr: 'بخار جاف قوي عند 135° مئوية عبر 3 فتحات ليزرية دقيقة يحول الحليب إلى رغوة ميكروفوم حريرية لامعة خلال أقل من 20 ثانية، مما يمكنك من رسم أبدع تصاميم اللاتيه آرت بسهولة.',
         image: '/images/barista_milk_steaming_1791363367164.jpg',
         stats: [
-          { labelEn: 'Steam Nozzle', labelAr: 'فتحات التبخير', value: '3-Hole Precision' },
-          { labelEn: 'Steam Temp', labelAr: 'حرارة البخار', value: '135°C Dry' },
-          { labelEn: 'Handle Grip', labelAr: 'مقبض الأمان', value: 'Cool-Touch Silicon' }
+          { labelEn: 'Steam Nozzle', labelAr: 'فتحات التبخير', value: '3-Hole Precision', valueEn: '3-Hole Precision', valueAr: '٣ فتحات دقيقة' },
+          { labelEn: 'Steam Temp', labelAr: 'حرارة البخار', value: '135°C Dry', valueEn: '135°C Dry', valueAr: '١٣٥°م جاف' },
+          { labelEn: 'Handle Grip', labelAr: 'مقبض الأمان', value: 'Cool-Touch Silicon', valueEn: 'Cool-Touch Silicon', valueAr: 'سيليكون عازل للحرارة' }
         ]
       },
       {
@@ -214,9 +214,9 @@ export const PRODUCTS: Product[] = [
         descriptionAr: 'هيكل معدني متين من الفولاذ المقاوم للصدأ 304 مع لمسات خشب الجوز الطبيعي وخزان مياه 2.5 لتر كبير، مدعوم بضمان الوكيل المعتمد في المملكة لمدة سنتين مع توفر كامل قطع الغيار والصيانة.',
         image: '/images/coffee_machine_story_craft_1791221163767.jpg',
         stats: [
-          { labelEn: 'Agency Warranty', labelAr: 'ضمان الوكيل', value: '2 Years Full' },
-          { labelEn: 'Water Tank', labelAr: 'سعة الخزان', value: '2.5L BPA-Free' },
-          { labelEn: 'Chassis Material', labelAr: 'خامة الهيكل', value: '304 Solid Steel' }
+          { labelEn: 'Agency Warranty', labelAr: 'ضمان الوكيل', value: '2 Years Full', valueEn: '2 Years Full', valueAr: 'سنتان كاملتان' },
+          { labelEn: 'Water Tank', labelAr: 'سعة الخزان', value: '2.5L BPA-Free', valueEn: '2.5L BPA-Free', valueAr: '٢٫٥ لتر خالٍ من BPA' },
+          { labelEn: 'Chassis Material', labelAr: 'خامة الهيكل', value: '304 Solid Steel', valueEn: '304 Solid Steel', valueAr: 'فولاذ ٣٠٤ متين' }
         ]
       }
     ]

@@ -37,6 +37,7 @@ const SECTIONS: {
   { id: 'C-CMP', settingsKey: 'modelComparison', titleEn: 'Model Comparison', titleAr: 'مقارنة الموديلات' },
   { id: 'C-PC', settingsKey: 'productCarousel', titleEn: 'Product Carousel', titleAr: 'كاروسيل المنتجات' },
   { id: 'C-PCB', settingsKey: 'productCarouselBanner', titleEn: 'Carousel + Banner', titleAr: 'كاروسيل مع بانر' },
+  { id: 'C-PDP', settingsKey: 'productDetail', titleEn: 'Product Page Layout', titleAr: 'تخطيط صفحة المنتج' },
   { id: 'C-EDIT', settingsKey: null, titleEn: 'Product Editor', titleAr: 'محرر المنتجات' },
   { id: 'C-NEWS', settingsKey: 'newsletter', titleEn: 'Newsletter', titleAr: 'النشرة البريدية' },
   { id: 'C-CPB', settingsKey: 'customOrder', titleEn: 'Custom Order', titleAr: 'الطلب المخصص' },

@@ -70,6 +70,48 @@
   --tw-shadow-color: color-mix(in srgb, var(--accent) 18%, transparent) !important;
 }
 
+/* Builder topbar — two stacked rows; never overlap hit targets */
+[data-surface="theme-builder"] [data-vb-topbar="on"] {
+  display: flex !important;
+  flex-direction: column !important;
+  flex-wrap: nowrap !important;
+  align-items: stretch !important;
+  gap: 0.5rem !important;
+  /* Do NOT isolate — Row 1 z-index was trapping/covering Row 2 Tools dropdown */
+  isolation: auto;
+  overflow: visible !important;
+  background: #fff;
+  /* Two full rows always reserved — prevents Preview/Save covering Tools/Season */
+  min-height: 5.75rem;
+  box-sizing: border-box;
+}
+
+[data-surface="theme-builder"] [data-vb-topbar-row] {
+  position: relative;
+  flex: 0 0 auto !important;
+  flex-shrink: 0 !important;
+  width: 100%;
+  min-height: 2.25rem;
+  pointer-events: auto;
+  background: #fff;
+  /* Keep rows in document flow — no absolute stacking on top of each other */
+  z-index: auto;
+}
+
+[data-surface="theme-builder"] [data-vb-topbar-row="1"] {
+  z-index: 1;
+}
+
+/* Row 2 must paint ABOVE Row 1 so Tools / Season / History dropdowns are not clipped */
+[data-surface="theme-builder"] [data-vb-topbar-row="2"] {
+  z-index: 5;
+  overflow: visible !important;
+}
+
+[data-surface="theme-builder"] [data-vb-topbar-row="2"] [class*="absolute"] {
+  z-index: 130;
+}
+
 /* Elementor rail: overlay (not flex-push) + canvas padding inset so preview stays centered, no overlap */
 [data-surface="theme-builder"] .vb-workspace {
   display: flex;
@@ -118,6 +160,15 @@
   outline-offset: -2px;
   z-index: 20;
   box-shadow: none;
+}
+
+/* Header / navbar: outside outline so cyan ring does not clip nav glyph tops */
+[data-surface="theme-builder"] .vb-chrome-block.vb-block-selected,
+[data-surface="theme-builder"] .vb-chrome-block.vb-block-flash {
+  outline-offset: 3px;
+}
+[data-surface="theme-builder"] .vb-chrome-block:hover {
+  outline-offset: 2px !important;
 }
 
 [data-surface="theme-builder"] .vb-block-flash {

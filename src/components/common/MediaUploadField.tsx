@@ -398,8 +398,13 @@ export const MediaUploadField: React.FC<MediaUploadFieldProps> = ({
                 disabled={disabled}
                 onClick={() => {
                   if (chromeImageField && activeStore?.id) {
+                    const sid = activeStore.id;
+                    const field = chromeImageField;
                     void import('../../i18n/storeChromeImageStore').then(({ deleteChromeImage }) =>
-                      deleteChromeImage(activeStore.id, chromeImageField),
+                      deleteChromeImage(sid, field),
+                    );
+                    void import('../../i18n/storeChrome').then(({ markChromeImageCleared }) =>
+                      markChromeImageCleared(sid, field, true),
                     );
                   }
                   onChange('');

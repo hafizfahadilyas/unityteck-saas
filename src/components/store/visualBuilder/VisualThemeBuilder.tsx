@@ -3,6 +3,7 @@ import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
 import { GlobalModal } from '../../common/GlobalModal';
+import { FloatingPopover } from '../../common/FloatingPopover';
 import {
   readAllThemeSettings,
   writeAllThemeSettings,
@@ -116,6 +117,14 @@ import {
   BuilderTypographyControl,
   type TypographySettings,
 } from './typography/BuilderTypographyControl';
+import { BuilderSiteCodePanel } from './BuilderSiteCodePanel';
+import {
+  applyStoreCustomCodeLive,
+  normalizeStoreCustomCode,
+  scopeStoreCss,
+  type StoreCustomCodeSettings,
+  EMPTY_STORE_CUSTOM_CODE,
+} from '../../../themes/settings/storeScopedCustomCode';
 import {
   IconLibraryModal,
   AVAILABLE_ICONS,
@@ -181,7 +190,11 @@ import { Footer as CoffeeFooter } from '../../../themes/coffeeRoasters/component
 import { HeroSlider3D as CoffeeHeroSlider3D } from '../../../themes/coffeeRoasters/components/HeroSlider3D';
 import { FlagshipThreeJsSection as CoffeeFlagshipSection } from '../../../themes/coffeeRoasters/components/FlagshipThreeJsSection';
 import { MachineStoryCinematic as CoffeeMachineStory } from '../../../themes/coffeeRoasters/components/MachineStoryCinematic';
-import { CartProvider as CoffeeCartProvider } from '../../../themes/coffeeRoasters/context/CartContext';
+import { ProductDetailPage as CoffeeProductDetailPage } from '../../../themes/coffeeRoasters/components/ProductDetailPage';
+import {
+  CartProvider as CoffeeCartProvider,
+  useCart as useCoffeeCart,
+} from '../../../themes/coffeeRoasters/context/CartContext';
 
 import {
   createCanonicalBlocks,
@@ -484,6 +497,7 @@ interface CanvasBlockItemProps {
   idx: number;
   totalBlocks: number;
   isSelected: boolean;
+  storeId?: string;
   headerSubElement?: HeaderSubElementKey;
   heroSlideIndex?: number | null;
   heroSubElement?: 'slide' | 'title' | 'subtitle' | 'btn1' | 'btn2' | 'image' | null;
@@ -516,6 +530,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
     idx,
     totalBlocks,
     isSelected,
+    storeId,
     headerSubElement,
     heroSlideIndex,
     heroSubElement,
@@ -576,22 +591,24 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
       onDropOnBlock?.(idx, pos, e);
     };
 
-    // Section Scoped Custom CSS Injection
+    // Section Scoped Custom CSS Injection (store_id wrapper)
     useEffect(() => {
       if (!b.customCss) return;
-      const styleId = `selia_style_${b.id}`;
+      const sid = activeStore?.id || storeId || '';
+      const styleId = `selia_style_${sid}_${b.id}`;
       let styleTag = document.getElementById(styleId);
       if (!styleTag) {
         styleTag = document.createElement('style');
         styleTag.id = styleId;
+        if (sid) styleTag.setAttribute('data-store-id', sid);
         document.head.appendChild(styleTag);
       }
-      styleTag.textContent = b.customCss;
+      styleTag.textContent = sid ? scopeStoreCss(b.customCss, sid) : b.customCss;
       return () => {
         const tag = document.getElementById(styleId);
         if (tag) tag.remove();
       };
-    }, [b.id, b.customCss]);
+    }, [b.id, b.customCss, activeStore?.id, storeId]);
 
     // Section Scoped Safe Custom JS Execution
     useEffect(() => {
@@ -826,13 +843,19 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
           className={`group relative cursor-pointer ${extraClass} ${
             coffeeNative ? 'bg-transparent' : ''
           } ${
-            b.type === 'header' || b.type === 'navbar' ? 'overflow-visible z-[70]' : ''
+            b.type === 'header' || b.type === 'navbar' ? 'overflow-visible z-[70] vb-chrome-block' : ''
           } ${
-            isDraggingThisBlock ? 'opacity-35 grayscale outline outline-2 outline-dashed outline-cyan-400 outline-offset-[-2px] scale-[0.99]' : ''
+            isDraggingThisBlock
+              ? `opacity-35 grayscale outline outline-2 outline-dashed outline-cyan-400 scale-[0.99] ${
+                  b.type === 'header' || b.type === 'navbar' ? 'outline-offset-[3px]' : 'outline-offset-[-2px]'
+                }`
+              : ''
           } ${
             isSelected
               ? BLOCK_SELECTED_CLASS
-              : 'hover:outline hover:outline-1 hover:outline-cyan-300 hover:outline-offset-[-1px]'
+              : b.type === 'header' || b.type === 'navbar'
+                ? 'hover:outline hover:outline-1 hover:outline-cyan-300 hover:outline-offset-[2px]'
+                : 'hover:outline hover:outline-1 hover:outline-cyan-300 hover:outline-offset-[-1px]'
           }`}
           style={{
             paddingTop: coffeeNative
@@ -1995,6 +2018,62 @@ function createInitialBlocksForTheme(themeId: string, store?: any): BlockElement
   return createCanonicalBlocks(themeId, store) as BlockElement[];
 }
 
+/** Coffee product preview — real HiBrew PDP + SKU switcher (one template, many products). */
+const CoffeeBuilderProductPreview: React.FC<{ isAr: boolean }> = ({ isAr }) => {
+  const { products, selectedProductId, navigateTo } = useCoffeeCart();
+
+  React.useEffect(() => {
+    const onCustomize = (ev: Event) => {
+      const pid = String((ev as CustomEvent<{ productId?: string }>).detail?.productId || '').trim();
+      if (pid) navigateTo('product-detail', pid);
+    };
+    window.addEventListener('unityteck-open-pdp-customize', onCustomize as EventListener);
+    return () => window.removeEventListener('unityteck-open-pdp-customize', onCustomize as EventListener);
+  }, [navigateTo]);
+
+  const catalog = products || [];
+  const count = catalog.length;
+
+  return (
+    <div className="w-full" data-coffee-builder-product-preview>
+      <div
+        className="sticky top-0 z-20 flex flex-wrap items-center gap-2 px-3 py-2 border-b bg-white"
+        style={{ borderColor: 'var(--border)' }}
+        data-pdp-preview-switcher
+      >
+        <span className="text-[11px] font-bold shrink-0" style={{ color: 'var(--muted)' }}>
+          {isAr
+            ? `تبديل المنتج${count ? ` (${count})` : ''}`
+            : `Switch product${count ? ` (${count})` : ''}`}
+        </span>
+        <select
+          className="flex-1 min-w-0 max-w-md px-2 py-1.5 rounded-lg border text-xs font-bold"
+          style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+          value={selectedProductId || ''}
+          onChange={(e) => navigateTo('product-detail', e.target.value || undefined)}
+          aria-label={isAr ? 'اختر منتجاً للمعاينة' : 'Choose product to preview'}
+        >
+          {count === 0 ? (
+            <option value="">{isAr ? 'لا منتجات' : 'No products'}</option>
+          ) : (
+            catalog.map((p) => (
+              <option key={p.id} value={p.id}>
+                {isAr ? p.nameAr || p.name : p.name}
+              </option>
+            ))
+          )}
+        </select>
+        <span className="text-[10px] hidden sm:inline" style={{ color: 'var(--muted)' }}>
+          {isAr
+            ? 'قائمة منسدلة = كل منتجات المتجر · قالب واحد'
+            : 'Dropdown = all store products · one template'}
+        </span>
+      </div>
+      <CoffeeProductDetailPage />
+    </div>
+  );
+};
+
 const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   isOpen,
   onClose,
@@ -2225,9 +2304,14 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   const pageDropdownRef = useRef<HTMLDivElement>(null);
   const themeDropdownRef = useRef<HTMLDivElement>(null);
   const seasonDropdownRef = useRef<HTMLDivElement>(null);
-  const toolsDropdownRef = useRef<HTMLDivElement>(null);
+  /** Anchor only — Tools menu portals via FloatingPopover (escapes topbar overlap). */
+  const toolsButtonRef = useRef<HTMLButtonElement>(null);
+  /** Legacy alias — keeps Fast Refresh / older HMR closures from throwing ReferenceError. */
+  const toolsDropdownRef = toolsButtonRef;
+  void toolsDropdownRef;
 
   // Close topbar dropdowns on outside click or Escape key
+  // Tools menu: FloatingPopover owns outside-click + Escape (body portal).
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       const target = event.target as Node;
@@ -2240,18 +2324,13 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       if (seasonDropdownOpen && seasonDropdownRef.current && !seasonDropdownRef.current.contains(target)) {
         setSeasonDropdownOpen(false);
       }
-      if (toolsDropdownOpen && toolsDropdownRef.current && !toolsDropdownRef.current.contains(target)) {
-        setToolsDropdownOpen(false);
-      }
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setPageDropdownOpen(false);
-        setThemeDropdownOpen(false);
-        setSeasonDropdownOpen(false);
-        setToolsDropdownOpen(false);
-      }
+      if (e.key !== 'Escape') return;
+      setPageDropdownOpen(false);
+      setThemeDropdownOpen(false);
+      setSeasonDropdownOpen(false);
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -2262,7 +2341,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       document.removeEventListener('touchstart', handleClickOutside);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [pageDropdownOpen, themeDropdownOpen, seasonDropdownOpen, toolsDropdownOpen]);
+  }, [pageDropdownOpen, themeDropdownOpen, seasonDropdownOpen]);
 
   const [showAddSectionModal, setShowAddSectionModal] = useState(false);
   const [showIconLibrary, setShowIconLibrary] = useState(false);
@@ -2320,8 +2399,50 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     lineHeight: 1.6,
     letterSpacing: 0,
   });
+  const [siteCustomCode, setSiteCustomCode] = useState<StoreCustomCodeSettings>(() => {
+    try {
+      const full = readAllThemeSettings(activeStore.id, activeStore);
+      const fromCode = normalizeStoreCustomCode(full.customCode);
+      if (!fromCode.customFontFamily && full.general?.fontFamily) {
+        fromCode.customFontFamily = full.general.fontFamily;
+      }
+      if (!fromCode.customFontUrl && full.general?.customFontUrl) {
+        fromCode.customFontUrl = full.general.customFontUrl;
+      }
+      return fromCode;
+    } catch {
+      return { ...EMPTY_STORE_CUSTOM_CODE };
+    }
+  });
+  const [siteCodePanelOpen, setSiteCodePanelOpen] = useState(false);
+  const [siteCodeSaving, setSiteCodeSaving] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState<string>('');
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+
+  // Reload store-scoped font/CSS when active store changes (no cross-tenant leak)
+  useEffect(() => {
+    try {
+      const full = readAllThemeSettings(activeStore.id, activeStore);
+      const fromCode = normalizeStoreCustomCode(full.customCode);
+      if (!fromCode.customFontFamily && full.general?.fontFamily) {
+        fromCode.customFontFamily = full.general.fontFamily;
+      }
+      if (!fromCode.customFontUrl && full.general?.customFontUrl) {
+        fromCode.customFontUrl = full.general.customFontUrl;
+      }
+      setSiteCustomCode(fromCode);
+      if (fromCode.customFontFamily) {
+        setTypographySettings((prev) => ({
+          ...prev,
+          fontFamily: fromCode.customFontFamily || prev.fontFamily,
+          customFontUrl: fromCode.customFontUrl || prev.customFontUrl,
+        }));
+      }
+      applyStoreCustomCodeLive(activeStore.id, fromCode);
+    } catch {
+      setSiteCustomCode({ ...EMPTY_STORE_CUSTOM_CODE });
+    }
+  }, [activeStore.id]);
 
   // Seasonal Theme Preset Selection
   const [seasonalTheme, setSeasonalTheme] = useState<SeasonalPreset>(() => {
@@ -3802,10 +3923,16 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         }
       }
 
-      // Save custom fonts and mobile icon into general
-      full.general.fontFamily = typographySettings.fontFamily;
-      full.general.customFontUrl = typographySettings.customFontUrl;
+      // Save custom fonts / CSS and mobile icon — this store_id only
+      const codeToSave = normalizeStoreCustomCode({
+        ...siteCustomCode,
+        customFontFamily: siteCustomCode.customFontFamily || typographySettings.fontFamily || '',
+        customFontUrl: siteCustomCode.customFontUrl || typographySettings.customFontUrl || '',
+      });
+      full.general.fontFamily = codeToSave.customFontFamily || typographySettings.fontFamily;
+      full.general.customFontUrl = codeToSave.customFontUrl || typographySettings.customFontUrl;
       full.general.mobileMenuIcon = mobileMenuIcon;
+      full.customCode = codeToSave;
 
       // Activate published theme for this store
       setStoreTheme(activeStore.id, currentThemeId);
@@ -3815,6 +3942,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       const safeSettings = stripHeavyDataUrls(full);
       writeAllThemeSettings(activeStore.id, safeSettings, currentThemeId, { syncApi: false });
       await publishThemeSettingsResilient(safeSettings as unknown as Record<string, unknown>);
+      applyStoreCustomCodeLive(activeStore.id, codeToSave);
 
       const layout = stripHeavyDataUrls({
         blocks: blocksForPublish(blocks),
@@ -3822,6 +3950,8 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         seasonalTheme,
         typographySettings,
         mobileMenuIcon,
+        customCss: codeToSave.enableCustomCss ? codeToSave.customCss : '',
+        customCode: codeToSave,
       });
 
       let pagePublished = false;
@@ -3894,12 +4024,19 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   };
 
   const handleSaveDraft = async () => {
+    const codeDraft = normalizeStoreCustomCode({
+      ...siteCustomCode,
+      customFontFamily: siteCustomCode.customFontFamily || typographySettings.fontFamily || '',
+      customFontUrl: siteCustomCode.customFontUrl || typographySettings.customFontUrl || '',
+    });
     const layout = {
       blocks,
       themeId: currentThemeId,
       seasonalTheme,
       typographySettings,
       mobileMenuIcon,
+      customCss: codeDraft.enableCustomCss ? codeDraft.customCss : '',
+      customCode: codeDraft,
     };
     try {
       if (!isApiEnabled()) {
@@ -4038,12 +4175,18 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     <div
       data-portal="store"
       data-surface="theme-builder"
+      data-store-id={activeStore.id}
       className={`fixed inset-0 z-50 flex flex-col bg-[color:var(--bg,#e2f4f0)] text-[color:var(--text)] overflow-hidden font-sans ${
         screenSize.isMobile ? '' : 'animate-in fade-in duration-150 ease-out'
       }`}
       dir={isAr ? 'rtl' : 'ltr'}
       lang={isAr ? 'ar' : 'en'}
-      style={{ fontFamily: typographySettings.fontFamily || (isAr ? 'var(--font-ui-ar, var(--font-ui))' : 'var(--font-ui-en, var(--font-ui))') }}
+      style={{
+        fontFamily:
+          siteCustomCode.customFontFamily ||
+          typographySettings.fontFamily ||
+          (isAr ? 'var(--font-ui-ar, var(--font-ui))' : 'var(--font-ui-en, var(--font-ui))'),
+      }}
     >
       {builderClosed && (
         <p data-builder-unavailable="1" className="m-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -4063,13 +4206,20 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         />
       )}
       {/* ========================================================
-          1. TWO-ROW TOPBAR — no overlap / no horizontal scroll
+          1. TWO-ROW TOPBAR — stacked rows, no overlap / clickable
           ======================================================== */}
-      <header className="px-2 sm:px-3 py-1.5 bg-white border-b border-slate-200/90 shadow-2xs flex flex-col gap-1.5 shrink-0 z-[100] relative w-full overflow-visible select-none">
+      <header
+        data-vb-topbar="on"
+        className="px-2 sm:px-3 pt-2 pb-2 bg-white border-b border-slate-200/90 shadow-2xs flex flex-col gap-2 shrink-0 z-[100] relative w-full select-none overflow-visible"
+        style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', overflow: 'visible' }}
+      >
         {/* Row 1: Branding + primary publish actions */}
-        <div className="flex items-center justify-between gap-2 w-full min-w-0">
+        <div
+          data-vb-topbar-row="1"
+          className="relative z-[1] flex items-center justify-between gap-2 w-full min-w-0 min-h-9 shrink-0 bg-white"
+        >
         {/* Left: Branding & All-Pages & Theme Dropdown */}
-        <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 flex-1 overflow-hidden">
+        <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 flex-1 overflow-visible">
           <button
             type="button"
             onClick={onClose}
@@ -4274,10 +4424,13 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
           </div>
         </div>
 
-        {/* Row 2: Device viewport + editor tools + sidebars */}
-        <div className="flex items-center justify-between gap-2 w-full min-w-0 flex-wrap">
+        {/* Row 2: Device viewport + editor tools — ABOVE Row 1 so Tools dropdown never under Preview/Save */}
+        <div
+          data-vb-topbar-row="2"
+          className="relative z-[5] flex items-center justify-between gap-2 w-full min-w-0 min-h-9 shrink-0 flex-nowrap overflow-x-auto overflow-y-visible pt-0.5 border-t border-slate-100 bg-white"
+        >
         {/* Center: Device Viewport & Editor Undo/Redo & Season */}
-        <div className="relative flex items-center justify-center gap-1 sm:gap-1.5 shrink-0">
+        <div className="relative flex items-center justify-start gap-1 sm:gap-1.5 shrink-0">
           {/* Device Viewport Switcher (Always accessible on all screen sizes) */}
           <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 gap-0.5 shrink-0">
             {[
@@ -4486,8 +4639,11 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
           </div>
         </div>
 
-        {/* Right: Editor tools (sidebars / language / shortcodes / settings) */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 flex-wrap justify-end">
+        {/* Right: Editor tools — nowrap so labels never stack under each other */}
+        <div
+          data-vb-editor-tools="1"
+          className="flex items-center gap-1 sm:gap-1.5 shrink-0 flex-nowrap justify-end max-w-full overflow-x-auto overflow-y-visible"
+        >
           {/* Toggle Sidebar Buttons (Accessible across all screens) */}
           <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs shrink-0">
             <button
@@ -4502,9 +4658,11 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                 leftSidebarVisible ? 'bg-indigo-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
               }`}
               title={isAr ? 'إظهار / إخفاء أقسام الصفحة' : 'Toggle Left Blocks Outline'}
+              aria-label={isAr ? 'الأقسام' : 'Blocks'}
+              aria-pressed={leftSidebarVisible}
             >
-              <Layers className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline text-[10px]">{isAr ? 'الأقسام' : 'Blocks'}</span>
+              <Layers className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden sm:inline text-[10px] whitespace-nowrap">{isAr ? 'الأقسام' : 'Blocks'}</span>
             </button>
 
             <button
@@ -4519,9 +4677,11 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                 rightSidebarVisible ? 'bg-indigo-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
               }`}
               title={isAr ? 'إظهار / إخفاء لوحة التعديل' : 'Toggle Right Inspector'}
+              aria-label={isAr ? 'العناصر' : 'Inspector'}
+              aria-pressed={rightSidebarVisible}
             >
-              <Sliders className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline text-[10px]">{isAr ? 'العناصر' : 'Inspector'}</span>
+              <Sliders className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden sm:inline text-[10px] whitespace-nowrap">{isAr ? 'العناصر' : 'Inspector'}</span>
             </button>
           </div>
 
@@ -4531,9 +4691,10 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             onClick={() => handleToggleLanguage(isAr ? 'en' : 'ar')}
             className="px-2 sm:px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-2xs shrink-0"
             title={isAr ? 'التبديل إلى الإنجليزية' : 'Switch to Arabic'}
+            aria-label={isAr ? 'إنجليزي' : 'Arabic'}
           >
             <Globe className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-            <span className="hidden sm:inline font-extrabold text-[11px]">{isAr ? 'إنجليزي' : 'Arabic'}</span>
+            <span className="hidden sm:inline font-extrabold text-[11px] whitespace-nowrap">{isAr ? 'إنجليزي' : 'Arabic'}</span>
           </button>
 
           {/* Shortcode Generator */}
@@ -4542,29 +4703,44 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             onClick={() => setShowShortcodeModal(true)}
             className="inline-flex px-2.5 py-1.5 rounded-xl text-xs font-bold border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 cursor-pointer items-center gap-1 shadow-2xs transition-colors shrink-0"
             title={isAr ? 'توليد ونسخ كود قصير للمنتجات' : 'Generate & Copy Product Shortcodes'}
+            aria-label={isAr ? 'الأكواد' : 'Shortcodes'}
           >
-            <Code className="w-3.5 h-3.5 text-emerald-700" />
-            <span className="hidden sm:inline">{isAr ? 'الأكواد' : 'Shortcodes'}</span>
+            <Code className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <span className="hidden sm:inline whitespace-nowrap">{isAr ? 'الأكواد' : 'Shortcodes'}</span>
           </button>
 
-          {/* Tools & View Settings Dropdown */}
-          <div className="relative" ref={toolsDropdownRef}>
+          {/* Tools — menu portals to document.body so Preview/Save never cover it */}
+          <div className="relative shrink-0">
             <button
+              ref={toolsButtonRef}
               type="button"
               onClick={() => {
-                setToolsDropdownOpen(!toolsDropdownOpen);
+                setToolsDropdownOpen((open) => !open);
                 setPageDropdownOpen(false);
                 setThemeDropdownOpen(false);
                 setSeasonDropdownOpen(false);
               }}
-              className="p-1.5 sm:p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 cursor-pointer shadow-2xs shrink-0"
+              className="px-2 sm:px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 cursor-pointer shadow-2xs shrink-0 inline-flex items-center gap-1"
               title={isAr ? 'أدوات العرض والخيارات' : 'View Tools & Options'}
+              aria-label={isAr ? 'الأدوات' : 'Tools'}
+              aria-expanded={toolsDropdownOpen}
+              aria-haspopup="menu"
             >
-              <SlidersHorizontal className="w-4 h-4 text-slate-600" />
+              <SlidersHorizontal className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+              <span className="hidden sm:inline text-[11px] font-bold whitespace-nowrap">{isAr ? 'الأدوات' : 'Tools'}</span>
             </button>
 
-            {toolsDropdownOpen && (
-              <div className="absolute top-full mt-2 end-0 w-64 sm:w-72 bg-white rounded-2xl shadow-2xl ring-1 ring-slate-900/10 border border-slate-200/90 p-3 z-[130] space-y-2.5 text-xs animate-in fade-in-50 zoom-in-95 duration-150">
+            <FloatingPopover
+              open={toolsDropdownOpen}
+              anchorRef={toolsButtonRef}
+              onClose={() => setToolsDropdownOpen(false)}
+              width={288}
+              align="end"
+              preferBelow
+              estimatedHeight={360}
+              className="rounded-2xl shadow-2xl ring-1 ring-slate-900/10 border border-slate-200/90 bg-white p-3 space-y-2.5 text-xs"
+            >
+              <div data-vb-tools-menu="1" className="space-y-2.5" role="menu">
                 <div className="px-1 py-0.5 text-[10px] font-bold uppercase text-slate-400 border-b border-slate-100">
                   {isAr ? 'إعدادات وأدوات المحرر' : 'Editor Tools & Settings'}
                 </div>
@@ -4575,13 +4751,21 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                     type="button"
                     onClick={() => setCanvasDarkMode(!canvasDarkMode)}
                     className="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer transition-colors"
-                    title={canvasDarkMode ? 'Switch to Light' : 'Switch to Dark'}
+                    title={
+                      canvasDarkMode
+                        ? isAr
+                          ? 'التبديل إلى الوضع الفاتح'
+                          : 'Switch to Light'
+                        : isAr
+                          ? 'التبديل إلى الوضع الداكن'
+                          : 'Switch to Dark'
+                    }
+                    aria-label={isAr ? 'خلفية مساحة العمل' : 'Canvas Theme'}
                   >
                     {canvasDarkMode ? <Sun className="w-3.5 h-3.5 text-amber-500" /> : <Moon className="w-3.5 h-3.5" />}
                   </button>
                 </div>
 
-                {/* Seasonal themes selector inside Tools menu (for tablets/laptops) */}
                 <div className="py-1 border-b border-slate-100 space-y-1.5">
                   <span className="font-bold text-slate-700 block">{isAr ? 'الثيم الموسمي:' : 'Seasonal Theme:'}</span>
                   <div className="grid grid-cols-2 gap-1.5">
@@ -4597,6 +4781,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                         <button
                           key={s.id}
                           type="button"
+                          role="menuitem"
                           onClick={() => {
                             handleSeasonalChange(s.id);
                             setToolsDropdownOpen(false);
@@ -4613,10 +4798,10 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                   </div>
                 </div>
 
-                {/* Shortcode modal trigger */}
                 <div className="pt-0.5">
                   <button
                     type="button"
+                    role="menuitem"
                     onClick={() => {
                       setShowShortcodeModal(true);
                       setToolsDropdownOpen(false);
@@ -4631,21 +4816,43 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                   </button>
                 </div>
 
-                {/* Restore All Default Sections Button */}
                 <div className="pt-1">
                   <button
                     type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setSiteCodePanelOpen(true);
+                      setToolsDropdownOpen(false);
+                    }}
+                    className="w-full py-2 px-2.5 rounded-xl font-bold text-xs flex items-center justify-between cursor-pointer transition-colors"
+                    style={{
+                      background: 'color-mix(in srgb, var(--accent) 12%, var(--surface))',
+                      color: 'var(--text)',
+                    }}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Type className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+                      <span>{isAr ? 'خط مخصص وتنسيقات مخصصة' : 'Custom Font & Custom CSS'}</span>
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" style={{ color: 'var(--accent)' }} />
+                  </button>
+                </div>
+
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    role="menuitem"
                     onClick={() => {
                       handleResetAllBlocksToDefault();
                       setToolsDropdownOpen(false);
                     }}
                     className="w-full py-2 px-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-bold text-xs flex items-center justify-between cursor-pointer transition-colors"
                   >
-                    <span className="flex items-center gap-1.5">
-                      <RotateCcw className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>{isAr ? 'استعادة كافة أقسام المتجر (24 قسماً)' : 'Restore All Store Sections (24)'}</span>
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      <RotateCcw className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                      <span className="truncate">{isAr ? 'استعادة كافة أقسام المتجر (24 قسماً)' : 'Restore All Store Sections (24)'}</span>
                     </span>
-                    <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180 text-indigo-600" />
+                    <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180 text-indigo-600 shrink-0" />
                   </button>
                 </div>
 
@@ -4656,7 +4863,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                   </div>
                 )}
               </div>
-            )}
+            </FloatingPopover>
           </div>
         </div>
         </div>
@@ -4786,12 +4993,19 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                               : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
                           } ${!b.visible ? 'opacity-50' : ''} ${isChromeFixed ? 'ring-1 ring-[color:var(--accent)]/30' : ''}`}
                           title={
-                            isChromeFixed
-                              ? (isAr ? 'عنصر ثابت — يمكن التعديل فقط' : 'Fixed chrome — edit only')
-                              : undefined
+                            [
+                              isCoffeeStore ? coffeeLayerTitle(b, isAr) : isAr ? b.titleAr : b.titleEn,
+                              isChromeFixed
+                                ? isAr
+                                  ? 'عنصر ثابت — يمكن التعديل فقط'
+                                  : 'Fixed chrome — edit only'
+                                : '',
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')
                           }
                         >
-                          <div className="flex items-center gap-1.5 min-w-0">
+                          <div className="flex items-center gap-1.5 min-w-0 flex-1">
                             {isHeaderBlock && (
                               <button
                                 type="button"
@@ -4822,7 +5036,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                             <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
                               <BIcon className="w-3.5 h-3.5" />
                             </div>
-                            <span className="text-xs truncate font-medium">
+                            <span className="text-xs font-medium leading-snug break-words whitespace-normal min-w-0">
                               {isCoffeeStore ? coffeeLayerTitle(b, isAr) : isAr ? b.titleAr : b.titleEn}
                             </span>
                             {isChromeFixed && (
@@ -4955,16 +5169,6 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             />
           </aside>
         </>
-        ) : !previewModeOnly ? (
-          <button
-            type="button"
-            onClick={() => setLeftSidebarVisible(true)}
-            className="absolute start-2 top-4 z-40 p-2 rounded-xl bg-white shadow-lg border border-slate-200 text-slate-700 hover:text-indigo-600 cursor-pointer flex items-center gap-1.5 text-xs font-bold transition-all"
-            title={isAr ? 'إظهار أقسام الصفحة' : 'Show Blocks'}
-          >
-            <Layers className="w-4 h-4 text-indigo-600" />
-            <span className="hidden sm:inline">{isAr ? 'الأقسام' : 'Blocks'}</span>
-          </button>
         ) : null}
 
         {/* ========================================================
@@ -5145,13 +5349,17 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             ) : previewPage === 'catalog' ? (
               <CatalogPage />
             ) : previewPage === 'product' ? (
-              <BuilderProductPage
-                isAr={isAr}
-                money={money}
-                onNavigateHome={() => setPreviewPage('home')}
-                onNavigatePage={(p) => setPreviewPage(p as PreviewPage)}
-                isMobile={device === 'mobile'}
-              />
+              isCoffeeStore ? (
+                <CoffeeBuilderProductPreview isAr={isAr} />
+              ) : (
+                <BuilderProductPage
+                  isAr={isAr}
+                  money={money}
+                  onNavigateHome={() => setPreviewPage('home')}
+                  onNavigatePage={(p) => setPreviewPage(p as PreviewPage)}
+                  isMobile={device === 'mobile'}
+                />
+              )
             ) : previewPage === 'cart' ? (
               <BuilderCartPage
                 isAr={isAr}
@@ -5402,7 +5610,21 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             {/* Inspector Body */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {isCoffeeStore && coffeeBlockUsesRefInspector(selectedBlock) ? (
-                <CoffeeBuilderSectionInspector block={selectedBlock} isAr={isAr} />
+                <div className="space-y-3">
+                  <CoffeeBuilderSectionInspector block={selectedBlock} isAr={isAr} />
+                  <button
+                    type="button"
+                    onClick={() => setSiteCodePanelOpen(true)}
+                    className="w-full py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-between cursor-pointer"
+                    style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Type className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+                      {isAr ? 'خط مخصص · تنسيقات مخصصة' : 'Custom Font · Custom CSS'}
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" style={{ color: 'var(--muted)' }} />
+                  </button>
+                </div>
               ) : (selectedBlock.type === 'header' || selectedBlock.id === 'header') &&
               (activeTab === 'content' || activeTab === 'templates' || activeTab === 'styling' || activeTab === 'layout') ? (
                 <HeaderElementInspector
@@ -5815,9 +6037,29 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                   {/* Typography Control Component */}
                   <BuilderTypographyControl
                     value={typographySettings}
-                    onChange={(newTypo) => setTypographySettings(newTypo)}
+                    onChange={(newTypo) => {
+                      setTypographySettings(newTypo);
+                      setSiteCustomCode((prev) => ({
+                        ...prev,
+                        customFontFamily: newTypo.fontFamily || prev.customFontFamily,
+                        customFontUrl: newTypo.customFontUrl || prev.customFontUrl,
+                      }));
+                    }}
                     isAr={isAr}
                   />
+
+                  <button
+                    type="button"
+                    onClick={() => setSiteCodePanelOpen(true)}
+                    className="w-full py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-between cursor-pointer"
+                    style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Code className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+                      {isAr ? 'خط مخصص · تنسيقات مخصصة (معزول)' : 'Custom Font · Custom CSS (isolated)'}
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" style={{ color: 'var(--muted)' }} />
+                  </button>
 
                   {/* Shadows & Border Radius */}
                   <div className="border border-slate-200 rounded-2xl p-4 bg-white shadow-2xs space-y-3">
@@ -6374,16 +6616,6 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             </div>
           </aside>
         </>
-        ) : !previewModeOnly ? (
-          <button
-            type="button"
-            onClick={() => setRightSidebarVisible(true)}
-            className="absolute end-2 top-4 z-40 p-2 rounded-xl bg-white shadow-lg border border-slate-200 text-slate-700 hover:text-indigo-600 cursor-pointer flex items-center gap-1.5 text-xs font-bold transition-all"
-            title={isAr ? 'إظهار لوحة التعديل' : 'Show Inspector'}
-          >
-            <Sliders className="w-4 h-4 text-indigo-600" />
-            <span className="hidden sm:inline">{isAr ? 'المفتش' : 'Inspector'}</span>
-          </button>
         ) : null}
       </div>
 
@@ -6531,6 +6763,101 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         isAr={isAr}
         title={isAr ? 'اختر أيقونة زر قائمة الموبايل' : 'Select Mobile Menu Toggle Icon'}
       />
+
+      {siteCodePanelOpen && (
+        <GlobalModal
+          onClose={() => setSiteCodePanelOpen(false)}
+          dir={isAr ? 'rtl' : 'ltr'}
+          aria-label={isAr ? 'خط مخصص وتنسيقات مخصصة' : 'Custom Font and Custom CSS'}
+          backdropClassName="!bg-slate-950/40"
+          contentClassName="w-full max-w-[min(92vw,26rem)] mx-3 sm:mx-4 max-h-[min(88dvh,34rem)] p-0"
+        >
+          {/* Outer shell: border + radius + overflow hidden — scrollbar never clips the border */}
+          <div
+            className="flex flex-col w-full max-h-[min(88dvh,34rem)] rounded-2xl border shadow-xl overflow-hidden"
+            style={{
+              color: 'var(--text)',
+              background:
+                'linear-gradient(165deg, color-mix(in srgb, var(--surface) 82%, transparent), color-mix(in srgb, var(--surface) 58%, transparent))',
+              backdropFilter: 'blur(18px) saturate(1.3)',
+              WebkitBackdropFilter: 'blur(18px) saturate(1.3)',
+              borderColor: 'color-mix(in srgb, #ffffff 55%, var(--border))',
+              boxShadow:
+                '0 16px 40px color-mix(in srgb, var(--text) 14%, transparent), inset 0 1px 0 color-mix(in srgb, #ffffff 50%, transparent)',
+            }}
+            data-glass-modal="site-code"
+          >
+            <div
+              className="flex items-center justify-between gap-2 shrink-0 px-3 pt-3 pb-2 border-b"
+              style={{
+                borderColor: 'color-mix(in srgb, #ffffff 35%, var(--border))',
+                background: 'color-mix(in srgb, var(--surface) 75%, transparent)',
+              }}
+            >
+              <h2 className="text-[13px] font-black tracking-tight">
+                {isAr ? 'خط مخصص وتنسيقات مخصصة' : 'Custom Font & Custom CSS'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setSiteCodePanelOpen(false)}
+                className="p-1.5 rounded-lg border cursor-pointer shrink-0"
+                style={{
+                  color: 'var(--muted)',
+                  borderColor: 'color-mix(in srgb, #ffffff 40%, var(--border))',
+                  background: 'color-mix(in srgb, var(--surface) 55%, transparent)',
+                }}
+                aria-label={isAr ? 'إغلاق' : 'Close'}
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            {/* Scroll only inside — clipped by parent overflow:hidden + radius */}
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-2.5">
+              <BuilderSiteCodePanel
+                storeId={activeStore.id}
+                isAr={isAr}
+                value={siteCustomCode}
+                onChange={(next) => {
+                  setSiteCustomCode(next);
+                  if (next.customFontFamily) {
+                    setTypographySettings((prev) => ({
+                      ...prev,
+                      fontFamily: next.customFontFamily || prev.fontFamily,
+                      customFontUrl: next.customFontUrl || prev.customFontUrl,
+                    }));
+                  }
+                  setHasUnsavedChanges(true);
+                }}
+                saving={siteCodeSaving}
+                onSave={async (next) => {
+                  setSiteCodeSaving(true);
+                  try {
+                    const full = readAllThemeSettings(activeStore.id, activeStore);
+                    full.customCode = next;
+                    full.general = {
+                      ...full.general,
+                      fontFamily: next.customFontFamily || full.general.fontFamily,
+                      customFontUrl: next.customFontUrl || full.general.customFontUrl,
+                    };
+                    writeAllThemeSettings(activeStore.id, full, currentThemeId);
+                    applyStoreCustomCodeLive(activeStore.id, next);
+                    setSiteCustomCode(next);
+                    toast(
+                      isAr ? 'تم حفظ الخط والتنسيقات لهذا المتجر' : 'Font and CSS saved for this store',
+                      'success',
+                    );
+                    setSiteCodePanelOpen(false);
+                  } catch {
+                    toast(isAr ? 'تعذر الحفظ' : 'Save failed', 'error');
+                  } finally {
+                    setSiteCodeSaving(false);
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </GlobalModal>
+      )}
 
       {/* ========================================================
           5. DYNAMIC SHORTCODE GENERATOR MODAL

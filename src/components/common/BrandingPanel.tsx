@@ -22,6 +22,8 @@ import {
   BRAND_PALETTES,
   DEFAULT_BRAND,
   TOP_15_PALETTES,
+  applyStoreArabicTypography,
+  ensureBrandFontStylesheet,
   parseHexColor,
   readableTextForTheme,
   resolveArFontStack,
@@ -43,6 +45,13 @@ import { isApiEnabled } from '../../api/client';
  * Applies globally via CSS variables (pages, tables, forms, modals).
  * Master: persistPlatform saves branding into platform_settings (live MySQL).
  */
+export type StoreTypographyPatch = {
+  fontAr?: BrandFontArId;
+  fontWeight?: BrandFontWeight;
+  customFontFamilyAr?: string | null;
+  customFontUrlAr?: string | null;
+};
+
 export const BrandingPanel: React.FC<{
   title?: string;
   activePalette?: BrandPaletteId | null;
@@ -52,6 +61,10 @@ export const BrandingPanel: React.FC<{
   persistPlatform?: boolean;
   /** Store Appearance: sync bg/text into per-store chromeBrand for Save appearance */
   onStoreColorsChange?: (next: { bg: string | null; text: string | null }) => void;
+  /** Store Appearance: sync Arabic font + weight into per-store chromeBrand */
+  onStoreTypographyChange?: (next: StoreTypographyPatch) => void;
+  /** Hydrate Arabic font dropdown from this store's chromeBrand */
+  initialStoreTypography?: StoreTypographyPatch | null;
 }> = ({
   title,
   activePalette,
@@ -59,6 +72,8 @@ export const BrandingPanel: React.FC<{
   storeScoped = false,
   persistPlatform = false,
   onStoreColorsChange,
+  onStoreTypographyChange,
+  initialStoreTypography = null,
 }) => {
   const {
     brand,
@@ -105,6 +120,37 @@ export const BrandingPanel: React.FC<{
   useEffect(() => {
     if (brand.customFontUrlAr) setCustomFontUrl(brand.customFontUrlAr);
   }, [brand.customFontUrlAr]);
+
+  /** Store-isolated hydrate: this store's chromeBrand typography → live prefs */
+  useEffect(() => {
+    if (!storeScoped || !initialStoreTypography) return;
+    const patch: Partial<BrandState> = {};
+    if (initialStoreTypography.fontAr) {
+      patch.fontAr = initialStoreTypography.fontAr;
+      patch.font = initialStoreTypography.fontAr;
+    }
+    if (initialStoreTypography.fontWeight) {
+      patch.fontWeight = initialStoreTypography.fontWeight;
+    }
+    if (initialStoreTypography.customFontFamilyAr !== undefined) {
+      patch.customFontFamilyAr = initialStoreTypography.customFontFamilyAr;
+      if (initialStoreTypography.customFontFamilyAr) {
+        setCustomFontName(initialStoreTypography.customFontFamilyAr);
+      }
+    }
+    if (initialStoreTypography.customFontUrlAr !== undefined) {
+      patch.customFontUrlAr = initialStoreTypography.customFontUrlAr;
+      if (initialStoreTypography.customFontUrlAr) {
+        setCustomFontUrl(initialStoreTypography.customFontUrlAr);
+      }
+    }
+    if (Object.keys(patch).length) setBrand(patch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate once per store chrome snapshot
+  }, [storeScoped, initialStoreTypography?.fontAr, initialStoreTypography?.fontWeight]);
+
+  const pushStoreTypography = (next: StoreTypographyPatch) => {
+    if (storeScoped) onStoreTypographyChange?.(next);
+  };
 
   useEffect(() => {
     if (!persistPlatform || !isApiEnabled()) {
@@ -264,81 +310,179 @@ export const BrandingPanel: React.FC<{
     toast(isAr ? 'تم تطبيق لون النص' : 'Text color applied', 'success');
   };
 
+  const preloadFontFace = (id: BrandFontId) => {
+    const meta = BRAND_FONTS[id];
+    if (!meta?.googleFamily) return;
+    ensureBrandFontStylesheet(
+      `https://fonts.googleapis.com/css2?family=${meta.googleFamily}&display=swap`,
+      `unityteck-font-${id}`,
+    );
+  };
+
   const applyCustomArabicFont = () => {
     const name = customFontName.trim();
     if (!name) {
       toast(isAr ? 'اكتب اسم عائلة الخط المخصص' : 'Enter a custom font family name', 'error');
       return;
     }
+    const url = customFontUrl.trim() || null;
+    if (url) ensureBrandFontStylesheet(url, 'unityteck-custom-font-ar');
+    const weight = brand.fontWeight || 'regular';
     setBrand({
       font: 'custom-ar',
       fontAr: 'custom-ar',
       customFontFamilyAr: name,
-      customFontUrlAr: customFontUrl.trim() || null,
+      customFontUrlAr: url,
+      fontWeight: weight,
+    });
+    applyStoreArabicTypography(
+      {
+        fontAr: 'custom-ar',
+        fontWeight: weight,
+        customFontFamilyAr: name,
+        customFontUrlAr: url,
+      },
+      locale === 'ar' ? 'ar' : 'en',
+    );
+    pushStoreTypography({
+      fontAr: 'custom-ar',
+      fontWeight: weight,
+      customFontFamilyAr: name,
+      customFontUrlAr: url,
     });
     toast(isAr ? 'تم تطبيق الخط العربي المخصص' : 'Custom Arabic font applied', 'success');
+  };
+
+  const selectArabicFont = (id: BrandFontArId) => {
+    preloadFontFace(id);
+    const weight = brand.fontWeight || 'regular';
+    setFont(id);
+    applyStoreArabicTypography(
+      {
+        fontAr: id,
+        fontWeight: weight,
+        customFontFamilyAr: id === 'custom-ar' ? customFontName.trim() || null : null,
+        customFontUrlAr: id === 'custom-ar' ? customFontUrl.trim() || null : null,
+      },
+      locale === 'ar' ? 'ar' : 'en',
+    );
+    pushStoreTypography({
+      fontAr: id,
+      fontWeight: weight,
+      customFontFamilyAr: id === 'custom-ar' ? brand.customFontFamilyAr ?? null : null,
+      customFontUrlAr: id === 'custom-ar' ? brand.customFontUrlAr ?? null : null,
+    });
+    toast(isAr ? 'تم تحديث الخط العربي' : 'Arabic font updated', 'success');
+  };
+
+  const selectEnglishFont = (id: BrandFontEnId) => {
+    preloadFontFace(id);
+    setFont(id);
+    toast(isAr ? 'تم تحديث الخط الإنجليزي' : 'English font updated', 'success');
+  };
+
+  const selectFontWeight = (wKey: BrandFontWeight) => {
+    setFontWeight(wKey);
+    const arId = (brand.fontAr || 'sf-arabic') as BrandFontArId;
+    applyStoreArabicTypography(
+      {
+        fontAr: arId,
+        fontWeight: wKey,
+        customFontFamilyAr: brand.customFontFamilyAr ?? null,
+        customFontUrlAr: brand.customFontUrlAr ?? null,
+      },
+      locale === 'ar' ? 'ar' : 'en',
+    );
+    pushStoreTypography({
+      fontAr: arId,
+      fontWeight: wKey,
+      customFontFamilyAr: brand.customFontFamilyAr ?? null,
+      customFontUrlAr: brand.customFontUrlAr ?? null,
+    });
+    toast(isAr ? 'تم تحديث سماكة الخط' : 'Font weight updated', 'success');
+  };
+
+  /** Explicit Save / Apply for typography (store chrome + live CSS). */
+  const saveApplyTypography = () => {
+    const arId = (brand.fontAr || 'sf-arabic') as BrandFontArId;
+    const enId = (brand.fontEn || 'jakarta') as BrandFontEnId;
+    const weight = brand.fontWeight || 'regular';
+    preloadFontFace(enId);
+    preloadFontFace(arId);
+    if (arId === 'custom-ar') {
+      const name = customFontName.trim();
+      if (!name) {
+        toast(isAr ? 'اكتب اسم الخط المخصص أولاً' : 'Enter a custom font name first', 'error');
+        return;
+      }
+      const url = customFontUrl.trim() || null;
+      if (url) ensureBrandFontStylesheet(url, 'unityteck-custom-font-ar');
+      setBrand({
+        font: 'custom-ar',
+        fontAr: 'custom-ar',
+        fontEn: enId,
+        fontWeight: weight,
+        customFontFamilyAr: name,
+        customFontUrlAr: url,
+      });
+      applyStoreArabicTypography(
+        {
+          fontAr: 'custom-ar',
+          fontWeight: weight,
+          customFontFamilyAr: name,
+          customFontUrlAr: url,
+        },
+        locale === 'ar' ? 'ar' : 'en',
+      );
+      pushStoreTypography({
+        fontAr: 'custom-ar',
+        fontWeight: weight,
+        customFontFamilyAr: name,
+        customFontUrlAr: url,
+      });
+    } else {
+      setBrand({
+        font: locale === 'ar' ? arId : enId,
+        fontAr: arId,
+        fontEn: enId,
+        fontWeight: weight,
+      });
+      applyStoreArabicTypography(
+        {
+          fontAr: arId,
+          fontWeight: weight,
+          customFontFamilyAr: brand.customFontFamilyAr ?? null,
+          customFontUrlAr: brand.customFontUrlAr ?? null,
+        },
+        locale === 'ar' ? 'ar' : 'en',
+      );
+      pushStoreTypography({
+        fontAr: arId,
+        fontWeight: weight,
+        customFontFamilyAr: brand.customFontFamilyAr ?? null,
+        customFontUrlAr: brand.customFontUrlAr ?? null,
+      });
+    }
+    if (persistPlatform) {
+      void savePlatformBranding();
+      return;
+    }
+    toast(
+      isAr
+        ? storeScoped
+          ? 'تم تطبيق الخطوط — اضغط حفظ المظهر لتثبيتها لهذا المتجر'
+          : 'تم تطبيق الخطوط على كل الصفحات'
+        : storeScoped
+          ? 'Fonts applied — click Save appearance to lock for this store'
+          : 'Fonts applied across all pages',
+      'success',
+    );
   };
 
   const clearTextColor = () => {
     setBrand({ customTextHex: null });
     if (storeScoped) onStoreColorsChange?.({ bg: brand.customBgHex ?? null, text: null });
     toast(isAr ? 'لون النص يتبع الوضع والهوية الآن' : 'Text color now follows theme & brand', 'success');
-  };
-
-  const renderFontBtn = (id: BrandFontId) => {
-    const f = BRAND_FONTS[id];
-    const active =
-      f.script === 'ar'
-        ? (brand.fontAr || brand.font) === id
-        : (brand.fontEn || brand.font) === id;
-    const label = isAr ? f.labelAr : f.label;
-    const previewStack =
-      f.script === 'ar'
-        ? resolveArFontStack(brand, id as BrandFontArId)
-        : f.stack;
-
-    return (
-      <button
-        key={id}
-        type="button"
-        onClick={() => {
-          setFont(id);
-          toast(isAr ? 'تم تحديث الخط' : 'Font updated', 'success');
-        }}
-        data-brand-chip={active ? 'active' : 'idle'}
-        className={`px-3 py-2.5 text-xs border cursor-pointer transition-all duration-150 flex flex-col items-stretch gap-1 text-start ${
-          active ? 'shadow-xs ring-2 ring-offset-1' : ''
-        }`}
-        style={{
-          fontFamily: previewStack,
-          borderRadius: 'var(--radius-ctrl)',
-          borderColor: active ? 'var(--accent)' : 'var(--border)',
-          /* Dark selected chip → full white; light chip → dark ink (no grey opacity wash) */
-          background: active ? 'var(--active-bg, #0f172a)' : 'var(--surface, #ffffff)',
-          color: active ? '#ffffff' : 'var(--text, #0f172a)',
-          boxShadow: active ? undefined : 'inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent)',
-        }}
-      >
-        <span className="flex items-center justify-between gap-2" style={{ color: 'inherit' }}>
-          <span className="font-semibold truncate" style={{ color: 'inherit' }}>
-            {label}
-          </span>
-          {active ? <Check className="w-3.5 h-3.5 shrink-0" style={{ color: '#ffffff' }} /> : null}
-        </span>
-        <span
-          className="text-[11px] truncate"
-          style={{
-            fontWeight: weightMeta.sample,
-            color: active ? '#ffffff' : 'var(--text, #0f172a)',
-            opacity: 1,
-          }}
-          dir={f.script === 'ar' ? 'rtl' : 'ltr'}
-          lang={f.script === 'ar' ? 'ar' : 'en'}
-        >
-          {f.script === 'ar' ? 'أبجد هوز · مرحباً' : 'Aa Bb Cc · Hello'}
-        </span>
-      </button>
-    );
   };
 
   return (
@@ -765,123 +909,229 @@ export const BrandingPanel: React.FC<{
         </p>
       </div>
 
-      {/* ── Font Weight Selector — Light / Regular / Bold (+ Medium) ── */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-1.5 text-xs font-bold" style={{ color: 'var(--text)' }}>
-          <Sliders className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
-          <span>{isAr ? 'وزن الخط: خفيف · عادي · عريض' : 'Font Weight: Light · Regular · Bold'}</span>
+      {/* ── Typography card: weight · EN · AR · custom · Save ── */}
+      <div
+        className="space-y-4 p-4 rounded-2xl border"
+        style={{
+          borderColor: 'var(--border)',
+          background: 'var(--surface)',
+          color: 'var(--text)',
+        }}
+      >
+        <div className="flex items-center gap-1.5 text-xs font-bold">
+          <Type className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+          <span>{isAr ? 'الخطوط والوزن' : 'Fonts & weight'}</span>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {BRAND_FONT_WEIGHT_ORDER.map((wKey) => {
-            const wMeta = BRAND_FONT_WEIGHTS[wKey];
-            const active = (brand.fontWeight || 'regular') === wKey;
-            const wLabel = isAr ? wMeta.labelAr : wMeta.label;
 
-            return (
-              <button
-                key={wKey}
-                type="button"
-                onClick={() => {
-                  setFontWeight(wKey);
-                  toast(isAr ? 'تم تحديث سماكة الخط' : 'Font weight updated', 'success');
-                }}
-                data-brand-chip={active ? 'active' : 'idle'}
-                className={`py-2.5 px-3 text-xs border cursor-pointer transition-all flex flex-col gap-1 ${
-                  active ? 'shadow-xs ring-2' : ''
-                }`}
-                style={{
-                  borderRadius: 'var(--radius-ctrl)',
-                  borderColor: active ? 'var(--accent)' : 'var(--border)',
-                  background: active ? 'var(--active-bg, #0f172a)' : 'var(--surface, #ffffff)',
-                  color: active ? '#ffffff' : 'var(--text, #0f172a)',
-                }}
-              >
-                <span className="flex items-center justify-between gap-2" style={{ color: 'inherit' }}>
-                  <span style={{ fontWeight: wMeta.sample, color: 'inherit' }}>{wLabel}</span>
+        {/* Weight — compact segment */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+            <Sliders className="w-3 h-3" style={{ color: 'var(--accent)' }} />
+            <span>{isAr ? 'الوزن: خفيف · عادي · عريض · متوسط' : 'Weight: Light · Regular · Bold · Medium'}</span>
+          </div>
+          <div
+            className="grid grid-cols-4 gap-1 p-1 rounded-xl border"
+            style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
+            role="group"
+            aria-label={isAr ? 'وزن الخط' : 'Font weight'}
+          >
+            {BRAND_FONT_WEIGHT_ORDER.map((wKey) => {
+              const wMeta = BRAND_FONT_WEIGHTS[wKey];
+              const active = (brand.fontWeight || 'regular') === wKey;
+              const wLabel = isAr ? wMeta.labelAr : wMeta.label;
+              return (
+                <button
+                  key={wKey}
+                  type="button"
+                  onClick={() => selectFontWeight(wKey)}
+                  data-brand-chip={active ? 'active' : 'idle'}
+                  className="py-2.5 px-1 text-xs cursor-pointer transition-all flex flex-col items-center gap-0.5 rounded-lg"
+                  style={{
+                    borderRadius: 'var(--radius-ctrl)',
+                    background: active ? 'var(--active-bg, #0f172a)' : 'transparent',
+                    color: active ? '#ffffff' : 'var(--text, #0f172a)',
+                    fontWeight: wMeta.sample,
+                    boxShadow: active ? '0 0 0 1px var(--accent)' : undefined,
+                  }}
+                >
+                  <span style={{ color: 'inherit' }}>{wLabel}</span>
                   <span
-                    className="text-[10px] font-mono"
-                    style={{ color: active ? '#ffffff' : 'var(--text, #0f172a)' }}
+                    className="text-[10px] font-mono opacity-80"
+                    style={{ color: active ? '#ffffff' : 'var(--muted)' }}
                   >
                     {wMeta.body}
                   </span>
-                </span>
-                <span
-                  className="text-[11px] truncate"
-                  style={{
-                    fontWeight: wMeta.sample,
-                    fontFamily: 'var(--font-ui)',
-                    color: active ? '#ffffff' : 'var(--text, #0f172a)',
-                  }}
-                  dir={isAr ? 'rtl' : 'ltr'}
-                  lang={isAr ? 'ar' : 'en'}
-                >
-                  {isAr ? 'مرحباً بك في سوق' : 'Welcome to Souq'}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── English Fonts ── */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs font-bold" style={{ color: 'var(--text)' }}>
-            <Type className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
-            <span>
-              {isAr
-                ? `خطوط الواجهة الإنجليزية (${BRAND_FONTS_EN.length} خطوط)`
-                : `English UI Fonts (${BRAND_FONTS_EN.length})`}
-            </span>
+                </button>
+              );
+            })}
           </div>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-          {BRAND_FONTS_EN.map((f) => renderFontBtn(f.id))}
-        </div>
-      </div>
 
-      {/* ── Arabic Fonts ── */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs font-bold" style={{ color: 'var(--text)' }}>
-            <Type className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
-            <span>
-              {isAr
-                ? `خطوط الواجهة العربية (${BRAND_FONTS_AR.length} خطوط · خفيف وعادي وعريض)`
-                : `Arabic UI Fonts (${BRAND_FONTS_AR.length} · Light · Regular · Bold)`}
-            </span>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 gap-2" dir="rtl">
-          {BRAND_FONTS_AR.map((f) => renderFontBtn(f.id))}
-        </div>
-
-        {/* Custom Arabic font */}
+        {/* Live bilingual preview — large & readable */}
         <div
-          className="space-y-2 p-3 rounded-xl border"
+          className="rounded-xl border px-4 py-3 space-y-2"
           style={{
             borderColor: 'var(--border)',
-            background: 'var(--surface)',
-            color: 'var(--text)',
+            background: 'var(--bg)',
           }}
         >
-          <div className="text-xs font-bold">
-            {isAr ? 'خط عربي مخصص' : 'Custom Arabic Font'}
+          <p
+            className="text-base sm:text-lg leading-relaxed"
+            style={{
+              fontFamily:
+                BRAND_FONTS[(brand.fontEn || 'jakarta') as BrandFontEnId]?.stack ||
+                'var(--font-ui)',
+              fontWeight: weightMeta.sample,
+              color: 'var(--text)',
+            }}
+            dir="ltr"
+            lang="en"
+          >
+            Welcome to Souq · Aa Bb Cc
+          </p>
+          <p
+            className="text-base sm:text-lg leading-relaxed"
+            style={{
+              fontFamily: resolveArFontStack(
+                brand,
+                (brand.fontAr || 'sf-arabic') as BrandFontArId,
+              ),
+              fontWeight: weightMeta.sample,
+              color: 'var(--text)',
+            }}
+            dir="rtl"
+            lang="ar"
+          >
+            مرحباً بك في سوق · أبجد هوز
+          </p>
+          <p className="text-[10px]" style={{ color: 'var(--muted)' }}>
+            {isAr
+              ? `الوزن الحالي: ${weightMeta.labelAr} (${weightMeta.body})`
+              : `Current weight: ${weightMeta.label} (${weightMeta.body})`}
+          </p>
+        </div>
+
+        {/* EN + AR dropdowns */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-bold" style={{ color: 'var(--text)' }}>
+              {isAr ? 'الإنجليزية (١٥)' : 'English (15)'}
+            </label>
+            <select
+              value={
+                BRAND_FONTS_EN.some((f) => f.id === (brand.fontEn || brand.font))
+                  ? String(brand.fontEn || brand.font)
+                  : 'jakarta'
+              }
+              onChange={(e) => selectEnglishFont(e.target.value as BrandFontEnId)}
+              className="w-full px-3 py-2.5 text-xs rounded-xl border cursor-pointer"
+              style={{
+                borderColor: 'var(--border)',
+                background: 'var(--bg)',
+                color: 'var(--text)',
+                borderRadius: 'var(--radius-ctrl)',
+                fontFamily:
+                  BRAND_FONTS[(brand.fontEn || 'jakarta') as BrandFontEnId]?.stack ||
+                  'var(--font-ui)',
+                fontWeight: weightMeta.sample,
+              }}
+              dir="ltr"
+              aria-label={isAr ? 'اختر الخط الإنجليزي' : 'Select English font'}
+            >
+              {BRAND_FONTS_EN.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {isAr ? f.labelAr : f.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-bold" style={{ color: 'var(--text)' }}>
+              {isAr ? 'العربية (١٥)' : 'Arabic (15)'}
+            </label>
+            <select
+              value={
+                BRAND_FONTS_AR.some((f) => f.id === (brand.fontAr || brand.font))
+                  ? String(brand.fontAr || brand.font)
+                  : 'sf-arabic'
+              }
+              onChange={(e) => selectArabicFont(e.target.value as BrandFontArId)}
+              className="w-full px-3 py-2.5 text-xs rounded-xl border cursor-pointer"
+              style={{
+                borderColor: 'var(--border)',
+                background: 'var(--bg)',
+                color: 'var(--text)',
+                borderRadius: 'var(--radius-ctrl)',
+                fontFamily: resolveArFontStack(
+                  brand,
+                  (brand.fontAr || 'sf-arabic') as BrandFontArId,
+                ),
+                fontWeight: weightMeta.sample,
+              }}
+              dir={isAr ? 'rtl' : 'ltr'}
+              aria-label={isAr ? 'اختر الخط العربي' : 'Select Arabic font'}
+            >
+              {BRAND_FONTS_AR.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {isAr ? f.labelAr : f.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Custom Arabic — always visible, easy + readable */}
+        <div
+          className="space-y-2.5 p-3 rounded-xl border"
+          style={{
+            borderColor:
+              (brand.fontAr || brand.font) === 'custom-ar'
+                ? 'var(--accent)'
+                : 'var(--border)',
+            background: 'var(--bg)',
+          }}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-xs font-bold" style={{ color: 'var(--text)' }}>
+              {isAr ? 'خط عربي مخصص (سهل)' : 'Custom Arabic font (easy)'}
+            </div>
+            <button
+              type="button"
+              onClick={() => selectArabicFont('custom-ar')}
+              className="text-[10px] font-bold px-2.5 py-1 rounded-lg border cursor-pointer"
+              style={{
+                borderColor: 'var(--border)',
+                color:
+                  (brand.fontAr || brand.font) === 'custom-ar'
+                    ? '#ffffff'
+                    : 'var(--text)',
+                background:
+                  (brand.fontAr || brand.font) === 'custom-ar'
+                    ? 'var(--active-bg, #0f172a)'
+                    : 'var(--surface)',
+                borderRadius: 'var(--radius-ctrl)',
+              }}
+            >
+              {isAr ? 'تفعيل المخصص' : 'Use custom'}
+            </button>
           </div>
           <input
             type="text"
             value={customFontName}
             onChange={(e) => setCustomFontName(e.target.value)}
-            placeholder={isAr ? 'مثال: SF Arabic أو اسم الخط' : 'e.g. SF Arabic or your family name'}
-            className="w-full px-3 py-2 text-xs rounded-xl border"
+            placeholder={
+              isAr ? 'اسم الخط — مثال: Cairo أو Tajawal' : 'Font name — e.g. Cairo or Tajawal'
+            }
+            className="w-full px-3 py-2.5 text-sm rounded-xl border"
             style={{
               borderColor: 'var(--border)',
-              background: 'var(--bg)',
+              background: 'var(--surface)',
               color: 'var(--text)',
               borderRadius: 'var(--radius-ctrl)',
-              fontFamily: customFontName
+              fontFamily: customFontName.trim()
                 ? `'${customFontName.replace(/['"]/g, '')}', var(--font-ui)`
                 : 'var(--font-ui)',
+              fontWeight: weightMeta.sample,
             }}
             dir="auto"
           />
@@ -891,63 +1141,145 @@ export const BrandingPanel: React.FC<{
             onChange={(e) => setCustomFontUrl(e.target.value)}
             placeholder={
               isAr
-                ? 'رابط CSS اختياري (Google Fonts أو ملف الخط)'
-                : 'Optional CSS URL (Google Fonts or font stylesheet)'
+                ? 'رابط Google Fonts CSS (اختياري)'
+                : 'Google Fonts CSS URL (optional)'
             }
             className="w-full px-3 py-2 text-xs rounded-xl border font-mono"
             style={{
               borderColor: 'var(--border)',
-              background: 'var(--bg)',
+              background: 'var(--surface)',
               color: 'var(--text)',
               borderRadius: 'var(--radius-ctrl)',
             }}
             dir="ltr"
           />
+          {/* Large readable custom preview — min weight 500 so Light never washes out */}
+          <div
+            className="rounded-xl px-3 py-3 border"
+            style={{
+              borderColor: 'var(--border)',
+              background: 'var(--surface)',
+              fontFamily: customFontName.trim()
+                ? `'${customFontName.replace(/['"]/g, '')}', ${resolveArFontStack(brand, 'cairo')}`
+                : resolveArFontStack(brand, (brand.fontAr || 'sf-arabic') as BrandFontArId),
+              fontWeight: Math.max(weightMeta.sample, 500),
+              color: 'var(--text, #0f172a)',
+            }}
+            dir="rtl"
+            lang="ar"
+          >
+            <p
+              className="text-lg sm:text-xl leading-relaxed"
+              dir="rtl"
+              lang="ar"
+              style={{ color: 'var(--text, #0f172a)', fontWeight: Math.max(weightMeta.sample, 600) }}
+            >
+              {customFontName.trim()
+                ? 'مرحباً بك في سوق — هذا خطك المخصص'
+                : isAr
+                  ? 'اكتب اسم الخط أعلاه لمعاينة واضحة'
+                  : 'Type a font name above for a clear preview'}
+            </p>
+            <p
+              className="text-sm mt-1 font-semibold"
+              dir={isAr ? 'rtl' : 'ltr'}
+              lang={isAr ? 'ar' : 'en'}
+              style={{ color: 'var(--muted, #475569)', fontWeight: 600 }}
+            >
+              {customFontName.trim()
+                ? isAr
+                  ? `${customFontName.trim()} · ${weightMeta.labelAr} ${weightMeta.body}`
+                  : `${customFontName.trim()} · ${weightMeta.label} ${weightMeta.body}`
+                : isAr
+                  ? 'المعاينة تظهر هنا بوضوح'
+                  : 'Readable preview appears here'}
+            </p>
+          </div>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={applyCustomArabicFont}
               className="px-3.5 py-2 text-xs font-bold rounded-xl text-white cursor-pointer"
-              style={{ background: 'var(--portal-cta)', borderRadius: 'var(--radius-ctrl)' }}
+              style={{
+                background: 'var(--glass-navy, #0f172a)',
+                borderRadius: 'var(--radius-ctrl)',
+                color: '#ffffff',
+              }}
             >
-              {isAr ? 'تطبيق الخط المخصص' : 'Apply custom font'}
+              <span style={{ color: '#ffffff', fontWeight: 700 }}>
+                {isAr ? 'تطبيق المخصص' : 'Apply custom'}
+              </span>
             </button>
             <button
               type="button"
               onClick={() => {
-                setCustomFontName('SF Arabic');
+                setCustomFontName('');
                 setCustomFontUrl('');
+                selectArabicFont('sf-arabic');
                 setBrand({
                   font: 'sf-arabic',
                   fontAr: 'sf-arabic',
                   customFontFamilyAr: null,
                   customFontUrlAr: null,
                 });
-                toast(isAr ? 'تم الرجوع إلى الخط العربي الافتراضي' : 'Back to default Arabic font', 'success');
+                pushStoreTypography({
+                  fontAr: 'sf-arabic',
+                  fontWeight: brand.fontWeight || 'regular',
+                  customFontFamilyAr: null,
+                  customFontUrlAr: null,
+                });
               }}
               className="px-3 py-2 text-xs font-semibold rounded-xl border cursor-pointer"
               style={{
                 borderColor: 'var(--border)',
-                color: 'var(--text, #0f172a)',
-                background: 'var(--bg, #ffffff)',
+                color: 'var(--text)',
+                background: 'var(--surface)',
                 borderRadius: 'var(--radius-ctrl)',
               }}
             >
-              {isAr ? 'الخط العربي الافتراضي' : 'Default Arabic font'}
+              {isAr ? 'افتراضي' : 'Reset default'}
             </button>
           </div>
-          <p className="text-[10px] opacity-65" style={{ color: 'var(--muted)' }}>
+          <p
+            className="text-[11px] leading-relaxed font-medium"
+            style={{ color: 'var(--muted, #475569)' }}
+          >
             {isAr
-              ? 'اكتب اسم العائلة كما يظهر على الجهاز، أو الصق رابط Google Fonts. يدعم خفيف / عادي / عريض.'
-              : 'Type the family name as installed on the device, or paste a Google Fonts CSS URL. Supports Light / Regular / Bold.'}
+              ? 'الصق رابط مثل: https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;700&display=swap ثم اكتب Cairo في الاسم.'
+              : 'Paste a URL like https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;700&display=swap and type Cairo as the name.'}
           </p>
         </div>
 
-        <p className="text-[10px] opacity-65" style={{ color: 'var(--muted)' }}>
-          {isAr
-            ? 'عند اختيار العربية تُطبَّق خطوط عربية على كل الصفحات والنوافذ تلقائياً.'
-            : 'When Arabic locale is active, the Arabic font applies to every page and modal.'}
-        </p>
+        {/* Save / Apply */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+          <p
+            className="text-[11px] leading-relaxed font-medium"
+            style={{ color: 'var(--muted, #475569)' }}
+          >
+            {isAr
+              ? storeScoped
+                ? 'طبّق الآن، ثم احفظ المظهر أسفل الصفحة لتثبيت الخط لهذا المتجر فقط.'
+                : 'اضغط تطبيق الخطوط لتثبيت الوزن والخط على كل الصفحات والنوافذ.'
+              : storeScoped
+                ? 'Apply now, then Save appearance below to lock fonts for this store only.'
+                : 'Click Apply fonts to lock weight and faces across pages and modals.'}
+          </p>
+          <button
+            type="button"
+            onClick={saveApplyTypography}
+            className="unity-btn-primary inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white rounded-xl cursor-pointer shrink-0"
+            style={{
+              background: 'var(--glass-navy, #0f172a)',
+              borderRadius: 'var(--radius-ctrl)',
+              color: '#ffffff',
+            }}
+          >
+            <Save className="w-4 h-4 shrink-0" aria-hidden style={{ color: '#ffffff' }} />
+            <span style={{ color: '#ffffff', fontWeight: 700 }}>
+              {isAr ? 'تطبيق وحفظ الخطوط' : 'Apply & save fonts'}
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* ── Icon / Button Corner Radius Style ── */}
@@ -970,26 +1302,28 @@ export const BrandingPanel: React.FC<{
                   setIconStyle(id);
                   toast(isAr ? 'تم تحديث شكل الحواف' : 'Corner style updated', 'success');
                 }}
+                data-brand-chip={active ? 'active' : 'idle'}
                 className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold border cursor-pointer transition-all duration-150 ${
                   active ? 'shadow-xs font-bold ring-2' : ''
                 }`}
                 style={{
                   borderRadius: meta.px,
                   borderColor: active ? 'var(--accent)' : 'var(--border)',
-                  background: active ? 'var(--active-bg)' : 'var(--bg)',
-                  color: active ? 'var(--active-fg)' : 'var(--text)',
+                  background: active ? 'var(--active-bg, #0f172a)' : 'var(--surface, #ffffff)',
+                  color: active ? '#ffffff' : 'var(--text, #0f172a)',
                 }}
               >
                 <span
-                  className="w-5 h-5 flex items-center justify-center text-white text-[10px] font-black"
+                  className="w-5 h-5 flex items-center justify-center text-[10px] font-black shrink-0"
                   style={{
                     background: 'var(--portal-cta)',
                     borderRadius: meta.px,
+                    color: '#ffffff',
                   }}
                 >
                   {isAr ? 'أ' : 'Aa'}
                 </span>
-                <span>
+                <span style={{ color: 'inherit', fontWeight: 700 }}>
                   {isAr ? meta.labelAr : meta.label} ({meta.px})
                 </span>
               </button>

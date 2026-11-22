@@ -1,6 +1,7 @@
 /**
  * Design Studio project JSON — full round-trip (export / import).
  * Keeps layers + canvas + backdrop + filters editable after reload.
+ * Optional `pages` = Canva-style multi-page (active page mirrored in top-level layers).
  */
 
 export const CANVA_PROJECT_VERSION = 1 as const;
@@ -45,6 +46,8 @@ export type CanvaProjectLayer = {
   verticalAlign?: 'top' | 'middle' | 'bottom';
   icon?: string;
   badgeStyle?: string;
+  /** Shared id when layers are grouped together */
+  groupId?: string;
   bgRemoved?: boolean;
   brightness?: number;
   contrast?: number;
@@ -56,6 +59,21 @@ export type CanvaProjectLayer = {
   animOutDurationMs?: number;
   animDelayMs?: number;
   animEase?: string;
+};
+
+/** One page inside a multi-page Design Studio project */
+export type CanvaStudioPageJson = {
+  id: string;
+  name: string;
+  locked?: boolean;
+  hidden?: boolean;
+  backdrop: string;
+  customSolidColor: string;
+  product?: { x: number; y: number; scale: number; flipH?: boolean; flipV?: boolean };
+  filters?: { brightness: number; contrast: number; saturation: number; blur: number };
+  bgRemoved?: boolean;
+  bgTolerance?: number;
+  layers: CanvaProjectLayer[];
 };
 
 export type CanvaDesignProject = {
@@ -77,6 +95,9 @@ export type CanvaDesignProject = {
   product?: { x: number; y: number; scale: number; flipH?: boolean; flipV?: boolean };
   filters?: { brightness: number; contrast: number; saturation: number; blur: number };
   layers: CanvaProjectLayer[];
+  /** Multi-page designs — when set, top-level layers = active page mirror */
+  pages?: CanvaStudioPageJson[];
+  activePageId?: string;
   exportedAt: string;
 };
 
@@ -135,6 +156,8 @@ export function buildCanvaDesignProject(input: {
   product?: CanvaDesignProject['product'];
   filters?: CanvaDesignProject['filters'];
   layers: CanvaProjectLayer[];
+  pages?: CanvaStudioPageJson[];
+  activePageId?: string;
 }): CanvaDesignProject {
   return {
     version: CANVA_PROJECT_VERSION,
@@ -149,6 +172,9 @@ export function buildCanvaDesignProject(input: {
     product: input.product,
     filters: input.filters,
     layers: input.layers,
+    ...(input.pages && input.pages.length > 0
+      ? { pages: input.pages, activePageId: input.activePageId || input.pages[0]?.id }
+      : {}),
     exportedAt: new Date().toISOString(),
   };
 }

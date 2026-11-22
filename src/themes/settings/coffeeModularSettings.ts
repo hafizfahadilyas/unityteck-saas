@@ -801,8 +801,44 @@ export interface CoffeeModularSlice {
   productCollection: ProductCollectionSettings;
   /** Builder type `product_catalog` / C-SHOP — shop grid chrome (≠ carousel / slider). */
   shop: ShopCatalogSettings;
+  /**
+   * Shared PDP chrome flags — ONE ProductDetailPage template.
+   * applyScope=all → every SKU; selected → only productIds (others keep full defaults).
+   */
+  productDetail: ProductDetailPageSettings;
   checkoutFields?: CheckoutFieldSettings;
   seoDefaults?: SeoDefaultSettings;
+}
+
+/** Product detail page chrome (not catalog fields — those stay on Products admin / C-EDIT). */
+export type ProductDetailApplyScope = 'all' | 'selected';
+
+export interface ProductDetailPageSettings {
+  enabled: boolean;
+  applyScope: ProductDetailApplyScope;
+  /** When applyScope=selected — THIS store product ids only. Empty = nobody gets custom flags. */
+  productIds: string[];
+  showFeatures: boolean;
+  showVideo: boolean;
+  showSpecs: boolean;
+  showWarranty: boolean;
+  showFloatingBuy: boolean;
+  /** Customizer / builder preview SKU (not storefront truth). */
+  previewProductId?: string;
+}
+
+export function emptyProductDetailPage(enabled = true): ProductDetailPageSettings {
+  return {
+    enabled,
+    applyScope: 'all',
+    productIds: [],
+    showFeatures: true,
+    showVideo: true,
+    showSpecs: true,
+    showWarranty: true,
+    showFloatingBuy: true,
+    previewProductId: '',
+  };
 }
 
 export const COFFEE_MODULAR_KEYS = [
@@ -826,6 +862,7 @@ export const COFFEE_MODULAR_KEYS = [
   'productSlider',
   'productCollection',
   'shop',
+  'productDetail',
 ] as const;
 
 export type CoffeeModularKey = (typeof COFFEE_MODULAR_KEYS)[number];
@@ -850,7 +887,8 @@ function heroSlide(
     customOrderEnabled: partial.id.includes('cabinet') || partial.id.includes('station'),
     customOrderEn: 'Custom Made to Order',
     customOrderAr: 'تفصيل حسب الطلب',
-    customOrderUrl: 'custom-order',
+    // Empty = use Store Identity WhatsApp on click (wa.me). Do not force internal page.
+    customOrderUrl: '',
     ...partial,
   };
 }
@@ -1492,6 +1530,7 @@ export function emptyCoffeeModular(): CoffeeModularSlice {
     productSlider: emptyProductSlider(false),
     productCollection: emptyProductCollection(false),
     shop: emptyShopCatalog(),
+    productDetail: emptyProductDetailPage(true),
   };
 }
 
@@ -1844,6 +1883,8 @@ export function coffeeModularSeed(): CoffeeModularSlice {
     productCollection: emptyProductCollection(false),
     /** Shop catalog chrome — no fake product rows (CW-12 / DF-01). */
     shop: emptyShopCatalog(),
+    /** PDP chrome — shared template; scope all vs selected (no 40 page drafts). */
+    productDetail: emptyProductDetailPage(true),
   };
 }
 
@@ -1861,6 +1902,7 @@ const LIST_FIELD: Partial<Record<CoffeeModularKey, string>> = {
   commercialHero: 'slides',
   productSlider: 'items',
   productCollection: 'items',
+  productDetail: 'productIds',
 };
 
 /**

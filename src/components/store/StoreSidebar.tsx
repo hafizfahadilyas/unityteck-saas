@@ -22,7 +22,6 @@ import {
   Palette,
   Search,
   Store,
-  ShoppingBag,
   ChevronRight,
   ChevronDown,
   PanelLeftClose,
@@ -185,8 +184,59 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
 
   const isProductsFamily = ['products', 'categories', 'brands', 'media'].includes(currentTab);
   const isOrdersFamily = ['orders', 'invoices'].includes(currentTab);
-  const isThemesFamily = currentTab === 'themes';
+  /** Themes hub + Theme Store (former App Store) stay under one sidebar family */
+  const isThemesFamily = currentTab === 'themes' || currentTab === 'appstore';
   const isSmartAutomationFamily = ['analytics'].includes(currentTab);
+
+  const readThemeSub = (): 'installed' | 'settings' | 'store' => {
+    if (currentTab === 'appstore') return 'store';
+    try {
+      const intent = sessionStorage.getItem('unityteck-theme-intent');
+      if (intent === 'theme-settings') return 'settings';
+    } catch {
+      /* storage may be unavailable */
+    }
+    return 'installed';
+  };
+  const [themeSub, setThemeSub] = useState<'installed' | 'settings' | 'store'>(() => readThemeSub());
+
+  useEffect(() => {
+    setThemeSub(readThemeSub());
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync highlight when tab / intent changes
+  }, [currentTab]);
+
+  const openThemesInstalled = () => {
+    try {
+      sessionStorage.setItem('unityteck-theme-intent', 'installed');
+    } catch {
+      /* storage may be unavailable */
+    }
+    setThemeSub('installed');
+    selectTab('themes');
+  };
+
+  const openThemeSettings = () => {
+    try {
+      sessionStorage.setItem('unityteck-theme-intent', 'theme-settings');
+    } catch {
+      /* storage may be unavailable */
+    }
+    setThemeSub('settings');
+    selectTab('themes');
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('unityteck-open-theme-settings'));
+    }, 60);
+  };
+
+  const openThemeStore = () => {
+    try {
+      sessionStorage.setItem('unityteck-theme-intent', 'theme-store');
+    } catch {
+      /* storage may be unavailable */
+    }
+    setThemeSub('store');
+    selectTab('appstore');
+  };
   const isMarketingFamily = [
     'marketing',
     'coupons',
@@ -273,7 +323,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
       { id: 'canva', icon: Paintbrush },
       { id: 'ai-media', icon: Sparkles },
       { id: 'themes', icon: Palette },
-      { id: 'appstore', icon: ShoppingBag },
+      // App Store / Theme Store lives under Themes & layout submenu (not top-level)
       { id: 'settings', icon: Settings },
     ];
     // Coming-soon tabs stay visible as disabled fixed buttons (no click / no dropdown).
@@ -282,6 +332,9 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
     return all.filter((item) => {
       if (item.id === 'smart-automation') {
         return SMART_AUTOMATION_CHILDREN.some((childId) => canShowStoreTab(childId));
+      }
+      if (item.id === 'themes') {
+        return canShowStoreTab('themes') || canShowStoreTab('appstore');
       }
       return canShowStoreTab(item.id);
     });
@@ -557,6 +610,12 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                       }
                       return;
                     }
+                    if (isThemes) {
+                      // Always open Installed Themes page + keep submenu visible
+                      openThemesInstalled();
+                      setOpenSubmenus((prev) => ({ ...prev, [item.id]: true }));
+                      return;
+                    }
                     if (isActive) {
                       setOpenSubmenus((prev) => ({ ...prev, [item.id]: !prev[item.id] }));
                     } else {
@@ -773,39 +832,56 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                 </div>
               )}
 
-              {/* Submenu for Themes — settings + all builder pages (page switch) */}
+              {/* Submenu for Themes — Installed · Settings · Theme Store + builder pages */}
               {isThemes && !collapsed && isSubmenuOpen && isActive && (
                 <div className="store-subnav ps-7 pe-1 space-y-0.5 py-1">
-                  <button
-                    type="button"
-                    onClick={() => selectTab('themes')}
-                    className={`w-full text-start py-1 px-2 rounded-lg text-[11px] transition-colors flex items-center gap-2 cursor-pointer ${
-                      currentTab === 'themes'
-                        ? 'font-bold text-white bg-white/15 shadow-xs'
-                        : 'font-semibold text-slate-200 hover:text-white hover:bg-white/15'
-                    }`}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-teal-400 shrink-0" />
-                    <span>{isAr ? 'المظاهر المثبتة' : 'Installed Themes'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      try {
-                        sessionStorage.setItem('unityteck-theme-intent', 'theme-settings');
-                      } catch {
-                        /* storage may be unavailable */
-                      }
-                      selectTab('themes');
-                      window.setTimeout(() => {
-                        window.dispatchEvent(new CustomEvent('unityteck-open-theme-settings'));
-                      }, 60);
-                    }}
-                    className="w-full text-start py-1 px-2 rounded-lg text-[11px] font-semibold text-slate-200 hover:text-white hover:bg-white/15 transition-colors flex items-center gap-2 cursor-pointer"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0" />
-                    <span>{isAr ? 'إعدادات المظهر' : 'Theme Settings'}</span>
-                  </button>
+                  {(
+                    [
+                      {
+                        id: 'installed' as const,
+                        labelAr: 'المظاهر المثبتة',
+                        labelEn: 'Installed Themes',
+                        color: 'bg-teal-400',
+                        show: canShowStoreTab('themes'),
+                        onClick: openThemesInstalled,
+                      },
+                      {
+                        id: 'settings' as const,
+                        labelAr: 'إعدادات المظهر',
+                        labelEn: 'Theme Settings',
+                        color: 'bg-cyan-400',
+                        show: canShowStoreTab('themes'),
+                        onClick: openThemeSettings,
+                      },
+                      {
+                        id: 'store' as const,
+                        labelAr: 'متجر القوالب',
+                        labelEn: 'Theme Store',
+                        color: 'bg-amber-400',
+                        show: canShowStoreTab('appstore') || canShowStoreTab('themes'),
+                        onClick: openThemeStore,
+                      },
+                    ] as const
+                  )
+                    .filter((sub) => sub.show)
+                    .map((sub) => {
+                      const isSubActive = themeSub === sub.id && isThemesFamily;
+                      return (
+                        <button
+                          key={sub.id}
+                          type="button"
+                          onClick={sub.onClick}
+                          className={`w-full text-start py-1 px-2 rounded-lg text-[11px] transition-colors flex items-center gap-2 cursor-pointer ${
+                            isSubActive
+                              ? 'font-bold text-white bg-white/15 shadow-xs'
+                              : 'font-semibold text-slate-200 hover:text-white hover:bg-white/15'
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${sub.color} shrink-0`} />
+                          <span>{isAr ? sub.labelAr : sub.labelEn}</span>
+                        </button>
+                      );
+                    })}
                   <div className="pt-1 mt-0.5 border-t border-white/10 space-y-0.5">
                     <p className="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-400">
                       {isAr ? 'صفحات المنشئ' : 'Builder Pages'}

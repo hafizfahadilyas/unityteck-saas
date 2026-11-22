@@ -12,7 +12,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ShoppingBag,
-  Headphones,
   Maximize2,
   Gauge,
   Flame,
@@ -818,21 +817,32 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
                         />
                       </button>
 
-                      {/* Custom Made → this coffee store WhatsApp (isolated) */}
+                      {/* Custom Made → Store Settings / Identity WhatsApp only (per store_id) */}
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           const label =
                             language === 'AR'
-                              ? (activeSlide.customOrderAr || 'تفصيل حسب الطلب · تصميم وتنفيذ')
-                              : (activeSlide.customOrderEn || 'Custom Made · Design & Build');
+                              ? (activeSlide.customOrderAr || 'تفصيل حسب الطلب')
+                              : (activeSlide.customOrderEn || 'Custom Made to Order');
+                          // Number from admin center (Store Identity / Settings) — never invent
                           const href = resolveCustomMadeWhatsAppHref({
-                            customOrderUrl: activeSlide.customOrderUrl,
-                            whatsappNumber:
-                              themeSettings?.customOrder?.whatsappNumber || coffeeWhatsAppPhone,
-                            storeWhatsapp: storeContact?.whatsapp || storeIdentity?.whatsapp,
+                            // Only honor explicit wa.me overrides; ignore page slugs like "custom-order"
+                            customOrderUrl: /wa\.me|whatsapp\.com|api\.whatsapp/i.test(
+                              String(activeSlide.customOrderUrl || ''),
+                            )
+                              ? activeSlide.customOrderUrl
+                              : '',
+                            storeWhatsapp:
+                              storeContact?.whatsapp ||
+                              storeIdentity?.whatsapp ||
+                              coffeeWhatsAppPhone,
                             storePhone: storeContact?.phone || storeIdentity?.phone,
+                            whatsappNumber:
+                              themeSettings?.customOrder?.whatsappNumber ||
+                              themeSettings?.heroBanners?.whatsappNumber ||
+                              '',
                             label,
                             language,
                           });
@@ -840,20 +850,20 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
                             window.open(href, '_blank', 'noopener,noreferrer');
                             return;
                           }
-                          // No WhatsApp configured for this store — custom-order page (no fake number)
+                          // No WhatsApp in Settings yet — custom-order page (no fake number)
                           navigateTo('custom-order');
                         }}
                         className="group/customlink inline-flex items-center gap-1 text-[10.5px] xs:text-[11px] sm:text-sm font-bold text-neutral-900 hover:text-black transition-all cursor-pointer active:scale-95"
                         title={
                           language === 'AR'
-                            ? (activeSlide.customOrderAr || 'تفصيل حسب الطلب · تصميم وتنفيذ')
-                            : (activeSlide.customOrderEn || 'Custom Made · Design & Build')
+                            ? (activeSlide.customOrderAr || 'تفصيل حسب الطلب')
+                            : (activeSlide.customOrderEn || 'Custom Made to Order')
                         }
                       >
                         <span className="border-b border-black/60 group-hover/customlink:border-black pb-0.5">
                           {language === 'AR'
-                            ? (activeSlide.customOrderAr || 'تفصيل حسب الطلب · تصميم وتنفيذ')
-                            : (activeSlide.customOrderEn || 'Custom Made · Design & Build')}
+                            ? (activeSlide.customOrderAr || 'تفصيل حسب الطلب')
+                            : (activeSlide.customOrderEn || 'Custom Made to Order')}
                         </span>
                         <ChevronRight
                           className={`w-3 h-3 text-black stroke-[2.5] shrink-0 transition-transform duration-200 ${
@@ -898,29 +908,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
           <ChevronRight className="w-5 h-5 rtl:rotate-180 transition-transform" />
         </button>
 
-        {/* Floating Support → coffee WhatsApp only (hidden when unset) */}
-        {coffeeWhatsAppPhone ? (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              const msg =
-                language === 'AR'
-                  ? 'السلام عليكم، أحتاج دعماً بخصوص المتجر'
-                  : 'Hello, I need support regarding the store';
-              window.open(
-                `https://wa.me/${coffeeWhatsAppPhone}?text=${encodeURIComponent(msg)}`,
-                '_blank',
-                'noopener,noreferrer',
-              );
-            }}
-            className="absolute bottom-4 right-4 rtl:right-auto rtl:left-4 z-30 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white border border-neutral-200 shadow-sm flex items-center justify-center text-neutral-800 hover:text-black cursor-pointer active:scale-95 transition-transform"
-            aria-label={language === 'AR' ? 'الدعم عبر واتساب' : 'Support via WhatsApp'}
-            title={language === 'AR' ? 'تواصل مع الدعم عبر واتساب' : 'Contact support on WhatsApp'}
-          >
-            <Headphones className="w-4 h-4 sm:w-4.5 sm:h-4.5 stroke-[2]" />
-          </button>
-        ) : null}
+        {/* Support dock lives in FloatingHelpWidget (email / hours / hotline — no header WhatsApp) */}
 
         {/* ========================================================================= */}
         {/* 3. BOTTOM PILL INDICATORS WITH SMOOTH TIMER PROGRESS                      */}

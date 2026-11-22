@@ -9,21 +9,17 @@ import {
   type AnnouncementMessage,
 } from '../../settings/themeSettingsStore';
 import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
-import { coffeeWhatsAppDigits } from '../../settings/coffeeModularSettings';
-import { resolveStoreContact } from '../../settings/storeContact';
 import {
   Search,
   ShoppingBag,
   User,
   Heart,
-  MessageCircle,
   X,
   ChevronRight,
   ChevronLeft,
   ChevronDown,
   Menu,
   LayoutGrid,
-  Columns,
   Sparkles,
   ArrowRight,
   Palette
@@ -466,13 +462,7 @@ export const Header: React.FC = () => {
   const navLabel = (link: { labelAr?: string; labelEn?: string }) =>
     ((isArLang ? link.labelAr : link.labelEn) || '').trim();
   const navEnabled = headerSettings?.navigation?.enabled !== false;
-  const showCompareButton = headerSettings?.navigation?.showCompareButton !== false;
   const showViewMoreButton = headerSettings?.navigation?.showViewMoreButton !== false;
-  const compareLabel = (
-    isArLang
-      ? headerSettings?.navigation?.compareButtonLabelAr
-      : headerSettings?.navigation?.compareButtonLabelEn
-  )?.trim();
   const viewMoreLabel = (
     isArLang
       ? headerSettings?.navigation?.viewMoreLabelAr
@@ -484,6 +474,20 @@ export const Header: React.FC = () => {
     .filter((link) => link.active !== false && navLabel(link));
   const customMobile = (headerSettings?.navigation?.mobileLinks || [])
     .filter((link) => link.active !== false && navLabel(link));
+  const hiddenNavKeys = new Set(
+    (headerSettings?.navigation?.hiddenNavKeys || []).map((k) => String(k).toLowerCase()),
+  );
+  const showNavKey = (key: string) => !hiddenNavKeys.has(key.toLowerCase());
+  const navLabelOverrides = headerSettings?.navigation?.navLabelOverrides || {};
+  /** Locked coffee nav rename — empty override keeps HiBrew default. */
+  const lockedNavLabel = (key: string, fallbackEn: string, fallbackAr: string) => {
+    const o = navLabelOverrides[key] || navLabelOverrides[key.toLowerCase()];
+    const custom = (isArLang ? o?.labelAr : o?.labelEn)?.trim();
+    return custom || (isArLang ? fallbackAr : fallbackEn);
+  };
+  const extraNavLinks = (headerSettings?.navigation?.extraLinks || []).filter(
+    (link) => link.active !== false && navLabel(link),
+  );
   const megaMax = Math.min(12, Math.max(2, Number(headerSettings?.navigation?.menuMaxProducts) || 5));
   const megaSource = headerSettings?.navigation?.menuProductSource || 'category';
   const openShopWithHint = (hint: string) => {
@@ -554,6 +558,17 @@ export const Header: React.FC = () => {
 
   // Get active products for current mega menu and sub-filter (store catalog only)
   const currentMenu = renderedMegaMenu || activeMegaMenu || 'machines';
+  const megaOverrides = headerSettings?.navigation?.menuProductOverrides || {};
+  const applyMegaOverride = (item: MegaProductItem): MegaProductItem => {
+    const ov = megaOverrides[item.id];
+    if (!ov) return item;
+    return {
+      ...item,
+      image: (ov.image || '').trim() || item.image,
+      name: (ov.nameEn || '').trim() || item.name,
+      nameAr: (ov.nameAr || '').trim() || item.nameAr,
+    };
+  };
   const getActiveProducts = (): MegaProductItem[] => {
     const menuToUse = renderedMegaMenu || activeMegaMenu || 'machines';
     if (!menuToUse || menuToUse === 'explore') return [];
@@ -561,17 +576,43 @@ export const Header: React.FC = () => {
     if (!cat) return [];
     if (megaSource === 'manual') {
       const ids = (headerSettings?.navigation?.menuProductIds || []).filter(Boolean);
-      const pool = Object.values(cat).flat();
+      // Prefer full store catalog so picks work across Machines / Accessories / etc.
+      const byId = new Map<string, MegaProductItem>();
+      (products || []).forEach((prod) => {
+        const rawImg =
+          prod.colors?.[0]?.image ||
+          prod.images?.[0] ||
+          (prod as { image?: string }).image ||
+          '';
+        const safeImg = isolateStoreProductImage(
+          (prod as { storeId?: string }).storeId || activeStore?.id || 'store-coffee',
+          rawImg,
+          { fallback: true },
+        );
+        byId.set(prod.id, {
+          id: prod.id,
+          name: prod.name,
+          nameAr: prod.nameAr || prod.name,
+          image: coffeeIsolatedCardImage(prod.id, safeImg),
+          isNew: Boolean(prod.badge || (prod.originalPrice && prod.originalPrice > prod.basePrice)),
+        });
+      });
+      Object.values(cat).flat().forEach((p) => {
+        if (!byId.has(p.id)) byId.set(p.id, p);
+      });
       const picked = ids
-        .map((id) => pool.find((p) => p.id === id))
+        .map((id) => {
+          const row = byId.get(id);
+          return row ? applyMegaOverride(row) : null;
+        })
         .filter((p): p is MegaProductItem => Boolean(p));
       if (picked.length) return picked.slice(0, megaMax);
     }
     if (megaSource === 'latest') {
-      return (cat.latest || []).slice(0, megaMax);
+      return (cat.latest || []).slice(0, megaMax).map(applyMegaOverride);
     }
     const bucket = cat[activeSubFilter] || cat.latest || [];
-    return bucket.slice(0, megaMax);
+    return bucket.slice(0, megaMax).map(applyMegaOverride);
   };
 
   const activeProducts = getActiveProducts();
@@ -711,7 +752,7 @@ export const Header: React.FC = () => {
 
           {/* 2. Center: Desktop Nav Items (Flex in-flow layout ensuring zero overlap in both RTL Arabic and LTR English) */}
           <nav
-            className={`${customTablet.length > 0 ? 'hidden @lg:flex' : 'hidden @md:flex @lg:flex'} items-center justify-center flex-1 min-w-0 mx-2 @lg:mx-3 @xl:mx-4 gap-1.5 @lg:gap-2 @xl:gap-3 text-[12px] @lg:text-[12.5px] @xl:text-[13px] font-normal text-neutral-800 h-16 overflow-x-auto overflow-y-hidden no-scrollbar relative z-0 ${
+            className={`${customTablet.length > 0 ? 'hidden @lg:flex' : 'hidden @md:flex @lg:flex'} items-center justify-center flex-1 min-w-0 mx-2 @lg:mx-3 @xl:mx-4 gap-1.5 @lg:gap-2 @xl:gap-3 text-[12px] @lg:text-[12.5px] @xl:text-[13px] font-normal text-neutral-800 min-h-16 py-1 overflow-x-auto no-scrollbar relative z-10 leading-normal ${
               navEnabled ? '' : 'invisible pointer-events-none'
             }`}
             data-main-menu={navEnabled ? 'on' : 'off'}
@@ -730,6 +771,7 @@ export const Header: React.FC = () => {
             )) : (
             <>
             {/* 0. Shop (المتجر) */}
+            {showNavKey('shop') ? (
             <div className="relative h-full flex items-center shrink-0 ps-0.5" onMouseEnter={() => scheduleMenuClose(80)}>
               <button
                 type="button"
@@ -743,114 +785,166 @@ export const Header: React.FC = () => {
                     : 'text-neutral-700 hover:text-black font-normal'
                 }`}
               >
-                <span className="relative z-[1]">{language === 'AR' ? 'المتجر' : 'Shop'}</span>
+                <span className="relative z-[1]">{lockedNavLabel('shop', 'Shop', 'المتجر')}</span>
                 {currentRoute === 'products' && (
                   <span className="absolute bottom-0 start-1.5 end-1.5 h-[2px] bg-black rounded-full pointer-events-none" />
                 )}
               </button>
             </div>
+            ) : null}
 
-            {/* 1. Machines (مكائن القهوة) */}
+            {/* 1. Machines (مكائن القهوة) — Page Builder: click pins mega (hover can miss narrow canvas) */}
+            {showNavKey('machines') ? (
             <div
               className="relative h-full flex items-center shrink-0"
               onMouseEnter={() => handleNavMouseEnter('machines')}
             >
               <button
-                onClick={() => openShopWithHint('machines')}
+                type="button"
+                onClick={(e) => {
+                  if (isBuilderCanvas) {
+                    e.preventDefault();
+                    handleNavMouseEnter('machines');
+                    return;
+                  }
+                  openShopWithHint('machines');
+                }}
                 className={`py-2 px-1 transition-colors cursor-pointer relative whitespace-nowrap ${
                   activeMegaMenu === 'machines' && isMegaMenuOpen
                     ? 'text-black font-semibold'
                     : 'text-neutral-700 hover:text-black'
                 }`}
               >
-                <span className="relative z-[1]">{language === 'AR' ? 'المكائن' : 'Machines'}</span>
+                <span className="relative z-[1]">{lockedNavLabel('machines', 'Machines', 'المكائن')}</span>
                 {activeMegaMenu === 'machines' && isMegaMenuOpen && (
                   <span className="absolute bottom-0 start-1 end-1 h-[2px] bg-black rounded-full pointer-events-none" />
                 )}
               </button>
             </div>
+            ) : null}
 
             {/* 2. Mills (مطاحن القهوة) */}
+            {showNavKey('mills') ? (
             <div
               className="relative h-full flex items-center shrink-0"
               onMouseEnter={() => handleNavMouseEnter('mills')}
             >
               <button
-                onClick={() => openShopWithHint('mills')}
+                type="button"
+                onClick={(e) => {
+                  if (isBuilderCanvas) {
+                    e.preventDefault();
+                    handleNavMouseEnter('mills');
+                    return;
+                  }
+                  openShopWithHint('mills');
+                }}
                 className={`py-2 px-1 transition-colors cursor-pointer relative whitespace-nowrap ${
                   activeMegaMenu === 'mills' && isMegaMenuOpen
                     ? 'text-black font-semibold'
                     : 'text-neutral-700 hover:text-black'
                 }`}
               >
-                <span className="relative z-[1]">{language === 'AR' ? 'المطاحن' : 'Mills'}</span>
+                <span className="relative z-[1]">{lockedNavLabel('mills', 'Mills', 'المطاحن')}</span>
                 {activeMegaMenu === 'mills' && isMegaMenuOpen && (
                   <span className="absolute bottom-0 start-1 end-1 h-[2px] bg-black rounded-full pointer-events-none" />
                 )}
               </button>
             </div>
+            ) : null}
 
             {/* 3. Cabinets (أركان ودواليب القهوة) */}
+            {showNavKey('cabinets') ? (
             <div
               className="relative h-full flex items-center shrink-0"
               onMouseEnter={() => handleNavMouseEnter('cabinets')}
             >
               <button
-                onClick={() => openShopWithHint('cabinets')}
+                type="button"
+                onClick={(e) => {
+                  if (isBuilderCanvas) {
+                    e.preventDefault();
+                    handleNavMouseEnter('cabinets');
+                    return;
+                  }
+                  openShopWithHint('cabinets');
+                }}
                 className={`py-2 px-1 transition-colors cursor-pointer relative whitespace-nowrap ${
                   activeMegaMenu === 'cabinets' && isMegaMenuOpen
                     ? 'text-black font-semibold'
                     : 'text-neutral-700 hover:text-black'
                 }`}
               >
-                <span className="relative z-[1]">{language === 'AR' ? 'أركان ودواليب القهوة' : 'Coffee Bars'}</span>
+                <span className="relative z-[1]">{lockedNavLabel('cabinets', 'Coffee Bars', 'أركان ودواليب القهوة')}</span>
                 {activeMegaMenu === 'cabinets' && isMegaMenuOpen && (
                   <span className="absolute bottom-0 start-1 end-1 h-[2px] bg-black rounded-full pointer-events-none" />
                 )}
               </button>
             </div>
+            ) : null}
 
             {/* 4. Accessories (المستلزمات والأكواب) */}
+            {showNavKey('accessories') ? (
             <div
               className="relative h-full flex items-center shrink-0"
               onMouseEnter={() => handleNavMouseEnter('accessories')}
             >
               <button
-                onClick={() => openShopWithHint('accessories')}
+                type="button"
+                onClick={(e) => {
+                  if (isBuilderCanvas) {
+                    e.preventDefault();
+                    handleNavMouseEnter('accessories');
+                    return;
+                  }
+                  openShopWithHint('accessories');
+                }}
                 className={`py-2 px-1 transition-colors cursor-pointer relative whitespace-nowrap ${
                   activeMegaMenu === 'accessories' && isMegaMenuOpen
                     ? 'text-black font-semibold'
                     : 'text-neutral-700 hover:text-black'
                 }`}
               >
-                <span className="relative z-[1]">{language === 'AR' ? 'الأكواب والمستلزمات' : 'Accessories'}</span>
+                <span className="relative z-[1]">{lockedNavLabel('accessories', 'Accessories', 'الأكواب والمستلزمات')}</span>
                 {activeMegaMenu === 'accessories' && isMegaMenuOpen && (
                   <span className="absolute bottom-0 start-1 end-1 h-[2px] bg-black rounded-full pointer-events-none" />
                 )}
               </button>
             </div>
+            ) : null}
 
             {/* 5. Offers (العروض والباقات) */}
+            {showNavKey('offers') ? (
             <div
               className="relative h-full flex items-center shrink-0"
               onMouseEnter={() => handleNavMouseEnter('offers')}
             >
               <button
-                onClick={() => openShopWithHint('offers')}
+                type="button"
+                onClick={(e) => {
+                  if (isBuilderCanvas) {
+                    e.preventDefault();
+                    handleNavMouseEnter('offers');
+                    return;
+                  }
+                  openShopWithHint('offers');
+                }}
                 className={`py-2 px-1 transition-colors cursor-pointer relative whitespace-nowrap ${
                   activeMegaMenu === 'offers' && isMegaMenuOpen
                     ? 'text-black font-semibold'
                     : 'text-neutral-700 hover:text-black'
                 }`}
               >
-                <span className="relative z-[1]">{language === 'AR' ? 'العروض والباقات' : 'HiBrew CHOICE'}</span>
+                <span className="relative z-[1]">{lockedNavLabel('offers', 'HiBrew CHOICE', 'العروض والباقات')}</span>
                 {activeMegaMenu === 'offers' && isMegaMenuOpen && (
                   <span className="absolute bottom-0 start-1 end-1 h-[2px] bg-black rounded-full pointer-events-none" />
                 )}
               </button>
             </div>
+            ) : null}
 
             {/* 6. Smart AI Tech */}
+            {showNavKey('ai') ? (
             <div className="h-full flex items-center shrink-0" onMouseEnter={() => scheduleMenuClose(80)}>
               <button
                 onClick={() => {
@@ -861,12 +955,14 @@ export const Header: React.FC = () => {
                 }}
                 className="py-2 inline-flex items-center gap-1 text-neutral-700 hover:text-black transition-colors cursor-pointer whitespace-nowrap"
               >
-                <span>{language === 'AR' ? 'الذكاء الاصطناعي' : 'AI'}</span>
+                <span>{lockedNavLabel('ai', 'AI', 'الذكاء الاصطناعي')}</span>
                 <Sparkles className="w-3.5 h-3.5 text-[color:var(--theme-accent,#C88A58)] fill-[color:var(--theme-accent,#C88A58)]/20" />
               </button>
             </div>
+            ) : null}
 
             {/* 7. Business */}
+            {showNavKey('business') ? (
             <div className="h-full hidden @xl:flex items-center shrink-0" onMouseEnter={() => scheduleMenuClose(80)}>
               <button
                 onClick={() => {
@@ -875,11 +971,13 @@ export const Header: React.FC = () => {
                 }}
                 className="py-2 text-neutral-700 hover:text-black transition-colors cursor-pointer whitespace-nowrap"
               >
-                <span>{language === 'AR' ? 'قطاع الأعمال' : 'Business'}</span>
+                <span>{lockedNavLabel('business', 'Business', 'قطاع الأعمال')}</span>
               </button>
             </div>
+            ) : null}
 
             {/* 8. Support */}
+            {showNavKey('support') ? (
             <div className="h-full hidden @xl:flex items-center shrink-0" onMouseEnter={() => scheduleMenuClose(80)}>
               <button
                 onClick={() => {
@@ -888,14 +986,32 @@ export const Header: React.FC = () => {
                 }}
                 className="py-2 text-neutral-700 hover:text-black transition-colors cursor-pointer whitespace-nowrap"
               >
-                <span>{language === 'AR' ? 'الدعم والضمان' : 'Support'}</span>
+                <span>{lockedNavLabel('support', 'Support', 'الدعم والضمان')}</span>
               </button>
             </div>
+            ) : null}
+
+            {/* Merchant extra links — keep locked mega items; append only */}
+            {extraNavLinks.map((link) => (
+              <div
+                key={link.id}
+                className="relative h-full flex items-center shrink-0"
+                onMouseEnter={() => scheduleMenuClose(80)}
+              >
+                <button
+                  type="button"
+                  onClick={() => followHeaderLink(link.url)}
+                  className="py-2 px-1 transition-colors cursor-pointer relative whitespace-nowrap text-neutral-700 hover:text-black font-normal"
+                >
+                  <span>{navLabel(link)}</span>
+                </button>
+              </div>
+            ))}
             </>
             )}
           </nav>
 
-          {/* 3. Desktop Right: Search, Wishlist, Cart, WhatsApp, Profile, Store Pill, Language */}
+          {/* 3. Desktop Right: Search, Wishlist, Cart, Profile, Store Pill, Language */}
           <div className="hidden @lg:flex items-center gap-1.5 sm:gap-3 @xl:gap-4 shrink-0 z-10" onMouseEnter={() => scheduleMenuClose(80)}>
             {/* Search Icon */}
             {headerSettings?.actions?.search?.enabled !== false && (
@@ -962,28 +1078,6 @@ export const Header: React.FC = () => {
               </button>
             )}
 
-            {/* WhatsApp Chat Icon */}
-            {headerSettings?.actions?.whatsapp?.enabled !== false && (
-              <button
-                type="button"
-                onClick={() => {
-                  const contact = activeStore?.id
-                    ? resolveStoreContact(activeStore.id, activeStore)
-                    : null;
-                  const cleanPhone =
-                    contact?.whatsappDigits ||
-                    coffeeWhatsAppDigits(headerSettings?.actions?.whatsapp?.phoneNumber);
-                  if (!cleanPhone) return;
-                  window.open(`https://wa.me/${cleanPhone}`, '_blank');
-                }}
-                className="p-1.5 text-emerald-600 hover:text-emerald-700 transition-colors cursor-pointer relative"
-                title={language === 'AR' ? 'تواصل معنا مباشرة عبر واتساب' : 'Chat on WhatsApp'}
-                aria-label={language === 'AR' ? 'واتساب' : 'WhatsApp'}
-              >
-                <MessageCircle className="w-5 h-5 stroke-[2] text-emerald-600" />
-              </button>
-            )}
-
             {/* Profile Icon + account dropdown (store-scoped) */}
             {headerSettings?.actions?.account?.enabled !== false && (
               <div className="relative">
@@ -1037,7 +1131,7 @@ export const Header: React.FC = () => {
               }}
               className="hidden @xl:inline-flex items-center justify-center px-4 py-1 rounded-full border border-neutral-300 hover:border-black text-[12px] font-medium text-neutral-800 hover:text-black transition-colors cursor-pointer"
             >
-              {language === 'AR' ? 'المتجر' : 'Shop'}
+              {lockedNavLabel('shop', 'Shop', 'المتجر')}
             </button>
 
             {/* Language Switcher (EN | AR) */}
@@ -1110,6 +1204,7 @@ export const Header: React.FC = () => {
         {/* MOBILE QUICK NAVIGATION BAR (Visible on mobile below main header bar) */}
         {currentRoute !== 'product-detail' && currentRoute !== 'product-buy' && (
           <div className="@lg:hidden w-full border-t border-neutral-100 px-3 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar" style={{ backgroundColor: 'var(--theme-header-bg, #FFFFFF)' }}>
+            {showNavKey('home') ? (
             <button
               type="button"
               onClick={() => {
@@ -1122,9 +1217,11 @@ export const Header: React.FC = () => {
                   : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
               }`}
             >
-              {language === 'AR' ? 'الرئيسية' : 'Home'}
+              {lockedNavLabel('home', 'Home', 'الرئيسية')}
             </button>
+            ) : null}
 
+            {showNavKey('shop') ? (
             <button
               type="button"
               onClick={() => {
@@ -1137,9 +1234,11 @@ export const Header: React.FC = () => {
                   : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
               }`}
             >
-              {language === 'AR' ? 'المتجر' : 'Shop'}
+              {lockedNavLabel('shop', 'Shop', 'المتجر')}
             </button>
+            ) : null}
 
+            {showNavKey('machines') ? (
             <button
               type="button"
               onClick={() => {
@@ -1153,9 +1252,11 @@ export const Header: React.FC = () => {
                   : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
               }`}
             >
-              {language === 'AR' ? 'المكائن' : 'Machines'}
+              {lockedNavLabel('machines', 'Machines', 'المكائن')}
             </button>
+            ) : null}
 
+            {showNavKey('mills') ? (
             <button
               type="button"
               onClick={() => {
@@ -1169,9 +1270,11 @@ export const Header: React.FC = () => {
                   : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
               }`}
             >
-              {language === 'AR' ? 'المطاحن' : 'Mills'}
+              {lockedNavLabel('mills', 'Mills', 'المطاحن')}
             </button>
+            ) : null}
 
+            {showNavKey('cabinets') ? (
             <button
               type="button"
               onClick={() => {
@@ -1185,9 +1288,11 @@ export const Header: React.FC = () => {
                   : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
               }`}
             >
-              {language === 'AR' ? 'أركان القهوة' : 'Coffee Bars'}
+              {lockedNavLabel('cabinets', 'Coffee Bars', 'أركان القهوة')}
             </button>
+            ) : null}
 
+            {showNavKey('accessories') ? (
             <button
               type="button"
               onClick={() => {
@@ -1201,9 +1306,11 @@ export const Header: React.FC = () => {
                   : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
               }`}
             >
-              {language === 'AR' ? 'الأكواب والمستلزمات' : 'Accessories'}
+              {lockedNavLabel('accessories', 'Accessories', 'الأكواب والمستلزمات')}
             </button>
+            ) : null}
 
+            {showNavKey('offers') ? (
             <button
               type="button"
               onClick={() => {
@@ -1217,9 +1324,11 @@ export const Header: React.FC = () => {
                   : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
               }`}
             >
-              {language === 'AR' ? 'العروض والباقات' : 'Offers'}
+              {lockedNavLabel('offers', 'Offers', 'العروض والباقات')}
             </button>
+            ) : null}
 
+            {showNavKey('support') ? (
             <button
               type="button"
               onClick={() => {
@@ -1232,8 +1341,20 @@ export const Header: React.FC = () => {
                   : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
               }`}
             >
-              {language === 'AR' ? 'التقييمات والدعم' : 'Reviews'}
+              {lockedNavLabel('support', 'Reviews', 'التقييمات والدعم')}
             </button>
+            ) : null}
+
+            {extraNavLinks.map((link) => (
+              <button
+                key={link.id}
+                type="button"
+                onClick={() => followHeaderLink(link.url)}
+                className="px-3 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap transition-colors shrink-0 cursor-pointer bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+              >
+                {navLabel(link)}
+              </button>
+            ))}
           </div>
         )}
 
@@ -1241,6 +1362,7 @@ export const Header: React.FC = () => {
         {isMegaMenuOpen ? (
           <>
         <div
+          data-mega-menu-backdrop="on"
           className={`hidden @lg:block ${isBuilderCanvas ? 'absolute inset-x-0 top-16 bottom-0' : 'fixed inset-x-0 bottom-0 top-16'} bg-black/20 backdrop-blur-[2px] z-20`}
           onMouseEnter={() => scheduleMenuClose(50)}
           onClick={closeMenuImmediately}
@@ -1250,14 +1372,14 @@ export const Header: React.FC = () => {
         <div
           ref={megaMenuContainerRef}
           data-mega-menu-panel="on"
-          className="hidden @lg:block absolute top-full left-0 right-0 w-full bg-white border-b border-neutral-200/80 shadow-[0_20px_45px_rgba(0,0,0,0.10)] z-20 max-h-[min(70vh,560px)] overflow-y-auto overflow-x-hidden animate-honor-mega"
+          className="hidden @lg:block absolute top-full left-0 right-0 w-full bg-white border-b border-neutral-200/80 shadow-[0_20px_45px_rgba(0,0,0,0.10)] z-20 max-h-[min(78vh,620px)] overflow-y-auto overflow-x-hidden animate-honor-mega"
           onMouseEnter={handleDropdownMouseEnter}
           onMouseLeave={handleDropdownMouseLeave}
         >
           <div className="absolute -top-2 left-0 right-0 h-3 bg-transparent pointer-events-auto" aria-hidden />
 
             {/* PRODUCTS MEGA MENU */}
-            <div className="w-full flex flex-col items-center pt-4 sm:pt-5 px-3 sm:px-6">
+            <div className="w-full flex flex-col items-center pt-4 sm:pt-5 pb-6 sm:pb-8 px-3 sm:px-6">
                 {/* Top Sub-category Tabs (Centered, Pure Text Links, Crisp Spacing) */}
                 <div className="flex items-center justify-center gap-5 sm:gap-8 pb-4 sm:pb-5 text-[13px] sm:text-[13.5px] flex-wrap" role="tablist">
                   <button
@@ -1495,8 +1617,8 @@ export const Header: React.FC = () => {
                   })}
                 </div>
 
-                {/* Bottom Action Pill Buttons */}
-                <div className="flex items-center justify-center gap-3.5 mt-5">
+                {/* Bottom Action Pill Buttons — keep clear gap from mega panel bottom border */}
+                <div className="flex items-center justify-center gap-3.5 mt-5 mb-1 sm:mb-2">
                   {showViewMoreButton ? (
                     <button
                       type="button"
@@ -1516,35 +1638,6 @@ export const Header: React.FC = () => {
                       <span>
                         {viewMoreLabel ||
                           (language === 'AR' ? 'عرض المزيد من المنتجات' : 'More Products')}
-                      </span>
-                    </button>
-                  ) : null}
-
-                  {showCompareButton ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        closeMenuImmediately();
-                        const compareUrl = (headerSettings?.navigation?.comparePageUrl || '').trim();
-                        if (compareUrl) {
-                          followHeaderLink(compareUrl);
-                          return;
-                        }
-                        const el = document.getElementById('specs-comparison-section');
-                        if (el) {
-                          el.scrollIntoView({ behavior: 'smooth' });
-                          return;
-                        }
-                        const first = activeProducts[0] || dynamicMegaCatalog.machines.latest[0];
-                        if (first?.id) navigateTo('product-buy', first.id);
-                        else navigateTo('products');
-                      }}
-                      className="flex items-center gap-2 px-6 py-2 rounded-full border border-[#D2D2D7] hover:border-black text-[12.5px] font-normal text-[#111111] bg-white transition-all duration-200 cursor-pointer shadow-none hover:shadow-2xs"
-                      data-nav-compare="on"
-                    >
-                      <Columns className="w-3.5 h-3.5 text-[#111111]" />
-                      <span>
-                        {compareLabel || (language === 'AR' ? 'مقارنة المواصفات' : 'Compare')}
                       </span>
                     </button>
                   ) : null}
@@ -1587,6 +1680,7 @@ export const Header: React.FC = () => {
                   )) : (
                   <>
                   {/* 0. Home */}
+                  {showNavKey('home') ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -1595,11 +1689,13 @@ export const Header: React.FC = () => {
                     }}
                     className="w-full flex items-center justify-between p-4 rounded-2xl bg-neutral-50 hover:bg-neutral-100/80 transition-colors font-semibold text-sm text-neutral-900 cursor-pointer"
                   >
-                    <span>{language === 'AR' ? 'الرئيسية' : 'Home'}</span>
+                    <span>{lockedNavLabel('home', 'Home', 'الرئيسية')}</span>
                     {language === 'AR' ? <ChevronLeft className="w-4 h-4 text-neutral-400" /> : <ChevronRight className="w-4 h-4 text-neutral-400" />}
                   </button>
+                  ) : null}
 
                   {/* 0b. Shop */}
+                  {showNavKey('shop') ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -1608,11 +1704,13 @@ export const Header: React.FC = () => {
                     }}
                     className="w-full flex items-center justify-between p-4 rounded-2xl bg-neutral-50 hover:bg-neutral-100/80 transition-colors font-semibold text-sm text-neutral-900 cursor-pointer"
                   >
-                    <span>{language === 'AR' ? 'المتجر' : 'Shop'}</span>
+                    <span>{lockedNavLabel('shop', 'Shop', 'المتجر')}</span>
                     {language === 'AR' ? <ChevronLeft className="w-4 h-4 text-neutral-400" /> : <ChevronRight className="w-4 h-4 text-neutral-400" />}
                   </button>
+                  ) : null}
 
                   {/* 1. Machines */}
+                  {showNavKey('machines') ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -1621,11 +1719,13 @@ export const Header: React.FC = () => {
                     }}
                     className="w-full flex items-center justify-between p-4 rounded-2xl bg-neutral-50 hover:bg-neutral-100/80 transition-colors font-semibold text-sm text-neutral-900 cursor-pointer"
                   >
-                    <span>{language === 'AR' ? 'مكائن القهوة' : 'Machines'}</span>
+                    <span>{lockedNavLabel('machines', 'Machines', 'مكائن القهوة')}</span>
                     {language === 'AR' ? <ChevronLeft className="w-4 h-4 text-neutral-400" /> : <ChevronRight className="w-4 h-4 text-neutral-400" />}
                   </button>
+                  ) : null}
 
                   {/* 2. Mills */}
+                  {showNavKey('mills') ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -1634,11 +1734,13 @@ export const Header: React.FC = () => {
                     }}
                     className="w-full flex items-center justify-between p-4 rounded-2xl bg-neutral-50 hover:bg-neutral-100/80 transition-colors font-semibold text-sm text-neutral-900 cursor-pointer"
                   >
-                    <span>{language === 'AR' ? 'مطاحن القهوة' : 'Mills'}</span>
+                    <span>{lockedNavLabel('mills', 'Mills', 'مطاحن القهوة')}</span>
                     {language === 'AR' ? <ChevronLeft className="w-4 h-4 text-neutral-400" /> : <ChevronRight className="w-4 h-4 text-neutral-400" />}
                   </button>
+                  ) : null}
 
                   {/* 3. Cabinets */}
+                  {showNavKey('cabinets') ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -1647,11 +1749,13 @@ export const Header: React.FC = () => {
                     }}
                     className="w-full flex items-center justify-between p-4 rounded-2xl bg-neutral-50 hover:bg-neutral-100/80 transition-colors font-semibold text-sm text-neutral-900 cursor-pointer"
                   >
-                    <span>{language === 'AR' ? 'أركان ودواليب القهوة' : 'Coffee Bars & Cabinets'}</span>
+                    <span>{lockedNavLabel('cabinets', 'Coffee Bars & Cabinets', 'أركان ودواليب القهوة')}</span>
                     {language === 'AR' ? <ChevronLeft className="w-4 h-4 text-neutral-400" /> : <ChevronRight className="w-4 h-4 text-neutral-400" />}
                   </button>
+                  ) : null}
 
                   {/* 4. Accessories */}
+                  {showNavKey('accessories') ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -1660,11 +1764,13 @@ export const Header: React.FC = () => {
                     }}
                     className="w-full flex items-center justify-between p-4 rounded-2xl bg-neutral-50 hover:bg-neutral-100/80 transition-colors font-semibold text-sm text-neutral-900 cursor-pointer"
                   >
-                    <span>{language === 'AR' ? 'الأكواب والمستلزمات' : 'Accessories & Cups'}</span>
+                    <span>{lockedNavLabel('accessories', 'Accessories & Cups', 'الأكواب والمستلزمات')}</span>
                     {language === 'AR' ? <ChevronLeft className="w-4 h-4 text-neutral-400" /> : <ChevronRight className="w-4 h-4 text-neutral-400" />}
                   </button>
+                  ) : null}
 
                   {/* 5. HiBrew CHOICE (Offers) */}
+                  {showNavKey('offers') ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -1673,11 +1779,13 @@ export const Header: React.FC = () => {
                     }}
                     className="w-full flex items-center justify-between p-4 rounded-2xl bg-neutral-50 hover:bg-neutral-100/80 transition-colors font-semibold text-sm text-neutral-900 cursor-pointer"
                   >
-                    <span>{language === 'AR' ? 'عروض وباقات هايبرو' : 'HiBrew CHOICE Offers'}</span>
+                    <span>{lockedNavLabel('offers', 'HiBrew CHOICE Offers', 'عروض وباقات هايبرو')}</span>
                     {language === 'AR' ? <ChevronLeft className="w-4 h-4 text-neutral-400" /> : <ChevronRight className="w-4 h-4 text-neutral-400" />}
                   </button>
+                  ) : null}
 
                   {/* 6. All Products Store */}
+                  {showNavKey('shop') ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -1686,11 +1794,13 @@ export const Header: React.FC = () => {
                     }}
                     className="w-full flex items-center justify-between p-4 rounded-2xl bg-neutral-50 hover:bg-neutral-100 transition-colors font-semibold text-sm text-neutral-900 cursor-pointer"
                   >
-                    <span>{language === 'AR' ? 'المتجر - جميع المنتجات' : 'Store - All Products'}</span>
+                    <span>{lockedNavLabel('shop', 'Store - All Products', 'المتجر - جميع المنتجات')}</span>
                     {language === 'AR' ? <ChevronLeft className="w-4 h-4 text-neutral-400" /> : <ChevronRight className="w-4 h-4 text-neutral-400" />}
                   </button>
+                  ) : null}
 
                   {/* 7. Smart AI Tech & Craft */}
+                  {showNavKey('ai') ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -1702,13 +1812,15 @@ export const Header: React.FC = () => {
                     className="w-full flex items-center justify-between p-4 rounded-2xl bg-neutral-50 hover:bg-neutral-100 transition-colors font-semibold text-sm text-neutral-900 cursor-pointer"
                   >
                     <span className="inline-flex items-center gap-1.5">
-                      <span>{language === 'AR' ? 'الذكاء الاصطناعي وهندسة الآلة' : 'AI & Craft Engineering'}</span>
+                      <span>{lockedNavLabel('ai', 'AI & Craft Engineering', 'الذكاء الاصطناعي وهندسة الآلة')}</span>
                       <Sparkles className="w-3.5 h-3.5 text-[color:var(--theme-accent,#C88A58)] fill-[color:var(--theme-accent,#C88A58)]/20" />
                     </span>
                     {language === 'AR' ? <ChevronLeft className="w-4 h-4 text-neutral-400" /> : <ChevronRight className="w-4 h-4 text-neutral-400" />}
                   </button>
+                  ) : null}
 
                   {/* 8. Reviews & Support */}
+                  {showNavKey('support') ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -1717,9 +1829,10 @@ export const Header: React.FC = () => {
                     }}
                     className="w-full flex items-center justify-between p-4 rounded-2xl bg-neutral-50 hover:bg-neutral-100 transition-colors font-semibold text-sm text-neutral-900 cursor-pointer"
                   >
-                    <span>{language === 'AR' ? 'الدعم والضمان وتجارب العملاء' : 'Support & Customer Reviews'}</span>
+                    <span>{lockedNavLabel('support', 'Support & Customer Reviews', 'الدعم والضمان وتجارب العملاء')}</span>
                     {language === 'AR' ? <ChevronLeft className="w-4 h-4 text-neutral-400" /> : <ChevronRight className="w-4 h-4 text-neutral-400" />}
                   </button>
+                  ) : null}
 
                   {/* 9. Account */}
                   <button
@@ -1733,6 +1846,18 @@ export const Header: React.FC = () => {
                     <span>{user.isLoggedIn ? user.name : language === 'AR' ? 'حسابي / تسجيل الدخول' : 'Account / Login'}</span>
                     {language === 'AR' ? <ChevronLeft className="w-4 h-4 text-neutral-400" /> : <ChevronRight className="w-4 h-4 text-neutral-400" />}
                   </button>
+
+                  {extraNavLinks.map((link) => (
+                    <button
+                      key={link.id}
+                      type="button"
+                      onClick={() => followHeaderLink(link.url)}
+                      className="w-full flex items-center justify-between p-4 rounded-2xl bg-neutral-50 hover:bg-neutral-100/80 transition-colors font-semibold text-sm text-neutral-900 cursor-pointer"
+                    >
+                      <span className="min-w-0 break-words text-start">{navLabel(link)}</span>
+                      {language === 'AR' ? <ChevronLeft className="w-4 h-4 text-neutral-400 shrink-0" /> : <ChevronRight className="w-4 h-4 text-neutral-400 shrink-0" />}
+                    </button>
+                  ))}
                   </>
                   )}
                 </div>
@@ -1766,14 +1891,14 @@ export const Header: React.FC = () => {
                   </button>
                   <h4 className="text-sm font-bold text-neutral-950">
                     {mobileSubNavKey === 'machines'
-                      ? language === 'AR' ? 'المكائن' : 'Machines'
+                      ? lockedNavLabel('machines', 'Machines', 'المكائن')
                       : mobileSubNavKey === 'mills'
-                      ? language === 'AR' ? 'المطاحن' : 'Mills'
+                      ? lockedNavLabel('mills', 'Mills', 'المطاحن')
                       : mobileSubNavKey === 'cabinets'
-                      ? language === 'AR' ? 'الدواليب والأركان' : 'Cabinets & Corners'
+                      ? lockedNavLabel('cabinets', 'Cabinets & Corners', 'الدواليب والأركان')
                       : mobileSubNavKey === 'accessories'
-                      ? language === 'AR' ? 'المستلزمات والأكواب' : 'Accessories & Cups'
-                      : language === 'AR' ? 'عروض وباقات هايبرو' : 'HiBrew CHOICE'}
+                      ? lockedNavLabel('accessories', 'Accessories & Cups', 'المستلزمات والأكواب')
+                      : lockedNavLabel('offers', 'HiBrew CHOICE', 'عروض وباقات هايبرو')}
                   </h4>
                   <button
                     type="button"

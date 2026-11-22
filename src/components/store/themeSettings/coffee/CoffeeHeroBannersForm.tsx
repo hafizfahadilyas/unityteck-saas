@@ -361,7 +361,7 @@ export const HeroBannersForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embed
                 ) : null}
                 <label className="flex items-center gap-2 text-[11px] font-semibold">
                   <input type="checkbox" checked={!!editing.customOrderEnabled} onChange={(e) => patch(editing.id, { customOrderEnabled: e.target.checked })} />
-                  {isAr ? 'طلب مخصص' : 'Custom order'}
+                  {isAr ? 'زر تفصيل حسب الطلب' : 'Custom-order button'}
                 </label>
                 {editing.customOrderEnabled ? (
                   <div className="space-y-2">
@@ -369,11 +369,23 @@ export const HeroBannersForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embed
                       className={inputCls}
                       style={inputStyle}
                       dir="auto"
-                      placeholder={isAr ? 'نص الزر بأي لغة' : 'Button text — any language'}
+                      placeholder={isAr ? 'نص الزر (مثال: تفصيل حسب الطلب)' : 'Button text (e.g. Custom Made to Order)'}
                       value={editing.customOrderEn || editing.customOrderAr || ''}
                       onChange={(e) => patch(editing.id, { customOrderEn: e.target.value, customOrderAr: e.target.value })}
                     />
-                    <input className={inputCls} style={inputStyle} dir="ltr" placeholder={isAr ? 'رابط الطلب المخصص' : 'Custom order URL'} value={editing.customOrderUrl || ''} onChange={(e) => patch(editing.id, { customOrderUrl: e.target.value })} />
+                    <p className="text-[10px] font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+                      {isAr
+                        ? 'الضغط يفتح واتساب على الرقم المحفوظ في إعدادات المتجر ← هوية المتجر / رقم واتساب.'
+                        : 'Click opens WhatsApp to the number saved in Store Settings → Store Identity / WhatsApp.'}
+                    </p>
+                    <input
+                      className={inputCls}
+                      style={inputStyle}
+                      dir="ltr"
+                      placeholder={isAr ? 'اختياري: رابط واتساب wa.me (تجاوز)' : 'Optional: wa.me override URL'}
+                      value={editing.customOrderUrl || ''}
+                      onChange={(e) => patch(editing.id, { customOrderUrl: e.target.value })}
+                    />
                   </div>
                 ) : null}
               </div>

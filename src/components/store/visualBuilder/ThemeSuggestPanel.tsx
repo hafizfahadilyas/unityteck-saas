@@ -46,7 +46,7 @@ export function ThemeSuggestPanel({
   };
 
   return (
-    <div className="absolute top-16 end-3 z-[80] w-[min(100%,22rem)] bg-white border border-slate-200 rounded-2xl shadow-xl p-3 space-y-3" data-theme-suggest="1">
+    <div className="absolute top-[7.25rem] end-3 z-[120] w-[min(100%,22rem)] bg-white border border-slate-200 rounded-2xl shadow-xl p-3 space-y-3" data-theme-suggest="1">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-bold text-slate-900">{isAr ? 'اقتراحات الصفحة' : 'Page suggestions'}</h2>
         <button type="button" onClick={onClose} className="text-xs font-bold text-slate-500">{isAr ? 'إغلاق' : 'Close'}</button>

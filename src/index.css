@@ -83,6 +83,62 @@
     font-weight: 700;
   }
 
+  /*
+   * Brand font-weight (BrandingPanel) — Light / Regular / Bold / Medium
+   * Remap common Tailwind weight utilities so the choice is visible portal-wide.
+   */
+  html[data-brand-fw='light'] body {
+    font-weight: var(--font-weight-body, 300);
+  }
+  html[data-brand-fw='light'] .font-normal {
+    font-weight: 300 !important;
+  }
+  html[data-brand-fw='light'] .font-medium,
+  html[data-brand-fw='light'] .font-semibold {
+    font-weight: 400 !important;
+  }
+  html[data-brand-fw='light'] .font-bold {
+    font-weight: 500 !important;
+  }
+  html[data-brand-fw='light'] .font-extrabold,
+  html[data-brand-fw='light'] .font-black {
+    font-weight: 600 !important;
+  }
+
+  html[data-brand-fw='regular'] body {
+    font-weight: var(--font-weight-body, 400);
+  }
+
+  html[data-brand-fw='medium'] body {
+    font-weight: var(--font-weight-body, 500);
+  }
+  html[data-brand-fw='medium'] .font-normal {
+    font-weight: 500 !important;
+  }
+  html[data-brand-fw='medium'] .font-medium {
+    font-weight: 600 !important;
+  }
+  html[data-brand-fw='medium'] .font-semibold,
+  html[data-brand-fw='medium'] .font-bold {
+    font-weight: 700 !important;
+  }
+
+  html[data-brand-fw='bold'] body {
+    font-weight: var(--font-weight-body, 700);
+  }
+  html[data-brand-fw='bold'] .font-normal {
+    font-weight: 600 !important;
+  }
+  html[data-brand-fw='bold'] .font-medium,
+  html[data-brand-fw='bold'] .font-semibold {
+    font-weight: 700 !important;
+  }
+  html[data-brand-fw='bold'] .font-bold,
+  html[data-brand-fw='bold'] .font-extrabold,
+  html[data-brand-fw='bold'] .font-black {
+    font-weight: 800 !important;
+  }
+
   /* Search / filter icons sit on light wells → dark glyph; on CTA → white */
   .unity-shell .absolute.start-3\.5,
   .unity-shell .absolute.start-3,

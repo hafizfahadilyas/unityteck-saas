@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DEFAULT_SHELL_WALLPAPER_URL,
+  isDefaultShellWallpaper,
   isEphemeralImageUrl,
   isPersistableChromeImageUrl,
   parseStoreChrome,
+  resolveShellWallpaperUrl,
 } from './storeChrome';
 import { isChromeIdbUrl } from './storeChromeImageStore';
 
@@ -45,5 +48,13 @@ describe('store chrome wallpaper / sidebar persist helpers', () => {
     });
     expect(parsed.shellWallpaper).toBe(blob);
     expect(parsed.bgImage).toBe(blob);
+  });
+
+  it('empty / color-preset chrome falls back to platform default image', () => {
+    const empty = parseStoreChrome({ shellWallpaperPreset: 'city-warm' });
+    expect(empty.shellWallpaper).toBe(DEFAULT_SHELL_WALLPAPER_URL);
+    expect(empty.shellWallpaperPreset).toBe('custom');
+    expect(isDefaultShellWallpaper(empty.shellWallpaper)).toBe(true);
+    expect(resolveShellWallpaperUrl('')).toBe(DEFAULT_SHELL_WALLPAPER_URL);
   });
 });

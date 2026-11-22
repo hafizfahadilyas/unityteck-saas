@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useCart } from '../context/CartContext';
+import { useTenant } from '../../../context/TenantContext';
 import {
   ArrowLeft,
   ArrowRight,
@@ -18,6 +19,8 @@ import {
 } from 'lucide-react';
 import { ProductPartShowcase } from '../types';
 import { effectiveProductPricing } from '../../../utils/productSaleSchedule';
+import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
+import { resolveProductDetailChrome } from '../productDetailChrome';
 
 interface PartShowcaseBannerProps {
   part: ProductPartShowcase;
@@ -74,21 +77,36 @@ const PartShowcaseBanner: React.FC<PartShowcaseBannerProps> = ({ part, index, la
           {language === 'AR' ? part.descriptionAr : part.descriptionEn}
         </p>
 
-        {/* Technical Stats Callout Chips - Matching Hero Banner 4-Chips Style */}
+        {/* Technical Stats Callout Chips — locale-isolated (no AR/EN mix in one chip) */}
         {part.stats && part.stats.length > 0 && (
           <div className="flex flex-wrap items-center gap-2.5 pt-2">
-            {part.stats.map((stat, sIdx) => (
+            {part.stats.map((stat, sIdx) => {
+              const isAr = language === 'AR';
+              const label = (isAr ? stat.labelAr : stat.labelEn || '').trim();
+              const value = (
+                isAr
+                  ? (stat.valueAr || '')
+                  : (stat.valueEn || stat.value || '')
+              ).trim();
+              if (!label && !value) return null;
+              return (
               <div
                 key={sIdx}
+                dir={isAr ? 'rtl' : 'ltr'}
                 className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/10 backdrop-blur-md border border-white/10 text-xs font-semibold text-white/90"
               >
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span className="text-neutral-300 font-medium">
-                  {language === 'AR' ? stat.labelAr : stat.labelEn}:
+                <span className="min-w-0">
+                  {label ? (
+                    <span className="text-neutral-300 font-medium">{label}{value ? ':' : ''}</span>
+                  ) : null}
+                  {value ? (
+                    <span className={`text-white font-bold font-mono ${label ? ' ms-1' : ''}`}>{value}</span>
+                  ) : null}
                 </span>
-                <span className="text-white font-bold font-mono">{stat.value}</span>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -109,7 +127,22 @@ const PartShowcaseBanner: React.FC<PartShowcaseBannerProps> = ({ part, index, la
 
 export const ProductDetailPage: React.FC = () => {
   const { selectedProduct, navigateTo, goBack, language } = useCart();
+  const { activeStore } = useTenant();
   const product = selectedProduct;
+  const [themeTick, setThemeTick] = useState(0);
+
+  useEffect(() => {
+    const bump = () => setThemeTick((n) => n + 1);
+    window.addEventListener('unityteck-theme-settings', bump);
+    return () => window.removeEventListener('unityteck-theme-settings', bump);
+  }, []);
+
+  const chrome = useMemo(() => {
+    const settings = resolveCoffeeThemeSettings(activeStore?.id || 'store-coffee', activeStore || { id: 'store-coffee' });
+    return resolveProductDetailChrome(settings.productDetail, product?.id);
+    // themeTick forces re-read after Save from customizer
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeStore?.id, product?.id, themeTick]);
 
   type TabType = 'overview' | 'features' | 'video' | 'specs' | 'warranty';
   const [activeTab, setActiveTab] = useState<TabType>('overview');
@@ -221,8 +254,17 @@ export const ProductDetailPage: React.FC = () => {
     badgeAr: product.badge || 'الإصدار الرسمي بالمملكة',
     bgGradient: 'from-[#061838] via-[#092558] to-[#030d22]',
     heroImage: (product as any).image || colors[0]?.image || images[0] || '/images/hibrew_h7a_flagship_machine.png',
-    featuresEn: specs.slice(0, 4).map(s => `${s.label}: ${s.value}`),
-    featuresAr: specs.slice(0, 4).map(s => `${s.labelAr || s.label}: ${s.valueAr || s.value}`)
+    featuresEn: specs.slice(0, 4).map((s) => {
+      const label = (s.label || '').trim();
+      const value = (s.value || '').trim();
+      return [label, value].filter(Boolean).join(': ');
+    }),
+    // Arabic chrome: never fall back to English label/value (no-language-mix)
+    featuresAr: specs.slice(0, 4).map((s) => {
+      const label = (s.labelAr || '').trim();
+      const value = (s.valueAr || '').trim();
+      return [label, value].filter(Boolean).join(': ');
+    }),
   };
 
   // Honor style heading: First word(s) BOLD, next words LIGHT
@@ -343,15 +385,15 @@ export const ProductDetailPage: React.FC = () => {
           {/* Bottom Row: Multi-Sections Navigation Bar (Visible and scrollable on both mobile & desktop) */}
           <div className="py-1 sm:py-1.5 overflow-x-auto no-scrollbar flex items-center gap-1 sm:gap-1.5">
             {[
-              { id: 'hero-section', tab: 'overview', labelAr: 'نظرة عامة', labelEn: 'Overview' },
-              { id: 'parts-showcase-section', tab: 'features', labelAr: 'المميزات والهندسة', labelEn: 'Features' },
-              { id: 'video-demo-section', tab: 'video', labelAr: 'العرض العملي', labelEn: 'Live Demo' },
-              { id: 'specs-section', tab: 'specs', labelAr: 'المواصفات الفنية', labelEn: 'Tech Specs' },
-              { id: 'warranty-section', tab: 'warranty', labelAr: 'الضمان والوكيل', labelEn: 'Warranty' },
-            ].map(item => (
+              { id: 'hero-section', tab: 'overview' as TabType, labelAr: 'نظرة عامة', labelEn: 'Overview', show: true },
+              { id: 'parts-showcase-section', tab: 'features' as TabType, labelAr: 'المميزات والهندسة', labelEn: 'Features', show: chrome.showFeatures },
+              { id: 'video-demo-section', tab: 'video' as TabType, labelAr: 'العرض العملي', labelEn: 'Live Demo', show: chrome.showVideo },
+              { id: 'specs-section', tab: 'specs' as TabType, labelAr: 'المواصفات الفنية', labelEn: 'Tech Specs', show: chrome.showSpecs },
+              { id: 'warranty-section', tab: 'warranty' as TabType, labelAr: 'الضمان والوكيل', labelEn: 'Warranty', show: chrome.showWarranty },
+            ].filter((item) => item.show).map(item => (
               <button
                 key={item.tab}
-                onClick={() => scrollToSection(item.id, item.tab as TabType)}
+                onClick={() => scrollToSection(item.id, item.tab)}
                 className={`px-2.5 sm:px-3.5 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all cursor-pointer shrink-0 ${
                   activeTab === item.tab
                     ? 'bg-white text-neutral-950 font-bold shadow-xs'
@@ -458,8 +500,8 @@ export const ProductDetailPage: React.FC = () => {
       <main className="max-w-[1360px] mx-auto px-4 lg:px-8 py-12 sm:py-20 space-y-20 sm:space-y-28">
         {/* SECTION HEADER */}
         {/* SECTION HEADER */}
-        <section id="parts-showcase-section" className="space-y-16 sm:space-y-24 scroll-mt-28">
-          {showcaseParts.length > 0 && (
+        <section id="parts-showcase-section" className="space-y-16 sm:space-y-24 scroll-mt-28" data-pdp-features={chrome.showFeatures ? 'on' : 'off'}>
+          {chrome.showFeatures && showcaseParts.length > 0 && (
           <>
           <div className="text-center max-w-3xl mx-auto space-y-3">
             <span className="inline-block text-xs font-bold uppercase tracking-widest bg-white/10 text-neutral-300 px-4 py-1.5 rounded-full border border-white/10 backdrop-blur-md">
@@ -484,8 +526,8 @@ export const ProductDetailPage: React.FC = () => {
           )}
 
           {/* 6th BANNER: CINEMATIC 4K VIDEO DEMONSTRATION (CLEAN PLAYER, NO OVERLAYS) */}
-          {productVideoUrl ? (
-          <article id="video-demo-section" className="space-y-6 sm:space-y-8 pt-6 scroll-mt-28">
+          {chrome.showVideo && productVideoUrl ? (
+          <article id="video-demo-section" className="space-y-6 sm:space-y-8 pt-6 scroll-mt-28" data-pdp-video="on">
             {/* Text story above video player */}
             <div className="space-y-3 max-w-4xl text-start">
               <span className="inline-block text-xs font-bold uppercase tracking-widest bg-white/10 text-neutral-300 px-4 py-1.5 rounded-full border border-white/10 backdrop-blur-md">
@@ -543,7 +585,8 @@ export const ProductDetailPage: React.FC = () => {
         {/* ========================================================================= */}
         {/* 4. TECHNICAL HARDWARE SPECIFICATIONS SUMMARY                              */}
         {/* ========================================================================= */}
-        <section id="specs-section" className="space-y-8 pt-10 border-t border-white/10 scroll-mt-28">
+        {chrome.showSpecs ? (
+        <section id="specs-section" className="space-y-8 pt-10 border-t border-white/10 scroll-mt-28" data-pdp-specs="on">
           <div className="text-center max-w-3xl mx-auto space-y-3">
             <span className="inline-block text-xs font-bold uppercase tracking-widest bg-white/10 text-neutral-300 px-4 py-1.5 rounded-full border border-white/10 backdrop-blur-md">
               {language === 'AR' ? 'المعايير والمواصفات' : 'Technical Specifications'}
@@ -560,24 +603,32 @@ export const ProductDetailPage: React.FC = () => {
 
           <div className="rounded-3xl overflow-hidden bg-white/5 border-0">
             <div className="divide-y divide-white/10">
-              {specs.map((spec, sIdx) => (
-                <div key={sIdx} className="grid grid-cols-1 sm:grid-cols-12 p-4 sm:p-5 hover:bg-white/5 transition-colors">
+              {specs.map((spec, sIdx) => {
+                const isAr = language === 'AR';
+                const label = (isAr ? spec.labelAr || '' : spec.label || '').trim();
+                const value = (isAr ? spec.valueAr || '' : spec.value || '').trim();
+                if (!label && !value) return null;
+                return (
+                <div key={sIdx} className="grid grid-cols-1 sm:grid-cols-12 p-4 sm:p-5 hover:bg-white/5 transition-colors" dir={isAr ? 'rtl' : 'ltr'}>
                   <div className="sm:col-span-4 font-bold text-xs sm:text-sm text-neutral-200">
-                    {language === 'AR' && spec.labelAr ? spec.labelAr : spec.label}
+                    {label}
                   </div>
                   <div className="sm:col-span-8 text-xs sm:text-sm text-neutral-300 mt-1 sm:mt-0 font-mono">
-                    {language === 'AR' && spec.valueAr ? spec.valueAr : spec.value}
+                    {value}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </section>
+        ) : null}
 
         {/* ========================================================================= */}
         {/* 5. BOTTOM OFFICIAL HONOR-STYLE CTA BANNER                                  */}
         {/* ========================================================================= */}
-        <section id="warranty-section" className="relative rounded-3xl p-8 sm:p-12 overflow-hidden bg-gradient-to-r from-neutral-900 via-neutral-950 to-neutral-900 border-0 text-center space-y-6 scroll-mt-28">
+        {chrome.showWarranty ? (
+        <section id="warranty-section" className="relative rounded-3xl p-8 sm:p-12 overflow-hidden bg-gradient-to-r from-neutral-900 via-neutral-950 to-neutral-900 border-0 text-center space-y-6 scroll-mt-28" data-pdp-warranty="on">
           <div className="max-w-3xl mx-auto space-y-3">
             <span className="inline-block text-xs font-bold uppercase tracking-widest bg-white/10 text-neutral-300 px-4 py-1.5 rounded-full border-0 backdrop-blur-md">
               {language === 'AR' ? 'ضمان رسمي سنتين شامل الوكيل' : 'Official 2-Year Agency Warranty'}
@@ -602,12 +653,13 @@ export const ProductDetailPage: React.FC = () => {
             </button>
           </div>
         </section>
+        ) : null}
       </main>
 
       {/* ========================================================================= */}
       {/* 6. HONOR-STYLE SCROLL-TRIGGERED FLOATING CARD                              */}
       {/* ========================================================================= */}
-      {showFloatingCard && !isCardDismissed && (
+      {chrome.showFloatingBuy && showFloatingCard && !isCardDismissed && (
         <aside
           role="region"
           aria-label="Quick Purchase Floating Card"

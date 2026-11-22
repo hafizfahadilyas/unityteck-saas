@@ -721,6 +721,18 @@ export interface MaintenanceModeSettings {
   whatsappNumber: string;
 }
 
+export interface StoreThemeCustomCode {
+  customCss: string;
+  enableCustomCss: boolean;
+  customHeadJs: string;
+  customFooterJs: string;
+  enableHeadJs: boolean;
+  enableFooterJs: boolean;
+  customFontFamily: string;
+  customFontUrl: string;
+  customFontWeight?: string;
+}
+
 export interface AllThemeSettings extends Partial<CoffeeModularSlice> {
   identity: StoreIdentitySettings;
   general: GeneralOptionsSettings;
@@ -742,6 +754,8 @@ export interface AllThemeSettings extends Partial<CoffeeModularSlice> {
   statistics: StoreStatisticsSettings;
   customHeader?: HeaderCustomSettings;
   maintenance?: MaintenanceModeSettings;
+  /** Store-wide custom CSS + font — per store_id only; empty stays empty. */
+  customCode?: StoreThemeCustomCode;
   /** Internal: coffee modular seeds applied once — merchant empties stay empty. */
   _coffeeModularSeeded?: boolean;
   updatedAt: string;
@@ -1004,6 +1018,17 @@ function buildRawDefaultThemeSettings(fallback: {
 
   return {
     identity: defaultStoreIdentity(fallback),
+    customCode: {
+      customCss: '',
+      enableCustomCss: true,
+      customHeadJs: '',
+      customFooterJs: '',
+      enableHeadJs: false,
+      enableFooterJs: false,
+      customFontFamily: '',
+      customFontUrl: '',
+      customFontWeight: '',
+    },
     general: {
       arabicNumerals: true,
       contentProtection: false,
@@ -1788,6 +1813,20 @@ export function readAllThemeSettings(
         statistics: { ...defaults.statistics, ...(parsed.statistics || {}) },
         customHeader: safeCustomHeader,
         maintenance: { ...(defaults.maintenance || {}), ...(parsed.maintenance || {}) },
+        customCode: {
+          ...(defaults.customCode || {
+            customCss: '',
+            enableCustomCss: true,
+            customHeadJs: '',
+            customFooterJs: '',
+            enableHeadJs: false,
+            enableFooterJs: false,
+            customFontFamily: '',
+            customFontUrl: '',
+            customFontWeight: '',
+          }),
+          ...(parsed.customCode && typeof parsed.customCode === 'object' ? parsed.customCode : {}),
+        },
       };
       return merged;
     }
