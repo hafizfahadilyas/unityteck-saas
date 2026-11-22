@@ -248,7 +248,11 @@ import {
   CoffeeBuilderSectionInspector,
   coffeeBlockUsesRefInspector,
 } from './CoffeeBuilderSectionInspector';
-import { coffeeLayerTitle } from './coffeeBuilderSectionMap';
+import {
+  coffeeLayerTitle,
+  coffeeSettingsKeyForBlock,
+  setCoffeeSliceEnabled,
+} from './coffeeBuilderSectionMap';
 import {
   applyChromeSafeDrop,
   blocksForPublish,
@@ -261,7 +265,6 @@ import {
   moveBlockChromeSafe,
   nestIntoColumns,
   pasteBlockChromeSafe,
-  removeBlockChromeSafe,
   rowSection,
   snapshotBlockForClipboard,
   stripHeavyDataUrls,
@@ -274,6 +277,7 @@ import {
   COFFEE_BUILDER_BLOCK_TYPES,
   COFFEE_FULL_BLEED_TYPES,
 } from './CoffeeBuilderBlocks';
+import { resolveCoffeeThemeSettings } from '../../../themes/settings/coffeeThemeDefaults';
 import { AppProvider, useApp } from '../../../themes/meccaGifts/context/AppContext';
 import { resolveStoreTheme, getThemeManifest } from '../../../themes/registry';
 import { getStoreDisplayName } from '../../../utils/storeLocalization';
@@ -522,6 +526,8 @@ interface CanvasBlockItemProps {
   onAddColumnWidgetClick?: (blockId: string, colIdx: number) => void;
   isDraggingThisBlock?: boolean;
   onDropOnBlock?: (targetIdx: number, position: 'above' | 'below', e: React.DragEvent) => void;
+  /** Resolved layer / chrome label (section heading when coffee). */
+  layerLabel?: string;
 }
 
 const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
@@ -554,6 +560,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
     onDropOnColumnWidget,
     onAddColumnWidgetClick,
     isDraggingThisBlock,
+    layerLabel,
     onDropOnBlock,
   }) => {
     const { activeStore } = useTenant();
@@ -681,15 +688,19 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
                 onDelete(b.id);
               }}
               className="p-1 hover:bg-rose-600 cursor-pointer"
-              title={isAr ? 'حذف القسم' : 'Delete Section'}
+              title={isAr ? 'إخفاء القسم (يمكن الاستعادة من الطبقات)' : 'Hide section (restore from Layers)'}
             >
               <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
 
-        {/* Floating Side Toolbar */}
-        <div className="absolute top-2 start-2 end-2 opacity-0 group-hover:opacity-100 transition-opacity z-40 flex items-center justify-between pointer-events-none">
+        {/* Floating Side Toolbar — always on when selected so Trash/Hide stay discoverable */}
+        <div
+          className={`absolute top-2 start-2 end-2 transition-opacity z-40 flex items-center justify-between pointer-events-none ${
+            isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+          }`}
+        >
           <div className="pointer-events-auto flex items-center gap-1.5 bg-slate-900/90 text-white text-[11px] font-bold px-3 py-1 rounded-xl shadow-lg backdrop-blur-xs">
             {!chromeFixed && (
               <span
@@ -703,7 +714,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
                 <GripVertical className="w-3.5 h-3.5" />
               </span>
             )}
-            <span>{isAr ? b.titleAr : b.titleEn}</span>
+            <span>{layerLabel || (isAr ? b.titleAr : b.titleEn)}</span>
             {chromeFixed && (
               <span className="text-[9px] bg-[color:var(--portal-cta)] px-1.5 py-0.5 rounded text-white">
                 {isAr ? 'ثابت' : 'Fixed'}
@@ -791,10 +802,40 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
                 onToggleVisibility(b.id);
               }}
               className="p-1 hover:bg-rose-50 hover:text-rose-600 rounded-lg cursor-pointer"
-              title={isAr ? 'إخفاء القسم' : 'Hide Section'}
+              title={
+                b.visible === false
+                  ? isAr
+                    ? 'استعادة / إظهار'
+                    : 'Restore / Show'
+                  : isAr
+                    ? 'إخفاء القسم'
+                    : 'Hide Section'
+              }
             >
-              <EyeOff className="w-3.5 h-3.5" />
+              {b.visible === false ? (
+                <Eye className="w-3.5 h-3.5 text-emerald-600" />
+              ) : (
+                <EyeOff className="w-3.5 h-3.5" />
+              )}
             </button>
+            {!chromeFixed && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(b.id);
+                }}
+                className="p-1 hover:bg-rose-50 hover:text-rose-600 rounded-lg cursor-pointer"
+                title={
+                  isAr
+                    ? 'إخفاء القسم (يمكن الاستعادة من الطبقات)'
+                    : 'Hide section (restore from Layers)'
+                }
+                data-canvas-delete-section
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
       </>
@@ -2612,6 +2653,20 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   const [restoreTarget, setRestoreTarget] = useState<string | null>(null);
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [builderClosed, setBuilderClosed] = useState(false);
+  /** Bumps when coffee slice.enabled / headings change so Layers re-read settings. */
+  const [coffeeSettingsTick, setCoffeeSettingsTick] = useState(0);
+
+  useEffect(() => {
+    if (!isCoffeeStore || !activeStore?.id) return;
+    const onSettings = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { storeId?: string } | undefined;
+      if (!detail?.storeId || detail.storeId === activeStore.id) {
+        setCoffeeSettingsTick((n) => n + 1);
+      }
+    };
+    window.addEventListener('unityteck-theme-settings', onSettings as EventListener);
+    return () => window.removeEventListener('unityteck-theme-settings', onSettings as EventListener);
+  }, [isCoffeeStore, activeStore?.id]);
 
   useEffect(() => {
     if (!isOpen || !activeStore?.id || !isApiEnabled()) {
@@ -3492,11 +3547,29 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     }, 100);
   }, [previewPage]);
 
+  const syncCoffeeSectionEnabled = useCallback(
+    (block: BlockElement | undefined, enabled: boolean) => {
+      if (!isCoffeeStore || !block || !activeStore?.id) return;
+      if (!coffeeSettingsKeyForBlock(block)) return;
+      const full = readAllThemeSettings(activeStore.id, activeStore) as unknown as Record<string, unknown>;
+      const next = setCoffeeSliceEnabled(full, block, enabled);
+      writeAllThemeSettings(activeStore.id, next as any, currentThemeId, { syncApi: false });
+      window.dispatchEvent(
+        new CustomEvent('unityteck-theme-settings', { detail: { storeId: activeStore.id } }),
+      );
+      setCoffeeSettingsTick((n) => n + 1);
+    },
+    [isCoffeeStore, activeStore, currentThemeId],
+  );
+
   const handleToggleBlockVisibility = useCallback((id: string) => {
-    setBlocks((prev) =>
-      prev.map((b) => (b.id === id ? { ...b, visible: !b.visible } : b)),
-    );
-  }, []);
+    setBlocks((prev) => {
+      const block = prev.find((b) => b.id === id);
+      const nextVisible = block ? !block.visible : true;
+      if (block) syncCoffeeSectionEnabled(block, nextVisible);
+      return prev.map((b) => (b.id === id ? { ...b, visible: nextVisible } : b));
+    });
+  }, [syncCoffeeSectionEnabled]);
 
   const handleMoveBlock = useCallback((id: string, direction: -1 | 1) => {
     const block = blocks.find((b) => b.id === id);
@@ -3569,6 +3642,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     }
   };
 
+  /** Close / delete = soft-hide (keep in Layers so merchant can restore via eye). */
   const handleDeleteBlock = (id: string) => {
     const block = blocks.find((b) => b.id === id);
     if (isFixedChromeBlock(block)) {
@@ -3580,13 +3654,26 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       );
       return;
     }
-    if (blocks.length <= 1) {
-      toast(isAr ? 'لا يمكن حذف كافة الأقسام' : 'Cannot delete all sections', 'info');
+    if (!block) return;
+    if (block.visible === false) {
+      toast(
+        isAr
+          ? 'القسم مخفي بالفعل — استخدم العين لإظهاره مجدداً'
+          : 'Section already hidden — use the eye icon to restore it',
+        'info',
+      );
       return;
     }
-    setBlocks((prev) => removeBlockChromeSafe(prev, id));
-    setSelectedBlockId((prev) => (prev === id ? blocks[0].id : prev));
-    toast(isAr ? 'تم حذف القسم' : 'Section deleted', 'info');
+    syncCoffeeSectionEnabled(block, false);
+    setBlocks((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, visible: false } : b)),
+    );
+    toast(
+      isAr
+        ? 'تم إخفاء القسم من الواجهة — يمكنك إظهاره من الطبقات (أيقونة العين)'
+        : 'Section hidden from storefront — restore anytime from Layers (eye icon)',
+      'info',
+    );
   };
 
   const handleAddNewSection = (payload: NewSectionPayload) => {
@@ -3897,6 +3984,17 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         }
       }
 
+      // Coffee: every hide/close on Layers must flip the matching theme slice.enabled
+      // so live storefront matches builder (not only announcement/tabs).
+      if (isCoffeeStore) {
+        let coffeeSynced = full as unknown as Record<string, unknown>;
+        for (const b of blocks) {
+          if (!coffeeSettingsKeyForBlock(b)) continue;
+          coffeeSynced = setCoffeeSliceEnabled(coffeeSynced, b, b.visible !== false);
+        }
+        Object.assign(full, coffeeSynced);
+      }
+
       if (tabsBlock) {
         full.tabs.enabled = tabsBlock.visible;
         full.tabs.mainTitle = isAr ? tabsBlock.settings.mainTitleAr : tabsBlock.settings.mainTitleEn;
@@ -3916,7 +4014,8 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         if (banners.length > 0) {
           full.heroBanners = {
             ...(full.heroBanners || {}),
-            enabled: true,
+            // Keep visibility from Layers soft-hide (do not force enabled:true)
+            enabled: sliderBlock.visible !== false,
             autoplay: Boolean(sliderBlock.settings?.autoplay ?? sliderBlock.settings?.heroBanners?.autoplay),
             banners,
           };
@@ -4167,6 +4266,17 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     () => visibleFrameBlocks(blocks, device),
     [blocks, device],
   );
+  const coffeeThemeSettingsForLayers = useMemo(() => {
+    if (!isCoffeeStore || !activeStore?.id) return null;
+    void coffeeSettingsTick;
+    // Same source as coffee canvas preview (includes seed headings like "Shop HiBrew by Category")
+    try {
+      const resolved = resolveCoffeeThemeSettings(activeStore.id, activeStore);
+      return resolved as unknown as Record<string, unknown>;
+    } catch {
+      return readAllThemeSettings(activeStore.id, activeStore) as unknown as Record<string, unknown>;
+    }
+  }, [isCoffeeStore, activeStore, coffeeSettingsTick]);
   const framePx = frameWidthPx(device);
 
   if (!isOpen) return null;
@@ -4994,12 +5104,20 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                           } ${!b.visible ? 'opacity-50' : ''} ${isChromeFixed ? 'ring-1 ring-[color:var(--accent)]/30' : ''}`}
                           title={
                             [
-                              isCoffeeStore ? coffeeLayerTitle(b, isAr) : isAr ? b.titleAr : b.titleEn,
+                              isCoffeeStore
+                                ? coffeeLayerTitle(b, isAr, coffeeThemeSettingsForLayers)
+                                : isAr
+                                  ? b.titleAr
+                                  : b.titleEn,
                               isChromeFixed
                                 ? isAr
                                   ? 'عنصر ثابت — يمكن التعديل فقط'
                                   : 'Fixed chrome — edit only'
-                                : '',
+                                : !b.visible
+                                  ? isAr
+                                    ? 'مخفي — اضغط العين للاستعادة'
+                                    : 'Hidden — click eye to restore'
+                                  : '',
                             ]
                               .filter(Boolean)
                               .join(' · ')
@@ -5037,7 +5155,11 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                               <BIcon className="w-3.5 h-3.5" />
                             </div>
                             <span className="text-xs font-medium leading-snug break-words whitespace-normal min-w-0">
-                              {isCoffeeStore ? coffeeLayerTitle(b, isAr) : isAr ? b.titleAr : b.titleEn}
+                              {isCoffeeStore
+                                ? coffeeLayerTitle(b, isAr, coffeeThemeSettingsForLayers)
+                                : isAr
+                                  ? b.titleAr
+                                  : b.titleEn}
                             </span>
                             {isChromeFixed && (
                               <span className="text-[9px] font-bold text-[color:var(--muted)] shrink-0">
@@ -5046,7 +5168,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                             )}
                           </div>
 
-                          <div className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center gap-0.5 opacity-100 shrink-0">
                             <button
                               type="button"
                               onClick={(e) => {
@@ -5054,11 +5176,19 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                                 handleToggleBlockVisibility(b.id);
                               }}
                               className="p-1 hover:bg-slate-200 rounded text-slate-500 cursor-pointer"
-                              title={b.visible ? (isAr ? 'إخفاء' : 'Hide') : (isAr ? 'إظهار' : 'Show')}
+                              title={
+                                b.visible
+                                  ? isAr
+                                    ? 'إخفاء'
+                                    : 'Hide'
+                                  : isAr
+                                    ? 'استعادة / إظهار'
+                                    : 'Restore / Show'
+                              }
                             >
                               {b.visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3 text-rose-500" />}
                             </button>
-                            {!isChromeFixed && (
+                            {!isChromeFixed && b.visible && (
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -5071,7 +5201,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                                 <Copy className="w-3 h-3" />
                               </button>
                             )}
-                            {!isChromeFixed && (
+                            {!isChromeFixed && b.visible && (
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -5089,12 +5219,24 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  if (!b.visible) {
+                                    handleToggleBlockVisibility(b.id);
+                                    return;
+                                  }
                                   handleDeleteBlock(b.id);
                                 }}
                                 className="p-1 hover:bg-rose-100 hover:text-rose-600 rounded text-slate-400 cursor-pointer"
-                                title={isAr ? 'حذف' : 'Delete'}
+                                title={
+                                  b.visible
+                                    ? isAr
+                                      ? 'إخفاء القسم (يمكن الاستعادة)'
+                                      : 'Hide section (can restore)'
+                                    : isAr
+                                      ? 'استعادة القسم'
+                                      : 'Restore section'
+                                }
                               >
-                                <Trash2 className="w-3 h-3" />
+                                {b.visible ? <Trash2 className="w-3 h-3" /> : <Eye className="w-3 h-3 text-emerald-600" />}
                               </button>
                             )}
                           </div>
@@ -5271,6 +5413,13 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                         idx={idx}
                         totalBlocks={blocks.length}
                         isSelected={selectedBlockId === b.id}
+                        layerLabel={
+                          isCoffeeStore
+                            ? coffeeLayerTitle(b, isAr, coffeeThemeSettingsForLayers)
+                            : isAr
+                              ? b.titleAr
+                              : b.titleEn
+                        }
                         headerSubElement={headerSubElement}
                         onSelectHeaderSubElement={(blockId, subKey) => {
                           setSelectedBlockId(blockId);
@@ -5516,7 +5665,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                 <div className="min-w-0">
                   <span className="font-extrabold text-xs text-slate-900 block truncate">
                     {isCoffeeStore
-                      ? coffeeLayerTitle(selectedBlock, isAr)
+                      ? coffeeLayerTitle(selectedBlock, isAr, coffeeThemeSettingsForLayers)
                       : isAr
                         ? selectedBlock.titleAr
                         : selectedBlock.titleEn}

@@ -3,6 +3,32 @@
  * Same Coffee*Form panels as docs/34 + Word customizer (ref UI parity).
  */
 
+/** Customizer section id → theme-settings slice key (for enabled + heading). */
+export const COFFEE_SECTION_SETTINGS_KEY: Record<string, string> = {
+  'C-ANN': 'announcementBar',
+  'C-FCP': 'featuredCategoriesProducts',
+  'C-HERO': 'heroBanners',
+  'C-FSB': 'featuredSectionBanners',
+  'C-FP': 'featuredProducts',
+  'C-SHOP': 'shop',
+  'C-IMG': 'imageBanners',
+  'C-FOOT': 'footer',
+  'C-ICON': 'enhancedFeatures',
+  'C-BEN': 'exclusiveBenefits',
+  'C-EVT': 'eventsMasterclasses',
+  'C-FEAT': 'featuresSection',
+  'C-CMP': 'modelComparison',
+  'C-PC': 'productCarousel',
+  'C-PCB': 'productCarouselBanner',
+  'C-NEWS': 'newsletter',
+  'C-CPB': 'customOrder',
+  'C-REV': 'customerReviews',
+  'C-FAQ': 'faq',
+  'C-COMM': 'commercialHero',
+  'C-PSL': 'productSlider',
+  'C-COLL': 'productCollection',
+};
+
 export const COFFEE_BUILDER_SECTION_BY_TYPE: Record<string, string> = {
   announcement: 'C-ANN',
   announcement_bar: 'C-ANN',
@@ -145,12 +171,98 @@ const COFFEE_LAYER_TITLE_BY_TYPE: Record<string, { titleEn: string; titleAr: str
   custom_order: { titleEn: 'Custom Product Order', titleAr: 'طلب منتج مخصص' },
 };
 
-export function coffeeLayerTitle(
-  block: { type?: string; titleEn?: string; titleAr?: string } | null | undefined,
+/** Pick the merchant-facing section heading from a coffee settings slice. */
+export function coffeeSliceHeading(
+  slice: unknown,
   isAr: boolean,
 ): string {
+  if (!slice || typeof slice !== 'object') return '';
+  const row = slice as Record<string, unknown>;
+  const pick = (en?: unknown, ar?: unknown) => {
+    const e = String(en || '').trim();
+    const a = String(ar || '').trim();
+    if (isAr) return a || e;
+    return e || a;
+  };
+  const direct = pick(row.titleEn, row.titleAr);
+  if (direct) return direct;
+  const sections = Array.isArray(row.sections) ? row.sections : [];
+  if (sections[0] && typeof sections[0] === 'object') {
+    const s = sections[0] as Record<string, unknown>;
+    const t = pick(s.titleEn, s.titleAr);
+    if (t) return t;
+  }
+  const banners = Array.isArray(row.banners) ? row.banners : [];
+  if (banners[0] && typeof banners[0] === 'object') {
+    const b = banners[0] as Record<string, unknown>;
+    const t = pick(b.titleEn, b.titleAr);
+    if (t) return t;
+  }
+  const items = Array.isArray(row.items) ? row.items : [];
+  if (items[0] && typeof items[0] === 'object') {
+    const it = items[0] as Record<string, unknown>;
+    const t = pick(it.titleEn, it.titleAr);
+    if (t) return t;
+  }
+  const tabs = Array.isArray(row.tabs) ? row.tabs : [];
+  if (tabs[0] && typeof tabs[0] === 'object') {
+    const tab = tabs[0] as Record<string, unknown>;
+    const t = pick(tab.titleEn, tab.titleAr) || pick(tab.nameEn, tab.nameAr);
+    if (t) return t;
+  }
+  return '';
+}
+
+export function coffeeSettingsKeyForBlock(block: {
+  type?: string;
+  id?: string;
+} | null | undefined): string | null {
+  const sectionId = coffeeCustomizerSectionForBlock(block);
+  if (!sectionId) return null;
+  return COFFEE_SECTION_SETTINGS_KEY[sectionId] || null;
+}
+
+/**
+ * Layer label = that section’s own heading when saved in theme settings;
+ * else doc-facing type label (Category Showcase → still falls back).
+ */
+export function coffeeLayerTitle(
+  block: { type?: string; titleEn?: string; titleAr?: string; id?: string; settings?: Record<string, unknown> } | null | undefined,
+  isAr: boolean,
+  themeSettings?: Record<string, unknown> | null,
+): string {
+  const key = coffeeSettingsKeyForBlock(block);
+  if (key && themeSettings && themeSettings[key] != null) {
+    const fromSlice = coffeeSliceHeading(themeSettings[key], isAr);
+    if (fromSlice) return fromSlice;
+  }
+  // Block-local title (merchant renamed in builder)
+  const local = isAr
+    ? String(block?.titleAr || block?.titleEn || '').trim()
+    : String(block?.titleEn || block?.titleAr || '').trim();
+  if (local && !COFFEE_LAYER_TITLE_BY_TYPE[String(block?.type || '')]) return local;
+  // Prefer heading-like settings on the block itself
+  const fromBlockSettings = coffeeSliceHeading(block?.settings, isAr);
+  if (fromBlockSettings) return fromBlockSettings;
+
   const type = String(block?.type || '');
   const mapped = COFFEE_LAYER_TITLE_BY_TYPE[type];
   if (mapped) return isAr ? mapped.titleAr : mapped.titleEn;
-  return (isAr ? block?.titleAr : block?.titleEn) || block?.titleEn || block?.titleAr || type || '—';
+  return local || type || '—';
+}
+
+/** Soft-hide / restore: flip coffee slice.enabled so storefront + canvas stay in sync. */
+export function setCoffeeSliceEnabled(
+  themeSettings: Record<string, unknown>,
+  block: { type?: string; id?: string } | null | undefined,
+  enabled: boolean,
+): Record<string, unknown> {
+  const key = coffeeSettingsKeyForBlock(block);
+  if (!key) return themeSettings;
+  const slice = themeSettings[key];
+  if (!slice || typeof slice !== 'object') return themeSettings;
+  return {
+    ...themeSettings,
+    [key]: { ...(slice as Record<string, unknown>), enabled },
+  };
 }

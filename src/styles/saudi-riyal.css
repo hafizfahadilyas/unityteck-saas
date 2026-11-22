@@ -1,10 +1,29 @@
 /**
- * Saudi Riyal sign (U+20C1) — reliable rendering when fonts lack the glyph.
- * Official mark: public/currency/saudi-riyal-symbol.svg (SAMA paths).
+ * Official Saudi Riyal Sign (SAMA) — U+20C1
  *
- * Prefer <SaudiRiyalSymbol /> for critical price chips.
- * Or: <span class="currency-sar">180</span>  /  <i class="sar-sign" aria-hidden="true"></i>
+ * Glyph font built from public/currency/saudi-riyal-symbol.svg
+ * (scripts/build-saudi-riyal-font.cjs). unicode-range keeps brand faces intact.
+ *
+ * SVG mask helpers: .currency-sar / .sar-sign / <SaudiRiyalSymbol />
  */
+
+@font-face {
+  font-family: 'SaudiRiyalSign';
+  src: url('../assets/fonts/saudi-riyal-sign.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+20C1, U+E900;
+}
+
+@font-face {
+  font-family: 'saudi_riyal';
+  src: url('../assets/fonts/saudi-riyal-sign.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+20C1, U+E900;
+}
 
 .sar-sign,
 .currency-sar::before {
@@ -26,4 +45,33 @@
 
 .currency-sar {
   white-space: nowrap;
+}
+
+.icon-saudi_riyal::before,
+.icon-saudi-riyal::before {
+  content: '\20C1';
+  font-family: 'SaudiRiyalSign', 'saudi_riyal', sans-serif !important;
+  font-style: normal;
+  font-weight: inherit;
+  speak: never;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* DOM-injected official glyph (saudiRiyalDom.ts) */
+.sar-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1.12em;
+  line-height: 0;
+  vertical-align: -0.15em;
+  flex-shrink: 0;
+}
+
+.sar-glyph svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+  display: block;
 }

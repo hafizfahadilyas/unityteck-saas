@@ -354,6 +354,7 @@ export const BrandingPanel: React.FC<{
   };
 
   const selectArabicFont = (id: BrandFontArId) => {
+    // Store-scoped: after platform defaults, merchant font change applies store-wide (serif packs: Amiri / Markazi).
     preloadFontFace(id);
     const weight = brand.fontWeight || 'regular';
     setFont(id);

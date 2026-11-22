@@ -42,8 +42,8 @@
 }
 
 .hibrew-theme-root {
-  --font-ar: 'HONOR Sans Arabic', 'HONOR Sans World', 'Honor Sans Custom', 'PingFang SC', Arial, sans-serif;
-  --font-en: 'HONOR Sans World', 'HONOR Sans Arabic', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-ar: 'SaudiRiyalSign', 'HONOR Sans Arabic', 'HONOR Sans World', 'Honor Sans Custom', 'PingFang SC', Arial, sans-serif;
+  --font-en: 'SaudiRiyalSign', 'HONOR Sans World', 'HONOR Sans Arabic', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --coffee-obsidian: #0c0a09;
   --coffee-deep: #14110e;
   --coffee-card: #1c1815;
@@ -55,7 +55,7 @@
   /* Page Builder + storefront: header @lg/@md respond to this width, not the browser window */
   container-type: inline-size;
   container-name: hibrew;
-  font-family: 'HONOR Sans Arabic', 'HONOR Sans World', 'Honor Sans Custom', 'PingFang SC', Arial, sans-serif;
+  font-family: 'SaudiRiyalSign', 'HONOR Sans Arabic', 'HONOR Sans World', 'Honor Sans Custom', 'PingFang SC', Arial, sans-serif;
   background-color: #FFFFFF;
   color: #0F172A;
   min-height: 100vh;
@@ -185,12 +185,12 @@
 /* Honor-Style Typography: Clean Geometric Sans per language */
 .hibrew-theme-root[dir="ltr"],
 .hibrew-theme-root[dir="ltr"] * {
-  font-family: 'HONOR Sans World', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-family: 'SaudiRiyalSign', 'HONOR Sans World', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
 }
 
 .hibrew-theme-root[dir="rtl"],
 .hibrew-theme-root[dir="rtl"] * {
-  font-family: 'HONOR Sans Arabic', 'HONOR Sans World', 'Honor Sans Custom', 'PingFang SC', Arial, sans-serif !important;
+  font-family: 'SaudiRiyalSign', 'HONOR Sans Arabic', 'HONOR Sans World', 'Honor Sans Custom', 'PingFang SC', Arial, sans-serif !important;
 }
 
 .hibrew-theme-root[dir="rtl"] h1,
@@ -202,7 +202,7 @@
 .hibrew-theme-root[dir="rtl"] .honor-heading,
 .hibrew-theme-root[dir="rtl"] h1.honor-title,
 .hibrew-theme-root[dir="rtl"] h2.honor-title {
-  font-family: 'HONOR Sans Arabic', 'HONOR Sans World', 'Honor Sans Custom', 'PingFang SC', Arial, sans-serif !important;
+  font-family: 'SaudiRiyalSign', 'HONOR Sans Arabic', 'HONOR Sans World', 'Honor Sans Custom', 'PingFang SC', Arial, sans-serif !important;
   line-height: 1.42 !important;
   letter-spacing: 0.01em !important;
   word-spacing: 0.04em;
@@ -217,7 +217,7 @@
 .hibrew-theme-root[dir="ltr"] .honor-heading,
 .hibrew-theme-root[dir="ltr"] h1.honor-title,
 .hibrew-theme-root[dir="ltr"] h2.honor-title {
-  font-family: 'HONOR Sans World', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-family: 'SaudiRiyalSign', 'HONOR Sans World', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
   line-height: 1.25 !important;
   letter-spacing: -0.01em !important;
 }

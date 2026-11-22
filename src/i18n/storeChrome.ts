@@ -323,6 +323,21 @@ export type DashboardLookPack = {
   >;
 };
 
+/**
+ * Platform chrome defaults (login → store admin, local + live, every store):
+ * customColor #1e293b · shell wallpaper image · blur 10px · opacity 92%.
+ * Merchant may override per store_id; Reset wallpaper returns here.
+ * After leaving defaults, font changes should use serif (Amiri) — see BrandingPanel.
+ */
+export const PLATFORM_CHROME_DEFAULTS = {
+  customColor: '#1e293b',
+  shellWallpaperBlur: 10,
+  shellWallpaperOpacity: 0.92,
+  shellWallpaper: DEFAULT_SHELL_WALLPAPER_URL,
+  fill: 'custom' as ChromeFill,
+  palette: 'holst' as BrandPaletteId,
+} as const;
+
 /** Exactly two full-dashboard looks — sidebar + colors (wallpaper = fixed platform image). */
 export const DASHBOARD_LOOK_PACKS: DashboardLookPack[] = [
   {
@@ -332,15 +347,15 @@ export const DASHBOARD_LOOK_PACKS: DashboardLookPack[] = [
     toastEn: 'Glass Soft look applied',
     toastAr: 'تم تطبيق مظهر الزجاج الناعم',
     chrome: {
-      palette: 'holst',
-      fill: 'palette',
-      customColor: '#1e293b',
+      palette: PLATFORM_CHROME_DEFAULTS.palette,
+      fill: PLATFORM_CHROME_DEFAULTS.fill,
+      customColor: PLATFORM_CHROME_DEFAULTS.customColor,
       gradientFrom: '#0A3D4A',
       gradientTo: '#1D8B94',
       sidebarDesign: 'classic',
       shellWallpaperPreset: 'custom',
-      shellWallpaperBlur: 10,
-      shellWallpaperOpacity: 0.92,
+      shellWallpaperBlur: PLATFORM_CHROME_DEFAULTS.shellWallpaperBlur,
+      shellWallpaperOpacity: PLATFORM_CHROME_DEFAULTS.shellWallpaperOpacity,
     },
   },
   {
@@ -427,17 +442,17 @@ export function currentChromeRevision(): number {
 
 export function defaultStoreChrome(): StoreChromeBrand {
   return {
-    palette: 'holst',
-    fill: 'palette',
-    customColor: '#1e293b',
+    palette: PLATFORM_CHROME_DEFAULTS.palette,
+    fill: PLATFORM_CHROME_DEFAULTS.fill,
+    customColor: PLATFORM_CHROME_DEFAULTS.customColor,
     gradientFrom: '#0B1F33',
     gradientTo: '#8A6A2F',
     bgImage: '',
     sidebarDesign: 'classic',
     shellWallpaperPreset: 'custom',
-    shellWallpaper: DEFAULT_SHELL_WALLPAPER_URL,
-    shellWallpaperBlur: 10,
-    shellWallpaperOpacity: 0.92,
+    shellWallpaper: PLATFORM_CHROME_DEFAULTS.shellWallpaper,
+    shellWallpaperBlur: PLATFORM_CHROME_DEFAULTS.shellWallpaperBlur,
+    shellWallpaperOpacity: PLATFORM_CHROME_DEFAULTS.shellWallpaperOpacity,
     pageBgColor: '',
     pageTextColor: '',
     shellTextMode: 'auto',

@@ -29,6 +29,14 @@ import App from './App.tsx';
 import './index.css';
 import { getClerkPublishableKey, isClerkConfigured } from './auth/clerkSession';
 import { clerkAllowedRedirectOrigins } from './auth/storefrontOrigins';
+import { installSaudiRiyalGlyphDom } from './i18n/saudiRiyalDom';
+
+// Official SAMA Riyal SVG for every bare U+20C1 (all stores / admin / storefront)
+if (typeof document !== 'undefined') {
+  const boot = () => installSaudiRiyalGlyphDom(document.body);
+  if (document.body) boot();
+  else document.addEventListener('DOMContentLoaded', boot, { once: true });
+}
 
 function AppRoot() {
   const publishableKey = getClerkPublishableKey();

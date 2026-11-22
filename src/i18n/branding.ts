@@ -73,6 +73,17 @@ export type BrandFontArId =
 export const APPLE_ARABIC_STACK =
   "'SF Arabic', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Segoe UI Historic', 'Noto Sans Arabic', 'IBM Plex Sans Arabic', 'Cairo', 'Plus Jakarta Sans', system-ui, sans-serif";
 
+/** Official SAMA Riyal glyph font (U+20C1 only via unicode-range) — always first in stacks. */
+export const SAUDI_RIYAL_FONT_FAMILY = 'SaudiRiyalSign';
+
+/** Prepend Riyal sign face so ⃁ never falls back to missing-glyph tofu/bars. */
+export function withSaudiRiyalFont(stack: string): string {
+  const s = String(stack || '').trim();
+  if (!s) return `'${SAUDI_RIYAL_FONT_FAMILY}', sans-serif`;
+  if (s.includes(SAUDI_RIYAL_FONT_FAMILY)) return s;
+  return `'${SAUDI_RIYAL_FONT_FAMILY}', ${s}`;
+}
+
 export type BrandFontId = BrandFontEnId | BrandFontArId;
 export type BrandIconStyle = 'soft' | 'rounded' | 'sharp';
 /** UI weight keys — Light / Regular / Bold are primary; Medium optional */
@@ -952,7 +963,7 @@ export function applyStoreArabicTypography(
     customFontFamilyAr: opts.customFontFamilyAr ?? null,
     customFontUrlAr: opts.customFontUrlAr ?? null,
   };
-  const arStack = resolveArFontStack(brandSlice, arId);
+  const arStack = withSaudiRiyalFont(resolveArFontStack(brandSlice, arId));
   const weight = BRAND_FONT_WEIGHTS[weightKey] ?? BRAND_FONT_WEIGHTS.regular;
   const root = document.documentElement;
   root.style.setProperty('--font-ui-ar', arStack);
@@ -1051,8 +1062,8 @@ export function applyBrandCss(brand: BrandState, locale: 'en' | 'ar' = 'en'): vo
     : preset;
 
   const { activeId, enId, arId } = resolveBrandFonts(brand, locale);
-  const arStack = resolveArFontStack(brand, arId);
-  const enStack = BRAND_FONTS[enId]?.stack || BRAND_FONTS.jakarta.stack;
+  const arStack = withSaudiRiyalFont(resolveArFontStack(brand, arId));
+  const enStack = withSaudiRiyalFont(BRAND_FONTS[enId]?.stack || BRAND_FONTS.jakarta.stack);
   const activeStack = locale === 'ar' ? arStack : enStack;
   const icon = BRAND_ICON_RADIUS[brand.iconStyle] ?? BRAND_ICON_RADIUS.rounded;
   const weight = BRAND_FONT_WEIGHTS[brand.fontWeight ?? 'regular'] ?? BRAND_FONT_WEIGHTS.regular;
@@ -1069,6 +1080,7 @@ export function applyBrandCss(brand: BrandState, locale: 'en' | 'ar' = 'en'): vo
   root.style.setProperty('--portal-cta', `linear-gradient(90deg, ${p.p600}, ${p.p400})`);
 
   // EN/AR stacks always stored; CSS html[lang] picks --font-ui (one global face)
+  // SaudiRiyalSign first so U+20C1 never tofu (unicode-range keeps brand faces intact)
   root.style.setProperty('--font-ui-ar', arStack);
   root.style.setProperty('--font-ui-en', enStack);
   root.style.setProperty('--font-ar', arStack);

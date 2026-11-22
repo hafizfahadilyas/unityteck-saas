@@ -2,6 +2,15 @@
 
 **Surface:** Store Settings → Appearance · `storeChrome.ts` · `StoreChromeFields` · `BrandingPanel` · `portal-tokens.css` shell wallpaper.
 
+## Platform defaults (login / logout / local / live / ALL stores)
+Locked in `PLATFORM_CHROME_DEFAULTS` + `defaultStoreChrome()`:
+- **Custom color:** `#1e293b`
+- **Glass wallpaper:** `/images/shell-wallpaper-default.webp` (mountain photo)
+- **Blur:** `10px` · **Opacity:** `92%`
+- **Fill:** `custom` (not random palette)
+
+Merchant overrides stay per `store_id`. **Reset to default wallpaper** returns to the platform image above. Never borrow Store A’s upload as Store B’s default row.
+
 ## Locked behaviors
 - Custom **picture wallpaper** must sample brightness (`shellWallpaperLuma`) — never hardcode `shell-luma=dark` for every photo (white titles on light sky = banned).
 - Store owner **page BG + text color + title mode** (`pageBgColor` / `pageTextColor` / `shellTextMode`) persist per `store_id` in `chromeBrand`.
@@ -13,6 +22,8 @@
 - Re-enable debounce auto `saveStoreChrome` on every slider tick
 - Force white page titles on all custom wallpapers
 - Cross-store borrow of chrome images / brand colors
+- Change platform default color/wallpaper/blur/opacity without Owner ask
 
 ## Fonts
 EN/AR fonts + weights stay in BrandingPanel (global CSS vars) — extend, do not rebuild.
+**After leaving defaults:** if merchant changes UI font for a store, prefer **serif** (Amiri / Markazi) and apply store-wide via chromeBrand — not a second font system.

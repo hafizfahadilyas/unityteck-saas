@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import type { Product, StoreCategory } from '../../types';
 import { ProductCategoryMultiPicker } from './ProductCategoryMultiPicker';
 import { usePrefs } from '../../i18n/PrefsContext';
@@ -8,6 +8,12 @@ import { MediaPickerModal } from '../common/MediaPickerModal';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
 import { optimizeImageFile } from '../../utils/mediaOptimizer';
 import { RichTextEditor } from '../common/RichTextEditor';
+import { CoffeeLearnMoreProductSection } from './CoffeeLearnMoreProductSection';
+import type { CustomFieldItem } from './StoreProductEditorView';
+import {
+  isCoffeeProductEditorStore,
+  isPurchaseCustomField,
+} from '../../utils/coffeeLearnMoreFields';
 import {
   X,
   Maximize2,
@@ -106,7 +112,17 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
 }) => {
   const { t, locale, money } = usePrefs();
   const { toast } = useToast();
+  const { storeActiveTheme, activeStore, updateProduct } = useTenant();
   const isAr = locale === 'ar';
+  const coffeeThemeId =
+    (storeId && storeActiveTheme?.[storeId]) ||
+    (activeStore?.id && storeActiveTheme?.[activeStore.id]) ||
+    '';
+  const showCoffeeLearnMore = isCoffeeProductEditorStore({
+    storeId: storeId || activeStore?.id,
+    themeId: coffeeThemeId,
+    slug: activeStore?.slug,
+  });
 
   // Section Open/Close States (accordions)
   const [sectionsOpen, setSectionsOpen] = useState<Record<string, boolean>>({
@@ -115,11 +131,15 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
     pricing: true,
     inventory: true,
     variations: false,
+    learnMore: true,
     customFields: false,
     seo: false,
   });
 
-  const isSectionVisible = (key: ProductEditSectionKey) => visibleSections[key] !== false;
+  const isSectionVisible = (key: ProductEditSectionKey) => {
+    if (key === 'learnMore' && !showCoffeeLearnMore) return false;
+    return visibleSections[key] !== false;
+  };
 
   // Form Fields
   const [name, setName] = useState('');
@@ -145,7 +165,6 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
   const [shippingClass, setShippingClass] = useState<string>('Shoes');
 
   // Images
-  const { updateProduct } = useTenant();
   const [mainImage, setMainImage] = useState<string>('');
   const [gallery, setGallery] = useState<string[]>([]);
   const [isMediaPickerOpen, setIsMediaPickerOpen] = useState(false);
@@ -157,13 +176,19 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
   const thumbFileInputRef = useRef<HTMLInputElement>(null);
   const addFilesInputRef = useRef<HTMLInputElement>(null);
 
-  // Custom Fields
-  const [customFields, setCustomFields] = useState<{ id: string; name: string; value: string }[]>([]);
+  // Custom Fields (+ coffee Learn More content blocks live in the same array)
+  const [customFields, setCustomFields] = useState<CustomFieldItem[]>([]);
+  const [learnMoreVideoUrl, setLearnMoreVideoUrl] = useState('');
 
   // SEO
   const [seoTitle, setSeoTitle] = useState('');
   const [seoDescription, setSeoDescription] = useState('');
   const [customUrl, setCustomUrl] = useState('');
+
+  const purchaseCustomFields = useMemo(
+    () => (showCoffeeLearnMore ? customFields.filter((f) => isPurchaseCustomField(f)) : customFields),
+    [customFields, showCoffeeLearnMore],
+  );
 
   // Populate from active product
   useEffect(() => {
@@ -201,11 +226,31 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
       }
       setGallery(list.filter(Boolean));
 
+      const rawFields = Array.isArray((product as any).customFields)
+        ? ((product as any).customFields as CustomFieldItem[])
+        : [];
       setCustomFields(
-        Array.isArray((product as any).customFields)
-          ? (product as any).customFields
-          : []
+        rawFields.map((f, i) => ({
+          id: f.id || `cf_${i}`,
+          name: f.name || '',
+          nameAr: f.nameAr || '',
+          description: f.description || '',
+          type: f.type || 'Text',
+          required: !!f.required,
+          conditionalRule: f.conditionalRule || '—',
+          conditions: Array.isArray(f.conditions) ? f.conditions : [],
+          conditionJoin: f.conditionJoin === 'OR' ? 'OR' : 'AND',
+          extraPrice: f.extraPrice ?? 0,
+          options: Array.isArray(f.options) ? f.options : [],
+          imageUrl: f.imageUrl || '',
+          videoUrl: f.videoUrl || '',
+          contentEn: f.contentEn || '',
+          contentAr: f.contentAr || '',
+          hidden: !!f.hidden,
+          value: f.value || '',
+        })),
       );
+      setLearnMoreVideoUrl(String((product as any).videoUrl || ''));
 
       setSeoTitle(product.seoTitle || product.name || '');
       setSeoDescription(product.seoDescription || '');
@@ -467,6 +512,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
       image: mainImage || gallery[0] || FALLBACK_PRODUCT_IMAGE,
       galleryUrls: gallery,
       customFields: customFields as any,
+      videoUrl: showCoffeeLearnMore ? learnMoreVideoUrl.trim() || null : (product as any).videoUrl,
       seoTitle,
       seoDescription,
       customUrl,
@@ -1158,7 +1204,18 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
 
           )}
 
-          {/* 6. Custom Fields */}
+          {/* 6. Coffee Learn More Page (per-SKU) — coffee theme only */}
+          {isSectionVisible('learnMore') && showCoffeeLearnMore ? (
+            <CoffeeLearnMoreProductSection
+              isAr={isAr}
+              videoUrl={learnMoreVideoUrl}
+              onVideoUrlChange={setLearnMoreVideoUrl}
+              customFields={customFields}
+              onCustomFieldsChange={setCustomFields}
+            />
+          ) : null}
+
+          {/* 7. Custom Fields */}
           {isSectionVisible('customFields') && (
           <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900/50">
             <div
@@ -1187,33 +1244,37 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
 
             {sectionsOpen.customFields && (
               <div className="p-3.5 pt-0 space-y-2 border-t border-slate-100 dark:border-slate-800/80">
-                {customFields.map((f, idx) => (
-                  <div key={f.id || idx} className="flex items-center gap-2">
+                {purchaseCustomFields.map((f) => (
+                  <div key={f.id} className="flex items-center gap-2">
                     <input
                       type="text"
                       placeholder={isAr ? 'اسم الحقل' : 'Field name'}
                       value={f.name}
                       onChange={(e) => {
-                        const updated = [...customFields];
-                        updated[idx].name = e.target.value;
-                        setCustomFields(updated);
+                        setCustomFields(
+                          customFields.map((row) =>
+                            row.id === f.id ? { ...row, name: e.target.value } : row,
+                          ),
+                        );
                       }}
                       className="w-1/2 px-2.5 py-1 text-xs rounded-lg border bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
                     />
                     <input
                       type="text"
                       placeholder={isAr ? 'القيمة' : 'Value'}
-                      value={f.value}
+                      value={f.value || ''}
                       onChange={(e) => {
-                        const updated = [...customFields];
-                        updated[idx].value = e.target.value;
-                        setCustomFields(updated);
+                        setCustomFields(
+                          customFields.map((row) =>
+                            row.id === f.id ? { ...row, value: e.target.value } : row,
+                          ),
+                        );
                       }}
                       className="w-1/2 px-2.5 py-1 text-xs rounded-lg border bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
                     />
                     <button
                       type="button"
-                      onClick={() => setCustomFields(customFields.filter((_, i) => i !== idx))}
+                      onClick={() => setCustomFields(customFields.filter((row) => row.id !== f.id))}
                       className="p-1 text-rose-500 hover:bg-rose-50 rounded"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -1222,12 +1283,33 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                 ))}
                 <button
                   type="button"
-                  onClick={() => setCustomFields([...customFields, { id: `cf_${Date.now()}`, name: '', value: '' }])}
+                  onClick={() =>
+                    setCustomFields([
+                      ...customFields,
+                      {
+                        id: `cf_${Date.now()}`,
+                        name: '',
+                        value: '',
+                        type: 'Text',
+                        required: false,
+                        conditionalRule: '—',
+                        extraPrice: 0,
+                        options: [],
+                      },
+                    ])
+                  }
                   className="text-xs text-teal-600 font-bold hover:underline flex items-center gap-1 cursor-pointer pt-1"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>{isAr ? 'إضافة حقل جديد' : '+ Add Custom Field'}</span>
                 </button>
+                {showCoffeeLearnMore ? (
+                  <p className="text-[10px] pt-1" style={{ color: 'var(--muted)' }}>
+                    {isAr
+                      ? 'محتوى اعرف المزيد في القسم أعلاه — لا يُحذف من هنا.'
+                      : 'Learn More content is in the section above — not edited here.'}
+                  </p>
+                ) : null}
               </div>
             )}
           </div>

@@ -458,7 +458,7 @@ export const ProductDetailPage: React.FC = () => {
               {renderHonorHeading()}
             </h1>
 
-            {/* Buy Now & Video Buttons Directly Underneath */}
+            {/* Buy Now (+ Watch Video only when this product has a video URL) */}
             <div className="flex flex-wrap items-center gap-2.5 sm:gap-4 pt-1">
               <button
                 onClick={() => navigateTo('product-buy', product.id)}
@@ -468,16 +468,18 @@ export const ProductDetailPage: React.FC = () => {
                 <span>{language === 'AR' ? 'شراء الآن' : 'Buy Now'}</span>
               </button>
 
-              <button
-                onClick={() => {
-                  const el = document.getElementById('video-demo-section');
-                  if (el) el.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="px-4 sm:px-6 py-2.5 sm:py-3.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs sm:text-sm backdrop-blur-md transition-all transform active:scale-95 cursor-pointer flex items-center justify-center gap-2"
-              >
-                <Play className="w-3.5 h-3.5 fill-current text-white" />
-                <span>{language === 'AR' ? 'مشاهدة الفيديو' : 'Click to Watch Video'}</span>
-              </button>
+              {productVideoUrl ? (
+                <button
+                  onClick={() => {
+                    const el = document.getElementById('video-demo-section');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="px-4 sm:px-6 py-2.5 sm:py-3.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs sm:text-sm backdrop-blur-md transition-all transform active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current text-white" />
+                  <span>{language === 'AR' ? 'مشاهدة الفيديو' : 'Click to Watch Video'}</span>
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
