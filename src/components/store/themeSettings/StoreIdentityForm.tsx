@@ -172,17 +172,17 @@ export const StoreIdentityForm: React.FC = () => {
           initialFolder="branding"
         />
         <MediaUploadField
-          label={locale === 'ar' ? 'صورة جانب تسجيل الدخول' : 'Login page side image'}
+          label={locale === 'ar' ? 'خلفية صفحة تسجيل الدخول' : 'Login page background'}
           value={form.loginSideImageUrl || ''}
           onChange={(url) => setForm((prev) => ({ ...prev, loginSideImageUrl: url }))}
-          recommendedSize="960 × 1280 px"
+          recommendedSize="1920 × 1080 px"
           aspectRatio="banner"
           initialFolder="branding"
         />
         <p className="text-[10px] -mt-2" style={{ color: 'var(--muted)' }}>
           {locale === 'ar'
-            ? 'تظهر في الجانب الأيسر من صفحة تسجيل دخول لوحة التحكم لهذا المتجر فقط'
-            : 'Shown on the left side of this store’s admin login page only'}
+            ? 'خلفية كاملة لصفحة تسجيل دخول لوحة التحكم لهذا المتجر فقط — فارغ = الصورة الافتراضية للمنصة'
+            : 'Full-page admin login background for this store only — empty uses the platform default photo'}
         </p>
       </div>
 

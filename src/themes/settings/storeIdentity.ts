@@ -5,19 +5,23 @@
 
 import { bumpStore } from '../../api/cacheTags';
 import { isRetiredContactDigits, scrubPublicEmail, syncStoreContactIntoTheme } from './storeContact';
-/** Bundled Vite asset — avoids public/ SPA html fallback when file not picked up. */
-import loginBgModernUrl from '../../assets/images/login-side-saudi-modern-devices.jpg';
 
-/** Default portal login full-bg (modern Arabic desk: iMac / laptop / iPhone). */
-export const DEFAULT_LOGIN_SIDE_IMAGE = loginBgModernUrl as string;
+/**
+ * Platform default portal login full-bleed BG (modern Arabic desk: iMac / laptop / iPhone).
+ * Stable public/ path — never a Vite content-hash URL (those break after every rebuild).
+ */
+export const DEFAULT_LOGIN_SIDE_IMAGE = '/images/login-side-saudi-modern-devices.jpg';
 
-/** Public path aliases that should resolve to the bundled modern BG. */
-const LEGACY_LOGIN_SIDE_IMAGES = new Set([
-  '/images/login-side-saudi-sheikh-laptop.jpg',
-  'images/login-side-saudi-sheikh-laptop.jpg',
-  '/images/login-side-saudi-modern-devices.jpg',
-  'images/login-side-saudi-modern-devices.jpg',
-]);
+/** True when URL is empty or any known platform/legacy login BG (not a merchant upload). */
+export function isDefaultLoginSideImage(url: unknown): boolean {
+  if (typeof url !== 'string') return true;
+  const t = url.trim();
+  if (!t) return true;
+  if (t === DEFAULT_LOGIN_SIDE_IMAGE) return true;
+  // public/ aliases + old sheikh art + any Vite-hashed /assets/login-side-* copy
+  return /(^|\/)(images\/)?login-side-saudi-(modern-devices|sheikh-laptop)\.(jpe?g|webp|png)(\?|#|$)/i.test(t)
+    || /(^|\/)assets\/login-side-saudi-[^/?#]+\.(jpe?g|webp|png)(\?|#|$)/i.test(t);
+}
 
 export type StoreIdentitySettings = {
   storeName: string;
@@ -26,7 +30,7 @@ export type StoreIdentitySettings = {
   taglineEn: string;
   taglineAr: string;
   logoUrl: string;
-  /** Admin portal login left-side image (per store_id). Empty → platform general image. */
+  /** Admin portal login full-bleed BG (per store_id). Empty → platform default photo. */
   loginSideImageUrl?: string;
   phone: string;
   whatsapp: string;
@@ -67,7 +71,8 @@ export function defaultStoreIdentity(store: {
       logoUrl: (store.logo && store.logo.startsWith('http'))
         ? store.logo
         : '/src/assets/images/coffee_hero_flagship_machine_1791218907782.jpg',
-      loginSideImageUrl: DEFAULT_LOGIN_SIDE_IMAGE,
+      // Empty = platform default login BG (stable public path via resolveLoginSideImageUrl)
+      loginSideImageUrl: '',
       // Contact = merchant / API only — never invent numbers or use login email as public email
       phone: (store as { phone?: string }).phone || '',
       whatsapp: (store as { whatsapp?: string }).whatsapp || '',
@@ -90,7 +95,7 @@ export function defaultStoreIdentity(store: {
       logoUrl: (store.logo && store.logo.startsWith('http'))
         ? store.logo
         : 'https://cdn.salla.sa/cdn-cgi/image/fit=scale-down,width=400,height=400,onerror=redirect,format=auto/wYYVD/OZbzrkkW0icMZlcDNOiZnU4PSjwq6WxXgCkwT0PQ.png',
-      loginSideImageUrl: DEFAULT_LOGIN_SIDE_IMAGE,
+      loginSideImageUrl: '',
       phone: (store as { phone?: string }).phone || '',
       whatsapp: (store as { whatsapp?: string }).whatsapp || '',
       email: '',
@@ -109,7 +114,7 @@ export function defaultStoreIdentity(store: {
     taglineEn: 'Fresh natural flowers & Holy Haram gifts',
     taglineAr: 'باقات ورد طبيعي وهدايا الحرم المكي الشريف',
     logoUrl: (store.logo && store.logo.startsWith('http')) ? store.logo : 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?auto=format&fit=crop&w=300&q=80',
-    loginSideImageUrl: DEFAULT_LOGIN_SIDE_IMAGE,
+    loginSideImageUrl: '',
     phone: (store as { phone?: string }).phone || '',
     whatsapp: (store as { whatsapp?: string }).whatsapp || '',
     email: '',
@@ -130,6 +135,8 @@ function stripInventedContacts(data: StoreIdentitySettings): StoreIdentitySettin
   if (isRetiredContactDigits(next.whatsapp)) next.whatsapp = '';
   if (isRetiredContactDigits(next.phone)) next.phone = '';
   next.email = scrubPublicEmail(next.email);
+  // Upgrade legacy / Vite-hash login BG → empty (platform default on resolve)
+  if (isDefaultLoginSideImage(next.loginSideImageUrl)) next.loginSideImageUrl = '';
   return next;
 }
 
@@ -167,6 +174,8 @@ export function readStoreIdentity(
 
 export function writeStoreIdentity(storeId: string, data: StoreIdentitySettings): void {
   const next = stripInventedContacts({ ...data, updatedAt: new Date().toISOString() });
+  // Never persist platform/legacy default login BG — empty means resolve → DEFAULT_LOGIN_SIDE_IMAGE
+  if (isDefaultLoginSideImage(next.loginSideImageUrl)) next.loginSideImageUrl = '';
   localStorage.setItem(storageKey(storeId), JSON.stringify(next));
   // Auto-propagate this store’s WhatsApp + email into header/footer/slider/builder mirrors
   syncStoreContactIntoTheme(storeId, next);
@@ -186,7 +195,7 @@ export function writeStoreIdentity(storeId: string, data: StoreIdentitySettings)
   }
 }
 
-/** Resolve portal login side image for a store (or platform general default). */
+/** Resolve portal login full-bleed BG for a store (or platform default). */
 export function resolveLoginSideImageUrl(
   storeId: string | null | undefined,
   fallbackStore?: { id?: string; name?: string; ownerEmail?: string; logo?: string },
@@ -200,7 +209,7 @@ export function resolveLoginSideImageUrl(
       logo: fallbackStore?.logo,
     });
     const url = String(identity.loginSideImageUrl || '').trim();
-    if (!url || LEGACY_LOGIN_SIDE_IMAGES.has(url)) return DEFAULT_LOGIN_SIDE_IMAGE;
+    if (isDefaultLoginSideImage(url)) return DEFAULT_LOGIN_SIDE_IMAGE;
     return url;
   } catch {
     return DEFAULT_LOGIN_SIDE_IMAGE;
