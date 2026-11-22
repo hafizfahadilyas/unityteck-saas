@@ -33,17 +33,20 @@ export const VisitorsByAgeChart: React.FC<VisitorsByAgeChartProps> = React.memo(
   const barWidth = 26;
 
   return (
-    <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 shadow-xs flex flex-col justify-between h-full min-h-[260px]">
+    <div
+      className="u-card p-4 sm:p-5 rounded-[1.25rem] shadow-xs flex flex-col justify-between h-full min-h-[260px]"
+      style={{ fontFamily: 'var(--font-ui)' }}
+    >
       {/* ── Card Header ── */}
       <div className="flex items-center gap-2 mb-3">
         <div className="u-icon-brand w-8 h-8 rounded-xl flex items-center justify-center">
-          <Users className="w-4 h-4" />
+          <Users className="w-4 h-4" strokeWidth={1.75} />
         </div>
         <div>
-          <h3 className="text-sm font-black text-slate-900 dark:text-white leading-tight">
+          <h3 className="text-sm font-black leading-tight" style={{ color: 'var(--text)' }}>
             {isAr ? 'الزوار حسب الفئة العمرية' : 'Visitors by Age'}
           </h3>
-          <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+          <p className="text-[11px] font-bold" style={{ color: 'var(--muted)' }}>
             {isAr ? 'من أي فئات عمرية يأتي زوار متجرك؟' : 'Which age groups are your visitors from?'}
           </p>
         </div>
@@ -53,12 +56,12 @@ export const VisitorsByAgeChart: React.FC<VisitorsByAgeChartProps> = React.memo(
       {points.length === 0 ? (
         <div className="py-12 px-4 text-center flex flex-col items-center justify-center">
           <div className="u-icon-brand w-10 h-10 rounded-2xl flex items-center justify-center mb-2.5">
-            <Users className="w-5 h-5 text-slate-400 dark:text-slate-500" />
+            <Users className="w-5 h-5" style={{ color: 'var(--muted)' }} strokeWidth={1.75} />
           </div>
-          <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+          <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>
             {isAr ? 'لا توجد بيانات ديموغرافية بعد' : 'No demographic data available'}
           </p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-[240px]">
+          <p className="text-xs mt-1 max-w-[240px]" style={{ color: 'var(--muted)' }}>
             {isAr ? 'ستتوفر إحصائيات الأعمار عند ربط تحليلات جوجل أو تسجيل العملاء' : 'Demographic insights will appear when customers register with birthday or Google Analytics is connected'}
           </p>
         </div>

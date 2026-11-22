@@ -417,16 +417,38 @@ function TabFallback() {
     : (activeStore?.id || '');
 
   const themeSettings = readAllThemeSettings(fallbackStoreId, activeStore);
-  const isEnabled = themeSettings.colors?.enableDashboardLoader ?? true;
+  // Default OFF — match themeSettingsStore seeds; never force brand splash on tab switch.
+  const isEnabled = themeSettings.colors?.enableDashboardLoader ?? false;
+  const { locale } = usePrefs();
+  const isAr = locale === 'ar';
+  const [slow, setSlow] = React.useState(false);
+  React.useEffect(() => {
+    const t = window.setTimeout(() => setSlow(true), 6000);
+    return () => window.clearTimeout(t);
+  }, []);
   if (!isEnabled) {
     return (
-      <div className="flex items-center justify-center min-h-[120px] w-full" aria-busy="true">
+      <div
+        className="flex flex-col items-center justify-center gap-2 min-h-[120px] w-full px-4"
+        aria-busy="true"
+        role="status"
+      >
         <div className="w-5 h-5 rounded-full border-2 border-slate-300 border-t-emerald-500 animate-spin" />
+        {slow ? (
+          <button
+            type="button"
+            className="text-xs font-semibold underline underline-offset-2"
+            style={{ color: 'var(--muted, #64748b)' }}
+            onClick={() => window.location.reload()}
+          >
+            {isAr ? 'التحميل بطيء — إعادة المحاولة' : 'Still loading — tap to retry'}
+          </button>
+        ) : null}
       </div>
     );
   }
 
-  // Compact inline only — full brand splash reserved for true storefront first paint
+  // Compact inline only — full brand splash reserved for storefront when enableLoadingScreen is on
   return (
     <div className="flex items-center justify-center min-h-[120px] w-full p-4" aria-busy="true" role="status">
       <DashboardLoader
@@ -806,6 +828,25 @@ const getDefaultStoreTheme = (storeId?: string): string => {
       setStoreTab('dashboard');
     }
   }, [storeTab, setStoreTab]);
+
+  // Warm Store Settings chunk so tab open is not a blank spinner
+  useEffect(() => {
+    if (mode !== 'store') return;
+    const warm = () => {
+      void import('./components/store/StoreSettings');
+    };
+    const ric = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number })
+      .requestIdleCallback;
+    if (typeof ric === 'function') {
+      const id = ric(warm, { timeout: 2500 });
+      return () => {
+        const cancel = (window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback;
+        cancel?.(id);
+      };
+    }
+    const t = window.setTimeout(warm, 900);
+    return () => window.clearTimeout(t);
+  }, [mode]);
 
   const [isCreateStoreOpen, setIsCreateStoreOpen] = useState(false);
   const [storeSearch, setStoreSearch] = useState('');
@@ -1796,7 +1837,8 @@ const getDefaultStoreTheme = (storeId?: string): string => {
       data-portal={mode}
       data-theme={theme}
       style={{
-        background: 'var(--bg)',
+        /* backgroundColor only — store glass shell uses CSS background-image wash */
+        backgroundColor: mode === 'store' ? 'transparent' : 'var(--bg)',
         color: 'var(--text)',
         fontFamily: 'var(--font-ui)',
       }}

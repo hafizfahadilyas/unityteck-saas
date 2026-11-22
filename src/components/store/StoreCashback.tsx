@@ -254,7 +254,7 @@ export const StoreCashback: React.FC<StoreCashbackProps> = ({ onNavigateTab }) =
                   <div className="text-3xl font-black text-pink-700 dark:text-pink-300">
                     {cashbackType === 'percentage'
                       ? (isAr ? `احصل على ${cashbackValue}%` : `Get ${cashbackValue}%`)
-                      : (isAr ? `احصل على ${cashbackValue} ر.س` : `Get ${cashbackValue} SAR`)}
+                      : (isAr ? `احصل على ${cashbackValue} ⃁` : `Get ${cashbackValue} ⃁`)}
                   </div>
                   <div className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-1">
                     {isAr ? 'إلى محفظة هذا المتجر' : 'back to this store’s wallet'}
@@ -262,8 +262,8 @@ export const StoreCashback: React.FC<StoreCashbackProps> = ({ onNavigateTab }) =
                   {enableMinCart && (
                     <div className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
                       {isAr
-                        ? `عند إنفاق ${minCartValue} ر.س أو أكثر`
-                        : `When you spend ${minCartValue} SAR or more`}
+                        ? `عند إنفاق ${minCartValue} ⃁ أو أكثر`
+                        : `When you spend ${minCartValue} ⃁ or more`}
                     </div>
                   )}
                 </div>
@@ -332,7 +332,7 @@ export const StoreCashback: React.FC<StoreCashbackProps> = ({ onNavigateTab }) =
                       className="w-full px-3.5 py-2.5 pe-8 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold"
                     />
                     <span className="absolute end-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                      {cashbackType === 'percentage' ? '%' : (isAr ? 'ر.س' : 'SAR')}
+                      {cashbackType === 'percentage' ? '%' : ('⃁')}
                     </span>
                   </div>
                 </div>
@@ -480,7 +480,7 @@ export const StoreCashback: React.FC<StoreCashbackProps> = ({ onNavigateTab }) =
                     onChange={(e) => setMinCartValue(e.target.value)}
                     className="w-24 px-2.5 py-1 text-xs bg-white dark:bg-slate-800 border rounded-lg font-bold disabled:opacity-40"
                   />
-                  <span className="text-xs text-slate-400">{isAr ? 'ر.س' : 'SAR'}</span>
+                  <span className="text-xs text-slate-400">{'⃁'}</span>
                 </div>
               </div>
 
@@ -502,7 +502,7 @@ export const StoreCashback: React.FC<StoreCashbackProps> = ({ onNavigateTab }) =
                     onChange={(e) => setMaxCashback(e.target.value)}
                     className="w-24 px-2.5 py-1 text-xs bg-white dark:bg-slate-800 border rounded-lg font-bold disabled:opacity-40"
                   />
-                  <span className="text-xs text-slate-400">{isAr ? 'ر.س' : 'SAR'}</span>
+                  <span className="text-xs text-slate-400">{'⃁'}</span>
                 </div>
               </div>
 

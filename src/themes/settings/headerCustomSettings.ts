@@ -244,7 +244,7 @@ export const DEFAULT_HEADER_SETTINGS: HeaderCustomSettings = {
         id: 'msg-2',
         icon: 'Truck',
         textAr: 'شحن مجاني لكافة الطلبات فوق 299 ريال',
-        textEn: 'Free Shipping on Orders Above 299 SAR',
+        textEn: 'Free Shipping on Orders Above 299 ⃁',
         active: true,
       },
       {
@@ -442,7 +442,7 @@ export const COFFEE_HEADER_SETTINGS: HeaderCustomSettings = {
         id: 'cof-msg-4',
         icon: 'Gift',
         textAr: 'شحن مجاني لكافة طلبات محاصيل القهوة والمعدات فوق 199 ريال',
-        textEn: 'Free Express Shipping on Coffee & Gear Orders Above 199 SAR',
+        textEn: 'Free Express Shipping on Coffee & Gear Orders Above 199 ⃁',
         active: true,
       },
     ],
@@ -610,7 +610,7 @@ export const AUTO_HEADER_SETTINGS: HeaderCustomSettings = {
         id: 'auto-msg-2',
         icon: 'Truck',
         textAr: 'شحن سريع ومجاني لكافة مناطق المملكة للطلبات فوق 400 ريال',
-        textEn: 'Fast Free Delivery Across KSA on Orders Above 400 SAR',
+        textEn: 'Fast Free Delivery Across KSA on Orders Above 400 ⃁',
         active: true,
       },
       {

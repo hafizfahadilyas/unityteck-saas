@@ -663,7 +663,7 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
 
                       <div className="text-end shrink-0">
                         <span className="font-mono font-bold text-neutral-900">
-                          {language === 'AR' ? `${(item.unitPrice * item.quantity).toLocaleString()}.00 ر.س` : `SAR ${(item.unitPrice * item.quantity).toLocaleString()}.00`}
+                          {language === 'AR' ? `${(item.unitPrice * item.quantity).toLocaleString()}.00 ⃁` : `⃁ ${(item.unitPrice * item.quantity).toLocaleString()}.00`}
                         </span>
                       </div>
                     </div>
@@ -678,7 +678,7 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
                   <div className="text-end">
                     <span className="text-neutral-500 mr-2">{language === 'AR' ? 'الإجمالي:' : 'Total:'}</span>
                     <span className="font-mono font-black text-sm text-neutral-950">
-                      {language === 'AR' ? `${Number(order.total || 0).toLocaleString()}.00 ر.س` : `SAR ${Number(order.total || 0).toLocaleString()}.00`}
+                      {language === 'AR' ? `${Number(order.total || 0).toLocaleString()}.00 ⃁` : `⃁ ${Number(order.total || 0).toLocaleString()}.00`}
                     </span>
                   </div>
                 </div>

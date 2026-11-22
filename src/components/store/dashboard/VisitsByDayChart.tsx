@@ -36,13 +36,13 @@ export const VisitsByDayChart: React.FC<VisitsByDayChartProps> = React.memo(({ d
 
   return (
     <div
-      className="u-card p-4 sm:p-5 rounded-2xl shadow-xs flex flex-col justify-between h-full min-h-[260px]"
+      className="u-card p-4 sm:p-5 rounded-[1.25rem] shadow-xs flex flex-col justify-between h-full min-h-[260px]"
       style={{ fontFamily: 'var(--font-ui)' }}
     >
       {/* ── Card Header ── */}
       <div className="flex items-center gap-2 mb-3">
         <div className="u-icon-brand w-8 h-8 rounded-xl flex items-center justify-center">
-          <Calendar className="w-4 h-4" />
+          <Calendar className="w-4 h-4" strokeWidth={1.75} />
         </div>
         <div>
           <h3 className="text-sm font-black leading-tight" style={{ color: 'var(--text)' }}>
@@ -58,12 +58,12 @@ export const VisitsByDayChart: React.FC<VisitsByDayChartProps> = React.memo(({ d
       {points.length === 0 ? (
         <div className="py-12 px-4 text-center flex flex-col items-center justify-center">
           <div className="u-icon-brand w-10 h-10 rounded-2xl flex items-center justify-center mb-2.5">
-            <Calendar className="w-5 h-5 opacity-60" />
+            <Calendar className="w-5 h-5 opacity-60" strokeWidth={1.75} />
           </div>
-          <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+          <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>
             {isAr ? 'لا توجد بيانات زيارات يومية بعد' : 'No daily visit data yet'}
           </p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-[240px]">
+          <p className="text-xs mt-1 max-w-[240px]" style={{ color: 'var(--muted)' }}>
             {isAr ? 'ستظهر هنا نسب الزيارات والطلبات لكل يوم من أيام الأسبوع' : 'Day-by-day distribution will appear as visits and orders come in'}
           </p>
         </div>

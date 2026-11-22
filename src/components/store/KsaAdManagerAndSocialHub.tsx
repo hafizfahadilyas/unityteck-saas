@@ -223,8 +223,8 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
     setWallet(next);
     toast(
       isAr
-        ? `تم إرسال طلب شحن المحفظة بمبلغ${topUpAmount}ر.س إلى الإدارة العليا للاعتماد!`
-        : `Sent ${topUpAmount} SAR Ad Wallet top-up request to Master Admin for approval!`,
+        ? `تم إرسال طلب شحن المحفظة بمبلغ${topUpAmount}⃁ إلى الإدارة العليا للاعتماد!`
+        : `Sent ${topUpAmount} ⃁ Ad Wallet top-up request to Master Admin for approval!`,
       'success',
     );
   };
@@ -236,8 +236,8 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
     setWallet(next);
     toast(
       isAr
-        ? `تم اعتماد وإيداع${amount}ر.س في محفظة إعلانات المتجر فوراً!`
-        : `Master Admin approved & deposited ${amount} SAR into Store Ad Wallet!`,
+        ? `تم اعتماد وإيداع${amount}⃁ في محفظة إعلانات المتجر فوراً!`
+        : `Master Admin approved & deposited ${amount} ⃁ into Store Ad Wallet!`,
       'success',
     );
   };
@@ -374,8 +374,8 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
 
     toast(
       isAr
-        ? `تم تحويل زائر إعلان (${camp.platform}) من مدينة${city}إلى طلب حقيقي بقيمة${orderTotal}ر.س!`
-        : `Converted ${camp.platform.toUpperCase()} Ad visitor from ${city} into a real order (${orderTotal} SAR)!`,
+        ? `تم تحويل زائر إعلان (${camp.platform}) من مدينة${city}إلى طلب حقيقي بقيمة${orderTotal}⃁!`
+        : `Converted ${camp.platform.toUpperCase()} Ad visitor from ${city} into a real order (${orderTotal} ⃁)!`,
       'success',
     );
   };
@@ -498,7 +498,7 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
                   </div>
                   {wallet.pendingTopUpSar > 0 && (
                     <span className="text-xs font-bold text-amber-500">
-                      (+{wallet.pendingTopUpSar} SAR {isAr ? 'بانتظار اعتماد الماستر' : 'Pending Master Approval'})
+                      (+{wallet.pendingTopUpSar} ⃁ {isAr ? 'بانتظار اعتماد الماستر' : 'Pending Master Approval'})
                     </span>
                   )}
                 </div>
@@ -536,7 +536,7 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
                     onClick={handleRequestTopUp}
                     className="flex-1 py-2 px-3 rounded-xl text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 cursor-pointer"
                   >
-                    {isAr ? `طلب شحن (${topUpAmount}ر.س)` : `Deposit ${topUpAmount} SAR`}
+                    {isAr ? `طلب شحن (${topUpAmount}⃁)` : `Deposit ${topUpAmount} ⃁`}
                   </button>
                   <button
                     type="button"
@@ -701,7 +701,7 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
                           </td>
                           <td className="py-3 px-4 font-bold">{camp.status}</td>
                           <td className="py-3 px-4 font-mono font-bold">
-                            {camp.daily_budget != null ? `${camp.daily_budget} SAR` : '—'}
+                            {camp.daily_budget != null ? `${camp.daily_budget} ⃁` : '—'}
                           </td>
                           <td className="py-3 px-4 font-mono font-bold">
                             {camp.impressions ?? 0} / {camp.clicks ?? 0}
@@ -975,7 +975,7 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold block">{isAr ? 'الميزانية اليومية (ر.س)' : 'Daily Budget (SAR)'}</label>
+                <label className="text-xs font-bold block">{isAr ? 'الميزانية اليومية (⃁)' : 'Daily Budget (⃁)'}</label>
                 <input
                   type="number"
                   min={20}

@@ -507,7 +507,7 @@ export const CatalogPage: React.FC = () => {
             <div className="space-y-2 pt-2 border-t border-[#f0ede6]">
               <div className="flex justify-between text-xs">
                 <span className="font-bold text-[#102a1c]">{isAr ? 'السعر حتى:' : 'Max Price:'}</span>
-                <span className="font-mono font-bold text-[#102a1c]">{priceMax} {isAr ? 'ر.س' : 'SAR'}</span>
+                <span className="font-mono font-bold text-[#102a1c]">{priceMax} {'⃁'}</span>
               </div>
               <input
                 type="range"
@@ -522,8 +522,8 @@ export const CatalogPage: React.FC = () => {
                 className="w-full accent-[#102a1c] cursor-pointer"
               />
               <div className="flex justify-between text-[10px] text-[#3d3830] font-mono">
-                <span>{isAr ? '١٨٠ ر.س' : 'SAR 180'}</span>
-                <span>{catalogPriceCeiling} {isAr ? 'ر.س' : 'SAR'}</span>
+                <span>{isAr ? '١٨٠ ⃁' : '⃁ 180'}</span>
+                <span>{catalogPriceCeiling} {'⃁'}</span>
               </div>
             </div>
 
@@ -816,11 +816,11 @@ export const CatalogPage: React.FC = () => {
                                   {product.price}
                                 </span>
                                 <span className="text-xs text-[#8c8275] font-bold">
-                                  {isAr ? 'ر.س' : 'SAR'}
+                                  {'⃁'}
                                 </span>
                                 {product.originalPrice && (
                                   <span className="text-xs text-[#999] line-through font-mono">
-                                    {product.originalPrice} ر.س
+                                    {product.originalPrice} ⃁
                                   </span>
                                 )}
                               </div>
@@ -848,8 +848,8 @@ export const CatalogPage: React.FC = () => {
                                       : '';
                                     if (!sPhone) return;
                                     const text = isAr
-                                      ? `مرحباً${sNameAr}، أود طلب المنتج: *${pName}* بسعر${product.price}ر.س.`
-                                      : `Hello ${sNameEn}, I want to order *${pName}* for ${product.price} SAR.`;
+                                      ? `مرحباً${sNameAr}، أود طلب المنتج: *${pName}* بسعر${product.price}⃁.`
+                                      : `Hello ${sNameEn}, I want to order *${pName}* for ${product.price} ⃁.`;
                                     window.open(`https://wa.me/${sPhone}?text=${encodeURIComponent(text)}`, '_blank');
                                   }}
                                   className="py-2 px-3 rounded-xl bg-[#25D366]/20 hover:bg-[#25D366] text-[#25D366] hover:text-white text-xs font-bold flex items-center gap-1 transition-all"

@@ -102,7 +102,7 @@ export class WhatsAppService {
       messageText = this.formatMessage(template, {
         customerName: payload.customerName || (isAr ? 'عميلنا العزيز' : 'Valued Customer'),
         orderNumber: payload.orderNumber || '',
-        amount: payload.amount !== undefined ? `${payload.amount} SAR` : '',
+        amount: payload.amount !== undefined ? `${payload.amount} ⃁` : '',
         discountCode: payload.discountCode || 'GIFT10',
         productName: payload.productName || '',
         checkoutUrl: payload.checkoutUrl || 'https://giftshop-sa.com/checkout',

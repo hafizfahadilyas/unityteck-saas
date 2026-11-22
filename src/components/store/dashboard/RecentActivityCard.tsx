@@ -60,10 +60,17 @@ export const RecentActivityCard: React.FC<RecentActivityCardProps> = React.memo(
 
   const displayActivities = React.useMemo<ActivityItem[]>(() => {
     const activities: ActivityItem[] = [];
+    // O(1) product image lookup — avoid products.find inside every row (dashboard hang).
+    const productImageById = new Map<string, string>();
+    for (let i = 0; i < products.length; i++) {
+      const p = products[i];
+      if (p?.id && p.image) productImageById.set(String(p.id), p.image);
+    }
+    const leanOrders = Array.isArray(orders) ? orders.slice(0, 40) : [];
 
     // 1. Real completed / processing orders (not abandoned carts)
-    if (Array.isArray(orders) && orders.length > 0) {
-      orders.forEach((ord) => {
+    if (leanOrders.length > 0) {
+      leanOrders.forEach((ord) => {
         const st = String(ord.status || '').toLowerCase();
         if (st === 'draft' || st === 'abandoned') return;
         const pay = String(ord.paymentStatus || '').toLowerCase();
@@ -80,9 +87,10 @@ export const RecentActivityCard: React.FC<RecentActivityCardProps> = React.memo(
         const timeAgoEn = rawDateStr ? formatRelativeTime(rawDateStr, 'en') : (ord.time || ord.date || '');
         const timeAgoAr = rawDateStr ? formatRelativeTime(rawDateStr, 'ar') : (ord.time || ord.date || '');
         // Real item image only — never borrow another product as a fake avatar.
+        const firstItemId = ord.items?.[0]?.id ? String(ord.items[0].id) : '';
         const itemImg =
           ord.items?.[0]?.image ||
-          products.find((p) => p.id === ord.items?.[0]?.id)?.image ||
+          (firstItemId ? productImageById.get(firstItemId) || '' : '') ||
           '';
 
         activities.push({
@@ -114,7 +122,7 @@ export const RecentActivityCard: React.FC<RecentActivityCardProps> = React.memo(
           (isAr ? 'زائر' : 'Visitor');
         const productLabel = (row.product_name && String(row.product_name).trim()) || '';
         const metaPid = asStringMeta(row.meta?.product_id) || asStringMeta((row as { product_id?: string }).product_id);
-        const productImg = products.find((p) => String(p.id) === metaPid)?.image || '';
+        const productImg = metaPid ? productImageById.get(metaPid) || '' : '';
 
         if (type === 'add_to_cart') {
           activities.push({
@@ -166,9 +174,9 @@ export const RecentActivityCard: React.FC<RecentActivityCardProps> = React.memo(
     }
 
     // 3. Abandoned carts from incomplete orders (pending / draft / abandoned status)
-    if (Array.isArray(orders) && orders.length > 0) {
+    if (leanOrders.length > 0) {
       const abandonedStatuses = new Set(['pending', 'draft', 'abandoned', 'cancelled', 'unpaid']);
-      orders.forEach((ord) => {
+      leanOrders.forEach((ord) => {
         const st = String(ord.status || '').toLowerCase();
         if (!abandonedStatuses.has(st)) return;
         // Paid / completed orders already shown as "placed"
@@ -201,7 +209,7 @@ export const RecentActivityCard: React.FC<RecentActivityCardProps> = React.memo(
     if (Array.isArray(customers) && customers.length > 0) {
       const now = Date.now();
       const sixtyDaysMs = 60 * 24 * 60 * 60 * 1000;
-      customers.forEach((cust) => {
+      customers.slice(0, 40).forEach((cust) => {
         if (!cust?.id || !cust.registeredDate) return;
         // Skip legacy demo seed ids if any linger in cache
         if (/^(cust-cof-|cust-blc-|cust-mkk-)/i.test(String(cust.id))) return;
@@ -299,13 +307,16 @@ export const RecentActivityCard: React.FC<RecentActivityCardProps> = React.memo(
 
   return (
     <div
-      className="u-card p-4 sm:p-5 rounded-2xl shadow-xs flex flex-col h-full min-h-[260px] flex-1"
+      className="u-card p-4 sm:p-5 rounded-[1.25rem] shadow-xs flex flex-col h-full min-h-[260px] flex-1"
       style={{ fontFamily: 'var(--font-ui)' }}
     >
-      <div className="flex items-center justify-between pb-3 mb-3 shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+      <div
+        className="flex items-center justify-between pb-3 mb-3 shrink-0"
+        style={{ borderBottom: '1px solid var(--glass-border-soft, var(--border))' }}
+      >
         <div className="flex items-center gap-2.5">
           <div className="u-icon-brand w-8 h-8 rounded-xl flex items-center justify-center">
-            <Activity className="w-4 h-4" />
+            <Activity className="w-4 h-4" strokeWidth={1.75} />
           </div>
           <h3 className="text-sm font-black leading-tight" style={{ color: 'var(--text)' }}>
             {isAr ? 'النشاط الأخير' : 'Recent Activity'}

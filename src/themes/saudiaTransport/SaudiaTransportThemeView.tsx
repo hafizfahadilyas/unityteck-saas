@@ -714,13 +714,13 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
     if (p) {
       text += `*المنتج:* ${p.nameAr || p.name}%0a*الكود:* ${p.sku}%0a`;
       if (c && p.type === 'seat-cover') text += `*اللون والتطريز:* ${c.nameAr} (${c.nameEn})%0a`;
-      text += `*السعر:* ${finalPrice} ر.س%0a`;
+      text += `*السعر:* ${finalPrice} ⃁%0a`;
     } else if (cart.length > 0) {
       text += `*سلة المشتريات:*%0a`;
       cart.forEach((it, i) => {
         text += `${i + 1}. ${it.product.nameAr || it.product.name} (${it.selectedColor?.nameAr || 'بيج'} - ${it.selectedCoverage || ''}) x ${it.quantity}%0a`;
       });
-      text += `*الإجمالي:* ${cartTotal} ر.س%0a`;
+      text += `*الإجمالي:* ${cartTotal} ⃁%0a`;
     } else {
       text += isAr ? `أريد تفصيل تلبيسة أو أرضيات لسيارتي` : `I want custom tailored seat covers or floor mats`;
     }
@@ -1619,7 +1619,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               onSelectMat={(mat) => setSelectedFloorMatModal(mat)}
               onOpenWhatsApp={(mat, selectedColorName) => {
                 const customMsg = isAr
-                  ? `مرحباً متجر السعيدي، أرغب بالطلب والاستفسار عن أرضيات 5D ليزر:\n*النوع:*${mat.nameAr || mat.name}\n${selectedColorName ?`*اللون المفضل:* ${selectedColorName}\n` : ''}*السعر:* ${mat.price} ر.س\n*المطلوب:* تفصيل ليزري لموديل سيارتي.`
+                  ? `مرحباً متجر السعيدي، أرغب بالطلب والاستفسار عن أرضيات 5D ليزر:\n*النوع:*${mat.nameAr || mat.name}\n${selectedColorName ?`*اللون المفضل:* ${selectedColorName}\n` : ''}*السعر:* ${mat.price} ⃁\n*المطلوب:* تفصيل ليزري لموديل سيارتي.`
                   : `Hello Al-Saeedi Car Services, I would like to order 5D Laser Floor Mats:\n*Type:* ${mat.nameEn || mat.name}\n${selectedColorName ? `*Preferred Color:* ${selectedColorName}\n` : ''}*Price:* ${mat.price} SAR\n*Request:* Laser tailored for my vehicle model.`;
                 openWhatsAppOrder(mat, undefined, undefined, customMsg);
               }}
@@ -2197,7 +2197,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                     {/* Installments Mini Banner (Tamara / Tabby) */}
                     <div className="py-1 px-1.5 sm:px-2 rounded-lg bg-amber-50/80 border border-amber-200/60 flex items-center justify-between text-[8.5px] sm:text-[9.5px]">
                       <span className="text-amber-900 font-bold truncate">
-                        {isAr ? `4 دفعات x${monthlyTabby}ر.س` : `4x ${monthlyTabby} SAR`}
+                        {isAr ? `4 دفعات x${monthlyTabby}⃁` : `4x ${monthlyTabby} ⃁`}
                       </span>
                       <span className="text-[#3e0f77] font-black shrink-0">{isAr ? 'تابي · تمارا' : 'Tabby'}</span>
                     </div>
@@ -2207,11 +2207,11 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                       <div className="flex items-baseline justify-between">
                         <div>
                           <span className="font-black text-sm sm:text-base text-slate-900">{finalPrice}</span>
-                          <span className="text-[10px] font-bold text-[#b07e16] mr-0.5 ml-0.5">{isAr ? 'ر.س' : 'SAR'}</span>
+                          <span className="text-[10px] font-bold text-[#b07e16] mr-0.5 ml-0.5">{'⃁'}</span>
                         </div>
                         {originalPrice > finalPrice && (
                           <span className="text-[10px] text-slate-400 line-through">
-                            {originalPrice} {isAr ? 'ر.س' : 'SAR'}
+                            {originalPrice} {'⃁'}
                           </span>
                         )}
                       </div>
@@ -2367,7 +2367,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                     <img src={item.selectedColor?.image || item.product.image} alt="cart item" className="w-12 h-12 rounded-lg object-cover" />
                     <div className="flex-1 min-w-0">
                       <h5 className="font-bold text-slate-900 line-clamp-1">{isAr ? item.product.nameAr : item.product.nameEn}</h5>
-                      <span className="text-[10px] text-[#3e0f77] font-bold block">{item.selectedColor?.nameAr || 'مخصص'} · {item.unitPrice * item.quantity} {isAr ? 'ر.س' : 'SAR'}</span>
+                      <span className="text-[10px] text-[#3e0f77] font-bold block">{item.selectedColor?.nameAr || 'مخصص'} · {item.unitPrice * item.quantity} {'⃁'}</span>
                       {item.specs && (
                         <div className="text-[9px] text-slate-500 space-y-0.5">
                           <span className="block truncate font-semibold text-slate-700">
@@ -2400,7 +2400,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               <div className="p-4 bg-slate-50 border-t border-slate-200 space-y-2.5">
                 <div className="flex items-center justify-between font-black text-sm text-slate-900">
                   <span>{isAr ? 'الإجمالي:' : 'Total:'}</span>
-                  <span className="text-[#3e0f77]">{cartTotal} {isAr ? 'ر.س' : 'SAR'}</span>
+                  <span className="text-[#3e0f77]">{cartTotal} {'⃁'}</span>
                 </div>
                 <button 
                   onClick={() => { setCartDrawerOpen(false); setCheckoutOpen(true); }}
@@ -2464,7 +2464,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
 
               <div className="pt-2 border-t border-slate-100 flex items-center justify-between font-black text-sm">
                 <span>{isAr ? 'المجموع:' : 'Total:'}</span>
-                <span className="text-[#3e0f77]">{cartTotal} {isAr ? 'ر.س' : 'SAR'}</span>
+                <span className="text-[#3e0f77]">{cartTotal} {'⃁'}</span>
               </div>
 
               <button 

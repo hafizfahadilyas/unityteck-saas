@@ -385,7 +385,7 @@ export const CoffeeProductSliderForm: React.FC<CoffeeFormChromeProps> = ({ onBac
                 <label className="block space-y-1 font-semibold"><span>{isAr ? 'الوصف (عربي)' : 'Description (AR)'}</span><textarea className={`${inputCls} min-h-[64px]`} style={inputStyle} dir="rtl" value={editing.descriptionAr} onChange={(e) => patchItem(editing.id, { descriptionAr: e.target.value })} /></label>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <label className="block space-y-1 font-semibold"><span>{isAr ? 'السعر' : 'Price (SAR)'}</span><input type="number" className={inputCls} style={inputStyle} value={editing.price ?? ''} onChange={(e) => patchItem(editing.id, { price: e.target.value === '' ? null : Number(e.target.value) })} /></label>
+                <label className="block space-y-1 font-semibold"><span>{isAr ? 'السعر' : 'Price (⃁)'}</span><input type="number" className={inputCls} style={inputStyle} value={editing.price ?? ''} onChange={(e) => patchItem(editing.id, { price: e.target.value === '' ? null : Number(e.target.value) })} /></label>
                 <label className="block space-y-1 font-semibold"><span>{isAr ? 'السعر الأصلي' : 'Original price'}</span><input type="number" className={inputCls} style={inputStyle} value={editing.originalPrice ?? ''} onChange={(e) => patchItem(editing.id, { originalPrice: e.target.value === '' ? null : Number(e.target.value) })} /></label>
               </div>
               <label className="block space-y-1 font-semibold"><span>{isAr ? 'رابط المنتج' : 'Product link'}</span><input className={inputCls} style={inputStyle} dir="ltr" value={editing.productLink} onChange={(e) => patchItem(editing.id, { productLink: e.target.value })} /></label>

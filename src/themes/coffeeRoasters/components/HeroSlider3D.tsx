@@ -107,8 +107,8 @@ const SHOP_PRODUCT_SLIDES: ShopProductSlide[] = [
     titleAr: 'محطة باريستا تجارية',
     subtitleEn: 'Rotary Dual-Boiler 20-Bar',
     subtitleAr: 'دبل بويلر ٢٠ بار',
-    priceEn: 'SAR 2,450.00',
-    priceAr: '2,450.00 ر.س',
+    priceEn: '\u20C1 2,450.00',
+    priceAr: '2,450.00 \u20C1',
     image: machine5thPng,
     dimensionsEn: 'W: 38cm · H: 36cm · L: 45cm',
     dimensionsAr: 'عرض: 38سم · ارتفاع: 36سم · طول: 45سم',
@@ -125,8 +125,8 @@ const SHOP_PRODUCT_SLIDES: ShopProductSlide[] = [
     titleAr: 'بارستا كلاسيك برو',
     subtitleEn: 'Precision Italian Extraction',
     subtitleAr: 'استخلاص إيطالي دقيق',
-    priceEn: 'SAR 1,499.00',
-    priceAr: '1,499.00 ر.س',
+    priceEn: '\u20C1 1,499.00',
+    priceAr: '1,499.00 \u20C1',
     image: machineSilverPng,
     dimensionsEn: 'W: 32cm · H: 30cm · L: 38cm',
     dimensionsAr: 'عرض: 32سم · ارتفاع: 30سم · طول: 38سم',
@@ -143,8 +143,8 @@ const SHOP_PRODUCT_SLIDES: ShopProductSlide[] = [
     titleAr: 'ماكينة تقطير رقمية',
     subtitleEn: 'Touch LED Carafe',
     subtitleAr: 'شاشة لمس رقمية',
-    priceEn: 'SAR 299.00',
-    priceAr: '299.00 ر.س',
+    priceEn: '⃁ 299.00',
+    priceAr: '299.00 ⃁',
     image: machineDripPng,
     dimensionsEn: 'W: 24cm · H: 35cm · L: 26cm',
     dimensionsAr: 'عرض: 24سم · ارتفاع: 35سم · طول: 26سم',
@@ -240,7 +240,8 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
     );
     if (activeHero.length > 0) {
       return activeHero.map((b, idx) => {
-        const currency = b.currency || 'SAR';
+        const currencyCode = b.currency || 'SAR';
+        const currencySign = currencyCode === 'SAR' ? '\u20C1' : currencyCode;
         const price = (b.price || '').trim();
         const pickHeroImage = () => {
           if (typeof window === 'undefined') return b.image || b.mobileImage;
@@ -255,8 +256,8 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
           productId: b.productId || '',
           titleEn: b.titleEn || '',
           titleAr: b.titleAr || '',
-          priceEn: b.showPrice !== false && price ? `${currency} ${price}` : '',
-          priceAr: b.showPrice !== false && price ? `${price} ر.س` : '',
+          priceEn: b.showPrice !== false && price ? `${currencySign} ${price}` : '',
+          priceAr: b.showPrice !== false && price ? `${price} \u20C1` : '',
           image,
           fallbackImage: '',
           altEn: b.altEn || b.titleEn || '',

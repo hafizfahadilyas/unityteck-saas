@@ -263,7 +263,7 @@ export const CustomerWalletAdjustModal: React.FC<Props> = ({
 
           <div className="space-y-1">
             <label className="font-semibold text-slate-600 dark:text-slate-400">
-              {isAr ? 'المبلغ (ر.س)' : 'Amount (SAR)'}
+              {isAr ? 'المبلغ (⃁)' : 'Amount (⃁)'}
             </label>
             <input
               type="number"

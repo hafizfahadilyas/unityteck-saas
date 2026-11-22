@@ -157,8 +157,8 @@ function souq_help_kb_seed_defaults(PDO $pdo): void
         $now = date('Y-m-d H:i:s');
         $rows = [
             ['kb-products', 'products', 'How do I add a product?', 'كيف أضيف منتجاً؟',
-                "1) Open Products from the store sidebar.\n2) Click Add Product.\n3) Fill English and Arabic names, price (SAR), images, and stock.\n4) Save. The catalog updates for this store_id only.",
-                "١) افتح المنتجات من القائمة الجانبية.\n٢) اضغط إضافة منتج.\n٣) عبّئ الاسم بالإنجليزية والعربية والسعر (ر.س) والصور والمخزون.\n٤) احفظ. يظهر الكتالوج لهذا المتجر فقط.", 1, 10],
+                "1) Open Products from the store sidebar.\n2) Click Add Product.\n3) Fill English and Arabic names, price (⃁), images, and stock.\n4) Save. The catalog updates for this store_id only.",
+                "١) افتح المنتجات من القائمة الجانبية.\n٢) اضغط إضافة منتج.\n٣) عبّئ الاسم بالإنجليزية والعربية والسعر (⃁) والصور والمخزون.\n٤) احفظ. يظهر الكتالوج لهذا المتجر فقط.", 1, 10],
             ['kb-orders', 'orders', 'Where do I manage orders?', 'أين أدير الطلبات؟',
                 "Open Orders. Use search, status filters, and date range. Update fulfillment status from the order drawer. Empty list means no real orders yet.",
                 "افتح الطلبات. استخدم البحث وفلاتر الحالة والتاريخ. حدّث حالة التنفيذ من درج الطلب. القائمة الفارغة تعني عدم وجود طلبات حقيقية بعد.", 1, 20],

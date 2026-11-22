@@ -756,7 +756,7 @@ export const ShippingZonesRatesView: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[11px] font-medium text-slate-500 block mb-1">
-                    {isAr ? 'الرسوم الأساسية (ر.س)' : 'Base Rate (SAR)'}
+                    {isAr ? 'الرسوم الأساسية (⃁)' : 'Base Rate (⃁)'}
                   </label>
                   <input
                     type="number"
@@ -768,7 +768,7 @@ export const ShippingZonesRatesView: React.FC = () => {
 
                 <div>
                   <label className="text-[11px] font-medium text-slate-500 block mb-1">
-                    {isAr ? 'رسوم لكل كجم إضافي' : 'Per extra KG (SAR)'}
+                    {isAr ? 'رسوم لكل كجم إضافي' : 'Per extra KG (⃁)'}
                   </label>
                   <input
                     type="number"
@@ -1032,7 +1032,7 @@ export const ShippingZonesRatesView: React.FC = () => {
               </div>
               <div>
                 <label className="font-semibold block mb-1">
-                  {isAr ? 'تكلفة التوصيل الأساسية (ر.س) *' : 'Base Rate (SAR) *'}
+                  {isAr ? 'تكلفة التوصيل الأساسية (⃁) *' : 'Base Rate (⃁) *'}
                 </label>
                 <input
                   type="number"
@@ -1125,7 +1125,7 @@ export const ShippingZonesRatesView: React.FC = () => {
                 </div>
               </div>
               <div>
-                <label className="font-semibold block mb-1">{isAr ? 'السعر (ر.س)' : 'Base Rate (SAR)'}</label>
+                <label className="font-semibold block mb-1">{isAr ? 'السعر (⃁)' : 'Base Rate (⃁)'}</label>
                 <input
                   type="number"
                   value={newRulePrice}
@@ -1187,7 +1187,7 @@ export const ShippingZonesRatesView: React.FC = () => {
               </div>
               <div>
                 <label className="font-semibold block mb-1">
-                  {isAr ? 'الحد الأدنى لقيمة الطلب (ر.س)' : 'Minimum Order Threshold (SAR)'}
+                  {isAr ? 'الحد الأدنى لقيمة الطلب (⃁)' : 'Minimum Order Threshold (⃁)'}
                 </label>
                 <input
                   type="number"

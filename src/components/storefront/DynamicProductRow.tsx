@@ -249,11 +249,11 @@ export const DynamicProductRow: React.FC<DynamicProductRowProps> = ({
                       <div>
                         <div className="flex items-baseline gap-1.5">
                           <span className="text-sm sm:text-base font-black text-emerald-900 font-mono">
-                            {money ? money(priceVal) : `${priceVal} SAR`}
+                            {money ? money(priceVal) : `${priceVal} ⃁`}
                           </span>
                           {hasDiscount && (
                             <span className="text-[11px] text-slate-400 line-through font-mono">
-                              {money ? money(product.originalPrice!) : `${product.originalPrice} SAR`}
+                              {money ? money(product.originalPrice!) : `${product.originalPrice} ⃁`}
                             </span>
                           )}
                         </div>
@@ -332,11 +332,11 @@ export const DynamicProductRow: React.FC<DynamicProductRowProps> = ({
                     <div>
                       <div className="flex items-baseline gap-1.5">
                         <span className="text-sm sm:text-base font-black text-emerald-900 font-mono">
-                          {money ? money(priceVal) : `${priceVal} SAR`}
+                          {money ? money(priceVal) : `${priceVal} ⃁`}
                         </span>
                         {hasDiscount && (
                           <span className="text-[11px] text-slate-400 line-through font-mono">
-                            {money ? money(product.originalPrice!) : `${product.originalPrice} SAR`}
+                            {money ? money(product.originalPrice!) : `${product.originalPrice} ⃁`}
                           </span>
                         )}
                       </div>

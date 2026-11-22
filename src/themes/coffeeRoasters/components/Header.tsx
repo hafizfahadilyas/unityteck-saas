@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
 import {
@@ -342,11 +342,24 @@ export const Header: React.FC = () => {
   const [mobileSubFilter, setMobileSubFilter] = useState<string>('latest');
   const [activeSubFilter, setActiveSubFilter] = useState<string>('latest');
   const [isScrolled, setIsScrolled] = useState(false);
+  /** Page Builder canvas — no sticky, no nested announcement, mega mounts only while open */
+  const [isBuilderCanvas, setIsBuilderCanvas] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const closeAnimationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const megaMenuContainerRef = useRef<HTMLDivElement | null>(null);
   const announcementRef = useRef<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
+
+  useLayoutEffect(() => {
+    const node = headerRef.current || announcementRef.current;
+    if (!node) return;
+    const inBuilder = Boolean(
+      node.closest('.coffee-builder-preview') ||
+        node.closest('[data-builder-header-preview]') ||
+        node.closest('#theme-builder-canvas-scroll'),
+    );
+    setIsBuilderCanvas(inBuilder);
+  }, [headerVersion]);
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -565,32 +578,40 @@ export const Header: React.FC = () => {
 
   return (
     <>
-      {/* 0. PROMO BAR — Word C-ANN (rotate / stacked / single) — never flowers MKS */}
-      <div data-customize-section="C-ANN" ref={announcementRef}>
-        <CoffeeAnnouncementStrip
-          language={language}
-          bar={allThemeSettings?.announcementBar}
-          headerAnn={headerSettings?.announcement}
-        />
-      </div>
+      {/* 0. PROMO BAR — Word C-ANN. Skip inside Page Builder (own announcement block). */}
+      {!isBuilderCanvas ? (
+        <div data-customize-section="C-ANN" ref={announcementRef}>
+          <CoffeeAnnouncementStrip
+            language={language}
+            bar={allThemeSettings?.announcementBar}
+            headerAnn={headerSettings?.announcement}
+          />
+        </div>
+      ) : (
+        <div ref={announcementRef} className="hidden" aria-hidden />
+      )}
 
-      {/* MAIN HEADER NAVIGATION BAR (Sticky Fixed on Scroll with Honor Slim Profile & Perfect Center Alignment) */}
+      {/* MAIN HEADER — builder: relative + isolated mega dropdown (no sticky overlap) */}
       <header
         ref={headerRef}
         data-theme-sticky-chrome
         data-customize-section="00_header_builder"
-        className={`sticky top-0 z-50 w-full border-b border-neutral-200/80 transition-all duration-200 ${
-          isScrolled ? 'shadow-[0_2px_15px_rgba(0,0,0,0.06)]' : ''
-        }`}
+        data-builder-header={isBuilderCanvas ? '1' : '0'}
+        data-mega-open={isMegaMenuOpen ? '1' : '0'}
+        className={`${isBuilderCanvas ? 'relative' : 'sticky top-0'} z-50 w-full border-b border-neutral-200/80 transition-all duration-200 isolate ${
+          isScrolled && !isBuilderCanvas ? 'shadow-[0_2px_15px_rgba(0,0,0,0.06)]' : ''
+        } ${isMegaMenuOpen ? 'z-[70]' : ''}`}
         style={{ backgroundColor: 'var(--theme-header-bg, #FFFFFF)', color: 'var(--theme-header-text, #111111)' }}
         onMouseLeave={handleHeaderMouseLeave}
       >
+        {/* Nav row stays above mega panel so dropdown never paints over logo/links */}
         <div
-          className="max-w-[1440px] mx-auto px-3 sm:px-6 @lg:px-8 h-16 flex items-center justify-between gap-2 relative z-50 min-w-0 overflow-hidden"
+          className="max-w-[1440px] mx-auto px-3 sm:px-6 @lg:px-8 h-16 flex items-center justify-between gap-2 relative z-30 min-w-0 overflow-visible"
           style={{ backgroundColor: 'var(--theme-header-bg, #FFFFFF)', color: 'var(--theme-header-text, #111111)' }}
+          data-header-nav-row="1"
         >
           {/* 1. Desktop Left: Brand Logo — container queries so Page Builder canvas width (not window) drives layout */}
-          <div className="hidden @lg:flex items-center shrink-0 z-10" onMouseEnter={() => scheduleMenuClose(80)}>
+          <div className="hidden @lg:flex items-center shrink-0 z-20 relative isolate" onMouseEnter={() => scheduleMenuClose(80)}>
             <button
               type="button"
               onClick={() => {
@@ -598,7 +619,7 @@ export const Header: React.FC = () => {
                 setMobileMenuOpen(false);
                 navigateTo('home');
               }}
-              className="flex items-center gap-1.5 sm:gap-2 group focus:outline-hidden cursor-pointer text-start tracking-tight font-black text-xl sm:text-2xl font-sans text-black uppercase shrink-0"
+              className="flex items-center gap-1.5 sm:gap-2 group focus:outline-hidden cursor-pointer text-start tracking-tight font-black text-xl sm:text-2xl font-sans text-black uppercase shrink-0 relative z-20 bg-[color:var(--theme-header-bg,#FFFFFF)]"
               title={logoWord}
             >
               {uploadedLogo ? (
@@ -690,7 +711,7 @@ export const Header: React.FC = () => {
 
           {/* 2. Center: Desktop Nav Items (Flex in-flow layout ensuring zero overlap in both RTL Arabic and LTR English) */}
           <nav
-            className={`${customTablet.length > 0 ? 'hidden @lg:flex' : 'hidden @md:flex @lg:flex'} items-center justify-center flex-1 min-w-0 mx-2 @lg:mx-3 @xl:mx-4 gap-2 @lg:gap-2.5 @xl:gap-3.5 text-[12px] @lg:text-[12.5px] @xl:text-[13px] font-normal text-neutral-800 h-16 overflow-x-auto no-scrollbar ${
+            className={`${customTablet.length > 0 ? 'hidden @lg:flex' : 'hidden @md:flex @lg:flex'} items-center justify-center flex-1 min-w-0 mx-2 @lg:mx-3 @xl:mx-4 gap-1.5 @lg:gap-2 @xl:gap-3 text-[12px] @lg:text-[12.5px] @xl:text-[13px] font-normal text-neutral-800 h-16 overflow-x-auto overflow-y-hidden no-scrollbar relative z-0 ${
               navEnabled ? '' : 'invisible pointer-events-none'
             }`}
             data-main-menu={navEnabled ? 'on' : 'off'}
@@ -709,22 +730,22 @@ export const Header: React.FC = () => {
             )) : (
             <>
             {/* 0. Shop (المتجر) */}
-            <div className="relative h-full flex items-center shrink-0" onMouseEnter={() => scheduleMenuClose(80)}>
+            <div className="relative h-full flex items-center shrink-0 ps-0.5" onMouseEnter={() => scheduleMenuClose(80)}>
               <button
                 type="button"
                 onClick={() => {
                   closeMenuImmediately();
                   navigateTo('products');
                 }}
-                className={`py-2 px-1 transition-colors cursor-pointer relative whitespace-nowrap ${
+                className={`py-2 px-1.5 transition-colors cursor-pointer relative whitespace-nowrap ${
                   currentRoute === 'products'
                     ? 'text-black font-semibold'
                     : 'text-neutral-700 hover:text-black font-normal'
                 }`}
               >
-                <span>{language === 'AR' ? 'المتجر' : 'Shop'}</span>
+                <span className="relative z-[1]">{language === 'AR' ? 'المتجر' : 'Shop'}</span>
                 {currentRoute === 'products' && (
-                  <span className="absolute bottom-0 inset-x-0 h-[2px] bg-black rounded-full" />
+                  <span className="absolute bottom-0 start-1.5 end-1.5 h-[2px] bg-black rounded-full pointer-events-none" />
                 )}
               </button>
             </div>
@@ -736,15 +757,15 @@ export const Header: React.FC = () => {
             >
               <button
                 onClick={() => openShopWithHint('machines')}
-                className={`py-2 transition-colors cursor-pointer relative whitespace-nowrap ${
+                className={`py-2 px-1 transition-colors cursor-pointer relative whitespace-nowrap ${
                   activeMegaMenu === 'machines' && isMegaMenuOpen
                     ? 'text-black font-semibold'
                     : 'text-neutral-700 hover:text-black'
                 }`}
               >
-                <span>{language === 'AR' ? 'المكائن' : 'Machines'}</span>
+                <span className="relative z-[1]">{language === 'AR' ? 'المكائن' : 'Machines'}</span>
                 {activeMegaMenu === 'machines' && isMegaMenuOpen && (
-                  <span className="absolute bottom-0 inset-x-0 h-[2px] bg-black rounded-full" />
+                  <span className="absolute bottom-0 start-1 end-1 h-[2px] bg-black rounded-full pointer-events-none" />
                 )}
               </button>
             </div>
@@ -756,15 +777,15 @@ export const Header: React.FC = () => {
             >
               <button
                 onClick={() => openShopWithHint('mills')}
-                className={`py-2 transition-colors cursor-pointer relative whitespace-nowrap ${
+                className={`py-2 px-1 transition-colors cursor-pointer relative whitespace-nowrap ${
                   activeMegaMenu === 'mills' && isMegaMenuOpen
                     ? 'text-black font-semibold'
                     : 'text-neutral-700 hover:text-black'
                 }`}
               >
-                <span>{language === 'AR' ? 'المطاحن' : 'Mills'}</span>
+                <span className="relative z-[1]">{language === 'AR' ? 'المطاحن' : 'Mills'}</span>
                 {activeMegaMenu === 'mills' && isMegaMenuOpen && (
-                  <span className="absolute bottom-0 inset-x-0 h-[2px] bg-black rounded-full" />
+                  <span className="absolute bottom-0 start-1 end-1 h-[2px] bg-black rounded-full pointer-events-none" />
                 )}
               </button>
             </div>
@@ -776,15 +797,15 @@ export const Header: React.FC = () => {
             >
               <button
                 onClick={() => openShopWithHint('cabinets')}
-                className={`py-2 transition-colors cursor-pointer relative whitespace-nowrap ${
+                className={`py-2 px-1 transition-colors cursor-pointer relative whitespace-nowrap ${
                   activeMegaMenu === 'cabinets' && isMegaMenuOpen
                     ? 'text-black font-semibold'
                     : 'text-neutral-700 hover:text-black'
                 }`}
               >
-                <span>{language === 'AR' ? 'أركان ودواليب القهوة' : 'Coffee Bars'}</span>
+                <span className="relative z-[1]">{language === 'AR' ? 'أركان ودواليب القهوة' : 'Coffee Bars'}</span>
                 {activeMegaMenu === 'cabinets' && isMegaMenuOpen && (
-                  <span className="absolute bottom-0 inset-x-0 h-[2px] bg-black rounded-full" />
+                  <span className="absolute bottom-0 start-1 end-1 h-[2px] bg-black rounded-full pointer-events-none" />
                 )}
               </button>
             </div>
@@ -796,15 +817,15 @@ export const Header: React.FC = () => {
             >
               <button
                 onClick={() => openShopWithHint('accessories')}
-                className={`py-2 transition-colors cursor-pointer relative whitespace-nowrap ${
+                className={`py-2 px-1 transition-colors cursor-pointer relative whitespace-nowrap ${
                   activeMegaMenu === 'accessories' && isMegaMenuOpen
                     ? 'text-black font-semibold'
                     : 'text-neutral-700 hover:text-black'
                 }`}
               >
-                <span>{language === 'AR' ? 'الأكواب والمستلزمات' : 'Accessories'}</span>
+                <span className="relative z-[1]">{language === 'AR' ? 'الأكواب والمستلزمات' : 'Accessories'}</span>
                 {activeMegaMenu === 'accessories' && isMegaMenuOpen && (
-                  <span className="absolute bottom-0 inset-x-0 h-[2px] bg-black rounded-full" />
+                  <span className="absolute bottom-0 start-1 end-1 h-[2px] bg-black rounded-full pointer-events-none" />
                 )}
               </button>
             </div>
@@ -816,15 +837,15 @@ export const Header: React.FC = () => {
             >
               <button
                 onClick={() => openShopWithHint('offers')}
-                className={`py-2 transition-colors cursor-pointer relative whitespace-nowrap ${
+                className={`py-2 px-1 transition-colors cursor-pointer relative whitespace-nowrap ${
                   activeMegaMenu === 'offers' && isMegaMenuOpen
                     ? 'text-black font-semibold'
                     : 'text-neutral-700 hover:text-black'
                 }`}
               >
-                <span>{language === 'AR' ? 'العروض والباقات' : 'HiBrew CHOICE'}</span>
+                <span className="relative z-[1]">{language === 'AR' ? 'العروض والباقات' : 'HiBrew CHOICE'}</span>
                 {activeMegaMenu === 'offers' && isMegaMenuOpen && (
-                  <span className="absolute bottom-0 inset-x-0 h-[2px] bg-black rounded-full" />
+                  <span className="absolute bottom-0 start-1 end-1 h-[2px] bg-black rounded-full pointer-events-none" />
                 )}
               </button>
             </div>
@@ -1216,32 +1237,27 @@ export const Header: React.FC = () => {
           </div>
         )}
 
-        {/* 3. DESKTOP MEGA MENU DROPDOWN PANEL & BACKDROP (Smooth Slide-In & Slide-Out on Hover & Leave) */}
-        {/* Backdrop Overlay: Smooth fade, covers page below header, mouseleave/click closes menu */}
+        {/* 3. DESKTOP MEGA DROPDOWN — mount only while open (closed DOM = zero logo/nav bleed) */}
+        {isMegaMenuOpen ? (
+          <>
         <div
-          className={`hidden @lg:block fixed inset-x-0 bottom-0 top-16 bg-black/20 backdrop-blur-[2px] transition-opacity duration-300 ease-out z-40 ${
-            isMegaMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-          }`}
+          className={`hidden @lg:block ${isBuilderCanvas ? 'absolute inset-x-0 top-16 bottom-0' : 'fixed inset-x-0 bottom-0 top-16'} bg-black/20 backdrop-blur-[2px] z-20`}
           onMouseEnter={() => scheduleMenuClose(50)}
           onClick={closeMenuImmediately}
+          aria-hidden
         />
 
-        {/* Dropdown Panel: Smooth slide down on hover, automatic slide UP on mouse leave */}
         <div
           ref={megaMenuContainerRef}
-          className={`hidden @lg:block absolute top-full left-0 right-0 w-full bg-white border-b border-neutral-200/80 shadow-[0_20px_45px_rgba(0,0,0,0.10)] z-50 max-h-[calc(100vh-120px)] overflow-y-auto transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform ${
-            isMegaMenuOpen
-              ? 'opacity-100 translate-y-0 pointer-events-auto visible'
-              : 'opacity-0 -translate-y-5 pointer-events-none invisible'
-          }`}
+          data-mega-menu-panel="on"
+          className="hidden @lg:block absolute top-full left-0 right-0 w-full bg-white border-b border-neutral-200/80 shadow-[0_20px_45px_rgba(0,0,0,0.10)] z-20 max-h-[min(70vh,560px)] overflow-y-auto overflow-x-hidden animate-honor-mega"
           onMouseEnter={handleDropdownMouseEnter}
           onMouseLeave={handleDropdownMouseLeave}
         >
-          {/* Seamless Hover Bridge: Prevents any hover gap */}
-          <div className="absolute -top-3 left-0 right-0 h-4 bg-transparent pointer-events-auto" />
+          <div className="absolute -top-2 left-0 right-0 h-3 bg-transparent pointer-events-auto" aria-hidden />
 
             {/* PRODUCTS MEGA MENU */}
-            <div className="w-full flex flex-col items-center">
+            <div className="w-full flex flex-col items-center pt-4 sm:pt-5 px-3 sm:px-6">
                 {/* Top Sub-category Tabs (Centered, Pure Text Links, Crisp Spacing) */}
                 <div className="flex items-center justify-center gap-5 sm:gap-8 pb-4 sm:pb-5 text-[13px] sm:text-[13.5px] flex-wrap" role="tablist">
                   <button
@@ -1535,6 +1551,8 @@ export const Header: React.FC = () => {
                 </div>
               </div>
           </div>
+          </>
+        ) : null}
 
         {/* 4. HONOR MOBILE DRILLDOWN SLIDE NAVIGATION */}
         {mobileMenuOpen && (
@@ -1950,18 +1968,16 @@ export const Header: React.FC = () => {
         )}
       </header>
 
-      {/* 5. BACKDROP OVERLAY (Strictly positioned UNDER Header & Mega Menu so no darkening over navbar!) */}
-      <div
-        className={`fixed inset-0 top-16 bg-black/25 backdrop-blur-[1px] transition-opacity duration-300 ease-out z-40 ${
-          activeMegaMenu || mobileMenuOpen
-            ? 'opacity-100 pointer-events-auto visible'
-            : 'opacity-0 pointer-events-none invisible'
-        }`}
-        onClick={() => {
-          setActiveMegaMenu(null);
-          setMobileMenuOpen(false);
-        }}
-      />
+      {/* 5. Mobile-only backdrop (desktop mega mounts its own backdrop while open) */}
+      {mobileMenuOpen ? (
+        <div
+          className="@lg:hidden fixed inset-0 top-16 bg-black/25 backdrop-blur-[1px] z-40"
+          onClick={() => {
+            closeMenuImmediately();
+            setMobileMenuOpen(false);
+          }}
+        />
+      ) : null}
     </>
   );
 };

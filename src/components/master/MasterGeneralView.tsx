@@ -289,8 +289,8 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
 
     const exportOrders = () => {
       const headers = isAr
-        ? ['رقم الطلب', 'المتجر', 'العميل', 'الجوال', 'المصدر', 'طريقة الدفع', 'العناصر', 'الإجمالي (ر.س)', 'ضريبة القيمة المضافة 15%', 'الحالة', 'التاريخ']
-        : ['Order #', 'Store', 'Customer', 'Phone', 'Source', 'Payment Method', 'Items', 'Total (SAR)', 'VAT 15%', 'Status', 'Date'];
+        ? ['رقم الطلب', 'المتجر', 'العميل', 'الجوال', 'المصدر', 'طريقة الدفع', 'العناصر', 'الإجمالي (⃁)', 'ضريبة القيمة المضافة 15%', 'الحالة', 'التاريخ']
+        : ['Order #', 'Store', 'Customer', 'Phone', 'Source', 'Payment Method', 'Items', 'Total (⃁)', 'VAT 15%', 'Status', 'Date'];
       const rows = filteredOrders.map((o) => [
         o.orderNumber,
         o.storeName,
@@ -760,8 +760,8 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
 
     const exportCusts = () => {
       const headers = isAr
-        ? ['اسم العميل', 'الجوال', 'البريد الإلكتروني', 'المتجر', 'المدينة', 'قناة الاستقطاب', 'الحالة', 'الطلبات', 'إجمالي الإنفاق (ر.س)']
-        : ['Customer Name', 'Phone', 'Email', 'Store', 'City', 'Acquisition Channel', 'Status', 'Orders', 'Total Spent (SAR)'];
+        ? ['اسم العميل', 'الجوال', 'البريد الإلكتروني', 'المتجر', 'المدينة', 'قناة الاستقطاب', 'الحالة', 'الطلبات', 'إجمالي الإنفاق (⃁)']
+        : ['Customer Name', 'Phone', 'Email', 'Store', 'City', 'Acquisition Channel', 'Status', 'Orders', 'Total Spent (⃁)'];
       const rows = filteredCusts.map((c) => [
         c.name,
         c.phone,
@@ -1052,8 +1052,8 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
 
     const exportChannels = () => {
       const headers = isAr
-        ? ['القناة', 'حصة الطلبات %', 'العائد على الإنفاق', 'معدل التحويل %', 'الإنفاق الفعلي (ر.س)']
-        : ['Channel', 'Order Share %', 'ROAS', 'Conv. Rate %', 'Actual Spend (SAR)'];
+        ? ['القناة', 'حصة الطلبات %', 'العائد على الإنفاق', 'معدل التحويل %', 'الإنفاق الفعلي (⃁)']
+        : ['Channel', 'Order Share %', 'ROAS', 'Conv. Rate %', 'Actual Spend (⃁)'];
       const rows = sortedChannels.map((c) => [isAr ? c.nameAr : c.name, c.share, c.roas, c.conv, c.spend]);
       downloadFile(`channel-benchmarks-${today()}.csv`, toCsv(headers, rows), 'text/csv;charset=utf-8');
       toast(isAr ? 'تم تصدير مؤشرات القنوات التسويقية' : 'Channel benchmarks exported', 'success');
@@ -1188,8 +1188,8 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
 
     const exportCoupons = () => {
       const headers = isAr
-        ? ['كود الكوبون', 'المتجر', 'الخصم', 'الحد الأدنى للطلب (ر.س)', 'مرات الاستخدام', 'الحد الأقصى', 'الحالة', 'صالح حتى']
-        : ['Coupon Code', 'Store', 'Discount', 'Min Order (SAR)', 'Usage', 'Max Usage', 'Status', 'Valid Until'];
+        ? ['كود الكوبون', 'المتجر', 'الخصم', 'الحد الأدنى للطلب (⃁)', 'مرات الاستخدام', 'الحد الأقصى', 'الحالة', 'صالح حتى']
+        : ['Coupon Code', 'Store', 'Discount', 'Min Order (⃁)', 'Usage', 'Max Usage', 'Status', 'Valid Until'];
       const rows = filteredCoupons.map((c) => [c.code, c.storeName, discountLabel(c), c.minOrderValue, c.usageCount, c.maxUsage, couponStatusLabel(c.status), c.validUntil]);
       downloadFile(`platform-coupons-${today()}.csv`, toCsv(headers, rows), 'text/csv;charset=utf-8');
       toast(isAr ? `تم تصدير${filteredCoupons.length}كوبون` : `Exported ${filteredCoupons.length} coupons`, 'success');
@@ -1395,8 +1395,8 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
     const exportAnalytics = () => {
       const headers = isAr ? ['المؤشر', 'القيمة'] : ['Metric', 'Value'];
       const rows = [
-        [isAr ? 'إيراد كتالوج الباقات (ر.س)' : 'Catalog plan MRR (SAR)', catalogMrr],
-        [isAr ? 'إجمالي قيمة البضائع (ر.س)' : 'Platform GMV (SAR)', realGmv],
+        [isAr ? 'إيراد كتالوج الباقات (⃁)' : 'Catalog plan MRR (⃁)', catalogMrr],
+        [isAr ? 'إجمالي قيمة البضائع (⃁)' : 'Platform GMV (⃁)', realGmv],
         [isAr ? 'معدل التحويل للباقة الاحترافية %' : 'Pro Plan Conversion %', proConversionPct],
         [isAr ? 'عدد المتاجر' : 'Stores', stores.length],
         [isAr ? 'عدد الطلبات' : 'Orders', globalOrders.length],
@@ -1986,7 +1986,7 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
 
             <div className="space-y-3 text-xs text-slate-600">
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
-                <span className="font-bold text-slate-900 block mb-1">{isAr ? 'العملة الافتراضية للمنصة: الريال السعودي ر.س' : 'Default Platform Currency: Saudi Riyal (SAR)'}</span>
+                <span className="font-bold text-slate-900 block mb-1">{isAr ? 'العملة الافتراضية للمنصة: الريال السعودي ⃁' : 'Default Platform Currency: Saudi Riyal (\u20C1)'}</span>
                 <p className="text-[11px] text-slate-500">
                   {isAr
                     ? 'يمكن للمتاجر عرض عملات خليجية بديلة (الدرهم، الدينار الكويتي، الدينار البحريني) بأسعار صرف ساما اللحظية.'

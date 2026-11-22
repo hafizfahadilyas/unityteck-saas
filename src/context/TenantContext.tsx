@@ -1554,9 +1554,10 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         storeLoadedAtRef.current[storeId] = Date.now();
 
         // Catalog is owned by the dedicated activeStoreId effect (deduped).
-        // Dashboard boot only needs a lean recent orders page + customers —
-        // full all=1 list loads when StoreOrders opens.
-        if (!liveAuthed) {
+        // Dashboard boot always loads lean orders + customers when API mode is on.
+        // Guest-readable GETs work without Sanctum; do NOT gate on liveAuthed or
+        // KPIs stay at 0 while MySQL still has real rows (coffee/flowers).
+        if (!API_MODE && !liveAuthed) {
           return;
         }
 
@@ -1686,9 +1687,11 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const sid = activeStoreIdRef.current;
         if (sid) {
           try {
-            const products = await tenantApi.fetchStorefrontCatalog(sid);
-            applyProductsFromApi(sid, products);
-            if (hasLiveApiAuth()) {
+            const recentlyLoaded = Date.now() - (storeLoadedAtRef.current[sid] || 0) < 90_000;
+            if (!recentlyLoaded) {
+              const page = await tenantApi.fetchStorefrontCatalogPage(sid, 1, 24);
+              applyProductsFromApi(sid, page.data, page.total);
+              storeLoadedAtRef.current[sid] = Date.now();
               await loadStoreScopedData(sid, { tier: 'core' });
             }
           } catch {
@@ -1743,8 +1746,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const sid = activeStoreIdRef.current;
       if (sid) {
         try {
-          const products = await tenantApi.fetchStorefrontCatalog(sid);
-          applyProductsFromApi(sid, products);
+          const recentlyLoaded = Date.now() - (storeLoadedAtRef.current[sid] || 0) < 90_000;
+          if (!recentlyLoaded) {
+            const page = await tenantApi.fetchStorefrontCatalogPage(sid, 1, 24);
+            applyProductsFromApi(sid, page.data, page.total);
+            storeLoadedAtRef.current[sid] = Date.now();
+            // Still hydrate orders/customers via guest-readable GETs (Sanctum optional).
+            await loadStoreScopedData(sid, { tier: 'core' });
+          }
         } catch {
           /* keep last list */
         }
@@ -1753,19 +1762,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
     try {
-      const apiStores = await tenantApi.fetchStores();
-      if (Array.isArray(apiStores) && apiStores.length > 0) {
-        setStores(apiStores);
-        hydrateStoreLoginEmailAccess(apiStores);
-      }
-      try {
-        const apiDomains = await tenantApi.fetchDomainsApi();
-        if (Array.isArray(apiDomains) && apiDomains.length > 0) {
-          setDomains(apiDomains);
-        }
-      } catch {}
       const sid = activeStoreIdRef.current;
-      if (sid) await loadStoreScopedData(sid, { tier: 'core' });
+      const recentlyLoaded = sid
+        ? Date.now() - (storeLoadedAtRef.current[sid] || 0) < 90_000
+        : false;
+      // Soft refresh: lean core only — skip full stores+domains round-trip every poll (hang fix).
+      if (sid && !recentlyLoaded) {
+        await loadStoreScopedData(sid, { tier: 'core' });
+      }
       bumpCacheTag(platformTag());
       setCacheEpoch(getCacheEpoch() + 1);
     } catch {
@@ -1787,13 +1791,10 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (resource === 'products') {
         let loaded = false;
         try {
-          const [products, page] = await Promise.all([
-            tenantApi.fetchStorefrontCatalog(storeId),
-            tenantApi.fetchProductsPage(storeId, { page: 1, per_page: 1, sort: 'updated_at', dir: 'desc' }),
-          ]);
-          if (products.length > 0) {
-            const total = page.meta?.counts?.total ?? page.meta?.total ?? products.length;
-            applyProductsFromApi(storeId, products, total);
+          // One lean page only — dual full-catalog + meta fetch was a major hang.
+          const catalog = await tenantApi.fetchStorefrontCatalogPage(storeId, 1, 48);
+          if (catalog.data.length > 0) {
+            applyProductsFromApi(storeId, catalog.data, catalog.total);
             loaded = true;
             setApiError(null);
           }
@@ -1953,18 +1954,38 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (storeId) void revalidateResource(storeId, 'customers');
     };
     window.addEventListener('unityteck-customers-updated', onCustomers);
+    const onStoreIdentity = (event: Event) => {
+      const detail = (event as CustomEvent<{ storeId?: string; name?: string; logo?: string }>).detail;
+      const storeId = (detail?.storeId || '').trim();
+      if (!storeId) return;
+      const nextLogo = resolveStoreLogoSrc(detail?.logo);
+      const nextName = typeof detail?.name === 'string' ? detail.name.trim() : '';
+      setStores((prev) =>
+        prev.map((s) => {
+          if (s.id !== storeId) return s;
+          return {
+            ...s,
+            ...(nextLogo ? { logo: nextLogo } : {}),
+            ...(nextName ? { name: nextName } : {}),
+          };
+        }),
+      );
+      setCacheEpoch((n) => n + 1);
+    };
+    window.addEventListener('unityteck-store-updated', onStoreIdentity as EventListener);
     return () => {
       stopBc();
       window.removeEventListener(DATA_EVENT, onData as EventListener);
       window.removeEventListener('storage', onStorage);
       window.removeEventListener('unityteck-customers-updated', onCustomers);
+      window.removeEventListener('unityteck-store-updated', onStoreIdentity as EventListener);
     };
   }, [revalidateResource, softRefreshTenantData]);
 
   // Soft revalidate on tab focus / visibility — throttled to avoid scroll-position resets
   useEffect(() => {
     let lastRefreshTs = 0;
-    const THROTTLE_MS = 30_000; // 30s minimum gap between background refreshes
+    const THROTTLE_MS = 60_000; // 60s minimum gap between background refreshes
 
     const throttledRefresh = () => {
       const now = Date.now();
@@ -1983,12 +2004,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', onFocus);
-    // Poll at 120s (was 12s) — avoids constant state churn that resets scroll
+    // Poll at 180s — background soft refresh must stay rare (hang / jank fix)
     const interval = window.setInterval(() => {
       if (document.visibilityState === 'visible') {
         throttledRefresh();
       }
-    }, 120_000);
+    }, 180_000);
     return () => {
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onFocus);
@@ -2025,8 +2046,11 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             : ids;
           const only = activeStoreIdRef.current || ordered[0];
           if (only) {
-            const products = await tenantApi.fetchStorefrontCatalog(only);
-            if (!cancelled && products.length > 0) applyProductsFromApi(only, products);
+            const page = await tenantApi.fetchStorefrontCatalogPage(only, 1, 24);
+            if (!cancelled && page.data.length > 0) {
+              applyProductsFromApi(only, page.data, page.total);
+              storeLoadedAtRef.current[only] = Date.now();
+            }
           }
         } catch {
           /* catalog stays cached */
@@ -2188,9 +2212,10 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const sid = activeStoreIdRef.current;
         if (sid && API_MODE) {
           try {
-            const products = await tenantApi.fetchStorefrontCatalog(sid);
-            if (!cancelled && products.length > 0) {
-              applyProductsFromApi(sid, products);
+            const page = await tenantApi.fetchStorefrontCatalogPage(sid, 1, 24);
+            if (!cancelled && page.data.length > 0) {
+              applyProductsFromApi(sid, page.data, page.total);
+              storeLoadedAtRef.current[sid] = Date.now();
               setApiError(null);
             }
           } catch {
@@ -2219,11 +2244,15 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (previewOnly || dataSource !== 'api' || !hasLiveApiAuth()) {
       let cancelled = false;
       // Public catalog only when not live-authed — skip admin orders/customers (401).
-      tenantApi.fetchStorefrontCatalog(activeStoreId).then((products) => {
-        if (!cancelled && Array.isArray(products) && products.length > 0) {
-          applyProductsFromApi(activeStoreId, products);
-        }
-      }).catch(() => {});
+      const recentlyLoaded = Date.now() - (storeLoadedAtRef.current[activeStoreId] || 0) < 45_000;
+      if (!recentlyLoaded) {
+        tenantApi.fetchStorefrontCatalogPage(activeStoreId, 1, 24).then((page) => {
+          if (!cancelled && Array.isArray(page.data) && page.data.length > 0) {
+            applyProductsFromApi(activeStoreId, page.data, page.total);
+            storeLoadedAtRef.current[activeStoreId] = Date.now();
+          }
+        }).catch(() => {});
+      }
       return () => {
         cancelled = true;
       };
@@ -5916,7 +5945,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       type: 'product',
     });
 
-    if (isApiEnabled()) {
+    // Never POST huge blob:/data: previews to Hostinger — that is what times out
+    // and then wipes the live wallpaper. Real files go through uploadMediaFile.
+    const previewUrl = String(fullAsset.originalUrl || '');
+    const isLocalPreview =
+      previewUrl.startsWith('blob:') || previewUrl.startsWith('data:image/');
+    if (isApiEnabled() && !isLocalPreview) {
       tenantApi.createMedia(storeId, fullAsset).catch((err) => {
         console.warn('API createMedia sync failed:', err);
       });

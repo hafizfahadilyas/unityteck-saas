@@ -342,11 +342,11 @@ export const CoffeeEquipmentRailSection: React.FC<{
                 {homeRailFlags.showPrice ? (
                 <div className="flex items-baseline justify-center gap-2 pt-2 pb-1 font-sans">
                   <span className="text-[15px] sm:text-base font-bold text-neutral-900">
-                    {language === 'AR' ? `${currentShowcase.featured.price.toLocaleString()}.00 ر.س` : `SAR ${currentShowcase.featured.price.toLocaleString()}.00`}
+                    {language === 'AR' ? `${currentShowcase.featured.price.toLocaleString()}.00 ⃁` : `⃁ ${currentShowcase.featured.price.toLocaleString()}.00`}
                   </span>
                   {currentShowcase.featured.originalPrice && (
                     <span className="text-xs text-neutral-400 line-through font-normal">
-                      {language === 'AR' ? `${currentShowcase.featured.originalPrice.toLocaleString()}.00 ر.س` : `SAR ${currentShowcase.featured.originalPrice.toLocaleString()}.00`}
+                      {language === 'AR' ? `${currentShowcase.featured.originalPrice.toLocaleString()}.00 ⃁` : `⃁ ${currentShowcase.featured.originalPrice.toLocaleString()}.00`}
                     </span>
                   )}
                 </div>
@@ -411,7 +411,7 @@ export const CoffeeEquipmentRailSection: React.FC<{
                     {homeRailFlags.showPrice ? (
                     <div className="pt-2 font-sans text-center flex items-baseline justify-center gap-1">
                       <span className="text-[14px] sm:text-[15px] font-bold text-neutral-900">
-                        {language === 'AR' ? `${prod.basePrice.toLocaleString()}.00 ر.س` : `SAR ${prod.basePrice.toLocaleString()}.00`}
+                        {language === 'AR' ? `${prod.basePrice.toLocaleString()}.00 ⃁` : `⃁ ${prod.basePrice.toLocaleString()}.00`}
                       </span>
                     </div>
                     ) : null}
@@ -523,11 +523,11 @@ export const CoffeeEquipmentRailSection: React.FC<{
                   {homeRailFlags.showPrice ? (
                   <div className="flex items-baseline justify-center gap-2 pt-2 pb-1 font-sans">
                     <span className="text-base font-bold text-neutral-900">
-                      {language === 'AR' ? `${currentShowcase.featured.price.toLocaleString()}.00 ر.س` : `SAR ${currentShowcase.featured.price.toLocaleString()}.00`}
+                      {language === 'AR' ? `${currentShowcase.featured.price.toLocaleString()}.00 ⃁` : `⃁ ${currentShowcase.featured.price.toLocaleString()}.00`}
                     </span>
                     {currentShowcase.featured.originalPrice && (
                       <span className="text-xs text-neutral-400 line-through font-normal">
-                        {language === 'AR' ? `${currentShowcase.featured.originalPrice.toLocaleString()}.00 ر.س` : `SAR ${currentShowcase.featured.originalPrice.toLocaleString()}.00`}
+                        {language === 'AR' ? `${currentShowcase.featured.originalPrice.toLocaleString()}.00 ⃁` : `⃁ ${currentShowcase.featured.originalPrice.toLocaleString()}.00`}
                       </span>
                     )}
                   </div>
@@ -604,7 +604,7 @@ export const CoffeeEquipmentRailSection: React.FC<{
                     {homeRailFlags.showPrice ? (
                     <div className="pt-2 font-sans text-center flex items-baseline justify-center gap-1">
                       <span className="text-base font-bold text-neutral-900">
-                        {language === 'AR' ? `${prod.basePrice.toLocaleString()}.00 ر.س` : `SAR ${prod.basePrice.toLocaleString()}.00`}
+                        {language === 'AR' ? `${prod.basePrice.toLocaleString()}.00 ⃁` : `⃁ ${prod.basePrice.toLocaleString()}.00`}
                       </span>
                     </div>
                     ) : null}

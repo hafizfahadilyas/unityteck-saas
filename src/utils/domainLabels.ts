@@ -32,7 +32,7 @@ const ORDER_STATUS: Record<string, { en: string; ar: string }> = {
   canceled: { en: 'Cancelled', ar: 'ملغي' },
   returned: { en: 'Returned', ar: 'مسترجع' },
   return_in_progress: { en: 'Return in Progress', ar: 'قيد الإسترجاع' },
-  rfq: { en: 'Request for Quotation (RFQ)', ar: 'طلب عرض سعر' },
+  rfq: { en: 'Request for Quotation', ar: 'طلب عرض سعر' },
   refunded: { en: 'Returned', ar: 'مسترجع' },
   failed: { en: 'Cancelled', ar: 'ملغي' },
 };
@@ -86,7 +86,7 @@ const CHANNEL_RULES: ChannelRule[] = [
   { test: /tiktok|تيك\s*توك/i, en: 'TikTok', ar: 'تيك توك' },
   { test: /snapchat|سناب/i, en: 'Snapchat', ar: 'سناب شات' },
   { test: /facebook|فيسبوك/i, en: 'Facebook', ar: 'فيسبوك' },
-  { test: /\bx\b|twitter|تويتر|إكس/i, en: 'X (Twitter)', ar: 'إكس (تويتر)' },
+  { test: /\bx\b|twitter|تويتر|إكس/i, en: 'X', ar: 'إكس' },
   { test: /telegram|تيليجرام/i, en: 'Telegram', ar: 'تيليجرام' },
   { test: /youtube|يوتيوب/i, en: 'YouTube', ar: 'يوتيوب' },
   { test: /website|موقع/i, en: 'Website', ar: 'الموقع الإلكتروني' },

@@ -547,7 +547,7 @@ export function generateHostingerSeedSql(
   let sql = `-- ====================================================================\n`;
   sql += `-- UNITYTECK HOSTINGER MYSQL SEED (SPA export)\n`;
   sql += `-- Prefer database/hostinger/02_seed.sql for full DatabaseSeeder parity\n`;
-  sql += `-- Plans: free | paid | pro 300 SAR | premium 500 SAR | custom\n`;
+  sql += `-- Plans: free | paid | pro 300 ⃁ | premium 500 ⃁ | custom\n`;
   sql += `-- ====================================================================\n\n`;
   sql += `SET FOREIGN_KEY_CHECKS = 0;\n\n`;
 

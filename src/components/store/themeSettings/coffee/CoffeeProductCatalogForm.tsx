@@ -375,8 +375,8 @@ export const CoffeeProductCatalogForm: React.FC<CoffeeFormChromeProps> = ({ onBa
               ) : null}
               <p>
                 {isAr
-                  ? `${Number((inspecting.basePrice ?? inspecting.price) || 0).toLocaleString()} ر.س`
-                  : `SAR ${Number((inspecting.basePrice ?? inspecting.price) || 0).toLocaleString()}`}
+                  ? `${Number((inspecting.basePrice ?? inspecting.price) || 0).toLocaleString()} ⃁`
+                  : `⃁ ${Number((inspecting.basePrice ?? inspecting.price) || 0).toLocaleString()}`}
               </p>
               <p style={{ color: 'var(--muted)' }}>
                 {isAr

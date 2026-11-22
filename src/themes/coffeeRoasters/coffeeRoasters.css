@@ -83,10 +83,39 @@
   height: 100%;
   object-fit: cover;
 }
+/*
+ * Header must stay overflow:visible so the absolute mega-menu dropdown can
+ * paint below the bar. overflow-x:clip forces overflow-y to auto/clip and
+ * shoves submenu tabs/underlines into the logo+nav row (Page Builder + live).
+ */
 .hibrew-theme-root.coffee-builder-preview .coffee-builder-header,
 .hibrew-theme-root [data-customize-section="00_header_builder"] {
-  overflow-x: clip;
+  overflow: visible !important;
   max-width: 100%;
+  position: relative;
+}
+
+/* Page Builder: announcement is its own block — hide nested strip inside Main Menu */
+.coffee-builder-preview .coffee-builder-header [data-customize-section='C-ANN'],
+.coffee-builder-header [data-customize-section='C-ANN'],
+[data-builder-header-preview] [data-customize-section='C-ANN'] {
+  display: none !important;
+}
+
+/* Nav row always paints above mega dropdown */
+.hibrew-theme-root [data-customize-section='00_header_builder'] [data-header-nav-row='1'] {
+  position: relative;
+  z-index: 30;
+  background-color: var(--theme-header-bg, #ffffff);
+}
+
+.hibrew-theme-root [data-customize-section='00_header_builder'] [data-mega-menu-panel='on'] {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: #fff;
 }
 
 /* Page Builder device frames: HiBrew header uses @container — keep desktop nav visible in canvas */
@@ -94,6 +123,28 @@
 .builder-device-laptop .hibrew-theme-root.coffee-builder-preview {
   width: 100%;
   min-width: min(100%, 64rem);
+}
+
+/* Builder canvas: do not clip coffee mega-menu under the next section / frame */
+.builder-device-desktop,
+.builder-device-laptop {
+  overflow: visible !important;
+}
+
+.builder-device-desktop .hibrew-theme-root.coffee-builder-header,
+.builder-device-laptop .hibrew-theme-root.coffee-builder-header,
+.builder-device-desktop .coffee-builder-header,
+.builder-device-laptop .coffee-builder-header,
+.builder-device-desktop [data-customize-section='00_header_builder'],
+.builder-device-laptop [data-customize-section='00_header_builder'] {
+  overflow: visible !important;
+  position: relative;
+  z-index: 70;
+}
+
+.builder-device-desktop [data-customize-section='00_header_builder'][data-mega-open='1'],
+.builder-device-laptop [data-customize-section='00_header_builder'][data-mega-open='1'] {
+  z-index: 80;
 }
 
 .builder-device-tablet .hibrew-theme-root.coffee-builder-preview {

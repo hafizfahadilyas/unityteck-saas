@@ -10,6 +10,9 @@ const DB_NAME = 'unityteck_canva_my_templates';
 const DB_VERSION = 1;
 const STORE = 'templates';
 const MAX_PER_STORE = 40;
+/** Master Admin Canva library (`master-platform`) — higher retention for platform designs */
+const MAX_MASTER_LIBRARY = 200;
+const MASTER_LIBRARY_STORE_ID = 'master-platform';
 
 export interface CanvaMyTemplate {
   id: string;
@@ -19,8 +22,8 @@ export interface CanvaMyTemplate {
   nameAr: string;
   width: number;
   height: number;
-  /** studio/psd/image = merchant; master = pushed from Master Admin */
-  source: 'psd' | 'image' | 'studio' | 'master';
+  /** studio/psd/image/pptx = merchant; master = pushed from Master Admin */
+  source: 'psd' | 'image' | 'pptx' | 'studio' | 'master';
   /** True when Master Admin distributed this design to the store */
   fromMaster?: boolean;
   layers: ImportedStudioLayer[];
@@ -90,7 +93,9 @@ export async function saveMyCanvaTemplate(
   if (!input.storeId) throw new Error('STORE_REQUIRED');
 
   const existing = await listMyCanvaTemplates(input.storeId);
-  if (!input.id && existing.length >= MAX_PER_STORE) {
+  const limit =
+    input.storeId === MASTER_LIBRARY_STORE_ID ? MAX_MASTER_LIBRARY : MAX_PER_STORE;
+  if (!input.id && existing.length >= limit) {
     throw new Error('TEMPLATE_LIMIT');
   }
 

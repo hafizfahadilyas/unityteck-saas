@@ -328,7 +328,7 @@ export const MasterOnboarding: React.FC = () => {
               className="w-full px-3 py-2 rounded-xl text-xs outline-none border transition-all dark-control"
               style={darkInputStyle}
             >
-              <option value="SAR">{isAr ? 'SAR (ريال سعودي)' : 'SAR (Saudi Riyal)'}</option>
+              <option value="SAR">{isAr ? 'ريال سعودي (⃁)' : 'Saudi Riyal (\u20C1)'}</option>
               <option value="USD">{isAr ? 'USD (دولار $)' : 'USD ($)'}</option>
               <option value="AED">{isAr ? 'AED (درهم إماراتي)' : 'AED (Dirham)'}</option>
               <option value="EUR">{isAr ? 'EUR (يورو €)' : 'EUR (€)'}</option>

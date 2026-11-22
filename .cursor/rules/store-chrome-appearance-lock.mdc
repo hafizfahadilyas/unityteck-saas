@@ -1,0 +1,18 @@
+# Store chrome appearance (LOCKED)
+
+**Surface:** Store Settings → Appearance · `storeChrome.ts` · `StoreChromeFields` · `BrandingPanel` · `portal-tokens.css` shell wallpaper.
+
+## Locked behaviors
+- Custom **picture wallpaper** must sample brightness (`shellWallpaperLuma`) — never hardcode `shell-luma=dark` for every photo (white titles on light sky = banned).
+- Store owner **page BG + text color + title mode** (`pageBgColor` / `pageTextColor` / `shellTextMode`) persist per `store_id` in `chromeBrand`.
+- `paint()` must **not** wipe owner `data-custom-text` / `data-custom-bg`.
+- Appearance: **Save appearance** button — no auto-save spam; chrome media upload stays IndexedDB-first on localhost (no CORS force to mieraf).
+- Empty remote MySQL must not wipe local durable wallpaper/sidebar images while chrome-idb pending.
+
+## Do not
+- Re-enable debounce auto `saveStoreChrome` on every slider tick
+- Force white page titles on all custom wallpapers
+- Cross-store borrow of chrome images / brand colors
+
+## Fonts
+EN/AR fonts + weights stay in BrandingPanel (global CSS vars) — extend, do not rebuild.

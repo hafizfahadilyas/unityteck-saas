@@ -1,16 +1,11 @@
-import React, { Suspense, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useState, startTransition } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
-import { DashboardOrdersTable } from './DashboardOrdersTable';
 import { AdminPageShell } from '../common/AdminPageHeader';
 import { useToast } from '../common/ToastProvider';
 import { StoreOverviewHeader } from './dashboard/StoreOverviewHeader';
 import { SalesVsProfitChart, DailySalesProfitPoint } from './dashboard/SalesVsProfitChart';
 import { MonthlySummaryCard } from './dashboard/MonthlySummaryCard';
-import { VisitorsByAgeChart } from './dashboard/VisitorsByAgeChart';
-import { VisitsByDayChart } from './dashboard/VisitsByDayChart';
-import { TopProductsCard } from './dashboard/TopProductsCard';
-import { TrafficSourcesCard } from './dashboard/TrafficSourcesCard';
 import { RecentActivityCard } from './dashboard/RecentActivityCard';
 import {
   filterOrdersByRange,
@@ -31,6 +26,21 @@ import { lazyWithRetry } from '../../utils/lazyWithRetry';
 const CreateStoreOrderModal = lazyWithRetry(() =>
   import('./CreateStoreOrderModal').then((m) => ({ default: m.CreateStoreOrderModal })),
 );
+const VisitorsByAgeChart = lazyWithRetry(() =>
+  import('./dashboard/VisitorsByAgeChart').then((m) => ({ default: m.VisitorsByAgeChart })),
+);
+const VisitsByDayChart = lazyWithRetry(() =>
+  import('./dashboard/VisitsByDayChart').then((m) => ({ default: m.VisitsByDayChart })),
+);
+const TopProductsCard = lazyWithRetry(() =>
+  import('./dashboard/TopProductsCard').then((m) => ({ default: m.TopProductsCard })),
+);
+const TrafficSourcesCard = lazyWithRetry(() =>
+  import('./dashboard/TrafficSourcesCard').then((m) => ({ default: m.TrafficSourcesCard })),
+);
+const DashboardOrdersTable = lazyWithRetry(() =>
+  import('./DashboardOrdersTable').then((m) => ({ default: m.DashboardOrdersTable })),
+);
 
 interface StoreDashboardProps {
   onNavigateTab: (tab: string) => void;
@@ -48,7 +58,6 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
     currentCustomers,
     currentProducts,
     currentOrders,
-    dataSource,
     addOrder,
   } = useTenant();
   const { money, locale } = usePrefs();
@@ -59,6 +68,26 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
   const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
   const [homeAnalytics, setHomeAnalytics] = useState<DashboardHomeAnalytics | null>(null);
   const [storefrontActivities, setStorefrontActivities] = useState<CustomerActivityRow[]>([]);
+  // Below-fold widgets mount after first paint — keeps Sales chart interactive immediately.
+  const [showBelowFold, setShowBelowFold] = useState(false);
+
+  useEffect(() => {
+    const ric = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
+    let idleId = 0;
+    let timeoutId = 0;
+    const reveal = () => startTransition(() => setShowBelowFold(true));
+    if (typeof ric === 'function') {
+      idleId = ric(reveal, { timeout: 800 });
+    } else {
+      timeoutId = window.setTimeout(reveal, 80);
+    }
+    return () => {
+      if (idleId && typeof (window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback === 'function') {
+        (window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(idleId);
+      }
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, []);
 
   useEffect(() => {
     const storeId = activeStore?.id;
@@ -73,22 +102,22 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
       if (cancelled) return;
       void fetchDashboardHomeAnalytics(storeId)
         .then((data) => {
-          if (!cancelled) setHomeAnalytics(data);
+          if (!cancelled) startTransition(() => setHomeAnalytics(data));
         })
         .catch(() => {
           if (!cancelled) setHomeAnalytics(null);
         });
-      void fetchStoreRecentActivitiesApi(storeId, 24)
+      void fetchStoreRecentActivitiesApi(storeId, 16)
         .then((rows) => {
-          if (!cancelled) setStorefrontActivities(Array.isArray(rows) ? rows : []);
+          if (!cancelled) startTransition(() => setStorefrontActivities(Array.isArray(rows) ? rows : []));
         })
         .catch(() => {
           if (!cancelled) setStorefrontActivities([]);
         });
     };
     const ric = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
-    const idleId = typeof ric === 'function' ? ric(run, { timeout: 1200 }) : 0;
-    const timeoutId = typeof ric === 'function' ? 0 : window.setTimeout(run, 120);
+    const idleId = typeof ric === 'function' ? ric(run, { timeout: 1800 }) : 0;
+    const timeoutId = typeof ric === 'function' ? 0 : window.setTimeout(run, 200);
     return () => {
       cancelled = true;
       if (idleId && typeof (window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback === 'function') {
@@ -151,13 +180,16 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
         }
         map.set(d, prev);
       });
-      const pts = Array.from(map.entries()).map(([date, row]) => ({
-        date: date.length > 5 ? date.slice(5) : date,
-        sales: row.sales,
-        profit: row.hasCost ? Math.round(row.profit) : 0,
-        isLabelPoint: true,
-      }));
-      return pts.slice(0, 14);
+      const pts = Array.from(map.entries())
+        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+        .map(([date, row]) => ({
+          date: date.length > 5 ? date.slice(5) : date,
+          sales: row.sales,
+          profit: row.hasCost ? Math.round(row.profit) : 0,
+          isLabelPoint: true,
+        }));
+      // Cap bars — long ranges were janking SVG hover on the dashboard.
+      return pts.length > 14 ? pts.slice(pts.length - 14) : pts;
     }
     return [];
   }, [analyticsOrders]);
@@ -244,18 +276,30 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
       .map(({ visits: _visits, ...ch }) => ch);
   }, [homeAnalytics?.traffic_sources]);
 
-  // Live product sales qty from real order line items (no hardcoded mock ranks)
+  // Live product sales qty — range-scoped only (never scan entire lifetime cart on every paint)
   const salesByProductId = useMemo(() => {
     const map: Record<string, number> = {};
-    (currentOrders || []).forEach((o) => {
-      (o.items || []).forEach((it) => {
-        const id = it.id;
-        if (!id) return;
-        map[id] = (map[id] || 0) + (Number(it.quantity) || 0);
-      });
-    });
+    const source = analyticsOrders.length > 0 ? analyticsOrders : (currentOrders || []).slice(0, 80);
+    for (let i = 0; i < source.length; i++) {
+      const items = source[i].items || [];
+      for (let j = 0; j < items.length; j++) {
+        const id = items[j].id;
+        if (!id) continue;
+        map[id] = (map[id] || 0) + (Number(items[j].quantity) || 0);
+      }
+    }
     return map;
-  }, [currentOrders]);
+  }, [analyticsOrders, currentOrders]);
+
+  const activityOrders = useMemo(
+    () => (currentOrders || []).slice(0, 40),
+    [currentOrders],
+  );
+  const tableOrders = useMemo(
+    () => (analyticsOrders.length > 0 ? analyticsOrders : currentOrders || []).slice(0, 120),
+    [analyticsOrders, currentOrders],
+  );
+  const goTab = useCallback((tab: string) => onNavigateTab(tab), [onNavigateTab]);
 
   // Real period growth comparisons (Zero fake dummy percentages)
   const { salesGrowth, ordersGrowth } = useMemo(() => {
@@ -295,7 +339,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
   }, [currentOrders]);
 
   return (
-    <AdminPageShell className="pb-12 space-y-4">
+    <AdminPageShell className="pb-12 space-y-5">
       {/* ── Top Overview Header ── */}
       <StoreOverviewHeader
         storeName={(isAr ? activeStore.nameAr : activeStore.nameEn) || activeStore.name}
@@ -304,12 +348,12 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
         onSelectRange={(k) => setDateRange(k as DateRangeKey)}
       />
 
-      {/* ── Main 3-Column Grid Layout (Cols 1-2 on Left, Col 3 on Right) ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-stretch min-w-0">
-        {/* ════ LEFT MAIN SECTION (8 COLS on xl, 8.5 on 2xl) ════ */}
-        <div className="xl:col-span-8 2xl:col-span-8.5 space-y-4 min-w-0 h-full">
+      {/* ── Main 3-Column Grid — glass overview (chart | KPI | activity) ── */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 xl:gap-5 items-stretch min-w-0">
+        {/* ════ LEFT MAIN SECTION (8 COLS on xl) ════ */}
+        <div className="xl:col-span-8 space-y-4 xl:space-y-5 min-w-0 h-full">
           {/* Row 1: Sales vs Estimated Profit + Monthly Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch min-w-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-5 items-stretch min-w-0">
             <SalesVsProfitChart
               data={salesProfitPoints}
               liveOrdersTotal={liveRevenue}
@@ -324,59 +368,75 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
               visitsGrowth={visitsGrowth}
               profitGrowth={estimatedProfit > 0 ? salesGrowth : null}
               ordersGrowth={ordersGrowth}
-              onViewReports={() => onNavigateTab('reports')}
+              onViewReports={() => goTab('reports')}
             />
           </div>
 
-          {/* Row 2: Visitors by Age + Visits by Day */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch min-w-0">
-            <VisitorsByAgeChart data={[]} />
-            <VisitsByDayChart data={visitsByDayPoints} />
-          </div>
+          {/* Row 2: Visitors by Age + Visits by Day (deferred) */}
+          {showBelowFold && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-5 items-stretch min-w-0">
+              <Suspense fallback={<div className="u-card min-h-[220px] rounded-[1.25rem] animate-pulse" />}>
+                <VisitorsByAgeChart data={[]} />
+              </Suspense>
+              <Suspense fallback={<div className="u-card min-h-[220px] rounded-[1.25rem] animate-pulse" />}>
+                <VisitsByDayChart data={visitsByDayPoints} />
+              </Suspense>
+            </div>
+          )}
 
         </div>
 
-        {/* ════ RIGHT RAIL — Recent Activity stretches to left column / Visits by Day bottom ════ */}
-        <div className="xl:col-span-4 2xl:col-span-3.5 min-w-0 h-full flex flex-col">
+        {/* ════ RIGHT RAIL — Recent Activity ════ */}
+        <div className="xl:col-span-4 min-w-0 h-full flex flex-col">
           <RecentActivityCard
-            orders={currentOrders}
+            orders={activityOrders}
             customers={currentCustomers}
             products={currentProducts}
             storefrontActivities={storefrontActivities}
-            onViewAll={() => onNavigateTab('abandoned-carts')}
-            onNavigateOrder={() => onNavigateTab('orders')}
+            onViewAll={() => goTab('abandoned-carts')}
+            onNavigateOrder={() => goTab('orders')}
           />
         </div>
       </div>
 
-      {/* Row: Top Products + Traffic — equal height, live data, scroll */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch min-w-0">
-        <div className="min-w-0 h-full">
-          <TopProductsCard
-            products={currentProducts}
-            salesByProductId={salesByProductId}
-            onViewAll={() => onNavigateTab('products')}
-            onSelectProduct={() => onNavigateTab('products')}
-          />
+      {/* Row: Top Products + Traffic — deferred so Sales chart stays snappy */}
+      {showBelowFold && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch min-w-0">
+          <div className="min-w-0 h-full">
+            <Suspense fallback={<div className="u-card min-h-[260px] rounded-[1.25rem] animate-pulse" />}>
+              <TopProductsCard
+                products={currentProducts}
+                salesByProductId={salesByProductId}
+                onViewAll={() => goTab('products')}
+                onSelectProduct={() => goTab('products')}
+              />
+            </Suspense>
+          </div>
+          <div className="min-w-0 h-full">
+            <Suspense fallback={<div className="u-card min-h-[260px] rounded-[1.25rem] animate-pulse" />}>
+              <TrafficSourcesCard
+                totalVisits={visitorsCount}
+                growthPercentage={typeof visitsGrowth === 'number' ? visitsGrowth : 0}
+                channels={trafficChannels}
+                onViewAll={() => goTab('analytics')}
+              />
+            </Suspense>
+          </div>
         </div>
-        <div className="min-w-0 h-full">
-          <TrafficSourcesCard
-            totalVisits={visitorsCount}
-            growthPercentage={typeof visitsGrowth === 'number' ? visitsGrowth : 0}
-            channels={trafficChannels}
-            onViewAll={() => onNavigateTab('analytics')}
-          />
-        </div>
-      </div>
+      )}
 
-      {/* ── Embedded Orders Table Operations (Full Width Span) ── */}
-      <div className="pt-2">
-        <DashboardOrdersTable
-          orders={analyticsOrders.length > 0 ? analyticsOrders : currentOrders}
-          onNavigateTab={onNavigateTab}
-          onOpenCreateOrder={() => setIsCreateOrderModalOpen(true)}
-        />
-      </div>
+      {/* ── Embedded Orders Table (lazy + capped rows) ── */}
+      {showBelowFold && (
+        <div className="pt-2">
+          <Suspense fallback={<div className="u-card min-h-[200px] rounded-[1.25rem] animate-pulse" />}>
+            <DashboardOrdersTable
+              orders={tableOrders}
+              onNavigateTab={goTab}
+              onOpenCreateOrder={() => setIsCreateOrderModalOpen(true)}
+            />
+          </Suspense>
+        </div>
+      )}
 
       {/* ── Create Order Modal (lazy — keep dashboard chunk light) ── */}
       {isCreateOrderModalOpen && (

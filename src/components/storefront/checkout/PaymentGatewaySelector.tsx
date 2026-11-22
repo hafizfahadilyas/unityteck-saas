@@ -373,7 +373,7 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
               {isAr ? 'تابي: قسّمها على 4 دفعات شهرية' : 'Tabby: Split in 4 Monthly Payments'}
             </p>
             <p className="text-[11px] text-emerald-800 font-mono font-semibold">
-              {isAr ? `${installment4}ر.س / شهرياً (بدون رسوم تأخير)` : `SAR ${installment4} / month (No late fees)`}
+              {isAr ? `${installment4}⃁ / شهرياً (بدون رسوم تأخير)` : `⃁ ${installment4} / month (No late fees)`}
             </p>
           </div>
           <div className={`w-4 h-4 rounded-full mt-1 flex items-center justify-center shrink-0 ${
@@ -405,7 +405,7 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
               {isAr ? 'تمارا: قسّم فاتورتك على 4 دفعات' : 'Tamara: 4 Easy Installments'}
             </p>
             <p className="text-[11px] text-[#A04516] font-mono font-semibold">
-              {isAr ? `${installment4}ر.س / شهرياً (بدون رسوم خفية)` : `SAR ${installment4} / month (No hidden fees)`}
+              {isAr ? `${installment4}⃁ / شهرياً (بدون رسوم خفية)` : `⃁ ${installment4} / month (No hidden fees)`}
             </p>
           </div>
           <div className={`w-4 h-4 rounded-full mt-1 flex items-center justify-center shrink-0 ${
@@ -515,7 +515,7 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
               <span>{isAr ? 'جدول الدفعات الميسرة (4 دفعات متساوية)' : 'Installment Schedule (4 Equal Payments)'}</span>
             </span>
             <span className="font-mono font-bold text-neutral-900">
-              {totalAmount} {isAr ? 'ر.س' : 'SAR'}
+              {totalAmount} {'⃁'}
             </span>
           </div>
 
@@ -524,7 +524,7 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
               <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md block mb-1">
                 {isAr ? 'الدفعة 1: اليوم' : 'Payment 1: Today'}
               </span>
-              <p className="font-mono font-black text-sm text-neutral-900">{installment4} {isAr ? 'ر.س' : 'SAR'}</p>
+              <p className="font-mono font-black text-sm text-neutral-900">{installment4} {'⃁'}</p>
               <p className="text-[10px] text-neutral-500 mt-0.5">{isAr ? 'عند الطلب' : 'Due Now'}</p>
             </div>
 
@@ -532,7 +532,7 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
               <span className="text-[10px] font-bold text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-md block mb-1">
                 {isAr ? 'الدفعة 2: بعد شهر' : 'Payment 2: 1 Month'}
               </span>
-              <p className="font-mono font-black text-sm text-neutral-900">{installment4} {isAr ? 'ر.س' : 'SAR'}</p>
+              <p className="font-mono font-black text-sm text-neutral-900">{installment4} {'⃁'}</p>
               <p className="text-[10px] text-neutral-500 mt-0.5">{isAr ? 'تلقائي' : 'Auto'}</p>
             </div>
 
@@ -540,7 +540,7 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
               <span className="text-[10px] font-bold text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-md block mb-1">
                 {isAr ? 'الدفعة 3: بعد شهرين' : 'Payment 3: 2 Months'}
               </span>
-              <p className="font-mono font-black text-sm text-neutral-900">{installment4} {isAr ? 'ر.س' : 'SAR'}</p>
+              <p className="font-mono font-black text-sm text-neutral-900">{installment4} {'⃁'}</p>
               <p className="text-[10px] text-neutral-500 mt-0.5">{isAr ? 'تلقائي' : 'Auto'}</p>
             </div>
 
@@ -548,7 +548,7 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
               <span className="text-[10px] font-bold text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-md block mb-1">
                 {isAr ? 'الدفعة 4: بعد 3 أشهر' : 'Payment 4: 3 Months'}
               </span>
-              <p className="font-mono font-black text-sm text-neutral-900">{installment4} {isAr ? 'ر.س' : 'SAR'}</p>
+              <p className="font-mono font-black text-sm text-neutral-900">{installment4} {'⃁'}</p>
               <p className="text-[10px] text-neutral-500 mt-0.5">{isAr ? 'تلقائي' : 'Auto'}</p>
             </div>
           </div>

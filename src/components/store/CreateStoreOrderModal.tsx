@@ -80,7 +80,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
 }) => {
   const { locale, dir } = usePrefs();
   const isAr = locale === 'ar';
-  const currencyLabel = isAr ? 'ر.س' : 'SAR';
+  const currencyLabel = '⃁';
 
   // Access store catalog from TenantContext with fallbacks
   const {
@@ -1091,7 +1091,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                     }}
                     className="px-2 py-0.5 rounded-md bg-white/80 border border-amber-300 text-slate-800 hover:bg-amber-100 cursor-pointer font-bold"
                   >
-                    أرضيات ٥ مقاعد (380 ر.س)
+                    أرضيات ٥ مقاعد (380 ⃁)
                   </button>
                   <button
                     type="button"
@@ -1101,7 +1101,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                     }}
                     className="px-2 py-0.5 rounded-md bg-white/80 border border-amber-300 text-slate-800 hover:bg-amber-100 cursor-pointer font-bold"
                   >
-                    أرضيات ٥ مقاعد + الشنطة (470 ر.س)
+                    أرضيات ٥ مقاعد + الشنطة (470 ⃁)
                   </button>
                   <button
                     type="button"
@@ -1111,7 +1111,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                     }}
                     className="px-2 py-0.5 rounded-md bg-white/80 border border-amber-300 text-slate-800 hover:bg-amber-100 cursor-pointer font-bold"
                   >
-                    أرضيات ٧ مقاعد + الشنطة (530 ر.س)
+                    أرضيات ٧ مقاعد + الشنطة (530 ⃁)
                   </button>
                   <button
                     type="button"
@@ -1121,7 +1121,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                     }}
                     className="px-2 py-0.5 rounded-md bg-white/80 border border-amber-300 text-slate-800 hover:bg-amber-100 cursor-pointer font-bold"
                   >
-                    دعاسة الشنطة فقط (150 ر.س)
+                    دعاسة الشنطة فقط (150 ⃁)
                   </button>
                 </div>
               </div>
@@ -1684,11 +1684,11 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                                 fee > 0 || perKg > 0
                                   ? perKg > 0
                                     ? isAr
-                                      ? `${fee}ر.س +${perKg}/كجم`
-                                      : `${fee} SAR + ${perKg}/kg`
+                                      ? `${fee}⃁ +${perKg}/كجم`
+                                      : `${fee} ⃁ + ${perKg}/kg`
                                     : isAr
-                                      ? `${fee}ر.س`
-                                      : `${fee} SAR`
+                                      ? `${fee}⃁`
+                                      : `${fee} ⃁`
                                   : isAr
                                     ? 'مفعّلة'
                                     : 'Enabled';

@@ -43,7 +43,7 @@ import {
 import { Product } from '../../../types';
 
 export interface StudioAdminSettings {
-  // Base Prices (SAR)
+  // Base Prices (⃁)
   seatsPrice: number;
   seatsOldPrice: number;
   matsPrice: number;
@@ -51,13 +51,13 @@ export interface StudioAdminSettings {
   comboPrice: number;
   comboOldPrice: number;
 
-  // Leather Addons (SAR)
+  // Leather Addons (⃁)
   nappaAddon: number;
   diamondAddon: number;
   coolingAddon: number;
   alcantaraAddon: number;
 
-  // Accessories Addons (SAR)
+  // Accessories Addons (⃁)
   steeringAddon: number;
   cushionsAddon: number;
 
@@ -530,8 +530,8 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
       type: 'cart',
       title: isAr ? 'تمت إضافة التخصيص الملكي إلى السلة' : 'Custom VIP Kit Added to Cart',
       message: isAr 
-        ? `تم تجهيز مواصفات (${selectedCar.nameAr}) بخامة (${activeGrade.nameAr}) ولون (${selectedColor.nameAr}) بسعر (${studioTotalPrice}ر.س)`
-        : `Ready to tailor: ${selectedCar.nameEn} in ${activeGrade.nameEn} - ${selectedColor.nameEn} (${studioTotalPrice} SAR)`,
+        ? `تم تجهيز مواصفات (${selectedCar.nameAr}) بخامة (${activeGrade.nameAr}) ولون (${selectedColor.nameAr}) بسعر (${studioTotalPrice}⃁)`
+        : `Ready to tailor: ${selectedCar.nameEn} in ${activeGrade.nameEn} - ${selectedColor.nameEn} (${studioTotalPrice} ⃁)`,
       actionLabel: isAr ? 'عرض السلة' : 'View Cart',
       actionLabelEn: 'View Cart',
       onAction: () => {
@@ -545,12 +545,12 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
   const handleCustomizerWhatsApp = () => {
     const addonsList: string[] = [];
     if (addonLogo) addonsList.push(isAr ? 'تطريز شعار السيارة ليزرياً (مجاناً)' : 'Free Laser Logo Embroidery');
-    if (addonSteering) addonsList.push(isAr ? 'تلبيسة دركسون ملكية متناسقة (+35 ر.س)' : 'Matching Steering Cover (+35 SAR)');
-    if (addonCushions) addonsList.push(isAr ? 'طقم مخدات ميموري فوم 2x (+45 ر.س)' : '2x Memory Foam Neck Pillows (+45 SAR)');
+    if (addonSteering) addonsList.push(isAr ? 'تلبيسة دركسون ملكية متناسقة (+35 ⃁)' : 'Matching Steering Cover (+35 ⃁)');
+    if (addonCushions) addonsList.push(isAr ? 'طقم مخدات ميموري فوم 2x (+45 ⃁)' : '2x Memory Foam Neck Pillows (+45 ⃁)');
 
     const msg = isAr 
       ? `مرحباً متجر السعيدي لخدمات السيارات، أرغب بحجز تفصيل ليزري لمقصورة سيارتي حسب التخصيص التالي:
-🚗 نوع وموديل السيارة:${selectedCar.nameAr}📦 البكج المطلوب:${studioType === 'combo' ? 'البكج الملكي الشامل (تلابيس مقاعد + أرضيات 5D ليزر)': studioType === 'mats' ? 'طقم أرضيات 5D ليزرية': 'تلابيس مقاعد VIP تفصيل كامل'}🧵 خامة وتطريز الجلد:${activeGrade.nameAr}🎨 اللون المختار:${selectedColor.nameAr}✨ الإضافات المختارة:${addonsList.length > 0 ? addonsList.join(' + '): 'بدون إضافات'}💰 السعر الإجمالي شامل الضريبة:${studioTotalPrice}ر.س (وفرت${studioTotalSavings}ر.س)
+🚗 نوع وموديل السيارة:${selectedCar.nameAr}📦 البكج المطلوب:${studioType === 'combo' ? 'البكج الملكي الشامل (تلابيس مقاعد + أرضيات 5D ليزر)': studioType === 'mats' ? 'طقم أرضيات 5D ليزرية': 'تلابيس مقاعد VIP تفصيل كامل'}🧵 خامة وتطريز الجلد:${activeGrade.nameAr}🎨 اللون المختار:${selectedColor.nameAr}✨ الإضافات المختارة:${addonsList.length > 0 ? addonsList.join(' + '): 'بدون إضافات'}💰 السعر الإجمالي شامل الضريبة:${studioTotalPrice}⃁ (وفرت${studioTotalSavings}⃁)
 📍 مكان التركيب: فرع مكة المكرمة (بطحاء قريش) مع ضمان سنتين ذهبي.
 أرجو تأكيد موعد التفصيل والتركيب.`
       : `Hello Al-Saeedi Car Services, I want to book bespoke interior tailoring:
@@ -559,7 +559,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
 🧵 Leather Grade: ${activeGrade.nameEn}
 🎨 Color: ${selectedColor.nameEn}
 ✨ Extras: ${addonsList.length > 0 ? addonsList.join(', ') : 'None'}
-💰 Total Price: ${studioTotalPrice} SAR (Saved ${studioTotalSavings} SAR)
+💰 Total Price: ${studioTotalPrice} ⃁ (Saved ${studioTotalSavings} ⃁)
 📍 Installation: Free Makkah fitting with 2-year warranty.`;
 
     onWhatsAppOrder(baseProduct, selectedColor, msg);
@@ -702,8 +702,8 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                 >
                   <Palette className="w-5 h-5 text-[#f6c344]" />
                   <span className="text-xs font-black text-white">{isAr ? 'تلابيس مقاعد كبار العملاء' : 'Bespoke Covers'}</span>
-                  <span className="text-[11px] text-amber-200/90 font-bold">{adminSettings.seatsPrice} {isAr ? 'ر.س' : 'SAR'}</span>
-                  <span className="text-[9px] text-slate-400 line-through">{adminSettings.seatsOldPrice} {isAr ? 'ر.س' : 'SAR'}</span>
+                  <span className="text-[11px] text-amber-200/90 font-bold">{adminSettings.seatsPrice} {'⃁'}</span>
+                  <span className="text-[9px] text-slate-400 line-through">{adminSettings.seatsOldPrice} {'⃁'}</span>
                 </button>
 
                 {/* Mats */}
@@ -718,8 +718,8 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                 >
                   <Layers className="w-5 h-5 text-emerald-400" />
                   <span className="text-xs font-black text-white">{isAr ? 'أرضيات 5D ليزر' : '5D Laser Mats'}</span>
-                  <span className="text-[11px] text-amber-200/90 font-bold">{adminSettings.matsPrice} {isAr ? 'ر.س' : 'SAR'}</span>
-                  <span className="text-[9px] text-slate-400 line-through">{adminSettings.matsOldPrice} {isAr ? 'ر.س' : 'SAR'}</span>
+                  <span className="text-[11px] text-amber-200/90 font-bold">{adminSettings.matsPrice} {'⃁'}</span>
+                  <span className="text-[9px] text-slate-400 line-through">{adminSettings.matsOldPrice} {'⃁'}</span>
                 </button>
 
                 {/* Full Combo */}
@@ -737,8 +737,8 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                   </span>
                   <Award className="w-5 h-5 text-amber-300" />
                   <span className="text-xs font-black text-white">{isAr ? 'البكج الشامل' : 'Full Combo'}</span>
-                  <span className="text-[11px] text-[#f6c344] font-black">{adminSettings.comboPrice} {isAr ? 'ر.س' : 'SAR'}</span>
-                  <span className="text-[9px] text-slate-400 line-through">{adminSettings.comboOldPrice} {isAr ? 'ر.س' : 'SAR'}</span>
+                  <span className="text-[11px] text-[#f6c344] font-black">{adminSettings.comboPrice} {'⃁'}</span>
+                  <span className="text-[9px] text-slate-400 line-through">{adminSettings.comboOldPrice} {'⃁'}</span>
                 </button>
               </div>
             </div>
@@ -797,7 +797,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
 
                       <div className="text-end shrink-0">
                         <span className={`text-xs font-black ${priceAddon === 0 ? 'text-emerald-400' : 'text-amber-300'}`}>
-                          {priceAddon === 0 ? (isAr ? 'مشمول' : 'Included') : `+${priceAddon} ${isAr ? 'ر.س' : 'SAR'}`}
+                          {priceAddon === 0 ? (isAr ? 'مشمول' : 'Included') : `+${priceAddon} ${'⃁'}`}
                         </span>
                       </div>
                     </button>
@@ -896,7 +896,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                     </span>
                   </div>
                   <span className="text-[10px] font-black text-amber-300 shrink-0">
-                    +{adminSettings.steeringAddon} {isAr ? 'ر.س' : 'SAR'}
+                    +{adminSettings.steeringAddon} {'⃁'}
                   </span>
                 </button>
 
@@ -919,7 +919,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                     </span>
                   </div>
                   <span className="text-[10px] font-black text-amber-300 shrink-0">
-                    +{adminSettings.cushionsAddon} {isAr ? 'ر.س' : 'SAR'}
+                    +{adminSettings.cushionsAddon} {'⃁'}
                   </span>
                 </button>
               </div>
@@ -1027,14 +1027,14 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                     <div className="text-[11px] text-slate-400 font-semibold">{isAr ? 'السعر الإجمالي بعد التخصيص:' : 'Total Price with Tax:'}</div>
                     <div className="flex items-baseline gap-2 mt-0.5">
                       <span className="text-2xl sm:text-3xl font-black text-[#f6c344]">{studioTotalPrice}</span>
-                      <span className="text-xs font-bold text-amber-200">{isAr ? 'ر.س' : 'SAR'}</span>
-                      <span className="text-xs line-through text-slate-500 ml-1">{studioOldTotalPrice} {isAr ? 'ر.س' : 'SAR'}</span>
+                      <span className="text-xs font-bold text-amber-200">{'⃁'}</span>
+                      <span className="text-xs line-through text-slate-500 ml-1">{studioOldTotalPrice} {'⃁'}</span>
                     </div>
                   </div>
 
                   <div className="text-end">
                     <span className="inline-block bg-amber-400 text-[#120224] text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
-                      {isAr ? `وفرت${studioTotalSavings}ر.س` : `Save ${studioTotalSavings} SAR`}
+                      {isAr ? `وفرت${studioTotalSavings}⃁` : `Save ${studioTotalSavings} ⃁`}
                     </span>
                     <div className="text-[10px] text-slate-400 mt-1">{isAr ? adminSettings.installationNoteAr : adminSettings.installationNoteEn}</div>
                   </div>
@@ -1170,7 +1170,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                       <div className="text-xs font-black text-[#f6c344]">{isAr ? '1. بكج تلابيس المقاعد كبار العملاء' : '1. Bespoke Seat Covers'}</div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'سعر البيع (ر.س):' : 'Offer Price (SAR):'}</label>
+                          <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'سعر البيع (⃁):' : 'Offer Price (⃁):'}</label>
                           <input 
                             type="number"
                             value={editForm.seatsPrice}
@@ -1179,7 +1179,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                           />
                         </div>
                         <div>
-                          <label className="text-[11px] text-slate-400 block mb-1">{isAr ? 'السعر القديم المشطوب:' : 'Old Price (SAR):'}</label>
+                          <label className="text-[11px] text-slate-400 block mb-1">{isAr ? 'السعر القديم المشطوب:' : 'Old Price (⃁):'}</label>
                           <input 
                             type="number"
                             value={editForm.seatsOldPrice}
@@ -1195,7 +1195,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                       <div className="text-xs font-black text-emerald-400">{isAr ? '2. بكج أرضيات 5D ليزر' : '2. 5D Laser Armor Mats'}</div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'سعر البيع (ر.س):' : 'Offer Price (SAR):'}</label>
+                          <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'سعر البيع (⃁):' : 'Offer Price (⃁):'}</label>
                           <input 
                             type="number"
                             value={editForm.matsPrice}
@@ -1204,7 +1204,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                           />
                         </div>
                         <div>
-                          <label className="text-[11px] text-slate-400 block mb-1">{isAr ? 'السعر القديم المشطوب:' : 'Old Price (SAR):'}</label>
+                          <label className="text-[11px] text-slate-400 block mb-1">{isAr ? 'السعر القديم المشطوب:' : 'Old Price (⃁):'}</label>
                           <input 
                             type="number"
                             value={editForm.matsOldPrice}
@@ -1220,7 +1220,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                       <div className="text-xs font-black text-amber-300">{isAr ? '3. البكج الشامل (مقاعد + أرضيات)' : '3. Full VIP Combo'}</div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'سعر البيع (ر.س):' : 'Offer Price (SAR):'}</label>
+                          <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'سعر البيع (⃁):' : 'Offer Price (⃁):'}</label>
                           <input 
                             type="number"
                             value={editForm.comboPrice}
@@ -1229,7 +1229,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                           />
                         </div>
                         <div>
-                          <label className="text-[11px] text-slate-400 block mb-1">{isAr ? 'السعر القديم المشطوب:' : 'Old Price (SAR):'}</label>
+                          <label className="text-[11px] text-slate-400 block mb-1">{isAr ? 'السعر القديم المشطوب:' : 'Old Price (⃁):'}</label>
                           <input 
                             type="number"
                             value={editForm.comboOldPrice}

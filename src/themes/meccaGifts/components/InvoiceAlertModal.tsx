@@ -22,8 +22,8 @@ export const InvoiceAlertModal: React.FC = () => {
       ? (activeStore.nameAr || activeStore.name || '')
       : (activeStore.nameEn || activeStore.name || '');
     const text = isAr
-      ? `فاتورة طلب ${storeLabel} رقم: *${lastOrder.orderId}*\nالمستلم:${lastOrder.recipientName}\nالمدينة:${lastOrder.city}\nالمبلغ الإجمالي:${lastOrder.total}ر.س شامل الضريبة.`
-      : `${storeLabel} Invoice #${lastOrder.orderId} - Total: ${lastOrder.total} SAR.`;
+      ? `فاتورة طلب ${storeLabel} رقم: *${lastOrder.orderId}*\nالمستلم:${lastOrder.recipientName}\nالمدينة:${lastOrder.city}\nالمبلغ الإجمالي:${lastOrder.total}⃁ شامل الضريبة.`
+      : `${storeLabel} Invoice #${lastOrder.orderId} - Total: ${lastOrder.total} ⃁.`;
     const href = storeWhatsAppUrl(activeStore.id, text, activeStore);
     if (!href) return;
     window.open(href, '_blank');
@@ -128,7 +128,7 @@ export const InvoiceAlertModal: React.FC = () => {
                     <td className="p-3 text-center text-[#555]">{item.selectedSize}</td>
                     <td className="p-3 text-center font-mono font-bold">{item.quantity}</td>
                     <td className="p-3 text-end font-mono font-bold text-[#102a1c]">
-                      {(item.product.price + item.addons.reduce((s, a) => s + a.price, 0)) * item.quantity} {isAr ? 'ر.س' : 'SAR'}
+                      {(item.product.price + item.addons.reduce((s, a) => s + a.price, 0)) * item.quantity} {'⃁'}
                     </td>
                   </tr>
                 ))}
@@ -140,27 +140,27 @@ export const InvoiceAlertModal: React.FC = () => {
           <div className="space-y-1.5 pt-2 text-xs border-t border-[#f0ede6]">
             <div className="flex justify-between">
               <span className="text-[#666]">{isAr ? 'المجموع الفرعي:' : 'Subtotal:'}</span>
-              <span className="font-mono font-semibold">{lastOrder.subtotal} {isAr ? 'ر.س' : 'SAR'}</span>
+              <span className="font-mono font-semibold">{lastOrder.subtotal} {'⃁'}</span>
             </div>
             {lastOrder.discount > 0 && (
               <div className="flex justify-between text-[#8b263e]">
                 <span>{isAr ? 'الخصم الترويجي:' : 'Discount:'}</span>
-                <span className="font-mono font-semibold">-{lastOrder.discount} {isAr ? 'ر.س' : 'SAR'}</span>
+                <span className="font-mono font-semibold">-{lastOrder.discount} {'⃁'}</span>
               </div>
             )}
             <div className="flex justify-between">
               <span className="text-[#666]">{isAr ? 'رسوم التوصيل المبرد:' : 'Delivery:'}</span>
               <span className="font-mono font-semibold">
-                {lastOrder.shipping === 0 ? (isAr ? 'مجاني' : 'Free') : `${lastOrder.shipping} SAR`}
+                {lastOrder.shipping === 0 ? (isAr ? 'مجاني' : 'Free') : `${lastOrder.shipping} ⃁`}
               </span>
             </div>
             <div className="flex justify-between text-[#8c8275] text-[11px]">
               <span>{isAr ? 'منها ضريبة القيمة المضافة (15%):' : 'VAT (15% Included):'}</span>
-              <span className="font-mono">{vatAmount} {isAr ? 'ر.س' : 'SAR'}</span>
+              <span className="font-mono">{vatAmount} {'⃁'}</span>
             </div>
             <div className="pt-2 border-t border-[#102a1c] flex justify-between text-base font-bold text-[#102a1c]">
               <span>{isAr ? 'المبلغ الإجمالي المستحق:' : 'Total Amount:'}</span>
-              <span className="font-mono text-lg">{lastOrder.total} {isAr ? 'ر.س' : 'SAR'}</span>
+              <span className="font-mono text-lg">{lastOrder.total} {'⃁'}</span>
             </div>
           </div>
 

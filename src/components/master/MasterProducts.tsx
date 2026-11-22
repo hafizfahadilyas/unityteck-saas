@@ -505,7 +505,7 @@ export const MasterProducts: React.FC = () => {
                   {t('categoryLabel')}
                 </th>
                 <th className="py-4 px-3 text-start font-bold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                  {isAr ? 'السعر (ر.س)' : 'Price (SAR)'}
+                  {isAr ? 'السعر (⃁)' : 'Price (⃁)'}
                 </th>
                 <th className="py-4 px-3 text-start font-bold text-[11px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
                   {t('stockCount')}

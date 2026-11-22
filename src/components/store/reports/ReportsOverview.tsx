@@ -513,7 +513,9 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
             <div className="flex items-center gap-4 text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block" />
-                <span>{isAr ? `الإيرادات (${activeStore.currency || 'ر.س'})` : `Revenue (${activeStore.currency || 'SAR'})`}</span>
+                <span>{isAr
+                  ? `الإيرادات (${(activeStore.currency || 'SAR') === 'SAR' ? '\u20C1' : (activeStore.currency || '\u20C1')})`
+                  : `Revenue (${(activeStore.currency || 'SAR') === 'SAR' ? '\u20C1' : (activeStore.currency || '\u20C1')})`}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-purple-600 inline-block" />

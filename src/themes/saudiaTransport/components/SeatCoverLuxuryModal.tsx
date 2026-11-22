@@ -326,8 +326,8 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
     const carFull = `${brandName} ${selectedModel} ${selectedYear}`.trim();
     const bundleText = includeBundle ? (isAr ? '+ بكج ملمع بلاكو المخفض' : ' + Bleco Polish Bundle') : '';
     const customMsg = isAr
-      ? `مرحباً متجر السعيدي لتنجيد السيارات بمكة، أرغب بطلب "${patternNameAr}-${product.nameAr || product.name}" لسيارة (${carFull}) باللون (${selectedColor.nameAr})، عدد المقاعد (${seatsLabelAr})، خامة (${materialLabelAr})${bundleText}، الكمية (${quantity})، بسعر (${totalPrice}ر.س شامل الضريبة والضمان). يرجى تأكيد توافر المقاسات وموعد التفصيل والشحن.`
-      : `Hello Al-Saeedi Car Upholstery Makkah, I would like to order "${patternLabels[selectedPattern].en} - ${product.nameEn || product.name}" for vehicle (${carFull}) in color (${selectedColor.nameEn}), (${seatsLabelEn}), material (${materialLabelEn})${bundleText}, quantity (${quantity}), at total (${totalPrice} SAR). Please confirm fitment and delivery.`;
+      ? `مرحباً متجر السعيدي لتنجيد السيارات بمكة، أرغب بطلب "${patternNameAr}-${product.nameAr || product.name}" لسيارة (${carFull}) باللون (${selectedColor.nameAr})، عدد المقاعد (${seatsLabelAr})، خامة (${materialLabelAr})${bundleText}، الكمية (${quantity})، بسعر (${totalPrice}⃁ شامل الضريبة والضمان). يرجى تأكيد توافر المقاسات وموعد التفصيل والشحن.`
+      : `Hello Al-Saeedi Car Upholstery Makkah, I would like to order "${patternLabels[selectedPattern].en} - ${product.nameEn || product.name}" for vehicle (${carFull}) in color (${selectedColor.nameEn}), (${seatsLabelEn}), material (${materialLabelEn})${bundleText}, quantity (${quantity}), at total (${totalPrice} ⃁). Please confirm fitment and delivery.`;
     
     onWhatsAppOrder(product, selectedColor, unitPrice, customMsg);
   };
@@ -748,7 +748,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                 >
                   <div className="flex items-center justify-between mb-0.5">
                     <span className="font-bold text-slate-900 text-xs">{isAr ? '🇯🇵 قماش ياباني بارد' : '🇯🇵 Japanese Fabric'}</span>
-                    <span className="text-[9px] text-emerald-600 font-bold">(-70 {isAr ? 'ر.س' : 'SAR'})</span>
+                    <span className="text-[9px] text-emerald-600 font-bold">(-70 {'⃁'})</span>
                   </div>
                   <p className="text-[10px] text-slate-500 leading-tight">
                     {isAr ? 'مسامي صيفي بارد يمنع التعرق' : 'Cooling breathable fabric'}
@@ -766,7 +766,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                 >
                   <div className="flex items-center justify-between mb-0.5">
                     <span className="font-bold text-slate-900 text-xs">{isAr ? '💎 جلد دايموند كبار العملاء' : '💎 VIP Diamond'}</span>
-                    <span className="text-[9px] text-[#d5a027] font-bold">(+120 {isAr ? 'ر.س' : 'SAR'})</span>
+                    <span className="text-[9px] text-[#d5a027] font-bold">(+120 {'⃁'})</span>
                   </div>
                   <p className="text-[10px] text-slate-500 leading-tight">
                     {isAr ? 'تطريز دايموند ملكي مضاعف' : 'Double diamond quilting'}
@@ -801,8 +801,8 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                       {isAr ? BLECO_BUNDLE_ADDON.nameAr : BLECO_BUNDLE_ADDON.nameEn}
                     </h6>
                     <div className="flex items-center gap-1.5 mt-0.5 text-[11px]">
-                      <span className="font-black text-[#3e0f77]">{BLECO_BUNDLE_ADDON.price} {isAr ? 'ر.س' : 'SAR'}</span>
-                      <span className="text-slate-400 line-through text-[10px]">{BLECO_BUNDLE_ADDON.originalPrice} {isAr ? 'ر.س' : 'SAR'}</span>
+                      <span className="font-black text-[#3e0f77]">{BLECO_BUNDLE_ADDON.price} {'⃁'}</span>
+                      <span className="text-slate-400 line-through text-[10px]">{BLECO_BUNDLE_ADDON.originalPrice} {'⃁'}</span>
                       <span className="text-[9px] bg-red-100 text-red-700 font-black px-1.5 py-0.2 rounded">
                         25.00%
                       </span>
@@ -905,8 +905,8 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                   <div className="text-[10px] text-slate-500 font-bold">{isAr ? 'السعر الإجمالي بالمواصفات المختارة:' : 'Total Configured Price:'}</div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-2xl font-black text-[#3e0f77]">{totalPrice}</span>
-                    <span className="text-xs font-black text-[#d5a027]">{isAr ? 'ريال سعودي' : 'SAR'}</span>
-                    <span className="text-[11px] text-slate-400 line-through">({originalPrice * quantity} {isAr ? 'ر.س' : 'SAR'})</span>
+                    <span className="text-xs font-black text-[#d5a027]">{'\u20C1'}</span>
+                    <span className="text-[11px] text-slate-400 line-through">({originalPrice * quantity} {'⃁'})</span>
                   </div>
                 </div>
 
@@ -923,8 +923,8 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                   <Sparkles className="w-3.5 h-3.5 text-[#d5a027]" />
                   <span>
                     {isAr 
-                      ? `أو قسّمها على 4 دفعات بقيمة${tabbyInstallment}ر.س بدون فوائد`
-                      : `Or 4 interest-free payments of ${tabbyInstallment} SAR`}
+                      ? `أو قسّمها على 4 دفعات بقيمة${tabbyInstallment}⃁ بدون فوائد`
+                      : `Or 4 interest-free payments of ${tabbyInstallment} ⃁`}
                   </span>
                 </div>
                 <div className="flex items-center gap-1">

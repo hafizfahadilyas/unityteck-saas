@@ -1,0 +1,29 @@
+/**
+ * Saudi Riyal sign (U+20C1) — reliable rendering when fonts lack the glyph.
+ * Official mark: public/currency/saudi-riyal-symbol.svg (SAMA paths).
+ *
+ * Prefer <SaudiRiyalSymbol /> for critical price chips.
+ * Or: <span class="currency-sar">180</span>  /  <i class="sar-sign" aria-hidden="true"></i>
+ */
+
+.sar-sign,
+.currency-sar::before {
+  display: inline-block;
+  width: 0.95em;
+  height: 1.05em;
+  margin-inline-end: 0.2em;
+  vertical-align: -0.12em;
+  background-color: currentColor;
+  -webkit-mask: url('/currency/saudi-riyal-symbol.svg') center / contain no-repeat;
+  mask: url('/currency/saudi-riyal-symbol.svg') center / contain no-repeat;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+.currency-sar::before {
+  content: '';
+}
+
+.currency-sar {
+  white-space: nowrap;
+}

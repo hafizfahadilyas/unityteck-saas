@@ -112,8 +112,8 @@ export const CartDrawer: React.FC = () => {
                 {freeShippingRemaining > 0 ? (
                   <span>
                     {isAr
-                      ? `تبقّى${freeShippingRemaining}ر.س للحصول على شحن مجاني`
-                      : `Add ${freeShippingRemaining} SAR more for free delivery`}
+                      ? `تبقّى${freeShippingRemaining}⃁ للحصول على شحن مجاني`
+                      : `Add ${freeShippingRemaining} ⃁ more for free delivery`}
                   </span>
                 ) : (
                   <span className="text-[#102a1c] font-bold">
@@ -202,7 +202,7 @@ export const CartDrawer: React.FC = () => {
                     <div className="flex items-center justify-between mt-2.5">
                       <span className="text-xs sm:text-sm font-bold font-mono text-[#102a1c]">
                         {item.product.price + item.addons.reduce((sum, a) => sum + a.price, 0)}{' '}
-                        {isAr ? 'ر.س' : 'SAR'}
+                        {'⃁'}
                       </span>
 
                       {/* Quantity Stepper */}
@@ -245,7 +245,7 @@ export const CartDrawer: React.FC = () => {
                       {appliedCoupon.code} (
                       {appliedCoupon.discountType === 'percentage'
                         ? `${appliedCoupon.discountValue}% OFF`
-                        : `${appliedCoupon.discountValue} SAR FLAT`}
+                        : `${appliedCoupon.discountValue} ⃁ FLAT`}
                       )
                     </span>
                   </div>
@@ -293,13 +293,13 @@ export const CartDrawer: React.FC = () => {
               <div className="space-y-1.5 text-xs text-[#555]">
                 <div className="flex justify-between">
                   <span>{isAr ? 'المجموع الفرعي:' : 'Subtotal:'}</span>
-                  <span className="font-mono font-medium">{cartSubtotal} {isAr ? 'ر.س' : 'SAR'}</span>
+                  <span className="font-mono font-medium">{cartSubtotal} {'⃁'}</span>
                 </div>
 
                 {appliedDiscount > 0 && (
                   <div className="flex justify-between text-[#8b263e] font-semibold">
                     <span>{isAr ? 'خصم الكوبون:' : 'Coupon Discount:'}</span>
-                    <span className="font-mono">-{appliedDiscount} {isAr ? 'ر.س' : 'SAR'}</span>
+                    <span className="font-mono">-{appliedDiscount} {'⃁'}</span>
                   </div>
                 )}
 
@@ -309,14 +309,14 @@ export const CartDrawer: React.FC = () => {
                     {shipping === 0 ? (
                       <span className="text-[#102a1c] font-bold">{isAr ? 'مجاني' : 'Free'}</span>
                     ) : (
-                      `${shipping} ${isAr ? 'ر.س' : 'SAR'}`
+                      `${shipping} ${'⃁'}`
                     )}
                   </span>
                 </div>
 
                 <div className="pt-2 border-t border-[#f0ede6] flex justify-between text-sm sm:text-base font-bold text-[#102a1c]">
                   <span>{isAr ? 'الإجمالي النهائي:' : 'Final Total:'}</span>
-                  <span className="font-mono">{finalTotal} {isAr ? 'ر.س' : 'SAR'}</span>
+                  <span className="font-mono">{finalTotal} {'⃁'}</span>
                 </div>
               </div>
 
@@ -347,8 +347,8 @@ export const CartDrawer: React.FC = () => {
                     isAr
                       ? `مرحباً ${activeStore?.nameAr || activeStore?.name || ''}، أود طلب محتويات السلة:\n${cart
                           .map((i) => `• ${i.product.name} (عدد: ${i.quantity}) - ${i.selectedSize}`)
-                          .join('\n')}\nالمجموع الإجمالي: ${finalTotal} ر.س.`
-                      : `Hello ${activeStore?.nameEn || activeStore?.name || ''}, I want to order my bag items for ${finalTotal} SAR.`,
+                          .join('\n')}\nالمجموع الإجمالي: ${finalTotal} ⃁.`
+                      : `Hello ${activeStore?.nameEn || activeStore?.name || ''}, I want to order my bag items for ${finalTotal} ⃁.`,
                   )}`}
                   target="_blank"
                   rel="noreferrer"

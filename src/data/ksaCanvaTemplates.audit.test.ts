@@ -81,10 +81,10 @@ const emptyPrice = resolveCanvaLayerLabel(
 assert(emptyPrice === '', 'empty price must stay empty');
 
 const livePrice = resolveCanvaLayerLabel(
-  { type: 'price', bind: 'price', xPct: 0.5, yPct: 0.9, textEn: '199 SAR', textAr: '١٩٩ ر.س' },
-  { isAr: false, priceLabel: '120 SAR' },
+  { type: 'price', bind: 'price', xPct: 0.5, yPct: 0.9, textEn: '199 ⃁', textAr: '١٩٩ ⃁' },
+  { isAr: false, priceLabel: '120 ⃁' },
 );
-assert(livePrice === '120 SAR', 'live price wins over any leftover fallback');
+assert(livePrice === '120 ⃁', 'live price wins over any leftover fallback');
 
 const storeBind = resolveCanvaLayerLabel(
   { type: 'badge', bind: 'store', xPct: 0.5, yPct: 0.1, textEn: 'Store', textAr: 'المتجر' },

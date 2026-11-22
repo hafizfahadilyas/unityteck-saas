@@ -1244,7 +1244,7 @@ export const StoreShipping: React.FC = () => {
 
           <p className="text-[11px] text-slate-500 dark:text-slate-400">
             {isAr
-              ? 'مثال الواجهة: ريدبوكس ٢٤ ر.س (٥–٧ أيام) · سمسا ٣٠ ر.س (٥–٨ أيام) · أرامكس ٣٠ ر.س · توصيل محلي داخل مكة ٢–٣ أيام. الوقت والرسوم يُؤكدان عند إتمام الشراء.'
+              ? 'مثال الواجهة: ريدبوكس ٢٤ ⃁ (٥–٧ أيام) · سمسا ٣٠ ⃁ (٥–٨ أيام) · أرامكس ٣٠ ⃁ · توصيل محلي داخل مكة ٢–٣ أيام. الوقت والرسوم يُؤكدان عند إتمام الشراء.'
               : 'UI example: RedBox SAR 24 (5–7 days) · SMSA SAR 30 (5–8 days) · Aramex SAR 30 · Local Makkah 2–3 days. Time & charges confirmed at checkout.'}
           </p>
 
@@ -1349,8 +1349,8 @@ export const StoreShipping: React.FC = () => {
                         onClick={() => {
                           const newRate = window.prompt(
                             isAr
-                              ? `حدّث السعر الأساسي لـ${m.name}(ر.س):`
-                              : `Update base rate for ${m.name} (SAR):`,
+                              ? `حدّث السعر الأساسي لـ${m.name}(⃁):`
+                              : `Update base rate for ${m.name} (⃁):`,
                             m.baseRate.toString()
                           );
                           if (newRate !== null && !isNaN(parseFloat(newRate))) {
@@ -1679,7 +1679,7 @@ export const StoreShipping: React.FC = () => {
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    {isAr ? 'أساسي (ر.س)' : 'Base (SAR)'}
+                    {isAr ? 'أساسي (⃁)' : 'Base (⃁)'}
                   </label>
                   <input type="number" min="0" step="0.01" value={methodBaseRate} onChange={(e) => setMethodBaseRate(e.target.value)} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold" />
                 </div>
@@ -1700,7 +1700,7 @@ export const StoreShipping: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    {isAr ? 'مجاني فوق (ر.س)' : 'Free above (SAR)'}
+                    {isAr ? 'مجاني فوق (⃁)' : 'Free above (⃁)'}
                   </label>
                   <input type="number" value={methodFreeThreshold} onChange={(e) => setMethodFreeThreshold(e.target.value)} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold" />
                 </div>
@@ -1838,7 +1838,7 @@ export const StoreShipping: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    {isAr ? 'رسوم التوصيل (ر.س)' : 'Delivery Fee (SAR)'}
+                    {isAr ? 'رسوم التوصيل (⃁)' : 'Delivery Fee (⃁)'}
                   </label>
                   <input
                     type="number"

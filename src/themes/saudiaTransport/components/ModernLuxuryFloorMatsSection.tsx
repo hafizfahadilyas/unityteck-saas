@@ -136,11 +136,11 @@ const ModernLuxuryFloorMatsSectionComponent: React.FC<ModernLuxuryFloorMatsSecti
                 <div>
                   <div className="flex items-baseline">
                     <span className="font-black text-sm sm:text-base text-white">{mat.price}</span>
-                    <span className="text-[10px] sm:text-[11px] font-black text-[#f6c344] mr-1 ml-1">{isAr ? 'ر.س' : 'SAR'}</span>
+                    <span className="text-[10px] sm:text-[11px] font-black text-[#f6c344] mr-1 ml-1">{'⃁'}</span>
                   </div>
                   {mat.originalPrice && mat.originalPrice > mat.price && (
                     <span className="text-[10px] text-slate-400 line-through block font-medium">
-                      {mat.originalPrice} {isAr ? 'ر.س' : 'SAR'}
+                      {mat.originalPrice} {'⃁'}
                     </span>
                   )}
                 </div>

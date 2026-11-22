@@ -1326,7 +1326,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                       <p className="text-xs text-slate-600 dark:text-slate-300">
                         {cp.discountType === 'fixed'
                           ? isAr
-                            ? `خصم${cp.discountValue}ر.س`
+                            ? `خصم${cp.discountValue}⃁`
                             : `${money(cp.discountValue)} off`
                           : isAr
                             ? `خصم${cp.discountValue}%`

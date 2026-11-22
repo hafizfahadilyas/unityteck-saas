@@ -240,7 +240,7 @@ export const UserCrmPage: React.FC = () => {
                 {loyaltyPoints} {isAr ? 'نقطة' : 'pts'}
               </p>
               <span className="text-[11px] text-[#ded7c8]">
-                {isAr ? `تعادل${(loyaltyPoints * 0.1).toFixed(0)}ر.س رصيد خصم متاح` : `Worth ${(loyaltyPoints * 0.1).toFixed(0)} SAR discount`}
+                {isAr ? `تعادل${(loyaltyPoints * 0.1).toFixed(0)}⃁ رصيد خصم متاح` : `Worth ${(loyaltyPoints * 0.1).toFixed(0)} ⃁ discount`}
               </span>
             </div>
           </div>
@@ -391,8 +391,8 @@ export const UserCrmPage: React.FC = () => {
                           </p>
                           <p className="text-[11px] text-rose-800 mt-0.5">
                             {isAr
-                              ? `تمت معالجة استرداد كامل المبلغ (${order.total}ر.س) إلى حسابك عبر${order.paymentMethod}.`
-                              : `Full refund of (${order.total} SAR) has been approved and refunded to your ${order.paymentMethod}.`}
+                              ? `تمت معالجة استرداد كامل المبلغ (${order.total}⃁) إلى حسابك عبر${order.paymentMethod}.`
+                              : `Full refund of (${order.total} ⃁) has been approved and refunded to your ${order.paymentMethod}.`}
                           </p>
                           <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-[10px]">
                             <span>{isAr ? 'حالة استرداد المبلغ: تم الاسترداد بنجاح ✓' : 'Refund Status: Refunded Successfully ✓'}</span>
@@ -422,7 +422,7 @@ export const UserCrmPage: React.FC = () => {
                           </div>
 
                           <span className="font-mono font-bold text-[#102a1c]">
-                            {(item.product.price + item.addons.reduce((s, a) => s + a.price, 0)) * item.quantity} {isAr ? 'ر.س' : 'SAR'}
+                            {(item.product.price + item.addons.reduce((s, a) => s + a.price, 0)) * item.quantity} {'⃁'}
                           </span>
                         </div>
                       ))}
@@ -597,7 +597,7 @@ export const UserCrmPage: React.FC = () => {
                   {loyaltyPoints}
                 </p>
                 <span className="text-xs text-[#faf7f2]/90 block mt-0.5 font-medium">
-                  {isAr ? `تعادل${(loyaltyPoints * 0.1).toFixed(0)}ر.س خصم` : `Worth ${(loyaltyPoints * 0.1).toFixed(0)} SAR`}
+                  {isAr ? `تعادل${(loyaltyPoints * 0.1).toFixed(0)}⃁ خصم` : `Worth ${(loyaltyPoints * 0.1).toFixed(0)} ⃁`}
                 </span>
               </div>
             </div>

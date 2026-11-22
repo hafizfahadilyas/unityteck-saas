@@ -1,5 +1,6 @@
 /**
- * Ensure Canva studio text + bg pairs stay readable on light/dark canvases.
+ * Ensure Canva studio text + bg pairs stay fully readable on light/dark canvases.
+ * Prefer Canva-style ink flip (black on light / white on dark) — pill only as last resort.
  */
 
 function parseColor(input: string | undefined): { r: number; g: number; b: number; a: number } | null {
@@ -67,56 +68,75 @@ export function isLightSurface(color: string | undefined, fallbackLight = true):
 
 const DARK_INK = '#0f172a';
 const LIGHT_INK = '#f8fafc';
-const DARK_PILL = 'rgba(15, 23, 42, 0.88)';
-const LIGHT_PILL = 'rgba(255, 255, 255, 0.92)';
+const DARK_PILL = 'rgba(15, 23, 42, 0.92)';
+const LIGHT_PILL = 'rgba(255, 255, 255, 0.95)';
+
+/** WCAG AA normal text — full readable floor for studio */
+const DEFAULT_MIN_RATIO = 4.5;
 
 export interface ReadableTextStyle {
   fontColor: string;
   bgColor: string;
 }
 
+export interface EnsureReadableOptions {
+  /**
+   * When true and flipped ink alone is still weak (rare mid-tone), allow a contrast pill.
+   * Never skips the ink-flip path — user wants black/white text readable first (Canva-like).
+   */
+  preferPill?: boolean;
+  /** Override minimum contrast ratio (default 4.5). */
+  minRatio?: number;
+}
+
 /**
- * Make font/bg readable against an approximate canvas backdrop.
- * Prefers keeping intentional badge fills; only adjusts when contrast fails.
+ * Make font/bg fully readable against an approximate canvas backdrop.
+ * Order: keep pair if OK → flip ink on solid fill → flip ink on canvas → optional pill.
  */
 export function ensureReadableTextStyle(
   fontColor: string | undefined,
   bgColor: string | undefined,
   canvasApprox: string,
-  opts?: { preferPill?: boolean },
+  opts?: EnsureReadableOptions,
 ): ReadableTextStyle {
+  const minRatio = opts?.minRatio ?? DEFAULT_MIN_RATIO;
   const font = fontColor || DARK_INK;
   const bg = bgColor && bgColor !== 'transparent' ? bgColor : 'transparent';
-  const canvas = canvasApprox || '#faf8f5';
+  const canvas = canvasApprox || '#ffffff';
   const against = bg !== 'transparent' ? bg : canvas;
   const ratio = contrastRatio(font, against);
 
-  if (ratio >= 4.2) {
+  if (ratio >= minRatio) {
     return { fontColor: font, bgColor: bg };
   }
 
-  // Solid badge/price fill — flip ink color to match fill luminance
+  // Solid badge/price fill — flip ink to match fill luminance
   if (bg !== 'transparent') {
     const ink = isLightSurface(bg) ? DARK_INK : LIGHT_INK;
-    if (contrastRatio(ink, bg) >= 4.2) {
+    if (contrastRatio(ink, bg) >= minRatio) {
       return { fontColor: ink, bgColor: bg };
     }
-    // Extremely washed fill — strengthen fill + ink
+    // Extremely washed fill — strengthen fill + dark ink
     return {
       fontColor: DARK_INK,
       bgColor: LIGHT_PILL,
     };
   }
 
-  // Transparent text on canvas — either flip ink or add readable pill
+  // Transparent text on canvas — flip ink first (black on light / white on dark)
   const flipped = isLightSurface(canvas) ? DARK_INK : LIGHT_INK;
-  if (!opts?.preferPill && contrastRatio(flipped, canvas) >= 4.2) {
+  if (contrastRatio(flipped, canvas) >= minRatio) {
     return { fontColor: flipped, bgColor: 'transparent' };
   }
 
-  const pill = isLightSurface(canvas) ? DARK_PILL : LIGHT_PILL;
-  const pillInk = isLightSurface(canvas) ? LIGHT_INK : DARK_INK;
-  return { fontColor: pillInk, bgColor: pill };
+  // Last resort only (mid-tone / busy approx) — readable pill
+  if (opts?.preferPill !== false) {
+    const pill = isLightSurface(canvas) ? DARK_PILL : LIGHT_PILL;
+    const pillInk = isLightSurface(canvas) ? LIGHT_INK : DARK_INK;
+    return { fontColor: pillInk, bgColor: pill };
+  }
+
+  return { fontColor: flipped, bgColor: 'transparent' };
 }
 
 /** Resolve approximate solid color for known studio backdrops. */
@@ -144,5 +164,5 @@ export function resolveCanvasApproxColor(
     'ocean-blue': '#082f49',
     obsidian: '#090d16',
   };
-  return map[backdropId] || '#faf8f5';
+  return map[backdropId] || '#ffffff';
 }

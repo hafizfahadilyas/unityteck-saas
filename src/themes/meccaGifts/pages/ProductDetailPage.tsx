@@ -450,7 +450,7 @@ export const ProductDetailPage: React.FC = () => {
         (selectedAddons.length > 0 ? `• الإضافات: ${selectedAddons.map((a) => a.name).join(', ')}\n` : '') +
         (recipientName ? `• المستلم: ${recipientName}\n` : '') +
         `• موعد التوصيل: ${selectedSlot.title}\n` +
-        `• الإجمالي: *${grandTotal} ر.س*`
+        `• الإجمالي: *${grandTotal} ⃁*`
       : `Hello, I want to order: *${product?.nameEn || product?.name || ''}*\n` +
         `• Size: ${selectedSize.name}\n` +
         `• Quantity: ${quantity}\n` +
@@ -736,7 +736,7 @@ export const ProductDetailPage: React.FC = () => {
                 {unitPrice}
               </span>
               <span className="text-xs sm:text-sm font-bold text-[#102a1c] dark:text-slate-300">
-                {isAr ? 'ر.س (شامل الضريبة)' : 'SAR (VAT Incl.)'}
+                {isAr ? '\u20C1 (شامل الضريبة)' : '\u20C1 (VAT Incl.)'}
               </span>
               {((activeVariant?.compareAtPrice && activeVariant.price != null && activeVariant.compareAtPrice > Number(activeVariant.price)) ||
                 (!activeVariant && product.originalPrice && product.originalPrice > product.price)) && (
@@ -744,7 +744,7 @@ export const ProductDetailPage: React.FC = () => {
                   {(activeVariant?.compareAtPrice && activeVariant.compareAtPrice > Number(activeVariant.price || 0)
                     ? activeVariant.compareAtPrice
                     : product.originalPrice || 0) + selectedSize.extra}{' '}
-                  {isAr ? 'ر.س' : 'SAR'}
+                  {'⃁'}
                 </span>
               )}
             </div>
@@ -755,8 +755,8 @@ export const ProductDetailPage: React.FC = () => {
                 <CreditCard className="w-3.5 h-3.5 text-[#102a1c] dark:text-emerald-400 shrink-0" />
                 <span>
                   {isAr
-                    ? `قسّمها على 4 دفعات بقيمة${tabbyInstallment}ر.س بدون فوائد`
-                    : `Split into 4 payments of ${tabbyInstallment} SAR interest-free`}
+                    ? `قسّمها على 4 دفعات بقيمة${tabbyInstallment}⃁ بدون فوائد`
+                    : `Split into 4 payments of ${tabbyInstallment} ⃁ interest-free`}
                 </span>
               </div>
               <span className="font-bold text-[#102a1c] dark:text-emerald-400 shrink-0">{isAr ? 'تابي' : 'Tabby'}</span>
@@ -851,7 +851,7 @@ export const ProductDetailPage: React.FC = () => {
                     >
                       <p className="font-bold text-[11px] truncate">{s.name}</p>
                       <p className="text-[10px] text-[#8b263e] dark:text-rose-400 mt-0.5">
-                        {s.extra > 0 ? `+${s.extra} ${isAr ? 'ر.س' : 'SAR'}` : (isAr ? 'السعر الأساسي' : 'Included')}
+                        {s.extra > 0 ? `+${s.extra} ${'⃁'}` : (isAr ? 'السعر الأساسي' : 'Included')}
                       </p>
                     </button>
                   );
@@ -919,7 +919,7 @@ export const ProductDetailPage: React.FC = () => {
                           {isAr ? addon.name : addon.nameEn}
                         </p>
                         <p className="text-[9px] text-[#102a1c] dark:text-emerald-400 font-mono font-bold">
-                          +{addon.price} {isAr ? 'ر.س' : 'SAR'}
+                          +{addon.price} {'⃁'}
                         </p>
                       </div>
                       <div
@@ -1022,20 +1022,20 @@ export const ProductDetailPage: React.FC = () => {
             <div className="space-y-1.5 text-xs text-[#555] dark:text-slate-400">
               <div className="flex justify-between items-center">
                 <span>{isAr ? 'سعر الباقة الأساسي:' : 'Base Bouquet Price:'}</span>
-                <span className="font-mono text-[#102a1c] dark:text-slate-200">{product.price} {isAr ? 'ر.س' : 'SAR'}</span>
+                <span className="font-mono text-[#102a1c] dark:text-slate-200">{product.price} {'⃁'}</span>
               </div>
 
               {selectedSize.extra > 0 && (
                 <div className="flex justify-between items-center text-[#8b263e] dark:text-rose-400">
                   <span>{isAr ? `ترقية الحجم (${selectedSize.name}):` : `Size upgrade:`}</span>
-                  <span className="font-mono font-bold">+{selectedSize.extra} {isAr ? 'ر.س' : 'SAR'}</span>
+                  <span className="font-mono font-bold">+{selectedSize.extra} {'⃁'}</span>
                 </div>
               )}
 
               {selectedAddons.length > 0 && (
                 <div className="flex justify-between items-center text-[#102a1c] dark:text-emerald-400">
                   <span>{isAr ? `إجمالي الإضافات (${selectedAddons.length}):` : `Add-ons total:`}</span>
-                  <span className="font-mono font-bold">+{addonsTotal} {isAr ? 'ر.س' : 'SAR'}</span>
+                  <span className="font-mono font-bold">+{addonsTotal} {'⃁'}</span>
                 </div>
               )}
 
@@ -1048,10 +1048,10 @@ export const ProductDetailPage: React.FC = () => {
                 <span>{isAr ? 'رسوم التوصيل في مكة:' : 'Mecca Delivery:'}</span>
                 {shippingFee === 0 ? (
                   <span className="text-[#128C7E] dark:text-emerald-400 font-bold bg-[#128C7E]/10 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded text-[10px]">
-                    {isAr ? 'مجاناً (طلبك يتجاوز 300 ر.س)' : 'FREE (Over 300 SAR)'}
+                    {isAr ? 'مجاناً (طلبك يتجاوز 300 ⃁)' : 'FREE (Over 300 ⃁)'}
                   </span>
                 ) : (
-                  <span className="font-mono font-bold text-[#102a1c] dark:text-slate-200">{shippingFee} {isAr ? 'ر.س' : 'SAR'}</span>
+                  <span className="font-mono font-bold text-[#102a1c] dark:text-slate-200">{shippingFee} {'⃁'}</span>
                 )}
               </div>
             </div>
@@ -1071,7 +1071,7 @@ export const ProductDetailPage: React.FC = () => {
                   {grandTotal}
                 </span>
                 <span className="text-xs font-bold text-[#102a1c] dark:text-slate-200 ms-1">
-                  {isAr ? 'ر.س' : 'SAR'}
+                  {'⃁'}
                 </span>
               </div>
             </div>
@@ -1112,8 +1112,8 @@ export const ProductDetailPage: React.FC = () => {
                         ? 'غير متوفر'
                         : 'Out of stock'
                       : isAr
-                        ? `أضف للسلة (${grandTotal}ر.س)`
-                        : `Add to Bag (${grandTotal} SAR)`}
+                        ? `أضف للسلة (${grandTotal}⃁)`
+                        : `Add to Bag (${grandTotal} ⃁)`}
                   </span>
                 </button>
               </div>

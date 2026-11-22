@@ -577,7 +577,7 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5 text-xs">
                 <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                <span className="text-gray-500 dark:text-gray-400">{isAr ? 'المبيعات' : 'Sales (SAR)'}</span>
+                <span className="text-gray-500 dark:text-gray-400">{isAr ? 'المبيعات' : 'Sales (⃁)'}</span>
               </div>
               <div className="flex items-center gap-1.5 text-xs">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
@@ -1249,7 +1249,7 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
                     onChange={(e) => setNewOppType(e.target.value as 'fixed' | 'percentage')}
                     className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:border-teal-500"
                   >
-                    <option value="fixed">{isAr ? 'مبلغ ثابت (ر.س)' : 'Fixed Amount (SAR)'}</option>
+                    <option value="fixed">{isAr ? 'مبلغ ثابت (⃁)' : 'Fixed Amount (⃁)'}</option>
                     <option value="percentage">{isAr ? 'نسبة مئوية (%)' : 'Percentage (%)'}</option>
                   </select>
                 </div>
@@ -1257,7 +1257,7 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
                 <div>
                   <label className="block font-semibold text-gray-700 dark:text-gray-300 mb-1">
                     {newOppType === 'fixed'
-                      ? isAr ? 'المبلغ (ر.س)' : 'Amount (SAR)'
+                      ? isAr ? 'المبلغ (⃁)' : 'Amount (⃁)'
                       : isAr ? 'النسبة المئوية (%)' : 'Percentage (%)'}
                   </label>
                   <input
@@ -1427,7 +1427,7 @@ export const StoreAffiliateMarketing: React.FC<StoreAffiliateMarketingProps> = (
             <form onSubmit={handleRecordPayment} className="space-y-4 text-xs">
               <div>
                 <label className="block font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                  {isAr ? 'المبلغ المستحق (ر.س) *' : 'Amount (SAR) *'}
+                  {isAr ? 'المبلغ المستحق (⃁) *' : 'Amount (⃁) *'}
                 </label>
                 <input
                   type="number"

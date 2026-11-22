@@ -171,8 +171,8 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
     const phone = order.customerPhone ? order.customerPhone.replace(/[^0-9]/g, '') : '';
     const text = encodeURIComponent(
       isAr
-        ? `مرحباً${order.customerName}، مرفق لكم الفاتورة الضريبية الرسمية لطلبكم رقم${order.orderNumber}بمبلغ${grandTotal}ر.س.`
-        : `Hello ${order.customerName}, here is your official tax invoice for order ${order.orderNumber} totaling ${grandTotal} SAR.`
+        ? `مرحباً${order.customerName}، مرفق لكم الفاتورة الضريبية الرسمية لطلبكم رقم${order.orderNumber}بمبلغ${grandTotal}⃁.`
+        : `Hello ${order.customerName}, here is your official tax invoice for order ${order.orderNumber} totaling ${grandTotal} ⃁.`
     );
     window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
   };

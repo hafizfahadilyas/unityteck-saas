@@ -250,7 +250,8 @@ export const ShopTripleSlidersSection: React.FC = () => {
   const { activeStore } = useTenant();
 
   const isAr = language === 'AR';
-  const currency = isAr ? 'ر.س' : activeStore?.currency || 'SAR';
+  const currencyCode = activeStore?.currency || 'SAR';
+  const currency = currencyCode === 'SAR' ? '\u20C1' : currencyCode;
 
   // Dynamic products catalog
   const catalog: Product[] = useMemo(() => {

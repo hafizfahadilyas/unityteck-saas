@@ -1463,7 +1463,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
   // Bulk handlers
   const handleBulkSetPrice = () => {
-    const val = prompt(isAr ? 'أدخل السعر الجديد للتنويعات المحددة (ر.س):' : 'Enter new price for selected variants (SAR):');
+    const val = prompt(isAr ? 'أدخل السعر الجديد للتنويعات المحددة (⃁):' : 'Enter new price for selected variants (⃁):');
     if (val === null) return;
     const num = parseFloat(val);
     if (isNaN(num) || num < 0) {
@@ -2561,7 +2561,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
                   <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                    {isAr ? 'السعر الأساسي (ر.س)' : 'Regular Price (SAR)'} <span className="text-rose-500">*</span>
+                    {isAr ? 'السعر الأساسي (⃁)' : 'Regular Price (⃁)'} <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="number"
@@ -2577,7 +2577,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
                 <div>
                   <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                    {isAr ? 'سعر البيع / الخصم (ر.س)' : 'Sale Price (SAR)'}
+                    {isAr ? 'سعر البيع / الخصم (⃁)' : 'Sale Price (⃁)'}
                   </label>
                   <input
                     type="number"
@@ -2592,7 +2592,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
                 <div>
                   <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                    {isAr ? 'سعر التكلفة (ر.س)' : 'Cost Price (SAR)'}
+                    {isAr ? 'سعر التكلفة (⃁)' : 'Cost Price (⃁)'}
                   </label>
                   <input
                     type="number"
@@ -3346,7 +3346,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                                   style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                                   aria-label={isAr ? 'سعر التنويع' : 'Variant price'}
                                 />
-                                <span className="text-[10px] font-bold text-slate-500">{isAr ? 'ر.س' : 'SAR'}</span>
+                                <span className="text-[10px] font-bold text-slate-500">{'⃁'}</span>
                               </label>
                             </td>
 
@@ -4741,7 +4741,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                      {isAr ? 'سعر إضافي (ر.س)' : 'Extra Price (SAR)'}
+                      {isAr ? 'سعر إضافي (⃁)' : 'Extra Price (⃁)'}
                     </label>
                     <input
                       type="number"

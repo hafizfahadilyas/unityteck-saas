@@ -401,7 +401,7 @@ export const StoreCartOffers: React.FC<StoreCartOffersProps> = ({ onNavigateTab 
                         className="w-full px-3.5 py-2.5 pe-12 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none"
                       />
                       <span className="absolute end-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                        {isAr ? 'ر.س' : 'SAR'}
+                        {'⃁'}
                       </span>
                     </div>
                   </div>

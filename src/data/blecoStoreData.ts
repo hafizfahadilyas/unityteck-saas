@@ -51,7 +51,7 @@ export const BLECO_BUNDLE_ADDON = {
   price: 19.50,
   originalPrice: 26.00,
   discountPercent: 25,
-  savingAr: 'وفر 6.50 ر.س',
+  savingAr: 'وفر 6.50 ⃁',
   image: '/images/categories/car-care-bleco.jpg',
   descriptionAr: 'منظف ومعالج فاخر مخصص للجلد والأرضيات يحافظ على بريق التلبيسة ومقاومة البقع'
 };

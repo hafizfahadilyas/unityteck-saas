@@ -157,8 +157,8 @@ export const ShopFeaturedCarouselSection: React.FC<ShopFeaturedCarouselSectionPr
     return [];
   }, [propProducts, contextProducts]);
 
-  const storeCurrency =
-    propCurrency || (isAr ? 'ر.س' : activeStore?.currency || 'SAR');
+  const storeCurrencyCode = propCurrency || activeStore?.currency || 'SAR';
+  const storeCurrency = storeCurrencyCode === 'SAR' ? '\u20C1' : storeCurrencyCode;
 
   const carouselRef = useRef<HTMLDivElement>(null);
 

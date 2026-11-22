@@ -63,9 +63,9 @@ export const NotificationSettings: React.FC = () => {
         name_en: 'Order Placed & Confirmed',
         name_ar: 'تم استلام وتأكيد الطلب',
         sms_template_ar:
-          'مرحباً {{customer_name}}، تم استلام طلبك رقم {{order_number}} بنجاح لدى {{store_name}} بمبلغ {{order_total}} ر.س. سنتواصل معك فور بدء التجهيز.',
+          'مرحباً {{customer_name}}، تم استلام طلبك رقم {{order_number}} بنجاح لدى {{store_name}} بمبلغ {{order_total}} ⃁. سنتواصل معك فور بدء التجهيز.',
         sms_template_en:
-          'Hello {{customer_name}}, your order #{{order_number}} at {{store_name}} has been received for {{order_total}} SAR. We will notify you once dispatched.',
+          'Hello {{customer_name}}, your order #{{order_number}} at {{store_name}} has been received for {{order_total}} ⃁. We will notify you once dispatched.',
         whatsapp_template_ar:
           '🎉 *مرحباً {{customer_name}}*\n\nتم تأكيد طلبك بنجاح من متجر *{{store_name}}*!\n\n📋 *رقم الطلب:* #{{order_number}}\n💰 *الإجمالي:* {{order_total}} {{currency}}\n💳 *طريقة الدفع:* {{payment_method}}\n📍 *وجهة التوصيل:* {{delivery_city}}\n\nشكراً لتسوقك معنا! 🌸',
         whatsapp_template_en:

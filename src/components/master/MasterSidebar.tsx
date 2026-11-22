@@ -45,6 +45,7 @@ export const MasterSidebar: React.FC<MasterSidebarProps> = ({
   const { stores } = useTenant();
   const { t, locale } = usePrefs();
   const isAr = locale === 'ar';
+  const navTitle = (id: string) => labelForNav(locale, MASTER_NAV_KEYS, id);
   const { canTab } = usePermissions();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -144,6 +145,8 @@ export const MasterSidebar: React.FC<MasterSidebarProps> = ({
         <nav
           className="flex-1 overflow-y-auto overscroll-y-contain touch-pan-y py-2 px-1.5 space-y-0.5 custom-sidebar-scroll min-h-0"
           aria-label={t('masterAdmin')}
+          data-locale={locale}
+          lang={locale}
         >
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -155,7 +158,7 @@ export const MasterSidebar: React.FC<MasterSidebarProps> = ({
                 type="button"
                 onClick={() => selectTab(item.id)}
                 aria-current={isActive ? 'page' : undefined}
-                title={collapsed ? labelForNav(t, MASTER_NAV_KEYS, item.id) : undefined}
+                title={collapsed ? navTitle(item.id) : undefined}
                 className={`w-full flex items-center gap-2.5 transition-all cursor-pointer ${
                   collapsed ? 'justify-center px-0' : 'justify-between'
                 } ${isActive ? 'unity-nav-active' : 'unity-nav-idle'}`}
@@ -172,7 +175,7 @@ export const MasterSidebar: React.FC<MasterSidebarProps> = ({
                     strokeWidth={isActive ? 2.25 : 2}
                   />
                   {!collapsed && (
-                    <span className="truncate">{labelForNav(t, MASTER_NAV_KEYS, item.id)}</span>
+                    <span className="truncate" lang={locale}>{navTitle(item.id)}</span>
                   )}
                 </div>
                 {!collapsed && item.count !== undefined ? (

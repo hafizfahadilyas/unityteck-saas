@@ -167,7 +167,7 @@ export const MiniCartDrawer: React.FC = () => {
                       </div>
 
                       <div className="font-bold text-xs sm:text-sm text-neutral-900 font-mono text-end shrink-0">
-                        {language === 'AR' ? `${(item.unitPrice * item.quantity).toLocaleString()}.00 ر.س` : `SAR ${(item.unitPrice * item.quantity).toLocaleString()}.00`}
+                        {language === 'AR' ? `${(item.unitPrice * item.quantity).toLocaleString()}.00 ⃁` : `⃁ ${(item.unitPrice * item.quantity).toLocaleString()}.00`}
                       </div>
                     </div>
                   </div>
@@ -183,7 +183,7 @@ export const MiniCartDrawer: React.FC = () => {
                 <div className="flex justify-between items-center">
                   <span>{language === 'AR' ? 'المجموع (شامل 15% ضريبة)' : 'Subtotal (Incl. 15% VAT)'}</span>
                   <span className="font-semibold text-neutral-900 font-mono">
-                    {language === 'AR' ? `${cartTotal.toLocaleString()}.00 ر.س` : `SAR ${cartTotal.toLocaleString()}.00`}
+                    {language === 'AR' ? `${cartTotal.toLocaleString()}.00 ⃁` : `⃁ ${cartTotal.toLocaleString()}.00`}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-emerald-700 font-medium">
@@ -199,14 +199,14 @@ export const MiniCartDrawer: React.FC = () => {
                       </button>
                     </span>
                     <span className="font-sans">
-                      {language === 'AR' ? `-${couponDiscount.toLocaleString()}.00 ر.س` : `-SAR ${couponDiscount.toLocaleString()}.00`}
+                      {language === 'AR' ? `-${couponDiscount.toLocaleString()}.00 ⃁` : `-SAR ${couponDiscount.toLocaleString()}.00`}
                     </span>
                   </div>
                 ) : null}
                 <div className="flex justify-between items-center text-sm font-bold text-neutral-900 pt-2 border-t border-neutral-200/60">
                   <span>{language === 'AR' ? 'المبلغ الإجمالي' : 'Total Amount'}</span>
                   <span className="font-mono text-base text-neutral-900">
-                    {language === 'AR' ? `${finalTotal.toLocaleString()}.00 ر.س` : `SAR ${finalTotal.toLocaleString()}.00`}
+                    {language === 'AR' ? `${finalTotal.toLocaleString()}.00 ⃁` : `⃁ ${finalTotal.toLocaleString()}.00`}
                   </span>
                 </div>
               </div>

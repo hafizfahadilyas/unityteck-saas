@@ -198,6 +198,7 @@ const dict = {
     navIntegrations: 'Integrations & Add-ons',
     navReports: 'Basic Reports',
     navSettings: 'Platform Settings',
+    navStoreSettings: 'Store Settings',
     navControlCenter: 'Control Center',
     navLiveStorefront: 'Live storefront',
     navProductsPublish: 'Products Only',
@@ -675,7 +676,7 @@ const dict = {
       'إدارة الخطط والنطاقات والنسخ الاحتياطي وكل التجار من إدارة المنصة — صلاحية كاملة.',
     storeHookTitle: 'متجرك. لوحتك.',
     storeHookBody:
-      'الطلبات والكتالوج والثيمات وتحسين محركات البحث لهذا التاجر فقط — ضمن معرّف المتجر الخاص بك.',
+      'الطلبات والكتالوج والمظاهر وتحسين محركات البحث لهذا التاجر فقط — ضمن معرّف المتجر الخاص بك.',
     masterLoginSub: 'مركز تحكم منصة سوق · كل المتاجر',
     masterBadge: 'مشرف عام',
     storeBrandHint: 'الهوية تتبع هذا المتجر · الاسم واللون من الإعدادات لاحقاً',
@@ -782,7 +783,7 @@ const dict = {
     navDomains: 'النطاقات',
     navDatabase: 'قاعدة البيانات',
     navUpdates: 'التحديثات',
-    navThemesMaster: 'الثيمات',
+    navThemesMaster: 'المظاهر',
     navMarketplace: 'متجر التطبيقات',
     navAppStore: 'متجر التطبيقات',
     navHostingStore: 'الاستضافة والنطاق',
@@ -807,6 +808,7 @@ const dict = {
     navIntegrations: 'التكاملات والإضافات',
     navReports: 'التقارير الأساسية',
     navSettings: 'إعدادات المنصة',
+    navStoreSettings: 'إعدادات المتجر',
     navControlCenter: 'مركز التحكم بالصفحات والعناصر',
     navLiveStorefront: 'واجهة المتجر المباشرة',
     navProductsPublish: 'المنتجات فقط',
@@ -817,7 +819,7 @@ const dict = {
     navSeoStore: 'تحسين محركات البحث',
     navCouponsDeals: 'الكوبونات والخصومات',
     navShipping: 'الشحن والمدن',
-    navThemesStore: 'الثيمات والتخطيط',
+    navThemesStore: 'المظاهر والتخطيط',
     navPages: 'الأنظمة والسياسات',
     navInventory: 'المخزون',
     navWhatsApp: 'أدوات التواصل',
@@ -1225,6 +1227,20 @@ const dict = {
 
 export type DictKey = keyof typeof dict.en;
 
+/**
+ * Chrome i18n — NEVER cross-mix languages.
+ * AR locale → Arabic only (no English fallback into Arabic UI).
+ * EN locale → English only (no Arabic fallback into English UI).
+ */
 export function translate(locale: AppLocale, key: DictKey): string {
-  return (dict[locale] as Record<string, string>)[key] ?? (dict.en as Record<string, string>)[key] ?? key;
+  const table = dict[locale] as Record<string, string>;
+  const hit = table[key];
+  if (hit != null && hit !== '') return hit;
+  // Missing key: return the key id — never inject the other language into chrome.
+  return key;
+}
+
+/** Direct bilingual pick for nav / chrome (locale-locked). */
+export function chromePair(locale: AppLocale, en: string, ar: string): string {
+  return locale === 'ar' ? ar : en;
 }

@@ -375,7 +375,7 @@ GAQL;
             $status = 'PAUSED';
         }
         if ($name === '' || $budgetSar < 1) {
-            return ['ok' => false, 'error' => 'Campaign name and daily budget (min 1 SAR) required.'];
+            return ['ok' => false, 'error' => 'Campaign name and daily budget (min 1 ⃁) required.'];
         }
 
         $budgetResource = "customers/{$id}/campaignBudgets/-1";
@@ -549,7 +549,7 @@ GAQL;
         $id = $this->normalizeCustomerId($customerId);
         $bid = preg_replace('/\D+/', '', $budgetId);
         if ($dailyBudgetSar < 1) {
-            return ['ok' => false, 'error' => 'Budget must be at least 1 SAR'];
+            return ['ok' => false, 'error' => 'Budget must be at least 1 ⃁'];
         }
 
         return $this->mutate($accessToken, $customerId, 'campaignBudgets', [[

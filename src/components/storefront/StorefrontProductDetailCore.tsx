@@ -28,7 +28,7 @@ export interface StorefrontProductDetailCoreProps {
 function money(amount: number, isAr: boolean): string {
   const n = Number.isFinite(amount) ? amount : 0;
   const text = n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-  return isAr ? `${text} ر.س` : `SAR ${text}`;
+  return isAr ? `${text} ⃁` : `⃁ ${text}`;
 }
 
 function discountPercent(regular: number, sale: number): number | null {

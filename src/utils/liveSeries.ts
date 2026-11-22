@@ -25,7 +25,8 @@ export function rangeBounds(key: DateRangeKey): { start: Date; end: Date } | nul
     return { start, end };
   }
   if (key === 'month') {
-    start.setDate(start.getDate() - 29);
+    // Calendar month (matches UI label "Nov 1 – Nov 30"), not rolling 30 days.
+    start.setDate(1);
     return { start, end };
   }
   if (key === 'year') {

@@ -73,17 +73,17 @@ export const MonthlySummaryCard: React.FC<MonthlySummaryCardProps> = React.memo(
 
   return (
     <div
-      className="u-card p-3.5 sm:p-5 rounded-2xl shadow-xs flex flex-col justify-between w-full h-full min-h-[280px] min-w-0"
+      className="u-card p-3.5 sm:p-5 rounded-[1.25rem] shadow-xs flex flex-col justify-between w-full h-full min-h-[280px] min-w-0"
       style={{ fontFamily: 'var(--font-ui)', color: 'var(--card-fg)' }}
     >
       {/* ── Card Header ── */}
       <div
         className="flex items-center justify-between pb-3 mb-3 gap-2"
-        style={{ borderBottom: '1px solid var(--border)' }}
+        style={{ borderBottom: '1px solid var(--glass-border-soft, var(--border))' }}
       >
         <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-          <div className="u-icon w-8 h-8 flex items-center justify-center border shrink-0" style={{ borderColor: 'var(--border)' }}>
-            <Calendar className="w-4 h-4" />
+          <div className="u-icon w-8 h-8 flex items-center justify-center border shrink-0 rounded-xl" style={{ borderColor: 'var(--glass-border, var(--border))' }}>
+            <Calendar className="w-4 h-4" strokeWidth={1.75} />
           </div>
           <div className="min-w-0">
             <h3 className="text-sm font-black leading-tight truncate" style={{ color: 'var(--text)' }}>
@@ -106,7 +106,7 @@ export const MonthlySummaryCard: React.FC<MonthlySummaryCardProps> = React.memo(
         </button>
       </div>
 
-      {/* ── 2x2 Sub-Cards Grid (Fully responsive on Mobile, Tablet & Desktop) ── */}
+      {/* ── 2x2 KPI glass tiles ── */}
       <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-2 sm:gap-2.5 xl:gap-3 pt-1">
         {items.map((item) => {
           const Icon = item.icon;
@@ -116,12 +116,17 @@ export const MonthlySummaryCard: React.FC<MonthlySummaryCardProps> = React.memo(
           return (
             <div
               key={item.id}
-              className="p-2.5 sm:p-3 xl:p-3.5 rounded-2xl flex flex-col justify-between group transition-colors min-w-0"
-              style={{ background: 'var(--hover-bg)' }}
+              className="store-glass-kpi p-2.5 sm:p-3 xl:p-3.5 flex flex-col justify-between group transition-colors min-w-0"
             >
               <div className="flex items-start gap-2 sm:gap-2.5 min-w-0">
-                <div className="u-icon w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-                  <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" strokeWidth={2.2} />
+                <div
+                  className="w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5"
+                  style={{
+                    background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
+                    color: 'var(--accent)',
+                  }}
+                >
+                  <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" strokeWidth={1.75} />
                 </div>
 
                 <div className="min-w-0 flex-1">
@@ -168,7 +173,7 @@ export const MonthlySummaryCard: React.FC<MonthlySummaryCardProps> = React.memo(
                   className="transition-colors cursor-pointer shrink-0 p-0.5"
                   style={{ color: 'var(--muted)' }}
                 >
-                  <HelpCircle className="w-3.5 h-3.5" />
+                  <HelpCircle className="w-3.5 h-3.5" strokeWidth={1.75} />
                 </div>
               </div>
             </div>

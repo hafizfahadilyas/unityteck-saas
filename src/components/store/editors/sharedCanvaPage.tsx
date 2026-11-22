@@ -35,14 +35,15 @@ export const SharedCanvaEditorPage: React.FC<Props> = ({ editorKind, onNavigateT
     const slug =
       payload.title.toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]+/gi, '-').replace(/^-+|-+$/g, '') ||
       'studio-design';
+    const thumb = payload.previewDataUrl || payload.dataUrl;
     addMediaAsset({
-      fileName: `${slug}.webp`,
+      fileName: `${slug}.png`,
       originalUrl: payload.dataUrl,
       optimizedUrl: payload.dataUrl,
       webpUrl: payload.dataUrl,
-      thumbnailUrl: payload.dataUrl,
+      thumbnailUrl: thumb,
       fileType: 'image',
-      mimeType: 'image/webp',
+      mimeType: 'image/png',
       fileSize: Math.round(payload.dataUrl.length * 0.72),
       width: payload.width,
       height: payload.height,
@@ -68,7 +69,7 @@ export const SharedCanvaEditorPage: React.FC<Props> = ({ editorKind, onNavigateT
         height: payload.height,
         source: payload.source || 'studio',
         layers: payload.layers,
-        previewDataUrl: payload.dataUrl,
+        previewDataUrl: thumb,
       });
     } catch {
       /* Media still saved; template quota may be full */

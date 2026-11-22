@@ -357,7 +357,7 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
                 {isAr ? 'القيمة النقدية المقابلة' : 'Discount Cash Value'}
               </div>
               <div className="font-mono font-black text-sm text-amber-300">
-                {sarDiscountWorth} {isAr ? 'ر.س خصم فوري' : 'SAR Instant Discount'}
+                {sarDiscountWorth} {isAr ? '\u20C1 خصم فوري' : '\u20C1 Instant Discount'}
               </div>
             </div>
           </div>

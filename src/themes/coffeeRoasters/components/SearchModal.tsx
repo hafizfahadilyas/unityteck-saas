@@ -66,7 +66,7 @@ export const SearchModal: React.FC = () => {
                       {language === 'AR' && prod.nameAr ? prod.nameAr : prod.name}
                     </h4>
                     <span className="text-[11px] text-neutral-500 block font-mono">
-                      {language === 'AR' ? `${prod.basePrice.toLocaleString()}.00 ر.س` : `SAR ${prod.basePrice.toLocaleString()}.00`}
+                      {language === 'AR' ? `${prod.basePrice.toLocaleString()}.00 ⃁` : `⃁ ${prod.basePrice.toLocaleString()}.00`}
                     </span>
                   </div>
                 </div>

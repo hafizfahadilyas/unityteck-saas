@@ -238,9 +238,9 @@ export const BuilderProductPage: React.FC<BuilderPageProps> = ({
             </label>
             <div className="grid grid-cols-3 gap-2 text-xs">
               {[
-                { id: '12', labelAr: '١٢ وردة كلاسيك', labelEn: '12 Roses', delta: '350 ر.س' },
-                { id: '24', labelAr: '٢٤ وردة فاخرة', labelEn: '24 Roses VIP', delta: '490 ر.س' },
-                { id: '36', labelAr: '٣٦ وردة ملكية', labelEn: '36 Royal', delta: '680 ر.س' },
+                { id: '12', labelAr: '١٢ وردة كلاسيك', labelEn: '12 Roses', delta: '350 ⃁' },
+                { id: '24', labelAr: '٢٤ وردة فاخرة', labelEn: '24 Roses VIP', delta: '490 ⃁' },
+                { id: '36', labelAr: '٣٦ وردة ملكية', labelEn: '36 Royal', delta: '680 ⃁' },
               ].map((s) => (
                 <button
                   key={s.id}
@@ -282,7 +282,7 @@ export const BuilderProductPage: React.FC<BuilderPageProps> = ({
                     : 'border-slate-200 bg-white text-slate-700'
                 }`}
               >
-                {isAr ? 'فازة كريستال إيطالية (+90 ر.س)' : 'Italian Crystal Vase (+90 SAR)'}
+                {isAr ? 'فازة كريستال إيطالية (+90 ⃁)' : 'Italian Crystal Vase (+90 ⃁)'}
               </button>
             </div>
           </div>
@@ -568,8 +568,8 @@ export const BuilderCartPage: React.FC<BuilderPageProps> = ({
           <Truck className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>
             {isAr
-              ? (isCoffee ? 'شحن سريع مجاني لطلبات البن والمعدات فوق ٢٠٠ ر.س' : isAuto ? 'تأكيد فوري للجدولة وبدء العمليات اللوجستية' : 'توصيل سريع وموثوق إلى باب موقعك')
-              : (isCoffee ? 'Free fast shipping on coffee and gear orders above 200 SAR' : isAuto ? 'Instant scheduling and certified logistics dispatch' : 'Express delivery right to your location')}
+              ? (isCoffee ? 'شحن سريع مجاني لطلبات البن والمعدات فوق ٢٠٠ ⃁' : isAuto ? 'تأكيد فوري للجدولة وبدء العمليات اللوجستية' : 'توصيل سريع وموثوق إلى باب موقعك')
+              : (isCoffee ? 'Free fast shipping on coffee and gear orders above 200 ⃁' : isAuto ? 'Instant scheduling and certified logistics dispatch' : 'Express delivery right to your location')}
           </span>
         </div>
         <span className="font-extrabold text-emerald-700 bg-white px-2 py-0.5 rounded-md text-[11px] shadow-2xs">
@@ -663,7 +663,7 @@ export const BuilderCartPage: React.FC<BuilderPageProps> = ({
             {couponApplied && (
               <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
                 <Check className="w-3.5 h-3.5 text-emerald-600" />
-                <span>{isAr ? 'تم تطبيق خصم ٥٠ ر.س بنجاح' : '50 SAR Discount Applied!'}</span>
+                <span>{isAr ? 'تم تطبيق خصم ٥٠ ⃁ بنجاح' : '50 ⃁ Discount Applied!'}</span>
               </span>
             )}
           </div>

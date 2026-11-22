@@ -17,7 +17,7 @@ error_reporting(E_ALL);
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Store-Id, X-Portal, Cache-Control, Pragma');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Store-Id, X-Portal, Cache-Control, Pragma, Expires');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0, post-check=0, pre-check=0');
 header('Pragma: no-cache');
 header('Expires: 0');
@@ -38,11 +38,12 @@ if ($method === 'POST' && in_array($methodOverride, ['PUT', 'PATCH', 'DELETE'], 
 }
 
 // Prefer Laravel Hostinger MySQL when DB_* is present (same commerce as apps/api).
-// Fallback: local platform.sqlite (legacy Hostinger gateway).
+// Fallback: local platform.sqlite (legacy Hostinger gateway) — NEVER preferred on flowers live.
 require_once __DIR__ . '/live_extensions.php';
 $souqEnv = souq_load_root_env();
 $dbDriver = 'sqlite';
 $pdo = null;
+$mysqlLastError = null;
 
 $requestHost = strtolower((string)preg_replace('/:\d+$/', '', (string)($_SERVER['HTTP_HOST'] ?? '')));
 $isFlowersHost = in_array($requestHost, [
@@ -51,27 +52,33 @@ $isFlowersHost = in_array($requestHost, [
 ], true)
     || str_ends_with($requestHost, '.giftshop-sa.com');
 
-// Flowers Hostinger must use FLOWERS_DB_* (giftshop MySQL). Central keeps DB_* / HOSTINGER_DB_*.
-$dbHost = trim((string)($souqEnv['DB_HOST'] ?? getenv('DB_HOST') ?: ''));
-$dbName = trim((string)($souqEnv['DB_DATABASE'] ?? getenv('DB_DATABASE') ?: ''));
-$dbUser = trim((string)($souqEnv['DB_USERNAME'] ?? getenv('DB_USERNAME') ?: ''));
-$dbPass = (string)($souqEnv['DB_PASSWORD'] ?? getenv('DB_PASSWORD') ?: '');
-$dbPort = trim((string)($souqEnv['DB_PORT'] ?? getenv('DB_PORT') ?: '3306'));
+// Flowers Hostinger must use FLOWERS_DB_* only (never central DB_* — that fails → SQLite hang).
+// Central keeps DB_* / HOSTINGER_DB_*.
+$dbHost = '';
+$dbName = '';
+$dbUser = '';
+$dbPass = '';
+$dbPort = '3306';
 if ($isFlowersHost) {
-    $fHost = trim((string)($souqEnv['FLOWERS_DB_HOST'] ?? getenv('FLOWERS_DB_HOST') ?: ''));
-    $fName = trim((string)($souqEnv['FLOWERS_DB_DATABASE'] ?? getenv('FLOWERS_DB_DATABASE') ?: ''));
-    $fUser = trim((string)($souqEnv['FLOWERS_DB_USERNAME'] ?? getenv('FLOWERS_DB_USERNAME') ?: ''));
-    $fPass = (string)($souqEnv['FLOWERS_DB_PASSWORD'] ?? getenv('FLOWERS_DB_PASSWORD') ?: '');
-    $fPort = trim((string)($souqEnv['FLOWERS_DB_PORT'] ?? getenv('FLOWERS_DB_PORT') ?: ''));
-    if ($fHost !== '' && $fName !== '' && $fUser !== '') {
-        $dbHost = $fHost;
-        $dbName = $fName;
-        $dbUser = $fUser;
-        $dbPass = $fPass;
-        if ($fPort !== '') {
-            $dbPort = $fPort;
-        }
+    $dbHost = trim((string)($souqEnv['FLOWERS_DB_HOST'] ?? getenv('FLOWERS_DB_HOST') ?: ''));
+    $dbName = trim((string)($souqEnv['FLOWERS_DB_DATABASE'] ?? getenv('FLOWERS_DB_DATABASE') ?: ''));
+    $dbUser = trim((string)($souqEnv['FLOWERS_DB_USERNAME'] ?? getenv('FLOWERS_DB_USERNAME') ?: ''));
+    $dbPass = (string)($souqEnv['FLOWERS_DB_PASSWORD'] ?? getenv('FLOWERS_DB_PASSWORD') ?: '');
+    $dbPort = trim((string)($souqEnv['FLOWERS_DB_PORT'] ?? getenv('FLOWERS_DB_PORT') ?: '3306'));
+    // Legacy fallback names if FLOWERS_DB_* missing on older deploys
+    if ($dbHost === '' || $dbName === '' || $dbUser === '') {
+        $dbHost = trim((string)($souqEnv['DB_HOST'] ?? getenv('DB_HOST') ?: 'localhost'));
+        $dbName = trim((string)($souqEnv['DB_DATABASE'] ?? getenv('DB_DATABASE') ?: 'u920689430_giftshop'));
+        $dbUser = trim((string)($souqEnv['DB_USERNAME'] ?? getenv('DB_USERNAME') ?: 'u920689430_giftshop'));
+        $dbPass = (string)($souqEnv['DB_PASSWORD'] ?? getenv('DB_PASSWORD') ?: '');
+        $dbPort = trim((string)($souqEnv['DB_PORT'] ?? getenv('DB_PORT') ?: '3306'));
     }
+} else {
+    $dbHost = trim((string)($souqEnv['DB_HOST'] ?? getenv('DB_HOST') ?: ''));
+    $dbName = trim((string)($souqEnv['DB_DATABASE'] ?? getenv('DB_DATABASE') ?: ''));
+    $dbUser = trim((string)($souqEnv['DB_USERNAME'] ?? getenv('DB_USERNAME') ?: ''));
+    $dbPass = (string)($souqEnv['DB_PASSWORD'] ?? getenv('DB_PASSWORD') ?: '');
+    $dbPort = trim((string)($souqEnv['DB_PORT'] ?? getenv('DB_PORT') ?: '3306'));
 }
 
 $souqConnectMysql = static function (
@@ -80,8 +87,9 @@ $souqConnectMysql = static function (
     string $name,
     string $user,
     string $pass,
-): ?array {
+) use (&$mysqlLastError): ?array {
     $normalizedHost = strtolower($host);
+    // Hostinger same-account PHP → always try localhost first (remote srv burns connection quota + hangs).
     $mysqlHosts = in_array($normalizedHost, ['localhost', '127.0.0.1'], true)
         ? [$host]
         : ['localhost', '127.0.0.1', $host];
@@ -98,17 +106,24 @@ $souqConnectMysql = static function (
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES => false,
+                PDO::ATTR_PERSISTENT => false,
+                PDO::ATTR_TIMEOUT => 5,
             ]);
+            // Fast session knobs — cut lock wait + keep responses snappy
+            try {
+                $conn->exec("SET SESSION wait_timeout=60, interactive_timeout=60, sql_mode='NO_ENGINE_SUBSTITUTION'");
+            } catch (Throwable) {
+                /* optional */
+            }
             return ['pdo' => $conn, 'host' => $tryHost, 'name' => $name];
         } catch (Throwable $mysqlErr) {
-            /* try next host */
+            $mysqlLastError = $tryHost . ': ' . $mysqlErr->getMessage();
         }
     }
     return null;
 };
 
 if ($dbHost !== '' && $dbName !== '' && $dbUser !== '') {
-    // Prefer localhost first on Hostinger — remote srvXXX burns max_connections_per_hour.
     $connected = $souqConnectMysql($dbHost, $dbPort, $dbName, $dbUser, $dbPass);
     if ($connected) {
         $pdo = $connected['pdo'];
@@ -121,28 +136,29 @@ if ($dbHost !== '' && $dbName !== '' && $dbUser !== '') {
     }
 }
 
-// Flowers host: if primary connect is empty/wrong, force FLOWERS_DB_* retry when available.
+// Flowers: if somehow connected to wrong/empty DB, force giftshop MySQL retry.
 if ($isFlowersHost && $dbDriver === 'mysql' && $pdo instanceof PDO) {
-    $fHost = trim((string)($souqEnv['FLOWERS_DB_HOST'] ?? getenv('FLOWERS_DB_HOST') ?: ''));
-    $fName = trim((string)($souqEnv['FLOWERS_DB_DATABASE'] ?? getenv('FLOWERS_DB_DATABASE') ?: ''));
-    $fUser = trim((string)($souqEnv['FLOWERS_DB_USERNAME'] ?? getenv('FLOWERS_DB_USERNAME') ?: ''));
-    $fPass = (string)($souqEnv['FLOWERS_DB_PASSWORD'] ?? getenv('FLOWERS_DB_PASSWORD') ?: '');
+    $fName = trim((string)($souqEnv['FLOWERS_DB_DATABASE'] ?? getenv('FLOWERS_DB_DATABASE') ?: 'u920689430_giftshop'));
+    $fUser = trim((string)($souqEnv['FLOWERS_DB_USERNAME'] ?? getenv('FLOWERS_DB_USERNAME') ?: 'u920689430_giftshop'));
+    $fPass = (string)($souqEnv['FLOWERS_DB_PASSWORD'] ?? getenv('FLOWERS_DB_PASSWORD') ?: $dbPass);
     $fPort = trim((string)($souqEnv['FLOWERS_DB_PORT'] ?? getenv('FLOWERS_DB_PORT') ?: $dbPort));
-    if ($fHost !== '' && $fName !== '' && $fUser !== '' && strcasecmp($fName, $dbName) !== 0) {
+    $wrongDb = strcasecmp($dbName, $fName) !== 0;
+    $storeCount = 0;
+    try {
+        $storeCount = (int) $pdo->query('SELECT COUNT(*) FROM stores')->fetchColumn();
+    } catch (Throwable) {
         $storeCount = 0;
-        try {
-            $storeCount = (int) $pdo->query('SELECT COUNT(*) FROM stores')->fetchColumn();
-        } catch (Throwable) {
-            $storeCount = 0;
+    }
+    if ($wrongDb || $storeCount === 0) {
+        $retry = $souqConnectMysql('localhost', $fPort, $fName, $fUser, $fPass);
+        if (!$retry) {
+            $retry = $souqConnectMysql('127.0.0.1', $fPort, $fName, $fUser, $fPass);
         }
-        if ($storeCount === 0) {
-            $retry = $souqConnectMysql($fHost, $fPort, $fName, $fUser, $fPass);
-            if ($retry) {
-                $pdo = $retry['pdo'];
-                $dbHost = $retry['host'];
-                $dbName = $retry['name'];
-                $dbDriver = 'mysql';
-            }
+        if ($retry) {
+            $pdo = $retry['pdo'];
+            $dbHost = $retry['host'];
+            $dbName = $retry['name'];
+            $dbDriver = 'mysql';
         }
     }
 }
@@ -153,6 +169,8 @@ if (!is_dir($dataDir)) {
     @mkdir($dataDir, 0777, true);
 }
 $dbPath = $dataDir . '/platform.sqlite';
+$schemaReadyFlag = $dataDir . '/.schema_ready_v3';
+$mysqlReadyFlag = $dataDir . '/.mysql_ready_v1';
 
 try {
     if (!$pdo instanceof PDO) {
@@ -160,10 +178,21 @@ try {
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
         $dbDriver = 'sqlite';
+        // WAL + busy timeout — stop request pile-up / hang under concurrent tabs
+        try {
+            $pdo->exec('PRAGMA journal_mode=WAL');
+            $pdo->exec('PRAGMA synchronous=NORMAL');
+            $pdo->exec('PRAGMA busy_timeout=5000');
+            $pdo->exec('PRAGMA temp_store=MEMORY');
+        } catch (Throwable) {
+            /* optional */
+        }
     }
 
     // SQLite-only bootstrap (Laravel MySQL already has migrations — never run this DDL there)
-    if ($dbDriver === 'sqlite') {
+    // Skip heavy CREATE/seed/UPDATE after first warm request — was the #1 hang on flowers live.
+    $sqliteNeedsBootstrap = $dbDriver === 'sqlite' && !is_file($schemaReadyFlag);
+    if ($sqliteNeedsBootstrap) {
     // Initialize Core Schema
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS stores (
@@ -646,23 +675,31 @@ try {
 
     require_once __DIR__ . '/commerce.php';
     souq_commerce_schema($pdo);
+    @file_put_contents($schemaReadyFlag, (string) time());
+    } elseif ($dbDriver === 'sqlite') {
+        // Warm path: helpers only — no DDL / seed / image rewrite churn.
+        require_once __DIR__ . '/commerce.php';
     } else {
         // MySQL: Laravel schema already exists — load helpers + analytics tables only.
         // Never abort the whole request if optional DDL fails (locks / cold-start / perms).
         require_once __DIR__ . '/commerce.php';
-        try {
-            if (function_exists('souq_ensure_analytics_tables')) {
-                souq_ensure_analytics_tables($pdo);
+        $mysqlNeedsEnsure = !is_file($mysqlReadyFlag);
+        if ($mysqlNeedsEnsure) {
+            try {
+                if (function_exists('souq_ensure_analytics_tables')) {
+                    souq_ensure_analytics_tables($pdo);
+                }
+            } catch (Throwable) {
+                /* analytics DDL optional — catalog/auth must still serve */
             }
-        } catch (Throwable) {
-            /* analytics DDL optional — catalog/auth must still serve */
-        }
-        try {
-            if (function_exists('souq_ensure_mysql_store_login_column')) {
-                souq_ensure_mysql_store_login_column($pdo);
+            try {
+                if (function_exists('souq_ensure_mysql_store_login_column')) {
+                    souq_ensure_mysql_store_login_column($pdo);
+                }
+            } catch (Throwable) {
+                /* login_email_active column ensure optional */
             }
-        } catch (Throwable) {
-            /* login_email_active column ensure optional */
+            @file_put_contents($mysqlReadyFlag, (string) time());
         }
     }
 
@@ -1146,8 +1183,16 @@ function listStoreProducts(PDO $pdo, string $storeId, array $query, bool $public
     $countStmt->execute($params);
     $total = (int)$countStmt->fetchColumn();
     $offset = ($page - 1) * $perPage;
-    $stmt = $pdo->prepare("SELECT * FROM products WHERE $sqlWhere ORDER BY updated_at DESC, id ASC LIMIT $perPage OFFSET $offset");
-    $stmt->execute($params);
+    // Lean columns for list/catalog — skip heavy description blobs when present as separate cols.
+    // Keep `data` for gallery fallback but avoid SELECT * wildcard expansion cost on wide tables.
+    $listCols = 'id, store_id, name, name_ar, sku, price, original_price, stock, category, category_ar, image_url, gallery_urls, status, is_active, data, updated_at, sale_starts_at, sale_ends_at';
+    try {
+        $stmt = $pdo->prepare("SELECT $listCols FROM products WHERE $sqlWhere ORDER BY updated_at DESC, id ASC LIMIT $perPage OFFSET $offset");
+        $stmt->execute($params);
+    } catch (Throwable) {
+        $stmt = $pdo->prepare("SELECT * FROM products WHERE $sqlWhere ORDER BY updated_at DESC, id ASC LIMIT $perPage OFFSET $offset");
+        $stmt->execute($params);
+    }
     $products = [];
     $seen = [];
     while ($row = $stmt->fetch()) {
@@ -1158,29 +1203,33 @@ function listStoreProducts(PDO $pdo, string $storeId, array $query, bool $public
         $seen[$id] = true;
         $products[] = formatProduct($row, true);
     }
-    $catStmt = $pdo->prepare("SELECT category, category_ar, COUNT(*) c FROM products WHERE store_id = :sid AND (status IS NULL OR status != 'archived') GROUP BY category, category_ar");
-    $catStmt->execute([':sid' => $storeId]);
+    $wantFacets = !$publicCatalog || !empty($query['facets']) || !empty($query['include_counts']);
     $categories = [];
-    while ($row = $catStmt->fetch()) {
-        $label = trim((string)($row['category'] ?? ''));
-        $labelAr = trim((string)($row['category_ar'] ?? $label));
-        if ($label === '' && $labelAr === '') {
-            continue;
+    $countRow = ['total' => $total, 'active' => 0, 'out_of_stock' => 0, 'draft' => 0];
+    if ($wantFacets) {
+        $catStmt = $pdo->prepare("SELECT category, category_ar, COUNT(*) c FROM products WHERE store_id = :sid AND (status IS NULL OR status != 'archived') GROUP BY category, category_ar");
+        $catStmt->execute([':sid' => $storeId]);
+        while ($row = $catStmt->fetch()) {
+            $label = trim((string)($row['category'] ?? ''));
+            $labelAr = trim((string)($row['category_ar'] ?? $label));
+            if ($label === '' && $labelAr === '') {
+                continue;
+            }
+            $cid = strtolower($label !== '' ? $label : $labelAr);
+            if (!isset($categories[$cid])) {
+                $categories[$cid] = [
+                    'id' => $cid,
+                    'name' => $label !== '' ? $label : $labelAr,
+                    'name_ar' => $labelAr !== '' ? $labelAr : $label,
+                    'count' => 0,
+                ];
+            }
+            $categories[$cid]['count'] += (int)$row['c'];
         }
-        $cid = strtolower($label !== '' ? $label : $labelAr);
-        if (!isset($categories[$cid])) {
-            $categories[$cid] = [
-                'id' => $cid,
-                'name' => $label !== '' ? $label : $labelAr,
-                'name_ar' => $labelAr !== '' ? $labelAr : $label,
-                'count' => 0,
-            ];
-        }
-        $categories[$cid]['count'] += (int)$row['c'];
+        $counts = $pdo->prepare("SELECT COUNT(*) total, SUM(CASE WHEN status = 'published' AND is_active = 1 THEN 1 ELSE 0 END) active, SUM(CASE WHEN stock <= 0 THEN 1 ELSE 0 END) out_of_stock, SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) draft FROM products WHERE store_id = :sid");
+        $counts->execute([':sid' => $storeId]);
+        $countRow = $counts->fetch() ?: $countRow;
     }
-    $counts = $pdo->prepare("SELECT COUNT(*) total, SUM(CASE WHEN status = 'published' AND is_active = 1 THEN 1 ELSE 0 END) active, SUM(CASE WHEN stock <= 0 THEN 1 ELSE 0 END) out_of_stock, SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) draft FROM products WHERE store_id = :sid");
-    $counts->execute([':sid' => $storeId]);
-    $countRow = $counts->fetch() ?: [];
     return [
         'data' => $products,
         'categories' => array_values($categories),
@@ -1189,11 +1238,11 @@ function listStoreProducts(PDO $pdo, string $storeId, array $query, bool $public
             'total' => $total,
             'page' => $page,
             'per_page' => $perPage,
-            'last_page' => max(1, (int)ceil($total / $perPage)),
+            'last_page' => max(1, (int)ceil($total / max(1, $perPage))),
             'sort' => 'updated_at',
             'dir' => 'desc',
             'counts' => [
-                'total' => (int)($countRow['total'] ?? 0),
+                'total' => (int)($countRow['total'] ?? $total),
                 'active' => (int)($countRow['active'] ?? 0),
                 'out_of_stock' => (int)($countRow['out_of_stock'] ?? 0),
                 'draft' => (int)($countRow['draft'] ?? 0),
@@ -1217,7 +1266,7 @@ if ($uri === '/health') {
             return 0;
         }
     };
-    echo json_encode([
+    $health = [
         'status' => 'ok',
         'provider' => 'Hostinger Cloud API',
         'database' => $dbDriver === 'mysql' ? 'active_live_mysql' : 'active_live_sqlite',
@@ -1229,7 +1278,11 @@ if ($uri === '/health') {
         'orders_count' => $countTable($pdo, 'orders'),
         'customers_count' => $countTable($pdo, 'customers'),
         'timestamp' => date('c'),
-    ]);
+    ];
+    if ($dbDriver !== 'mysql' && is_string($mysqlLastError) && $mysqlLastError !== '') {
+        $health['mysql_fallback_reason'] = $mysqlLastError;
+    }
+    echo json_encode($health);
     exit;
 }
 

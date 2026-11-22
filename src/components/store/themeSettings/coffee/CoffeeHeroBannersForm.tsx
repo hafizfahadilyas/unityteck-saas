@@ -76,7 +76,11 @@ function HeroPreviewCard({
   const promo = bi(isAr ? 'ar' : 'en', slide.promoEn, slide.promoAr);
   const title = bi(isAr ? 'ar' : 'en', slide.titleEn, slide.titleAr);
   const description = bi(isAr ? 'ar' : 'en', slide.descriptionEn, slide.descriptionAr);
-  const price = slide.showPrice && slide.price ? (isAr ? `${slide.price}ر.س` : `${slide.currency || 'SAR'} ${slide.price}`) : '';
+  const price = slide.showPrice && slide.price
+    ? (isAr
+      ? `${slide.price}\u20C1`
+      : `${(slide.currency || 'SAR') === 'SAR' ? '\u20C1' : (slide.currency || '\u20C1')} ${slide.price}`)
+    : '';
   const height = device === 'mobile' ? 220 : device === 'tablet' ? 200 : 240;
 
   return (
@@ -372,10 +376,6 @@ export const HeroBannersForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embed
                     <input className={inputCls} style={inputStyle} dir="ltr" placeholder={isAr ? 'رابط الطلب المخصص' : 'Custom order URL'} value={editing.customOrderUrl || ''} onChange={(e) => patch(editing.id, { customOrderUrl: e.target.value })} />
                   </div>
                 ) : null}
-                <label className="flex items-center gap-2 text-[11px] font-semibold">
-                  <input type="checkbox" checked={!!editing.whatsappEnabled} onChange={(e) => patch(editing.id, { whatsappEnabled: e.target.checked })} />
-                  {isAr ? 'واتساب لهذه الشريحة' : 'WhatsApp on this slide'}
-                </label>
               </div>
             </section>
           ) : null}

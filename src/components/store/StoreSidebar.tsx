@@ -41,10 +41,8 @@ import {
 import { useNotifications } from '../../notification-system';
 import { WhatsAppBrandIcon } from '../common/BrandIcons';
 import { SouqEMakkahLogo, SouqEMakkahMark } from '../common/SouqEMakkahLogo';
-import { bindStoreChrome, clearStoreChrome, currentChromeRevision, loadStoreChrome, readChromeCache } from '../../i18n/storeChrome';
-import { applyBrandCss } from '../../i18n/branding';
-import { readPrefs } from '../../i18n/prefs';
-import { resolveStoreLogoSrc } from '../../utils/storeLogo';
+import { bindStoreChrome, currentChromeRevision, loadStoreChrome, readChromeCache } from '../../i18n/storeChrome';
+import { resolveStoreLogoSrc, withLogoCacheBust } from '../../utils/storeLogo';
 
 interface StoreSidebarProps {
   currentTab: string;
@@ -52,6 +50,28 @@ interface StoreSidebarProps {
   mobileOpen?: boolean;
   onMobileClose?: () => void;
 }
+
+/** iOS Settings–style tint per nav id (glyph tile, not brand CTA). */
+const STORE_IOS_ICON_TINT: Record<string, string> = {
+  dashboard: '#007AFF',
+  pages: '#5856D6',
+  products: '#FF9500',
+  orders: '#FF2D55',
+  customers: '#34C759',
+  payments: '#AF52DE',
+  shipping: '#5AC8FA',
+  notifications: '#FF3B30',
+  marketing: '#FF9F0A',
+  whatsapp: '#25D366',
+  social: '#007AFF',
+  reports: '#5856D6',
+  'smart-automation': '#30B0C7',
+  canva: '#FF375F',
+  'ai-media': '#BF5AF2',
+  themes: '#FF2D55',
+  appstore: '#0A84FF',
+  settings: '#8E8E93',
+};
 
 /**
  * S2 — Store Sidebar: same Holst density as Master (docs/21 paired).
@@ -67,10 +87,34 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
   const { activeStore, switchToMaster, canAccessMaster } = useTenant();
   const { t, locale } = usePrefs();
   const isAr = locale === 'ar';
-  const sidebarLogoSrc = resolveStoreLogoSrc(activeStore?.logo);
+  /** Locale-locked nav title — never mix EN into AR chrome (or vice versa). */
+  const navTitle = (id: string) => labelForNav(locale, STORE_NAV_KEYS, id);
+  const [logoEpoch, setLogoEpoch] = useState(0);
+  const [liveLogo, setLiveLogo] = useState(() => resolveStoreLogoSrc(activeStore?.logo));
+  const sidebarLogoSrc = withLogoCacheBust(
+    liveLogo || resolveStoreLogoSrc(activeStore?.logo),
+    logoEpoch || undefined,
+  );
   const { canTab } = usePermissions();
   const { unreadCounts } = useNotifications();
   const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    setLiveLogo(resolveStoreLogoSrc(activeStore?.logo));
+  }, [activeStore?.id, activeStore?.logo]);
+
+  useEffect(() => {
+    const onStoreIdentity = (event: Event) => {
+      const detail = (event as CustomEvent<{ storeId?: string; logo?: string }>).detail;
+      if (!detail?.storeId || detail.storeId !== activeStore?.id) return;
+      const next = resolveStoreLogoSrc(detail.logo);
+      if (!next) return;
+      setLiveLogo(next);
+      setLogoEpoch(Date.now());
+    };
+    window.addEventListener('unityteck-store-updated', onStoreIdentity as EventListener);
+    return () => window.removeEventListener('unityteck-store-updated', onStoreIdentity as EventListener);
+  }, [activeStore?.id]);
 
   const selectTab = (tab: string) => {
     onSelectTab(tab);
@@ -83,18 +127,23 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
 
   useEffect(() => {
     let stop = false;
-    const cached = readChromeCache(activeStore.id);
-    bindStoreChrome(activeStore.id, cached);
+    const storeId = activeStore.id;
+    const cached = readChromeCache(storeId);
+    bindStoreChrome(storeId, cached);
     const seen = currentChromeRevision();
-    void loadStoreChrome(activeStore.id).then((next) => {
-      if (stop || currentChromeRevision() !== seen) return;
-      bindStoreChrome(activeStore.id, next);
-    });
+    // Defer network chrome so sidebar labels paint first (speed).
+    // Do not clearStoreChrome on cleanup — that wiped live wallpaper on Strict Mode remount.
+    const timer = window.setTimeout(() => {
+      void loadStoreChrome(storeId).then((next) => {
+        // Only apply if user has not painted a newer chrome since this load started
+        if (stop) return;
+        if (currentChromeRevision() !== seen) return;
+        bindStoreChrome(storeId, next);
+      });
+    }, 0);
     return () => {
       stop = true;
-      clearStoreChrome();
-      const prefs = readPrefs();
-      applyBrandCss(prefs.brand, prefs.locale);
+      window.clearTimeout(timer);
     };
   }, [activeStore.id]);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -253,8 +302,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
     <aside
       className="unity-aside flex flex-col shrink-0 select-none border-e transition-[width] duration-200 max-lg:pointer-events-auto"
       style={{
-        width: collapsed ? '3.5rem' : '16rem',
-        borderColor: 'var(--portal-800)',
+        width: collapsed ? '3.5rem' : '16.5rem',
         fontFamily: 'var(--font-ui)',
         overflow: 'hidden',
       }}
@@ -263,14 +311,10 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
       data-mobile-drawer="true"
       data-mobile-open={mobileOpen ? 'true' : 'false'}
     >
-      {/* Header: Souq Platform on top · store name below · toggle */}
+      {/* Header: Souq Platform · store card · toggle — glass density via CSS tokens */}
       <div
-        className="shrink-0 border-b"
-        style={{
-          borderColor: 'var(--portal-800)',
-          background:
-            'linear-gradient(135deg, color-mix(in srgb, #0B3D4A 70%, transparent), color-mix(in srgb, #04222B 85%, transparent))',
-        }}
+        className="shrink-0"
+        style={{ background: 'transparent' }}
       >
         <div
           className={`px-3 pt-3 pb-2 flex items-center gap-2 ${collapsed ? 'justify-center' : ''}`}
@@ -319,10 +363,16 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
         </div>
 
         <div
-          className={`px-3 pb-3 flex items-center gap-2 ${collapsed ? 'justify-center' : ''}`}
-          style={{ borderTop: '1px solid color-mix(in srgb, var(--portal-800) 70%, transparent)' }}
+          className={`mx-2.5 mb-3 px-2.5 py-2.5 flex items-center gap-2 store-glass-card ${collapsed ? 'justify-center mx-1.5 px-1.5' : ''}`}
         >
-          <div className="unity-icon-box w-9 h-9 flex items-center justify-center shadow-md shrink-0 overflow-hidden p-0.5 rounded-full">
+          <div
+            className="w-10 h-10 flex items-center justify-center shrink-0 overflow-hidden p-0.5 rounded-full"
+            style={{
+              background: 'rgba(255,255,255,0.45)',
+              border: '1px solid var(--glass-border)',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7), 0 2px 8px rgba(15,23,42,0.08)',
+            }}
+          >
             {sidebarLogoSrc ? (
               <img
                 src={sidebarLogoSrc}
@@ -336,32 +386,31 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                 }}
               />
             ) : null}
-            <Store className={`w-5 h-5 ${sidebarLogoSrc ? 'hidden' : ''}`} aria-hidden />
+            <Store className={`w-5 h-5 ${sidebarLogoSrc ? 'hidden' : ''}`} aria-hidden strokeWidth={2.1} />
           </div>
           {!collapsed && (
             <div className="min-w-0 flex-1">
               <h2
-                className="font-extrabold text-[13px] text-white tracking-tight leading-snug"
+                className="font-extrabold text-[13px] tracking-tight leading-snug"
                 style={{
                   display: '-webkit-box',
                   WebkitLineClamp: 2,
                   WebkitBoxOrient: 'vertical',
                   overflow: 'hidden',
                   wordBreak: 'break-word',
+                  /* Dark sidebar chrome → full white (never page --text ink) */
+                  color: 'var(--sidebar-text, #ffffff)',
                 }}
                 title={getStoreDisplayName(activeStore, isAr ? 'ar' : 'en')}
               >
                 {getStoreDisplayName(activeStore, isAr ? 'ar' : 'en')}
               </h2>
-              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                <span className="text-[9px] font-medium" style={{ color: 'var(--portal-400)' }}>
-                  {t('storeAdmin')}
-                </span>
+              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                 <span
-                  className="text-[8px] px-1.5 py-0.5 rounded uppercase font-medium"
+                  className="store-plan-chip text-[8px] px-1.5 py-0.5 rounded-md uppercase font-bold tracking-wide"
                   style={{
-                    background: 'color-mix(in srgb, var(--portal-800) 80%, transparent)',
-                    color: 'var(--portal-200)',
+                    background: 'color-mix(in srgb, var(--accent) 14%, transparent)',
+                    color: 'var(--sidebar-text, #ffffff)',
                   }}
                 >
                   {activeStore.plan === 'premium'
@@ -381,30 +430,40 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                           : 'Free'}
                 </span>
                 <span
-                  className="text-[8px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wide"
+                  className={`store-status-chip text-[8px] px-1.5 py-0.5 rounded-md uppercase font-bold tracking-wide ${
+                    sub.status === 'active' || sub.status === 'trial' ? 'is-active' : ''
+                  }`}
                   style={{
                     background:
                       sub.status === 'active' || sub.status === 'trial'
-                        ? 'color-mix(in srgb, #34d399 25%, transparent)'
+                        ? 'color-mix(in srgb, #10b981 22%, transparent)'
                         : sub.status === 'grace'
                           ? 'color-mix(in srgb, #fbbf24 30%, transparent)'
                           : 'color-mix(in srgb, #f87171 30%, transparent)',
                     color:
                       sub.status === 'active' || sub.status === 'trial'
-                        ? '#A7F3D0'
+                        ? '#047857'
                         : sub.status === 'grace'
-                          ? '#FDE68A'
-                          : '#FECACA',
+                          ? '#b45309'
+                          : '#b91c1c',
                   }}
                 >
                   {sub.status === 'active'
-                    ? t('statusActive')
+                    ? isAr
+                      ? 'نشط'
+                      : 'Active'
                     : sub.status === 'trial'
-                      ? t('statusTrial')
+                      ? isAr
+                        ? 'تجريبي'
+                        : 'Trial'
                       : sub.status === 'grace'
-                        ? t('statusGrace')
+                        ? isAr
+                          ? 'مهلة'
+                          : 'Grace'
                         : sub.status === 'expired'
-                          ? t('statusExpired')
+                          ? isAr
+                            ? 'منتهي'
+                            : 'Expired'
                           : sub.status}
                 </span>
               </div>
@@ -435,6 +494,8 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
       <nav
         className="flex-1 overflow-y-auto overscroll-y-contain touch-pan-y py-2 px-1.5 space-y-0.5 custom-sidebar-scroll min-h-0"
         aria-label={t('storeAdmin')}
+        data-locale={locale}
+        lang={locale}
       >
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -509,9 +570,9 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                 aria-current={isActive ? 'page' : undefined}
                 title={
                   comingSoon
-                    ? `${labelForNav(t, STORE_NAV_KEYS, item.id)}${isAr ? ' · قريباً' : ' · Coming Soon'}`
+                    ? `${navTitle(item.id)}${isAr ? ' · قريباً' : ' · Coming Soon'}`
                     : collapsed
-                      ? labelForNav(t, STORE_NAV_KEYS, item.id)
+                      ? navTitle(item.id)
                       : undefined
                 }
                 className={`w-full flex items-center gap-2.5 transition-all ${
@@ -524,27 +585,30 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                 style={{ borderRadius: 'var(--radius-ctrl)' }}
               >
                 <div className={`flex items-center gap-2.5 min-w-0 ${collapsed ? 'justify-center' : ''}`}>
-                  <Icon
-                    className="shrink-0"
+                  <span
+                    className="store-ios-icon"
+                    style={{ '--ios-tint': STORE_IOS_ICON_TINT[item.id] || '#007AFF' } as React.CSSProperties}
                     aria-hidden
-                    title=""
-                    style={{
-                      width: 'var(--sidebar-nav-icon-size, 1.125rem)',
-                      height: 'var(--sidebar-nav-icon-size, 1.125rem)',
-                      color: isActive ? 'var(--active-fg)' : 'var(--sidebar-idle-icon, var(--portal-400))',
-                    }}
-                    strokeWidth={isActive ? 2.25 : 2}
-                  />
+                  >
+                    <Icon title="" strokeWidth={2.25} />
+                  </span>
                   {!collapsed && (
-                    <span className="truncate font-semibold text-start">
-                      {labelForNav(t, STORE_NAV_KEYS, item.id)}
+                    <span className="truncate font-semibold text-start" lang={locale}>
+                      {navTitle(item.id)}
                     </span>
                   )}
                 </div>
                 {!collapsed && (
                   <div className="flex items-center gap-1.5 shrink-0">
                     {comingSoon ? (
-                      <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wide bg-amber-500/20 text-amber-300 border border-amber-400/30 leading-none">
+                      <span
+                        className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wide leading-none border"
+                        style={{
+                          background: 'color-mix(in srgb, #f59e0b 16%, transparent)',
+                          color: '#b45309',
+                          borderColor: 'color-mix(in srgb, #f59e0b 35%, transparent)',
+                        }}
+                      >
                         {isAr ? 'قريباً' : 'Soon'}
                       </span>
                     ) : null}
@@ -572,7 +636,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
 
               {/* Submenu for Products & publish */}
               {isProducts && !collapsed && isSubmenuOpen && isActive && (
-                <div className="ps-7 pe-1 space-y-0.5 py-1">
+                <div className="store-subnav ps-7 pe-1 space-y-0.5 py-1">
                   {[
                     {
                       id: 'products',
@@ -635,7 +699,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
 
               {/* Submenu for Orders — All Orders · Invoices */}
               {isOrders && !collapsed && isSubmenuOpen && isActive && (
-                <div className="ps-7 pe-1 space-y-0.5 py-1">
+                <div className="store-subnav ps-7 pe-1 space-y-0.5 py-1">
                   {(
                     [
                       {
@@ -676,7 +740,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
 
               {/* Submenu for Smart Automation — Analytics */}
               {isSmartAutomation && !collapsed && isSubmenuOpen && isActive && (
-                <div className="ps-7 pe-1 space-y-0.5 py-1">
+                <div className="store-subnav ps-7 pe-1 space-y-0.5 py-1">
                   {(
                     [
                       {
@@ -711,7 +775,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
 
               {/* Submenu for Themes — settings + all builder pages (page switch) */}
               {isThemes && !collapsed && isSubmenuOpen && isActive && (
-                <div className="ps-7 pe-1 space-y-0.5 py-1">
+                <div className="store-subnav ps-7 pe-1 space-y-0.5 py-1">
                   <button
                     type="button"
                     onClick={() => selectTab('themes')}
@@ -722,7 +786,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                     }`}
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-teal-400 shrink-0" />
-                    <span>{isAr ? 'الثيمات المثبتة' : 'Installed Themes'}</span>
+                    <span>{isAr ? 'المظاهر المثبتة' : 'Installed Themes'}</span>
                   </button>
                   <button
                     type="button"
@@ -740,7 +804,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                     className="w-full text-start py-1 px-2 rounded-lg text-[11px] font-semibold text-slate-200 hover:text-white hover:bg-white/15 transition-colors flex items-center gap-2 cursor-pointer"
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0" />
-                    <span>{isAr ? 'إعدادات الثيم' : 'Theme Settings'}</span>
+                    <span>{isAr ? 'إعدادات المظهر' : 'Theme Settings'}</span>
                   </button>
                   <div className="pt-1 mt-0.5 border-t border-white/10 space-y-0.5">
                     <p className="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-400">
@@ -796,7 +860,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
 
               {/* Submenu for Settings — identity + fonts/colors + Search Console */}
               {isSettings && !collapsed && isSubmenuOpen && isActive && (
-                <div className="ps-7 pe-1 space-y-0.5 py-1">
+                <div className="store-subnav ps-7 pe-1 space-y-0.5 py-1">
                   <button
                     type="button"
                     onClick={() => selectTab('settings')}
@@ -848,7 +912,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
 
               {/* Submenu for Marketing */}
               {isMarketing && !collapsed && isSubmenuOpen && isActive && (
-                <div className="ps-7 pe-1 space-y-0.5 py-1">
+                <div className="store-subnav ps-7 pe-1 space-y-0.5 py-1">
                   {[
                     { id: 'coupons', labelAr: 'كوبونات الخصم', labelEn: 'Discount Coupons', color: 'bg-amber-400' },
                     { id: 'abandoned-carts', labelAr: 'السلات المتروكة', labelEn: 'Abandoned Carts', color: 'bg-rose-400' },
@@ -895,7 +959,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
 
               {/* Submenu for WhatsApp — never for Coming Soon */}
               {isWhatsApp && !comingSoon && !collapsed && isSubmenuOpen && isActive && (
-                <div className="ps-7 pe-1 space-y-0.5 py-1">
+                <div className="store-subnav ps-7 pe-1 space-y-0.5 py-1">
                   {[
                     { id: 'center', labelAr: 'مركز الرسائل', labelEn: 'Message Center' },
                     { id: 'compose', labelAr: 'إنشاء رسالة', labelEn: 'Compose Message' },
@@ -930,7 +994,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
 
               {/* Submenu for Shipping & Logistics */}
               {isShipping && !collapsed && isSubmenuOpen && isActive && (
-                <div className="ps-7 pe-1 space-y-0.5 py-1">
+                <div className="store-subnav ps-7 pe-1 space-y-0.5 py-1">
                   {[
                     { id: 'shipments', labelAr: 'الشحنات والتتبع المباشر', labelEn: 'Shipments & Tracking', color: 'bg-blue-400' },
                     { id: 'labels', labelAr: 'استوديو بوالص الشحن 4×6', labelEn: 'Shipping Labels Studio', color: 'bg-amber-400' },
@@ -958,32 +1022,42 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
         })}
       </nav>
 
-      {/* Small Compact Side Button replacing large cards */}
-      <div
-        className="p-2 border-t shrink-0"
-        style={{ borderColor: 'var(--portal-800)' }}
-      >
+      {/* Need Help — glass footer control */}
+      <div className="p-2 shrink-0">
         <button
           type="button"
           onClick={() => setIsHelpOpen((v) => !v)}
           className={`w-full flex items-center ${
             collapsed ? 'justify-center p-2' : 'justify-between px-2.5 py-1.5'
-          } rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700/60 text-slate-200 transition-all text-xs font-semibold cursor-pointer group shadow-xs`}
+          } rounded-xl transition-all text-xs font-semibold cursor-pointer group shadow-xs store-glass-card`}
+          style={{
+            color: 'var(--sidebar-text, var(--text))',
+            borderColor: 'var(--glass-border, var(--border))',
+          }}
           title={isAr ? 'مركز المساعدة والمنصة' : 'Help & Support'}
           aria-expanded={isHelpOpen}
         >
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-teal-500/20 text-teal-400 flex items-center justify-center shrink-0">
-              <Headphones className="w-3.5 h-3.5" />
-            </div>
+            <span className="store-ios-icon is-help" aria-hidden>
+              <Headphones strokeWidth={2.25} />
+            </span>
             {!collapsed && (
-              <span className="truncate text-[11px] font-semibold text-slate-200 group-hover:text-white">
+              <span
+                className="truncate text-[11px] font-semibold"
+                style={{ color: 'var(--sidebar-text, var(--text))' }}
+              >
                 {isAr ? 'المساعدة والدعم' : 'Need Help?'}
               </span>
             )}
           </div>
           {!collapsed && (
-            <span className="text-[10px] text-teal-400 font-medium px-1.5 py-0.5 rounded bg-teal-500/10 shrink-0">
+            <span
+              className="text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0"
+              style={{
+                color: 'var(--accent)',
+                background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
+              }}
+            >
               {isHelpOpen ? (isAr ? 'إغلاق' : 'Close') : (isAr ? 'مساعدة' : 'Help')}
             </span>
           )}
@@ -1007,8 +1081,15 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                 : isAr
                   ? 'right-3'
                   : 'left-3'
-            } w-64 max-w-[calc(100vw-1.5rem)] p-3 rounded-2xl bg-slate-900/95 border border-slate-700 shadow-2xl backdrop-blur-md text-slate-200`}
-            style={{ fontFamily: 'var(--font-ui)' }}
+            } w-64 max-w-[calc(100vw-1.5rem)] p-3 rounded-2xl shadow-2xl text-slate-200`}
+            style={{
+              fontFamily: 'var(--font-ui)',
+              background: 'rgba(15, 23, 42, 0.72)',
+              backdropFilter: 'blur(18px) saturate(1.35)',
+              WebkitBackdropFilter: 'blur(18px) saturate(1.35)',
+              border: '1px solid rgba(255,255,255,0.16)',
+              boxShadow: '0 16px 48px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.12)',
+            }}
           >
             <div className="flex items-center justify-between pb-2.5 border-b border-slate-800 mb-2.5">
               <div className="flex items-center gap-2 min-w-0">

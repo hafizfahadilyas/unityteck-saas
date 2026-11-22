@@ -1109,7 +1109,7 @@ function _legacyCreateInitialDocumentsUnused(storeId: string, store?: Partial<St
           vatCategoryCode: 'S',
         },
         status: 'issued',
-        notes: 'Credit amount of 115.00 SAR is maintained in customer store credit wallet for future orders.',
+        notes: 'Credit amount of 115.00 ⃁ is maintained in customer store credit wallet for future orders.',
         auditTrail: [
           {
             id: 'aud-crn-cof-1',
@@ -1972,7 +1972,7 @@ function _legacyCreateInitialDocumentsUnused(storeId: string, store?: Partial<St
         vatCategoryCode: 'S',
       },
       status: 'issued',
-      notes: 'Credit amount of 115.00 SAR is maintained in customer store credit wallet for future orders.',
+      notes: 'Credit amount of 115.00 ⃁ is maintained in customer store credit wallet for future orders.',
       auditTrail: [
         {
           id: 'aud-crn-1',
@@ -2225,7 +2225,7 @@ function _legacyCreateInitialDocumentsUnused(storeId: string, store?: Partial<St
         vatCategoryCode: 'S',
       },
       status: 'paid',
-      notes: 'Issued under the Saudi ZATCA VAT regulations. All amounts expressed in Saudi Riyals (SAR). Standard VAT rate 15% applied.',
+      notes: 'Issued under the Saudi ZATCA VAT regulations. All amounts expressed in Saudi Riyals (⃁). Standard VAT rate 15% applied.',
       auditTrail: [
         {
           id: 'aud-tax-1',

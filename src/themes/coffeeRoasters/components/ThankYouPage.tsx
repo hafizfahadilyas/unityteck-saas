@@ -70,7 +70,7 @@ export const ThankYouPage: React.FC = () => {
     const itemsList = order.items
       .map(
         i =>
-          `• ${i.productName} (${language === 'AR' && i.selectedColor.nameAr ? i.selectedColor.nameAr : i.selectedColor.name}) x${i.quantity} = ${language === 'AR' ? `${(i.unitPrice * i.quantity).toLocaleString()}.00 ر.س` : `SAR ${(i.unitPrice * i.quantity).toLocaleString()}`}`
+          `• ${i.productName} (${language === 'AR' && i.selectedColor.nameAr ? i.selectedColor.nameAr : i.selectedColor.name}) x${i.quantity} = ${language === 'AR' ? `${(i.unitPrice * i.quantity).toLocaleString()}.00 ⃁` : `⃁ ${(i.unitPrice * i.quantity).toLocaleString()}`}`
       )
       .join('\n');
 
@@ -84,7 +84,7 @@ export const ThankYouPage: React.FC = () => {
           `📍 *المدينة:* ${order.shippingAddress.city}\n\n` +
           `🛒 *تفاصيل المنتجات:*\n${itemsList}\n\n` +
           `💳 *طريقة الدفع:* ${order.paymentMethod.toUpperCase()}\n` +
-          `💰 *المجموع الإجمالي:* ${order.total.toLocaleString()}.00 ر.س (شامل الضريبة 15%)\n` +
+          `💰 *المجموع الإجمالي:* ${order.total.toLocaleString()}.00 ⃁ (شامل الضريبة 15%)\n` +
           `🚚 *الشحن:* فوري لكافة مدن المملكة\n` +
           `🛡️ *الضمان:* سنتين شامل الوكيل المعتمد بالسعودية\n\n` +
           `شكراً لتسوقك من ${storeName}!`
@@ -274,14 +274,14 @@ export const ThankYouPage: React.FC = () => {
                           : ''}
                       </p>
                       <span className="text-[11px] text-neutral-400 font-mono">
-                        {item.quantity} x {language === 'AR' ? `${item.unitPrice.toLocaleString()}.00 ر.س` : `SAR ${item.unitPrice.toLocaleString()}.00`}
+                        {item.quantity} x {language === 'AR' ? `${item.unitPrice.toLocaleString()}.00 ⃁` : `⃁ ${item.unitPrice.toLocaleString()}.00`}
                       </span>
                     </div>
                   </div>
 
                   <div className="text-end shrink-0">
                     <span className="font-mono font-bold text-sm text-neutral-900">
-                      {language === 'AR' ? `${(item.unitPrice * item.quantity).toLocaleString()}.00 ر.س` : `SAR ${(item.unitPrice * item.quantity).toLocaleString()}.00`}
+                      {language === 'AR' ? `${(item.unitPrice * item.quantity).toLocaleString()}.00 ⃁` : `⃁ ${(item.unitPrice * item.quantity).toLocaleString()}.00`}
                     </span>
                   </div>
                 </div>
@@ -294,13 +294,13 @@ export const ThankYouPage: React.FC = () => {
             <div className="flex justify-between text-neutral-600">
               <span>{language === 'AR' ? 'المجموع الفرعي:' : 'Subtotal:'}</span>
               <span className="font-mono font-semibold text-neutral-900">
-                {language === 'AR' ? `${order.total.toLocaleString()}.00 ر.س` : `SAR ${order.total.toLocaleString()}.00`}
+                {language === 'AR' ? `${order.total.toLocaleString()}.00 ⃁` : `⃁ ${order.total.toLocaleString()}.00`}
               </span>
             </div>
             <div className="flex justify-between text-neutral-600">
               <span>{language === 'AR' ? 'ضريبة القيمة المضافة (15% مشمولة):' : 'VAT (15% inclusive):'}</span>
               <span className="font-mono font-semibold text-neutral-900">
-                {language === 'AR' ? `${Math.round((order.total * 0.15) / 1.15).toLocaleString()}.00 ر.س` : `SAR ${Math.round((order.total * 0.15) / 1.15).toLocaleString()}.00`}
+                {language === 'AR' ? `${Math.round((order.total * 0.15) / 1.15).toLocaleString()}.00 ⃁` : `⃁ ${Math.round((order.total * 0.15) / 1.15).toLocaleString()}.00`}
               </span>
             </div>
             <div className="flex justify-between text-emerald-700 font-medium">
@@ -310,7 +310,7 @@ export const ThankYouPage: React.FC = () => {
             <div className="border-t border-neutral-200 pt-2 flex justify-between items-baseline text-base font-extrabold text-neutral-950">
               <span>{language === 'AR' ? 'المجموع الكلي المدفوع:' : 'Total Amount Paid:'}</span>
               <span className="font-mono text-xl">
-                {language === 'AR' ? `${order.total.toLocaleString()}.00 ر.س` : `SAR ${order.total.toLocaleString()}.00`}
+                {language === 'AR' ? `${order.total.toLocaleString()}.00 ⃁` : `⃁ ${order.total.toLocaleString()}.00`}
               </span>
             </div>
           </div>

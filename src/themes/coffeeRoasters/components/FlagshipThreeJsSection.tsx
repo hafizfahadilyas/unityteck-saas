@@ -190,7 +190,7 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
           {/* 2. Refined Honor-Style Price */}
           <div className="mt-4 sm:mt-7 flex items-baseline gap-1.5 flex-wrap">
             <span className="text-sm sm:text-base font-bold text-neutral-950">
-              {language === 'AR' ? `${price.toLocaleString()}.00 ر.س` : `SAR ${price.toLocaleString()}.00`}
+              {language === 'AR' ? `${price.toLocaleString()}.00 ⃁` : `⃁ ${price.toLocaleString()}.00`}
             </span>
           </div>
 

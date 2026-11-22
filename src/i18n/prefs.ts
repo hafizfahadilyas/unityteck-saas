@@ -34,11 +34,12 @@ export type CurrencyMeta = {
 export const CURRENCIES: Record<DisplayCurrency, CurrencyMeta> = {
   SAR: {
     code: 'SAR',
-    symbol: 'SAR',
-    symbolAr: 'ر.س',
+    // Official SAMA Saudi Riyal Sign (U+20C1) — full stylized "Riyal" / "ريال"
+    symbol: '\u20C1',
+    symbolAr: '\u20C1',
     rate: 1,
-    label: 'Saudi Riyal (SAR)',
-    labelAr: 'ريال سعودي (ر.س)',
+    label: 'Saudi Riyal',
+    labelAr: 'ريال سعودي',
   },
   USD: {
     code: 'USD',
@@ -137,6 +138,15 @@ function parseBrand(raw: unknown): BrandState {
   };
   const customBgHex = normalizeHex(b.customBgHex);
   const customTextHex = normalizeHex(b.customTextHex);
+  const customFontFamilyAr =
+    typeof b.customFontFamilyAr === 'string' && b.customFontFamilyAr.trim()
+      ? b.customFontFamilyAr.trim().slice(0, 80)
+      : null;
+  const customFontUrlAr =
+    typeof b.customFontUrlAr === 'string' &&
+    /^https:\/\//i.test(b.customFontUrlAr.trim())
+      ? b.customFontUrlAr.trim().slice(0, 500)
+      : null;
   return {
     palette,
     font,
@@ -148,6 +158,8 @@ function parseBrand(raw: unknown): BrandState {
     customScrollbarHex,
     customBgHex,
     customTextHex,
+    customFontFamilyAr,
+    customFontUrlAr,
   };
 }
 
@@ -157,7 +169,8 @@ export function readPrefs(): PrefsState {
     if (!raw) return { ...DEFAULT_PREFS, brand: { ...DEFAULT_BRAND } };
     const parsed = JSON.parse(raw) as Partial<PrefsState>;
     return {
-      theme: parsed.theme === 'dark' ? 'dark' : 'light',
+      // Admin chrome is light-only — never restore dark from localStorage.
+      theme: 'light',
       locale: parsed.locale === 'ar' ? 'ar' : 'en',
       currency: parsed.currency && CURRENCIES[parsed.currency as DisplayCurrency]
         ? (parsed.currency as DisplayCurrency)
@@ -170,7 +183,7 @@ export function readPrefs(): PrefsState {
 }
 
 export function writePrefs(prefs: PrefsState): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...prefs, theme: 'light' }));
 }
 
 export function applyDocumentPrefs(
@@ -178,15 +191,16 @@ export function applyDocumentPrefs(
   portal?: 'master' | 'store',
 ): void {
   const root = document.documentElement;
-  root.setAttribute('data-theme', prefs.theme);
-  root.classList.toggle('dark', prefs.theme === 'dark');
+  // Force light mode for Master + Store admin chrome.
+  root.setAttribute('data-theme', 'light');
+  root.classList.remove('dark');
   root.setAttribute('lang', prefs.locale);
   root.setAttribute('dir', prefs.locale === 'ar' ? 'rtl' : 'ltr');
   if (portal) root.setAttribute('data-portal', portal);
   const resolvedFont = resolveFontForLocale(prefs.brand.font, prefs.locale);
   applyBrandCss({ ...prefs.brand, font: resolvedFont }, prefs.locale);
   try {
-    localStorage.setItem('unityteck_theme', prefs.theme);
+    localStorage.setItem('unityteck_theme', 'light');
   } catch {
     /* ignore */
   }
@@ -194,7 +208,7 @@ export function applyDocumentPrefs(
 
 /**
  * Universal localized money formatter:
- * Handles SAR (ر.س in Arabic, SAR in English),
+ * Handles SAR (official U+20C1 symbol AR/EN),
  * USD ($), PKR (ر.ب in Arabic, PKR in English),
  * EUR (€), and GBP (£).
  */

@@ -941,12 +941,25 @@ function souq_session_lite_dispatch(PDO $pdo, string $uri, string $method, strin
         }
         $visitors = 0;
         $trafficSources = [];
+        $isMysql = false;
+        try {
+            $isMysql = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql';
+        } catch (Throwable) {
+            $isMysql = false;
+        }
+        // Cap scan window — full-table page_view scans were hanging dashboard on Hostinger.
+        $since30 = $isMysql
+            ? 'created_at >= (NOW() - INTERVAL 30 DAY)'
+            : "created_at >= datetime('now', '-30 days')";
+        $since7 = $isMysql
+            ? 'created_at >= (NOW() - INTERVAL 7 DAY)'
+            : "created_at >= datetime('now', '-7 days')";
         try {
             $st = $pdo->prepare(
                 "SELECT COUNT(DISTINCT CASE WHEN session_key IS NOT NULL AND session_key != '' THEN session_key END) AS sessions,
                         SUM(CASE WHEN session_key IS NULL OR session_key = '' THEN 1 ELSE 0 END) AS orphans
                  FROM analytics_events
-                 WHERE store_id = ? AND event_name = 'page_view'"
+                 WHERE store_id = ? AND event_name = 'page_view' AND {$since30}"
             );
             $st->execute([$storeId]);
             $row = $st->fetch() ?: [];
@@ -965,10 +978,14 @@ function souq_session_lite_dispatch(PDO $pdo, string $uri, string $method, strin
             ['dayEn' => 'Fri', 'dayAr' => 'الجمعة', 'percentage' => 0],
         ];
         try {
+            // MySQL DAYOFWEEK: 1=Sun..7=Sat → map to 0=Sun..6=Sat like SQLite strftime('%w')
+            $dowExpr = $isMysql
+                ? '(DAYOFWEEK(created_at) - 1)'
+                : "CAST(strftime('%w', created_at) AS INTEGER)";
             $q = $pdo->prepare(
-                "SELECT CAST(strftime('%w', created_at) AS INTEGER) AS dow, COUNT(*) AS c
+                "SELECT {$dowExpr} AS dow, COUNT(*) AS c
                  FROM analytics_events
-                 WHERE store_id = ? AND event_name = 'page_view' AND created_at >= datetime('now', '-7 days')
+                 WHERE store_id = ? AND event_name = 'page_view' AND {$since7}
                  GROUP BY dow"
             );
             $q->execute([$storeId]);
@@ -1000,8 +1017,10 @@ function souq_session_lite_dispatch(PDO $pdo, string $uri, string $method, strin
                         COUNT(DISTINCT CASE WHEN session_key IS NOT NULL AND session_key != '' THEN session_key END) AS sessions,
                         SUM(CASE WHEN session_key IS NULL OR session_key = '' THEN 1 ELSE 0 END) AS orphans
                  FROM analytics_events
-                 WHERE store_id = ? AND event_name = 'page_view'
-                 GROUP BY src"
+                 WHERE store_id = ? AND event_name = 'page_view' AND {$since30}
+                 GROUP BY src
+                 ORDER BY sessions DESC
+                 LIMIT 12"
             );
             $srcQ->execute([$storeId]);
             $srcRows = [];

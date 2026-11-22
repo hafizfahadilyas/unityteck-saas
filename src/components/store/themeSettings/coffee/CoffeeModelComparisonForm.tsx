@@ -306,7 +306,7 @@ export const CoffeeModelComparisonForm: React.FC<CoffeeFormChromeProps> = ({ onB
             <div className="p-5 space-y-3 overflow-y-auto text-xs">
               <MediaUploadField label={isAr ? 'صورة المنتج' : 'Product image'} value={editingModel.image} onChange={(url) => patchModel(editingModel.id, { image: url })} aspectRatio="square" initialFolder="products" recommendedSize="800 × 800 px" />
               <input className={inputCls} style={inputStyle} dir={isAr ? 'rtl' : 'ltr'} maxLength={100} value={isAr ? editingModel.nameAr : editingModel.nameEn} onChange={(e) => patchModel(editingModel.id, isAr ? { nameAr: e.target.value } : { nameEn: e.target.value })} placeholder={isAr ? 'اسم الموديل' : 'Model name'} />
-              <input className={inputCls} style={inputStyle} dir="ltr" type="number" min={0} step={0.01} value={editingModel.price ?? ''} onChange={(e) => patchModel(editingModel.id, { price: e.target.value === '' ? null : Number(e.target.value) })} placeholder={isAr ? 'السعر (ر.س)' : 'Price (SAR)'} />
+              <input className={inputCls} style={inputStyle} dir="ltr" type="number" min={0} step={0.01} value={editingModel.price ?? ''} onChange={(e) => patchModel(editingModel.id, { price: e.target.value === '' ? null : Number(e.target.value) })} placeholder={isAr ? 'السعر (⃁)' : 'Price (⃁)'} />
               <input className={inputCls} style={inputStyle} dir={isAr ? 'rtl' : 'ltr'} maxLength={40} value={isAr ? editingModel.buttonAr : editingModel.buttonEn} onChange={(e) => patchModel(editingModel.id, isAr ? { buttonAr: e.target.value } : { buttonEn: e.target.value })} placeholder={isAr ? 'نص الزر' : 'Button text'} />
               <Toggle
                 on={!!editingModel.selected}

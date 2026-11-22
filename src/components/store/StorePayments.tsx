@@ -570,8 +570,8 @@ export const StorePayments: React.FC = () => {
       return;
     }
     const header = isAr
-      ? ['مرجع التحويل', 'التاريخ', 'الوجهة', 'المبلغ الإجمالي (ر.س)', 'ضريبة القيمة المضافة 15% (ر.س)', 'الحالة', 'مرجع البنك']
-      : ['Payout Ref', 'Date', 'Destination', 'Gross Amount (SAR)', '15% VAT (SAR)', 'Status', 'Bank Ref'];
+      ? ['مرجع التحويل', 'التاريخ', 'الوجهة', 'المبلغ الإجمالي (⃁)', 'ضريبة القيمة المضافة 15% (⃁)', 'الحالة', 'مرجع البنك']
+      : ['Payout Ref', 'Date', 'Destination', 'Gross Amount (⃁)', '15% VAT (⃁)', 'Status', 'Bank Ref'];
     const rows = payouts.map((p: any) => [
       String(p.id ?? ''),
       String(p.date ?? ''),
@@ -806,7 +806,7 @@ export const StorePayments: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <span className="text-xs font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
-              {isAr ? 'رسوم المعاملات (ر.س):' : 'Transaction Fees (SAR):'}
+              {isAr ? 'رسوم المعاملات (⃁):' : 'Transaction Fees (⃁):'}
             </span>
             <div className="flex items-center gap-2">
               <input
@@ -823,9 +823,9 @@ export const StorePayments: React.FC = () => {
                 aria-label={isAr ? 'الرسوم الثابتة' : 'Fixed fee'}
                 className="px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-800 dark:text-slate-200"
               >
-                <option value="1">{isAr ? '1 ر.س' : 'SAR 1'}</option>
-                <option value="1.5">{isAr ? '1.5 ر.س' : 'SAR 1.5'}</option>
-                <option value="2">{isAr ? '2 ر.س' : 'SAR 2'}</option>
+                <option value="1">{isAr ? '1 ⃁' : '⃁ 1'}</option>
+                <option value="1.5">{isAr ? '1.5 ⃁' : '⃁ 1.5'}</option>
+                <option value="2">{isAr ? '2 ⃁' : '⃁ 2'}</option>
               </select>
             </div>
           </div>
@@ -1373,7 +1373,7 @@ export const StorePayments: React.FC = () => {
 
                 <div>
                   <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    {isAr ? 'الرسوم الثابتة (ر.س)' : 'Fixed Fee (SAR)'}
+                    {isAr ? 'الرسوم الثابتة (⃁)' : 'Fixed Fee (⃁)'}
                   </label>
                   <input
                     type="number"

@@ -42,18 +42,32 @@ export type BrandFontEnId =
   | 'poppins'
   | 'urbanist';
 
-/** AR Google fonts (Arabic-first / bilingual) */
+/** AR fonts (Arabic-first / bilingual) — sf-arabic = Apple iPhone system face */
 export type BrandFontArId =
+  | 'sf-arabic'
+  | 'readex-pro'
   | 'cairo'
   | 'noto'
   | 'ibm-plex-ar'
   | 'tajawal'
   | 'almarai'
-  | 'alexandria';
+  | 'alexandria'
+  | 'changa'
+  | 'el-messiri'
+  | 'noto-kufi'
+  | 'custom-ar';
+
+/** Shared Apple Arabic stack (SF Arabic on iPhone/macOS; Segoe/Noto elsewhere) */
+export const APPLE_ARABIC_STACK =
+  "'SF Arabic', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Segoe UI Historic', 'Noto Sans Arabic', 'IBM Plex Sans Arabic', 'Cairo', 'Plus Jakarta Sans', system-ui, sans-serif";
 
 export type BrandFontId = BrandFontEnId | BrandFontArId;
 export type BrandIconStyle = 'soft' | 'rounded' | 'sharp';
-export type BrandFontWeight = 'light' | 'regular' | 'medium' | 'bold';
+/** UI weight keys — Light / Regular / Bold are primary; Medium optional */
+export type BrandFontWeight = 'light' | 'regular' | 'bold' | 'medium';
+
+/** Display order for weight chips (user-facing) */
+export const BRAND_FONT_WEIGHT_ORDER: BrandFontWeight[] = ['light', 'regular', 'bold', 'medium'];
 
 export type BrandPalette = {
   id: BrandPaletteId;
@@ -424,8 +438,8 @@ export const BRAND_FONTS: Record<BrandFontId, BrandFontMeta> = {
     label: 'Plus Jakarta Sans',
     labelAr: 'جاكارتا سانس',
     labelUr: 'پلس جکارتہ سانس',
-    /* Keep Arabic fallbacks so mixed AR snippets in EN chrome stay on-brand */
-    stack: "'Plus Jakarta Sans', 'Cairo', 'Noto Sans Arabic', system-ui, sans-serif",
+    /* Arabic glyphs in EN UI → Apple SF Arabic (iPhone), then Noto */
+    stack: `'Plus Jakarta Sans', ${APPLE_ARABIC_STACK}`,
     script: 'en',
     googleFamily: 'Plus+Jakarta+Sans:wght@300;400;500;600;700;800',
   },
@@ -434,7 +448,7 @@ export const BRAND_FONTS: Record<BrandFontId, BrandFontMeta> = {
     label: 'Inter',
     labelAr: 'إنتر',
     labelUr: 'انٹر',
-    stack: "'Inter', 'Cairo', 'Noto Sans Arabic', system-ui, sans-serif",
+    stack: `'Inter', ${APPLE_ARABIC_STACK}`,
     script: 'en',
     googleFamily: 'Inter:wght@300;400;500;600;700;800',
   },
@@ -443,7 +457,7 @@ export const BRAND_FONTS: Record<BrandFontId, BrandFontMeta> = {
     label: 'DM Sans',
     labelAr: 'دي إم سانس',
     labelUr: 'ڈی ایم سانس',
-    stack: "'DM Sans', 'Cairo', 'Noto Sans Arabic', system-ui, sans-serif",
+    stack: `'DM Sans', ${APPLE_ARABIC_STACK}`,
     script: 'en',
     googleFamily: 'DM+Sans:wght@400;500;600;700',
   },
@@ -452,7 +466,7 @@ export const BRAND_FONTS: Record<BrandFontId, BrandFontMeta> = {
     label: 'Manrope',
     labelAr: 'مانروب',
     labelUr: 'مین روپ',
-    stack: "'Manrope', 'Cairo', 'Noto Sans Arabic', system-ui, sans-serif",
+    stack: `'Manrope', ${APPLE_ARABIC_STACK}`,
     script: 'en',
     googleFamily: 'Manrope:wght@400;500;600;700;800',
   },
@@ -461,7 +475,7 @@ export const BRAND_FONTS: Record<BrandFontId, BrandFontMeta> = {
     label: 'Outfit',
     labelAr: 'أوتفيت',
     labelUr: 'آؤٹ فٹ',
-    stack: "'Outfit', 'Cairo', 'Noto Sans Arabic', system-ui, sans-serif",
+    stack: `'Outfit', ${APPLE_ARABIC_STACK}`,
     script: 'en',
     googleFamily: 'Outfit:wght@300;400;500;600;700;800',
   },
@@ -470,7 +484,7 @@ export const BRAND_FONTS: Record<BrandFontId, BrandFontMeta> = {
     label: 'Poppins',
     labelAr: 'بوبينز',
     labelUr: 'پوپنز',
-    stack: "'Poppins', 'Cairo', 'Noto Sans Arabic', system-ui, sans-serif",
+    stack: `'Poppins', ${APPLE_ARABIC_STACK}`,
     script: 'en',
     googleFamily: 'Poppins:wght@300;400;500;600;700;800',
   },
@@ -479,20 +493,38 @@ export const BRAND_FONTS: Record<BrandFontId, BrandFontMeta> = {
     label: 'Urbanist',
     labelAr: 'أوربانيست',
     labelUr: 'اربنیسٹ',
-    stack: "'Urbanist', 'Cairo', 'Noto Sans Arabic', system-ui, sans-serif",
+    stack: `'Urbanist', ${APPLE_ARABIC_STACK}`,
     script: 'en',
     googleFamily: 'Urbanist:wght@300;400;500;600;700;800',
   },
 
-  // Arabic (6) — always fall back to Plus Jakarta for Latin/numbers (Invoice chrome match)
+  // Arabic — default = Apple SF Arabic (iPhone Language & Region face)
+  'sf-arabic': {
+    id: 'sf-arabic',
+    label: 'SF Arabic (iPhone)',
+    labelAr: 'سف عربي (آيفون)',
+    labelUr: 'ایس ایف عربی (آئی فون)',
+    stack: APPLE_ARABIC_STACK,
+    script: 'ar',
+    googleFamily: '',
+  },
+  'readex-pro': {
+    id: 'readex-pro',
+    label: 'Readex Pro (Light)',
+    labelAr: 'ريدكس برو (خفيف)',
+    labelUr: 'ریڈیکس پرو (ہلکا)',
+    stack: "'Readex Pro', 'Noto Sans Arabic', 'Cairo', system-ui, sans-serif",
+    script: 'ar',
+    googleFamily: 'Readex+Pro:wght@300;400;500;600;700',
+  },
   cairo: {
     id: 'cairo',
-    label: 'Cairo (Default AR)',
-    labelAr: 'القاهرة (كلاسيكي)',
+    label: 'Cairo',
+    labelAr: 'القاهرة',
     labelUr: 'قاہرہ (عربی)',
     stack: "'Cairo', 'IBM Plex Sans Arabic', 'Plus Jakarta Sans', system-ui, sans-serif",
     script: 'ar',
-    googleFamily: 'Cairo:wght@400;500;600;700;800',
+    googleFamily: 'Cairo:wght@300;400;500;600;700;800',
   },
   noto: {
     id: 'noto',
@@ -501,7 +533,7 @@ export const BRAND_FONTS: Record<BrandFontId, BrandFontMeta> = {
     labelUr: 'نوٹو عربی',
     stack: "'Noto Sans Arabic', 'Cairo', 'Plus Jakarta Sans', system-ui, sans-serif",
     script: 'ar',
-    googleFamily: 'Noto+Sans+Arabic:wght@400;500;600;700;800',
+    googleFamily: 'Noto+Sans+Arabic:wght@300;400;500;600;700;800',
   },
   'ibm-plex-ar': {
     id: 'ibm-plex-ar',
@@ -510,7 +542,7 @@ export const BRAND_FONTS: Record<BrandFontId, BrandFontMeta> = {
     labelUr: 'آئی بی ایم پلیکس عربی',
     stack: "'IBM Plex Sans Arabic', 'Cairo', 'Tajawal', 'Plus Jakarta Sans', system-ui, sans-serif",
     script: 'ar',
-    googleFamily: 'IBM+Plex+Sans+Arabic:wght@400;500;600;700',
+    googleFamily: 'IBM+Plex+Sans+Arabic:wght@300;400;500;600;700',
   },
   tajawal: {
     id: 'tajawal',
@@ -519,13 +551,13 @@ export const BRAND_FONTS: Record<BrandFontId, BrandFontMeta> = {
     labelUr: 'تجوال',
     stack: "'Tajawal', 'Cairo', 'Plus Jakarta Sans', system-ui, sans-serif",
     script: 'ar',
-    googleFamily: 'Tajawal:wght@400;500;700;800',
+    googleFamily: 'Tajawal:wght@300;400;500;700;800',
   },
   almarai: {
     id: 'almarai',
-    label: 'Almarai',
-    labelAr: 'المراعي عصري',
-    labelUr: 'المراعی',
+    label: 'Almarai (Light)',
+    labelAr: 'المراعي (خفيف)',
+    labelUr: 'المراعی (ہلکا)',
     stack: "'Almarai', 'Cairo', 'Plus Jakarta Sans', system-ui, sans-serif",
     script: 'ar',
     googleFamily: 'Almarai:wght@300;400;700;800',
@@ -539,6 +571,42 @@ export const BRAND_FONTS: Record<BrandFontId, BrandFontMeta> = {
     script: 'ar',
     googleFamily: 'Alexandria:wght@300;400;500;600;700;800',
   },
+  changa: {
+    id: 'changa',
+    label: 'Changa',
+    labelAr: 'تشانجا هندسي',
+    labelUr: 'چانگا',
+    stack: "'Changa', 'Tajawal', 'Cairo', system-ui, sans-serif",
+    script: 'ar',
+    googleFamily: 'Changa:wght@300;400;500;600;700;800',
+  },
+  'el-messiri': {
+    id: 'el-messiri',
+    label: 'El Messiri',
+    labelAr: 'المسيري أنيق',
+    labelUr: 'المسیری',
+    stack: "'El Messiri', 'Amiri', 'Cairo', system-ui, sans-serif",
+    script: 'ar',
+    googleFamily: 'El+Messiri:wght@300;400;500;600;700',
+  },
+  'noto-kufi': {
+    id: 'noto-kufi',
+    label: 'Noto Kufi Arabic',
+    labelAr: 'نوتو كوفي عربي',
+    labelUr: 'نوٹو کوفی عربی',
+    stack: "'Noto Kufi Arabic', 'Noto Sans Arabic', 'Cairo', system-ui, sans-serif",
+    script: 'ar',
+    googleFamily: 'Noto+Kufi+Arabic:wght@300;400;500;600;700;800',
+  },
+  'custom-ar': {
+    id: 'custom-ar',
+    label: 'Custom Arabic Font',
+    labelAr: 'خط عربي مخصص',
+    labelUr: 'حسبِ ضرورت عربی فونٹ',
+    stack: APPLE_ARABIC_STACK,
+    script: 'ar',
+    googleFamily: '',
+  },
 };
 
 export const BRAND_FONTS_EN = (
@@ -546,7 +614,20 @@ export const BRAND_FONTS_EN = (
 ).map((id) => BRAND_FONTS[id]);
 
 export const BRAND_FONTS_AR = (
-  ['ibm-plex-ar', 'noto', 'cairo', 'tajawal', 'almarai', 'alexandria'] as BrandFontArId[]
+  [
+    'sf-arabic',
+    'readex-pro',
+    'ibm-plex-ar',
+    'noto',
+    'cairo',
+    'tajawal',
+    'almarai',
+    'alexandria',
+    'changa',
+    'el-messiri',
+    'noto-kufi',
+    'custom-ar',
+  ] as BrandFontArId[]
 ).map((id) => BRAND_FONTS[id]);
 
 export const BRAND_FONTS_UR = BRAND_FONTS_AR;
@@ -564,12 +645,12 @@ export const BRAND_ICON_RADIUS: Record<
 
 export const BRAND_FONT_WEIGHTS: Record<
   BrandFontWeight,
-  { label: string; labelAr: string; body: string; heading: string }
+  { label: string; labelAr: string; body: string; heading: string; sample: number }
 > = {
-  light: { label: 'Light', labelAr: 'خفيف', body: '350', heading: '600' },
-  regular: { label: 'Regular', labelAr: 'عادي', body: '400', heading: '700' },
-  medium: { label: 'Medium', labelAr: 'متوسط', body: '500', heading: '750' },
-  bold: { label: 'Bold', labelAr: 'عريض', body: '600', heading: '800' },
+  light: { label: 'Light', labelAr: 'خفيف', body: '300', heading: '500', sample: 300 },
+  regular: { label: 'Regular', labelAr: 'عادي', body: '400', heading: '700', sample: 400 },
+  bold: { label: 'Bold', labelAr: 'عريض', body: '700', heading: '800', sample: 700 },
+  medium: { label: 'Medium', labelAr: 'متوسط', body: '500', heading: '750', sample: 500 },
 };
 
 export type BrandState = {
@@ -590,19 +671,25 @@ export type BrandState = {
   customBgHex?: string | null;
   /** Optional primary text / font color hex. Null = follow theme + palette. */
   customTextHex?: string | null;
+  /** Custom Arabic font family name when fontAr === 'custom-ar' */
+  customFontFamilyAr?: string | null;
+  /** Optional CSS/Google Fonts URL for custom Arabic face */
+  customFontUrlAr?: string | null;
 };
 
 export const DEFAULT_BRAND: BrandState = {
   palette: 'holst',
   font: 'jakarta',
   fontEn: 'jakarta',
-  fontAr: 'ibm-plex-ar',
+  fontAr: 'sf-arabic',
   iconStyle: 'rounded',
   fontWeight: 'regular',
   customAccentHex: null,
   customScrollbarHex: null,
   customBgHex: null,
   customTextHex: null,
+  customFontFamilyAr: null,
+  customFontUrlAr: null,
 };
 
 /** Parse #RGB / #RRGGBB → {r,g,b} or null. */
@@ -664,18 +751,78 @@ export const EN_FONTS: BrandFontId[] = [
   'urbanist',
 ];
 export const AR_FONTS: BrandFontId[] = [
+  'sf-arabic',
+  'readex-pro',
   'ibm-plex-ar',
   'noto',
   'cairo',
   'tajawal',
   'almarai',
   'alexandria',
+  'changa',
+  'el-messiri',
+  'noto-kufi',
+  'custom-ar',
 ];
+
+/** Relative luminance 0–1 (sRGB). */
+export function hexLuminance(hex: string): number | null {
+  const rgb = parseHexColor(hex);
+  if (!rgb) return null;
+  const lin = (c: number) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * lin(rgb.r) + 0.7152 * lin(rgb.g) + 0.0722 * lin(rgb.b);
+}
+
+/** On dark UI, force light text if merchant picked a dark hex (keep readable). */
+export function readableTextForTheme(hex: string | null | undefined, isDark: boolean): string | null {
+  if (!hex || !parseHexColor(hex)) return null;
+  if (!isDark) return hex;
+  const lum = hexLuminance(hex);
+  if (lum == null) return hex;
+  return lum < 0.45 ? '#f2fbf8' : hex;
+}
+
+function sanitizeFontFamilyName(name: string): string {
+  return name
+    .replace(/['"\\;{}<>]/g, '')
+    .trim()
+    .slice(0, 80);
+}
+
+export function resolveArFontStack(brand: BrandState, arId: BrandFontArId): string {
+  if (arId === 'custom-ar') {
+    const family = sanitizeFontFamilyName(brand.customFontFamilyAr || '');
+    if (family) {
+      return `'${family}', ${APPLE_ARABIC_STACK}`;
+    }
+  }
+  return BRAND_FONTS[arId]?.stack || APPLE_ARABIC_STACK;
+}
+
+/** Inject Google / custom stylesheet once (speed — no duplicate links). */
+export function ensureBrandFontStylesheet(href: string, linkId: string): void {
+  if (typeof document === 'undefined' || !href) return;
+  const safe = href.trim();
+  if (!/^https:\/\/fonts\.googleapis\.com\/css2\?/i.test(safe) && !/^https:\/\//i.test(safe)) {
+    return;
+  }
+  let link = document.getElementById(linkId) as HTMLLinkElement | null;
+  if (!link) {
+    link = document.createElement('link');
+    link.id = linkId;
+    link.rel = 'stylesheet';
+    document.head.appendChild(link);
+  }
+  if (link.href !== safe) link.href = safe;
+}
 
 export function resolveFontForLocale(font: BrandFontId, locale: 'en' | 'ar'): BrandFontId {
   if (locale === 'ar') {
     if (AR_FONTS.includes(font as BrandFontArId)) return font;
-    return 'ibm-plex-ar';
+    return 'sf-arabic';
   }
   if (locale === 'en') {
     if (EN_FONTS.includes(font as BrandFontEnId)) return font;
@@ -701,7 +848,7 @@ export function resolveBrandFonts(brand: BrandState, locale: 'en' | 'ar'): {
       ? brand.fontAr
       : AR_FONTS.includes(brand.font as BrandFontArId)
         ? (brand.font as BrandFontArId)
-        : 'ibm-plex-ar';
+        : 'sf-arabic';
   return {
     activeId: locale === 'ar' ? arId : enId,
     enId,
@@ -725,7 +872,9 @@ export function applyBrandCss(brand: BrandState, locale: 'en' | 'ar' = 'en'): vo
     : preset;
 
   const { activeId, enId, arId } = resolveBrandFonts(brand, locale);
-  const font = BRAND_FONTS[activeId] ?? BRAND_FONTS.jakarta;
+  const arStack = resolveArFontStack(brand, arId);
+  const enStack = BRAND_FONTS[enId]?.stack || BRAND_FONTS.jakarta.stack;
+  const activeStack = locale === 'ar' ? arStack : enStack;
   const icon = BRAND_ICON_RADIUS[brand.iconStyle] ?? BRAND_ICON_RADIUS.rounded;
   const weight = BRAND_FONT_WEIGHTS[brand.fontWeight ?? 'regular'] ?? BRAND_FONT_WEIGHTS.regular;
   const root = document.documentElement;
@@ -741,14 +890,25 @@ export function applyBrandCss(brand: BrandState, locale: 'en' | 'ar' = 'en'): vo
   root.style.setProperty('--portal-cta', `linear-gradient(90deg, ${p.p600}, ${p.p400})`);
 
   // EN/AR stacks always stored; CSS html[lang] picks --font-ui (one global face)
-  root.style.setProperty('--font-ui-ar', BRAND_FONTS[arId].stack);
-  root.style.setProperty('--font-ui-en', BRAND_FONTS[enId].stack);
-  root.style.setProperty('--font-ar', BRAND_FONTS[arId].stack);
-  root.style.setProperty('--font-ui', font.stack);
+  root.style.setProperty('--font-ui-ar', arStack);
+  root.style.setProperty('--font-ui-en', enStack);
+  root.style.setProperty('--font-ar', arStack);
+  root.style.setProperty('--font-ui', activeStack);
+
+  // Load Google / custom faces for selected AR font (incl. Light 300)
+  const arMeta = BRAND_FONTS[arId];
+  if (arId === 'custom-ar' && brand.customFontUrlAr) {
+    ensureBrandFontStylesheet(String(brand.customFontUrlAr), 'unityteck-custom-font-ar');
+  } else if (arMeta?.googleFamily) {
+    ensureBrandFontStylesheet(
+      `https://fonts.googleapis.com/css2?family=${arMeta.googleFamily}&display=swap`,
+      `unityteck-font-${arId}`,
+    );
+  }
 
   // Font weights — Arabic faces (IBM Plex / Noto) max at 700; clamp so headers
   // do not fall back to a second family (Cairo/Tajawal) and look "different".
-  const arMaxWeight = arId === 'ibm-plex-ar' || arId === 'noto' ? 700 : 800;
+  const arMaxWeight = arId === 'ibm-plex-ar' || arId === 'noto' ? 700 : 800; // sf-arabic (Apple) supports up to 800+
   const bodyW = Math.min(parseInt(weight.body, 10) || 400, locale === 'ar' ? arMaxWeight : 800);
   const headingW = Math.min(parseInt(weight.heading, 10) || 700, locale === 'ar' ? arMaxWeight : 800);
   root.style.setProperty('--font-weight-body', String(bodyW));
@@ -765,7 +925,10 @@ export function applyBrandCss(brand: BrandState, locale: 'en' | 'ar' = 'en'): vo
   // Form / modal / page text — always set BOTH themes (inline light leftovers broke dark mode)
   const isDark = root.getAttribute('data-theme') === 'dark';
   const customBg = brand.customBgHex && parseHexColor(brand.customBgHex) ? brand.customBgHex : null;
-  const customText = brand.customTextHex && parseHexColor(brand.customTextHex) ? brand.customTextHex : null;
+  const customTextRaw =
+    brand.customTextHex && parseHexColor(brand.customTextHex) ? brand.customTextHex : null;
+  // Dark UI: never keep near-black text — auto lift to readable light
+  const customText = readableTextForTheme(customTextRaw, isDark);
 
   if (!isDark) {
     // ONE global page canvas for Master + Store (design pack: --bg = portal-50)

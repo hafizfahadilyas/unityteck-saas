@@ -2,10 +2,27 @@
  * Canva / Photoshop PSD + image → editable studio layers.
  * Real Canva web app: Download as PSD (Pro) or PNG, then upload here.
  * Per-store isolation happens in callers (My Templates + Media Library).
+ *
+ * ag-psd is CJS — load via dynamic import so Vite prebundle / interop works
+ * (static `import { readPsd }` fails when raw dist/index.js is served).
  */
 
-import { readPsd, type Layer, type LayerTextData } from 'ag-psd';
+import type { Layer, LayerTextData, Psd, ReadOptions } from 'ag-psd';
 import type { CanvaTemplateCategory } from '../data/ksaCanvaTemplates';
+
+type ReadPsdFn = (buffer: ArrayBuffer, options?: ReadOptions) => Psd;
+
+async function loadReadPsd(): Promise<ReadPsdFn> {
+  const mod = (await import('ag-psd')) as {
+    readPsd?: ReadPsdFn;
+    default?: { readPsd?: ReadPsdFn };
+  };
+  const fn = mod.readPsd || mod.default?.readPsd;
+  if (typeof fn !== 'function') {
+    throw new Error('PSD_LOADER_FAIL');
+  }
+  return fn;
+}
 
 export type ImportedStudioLayerType =
   | 'headline'
@@ -42,7 +59,7 @@ export interface ImportedStudioDesign {
   width: number;
   height: number;
   name: string;
-  source: 'psd' | 'image';
+  source: 'psd' | 'image' | 'pptx';
   layers: ImportedStudioLayer[];
   previewDataUrl?: string;
   categoryHint?: CanvaTemplateCategory;
@@ -169,6 +186,7 @@ export async function importPsdFile(file: File): Promise<ImportedStudioDesign> {
   }
 
   const buffer = await file.arrayBuffer();
+  const readPsd = await loadReadPsd();
   const psd = readPsd(buffer, {
     skipThumbnail: false,
     useImageData: true,
@@ -333,6 +351,11 @@ export function isRasterImageFile(file: File): boolean {
 }
 
 export async function importDesignFile(file: File): Promise<ImportedStudioDesign> {
+  const { isLegacyPptFile, isPptxFile, importPptxFile } = await import('./canvaPptImport');
+  if (isLegacyPptFile(file) && !isPptxFile(file)) {
+    throw new Error('PPT_LEGACY');
+  }
+  if (isPptxFile(file)) return importPptxFile(file);
   if (isPsdFile(file)) return importPsdFile(file);
   if (isRasterImageFile(file)) return importImageAsDesign(file);
   throw new Error('UNSUPPORTED_FILE');

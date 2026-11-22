@@ -213,8 +213,8 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
               <Coins className="w-3.5 h-3.5 text-amber-300 shrink-0" />
               <span className="truncate max-w-[200px] sm:max-w-none">
                 {isAr
-                  ? `عملاتي والولاء (${profile.coinsBalance}=${sarDiscountWorth}ر.س)`
-                  : `Coins & Loyalty (${profile.coinsBalance} = ${sarDiscountWorth} SAR)`}
+                  ? `عملاتي والولاء (${profile.coinsBalance}=${sarDiscountWorth}⃁)`
+                  : `Coins & Loyalty (${profile.coinsBalance} = ${sarDiscountWorth} ⃁)`}
               </span>
             </button>
 
@@ -322,7 +322,7 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
                 <div className="p-5 rounded-3xl bg-gradient-to-br from-amber-500/15 to-emerald-500/15 border border-amber-500/30 space-y-3">
                   <Coins className={`w-10 h-10 text-amber-500 mx-auto ${isSpinning ? 'animate-spin' : ''}`} />
                   <div className="text-2xl font-black font-mono">
-                    {profile.coinsBalance} {isAr ? 'عملة' : 'Coins'} = {sarDiscountWorth} SAR
+                    {profile.coinsBalance} {isAr ? 'عملة' : 'Coins'} = {sarDiscountWorth} ⃁
                   </div>
                   <p className="text-xs text-slate-500">
                     {isAr
@@ -358,7 +358,7 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
                   </div>
                   <div className="flex justify-between text-xs pt-1">
                     <span>{profile.name}</span>
-                    <span className="font-mono font-black">{profile.coinsBalance} Coins ({sarDiscountWorth} SAR)</span>
+                    <span className="font-mono font-black">{profile.coinsBalance} Coins ({sarDiscountWorth} ⃁)</span>
                   </div>
                 </div>
 

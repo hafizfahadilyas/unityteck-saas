@@ -17,7 +17,7 @@ function formatValue(type: 'percentage' | 'fixed', value: number | string, isAr:
   if (type === 'percentage') {
     return `${safe}%`;
   }
-  return isAr ? `${safe} ر.س` : `${safe} SAR`;
+  return isAr ? `${safe} ⃁` : `${safe} ⃁`;
 }
 
 /**
@@ -71,8 +71,8 @@ export const CashbackOfferPreviewCard: React.FC<CashbackOfferPreviewProps> = ({
         {showMin && (
           <div className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
             {isAr
-              ? `عند إنفاق ${minNum} ر.س أو أكثر`
-              : `When you spend ${minNum} SAR or more`}
+              ? `عند إنفاق ${minNum} ⃁ أو أكثر`
+              : `When you spend ${minNum} ⃁ or more`}
           </div>
         )}
       </div>

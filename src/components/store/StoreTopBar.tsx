@@ -71,7 +71,10 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
   const isAr = locale === 'ar';
   const { toast } = useToast();
   const session = readAuthSession();
-  const placeholder = searchPlaceholder || t('searchStore');
+  // Locale-locked placeholder — never leave English search text in Arabic chrome.
+  const placeholder =
+    searchPlaceholder ||
+    (isAr ? 'ابحث في منتجات وطلبات المتجر...' : 'Search store products, orders, metrics...');
 
   // Popover state
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -198,10 +201,10 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
 
   return (
     <header
-      className="min-h-14 sm:h-16 border-b px-2 sm:px-3.5 md:px-4 flex items-center justify-between gap-1 sm:gap-2 w-full bg-[var(--bg)] text-[var(--text)] border-[var(--border)] shrink-0 z-50 select-none max-lg:sticky max-lg:top-0 isolate"
+      className="min-h-14 sm:h-16 px-2 sm:px-3.5 md:px-4 flex items-center justify-between gap-1.5 sm:gap-2.5 w-full text-[var(--text)] shrink-0 z-50 select-none max-lg:sticky max-lg:top-0 isolate"
       style={{
-        background: 'var(--bg)',
-        borderColor: 'var(--border)',
+        background: 'var(--glass-fill, var(--bg))',
+        border: 'none',
         color: 'var(--text)',
         fontFamily: 'var(--font-ui)',
       }}
@@ -239,10 +242,10 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleSearchSubmit();
           }}
-          className="w-full ps-7 sm:ps-9 pe-6 sm:pe-7 py-1.5 sm:py-2 rounded-xl text-xs focus:outline-none transition-all border"
+          className="w-full ps-7 sm:ps-9 pe-6 sm:pe-7 py-1.5 sm:py-2 rounded-full text-xs focus:outline-none transition-all border"
           style={{
-            background: 'var(--input-bg)',
-            borderColor: 'var(--border)',
+            background: 'var(--glass-fill-strong, var(--input-bg))',
+            borderColor: 'var(--glass-border, var(--border))',
             color: 'var(--input-fg)',
             fontFamily: 'var(--font-ui)',
           }}
@@ -297,10 +300,10 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
             onClick={() => setShowStoreInfo((v) => !v)}
             aria-expanded={showStoreInfo}
             aria-haspopup="dialog"
-            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl border text-[11px] font-bold shrink-0 cursor-pointer hover:opacity-90 transition-all shadow-2xs active:scale-[0.98]"
+            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-full border text-[11px] font-bold shrink-0 cursor-pointer hover:opacity-90 transition-all shadow-2xs active:scale-[0.98]"
             style={{
-              background: 'color-mix(in srgb, var(--accent) 10%, var(--surface))',
-              borderColor: 'color-mix(in srgb, var(--accent) 28%, var(--border))',
+              background: 'var(--glass-fill-strong, color-mix(in srgb, var(--accent) 10%, var(--surface)))',
+              borderColor: 'var(--glass-border, color-mix(in srgb, var(--accent) 28%, var(--border)))',
               color: 'var(--text)',
             }}
             title={`${storeDisplayName} (${activeStore?.id}) - ${isAr ? 'انقر لعرض التفاصيل' : 'Click for store info'}`}
@@ -410,7 +413,7 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
                   >
                     <span className="flex items-center gap-2">
                       <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
-                      <span>{isAr ? 'مخصص الثيم المباشر' : 'Live Theme Customizer'}</span>
+                      <span>{isAr ? 'مخصص المظهر المباشر' : 'Live Theme Customizer'}</span>
                     </span>
                     <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-emerald-600 text-white font-black">18</span>
                   </button>
@@ -427,7 +430,7 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
                     style={{ color: 'var(--accent)' }}
                   >
                     <Palette className="w-3.5 h-3.5" />
-                    <span>{isAr ? 'محرر الثيم والصفحات' : 'Theme & Page Builder'}</span>
+                    <span>{isAr ? 'محرر المظهر والصفحات' : 'Theme & Page Builder'}</span>
                   </button>
                 ) : null}
 
@@ -442,7 +445,7 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
                     style={{ color: 'var(--accent)' }}
                   >
                     <Sliders className="w-3.5 h-3.5" />
-                    <span>{isAr ? 'إعدادات الثيم (١٨ شاشة تصميم)' : 'Theme Settings (18 Designs)'}</span>
+                    <span>{isAr ? 'إعدادات المظهر (١٨ شاشة تصميم)' : 'Theme Settings (18 Designs)'}</span>
                   </button>
                 ) : null}
 
@@ -501,19 +504,19 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
             onMouseEnter={preloadVisualThemeBuilder}
             onPointerDown={preloadVisualThemeBuilder}
             onFocus={preloadVisualThemeBuilder}
-            className="group relative overflow-hidden hidden md:flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold text-white transition-all duration-200 ease-out hover:scale-[1.02] hover:opacity-95 active:scale-[0.96] cursor-pointer select-none border shrink-0 shadow-xs unity-btn-primary"
+            className="group relative overflow-hidden hidden md:flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full text-xs font-bold text-white transition-all duration-200 ease-out hover:scale-[1.02] hover:opacity-95 active:scale-[0.96] cursor-pointer select-none border shrink-0 shadow-xs unity-btn-primary"
             style={{
               borderColor: 'color-mix(in srgb, var(--portal-400) 40%, transparent)',
             }}
-            title={isAr ? 'تخصيص الثيم ومحرر الصفحات البصري' : 'Customize Theme & Visual Page Builder'}
+            title={isAr ? 'تخصيص المظهر ومحرر الصفحات البصري' : 'Customize Theme & Visual Page Builder'}
           >
             <span
               className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-gradient-to-r from-transparent via-white/25 to-transparent pointer-events-none"
               aria-hidden
             />
             <Palette className="w-3.5 h-3.5 text-white transition-transform duration-300 ease-out group-hover:rotate-12 shrink-0" />
-            <span className="hidden 2xl:inline font-bold tracking-tight">{isAr ? 'تخصيص الثيم' : 'Customize Theme'}</span>
-            <span className="inline 2xl:hidden font-bold tracking-tight">{isAr ? 'الثيم' : 'Theme'}</span>
+            <span className="hidden 2xl:inline font-bold tracking-tight">{isAr ? 'تخصيص المظهر' : 'Customize Theme'}</span>
+            <span className="inline 2xl:hidden font-bold tracking-tight">{isAr ? 'المظهر' : 'Theme'}</span>
           </button>
         ) : null}
 

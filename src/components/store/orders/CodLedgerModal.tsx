@@ -168,7 +168,7 @@ export const CodLedgerModal: React.FC<CodLedgerModalProps> = ({
               <Receipt className="w-4 h-4 text-slate-400" />
             </div>
             <div className="text-lg font-black text-slate-900 dark:text-white tabular-nums">
-              {summary.totalAmount.toLocaleString()} {isAr ? 'ر.س' : 'SAR'}
+              {summary.totalAmount.toLocaleString()} {'⃁'}
             </div>
             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">
               {summary.totalCount} {isAr ? 'طلب' : 'orders'}
@@ -182,7 +182,7 @@ export const CodLedgerModal: React.FC<CodLedgerModalProps> = ({
               <Clock className="w-4 h-4 text-amber-500" />
             </div>
             <div className="text-lg font-black text-amber-900 dark:text-amber-200 tabular-nums">
-              {summary.pendingAmount.toLocaleString()} {isAr ? 'ر.س' : 'SAR'}
+              {summary.pendingAmount.toLocaleString()} {'⃁'}
             </div>
             <div className="text-[11px] font-bold text-amber-700/80 dark:text-amber-400/80 mt-0.5">
               {summary.pendingCount} {isAr ? 'طلب قيد التوصيل' : 'in delivery'}
@@ -196,7 +196,7 @@ export const CodLedgerModal: React.FC<CodLedgerModalProps> = ({
               <Truck className="w-4 h-4 text-blue-500" />
             </div>
             <div className="text-lg font-black text-blue-900 dark:text-blue-200 tabular-nums">
-              {summary.collectedAmount.toLocaleString()} {isAr ? 'ر.س' : 'SAR'}
+              {summary.collectedAmount.toLocaleString()} {'⃁'}
             </div>
             <div className="text-[11px] font-bold text-blue-700/80 dark:text-blue-400/80 mt-0.5">
               {summary.collectedCount} {isAr ? 'محصل بانتظار الإيداع' : 'awaiting remittance'}
@@ -210,7 +210,7 @@ export const CodLedgerModal: React.FC<CodLedgerModalProps> = ({
               <Building2 className="w-4 h-4 text-emerald-500" />
             </div>
             <div className="text-lg font-black text-emerald-900 dark:text-emerald-200 tabular-nums">
-              {summary.remittedAmount.toLocaleString()} {isAr ? 'ر.س' : 'SAR'}
+              {summary.remittedAmount.toLocaleString()} {'⃁'}
             </div>
             <div className="text-[11px] font-bold text-emerald-700/80 dark:text-emerald-400/80 mt-0.5">
               {summary.remittedCount} {isAr ? 'طلب مكتمل الإيداع' : 'completed'}
@@ -296,7 +296,7 @@ export const CodLedgerModal: React.FC<CodLedgerModalProps> = ({
                         {ord.shippingCompany || (isAr ? 'غير محدد' : 'Unspecified')}
                       </td>
                       <td className="py-3 px-3 font-black tabular-nums text-slate-900 dark:text-white">
-                        {ord.total} {isAr ? 'ر.س' : 'SAR'}
+                        {ord.total} {'⃁'}
                       </td>
                       <td className="py-3 px-3">
                         {isRemitted && (

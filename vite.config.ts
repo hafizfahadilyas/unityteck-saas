@@ -63,6 +63,13 @@ export default defineConfig(({mode}) => {
   const googleGeocodingApiKey = resolveGoogleMapsApiKey(
     String(env.VITE_GOOGLE_GEOCODING_API_KEY || googleMapsApiKey),
   );
+  // Local artisan :8010 often hangs on remote Hostinger MySQL from Windows.
+  // Default DEV proxy → live flowers API (override with VITE_API_PROXY_TARGET).
+  const apiProxyTarget = String(
+    env.VITE_API_PROXY_TARGET || 'https://giftshop-sa.com',
+  )
+    .trim()
+    .replace(/\/$/, '');
 
   return {
     envDir: process.cwd(),
@@ -98,31 +105,39 @@ export default defineConfig(({mode}) => {
           '**/storage/**',
           '**/bootstrap/cache/**',
           '**/dist/**',
+          '**/dist_old*/**',
           '**/.git/**',
           '**/public/**',
           '**/_chrome_profile*/**',
           '**/New folder/**',
+          '**/مجلد*/**',
           '**/_newfolder_changes_backup/**',
+          '**/_deploy*.txt',
+          '**/_audit*.txt',
+          '**/_*.txt',
+          '**/.deploy-manifests/**',
+          '**/agent-tools/**',
+          '**/node_modules/**',
         ],
       },
       // Soft SPA routes (/master/login, /store/login) must serve index.html
-      // Proxy /api → Laravel artisan serve (npm run api:serve | npm run dev:stack)
+      // Proxy /api → live Hostinger (default) or local artisan via VITE_API_PROXY_TARGET
       proxy: {
         '/api': {
-          target: 'http://127.0.0.1:8010',
+          target: apiProxyTarget,
           changeOrigin: true,
+          secure: true,
           configure: (proxy) => {
             proxy.on('error', (err, _req, res) => {
               console.error(
-                '[vite] /api proxy → :8010 failed. Start API: npm run api:serve (or npm run dev:stack).',
+                `[vite] /api proxy → ${apiProxyTarget} failed.`,
                 err?.message || err,
               );
               if (res && !res.headersSent && typeof res.writeHead === 'function') {
                 res.writeHead(502, { 'Content-Type': 'application/json' });
                 res.end(
                   JSON.stringify({
-                    message:
-                      'Laravel API is not running on :8010. Run npm run api:serve or npm run dev:stack.',
+                    message: `API proxy failed (${apiProxyTarget}). Check network or set VITE_API_PROXY_TARGET.`,
                   }),
                 );
               }
@@ -136,13 +151,16 @@ export default defineConfig(({mode}) => {
       host: '0.0.0.0',
       proxy: {
         '/api': {
-          target: 'http://127.0.0.1:8010',
+          target: apiProxyTarget,
           changeOrigin: true,
+          secure: true,
         },
       },
     },
     optimizeDeps: {
       include: ['react', 'react-dom', 'lucide-react', 'motion', 'date-fns', 'ag-psd'],
+      // Do NOT exclude ag-psd — raw CJS dist breaks Vite ESM named imports (`readPsd`).
+      // Prebundle keeps Canva PSD import working; build still splits via manualChunks.
     },
     build: {
       emptyOutDir: false,

@@ -25,3 +25,13 @@ export function resolveStoreLogoSrc(value: unknown): string {
   if (!isUsableStoreLogoUrl(value)) return '';
   return value.trim();
 }
+
+/** Bust CDN/browser cache after logo replace (same path overwritten). */
+export function withLogoCacheBust(url: string, version?: string | number | null): string {
+  const src = resolveStoreLogoSrc(url);
+  if (!src) return '';
+  if (src.startsWith('data:') || src.startsWith('blob:')) return src;
+  const v = version != null && String(version).trim() ? String(version).trim() : String(Date.now());
+  if (/[?&]v=/.test(src)) return src.replace(/([?&]v=)[^&]*/i, `$1${encodeURIComponent(v)}`);
+  return `${src}${src.includes('?') ? '&' : '?'}v=${encodeURIComponent(v)}`;
+}

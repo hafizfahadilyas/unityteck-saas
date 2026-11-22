@@ -97,7 +97,7 @@ const CoreTwoCategoriesSectionComponent: React.FC<CoreTwoCategoriesSectionProps>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-[11px] text-white/60">{isAr ? 'من' : 'From'}</span>
                 <span className="text-xl sm:text-2xl font-black text-[#f6c344]">390</span>
-                <span className="text-xs font-bold text-white/80">{isAr ? 'ر.س' : 'SAR'}</span>
+                <span className="text-xs font-bold text-white/80">{'⃁'}</span>
               </div>
 
               <div className="px-4 py-2 bg-white text-[#16032e] group-hover:bg-[#f6c344] font-black text-xs rounded-xl flex items-center gap-1.5 shadow-lg transition-all duration-300">
@@ -168,7 +168,7 @@ const CoreTwoCategoriesSectionComponent: React.FC<CoreTwoCategoriesSectionProps>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-[11px] text-white/60">{isAr ? 'من' : 'From'}</span>
                 <span className="text-xl sm:text-2xl font-black text-[#f6c344]">290</span>
-                <span className="text-xs font-bold text-white/80">{isAr ? 'ر.س' : 'SAR'}</span>
+                <span className="text-xs font-bold text-white/80">{'⃁'}</span>
               </div>
 
               <div className="px-4 py-2 bg-[#f6c344] text-[#16032e] group-hover:bg-white font-black text-xs rounded-xl flex items-center gap-1.5 shadow-lg transition-all duration-300">

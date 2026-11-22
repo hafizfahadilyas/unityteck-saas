@@ -5,9 +5,19 @@
 
 import { bumpStore } from '../../api/cacheTags';
 import { isRetiredContactDigits, scrubPublicEmail, syncStoreContactIntoTheme } from './storeContact';
+/** Bundled Vite asset — avoids public/ SPA html fallback when file not picked up. */
+import loginBgModernUrl from '../../assets/images/login-side-saudi-modern-devices.jpg';
 
-/** Default portal login left-panel image (replaceable per store in Theme Settings → Identity). */
-export const DEFAULT_LOGIN_SIDE_IMAGE = '/images/login-side-saudi-sheikh-laptop.jpg';
+/** Default portal login full-bg (modern Arabic desk: iMac / laptop / iPhone). */
+export const DEFAULT_LOGIN_SIDE_IMAGE = loginBgModernUrl as string;
+
+/** Public path aliases that should resolve to the bundled modern BG. */
+const LEGACY_LOGIN_SIDE_IMAGES = new Set([
+  '/images/login-side-saudi-sheikh-laptop.jpg',
+  'images/login-side-saudi-sheikh-laptop.jpg',
+  '/images/login-side-saudi-modern-devices.jpg',
+  'images/login-side-saudi-modern-devices.jpg',
+]);
 
 export type StoreIdentitySettings = {
   storeName: string;
@@ -190,7 +200,8 @@ export function resolveLoginSideImageUrl(
       logo: fallbackStore?.logo,
     });
     const url = String(identity.loginSideImageUrl || '').trim();
-    return url || DEFAULT_LOGIN_SIDE_IMAGE;
+    if (!url || LEGACY_LOGIN_SIDE_IMAGES.has(url)) return DEFAULT_LOGIN_SIDE_IMAGE;
+    return url;
   } catch {
     return DEFAULT_LOGIN_SIDE_IMAGE;
   }

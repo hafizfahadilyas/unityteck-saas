@@ -6,6 +6,7 @@ import React, {
   useMemo,
   useState,
 } from 'react';
+import { flushSync } from 'react-dom';
 import { translate, type DictKey } from './dict';
 import {
   applyDocumentPrefs,
@@ -24,7 +25,13 @@ import {
   writePrefs,
   type AppLocale,
 } from './prefs';
-import { DEFAULT_BRAND } from './branding';
+import {
+  AR_FONTS,
+  DEFAULT_BRAND,
+  EN_FONTS,
+  type BrandFontArId,
+  type BrandFontEnId,
+} from './branding';
 
 type PrefsApi = PrefsState & {
   setTheme: (theme: ThemeMode) => void;
@@ -47,10 +54,24 @@ type PrefsApi = PrefsState & {
 
 const PrefsContext = createContext<PrefsApi | null>(null);
 
+/** Admin chrome is always bilingual for every store (Master + Store portals). */
+const ADMIN_LOCALES: AppLocale[] = ['ar', 'en'];
+
+function broadcastLocale(locale: AppLocale): void {
+  try {
+    window.dispatchEvent(
+      new CustomEvent('unityteck-locale-changed', { detail: { locale } }),
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
 export function PrefsProvider({
   children,
   portal = 'master',
-  activeStoreLanguages,
+  /** Storefront language flags only — never gate admin chrome AR/EN switch. */
+  activeStoreLanguages: _activeStoreLanguages,
 }: {
   children: React.ReactNode;
   portal?: 'master' | 'store';
@@ -60,10 +81,8 @@ export function PrefsProvider({
     typeof window !== 'undefined' ? readPrefs() : { ...DEFAULT_PREFS, brand: { ...DEFAULT_BRAND } },
   );
 
-  const allowedLocales = useMemo<AppLocale[]>(() => {
-    // Both languages available — Arabic first (Saudi default / login start).
-    return ['ar', 'en'];
-  }, []);
+  // Full language switch for ALL stores — admin chrome always AR + EN.
+  const allowedLocales = ADMIN_LOCALES;
 
   useEffect(() => {
     applyDocumentPrefs(prefs, portal);
@@ -83,13 +102,47 @@ export function PrefsProvider({
     [portal],
   );
 
-  // Enforce store language restrictions if active store has limited languages
+  /** Instant locale commit — dir/lang + React tree in one synchronous turn. */
+  const applyLocale = useCallback(
+    (nextLocale: AppLocale) => {
+      if (!allowedLocales.includes(nextLocale)) return;
+      // Keep coffee storefront preview key in sync so it cannot snap admin chrome back.
+      try {
+        localStorage.setItem(
+          'unityteck_coffee_lang',
+          nextLocale === 'ar' ? 'AR' : 'EN',
+        );
+      } catch {
+        /* ignore */
+      }
+      flushSync(() => {
+        setPrefs((prev) => {
+          if (prev.locale === nextLocale) return prev;
+          const next = { ...prev, locale: nextLocale };
+          applyDocumentPrefs(next, portal);
+          writePrefs(next);
+          return next;
+        });
+      });
+      // Belt-and-suspenders: force html lang/dir even if React bails on same reference
+      try {
+        const root = document.documentElement;
+        root.setAttribute('lang', nextLocale);
+        root.setAttribute('dir', nextLocale === 'ar' ? 'rtl' : 'ltr');
+      } catch {
+        /* ignore */
+      }
+      broadcastLocale(nextLocale);
+    },
+    [portal, allowedLocales],
+  );
+
+  // Keep locale inside the always-on admin pair (safety net).
   useEffect(() => {
     if (!allowedLocales.includes(prefs.locale)) {
-      const fallback = allowedLocales[0] || 'en';
-      patch({ locale: fallback });
+      applyLocale(allowedLocales[0] || 'ar');
     }
-  }, [allowedLocales, prefs.locale, patch]);
+  }, [allowedLocales, prefs.locale, applyLocale]);
 
   const setBrand = useCallback(
     (brandPartial: Partial<BrandState>) => {
@@ -106,47 +159,42 @@ export function PrefsProvider({
     [portal],
   );
 
+  // Stable locale-locked translator — never closes over a stale locale.
+  const t = useCallback((key: DictKey) => translate(prefs.locale, key), [prefs.locale]);
+
   const api = useMemo<PrefsApi>(
     () => ({
       ...prefs,
-      setTheme: (theme) => patch({ theme }),
-      setLocale: (locale) => {
-        if (allowedLocales.includes(locale)) {
-          patch({ locale });
-        }
-      },
+      theme: 'light',
+      setTheme: () => patch({ theme: 'light' }),
+      setLocale: (nextLocale) => applyLocale(nextLocale),
       setCurrency: (currency) => patch({ currency }),
       setBrand,
       setPalette: (palette) => setBrand({ palette, customAccentHex: null }),
       setFont: (font) => {
         const patchFont: Partial<typeof DEFAULT_BRAND> = { font };
-        if (font === 'jakarta' || font === 'inter' || font === 'dm-sans' || font === 'manrope' || font === 'outfit' || font === 'poppins' || font === 'urbanist') {
-          patchFont.fontEn = font;
+        if (EN_FONTS.includes(font)) {
+          patchFont.fontEn = font as BrandFontEnId;
         }
-        if (font === 'cairo' || font === 'noto' || font === 'ibm-plex-ar' || font === 'tajawal' || font === 'almarai' || font === 'alexandria') {
-          patchFont.fontAr = font;
+        if (AR_FONTS.includes(font)) {
+          patchFont.fontAr = font as BrandFontArId;
         }
         setBrand(patchFont);
       },
       setIconStyle: (iconStyle) => setBrand({ iconStyle }),
       setFontWeight: (fontWeight) => setBrand({ fontWeight }),
-      toggleTheme: () =>
-        patch({ theme: prefs.theme === 'light' ? 'dark' : 'light' }),
+      toggleTheme: () => patch({ theme: 'light' }),
       toggleLocale: () => {
-        if (allowedLocales.length > 1) {
-          const next: AppLocale = prefs.locale === 'en' ? 'ar' : 'en';
-          if (allowedLocales.includes(next)) {
-            patch({ locale: next });
-          }
-        }
+        const next: AppLocale = prefs.locale === 'en' ? 'ar' : 'en';
+        applyLocale(next);
       },
-      t: (key) => translate(prefs.locale, key),
+      t,
       money: (amountSar) => formatMoney(amountSar, prefs.currency, prefs.locale),
       amount: (amountSar) => formatAmount(amountSar, prefs.currency, prefs.locale),
       dir: prefs.locale === 'ar' ? 'rtl' : 'ltr',
       allowedLocales,
     }),
-    [prefs, patch, setBrand, allowedLocales],
+    [prefs, patch, setBrand, allowedLocales, t, applyLocale],
   );
 
   return (
@@ -174,7 +222,7 @@ export function usePrefs(): PrefsApi {
       money: (n) => formatMoney(n, 'SAR', 'en'),
       amount: (n) => formatAmount(n, 'SAR', 'en'),
       dir: 'ltr',
-      allowedLocales: ['en', 'ar'],
+      allowedLocales: ['ar', 'en'],
     };
   }
   return ctx;

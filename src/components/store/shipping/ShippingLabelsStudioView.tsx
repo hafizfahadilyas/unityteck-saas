@@ -745,7 +745,7 @@ export const ShippingLabelsStudioView: React.FC<ShippingLabelsStudioViewProps> =
                     <div>
                       <span className="text-[9px] text-slate-500 block uppercase">COD</span>
                       <strong className="text-xs text-rose-700">
-                        {isCodEnabled ? `SAR ${grandTotal.toFixed(2)}` : 'PREPAID'}
+                        {isCodEnabled ? `⃁ ${grandTotal.toFixed(2)}` : 'PREPAID'}
                       </strong>
                     </div>
                   </div>

@@ -13,7 +13,8 @@ assert.match(hero, /data-hero-panel="layout"/);
 assert.match(hero, /data-hero-panel="style"/);
 assert.match(hero, /tabletImage/);
 assert.match(hero, /showWhatsapp/);
-assert.match(hero, /whatsappEnabled/);
+assert.equal(hero.includes('WhatsApp on this slide'), false, 'Per-slide WhatsApp checkbox removed');
+assert.equal(hero.includes('واتساب لهذه الشريحة'), false, 'Per-slide WhatsApp AR checkbox removed');
 assert.match(hero, /customOrderEnabled/);
 assert.equal(hero.includes('bg-[#2563EB]'), false, 'Hero form must use Holst CTA not hardcoded blue');
 

@@ -208,7 +208,7 @@ export const CoffeeHomeModules: React.FC<{
                   <div className="font-bold text-sm mt-2">{name}</div>
                   {price != null ? (
                     <div className="text-xs mt-1">
-                      {language === 'AR' ? `${Number(price).toLocaleString()}ر.س` : `SAR ${Number(price).toLocaleString()}`}
+                      {language === 'AR' ? `${Number(price).toLocaleString()}⃁` : `⃁ ${Number(price).toLocaleString()}`}
                     </div>
                   ) : null}
                 </button>

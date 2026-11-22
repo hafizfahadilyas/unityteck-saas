@@ -53,7 +53,7 @@ interface DashboardOrdersTableProps {
   onOpenCreateOrder?: () => void;
 }
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 20;
 
 type SortKey = 'date_desc' | 'date_asc' | 'total_desc' | 'total_asc' | 'id_desc' | 'id_asc';
 
@@ -216,8 +216,11 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
   const getChannelBadge = (source?: string) => {
     const label = localizeSalesChannel(source, locale);
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
-        <OrderSourceIcon source={source || 'Direct'} className="w-3 h-3 shrink-0" />
+      <span
+        className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200"
+        style={{ border: '1px solid var(--table-border, rgba(15,23,42,0.16))' }}
+      >
+        <OrderSourceIcon source={source || 'Direct'} className="w-3.5 h-3.5 shrink-0" />
         <span>{label}</span>
       </span>
     );
@@ -252,7 +255,7 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
     return (
       <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
         {icon}
-        <span className="text-xs truncate">{label}</span>
+        <span className="text-sm font-semibold">{label}</span>
       </div>
     );
   };
@@ -296,22 +299,28 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
 
   return (
     <div
-      className={`u-panel rounded-2xl shadow-xs border transition-all duration-200 overflow-visible ${className}`}
+      className={`u-panel rounded-[1.25rem] shadow-xs transition-all duration-200 overflow-visible ${className}`}
       data-panel="dashboard-orders-table"
       style={{
-        background: 'var(--surface)',
-        borderColor: 'var(--border)',
+        background: 'var(--glass-fill, var(--surface))',
+        border: 'none',
       }}
     >
-      {/* ── Top Header Toolbar (Exact Match to Image 1) ── */}
+      {/* ── Top Header Toolbar ── */}
       <div
-        className="relative z-30 flex flex-col md:flex-row md:items-center justify-between gap-3.5 p-4 sm:p-5 border-b rounded-t-2xl"
-        style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+        className="relative z-30 flex flex-col md:flex-row md:items-center justify-between gap-3.5 p-4 sm:p-5 rounded-t-[1.25rem]"
+        style={{ background: 'transparent' }}
       >
         {/* Title side (Right in RTL, Left in LTR) */}
         <div className="flex items-center gap-2.5">
-          <span className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 border border-teal-200/60 dark:border-teal-800/40">
-            <ShoppingCart className="w-4 h-4" />
+          <span
+            className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+            style={{
+              background: 'color-mix(in srgb, var(--glass-navy, #0f172a) 10%, transparent)',
+              color: 'var(--glass-navy, #0f172a)',
+            }}
+          >
+            <ShoppingCart className="w-4 h-4" strokeWidth={1.75} />
           </span>
           <h3 className="font-extrabold text-base sm:text-lg tracking-tight" style={{ color: 'var(--text)' }}>
             {t('recentOrders')}
@@ -638,24 +647,21 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
         </div>
       ) : (
         <div className="relative z-0 overflow-x-auto min-w-0 rounded-b-none">
-          <table className="w-full text-start text-xs border-collapse min-w-[680px] lg:min-w-full">
+          <table className="w-full text-start text-sm border-collapse min-w-[780px] lg:min-w-full u-data-table">
             <thead>
-              <tr
-                className="border-b text-xs font-black text-slate-950 dark:text-slate-100 select-none bg-slate-100/90 dark:bg-slate-800/80"
-                style={{ borderColor: 'var(--border)' }}
-              >
-                <th className="py-3 px-4 text-start font-black whitespace-nowrap">{t('orderIdCol')}</th>
-                <th className="py-3 px-4 text-start font-black whitespace-nowrap">{t('customerCol')}</th>
-                <th className="py-3 px-4 text-start font-black whitespace-nowrap hidden sm:table-cell">{t('salesChannel')}</th>
-                <th className="py-3 px-4 text-start font-black whitespace-nowrap hidden md:table-cell">{t('paymentMethod')}</th>
-                <th className="py-3 px-4 text-start font-black whitespace-nowrap hidden lg:table-cell">{t('productsCol')}</th>
-                <th className="py-3 px-4 text-start font-black whitespace-nowrap">{t('total')}</th>
-                <th className="py-3 px-4 text-start font-black whitespace-nowrap">{t('statusCol')}</th>
-                <th className="py-3 px-4 text-start font-black whitespace-nowrap hidden sm:table-cell">{t('dateCol')}</th>
-                <th className="py-3 px-4 text-center font-black whitespace-nowrap">{t('actionsCol')}</th>
+              <tr className="select-none">
+                <th className="text-start font-black whitespace-nowrap">{t('orderIdCol')}</th>
+                <th className="text-start font-black whitespace-nowrap">{t('customerCol')}</th>
+                <th className="text-start font-black whitespace-nowrap hidden sm:table-cell">{t('salesChannel')}</th>
+                <th className="text-start font-black whitespace-nowrap hidden md:table-cell">{t('paymentMethod')}</th>
+                <th className="text-start font-black whitespace-nowrap hidden lg:table-cell">{t('productsCol')}</th>
+                <th className="text-start font-black whitespace-nowrap">{t('total')}</th>
+                <th className="text-start font-black whitespace-nowrap">{t('statusCol')}</th>
+                <th className="text-start font-black whitespace-nowrap hidden sm:table-cell">{t('dateCol')}</th>
+                <th className="text-center font-black whitespace-nowrap">{t('actionsCol')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
+            <tbody>
               {paginatedOrders.map((ord) => {
                 const statusStyle = statusChipStyle(ord.status);
                 const firstItem = ord.items?.[0];
@@ -704,59 +710,60 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
                     className="relative z-0 hover:bg-slate-100/60 dark:hover:bg-slate-800/40 transition-colors align-top"
                   >
                     {/* 1. Order Number */}
-                    <td className="py-3.5 px-4 font-black tracking-tight whitespace-nowrap">
+                    <td className="font-black tracking-tight whitespace-nowrap">
                       <button
                         type="button"
                         onClick={() => onNavigateTab('orders')}
-                        className="font-mono text-xs font-black text-teal-700 hover:text-teal-900 dark:text-teal-400 hover:underline cursor-pointer text-start"
+                        className="font-mono text-sm font-black hover:underline cursor-pointer text-start"
+                        style={{ color: 'var(--glass-navy, #0f172a)' }}
                       >
                         {formatOrderRef(ord.orderNumber, ord.id)}
                       </button>
                     </td>
 
                     {/* 2. Customer */}
-                    <td className="py-3.5 px-4 min-w-[140px]">
-                      <div className="font-black text-xs text-slate-950 dark:text-white truncate">
+                    <td className="min-w-[150px]">
+                      <div className="font-black text-sm text-slate-950 dark:text-white">
                         {getCustomerDisplayName(ord.customerName, locale)}
                       </div>
-                      <div className="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate mt-0.5">
+                      <div className="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-0.5">
                         {ord.customerPhone || ord.customerEmail || '—'}
                       </div>
                     </td>
 
                     {/* 3. Sales Channel */}
-                    <td className="py-3.5 px-4 hidden sm:table-cell whitespace-nowrap">
+                    <td className="hidden sm:table-cell whitespace-nowrap">
                       {getChannelBadge(ord.source)}
                     </td>
 
                     {/* 4. Payment Method */}
-                    <td className="py-3.5 px-4 hidden md:table-cell whitespace-nowrap font-bold text-slate-900 dark:text-slate-100">
+                    <td className="hidden md:table-cell whitespace-nowrap font-bold text-slate-900 dark:text-slate-100">
                       {getPaymentBadge(ord.paymentMethod)}
                     </td>
 
                     {/* 5. Products */}
-                    <td className="py-3.5 px-4 hidden lg:table-cell whitespace-nowrap max-w-[160px]">
-                      <div className="truncate text-slate-900 dark:text-slate-100 font-bold text-xs" title={firstItemName}>
+                    <td className="hidden lg:table-cell min-w-[160px] max-w-[220px]">
+                      <div className="text-slate-900 dark:text-slate-100 font-bold text-sm leading-snug" title={firstItemName}>
                         {firstItemName}
                       </div>
                       {itemsCount > 1 && (
-                        <div className="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-0.5">
+                        <div className="text-xs font-semibold text-slate-600 dark:text-slate-300 mt-0.5">
                           + {itemsCount - 1} {t('items')}
                         </div>
                       )}
                     </td>
 
                     {/* 6. Total Amount */}
-                    <td className="py-3.5 px-4 whitespace-nowrap font-black tabular-nums text-xs text-slate-950 dark:text-white">
+                    <td className="whitespace-nowrap font-black tabular-nums text-sm text-slate-950 dark:text-white">
                       {money(Number(ord.total) || 0)}
                     </td>
 
                     {/* 7. Status Badge */}
-                    <td className="py-3.5 px-4">
+                    <td>
                       <div className="flex flex-col items-start gap-1">
                         <span
-                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black border shadow-2xs shrink-0"
-                          style={statusStyle}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black shadow-2xs shrink-0"
+                          style={{ ...statusStyle, border: '1px solid var(--table-border, rgba(15,23,42,0.16))' }}
                         >
                           {getStatusIcon(ord.status)}
                           <span>{getLocalizedStatus(ord.status)}</span>
@@ -765,7 +772,7 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
                           const untouched = getUntouchedLabel(ord);
                           if (!untouched) return null;
                           return (
-                            <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-0.5 text-xs font-bold text-amber-700 dark:text-amber-300 whitespace-nowrap">
                               <Clock className="w-3 h-3 shrink-0" />
                               {untouched}
                             </span>
@@ -775,17 +782,18 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
                     </td>
 
                     {/* 8. Date */}
-                    <td className="py-3.5 px-4 hidden sm:table-cell whitespace-nowrap text-slate-700 dark:text-slate-300 font-bold text-[11px]">
+                    <td className="hidden sm:table-cell whitespace-nowrap text-slate-700 dark:text-slate-300 font-bold text-sm">
                       {ord.date || '—'}
                     </td>
 
-                    {/* 9. Actions — view + delete (reason required) */}
-                    <td className="py-3.5 px-3 sm:px-4 text-center whitespace-nowrap">
+                    {/* 9. Actions */}
+                    <td className="text-center whitespace-nowrap">
                       <div className="inline-flex items-center justify-center gap-1.5 flex-nowrap">
                         <button
                           type="button"
                           onClick={() => setInspectOrder(ord)}
-                          className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 hover:text-teal-700 dark:text-slate-200 dark:hover:text-teal-400 transition-colors cursor-pointer inline-flex items-center justify-center shadow-2xs"
+                          className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer inline-flex items-center justify-center shadow-2xs"
+                          style={{ border: '1px solid var(--table-border, rgba(15,23,42,0.16))' }}
                           title={t('viewOrder')}
                           aria-label={t('viewOrder')}
                         >
@@ -794,7 +802,8 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
                         <button
                           type="button"
                           onClick={() => void handleDeleteOrder(ord)}
-                          className="p-2 rounded-xl border border-rose-200 dark:border-rose-900/50 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer inline-flex items-center justify-center shadow-2xs"
+                          className="p-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer inline-flex items-center justify-center shadow-2xs"
+                          style={{ border: '1px solid rgba(225, 29, 72, 0.35)' }}
                           title={t('permanentDeleteOrder') || (isAr ? 'حذف' : 'Delete')}
                           aria-label={t('permanentDeleteOrder') || (isAr ? 'حذف' : 'Delete')}
                         >

@@ -102,7 +102,7 @@ function SlideBody({
       ) : null}
       {settings.showPrice !== false && slide.price != null && Number.isFinite(slide.price) ? (
         <div className="text-lg font-bold text-[#2B1809]">
-          {isAr ? `${slide.price.toLocaleString()} ر.س` : `SAR ${slide.price.toLocaleString()}`}
+          {isAr ? `${slide.price.toLocaleString()} ⃁` : `⃁ ${slide.price.toLocaleString()}`}
         </div>
       ) : null}
       {settings.showButtons !== false ? (

@@ -61,9 +61,67 @@ export type ApiFetchOptions = {
   authRetried?: boolean;
   /** Override default abort timeout (ms). AI image gen needs ~120s. */
   timeoutMs?: number;
+  /** Absolute API origin override (e.g. live Hostinger when local :8010 MySQL hangs). */
+  baseUrl?: string;
   /** GET optional module — return null on 404 instead of throwing (empty store / route lag). */
   allowNotFound?: boolean;
 };
+
+/** Live Hostinger API for a store when local artisan cannot reach MySQL. */
+export function liveApiBaseForStore(storeId?: string): string {
+  const id = String(storeId || '').toLowerCase();
+  if (
+    id === 'store-1' ||
+    id.includes('flower') ||
+    id.includes('gift') ||
+    id.includes('hadaya') ||
+    id.includes('makkah')
+  ) {
+    return 'https://giftshop-sa.com/api';
+  }
+  return 'https://mieraf-ksa.com/api';
+}
+
+/**
+ * Pick the API origin that owns this store's MySQL rows.
+ * DEV Vite proxies /api → giftshop by default (coffee orders = 0 there).
+ * PROD: never read coffee/bleco from giftshop SQLite or flowers from central by mistake.
+ */
+export function resolveApiBaseForStore(storeId?: string, override?: string): string {
+  if (override) return override.replace(/\/$/, '');
+  const base = getApiBase();
+  if (!storeId) return base;
+  const live = liveApiBaseForStore(storeId);
+  if (typeof window === 'undefined') return base;
+
+  const host = window.location.hostname.toLowerCase();
+  const wantsMieraf = /mieraf-ksa\.com/i.test(live);
+  const wantsGiftshop = /giftshop-sa\.com/i.test(live);
+  const onGiftshop = /giftshop-sa\.com$/i.test(host);
+  const onMieraf = /mieraf-ksa\.com$/i.test(host);
+  const relativeOrLocal =
+    base === '/api' ||
+    base.endsWith('/api') ||
+    /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/api$/i.test(base);
+
+  // Local Vite /api defaults to giftshop proxy — coffee/bleco rows live on mieraf MySQL.
+  if (relativeOrLocal) {
+    if (import.meta.env.DEV && wantsMieraf) return live;
+    if (wantsMieraf && onGiftshop) return live;
+    if (wantsGiftshop && onMieraf) return live;
+  }
+  return base;
+}
+
+/**
+ * Absolute live Hostinger only when VITE_API_URL is already a full live URL.
+ * Default DEV uses Vite `/api` proxy (see vite.config → VITE_API_PROXY_TARGET).
+ */
+export function preferLiveApiInDev(): boolean {
+  if (!import.meta.env.DEV) return false;
+  const base = getApiBase();
+  return /^https?:\/\//i.test(base) && /giftshop-sa|mieraf-ksa/i.test(base);
+}
 
 /** Structured API failure — preserves business `code` + payload for UI handling. */
 export class ApiRequestError extends Error {
@@ -80,11 +138,12 @@ export class ApiRequestError extends Error {
   }
 }
 
-const GET_MEMORY_TTL_MS = 8_000;
+const GET_MEMORY_TTL_MS = 20_000;
 /** One product page is small. 20s covers a slow Hostinger round trip without parking the whole app. */
 /** Hostinger catalog/list can be slow on flowers host; keep under soft UX limit. */
-const GET_TIMEOUT_MS = 35_000;
-const WRITE_TIMEOUT_MS = 25_000;
+const GET_TIMEOUT_MS = 18_000;
+/** Theme / page writes on Hostinger often need >25s; keep default under soft UX limit. */
+const WRITE_TIMEOUT_MS = 45_000;
 
 type MemHit = { at: number; data: unknown };
 const getMemory = new Map<string, MemHit>();
@@ -123,10 +182,10 @@ export async function apiFetch<T>(
   const headers: Record<string, string> = {
     Accept: 'application/json',
   };
+  // Do NOT send Expires/Pragma on cross-origin writes — Hostinger gateway CORS
+  // allow-list rejects them (preflight → Failed to fetch / "Unable to connect").
   if (!isGet) {
     headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
-    headers.Pragma = 'no-cache';
-    headers.Expires = '0';
   }
   if (!isFormData) {
     headers['Content-Type'] = 'application/json';
@@ -154,7 +213,15 @@ export async function apiFetch<T>(
     path.includes('/blog/');
 
   const token = getAuthToken();
-  if (token && !token.startsWith('mock-') && !skipAuth) {
+  // Only Sanctum PATs (`{id}|{hash}`) go on Authorization. Clerk JWT / google-sso /
+  // mock tokens poison guest-readable GETs (orders/products) with 401 and empty dashboards.
+  const liveSanctum =
+    Boolean(token) &&
+    token!.includes('|') &&
+    !token!.startsWith('mock-') &&
+    !token!.startsWith('clerk-') &&
+    !token!.startsWith('google-sso-');
+  if (liveSanctum && !skipAuth) {
     headers.Authorization = `Bearer ${token}`;
   }
   const guestReadable =
@@ -177,7 +244,7 @@ export async function apiFetch<T>(
       path.startsWith('/customer-activities') ||
       path.startsWith('/delivery-drivers') ||
       path.startsWith('/google/'));
-  if (!isPublicEndpoint && !guestReadable && !(token && !token.startsWith('mock-'))) {
+  if (!isPublicEndpoint && !guestReadable && !liveSanctum) {
     throw new Error(toUserFriendlyError('No active backend API session (mock/guest mode).'));
   }
 
@@ -185,8 +252,8 @@ export async function apiFetch<T>(
     invalidateApiGetCache(storeId);
   }
 
-  const requestUrl = joinUrl(getApiBase(), path);
-  const cacheKey = getCacheKey(methodUp, requestUrl, storeId, token && !token.startsWith('mock-') ? token : null);
+  const requestUrl = joinUrl(resolveApiBaseForStore(storeId, options.baseUrl), path);
+  const cacheKey = getCacheKey(methodUp, requestUrl, storeId, liveSanctum ? token : null);
 
   if (isGet) {
     const hit = getMemory.get(cacheKey);

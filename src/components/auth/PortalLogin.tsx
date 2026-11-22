@@ -499,30 +499,44 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
       lang={locale}
       data-theme={theme}
       data-portal={portal}
-      className="min-h-screen flex flex-col"
+      className="portal-auth-shell min-h-screen flex flex-col relative overflow-hidden"
       style={{
-        background: 'var(--bg)',
         color: 'var(--text)',
         fontFamily: 'var(--font-ui)',
       }}
     >
+      {/* Full-page hero image behind header + centered card */}
+      <div
+        className="portal-auth-full-bg"
+        aria-hidden
+        style={{ backgroundImage: `url(${loginSideImageUrl || DEFAULT_LOGIN_SIDE_IMAGE})` }}
+      >
+        <img
+          src={loginSideImageUrl || DEFAULT_LOGIN_SIDE_IMAGE}
+          alt=""
+          className="portal-auth-full-bg-img"
+          onError={(e) => {
+            const img = e.currentTarget;
+            const fallback = DEFAULT_LOGIN_SIDE_IMAGE;
+            if (img.getAttribute('data-fallback') === '1') return;
+            img.setAttribute('data-fallback', '1');
+            img.src = fallback;
+            const wrap = img.parentElement;
+            if (wrap) wrap.style.backgroundImage = `url(${fallback})`;
+            setLoginSideImageUrl(fallback);
+          }}
+        />
+        <div className="portal-auth-full-bg-veil" />
+      </div>
+
       <header
-        className="shrink-0 z-20 border-b px-4 sm:px-8 py-3.5 flex items-center justify-between gap-4 backdrop-blur-md"
-        style={{
-          background: 'var(--surface)',
-          borderColor: 'var(--border)',
-          color: 'var(--text)',
-        }}
+        className="portal-auth-glass-header relative z-20 shrink-0 px-4 sm:px-8 py-3.5 flex items-center justify-between gap-4"
+        style={{ color: 'var(--text)' }}
       >
         <div className="flex items-center gap-3 min-w-0">
           <div
-            className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-md ring-1 ring-white/10"
-            style={{
-              background: isMaster
-                ? 'linear-gradient(135deg, #0F766E 0%, #0D9488 100%)'
-                : 'linear-gradient(135deg, #065F46 0%, #047857 100%)',
-              color: '#FFFFFF',
-            }}
+            className="portal-auth-brand-mark w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
+            style={{ color: 'var(--active-fg, #ffffff)' }}
           >
             {isMaster ? <Layers className="w-5 h-5" /> : <Store className="w-5 h-5" />}
           </div>
@@ -537,8 +551,11 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
                     ? 'منصة التجارة الإلكترونية السحابية للمتاجر السعودية'
                     : 'SAUDI COMMERCE CLOUD'}
               </p>
-              <span className="inline-flex items-center gap-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                <span>{isAr ? 'تحقق بالبريد' : 'Email OTP'}</span>
+              <span
+                className="portal-auth-chip inline-flex items-center gap-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-md"
+                style={{ color: 'var(--accent)' }}
+              >
+                <span>{isAr ? 'تحقق بالبريد' : 'Email verification'}</span>
               </span>
             </div>
             <p className="text-sm font-extrabold truncate leading-tight mt-1" style={{ color: 'var(--text)' }}>
@@ -548,10 +565,10 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
         </div>
 
         <div
-          className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold shrink-0 border shadow-xs"
-          style={{ background: 'var(--active-bg)', borderColor: 'var(--border)', color: 'var(--active-fg)' }}
+          className="portal-auth-badge-pill flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold shrink-0"
+          style={{ background: 'var(--active-bg)', color: 'var(--active-fg)' }}
         >
-          {isMaster ? <ShieldCheck className="w-4 h-4 text-teal-500" /> : <Shield className="w-4 h-4 text-emerald-500" />}
+          {isMaster ? <ShieldCheck className="w-4 h-4" style={{ color: 'var(--portal-400)' }} /> : <Shield className="w-4 h-4" style={{ color: 'var(--portal-400)' }} />}
           <span className="hidden sm:inline">{portalInfo.badge}</span>
         </div>
 
@@ -560,40 +577,25 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
         </div>
       </header>
 
-      <div className="portal-auth-split flex-1 flex min-h-0 relative overflow-hidden">
-        <aside
-          className="portal-auth-hero relative lg:w-[48%] xl:w-[50%] min-h-[220px] sm:min-h-[280px] lg:min-h-0 overflow-hidden border-b lg:border-b-0"
-          style={{
-            borderColor: 'var(--border)',
-            background: '#022018',
-          }}
-          aria-hidden
-        >
-          <img
-            src={loginSideImageUrl}
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover"
-            onError={(e) => {
-              const img = e.currentTarget;
-              if (img.src.endsWith(DEFAULT_LOGIN_SIDE_IMAGE)) return;
-              img.src = DEFAULT_LOGIN_SIDE_IMAGE;
-            }}
-          />
-        </aside>
-
-        <main
-          className="flex-1 flex items-center justify-center p-4 sm:p-8 lg:p-12 relative overflow-y-auto"
-          style={{ background: 'var(--bg)', color: 'var(--text)' }}
-        >
+      <main
+        className="portal-auth-glass-stage relative z-10 flex-1 flex items-center justify-center p-4 sm:p-8 lg:p-12 overflow-y-auto"
+        style={{ color: 'var(--text)' }}
+      >
           <div
-            className="relative w-full max-w-[460px] rounded-3xl border p-6 sm:p-9 shadow-2xl"
-            style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
+            className="portal-auth-glass-card relative w-full max-w-[460px] p-6 sm:p-9 mx-auto"
+            style={{ color: 'var(--text)' }}
           >
             <div className="flex items-start justify-between gap-3 mb-6">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <p className="text-[11px] font-black uppercase tracking-wider text-emerald-600">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full animate-pulse"
+                    style={{ background: 'var(--accent)' }}
+                  />
+                  <p
+                    className="text-[11px] font-black uppercase tracking-wider"
+                    style={{ color: 'var(--accent)' }}
+                  >
                     {isMaster
                       ? isAr
                         ? 'مشرف المنصة · مصادقة آمنة'
@@ -603,8 +605,10 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
                         : 'MERCHANT CLOUD AUTH'}
                   </p>
                 </div>
-                <h2 className="text-xl sm:text-2xl font-black mt-1">{isAr ? 'تسجيل الدخول الآمن' : 'Secure Sign-In'}</h2>
-                <p className="text-xs text-[var(--muted)] mt-1">
+                <h2 className="text-xl sm:text-2xl font-black mt-1" style={{ color: 'var(--text)', fontFamily: 'var(--font-ui)' }}>
+                  {isAr ? 'تسجيل الدخول الآمن' : 'Secure Sign-In'}
+                </h2>
+                <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
                   {otpStep === 'email'
                     ? isMaster
                       ? isAr
@@ -619,13 +623,8 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
                 </p>
               </div>
               <div
-                className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm border border-emerald-500/20"
-                style={{
-                  background: isMaster
-                    ? 'linear-gradient(135deg, #0F766E, #14B8A6)'
-                    : 'linear-gradient(135deg, #065F46, #10B981)',
-                  color: '#FFFFFF',
-                }}
+                className="portal-auth-brand-mark w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+                style={{ color: 'var(--active-fg, #ffffff)' }}
               >
                 <Mail className="w-6 h-6" />
               </div>
@@ -667,8 +666,8 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
                       placeholder={isAr ? 'البريد@مثال.com' : 'name@example.com'}
                       required
                       autoComplete="email"
-                      className="w-full ps-10 pe-3 py-3 text-sm rounded-2xl border outline-none focus:ring-2 focus:ring-emerald-500/40 font-medium"
-                      style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                      className="portal-auth-input w-full ps-10 pe-3 py-3 text-sm rounded-2xl border outline-none font-medium"
+                      style={{ color: 'var(--input-fg, var(--text))' }}
                     />
                   </div>
                 </div>
@@ -676,13 +675,7 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
                 <button
                   type="submit"
                   disabled={busy || rateLimit.isLocked}
-                  className="w-full py-3.5 rounded-2xl text-sm font-black flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-lg shadow-emerald-600/25"
-                  style={{
-                    background: isMaster
-                      ? 'linear-gradient(135deg, #0F766E 0%, #0D9488 100%)'
-                      : 'linear-gradient(135deg, #065F46 0%, #059669 100%)',
-                    color: '#FFFFFF',
-                  }}
+                  className="unity-btn-primary w-full py-3.5 rounded-2xl text-sm font-black flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   {busy ? (
                     <>
@@ -724,12 +717,16 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
                         setOtpCode('');
                         setDevOtpHint(null);
                       }}
-                      className="text-[11px] font-bold text-emerald-600 hover:underline shrink-0 cursor-pointer"
+                      className="text-[11px] font-bold hover:underline shrink-0 cursor-pointer"
+                      style={{ color: 'var(--accent)' }}
                     >
                       {isAr ? 'تغيير البريد' : 'Change email'}
                     </button>
                   ) : (
-                    <span className="text-[10px] font-bold shrink-0 px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-700">
+                    <span
+                      className="portal-auth-chip text-[10px] font-bold shrink-0 px-2 py-1 rounded-lg"
+                      style={{ color: 'var(--accent)' }}
+                    >
                       {isAr ? `انتظر${otpExpiresIn}ث` : `Wait ${otpExpiresIn}s`}
                     </span>
                   )}
@@ -751,8 +748,8 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
                       placeholder="••••••"
                       required
                       autoComplete="one-time-code"
-                      className="w-full ps-10 pe-3 py-3 text-sm rounded-2xl border outline-none focus:ring-2 focus:ring-emerald-500/40 font-black tracking-[0.35em] text-center"
-                      style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                      className="portal-auth-input w-full ps-10 pe-3 py-3 text-sm rounded-2xl border outline-none font-black tracking-[0.35em] text-center"
+                      style={{ color: 'var(--input-fg, var(--text))' }}
                     />
                   </div>
                   <p className="mt-2 text-[11px]" style={{ color: 'var(--muted)' }}>
@@ -771,7 +768,8 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
                     type="button"
                     disabled={busy || otpExpiresIn > 0}
                     onClick={(e) => handleSendOtp(e as unknown as React.FormEvent)}
-                    className="text-[11px] font-bold text-emerald-600 hover:underline cursor-pointer disabled:opacity-40"
+                    className="text-[11px] font-bold hover:underline cursor-pointer disabled:opacity-40"
+                    style={{ color: 'var(--accent)' }}
                   >
                     {isAr ? 'إعادة إرسال' : 'Resend'}
                   </button>
@@ -780,13 +778,7 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
                 <button
                   type="submit"
                   disabled={busy || rateLimit.isLocked || otpCode.length !== 6}
-                  className="w-full py-3.5 rounded-2xl text-sm font-black flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-lg shadow-emerald-600/25"
-                  style={{
-                    background: isMaster
-                      ? 'linear-gradient(135deg, #0F766E 0%, #0D9488 100%)'
-                      : 'linear-gradient(135deg, #065F46 0%, #059669 100%)',
-                    color: '#FFFFFF',
-                  }}
+                  className="unity-btn-primary w-full py-3.5 rounded-2xl text-sm font-black flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   {busy ? (
                     <>
@@ -805,15 +797,18 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
             )}
 
             <div className="mt-6 pt-5 border-t text-center space-y-2.5" style={{ borderColor: 'var(--border)' }}>
-              <div className="flex flex-wrap items-center justify-center gap-3 text-[11px] font-bold text-slate-500">
+              <div
+                className="flex flex-wrap items-center justify-center gap-3 text-[11px] font-bold"
+                style={{ color: 'var(--muted)' }}
+              >
                 <span className="flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                  <ShieldCheck className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
                   {isAr ? 'رمز تحقق بالبريد' : 'Email verification'}
                 </span>
                 <span>•</span>
                 <span className="flex items-center gap-1">
-                  <Lock className="w-3.5 h-3.5 text-emerald-500" />
-                  {isAr ? 'بدون حد كليرك الشهري' : 'No Clerk monthly email cap'}
+                  <Lock className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+                  {isAr ? 'بدون حد شهري لرسائل البريد' : 'No monthly email cap'}
                 </span>
               </div>
               <p className="text-[11px] leading-relaxed" style={{ color: 'var(--muted)' }}>
@@ -821,8 +816,7 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
               </p>
             </div>
           </div>
-        </main>
-      </div>
+      </main>
     </div>
   );
 };

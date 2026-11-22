@@ -323,8 +323,8 @@ export const StoreReports: React.FC = () => {
       return;
     }
     const headers = isAr
-      ? ['رقم الطلب', 'اسم العميل', 'التاريخ', 'الحالة', 'المبلغ الإجمالي (ر.س)', 'طريقة الدفع', 'المصدر']
-      : ['Order Number', 'Customer Name', 'Date', 'Status', 'Total Amount (SAR)', 'Payment Method', 'Source'];
+      ? ['رقم الطلب', 'اسم العميل', 'التاريخ', 'الحالة', 'المبلغ الإجمالي (⃁)', 'طريقة الدفع', 'المصدر']
+      : ['Order Number', 'Customer Name', 'Date', 'Status', 'Total Amount (⃁)', 'Payment Method', 'Source'];
     const rows = storeOrdersList.map((o) => [
       String(o.orderNumber || o.id || ''),
       String(o.customerName || ''),

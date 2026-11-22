@@ -6,7 +6,7 @@ import { usePrefs } from '../../i18n/PrefsContext';
 import { generateStoreSEO, applySEOToDOM } from '../../utils/storeSEO';
 import { captureTrafficSource } from '../../utils/trafficSource';
 import { trackStorefrontEvent } from '../../utils/storefrontAnalytics';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 export interface DynamicThemeRendererProps {
   storeId?: string;
@@ -78,6 +78,16 @@ class ThemeErrorBoundary extends React.Component<ThemeErrorBoundaryProps, ThemeE
 }
 
 import { DashboardLoader } from '../common/DashboardLoader';
+import { readAllThemeSettings } from '../../themes/settings/themeSettingsStore';
+
+/** Thin route paint — never block first paint with full brand splash unless merchant enabled it. */
+function LightThemeFallback() {
+  return (
+    <div className="w-full min-h-[28vh] bg-white flex items-start justify-center pt-16" aria-busy="true" role="status">
+      <div className="w-8 h-8 rounded-full border-2 border-neutral-200 border-t-neutral-700 animate-spin" />
+    </div>
+  );
+}
 
 export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
   storeId,
@@ -251,11 +261,18 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
     [manifest],
   );
 
-  // Preview iframe / admin embed: skip heavy brand splash — paint theme ASAP
+  // Brand splash only when merchant toggled enableLoadingScreen; otherwise light spinner.
+  const brandSplashOn =
+    !isPreviewEmbed &&
+    !!effectiveStoreId &&
+    (readAllThemeSettings(effectiveStoreId, activeStore).colors?.enableLoadingScreen ?? false);
+
   const suspenseFallback = isPreviewEmbed ? (
     <div className="min-h-[40vh] w-full bg-white" aria-busy="true" aria-hidden />
-  ) : (
+  ) : brandSplashOn ? (
     <DashboardLoader storeId={effectiveStoreId} storeName={activeStore?.name} />
+  ) : (
+    <LightThemeFallback />
   );
 
   if (!effectiveStoreId || !manifest || !ThemeComponent) {

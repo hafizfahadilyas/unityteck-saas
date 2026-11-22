@@ -187,11 +187,11 @@ export const CoffeeProductCollectionSection: React.FC<{
           {settings?.showPrice !== false && price != null ? (
             <div className="flex items-baseline gap-2">
               <span className="text-sm font-extrabold text-neutral-900">
-                {isAr ? `${price.toLocaleString()} ر.س` : `SAR ${price.toLocaleString()}`}
+                {isAr ? `${price.toLocaleString()} ⃁` : `⃁ ${price.toLocaleString()}`}
               </span>
               {original != null && original > price ? (
                 <span className="text-[11px] text-neutral-400 line-through">
-                  {isAr ? `${original.toLocaleString()} ر.س` : `SAR ${original.toLocaleString()}`}
+                  {isAr ? `${original.toLocaleString()} ⃁` : `⃁ ${original.toLocaleString()}`}
                 </span>
               ) : null}
             </div>

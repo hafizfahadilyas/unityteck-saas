@@ -14,7 +14,7 @@ export const StoreTabComingSoon: React.FC<StoreTabComingSoonProps> = ({
 }) => {
   const { t, locale } = usePrefs();
   const isAr = locale === 'ar';
-  const title = labelForNav(t, STORE_NAV_KEYS, tabId);
+  const title = labelForNav(locale, STORE_NAV_KEYS, tabId);
 
   const Icon = tabId === 'whatsapp' ? MessageCircle : tabId === 'notifications' ? Bell : Sparkles;
 

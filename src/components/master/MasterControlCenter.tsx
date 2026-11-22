@@ -1018,7 +1018,7 @@ export const MasterControlCenter: React.FC = () => {
                           </span>
                         </div>
                         <p className="text-[11px]" style={{ color: 'var(--muted)' }}>
-                          {isAr ? 'الحد اليومي للإنفاق الإعلاني (ر.س/يوم):' : 'Daily Ad Spend Limit (SAR/Day):'}
+                          {isAr ? 'الحد اليومي للإنفاق الإعلاني (⃁/يوم):' : 'Daily Ad Spend Limit (SAR/Day):'}
                         </p>
                         <div className="flex items-center gap-1.5">
                           <input
@@ -1067,15 +1067,15 @@ export const MasterControlCenter: React.FC = () => {
                             );
                             setQuotaRefreshTick((t) => t + 1);
                             toast(
-                              isAr ? 'تم اعتماد وإضافة +1,000 ر.س لمحفظة الإعلانات' : 'Credited +1,000 SAR to Store Ad Wallet',
+                              isAr ? 'تم اعتماد وإضافة +1,000 ⃁ لمحفظة الإعلانات' : 'Credited +1,000 ⃁ to Store Ad Wallet',
                               'success',
                             );
                           }}
                           className="flex-1 py-1.5 px-2 rounded-xl text-[11px] font-black text-white bg-cyan-600 hover:bg-cyan-700 cursor-pointer"
                         >
                           {stWallet.pendingTopUpSar > 0
-                            ? isAr ? `اعتماد +${stWallet.pendingTopUpSar}ر.س` : `Approve +${stWallet.pendingTopUpSar} SAR`
-                            : isAr ? '+1,000 ر.س للمحفظة' : '+1,000 SAR Wallet'}
+                            ? isAr ? `اعتماد +${stWallet.pendingTopUpSar}⃁` : `Approve +${stWallet.pendingTopUpSar} ⃁`
+                            : isAr ? '+1,000 ⃁ للمحفظة' : '+1,000 ⃁ Wallet'}
                         </button>
                       </div>
                     </div>

@@ -102,8 +102,8 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
 
   // WhatsApp Combo text
   const comboMessage = isAr 
-    ? `مرحباً متجر السعيدي لتنجيد السيارات، أرغب بحجز البكج الشامل (تلابيس مقاعد + طقم أرضيات 5D ليزر) لسيارة${fullCarTitle}باللون${colorDisplayName}بسعر العرض الخاص (وفر 100 ر.س). يرجى تأكيد الحجز وموعد التوصيل.`
-    : `Hello Al-Saeedi Car Upholstery, I would like to book the VIP Full Combo Package (Seat Covers + 5D Floor Mats) for ${fullCarTitle} in ${colorDisplayName} with the 100 SAR bundle discount.`;
+    ? `مرحباً متجر السعيدي لتنجيد السيارات، أرغب بحجز البكج الشامل (تلابيس مقاعد + طقم أرضيات 5D ليزر) لسيارة${fullCarTitle}باللون${colorDisplayName}بسعر العرض الخاص (وفر 100 ⃁). يرجى تأكيد الحجز وموعد التوصيل.`
+    : `Hello Al-Saeedi Car Upholstery, I would like to book the VIP Full Combo Package (Seat Covers + 5D Floor Mats) for ${fullCarTitle} in ${colorDisplayName} with the 100 ⃁ bundle discount.`;
 
   // IF NO BRAND CHOSEN: SHOW QUICK PICK ALERT MODAL
   if (make === 'all') {
@@ -310,8 +310,8 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-base font-black text-slate-900">490</span>
-                      <span className="text-[11px] font-bold text-[#b07e16] mx-1">{isAr ? 'ر.س' : 'SAR'}</span>
-                      <span className="text-[10px] text-slate-400 line-through">590 {isAr ? 'ر.س' : 'SAR'}</span>
+                      <span className="text-[11px] font-bold text-[#b07e16] mx-1">{'⃁'}</span>
+                      <span className="text-[10px] text-slate-400 line-through">590 {'⃁'}</span>
                     </div>
                     <span className="text-[10px] bg-red-100 text-red-700 font-bold px-1.5 py-0.2 rounded">
                       {isAr ? 'خصم 17%' : '17% OFF'}
@@ -332,7 +332,7 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
                     <button
                       onClick={() => {
                         const msg = isAr 
-                          ? `مرحباً متجر السعيدي، أرغب بطلب تلبيسة مقاعد لسيارة${fullCarTitle}باللون${colorDisplayName}بسعر 490 ر.س.`
+                          ? `مرحباً متجر السعيدي، أرغب بطلب تلبيسة مقاعد لسيارة${fullCarTitle}باللون${colorDisplayName}بسعر 490 ⃁.`
                           : `Hello Al-Saeedi, I want to order custom seat covers for ${fullCarTitle} in ${colorDisplayName}.`;
                         onWhatsAppOrder(matchingSeatCover, resolvedColor, msg);
                         onClose();
@@ -376,8 +376,8 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-base font-black text-slate-900">290</span>
-                      <span className="text-[11px] font-bold text-[#b07e16] mx-1">{isAr ? 'ر.س' : 'SAR'}</span>
-                      <span className="text-[10px] text-slate-400 line-through">350 {isAr ? 'ر.س' : 'SAR'}</span>
+                      <span className="text-[11px] font-bold text-[#b07e16] mx-1">{'⃁'}</span>
+                      <span className="text-[10px] text-slate-400 line-through">350 {'⃁'}</span>
                     </div>
                     <span className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-1.5 py-0.2 rounded">
                       {isAr ? 'الأكثر طلباً' : 'Top Seller'}
@@ -398,7 +398,7 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
                     <button
                       onClick={() => {
                         const msg = isAr 
-                          ? `مرحباً متجر السعيدي، أرغب بطلب طقم أرضيات ودعاسات 5D ليزر لسيارة${fullCarTitle}بسعر 290 ر.س.`
+                          ? `مرحباً متجر السعيدي، أرغب بطلب طقم أرضيات ودعاسات 5D ليزر لسيارة${fullCarTitle}بسعر 290 ⃁.`
                           : `Hello Al-Saeedi, I want to order 5D laser floor mats for ${fullCarTitle}.`;
                         onWhatsAppOrder(matchingFloorMat, undefined, msg);
                         onClose();
@@ -421,7 +421,7 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
               <div>
                 <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#d5a027] text-[#1c0537] font-black text-[10px] mb-1">
                   <Star className="w-3 h-3 fill-[#1c0537]" />
-                  <span>{isAr ? 'عرض البكج الشامل (وفر 100 ر.س)' : 'VIP Combo: Save 100 SAR'}</span>
+                  <span>{isAr ? 'عرض البكج الشامل (وفر 100 ⃁)' : 'VIP Combo: Save 100 ⃁'}</span>
                 </div>
                 <h5 className="font-black text-sm text-[#f6c344]">
                   {isAr ? `بكج الفخامة لـ${fullCarTitle}: تلابيس مقاعد + طقم أرضيات 5D` : `VIP Full Kit for ${fullCarTitle}: Seats + 5D Mats`}
@@ -433,9 +433,9 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
 
               <div className="text-center sm:text-end shrink-0">
                 <div className="text-xl sm:text-2xl font-black text-[#f6c344]">
-                  680 <span className="text-xs font-bold">{isAr ? 'ر.س' : 'SAR'}</span>
+                  680 <span className="text-xs font-bold">{'⃁'}</span>
                 </div>
-                <span className="text-[10px] text-slate-400 line-through">780 {isAr ? 'ر.س' : 'SAR'}</span>
+                <span className="text-[10px] text-slate-400 line-through">780 {'⃁'}</span>
               </div>
             </div>
 
@@ -447,7 +447,7 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
               className="w-full py-2.5 bg-gradient-to-r from-[#d5a027] to-[#f6c344] hover:from-[#c28e1b] hover:to-[#e5b333] text-[#1c0537] font-black text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md"
             >
               <WhatsAppIcon className="w-4 h-4 text-[#1c0537]" />
-              <span>{isAr ? 'حجز البكج الشامل فوراً عبر واتساب (وفر 100 ر.س)' : 'Book VIP Combo via WhatsApp (Save 100 SAR)'}</span>
+              <span>{isAr ? 'حجز البكج الشامل فوراً عبر واتساب (وفر 100 ⃁)' : 'Book VIP Combo via WhatsApp (Save 100 ⃁)'}</span>
             </button>
           </div>
 

@@ -58,7 +58,8 @@ export const ProductsListPage: React.FC = () => {
     ? activeStore?.nameAr || activeStore?.name || 'متجر القهوة'
     : activeStore?.nameEn || activeStore?.name || 'Coffee Store';
 
-  const storeCurrency = isAr ? 'ر.س' : (activeStore?.currency || 'SAR');
+  const storeCurrencyCode = activeStore?.currency || 'SAR';
+  const storeCurrency = storeCurrencyCode === 'SAR' ? '\u20C1' : storeCurrencyCode;
   const shopSettings = activeStore?.id ? resolveCoffeeThemeSettings(activeStore.id, activeStore).shop : undefined;
   const shopFlags = shopCardFlags(shopSettings);
   const cardFlags = {
@@ -667,7 +668,7 @@ export const ProductsListPage: React.FC = () => {
                     : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                 }`}
               >
-                {isAr ? 'أقل من 500 ر.س' : '< 500 SAR'}
+                {isAr ? 'أقل من 500 ⃁' : '< 500 ⃁'}
               </button>
               <button
                 type="button"
@@ -678,7 +679,7 @@ export const ProductsListPage: React.FC = () => {
                     : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                 }`}
               >
-                {isAr ? 'حتى 1500 ر.س' : 'Up to 1500 SAR'}
+                {isAr ? 'حتى 1500 ⃁' : 'Up to 1500 ⃁'}
               </button>
               <button
                 type="button"

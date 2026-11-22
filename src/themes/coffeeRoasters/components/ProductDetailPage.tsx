@@ -328,7 +328,7 @@ export const ProductDetailPage: React.FC = () => {
             {/* Right/End: Price & Buy Now CTA */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <span className="text-xs sm:text-sm font-black text-white font-sans hidden sm:inline">
-                {language === 'AR' ? `${price.toLocaleString()}.00 ر.س` : `SAR ${price.toLocaleString()}.00`}
+                {language === 'AR' ? `${price.toLocaleString()}.00 ⃁` : `⃁ ${price.toLocaleString()}.00`}
               </span>
               <button
                 onClick={() => navigateTo('product-buy', product.id)}
@@ -632,7 +632,7 @@ export const ProductDetailPage: React.FC = () => {
               {language === 'AR' && product.nameAr ? product.nameAr : product.name}
             </h3>
             <p className="text-[11px] text-neutral-400 font-sans font-bold mt-0.5">
-              {language === 'AR' ? `${price.toLocaleString()}.00 ر.س` : `SAR ${price.toLocaleString()}.00`}
+              {language === 'AR' ? `${price.toLocaleString()}.00 ⃁` : `⃁ ${price.toLocaleString()}.00`}
             </p>
             <div className="mt-2">
               <button
@@ -656,7 +656,7 @@ export const ProductDetailPage: React.FC = () => {
               {language === 'AR' && product.nameAr ? product.nameAr : product.name}
             </div>
             <div className="text-[11px] text-neutral-400 font-sans font-bold">
-              {language === 'AR' ? `${price.toLocaleString()}.00 ر.س` : `SAR ${price.toLocaleString()}.00`}
+              {language === 'AR' ? `${price.toLocaleString()}.00 ⃁` : `⃁ ${price.toLocaleString()}.00`}
             </div>
           </div>
 

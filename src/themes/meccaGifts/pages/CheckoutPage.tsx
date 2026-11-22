@@ -366,7 +366,7 @@ export const CheckoutPage: React.FC = () => {
                     </div>
                   </div>
                   <span className="font-mono font-bold text-[#102a1c]">
-                    {(item.product.price + item.addons.reduce((s, a) => s + a.price, 0)) * item.quantity} {isAr ? 'ر.س' : 'SAR'}
+                    {(item.product.price + item.addons.reduce((s, a) => s + a.price, 0)) * item.quantity} {'⃁'}
                   </span>
                 </div>
               ))}
@@ -381,7 +381,7 @@ export const CheckoutPage: React.FC = () => {
                     {appliedCoupon.code} (
                     {appliedCoupon.discountType === 'percentage'
                       ? `${appliedCoupon.discountValue}% OFF`
-                      : `${appliedCoupon.discountValue} SAR`}
+                      : `${appliedCoupon.discountValue} ⃁`}
                     )
                   </span>
                 </div>
@@ -428,7 +428,7 @@ export const CheckoutPage: React.FC = () => {
             <div className="pt-3 border-t border-[#f0ede6] space-y-2 text-xs text-[#555]">
               <div className="flex justify-between">
                 <span>{isAr ? 'المجموع الفرعي:' : 'Subtotal:'}</span>
-                <span className="font-mono font-medium">{cartSubtotal} {isAr ? 'ر.س' : 'SAR'}</span>
+                <span className="font-mono font-medium">{cartSubtotal} {'⃁'}</span>
               </div>
               {appliedDiscount > 0 && (
                 <div className="flex justify-between text-[#8b263e] font-semibold">
@@ -436,7 +436,7 @@ export const CheckoutPage: React.FC = () => {
                     {isAr ? 'خصم الكوبون' : 'Coupon'}
                     {appliedCoupon ? ` (${appliedCoupon.code})` : ''}:
                   </span>
-                  <span className="font-mono">-{appliedDiscount} {isAr ? 'ر.س' : 'SAR'}</span>
+                  <span className="font-mono">-{appliedDiscount} {'⃁'}</span>
                 </div>
               )}
               {bankCard.discount > 0 && bankCard.offer && (
@@ -444,7 +444,7 @@ export const CheckoutPage: React.FC = () => {
                   <span>
                     {isAr ? 'خصم البطاقة البنكية' : 'Card discount'} ({bankCard.offer.bankName}):
                   </span>
-                  <span className="font-mono">-{bankCard.discount} {isAr ? 'ر.س' : 'SAR'}</span>
+                  <span className="font-mono">-{bankCard.discount} {'⃁'}</span>
                 </div>
               )}
               <div className="flex justify-between">
@@ -453,14 +453,14 @@ export const CheckoutPage: React.FC = () => {
                   {shipping === 0 ? (
                     <span className="text-[#102a1c] font-bold">{isAr ? 'مجاني' : 'Free'}</span>
                   ) : (
-                    `${shipping} ${isAr ? 'ر.س' : 'SAR'}`
+                    `${shipping} ${'⃁'}`
                   )}
                 </span>
               </div>
 
               <div className="pt-3 border-t border-[#e2ddd1] flex justify-between text-base font-bold text-[#102a1c]">
                 <span>{isAr ? 'المبلغ الإجمالي المستحق:' : 'Total Payable:'}</span>
-                <span className="font-mono text-lg">{total} {isAr ? 'ر.س' : 'SAR'}</span>
+                <span className="font-mono text-lg">{total} {'⃁'}</span>
               </div>
             </div>
 
@@ -474,7 +474,7 @@ export const CheckoutPage: React.FC = () => {
                 <span>{isAr ? 'جاري تأكيد وتجهيز الطلب...' : 'Processing your order...'}</span>
               ) : (
                 <>
-                  <span>{isAr ? `تأكيد الطلب والدفع (${total}ر.س)` : `Confirm & Place Order (${total} SAR)`}</span>
+                  <span>{isAr ? `تأكيد الطلب والدفع (${total}⃁)` : `Confirm & Place Order (${total} ⃁)`}</span>
                   {isAr ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
                 </>
               )}

@@ -24,13 +24,15 @@ export type MasterCanvaSaveDest =
 
 export type MasterCanvaDistributePayload = {
   dataUrl: string;
+  /** Downscaled PNG thumb for store Canva library grid */
+  previewDataUrl?: string;
   title: string;
   width: number;
   height: number;
   category: CanvaTemplateCategory;
   layers: ImportedStudioLayer[];
   designJson: Record<string, unknown>;
-  source?: 'psd' | 'image' | 'studio' | 'master';
+  source?: 'psd' | 'image' | 'pptx' | 'studio' | 'master';
 };
 
 export type MasterCanvaDistributeResult = {
@@ -77,15 +79,18 @@ export async function distributeCanvaToStores(opts: {
       studioOk: false,
     };
     try {
+      const thumb = payload.previewDataUrl || payload.dataUrl;
+      const mime = detectDataUrlMime(payload.dataUrl);
+      const ext = mimeExt(mime);
       addMediaAsset(
         {
-          fileName: `${fileBase}.webp`,
+          fileName: `${fileBase}.${ext}`,
           originalUrl: payload.dataUrl,
           optimizedUrl: payload.dataUrl,
           webpUrl: payload.dataUrl,
-          thumbnailUrl: payload.dataUrl,
+          thumbnailUrl: thumb,
           fileType: 'image',
-          mimeType: 'image/webp',
+          mimeType: mime,
           fileSize: Math.round(payload.dataUrl.length * 0.72),
           width: payload.width,
           height: payload.height,
@@ -128,7 +133,7 @@ export async function distributeCanvaToStores(opts: {
           ...l,
           id: l.id || `el-${storeId}-${Date.now()}-${i}`,
         })),
-        previewDataUrl: payload.dataUrl,
+        previewDataUrl: payload.previewDataUrl || payload.dataUrl,
       });
       row.templateOk = true;
     } catch (err) {
@@ -178,14 +183,17 @@ function buildMediaFields(
   captionAr: string,
 ): Omit<MediaAsset, 'id' | 'storeId' | 'uploadDate' | 'updatedAt' | 'version'> {
   const fileBase = slugTitle(payload.title);
+  const mime = detectDataUrlMime(payload.dataUrl);
+  const ext = mimeExt(mime);
+  const thumb = payload.previewDataUrl || payload.dataUrl;
   return {
-    fileName: `${fileBase}.webp`,
+    fileName: `${fileBase}.${ext}`,
     originalUrl: payload.dataUrl,
     optimizedUrl: payload.dataUrl,
     webpUrl: payload.dataUrl,
-    thumbnailUrl: payload.dataUrl,
+    thumbnailUrl: thumb,
     fileType: 'image',
-    mimeType: 'image/webp',
+    mimeType: mime,
     fileSize: Math.round(payload.dataUrl.length * 0.72),
     width: payload.width,
     height: payload.height,
@@ -227,35 +235,184 @@ export function saveCanvaToMasterMedia(opts: {
   );
 }
 
-/** Download design image to the operator's device (local). */
-export function downloadCanvaLocal(
+export type MasterCanvaLibrarySaveResult = {
+  mediaOk: boolean;
+  templateOk: boolean;
+  studioOk: boolean;
+  mediaId?: string;
+  templateId?: string;
+  studioDesignId?: string;
+  error?: string;
+};
+
+/**
+ * Always-on Master Admin library save: preview media + full editable layers.
+ * Used on every Master Canva update so Master keeps the latest design.
+ */
+export async function saveFullCanvaToMasterAdmin(opts: {
+  payload: MasterCanvaDistributePayload;
+  addMediaAsset: (
+    asset: Omit<MediaAsset, 'id' | 'storeId' | 'uploadDate' | 'updatedAt' | 'version'>,
+    targetStoreId?: string,
+  ) => MediaAsset;
+  isAr?: boolean;
+  /** Re-save / update same Master template row */
+  templateId?: string;
+  /** Re-save / update same Master studio_designs row */
+  studioDesignId?: string;
+}): Promise<MasterCanvaLibrarySaveResult> {
+  const { payload, addMediaAsset, isAr, templateId, studioDesignId } = opts;
+  const out: MasterCanvaLibrarySaveResult = {
+    mediaOk: false,
+    templateOk: false,
+    studioOk: false,
+  };
+
+  try {
+    const media = saveCanvaToMasterMedia({ payload, addMediaAsset, isAr });
+    out.mediaOk = true;
+    out.mediaId = media.id;
+  } catch (err) {
+    out.error = err instanceof Error ? err.message : 'MASTER_MEDIA_FAIL';
+    return out;
+  }
+
+  try {
+    const saved = await saveMyCanvaTemplate({
+      id: templateId || undefined,
+      storeId: MASTER_MEDIA_STORE_ID,
+      category: payload.category,
+      nameEn: payload.title || 'Master design',
+      nameAr: payload.title || 'تصميم الماستر',
+      width: payload.width,
+      height: payload.height,
+      source: 'master',
+      fromMaster: true,
+      layers: payload.layers.map((l, i) => ({
+        ...l,
+        id: l.id || `el-master-${Date.now()}-${i}`,
+      })),
+      previewDataUrl: payload.previewDataUrl || payload.dataUrl,
+    });
+    out.templateOk = true;
+    out.templateId = saved.id;
+  } catch (err) {
+    const code = err instanceof Error ? err.message : '';
+    if (code !== 'TEMPLATE_LIMIT') {
+      out.error = code || 'MASTER_TEMPLATE_FAIL';
+    }
+  }
+
+  let apiOn = false;
+  try {
+    apiOn = isApiEnabled();
+  } catch {
+    apiOn = false;
+  }
+  if (apiOn) {
+    try {
+      const row = await saveStudioDesign(MASTER_MEDIA_STORE_ID, {
+        id: studioDesignId || undefined,
+        editor_type: editorTypeFromCategory(payload.category),
+        category: payload.category,
+        title: payload.title || 'Master design',
+        width: payload.width,
+        height: payload.height,
+        design_json: {
+          ...payload.designJson,
+          masterLibrary: true,
+          layers: payload.layers,
+          updatedFromMasterCanva: true,
+        },
+        source: 'master',
+      });
+      out.studioOk = true;
+      out.studioDesignId = row.id;
+    } catch {
+      /* IndexedDB + media still count as Master save */
+    }
+  }
+
+  return out;
+}
+
+function detectDataUrlMime(dataUrl: string): 'image/png' | 'image/webp' | 'image/jpeg' {
+  if (dataUrl.startsWith('data:image/jpeg') || dataUrl.startsWith('data:image/jpg')) {
+    return 'image/jpeg';
+  }
+  if (dataUrl.startsWith('data:image/webp')) return 'image/webp';
+  return 'image/png';
+}
+
+function mimeExt(mime: string): 'png' | 'webp' | 'jpg' {
+  if (mime === 'image/jpeg') return 'jpg';
+  if (mime === 'image/webp') return 'webp';
+  return 'png';
+}
+
+/** Convert a data-URL to PNG / WebP / JPEG when the browser canvas API is available. */
+export function convertCanvaDataUrl(
+  dataUrl: string,
+  format: 'png' | 'webp' | 'jpg',
+): Promise<string> {
+  const targetMime =
+    format === 'jpg' ? 'image/jpeg' : format === 'webp' ? 'image/webp' : 'image/png';
+  if (!dataUrl) return Promise.resolve(dataUrl);
+  if (dataUrl.startsWith(`data:${targetMime}`)) return Promise.resolve(dataUrl);
+  if (typeof document === 'undefined' || typeof Image === 'undefined') {
+    return Promise.resolve(dataUrl);
+  }
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, img.naturalWidth || img.width);
+      canvas.height = Math.max(1, img.naturalHeight || img.height);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(dataUrl);
+        return;
+      }
+      if (format === 'jpg') {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      ctx.drawImage(img, 0, 0);
+      try {
+        resolve(canvas.toDataURL(targetMime, 0.95));
+      } catch {
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+/** Download design image to the operator's device (local PC). Always matches requested format. */
+export async function downloadCanvaLocal(
   payload: Pick<MasterCanvaDistributePayload, 'dataUrl' | 'title'>,
-  format: 'webp' | 'png' = 'png',
-): void {
+  format: 'webp' | 'png' | 'jpg' = 'png',
+): Promise<void> {
   if (typeof document === 'undefined') return;
-  let href = payload.dataUrl;
-  let ext = format;
-  // Prefer PNG when requested — canvas dataUrl may already be webp
-  if (format === 'png' && payload.dataUrl.startsWith('data:image/webp')) {
-    ext = 'webp';
-  }
-  if (format === 'png' && payload.dataUrl.startsWith('data:image/png')) {
-    ext = 'png';
-  }
+  const href = await convertCanvaDataUrl(payload.dataUrl, format);
   const a = document.createElement('a');
   a.href = href;
-  a.download = `${slugTitle(payload.title)}.${ext}`;
+  a.download = `${slugTitle(payload.title)}.${format === 'jpg' ? 'jpg' : format}`;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
   a.click();
+  a.remove();
 }
 
 /**
  * Google Drive: download file locally, then open Drive so the user can upload.
  * Honest path — never pretends the file was uploaded via OAuth.
  */
-export function handoffCanvaToGoogleDrive(
+export async function handoffCanvaToGoogleDrive(
   payload: Pick<MasterCanvaDistributePayload, 'dataUrl' | 'title'>,
-): void {
-  downloadCanvaLocal(payload, 'png');
+): Promise<void> {
+  await downloadCanvaLocal(payload, 'png');
   if (typeof window !== 'undefined') {
     window.open('https://drive.google.com/drive/my-drive', '_blank', 'noopener,noreferrer');
   }

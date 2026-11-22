@@ -149,7 +149,7 @@ export const CoffeeProductSliderSection: React.FC<{
               {settings?.showPrice !== false && price != null ? (
                 <div className="mt-2 flex items-baseline gap-2 flex-wrap">
                   <span className="text-base font-black text-neutral-900">
-                    {price.toLocaleString(isAr ? 'ar-SA' : 'en-SA')} {isAr ? 'ر.س' : 'SAR'}
+                    {price.toLocaleString(isAr ? 'ar-SA' : 'en-SA')} {'⃁'}
                   </span>
                   {settings?.showOriginalPrice !== false && original != null && original > price ? (
                     <span className="text-xs text-neutral-400 line-through">

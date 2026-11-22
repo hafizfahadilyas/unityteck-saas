@@ -368,8 +368,8 @@ export const StoreCartInterceptTab: React.FC = () => {
                   />
                   <span className="text-xs text-amber-700 dark:text-amber-300">
                     {isAr
-                      ? `تعادل${(Number(config.loyalty_points || 25) * 0.1).toFixed(1)}ر.س خصم نقدي متاح للعميل`
-                      : `Worth ${(Number(config.loyalty_points || 25) * 0.1).toFixed(1)} SAR cash discount`}
+                      ? `تعادل${(Number(config.loyalty_points || 25) * 0.1).toFixed(1)}⃁ خصم نقدي متاح للعميل`
+                      : `Worth ${(Number(config.loyalty_points || 25) * 0.1).toFixed(1)} ⃁ cash discount`}
                   </span>
                 </div>
               </div>

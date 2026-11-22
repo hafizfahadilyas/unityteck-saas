@@ -22,7 +22,7 @@ import {
   distributeCanvaToStores,
   downloadCanvaLocal,
   handoffCanvaToGoogleDrive,
-  saveCanvaToMasterMedia,
+  saveFullCanvaToMasterAdmin,
   type MasterCanvaSaveDest,
 } from '../../services/masterCanvaDistribute';
 
@@ -34,7 +34,7 @@ type DestState = Record<MasterCanvaSaveDest, boolean>;
 
 const DEFAULT_DEST: DestState = {
   store_media: true,
-  master_media: false,
+  master_media: true,
   local: false,
   google_drive: false,
 };
@@ -52,6 +52,9 @@ export const MasterCanvaStudio: React.FC<Props> = ({ onNavigateTab }) => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [storeQuery, setStoreQuery] = useState('');
   const [busy, setBusy] = useState(false);
+  /** Keep Master library row ids so re-save updates the same Master design */
+  const [masterTemplateId, setMasterTemplateId] = useState<string | undefined>();
+  const [masterStudioDesignId, setMasterStudioDesignId] = useState<string | undefined>();
 
   const activeStores = useMemo(
     () =>
@@ -77,33 +80,26 @@ export const MasterCanvaStudio: React.FC<Props> = ({ onNavigateTab }) => {
   };
 
   const toggleDest = (key: MasterCanvaSaveDest) => {
+    // Master library is always saved — cannot turn off
+    if (key === 'master_media') return;
     setDest((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   const openDistribute = (payload: CanvaSavePayload) => {
     setPending(payload);
-    setDest({ ...DEFAULT_DEST });
+    setDest({ ...DEFAULT_DEST, master_media: true });
     setScope('all');
     setSelectedIds(activeStores.map((s) => s.id));
     setStoreQuery('');
     setPickerOpen(true);
   };
 
-  const anyDest =
-    dest.store_media || dest.master_media || dest.local || dest.google_drive;
-
   const runDistribute = async () => {
     if (!pending) return;
-    if (!anyDest) {
-      toast(
-        isAr ? 'اختر وجهة حفظ واحدة على الأقل.' : 'Pick at least one save destination.',
-        'error',
-      );
-      return;
-    }
 
     const payload = {
       dataUrl: pending.dataUrl,
+      previewDataUrl: pending.previewDataUrl || pending.dataUrl,
       title: pending.title,
       width: pending.width,
       height: pending.height,
@@ -127,6 +123,31 @@ export const MasterCanvaStudio: React.FC<Props> = ({ onNavigateTab }) => {
     setBusy(true);
     const notes: string[] = [];
     try {
+      // ALWAYS: every Canva update is saved into Master Admin (media + editable layers)
+      const masterSave = await saveFullCanvaToMasterAdmin({
+        payload,
+        addMediaAsset,
+        isAr,
+        templateId: masterTemplateId,
+        studioDesignId: masterStudioDesignId,
+      });
+      if (masterSave.templateId) setMasterTemplateId(masterSave.templateId);
+      if (masterSave.studioDesignId) setMasterStudioDesignId(masterSave.studioDesignId);
+      if (!masterSave.mediaOk) {
+        toast(
+          isAr
+            ? `تعذر حفظ التحديث في لوحة الماستر${masterSave.error ? ` · ${masterSave.error}` : ''}`
+            : `Could not save update to Master Admin${masterSave.error ? ` · ${masterSave.error}` : ''}`,
+          'error',
+        );
+        return;
+      }
+      notes.push(
+        isAr
+          ? `لوحة الماستر · وسائط${masterSave.templateOk ? ' + طبقات قابلة للتعديل' : ''}`
+          : `Master Admin · media${masterSave.templateOk ? ' + editable layers' : ''}`,
+      );
+
       if (dest.store_media) {
         const targets =
           scope === 'all'
@@ -146,23 +167,23 @@ export const MasterCanvaStudio: React.FC<Props> = ({ onNavigateTab }) => {
             : `Store media · ${ok} store(s)${fail ? ` · ${fail} failed` : ''}`,
         );
         if (fail && ok === 0) {
-          toast(notes[notes.length - 1], 'error');
+          toast(
+            isAr
+              ? `حُفظ في الماستر، لكن فشل إرسال المتاجر · ${notes.join(' · ')}`
+              : `Saved to Master, but store push failed · ${notes.join(' · ')}`,
+            'error',
+          );
           return;
         }
       }
 
-      if (dest.master_media) {
-        saveCanvaToMasterMedia({ payload, addMediaAsset, isAr });
-        notes.push(isAr ? 'وسائط الماستر' : 'Master media library');
-      }
-
       if (dest.local) {
-        downloadCanvaLocal(payload, 'png');
-        notes.push(isAr ? 'تنزيل محلي' : 'Local download');
+        await downloadCanvaLocal(payload, 'png');
+        notes.push(isAr ? 'تنزيل محلي PNG' : 'Local PC PNG');
       }
 
       if (dest.google_drive) {
-        handoffCanvaToGoogleDrive(payload);
+        await handoffCanvaToGoogleDrive(payload);
         notes.push(
           isAr
             ? 'جوجل درايف · نزّل الملف ثم ارفعه في الدرايف'
@@ -194,26 +215,30 @@ export const MasterCanvaStudio: React.FC<Props> = ({ onNavigateTab }) => {
     {
       id: 'store_media',
       icon: Images,
-      titleEn: 'Store media libraries',
-      titleAr: 'مكتبات وسائط المتاجر',
-      descEn: 'Image gallery + Canva library per selected store (store_id isolated).',
-      descAr: 'معرض الصور ومكتبة التصميم لكل متجر تختاره (عزل معرف المتجر).',
+      titleEn: 'Stores (All or Multiple)',
+      titleAr: 'المتاجر (الكل أو عدة متاجر)',
+      descEn:
+        'Push full editable design + media to All stores or pick Multiple stores (each store_id isolated).',
+      descAr:
+        'إرسال التصميم الكامل القابل للتعديل مع الوسائط إلى كل المتاجر أو اختيار عدة متاجر (عزل معرف المتجر لكل متجر).',
     },
     {
       id: 'master_media',
       icon: HardDrive,
-      titleEn: 'Master Admin media',
-      titleAr: 'وسائط لوحة الماستر',
-      descEn: 'Save into the Master platform media gallery.',
-      descAr: 'حفظ في معرض وسائط منصة الماستر.',
+      titleEn: 'Master Admin (always on)',
+      titleAr: 'لوحة الماستر (دائماً)',
+      descEn:
+        'Every Canva update is always saved here: preview image + every editable layer. Re-save updates the same Master design.',
+      descAr:
+        'كل تحديث في استوديو التصميم يُحفظ هنا دائماً: صورة المعاينة + كل طبقة قابلة للتعديل. الحفظ مجدداً يحدّث نفس تصميم الماستر.',
     },
     {
       id: 'local',
       icon: Download,
-      titleEn: 'This device (local)',
-      titleAr: 'هذا الجهاز (محلي)',
-      descEn: 'Download the finished image to your computer.',
-      descAr: 'تنزيل الصورة النهائية إلى جهازك.',
+      titleEn: 'Local PC (this device)',
+      titleAr: 'الجهاز المحلي (هذا الحاسوب)',
+      descEn: 'Download PNG to your computer.',
+      descAr: 'تنزيل صورة PNG إلى حاسوبك.',
     },
     {
       id: 'google_drive',
@@ -271,24 +296,31 @@ export const MasterCanvaStudio: React.FC<Props> = ({ onNavigateTab }) => {
           style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
         >
           <h3 className="text-sm font-black">
-            {isAr ? 'خيارات الحفظ النهائية' : 'Final save options'}
+            {isAr ? 'حفظ · الوجهات' : 'Save · destinations'}
           </h3>
-          <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
+          <p className="text-[12px] font-semibold leading-relaxed" style={{ color: 'var(--text)' }}>
             {isAr
-              ? 'اختر وجهة واحدة أو أكثر: مكتبات المتاجر، وسائط الماستر، تنزيل محلي، أو جوجل درايف. لملف متحرك أو فيديو: من شريط التصدير أو الخط الزمني (متحرك / فيديو).'
-              : 'Pick one or more destinations: store libraries, Master media, local download, or Google Drive. For GIF / MP4: use Export or Timeline → Save GIF / Save MP4.'}
+              ? 'اختر: لوحة الماستر · كل المتاجر · عدة متاجر · الجهاز المحلي · جوجل درايف'
+              : 'Pick: Master · All stores · Multiple stores · Local PC · Google Drive'}
+          </p>
+          <p className="text-[11px] leading-relaxed" style={{ color: 'var(--muted)' }}>
+            {isAr
+              ? 'الماستر دائماً مفعّل. المتاجر والتنزيل اختياريان. نفس استوديو التصميم لكل المتاجر.'
+              : 'Master is always on. Stores and download are optional. Same Design Studio for every store.'}
           </p>
 
           <div className="space-y-2">
             {destCards.map((card) => {
-              const on = dest[card.id];
+              const on = card.id === 'master_media' ? true : dest[card.id];
+              const locked = card.id === 'master_media';
               const Icon = card.icon;
               return (
                 <button
                   key={card.id}
                   type="button"
                   onClick={() => toggleDest(card.id)}
-                  className="w-full flex items-start gap-3 px-3 py-2.5 rounded-xl border text-start cursor-pointer transition-colors"
+                  disabled={locked}
+                  className="w-full flex items-start gap-3 px-3 py-2.5 rounded-xl border text-start cursor-pointer transition-colors disabled:cursor-default"
                   style={{
                     borderColor: on ? 'var(--accent)' : 'var(--border)',
                     background: on
@@ -362,7 +394,7 @@ export const MasterCanvaStudio: React.FC<Props> = ({ onNavigateTab }) => {
                       : { borderColor: 'var(--border)', color: 'var(--text)' }
                   }
                 >
-                  {isAr ? 'اختيار متاجر' : 'Select stores'}
+                  {isAr ? 'عدة متاجر' : 'Multiple stores'}
                 </button>
               </div>
 
@@ -452,6 +484,48 @@ export const MasterCanvaStudio: React.FC<Props> = ({ onNavigateTab }) => {
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {pending && (
+            <div
+              className="space-y-2 rounded-xl border p-3"
+              style={{ borderColor: 'var(--border)' }}
+            >
+              <div className="text-[11px] font-black" style={{ color: 'var(--muted)' }}>
+                {isAr ? 'تصدير سريع لهذا الجهاز' : 'Quick export to this PC'}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(['png', 'jpg', 'webp'] as const).map((fmt) => (
+                  <button
+                    key={fmt}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      void downloadCanvaLocal(
+                        { dataUrl: pending.dataUrl, title: pending.title },
+                        fmt,
+                      ).then(() =>
+                        toast(
+                          isAr
+                            ? `تم تنزيل ${fmt.toUpperCase()} على الجهاز`
+                            : `${fmt.toUpperCase()} downloaded to this PC`,
+                          'success',
+                        ),
+                      );
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-black border cursor-pointer uppercase"
+                    style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                  >
+                    {fmt}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] leading-relaxed" style={{ color: 'var(--muted)' }}>
+                {isAr
+                  ? 'الاستيراد (باوربوينت / فوتوشوب / صورة): زر رفع في شريط استوديو التصميم.'
+                  : 'Import (PPTX / PSD / image): use Upload in the Design Studio header.'}
+              </p>
             </div>
           )}
 

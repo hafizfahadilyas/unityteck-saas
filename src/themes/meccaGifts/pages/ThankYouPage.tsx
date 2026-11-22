@@ -152,7 +152,7 @@ export const ThankYouPage: React.FC = () => {
                 </div>
               </div>
               <span className="font-mono font-bold text-[#102a1c]">
-                {(item.product.price + item.addons.reduce((s, a) => s + a.price, 0)) * item.quantity} {isAr ? 'ر.س' : 'SAR'}
+                {(item.product.price + item.addons.reduce((s, a) => s + a.price, 0)) * item.quantity} {'⃁'}
               </span>
             </div>
           ))}
@@ -161,7 +161,7 @@ export const ThankYouPage: React.FC = () => {
         {/* Total */}
         <div className="pt-2 flex justify-between items-center text-base font-bold text-[#102a1c]">
           <span>{isAr ? 'المبلغ الإجمالي المدفوع:' : 'Total Amount Paid:'}</span>
-          <span className="font-mono text-xl">{order.total} {isAr ? 'ر.س' : 'SAR'}</span>
+          <span className="font-mono text-xl">{order.total} {'⃁'}</span>
         </div>
       </div>
 

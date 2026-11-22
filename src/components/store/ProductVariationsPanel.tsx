@@ -399,7 +399,7 @@ export const ProductVariationsPanel: React.FC<Props> = ({
                 }
                 className="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-purple-300 dark:border-purple-800 text-purple-800 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-950/40 cursor-pointer font-bold"
               >
-                {isAr ? '٧ مقاعد (+60 ر.س)' : '7 seats (+SAR 60)'}
+                {isAr ? '٧ مقاعد (+60 ⃁)' : '7 seats (+SAR 60)'}
               </button>
               <button
                 type="button"
@@ -418,7 +418,7 @@ export const ProductVariationsPanel: React.FC<Props> = ({
                 }
                 className="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-purple-300 dark:border-purple-800 text-purple-800 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-950/40 cursor-pointer font-bold"
               >
-                {isAr ? '٥ مقاعد + الشنطة (+90 ر.س)' : '5 seats + trunk (+SAR 90)'}
+                {isAr ? '٥ مقاعد + الشنطة (+90 ⃁)' : '5 seats + trunk (+SAR 90)'}
               </button>
             </div>
           </div>

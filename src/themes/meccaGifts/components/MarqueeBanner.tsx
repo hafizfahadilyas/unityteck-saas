@@ -22,7 +22,7 @@ export const MarqueeBanner: React.FC = () => {
     },
     {
       icon: Sparkles,
-      text: isAr ? 'توصيل مجاني فوري داخل مكة المكرمة لكافة الطلبات فوق 299 ريال' : 'Complimentary express delivery across Mecca on orders above 299 SAR',
+      text: isAr ? 'توصيل مجاني فوري داخل مكة المكرمة لكافة الطلبات فوق 299 ريال' : 'Complimentary express delivery across Mecca on orders above 299 ⃁',
       code: 'FREE DELIVERY'
     }
   ];
@@ -40,7 +40,7 @@ export const MarqueeBanner: React.FC = () => {
     },
     {
       icon: Coffee,
-      text: isAr ? 'شحن سريع لجميع مدن المملكة بصمام حماية النكهة مجاناً للطلبات فوق 250 ريال' : 'Free express delivery across KSA on orders above 250 SAR',
+      text: isAr ? 'شحن سريع لجميع مدن المملكة بصمام حماية النكهة مجاناً للطلبات فوق 250 ريال' : 'Free express delivery across KSA on orders above 250 ⃁',
       code: 'FREE SHIPPING'
     }
   ];

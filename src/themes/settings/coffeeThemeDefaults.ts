@@ -458,8 +458,10 @@ export function applyHeroBannersToSlider(settings: AllThemeSettings): AllThemeSe
       badge: b.promoEn || '',
       badgeEn: b.promoEn,
       badgeAr: b.promoAr,
-      priceEn: b.showPrice && b.price ? `${b.currency || 'SAR'} ${b.price}` : '',
-      priceAr: b.showPrice && b.price ? `${b.price} ر.س` : '',
+      priceEn: b.showPrice && b.price
+        ? `${(b.currency || 'SAR') === 'SAR' ? '\u20C1' : (b.currency || '\u20C1')} ${b.price}`
+        : '',
+      priceAr: b.showPrice && b.price ? `${b.price} \u20C1` : '',
     }));
   return {
     ...settings,

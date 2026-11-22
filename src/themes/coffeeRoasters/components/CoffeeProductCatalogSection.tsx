@@ -150,7 +150,7 @@ export const CoffeeProductCatalogSection: React.FC<{
                 ) : null}
                 {flags.showPrice ? (
                   <div className="text-sm font-black text-neutral-950">
-                    {isAr ? `${price.toLocaleString()} ر.س` : `SAR ${price.toLocaleString()}`}
+                    {isAr ? `${price.toLocaleString()} ⃁` : `⃁ ${price.toLocaleString()}`}
                     {flags.showOriginalPrice && orig != null && orig > price ? (
                       <span className="ms-1 text-[10px] text-neutral-400 line-through font-medium">
                         {orig.toLocaleString()}
@@ -161,7 +161,7 @@ export const CoffeeProductCatalogSection: React.FC<{
                 {flags.showInstallment ? (
                   <p className="text-[9px] text-neutral-500">
                     {bi(lang, p.installmentText, p.installmentTextAr) ||
-                      (isAr ? `أو من ${(price / 4).toFixed(0)} ر.س / شهر` : `Or from ${(price / 4).toFixed(0)} SAR / mo`)}
+                      (isAr ? `أو من ${(price / 4).toFixed(0)} ⃁ / شهر` : `Or from ${(price / 4).toFixed(0)} ⃁ / mo`)}
                   </p>
                 ) : null}
                 {flags.showStock && typeof p.stock === 'number' ? (

@@ -2170,6 +2170,8 @@ export async function createMedia(
   const res = await apiFetch<ItemResponse<any>>('/media', {
     method: 'POST',
     storeId,
+    // Large image payloads / Hostinger lag — do not abort at default 25s write timeout
+    timeoutMs: 120_000,
     body: {
       file_name: asset.fileName,
       file_type: asset.fileType,
@@ -2220,7 +2222,7 @@ export async function createMedia(
 export async function uploadMediaFile(
   storeId: string,
   file: File,
-  meta?: { alt?: string; caption?: string; folder?: string },
+  meta?: { alt?: string; caption?: string; folder?: string; baseUrl?: string; timeoutMs?: number },
 ): Promise<MediaAsset> {
   const formData = new FormData();
   formData.append('file', file);
@@ -2232,6 +2234,9 @@ export async function uploadMediaFile(
     method: 'POST',
     storeId,
     body: formData,
+    baseUrl: meta?.baseUrl,
+    // Multipart wallpaper / media upload on Hostinger needs a long window
+    timeoutMs: meta?.timeoutMs ?? 120_000,
   });
   const row = res.data;
   const asset: MediaAsset = {
@@ -3517,7 +3522,10 @@ export type DashboardHomeAnalytics = {
 };
 
 export async function fetchDashboardHomeAnalytics(storeId: string): Promise<DashboardHomeAnalytics> {
-  return apiFetch<DashboardHomeAnalytics>('/analytics/dashboard-home', { storeId });
+  return apiFetch<DashboardHomeAnalytics>('/analytics/dashboard-home', {
+    storeId,
+    timeoutMs: 12_000,
+  });
 }
 
 export async function fetchOverviewReportsApi(
@@ -3712,14 +3720,34 @@ export async function saveStoreReviewsApi(
   return Array.isArray(res.data) ? res.data : reviews;
 }
 
+/** Drop nested draft/archive keys — API merges those server-side; shipping them doubles body size. */
+function slimThemeSettingsBody(settings?: Record<string, any>): Record<string, any> | undefined {
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return settings;
+  const {
+    draft: _draft,
+    by_theme: _byTheme,
+    builder: _builder,
+    globalStyles: _globalStyles,
+    updatedAt: _updatedAt,
+    ...rest
+  } = settings;
+  return rest;
+}
+
 export async function updateThemeSettingsApi(
   storeId: string,
   payload: { theme_id?: string; homepage_style?: string; settings?: Record<string, any>; publish?: boolean }
 ): Promise<any> {
+  const body = {
+    ...payload,
+    settings: payload.settings !== undefined ? slimThemeSettingsBody(payload.settings) : undefined,
+  };
   const res = await apiFetch<{ success: boolean; data: any }>(`/stores/${storeId}/theme-settings`, {
     method: 'PUT',
     storeId,
-    body: payload,
+    body,
+    // Hostinger MySQL merge + cache bust can exceed default 25s write timeout
+    timeoutMs: 90_000,
   });
   return res.data;
 }
@@ -3777,7 +3805,7 @@ export async function fetchStorefrontCatalogPage(
   const q = `?store_id=${encodeURIComponent(storeId)}&page=${page}&per_page=${perPage}`;
   const res = await apiFetch<{ data?: ApiProductRow[]; meta?: { total?: number; last_page?: number } }>(
     `/storefront/catalog${q}`,
-    { storeId, skipAuth: true, timeoutMs: 60_000 },
+    { storeId, skipAuth: true, timeoutMs: 18_000 },
   );
   const data = (res.data ?? []).map(mapProduct);
   return {
@@ -3948,6 +3976,7 @@ export async function createThemePageApi(
     method: 'POST',
     storeId,
     body: payload,
+    timeoutMs: 90_000,
   });
   return res.data;
 }
@@ -3959,7 +3988,7 @@ export async function updateThemePageApi(
 ): Promise<ThemePageRecord> {
   const res = await apiFetch<{ success: boolean; data: ThemePageRecord }>(
     `/stores/${storeId}/pages/${encodeURIComponent(pageId)}`,
-    { method: 'PUT', storeId, body: payload },
+    { method: 'PUT', storeId, body: payload, timeoutMs: 90_000 },
   );
   return res.data;
 }
@@ -3970,7 +3999,7 @@ export async function publishThemePageApi(
 ): Promise<ThemePageRecord & { seo_warnings?: string[] }> {
   const res = await apiFetch<{ success: boolean; data: ThemePageRecord; warnings?: string[] }>(
     `/stores/${storeId}/pages/${encodeURIComponent(pageId)}/publish`,
-    { method: 'POST', storeId },
+    { method: 'POST', storeId, timeoutMs: 60_000 },
   );
   return { ...res.data, seo_warnings: res.warnings ?? [] };
 }

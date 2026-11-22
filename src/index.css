@@ -2,6 +2,7 @@
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *, .dark, .dark *));
 @import "./styles/portal-tokens.css";
 @import "./styles/visual-builder-holst.css";
+@import "./styles/saudi-riyal.css";
 
 /* Tailwind font-sans → same Holst brand face (Settings → BrandingPanel) */
 @theme {

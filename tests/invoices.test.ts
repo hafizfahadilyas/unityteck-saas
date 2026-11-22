@@ -74,7 +74,7 @@ async function runTests() {
   console.log('\n--- Test Suite 5: Payment Receipt Partial Payment Ledger ---');
   const receiptDoc = docs.find((d) => d.documentType === 'payment_receipt');
   assert(Boolean(receiptDoc?.paymentTransactionId), 'Payment receipt contains verified transaction ID');
-  assert(receiptDoc?.amountPaid === 984, `Received amount should match payment record (984 SAR), got ${receiptDoc?.amountPaid}`);
+  assert(receiptDoc?.amountPaid === 984, `Received amount should match payment record (984 ⃁), got ${receiptDoc?.amountPaid}`);
   assert(receiptDoc?.outstandingBalance === 0, 'Remaining balance matches after full settlement');
 
   // 6. Test Quotation 1-Click Conversion to Order
@@ -145,7 +145,7 @@ async function runTests() {
   assert(verification.isPhase2Compliant, 'Phase 2 compliance verified (Tags 6, 7, 8 detected)');
   assert(verification.sellerName === 'مؤسسة هدايا مكة والزهور الفاخرة', 'Parsed seller name matches in Arabic UTF-8');
   assert(verification.vatNumber === '300948215600003', 'Parsed VAT registration number matches');
-  assert(verification.invoiceTotal === 1500, 'Parsed invoice total matches 1500 SAR');
+  assert(verification.invoiceTotal === 1500, 'Parsed invoice total matches 1500 ⃁');
   assert(verification.invoiceHash === computedHash, 'Parsed XML hash matches input computedHash');
   assert(verification.parsedTags.length >= 8, `Parsed tags count should be at least 8, got ${verification.parsedTags.length}`);
 

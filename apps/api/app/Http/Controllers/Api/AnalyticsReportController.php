@@ -923,7 +923,7 @@ class AnalyticsReportController extends Controller
             : 'No recorded sales during this period yet.';
 
         $summaryTextAr = $totalOrders > 0
-            ? 'سجّل متجرك إيرادات '.number_format($totalRevenue, 2)." ر.س عبر {$totalOrders} طلباً في هذه الفترة."
+            ? 'سجّل متجرك إيرادات '.number_format($totalRevenue, 2)." ⃁ عبر {$totalOrders} طلباً في هذه الفترة."
                 .($visits > 0 ? " الزيارات المسجّلة: {$visits} (معدل التحويل {$convRate}%)." : ' تتبع الزيارات بانتظار البيانات.')
             : 'لم يتم تسجيل مبيعات في هذه الفترة بعد.';
 
@@ -934,7 +934,7 @@ class AnalyticsReportController extends Controller
                 'title' => 'Orders recorded',
                 'title_ar' => 'طلبات مسجّلة',
                 'detail' => "{$totalOrders} orders · ".number_format($totalRevenue, 2).' SAR',
-                'detail_ar' => "{$totalOrders} طلباً · ".number_format($totalRevenue, 2).' ر.س',
+                'detail_ar' => "{$totalOrders} طلباً · ".number_format($totalRevenue, 2).' ⃁',
             ];
         }
         if ($highValueCount > 0) {
@@ -942,8 +942,8 @@ class AnalyticsReportController extends Controller
                 'type' => 'positive',
                 'title' => 'High-value customers',
                 'title_ar' => 'عملاء مرتفعو القيمة',
-                'detail' => "{$highValueCount} customers with spend ≥ 500 SAR",
-                'detail_ar' => "{$highValueCount} عميلاً بإنفاق ≥ 500 ر.س",
+                'detail' => "{$highValueCount} customers with spend ≥ 500 ⃁",
+                'detail_ar' => "{$highValueCount} عميلاً بإنفاق ≥ 500 ⃁",
             ];
         }
         if ($abandonedCount > 0) {
@@ -1010,7 +1010,7 @@ class AnalyticsReportController extends Controller
         $revenue = (float) (Order::query()->forStore($storeId)->where('status', '!=', 'cancelled')->sum('total_amount') ?? 0);
 
         $answer = "Based on your store database: {$ordersCount} orders · ".number_format($revenue, 2).' SAR total revenue. No invented channel or abandonment claims.';
-        $answerAr = "بناءً على قاعدة بيانات متجرك: {$ordersCount} طلباً · إجمالي المبيعات ".number_format($revenue, 2).' ر.س. بدون أرقام مخترعة للقنوات أو التراجع.';
+        $answerAr = "بناءً على قاعدة بيانات متجرك: {$ordersCount} طلباً · إجمالي المبيعات ".number_format($revenue, 2).' ⃁. بدون أرقام مخترعة للقنوات أو التراجع.';
 
         return response()->json([
             'store_id' => $storeId,
@@ -1114,7 +1114,7 @@ class AnalyticsReportController extends Controller
         $rfm = [];
         if ($allCustCount > 0) {
             $rfm = [
-                ['segment' => 'VIP (≥500 SAR)', 'segment_ar' => 'عملاء مميزون', 'count' => $vipCount, 'pct' => round(($vipCount / $allCustCount) * 100, 1), 'color' => '#10b981'],
+                ['segment' => 'VIP (≥500 ⃁)', 'segment_ar' => 'عملاء مميزون', 'count' => $vipCount, 'pct' => round(($vipCount / $allCustCount) * 100, 1), 'color' => '#10b981'],
                 ['segment' => 'Loyal (≥3 orders)', 'segment_ar' => 'عملاء دائمون', 'count' => $loyalCount, 'pct' => round(($loyalCount / $allCustCount) * 100, 1), 'color' => '#8b5cf6'],
                 ['segment' => 'New (≤1 order)', 'segment_ar' => 'عملاء جدد', 'count' => $newCount, 'pct' => round(($newCount / $allCustCount) * 100, 1), 'color' => '#3b82f6'],
             ];

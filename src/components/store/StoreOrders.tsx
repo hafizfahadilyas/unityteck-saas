@@ -1377,7 +1377,7 @@ export const StoreOrders: React.FC = () => {
               onClick={() => copyToClipboard(o.orderNumber, 'ord-top')}
               className="p-2.5 rounded-xl border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors shrink-0"
               style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
-              title="Copy Order ID"
+              title={isAr ? 'نسخ رقم الطلب' : 'Copy Order ID'}
             >
               <MoreHorizontal className="w-4 h-4" />
             </button>
@@ -2929,10 +2929,10 @@ export const StoreOrders: React.FC = () => {
 
         {/* ── ORDERS TABLE (Mockup 04) — overflow-x only; action menu uses fixed portal (no overlap) ── */}
         <div className="overflow-x-auto overflow-y-visible pt-1 w-full relative z-0">
-          <table className="w-full min-w-[960px] text-start text-xs border-separate border-spacing-0">
+          <table className="w-full min-w-[960px] text-start text-sm border-collapse u-data-table">
             <thead>
               <tr>
-                <th className="pb-3 px-2 w-8 text-start" style={{ borderBottom: '1px solid var(--border)' }}>
+                <th className="w-8 text-start">
                   <input
                     type="checkbox"
                     checked={pagedOrders.length > 0 && selectedOrderIds.length === pagedOrders.length}
@@ -2940,31 +2940,31 @@ export const StoreOrders: React.FC = () => {
                     className="rounded cursor-pointer"
                   />
                 </th>
-                <th className="pb-3 px-2 text-start font-semibold text-[11px] min-w-[90px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                <th className="text-start font-extrabold min-w-[90px]">
                   {isAr ? 'رقم الطلب' : '# Order No.'}
                 </th>
-                <th className="pb-3 px-2 text-start font-semibold text-[11px] min-w-[130px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                <th className="text-start font-extrabold min-w-[130px]">
                   {isAr ? 'العميل' : 'Customer'}
                 </th>
-                <th className="pb-3 px-2 text-start font-semibold text-[11px] min-w-[170px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                <th className="text-start font-extrabold min-w-[180px]">
                   {isAr ? 'المنتجات' : 'Products'}
                 </th>
-                <th className="pb-3 px-2 text-start font-semibold text-[11px] min-w-[85px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                <th className="text-start font-extrabold min-w-[85px]">
                   {isAr ? 'المبلغ الإجمالي' : 'Total Amount'}
                 </th>
-                <th className="pb-3 px-2 text-start font-semibold text-[11px] min-w-[105px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                <th className="text-start font-extrabold min-w-[105px]">
                   {isAr ? 'طريقة الدفع' : 'Payment Method'}
                 </th>
-                <th className="pb-3 px-2 text-start font-semibold text-[11px] min-w-[95px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                <th className="text-start font-extrabold min-w-[95px]">
                   {isAr ? 'حالة الطلب' : 'Order Status'}
                 </th>
-                <th className="pb-3 px-2 text-start font-semibold text-[11px] min-w-[100px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                <th className="text-start font-extrabold min-w-[100px]">
                   {isAr ? 'مصدر الطلب' : 'Order Source'}
                 </th>
-                <th className="pb-3 px-2 text-start font-semibold text-[11px] min-w-[100px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                <th className="text-start font-extrabold min-w-[100px]">
                   {isAr ? 'تاريخ الطلب ↓' : 'Order Date ↓'}
                 </th>
-                <th className="pb-3 px-2 text-center font-semibold text-[11px] w-16 min-w-[65px]" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                <th className="text-center font-extrabold w-16 min-w-[65px]">
                   {isAr ? 'الإجراءات' : 'Actions'}
                 </th>
               </tr>
@@ -2972,7 +2972,7 @@ export const StoreOrders: React.FC = () => {
             <tbody>
               {pagedOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-16 text-center" style={{ borderBottom: '1px solid var(--border)' }}>
+                  <td colSpan={10} className="py-16 text-center">
                     <div className="max-w-sm mx-auto space-y-3">
                       <div className="w-14 h-14 rounded-2xl bg-teal-50 dark:bg-teal-950/40 text-teal-600 mx-auto flex items-center justify-center shadow-xs">
                         <ShoppingBag className="w-7 h-7 stroke-[1.5]" />
@@ -3010,7 +3010,7 @@ export const StoreOrders: React.FC = () => {
                       className="hover:[background:var(--hover-bg)] transition-colors group"
                     >
                       {/* Checkbox */}
-                      <td className="py-2.5 px-2 w-8 text-start" style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td className="w-8 text-start">
                         <input
                           type="checkbox"
                           checked={isChecked}
@@ -3019,46 +3019,47 @@ export const StoreOrders: React.FC = () => {
                         />
                       </td>
 
-                      {/* # Order No. (Clicking opens Order Details) — sequential #001+ */}
-                      <td className="py-2.5 px-2 font-mono font-bold text-xs whitespace-nowrap min-w-[90px]" style={{ borderBottom: '1px solid var(--border)' }}>
+                      {/* # Order No. */}
+                      <td className="font-mono font-bold whitespace-nowrap min-w-[90px]">
                         <button
                           type="button"
                           onClick={() => setSelectedOrder(ord)}
-                          className="hover:underline cursor-pointer font-bold text-xs text-start leading-tight tabular-nums"
-                          style={{ color: 'var(--accent)' }}
+                          className="hover:underline cursor-pointer font-bold text-sm text-start leading-tight tabular-nums"
+                          style={{ color: 'var(--glass-navy, #0f172a)' }}
                           title={ord.orderNumber}
                         >
                           {displayOrderNumber(ord.orderNumber)}
                         </button>
                       </td>
 
-                      {/* Customer: Name & Phone below */}
-                      <td className="py-2.5 px-2 min-w-[130px]" style={{ borderBottom: '1px solid var(--border)' }}>
-                        <div className="font-bold text-xs line-clamp-2 max-w-[160px] break-words leading-tight" title={getCustomerDisplayName(ord.customerName, locale)} style={{ color: 'var(--text)' }}>
+                      {/* Customer */}
+                      <td className="min-w-[140px]">
+                        <div className="font-bold text-sm max-w-[180px] break-words leading-snug" title={getCustomerDisplayName(ord.customerName, locale)} style={{ color: 'var(--text)' }}>
                           {getCustomerDisplayName(ord.customerName, locale)}
                         </div>
-                        <div className="text-[11px] font-mono mt-0.5 whitespace-nowrap leading-tight" style={{ color: 'var(--muted)' }}>
+                        <div className="text-xs font-mono mt-0.5 whitespace-nowrap leading-tight" style={{ color: '#475569' }}>
                           {ord.customerPhone}
                         </div>
                       </td>
 
-                      {/* Products (Thumbnail + Name + Qty) */}
-                      <td className="py-2.5 px-2 min-w-[170px]" style={{ borderBottom: '1px solid var(--border)' }}>
+                      {/* Products */}
+                      <td className="min-w-[180px]">
                         <div className="flex items-start gap-2">
                           <img
                             src={itemThumb || FALLBACK_PRODUCT_IMAGE}
-                            alt="prod"
+                            alt=""
                             onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
-                            className="w-8 h-8 rounded-lg object-cover border border-slate-200 dark:border-slate-700 shrink-0 mt-0.5"
+                            className="w-8 h-8 rounded-lg object-cover shrink-0 mt-0.5"
+                            style={{ border: '1px solid var(--table-border, rgba(15,23,42,0.16))' }}
                           />
                           <div className="min-w-0 flex-1">
-                            <div className="font-bold text-xs line-clamp-2 max-w-[180px] break-words leading-tight" title={itemsList[0] ? getLocalizedItemName(itemsList[0], locale) : (getLocalizedItemName({ name: String((ord as any).itemsSummary || '').split(/[,|·]/)[0] || '' }, locale) || (isAr ? 'عنصر الطلب' : 'Order Item'))} style={{ color: 'var(--text)' }}>
+                            <div className="font-bold text-sm max-w-[200px] break-words leading-snug" title={itemsList[0] ? getLocalizedItemName(itemsList[0], locale) : (getLocalizedItemName({ name: String((ord as any).itemsSummary || '').split(/[,|·]/)[0] || '' }, locale) || (isAr ? 'عنصر الطلب' : 'Order Item'))} style={{ color: 'var(--text)' }}>
                               {itemsList[0] ? getLocalizedItemName(itemsList[0], locale) : (getLocalizedItemName({ name: String((ord as any).itemsSummary || '').split(/[,|·]/)[0] || '' }, locale) || (isAr ? 'عنصر الطلب' : 'Order Item'))}
                             </div>
-                            <div className="text-[11px] text-slate-500 font-mono mt-0.5 whitespace-nowrap">
+                            <div className="text-xs text-slate-600 font-mono mt-0.5 whitespace-nowrap">
                               x {itemsList[0]?.quantity || 1}
                               {extraCount && (
-                                <span className="ms-1 px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-bold text-[10px]">
+                                <span className="ms-1 px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-bold text-[11px]">
                                    {extraCount}
                                 </span>
                               )}
@@ -3069,19 +3070,19 @@ export const StoreOrders: React.FC = () => {
 
                       {/* Total Amount */}
                       <td
-                        className="py-2.5 px-2 whitespace-nowrap font-black text-xs min-w-[85px] text-start"
-                        style={{ borderBottom: '1px solid var(--border)', color: 'var(--text)' }}
+                        className="whitespace-nowrap font-black text-sm min-w-[85px] text-start"
+                        style={{ color: 'var(--text)' }}
                       >
                         {money(ord.total)}
                       </td>
 
                       {/* Payment Method */}
-                      <td className="py-2.5 px-2 whitespace-nowrap min-w-[105px] text-start" style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td className="whitespace-nowrap min-w-[105px] text-start">
                         {getPaymentBadge(ord.paymentMethod)}
                       </td>
 
                       {/* Order Status */}
-                      <td className="py-2.5 px-2 min-w-[95px] text-start" style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td className="min-w-[95px] text-start">
                         <div className="flex flex-col items-start gap-1">
                           {getStatusBadge(ord.status)}
                           {(() => {
@@ -3089,7 +3090,7 @@ export const StoreOrders: React.FC = () => {
                             if (!untouched) return null;
                             return (
                               <span
-                                className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 whitespace-nowrap"
+                                className="inline-flex items-center gap-0.5 text-xs font-bold text-amber-700 dark:text-amber-300 whitespace-nowrap"
                                 title={untouched}
                               >
                                 <Clock className="w-3 h-3 shrink-0" />
@@ -3101,31 +3102,34 @@ export const StoreOrders: React.FC = () => {
                       </td>
 
                       {/* Order Source */}
-                      <td className="py-2.5 px-2 whitespace-nowrap min-w-[100px] text-start" style={{ borderBottom: '1px solid var(--border)' }}>
-                        <div className="flex items-center gap-1.5 font-medium text-xs whitespace-nowrap" style={{ color: 'var(--text)' }}>
+                      <td className="whitespace-nowrap min-w-[100px] text-start">
+                        <div className="flex items-center gap-1.5 font-semibold text-sm whitespace-nowrap" style={{ color: 'var(--text)' }}>
                           {getSourceIcon(ord.source)}
                           <span>{localizeSalesChannel(ord.source, locale)}</span>
                         </div>
                       </td>
 
                       {/* Order Date */}
-                      <td className="py-2.5 px-2 whitespace-nowrap text-[11px] min-w-[100px] text-start" style={{ borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>
-                        <div className="font-medium whitespace-nowrap" style={{ color: 'var(--text)' }}>
+                      <td className="whitespace-nowrap text-xs min-w-[100px] text-start" style={{ color: '#475569' }}>
+                        <div className="font-semibold whitespace-nowrap text-sm" style={{ color: 'var(--text)' }}>
                           {ord.date || '—'}
                         </div>
-                        <div className="text-[10px] opacity-75 whitespace-nowrap">
+                        <div className="text-xs whitespace-nowrap" style={{ color: '#64748b' }}>
                           {ord.time || '—'}
                         </div>
                       </td>
 
-                      {/* Actions — menu opens via fixed portal (avoids table overflow overlap) */}
-                      <td className="py-2.5 px-2 text-center whitespace-nowrap w-16 min-w-[65px]" style={{ borderBottom: '1px solid var(--border)' }}>
+                      {/* Actions */}
+                      <td className="text-center whitespace-nowrap w-16 min-w-[65px]">
                         <div className="inline-flex items-center justify-center gap-1 w-full">
                           <button
                             type="button"
                             onClick={() => setSelectedOrder(ord)}
-                            className="p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors shrink-0"
-                            style={{ borderColor: 'var(--border)', color: 'var(--accent)' }}
+                            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors shrink-0"
+                            style={{
+                              border: '1px solid var(--table-border, rgba(15,23,42,0.16))',
+                              color: 'var(--glass-navy, #0f172a)',
+                            }}
                             title={isAr ? 'تعديل الطلب' : 'Edit Order'}
                           >
                             <Edit className="w-3.5 h-3.5" />
@@ -3146,9 +3150,12 @@ export const StoreOrders: React.FC = () => {
                               setActionMenuMode('main');
                               setActiveActionMenuId(ord.id);
                             }}
-                            className="p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors shrink-0"
-                            style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
-                            title="More Actions"
+                            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors shrink-0"
+                            style={{
+                              border: '1px solid var(--table-border, rgba(15,23,42,0.16))',
+                              color: '#475569',
+                            }}
+                            title={isAr ? 'المزيد' : 'More Actions'}
                           >
                             <MoreHorizontal className="w-3.5 h-3.5" />
                           </button>

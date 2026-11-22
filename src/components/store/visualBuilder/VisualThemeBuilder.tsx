@@ -203,6 +203,7 @@ import {
   updateThemeSettingsApi,
   type ThemePageRecord,
 } from '../../../api/tenantApi';
+import { toUserFriendlyError } from '../../../utils/userFriendlyError';
 import {
   isClipboardShortcut,
   isHistoryShortcut,
@@ -825,6 +826,8 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
           className={`group relative cursor-pointer ${extraClass} ${
             coffeeNative ? 'bg-transparent' : ''
           } ${
+            b.type === 'header' || b.type === 'navbar' ? 'overflow-visible z-[70]' : ''
+          } ${
             isDraggingThisBlock ? 'opacity-35 grayscale outline outline-2 outline-dashed outline-cyan-400 outline-offset-[-2px] scale-[0.99]' : ''
           } ${
             isSelected
@@ -896,7 +899,13 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
       blockSettings: b.settings,
     });
     if (coffeePreview) {
-      return wrapBlock(coffeePreview, '', COFFEE_FULL_BLEED_TYPES.has(b.type), true);
+      const isCoffeeHeaderChrome = b.type === 'header' || b.type === 'navbar';
+      return wrapBlock(
+        coffeePreview,
+        isCoffeeHeaderChrome ? 'overflow-visible relative z-[55]' : '',
+        COFFEE_FULL_BLEED_TYPES.has(b.type),
+        true,
+      );
     }
     if (b.type === 'heading' || b.type === 'w_heading') {
       return wrapBlock(
@@ -948,11 +957,14 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
     if (b.type === 'header' || b.type === 'navbar') {
       if (isCoffeeStore) {
         return wrapBlock(
-          <div className="hibrew-theme-root @container w-full max-w-full min-w-0">
+          <div className="hibrew-theme-root coffee-builder-preview coffee-builder-header @container w-full max-w-full min-w-0 overflow-visible relative z-[55]">
             <CoffeeCartProvider>
               <CoffeeHeader />
             </CoffeeCartProvider>
-          </div>
+          </div>,
+          'overflow-visible z-[55]',
+          true,
+          true,
         );
       }
       const headerSettings = b.settings?.headerCustom || getDefaultHeaderSettings(activeStore);
@@ -3684,7 +3696,53 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       toast(isAr ? 'واجهة المتجر غير متصلة' : 'Store API is not connected', 'error');
       return;
     }
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      toast(
+        isAr ? 'تعذر الاتصال. تحقق من الإنترنت ثم حاول مرة أخرى.' : 'Unable to connect. Check your internet and try again.',
+        'error',
+      );
+      return;
+    }
     setPageBusy(true);
+    const isTransientPublishError = (err: unknown) => {
+      const msg = toUserFriendlyError(err, isAr ? 'ar' : 'en').toLowerCase();
+      return /unable to connect|took too long|unavailable|offline|try again shortly|تعذر الاتصال|وقتاً طويلاً|غير متاحة|طرفنا/.test(
+        msg,
+      );
+    };
+    const publishThemeSettingsResilient = async (settings: Record<string, unknown>) => {
+      const fullBody = { theme_id: currentThemeId, settings, publish: true as const };
+      try {
+        await updateThemeSettingsApi(activeStore.id, fullBody);
+        return;
+      } catch (firstErr) {
+        if (!isTransientPublishError(firstErr)) throw firstErr;
+        await new Promise((r) => setTimeout(r, 700));
+        try {
+          await updateThemeSettingsApi(activeStore.id, fullBody);
+          return;
+        } catch {
+          // Split: save draft body, then lean publish (avoids one huge merge+cache-bust round trip)
+          try {
+            await updateThemeSettingsApi(activeStore.id, {
+              theme_id: currentThemeId,
+              settings,
+            });
+            await updateThemeSettingsApi(activeStore.id, {
+              theme_id: currentThemeId,
+              publish: true,
+            });
+            return;
+          } catch {
+            // Last resort — promote whatever draft already sits on Hostinger
+            await updateThemeSettingsApi(activeStore.id, {
+              theme_id: currentThemeId,
+              publish: true,
+            });
+          }
+        }
+      }
+    };
     try {
       const full = readAllThemeSettings(activeStore.id, activeStore);
       const annBlock = blocks.find((b) => b.id === 'announcement' || b.type === 'announcement' || b.type === 'announcement_bar');
@@ -3756,11 +3814,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       // Write local + await Hostinger theme-settings (coffee hero lives here)
       const safeSettings = stripHeavyDataUrls(full);
       writeAllThemeSettings(activeStore.id, safeSettings, currentThemeId, { syncApi: false });
-      await updateThemeSettingsApi(activeStore.id, {
-        theme_id: currentThemeId,
-        settings: safeSettings as unknown as Record<string, unknown>,
-        publish: true,
-      });
+      await publishThemeSettingsResilient(safeSettings as unknown as Record<string, unknown>);
 
       const layout = stripHeavyDataUrls({
         blocks: blocksForPublish(blocks),
@@ -3778,7 +3832,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         } catch (pageErr: any) {
           const msg = String(pageErr?.message || '');
           // Stale stamp — reload page row once then retry
-          if (/updated elsewhere|409|conflict/i.test(msg)) {
+          if (/updated elsewhere|409|conflict/i.test(msg) || isTransientPublishError(pageErr)) {
             activePageRef.current = null;
             saved = await ensureThemePage(layout);
           } else {
@@ -3831,11 +3885,9 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         );
         if (onPublishSuccess) onPublishSuccess();
       }
-    } catch (err: any) {
-      toast(
-        isAr ? `تعذر النشر المباشر:${err?.message || 'خطأ غير معروف'}` : `Publish failed: ${err?.message || 'Unknown error'}`,
-        'error',
-      );
+    } catch (err: unknown) {
+      const friendly = toUserFriendlyError(err, isAr ? 'ar' : 'en');
+      toast(isAr ? `تعذر النشر المباشر: ${friendly}` : `Publish failed: ${friendly}`, 'error');
     } finally {
       setPageBusy(false);
     }
@@ -4051,17 +4103,17 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                 setSeasonDropdownOpen(false);
                 setToolsDropdownOpen(false);
               }}
-              className="px-2 sm:px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs shrink-0"
+              className="px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 text-xs font-bold inline-flex items-center gap-2 transition-all cursor-pointer shadow-2xs shrink-0 max-w-full overflow-hidden"
               title={isAr ? 'تغيير صفحة المتجر' : 'Switch Store Page'}
             >
               {(() => {
                 const PageIcon = currentActivePageObj.icon;
                 return <PageIcon className="w-3.5 h-3.5 text-indigo-600 shrink-0" />;
               })()}
-              <span className="truncate max-w-[70px] sm:max-w-[110px] md:max-w-[140px]">
+              <span className="truncate min-w-0 max-w-[70px] sm:max-w-[110px] md:max-w-[140px]">
                 {isAr ? currentActivePageObj.labelAr : currentActivePageObj.labelEn}
               </span>
-              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform shrink-0 ${pageDropdownOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform shrink-0 relative z-[1] ${pageDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {pageDropdownOpen && (
@@ -4109,19 +4161,19 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                 setSeasonDropdownOpen(false);
                 setToolsDropdownOpen(false);
               }}
-              className="px-2 sm:px-2.5 py-1.5 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-950 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs shrink-0"
+              className="px-2 sm:px-2.5 py-1.5 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-950 text-xs font-bold inline-flex items-center gap-2 transition-all cursor-pointer shadow-2xs shrink-0 max-w-full overflow-hidden"
               title={isAr ? 'اختيار الثيم' : 'Select Theme'}
             >
               <Palette className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-              <span className="truncate max-w-[80px] sm:max-w-[120px] md:max-w-[160px] lg:max-w-[200px]">
+              <span className="truncate min-w-0 max-w-[72px] sm:max-w-[110px] md:max-w-[140px] lg:max-w-[170px]">
                 {themeDisplayLabel}
               </span>
               {isEditingActiveTheme ? (
-                <span className="hidden sm:inline-block text-[9px] bg-emerald-600 text-white px-1.5 py-0.2 rounded font-bold shrink-0">
+                <span className="hidden sm:inline-flex items-center text-[9px] leading-none bg-emerald-600 text-white px-1.5 py-0.5 rounded font-bold shrink-0 relative z-[1]">
                   {isAr ? 'نشط' : 'Live'}
                 </span>
               ) : (
-                <span className="hidden sm:inline-block text-[9px] bg-amber-500 text-white px-1.5 py-0.2 rounded font-bold shrink-0">
+                <span className="hidden sm:inline-flex items-center text-[9px] leading-none bg-amber-500 text-white px-1.5 py-0.5 rounded font-bold shrink-0 relative z-[1]">
                   {isAr ? 'مسودة' : 'Draft'}
                 </span>
               )}
@@ -4933,7 +4985,11 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
         >
           <div
             data-builder-frame-width={framePx}
-            className={`transition-[border-radius,box-shadow,border-width] duration-300 w-full max-w-full overflow-x-clip box-border ${
+            className={`transition-[border-radius,box-shadow,border-width] duration-300 w-full max-w-full box-border ${
+              device === 'mobile' || device === 'tablet'
+                ? 'overflow-x-clip'
+                : 'overflow-visible'
+            } ${
               device === 'mobile'
                 ? screenSize.isMobile
                   ? 'rounded-none border-0 shadow-none my-0 bg-white builder-device-mobile'
@@ -4943,8 +4999,8 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                     ? 'rounded-none border-0 shadow-none my-0 bg-white builder-device-tablet'
                     : 'shadow-xl rounded-2xl border-[6px] border-slate-700 bg-white my-6 builder-device-tablet relative'
                   : device === 'laptop'
-                    ? 'shadow-lg rounded-xl border border-slate-200 bg-white my-4 builder-device-laptop relative'
-                    : 'shadow-sm rounded-xl border border-slate-200 bg-white my-1 sm:my-2 builder-device-desktop relative'
+                    ? 'shadow-lg rounded-xl border border-slate-200 bg-white my-4 builder-device-laptop relative overflow-visible'
+                    : 'shadow-sm rounded-xl border border-slate-200 bg-white my-1 sm:my-2 builder-device-desktop relative overflow-visible'
             }`}
             style={{ width: '100%', maxWidth: framePx }}
           >

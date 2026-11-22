@@ -869,7 +869,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (found.minOrderValue && cartTotal < found.minOrderValue) {
       return {
         success: false,
-        message: isAr ? `الحد الأدنى للطلب ${found.minOrderValue} ر.س` : `Minimum order is SAR ${found.minOrderValue}`,
+        message: isAr ? `الحد الأدنى للطلب ${found.minOrderValue} ⃁` : `Minimum order is SAR ${found.minOrderValue}`,
       };
     }
     setAppliedCoupon(found);

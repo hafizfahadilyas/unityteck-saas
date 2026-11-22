@@ -833,7 +833,7 @@ export const CustomOrderPage: React.FC = () => {
 • ملاحظات التقسيم: ${divisionNotes || 'لا توجد'}
 • الإضافات والإكسسوارات: ${currentSpecs.accessories.map(a => `${a.nameAr} (x${a.quantity})`).join(', ') || 'بدون إضافات'}
 • العميل: ${rfqName || 'عميل المتجر'} - ${rfqPhone || ''} (${rfqCity || ''})
-${pricingBreakdown.total ? `• التقدير المبدئي: ${pricingBreakdown.total.toLocaleString()} ر.س` : ''}
+${pricingBreakdown.total ? `• التقدير المبدئي: ${pricingBreakdown.total.toLocaleString()} ⃁` : ''}
 
 يرجى التواصل معي لتأكيد التفاصيل وموعد المعاينة والتنفيذ. شكراً لكم!`;
 
@@ -848,7 +848,7 @@ I would like to request a consultation and quote for a custom coffee station wit
 • Internal Division: ${currentSpecs.internalDivision.name}
 • Accessories: ${currentSpecs.accessories.map(a => `${a.name} (x${a.quantity})`).join(', ') || 'None'}
 • Customer: ${rfqName || 'Store Customer'} - ${rfqPhone || ''} (${rfqCity || ''})
-${pricingBreakdown.total ? `• Estimated Total: ${pricingBreakdown.total.toLocaleString()} SAR` : ''}
+${pricingBreakdown.total ? `• Estimated Total: ${pricingBreakdown.total.toLocaleString()} ⃁` : ''}
 
 Please contact me to confirm the details. Thank you!`;
 
@@ -1359,7 +1359,7 @@ Please contact me to confirm the details. Thank you!`;
                         </div>
                       </div>
                       <span className="text-xs font-mono font-bold shrink-0">
-                        {language === 'AR' ? '+ 360 ر.س' : '+ SAR 360'}
+                        {language === 'AR' ? '+ 360 ⃁' : '+ SAR 360'}
                       </span>
                     </button>
 
@@ -1385,7 +1385,7 @@ Please contact me to confirm the details. Thank you!`;
                         </div>
                       </div>
                       <span className="text-xs font-mono font-bold shrink-0">
-                        {language === 'AR' ? '+ 180 ر.س' : '+ SAR 180'}
+                        {language === 'AR' ? '+ 180 ⃁' : '+ SAR 180'}
                       </span>
                     </button>
                   </div>
@@ -1619,7 +1619,7 @@ Please contact me to confirm the details. Thank you!`;
                           </div>
                         </div>
                         <span className="text-xs font-mono font-bold shrink-0">
-                          {language === 'AR' ? '+ 380 ر.س' : '+ SAR 380'}
+                          {language === 'AR' ? '+ 380 ⃁' : '+ SAR 380'}
                         </span>
                       </button>
 
@@ -1645,7 +1645,7 @@ Please contact me to confirm the details. Thank you!`;
                           </div>
                         </div>
                         <span className="text-xs font-mono font-bold shrink-0">
-                          {language === 'AR' ? '+ 580 ر.س' : '+ SAR 580'}
+                          {language === 'AR' ? '+ 580 ⃁' : '+ SAR 580'}
                         </span>
                       </button>
                     </div>
@@ -1727,7 +1727,7 @@ Please contact me to confirm the details. Thank you!`;
                           </div>
                         </div>
                         <span className="text-xs font-mono font-bold shrink-0">
-                          {language === 'AR' ? '+ 750 ر.س' : '+ SAR 750'}
+                          {language === 'AR' ? '+ 750 ⃁' : '+ SAR 750'}
                         </span>
                       </button>
 
@@ -1753,7 +1753,7 @@ Please contact me to confirm the details. Thank you!`;
                           </div>
                         </div>
                         <span className="text-xs font-mono font-bold shrink-0">
-                          {language === 'AR' ? '+ 1,150 ر.س' : '+ SAR 1,150'}
+                          {language === 'AR' ? '+ 1,150 ⃁' : '+ SAR 1,150'}
                         </span>
                       </button>
                     </div>
@@ -2020,7 +2020,7 @@ Please contact me to confirm the details. Thank you!`;
                             {acc.descriptionAr}
                           </p>
                           <div className="text-xs font-mono font-bold text-neutral-950 pt-1">
-                            {language === 'AR' ? `${acc.unitPrice.toLocaleString()}ر.س` : `SAR ${acc.unitPrice.toLocaleString()}`}
+                            {language === 'AR' ? `${acc.unitPrice.toLocaleString()}⃁` : `⃁ ${acc.unitPrice.toLocaleString()}`}
                           </div>
                         </div>
                       </div>
@@ -2274,7 +2274,7 @@ Please contact me to confirm the details. Thank you!`;
                       {currentSpecs.accessories.map(acc => (
                         <li key={acc.id} className="flex justify-between">
                           <span>• {language === 'AR' ? acc.nameAr : acc.name} (x{acc.quantity})</span>
-                          <span className="font-mono">{(acc.unitPrice * acc.quantity).toLocaleString()} ر.س</span>
+                          <span className="font-mono">{(acc.unitPrice * acc.quantity).toLocaleString()} ⃁</span>
                         </li>
                       ))}
                     </ul>
@@ -2289,21 +2289,21 @@ Please contact me to confirm the details. Thank you!`;
                     <div className="flex justify-between text-neutral-600">
                       <span>{language === 'AR' ? 'الهيكل والنجارة الأساسية' : 'Base Cabinetry'}</span>
                       <span className="font-mono">
-                        {pricingBreakdown.baseDimensionCost.toLocaleString()}.00 ر.س
+                        {pricingBreakdown.baseDimensionCost.toLocaleString()}.00 ⃁
                       </span>
                     </div>
 
                     <div className="flex justify-between text-neutral-600">
                       <span>{language === 'AR' ? 'خامة الخشب وتشطيب الحواف' : 'Wood & Edge Finish'}</span>
                       <span className="font-mono">
-                        {pricingBreakdown.woodCost.toLocaleString()}.00 ر.س
+                        {pricingBreakdown.woodCost.toLocaleString()}.00 ⃁
                       </span>
                     </div>
 
                     <div className="flex justify-between text-neutral-600">
                       <span>{language === 'AR' ? 'السطح العلوي والمقابض' : 'Stone Top & Handles'}</span>
                       <span className="font-mono">
-                        {(pricingBreakdown.surfaceCost + pricingBreakdown.handleCost).toLocaleString()}.00 ر.س
+                        {(pricingBreakdown.surfaceCost + pricingBreakdown.handleCost).toLocaleString()}.00 ⃁
                       </span>
                     </div>
 
@@ -2311,7 +2311,7 @@ Please contact me to confirm the details. Thank you!`;
                       <div className="flex justify-between text-neutral-600">
                         <span>{language === 'AR' ? 'مجموع الملحقات المدمجة' : 'Add-ons Total'}</span>
                         <span className="font-mono">
-                          {pricingBreakdown.accessoriesTotal.toLocaleString()}.00 ر.س
+                          {pricingBreakdown.accessoriesTotal.toLocaleString()}.00 ⃁
                         </span>
                       </div>
                     )}
@@ -2323,7 +2323,7 @@ Please contact me to confirm the details. Thank you!`;
 
                     <div className="flex justify-between text-neutral-400 text-[11px]">
                       <span>{language === 'AR' ? 'شامل ضريبة القيمة المضافة 15%' : '15% VAT Included'}</span>
-                      <span className="font-mono">{pricingBreakdown.vat.toLocaleString()} ر.س</span>
+                      <span className="font-mono">{pricingBreakdown.vat.toLocaleString()} ⃁</span>
                     </div>
 
                     {/* Final Big Total */}
@@ -2333,8 +2333,8 @@ Please contact me to confirm the details. Thank you!`;
                       </span>
                       <span className="font-black text-xl text-neutral-950 font-sans">
                         {language === 'AR'
-                          ? `${pricingBreakdown.total.toLocaleString()}.00 ر.س`
-                          : `SAR ${pricingBreakdown.total.toLocaleString()}.00`}
+                          ? `${pricingBreakdown.total.toLocaleString()}.00 ⃁`
+                          : `⃁ ${pricingBreakdown.total.toLocaleString()}.00`}
                       </span>
                     </div>
                   </>

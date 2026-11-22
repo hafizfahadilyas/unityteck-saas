@@ -57,7 +57,7 @@ export const CheckoutPage: React.FC = () => {
 
   const moneyFmt = useMemo(
     () => (n: number) =>
-      language === 'AR' ? `${n.toLocaleString()}ر.س` : `SAR ${n.toLocaleString()}`,
+      language === 'AR' ? `${n.toLocaleString()}⃁` : `⃁ ${n.toLocaleString()}`,
     [language],
   );
 
@@ -456,7 +456,7 @@ export const CheckoutPage: React.FC = () => {
                       )}
                     </div>
                     <span className="font-bold font-sans text-neutral-900 shrink-0">
-                      {language === 'AR' ? `${(item.unitPrice * item.quantity).toLocaleString()}.00 ر.س` : `SAR ${(item.unitPrice * item.quantity).toLocaleString()}.00`}
+                      {language === 'AR' ? `${(item.unitPrice * item.quantity).toLocaleString()}.00 ⃁` : `⃁ ${(item.unitPrice * item.quantity).toLocaleString()}.00`}
                     </span>
                   </div>
                 ))}
@@ -466,7 +466,7 @@ export const CheckoutPage: React.FC = () => {
                 <div className="flex justify-between items-center">
                   <span>{language === 'AR' ? 'المجموع' : 'Subtotal'}</span>
                   <span className="font-sans font-semibold text-neutral-900">
-                    {language === 'AR' ? `${cartTotal.toLocaleString()}.00 ر.س` : `SAR ${cartTotal.toLocaleString()}.00`}
+                    {language === 'AR' ? `${cartTotal.toLocaleString()}.00 ⃁` : `⃁ ${cartTotal.toLocaleString()}.00`}
                   </span>
                 </div>
                 {showShipping ? (
@@ -490,8 +490,8 @@ export const CheckoutPage: React.FC = () => {
                             ? 'مجاني'
                             : 'FREE'
                           : language === 'AR'
-                            ? `${shippingFee.toLocaleString()}ر.س`
-                            : `SAR ${shippingFee.toLocaleString()}`}
+                            ? `${shippingFee.toLocaleString()}⃁`
+                            : `⃁ ${shippingFee.toLocaleString()}`}
                     </span>
                   </div>
                 ) : null}
@@ -499,8 +499,8 @@ export const CheckoutPage: React.FC = () => {
                   <span>{language === 'AR' ? 'المبلغ المطلوب سداده' : 'Total Amount'}</span>
                   <span className="font-sans text-base sm:text-lg text-neutral-900">
                     {language === 'AR'
-                      ? `${orderGrandTotal.toLocaleString()}ر.س`
-                      : `SAR ${orderGrandTotal.toLocaleString()}`}
+                      ? `${orderGrandTotal.toLocaleString()}⃁`
+                      : `⃁ ${orderGrandTotal.toLocaleString()}`}
                   </span>
                 </div>
               </div>

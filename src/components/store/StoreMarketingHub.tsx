@@ -430,8 +430,8 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
       return;
     }
     const headers = isAr
-      ? ['رقم السلة', 'اسم العميل', 'رقم الهاتف', 'البريد الإلكتروني', 'قيمة السلة (ر.س)', 'تاريخ السلة']
-      : ['Cart ID', 'Customer Name', 'Phone', 'Email', 'Cart Value (SAR)', 'Date'];
+      ? ['رقم السلة', 'اسم العميل', 'رقم الهاتف', 'البريد الإلكتروني', 'قيمة السلة (⃁)', 'تاريخ السلة']
+      : ['Cart ID', 'Customer Name', 'Phone', 'Email', 'Cart Value (⃁)', 'Date'];
     const rows = pendingOrders.map((o) => [
       String(o.id || o.orderNumber || ''),
       String(o.customerName || (isAr ? 'عميل غير مسجل' : 'Guest')),
@@ -1681,7 +1681,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
                       </span>
                     </div>
                     <span className="font-black">
-                      {isAr ? 'مجاناً (0 ر.س)' : 'FREE (0 SAR)'}
+                      {isAr ? 'مجاناً (0 ⃁)' : 'FREE (0 ⃁)'}
                     </span>
                   </div>
 

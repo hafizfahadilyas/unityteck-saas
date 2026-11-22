@@ -90,7 +90,7 @@ export function GlobalModal({
   return createPortal(
     <div
       dir={dir}
-      className={`fixed inset-0 ${zIndexClassName} flex items-center justify-center p-3 sm:p-5 overflow-y-auto overscroll-contain bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-150 ${backdropClassName}`}
+      className={`fixed inset-0 ${zIndexClassName} flex items-center justify-center p-3 sm:p-5 overflow-y-auto overscroll-contain bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-150 unity-modal-backdrop ${backdropClassName}`}
       style={{ fontFamily: 'var(--font-ui, inherit)', color: 'var(--text)' }}
       onClick={handleBackdropClick}
       role="presentation"
@@ -99,7 +99,7 @@ export function GlobalModal({
       data-theme={themeAttr}
     >
       <div
-        className={`relative w-full flex justify-center my-auto max-h-[min(96dvh,100%)] ${contentClassName}`}
+        className={`relative w-full flex justify-center my-auto max-h-[min(96dvh,100%)] unity-modal-panel ${contentClassName}`}
         onClick={(e) => e.stopPropagation()}
         role={role}
         aria-modal={role === 'dialog' || role === 'alertdialog' ? true : undefined}

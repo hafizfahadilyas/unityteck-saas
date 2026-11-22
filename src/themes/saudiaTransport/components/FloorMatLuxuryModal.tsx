@@ -183,11 +183,11 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
   // Coverage labels dictionary
   const coverageLabels: Record<string, { ar: string; en: string; diffTextAr: string }> = {
     'rows_5': { ar: '٥ مقاعد (صفين)', en: '5 Seats (2 Rows)', diffTextAr: 'السعر الأساسي' },
-    'rows_7': { ar: '٧ مقاعد (3 صفوف)', en: '7 Seats (3 Rows)', diffTextAr: '+60 ر.س' },
-    'rows_5_with_trunk': { ar: '٥ مقاعد + دعاسة الشنطة', en: '5 Seats + Trunk Mat', diffTextAr: '+90 ر.س' },
-    'rows_7_with_trunk': { ar: '٧ مقاعد + دعاسة الشنطة', en: '7 Seats + Trunk Mat', diffTextAr: '+150 ر.س' },
-    'trunk_only': { ar: 'دعاسة الشنطة / الصندوق الخلفي فقط', en: 'Trunk / Cargo Mat Only', diffTextAr: '150 ر.س' },
-    'rows_2': { ar: 'مقعدين (غمارتين / بيك أب)', en: '2 Seats (Single Cab / Pickup)', diffTextAr: '-70 ر.س' },
+    'rows_7': { ar: '٧ مقاعد (3 صفوف)', en: '7 Seats (3 Rows)', diffTextAr: '+60 ⃁' },
+    'rows_5_with_trunk': { ar: '٥ مقاعد + دعاسة الشنطة', en: '5 Seats + Trunk Mat', diffTextAr: '+90 ⃁' },
+    'rows_7_with_trunk': { ar: '٧ مقاعد + دعاسة الشنطة', en: '7 Seats + Trunk Mat', diffTextAr: '+150 ⃁' },
+    'trunk_only': { ar: 'دعاسة الشنطة / الصندوق الخلفي فقط', en: 'Trunk / Cargo Mat Only', diffTextAr: '150 ⃁' },
+    'rows_2': { ar: 'مقعدين (غمارتين / بيك أب)', en: '2 Seats (Single Cab / Pickup)', diffTextAr: '-70 ⃁' },
   };
 
   const fuelLabels = {
@@ -206,7 +206,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
     else if (selectedCoverage === 'rows_7') coverageExtra = 60;
     else if (selectedCoverage === 'rows_5_with_trunk') coverageExtra = 90;
     else if (selectedCoverage === 'rows_7_with_trunk') coverageExtra = 150;
-    else if (selectedCoverage === 'trunk_only') coverageExtra = -230; // 380 - 230 = 150 SAR
+    else if (selectedCoverage === 'trunk_only') coverageExtra = -230; // 380 - 230 = 150 ⃁
 
     const bundleExtra = includeBundle ? BLECO_BUNDLE_ADDON.price : 0;
     const heelPadExtra = includeMetalHeelPad ? 25 : 0;
@@ -264,7 +264,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
     fuelType: selectedFuelType,
     fuelTypeLabelAr: fuelLabels[selectedFuelType].ar,
     heelPad: includeMetalHeelPad ? 'metal_sport' : 'standard',
-    heelPadLabelAr: includeMetalHeelPad ? 'كعبية حديد رياضية (+25 ر.س)' : 'كعبية قياسية',
+    heelPadLabelAr: includeMetalHeelPad ? 'كعبية حديد رياضية (+25 ⃁)' : 'كعبية قياسية',
     doubleLayer: includeDoubleLayer,
     carLogoEmbroidery: includeLogoEmbroidery,
     includeBundle,
@@ -324,7 +324,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
       ? `• الكمية: *${quantity}*\n`
       : `• Quantity: *${quantity}*\n`;
     msg += isAr
-      ? `• إجمالي السعر: *${totalPrice}ر.س*\n`
+      ? `• إجمالي السعر: *${totalPrice}⃁*\n`
       : `• Total Price: *${totalPrice} SAR*\n`;
 
     if (customerNote.trim()) {
@@ -555,11 +555,11 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                         {unitPrice}
                       </span>
                       <span className="text-xs font-bold text-[#b07e16]">
-                        {isAr ? 'ر.س' : 'SAR'}
+                        {'⃁'}
                       </span>
                       {product.originalPrice && product.originalPrice > unitPrice && (
                         <span className="text-xs text-slate-400 line-through">
-                          {product.originalPrice + (selectedSeats === '7_seats' ? 60 : 0)} {isAr ? 'ر.س' : 'SAR'}
+                          {product.originalPrice + (selectedSeats === '7_seats' ? 60 : 0)} {'⃁'}
                         </span>
                       )}
                     </div>
@@ -669,7 +669,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                     >
                       <Layers className={`w-4 h-4 ${selectedCoverage === 'rows_7' ? 'text-[#3e0f77]' : 'text-slate-400'}`} />
                       <span className="font-black text-[11px] text-slate-900">{isAr ? '٧ مقاعد (3 صفوف)' : '7 Seats (3 Rows)'}</span>
-                      <span className="text-[9px] text-amber-700 font-bold">{isAr ? '+60 ر.س' : '+60 SAR'}</span>
+                      <span className="text-[9px] text-amber-700 font-bold">{isAr ? '+60 ⃁' : '+60 ⃁'}</span>
                     </button>
 
                     {/* 5 Seats + Trunk */}
@@ -687,7 +687,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                     >
                       <ShieldCheck className={`w-4 h-4 ${selectedCoverage === 'rows_5_with_trunk' ? 'text-[#3e0f77]' : 'text-slate-400'}`} />
                       <span className="font-black text-[11px] text-slate-900">{isAr ? '٥ مقاعد + الشنطة' : '5 Seats + Trunk'}</span>
-                      <span className="text-[9px] text-emerald-700 font-bold">{isAr ? '+90 ر.س' : '+90 SAR'}</span>
+                      <span className="text-[9px] text-emerald-700 font-bold">{isAr ? '+90 ⃁' : '+90 ⃁'}</span>
                     </button>
 
                     {/* 7 Seats + Trunk */}
@@ -705,7 +705,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                     >
                       <Sparkles className={`w-4 h-4 ${selectedCoverage === 'rows_7_with_trunk' ? 'text-[#3e0f77]' : 'text-slate-400'}`} />
                       <span className="font-black text-[11px] text-slate-900">{isAr ? '٧ مقاعد + الشنطة' : '7 Seats + Trunk'}</span>
-                      <span className="text-[9px] text-amber-700 font-bold">{isAr ? '+150 ر.س' : '+150 SAR'}</span>
+                      <span className="text-[9px] text-amber-700 font-bold">{isAr ? '+150 ⃁' : '+150 ⃁'}</span>
                     </button>
 
                     {/* Trunk Only */}
@@ -720,7 +720,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                     >
                       <Layers className={`w-4 h-4 ${selectedCoverage === 'trunk_only' ? 'text-[#3e0f77]' : 'text-slate-400'}`} />
                       <span className="font-black text-[11px] text-slate-900">{isAr ? 'دعاسة الشنطة فقط' : 'Trunk Mat Only'}</span>
-                      <span className="text-[9px] text-blue-700 font-bold">{isAr ? '150 ر.س' : '150 SAR'}</span>
+                      <span className="text-[9px] text-blue-700 font-bold">{isAr ? '150 ⃁' : '150 ⃁'}</span>
                     </button>
 
                     {/* 2 Seats Pickup */}
@@ -738,7 +738,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                     >
                       <Truck className={`w-4 h-4 ${selectedCoverage === 'rows_2' ? 'text-[#3e0f77]' : 'text-slate-400'}`} />
                       <span className="font-black text-[11px] text-slate-900">{isAr ? 'غمارتين / بيك أب' : 'Pickup / 2 Seats'}</span>
-                      <span className="text-[9px] text-slate-500 font-bold">{isAr ? '-70 ر.س' : '-70 SAR'}</span>
+                      <span className="text-[9px] text-slate-500 font-bold">{isAr ? '-70 ⃁' : '-70 ⃁'}</span>
                     </button>
                   </div>
                 </div>
@@ -904,7 +904,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                         </div>
                       </div>
                       <span className="text-xs font-black text-[#b07e16] shrink-0">
-                        +25 {isAr ? 'ر.س' : 'SAR'}
+                        +25 {'⃁'}
                       </span>
                     </label>
 
@@ -929,7 +929,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                         </div>
                       </div>
                       <span className="text-xs font-black text-[#b07e16] shrink-0">
-                        +80 {isAr ? 'ر.س' : 'SAR'}
+                        +80 {'⃁'}
                       </span>
                     </label>
 
@@ -1065,8 +1065,8 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                           {isAr ? BLECO_BUNDLE_ADDON.nameAr : BLECO_BUNDLE_ADDON.nameEn}
                         </h6>
                         <div className="flex items-center gap-1.5 mt-0.5 text-[11px]">
-                          <span className="font-black text-[#3e0f77]">{BLECO_BUNDLE_ADDON.price} {isAr ? 'ر.س' : 'SAR'}</span>
-                          <span className="text-slate-400 line-through text-[10px]">{BLECO_BUNDLE_ADDON.originalPrice} {isAr ? 'ر.س' : 'SAR'}</span>
+                          <span className="font-black text-[#3e0f77]">{BLECO_BUNDLE_ADDON.price} {'⃁'}</span>
+                          <span className="text-slate-400 line-through text-[10px]">{BLECO_BUNDLE_ADDON.originalPrice} {'⃁'}</span>
                           <span className="text-[9px] bg-red-100 text-red-700 font-black px-1.5 py-0.2 rounded">
                             25.00%
                           </span>
@@ -1164,7 +1164,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                       {totalPrice}
                     </span>
                     <span className="text-sm font-black text-[#b07e16]">
-                      {isAr ? 'ر.س' : 'SAR'}
+                      {'⃁'}
                     </span>
                   </div>
                 </div>
@@ -1427,7 +1427,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
                         />
                         <span className="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">
-                          {rel.price} {isAr ? 'ر.س' : 'SAR'}
+                          {rel.price} {'⃁'}
                         </span>
                       </div>
 

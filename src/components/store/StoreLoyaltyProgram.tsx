@@ -378,7 +378,7 @@ export const StoreLoyaltyProgram: React.FC<StoreLoyaltyProgramProps> = ({ onNavi
     const method = rule.method || '';
     if (method === 'order_completed') {
       const rate = rule.config?.points_per_sar ?? rule.points;
-      return isAr ? `${rate} نقطة لكل 1 ر.س` : `${rate} point(s) per 1 SAR`;
+      return isAr ? `${rate} نقطة لكل 1 ⃁` : `${rate} point(s) per 1 ⃁`;
     }
     if (method === 'product_bonus') {
       const mode = rule.config?.mode || 'double';
@@ -391,7 +391,7 @@ export const StoreLoyaltyProgram: React.FC<StoreLoyaltyProgramProps> = ({ onNavi
     if (method === 'tiered_spend') {
       const thr = rule.config?.threshold_sar ?? 300;
       const bonus = rule.config?.bonus_points ?? rule.points;
-      return isAr ? `+${bonus} عند إنفاق ${thr} ر.س فأكثر` : `+${bonus} when cart ≥ ${thr} SAR`;
+      return isAr ? `+${bonus} عند إنفاق ${thr} ⃁ فأكثر` : `+${bonus} when cart ≥ ${thr} ⃁`;
     }
     if (method === 'retention') {
       const days = rule.config?.within_days ?? 30;
@@ -697,8 +697,8 @@ export const StoreLoyaltyProgram: React.FC<StoreLoyaltyProgramProps> = ({ onNavi
           <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-black flex items-center justify-between">
             <span>
               {isAr
-                ? `آخر جائزة من اللعبة: +${lastWonCoins} عملة (تعادل ${(lastWonCoins / (gameSettings.coinsPerSar || 10)).toFixed(1)} ر.س خصم مباشر في السلة!)`
-                : `Latest Game Spin Reward: +${lastWonCoins} Coins (Worth ${(lastWonCoins / (gameSettings.coinsPerSar || 10)).toFixed(1)} SAR at Checkout!)`}
+                ? `آخر جائزة من اللعبة: +${lastWonCoins} عملة (تعادل ${(lastWonCoins / (gameSettings.coinsPerSar || 10)).toFixed(1)} ⃁ خصم مباشر في السلة!)`
+                : `Latest Game Spin Reward: +${lastWonCoins} Coins (Worth ${(lastWonCoins / (gameSettings.coinsPerSar || 10)).toFixed(1)} ⃁ at Checkout!)`}
             </span>
           </div>
         )}
@@ -706,7 +706,7 @@ export const StoreLoyaltyProgram: React.FC<StoreLoyaltyProgramProps> = ({ onNavi
         <div className="u-equal-sections grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
           <div className="h-full min-h-[96px] w-full p-3 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between gap-1">
             <label className="text-[11px] font-bold text-slate-500 block leading-snug min-h-[2.5rem]">
-              {isAr ? 'كم عملة تساوي 1 ريال سعودي؟' : 'Coins Needed for 1 SAR Discount'}
+              {isAr ? 'كم عملة تساوي 1 ريال سعودي؟' : 'Coins Needed for 1 ⃁ Discount'}
             </label>
             <input
               type="number"
@@ -884,7 +884,7 @@ export const StoreLoyaltyProgram: React.FC<StoreLoyaltyProgramProps> = ({ onNavi
                       <div className="pt-2 border-t border-slate-200 dark:border-slate-700 space-y-3 w-full min-w-0">
                         {method === 'order_completed' && (
                           <label className="block text-[11px] font-bold text-slate-500 w-full min-w-0">
-                            {isAr ? 'نقاط لكل ريال سعودي' : 'Points per 1 SAR'}
+                            {isAr ? 'نقاط لكل ريال سعودي' : 'Points per 1 ⃁'}
                             <input
                               type="number"
                               min={0}
@@ -962,7 +962,7 @@ export const StoreLoyaltyProgram: React.FC<StoreLoyaltyProgramProps> = ({ onNavi
                         {method === 'tiered_spend' && (
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full min-w-0">
                             <label className="block text-[11px] font-bold text-slate-500 min-w-0">
-                              {isAr ? 'حد الإنفاق (ر.س)' : 'Spend threshold (SAR)'}
+                              {isAr ? 'حد الإنفاق (⃁)' : 'Spend threshold (⃁)'}
                               <input
                                 type="number"
                                 min={0}

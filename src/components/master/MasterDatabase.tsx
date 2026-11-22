@@ -129,7 +129,7 @@ export const MasterDatabase: React.FC = () => {
           id: p.id,
           store_id: storeId,
           name: p.name,
-          price: `${p.price} SAR`,
+          price: `${p.price} ⃁`,
           sku: p.sku,
           stock: p.stock,
           category: p.category,
@@ -144,7 +144,7 @@ export const MasterDatabase: React.FC = () => {
           store_id: storeId,
           order_number: o.orderNumber,
           customer: o.customerName,
-          amount: `${o.total} SAR`,
+          amount: `${o.total} ⃁`,
           source: o.source,
           location: o.deliveryLocation,
           status: o.status,
@@ -161,7 +161,7 @@ export const MasterDatabase: React.FC = () => {
         phone: c.phone,
         city: c.city,
         orders: c.totalOrders,
-        spent: `${c.totalSpending} SAR`,
+        spent: `${c.totalSpending} ⃁`,
         source: c.source,
       }))
     );

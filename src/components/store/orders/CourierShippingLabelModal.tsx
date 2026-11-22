@@ -282,7 +282,7 @@ export const CourierShippingLabelModal: React.FC<CourierShippingLabelModalProps>
                         {isAr ? 'الدفع عند الاستلام' : 'CASH ON DELIVERY'}
                       </span>
                       <p className="text-sm font-black text-rose-700 font-mono mt-1">
-                        {labelData.payment.codAmountSar} {isAr && labelData.payment.currency === 'SAR' ? 'ر.س' : labelData.payment.currency}
+                        {labelData.payment.codAmountSar} {isAr && labelData.payment.currency === 'SAR' ? '⃁' : labelData.payment.currency}
                       </p>
                     </div>
                   ) : (
@@ -308,7 +308,7 @@ export const CourierShippingLabelModal: React.FC<CourierShippingLabelModalProps>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">{isAr ? 'القيمة المعلنة:' : 'Decl. Value:'}</span>
-                    <strong className="font-mono">{labelData.packageDetails.declaredValueSar} {isAr ? 'ر.س' : 'SAR'}</strong>
+                    <strong className="font-mono">{labelData.packageDetails.declaredValueSar} {'⃁'}</strong>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">{isAr ? 'الطلب:' : 'Order Ref:'}</span>

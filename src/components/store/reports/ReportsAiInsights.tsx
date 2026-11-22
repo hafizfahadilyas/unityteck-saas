@@ -275,7 +275,7 @@ export const ReportsAiInsights: React.FC<ReportsAiInsightsProps> = ({
               {kpis?.high_value_customers ?? 0}
             </div>
             <span className="text-[11px] text-purple-600 dark:text-purple-400 font-medium mt-1 inline-block">
-              {isAr ? 'إنفاق > 500 ر.س' : 'Spent > 500 SAR'}
+              {isAr ? 'إنفاق > 500 ⃁' : 'Spent > 500 ⃁'}
             </span>
           </div>
         </div>

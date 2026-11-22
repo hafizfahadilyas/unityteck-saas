@@ -705,7 +705,7 @@ export const INITIAL_SHIPPING_METHODS: Record<string, any[]> = {
     {
       id: 'shipm-blc-free',
       storeId: 'store-bleco',
-      name: 'Free Shipping Over 800 SAR (شحن مجاني للطلبات الممتازة)',
+      name: 'Free Shipping Over 800 ⃁ (شحن مجاني للطلبات الممتازة)',
       nameAr: 'شحن وتوصيل مجاني للطلبات فوق 800 ريال',
       type: 'free',
       baseRate: 0,

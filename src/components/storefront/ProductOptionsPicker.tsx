@@ -201,8 +201,8 @@ export const ProductOptionsPicker: React.FC<ProductOptionsPickerProps> = ({
               <span className="tabular-nums">
                 {parts.selling != null
                   ? isAr
-                    ? `${parts.selling}ر.س`
-                    : `SAR ${parts.selling}`
+                    ? `${parts.selling}⃁`
+                    : `⃁ ${parts.selling}`
                   : '—'}
               </span>
             </p>
@@ -210,14 +210,14 @@ export const ProductOptionsPicker: React.FC<ProductOptionsPickerProps> = ({
               <p className="text-slate-500">
                 {isAr ? 'سعر التجزئة' : 'MRP'}:{' '}
                 <span className="line-through tabular-nums">
-                  {isAr ? `${parts.mrp}ر.س` : `SAR ${parts.mrp}`}
+                  {isAr ? `${parts.mrp}⃁` : `⃁ ${parts.mrp}`}
                 </span>
               </p>
             )}
             {parts.discount > 0 && (
               <p className="font-bold text-rose-600">
                 {isAr
-                  ? `الخصم${parts.discount}ر.س (${parts.percent}٪)`
+                  ? `الخصم${parts.discount}⃁ (${parts.percent}٪)`
                   : `Discount SAR ${parts.discount} (${parts.percent}%)`}
               </p>
             )}

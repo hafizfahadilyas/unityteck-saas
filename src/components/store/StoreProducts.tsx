@@ -606,10 +606,12 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
 
   // True page windows: Show 100 → rows 1–100 on page 1, 101–200 on page 2, etc.
   const totalCount = dataSource === 'api' ? apiTotal : sortedProducts.length;
+  // Never trust a stale/wrong last_page when total + pageSize already imply fewer pages
+  const pageCountFromTotal = Math.max(1, Math.ceil((totalCount || 0) / pageSize) || 1);
   const pageCount =
     dataSource === 'api'
-      ? Math.max(1, apiLastPage)
-      : Math.max(1, Math.ceil((totalCount || 0) / pageSize) || 1);
+      ? Math.max(1, Math.min(Math.max(1, apiLastPage), pageCountFromTotal))
+      : pageCountFromTotal;
   const safePage = Math.min(pageCount, Math.max(1, page));
   const pagedProducts = useMemo(() => {
     if (dataSource === 'api') {
@@ -1502,8 +1504,13 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
         <div className={isSideDrawerOpen && editingProduct ? 'lg:col-span-5 xl:col-span-6 min-w-0 flex flex-col min-h-0' : 'w-full flex flex-col flex-1 min-h-0'}>
           {/* ── PRODUCTS TABLE / GRID CARD CONTAINER (Makdah Flowers Spec & Mockup 06 Exact) ── */}
           <div
-            className="bg-white dark:bg-[#071E26] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-visible flex flex-col flex-1"
-            style={{ minHeight: 'calc(100dvh - 18rem)' }}
+            className="rounded-2xl border shadow-xs overflow-visible flex flex-col flex-1"
+            style={{
+              minHeight: 'calc(100dvh - 18rem)',
+              background: 'var(--surface)',
+              borderColor: 'var(--border)',
+              color: 'var(--text)',
+            }}
           >
             {/* ── TABLE TOOLBAR (Spec Section 6 & 9) ── */}
             <div
@@ -1702,12 +1709,12 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
             {/* ── CONDITIONAL VIEW: GRID OR TABLE ── */}
             <div
               ref={listScrollRef}
-              className="rounded-b-2xl relative z-0 flex-1 min-h-0 overflow-x-auto overflow-y-auto overscroll-contain"
-              style={{ maxHeight: 'calc(100dvh - 17rem)' }}
+              className="relative z-0 flex-1 min-h-0 overflow-x-auto overflow-y-auto overscroll-contain"
+              style={{ maxHeight: 'calc(100dvh - 19rem)' }}
             >
             {viewMode === 'grid' ? (
               /* ── 1. GRID VIEW (Mockup 06 & Screenshot 2 Exact) ── */
-              <div className="p-4 sm:p-5 flex-1">
+              <div className="p-4 sm:p-5 pb-8 flex-1">
                 {pagedProducts.length === 0 ? (
                   <div className="py-16 text-center text-xs space-y-3" style={{ color: 'var(--muted)' }}>
                     <p>{emptyCatalogMessage}</p>
@@ -1772,31 +1779,44 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                       return (
                         <div
                           key={prod.id}
-                          className={`h-full min-h-[280px] rounded-2xl border transition-all duration-150 p-3.5 flex flex-col justify-between group relative ${
+                          className={`h-full min-h-[300px] rounded-2xl border transition-all duration-150 p-3.5 flex flex-col group relative overflow-visible ${
                             isEditing
-                              ? 'border-teal-500 ring-2 ring-teal-500/20 bg-teal-50/10 dark:bg-teal-950/20 shadow-sm'
-                              : 'border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#071E26] hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-xs'
+                              ? 'ring-2 shadow-sm'
+                              : 'hover:shadow-xs'
                           }`}
+                          style={{
+                            background: 'var(--surface)',
+                            borderColor: isEditing ? 'var(--accent)' : 'var(--border)',
+                            boxShadow: isEditing
+                              ? '0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent)'
+                              : undefined,
+                            color: 'var(--text)',
+                          }}
                         >
                           {/* Top Controls Row inside Card */}
-                          <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center justify-between gap-2 mb-2 shrink-0">
                             {/* Checkbox */}
                             <label className="cursor-pointer p-0.5">
                               <input
                                 type="checkbox"
                                 checked={isChecked}
                                 onChange={() => toggleSelectProduct(prod.id)}
-                                className="rounded cursor-pointer w-4 h-4 text-teal-600 focus:ring-teal-500 border-slate-300 dark:border-slate-700"
+                                className="rounded cursor-pointer w-4 h-4 border-slate-300"
+                                style={{ accentColor: 'var(--accent)' }}
                               />
                             </label>
 
                             {/* Top-Right Action Buttons (Edit, Copy, Trash, More) */}
-                            <div className="flex items-center gap-1 bg-white/90 dark:bg-slate-800/90 p-0.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
+                            <div
+                              className="flex items-center gap-1 p-0.5 rounded-xl border shadow-2xs"
+                              style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+                            >
                               {/* Edit Pencil */}
                               <button
                                 type="button"
                                 onClick={() => handleOpenEdit(prod)}
-                                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-teal-600 cursor-pointer transition-colors"
+                                className="p-1.5 rounded-lg cursor-pointer transition-colors hover:opacity-90"
+                                style={{ color: 'var(--muted)' }}
                                 title={t('editProduct')}
                               >
                                 <Edit className="w-3.5 h-3.5" />
@@ -1806,7 +1826,8 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                               <button
                                 type="button"
                                 onClick={() => handleDuplicateProduct(prod)}
-                                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-blue-600 cursor-pointer transition-colors"
+                                className="p-1.5 rounded-lg cursor-pointer transition-colors hover:opacity-90"
+                                style={{ color: 'var(--muted)' }}
                                 title={isAr ? 'نسخ المنتج' : 'Duplicate'}
                               >
                                 <Copy className="w-3.5 h-3.5" />
@@ -1816,7 +1837,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                               <button
                                 type="button"
                                 onClick={() => handleDeleteProduct(prod)}
-                                className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-600 dark:text-slate-300 hover:text-rose-600 cursor-pointer transition-colors"
+                                className="p-1.5 rounded-lg cursor-pointer transition-colors hover:bg-rose-50 text-rose-600"
                                 title={t('deleteProduct')}
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -1827,7 +1848,8 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                                 <button
                                   type="button"
                                   onClick={() => setActiveActionMenuId(activeActionMenuId === prod.id ? null : prod.id)}
-                                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 cursor-pointer transition-colors"
+                                  className="p-1.5 rounded-lg cursor-pointer transition-colors hover:opacity-90"
+                                  style={{ color: 'var(--muted)' }}
                                   title={isAr ? 'المزيد' : 'More'}
                                 >
                                   <MoreHorizontal className="w-3.5 h-3.5" />
@@ -1835,7 +1857,12 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
 
                                 {activeActionMenuId === prod.id && (
                                   <div
-                                    className="absolute end-0 top-full mt-1 z-50 w-40 rounded-xl border p-1 shadow-lg text-xs font-semibold bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 animate-in fade-in duration-100"
+                                    className="absolute end-0 top-full mt-1 z-50 w-40 rounded-xl border p-1 shadow-lg text-xs font-semibold animate-in fade-in duration-100"
+                                    style={{
+                                      background: 'var(--surface)',
+                                      borderColor: 'var(--border)',
+                                      color: 'var(--text)',
+                                    }}
                                   >
                                     <button
                                       type="button"
@@ -1881,29 +1908,40 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                             </div>
                           </div>
 
-                          {/* Product Image */}
+                          {/* Product Image — fixed square; contain so aspect never clips title below */}
                           <div
                             onClick={() => handleOpenEdit(prod)}
-                            className="aspect-square w-full rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/80 flex items-center justify-center p-3 cursor-pointer group-hover:scale-[1.01] transition-transform overflow-hidden mb-3"
+                            className="aspect-square w-full max-h-[220px] sm:max-h-[240px] rounded-xl flex items-center justify-center p-3 cursor-pointer transition-transform overflow-hidden mb-3 shrink-0"
+                            style={{
+                              background: 'color-mix(in srgb, var(--surface) 70%, #f8fafc)',
+                              border: '1px solid var(--border)',
+                            }}
                           >
                             <img
                               src={prod.image || FALLBACK_PRODUCT_IMAGE}
                               alt={getProductDisplayName(prod, locale)}
                               onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
-                              className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal"
+                              className="max-w-full max-h-full w-auto h-auto object-contain"
                             />
                           </div>
 
-                          {/* Grid: heading + subheading (SKU) — fixed title block for equal card heights */}
-                          <div className="mt-auto min-h-[3.25rem]">
+                          {/* Grid: heading + SKU — always fully visible (never clipped by card overflow) */}
+                          <div className="mt-auto shrink-0 min-h-[3.5rem] pt-0.5">
                             <h4
                               onClick={() => handleOpenEdit(prod)}
                               title={getProductDisplayName(prod, locale)}
-                              className="font-bold text-sm text-slate-900 dark:text-white line-clamp-2 leading-snug cursor-pointer hover:text-teal-600 dark:hover:text-teal-400 mb-1 min-h-[2.5rem]"
+                              className="font-bold text-sm line-clamp-2 leading-snug cursor-pointer mb-1 min-h-[2.5rem]"
+                              style={{ color: 'var(--text)' }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.color = 'var(--accent)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.color = 'var(--text)';
+                              }}
                             >
                               {getProductDisplayName(prod, locale)}
                             </h4>
-                            <p className="text-xs text-slate-400 dark:text-slate-500 font-mono font-medium">
+                            <p className="text-xs font-mono font-medium" style={{ color: 'var(--muted)' }}>
                               {isAr ? 'رمز المنتج' : 'SKU'}: {prod.sku}
                             </p>
                           </div>
@@ -1960,14 +1998,14 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                       {/* Price */}
                       {visibleColumns.price && (
                         <th className="py-3 px-2 min-w-[96px] text-start font-bold text-[11px] whitespace-nowrap" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                          {isAr ? 'السعر (ر.س)' : 'Price (SAR)'}
+                          {isAr ? 'السعر (⃁)' : 'Price (⃁)'}
                         </th>
                       )}
 
                       {/* Discount Price */}
                       {visibleColumns.salePrice && (
                         <th className="py-3 px-2 min-w-[120px] text-start font-bold text-[11px] whitespace-nowrap hidden md:table-cell" style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                          {isAr ? 'سعر الخصم' : 'Discount Price (SAR)'}
+                          {isAr ? 'سعر الخصم' : 'Discount Price (⃁)'}
                         </th>
                       )}
 
@@ -2709,8 +2747,8 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
             { id: 'image', label: isAr ? 'الصورة' : 'Image' },
             { id: 'name', label: isAr ? 'اسم المنتج' : 'Product Name' },
             { id: 'sku', label: isAr ? 'رمز المنتج' : 'SKU' },
-            { id: 'price', label: isAr ? 'السعر (ر.س)' : 'Price (SAR)' },
-            { id: 'salePrice', label: isAr ? 'سعر الخصم' : 'Discount Price (SAR)' },
+            { id: 'price', label: isAr ? 'السعر (⃁)' : 'Price (⃁)' },
+            { id: 'salePrice', label: isAr ? 'سعر الخصم' : 'Discount Price (⃁)' },
             { id: 'stock', label: isAr ? 'المخزون' : 'Stock' },
             { id: 'category', label: isAr ? 'التصنيف' : 'Category' },
             { id: 'status', label: isAr ? 'الحالة' : 'Status' },

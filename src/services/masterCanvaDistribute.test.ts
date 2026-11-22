@@ -3,9 +3,11 @@
  * Run: npx tsx src/services/masterCanvaDistribute.test.ts
  */
 import {
+  convertCanvaDataUrl,
   distributeCanvaToStores,
   MASTER_MEDIA_STORE_ID,
   saveCanvaToMasterMedia,
+  saveFullCanvaToMasterAdmin,
 } from './masterCanvaDistribute';
 import type { MediaAsset } from '../types/media';
 
@@ -125,6 +127,89 @@ async function run() {
   assert(
     Array.isArray(masterAsset.tags) && masterAsset.tags.includes('master-library'),
     'master-library tag',
+  );
+
+  const full = await saveFullCanvaToMasterAdmin({
+    payload: {
+      dataUrl: 'data:image/webp;base64,BBB',
+      title: 'Master Full Update',
+      width: 1080,
+      height: 1080,
+      category: 'banner',
+      layers: [
+        {
+          id: 'el-m1',
+          type: 'headline',
+          text: 'Master',
+          x: 50,
+          y: 50,
+          width: 120,
+          height: 40,
+          fontSize: 28,
+          fontColor: '#111',
+        },
+      ],
+      designJson: { backdrop: 'custom' },
+      source: 'studio',
+    },
+    addMediaAsset: (asset, targetStoreId) => ({
+      ...asset,
+      id: 'med-master-full',
+      storeId: targetStoreId || '',
+      uploadDate: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      version: 1,
+      processingStatus: 'ready',
+      optimizationStatus: 'optimized',
+      source: 'upload',
+    }),
+    isAr: false,
+  });
+  assert(full.mediaOk === true, 'full master save mediaOk');
+  assert(full.mediaId === 'med-master-full', 'full master media id');
+  // templateOk depends on IndexedDB — optional in Node
+  console.log('full master templateOk:', full.templateOk, full.error || 'ok');
+
+  // Export convert: already-PNG stays PNG (no browser Image needed)
+  const pngIn = 'data:image/png;base64,iVBORw0KGgo=';
+  const pngOut = await convertCanvaDataUrl(pngIn, 'png');
+  assert(pngOut === pngIn, 'PNG export passthrough');
+  const webpIn = 'data:image/webp;base64,UklGRg==';
+  const webpSame = await convertCanvaDataUrl(webpIn, 'webp');
+  assert(webpSame === webpIn, 'WebP export passthrough');
+
+  // PNG payload → store media uses .png mime (import/export parity)
+  const mimeCalls: string[] = [];
+  await distributeCanvaToStores({
+    storeIds: ['store-png'],
+    payload: {
+      dataUrl: pngIn,
+      previewDataUrl: pngIn,
+      title: 'PNG Export',
+      width: 100,
+      height: 100,
+      category: 'banner',
+      layers: [],
+      designJson: {},
+    },
+    addMediaAsset: (asset, targetStoreId) => {
+      mimeCalls.push(`${asset.mimeType}|${asset.fileName}|${targetStoreId}`);
+      return {
+        ...asset,
+        id: 'med-png',
+        storeId: targetStoreId || '',
+        uploadDate: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        version: 1,
+        processingStatus: 'ready',
+        optimizationStatus: 'optimized',
+        source: 'upload',
+      };
+    },
+  });
+  assert(
+    mimeCalls[0]?.startsWith('image/png|png-export.png|store-png'),
+    `expected png mime/file, got ${mimeCalls[0]}`,
   );
 
   console.log('masterCanvaDistribute.test.ts OK');

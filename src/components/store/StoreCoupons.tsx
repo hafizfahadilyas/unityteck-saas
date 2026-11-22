@@ -578,7 +578,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront }) 
                       className="w-full px-3.5 py-2.5 pe-12 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
                     />
                     <span className="absolute end-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                      {couponType === 'percentage' ? '%' : (isAr ? 'ر.س' : 'SAR')}
+                      {couponType === 'percentage' ? '%' : ('⃁')}
                     </span>
                   </div>
                 </div>
@@ -846,7 +846,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront }) 
                   {/* Min Order Amount */}
                   <div className="min-w-0 flex flex-col h-full">
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 min-h-[1.25rem]">
-                      {isAr ? 'الحد الأدنى للطلب (ر.س)' : 'Minimum Order Amount (SAR)'}
+                      {isAr ? 'الحد الأدنى للطلب (⃁)' : 'Minimum Order Amount (⃁)'}
                     </label>
                     <input
                       type="number"
@@ -1149,7 +1149,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront }) 
                     <div className="text-end">
                       <div className="text-3xl font-black tracking-tight leading-none text-white drop-shadow-sm tabular-nums">
                         {discountValue || '50'}
-                        {couponType === 'percentage' ? '%' : (isAr ? 'ر.س' : ' SAR')}
+                        {couponType === 'percentage' ? '%' : ('⃁')}
                       </div>
                       <span className="text-[10px] font-bold uppercase tracking-wider text-white/80">
                         {isAr ? 'خصم فوري' : 'OFF'}
@@ -1524,7 +1524,7 @@ export const StoreCoupons: React.FC<StoreCouponsProps> = ({ onViewStorefront }) 
               <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-semibold text-[11px] bg-slate-50/50 dark:bg-slate-800/40">
                 <th className="py-3 px-4 text-start">{isAr ? 'كود الكوبون' : 'Coupon Code'}</th>
                 <th className="py-3 px-3 text-start">{isAr ? 'الخصم' : 'Discount'}</th>
-                <th className="py-3 px-3 text-end">{isAr ? 'الحد الأدنى للطلب (ر.س)' : 'Min Order (SAR)'}</th>
+                <th className="py-3 px-3 text-end">{isAr ? 'الحد الأدنى للطلب (⃁)' : 'Min Order (⃁)'}</th>
                 <th className="py-3 px-3 text-center">{isAr ? 'الاستخدام' : 'Usage'}</th>
                 <th className="py-3 px-3 text-center">{isAr ? 'الحالة' : 'Status'}</th>
                 <th className="py-3 px-3 text-end">{isAr ? 'صالح حتى' : 'Valid Until'}</th>

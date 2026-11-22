@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Image as ImageIcon,
   Upload,
@@ -14,6 +14,9 @@ import { useToast } from './ToastProvider';
 import { MediaPickerModal } from './MediaPickerModal';
 import type { MediaAsset, MediaType } from '../../types/media';
 import { resolveMediaAssetUrl } from '../../utils/mediaUrl';
+import { resolveChromeImageUrlSync } from '../../i18n/storeChromeImageStore';
+import type { ChromeImageField } from '../../i18n/storeChromeImageStore';
+import { absolutePaintUrl } from '../../i18n/storeChrome';
 
 export interface MediaUploadFieldProps {
   label?: string;
@@ -30,6 +33,11 @@ export interface MediaUploadFieldProps {
   className?: string;
   /** Raw address box. Theme images use upload and the media library. */
   showUrlInput?: boolean;
+  /**
+   * Dashboard chrome wallpaper / sidebar bg — durable IndexedDB fallback
+   * so local blob previews are not lost after revoke / reload.
+   */
+  chromeImageField?: ChromeImageField;
 }
 
 export const MediaUploadField: React.FC<MediaUploadFieldProps> = ({
@@ -46,14 +54,35 @@ export const MediaUploadField: React.FC<MediaUploadFieldProps> = ({
   disabled = false,
   className = '',
   showUrlInput = false,
+  chromeImageField,
 }) => {
   const { locale } = usePrefs();
-  const { addMediaAsset, activeStore } = useTenant();
+  const { activeStore } = useTenant();
   const { toast } = useToast();
   const isAr = locale === 'ar';
 
   const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [hydratedPreview, setHydratedPreview] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const rawPreview = resolveChromeImageUrlSync(value) || hydratedPreview || value;
+  // Relative /images/... must paint from the store media host (not Vite localhost)
+  const previewSrc = rawPreview
+    ? absolutePaintUrl(rawPreview, activeStore?.id) || rawPreview
+    : '';
+
+  useEffect(() => {
+    let stop = false;
+    setHydratedPreview('');
+    if (!chromeImageField || !activeStore?.id || !value?.startsWith('chrome-idb://')) return;
+    void import('../../i18n/storeChromeImageStore').then(async ({ hydrateChromeImageUrl, resolveChromeImageUrlSync: resolveSync }) => {
+      await hydrateChromeImageUrl(activeStore.id, chromeImageField, value);
+      if (stop) return;
+      setHydratedPreview(resolveSync(value) || '');
+    });
+    return () => {
+      stop = true;
+    };
+  }, [value, chromeImageField, activeStore?.id]);
 
   const handleSelectMedia = (selected: MediaAsset | MediaAsset[]) => {
     const asset = Array.isArray(selected) ? selected[0] : selected;
@@ -84,55 +113,143 @@ export const MediaUploadField: React.FC<MediaUploadFieldProps> = ({
       return;
     }
 
-    const keepLocalPreview = () => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const dataUrl = ev.target?.result as string;
-        if (!dataUrl) return;
-        const asset = addMediaAsset({
-          fileName: file.name,
-          title: file.name.replace(/\.[^/.]+$/, ''),
-          fileType: 'image',
-          mimeType: file.type || 'image/jpeg',
-          fileSize: file.size,
-          originalUrl: dataUrl,
-          optimizedUrl: dataUrl,
-          webpUrl: dataUrl,
-          thumbnailUrl: dataUrl,
-          altText: altText || file.name.replace(/\.[^/.]+$/, ''),
-          caption: file.name,
-          folder: initialFolder || 'uploads',
-          tags: ['upload', 'direct'],
-          processingStatus: 'ready',
-          optimizationStatus: 'optimized',
-          source: 'upload',
-        });
-        onChange(dataUrl, asset);
-        toast(isAr ? 'تم رفع الصورة بنجاح وإضافتها للمكتبة' : 'Image uploaded & saved to media library', 'success');
-      };
-      reader.readAsDataURL(file);
-    };
+    const storeId = activeStore?.id || '';
+    // Instant wallpaper/bg paint — do not wait for Hostinger / local API
+    const objectUrl = URL.createObjectURL(file);
+    onChange(objectUrl);
 
     void (async () => {
+      const revokePreview = () => {
+        try {
+          URL.revokeObjectURL(objectUrl);
+        } catch {
+          /* ignore */
+        }
+      };
+
+      /** Dashboard chrome: IndexedDB first — never blocked by /api media timeout. */
+      if (chromeImageField && storeId) {
+        let durableUrl = '';
+        const { putChromeImage } = await import('../../i18n/storeChromeImageStore');
+        try {
+          durableUrl = await putChromeImage(storeId, chromeImageField, file);
+        } catch {
+          durableUrl = '';
+        }
+
+        // Large camera files can fail IDB — compress then retry once
+        let uploadFile: File = file;
+        if (!durableUrl) {
+          try {
+            const { optimizeImageFile } = await import('../../utils/mediaOptimizer');
+            const optimized = await optimizeImageFile(file, 1600, 280 * 1024);
+            uploadFile = optimized.file || file;
+            durableUrl = await putChromeImage(storeId, chromeImageField, uploadFile);
+          } catch {
+            uploadFile = file;
+          }
+        }
+
+        if (durableUrl) {
+          onChange(durableUrl);
+          // Revoke blob only after chrome-idb object URL is live (else center/sidebar BG vanishes)
+          const tryRevoke = () => {
+            if (resolveChromeImageUrlSync(durableUrl)) {
+              revokePreview();
+              return true;
+            }
+            return false;
+          };
+          if (!tryRevoke()) {
+            window.setTimeout(() => {
+              if (!tryRevoke()) window.setTimeout(revokePreview, 4000);
+            }, 1200);
+          }
+        } else {
+          toast(
+            isAr
+              ? 'المعاينة ظاهرة. أبقِ هذه الصفحة مفتوحة أو اختر صورة أصغر.'
+              : 'Preview is visible. Keep this page open or pick a smaller image.',
+            'info',
+          );
+        }
+
+        /*
+         * Chrome wallpaper/sidebar: durable IndexedDB only on pick.
+         * Do NOT auto-POST /api/media from localhost (CORS to mieraf) or auto-refresh.
+         * Merchant clicks Save appearance → saveStoreChrome syncs when API allows.
+         */
+        void (async () => {
+          let readyUrl = durableUrl;
+          try {
+            if (uploadFile === file) {
+              const { optimizeImageFile } = await import('../../utils/mediaOptimizer');
+              const optimized = await optimizeImageFile(file, 1920, 400 * 1024);
+              uploadFile = optimized.file || file;
+              const nextIdb = await putChromeImage(storeId, chromeImageField, uploadFile);
+              if (nextIdb) {
+                readyUrl = nextIdb;
+                onChange(nextIdb);
+              }
+            }
+          } catch {
+            /* keep current durable / blob */
+          }
+          if (readyUrl) {
+            toast(
+              isAr
+                ? 'الخلفية جاهزة محلياً — اضغط حفظ المظهر للتثبيت.'
+                : 'Wallpaper ready on this device — click Save appearance to lock it in.',
+              'success',
+            );
+          }
+        })();
+        return;
+      }
+
+      // Non-chrome media: optimize → API upload (existing path)
+      let uploadFile = file;
+      try {
+        const { optimizeImageFile } = await import('../../utils/mediaOptimizer');
+        const optimized = await optimizeImageFile(file, 1600, 400 * 1024);
+        uploadFile = optimized.file || file;
+      } catch {
+        uploadFile = file;
+      }
+
       try {
         const { isApiEnabled } = await import('../../api/client');
-        if (isApiEnabled() && activeStore?.id) {
+        if (isApiEnabled() && storeId) {
           const { uploadMediaFile } = await import('../../api/tenantApi');
-          const asset = await uploadMediaFile(activeStore.id, file, {
+          const asset = await uploadMediaFile(storeId, uploadFile, {
             alt: altText || file.name.replace(/\.[^/.]+$/, ''),
             folder: initialFolder || 'uploads',
           });
           const url = asset.optimizedUrl || asset.originalUrl;
           if (url) {
             onChange(url, asset);
-            toast(isAr ? 'تم رفع الصورة وتحديث المعاينة.' : 'Image uploaded and the preview updated.', 'success');
+            revokePreview();
+            toast(
+              isAr ? 'تم رفع الصورة وتحديث المعاينة.' : 'Image uploaded and the preview updated.',
+              'success',
+            );
             return;
           }
         }
+        toast(
+          isAr
+            ? 'المعاينة محلية — ارفع عند توفر الاتصال لحفظ الصورة.'
+            : 'Local preview only — reconnect to persist the image.',
+          'info',
+        );
       } catch {
-        /* keep a local preview when the store upload fails */
+        toast(
+          isAr
+            ? 'تعذر الرفع للخادم. المعاينة ما زالت ظاهرة — أعد المحاولة أو الصق رابط صورة.'
+            : 'Upload timed out. Preview stays — retry or paste an image URL.',
+          'error',
+        );
       }
-      keepLocalPreview();
     })();
   };
 
@@ -187,9 +304,13 @@ export const MediaUploadField: React.FC<MediaUploadFieldProps> = ({
               </div>
             ) : (
               <img
-                src={value}
+                key={previewSrc || value}
+                src={previewSrc || value}
                 alt={altText || 'Selected preview'}
                 className="w-full h-full object-cover transition-all"
+                onLoad={(e) => {
+                  (e.target as HTMLImageElement).style.display = '';
+                }}
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = 'none';
                 }}
@@ -258,9 +379,9 @@ export const MediaUploadField: React.FC<MediaUploadFieldProps> = ({
               <span>{isAr ? 'المكتبة' : 'Media Library'}</span>
             </button>
 
-            {value && (
+            {value && previewSrc && (
               <a
-                href={value}
+                href={previewSrc}
                 target="_blank"
                 rel="noreferrer"
                 className="px-2.5 py-1.5 rounded-xl text-[11px] font-semibold border flex items-center gap-1 hover:opacity-90 transition-opacity"
@@ -275,7 +396,14 @@ export const MediaUploadField: React.FC<MediaUploadFieldProps> = ({
               <button
                 type="button"
                 disabled={disabled}
-                onClick={() => onChange('')}
+                onClick={() => {
+                  if (chromeImageField && activeStore?.id) {
+                    void import('../../i18n/storeChromeImageStore').then(({ deleteChromeImage }) =>
+                      deleteChromeImage(activeStore.id, chromeImageField),
+                    );
+                  }
+                  onChange('');
+                }}
                 className="p-2 rounded-xl border text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer shrink-0"
                 style={{ borderColor: 'var(--border)' }}
                 title={isAr ? 'حذف الصورة' : 'Remove image'}

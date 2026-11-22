@@ -661,7 +661,7 @@ export const Header: React.FC<HeaderProps> = ({
                       style={{ color: act.cart.priceColor }}
                       className="text-xs font-bold font-mono"
                     >
-                      {cartSubtotal} {isAr ? 'ر.س' : 'SAR'}
+                      {cartSubtotal} {'⃁'}
                     </span>
                   )}
                 </button>
@@ -1223,7 +1223,7 @@ export const Header: React.FC<HeaderProps> = ({
                         <h4 className="text-xs font-bold text-[#102a1c]">{isAr ? product.name : product.nameEn}</h4>
                         <p className="text-[11px] text-[#8c8275]">{isAr ? product.category : product.categoryEn}</p>
                       </div>
-                      <span className="text-xs font-bold font-mono text-[#102a1c]">{product.price} {isAr ? 'ر.س' : 'SAR'}</span>
+                      <span className="text-xs font-bold font-mono text-[#102a1c]">{product.price} {'⃁'}</span>
                     </div>
                   ))}
                 </div>

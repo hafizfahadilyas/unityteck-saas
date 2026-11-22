@@ -83,7 +83,7 @@ async function runNotificationTests() {
 
   // 5. Template Tag Interpolation
   console.log('\n--- Test Suite 5: Dynamic Template Tag Interpolation ---');
-  const templateAr = 'مرحباً {{customer_name}}، تم شحن طلبك #{{order_number}} بمبلغ {{order_total}} ر.س مع {{courier_name}} برقم تتبع {{tracking_number}}. للتتبع: {{tracking_url}}';
+  const templateAr = 'مرحباً {{customer_name}}، تم شحن طلبك #{{order_number}} بمبلغ {{order_total}} ⃁ مع {{courier_name}} برقم تتبع {{tracking_number}}. للتتبع: {{tracking_url}}';
 
   const interpolated = interpolateNotificationTemplate(templateAr, {
     customer_name: 'فهد العصيمي',

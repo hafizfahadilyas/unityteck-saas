@@ -51,7 +51,10 @@ export const AdminPageShell: React.FC<{
 }> = ({ children, className = '', fullWidth = false }) => (
   <div
     className={`${fullWidth ? PAGE_SHELL_CLASS.replace('max-w-[1650px] mx-auto ', '') : PAGE_SHELL_CLASS} ${className}`.trim()}
-    style={{ color: 'var(--text)', fontFamily: 'var(--font-ui)' }}
+    style={{
+      color: 'var(--page-chrome-fg, var(--text))',
+      fontFamily: 'var(--font-ui)',
+    }}
     data-page-shell="1"
   >
     {children}

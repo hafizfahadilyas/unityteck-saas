@@ -1540,7 +1540,7 @@ export const MasterAccountManagement: React.FC<{
                       }}
                       disabled={editBusy}
                     >
-                      <option value="SAR">{isAr ? 'ريال سعودي' : 'SAR'}</option>
+                      <option value="SAR">{isAr ? 'ريال سعودي (⃁)' : 'Saudi Riyal (\u20C1)'}</option>
                       <option value="AED">{isAr ? 'درهم إماراتي' : 'AED'}</option>
                       <option value="USD">{isAr ? 'دولار أمريكي' : 'USD'}</option>
                       <option value="EUR">{isAr ? 'يورو' : 'EUR'}</option>

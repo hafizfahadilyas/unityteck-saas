@@ -1,4 +1,5 @@
-import type { DictKey } from './dict';
+import { translate, type DictKey } from './dict';
+import type { AppLocale } from './prefs';
 
 /** Master sidebar tab id → dictionary key */
 export const MASTER_NAV_KEYS: Record<string, DictKey> = {
@@ -66,14 +67,22 @@ export const STORE_NAV_KEYS: Record<string, DictKey> = {
   commerceTools: 'navCommerceTools',
   appstore: 'navAppStore',
   payments: 'navPayments',
-  settings: 'navSettings',
+  settings: 'navStoreSettings',
 };
 
+/**
+ * Locale-locked nav label.
+ * Pass `locale` so labels never stick to a stale `t` closure / wrong language.
+ */
 export function labelForNav(
-  t: (key: DictKey) => string,
+  localeOrT: AppLocale | ((key: DictKey) => string),
   map: Record<string, DictKey>,
   id: string,
 ): string {
   const key = map[id];
-  return key ? t(key) : id;
+  if (!key) return id;
+  if (typeof localeOrT === 'function') {
+    return localeOrT(key);
+  }
+  return translate(localeOrT, key);
 }

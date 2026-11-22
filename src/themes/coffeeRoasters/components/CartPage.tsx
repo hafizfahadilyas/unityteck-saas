@@ -160,7 +160,7 @@ export const CartPage: React.FC = () => {
                     )}
 
                     <div className="text-sm font-black text-neutral-900 font-sans pt-1">
-                      {language === 'AR' ? `${item.unitPrice.toLocaleString()}.00 ر.س` : `SAR ${item.unitPrice.toLocaleString()}.00`}
+                      {language === 'AR' ? `${item.unitPrice.toLocaleString()}.00 ⃁` : `⃁ ${item.unitPrice.toLocaleString()}.00`}
                     </div>
                   </div>
                 </div>
@@ -189,7 +189,7 @@ export const CartPage: React.FC = () => {
 
                   <div className="text-right">
                     <div className="text-sm sm:text-base font-black text-neutral-900 font-sans">
-                      {language === 'AR' ? `${(item.unitPrice * item.quantity).toLocaleString()}.00 ر.س` : `SAR ${(item.unitPrice * item.quantity).toLocaleString()}.00`}
+                      {language === 'AR' ? `${(item.unitPrice * item.quantity).toLocaleString()}.00 ⃁` : `⃁ ${(item.unitPrice * item.quantity).toLocaleString()}.00`}
                     </div>
                   </div>
 
@@ -217,13 +217,13 @@ export const CartPage: React.FC = () => {
                 <div className="flex justify-between items-center">
                   <span>{language === 'AR' ? 'المجموع الفرعي' : 'Subtotal'}</span>
                   <span className="font-sans text-neutral-900 font-semibold">
-                    {language === 'AR' ? `${cartTotal.toLocaleString()}.00 ر.س` : `SAR ${cartTotal.toLocaleString()}.00`}
+                    {language === 'AR' ? `${cartTotal.toLocaleString()}.00 ⃁` : `⃁ ${cartTotal.toLocaleString()}.00`}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span>{language === 'AR' ? 'ضريبة القيمة المضافة (15% مشمولة)' : 'VAT (15% inclusive)'}</span>
                   <span className="font-sans text-neutral-900 font-semibold">
-                    {language === 'AR' ? `${cartVat.toLocaleString()}.00 ر.س` : `SAR ${cartVat.toLocaleString()}.00`}
+                    {language === 'AR' ? `${cartVat.toLocaleString()}.00 ⃁` : `⃁ ${cartVat.toLocaleString()}.00`}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-emerald-700 font-medium">
@@ -240,7 +240,7 @@ export const CartPage: React.FC = () => {
                       </button>
                     </span>
                     <span className="font-sans">
-                      {language === 'AR' ? `-${discountAmount.toLocaleString()}.00 ر.س` : `-SAR ${discountAmount.toLocaleString()}.00`}
+                      {language === 'AR' ? `-${discountAmount.toLocaleString()}.00 ⃁` : `-SAR ${discountAmount.toLocaleString()}.00`}
                     </span>
                   </div>
                 )}
@@ -248,7 +248,7 @@ export const CartPage: React.FC = () => {
                 <div className="flex justify-between items-center text-sm sm:text-base font-black text-neutral-900 pt-3 border-t border-neutral-200/60">
                   <span>{language === 'AR' ? 'الإجمالي النهائي' : 'Total Amount'}</span>
                   <span className="font-sans text-base sm:text-lg text-neutral-900">
-                    {language === 'AR' ? `${finalTotal.toLocaleString()}.00 ر.س` : `SAR ${finalTotal.toLocaleString()}.00`}
+                    {language === 'AR' ? `${finalTotal.toLocaleString()}.00 ⃁` : `⃁ ${finalTotal.toLocaleString()}.00`}
                   </span>
                 </div>
               </div>

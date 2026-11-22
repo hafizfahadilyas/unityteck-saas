@@ -40,8 +40,8 @@ async function runEndToEndVerification() {
   const parsedZatca = parseAndVerifyZatcaTlv(zatcaTlv);
   assert(parsedZatca.sellerName === 'مؤسسة هدايا مكة للتجارة', 'ZATCA UTF-8 Arabic seller name decoded without corruption');
   assert(parsedZatca.vatNumber === '300948215600003', 'ZATCA VAT number decoded accurately');
-  assert(parsedZatca.invoiceTotal === 1850.75, 'ZATCA invoice total decoded accurately as 1850.75 SAR');
-  assert(parsedZatca.vatTotal === 241.40, 'ZATCA VAT total decoded accurately as 241.40 SAR');
+  assert(parsedZatca.invoiceTotal === 1850.75, 'ZATCA invoice total decoded accurately as 1850.75 ⃁');
+  assert(parsedZatca.vatTotal === 241.40, 'ZATCA VAT total decoded accurately as 241.40 ⃁');
   assert(parsedZatca.isPhase2Compliant === true, 'Phase 2 security tags (Tags 6, 7, 8) present and valid');
 
   // 2. Saudi Mobile Normalization & WhatsApp Logistics Engine

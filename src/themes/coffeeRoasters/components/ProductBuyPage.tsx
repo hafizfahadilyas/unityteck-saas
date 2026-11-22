@@ -830,16 +830,16 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
         <div className="flex items-baseline justify-end gap-3 pb-6 border-b border-[#E5E5E5] flex-wrap">
           {savingsSAR > 0 && (
             <span className="text-red-600 font-bold text-sm sm:text-base">
-              {language === 'AR' ? `وفر${savingsSAR.toLocaleString()}.00 ر.س` : `Save SAR ${savingsSAR.toLocaleString()}.00`}
+              {language === 'AR' ? `وفر${savingsSAR.toLocaleString()}.00 ⃁` : `Save SAR ${savingsSAR.toLocaleString()}.00`}
             </span>
           )}
           {originalPrice && (
             <span className="text-neutral-400 line-through text-sm sm:text-base font-sans">
-              {language === 'AR' ? `${originalPrice.toLocaleString()}.00 ر.س` : `SAR ${originalPrice.toLocaleString()}.00`}
+              {language === 'AR' ? `${originalPrice.toLocaleString()}.00 ⃁` : `⃁ ${originalPrice.toLocaleString()}.00`}
             </span>
           )}
           <span className="text-xl sm:text-3xl font-black text-neutral-900 font-sans tracking-tight">
-            {language === 'AR' ? `${totalPrice.toLocaleString()}.00 ر.س` : `SAR ${totalPrice.toLocaleString()}.00`}
+            {language === 'AR' ? `${totalPrice.toLocaleString()}.00 ⃁` : `⃁ ${totalPrice.toLocaleString()}.00`}
           </span>
         </div>
 
@@ -931,10 +931,10 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               </div>
               <div className="flex flex-col items-end gap-0.5 shrink-0">
                 <span className="text-[10px] font-medium text-neutral-500 font-sans hidden sm:inline">
-                  {language === 'AR' ? '99 + 199 ر.س' : 'SAR 99 + 199'}
+                  {language === 'AR' ? '99 + 199 \u20C1' : '\u20C1 99 + 199'}
                 </span>
                 <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-                  {language === 'AR' ? 'بقيمة 457 ر.س مجاناً' : 'SAR 457 Free'}
+                  {language === 'AR' ? 'بقيمة 457 \u20C1 مجاناً' : '\u20C1 457 Free'}
                 </span>
               </div>
             </div>
@@ -965,7 +965,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               <div className="relative pl-3 xs:pl-4 sm:pl-6 text-white text-left flex flex-col justify-center z-10 shrink-0">
                 <span className="text-[9.5px] xs:text-[11px] sm:text-xs font-semibold leading-tight text-white drop-shadow-2xs">
                   {language === 'AR'
-                    ? `أو يبدأ من${(totalPrice / 12).toFixed(2)}ر.س شهرياً`
+                    ? `أو يبدأ من${(totalPrice / 12).toFixed(2)}⃁ شهرياً`
                     : `or starts from SAR ${(totalPrice / 12).toFixed(2)}/mo`}
                 </span>
                 <span className="text-[8.5px] xs:text-[10px] sm:text-[11px] text-white/95 font-medium leading-tight mt-0.5">
@@ -984,7 +984,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               {/* Right Side: Price Content + Dual Sparkles (Matches Image 1) */}
               <div className="relative pr-3 xs:pr-4 sm:pr-6 flex items-center gap-1 sm:gap-1.5 z-10 shrink-0">
                 <span className="text-base xs:text-lg sm:text-2xl font-black text-white font-sans tracking-wide">
-                  {language === 'AR' ? `${totalPrice.toLocaleString()}ر.س` : `SAR ${totalPrice.toLocaleString()}`}
+                  {language === 'AR' ? `${totalPrice.toLocaleString()}⃁` : `⃁ ${totalPrice.toLocaleString()}`}
                 </span>
                 <div className="relative ml-0.5 sm:ml-1 shrink-0">
                   <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-white fill-white drop-shadow-2xs" viewBox="0 0 24 24">
@@ -1152,8 +1152,8 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                   </h3>
                   <div className="text-xs sm:text-sm font-bold text-white/95 font-sans">
                     {language === 'AR'
-                      ? `خصم${displayDiscount.toLocaleString()}ر.س`
-                      : `SAR ${displayDiscount.toLocaleString()} OFF`}
+                      ? `خصم${displayDiscount.toLocaleString()}⃁`
+                      : `⃁ ${displayDiscount.toLocaleString()} OFF`}
                   </div>
                 </div>
 
@@ -1281,7 +1281,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                   {language === 'AR' && selectedColor?.nameAr ? selectedColor.nameAr : selectedColor?.name}
                 </div>
                 <div className="text-xs text-neutral-500 font-sans mt-0.5">
-                  {language === 'AR' ? `${unitPrice.toLocaleString()}.00 ر.س` : `SAR ${unitPrice.toLocaleString()}.00`}
+                  {language === 'AR' ? `${unitPrice.toLocaleString()}.00 ⃁` : `⃁ ${unitPrice.toLocaleString()}.00`}
                 </div>
               </div>
             </div>
@@ -1317,7 +1317,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                           </div>
                         )}
                         <div className="font-sans text-xs font-semibold text-neutral-600 mt-2">
-                          {language === 'AR' ? `${optPrice.toLocaleString()}.00 ر.س` : `SAR ${optPrice.toLocaleString()}.00`}
+                          {language === 'AR' ? `${optPrice.toLocaleString()}.00 ⃁` : `⃁ ${optPrice.toLocaleString()}.00`}
                         </div>
                       </button>
                     );
@@ -1360,7 +1360,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                           </div>
                         </div>
                         <span className="font-sans text-xs font-bold text-neutral-900">
-                          {language === 'AR' ? `+${bundle.price}ر.س` : `+SAR ${bundle.price}`}
+                          {language === 'AR' ? `+${bundle.price}⃁` : `+SAR ${bundle.price}`}
                         </span>
                       </button>
                     );
@@ -1426,7 +1426,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                     ) : null}
                   </div>
                   <span className="font-bold text-xs sm:text-sm text-neutral-900 shrink-0 font-sans">
-                    {language === 'AR' ? `${unitPrice.toLocaleString()}.00 ر.س` : `SAR ${unitPrice.toLocaleString()}.00`}
+                    {language === 'AR' ? `${unitPrice.toLocaleString()}.00 ⃁` : `⃁ ${unitPrice.toLocaleString()}.00`}
                   </span>
                 </div>
               </div>
@@ -1443,15 +1443,15 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                   </span>
                   <div className="text-end">
                     <div className="text-base sm:text-xl font-bold text-neutral-900 font-sans">
-                      {language === 'AR' ? `${totalPrice.toLocaleString()}.00 ر.س` : `SAR ${totalPrice.toLocaleString()}.00`}
+                      {language === 'AR' ? `${totalPrice.toLocaleString()}.00 ⃁` : `⃁ ${totalPrice.toLocaleString()}.00`}
                     </div>
                     {savingsSAR > 0 && (
                     <div className="flex items-center justify-end gap-2 mt-0.5">
                       <span className="text-xs font-semibold text-red-600 font-sans">
-                        {language === 'AR' ? `وفرت${savingsSAR.toLocaleString()}.00 ر.س` : `Save SAR ${savingsSAR.toLocaleString()}.00`}
+                        {language === 'AR' ? `وفرت${savingsSAR.toLocaleString()}.00 ⃁` : `Save SAR ${savingsSAR.toLocaleString()}.00`}
                       </span>
                       <span className="text-xs text-neutral-400 line-through font-sans">
-                        {language === 'AR' ? `${originalPrice.toLocaleString()}.00 ر.س` : `SAR ${originalPrice.toLocaleString()}.00`}
+                        {language === 'AR' ? `${originalPrice.toLocaleString()}.00 ⃁` : `⃁ ${originalPrice.toLocaleString()}.00`}
                       </span>
                     </div>
                     )}
@@ -1494,7 +1494,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                   {couponDiscount > 0 ? (
                     <p className="text-[11px] text-emerald-700 mt-1">
                       {language === 'AR'
-                        ? `خصم السلة: ${couponDiscount.toLocaleString()} ر.س`
+                        ? `خصم السلة: ${couponDiscount.toLocaleString()} ⃁`
                         : `Cart discount: SAR ${couponDiscount.toLocaleString()}`}
                     </p>
                   ) : null}
@@ -2046,11 +2046,11 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
             </span>
             <div className="flex items-baseline gap-1.5">
               <span className="text-base font-black text-neutral-900 font-sans tracking-tight">
-                {language === 'AR' ? `${totalPrice.toLocaleString()}ر.س` : `SAR ${totalPrice.toLocaleString()}`}
+                {language === 'AR' ? `${totalPrice.toLocaleString()}⃁` : `⃁ ${totalPrice.toLocaleString()}`}
               </span>
               {savingsSAR > 0 && (
                 <span className="text-[10px] text-red-600 font-bold font-sans">
-                  {language === 'AR' ? `وفر${savingsSAR}ر.س` : `Save SAR ${savingsSAR}`}
+                  {language === 'AR' ? `وفر${savingsSAR}⃁` : `Save SAR ${savingsSAR}`}
                 </span>
               )}
             </div>

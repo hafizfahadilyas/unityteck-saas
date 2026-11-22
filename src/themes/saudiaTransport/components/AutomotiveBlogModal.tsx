@@ -456,11 +456,11 @@ export const AutomotiveBlogModal: React.FC<AutomotiveBlogModalProps> = ({
                         </h4>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="font-black text-xs text-[#f6c344]">
-                            {prod.discountedPrice || prod.price} {isAr ? 'ر.س' : 'SAR'}
+                            {prod.discountedPrice || prod.price} {'⃁'}
                           </span>
                           {prod.originalPrice && (
                             <span className="text-[10px] text-slate-400 line-through">
-                              {prod.originalPrice} {isAr ? 'ر.س' : 'SAR'}
+                              {prod.originalPrice} {'⃁'}
                             </span>
                           )}
                         </div>
@@ -487,8 +487,8 @@ export const AutomotiveBlogModal: React.FC<AutomotiveBlogModalProps> = ({
                             const pName = isAr ? prod.nameAr : prod.nameEn || prod.name;
                             openWhatsAppOrder(
                               isAr
-                                ? `السلام عليكم، أود طلب: "${pName}" المذكور في مقال المدونة بسعر${prod.discountedPrice || prod.price}ر.س`
-                                : `Hello, I'd like to order: "${pName}" mentioned in the blog post for ${prod.discountedPrice || prod.price} SAR`
+                                ? `السلام عليكم، أود طلب: "${pName}" المذكور في مقال المدونة بسعر${prod.discountedPrice || prod.price}⃁`
+                                : `Hello, I'd like to order: "${pName}" mentioned in the blog post for ${prod.discountedPrice || prod.price} ⃁`
                             );
                           }
                         }}

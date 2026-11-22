@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import {
@@ -18,8 +18,6 @@ import {
   Phone,
   Mail,
   ExternalLink,
-  Sun,
-  Moon,
   ToggleLeft,
   ToggleRight,
   Sparkles,
@@ -34,6 +32,7 @@ import {
   CheckCircle2,
   AlertCircle,
   ArrowLeft,
+  Save,
 } from 'lucide-react';
 import { PortalHubCard } from '../common/PortalHubCard';
 import { GoogleConnectModal } from './GoogleConnectModal';
@@ -51,14 +50,20 @@ import { ConnectedWorkspaceBanner } from '../common/ConnectedWorkspaceBanner';
 import { readAllThemeSettings, writeAllThemeSettings } from '../../themes/settings/themeSettingsStore';
 import { readStoreIdentity, splitStoreName, writeStoreIdentity, type StoreIdentitySettings } from '../../themes/settings/storeIdentity';
 import { StoreChromeFields } from './settings/StoreChromeFields';
+import { DashboardLookSwitch } from './dashboard/DashboardLookSwitch';
 import {
   bindStoreChrome,
+  cacheStoreChromeNow,
   currentChromeRevision,
+  isEphemeralImageUrl,
   loadStoreChrome,
   readChromeCache,
+  rememberPendingChrome,
+  resolveDashboardLookId,
   saveStoreChrome,
   type StoreChromeBrand,
 } from '../../i18n/storeChrome';
+import { deleteChromeImage } from '../../i18n/storeChromeImageStore';
 
 type SettingsTab =
   | 'general'
@@ -73,11 +78,12 @@ type SettingsTab =
 
 export const StoreSettings: React.FC = () => {
   const { activeStore, updateStorePlan, softRefreshTenantData, currentSEOConfig } = useTenant();
-  const { t, locale, setLocale, currency, setCurrency, theme, toggleTheme, money, allowedLocales } = usePrefs();
+  const { t, locale, setLocale, currency, setCurrency, money, allowedLocales } = usePrefs();
   const { toast } = useToast();
   const isAr = locale === 'ar';
-  const chromeSaveTimer = useRef<number | null>(null);
   const [chrome, setChrome] = useState<StoreChromeBrand>(() => readChromeCache(activeStore.id));
+  const [chromeDirty, setChromeDirty] = useState(false);
+  const [chromeSaving, setChromeSaving] = useState(false);
   const [showGoogleConnect, setShowGoogleConnect] = useState(false);
   const [settingsFocus, setSettingsFocus] = useState<'search_console' | 'tag_manager'>('search_console');
 
@@ -85,33 +91,86 @@ export const StoreSettings: React.FC = () => {
     let stop = false;
     const cached = readChromeCache(activeStore.id);
     setChrome(cached);
+    setChromeDirty(false);
     bindStoreChrome(activeStore.id, cached);
     const seen = currentChromeRevision();
     void loadStoreChrome(activeStore.id).then((next) => {
+      // Skip if merchant already painted a newer chrome (upload / slider) during fetch
       if (stop || currentChromeRevision() !== seen) return;
+      // Only apply when load enriched wallpaper/CDN URL or timestamp — avoid visual snap-back
+      const sameDesign =
+        next.palette === cached.palette &&
+        next.fill === cached.fill &&
+        next.customColor === cached.customColor &&
+        next.gradientFrom === cached.gradientFrom &&
+        next.gradientTo === cached.gradientTo &&
+        next.sidebarDesign === cached.sidebarDesign &&
+        next.shellWallpaperPreset === cached.shellWallpaperPreset &&
+        next.shellWallpaperBlur === cached.shellWallpaperBlur &&
+        next.shellWallpaperOpacity === cached.shellWallpaperOpacity &&
+        next.shellWallpaper === cached.shellWallpaper &&
+        next.bgImage === cached.bgImage &&
+        next.dashboardLookId === cached.dashboardLookId;
+      if (sameDesign) return;
       setChrome(next);
       bindStoreChrome(activeStore.id, next);
     });
     return () => {
       stop = true;
-      if (chromeSaveTimer.current) window.clearTimeout(chromeSaveTimer.current);
     };
   }, [activeStore.id]);
 
+  /** Preview only — no auto API save (avoids CORS / wipe races). User clicks Save. */
   const updateChrome = (next: StoreChromeBrand) => {
-    setChrome(next);
-    if (next.fill === 'custom' && !/^#[0-9a-fA-F]{6}$/.test(next.customColor)) return;
-    bindStoreChrome(activeStore.id, next);
-    if (chromeSaveTimer.current) window.clearTimeout(chromeSaveTimer.current);
-    chromeSaveTimer.current = window.setTimeout(() => {
-      void saveStoreChrome(activeStore.id, next)
-        .then(() => {
-          toast(isAr ? 'تم حفظ مظهر هذا المتجر' : 'This store appearance was saved', 'success');
-        })
-        .catch(() => {
-          toast(isAr ? 'تعذر حفظ المظهر على الخادم' : 'Could not save appearance on the server', 'error');
-        });
-    }, 450);
+    const normalized: StoreChromeBrand = {
+      ...next,
+      shellWallpaperBlur:
+        typeof next.shellWallpaperBlur === 'number' ? next.shellWallpaperBlur : 10,
+      shellWallpaperOpacity:
+        typeof next.shellWallpaperOpacity === 'number' ? next.shellWallpaperOpacity : 0.92,
+      updatedAt: Date.now(),
+    };
+    if (!normalized.shellWallpaper && chrome.shellWallpaper) {
+      void deleteChromeImage(activeStore.id, 'shellWallpaper');
+      void import('../../i18n/shellWallpaperLuma').then(({ clearShellWallpaperLumaCache }) => {
+        clearShellWallpaperLumaCache();
+      });
+    }
+    if (!normalized.bgImage && chrome.bgImage) {
+      void deleteChromeImage(activeStore.id, 'bgImage');
+    }
+    setChrome(normalized);
+    setChromeDirty(true);
+    if (normalized.fill === 'custom' && !/^#[0-9a-fA-F]{6}$/.test(normalized.customColor)) return;
+    bindStoreChrome(activeStore.id, normalized);
+    rememberPendingChrome(activeStore.id, normalized);
+    cacheStoreChromeNow(activeStore.id, normalized);
+  };
+
+  const saveChromeAppearance = async () => {
+    if (chromeSaving) return;
+    setChromeSaving(true);
+    try {
+      await saveStoreChrome(activeStore.id, chrome);
+      setChromeDirty(false);
+      if (isEphemeralImageUrl(chrome.shellWallpaper) || isEphemeralImageUrl(chrome.bgImage)) {
+        toast(
+          isAr
+            ? 'المعاينة محفوظة محلياً — انتظر اكتمال الرفع ثم احفظ مرة أخرى.'
+            : 'Preview saved on this device — wait for upload to finish, then Save again.',
+          'info',
+        );
+      } else {
+        toast(isAr ? 'تم حفظ مظهر هذا المتجر' : 'This store appearance was saved', 'success');
+      }
+    } catch {
+      toast(
+        isAr ? 'تعذر حفظ المظهر. الخلفية ما زالت على هذا الجهاز.' : 'Could not save appearance. Wallpaper stays on this device.',
+        'error',
+      );
+    } finally {
+      setChromeSaving(false);
+    }
   };
 
   // null = settings hub (big buttons); set = open that section
@@ -246,17 +305,33 @@ export const StoreSettings: React.FC = () => {
       instagram: socialLinks.instagram?.url || storeIdentity.instagram,
       updatedAt: new Date().toISOString(),
     };
-    writeStoreIdentity(activeStore.id, updatedIdentity);
+    const logoForSave = (() => {
+      const raw = (logoUrl || '').trim();
+      if (!raw || raw.startsWith('data:') || raw.startsWith('blob:')) return raw;
+      const stamp = Date.now();
+      if (/[?&]v=/.test(raw)) return raw.replace(/([?&]v=)[^&]*/i, `$1${stamp}`);
+      return `${raw}${raw.includes('?') ? '&' : '?'}v=${stamp}`;
+    })();
+    const identityWithBust: StoreIdentitySettings = {
+      ...updatedIdentity,
+      logoUrl: logoForSave || updatedIdentity.logoUrl,
+    };
+    writeStoreIdentity(activeStore.id, identityWithBust);
     const currThemeSettings = readAllThemeSettings(activeStore.id, activeStore);
     writeAllThemeSettings(activeStore.id, {
       ...currThemeSettings,
-      identity: updatedIdentity,
+      identity: identityWithBust,
     });
+    if (logoForSave && logoForSave !== logoUrl) setLogoUrl(logoForSave);
     bumpStore(activeStore.id, 'settings');
     bumpStore(activeStore.id, 'theme');
     window.dispatchEvent(
       new CustomEvent('unityteck-store-updated', {
-        detail: { storeId: activeStore.id, name: storeNameEn || storeNameAr, logo: logoUrl },
+        detail: {
+          storeId: activeStore.id,
+          name: storeNameEn || storeNameAr,
+          logo: logoForSave || logoUrl,
+        },
       }),
     );
     toast(
@@ -378,42 +453,25 @@ export const StoreSettings: React.FC = () => {
             onClick={() => {
               const next = locale === 'ar' ? 'en' : 'ar';
               setLocale(next);
-              toast(next === 'ar' ? 'تم تحويل النظام إلى العربية' : 'Language set to English', 'success');
+              // Toast matches the NEW locale only (no language mix)
+              toast(
+                next === 'ar' ? 'تم تحويل النظام إلى العربية' : 'Language set to English',
+                'success',
+              );
             }}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer shadow-xs transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer shadow-xs transition-colors hover:opacity-90"
             style={{
               background: 'var(--surface)',
               borderColor: 'var(--border)',
               color: 'var(--text)',
             }}
-            title={isAr ? 'التبديل إلى الإنجليزية' : 'تحويل اللغة إلى العربية'}
+            title={isAr ? 'التبديل إلى الإنجليزية' : 'Switch language to Arabic'}
+            aria-label={isAr ? 'التبديل إلى الإنجليزية' : 'Switch language to Arabic'}
           >
-            <Globe className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <Globe className="w-4 h-4" style={{ color: 'var(--accent)' }} />
             <span className="font-bold">{isAr ? 'الإنجليزية' : 'العربية'}</span>
           </button>
 
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer shadow-xs transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
-            style={{
-              background: 'var(--surface)',
-              borderColor: 'var(--border)',
-              color: 'var(--text)',
-            }}
-          >
-            {theme === 'dark' ? (
-              <>
-                <Sun className="w-4 h-4 text-amber-400" />
-                <span>{isAr ? 'الوضع الفاتح' : 'Light Mode'}</span>
-              </>
-            ) : (
-              <>
-                <Moon className="w-4 h-4 text-indigo-500" />
-                <span>{isAr ? 'الوضع الداكن' : 'Dark Mode'}</span>
-              </>
-            )}
-          </button>
         </div>
       </div>
 
@@ -492,7 +550,20 @@ export const StoreSettings: React.FC = () => {
                 <MediaUploadField
                   label={isAr ? 'شعار المتجر' : 'Store Logo'}
                   value={logoUrl}
-                  onChange={(url) => setLogoUrl(url)}
+                  onChange={(url) => {
+                    const next = (url || '').trim();
+                    setLogoUrl(next);
+                    // Live sidebar/avatar paint — do not wait for Save
+                    window.dispatchEvent(
+                      new CustomEvent('unityteck-store-updated', {
+                        detail: {
+                          storeId: activeStore.id,
+                          name: storeNameEn || storeNameAr,
+                          logo: next,
+                        },
+                      }),
+                    );
+                  }}
                   recommendedSize="200 × 200 px"
                   aspectRatio="square"
                   initialFolder="branding"
@@ -903,8 +974,8 @@ export const StoreSettings: React.FC = () => {
               </div>
               <p className="text-[11px] opacity-70 mt-1">
                 {isAr
-                  ? 'اللغات المتاحة لهذا المتجر يتم التحكم بها مركزياً بواسطة المشرف العام.'
-                  : 'Available languages for this store are controlled centrally by Super Admin.'}
+                  ? 'تبديل لغة لوحة التحكم فوري لكل المتاجر (عربي / إنجليزي بالكامل). لغات واجهة المتجر العامة تُدار من المنصة.'
+                  : 'Admin chrome language switches instantly for every store (full Arabic / English). Public storefront languages are managed from the platform.'}
               </p>
             </div>
 
@@ -936,13 +1007,67 @@ export const StoreSettings: React.FC = () => {
       {/* ── TAB 3: Theme, Colors & Google Fonts (Top 15 + Weights) ── */}
       {activeTab === 'appearance' && (
         <div className="space-y-6">
+          <DashboardLookSwitch
+            variant="card"
+            activeLookId={resolveDashboardLookId(chrome)}
+            onApplied={(next) => {
+              setChrome(next);
+              setChromeDirty(true);
+            }}
+          />
           <BrandingPanel
             storeScoped
             activePalette={chrome.fill === 'palette' ? chrome.palette : null}
             onPaletteSelect={(id) => updateChrome({ ...chrome, palette: id, fill: 'palette', bgImage: chrome.fill === 'image' ? '' : chrome.bgImage })}
+            onStoreColorsChange={({ bg, text }) =>
+              updateChrome({
+                ...chrome,
+                pageBgColor: bg || '',
+                pageTextColor: text || '',
+                shellTextMode: text ? 'custom' : 'auto',
+              })
+            }
             title={isAr ? 'تخصيص الهوية والألوان والخطوط' : 'Store Branding, Colors & Typography'}
           />
           <StoreChromeFields chrome={chrome} onChange={updateChrome} />
+          <div
+            className="u-card p-4 sm:p-5 rounded-[1.25rem] flex flex-col sm:flex-row sm:items-center gap-3 justify-between"
+            style={{ color: 'var(--text)' }}
+          >
+            <p className="text-[11px] sm:text-xs" style={{ color: 'var(--muted)' }}>
+              {isAr
+                ? 'المعاينة فورية. اضغط حفظ لتثبيت خلفية اللوحة والشريط لهذا المتجر.'
+                : 'Preview is live. Click Save to lock dashboard and sidebar backgrounds for this store.'}
+              {chromeDirty ? (
+                <span className="ms-1 font-bold" style={{ color: 'var(--accent)' }}>
+                  {isAr ? '(غير محفوظ)' : '(Unsaved)'}
+                </span>
+              ) : null}
+            </p>
+            <button
+              type="button"
+              disabled={chromeSaving || !chromeDirty}
+              onClick={() => void saveChromeAppearance()}
+              className="unity-btn-primary inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+              style={{ background: 'var(--portal-cta, var(--accent))' }}
+              aria-busy={chromeSaving || undefined}
+            >
+              {chromeSaving ? (
+                <RefreshCw className="w-4 h-4 animate-spin" aria-hidden />
+              ) : (
+                <Save className="w-4 h-4" aria-hidden />
+              )}
+              <span>
+                {chromeSaving
+                  ? isAr
+                    ? 'جارٍ الحفظ…'
+                    : 'Saving…'
+                  : isAr
+                    ? 'حفظ المظهر'
+                    : 'Save appearance'}
+              </span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -1135,7 +1260,7 @@ export const StoreSettings: React.FC = () => {
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-bold text-sm flex items-center gap-1.5">
-                    <span>{isAr ? 'احترافية · ٣٠٠ ر.س' : 'Pro · 300 SAR'}</span>
+                    <span>{isAr ? 'احترافية · ٣٠٠ ⃁' : 'Pro · 300 ⃁'}</span>
                     {activeStore.masterGrantedPro && (
                       <span className="text-[10px] bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 font-bold px-1.5 py-0.5 rounded">
                         {isAr ? 'منحة الإدارة' : 'Master grant'}
@@ -1169,7 +1294,7 @@ export const StoreSettings: React.FC = () => {
                 style={{ borderColor: activeStore.plan === 'premium' ? 'var(--accent)' : 'var(--border)' }}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="font-bold text-sm">{isAr ? 'مميزة · ٥٠٠ ر.س' : 'Premium · 500 SAR'}</span>
+                  <span className="font-bold text-sm">{isAr ? 'مميزة · ٥٠٠ ⃁' : 'Premium · 500 ⃁'}</span>
                   {activeStore.plan === 'premium' && (
                     <span className="text-xs font-semibold text-emerald-500">{isAr ? 'مفعلة' : 'Active'}</span>
                   )}

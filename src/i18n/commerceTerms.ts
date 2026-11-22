@@ -69,7 +69,8 @@ export const COMMERCE_TERMS = {
   shippingCompanies: { en: 'Shipping Companies', ar: 'شركات الشحن' },
   cashOnDelivery: { en: 'Cash on Delivery', ar: 'الدفع عند الاستلام' },
   codLedger: { en: 'COD Cash Ledger', ar: 'سجل تحصيل الدفع عند الاستلام' },
-  currencySar: { en: 'SAR', ar: 'ر.س' },
+  // Official SAMA Saudi Riyal Sign (U+20C1) — same symbol AR/EN
+  currencySar: { en: '\u20C1', ar: '\u20C1' },
   installmentSchedule: { en: 'Installment Schedule', ar: 'جدول الأقساط' },
   dueDates: { en: 'Due Dates', ar: 'تواريخ الاستحقاق' },
   paymentHistory: { en: 'Payment History', ar: 'سجل المدفوعات' },

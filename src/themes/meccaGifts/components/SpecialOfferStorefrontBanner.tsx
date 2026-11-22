@@ -44,8 +44,8 @@ export const SpecialOfferStorefrontBanner: React.FC<Props> = ({ language }) => {
   const discountLabel =
     offer.offerType === 'fixed'
       ? isAr
-        ? `${offer.discountValue} ر.س خصم`
-        : `${offer.discountValue} SAR OFF`
+        ? `${offer.discountValue} ⃁ خصم`
+        : `${offer.discountValue} ⃁ OFF`
       : `${offer.discountValue}% OFF`;
 
   const thumbs = (offer.productIds || [])

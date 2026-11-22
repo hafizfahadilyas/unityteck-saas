@@ -253,7 +253,7 @@ export const ProductCarouselForm: React.FC<CoffeeFormChromeProps> = ({ onBack, e
                 <div className="text-[11px] font-bold truncate">{name || (isAr ? 'بدون اسم' : 'Untitled')}</div>
                 {price != null ? (
                   <div className="text-[10px] mt-1" style={{ color: 'var(--muted)' }}>
-                    {isAr ? `${Number(price).toLocaleString()} ر.س` : `SAR ${Number(price).toLocaleString()}`}
+                    {isAr ? `${Number(price).toLocaleString()} ⃁` : `⃁ ${Number(price).toLocaleString()}`}
                   </div>
                 ) : null}
                 {stock != null ? (

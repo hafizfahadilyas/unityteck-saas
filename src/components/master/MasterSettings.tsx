@@ -14,8 +14,6 @@ import {
   Share2,
   Image as ImageIcon,
   Check,
-  Sun,
-  Moon,
   Clock,
   RefreshCw,
   Server,
@@ -60,7 +58,7 @@ type MasterSettingsProps = {
 
 export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab }) => {
   const { stores, allOrders, allProducts, softRefreshTenantData } = useTenant();
-  const { locale, setLocale, currency, setCurrency, theme, toggleTheme } = usePrefs();
+  const { locale, setLocale, currency, setCurrency } = usePrefs();
   const { toast } = useToast();
   const isAr = locale === 'ar';
 
@@ -427,23 +425,6 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
             <span className="font-bold">{isAr ? 'الإنجليزية' : 'Arabic'}</span>
           </button>
 
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="unity-btn-ghost text-xs inline-flex items-center gap-2"
-          >
-            {theme === 'dark' ? (
-              <>
-                <Sun className="w-4 h-4" style={{ color: 'var(--tone-warn, #f59e0b)' }} />
-                <span>{isAr ? 'الوضع الفاتح' : 'Light Mode'}</span>
-              </>
-            ) : (
-              <>
-                <Moon className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-                <span>{isAr ? 'الوضع الداكن' : 'Dark Mode'}</span>
-              </>
-            )}
-          </button>
         </div>
       </div>
 

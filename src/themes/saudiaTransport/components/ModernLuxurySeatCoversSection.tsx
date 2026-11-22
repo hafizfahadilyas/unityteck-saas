@@ -338,7 +338,7 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
                       </span>
                       {hasDiscount && (
                         <span className="bg-rose-600/95 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-xs border border-rose-400/40">
-                          {isAr ? `وفر${discountAmt}ر.س` : `Save ${discountAmt} SAR`}
+                          {isAr ? `وفر${discountAmt}⃁` : `Save ${discountAmt} ⃁`}
                         </span>
                       )}
                     </div>
@@ -423,7 +423,7 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
                       <span className="text-amber-200 font-bold flex items-center gap-1">
                         <span>💳</span>
                         <span>
-                          {isAr ? `أو 4 دفعات بقيمة${monthlyTabby}ر.س` : `Or 4 payments of ${monthlyTabby} SAR`}
+                          {isAr ? `أو 4 دفعات بقيمة${monthlyTabby}⃁` : `Or 4 payments of ${monthlyTabby} ⃁`}
                         </span>
                       </span>
                       <span className="text-[#f6c344] font-black text-[9px] bg-white/10 px-1.5 py-0.5 rounded-md border border-[#f6c344]/30 shadow-2xs">
@@ -442,13 +442,13 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
                         {finalPrice}
                       </span>
                       <span className="text-[11px] font-black text-[#f6c344]">
-                        {isAr ? 'ر.س' : 'SAR'}
+                        {'⃁'}
                       </span>
                     </div>
                     {hasDiscount && (
                       <div className="flex items-center gap-1.5">
                         <span className="text-[10px] text-slate-400 line-through font-medium">
-                          {liveProduct.originalPrice} {isAr ? 'ر.س' : 'SAR'}
+                          {liveProduct.originalPrice} {'⃁'}
                         </span>
                         <span className="text-[9.5px] font-bold text-rose-300 bg-rose-950/80 px-1 py-0.2 rounded border border-rose-500/30">
                           {isAr ? `خصم${discountPct}%` : `-${discountPct}%`}
@@ -473,7 +473,7 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
                     <button 
                       onClick={() => {
                         const customMsg = isAr
-                          ? `مرحباً متجر السعيدي، أود الاستفسار والطلب عن تلبيسة المقاعد:\n*المنتج:*${liveProduct.nameAr || liveProduct.name}\n*اللون المختار:*${activeColor.nameAr}\n*السعر:*${finalPrice}ر.س\n*المطلوب:* تفصيل ليزري لموديل سيارتي.`
+                          ? `مرحباً متجر السعيدي، أود الاستفسار والطلب عن تلبيسة المقاعد:\n*المنتج:*${liveProduct.nameAr || liveProduct.name}\n*اللون المختار:*${activeColor.nameAr}\n*السعر:*${finalPrice}⃁\n*المطلوب:* تفصيل ليزري لموديل سيارتي.`
                           : `Hello Al-Saeedi Car Services, I want to order Seat Covers:\n*Product:* ${liveProduct.nameEn || liveProduct.name}\n*Color:* ${activeColor.nameEn}\n*Price:* ${finalPrice} SAR\n*Request:* Laser tailored for my vehicle model.`;
                         onOpenWhatsApp(liveProduct, activeColor, finalPrice, customMsg);
                       }}

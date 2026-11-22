@@ -22,7 +22,7 @@ function resolveDevice(): ModelComparisonDevice {
 function formatPrice(isAr: boolean, price: number | null | undefined): string {
   if (price == null || Number.isNaN(Number(price))) return '';
   const n = Number(price).toLocaleString(isAr ? 'ar-SA' : 'en-US');
-  return isAr ? `${n} ر.س` : `SAR ${n}`;
+  return isAr ? `${n} ⃁` : `⃁ ${n}`;
 }
 
 function ModelComparisonBody({

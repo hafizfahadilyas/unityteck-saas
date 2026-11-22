@@ -158,7 +158,7 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({
                 {isAr ? 'قيمة الطلب الإجمالية' : 'Order Total Value'}
               </div>
               <div className="text-lg font-black text-slate-900 dark:text-white">
-                {order.total} {isAr ? 'ر.س' : 'SAR'}
+                {order.total} {'⃁'}
               </div>
             </div>
 
@@ -222,7 +222,7 @@ export const ReturnsManager: React.FC<ReturnsManagerProps> = ({
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-black text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                 <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
-                <span>{isAr ? 'المبلغ المسترد للعميل (ر.س)' : 'Refund Amount (SAR)'}</span>
+                <span>{isAr ? 'المبلغ المسترد للعميل (⃁)' : 'Refund Amount (⃁)'}</span>
               </label>
               <div className="flex items-center gap-2">
                 <button

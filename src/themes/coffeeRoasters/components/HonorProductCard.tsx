@@ -46,7 +46,7 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
 
   // Dynamic calculations
   const price = product.basePrice || 0;
-  const currency = isAr ? 'ر.س' : 'SAR';
+  const currency = '⃁';
 
   // Installment calculation (e.g. 4 or 12 months)
   const installmentMonths = 4;
@@ -144,7 +144,7 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
           <div className="flex items-center gap-1 shrink-0 min-w-0">
             <Gift className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#78471A] shrink-0" />
             <span className="truncate">
-              {isAr ? `هدايا${computedGiftVal}ر.س` : `Gifts ${computedGiftVal} SAR`}
+              {isAr ? `هدايا${computedGiftVal}⃁` : `Gifts ${computedGiftVal} ⃁`}
             </span>
           </div>
 
@@ -182,8 +182,8 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
           {showInstallment ? (
           <p className="text-[9px] sm:text-[11px] text-neutral-500 font-medium truncate">
             {isAr
-              ? `أو يبدأ من${monthlyInstallment}ر.س / شهرياً`
-              : `Or from ${monthlyInstallment} SAR / mo`}
+              ? `أو يبدأ من${monthlyInstallment}⃁ / شهرياً`
+              : `Or from ${monthlyInstallment} ⃁ / mo`}
           </p>
           ) : null}
         </div>

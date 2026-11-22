@@ -268,7 +268,7 @@ export function generateStoreSEO(options: {
         description,
         url: baseUrl,
         telephone: isCoffeeStore ? '+9668001240099' : isCarStore ? '+966597757086' : '+966125558920',
-        priceRange: isCoffeeStore ? 'SAR 250 - SAR 2,500' : isCarStore ? 'SAR 190 - SAR 1,800' : 'SAR 150 - SAR 850',
+        priceRange: isCoffeeStore ? '\u20C1 250 - \u20C1 2,500' : isCarStore ? '\u20C1 190 - \u20C1 1,800' : '\u20C1 150 - \u20C1 850',
         currenciesAccepted: 'SAR',
         paymentAccepted: 'Mada, Apple Pay, Visa, MasterCard, Tabby, Tamara, Cash on Delivery',
         image: primaryImage,

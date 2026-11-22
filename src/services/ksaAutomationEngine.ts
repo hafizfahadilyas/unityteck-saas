@@ -429,8 +429,8 @@ export function requestAdWalletTopUp(storeId: string, amountSar: number): StoreA
     id: `tx-${Date.now()}`,
     type: 'topup_request' as const,
     amountSar,
-    noteEn: `Ad Wallet Top-Up Request (${amountSar} SAR) — Awaiting Master Admin Approval`,
-    noteAr: `طلب شحن محفظة الإعلانات (${amountSar}ر.س) — بانتظار موافقة الإدارة العليا`,
+    noteEn: `Ad Wallet Top-Up Request (${amountSar} ⃁) — Awaiting Master Admin Approval`,
+    noteAr: `طلب شحن محفظة الإعلانات (${amountSar}⃁) — بانتظار موافقة الإدارة العليا`,
     createdAt: new Date().toISOString(),
     status: 'pending' as const,
   };
@@ -455,8 +455,8 @@ export function masterApproveAdWalletTopUp(
     id: `tx-${Date.now()}`,
     type: 'topup_approved' as const,
     amountSar: creditAmount,
-    noteEn: `Master Admin Approved +${creditAmount} SAR to Store Ad Wallet`,
-    noteAr: `اعتمدت الإدارة العليا إضافة +${creditAmount}ر.س لمحفظة إعلانات المتجر`,
+    noteEn: `Master Admin Approved +${creditAmount} ⃁ to Store Ad Wallet`,
+    noteAr: `اعتمدت الإدارة العليا إضافة +${creditAmount}⃁ لمحفظة إعلانات المتجر`,
     createdAt: new Date().toISOString(),
     status: 'completed' as const,
   };

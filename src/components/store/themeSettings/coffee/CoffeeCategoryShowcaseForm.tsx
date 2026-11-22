@@ -121,7 +121,7 @@ export const FeaturedCategoriesProductsForm: React.FC<CoffeeFormChromeProps> = (
                   <div className="text-[10px] font-bold truncate">{isAr ? p.nameAr || p.name : p.nameEn || p.name}</div>
                 ) : null}
                 {draft?.showPrice !== false && p.price != null ? (
-                  <div className="text-[9px]" style={{ color: 'var(--muted)' }}>{isAr ? `${p.price} ر.س` : `SAR ${p.price}`}</div>
+                  <div className="text-[9px]" style={{ color: 'var(--muted)' }}>{isAr ? `${p.price} ⃁` : `⃁ ${p.price}`}</div>
                 ) : null}
               </div>
             ))

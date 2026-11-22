@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, Globe, Moon, Sun, Coins } from 'lucide-react';
+import { Check, ChevronDown, Globe, Coins } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { CURRENCIES, type AppLocale, type DisplayCurrency } from '../../i18n/prefs';
 import { useToast } from '../common/ToastProvider';
@@ -22,10 +22,8 @@ export const PrefsSwitcher: React.FC<PrefsSwitcherProps> = ({
   variant = 'default',
 }) => {
   const {
-    theme,
     locale,
     currency,
-    setTheme,
     setLocale,
     setCurrency,
     t,
@@ -38,8 +36,6 @@ export const PrefsSwitcher: React.FC<PrefsSwitcherProps> = ({
 
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const currencyRef = useRef<HTMLDivElement>(null);
-
-  const isDark = theme === 'dark';
 
   const availableLanguages = ALL_LANGUAGES.filter(
     (l) => !allowedLocales || allowedLocales.includes(l.code),
@@ -59,17 +55,23 @@ export const PrefsSwitcher: React.FC<PrefsSwitcherProps> = ({
   }, [langOpen, currencyOpen]);
 
   const pickLocale = (next: AppLocale) => {
-    setLocale(next);
+    if (next === locale) {
+      setLangOpen(false);
+      return;
+    }
+    // Close first so dropdown does not linger across RTL/LTR flip.
     setLangOpen(false);
-    const msgs: Record<AppLocale, string> = {
-      en: 'Language set to English',
-      ar: 'تم تعيين اللغة إلى العربية',
-    };
-    toast(msgs[next], 'success');
+    // flushSync inside setLocale → full chrome (sidebar/topbar/pages) flips in one turn.
+    setLocale(next);
+    // Toast language matches the NEW chrome locale only (no mix).
+    window.setTimeout(() => {
+      toast(next === 'ar' ? 'تم تعيين اللغة إلى العربية' : 'Language set to English', 'success');
+    }, 0);
   };
 
   const currentLang = availableLanguages.find((l) => l.code === locale) || availableLanguages[0] || ALL_LANGUAGES[0];
   const canSwitchLang = availableLanguages.length > 1;
+  const isArChrome = locale === 'ar';
 
   return (
     <div
@@ -95,7 +97,8 @@ export const PrefsSwitcher: React.FC<PrefsSwitcherProps> = ({
           }}
           aria-expanded={canSwitchLang ? langOpen : undefined}
           aria-haspopup={canSwitchLang ? 'menu' : undefined}
-          title={canSwitchLang ? t('language') : `${currentLang.native}`}
+          title={canSwitchLang ? (isArChrome ? 'اللغة' : t('language')) : `${currentLang.native}`}
+          lang={locale}
         >
           <Globe className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} aria-hidden />
           <span className="font-medium text-[11px] sm:text-xs">{currentLang.native}</span>
@@ -137,54 +140,6 @@ export const PrefsSwitcher: React.FC<PrefsSwitcherProps> = ({
             ))}
           </div>
         ) : null}
-      </div>
-
-      {/* Light / Dark Mode Toggle (Dual Sun / Moon Icons matching screenshot) */}
-      <div
-        className="flex items-center p-0.5 rounded-xl border"
-        style={{
-          background: 'var(--surface)',
-          borderColor: 'var(--border)',
-        }}
-      >
-        <button
-          type="button"
-          onClick={() => {
-            if (isDark) {
-              setTheme('light');
-              toast(t('themeUpdated'), 'success');
-            }
-          }}
-          title={t('light')}
-          aria-label={t('light')}
-          className="p-1.5 rounded-lg transition-all cursor-pointer"
-          style={{
-            background: !isDark ? 'var(--portal-cta)' : 'transparent',
-            color: !isDark ? '#FFFFFF' : 'var(--muted)',
-            boxShadow: !isDark ? '0 1px 3px rgba(0,0,0,0.15)' : 'none',
-          }}
-        >
-          <Sun className="w-3.5 h-3.5" aria-hidden />
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            if (!isDark) {
-              setTheme('dark');
-              toast(t('themeUpdated'), 'success');
-            }
-          }}
-          title={t('dark')}
-          aria-label={t('dark')}
-          className="p-1.5 rounded-lg transition-all cursor-pointer"
-          style={{
-            background: isDark ? 'var(--portal-cta)' : 'transparent',
-            color: isDark ? '#FFFFFF' : 'var(--muted)',
-            boxShadow: isDark ? '0 1px 3px rgba(0,0,0,0.15)' : 'none',
-          }}
-        >
-          <Moon className="w-3.5 h-3.5" aria-hidden />
-        </button>
       </div>
 
       {/* Optional Currency Switcher for storefront/store */}

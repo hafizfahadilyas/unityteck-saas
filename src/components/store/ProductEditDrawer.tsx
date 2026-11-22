@@ -978,7 +978,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
               <div className="p-3.5 pt-0 grid grid-cols-1 sm:grid-cols-3 gap-2.5 border-t border-slate-100 dark:border-slate-800/80">
                 <div>
                   <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                    {isAr ? 'السعر الأساسي (ر.س)' : 'Regular Price (SAR)'} <span className="text-rose-500">*</span>
+                    {isAr ? 'السعر الأساسي (⃁)' : 'Regular Price (⃁)'} <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="number"
@@ -992,7 +992,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
 
                 <div>
                   <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                    {isAr ? 'سعر العرض (ر.س)' : 'Sale Price (SAR)'}
+                    {isAr ? 'سعر العرض (⃁)' : 'Sale Price (⃁)'}
                   </label>
                   <input
                     type="number"

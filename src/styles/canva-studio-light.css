@@ -7,7 +7,7 @@
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
   background: #0b0f14;
 }
 
@@ -34,8 +34,9 @@
   --cs-panel: #0b0f14;
   --cs-dock: #080b10;
   --cs-border: rgba(255, 255, 255, 0.08);
-  --cs-text: #e8eaed;
-  --cs-muted: #9aa3af;
+  /* Full-readable chrome: near-white primary, muted still high-contrast */
+  --cs-text: #ffffff;
+  --cs-muted: #e2e8f0;
   --cs-accent: var(--accent, #1d8b94);
   --cs-accent-soft: color-mix(in srgb, var(--cs-accent) 22%, transparent);
   --cs-accent-ring: #4fb8b4;
@@ -47,9 +48,69 @@
 }
 
 .canva-studio-light,
-.canva-studio-light *:not(.cs-selection-box):not(.cs-selection-handle):not(.cs-selection-toolbar) {
+.canva-studio-light
+  *:not(.cs-selection-box):not(.cs-selection-handle):not(.cs-selection-toolbar):not(.cs-dropdown):not(
+    .cs-dropdown *
+  ):not(.cs-glass):not(.cs-glass *):not(.cs-saved-thumb) {
   box-shadow: none !important;
   text-shadow: none !important;
+}
+
+/* Opaque popovers — never translucent / ghost-stack over canvas */
+.unity-shell .canva-studio-light .cs-dropdown,
+.canva-studio-light .cs-dropdown {
+  position: absolute;
+  z-index: 80;
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 0.75rem;
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.22) !important;
+  isolation: isolate;
+  mix-blend-mode: normal;
+  opacity: 1 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  filter: none !important;
+  transform: none;
+  text-shadow: none !important;
+  -webkit-font-smoothing: antialiased;
+}
+.canva-studio-light .cs-dropdown button {
+  background: transparent !important;
+  color: #0f172a !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+  filter: none !important;
+}
+.canva-studio-light .cs-dropdown button:hover {
+  background: #f1f5f9 !important;
+}
+.canva-studio-light .cs-dropdown .cs-dropdown-muted {
+  color: #64748b !important;
+}
+.canva-studio-light.canva-studio-dark .cs-dropdown {
+  background: #1a1f27 !important;
+  color: #f1f5f9 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55) !important;
+}
+.canva-studio-light.canva-studio-dark .cs-dropdown button {
+  color: #f1f5f9 !important;
+}
+.canva-studio-light.canva-studio-dark .cs-dropdown button:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+.canva-studio-light.canva-studio-dark .cs-dropdown .cs-dropdown-muted {
+  color: #94a3b8 !important;
+}
+
+/* Header must not clip dropdowns; only workspace scrolls/clips */
+.canva-studio-light > .cs-header {
+  overflow: visible !important;
+  position: relative;
+  z-index: 30;
 }
 
 /* Shared active / primary utilities — use across toolbar + panels */
@@ -98,6 +159,102 @@
   background: var(--cs-bg) !important;
   border-color: var(--cs-border) !important;
   color: var(--cs-text) !important;
+}
+
+/* Header chips — always solid + readable (beats glass / portal remaps) */
+.canva-studio-light .cs-header-chip {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+  font-weight: 800 !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+  filter: none !important;
+  -webkit-font-smoothing: antialiased;
+  cursor: pointer;
+}
+
+.canva-studio-light .cs-header-chip:hover {
+  background: #f1f5f9 !important;
+  border-color: var(--cs-accent, #1d8b94) !important;
+  color: #020617 !important;
+}
+
+.canva-studio-light .cs-header-chip:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed;
+}
+
+.canva-studio-light .cs-header-chip svg {
+  color: inherit !important;
+  opacity: 1 !important;
+}
+
+.canva-studio-light .cs-header-title {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+
+.canva-studio-light .cs-header-status {
+  color: #334155 !important;
+  font-weight: 700 !important;
+  opacity: 1 !important;
+}
+
+.canva-studio-light .cs-header-status.is-ok {
+  color: var(--cs-accent, #1d8b94) !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-header.cs-glass {
+  background: rgba(12, 16, 22, 0.96) !important;
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+}
+
+.canva-studio-light.canva-studio-dark .cs-header-chip {
+  background: #2a3340 !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-header-chip:hover {
+  background: #364152 !important;
+  border-color: var(--cs-accent, #1d8b94) !important;
+  color: #ffffff !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-header-chip .text-slate-500,
+.canva-studio-light.canva-studio-dark .cs-header-chip span {
+  color: #ffffff !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-header-title {
+  color: #ffffff !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-header-title:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-header-status {
+  color: #e2e8f0 !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-header-status.is-ok {
+  color: #5eead4 !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-header .cs-active-soft {
+  background: color-mix(in srgb, var(--cs-accent, #1d8b94) 28%, #1a1f27) !important;
+  color: #ffffff !important;
+  border-color: var(--cs-accent, #1d8b94) !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-header .cs-btn-primary {
+  color: #ffffff !important;
 }
 
 .canva-studio-light .cs-dock {
@@ -179,7 +336,16 @@
 
 .canva-studio-light .cs-toolbar .text-white,
 .canva-studio-light .cs-toolbar .text-slate-300,
-.canva-studio-light .cs-toolbar .text-slate-400 {
+.canva-studio-light .cs-toolbar .text-slate-400,
+.canva-studio-light .cs-toolbar .text-slate-500,
+.canva-studio-light .cs-toolbar span,
+.canva-studio-light .cs-toolbar label {
+  color: var(--cs-text) !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+.canva-studio-light .cs-toolbar .text-slate-500,
+.canva-studio-light .cs-toolbar .cs-toolbar-muted {
   color: var(--cs-muted) !important;
 }
 
@@ -209,6 +375,20 @@
   border-radius: 4px !important;
 }
 
+/* Pure white canvas — flat fill, no outer drop shadow / vignette chrome */
+.canva-studio-light .cs-canvas-frame.cs-canvas-pure-white {
+  background: #ffffff !important;
+  box-shadow: none !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+/* Transparent PNG mode — fixed visible border so design edges stay clear */
+.canva-studio-light .cs-canvas-frame.cs-canvas-transparent-border {
+  border: 2px dashed #64748b !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.85) !important;
+  background: repeating-conic-gradient(#cbd5e1 0% 25%, #f8fafc 0% 50%) 50% / 14px 14px !important;
+}
+
 .canva-studio-light.canva-studio-dark .cs-canvas-frame {
   background: repeating-conic-gradient(
       rgba(255, 255, 255, 0.06) 0% 25%,
@@ -218,13 +398,56 @@
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45) !important;
 }
 
+.canva-studio-light.canva-studio-dark .cs-canvas-frame.cs-canvas-pure-white {
+  background: #ffffff !important;
+  box-shadow: none !important;
+  border: 1px solid #94a3b8 !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-canvas-frame.cs-canvas-transparent-border {
+  border: 2px dashed #94a3b8 !important;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.35) !important;
+  background: repeating-conic-gradient(
+      rgba(255, 255, 255, 0.1) 0% 25%,
+      rgba(0, 0, 0, 0.4) 0% 50%
+    )
+    50% / 14px 14px !important;
+}
+
 .canva-studio-light .cs-footer {
   border-color: var(--cs-border) !important;
   color: var(--cs-muted) !important;
+  opacity: 1 !important;
+  filter: none !important;
+}
+
+.canva-studio-light .cs-footer button {
+  color: var(--cs-text) !important;
+  opacity: 1 !important;
+  font-weight: 700;
 }
 
 .canva-studio-light .cs-footer button:hover {
+  color: var(--cs-accent) !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-footer {
+  color: #e2e8f0 !important;
+}
+.canva-studio-light.canva-studio-dark .cs-footer button {
+  color: #f8fafc !important;
+}
+
+/* Flyout / dock labels — never washed out */
+.canva-studio-light.canva-studio-dark .cs-flyout,
+.canva-studio-light.canva-studio-dark .cs-dock {
   color: var(--cs-text) !important;
+}
+.canva-studio-light.canva-studio-dark .cs-flyout .text-slate-500,
+.canva-studio-light.canva-studio-dark .cs-flyout .text-slate-400,
+.canva-studio-light.canva-studio-dark .cs-dock .text-slate-500 {
+  color: var(--cs-muted) !important;
+  opacity: 1 !important;
 }
 
 .canva-studio-light .cs-header .bg-slate-800,
@@ -317,32 +540,127 @@
   color: var(--cs-text) !important;
 }
 
+.canva-studio-light .cs-add-layer-btn {
+  background: var(--cs-accent, #1d8b94) !important;
+  color: #ffffff !important;
+  border: 1px solid color-mix(in srgb, var(--cs-accent, #1d8b94) 70%, #ffffff) !important;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--cs-accent, #1d8b94) 35%, transparent) !important;
+  cursor: pointer;
+}
+
+.canva-studio-light .cs-add-layer-btn:hover {
+  filter: brightness(1.08);
+  cursor: pointer;
+}
+
+.canva-studio-light.canva-studio-dark .cs-footer {
+  color: #f8fafc !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-footer button {
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
 .canva-studio-light .cs-layer-row {
   background: var(--cs-bg) !important;
   border: 1px solid var(--cs-border) !important;
   color: var(--cs-text) !important;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    transform 120ms ease;
+}
+
+.canva-studio-light .cs-layer-row:hover {
+  border-color: color-mix(in srgb, var(--cs-accent) 55%, var(--cs-border)) !important;
+  background: color-mix(in srgb, var(--cs-accent) 12%, var(--cs-bg)) !important;
+  cursor: pointer;
 }
 
 .canva-studio-light .cs-layer-row.cs-layer-active {
   border-color: var(--cs-accent) !important;
   background: var(--cs-accent-soft) !important;
+  box-shadow: inset 3px 0 0 var(--cs-accent) !important;
 }
 
 .canva-studio-light .cs-layer-row.cs-layer-dragging {
   opacity: 0.55;
   border-style: dashed !important;
+  cursor: grabbing !important;
+}
+
+.canva-studio-light .cs-layer-row.cs-layer-hidden {
+  opacity: 0.55;
+}
+
+.canva-studio-light .cs-layer-row.cs-layer-locked {
+  cursor: not-allowed;
+}
+
+.canva-studio-light .cs-layer-name {
+  color: var(--cs-text) !important;
+  opacity: 1 !important;
+  -webkit-font-smoothing: antialiased;
+  text-shadow: none !important;
+  filter: none !important;
+}
+
+.canva-studio-light .cs-layer-hint {
+  color: var(--cs-muted) !important;
+  opacity: 1 !important;
 }
 
 .canva-studio-light .cs-layer-grip {
-  cursor: grab;
+  color: var(--cs-muted) !important;
+  cursor: grab !important;
 }
 
-.canva-studio-light .cs-layer-row:active .cs-layer-grip {
-  cursor: grabbing;
+.canva-studio-light .cs-layer-row:hover .cs-layer-grip {
+  color: var(--cs-accent) !important;
+  background: color-mix(in srgb, var(--cs-accent) 16%, transparent);
+  cursor: grab !important;
+}
+
+.canva-studio-light .cs-layer-row:active .cs-layer-grip,
+.canva-studio-light .cs-layer-grip:active {
+  cursor: grabbing !important;
+}
+
+.canva-studio-light .cs-layer-action {
+  color: var(--cs-muted) !important;
+  cursor: pointer !important;
+  opacity: 0.92;
+}
+
+.canva-studio-light .cs-layer-row:hover .cs-layer-action,
+.canva-studio-light .cs-layer-row.cs-layer-active .cs-layer-action {
+  opacity: 1;
+}
+
+.canva-studio-light .cs-layer-action:hover {
+  background: color-mix(in srgb, var(--cs-accent) 18%, transparent) !important;
+  color: var(--cs-text) !important;
+  cursor: pointer !important;
+}
+
+.canva-studio-light .cs-layer-action-danger:hover {
+  background: rgba(244, 63, 94, 0.18) !important;
+  color: #fb7185 !important;
 }
 
 .canva-studio-light .cs-layer-thumb {
-  background-color: var(--cs-panel, #f8fafc);
+  background-color: #ffffff;
+  border-color: var(--cs-border) !important;
+}
+
+.canva-studio-light .cs-layer-thumb-text {
+  color: #0f172a !important;
+}
+
+.canva-studio-light .cs-canvas-frame.is-layer-hover {
+  cursor: grab !important;
 }
 
 .canva-studio-light .cs-position-tabs .cs-active,
@@ -417,31 +735,104 @@
   color: var(--cs-text) !important;
 }
 
+/*
+ * Beat portal [data-theme] remaps: every light card / dashed zone / tip box
+ * inside dark studio must stay opaque dark + light readable text (no white-on-grey).
+ */
+.unity-shell .canva-studio-light.canva-studio-dark .bg-white,
+.unity-shell .canva-studio-light.canva-studio-dark .bg-slate-50,
+.unity-shell .canva-studio-light.canva-studio-dark .bg-slate-100,
+.unity-shell .canva-studio-light.canva-studio-dark .bg-emerald-50,
+.unity-shell .canva-studio-light.canva-studio-dark .bg-emerald-50\/60,
+.unity-shell .canva-studio-light.canva-studio-dark [class*='bg-emerald-50'],
 .canva-studio-light.canva-studio-dark .bg-white,
 .canva-studio-light.canva-studio-dark .bg-slate-50,
+.canva-studio-light.canva-studio-dark .bg-slate-100,
+.canva-studio-light.canva-studio-dark .bg-emerald-50,
+.canva-studio-light.canva-studio-dark .bg-emerald-50\/60,
+.canva-studio-light.canva-studio-dark [class*='bg-emerald-50'],
 .canva-studio-light.canva-studio-dark .hover\:bg-slate-50:hover,
-.canva-studio-light.canva-studio-dark .hover\:bg-slate-100:hover {
+.canva-studio-light.canva-studio-dark .hover\:bg-slate-100:hover,
+.canva-studio-light.canva-studio-dark .cs-upload-zone,
+.canva-studio-light.canva-studio-dark .cs-tip-card {
   background-color: var(--cs-input) !important;
+  background-image: none !important;
+  color: var(--cs-text) !important;
+  border-color: var(--cs-border) !important;
+  opacity: 1 !important;
 }
 
+.unity-shell .canva-studio-light.canva-studio-dark .text-slate-900,
+.unity-shell .canva-studio-light.canva-studio-dark .text-slate-800,
+.unity-shell .canva-studio-light.canva-studio-dark .text-slate-700,
+.unity-shell .canva-studio-light.canva-studio-dark .text-gray-900,
 .canva-studio-light.canva-studio-dark .text-slate-900,
 .canva-studio-light.canva-studio-dark .text-slate-800,
 .canva-studio-light.canva-studio-dark .text-slate-700,
-.canva-studio-light.canva-studio-dark .text-gray-900 {
-  color: var(--cs-text) !important;
+.canva-studio-light.canva-studio-dark .text-gray-900,
+.canva-studio-light.canva-studio-dark .cs-upload-zone .text-slate-900,
+.canva-studio-light.canva-studio-dark .cs-tip-card .text-slate-900 {
+  color: #f1f5f9 !important;
 }
 
+.unity-shell .canva-studio-light.canva-studio-dark .text-slate-600,
+.unity-shell .canva-studio-light.canva-studio-dark .text-slate-500,
+.unity-shell .canva-studio-light.canva-studio-dark .text-slate-400,
 .canva-studio-light.canva-studio-dark .text-slate-600,
 .canva-studio-light.canva-studio-dark .text-slate-500,
 .canva-studio-light.canva-studio-dark .text-slate-400,
-.canva-studio-light.canva-studio-dark .text-gray-500 {
-  color: var(--cs-muted) !important;
+.canva-studio-light.canva-studio-dark .text-gray-500,
+.canva-studio-light.canva-studio-dark .cs-upload-zone .text-slate-500,
+.canva-studio-light.canva-studio-dark .cs-tip-card .text-slate-600,
+.canva-studio-light.canva-studio-dark .cs-tip-card .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+.canva-studio-light.canva-studio-dark .text-emerald-700,
+.canva-studio-light.canva-studio-dark .text-emerald-600,
+.canva-studio-light.canva-studio-dark .text-emerald-800 {
+  color: #5eead4 !important;
 }
 
 .canva-studio-light.canva-studio-dark .border-slate-200,
 .canva-studio-light.canva-studio-dark .border-slate-100,
-.canva-studio-light.canva-studio-dark .border-slate-300 {
+.canva-studio-light.canva-studio-dark .border-slate-300,
+.canva-studio-light.canva-studio-dark .border-emerald-200,
+.canva-studio-light.canva-studio-dark .border-emerald-300,
+.canva-studio-light.canva-studio-dark .border-emerald-400 {
   border-color: var(--cs-border) !important;
+}
+
+/* Upload / tip cards — always readable (light + dark) */
+.canva-studio-light .cs-tip-card {
+  background: color-mix(in srgb, var(--cs-accent) 10%, var(--cs-bg)) !important;
+  border: 1px solid color-mix(in srgb, var(--cs-accent) 35%, var(--cs-border)) !important;
+  color: var(--cs-text) !important;
+}
+.canva-studio-light .cs-tip-card p,
+.canva-studio-light .cs-tip-card .cs-tip-body {
+  color: var(--cs-muted) !important;
+}
+.canva-studio-light .cs-upload-zone {
+  background: var(--cs-input, var(--cs-bg)) !important;
+  border: 2px dashed color-mix(in srgb, var(--cs-accent) 45%, var(--cs-border)) !important;
+  color: var(--cs-text) !important;
+}
+.canva-studio-light .cs-upload-zone:hover {
+  border-color: var(--cs-accent) !important;
+  background: var(--cs-accent-soft) !important;
+}
+.canva-studio-light .cs-upload-zone .cs-upload-title {
+  color: var(--cs-text) !important;
+  font-weight: 700;
+}
+.canva-studio-light .cs-upload-zone .cs-upload-sub {
+  color: var(--cs-muted) !important;
+}
+.canva-studio-light .cs-empty-hint {
+  background: var(--cs-input, var(--cs-panel)) !important;
+  border: 1px dashed var(--cs-border) !important;
+  color: var(--cs-muted) !important;
 }
 
 .canva-studio-light.canva-studio-dark .cs-selection-handle {
@@ -535,13 +926,31 @@
 }
 
 .canva-studio-light .bg-emerald-50,
-.canva-studio-light .hover\:bg-emerald-100:hover,
+.canva-studio-light .hover\:bg-emerald-100:hover {
+  background-color: color-mix(in srgb, var(--cs-accent) 14%, var(--cs-bg)) !important;
+}
 .canva-studio-light .hover\:bg-emerald-500:hover {
-  background-color: var(--cs-accent-soft) !important;
+  background-color: var(--cs-accent) !important;
+  color: #ffffff !important;
 }
 
 .canva-studio-light .text-emerald-700 {
   color: var(--cs-accent) !important;
+}
+
+/* Flyout body copy — always follow studio tokens (every tab) */
+.canva-studio-light .cs-flyout {
+  -webkit-font-smoothing: antialiased;
+}
+.canva-studio-light .cs-flyout .cs-section-label {
+  color: var(--cs-muted) !important;
+}
+.canva-studio-light.canva-studio-dark .cs-flyout button:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active) {
+  color: var(--cs-text) !important;
+}
+.canva-studio-light.canva-studio-dark .cs-flyout input::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1 !important;
 }
 
 /* Mobile: flyout drawer overlay — artboard keeps space */
@@ -578,6 +987,101 @@
   }
 }
 
+/* Canva-style right-click context menu */
+.canva-studio-light .cs-ctx-menu,
+.cs-ctx-menu {
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.18) !important;
+}
+.canva-studio-light .cs-ctx-row:hover,
+.cs-ctx-row:hover {
+  background: color-mix(in srgb, var(--accent, #1d8b94) 10%, white);
+}
+.canva-studio-light .cs-ctx-flyout,
+.cs-ctx-flyout {
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16) !important;
+}
+
+/* Frosted glass chrome — Canva-like depth (header / dock / flyout / toolbar / footer) */
+.canva-studio-light.canva-studio-dark .cs-glass {
+  background: rgba(18, 22, 28, 0.78) !important;
+  backdrop-filter: blur(22px) saturate(1.35);
+  -webkit-backdrop-filter: blur(22px) saturate(1.35);
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-dock.cs-glass {
+  background: rgba(8, 11, 16, 0.88) !important;
+}
+
+.canva-studio-light .cs-saved-strip {
+  background: color-mix(in srgb, var(--cs-accent) 6%, var(--cs-input, var(--cs-bg)));
+  border-color: var(--cs-border) !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-saved-strip {
+  background: rgba(26, 31, 39, 0.55) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.canva-studio-light .cs-saved-thumb {
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12) !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-saved-thumb {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-layer-row {
+  background: rgba(26, 31, 39, 0.92) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-layer-row:hover {
+  background: rgba(36, 44, 56, 0.98) !important;
+  border-color: color-mix(in srgb, var(--cs-accent) 60%, rgba(255, 255, 255, 0.2)) !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-layer-name {
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+.canva-studio-light.canva-studio-dark .cs-layer-hint {
+  color: #e2e8f0 !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-layer-grip,
+.canva-studio-light.canva-studio-dark .cs-layer-action {
+  color: #cbd5e1 !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-layer-row:hover .cs-layer-grip {
+  color: #5eead4 !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-toolbar .text-slate-500,
+.canva-studio-light.canva-studio-dark .cs-toolbar .cs-toolbar-muted,
+.canva-studio-light.canva-studio-dark .cs-toolbar label,
+.canva-studio-light.canva-studio-dark .cs-toolbar span {
+  color: #f1f5f9 !important;
+  opacity: 1 !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-toolbar input,
+.canva-studio-light.canva-studio-dark .cs-toolbar select {
+  color: #ffffff !important;
+}
+
+.canva-studio-light.canva-studio-dark .cs-templates-panel .text-slate-900 {
+  color: var(--cs-text) !important;
+}
+
 /* Narrow phones — full-width tool drawer */
 @media (max-width: 480px) {
   .canva-studio-light .cs-flyout-drawer {
@@ -591,4 +1095,109 @@
     flex-wrap: wrap;
     gap: 0.35rem;
   }
+}
+
+/*
+ * Beat portal light glass remaps on Design Studio chrome.
+ * Portal `[data-theme=light] … main .bg-white` → frosted light fill (higher specificity),
+ * while studio dark forces near-white text → unreadable toolbar (Shadow / Flip / Spacing).
+ * These selectors must stay ≥ portal specificity: (attr + .unity-shell[data-portal] + main + …).
+ */
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark.bg-white,
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .bg-white,
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .bg-slate-50,
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .bg-slate-100,
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .bg-gray-50,
+[data-theme='light'][data-portal='store'] main .canva-studio-light.canva-studio-dark .bg-white,
+[data-theme='light'][data-portal='store'] main .canva-studio-light.canva-studio-dark .bg-slate-50,
+[data-theme='light'][data-portal='store'] main .canva-studio-light.canva-studio-dark .bg-slate-100,
+[data-theme='dark'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .bg-white,
+[data-theme='dark'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .bg-slate-50,
+[data-theme='dark'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .bg-slate-100,
+[data-theme='dark'][data-portal='store'] main .canva-studio-light.canva-studio-dark .bg-white {
+  background: #1a1f27 !important;
+  background-color: #1a1f27 !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar,
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar.cs-glass,
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar.bg-white,
+[data-theme='light'][data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar,
+[data-theme='dark'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar,
+[data-theme='dark'][data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar {
+  background: #161b22 !important;
+  background-color: #161b22 !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35) !important;
+  color: #ffffff !important;
+}
+
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar button:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active):not(.bg-rose-50):not(.text-rose-600),
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar span,
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar label,
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar select,
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar input:not([type='range']):not([type='color']),
+[data-theme='light'][data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar button:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active):not(.bg-rose-50):not(.text-rose-600),
+[data-theme='light'][data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar span,
+[data-theme='dark'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar button:not(.cs-btn-primary):not(.cs-btn-success):not(.cs-active):not(.bg-rose-50):not(.text-rose-600),
+[data-theme='dark'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar span {
+  color: #f8fafc !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+  -webkit-font-smoothing: antialiased;
+}
+
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar button.bg-rose-50,
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar button.text-rose-600 {
+  background: rgba(244, 63, 94, 0.18) !important;
+  color: #fda4af !important;
+  border-color: rgba(244, 63, 94, 0.35) !important;
+}
+
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar .text-slate-900,
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar .text-slate-800,
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar .text-slate-700,
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar .text-slate-600,
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar .text-slate-500,
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .text-slate-900,
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .text-slate-800,
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .text-slate-700,
+[data-theme='light'][data-portal='store'] main .canva-studio-light.canva-studio-dark .text-slate-700,
+[data-theme='light'][data-portal='store'] main .canva-studio-light.canva-studio-dark .text-slate-600 {
+  color: #f8fafc !important;
+  opacity: 1 !important;
+}
+
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar .text-slate-500,
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar .cs-toolbar-muted,
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .text-slate-500,
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .text-slate-400 {
+  color: #cbd5e1 !important;
+}
+
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar svg,
+[data-theme='dark'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar svg {
+  color: inherit !important;
+  stroke: currentColor;
+  opacity: 1 !important;
+}
+
+/* Nested chips inside toolbar stay opaque dark — never portal glass wash */
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar > div.bg-white,
+[data-theme='light'] .unity-shell[data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar div.border,
+[data-theme='light'][data-portal='store'] main .canva-studio-light.canva-studio-dark .cs-toolbar > div.bg-white {
+  background: #1a1f27 !important;
+  background-color: #1a1f27 !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  color: #f8fafc !important;
 }

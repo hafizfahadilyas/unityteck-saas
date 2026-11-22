@@ -958,8 +958,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             success: true,
             message:
               language === 'ar'
-                ? `تم تطبيق الكوبون "${apiRes.coupon.code}" وحصلت على خصم ${disc} ر.س`
-                : `Coupon "${apiRes.coupon.code}" applied! You saved ${disc} SAR`,
+                ? `تم تطبيق الكوبون "${apiRes.coupon.code}" وحصلت على خصم ${disc} ⃁`
+                : `Coupon "${apiRes.coupon.code}" applied! You saved ${disc} ⃁`,
             discount: disc,
           };
         }
@@ -1026,8 +1026,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         success: false,
         message:
           language === 'ar'
-            ? `الحد الأدنى لتطبيق هذا الكوبون هو ${found.minOrderValue} ر.س (سلتك الحالية: ${cartSubtotal} ر.س)`
-            : `Minimum order for this coupon is ${found.minOrderValue} SAR (Current: ${cartSubtotal} SAR)`,
+            ? `الحد الأدنى لتطبيق هذا الكوبون هو ${found.minOrderValue} ⃁ (سلتك الحالية: ${cartSubtotal} ⃁)`
+            : `Minimum order for this coupon is ${found.minOrderValue} ⃁ (Current: ${cartSubtotal} ⃁)`,
         discount: 0,
       };
     }
@@ -1042,8 +1042,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       success: true,
       message:
         language === 'ar'
-          ? `تم تطبيق الكوبون "${found.code}" وحصلت على خصم ${disc} ر.س`
-          : `Coupon "${found.code}" applied! You saved ${disc} SAR`,
+          ? `تم تطبيق الكوبون "${found.code}" وحصلت على خصم ${disc} ⃁`
+          : `Coupon "${found.code}" applied! You saved ${disc} ⃁`,
       discount: disc,
     };
   };
