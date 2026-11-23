@@ -493,7 +493,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
 
   useEffect(() => {
     void reloadStoreCategories();
-    const onUpdated = (e: Event) => {
+    const onCategoriesUpdated = (e: Event) => {
       const detail = (e as CustomEvent).detail as
         | { storeId?: string; categories?: StoreCategory[] }
         | undefined;
@@ -504,11 +504,21 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
       }
       void reloadStoreCategories();
     };
-    window.addEventListener('unityteck-categories-updated', onUpdated as EventListener);
-    window.addEventListener('unityteck-data', onUpdated as EventListener);
+    // Only categories/products tags — not every platform soft-refresh (was /categories?all=1 storm).
+    const onData = (e: Event) => {
+      const tag = String((e as CustomEvent).detail?.tag ?? '');
+      if (
+        tag.includes(`:${activeStore.id}:categories`) ||
+        tag.includes(`:${activeStore.id}:products`)
+      ) {
+        void reloadStoreCategories();
+      }
+    };
+    window.addEventListener('unityteck-categories-updated', onCategoriesUpdated as EventListener);
+    window.addEventListener('unityteck-data', onData as EventListener);
     return () => {
-      window.removeEventListener('unityteck-categories-updated', onUpdated as EventListener);
-      window.removeEventListener('unityteck-data', onUpdated as EventListener);
+      window.removeEventListener('unityteck-categories-updated', onCategoriesUpdated as EventListener);
+      window.removeEventListener('unityteck-data', onData as EventListener);
     };
   }, [activeStore.id, reloadStoreCategories]);
 
@@ -751,11 +761,15 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
   };
 
   // Open Edit Mode (Side Drawer or Full View) — hydrate full options/variations from API
+  // Mobile: always full-page editor (side drawer sits below fold / looks like “click dead”).
   const handleOpenEdit = (product: Product, openAsFullPage = false) => {
     setCreatingProduct(null);
     setEditingProductId(product.id);
     setEditingProductDetail(product);
-    if (openAsFullPage) {
+    const isMobileViewport =
+      typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
+    const useFullPage = openAsFullPage || isMobileViewport;
+    if (useFullPage) {
       setCurrentView('edit');
       setIsSideDrawerOpen(false);
     } else {
@@ -1020,7 +1034,8 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
         onNavigateTab={onNavigateTab}
         categories={categories}
         categoryOptions={categoryOptions.map((o) => ({ value: o.value, label: o.label, id: o.id, depth: o.depth }))}
-              storeCategories={storeCategoryRows}
+        storeCategories={storeCategoryRows}
+        onCategoriesCreated={() => void reloadStoreCategories()}
         availableBrands={availableStoreBrands.map((b: any) => (typeof b === 'string' ? b : (b.nameEn || b.nameAr || '')))}
         visibleSections={visibleEditSections}
         catalogProducts={[...apiRows, ...currentProducts]}
@@ -1374,10 +1389,10 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
       {/* All-Products subnav toolbar removed — navigation via sidebar + header actions */}
       <ConnectedWorkspaceBanner page="products" />
 
-      {/* ── TOP HEADER — Title & Subtitle + Search + Bulk Upload + Add Product Button ── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight" style={{ color: 'var(--text)' }}>
+      {/* ── TOP HEADER — stacks on mobile; never overlaps shell topbar ── */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4 min-w-0 max-w-full">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight leading-tight" style={{ color: 'var(--text)' }}>
             {t('productsTitle')}
           </h1>
           <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--muted)' }}>
@@ -1385,11 +1400,22 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
           </p>
         </div>
 
-        {/* Action Controls on the Right */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+        {/* Action Controls — wrap cleanly; primary CTA first on phones */}
+        <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap min-w-0 w-full lg:w-auto">
+          {/* + Add Product — first on mobile so it doesn't collide with chrome */}
+          <button
+            type="button"
+            onClick={handleAddProductClick}
+            className="order-1 sm:order-none px-3.5 sm:px-4 py-2 text-xs font-bold text-white rounded-xl flex items-center gap-2 shadow-xs cursor-pointer transition-all hover:opacity-95 shrink-0"
+            style={{ background: 'var(--portal-cta)' }}
+          >
+            <Plus className="w-4 h-4 shrink-0" />
+            <span>{t('addProduct')}</span>
+          </button>
+
           {/* Plan Limit Info Pill */}
           <div
-            className="px-3 py-1.5 rounded-xl border text-[11px] font-bold"
+            className="order-3 sm:order-none px-3 py-1.5 rounded-xl border text-[11px] font-bold shrink-0"
             style={{
               background: 'var(--surface)',
               borderColor: 'var(--border)',
@@ -1400,7 +1426,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
           </div>
 
           {/* Search Input matching mockup 06 */}
-          <div className="relative w-full sm:w-auto min-w-0 sm:min-w-[220px] md:min-w-[280px] grow sm:grow-0">
+          <div className="order-2 sm:order-none relative w-full sm:w-auto min-w-0 sm:min-w-[220px] md:min-w-[280px] grow sm:grow-0 basis-full sm:basis-auto">
             <Search
               className="w-4 h-4 absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
               style={{ color: 'var(--muted)' }}
@@ -1434,7 +1460,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
           <button
             type="button"
             onClick={() => setCurrentView('filters')}
-            className="px-3.5 py-2 text-xs font-bold rounded-xl border flex items-center gap-2 shadow-xs cursor-pointer transition-all hover:opacity-90 shrink-0"
+            className="order-3 sm:order-none px-3.5 py-2 text-xs font-bold rounded-xl border flex items-center gap-2 shadow-xs cursor-pointer transition-all hover:opacity-90 shrink-0"
             style={{
               background: 'var(--surface)',
               borderColor: 'var(--border)',
@@ -1449,22 +1475,12 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
           <button
             type="button"
             onClick={() => setShowBulkModal(true)}
-            className="px-3.5 py-2 text-xs font-bold rounded-xl border flex items-center gap-2 shadow-xs cursor-pointer transition-all hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 shrink-0"
+            className="order-3 sm:order-none px-3.5 py-2 text-xs font-bold rounded-xl border flex items-center gap-2 shadow-xs cursor-pointer transition-all hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 shrink-0"
             style={{ background: 'var(--surface)' }}
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <span>{isAr ? 'استيراد منتجات' : 'Import Products'}</span>
-          </button>
-
-          {/* + Add Product Primary CTA Button */}
-          <button
-            type="button"
-            onClick={handleAddProductClick}
-            className="px-4 py-2 text-xs font-bold text-white rounded-xl flex items-center gap-2 shadow-xs cursor-pointer transition-all hover:opacity-95 shrink-0"
-            style={{ background: 'var(--portal-cta)' }}
-          >
-            <Plus className="w-4 h-4 shrink-0" />
-            <span>{t('addProduct')}</span>
+            <span className="hidden sm:inline">{isAr ? 'استيراد منتجات' : 'Import Products'}</span>
+            <span className="sm:hidden">{isAr ? 'استيراد' : 'Import'}</span>
           </button>
         </div>
       </div>
@@ -1884,53 +1900,70 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                               />
                             </label>
 
-                            {/* Top-Right Action Buttons (Edit, Copy, Trash, More) */}
+                            {/* Top-Right Action Buttons (Edit, Copy, Trash, More) — 44px touch targets on mobile */}
                             <div
-                              className="flex items-center gap-1 p-0.5 rounded-xl border shadow-2xs"
+                              className="relative z-20 flex items-center gap-1 p-0.5 rounded-xl border shadow-2xs pointer-events-auto"
                               style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
                             >
                               {/* Edit Pencil */}
                               <button
                                 type="button"
-                                onClick={() => handleOpenEdit(prod)}
-                                className="p-1.5 rounded-lg cursor-pointer transition-colors hover:opacity-90"
-                                style={{ color: 'var(--muted)' }}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleOpenEdit(prod);
+                                }}
+                                className="min-h-10 min-w-10 sm:min-h-0 sm:min-w-0 p-2 sm:p-1.5 rounded-lg cursor-pointer transition-colors hover:opacity-90 touch-manipulation flex items-center justify-center"
+                                style={{ color: 'var(--accent)' }}
                                 title={t('editProduct')}
+                                aria-label={t('editProduct')}
                               >
-                                <Edit className="w-3.5 h-3.5" />
+                                <Edit className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                               </button>
 
                               {/* Copy Duplicate */}
                               <button
                                 type="button"
-                                onClick={() => handleDuplicateProduct(prod)}
-                                className="p-1.5 rounded-lg cursor-pointer transition-colors hover:opacity-90"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleDuplicateProduct(prod);
+                                }}
+                                className="min-h-10 min-w-10 sm:min-h-0 sm:min-w-0 p-2 sm:p-1.5 rounded-lg cursor-pointer transition-colors hover:opacity-90 touch-manipulation flex items-center justify-center"
                                 style={{ color: 'var(--muted)' }}
                                 title={isAr ? 'نسخ المنتج' : 'Duplicate'}
                               >
-                                <Copy className="w-3.5 h-3.5" />
+                                <Copy className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                               </button>
 
                               {/* Delete Trash */}
                               <button
                                 type="button"
-                                onClick={() => handleDeleteProduct(prod)}
-                                className="p-1.5 rounded-lg cursor-pointer transition-colors hover:bg-rose-50 text-rose-600"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleDeleteProduct(prod);
+                                }}
+                                className="min-h-10 min-w-10 sm:min-h-0 sm:min-w-0 p-2 sm:p-1.5 rounded-lg cursor-pointer transition-colors hover:bg-rose-50 text-rose-600 touch-manipulation flex items-center justify-center"
                                 title={t('deleteProduct')}
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <Trash2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                               </button>
 
                               {/* More 3-dots */}
                               <div className="relative">
                                 <button
                                   type="button"
-                                  onClick={() => setActiveActionMenuId(activeActionMenuId === prod.id ? null : prod.id)}
-                                  className="p-1.5 rounded-lg cursor-pointer transition-colors hover:opacity-90"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setActiveActionMenuId(activeActionMenuId === prod.id ? null : prod.id);
+                                  }}
+                                  className="min-h-10 min-w-10 sm:min-h-0 sm:min-w-0 p-2 sm:p-1.5 rounded-lg cursor-pointer transition-colors hover:opacity-90 touch-manipulation flex items-center justify-center"
                                   style={{ color: 'var(--muted)' }}
                                   title={isAr ? 'المزيد' : 'More'}
                                 >
-                                  <MoreHorizontal className="w-3.5 h-3.5" />
+                                  <MoreHorizontal className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                                 </button>
 
                                 {activeActionMenuId === prod.id && (
@@ -2607,45 +2640,62 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                                 className="py-2.5 px-2 text-center whitespace-nowrap relative w-36 min-w-[148px] align-middle sticky end-0 z-10 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]"
                                 style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}
                               >
-                                <div className="inline-flex items-center justify-center gap-1.5 w-full">
+                                <div className="inline-flex items-center justify-center gap-1.5 w-full relative z-20 pointer-events-auto">
                                   <button
                                     type="button"
-                                    onClick={() => handleOpenEdit(prod)}
-                                    className="p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleOpenEdit(prod);
+                                    }}
+                                    className="min-h-10 min-w-10 sm:min-h-0 sm:min-w-0 p-2 sm:p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors touch-manipulation flex items-center justify-center"
                                     style={{ borderColor: 'var(--border)', color: 'var(--accent)' }}
                                     title={t('editProduct')}
+                                    aria-label={t('editProduct')}
                                   >
-                                    <Edit className="w-3.5 h-3.5" />
+                                    <Edit className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                                   </button>
 
                                   <button
                                     type="button"
-                                    onClick={() => handleDuplicateProduct(prod)}
-                                    className="p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleDuplicateProduct(prod);
+                                    }}
+                                    className="min-h-10 min-w-10 sm:min-h-0 sm:min-w-0 p-2 sm:p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors touch-manipulation flex items-center justify-center"
                                     style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
                                     title={isAr ? 'نسخ المنتج' : 'Duplicate Product'}
                                   >
-                                    <Copy className="w-3.5 h-3.5" />
+                                    <Copy className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                                   </button>
 
                                   <button
                                     type="button"
-                                    onClick={() => handleDeleteProduct(prod)}
-                                    className="p-1.5 rounded-lg border border-rose-200 dark:border-rose-900/60 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer shadow-xs transition-colors"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleDeleteProduct(prod);
+                                    }}
+                                    className="min-h-10 min-w-10 sm:min-h-0 sm:min-w-0 p-2 sm:p-1.5 rounded-lg border border-rose-200 dark:border-rose-900/60 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer shadow-xs transition-colors touch-manipulation flex items-center justify-center"
                                     title={t('deleteProduct')}
                                   >
-                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <Trash2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                                   </button>
 
                                   <div className="relative">
                                     <button
                                       type="button"
-                                      onClick={() => setActiveActionMenuId(activeActionMenuId === prod.id ? null : prod.id)}
-                                      className="p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setActiveActionMenuId(activeActionMenuId === prod.id ? null : prod.id);
+                                      }}
+                                      className="min-h-10 min-w-10 sm:min-h-0 sm:min-w-0 p-2 sm:p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors touch-manipulation flex items-center justify-center"
                                       style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
                                       title={isAr ? 'المزيد' : 'More Options'}
                                     >
-                                      <MoreHorizontal className="w-3.5 h-3.5" />
+                                      <MoreHorizontal className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                                     </button>
 
                                     {/* Dropdown Action Popover */}
@@ -2750,6 +2800,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
               categories={categories}
               categoryOptions={categoryOptions.map((o) => ({ value: o.value, label: o.label, id: o.id, depth: o.depth }))}
               storeCategories={storeCategoryRows}
+              onCategoriesCreated={() => void reloadStoreCategories()}
               availableBrands={availableStoreBrands}
               visibleSections={visibleEditSections}
               onClose={() => {

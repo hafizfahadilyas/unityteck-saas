@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { cartChoiceLine } from '../cartLine';
 import { useTenant } from '../../../context/TenantContext';
 import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
+import { useCartShippingEstimate } from '../hooks/useCartShippingEstimate';
 import { X, Trash2, ShoppingBag, ArrowRight, ShieldCheck, Coffee, Tag } from 'lucide-react';
 
 export const MiniCartDrawer: React.FC = () => {
@@ -27,7 +28,19 @@ export const MiniCartDrawer: React.FC = () => {
     ? resolveCoffeeThemeSettings(activeStore.id, activeStore).checkoutFields?.showCoupon !== false
     : true;
   const [couponCode, setCouponCode] = useState('');
-  const finalTotal = Math.max(0, cartTotal - couponDiscount);
+  const productIds = useMemo(
+    () => cart.map((it) => String(it.productId || '')).filter(Boolean),
+    [cart],
+  );
+  const shipping = useCartShippingEstimate({
+    storeId: activeStore?.id,
+    cartTotal: Math.max(0, cartTotal - couponDiscount),
+    productIds,
+    language,
+    enabled: isMiniCartOpen && cart.length > 0,
+  });
+  const shippingFee = shipping.pending || shipping.loading ? 0 : shipping.fee;
+  const finalTotal = Math.max(0, cartTotal - couponDiscount) + (shipping.isFree || shipping.pending ? 0 : shippingFee);
 
   const handleApplyCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,17 +81,39 @@ export const MiniCartDrawer: React.FC = () => {
             </button>
           </div>
 
-          {/* Free Shipping Alert */}
-          <div className="bg-neutral-100 px-5 py-2.5 text-xs text-neutral-800 flex items-center gap-2">
-            <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px]">
-              ✓
-            </span>
-            <span className="font-medium">
-              {language === 'AR'
-                ? 'تهانينا! لقد حصلت على الشحن السريع المجاني لكافة مدن المملكة.'
-                : 'You have unlocked Free Express Shipping across KSA!'}
-            </span>
-          </div>
+          {/* Shipping status — only FREE when this store's real threshold / rate says so */}
+          {cart.length > 0 && (
+            <div className="bg-neutral-100 px-5 py-2.5 text-xs text-neutral-800 flex items-center gap-2">
+              {shipping.loading ? (
+                <span className="font-medium text-neutral-600">
+                  {language === 'AR' ? 'جاري حساب رسوم الشحن…' : 'Calculating shipping…'}
+                </span>
+              ) : shipping.isFree ? (
+                <>
+                  <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px]">
+                    ✓
+                  </span>
+                  <span className="font-medium">
+                    {language === 'AR'
+                      ? 'تهانينا! حصلت على الشحن المجاني لهذا الطلب.'
+                      : 'You unlocked free shipping on this order.'}
+                  </span>
+                </>
+              ) : shipping.remainingToFree != null && shipping.remainingToFree > 0 ? (
+                <span className="font-medium">
+                  {language === 'AR'
+                    ? `أضف ${shipping.remainingToFree.toLocaleString()} ⃁ للحصول على الشحن المجاني.`
+                    : `Add ⃁ ${shipping.remainingToFree.toLocaleString()} more for free shipping.`}
+                </span>
+              ) : (
+                <span className="font-medium text-neutral-700">
+                  {language === 'AR'
+                    ? 'رسوم الشحن تُحسب حسب منتجات متجرك عند إتمام الشراء.'
+                    : 'Shipping is calculated from this store’s products at checkout.'}
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Cart Items List */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5">
@@ -186,9 +221,30 @@ export const MiniCartDrawer: React.FC = () => {
                     {language === 'AR' ? `${cartTotal.toLocaleString()}.00 ⃁` : `⃁ ${cartTotal.toLocaleString()}.00`}
                   </span>
                 </div>
-                <div className="flex justify-between items-center text-emerald-700 font-medium">
-                  <span>{language === 'AR' ? 'الشحن والتوصيل' : 'Shipping'}</span>
-                  <span>{language === 'AR' ? 'مجاني' : 'FREE'}</span>
+                <div
+                  className={`flex justify-between items-center font-medium ${
+                    shipping.isFree ? 'text-emerald-700' : 'text-neutral-700'
+                  }`}
+                >
+                  <span>
+                    {language === 'AR' ? 'الشحن والتوصيل' : 'Shipping'}
+                    {shipping.methodLabel ? ` · ${shipping.methodLabel}` : ''}
+                  </span>
+                  <span className="font-mono">
+                    {shipping.loading
+                      ? '…'
+                      : shipping.pending
+                        ? language === 'AR'
+                          ? 'عند إتمام الشراء'
+                          : 'At checkout'
+                        : shipping.isFree
+                          ? language === 'AR'
+                            ? 'مجاني'
+                            : 'FREE'
+                          : language === 'AR'
+                            ? `${shippingFee.toLocaleString()} ⃁`
+                            : `⃁ ${shippingFee.toLocaleString()}`}
+                  </span>
                 </div>
                 {couponDiscount > 0 && appliedCoupon?.code ? (
                   <div className="flex justify-between items-center text-emerald-700 font-medium">
@@ -206,7 +262,13 @@ export const MiniCartDrawer: React.FC = () => {
                 <div className="flex justify-between items-center text-sm font-bold text-neutral-900 pt-2 border-t border-neutral-200/60">
                   <span>{language === 'AR' ? 'المبلغ الإجمالي' : 'Total Amount'}</span>
                   <span className="font-mono text-base text-neutral-900">
-                    {language === 'AR' ? `${finalTotal.toLocaleString()}.00 ⃁` : `⃁ ${finalTotal.toLocaleString()}.00`}
+                    {shipping.pending || shipping.loading
+                      ? language === 'AR'
+                        ? `${Math.max(0, cartTotal - couponDiscount).toLocaleString()}.00 ⃁+`
+                        : `⃁ ${Math.max(0, cartTotal - couponDiscount).toLocaleString()}.00+`
+                      : language === 'AR'
+                        ? `${finalTotal.toLocaleString()}.00 ⃁`
+                        : `⃁ ${finalTotal.toLocaleString()}.00`}
                   </span>
                 </div>
               </div>

@@ -281,6 +281,7 @@ export const CheckoutPage: React.FC = () => {
           date: order.date,
           items: [...cart],
           total: orderGrandTotal,
+          shippingFee,
           paymentMethod,
           shippingAddress: { name, phone, city, district, street },
           status: 'Confirmed',

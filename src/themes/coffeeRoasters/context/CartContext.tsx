@@ -25,18 +25,34 @@ import {
   isAdminChromePath,
   isSpaState,
   isStorefrontPath,
+  dedupeProductQueryFromPath,
   spaPushOrReplace,
   storefrontHomeHref,
   trapSpaHomeIfEscaped,
 } from '../../../utils/spaNavigationGuard';
 
 /** Minimal theme product from API row (deep-link / group child). */
+import { cleanImageUrl } from '../../../utils/imageFallback';
+
+function mapGalleryUrls(dp: any, primary: string): string[] {
+  const raw = [
+    ...(primary ? [primary] : []),
+    ...((dp.galleryUrls || dp.gallery_urls || []) as string[]).filter(
+      (u: string) => u && u !== primary,
+    ),
+  ];
+  const cleaned = raw.map((u) => cleanImageUrl(u)).filter(Boolean);
+  return Array.from(new Set(cleaned));
+}
+
 function mapApiProductToTheme(dp: any): Product {
-  const primaryImg =
+  const rawPrimary =
     dp.image ||
     dp.imageUrl ||
     (dp.galleryUrls && dp.galleryUrls[0]) ||
+    (dp.gallery_urls && dp.gallery_urls[0]) ||
     '';
+  const primaryImg = rawPrimary ? cleanImageUrl(rawPrimary) : '';
   const listPrice = mergeListPricing(dp);
   const kids = Array.isArray(dp.groupChildren)
     ? dp.groupChildren
@@ -64,9 +80,7 @@ function mapApiProductToTheme(dp: any): Product {
     colors: [],
     storageOptions: [],
     specs: Array.isArray(dp.specs) ? dp.specs : [],
-    images: primaryImg
-      ? [primaryImg, ...(dp.galleryUrls || dp.gallery_urls || []).filter((u: string) => u !== primaryImg)]
-      : [...(dp.galleryUrls || dp.gallery_urls || [])],
+    images: mapGalleryUrls(dp, primaryImg),
     overview: dp.description || '',
     overviewAr: dp.descriptionAr || dp.description_ar || '',
     productOptions: Array.isArray(dp.productOptions) ? dp.productOptions : [],
@@ -263,6 +277,8 @@ export interface OrderItemRecord {
   date: string;
   items: CartItem[];
   total: number;
+  /** Real store shipping fee charged on this order (0 = free for this order only). */
+  shippingFee?: number;
   paymentMethod: string;
   shippingAddress: {
     name: string;
@@ -302,7 +318,8 @@ interface CartContextType {
   previousRoute: RouteType;
   goBack: () => void;
   selectedProductId: string;
-  selectedProduct: Product;
+  selectedProduct: Product | null;
+  productSelectionReady: boolean;
   products: Product[];
   storeIdentity?: StoreIdentitySettings;
   selectedPageSlug?: string;
@@ -378,9 +395,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentRoute, setCurrentRoute] = useState<RouteType>(routeFromPreviewQuery);
   const [previousRoute, setPreviousRoute] = useState<RouteType>('home');
   const [routeHistory, setRouteHistory] = useState<RouteType[]>(['home']);
-  const [selectedProductId, setSelectedProductId] = useState<string>(
-    () => productIdFromQuery() || 'hb-h10a-dualboiler',
-  );
+  const [selectedProductId, setSelectedProductId] = useState<string>(() => productIdFromQuery() || '');
   const [selectedPageSlug, setSelectedPageSlug] = useState<string>('privacy-policy');
 
   let prefs: ReturnType<typeof usePrefs> | null = null;
@@ -392,33 +407,57 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [localLanguage, setLocalLanguage] = useState<'EN' | 'AR'>(() => {
     try {
-      const saved = localStorage.getItem('unityteck_coffee_lang') || localStorage.getItem('unityteck_prefs');
-      if (saved) {
-        if (saved === 'EN' || saved === 'en' || saved.includes('"locale":"en"')) return 'EN';
-        if (saved === 'AR' || saved === 'ar' || saved.includes('"locale":"ar"')) return 'AR';
+      // Prefer admin chrome prefs when present — never invent a second source of truth on boot.
+      const prefsRaw = localStorage.getItem('unityteck_prefs');
+      if (prefsRaw) {
+        const parsed = JSON.parse(prefsRaw) as { locale?: string };
+        if (parsed?.locale === 'en') return 'EN';
+        if (parsed?.locale === 'ar') return 'AR';
       }
-    } catch {}
+      const saved = localStorage.getItem('unityteck_coffee_lang');
+      if (saved === 'EN' || saved === 'en') return 'EN';
+      if (saved === 'AR' || saved === 'ar') return 'AR';
+    } catch {
+      /* ignore */
+    }
     return 'AR';
   });
 
-  const language: 'EN' | 'AR' = prefs?.locale ? (prefs.locale === 'ar' ? 'AR' : 'EN') : localLanguage;
+  /**
+   * Storefront language is LOCAL.
+   * Never call prefs.setLocale from here — that was flipping admin chrome / causing
+   * “auto refresh + language switch” when coffee Header or preview posts LANG.
+   * Admin → storefront: one-way sync via prefs.locale effect below.
+   */
+  const language: 'EN' | 'AR' = localLanguage;
 
   const setLanguage = useCallback((lang: 'EN' | 'AR') => {
     try {
       localStorage.setItem('unityteck_coffee_lang', lang);
-    } catch {}
-    setLocalLanguage(lang);
-    if (prefs?.setLocale) {
-      prefs.setLocale(lang === 'AR' ? 'ar' : 'en');
+    } catch {
+      /* ignore */
     }
-  }, [prefs]);
+    setLocalLanguage(lang);
+  }, []);
 
   const toggleLanguage = useCallback(() => {
     const next = language === 'EN' ? 'AR' : 'EN';
     setLanguage(next);
   }, [language, setLanguage]);
 
-  // Instant lang from Theme Customizer parent (no iframe reload)
+  // Admin chrome locale wins — preview / storefront follows without writing back.
+  useEffect(() => {
+    if (!prefs?.locale) return;
+    const fromPrefs: 'EN' | 'AR' = prefs.locale === 'ar' ? 'AR' : 'EN';
+    setLocalLanguage((prev) => (prev === fromPrefs ? prev : fromPrefs));
+    try {
+      localStorage.setItem('unityteck_coffee_lang', fromPrefs);
+    } catch {
+      /* ignore */
+    }
+  }, [prefs?.locale]);
+
+  // Instant lang from Theme Customizer parent (no iframe reload) — storefront only
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
       const lang = e.data?.lang;
@@ -611,6 +650,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
         }
+        dedupeProductQueryFromPath(url);
         const href = `${url.pathname}${url.search}${url.hash}`;
         // pushState so browser Back returns to previous storefront page / home — not admin
         spaPushOrReplace('storefront', href, { page: targetRoute, product: productId || null });
@@ -696,6 +736,22 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
+  }, [inAdminChromeUrl]);
+
+  // Canonical product URL — no duplicate ?product= when path already has /product/{id}
+  useEffect(() => {
+    if (typeof window === 'undefined' || inAdminChromeUrl()) return;
+    try {
+      const url = new URL(window.location.href);
+      dedupeProductQueryFromPath(url);
+      const href = `${url.pathname}${url.search}${url.hash}`;
+      const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      if (href !== current) {
+        spaPushOrReplace('storefront', href, (window.history.state as Record<string, unknown>) || {}, true);
+      }
+    } catch {
+      /* ignore */
+    }
   }, [inAdminChromeUrl]);
 
   const addToCart = (
@@ -1161,12 +1217,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             )
           : undefined;
 
-      const primaryImg =
+      const rawPrimary =
         dp.image ||
         (dp.galleryUrls && dp.galleryUrls[0]) ||
         packChrome?.colors?.[0]?.image ||
         packChrome?.images?.[0] ||
         '';
+      const primaryImg = rawPrimary ? cleanImageUrl(rawPrimary) : '';
 
       const listPriceNew = mergeListPricing(dp);
       const compareNew = listPriceNew.originalPrice;
@@ -1208,9 +1265,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           : Array.isArray(dp.specs)
             ? dp.specs
             : packChrome?.specs || [],
-        images: primaryImg
-          ? [primaryImg, ...(dp.galleryUrls || []).filter((u: string) => u !== primaryImg)]
-          : [...(dp.galleryUrls || [])],
+        images: mapGalleryUrls(dp, primaryImg),
         overview: dp.description || '',
         overviewAr: dp.descriptionAr || '',
         partsShowcase: storyNew.parts.length
@@ -1252,11 +1307,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             : true,
         groupChildren: Array.isArray(dp.groupChildren)
           ? dp.groupChildren.map((child: any) => {
-              const childPrimary =
+              const rawChildPrimary =
                 child.image ||
                 child.imageUrl ||
                 (child.galleryUrls && child.galleryUrls[0]) ||
                 '';
+              const childPrimary = rawChildPrimary ? cleanImageUrl(rawChildPrimary) : '';
               const childPricing = mergeListPricing(child);
               return {
                 id: child.id,
@@ -1283,9 +1339,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 colors: [],
                 storageOptions: [],
                 specs: Array.isArray(child.specs) ? child.specs : [],
-                images: childPrimary
-                  ? [childPrimary, ...(child.galleryUrls || []).filter((u: string) => u !== childPrimary)]
-                  : [...(child.galleryUrls || [])],
+                images: mapGalleryUrls(child, childPrimary),
                 overview: child.description || '',
                 overviewAr: child.descriptionAr || '',
                 productOptions: Array.isArray(child.productOptions) ? child.productOptions : [],
@@ -1344,8 +1398,29 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Group children are hidden from listing but still deep-linkable: resolve to parent shell
   // when membership is known; otherwise use deep-link fetch (standalone child PDP).
+  const productSelectionReady = useMemo(() => {
+    const id = String(selectedProductId || '').trim();
+    if (!id) return true;
+    if (mergedProducts.some((p) => String(p.id) === id)) return true;
+    if (
+      mergedProducts.some((p) =>
+        (p.groupChildren || []).some((c) => String(c.id) === id),
+      )
+    ) {
+      return true;
+    }
+    if (deepLinkProduct) {
+      if (String(deepLinkProduct.id) === id) return true;
+      if ((deepLinkProduct.groupChildren || []).some((c) => String(c.id) === id)) {
+        return true;
+      }
+    }
+    return false;
+  }, [mergedProducts, selectedProductId, deepLinkProduct]);
+
   const selectedProduct = useMemo(() => {
-    const id = String(selectedProductId || '');
+    const id = String(selectedProductId || '').trim();
+    if (!id) return null;
     const direct = mergedProducts.find((p) => String(p.id) === id);
     if (direct) return direct;
     for (const parent of mergedProducts) {
@@ -1358,7 +1433,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return deepLinkProduct;
       }
     }
-    return mergedProducts[0];
+    return null;
   }, [mergedProducts, selectedProductId, deepLinkProduct]);
 
   const storeIdentity = useMemo(() => {
@@ -1384,6 +1459,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         goBack,
         selectedProductId,
         selectedProduct,
+        productSelectionReady,
         products: mergedProducts,
         storeIdentity,
         selectedPageSlug,
@@ -1433,6 +1509,7 @@ const CART_STUB: CartContextType = {
   goBack: () => undefined,
   selectedProductId: PRODUCTS[0]?.id || '',
   selectedProduct: PRODUCTS[0] as Product,
+  productSelectionReady: true,
   products: PRODUCTS,
   storeIdentity: undefined,
   selectedPageSlug: 'privacy-policy',

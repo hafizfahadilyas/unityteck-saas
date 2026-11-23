@@ -292,6 +292,7 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
         selectedStorage: { capacity: 'Standard', ram: '', priceDelta: 0 },
       })),
       total: o.total || 0,
+      shippingFee: typeof o.shippingFee === 'number' ? o.shippingFee : undefined,
       paymentMethod: String(o.paymentMethod || 'mada'),
       shippingAddress: {
         name: o.customerName || user.name,
@@ -673,7 +674,12 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
                 {/* Total */}
                 <div className="flex items-center justify-between pt-3 border-t border-neutral-200/70 text-xs">
                   <span className="text-neutral-500">
-                    {order.shippingAddress?.city} · {language === 'AR' ? 'شحن فوري مجاني' : 'Free Express Delivery'}
+                    {order.shippingAddress?.city}
+                    {typeof order.shippingFee === 'number'
+                      ? order.shippingFee <= 0
+                        ? ` · ${language === 'AR' ? 'شحن مجاني' : 'Free shipping'}`
+                        : ` · ${language === 'AR' ? `شحن ${order.shippingFee.toLocaleString()} ⃁` : `Shipping ⃁ ${order.shippingFee.toLocaleString()}`}`
+                      : ''}
                   </span>
                   <div className="text-end">
                     <span className="text-neutral-500 mr-2">{language === 'AR' ? 'الإجمالي:' : 'Total:'}</span>

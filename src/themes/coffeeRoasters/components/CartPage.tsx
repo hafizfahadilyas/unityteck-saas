@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { cartChoiceLine } from '../cartLine';
 import { useTenant } from '../../../context/TenantContext';
 import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
+import { useCartShippingEstimate } from '../hooks/useCartShippingEstimate';
 import { Trash2, ArrowRight, ShoppingBag, ShieldCheck, Tag, Truck, Check, Coffee } from 'lucide-react';
-import { CashbackStorefrontBanner } from '../../meccaGifts/components/CashbackStorefrontBanner';
 import { SpecialOfferStorefrontBanner } from '../../meccaGifts/components/SpecialOfferStorefrontBanner';
 
 export const CartPage: React.FC = () => {
@@ -30,6 +30,18 @@ export const CartPage: React.FC = () => {
   const [couponCode, setCouponCode] = useState('');
   const discountAmount = couponDiscount;
   const appliedCoupon = appliedCouponObj?.code || null;
+  const productIds = useMemo(
+    () => cart.map((it) => String(it.productId || '')).filter(Boolean),
+    [cart],
+  );
+  const shipping = useCartShippingEstimate({
+    storeId: activeStore?.id,
+    cartTotal: Math.max(0, cartTotal - discountAmount),
+    productIds,
+    language,
+    enabled: cart.length > 0,
+  });
+  const shippingFee = shipping.pending || shipping.loading ? 0 : shipping.fee;
 
   const handleApplyCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +50,8 @@ export const CartPage: React.FC = () => {
     if (res.success) setCouponCode('');
   };
 
-  const finalTotal = Math.max(0, cartTotal - discountAmount);
+  const finalTotal =
+    Math.max(0, cartTotal - discountAmount) + (shipping.isFree || shipping.pending ? 0 : shippingFee);
 
   if (cart.length === 0) {
     return (
@@ -78,12 +91,11 @@ export const CartPage: React.FC = () => {
             {language === 'AR' ? 'سلة التسوق' : 'Shopping Bag'}
           </h1>
           <p className="text-xs text-neutral-500 mt-1">
-            {language === 'AR' ? 'معدات القهوة المحددة مع ضمان الوكيل سنتين والشحن المجاني' : 'Review your selected equipment before checking out'}
+            {language === 'AR' ? 'راجع المنتجات المختارة قبل إتمام الشراء' : 'Review your selected equipment before checking out'}
           </p>
         </div>
 
         <SpecialOfferStorefrontBanner language={language === 'AR' ? 'ar' : 'en'} />
-        <CashbackStorefrontBanner language={language === 'AR' ? 'ar' : 'en'} />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
           {/* Items List (8 cols) */}
@@ -226,10 +238,38 @@ export const CartPage: React.FC = () => {
                     {language === 'AR' ? `${cartVat.toLocaleString()}.00 ⃁` : `⃁ ${cartVat.toLocaleString()}.00`}
                   </span>
                 </div>
-                <div className="flex justify-between items-center text-emerald-700 font-medium">
-                  <span>{language === 'AR' ? 'الشحن والتوصيل لكافة مدن المملكة' : 'Shipping'}</span>
-                  <span>{language === 'AR' ? 'مجاني' : 'FREE'}</span>
+                <div
+                  className={`flex justify-between items-center font-medium ${
+                    shipping.isFree ? 'text-emerald-700' : 'text-neutral-700'
+                  }`}
+                >
+                  <span>
+                    {language === 'AR' ? 'الشحن والتوصيل' : 'Shipping'}
+                    {shipping.methodLabel ? ` · ${shipping.methodLabel}` : ''}
+                  </span>
+                  <span className="font-mono">
+                    {shipping.loading
+                      ? '…'
+                      : shipping.pending
+                        ? language === 'AR'
+                          ? 'عند إتمام الشراء'
+                          : 'At checkout'
+                        : shipping.isFree
+                          ? language === 'AR'
+                            ? 'مجاني'
+                            : 'FREE'
+                          : language === 'AR'
+                            ? `${shippingFee.toLocaleString()} ⃁`
+                            : `⃁ ${shippingFee.toLocaleString()}`}
+                  </span>
                 </div>
+                {shipping.remainingToFree != null && shipping.remainingToFree > 0 ? (
+                  <p className="text-[10px] text-neutral-500">
+                    {language === 'AR'
+                      ? `أضف ${shipping.remainingToFree.toLocaleString()} ⃁ للشحن المجاني`
+                      : `Add ⃁ ${shipping.remainingToFree.toLocaleString()} more for free shipping`}
+                  </p>
+                ) : null}
 
                 {discountAmount > 0 && (
                   <div className="flex justify-between items-center text-emerald-700 font-semibold">
@@ -248,7 +288,13 @@ export const CartPage: React.FC = () => {
                 <div className="flex justify-between items-center text-sm sm:text-base font-black text-neutral-900 pt-3 border-t border-neutral-200/60">
                   <span>{language === 'AR' ? 'الإجمالي النهائي' : 'Total Amount'}</span>
                   <span className="font-sans text-base sm:text-lg text-neutral-900">
-                    {language === 'AR' ? `${finalTotal.toLocaleString()}.00 ⃁` : `⃁ ${finalTotal.toLocaleString()}.00`}
+                    {shipping.pending || shipping.loading
+                      ? language === 'AR'
+                        ? `${Math.max(0, cartTotal - discountAmount).toLocaleString()}.00 ⃁+`
+                        : `⃁ ${Math.max(0, cartTotal - discountAmount).toLocaleString()}.00+`
+                      : language === 'AR'
+                        ? `${finalTotal.toLocaleString()}.00 ⃁`
+                        : `⃁ ${finalTotal.toLocaleString()}.00`}
                   </span>
                 </div>
               </div>

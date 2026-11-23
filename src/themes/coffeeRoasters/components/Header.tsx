@@ -348,6 +348,19 @@ export const Header: React.FC = () => {
 
   const headerSettings = allThemeSettings?.customHeader;
   // Header chrome uses Store Colors / page-builder tokens: --theme-header-bg / --theme-header-text.
+  const mobileVis = useMemo(() => {
+    const raw = headerSettings?.mobileVisibility;
+    return {
+      logo: raw?.logo !== false,
+      search: raw?.search !== false,
+      cart: raw?.cart !== false,
+      account: raw?.account !== false,
+      language: raw?.language !== false,
+      menu: raw?.menu !== false,
+      quickNav: raw?.quickNav !== false,
+      shopButton: raw?.shopButton !== false,
+    };
+  }, [headerSettings?.mobileVisibility]);
 
   const [activeMegaMenu, setActiveMegaMenu] = useState<MegaMenuKey>(null);
   const [renderedMegaMenu, setRenderedMegaMenu] = useState<MegaMenuKey>(null);
@@ -384,16 +397,17 @@ export const Header: React.FC = () => {
 
   useEffect(() => {
     const write = () => {
-      const announcement = announcementRef.current?.getBoundingClientRect().height ?? 0;
+      // Announcement is NOT sticky — only the main header pins.
+      // Offset = header height only, so Honor buy bar sits flush under it
+      // (ann+header was leaving a gap / content bleed once the strip scrolled away).
       const header = headerRef.current?.getBoundingClientRect().height ?? 0;
-      const px = `${Math.round(announcement + header)}px`;
+      const px = `${Math.round(header || 64)}px`;
       const root = headerRef.current?.closest('.hibrew-theme-root') as HTMLElement | null;
       root?.style.setProperty('--theme-chrome-offset', px);
       document.documentElement.style.setProperty('--theme-chrome-offset', px);
     };
     write();
     const observer = new ResizeObserver(write);
-    if (announcementRef.current) observer.observe(announcementRef.current);
     if (headerRef.current) observer.observe(headerRef.current);
     return () => observer.disconnect();
   }, [language, headerVersion]);
@@ -697,9 +711,9 @@ export const Header: React.FC = () => {
             </button>
           </div>
 
-          {/* 1. Mobile Left: Hamburger + Cart + Search (Exact match with Image) */}
-          <div className="flex @lg:hidden items-center gap-1 sm:gap-2 shrink-0">
-            {/* Hamburger Toggle */}
+          {/* 1. Mobile Left: Hamburger + Cart + Search — respect enabled + mobileVisibility */}
+          <div className="flex @lg:hidden items-center gap-1 sm:gap-2 shrink-0 min-w-0">
+            {mobileVis.menu ? (
             <button
               type="button"
               onClick={(e) => {
@@ -707,13 +721,14 @@ export const Header: React.FC = () => {
                 setActiveMegaMenu(null);
                 setMobileMenuOpen((prev) => !prev);
               }}
-              className="p-1.5 text-neutral-900 hover:text-black cursor-pointer active:scale-95 transition-transform"
+              className="p-1.5 text-neutral-900 hover:text-black cursor-pointer active:scale-95 transition-transform shrink-0"
               aria-label={language === 'AR' ? 'فتح القائمة' : 'Toggle Menu'}
             >
               {mobileMenuOpen ? <X className="w-5 h-5 stroke-[2]" /> : <Menu className="w-5 h-5 stroke-[2]" />}
             </button>
+            ) : null}
 
-            {/* Shopping Bag with Badge */}
+            {mobileVis.cart && headerSettings?.actions?.cart?.enabled !== false ? (
             <button
               id="header-mobile-cart-btn"
               type="button"
@@ -722,7 +737,7 @@ export const Header: React.FC = () => {
                 setMobileMenuOpen(false);
                 setIsMiniCartOpen(true);
               }}
-              className="relative p-1.5 text-neutral-900 hover:text-black cursor-pointer active:scale-95 transition-transform"
+              className="relative p-1.5 text-neutral-900 hover:text-black cursor-pointer active:scale-95 transition-transform shrink-0"
               aria-label={language === 'AR' ? 'السلة' : 'Cart'}
             >
               <ShoppingBag className="w-5 h-5 stroke-[1.8]" />
@@ -732,8 +747,9 @@ export const Header: React.FC = () => {
                 </span>
               )}
             </button>
+            ) : null}
 
-            {/* Search */}
+            {mobileVis.search && headerSettings?.actions?.search?.enabled !== false ? (
             <button
               type="button"
               onClick={() => {
@@ -741,11 +757,12 @@ export const Header: React.FC = () => {
                 setMobileMenuOpen(false);
                 setIsSearchOpen(true);
               }}
-              className="p-1.5 text-neutral-900 hover:text-black cursor-pointer active:scale-95 transition-transform"
+              className="p-1.5 text-neutral-900 hover:text-black cursor-pointer active:scale-95 transition-transform shrink-0"
               aria-label={language === 'AR' ? 'بحث' : 'Search'}
             >
               <Search className="w-5 h-5 stroke-[1.8]" />
             </button>
+            ) : null}
           </div>
 
           {/* 2b. Tablet custom links (md–lg) when merchant set tabletLinks */}
@@ -1155,6 +1172,7 @@ export const Header: React.FC = () => {
             </button>
 
             {/* Language Switcher (EN | AR) */}
+            {headerSettings?.language?.enabled !== false ? (
             <div className="flex items-center gap-0.5 text-[11px] sm:text-xs font-semibold px-1 sm:px-1.5 py-0.5 rounded-full border border-neutral-200/90 bg-neutral-50/80 text-neutral-800 transition-colors shrink-0">
               <button
                 type="button"
@@ -1181,21 +1199,23 @@ export const Header: React.FC = () => {
                 AR
               </button>
             </div>
+            ) : null}
           </div>
 
-          {/* 3. Mobile Right: Brand Logo & Language Switcher (Exact match with Image) */}
-          <div className="flex @lg:hidden items-center gap-2 shrink-0 z-10">
-            {/* Language Toggle on Mobile */}
+          {/* 3. Mobile Right: Brand Logo & Language — mobileVisibility */}
+          <div className="flex @lg:hidden items-center gap-2 shrink-0 z-10 min-w-0 max-w-[48%]">
+            {mobileVis.language && headerSettings?.language?.enabled !== false ? (
             <button
               type="button"
               onClick={() => setLanguage(language === 'AR' ? 'EN' : 'AR')}
-              className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-neutral-200 bg-neutral-50 text-neutral-800 cursor-pointer active:scale-95"
+              className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-neutral-200 bg-neutral-50 text-neutral-800 cursor-pointer active:scale-95 shrink-0"
               title={language === 'AR' ? 'التبديل إلى الإنجليزية' : 'Switch to Arabic'}
             >
               {language === 'AR' ? 'EN' : 'AR'}
             </button>
+            ) : null}
 
-            {/* Mobile Brand Logo */}
+            {mobileVis.logo ? (
             <button
               type="button"
               onClick={() => {
@@ -1203,7 +1223,7 @@ export const Header: React.FC = () => {
                 setMobileMenuOpen(false);
                 navigateTo('home');
               }}
-              className="flex items-center gap-1.5 font-black text-base sm:text-lg font-sans text-black uppercase cursor-pointer"
+              className="flex items-center gap-1.5 font-black text-base sm:text-lg font-sans text-black uppercase cursor-pointer min-w-0"
               title={logoWord}
             >
               {uploadedLogo ? (
@@ -1214,16 +1234,17 @@ export const Header: React.FC = () => {
                     <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="2.5" />
                     <path d="M12 3.5 A8.5 8.5 0 0 1 20.5 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
                   </svg>
-                  <span className="tracking-tight font-extrabold text-[16px] sm:text-[18px]">{logoWord}</span>
+                  <span className="tracking-tight font-extrabold text-[16px] sm:text-[18px] truncate">{logoWord}</span>
                 </>
               )}
             </button>
+            ) : null}
           </div>
         </div>
 
-        {/* MOBILE QUICK NAVIGATION BAR (Visible on mobile below main header bar) */}
-        {currentRoute !== 'product-detail' && currentRoute !== 'product-buy' && (
-          <div className="@lg:hidden w-full border-t border-neutral-100 px-3 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar" style={{ backgroundColor: 'var(--theme-header-bg, #FFFFFF)' }}>
+        {/* MOBILE QUICK NAVIGATION BAR — hide via mobileVisibility.quickNav */}
+        {mobileVis.quickNav && currentRoute !== 'product-detail' && currentRoute !== 'product-buy' && (
+          <div className="@lg:hidden w-full max-w-full border-t border-neutral-100 px-3 py-2 flex items-center gap-2 overflow-x-auto overscroll-x-contain no-scrollbar" style={{ backgroundColor: 'var(--theme-header-bg, #FFFFFF)' }}>
             {showNavKey('home') ? (
             <button
               type="button"
@@ -1241,7 +1262,7 @@ export const Header: React.FC = () => {
             </button>
             ) : null}
 
-            {showNavKey('shop') ? (
+            {mobileVis.shopButton && showNavKey('shop') ? (
             <button
               type="button"
               onClick={() => {

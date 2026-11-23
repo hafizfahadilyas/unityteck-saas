@@ -84,9 +84,11 @@ export async function fetchStores(): Promise<Store[]> {
   const storeId =
     portal === 'store' && session?.storeId ? String(session.storeId) : undefined;
 
+  // Public list (store.id). Never send Sanctum — wrong-tenant membership → 403 storm.
   const res = await apiFetch<ListResponse<ApiStoreRow>>('/stores', {
     portal: portal === 'master' ? 'master' : undefined,
     storeId,
+    skipAuth: true,
   });
   let rows = (res.data ?? []).map(mapStore);
   if (storeId) {
@@ -1622,9 +1624,10 @@ export async function fetchCategories(
   if (query.roots) params.set('roots', '1');
   if (query.all !== false) params.set('all', '1');
   const qs = params.toString();
+  // Public taxonomy GET (store.id). Auth header + no membership → 403 loop in admin.
   const res = await apiFetch<ListResponse<Record<string, unknown>>>(
     `/categories${qs ? `?${qs}` : ''}`,
-    { storeId },
+    { storeId, skipAuth: true },
   );
   return (res.data ?? []).map(mapCategory);
 }
@@ -2701,6 +2704,18 @@ export async function disconnectGoogleAccountApi(storeId: string): Promise<any> 
   return apiFetch('/google/disconnect', {
     method: 'POST',
     storeId,
+  });
+}
+
+export async function requestGoogleIndexing(
+  storeId: string,
+  url: string,
+  type: 'URL_UPDATED' | 'URL_DELETED' = 'URL_UPDATED',
+): Promise<{ ok: boolean; url?: string; message?: string; error?: string | null }> {
+  return apiFetch('/google/indexing', {
+    method: 'POST',
+    storeId,
+    body: { url, type },
   });
 }
 
@@ -5190,14 +5205,10 @@ export async function deleteCashbackCampaignApi(storeId: string, id: string): Pr
 }
 
 export async function fetchStorefrontActiveCashbackApi(
-  storeId: string,
+  _storeId: string,
 ): Promise<CashbackCampaign | null> {
-  const res = await apiFetch<{ success: boolean; data: Record<string, unknown> | null }>(
-    `/storefront/cashback/active?store_id=${encodeURIComponent(storeId)}`,
-    { storeId, skipAuth: true },
-  );
-  if (!res.data) return null;
-  return mapApiCashbackRow(res.data, storeId);
+  // Public storefront cashback card disabled (all stores). Apply only via private promo code paste.
+  return null;
 }
 
 export type SpecialOfferPayload = {

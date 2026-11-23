@@ -45,7 +45,10 @@ import {
   type HeaderCustomSettings,
   getDefaultHeaderSettings,
   type HeaderAnnouncementMessage,
+  type HeaderMobileVisibility,
   type HeaderNavLink,
+  DEFAULT_HEADER_MOBILE_VISIBILITY,
+  resolveHeaderMobileVisibility,
 } from '../../../themes/settings/headerCustomSettings';
 import { isCoffeeStore } from '../../../themes/settings/coffeeThemeDefaults';
 import { resolveStoreContact } from '../../../themes/settings/storeContact';
@@ -518,6 +521,77 @@ export const HeaderElementsForm: React.FC<{ onBack?: () => void; embedded?: bool
       {/* ─── TAB 1: ACTION ICONS (HEART WISHLIST, CART, WHATSAPP, PROFILE, SEARCH) ─── */}
       {activeSubTab === 'icons' && (
         <div className="space-y-3.5 animate-in fade-in duration-200">
+          {/* Mobile visibility — hide logo / cart / search / … on phones only */}
+          {(() => {
+            const mobileVis = resolveHeaderMobileVisibility(headerSettings.mobileVisibility);
+            const rows: { key: keyof HeaderMobileVisibility; ar: string; en: string }[] = [
+              { key: 'logo', ar: 'الشعار', en: 'Logo' },
+              { key: 'menu', ar: 'قائمة الهامبرغر', en: 'Menu (hamburger)' },
+              { key: 'search', ar: 'البحث', en: 'Search' },
+              { key: 'cart', ar: 'سلة التسوق', en: 'Cart' },
+              { key: 'account', ar: 'الحساب', en: 'Account' },
+              { key: 'language', ar: 'اللغة', en: 'Language' },
+              { key: 'quickNav', ar: 'شريط التنقل السريع', en: 'Quick nav bar' },
+              { key: 'shopButton', ar: 'زر المتجر', en: 'Shop button' },
+            ];
+            return (
+              <div
+                className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3 shadow-2xs"
+                data-header-panel="mobile-visibility"
+              >
+                <div className="flex items-start gap-2.5">
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'color-mix(in srgb, var(--accent) 14%, transparent)', color: 'var(--accent)' }}>
+                    <Menu className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="text-xs font-bold">{isAr ? 'إظهار على الجوال' : 'Show on mobile'}</h4>
+                    <p className="text-[10px] text-slate-400 leading-relaxed">
+                      {isAr
+                        ? 'أخفِ عناصر الهيدر على الجوال فقط (سطح المكتب يبقى كما هو) — لتفادي التداخل والتمرير الأفقي.'
+                        : 'Hide header items on mobile only (desktop stays) — avoids overlap and horizontal scroll.'}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {rows.map((row) => {
+                    const on = mobileVis[row.key] !== false;
+                    return (
+                      <label
+                        key={row.key}
+                        className="flex items-center justify-between gap-2 rounded-xl border px-2.5 py-2 cursor-pointer"
+                        style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+                      >
+                        <span className="text-[11px] font-semibold" style={{ color: 'var(--text)' }}>
+                          {isAr ? row.ar : row.en}
+                        </span>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={on}
+                          data-mobile-vis={row.key}
+                          onClick={() =>
+                            patchHeaderSettings((p) => ({
+                              ...p,
+                              mobileVisibility: {
+                                ...DEFAULT_HEADER_MOBILE_VISIBILITY,
+                                ...(p.mobileVisibility || {}),
+                                [row.key]: !on,
+                              },
+                            }))
+                          }
+                          className={toggleTrack(on)}
+                          aria-label={isAr ? `تبديل ${row.ar}` : `Toggle ${row.en}`}
+                        >
+                          <span className="bg-white w-4 h-4 rounded-full shadow-md" />
+                        </button>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* 1. Wishlist Heart Icon Card */}
           <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3 shadow-2xs">
             <div className="flex items-center justify-between">

@@ -35,6 +35,7 @@ import {
   Headphones,
   Paintbrush,
   Share2,
+  Smartphone,
   X,
 } from 'lucide-react';
 import { useNotifications } from '../../notification-system';
@@ -69,6 +70,7 @@ const STORE_IOS_ICON_TINT: Record<string, string> = {
   'ai-media': '#BF5AF2',
   themes: '#FF2D55',
   appstore: '#0A84FF',
+  'mobile-app': '#64D2FF',
   settings: '#8E8E93',
 };
 
@@ -324,6 +326,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
       { id: 'ai-media', icon: Sparkles },
       { id: 'themes', icon: Palette },
       // App Store / Theme Store lives under Themes & layout submenu (not top-level)
+      { id: 'mobile-app', icon: Smartphone },
       { id: 'settings', icon: Settings },
     ];
     // Coming-soon tabs stay visible as disabled fixed buttons (no click / no dropdown).
@@ -370,15 +373,13 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
         style={{ background: 'transparent' }}
       >
         <div
-          className={`px-3 pt-3 pb-2 flex items-center gap-2 ${collapsed ? 'justify-center' : ''}`}
+          className="relative px-3 pt-3 pb-2 flex items-center justify-center min-h-[3.5rem]"
           title={isAr ? 'منصة سوق' : 'Souq Platform'}
         >
           {collapsed ? (
             <SouqEMakkahMark isAr={isAr} />
           ) : (
-            <div className="min-w-0 flex-1">
-              <SouqEMakkahLogo isAr={isAr} />
-            </div>
+            <SouqEMakkahLogo isAr={isAr} />
           )}
           <button
             type="button"
@@ -389,7 +390,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
               }
               setCollapsed((v) => !v);
             }}
-            className="unity-sidebar-toggle shrink-0"
+            className="unity-sidebar-toggle absolute end-3 top-1/2 -translate-y-1/2 shrink-0"
             aria-label={
               isAr
                 ? (typeof window !== 'undefined' && window.matchMedia('(max-width: 1023.98px)').matches

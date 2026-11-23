@@ -60,6 +60,31 @@
   color: #0F172A;
   min-height: 100vh;
   width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+/* Mobile storefront: no page-level horizontal scroll / section overlap */
+@media (max-width: 1023.98px) {
+  .hibrew-theme-root {
+    overflow-x: clip;
+  }
+  .hibrew-theme-root [data-customize-section='00_header_builder'] [data-header-nav-row='1'] {
+    min-width: 0;
+    max-width: 100%;
+    gap: 0.35rem;
+  }
+  .hibrew-theme-root img,
+  .hibrew-theme-root video,
+  .hibrew-theme-root iframe,
+  .hibrew-theme-root .theme-slider-stage {
+    max-width: 100%;
+  }
+  .hibrew-theme-root section,
+  .hibrew-theme-root [data-customize-section] {
+    max-width: 100%;
+    min-width: 0;
+  }
 }
 
 /* Page Builder slice previews — never force full viewport (that creates huge empty gaps) */
@@ -87,12 +112,22 @@
  * Header must stay overflow:visible so the absolute mega-menu dropdown can
  * paint below the bar. overflow-x:clip forces overflow-y to auto/clip and
  * shoves submenu tabs/underlines into the logo+nav row (Page Builder + live).
+ *
+ * position:relative ONLY inside Page Builder — on live storefront the same
+ * rule was killing sticky chrome, so the buy bar stuck at --theme-chrome-offset
+ * while the site header scrolled away and page content (Total / Promo) bled
+ * into the gap above the Honor bar.
  */
 .hibrew-theme-root.coffee-builder-preview .coffee-builder-header,
-.hibrew-theme-root [data-customize-section="00_header_builder"] {
+.hibrew-theme-root.coffee-builder-preview [data-customize-section='00_header_builder'] {
   overflow: visible !important;
   max-width: 100%;
   position: relative;
+}
+
+.hibrew-theme-root:not(.coffee-builder-preview) [data-customize-section='00_header_builder'] {
+  overflow: visible !important;
+  max-width: 100%;
 }
 
 /* Page Builder: announcement is its own block — hide nested strip inside Main Menu */

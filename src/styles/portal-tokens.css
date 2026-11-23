@@ -204,6 +204,42 @@ html[dir="rtl"] .font-black {
   color: var(--icon-box-fg) !important;
   border: 1px solid var(--border) !important;
 }
+.u-icon-brand svg,
+.u-icon svg,
+.unity-icon-soft svg,
+.u-hub-card__icon svg {
+  color: inherit !important;
+  stroke: currentColor;
+}
+
+/*
+ * Brand / payment / shipping logo tiles — ALWAYS white surface.
+ * Many official PNGs use black canvas or black marks; dark tiles = invisible (black-on-black).
+ */
+.u-logo-tile {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #e2e8f0;
+  box-sizing: border-box;
+}
+[data-theme='dark'] .u-logo-tile,
+.dark .u-logo-tile {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: rgba(148, 163, 184, 0.45);
+}
+.u-logo-tile img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  background: #ffffff;
+}
+/* Force dark glyphs inside white logo tiles (overrides dark:text-white on brand SVGs) */
+.u-logo-tile svg {
+  color: #0f172a !important;
+  stroke: currentColor;
+}
 
 /* Mono for Latin codes/SKU digits; Arabic letters fall back to portal UI face */
 .font-mono,
@@ -274,7 +310,12 @@ samp {
 .unity-icon-box {
   border-radius: var(--icon-radius);
   background: var(--portal-cta);
-  color: #fff;
+  color: #ffffff !important;
+}
+.u-icon-cta svg,
+.unity-icon-box svg {
+  color: #ffffff !important;
+  stroke: currentColor !important;
 }
 
 /* ── Sidebar: always dark chrome ── */
@@ -302,20 +343,31 @@ samp {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Mobile drawer: GPU-accelerated slide-in sidebar */
+/* Mobile viewport: never page-level horizontal scroll (Master + Store) */
+html, body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+.unity-shell {
+  max-width: 100vw;
+  overflow-x: clip;
+}
+
+/* Mobile drawer: GPU slide-in while closed (no blur under translate3d).
+ * When OPEN: transform none so frosted glass can apply (see store glass block). */
 @media (max-width: 1023.98px) {
   .unity-aside[data-mobile-drawer='true'] {
     position: fixed !important;
     inset-block: 0;
     inset-inline-start: 0;
-    z-index: 60;
+    z-index: 70;
     height: 100% !important;
     max-height: 100dvh;
     width: min(18rem, 88vw) !important;
     max-width: 20rem;
     box-shadow: 0 0 40px rgba(0, 0, 0, 0.35);
     transform: translate3d(-105%, 0, 0);
-    transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color 180ms ease;
     will-change: transform;
     pointer-events: none;
     visibility: hidden;
@@ -323,12 +375,21 @@ samp {
     margin: 0 !important;
     flex: 0 0 0 !important;
     padding-bottom: env(safe-area-inset-bottom, 0px);
+    isolation: isolate;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    opacity: 1 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background-color: var(--sidebar-bg, var(--portal-950)) !important;
   }
   [dir='rtl'] .unity-aside[data-mobile-drawer='true'] {
     transform: translate3d(105%, 0, 0);
   }
   .unity-aside[data-mobile-drawer='true'][data-mobile-open='true'] {
-    transform: translate3d(0, 0, 0) !important;
+    /* none = no GPU layer trapping backdrop-filter (Safari/Chrome mobile) */
+    transform: none !important;
+    will-change: auto;
     pointer-events: auto;
     visibility: visible;
   }
@@ -373,6 +434,11 @@ samp {
     gap: 0.75rem;
     row-gap: 0.75rem;
   }
+  /* Kill leftover pb-16 empty strips on Products / Brands / Blog / Canva */
+  .unity-shell main .pb-16,
+  .unity-shell main .u-page.pb-16 {
+    padding-bottom: 1.5rem !important;
+  }
   .u-page > .space-y-4,
   .u-page > .space-y-5 {
     --tw-space-y-reverse: 0;
@@ -413,6 +479,28 @@ samp {
   }
 }
 
+/* Below lg: never show Themes CTA (beats .unity-btn-primary { display:inline-flex }) */
+@media (max-width: 1023.98px) {
+  .unity-shell [data-chrome='store-topbar'] [data-chrome-action='customize-theme'] {
+    display: none !important;
+  }
+  /* Speed: cut heavy glass blur on mobile chrome */
+  .unity-mobile-nav-backdrop {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(2, 12, 16, 0.55) !important;
+  }
+  .unity-aside[data-mobile-drawer='true'][data-mobile-open='true'] {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  /* Faster paint: skip decorative motion while scrolling tabs */
+  .unity-shell main .animate-in,
+  .unity-shell main .animate-pulse {
+    animation-duration: 0.01ms !important;
+  }
+}
+
 /* Phones: tighter chrome + one-column pages */
 @media (max-width: 639.98px) {
   .u-page {
@@ -423,9 +511,36 @@ samp {
     font-size: 1.25rem !important;
     line-height: 1.25 !important;
   }
+  /* Dashboard header: lean essentials only — no overlap / no body X-scroll */
+  .unity-shell [data-chrome='store-topbar'],
+  .unity-shell [data-chrome='master-topbar'] {
+    max-width: 100vw;
+    overflow-x: clip;
+    overflow-y: visible;
+    gap: 0.35rem !important;
+    flex-wrap: nowrap !important;
+  }
+  .unity-shell [data-chrome='store-topbar'] > *,
+  .unity-shell [data-chrome='master-topbar'] > * {
+    min-width: 0;
+  }
+  /* Search grows; action cluster stays icon-sized */
   .unity-shell [data-chrome='store-topbar'] form,
-  .unity-shell [data-chrome='master-topbar'] form {
-    max-width: min(42vw, 9.5rem) !important;
+  .unity-shell [data-chrome='master-topbar'] form,
+  .unity-shell [data-chrome='store-topbar'] > .relative.flex-1,
+  .unity-shell [data-chrome='master-topbar'] .relative.flex-1 {
+    max-width: none !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+  .unity-shell {
+    overflow-x: clip;
+    max-width: 100vw;
+  }
+  /* Page toolbars under topbar — wrap, never paint under dropdowns */
+  .unity-shell main .u-page {
+    position: relative;
+    z-index: 0;
   }
   .unity-shell [data-chrome='saudi-sidebar-footer'] {
     margin: 0.5rem !important;
@@ -440,6 +555,30 @@ samp {
   }
   .u-page .gap-4 {
     gap: 0.625rem !important;
+  }
+  /* Hub / KPI grids: readable two-col on phones, never overflow */
+  .u-page .u-equal-sections.grid-cols-2,
+  .u-page .grid.grid-cols-2 {
+    gap: 0.5rem !important;
+  }
+  .u-page .u-equal-sections > *,
+  .u-page .grid.grid-cols-2 > * {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  /* Hero / action rows stack full-width */
+  .u-page .flex.flex-col.lg\:flex-row,
+  .u-page [data-on-dark-panel='true'] .flex.items-center.gap-2,
+  .u-page [data-on-dark-panel='true'] .flex.items-center.gap-3 {
+    flex-wrap: wrap;
+  }
+  /* Wide toolbars: scroll inside card, never page X-scroll */
+  .u-page [data-mobile-scroll='x'] {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
   }
 }
 
@@ -473,13 +612,22 @@ samp {
   box-shadow: 0 0 16px color-mix(in srgb, var(--sb-color, var(--portal-400)) 45%, transparent);
 }
 
-/* Skip paint for off-screen page sections (mobile speed) */
+/*
+ * Mobile: never content-visibility on page grids / cards.
+ * Android Chrome + frosted glass = mid-card dual-color paint split
+ * (wallpaper frost on top half, solid white on bottom).
+ */
 @media (max-width: 1023.98px) {
   .u-page > section,
   .u-page > .grid,
-  .u-page > [class*='rounded-2xl'] {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 280px;
+  .u-page > [class*='rounded-2xl'],
+  [data-portal="store"] main .u-card,
+  [data-portal="store"] main .unity-card,
+  [data-portal="store"] main .u-panel,
+  [data-portal="store"] main .u-hub-card,
+  .unity-shell[data-portal="store"] main .u-card {
+    content-visibility: visible !important;
+    contain-intrinsic-size: none !important;
   }
 }
 
@@ -499,11 +647,11 @@ samp {
   to { opacity: 1; }
 }
 
-/* Main scroll + safe areas — fast mobile chrome */
+/* Main scroll + safe areas — fast mobile chrome (compact; avoid iPhone empty strip) */
 .unity-shell main {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  padding-bottom: max(4rem, env(safe-area-inset-bottom, 0px));
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom, 0px));
   min-width: 0;
   max-width: 100%;
   overflow-x: hidden;
@@ -614,26 +762,39 @@ samp {
 .unity-shell [data-chrome='store-topbar'],
 .unity-shell [data-chrome='master-topbar'] {
   padding-inline: max(0.5rem, env(safe-area-inset-left, 0px)) max(0.5rem, env(safe-area-inset-right, 0px));
-  padding-top: env(safe-area-inset-top, 0px);
+  /* iPhone Safari: keep header below notch / status — never clip under browser chrome */
+  padding-top: max(0.35rem, env(safe-area-inset-top, 0px));
   /* Same global canvas as main — no white header vs mint body split */
   background: var(--bg) !important;
   position: relative;
   z-index: 50;
+  flex-shrink: 0;
   isolation: isolate;
   overflow: visible;
+  /* Header sits outside main scroll — sticky is unnecessary and hides under iOS Safari */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
 }
 @media (max-width: 1023.98px) {
   .unity-shell [data-chrome='store-topbar'],
   .unity-shell [data-chrome='master-topbar'] {
-    position: sticky;
-    top: 0;
+    position: relative;
+    top: auto;
     z-index: 50;
-    /* Solid page canvas — transparent blur made page content look overlapped under the header */
+    isolation: isolate;
+    box-shadow: 0 1px 0 var(--border);
+  }
+  /* Master: solid Holst canvas (no wallpaper) */
+  .unity-shell[data-portal='master'] [data-chrome='master-topbar'] {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     background: var(--bg) !important;
-    isolation: isolate;
-    box-shadow: 0 1px 0 var(--border);
+  }
+  /* Store: keep glass over wallpaper (do not force mint --bg strip) */
+  .unity-shell[data-portal='store'] [data-chrome='store-topbar'] {
+    backdrop-filter: blur(18px) saturate(1.35);
+    -webkit-backdrop-filter: blur(18px) saturate(1.35);
+    background: var(--glass-fill-strong, var(--glass-fill, var(--bg))) !important;
   }
   .unity-shell main {
     position: relative;
@@ -682,8 +843,24 @@ html[data-chrome-fill] [data-chrome='master-topbar'] {
 .unity-shell main {
   background-color: var(--bg) !important;
 }
+/* Store glass: never paint solid --bg over wallpaper (photo + frosted panels) */
+[data-portal='store'].unity-shell,
+.unity-shell[data-portal='store'],
+[data-portal='store'].unity-shell main,
+.unity-shell[data-portal='store'] main {
+  background-color: transparent !important;
+}
 .unity-shell main > .u-page {
   background-color: transparent;
+}
+/* iOS Safari: real visual viewport height so top header is not clipped */
+.unity-shell.h-screen,
+.unity-shell.max-h-screen,
+.unity-shell {
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
 }
 
 /* ── Sidebar nav items: bold, readable, generous padding, line-height ── */
@@ -773,6 +950,12 @@ html[data-sidebar-design='navy'] .unity-aside nav button svg {
   white-space: nowrap;
   cursor: pointer;
   vertical-align: middle;
+}
+/* Tailwind `hidden` must win over .unity-btn-primary { display:inline-flex } */
+.unity-btn-primary.hidden,
+button.unity-btn-primary.hidden,
+[data-chrome-action='customize-theme'].hidden {
+  display: none !important;
 }
 .unity-btn-primary:disabled {
   opacity: 0.55;
@@ -2625,25 +2808,51 @@ button:active:not(:disabled) {
     product-create-step-pulse 1.6s ease-in-out 0.45s 1;
 }
 
+/* Break out of .u-page horizontal padding → full content width, flush bottom */
+.product-editor-page.u-page > .product-editor-sticky-footer,
 .product-editor-sticky-footer {
   pointer-events: none;
+  max-width: none;
+  margin-inline: -1rem; /* matches p-4 */
+  width: calc(100% + 2rem);
+}
+@media (min-width: 640px) {
+  .product-editor-page.u-page > .product-editor-sticky-footer,
+  .product-editor-sticky-footer {
+    margin-inline: -1.5rem; /* matches sm:p-6 */
+    width: calc(100% + 3rem);
+  }
+}
+@media (max-width: 1023.98px) {
+  /* Mobile .u-page forces padding-inline: 0.75rem */
+  .product-editor-page.u-page > .product-editor-sticky-footer,
+  .product-editor-sticky-footer {
+    margin-inline: -0.75rem;
+    width: calc(100% + 1.5rem);
+  }
 }
 
 .product-editor-sticky-footer .product-editor-sticky-dock {
   pointer-events: auto;
+  width: 100%;
+  max-width: none;
+  border-radius: 0 !important;
   background:
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--surface) 92%, #fff 8%) 0%,
-      color-mix(in srgb, var(--surface) 96%, transparent) 100%
+      color-mix(in srgb, var(--surface) 94%, #fff 6%) 0%,
+      color-mix(in srgb, var(--surface) 98%, transparent) 100%
     );
   border-color: color-mix(in srgb, var(--border) 85%, var(--accent) 15%);
+  border-left: none !important;
+  border-right: none !important;
+  border-bottom: none !important;
   backdrop-filter: blur(14px) saturate(1.15);
   -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  /* Top hairline only — docked flush to bottom, no floating side/bottom gap */
   box-shadow:
     0 1px 0 color-mix(in srgb, #fff 55%, transparent) inset,
-    0 10px 28px -12px color-mix(in srgb, var(--text) 22%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent);
+    0 -8px 24px -16px color-mix(in srgb, var(--text) 18%, transparent);
 }
 
 .dark .product-editor-sticky-footer .product-editor-sticky-dock,
@@ -2651,13 +2860,12 @@ button:active:not(:disabled) {
   background:
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--surface) 88%, #fff 4%) 0%,
-      color-mix(in srgb, var(--surface) 96%, transparent) 100%
+      color-mix(in srgb, var(--surface) 90%, #fff 4%) 0%,
+      color-mix(in srgb, var(--surface) 98%, transparent) 100%
     );
   box-shadow:
     0 1px 0 color-mix(in srgb, #fff 8%, transparent) inset,
-    0 14px 32px -14px rgba(0, 0, 0, 0.55),
-    0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent);
+    0 -10px 28px -16px rgba(0, 0, 0, 0.5);
 }
 
 .product-editor-page .product-create-section {
@@ -3145,11 +3353,13 @@ button:active:not(:disabled) {
 /* ═══════════════════════════════════════════════════════════════════════════
  * STORE ADMIN GLASS UI — frosted panels + navy accents + changeable wallpaper
  * Scoped to [data-portal="store"] only. Master Holst stays.
- * Design lock: navy CTA/active (#0f172a), NO hard gray borders.
+ * Design lock: Holst teal CTA/active, frosted glass fills, NO hard gray borders.
+ * Solid black CTAs banned (mobile dual-color / “too much black” regressions).
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 [data-portal="store"] {
-  --glass-navy: #0f172a;
+  /* Soft Holst ink for rare solid accents — NOT solid black CTAs */
+  --glass-navy: #0a3d4a;
   /* True frosted glass — wallpaper reads through every panel */
   --glass-fill: rgba(255, 255, 255, 0.48);
   --glass-fill-strong: rgba(255, 255, 255, 0.68);
@@ -3172,6 +3382,8 @@ button:active:not(:disabled) {
   --muted: #475569;
   --text: #0f172a;
   --radius-ctrl: 14px;
+  /* Platform default CTA = slate/navy (matches paint + PLATFORM_CHROME_DEFAULTS).
+   * Store owner overrides via Settings → Appearance (chromeBrand / paint). */
   --accent: #1e293b;
   --active-bg: #0f172a;
   --active-fg: #ffffff;
@@ -3203,7 +3415,12 @@ button:active:not(:disabled) {
   background-repeat: no-repeat !important;
 }
 
-/* Platform default + legacy color preset attrs → same photo layer as custom */
+/*
+ * Platform default + custom photo wallpaper.
+ * CRITICAL: never use z-index:-1 under isolation — that hides the photo behind
+ * the shell's own background (looks like a flat dark/gray canvas).
+ * Wallpaper layer = z-index 0; chrome children = z-index 1 so glass can frost it.
+ */
 html:not([data-shell-wallpaper]) [data-theme="light"][data-portal="store"].unity-shell,
 html:not([data-shell-wallpaper]) [data-theme="light"] .unity-shell[data-portal="store"],
 html[data-shell-wallpaper='city-warm'] [data-theme="light"][data-portal="store"].unity-shell,
@@ -3219,8 +3436,8 @@ html[data-shell-wallpaper='custom'][data-theme="light"][data-portal="store"] .un
 html[data-shell-wallpaper='custom'] .unity-shell[data-theme="light"][data-portal="store"] {
   position: relative;
   isolation: isolate;
-  background-color: #e2e8f0 !important;
-  background-image: linear-gradient(180deg, rgba(248, 250, 252, 0.55), rgba(241, 245, 249, 0.42)) !important;
+  background-color: transparent !important;
+  background-image: linear-gradient(180deg, rgba(248, 250, 252, 0.42), rgba(241, 245, 249, 0.28)) !important;
   filter: none;
 }
 
@@ -3228,8 +3445,8 @@ html[data-shell-wallpaper='custom'] .unity-shell[data-theme="light"][data-portal
 html[data-shell-luma='light'][data-shell-wallpaper='custom'] [data-theme="light"][data-portal="store"].unity-shell,
 html[data-shell-luma='light'][data-shell-wallpaper='custom'] [data-theme="light"] .unity-shell[data-portal="store"],
 html[data-shell-luma='light'][data-shell-wallpaper='custom'][data-theme="light"] .unity-shell[data-portal="store"] {
-  background-color: #e2e8f0 !important;
-  background-image: linear-gradient(180deg, rgba(248, 250, 252, 0.55), rgba(241, 245, 249, 0.42)) !important;
+  background-color: transparent !important;
+  background-image: linear-gradient(180deg, rgba(248, 250, 252, 0.42), rgba(241, 245, 249, 0.28)) !important;
 }
 
 html:not([data-shell-wallpaper]) [data-theme="light"][data-portal="store"].unity-shell::before,
@@ -3246,8 +3463,8 @@ html[data-shell-wallpaper='custom'][data-theme="light"] .unity-shell[data-portal
 html[data-shell-wallpaper='custom'] .unity-shell[data-theme="light"][data-portal="store"]::before {
   content: '';
   position: fixed;
-  inset: -24px;
-  z-index: -1;
+  inset: 0;
+  z-index: 0;
   pointer-events: none;
   background-image: var(--store-shell-wallpaper, url('/images/shell-wallpaper-default.webp'));
   background-size: cover;
@@ -3255,7 +3472,17 @@ html[data-shell-wallpaper='custom'] .unity-shell[data-theme="light"][data-portal
   background-repeat: no-repeat;
   filter: blur(var(--store-shell-wallpaper-blur, 10px));
   opacity: var(--store-shell-wallpaper-opacity, 0.92);
-  transform: scale(1.06);
+  transform: scale(1.04);
+}
+
+/* Chrome rows (sidebar + content column) sit above wallpaper so backdrop-filter frosts it */
+html:not([data-shell-wallpaper]) [data-theme="light"][data-portal="store"].unity-shell > *,
+html:not([data-shell-wallpaper]) [data-theme="light"] .unity-shell[data-portal="store"] > *,
+html[data-shell-wallpaper] [data-theme="light"][data-portal="store"].unity-shell > *,
+html[data-shell-wallpaper] [data-theme="light"] .unity-shell[data-portal="store"] > *,
+html[data-shell-wallpaper='custom'][data-theme="light"] .unity-shell[data-portal="store"] > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* Light custom photo: page chrome titles stay DARK (readable on sky/snow) */
@@ -3333,7 +3560,7 @@ html[data-shell-wallpaper='custom'] [data-theme="dark"][data-portal="store"].uni
 html[data-shell-wallpaper='custom'] [data-theme="dark"] .unity-shell[data-portal="store"] {
   position: relative;
   isolation: isolate;
-  background-color: #0f172a !important;
+  background-color: transparent !important;
   background-image: linear-gradient(180deg, rgba(15, 23, 42, 0.35), rgba(15, 23, 42, 0.55)) !important;
   background-attachment: fixed;
   background-size: cover !important;
@@ -3351,8 +3578,8 @@ html[data-shell-wallpaper='custom'] [data-theme="dark"][data-portal="store"].uni
 html[data-shell-wallpaper='custom'] [data-theme="dark"] .unity-shell[data-portal="store"]::before {
   content: '';
   position: fixed;
-  inset: -24px;
-  z-index: -1;
+  inset: 0;
+  z-index: 0;
   pointer-events: none;
   background-image: var(--store-shell-wallpaper, url('/images/shell-wallpaper-default.webp'));
   background-size: cover;
@@ -3360,7 +3587,15 @@ html[data-shell-wallpaper='custom'] [data-theme="dark"] .unity-shell[data-portal
   background-repeat: no-repeat;
   filter: blur(var(--store-shell-wallpaper-blur, 10px));
   opacity: var(--store-shell-wallpaper-opacity, 0.92);
-  transform: scale(1.06);
+  transform: scale(1.04);
+}
+
+html[data-shell-wallpaper] [data-theme="dark"][data-portal="store"].unity-shell > *,
+html[data-shell-wallpaper] [data-theme="dark"] .unity-shell[data-portal="store"] > *,
+html:not([data-shell-wallpaper]) [data-theme="dark"][data-portal="store"].unity-shell > *,
+html:not([data-shell-wallpaper]) [data-theme="dark"] .unity-shell[data-portal="store"] > * {
+  position: relative;
+  z-index: 1;
 }
 
 [data-theme="dark"][data-portal="store"].unity-shell main,
@@ -3508,41 +3743,43 @@ html[data-shell-wallpaper='custom'] [data-theme="dark"] .unity-shell[data-portal
   color: inherit !important;
 }
 
-/* Navy active nav + primary CTAs (design match) */
+/* Active nav + primary CTAs — platform slate/navy (vars; merchant can override) */
 [data-portal="store"] .unity-nav-active,
 .unity-shell[data-portal="store"] .unity-nav-active {
-  background: var(--glass-navy, #0f172a) !important;
-  background-image: none !important;
+  background: var(--portal-cta) !important;
+  background-image: var(--portal-cta) !important;
   color: #ffffff !important;
-  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--portal-600) 35%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
 [data-portal="store"] .unity-btn-primary,
 .unity-shell[data-portal="store"] .unity-btn-primary,
 [data-portal="store"] [data-chrome="store-topbar"] .unity-btn-primary {
-  background: var(--glass-navy, #0f172a) !important;
-  background-image: none !important;
+  background: var(--portal-cta) !important;
+  background-image: var(--portal-cta) !important;
   border: none !important;
   color: #fff !important;
 }
 
-/* Light store sidebar = frosted glass (single GPU blur layer) */
+/* Light store sidebar — opaque shell (Chrome + Safari same; no page-text bleed) */
 [data-theme="light"][data-portal="store"] .unity-aside,
 [data-theme="light"] .unity-shell[data-portal="store"] .unity-aside {
-  --sidebar-bg: rgba(255, 255, 255, 0.42);
+  /* Near-opaque fill reads as glass but blocks content behind on Safari */
+  --sidebar-bg: rgba(255, 255, 255, 0.97);
   --sidebar-border: var(--glass-border);
   --sidebar-text: #0f172a;
   --sidebar-idle-icon: #334155;
   --sidebar-idle-hover-bg: rgba(15, 23, 42, 0.06);
   --sidebar-idle-hover-text: #0f172a;
   --sidebar-nav-icon-size: 1.05rem;
-  /* Re-apply size/position AFTER shorthand — otherwise custom sidebar images vanish */
-  background: var(--chrome-sidebar-bg, rgba(255, 255, 255, 0.42)) !important;
+  /* Custom image via --chrome-sidebar-bg; default = solid-enough panel */
+  background: var(--chrome-sidebar-bg, rgba(255, 255, 255, 0.97)) !important;
+  background-color: rgba(255, 255, 255, 0.97) !important;
   background-size: cover !important;
   background-position: center !important;
   background-repeat: no-repeat !important;
-  backdrop-filter: var(--glass-blur-shell);
-  -webkit-backdrop-filter: var(--glass-blur-shell);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
   border: 1px solid var(--glass-border) !important;
   border-inline-start: none !important;
   color: var(--sidebar-text) !important;
@@ -3551,6 +3788,16 @@ html[data-shell-wallpaper='custom'] [data-theme="dark"] .unity-shell[data-portal
   transform: translateZ(0);
   /* layout/style only — paint contain would trap fixed help popover */
   contain: layout style;
+}
+
+/* Default glass sidebar (no custom dark image): never keep Holst navy solid bar */
+html:not([data-sidebar-luma='dark'])[data-theme="light"][data-portal="store"] .unity-aside,
+html:not([data-sidebar-luma='dark'])[data-theme="light"] .unity-shell[data-portal="store"] .unity-aside {
+  background: rgba(255, 255, 255, 0.97) !important;
+  background-color: rgba(255, 255, 255, 0.97) !important;
+  backdrop-filter: blur(12px) saturate(1.2) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(1.2) !important;
+  color: #0f172a !important;
 }
 
 /* Sidebar custom image = dark wash → light readable nav text (lifetime) */
@@ -3597,6 +3844,19 @@ html[data-sidebar-luma='dark'][data-theme="light"] .unity-shell[data-portal="sto
 [data-theme="light"] .unity-shell[data-portal="store"] .unity-aside[data-chrome="store-sidebar"] > div:first-child {
   background: transparent !important;
   border-color: color-mix(in srgb, var(--portal-200) 50%, transparent) !important;
+}
+
+/* Glass sidebar (default): dark ink — beats legacy “light theme = white headings on navy bar” */
+html:not([data-sidebar-luma='dark'])[data-theme="light"][data-portal="store"] .unity-aside h1,
+html:not([data-sidebar-luma='dark'])[data-theme="light"][data-portal="store"] .unity-aside h2,
+html:not([data-sidebar-luma='dark'])[data-theme="light"] .unity-shell[data-portal="store"] .unity-aside h1,
+html:not([data-sidebar-luma='dark'])[data-theme="light"] .unity-shell[data-portal="store"] .unity-aside h2,
+html:not([data-sidebar-luma='dark'])[data-theme="light"][data-portal="store"] .unity-aside .text-white,
+html:not([data-sidebar-luma='dark'])[data-theme="light"] .unity-shell[data-portal="store"] .unity-aside .text-white,
+html:not([data-sidebar-luma='dark'])[data-theme="light"][data-portal="store"] .unity-aside .souq-title,
+html:not([data-sidebar-luma='dark'])[data-theme="light"][data-portal="store"] .unity-aside .souq-subtitle {
+  color: #0f172a !important;
+  text-shadow: none !important;
 }
 
 [data-theme="light"][data-portal="store"] .unity-shell .unity-aside h1,
@@ -3731,6 +3991,43 @@ html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store
   --plan-muted: #475569;
   --card-fg: #0f172a;
   color: #0f172a !important;
+}
+
+/*
+ * Intentional dark panels (SEO hero, Google banner, etc.): keep LIGHT ink.
+ * `.rounded-*.border` dark-ink remap above must not paint navy on navy.
+ */
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .rounded-3xl.border.text-white,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .rounded-2xl.border.text-white,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main [data-on-dark-panel='true'],
+html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .rounded-3xl.border.text-white,
+html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .rounded-2xl.border.text-white,
+html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main [data-on-dark-panel='true'] {
+  --text: #f8fafc !important;
+  --muted: #cbd5e1 !important;
+  --card-fg: #f8fafc !important;
+  color: #f8fafc !important;
+}
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .rounded-3xl.border.text-white .text-white,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .rounded-3xl.border.text-white h1,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .rounded-3xl.border.text-white h2,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .rounded-3xl.border.text-white p,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .rounded-3xl.border.text-white .text-slate-200,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .rounded-3xl.border.text-white .text-slate-300,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main [data-on-dark-panel='true'] .text-white,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main [data-on-dark-panel='true'] h1,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main [data-on-dark-panel='true'] h2,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main [data-on-dark-panel='true'] p,
+html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .rounded-3xl.border.text-white .text-white,
+html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .rounded-3xl.border.text-white p,
+html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main [data-on-dark-panel='true'] .text-white {
+  color: #f8fafc !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .rounded-3xl.border.text-white .text-slate-200,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main [data-on-dark-panel='true'] .text-slate-200,
+html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .rounded-3xl.border.text-white .text-slate-200 {
+  color: #e2e8f0 !important;
 }
 
 /* Canva home glass panels — same global dark-ink-on-frost as Branding / cards */
@@ -4277,6 +4574,38 @@ html[data-sidebar-luma='dark'][data-theme="light"] .unity-shell[data-portal="sto
   background-color: transparent !important;
 }
 
+/*
+ * Inner pages: solid var(--bg) / mint strips overlap wallpaper — remap to glass.
+ * Covers Settings chips, Media toolbars, Reports nested cards, AI media shells…
+ */
+[data-theme="light"][data-portal="store"] main [style*="var(--bg)"],
+[data-theme="light"] .unity-shell[data-portal="store"] main [style*="var(--bg)"],
+[data-theme="light"][data-portal="store"] main [style*='var(--bg)'],
+[data-theme="light"] .unity-shell[data-portal="store"] main [style*='var(--bg)'] {
+  background: var(--glass-fill-strong) !important;
+  background-color: var(--glass-fill-strong) !important;
+  border-color: var(--glass-border) !important;
+}
+
+/* Default light shell: page titles stay DARK (readable on bright wallpaper) */
+html[data-shell-luma='light'][data-theme="light"][data-portal="store"] main > .u-page,
+html[data-shell-luma='light'][data-theme="light"] .unity-shell[data-portal="store"] main > .u-page,
+html:not([data-shell-luma='dark'])[data-theme="light"][data-portal="store"] main > .u-page {
+  --page-chrome-fg: #0f172a;
+  --page-chrome-muted: #475569;
+  --text: #0f172a;
+  --muted: #475569;
+  color: #0f172a !important;
+}
+
+html[data-shell-luma='light'][data-theme="light"][data-portal="store"] main > .u-page > .flex h1,
+html[data-shell-luma='light'][data-theme="light"][data-portal="store"] main > .u-page > h1,
+html:not([data-shell-luma='dark'])[data-theme="light"][data-portal="store"] main > .u-page > .flex h1,
+html:not([data-shell-luma='dark'])[data-theme="light"][data-portal="store"] main > .u-page > h1 {
+  color: #0f172a !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
 /* Soft section dividers instead of hard gray lines on glass */
 [data-portal="store"] main .border-b,
 [data-portal="store"] main .border-t,
@@ -4386,24 +4715,211 @@ html[data-sidebar-luma='dark'][data-theme="light"] .unity-shell[data-portal="sto
   }
 }
 
-/* Coarse pointer / mobile: slightly denser fill so text stays crisp over busy wallpaper */
+/*
+ * Mobile store drawer: same default frosted glass as laptop/desktop.
+ * Closed: no blur under translate3d (Safari). Open: dense frost so page text
+ * never reads through the drawer (was 0.58 — too clear).
+ */
 @media (max-width: 1023.98px) {
-  [data-theme="light"][data-portal="store"] .unity-aside,
-  [data-theme="light"] .unity-shell[data-portal="store"] .unity-aside {
-    --sidebar-bg: rgba(255, 255, 255, 0.72);
-    background: var(--chrome-sidebar-bg, rgba(255, 255, 255, 0.72)) !important;
+  [data-theme="light"][data-portal="store"] .unity-aside[data-mobile-drawer='true'],
+  [data-theme="light"] .unity-shell[data-portal="store"] .unity-aside[data-mobile-drawer='true'],
+  html:not([data-sidebar-luma='dark'])[data-theme="light"][data-portal="store"] .unity-aside[data-mobile-drawer='true'],
+  html:not([data-sidebar-luma='dark'])[data-theme="light"] .unity-shell[data-portal="store"] .unity-aside[data-mobile-drawer='true'] {
+    width: min(20rem, calc(100vw - 2.5rem)) !important;
+    max-width: 22rem;
+    padding-top: env(safe-area-inset-top, 0px);
+    /* Closed / sliding: near-opaque fill (matches desktop default; no blur under translate3d) */
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(255, 255, 255, 0.97) !important;
+    background-color: rgba(255, 255, 255, 0.97) !important;
+    background-image: none !important;
+    color: #0f172a !important;
+    opacity: 1 !important;
+    z-index: 70 !important;
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.55)) !important;
+    box-shadow: 10px 0 36px rgba(15, 23, 42, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  }
+
+  /* Open: glass blur + dense fill — wallpaper softens, page text blocked */
+  [data-theme="light"][data-portal="store"] .unity-aside[data-mobile-drawer='true'][data-mobile-open='true'],
+  [data-theme="light"] .unity-shell[data-portal="store"] .unity-aside[data-mobile-drawer='true'][data-mobile-open='true'],
+  html:not([data-sidebar-luma='dark'])[data-theme="light"][data-portal="store"] .unity-aside[data-mobile-drawer='true'][data-mobile-open='true'],
+  html:not([data-sidebar-luma='dark'])[data-theme="light"] .unity-shell[data-portal="store"] .unity-aside[data-mobile-drawer='true'][data-mobile-open='true'] {
+    transform: none !important;
+    will-change: auto;
+    isolation: isolate;
+    backdrop-filter: blur(24px) saturate(1.35) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(1.35) !important;
+    background: rgba(255, 255, 255, 0.94) !important;
+    background-color: rgba(255, 255, 255, 0.94) !important;
+    background-image: none !important;
+  }
+
+  /* Custom dark sidebar image on phone: keep cover image, denser wash (block bleed) */
+  html[data-sidebar-luma='dark'][data-theme="light"][data-portal="store"] .unity-aside[data-mobile-drawer='true'],
+  html[data-sidebar-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] .unity-aside[data-mobile-drawer='true'] {
+    background: var(--chrome-sidebar-bg, #0b1b2b) !important;
+    background-color: #0b1b2b !important;
     background-size: cover !important;
     background-position: center !important;
     background-repeat: no-repeat !important;
-    backdrop-filter: blur(16px) saturate(1.3);
-    -webkit-backdrop-filter: blur(16px) saturate(1.3);
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow:
+      10px 0 36px rgba(15, 23, 42, 0.22),
+      inset 0 0 0 9999px rgba(4, 16, 28, 0.42) !important;
+  }
+
+  html[data-sidebar-luma='dark'][data-theme="light"][data-portal="store"] .unity-aside[data-mobile-drawer='true'][data-mobile-open='true'],
+  html[data-sidebar-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] .unity-aside[data-mobile-drawer='true'][data-mobile-open='true'] {
+    transform: none !important;
+    will-change: auto;
+    isolation: isolate;
+    backdrop-filter: blur(24px) saturate(1.3) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(1.3) !important;
+    box-shadow:
+      10px 0 36px rgba(15, 23, 42, 0.28),
+      inset 0 0 0 9999px rgba(4, 16, 28, 0.5) !important;
+  }
+
+  [data-theme="dark"][data-portal="store"] .unity-aside[data-mobile-drawer='true'],
+  [data-theme="dark"] .unity-shell[data-portal="store"] .unity-aside[data-mobile-drawer='true'],
+  [data-portal="master"] .unity-aside[data-mobile-drawer='true'],
+  .unity-shell[data-portal="master"] .unity-aside[data-mobile-drawer='true'] {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: var(--chrome-sidebar-bg, var(--portal-950, #04222b)) !important;
+    background-color: var(--portal-950, #04222b) !important;
+    opacity: 1 !important;
+    z-index: 70 !important;
+  }
+
+  [data-theme="dark"][data-portal="store"] .unity-aside[data-mobile-drawer='true'][data-mobile-open='true'],
+  [data-theme="dark"] .unity-shell[data-portal="store"] .unity-aside[data-mobile-drawer='true'][data-mobile-open='true'] {
+    transform: none !important;
+    will-change: auto;
+    isolation: isolate;
+    backdrop-filter: blur(24px) saturate(1.3) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(1.3) !important;
+    background: rgba(4, 34, 43, 0.94) !important;
+    background-color: rgba(4, 34, 43, 0.94) !important;
+  }
+
+  /* Soft glass veil behind drawer — dims page text under the panel */
+  .unity-mobile-nav-backdrop {
+    z-index: 65;
+    background: rgba(2, 12, 16, 0.62) !important;
+    backdrop-filter: blur(6px) saturate(1.1) !important;
+    -webkit-backdrop-filter: blur(6px) saturate(1.1) !important;
   }
 
   [data-theme="light"][data-global-modal="backdrop"][data-portal="store"] [data-global-modal="panel"] > * {
-    background: rgba(255, 255, 255, 0.82) !important;
-    background-color: rgba(255, 255, 255, 0.82) !important;
-    backdrop-filter: blur(16px) saturate(1.3) !important;
-    -webkit-backdrop-filter: blur(16px) saturate(1.3) !important;
+    background: rgba(255, 255, 255, 0.78) !important;
+    background-color: rgba(255, 255, 255, 0.78) !important;
+  }
+
+  /*
+   * Mobile store cards — ALL browsers (Chrome / Safari / Firefox / Samsung /
+   * Huawei): NO per-card backdrop-filter. Android clips blur mid-element →
+   * dual-color (city frost on top, solid white on bottom). Near-opaque fill
+   * looks like glass rim but paints as one flat color on every device.
+   * Specificity beats desktop glass !important rules above.
+   */
+  html[data-theme="light"][data-portal="store"] main .u-card,
+  html[data-theme="light"][data-portal="store"] main .unity-card,
+  html[data-theme="light"][data-portal="store"] main .u-panel,
+  html[data-theme="light"][data-portal="store"] main .u-hub-card,
+  html[data-theme="light"][data-portal="store"] main .bg-white,
+  html[data-theme="light"][data-portal="store"] main .bg-slate-50,
+  html[data-theme="light"][data-portal="store"] main .bg-slate-100,
+  html[data-theme="light"][data-portal="store"] main .bg-gray-50,
+  html[data-theme="light"][data-portal="store"] main [style*="var(--surface)"],
+  html[data-theme="light"][data-portal="store"] main > .u-page .rounded-2xl,
+  html[data-theme="light"][data-portal="store"] main > .u-page .rounded-3xl,
+  html[data-theme="light"][data-portal="store"] main > .u-page > .bg-white,
+  html[data-theme="light"][data-portal="store"] main > .u-page > .u-card,
+  html[data-theme="light"] .unity-shell[data-portal="store"] main .u-card,
+  html[data-theme="light"] .unity-shell[data-portal="store"] main .bg-white,
+  html[data-theme="light"] .unity-shell[data-portal="store"] main > .u-page > .u-card,
+  [data-theme="light"][data-portal="store"] main .u-card,
+  [data-theme="light"][data-portal="store"] main .unity-card,
+  [data-theme="light"][data-portal="store"] main .u-panel,
+  [data-theme="light"][data-portal="store"] main .u-hub-card,
+  [data-theme="light"] .unity-shell[data-portal="store"] main .u-card {
+    content-visibility: visible !important;
+    contain: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    /* Near-opaque — wallpaper may tint rim, never dual-split mid-card */
+    background: rgba(255, 255, 255, 0.96) !important;
+    background-color: rgba(255, 255, 255, 0.96) !important;
+    background-image: none !important;
+    border: 1px solid rgba(255, 255, 255, 0.85) !important;
+    /* Mobile: no soft side glow — flat cards (Recent Activity / KPI / etc.) */
+    box-shadow: none !important;
+    isolation: isolate;
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+
+  html[data-theme="dark"][data-portal="store"] main .u-card,
+  html[data-theme="dark"][data-portal="store"] main .unity-card,
+  html[data-theme="dark"][data-portal="store"] main .u-panel,
+  html[data-theme="dark"][data-portal="store"] main .u-hub-card,
+  html[data-theme="dark"] .unity-shell[data-portal="store"] main .u-card,
+  [data-theme="dark"][data-portal="store"] main .u-card {
+    content-visibility: visible !important;
+    contain: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(4, 34, 43, 0.96) !important;
+    background-color: rgba(4, 34, 43, 0.96) !important;
+    background-image: none !important;
+  }
+
+  /* Kill fixed wallpaper attachment glitches on phone scroll */
+  html[data-theme="light"][data-portal="store"].unity-shell,
+  html[data-theme="light"] .unity-shell[data-portal="store"],
+  html[data-theme="dark"][data-portal="store"].unity-shell,
+  html[data-theme="dark"] .unity-shell[data-portal="store"] {
+    background-attachment: scroll !important;
+  }
+
+  /* Soft shell wash — no mid-viewport frost clip */
+  html[data-shell-luma='dark'][data-theme="light"][data-portal="store"].unity-shell,
+  html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"],
+  html[data-shell-wallpaper='custom'][data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] {
+    background-image: linear-gradient(180deg, rgba(248, 250, 252, 0.72), rgba(241, 245, 249, 0.62)) !important;
+  }
+
+  /* Topbar may keep light glass; cards must not inherit that blur path */
+  .unity-shell[data-portal="store"] [data-chrome="store-topbar"] {
+    background: rgba(255, 255, 255, 0.92) !important;
+    backdrop-filter: blur(12px) saturate(1.2) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(1.2) !important;
+  }
+
+  /* Dashboard chart / activity: force single paint layer on phones */
+  [data-portal="store"] main .u-card svg,
+  .unity-shell[data-portal="store"] main .u-card svg {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+@media (max-width: 389.98px) {
+  [data-theme="light"][data-portal="store"] .unity-aside[data-mobile-drawer='true'],
+  [data-theme="light"] .unity-shell[data-portal="store"] .unity-aside[data-mobile-drawer='true'] {
+    width: calc(100vw - 1.25rem) !important;
+    max-width: none;
+  }
+  .unity-shell [data-chrome='store-topbar'],
+  .unity-shell [data-chrome='master-topbar'] {
+    gap: 0.25rem;
+    padding-inline: 0.35rem;
   }
 }
 
@@ -4447,6 +4963,21 @@ html[data-sidebar-luma='dark'][data-theme="light"] .unity-shell[data-portal="sto
   isolation: isolate;
 }
 
+/* Nested dark headers inside store modals — solid dark strip, not frosted white */
+[data-global-modal="backdrop"][data-portal="store"] [data-on-dark-panel='true'] {
+  --text: #f8fafc !important;
+  --muted: #cbd5e1 !important;
+  --card-fg: #f8fafc !important;
+  color: #f8fafc !important;
+  background-image: linear-gradient(to right, #0f172a, #1e293b, #042f2e) !important;
+  background-color: #0f172a !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
 [data-theme="dark"][data-global-modal="backdrop"][data-portal="store"] [data-global-modal="panel"] > * {
   --text: #f8fafc;
   --muted: #cbd5e1;
@@ -4488,12 +5019,21 @@ html[data-sidebar-luma='dark'][data-theme="light"] .unity-shell[data-portal="sto
   color: #0f172a !important;
 }
 
-/* Keep white text on navy header / primary CTAs */
+/* Keep white text on navy header / primary CTAs / intentional dark panels */
 [data-global-modal="backdrop"][data-portal="store"] .unity-modal-header,
 [data-global-modal="backdrop"][data-portal="store"] .unity-modal-header *,
+[data-global-modal="backdrop"][data-portal="store"] [data-on-dark-panel='true'],
+[data-global-modal="backdrop"][data-portal="store"] [data-on-dark-panel='true'] *,
 [data-global-modal="backdrop"][data-portal="store"] .unity-btn-primary,
 [data-global-modal="backdrop"][data-portal="store"] .unity-btn-primary * {
   color: #ffffff !important;
+}
+[data-global-modal="backdrop"][data-portal="store"] [data-on-dark-panel='true'] .text-emerald-300 {
+  color: #6ee7b7 !important;
+}
+[data-global-modal="backdrop"][data-portal="store"] [data-on-dark-panel='true'] .text-slate-300,
+[data-global-modal="backdrop"][data-portal="store"] [data-on-dark-panel='true'] p {
+  color: #cbd5e1 !important;
 }
 
 /* Modal tables: readable grid on glass */
@@ -4573,11 +5113,11 @@ html[data-shell-luma='dark'][data-theme="light"] [data-global-modal="backdrop"][
  * Glass UX comes from the outer shell only — one blur layer, no print breakage.
  */
 
-/* Modal header CTA stays solid navy glass accent (design lock) */
+/* Modal header = Holst CTA (global Holst lock — no solid black) */
 [data-global-modal="backdrop"][data-portal="store"] .unity-modal-header {
-  background: var(--glass-navy, #0f172a) !important;
-  background-color: var(--glass-navy, #0f172a) !important;
-  background-image: none !important;
+  background: var(--portal-cta) !important;
+  background-color: var(--portal-600, #1d8b94) !important;
+  background-image: var(--portal-cta) !important;
   color: #ffffff !important;
   border-color: transparent !important;
   backdrop-filter: none !important;
@@ -4722,10 +5262,10 @@ html[data-theme="dark"][data-portal="store"] [data-floating-popover="true"] .dar
 }
 
 .portal-auth-shell .portal-auth-brand-mark {
-  background: var(--portal-cta) !important;
-  background-image: var(--portal-cta) !important;
+  background: var(--portal-cta, linear-gradient(90deg, #1d8b94, #4fb8b4)) !important;
+  background-image: var(--portal-cta, linear-gradient(90deg, #1d8b94, #4fb8b4)) !important;
   color: var(--active-fg, #ffffff) !important;
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--portal-600) 35%, transparent);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--portal-600, #1d8b94) 35%, transparent);
   border: 1px solid color-mix(in srgb, #fff 25%, transparent);
 }
 
@@ -4734,9 +5274,12 @@ html[data-theme="dark"][data-portal="store"] [data-floating-popover="true"] .dar
   border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent) !important;
 }
 
+/* Shield / badge pill — Holst teal, never solid black */
 .portal-auth-shell .portal-auth-badge-pill {
-  border: 1px solid color-mix(in srgb, var(--active-bg) 40%, transparent);
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--active-bg) 28%, transparent);
+  background: var(--active-bg, var(--portal-600, #1d8b94)) !important;
+  color: var(--active-fg, #ffffff) !important;
+  border: 1px solid color-mix(in srgb, var(--active-bg, #1d8b94) 40%, transparent);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--active-bg, #1d8b94) 28%, transparent);
 }
 
 .portal-auth-shell .portal-auth-input,
@@ -4778,9 +5321,64 @@ html[data-theme="dark"][data-portal="store"] [data-floating-popover="true"] .dar
   .portal-auth-shell .portal-auth-glass-header {
     flex-wrap: wrap;
     gap: 0.5rem;
+    /* Stronger frost on phone — wallpaper must read through */
+    background: rgba(255, 255, 255, 0.42) !important;
+    backdrop-filter: blur(18px) saturate(1.45) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(1.45) !important;
+  }
+  .portal-auth-shell .portal-auth-glass-card {
+    background: rgba(255, 255, 255, 0.55) !important;
+    backdrop-filter: blur(22px) saturate(1.5) !important;
+    -webkit-backdrop-filter: blur(22px) saturate(1.5) !important;
+    border: 1px solid rgba(255, 255, 255, 0.65) !important;
+    box-shadow:
+      0 12px 40px rgba(15, 23, 42, 0.14),
+      inset 0 1px 0 rgba(255, 255, 255, 0.65) !important;
   }
   .portal-auth-shell .portal-auth-full-bg-img {
     object-position: 30% center;
   }
+  /* Softer veil — less black wash over login photo */
+  .portal-auth-shell .portal-auth-full-bg-veil {
+    background:
+      linear-gradient(180deg, rgba(15, 23, 42, 0.12) 0%, rgba(15, 23, 42, 0.04) 45%, rgba(15, 23, 42, 0.22) 100%);
+  }
+  .portal-auth-shell .unity-btn-primary {
+    background: var(--portal-cta, linear-gradient(90deg, #1d8b94, #4fb8b4)) !important;
+    background-image: var(--portal-cta, linear-gradient(90deg, #1d8b94, #4fb8b4)) !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * LIFETIME DEFAULT LOCK — store glass + slate/navy CTA (platform default)
+ * Matches paint() + PLATFORM_CHROME_DEFAULTS (#0f172a / #1e293b).
+ * Hardcoded Holst teal gradient banned here — it overrode black defaults.
+ * Merchant may change colors in Settings (vars via paint / chromeBrand).
+ * Mid-card dual-color blur still banned on mobile.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+[data-portal="store"] {
+  --glass-navy: #0f172a;
+  --accent: #1e293b;
+  --active-bg: #0f172a;
+  --active-fg: #ffffff;
+  --portal-cta: #0f172a;
+  --portal-600: #1e293b;
+  --portal-400: #334155;
+}
+
+[data-portal="store"] .unity-nav-active,
+.unity-shell[data-portal="store"] .unity-nav-active,
+[data-portal="store"] .unity-btn-primary,
+.unity-shell[data-portal="store"] .unity-btn-primary,
+.portal-auth-shell[data-portal="store"] .unity-btn-primary,
+.portal-auth-shell[data-portal="store"] .portal-auth-brand-mark {
+  background: var(--portal-cta, #0f172a) !important;
+  background-image: var(--portal-cta, #0f172a) !important;
+  color: #ffffff !important;
+}
+
+.portal-auth-shell[data-portal="store"] .portal-auth-badge-pill {
+  background: var(--active-bg, #0f172a) !important;
+  color: #ffffff !important;
 }
 

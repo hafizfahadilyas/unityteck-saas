@@ -42,6 +42,10 @@ export const ThankYouPage: React.FC = () => {
       selectedStorage: { capacity: 'Standard', ram: '', priceDelta: 0 },
     })),
     total: currentOrders[0].total || 0,
+    shippingFee:
+      typeof currentOrders[0].shippingFee === 'number'
+        ? currentOrders[0].shippingFee
+        : undefined,
     paymentMethod: String(currentOrders[0].paymentMethod || 'mada'),
     shippingAddress: {
       name: currentOrders[0].customerName || (language === 'AR' ? 'عميل المتجر' : 'Store Customer'),
@@ -52,6 +56,10 @@ export const ThankYouPage: React.FC = () => {
     },
     status: currentOrders[0].status || 'Confirmed'
   } : null);
+  const orderShippingFee =
+    order && typeof order.shippingFee === 'number' && Number.isFinite(order.shippingFee)
+      ? Math.max(0, order.shippingFee)
+      : null;
 
   const shownNumber = thankYouOrderNumber(order);
 
@@ -238,7 +246,19 @@ export const ThankYouPage: React.FC = () => {
                 </p>
                 <p>
                   <span className="text-neutral-500">{language === 'AR' ? 'الشحن:' : 'Delivery:'}</span>{' '}
-                  <span className="font-semibold text-emerald-700">{language === 'AR' ? 'شحن فوري مجاني (24-48 ساعة)' : 'Free Express (24-48h)'}</span>
+                  <span className={`font-semibold ${orderShippingFee === 0 ? 'text-emerald-700' : 'text-neutral-900'}`}>
+                    {orderShippingFee === null
+                      ? language === 'AR'
+                        ? 'حسب إعدادات المتجر'
+                        : 'Per store shipping'
+                      : orderShippingFee <= 0
+                        ? language === 'AR'
+                          ? 'شحن مجاني لهذا الطلب'
+                          : 'Free shipping on this order'
+                        : language === 'AR'
+                          ? `${orderShippingFee.toLocaleString()} ⃁`
+                          : `⃁ ${orderShippingFee.toLocaleString()}`}
+                  </span>
                 </p>
                 <p>
                   <span className="text-neutral-500">{language === 'AR' ? 'الضمان:' : 'Warranty:'}</span>{' '}
@@ -303,9 +323,25 @@ export const ThankYouPage: React.FC = () => {
                 {language === 'AR' ? `${Math.round((order.total * 0.15) / 1.15).toLocaleString()}.00 ⃁` : `⃁ ${Math.round((order.total * 0.15) / 1.15).toLocaleString()}.00`}
               </span>
             </div>
-            <div className="flex justify-between text-emerald-700 font-medium">
+            <div
+              className={`flex justify-between font-medium ${
+                orderShippingFee === 0 ? 'text-emerald-700' : 'text-neutral-700'
+              }`}
+            >
               <span>{language === 'AR' ? 'رسوم الشحن والتوصيل:' : 'Delivery Fee:'}</span>
-              <span>{language === 'AR' ? 'مجاني' : 'FREE'}</span>
+              <span className="font-mono">
+                {orderShippingFee === null
+                  ? language === 'AR'
+                    ? '—'
+                    : '—'
+                  : orderShippingFee <= 0
+                    ? language === 'AR'
+                      ? 'مجاني'
+                      : 'FREE'
+                    : language === 'AR'
+                      ? `${orderShippingFee.toLocaleString()} ⃁`
+                      : `⃁ ${orderShippingFee.toLocaleString()}`}
+              </span>
             </div>
             <div className="border-t border-neutral-200 pt-2 flex justify-between items-baseline text-base font-extrabold text-neutral-950">
               <span>{language === 'AR' ? 'المجموع الكلي المدفوع:' : 'Total Amount Paid:'}</span>

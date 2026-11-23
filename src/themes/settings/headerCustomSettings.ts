@@ -216,6 +216,24 @@ export type HeaderSubElementKey =
   | 'actions'
   | 'language';
 
+/**
+ * Per-element mobile visibility (phones / &lt; lg).
+ * `undefined` or `true` = show on mobile; `false` = hide on mobile only (desktop unchanged).
+ */
+export interface HeaderMobileVisibility {
+  logo?: boolean;
+  search?: boolean;
+  cart?: boolean;
+  account?: boolean;
+  language?: boolean;
+  /** Mobile hamburger (keep true unless you have another menu entry). */
+  menu?: boolean;
+  /** Horizontal quick-nav chips under the main header on mobile. */
+  quickNav?: boolean;
+  /** Desktop “Shop” pill when mirrored on smaller breakpoints. */
+  shopButton?: boolean;
+}
+
 export interface HeaderCustomSettings {
   subElement?: HeaderSubElementKey;
   general: HeaderGeneralSettings;
@@ -224,6 +242,29 @@ export interface HeaderCustomSettings {
   navigation: HeaderNavigationSettings;
   actions: HeaderActionsSettings;
   language: HeaderLanguageSettings;
+  /** Customize Themes → Header: hide logo / cart / search / … on mobile only. */
+  mobileVisibility?: HeaderMobileVisibility;
+}
+
+/** Website mobile default — only essentials (menu / logo / cart / search / language). */
+export const DEFAULT_HEADER_MOBILE_VISIBILITY: Required<HeaderMobileVisibility> = {
+  logo: true,
+  search: true,
+  cart: true,
+  account: false,
+  language: true,
+  menu: true,
+  quickNav: true,
+  shopButton: true,
+};
+
+export function resolveHeaderMobileVisibility(
+  raw?: HeaderMobileVisibility | null,
+): Required<HeaderMobileVisibility> {
+  return {
+    ...DEFAULT_HEADER_MOBILE_VISIBILITY,
+    ...(raw || {}),
+  };
 }
 
 export const DEFAULT_HEADER_SETTINGS: HeaderCustomSettings = {
@@ -409,6 +450,7 @@ export const DEFAULT_HEADER_SETTINGS: HeaderCustomSettings = {
     borderColor: '#d8d2c4',
     template: 'luxury-pill',
   },
+  mobileVisibility: { ...DEFAULT_HEADER_MOBILE_VISIBILITY },
 };
 
 export const COFFEE_HEADER_SETTINGS: HeaderCustomSettings = {
@@ -591,6 +633,7 @@ export const COFFEE_HEADER_SETTINGS: HeaderCustomSettings = {
     borderColor: 'rgba(200,138,88,0.3)',
     template: 'luxury-pill',
   },
+  mobileVisibility: { ...DEFAULT_HEADER_MOBILE_VISIBILITY },
 };
 
 export const AUTO_HEADER_SETTINGS: HeaderCustomSettings = {

@@ -10,6 +10,11 @@ import { normalizeWhatsAppDigits } from './storeContact';
 const H1 = '/images/coffee_hero_flagship_machine_1791218907782.jpg';
 const H2 = '/images/coffee_grinder_mill_banner_1791218928342.jpg';
 const H3 = '/images/coffee_corner_luxury_station_1791219182840.jpg';
+/** AI-generated dual-slider pack (full overlay + image-only), desktop + mobile. */
+const AI_FULL_DESKTOP = '/images/coffee_hero_full_desktop.jpg';
+const AI_FULL_MOBILE = '/images/coffee_hero_full_mobile.jpg';
+const AI_IMG_DESKTOP = '/images/coffee_hero_imageonly_desktop.jpg';
+const AI_IMG_MOBILE = '/images/coffee_hero_imageonly_mobile.jpg';
 
 export interface FeaturedCategoryEntry {
   id: string;
@@ -81,6 +86,8 @@ export interface FeaturedCategoriesProductsSettings {
   /** Manual product ids for bottom grid when productSource is selected. */
   productIds?: string[];
   productSource?: 'selected' | 'category' | 'latest';
+  /** Full filter control (preferred when present). */
+  productFilter?: CoffeeProductSourceConfig;
   productsPerRowDesktop?: number;
   productsPerRowTablet?: number;
   productsPerRowMobile?: number;
@@ -100,6 +107,30 @@ export interface FeaturedCategoriesProductsSettings {
   showArrowsMobile?: boolean;
   autoplay?: boolean;
   autoplaySpeedSec?: number;
+  /** Card CTA labels (Buy / Learn More) — EN+AR. */
+  buyLabelEn?: string;
+  buyLabelAr?: string;
+  learnMoreLabelEn?: string;
+  learnMoreLabelAr?: string;
+  /** Per-element typography / color (merchant Style tab). */
+  titleFontSizePx?: number;
+  titleColor?: string;
+  taglineFontSizePx?: number;
+  taglineColor?: string;
+  priceFontSizePx?: number;
+  priceColor?: string;
+  ctaFontSizePx?: number;
+  buyColor?: string;
+  learnMoreColor?: string;
+  /** Stretch companion cards to equal height in a row. */
+  equalCardHeights?: boolean;
+  /** When catalog exceeds maxVisibleProducts, show More Products → shop. */
+  showMoreProducts?: boolean;
+  moreProductsEn?: string;
+  moreProductsAr?: string;
+  /** Default shop route: `products` (coffee shop page). Absolute URL also allowed. */
+  moreProductsUrl?: string;
+  maxVisibleProducts?: number;
   sections: FeaturedCategoriesSection[];
 }
 
@@ -120,11 +151,23 @@ export interface HeroBannerButtonFlags {
   customOrderUrl: string;
 }
 
+/** Per-device chrome for the full (text) hero — mobile ≠ laptop ≠ desktop. */
+export interface HeroDeviceChromeStyle {
+  textColor?: string;
+  cardBg?: string;
+  cardOpacity?: number;
+  buttonBg?: string;
+  buttonTextColor?: string;
+  priceColor?: string;
+  linkColor?: string;
+  scrimFrom?: string;
+}
+
 export interface HeroBannerSlideSettings extends HeroBannerButtonFlags {
   id: string;
   enabled: boolean;
   image: string;
-  /** Optional tablet crop — falls back to `image`. */
+  /** Optional tablet / laptop crop — falls back to `image`. */
   tabletImage?: string;
   mobileImage: string;
   /** Search-engine description for the slide image. Separate from the heading. */
@@ -143,7 +186,21 @@ export interface HeroBannerSlideSettings extends HeroBannerButtonFlags {
   textColor: string;
   /** Per-slide WhatsApp CTA (section `showWhatsapp` must also be on). */
   whatsappEnabled?: boolean;
+  /** Full-overlay colors — desktop / large screens. */
+  styleDesktop?: HeroDeviceChromeStyle;
+  /** Full-overlay colors — laptop / tablet (md–lg). */
+  styleLaptop?: HeroDeviceChromeStyle;
+  /** Full-overlay colors — phones. */
+  styleMobile?: HeroDeviceChromeStyle;
 }
+
+/**
+ * C-HERO display:
+ * - `image_only` — image carousel only
+ * - `full` — text + card + buttons
+ * - `both` — image-only slider then full text slider on the home page
+ */
+export type HeroBannerContentMode = 'image_only' | 'full' | 'both';
 
 export interface HeroBannersSettings {
   enabled: boolean;
@@ -154,7 +211,58 @@ export interface HeroBannersSettings {
   showWhatsapp: boolean;
   whatsappNumber: string;
   textColor: string;
+  contentMode?: HeroBannerContentMode;
+  /**
+   * Slides for the image-only slider when `contentMode` is `image_only` or `both`.
+   * Empty → reuse `banners` images without overlay.
+   */
+  imageOnlyBanners?: HeroBannerSlideSettings[];
+  /**
+   * Section-level device chrome defaults (overridden by per-slide style*).
+   */
+  styleDesktop?: HeroDeviceChromeStyle;
+  styleLaptop?: HeroDeviceChromeStyle;
+  styleMobile?: HeroDeviceChromeStyle;
   banners: HeroBannerSlideSettings[];
+}
+
+export function emptyHeroDeviceStyle(): HeroDeviceChromeStyle {
+  return {
+    textColor: '#111111',
+    cardBg: '#ffffff',
+    cardOpacity: 0.8,
+    buttonBg: '#111111',
+    buttonTextColor: '#ffffff',
+    priceColor: '#111111',
+    linkColor: '#111111',
+    scrimFrom: '#ffffff',
+  };
+}
+
+export function resolveHeroDeviceStyle(
+  device: 'mobile' | 'laptop' | 'desktop',
+  section?: HeroBannersSettings | null,
+  slide?: HeroBannerSlideSettings | null,
+): HeroDeviceChromeStyle {
+  const base = emptyHeroDeviceStyle();
+  const sectionStyle =
+    device === 'mobile'
+      ? section?.styleMobile
+      : device === 'laptop'
+        ? section?.styleLaptop
+        : section?.styleDesktop;
+  const slideStyle =
+    device === 'mobile'
+      ? slide?.styleMobile
+      : device === 'laptop'
+        ? slide?.styleLaptop
+        : slide?.styleDesktop;
+  return {
+    ...base,
+    textColor: slide?.textColor || section?.textColor || base.textColor,
+    ...sectionStyle,
+    ...slideStyle,
+  };
 }
 
 export interface FeaturedBannerButton {
@@ -417,6 +525,25 @@ export interface ProductCarouselItem {
   learnMoreOpenIn: ProductCarouselOpenIn;
 }
 
+/** Shared filter for home product rails (C-PC / C-PCB / slider / collection / C-FCP). */
+export type CoffeeProductSourceMode =
+  | 'all'
+  | 'category'
+  | 'brand'
+  | 'selected'
+  | 'mix'
+  | 'featured'
+  | 'latest'
+  | 'best_selling';
+
+export interface CoffeeProductSourceConfig {
+  mode: CoffeeProductSourceMode;
+  categoryIds: string[];
+  brandIds: string[];
+  productIds: string[];
+  productCount: number;
+}
+
 export interface ProductCarouselSettings {
   enabled: boolean;
   titleEn: string;
@@ -437,8 +564,10 @@ export interface ProductCarouselSettings {
   showArrowsDesktop?: boolean;
   showArrowsMobile?: boolean;
   enableTouchSwipe?: boolean;
-  /** Manual curated cards. Empty → fall back to category + productCount from live catalog. */
+  /** Manual curated cards. Empty → fall back to productSource / category + productCount. */
   items?: ProductCarouselItem[];
+  /** Full filter: all / category / brand / selected / mix / featured / latest / best_selling */
+  productSource?: CoffeeProductSourceConfig;
 }
 
 export interface ProductCarouselBannerSettings {
@@ -453,6 +582,7 @@ export interface ProductCarouselBannerSettings {
   buttonUrl: string;
   categoryId: string;
   productCount: number;
+  productSource?: CoffeeProductSourceConfig;
 }
 
 export interface NewsletterSettings {
@@ -597,7 +727,7 @@ export function shopGridClass(shop?: Partial<ShopCatalogSettings> | null): strin
   const mobile = shop?.columnsMobile === 1 ? 'grid-cols-1' : 'grid-cols-2';
   const tablet = shop?.columnsTablet === 2 ? 'md:grid-cols-2' : shop?.columnsTablet === 4 ? 'md:grid-cols-4' : 'md:grid-cols-3';
   const desktop = shop?.columnsDesktop === 2 ? 'lg:grid-cols-2' : shop?.columnsDesktop === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4';
-  return `${mobile} sm:${mobile} ${tablet} ${desktop} gap-2.5 sm:gap-6`;
+  return `${mobile} sm:${mobile} ${tablet} ${desktop} gap-2.5 sm:gap-6 items-stretch auto-rows-fr`;
 }
 
 export interface CustomOrderField {
@@ -1233,6 +1363,8 @@ export interface ProductSliderSettings {
   showDescription: boolean;
   sourceType: ProductSliderSource;
   categoryId: string;
+  /** Prefer over legacy sourceType when set (category/brand multi + mix). */
+  productSource?: CoffeeProductSourceConfig;
   productCount: number;
   showArrows: boolean;
   showDots: boolean;
@@ -1340,6 +1472,8 @@ export interface ProductCollectionSettings {
   promo: ProductCollectionPromo;
   sourceType: ProductSliderSource;
   categoryId: string;
+  /** Prefer over legacy sourceType when set. */
+  productSource?: CoffeeProductSourceConfig;
   productCount: number;
   showArrows: boolean;
   showDots: boolean;
@@ -1428,7 +1562,12 @@ export function emptyCoffeeModular(): CoffeeModularSlice {
       showWhatsapp: false,
       whatsappNumber: '',
       textColor: '#111111',
+      contentMode: 'both',
+      styleDesktop: emptyHeroDeviceStyle(),
+      styleLaptop: emptyHeroDeviceStyle(),
+      styleMobile: emptyHeroDeviceStyle(),
       banners: [],
+      imageOnlyBanners: [],
     },
     featuredSectionBanners: { enabled: false, titleEn: '', titleAr: '', subtitleEn: '', subtitleAr: '', banners: [] },
     featuredProducts: {
@@ -1538,6 +1677,33 @@ export function coffeeModularSeed(): CoffeeModularSlice {
   return {
     featuredCategoriesProducts: {
       enabled: true,
+      titleEn: 'Shop HiBrew by Category',
+      titleAr: 'تسوّق هايبرو حسب التصنيف',
+      descriptionEn: 'Official machines, mills, cabinets, and barista tools for KSA.',
+      descriptionAr: 'مكائن ومطاحن وخزائن وأدوات باريستا رسمية داخل المملكة.',
+      buyLabelEn: 'Buy',
+      buyLabelAr: 'شراء',
+      learnMoreLabelEn: 'Learn More',
+      learnMoreLabelAr: 'تعرف على المزيد',
+      titleFontSizePx: 16,
+      titleColor: '#171717',
+      taglineFontSizePx: 13,
+      taglineColor: '#525252',
+      priceFontSizePx: 15,
+      priceColor: '#171717',
+      ctaFontSizePx: 12,
+      buyColor: '#171717',
+      learnMoreColor: '#171717',
+      equalCardHeights: true,
+      showMoreProducts: true,
+      moreProductsEn: 'More Products',
+      moreProductsAr: 'المزيد من المنتجات',
+      moreProductsUrl: 'products',
+      maxVisibleProducts: 5,
+      bgColor: '#F9F9F9',
+      cardStyle: 'rounded',
+      cardSpacing: 'medium',
+      showPrice: true,
       sections: [
         {
           id: 'fcp-hibrew-gear',
@@ -1565,8 +1731,8 @@ export function coffeeModularSeed(): CoffeeModularSlice {
           showDiscount: true,
           showCompare: true,
           showViewMore: true,
-          viewMoreEn: 'View More Products',
-          viewMoreAr: 'عرض المزيد من المنتجات',
+          viewMoreEn: 'More Products',
+          viewMoreAr: 'المزيد من المنتجات',
           viewMoreLink: 'products',
           columnsDesktop: 5,
           columnsMobile: 2,
@@ -1584,49 +1750,132 @@ export function coffeeModularSeed(): CoffeeModularSlice {
       showWhatsapp: true,
       whatsappNumber: '',
       textColor: '#111111',
+      contentMode: 'both',
+      styleDesktop: {
+        ...emptyHeroDeviceStyle(),
+        textColor: '#111111',
+        cardBg: '#ffffff',
+        cardOpacity: 0.85,
+        buttonBg: '#111111',
+        buttonTextColor: '#ffffff',
+      },
+      styleLaptop: {
+        ...emptyHeroDeviceStyle(),
+        textColor: '#111111',
+        cardBg: '#ffffff',
+        cardOpacity: 0.82,
+        buttonBg: '#171717',
+        buttonTextColor: '#ffffff',
+      },
+      styleMobile: {
+        ...emptyHeroDeviceStyle(),
+        textColor: '#0a0a0a',
+        cardBg: '#ffffff',
+        cardOpacity: 0.92,
+        buttonBg: '#000000',
+        buttonTextColor: '#ffffff',
+      },
       banners: [
-        heroSlide({
-          id: 'hero-hibrew-dual',
-          image: H1,
-          promoEn: 'AI✦ Flagship Choice',
-          promoAr: 'خيار الفلاجشيب AI✦',
-          titleEn: 'HiBrew Barista Pro H7A Dual-Boiler',
-          titleAr: 'هايبرو بارستا برو H7A دبل بويلر',
-          descriptionEn: 'Dual PID thermoblock, 58mm group, and 20-bar Italian pump.',
-          descriptionAr: 'دبل بويلر PID ومقبس 58 ملم ومضخة إيطالية 20 بار.',
-          price: '1899',
-          productId: 'hb-h10a-dualboiler',
-          buyNowEn: 'Shop Barista Pro',
-          buyNowAr: 'تسوّق بارستا برو',
-        }),
-        heroSlide({
-          id: 'hero-hibrew-mill',
-          image: H2,
-          promoEn: 'Titanium Burrs',
-          promoAr: 'تروس تيتانيوم',
-          titleEn: 'HiBrew Titanium Burr Grinder G5',
-          titleAr: 'مطحنة هايبرو G5 بتروس تيتانيوم',
-          descriptionEn: '40mm CNC titanium burrs with a stepless micron dial.',
-          descriptionAr: 'تروس تيتانيوم 40 مم مع ضبط ميكروني متدرّج.',
-          price: '749',
-          productId: 'hb-mill-g5-pro',
-          buyNowEn: 'Explore Grinders',
-          buyNowAr: 'اكتشف المطاحن',
-        }),
-        heroSlide({
-          id: 'hero-hibrew-station',
-          image: H3,
-          promoEn: 'Handcrafted',
-          promoAr: 'تفصيل فاخر',
-          titleEn: 'HiBrew Luxury Oak Coffee Station',
-          titleAr: 'ركن قهوة هايبرو من خشب البلوط',
-          descriptionEn: 'Fluted American oak, sintered stone top, concealed power track.',
-          descriptionAr: 'بلوط أمريكي وسطح حجر مقاوم للحرارة ومسار كهرباء مخفي.',
-          price: '2450',
-          productId: 'hb-nordic-cabinet',
-          buyNowEn: 'Design Your Corner',
-          buyNowAr: 'صمّم ركنك',
-        }),
+        {
+          ...heroSlide({
+            id: 'hero-ai-full-dual',
+            image: AI_FULL_DESKTOP,
+            promoEn: 'Flagship Choice',
+            promoAr: 'خيار الفئة الرائدة',
+            titleEn: 'HiBrew Barista Pro Dual-Boiler',
+            titleAr: 'هايبرو بارستا برو دبل بويلر',
+            descriptionEn: 'Dual PID thermoblock, 58mm group, and 20-bar Italian pump.',
+            descriptionAr: 'دبل بويلر PID ومقبس 58 ملم ومضخة إيطالية 20 بار.',
+            price: '1899',
+            productId: 'hb-h10a-dualboiler',
+            buyNowEn: 'Shop Now',
+            buyNowAr: 'تسوق الآن',
+          }),
+          mobileImage: AI_FULL_MOBILE,
+          tabletImage: AI_FULL_DESKTOP,
+        },
+        {
+          ...heroSlide({
+            id: 'hero-hibrew-mill',
+            image: H2,
+            promoEn: 'Titanium Burrs',
+            promoAr: 'تروس تيتانيوم',
+            titleEn: 'HiBrew Titanium Burr Grinder G5',
+            titleAr: 'مطحنة هايبرو G5 بتروس تيتانيوم',
+            descriptionEn: '40mm CNC titanium burrs with a stepless micron dial.',
+            descriptionAr: 'تروس تيتانيوم 40 مم مع ضبط ميكروني متدرّج.',
+            price: '749',
+            productId: 'hb-mill-g5-pro',
+            buyNowEn: 'Explore Grinders',
+            buyNowAr: 'اكتشف المطاحن',
+          }),
+          mobileImage: H2,
+        },
+        {
+          ...heroSlide({
+            id: 'hero-hibrew-station',
+            image: H3,
+            promoEn: 'Handcrafted',
+            promoAr: 'تفصيل فاخر',
+            titleEn: 'HiBrew Luxury Oak Coffee Station',
+            titleAr: 'ركن قهوة هايبرو من خشب البلوط',
+            descriptionEn: 'Fluted American oak, sintered stone top, concealed power track.',
+            descriptionAr: 'بلوط أمريكي وسطح حجر مقاوم للحرارة ومسار كهرباء مخفي.',
+            price: '2450',
+            productId: 'hb-nordic-cabinet',
+            buyNowEn: 'Design Your Corner',
+            buyNowAr: 'صمّم ركنك',
+          }),
+          mobileImage: H3,
+        },
+      ],
+      imageOnlyBanners: [
+        {
+          ...heroSlide({
+            id: 'hero-ai-img-only-1',
+            image: AI_IMG_DESKTOP,
+            promoEn: '',
+            promoAr: '',
+            titleEn: '',
+            titleAr: '',
+            descriptionEn: '',
+            descriptionAr: '',
+            price: '',
+            productId: 'hb-mill-g5-pro',
+            buyNowEn: '',
+            buyNowAr: '',
+          }),
+          mobileImage: AI_IMG_MOBILE,
+          tabletImage: AI_IMG_DESKTOP,
+          showPrice: false,
+          buyNowEnabled: false,
+          addToCartEnabled: false,
+          learnMoreEnabled: false,
+          customOrderEnabled: false,
+        },
+        {
+          ...heroSlide({
+            id: 'hero-ai-img-only-2',
+            image: AI_FULL_DESKTOP,
+            promoEn: '',
+            promoAr: '',
+            titleEn: '',
+            titleAr: '',
+            descriptionEn: '',
+            descriptionAr: '',
+            price: '',
+            productId: 'hb-h10a-dualboiler',
+            buyNowEn: '',
+            buyNowAr: '',
+          }),
+          mobileImage: AI_FULL_MOBILE,
+          tabletImage: AI_FULL_DESKTOP,
+          showPrice: false,
+          buyNowEnabled: false,
+          addToCartEnabled: false,
+          learnMoreEnabled: false,
+          customOrderEnabled: false,
+        },
       ],
     },
     featuredSectionBanners: {

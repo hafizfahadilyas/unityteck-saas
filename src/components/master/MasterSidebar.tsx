@@ -101,12 +101,11 @@ export const MasterSidebar: React.FC<MasterSidebarProps> = ({
         data-mobile-open={mobileOpen ? 'true' : 'false'}
       >
         <div
-          className="min-h-[72px] px-3 py-2.5 flex items-center gap-2 border-b shrink-0"
+          className="relative min-h-[72px] px-3 py-2.5 flex items-center justify-center border-b shrink-0"
           style={{ borderColor: 'var(--portal-800)' }}
+          title={isAr ? 'منصة سوق' : 'Souq Platform'}
         >
-          <div className="flex-1 min-w-0 flex items-center overflow-visible">
-            {collapsed ? <SouqEMakkahMark isAr={isAr} /> : <SouqEMakkahLogo isAr={isAr} />}
-          </div>
+          {collapsed ? <SouqEMakkahMark isAr={isAr} /> : <SouqEMakkahLogo isAr={isAr} />}
           <button
             type="button"
             onClick={() => {
@@ -116,7 +115,7 @@ export const MasterSidebar: React.FC<MasterSidebarProps> = ({
               }
               setCollapsed((v) => !v);
             }}
-            className="unity-sidebar-toggle ms-auto shrink-0"
+            className="unity-sidebar-toggle absolute end-3 top-1/2 -translate-y-1/2 shrink-0"
             aria-label={
               isAr
                 ? (typeof window !== 'undefined' && window.matchMedia('(max-width: 1023.98px)').matches

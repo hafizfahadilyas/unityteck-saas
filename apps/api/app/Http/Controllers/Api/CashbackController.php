@@ -138,31 +138,13 @@ class CashbackController extends Controller
             return response()->json(['message' => 'store_id is required.'], 422);
         }
 
-        if (! Schema::hasTable('cashback_campaigns')) {
-            return response()->json([
-                'success' => true,
-                'data' => null,
-                'store_id' => $storeId,
-            ]);
-        }
-
-        $now = now();
-        $campaign = CashbackCampaign::query()
-            ->where('store_id', $storeId)
-            ->where('status', 'active')
-            ->where(function ($q) use ($now) {
-                $q->whereNull('start_date')->orWhere('start_date', '<=', $now);
-            })
-            ->where(function ($q) use ($now) {
-                $q->whereNull('end_date')->orWhere('end_date', '>=', $now);
-            })
-            ->orderByDesc('value')
-            ->first();
-
+        // Public cashback card disabled for all stores (for now).
+        // Customers apply only via a private coupon/promo code paste — no website offer card.
         return response()->json([
             'success' => true,
-            'data' => $campaign,
+            'data' => null,
             'store_id' => $storeId,
+            'public_card' => false,
         ]);
     }
 

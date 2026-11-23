@@ -44,6 +44,7 @@ import { lazyWithRetry } from './utils/lazyWithRetry';
 import { Lock, ShieldAlert } from 'lucide-react';
 import { CORE_STORE_CONTROL_IDS, isStoreControlEnabled } from './services/storeControlService';
 import { isStoreTabComingSoon } from './config/storeTabVisibility';
+import { adminHomeHref, isAdminChromePath, isStorefrontPath } from './utils/spaNavigationGuard';
 // HolstChromeBar retired — unified MasterTopBar / StoreTopBar (docs/21)
 
 /** Heavy tabs — code-split so dashboard/themes open fast */
@@ -313,10 +314,8 @@ const WordPressThemeCustomizer = lazyWithRetry(() =>
   })),
 );
 
-import { DashboardLoader } from './components/common/DashboardLoader';
-import { readAllThemeSettings } from './themes/settings/themeSettingsStore';
 import { DateRangeProvider } from './context/DateRangeContext';
-import { useNotifications } from './notification-system';
+import { NotificationsProvider, useNotifications } from './notification-system';
 
 const NotificationCenter = lazyWithRetry(() =>
   import('./notification-system/components/NotificationCenter').then((m) => ({
@@ -349,97 +348,42 @@ function NotificationCenterPage({ onNavigateTab }: { onNavigateTab: (tab: string
   );
 }
 
-/** Ultra-light tab switch fallback — never block dashboard with full brand splash. */
+/** Ultra-light tab switch fallback — no theme-settings I/O, no brand splash (full speed). */
 function TabFallback() {
-  const { activeStore } = useTenant();
-  const search = typeof window !== 'undefined' ? window.location.search.toLowerCase() : '';
-  const pathname = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '';
+  const { locale } = usePrefs();
+  const isAr = locale === 'ar';
   const isPreviewEmbed =
     typeof window !== 'undefined' &&
     (new URLSearchParams(window.location.search).get('preview') === '1' ||
       new URLSearchParams(window.location.search).get('embed') === '1');
 
-  // Customizer iframe / embed: blank paint is faster than branded splash
+  const [slow, setSlow] = React.useState(false);
+  React.useEffect(() => {
+    const t = window.setTimeout(() => setSlow(true), 5000);
+    return () => window.clearTimeout(t);
+  }, []);
+
   if (isPreviewEmbed) {
     return <div className="min-h-[40vh] w-full bg-white dark:bg-slate-950" aria-busy="true" />;
   }
 
-  const isCar =
-    activeStore?.id === 'store-bleco' ||
-    search.includes('store=car') ||
-    search.includes('store=bleco') ||
-    search.includes('demo=car') ||
-    pathname.startsWith('/car') ||
-    pathname.startsWith('/bleco');
-
-  const isCoffee =
-    !isCar && (
-      activeStore?.id === 'store-coffee' ||
-      search.includes('store=coffee') ||
-      search.includes('demo=coffee') ||
-      search.includes('hibrew') ||
-      pathname.startsWith('/coffee')
-    );
-
-  const isMaster =
-    !isCar &&
-    !isCoffee && (
-      search.includes('portal=master') ||
-      search.includes('store=master') ||
-      pathname.startsWith('/master') ||
-      pathname.startsWith('/masteradmin')
-    );
-
-  const fallbackStoreId = isCar
-    ? 'store-bleco'
-    : isCoffee
-    ? 'store-coffee'
-    : isMaster
-    ? 'master'
-    : (activeStore?.id || '');
-
-  const themeSettings = readAllThemeSettings(fallbackStoreId, activeStore);
-  // Default OFF — match themeSettingsStore seeds; never force brand splash on tab switch.
-  const isEnabled = themeSettings.colors?.enableDashboardLoader ?? false;
-  const { locale } = usePrefs();
-  const isAr = locale === 'ar';
-  const [slow, setSlow] = React.useState(false);
-  React.useEffect(() => {
-    const t = window.setTimeout(() => setSlow(true), 6000);
-    return () => window.clearTimeout(t);
-  }, []);
-  if (!isEnabled) {
-    return (
-      <div
-        className="flex flex-col items-center justify-center gap-2 min-h-[120px] w-full px-4"
-        aria-busy="true"
-        role="status"
-      >
-        <div className="w-5 h-5 rounded-full border-2 border-slate-300 border-t-emerald-500 animate-spin" />
-        {slow ? (
-          <button
-            type="button"
-            className="text-xs font-semibold underline underline-offset-2"
-            style={{ color: 'var(--muted, #64748b)' }}
-            onClick={() => window.location.reload()}
-          >
-            {isAr ? 'التحميل بطيء — إعادة المحاولة' : 'Still loading — tap to retry'}
-          </button>
-        ) : null}
-      </div>
-    );
-  }
-
-  // Compact inline only — full brand splash reserved for storefront when enableLoadingScreen is on
   return (
-    <div className="flex items-center justify-center min-h-[120px] w-full p-4" aria-busy="true" role="status">
-      <DashboardLoader
-        inline
-        enabled
-        storeId={activeStore?.id || fallbackStoreId}
-        storeName={activeStore?.name}
-        messageEn="Loading…"
-      />
+    <div
+      className="flex flex-col items-center justify-center gap-2 min-h-[96px] w-full px-4"
+      aria-busy="true"
+      role="status"
+    >
+      <div className="w-5 h-5 rounded-full border-2 border-slate-300 border-t-[var(--accent,#10b981)] animate-spin" />
+      {slow ? (
+        <button
+          type="button"
+          className="text-xs font-semibold underline underline-offset-2"
+          style={{ color: 'var(--muted, #64748b)' }}
+          onClick={() => window.location.reload()}
+        >
+          {isAr ? 'التحميل بطيء — إعادة المحاولة' : 'Still loading — tap to retry'}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -739,7 +683,11 @@ const getDefaultStoreTheme = (storeId?: string): string => {
         url.searchParams.set('tab', tab);
         // Master URLs stay SEO-clean for the portal — no store=flowers leak.
         url.searchParams.delete('store');
-        window.history.replaceState({}, '', url.toString());
+        const href = `${url.pathname}${url.search}${url.hash}`;
+        const cur = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+        const state = { unityteckSpa: 'master', tab };
+        if (cur === href) window.history.replaceState(state, '', href);
+        else window.history.pushState(state, '', href);
       }
     } catch {}
   }, []);
@@ -787,6 +735,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
         'blog',
         'commerce-tools',
         'appstore',
+        'mobile-app',
         'payments',
         'settings',
       ]),
@@ -803,7 +752,11 @@ const getDefaultStoreTheme = (storeId?: string): string => {
       if (typeof window !== 'undefined') {
         const url = new URL(window.location.href);
         url.searchParams.set('tab', targetTab);
-        window.history.replaceState({}, '', url.toString());
+        const href = `${url.pathname}${url.search}${url.hash}`;
+        const cur = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+        const state = { unityteckSpa: 'admin', tab: targetTab };
+        if (cur === href) window.history.replaceState(state, '', href);
+        else window.history.pushState(state, '', href);
       }
     } catch {}
   }, [STORE_KNOWN_TABS]);
@@ -964,6 +917,9 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     path === '/hadaya' ||
     path.startsWith('/hadaya') ||
     path === '/catalog' ||
+    path.startsWith('/catalog/') ||
+    path === '/products' ||
+    path.startsWith('/products/') ||
     path === '/cart' ||
     path === '/checkout' ||
     path === '/crm' ||
@@ -974,8 +930,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     path === '/product' ||
     path === '/thankyou' ||
     path.startsWith('/product/') ||
-    path.startsWith('/category/') ||
-    path.startsWith('/catalog/');
+    path.startsWith('/category/');
   const isAuthPage =
     isMasterLogin ||
     isStoreLogin ||
@@ -986,6 +941,76 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     isStatus ||
     isClearCache ||
     isPublicStorefront;
+
+  // Browser Back inside admin/master: stay on dashboard — never dump to storefront
+  useEffect(() => {
+    if (isPublicStorefront || isAuthPage) return;
+    if (mode !== 'store' && mode !== 'master') return;
+
+    const onPop = () => {
+      try {
+        const popPath = window.location.pathname;
+        const params = new URLSearchParams(window.location.search);
+        const tabParam = (params.get('tab') || '').trim();
+
+        if (mode === 'store') {
+          if (!isAdminChromePath(popPath) || isStorefrontPath(popPath)) {
+            const href = adminHomeHref('admin');
+            window.history.pushState({ unityteckSpa: 'admin', tab: 'dashboard' }, '', href);
+            setStoreTabState('dashboard');
+            try {
+              localStorage.setItem('unityteck_store_tab', 'dashboard');
+            } catch {}
+            return;
+          }
+          const next =
+            tabParam &&
+            tabParam !== 'inventory' &&
+            tabParam !== 'storefront' &&
+            STORE_KNOWN_TABS.has(tabParam)
+              ? tabParam
+              : 'dashboard';
+          setStoreTabState(next);
+          try {
+            localStorage.setItem('unityteck_store_tab', next);
+          } catch {}
+          if (next === 'dashboard') {
+            window.history.pushState(
+              { unityteckSpa: 'admin', tab: 'dashboard' },
+              '',
+              adminHomeHref('admin'),
+            );
+          }
+          return;
+        }
+
+        if (!popPath.includes('/master')) {
+          const href = adminHomeHref('master');
+          window.history.pushState({ unityteckSpa: 'master', tab: 'dashboard' }, '', href);
+          setMasterTabState('dashboard');
+          try {
+            localStorage.setItem('unityteck_master_tab', 'dashboard');
+          } catch {}
+          return;
+        }
+        const next = tabParam || 'dashboard';
+        setMasterTabState(next);
+        try {
+          localStorage.setItem('unityteck_master_tab', next);
+        } catch {}
+        if (next === 'dashboard') {
+          window.history.pushState(
+            { unityteckSpa: 'master', tab: 'dashboard' },
+            '',
+            adminHomeHref('master'),
+          );
+        }
+      } catch {}
+    };
+
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [mode, isPublicStorefront, isAuthPage, STORE_KNOWN_TABS]);
 
   // Master Admin = central Hostinger only (mieraf-ksa.com). Flowers/store hosts bounce away.
   useEffect(() => {
@@ -1218,7 +1243,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
   }, [navigate, switchToStore, switchToMaster, session, activeStore?.id, isPublicStorefront, storeTab, setStoreTab]);
 
   // Recover a lifetime session before sending the admin to the gate.
-  // Never resurrect a session right after explicit Sign out (sessionStorage cleared).
+  // Never resurrect a session right after explicit Sign out (unityteck_explicit_logout).
   // Never bounce admin/master routes to storefront "/" — that looked like "login redirects to frontend".
   useEffect(() => {
     const p = typeof window !== 'undefined' ? window.location.pathname : path;
@@ -1581,8 +1606,10 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     setSession(null);
     clearAuthSession(true);
     try {
+      localStorage.setItem('unityteck_explicit_logout', '1');
       localStorage.removeItem('unityteck_auth');
       localStorage.removeItem('unityteck_auth_lifetime_backup');
+      localStorage.removeItem('unityteck_session_lifetime');
       localStorage.removeItem('unityteck_active_store_id');
       localStorage.removeItem('unityteck_store_tab');
       localStorage.removeItem('unityteck_master_tab');
@@ -1802,7 +1829,10 @@ const getDefaultStoreTheme = (storeId?: string): string => {
           path.startsWith('/flowers') ||
           path.startsWith('/hadaya')
         ? 'store-1'
-        : activeStore?.id || urlStoreSlug || '';
+        : // Custom-domain SEO paths (`/product/...`) — prefer resolved domain / active tenant.
+          (resolvedDomain?.resolved && resolvedDomain.storeId
+            ? String(resolvedDomain.storeId)
+            : activeStore?.id || urlStoreSlug || '');
 
     const googleReturn =
       isClerkConfigured() &&
@@ -1838,14 +1868,17 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     <div
       dir={dir}
       lang={locale}
-      className="unity-shell h-screen max-h-screen overflow-hidden flex flex-col transition-[background,color] duration-150"
+      className="unity-shell h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col transition-[background,color] duration-150"
       data-portal={mode}
       data-theme={theme}
       style={{
-        /* backgroundColor only — store glass shell uses CSS background-image wash */
+        /* backgroundColor only — store glass shell uses CSS wallpaper ::before + light scrim */
         backgroundColor: mode === 'store' ? 'transparent' : 'var(--bg)',
         color: 'var(--text)',
         fontFamily: 'var(--font-ui)',
+        /* iOS Safari fallback when dvh unsupported */
+        height: '100dvh',
+        maxHeight: '100dvh',
       }}
     >
       {/* Unified Holst header: MasterTopBar / StoreTopBar only — no dark chrome · no DB banner */}
@@ -1865,7 +1898,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                 onMobileMenuOpen={() => setMobileNavOpen(true)}
                 onNavigateTab={setMasterTab}
               />
-              <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden pb-16 touch-pan-y overscroll-y-contain">
+              <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden pb-5 touch-pan-y overscroll-y-contain">
                 <Suspense fallback={<TabFallback />}>
                   {masterTab === 'dashboard' && (
                     <MasterDashboard
@@ -1980,7 +2013,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                   storeTab === 'customers' ? t('searchCustomers') : t('searchStore')
                 }
               />
-              <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden pb-16 touch-pan-y overscroll-y-contain">
+              <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden pb-5 touch-pan-y overscroll-y-contain">
                 {/* Unmount heavy store tabs while customizer fullscreen is open */}
                 {isThemeCustomizerOpen ? null : (
                 <Suspense fallback={<TabFallback />}>
@@ -2219,7 +2252,9 @@ function PrefsBridge() {
       activeStoreLanguages={mode === 'store' ? activeStore?.languages : undefined}
     >
       <DateRangeProvider>
-        <AdminContent />
+        <NotificationsProvider>
+          <AdminContent />
+        </NotificationsProvider>
       </DateRangeProvider>
     </PrefsProvider>
   );

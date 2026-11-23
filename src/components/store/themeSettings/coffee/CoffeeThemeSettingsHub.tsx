@@ -24,7 +24,7 @@ const SECTIONS: {
   { id: '03_store_colors', settingsKey: 'colors', titleEn: 'Colors & Background', titleAr: 'الألوان والخلفية' },
   { id: 'C-ANN', settingsKey: 'announcementBar', titleEn: 'Announcement Bar', titleAr: 'شريط الإعلان' },
   { id: 'C-FCP', settingsKey: 'featuredCategoriesProducts', titleEn: 'Categories & Products', titleAr: 'التصنيفات والمنتجات' },
-  { id: 'C-HERO', settingsKey: 'heroBanners', titleEn: 'Hero Banners', titleAr: 'بانر الواجهة' },
+  { id: 'C-HERO', settingsKey: 'heroBanners', titleEn: 'Hero Dual Sliders', titleAr: 'سلايدرا الواجهة' },
   { id: 'C-FSB', settingsKey: 'featuredSectionBanners', titleEn: 'Flagship Section', titleAr: 'قسم المنتجات الرائدة' },
   { id: 'C-FP', settingsKey: 'featuredProducts', titleEn: 'Featured Products', titleAr: 'المنتجات المميزة' },
   { id: 'C-SHOP', settingsKey: 'shop', titleEn: 'Product Catalog', titleAr: 'كتالوج المنتجات' },
