@@ -30,6 +30,7 @@ import {
 } from '../../../components/storefront/StorefrontAccountMenu';
 import { isolateStoreProductImage } from '../../../utils/storeImageIsolation';
 import { coffeeIsolatedCardImage } from '../utils/coffeeIsolatedImage';
+import { normalizeFlexibleHref } from '../../settings/storeContact';
 
 type MegaMenuKey = 'machines' | 'mills' | 'cabinets' | 'accessories' | 'offers' | 'explore' | null;
 
@@ -90,15 +91,34 @@ function CoffeeAnnouncementStrip({
   const widthCls =
     bar?.contentWidth === 'boxed' ? 'max-w-6xl mx-auto w-full px-4' : 'w-full';
   const ctaLabel = announcementButtonLabel(bar, locale);
-  const ctaHref = (bar?.buttonLink || '').trim();
-  const showCta = Boolean(bar?.showButton && ctaLabel);
+  const ctaHref = normalizeFlexibleHref(bar?.buttonLink || '');
+  const showCta = Boolean(bar?.showButton && ctaLabel && ctaHref);
   const showClose = Boolean(bar?.showCloseButton);
+
+  const renderMsgLabel = (m: AnnouncementMessage) => {
+    const label = announcementMessageLabel(m, locale);
+    const href = normalizeFlexibleHref(m.link);
+    if (!href) return <span>{label}</span>;
+    const external = /^https?:/i.test(href);
+    return (
+      <a
+        href={href}
+        className="underline underline-offset-2 hover:opacity-90"
+        target={external ? '_blank' : undefined}
+        rel={external ? 'noopener noreferrer' : undefined}
+      >
+        {label}
+      </a>
+    );
+  };
 
   const renderCta = () =>
     showCta ? (
       <a
-        href={ctaHref || '#'}
+        href={ctaHref}
         className="ms-2 inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-black bg-white/15 hover:bg-white/25 border border-white/30"
+        target={/^https?:/i.test(ctaHref) ? '_blank' : undefined}
+        rel={/^https?:/i.test(ctaHref) ? 'noopener noreferrer' : undefined}
       >
         {ctaLabel}
       </a>
@@ -129,7 +149,7 @@ function CoffeeAnnouncementStrip({
             className={`${heightPad} text-xs font-bold px-4 text-center flex items-center justify-center gap-2`}
           >
             <Sparkles className="w-3.5 h-3.5 shrink-0 text-amber-400" />
-            <span>{announcementMessageLabel(m, locale)}</span>
+            {renderMsgLabel(m)}
             {renderCta()}
             {closeBtn}
           </div>
@@ -163,7 +183,7 @@ function CoffeeAnnouncementStrip({
           </button>
         ) : null}
         <Sparkles className="w-3.5 h-3.5 shrink-0 text-amber-400" />
-        <span>{announcementMessageLabel(m, locale)}</span>
+        {renderMsgLabel(m)}
         {renderCta()}
         {mode === 'single' && eligible.length > 1 ? (
           <button

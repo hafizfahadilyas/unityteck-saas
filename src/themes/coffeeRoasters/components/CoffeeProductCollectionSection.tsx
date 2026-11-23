@@ -166,7 +166,7 @@ export const CoffeeProductCollectionSection: React.FC<{
     return (
       <article
         key={item.id}
-        className="rounded-2xl border border-neutral-200 bg-white overflow-hidden flex flex-col"
+        className="h-full rounded-2xl border border-neutral-200 bg-white overflow-hidden flex flex-col"
         style={{ padding: 0 }}
       >
         <button
@@ -183,7 +183,7 @@ export const CoffeeProductCollectionSection: React.FC<{
           )}
         </button>
         <div className="p-3 space-y-2 flex-1 flex flex-col">
-          <h4 className="text-sm font-bold text-neutral-900 line-clamp-2">{name || (isAr ? 'بدون اسم' : 'Untitled')}</h4>
+          <h4 className="text-sm font-bold text-neutral-900 line-clamp-2 min-h-[2.5em]">{name || (isAr ? 'بدون اسم' : 'Untitled')}</h4>
           {settings?.showPrice !== false && price != null ? (
             <div className="flex items-baseline gap-2">
               <span className="text-sm font-extrabold text-neutral-900">
@@ -249,7 +249,11 @@ export const CoffeeProductCollectionSection: React.FC<{
         style={{ gap }}
       >
         {productCards.map((node) => (
-          <div key={(node as React.ReactElement).key} className="snap-start shrink-0" style={{ width: `calc((100% - ${(perView - 1) * gap}px) / ${perView})` }}>
+          <div
+            key={(node as React.ReactElement).key}
+            className="snap-start shrink-0 flex self-stretch"
+            style={{ width: `calc((100% - ${(perView - 1) * gap}px) / ${perView})` }}
+          >
             {node}
           </div>
         ))}
@@ -271,7 +275,7 @@ export const CoffeeProductCollectionSection: React.FC<{
     </div>
   ) : (
     <div
-      className="grid flex-1 min-w-0"
+      className="grid flex-1 min-w-0 items-stretch"
       style={{ gridTemplateColumns: `repeat(${perView}, minmax(0, 1fr))`, gap }}
       data-product-collection-products="grid"
     >

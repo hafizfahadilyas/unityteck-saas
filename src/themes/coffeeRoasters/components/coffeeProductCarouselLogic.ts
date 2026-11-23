@@ -4,6 +4,10 @@ import type {
   ProductCarouselItem,
   ProductCarouselSettings,
 } from '../../settings/coffeeModularSettings';
+import {
+  normalizeProductSource,
+  resolveProductsBySource,
+} from './coffeeProductSourceLogic';
 
 export const PRODUCT_CAROUSEL_MAX_ITEMS = 20;
 
@@ -13,6 +17,7 @@ export type CarouselCatalogProduct = {
   nameAr?: string;
   nameEn?: string;
   category?: string;
+  brand?: string | null;
   stock?: number;
   price?: number;
   basePrice?: number;
@@ -23,6 +28,11 @@ export type CarouselCatalogProduct = {
   images?: string[];
   galleryUrls?: string[];
   colors?: { image?: string; hex?: string; name?: string; nameAr?: string }[];
+  isFeatured?: boolean;
+  featured?: boolean;
+  salesCount?: number;
+  soldCount?: number;
+  createdAt?: string | number | null;
 };
 
 export function blankCarouselItem(partial?: Partial<ProductCarouselItem>): ProductCarouselItem {
@@ -126,16 +136,55 @@ export function itemHasRenderableContent(item: ProductCarouselItem, catalog?: Ca
   return Boolean(name || image || linked);
 }
 
-/** Visible carousel cards: manual items when present, else category catalog slice. */
+/** Visible carousel cards: productSource filter, else manual items, else category slice. */
 export function resolveCarouselCards(
   settings: ProductCarouselSettings | null | undefined,
   catalog: CarouselCatalogProduct[],
 ): { kind: 'manual' | 'catalog'; cards: Array<{ item: ProductCarouselItem; catalog: CarouselCatalogProduct | null }> } {
   if (!settings?.enabled) return { kind: 'manual', cards: [] };
 
+  const byId = new Map(catalog.map((p) => [p.id, p]));
   const items = (settings.items || []).filter((it) => it.enabled !== false);
+
+  if (settings.productSource?.mode) {
+    const cfg = normalizeProductSource({
+      productSource: settings.productSource,
+      categoryId: settings.categoryId,
+      productCount: settings.productCount,
+      items,
+    });
+    // Selected mode with curated item rows keeps full card overrides.
+    if (cfg.mode === 'selected' && items.length > 0 && !(settings.productSource.productIds || []).length) {
+      const cards = items
+        .map((item) => {
+          const hit = item.productId ? byId.get(item.productId) || null : null;
+          return { item, catalog: hit };
+        })
+        .filter(({ item, catalog: hit }) => itemHasRenderableContent(item, hit))
+        .slice(0, PRODUCT_CAROUSEL_MAX_ITEMS);
+      return { kind: 'manual', cards };
+    }
+    const resolved = resolveProductsBySource(cfg, catalog).slice(0, PRODUCT_CAROUSEL_MAX_ITEMS);
+    const cards = resolved.map((p) => {
+      const curated = items.find((it) => it.productId === p.id);
+      if (curated) return { item: curated, catalog: p };
+      return {
+        item: blankCarouselItem({
+          id: `auto-${p.id}`,
+          productId: p.id,
+          nameEn: p.nameEn || p.name || '',
+          nameAr: p.nameAr || '',
+          imageUrl: catalogProductImage(p),
+          originalPrice: p.originalPrice ?? p.basePrice ?? p.price ?? null,
+          discountedPrice: p.discountedPrice ?? null,
+        }),
+        catalog: p,
+      };
+    });
+    return { kind: cfg.mode === 'selected' ? 'manual' : 'catalog', cards };
+  }
+
   if (items.length > 0) {
-    const byId = new Map(catalog.map((p) => [p.id, p]));
     const cards = items
       .map((item) => {
         const hit = item.productId ? byId.get(item.productId) || null : null;
@@ -146,8 +195,11 @@ export function resolveCarouselCards(
     return { kind: 'manual', cards };
   }
 
-  const count = Math.max(1, Math.min(settings.productCount || 8, PRODUCT_CAROUSEL_MAX_ITEMS));
-  const filtered = catalog.filter((p) => matchCarouselCategory(p.category, settings.categoryId || '')).slice(0, count);
+  const cfg = normalizeProductSource({
+    categoryId: settings.categoryId,
+    productCount: settings.productCount,
+  });
+  const filtered = resolveProductsBySource(cfg, catalog).slice(0, PRODUCT_CAROUSEL_MAX_ITEMS);
   const cards = filtered.map((p) => ({
     item: blankCarouselItem({
       id: `auto-${p.id}`,

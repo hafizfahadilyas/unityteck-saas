@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useCoffeeFormLive } from './coffeeFormLive';
 import { ChevronDown, ChevronUp, Copy, Eye, EyeOff, Plus, Save, Trash2 } from 'lucide-react';
 import { useTenant } from '../../../../context/TenantContext';
 import { usePrefs } from '../../../../i18n/PrefsContext';
@@ -131,7 +130,6 @@ export function useCoffeeDraft<K extends keyof AllThemeSettings>(key: K) {
   const { locale } = usePrefs();
   const { toast } = useToast();
   const isAr = locale === 'ar';
-  const liveCanvas = useCoffeeFormLive();
   const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const livePrimedRef = useRef(false);
   const [draft, setDraftState] = useState(() => editorThemeSettings(activeStore.id, activeStore)[key]);
@@ -142,16 +140,18 @@ export function useCoffeeDraft<K extends keyof AllThemeSettings>(key: K) {
     (next: React.SetStateAction<AllThemeSettings[K]>) => {
       setDraftState((prev) => {
         const resolved = typeof next === 'function' ? (next as (p: AllThemeSettings[K]) => AllThemeSettings[K])(prev) : next;
-        if (liveCanvas && livePrimedRef.current && activeStore?.id) {
+        // Always push local live preview (form + canvas) without waiting for Save/Publish.
+        // Save still writes Hostinger MySQL; public hosts update after Save only.
+        if (livePrimedRef.current && activeStore?.id) {
           if (liveTimerRef.current) clearTimeout(liveTimerRef.current);
           liveTimerRef.current = setTimeout(() => {
             applyCoffeeDraftSlice(activeStore.id, activeStore, key, resolved);
-          }, 220);
+          }, 180);
         }
         return resolved;
       });
     },
-    [activeStore, key, liveCanvas],
+    [activeStore, key],
   );
 
   useEffect(() => {
@@ -196,15 +196,16 @@ export function useCoffeeDraft<K extends keyof AllThemeSettings>(key: K) {
     };
   }, [activeStore.id, key]);
 
-  const save = async (e?: React.FormEvent) => {
+  const save = async (e?: React.FormEvent, override?: AllThemeSettings[K]) => {
     e?.preventDefault();
     setSaving(true);
+    const payload = override ?? draft;
     try {
       const full = readAllThemeSettings(activeStore.id, activeStore);
-      (full as unknown as Record<string, unknown>)[key as string] = draft;
+      (full as unknown as Record<string, unknown>)[key as string] = payload;
       // Keep legacy slider in sync when coffee hero banners are saved
-      if (key === 'heroBanners' && draft && typeof draft === 'object') {
-        const hero = draft as AllThemeSettings['heroBanners'];
+      if (key === 'heroBanners' && payload && typeof payload === 'object') {
+        const hero = payload as AllThemeSettings['heroBanners'];
         full.slider = {
           ...full.slider,
           enabled: hero.enabled !== false,
@@ -234,14 +235,17 @@ export function useCoffeeDraft<K extends keyof AllThemeSettings>(key: K) {
           })),
         };
       }
-      if (key === 'footer' && draft && typeof draft === 'object') {
-        const foot = draft as AllThemeSettings['footer'];
+      if (key === 'footer' && payload && typeof payload === 'object') {
+        const foot = payload as AllThemeSettings['footer'];
         full.general = {
           ...full.general,
           footerLayout: foot?.layout || full.general?.footerLayout || 'columns',
         };
       }
       await writeAllThemeSettings(activeStore.id, full);
+      if (override !== undefined) {
+        setDraftState(payload);
+      }
 
       // Real Hostinger persist — coffee modular key into store_themes.settings (by_theme)
       try {
@@ -250,7 +254,7 @@ export function useCoffeeDraft<K extends keyof AllThemeSettings>(key: K) {
           const { updateThemeSettingsApi } = await import('../../../../api/tenantApi');
           const themeId = resolveStoreActiveThemeId(activeStore.id) || 'theme-coffee-artisan';
           const payloadSettings: Record<string, unknown> = {
-            [key as string]: draft,
+            [key as string]: payload,
           };
           if (key === 'heroBanners' && full.slider) {
             payloadSettings.slider = full.slider;
@@ -258,7 +262,7 @@ export function useCoffeeDraft<K extends keyof AllThemeSettings>(key: K) {
           if (key === 'footer' && full.general) {
             payloadSettings.general = {
               ...full.general,
-              footerLayout: (draft as AllThemeSettings['footer'])?.layout || full.general.footerLayout,
+              footerLayout: (payload as AllThemeSettings['footer'])?.layout || full.general.footerLayout,
             };
           }
           await updateThemeSettingsApi(activeStore.id, {
@@ -296,8 +300,8 @@ export function useCoffeeDraft<K extends keyof AllThemeSettings>(key: K) {
 export const DraftNote: React.FC<{ isAr: boolean }> = ({ isAr }) => (
   <p className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
     {isAr
-      ? 'المعاينة أدناه مسودة. المتجر المباشر يتحدّث بعد حفظ التغييرات (نشر عبر حفظ إعدادات الثيم).'
-      : 'Preview below is a draft. The live storefront updates after Save (theme settings publish).'}
+      ? 'المعاينة المباشرة تتحدّث فوراً دون نشر. الحفظ ينشر التغييرات إلى قاعدة البيانات والمتجر العام.'
+      : 'Live preview updates instantly without Publish. Save publishes to the database and the public storefront.'}
   </p>
 );
 

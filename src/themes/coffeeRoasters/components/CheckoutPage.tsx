@@ -14,6 +14,7 @@ import {
 } from '../../../components/storefront/checkout/CheckoutLocationPicker';
 import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
 import { submitPublicStorefrontOrder } from '../../../utils/submitStorefrontOrder';
+import { buildCartLineSelectedOptions } from '../../../utils/storefrontPurchase';
 import { readTrafficSource } from '../../../utils/trafficSource';
 import { trackStorefrontEvent } from '../../../utils/storefrontAnalytics';
 import { calculateShippingRates } from '../../../api/tenantApi';
@@ -89,6 +90,27 @@ export const CheckoutPage: React.FC = () => {
       },
     });
   }, [activeStore?.id]);
+
+  useEffect(() => {
+    if (!activeStore?.id || !selectedMethodId) return;
+    trackStorefrontEvent(activeStore.id, 'add_shipping_info', {
+      path: typeof location !== 'undefined' ? location.pathname : '/checkout',
+      meta: {
+        shipping_method_id: selectedMethodId,
+        shipping_method: selectedMethodLabel || undefined,
+        shipping_fee: shippingFee,
+        city,
+      },
+    });
+  }, [activeStore?.id, selectedMethodId]);
+
+  useEffect(() => {
+    if (!activeStore?.id || !paymentMethod) return;
+    trackStorefrontEvent(activeStore.id, 'add_payment_info', {
+      path: typeof location !== 'undefined' ? location.pathname : '/checkout',
+      meta: { payment_method: paymentMethod },
+    });
+  }, [activeStore?.id, paymentMethod]);
 
   useEffect(() => {
     if (!showShipping || !activeStore?.id || !city.trim() || !isApiEnabled()) {
@@ -227,15 +249,14 @@ export const CheckoutPage: React.FC = () => {
         utmContent: traffic.utmContent,
         items: cart.map((it) => {
           const catalog = products.find((p) => String(p.id) === String(it.productId));
-          const notes = Array.isArray(it.purchaseNotes) ? it.purchaseNotes.filter(Boolean) : [];
-          const selected = {
-            ...(it.selectedOptions || {}),
-            ...(it.optionSummary ? { _option_summary: it.optionSummary } : {}),
-            ...(notes.length ? { _purchase_notes: notes.join(' | ') } : {}),
-          };
+          const selected = buildCartLineSelectedOptions(it, language === 'AR');
+          const optionBits = Object.values(selected).filter(Boolean);
+          const displayName = optionBits.length
+            ? `${it.productName} (${optionBits.slice(0, 3).join(' · ')})`
+            : it.productName;
           return {
             id: it.productId,
-            name: it.optionSummary ? `${it.productName} (${it.optionSummary})` : it.productName,
+            name: displayName,
             quantity: it.quantity || 1,
             price: it.unitPrice || 0,
             variationId: it.variationId || null,

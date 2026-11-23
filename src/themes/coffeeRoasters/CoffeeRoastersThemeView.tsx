@@ -415,6 +415,15 @@ function CoffeeStorefrontContent({ initialPage, isAdmin = false }: { initialPage
         ? (p as RouteType)
         : 'home';
 
+    // Never clobber SEO `/product/{id}` or `/products` deep links with a default home initialPage.
+    if (target === 'home' && typeof window !== 'undefined') {
+      const path = String(window.location.pathname || '').replace(/\/$/, '') || '/';
+      if (/(?:^|\/)product\/[^/]+$/i.test(path)) return;
+      if (/^\/products(\/|$)/i.test(path) || /^\/catalog(\/|$)/i.test(path) || /^\/shop(\/|$)/i.test(path)) {
+        return;
+      }
+    }
+
     if (target !== currentRoute) {
       navigateTo(target);
     }

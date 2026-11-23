@@ -5,17 +5,16 @@ import type { AllThemeSettings } from '../../settings/themeSettingsStore';
 import {
   itemDisplayImage,
   itemDisplayName,
-  matchCarouselCategory,
   resolveCarouselCards,
 } from './coffeeProductCarouselLogic';
 import { benefitCardFaded, visibleBenefitItems } from './coffeeBenefitsLogic';
+import {
+  normalizeProductSource,
+  resolveProductsBySource,
+} from './coffeeProductSourceLogic';
 
-function productImage(p: { images?: string[]; colors?: { image?: string }[] }): string {
-  return p.colors?.[0]?.image || p.images?.[0] || '';
-}
-
-function matchCategory(category: string | undefined, categoryId: string): boolean {
-  return matchCarouselCategory(category, categoryId);
+function productImage(p: { image?: string; images?: string[]; colors?: { image?: string }[] }): string {
+  return p.image || p.colors?.[0]?.image || p.images?.[0] || '';
 }
 
 export type CoffeeHomeModuleKey =
@@ -67,12 +66,32 @@ export const CoffeeHomeModules: React.FC<{
   const carouselCards = carouselResolved.cards;
 
   const combo = settings.productCarouselBanner;
-  const comboProducts =
-    combo?.enabled
-      ? (products || [])
-          .filter((p) => matchCategory(p.category, combo.categoryId))
-          .slice(0, Math.max(combo.productCount || 0, (products || []).length, 8))
-      : [];
+  const comboCatalog = (products || []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    nameAr: p.nameAr,
+    nameEn: p.nameEn,
+    category: p.category,
+    brand: (p as { brand?: string }).brand,
+    stock: p.stock,
+    price: p.basePrice,
+    basePrice: p.basePrice,
+    originalPrice: p.originalPrice,
+    discountedPrice: p.discountedPrice,
+    image: productImage(p),
+    images: p.images,
+    colors: p.colors,
+  }));
+  const comboProducts = combo?.enabled
+    ? resolveProductsBySource(
+        normalizeProductSource({
+          productSource: combo.productSource,
+          categoryId: combo.categoryId,
+          productCount: combo.productCount || 8,
+        }),
+        comboCatalog,
+      )
+    : [];
 
   const emptyHint = (ar: string, en: string) =>
     only ? (

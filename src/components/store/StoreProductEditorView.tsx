@@ -1093,7 +1093,13 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     setFldConditionalRuleInput(field.conditionalRule && field.conditionalRule !== '—' ? field.conditionalRule : '');
     setFldConditionJoin(field.conditionJoin || 'AND');
     setFldConditions(Array.isArray(field.conditions) ? [...field.conditions] : []);
-    setFldOptionsInput(Array.isArray(field.options) ? [...field.options] : []);
+    setFldOptionsInput(
+      Array.isArray(field.options)
+        ? field.options
+            .map((o) => (typeof o === 'string' ? o : String(o?.label || '').trim()))
+            .filter(Boolean)
+        : [],
+    );
     setFldOptionDraft('');
     setIsFieldModalOpen(true);
   };
@@ -1124,7 +1130,19 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     }
     const fillable = customFieldIsFillable(normalizedType);
     const cleanRule = fldConditionalRuleInput.trim() || '—';
-    const options = customFieldNeedsOptions(normalizedType) ? fldOptionsInput : [];
+    // Keep Honor-style image/price meta when merchant only edits labels in the modal.
+    const prevOpts = Array.isArray(editingField?.options) ? editingField!.options! : [];
+    const options = customFieldNeedsOptions(normalizedType)
+      ? fldOptionsInput.map((label) => {
+          const prev = prevOpts.find((o) =>
+            typeof o === 'string' ? o === label : String(o?.label || '') === label,
+          );
+          if (prev && typeof prev === 'object') {
+            return { ...prev, label };
+          }
+          return label;
+        })
+      : [];
     const payload = {
       name: fldNameInput.trim(),
       description: fldDescriptionInput.trim(),

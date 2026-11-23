@@ -46,10 +46,10 @@ const ProductCarouselCard: React.FC<ProductCarouselCardProps> = ({
   return (
     <div
       onClick={() => onNavigate('product-detail', String(product.id))}
-      className="w-[235px] sm:w-[255px] md:w-[265px] lg:w-[275px] shrink-0 snap-start bg-[#FBFBFB] hover:bg-white rounded-3xl p-4 sm:p-5 border-0 shadow-2xs hover:shadow-xl transition-all duration-300 flex flex-col justify-between items-center text-center group cursor-pointer select-none"
+      className="w-[235px] sm:w-[255px] md:w-[265px] lg:w-[275px] min-h-[380px] sm:min-h-[400px] shrink-0 snap-start bg-[#FBFBFB] hover:bg-white rounded-3xl p-4 sm:p-5 border-0 shadow-2xs hover:shadow-xl transition-all duration-300 flex flex-col items-center text-center group cursor-pointer select-none self-stretch"
     >
       {/* 1. Product Image Showcase */}
-      <div className="w-full h-44 sm:h-48 flex items-center justify-center p-2 overflow-hidden">
+      <div className="w-full h-44 sm:h-48 shrink-0 flex items-center justify-center p-2 overflow-hidden">
         <img
           src={activeImage}
           alt={prodTitle}
@@ -62,9 +62,9 @@ const ProductCarouselCard: React.FC<ProductCarouselCardProps> = ({
       </div>
 
       {/* 2. Product Title */}
-      <div className="w-full mt-2">
+      <div className="w-full mt-2 shrink-0">
         <h4
-          className="font-bold text-sm sm:text-base text-neutral-900 group-hover:text-black line-clamp-1 transition-colors"
+          className="font-bold text-sm sm:text-base text-neutral-900 group-hover:text-black line-clamp-2 min-h-[2.75em] transition-colors"
           title={prodTitle}
         >
           {prodTitle}
@@ -72,7 +72,7 @@ const ProductCarouselCard: React.FC<ProductCarouselCardProps> = ({
       </div>
 
       {/* 3. Color Swatches (Interactive with active ring) */}
-      <div className="flex items-center justify-center gap-1.5 my-2.5 min-h-[22px]">
+      <div className="flex items-center justify-center gap-1.5 my-2.5 min-h-[22px] shrink-0">
         {colors.length > 0 ? (
           colors.map((c, idx) => (
             <button
@@ -97,7 +97,7 @@ const ProductCarouselCard: React.FC<ProductCarouselCardProps> = ({
       </div>
 
       {/* 4. Price Row */}
-      <div className="flex items-center justify-center gap-2 my-1">
+      <div className="flex items-center justify-center gap-2 my-1 shrink-0">
         <span className="font-black text-sm sm:text-base text-neutral-950 font-sans">
           {currentPrice.toLocaleString()} {storeCurrency}
         </span>
@@ -109,7 +109,7 @@ const ProductCarouselCard: React.FC<ProductCarouselCardProps> = ({
       </div>
 
       {/* 5. Bottom Actions: Buy pill button & Learn More text link */}
-      <div className="flex items-center justify-center gap-3 mt-3 pt-2.5 border-0 w-full">
+      <div className="flex items-center justify-center gap-3 mt-auto pt-2.5 border-0 w-full shrink-0">
         <button
           type="button"
           onClick={(e) => {

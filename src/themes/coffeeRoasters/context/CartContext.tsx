@@ -17,6 +17,7 @@ import { seedExistingCommerce } from '../../../utils/existingProductCommerce';
 import { buildGeneratedVariants } from '../../../utils/productVariants';
 import { trackStorefrontEvent } from '../../../utils/storefrontAnalytics';
 import { useActiveSpecialOfferDiscount } from '../../../hooks/useActiveSpecialOfferDiscount';
+import { fetchProduct } from '../../../api/tenantApi';
 
 import { FlyingCartOverlay, FlyingCartItem } from '../components/FlyingCartOverlay';
 import { readStoreIdentity, type StoreIdentitySettings } from '../../settings/storeIdentity';
@@ -28,6 +29,68 @@ import {
   storefrontHomeHref,
   trapSpaHomeIfEscaped,
 } from '../../../utils/spaNavigationGuard';
+
+/** Minimal theme product from API row (deep-link / group child). */
+function mapApiProductToTheme(dp: any): Product {
+  const primaryImg =
+    dp.image ||
+    dp.imageUrl ||
+    (dp.galleryUrls && dp.galleryUrls[0]) ||
+    '';
+  const listPrice = mergeListPricing(dp);
+  const kids = Array.isArray(dp.groupChildren)
+    ? dp.groupChildren
+    : Array.isArray(dp.group_children)
+      ? dp.group_children
+      : [];
+  return {
+    id: String(dp.id || ''),
+    sku: dp.sku,
+    brand: dp.brand,
+    name: dp.name || '',
+    nameAr: dp.nameAr || dp.name_ar || dp.name || '',
+    tagline: dp.subtitle || '',
+    taglineAr: dp.subtitleAr || '',
+    category: (dp.category as any) || '',
+    categoryAr: dp.categoryAr || dp.category_ar,
+    stock: typeof dp.stock === 'number' ? dp.stock : undefined,
+    basePrice: listPrice.basePrice || Number(dp.price) || 0,
+    originalPrice: listPrice.originalPrice,
+    saleActive: listPrice.saleActive,
+    price: listPrice.price,
+    discountedPrice: listPrice.discountedPrice,
+    reviewCount: dp.reviewsCount || dp.reviews_count || 0,
+    rating: dp.rating || 0,
+    colors: [],
+    storageOptions: [],
+    specs: Array.isArray(dp.specs) ? dp.specs : [],
+    images: primaryImg
+      ? [primaryImg, ...(dp.galleryUrls || dp.gallery_urls || []).filter((u: string) => u !== primaryImg)]
+      : [...(dp.galleryUrls || dp.gallery_urls || [])],
+    overview: dp.description || '',
+    overviewAr: dp.descriptionAr || dp.description_ar || '',
+    productOptions: Array.isArray(dp.productOptions) ? dp.productOptions : [],
+    variations: Array.isArray(dp.variations) ? dp.variations : [],
+    conditionalRules: Array.isArray(dp.conditionalRules) ? dp.conditionalRules : [],
+    customFields: Array.isArray(dp.customFields) ? dp.customFields : [],
+    productType: dp.productType || dp.product_type,
+    isGrouped: Boolean(
+      dp.isGrouped ||
+        dp.is_grouped ||
+        String(dp.productType || dp.product_type || '').toLowerCase() === 'grouped',
+    ),
+    purchasable:
+      dp.purchasable === false ||
+      dp.isGrouped === true ||
+      dp.is_grouped === true ||
+      String(dp.productType || dp.product_type || '').toLowerCase() === 'grouped'
+        ? false
+        : true,
+    groupChildren: kids.length
+      ? kids.map((child: any) => mapApiProductToTheme(child))
+      : undefined,
+  } as Product;
+}
 
 function optionRows(opt: any): any[] {
   if (!opt || !Array.isArray(opt.values)) return [];
@@ -121,11 +184,33 @@ function mergeListPricing(dp: any) {
   };
 }
 
+/** SEO / custom-domain paths: `/product/{id}` (also under `/coffee` or `/public_html`). */
+function productIdFromPath(): string | null {
+  if (typeof window === 'undefined') return null;
+  const path = String(window.location.pathname || '').replace(/\/$/, '') || '/';
+  const m = path.match(/(?:^|\/)product\/([^/]+)$/i);
+  if (!m) return null;
+  try {
+    return decodeURIComponent(m[1]).trim() || null;
+  } catch {
+    return String(m[1] || '').trim() || null;
+  }
+}
+
 function productIdFromQuery(): string | null {
   if (typeof window === 'undefined') return null;
   const q = new URLSearchParams(window.location.search);
   const id = (q.get('product') || q.get('productId') || q.get('pid') || '').trim();
-  return id || null;
+  return id || productIdFromPath();
+}
+
+/** Storefront root for this host (`/` on custom domain, `/coffee` on shared preview). */
+function coffeeStorefrontBasePath(): string {
+  if (typeof window === 'undefined') return '/';
+  const path = String(window.location.pathname || '').replace(/\/$/, '') || '/';
+  if (/^\/coffee(\/|$)/i.test(path)) return '/coffee';
+  if (/^\/public_html(\/|$)/i.test(path)) return '/public_html';
+  return '/';
 }
 
 function routeFromPreviewQuery(): RouteType {
@@ -133,6 +218,7 @@ function routeFromPreviewQuery(): RouteType {
   const params = new URLSearchParams(window.location.search);
   const p = (params.get('page') || '').toLowerCase().trim();
   const hasProduct = !!productIdFromQuery();
+  // Path `/product/{id}` must open PDP even when query has no page=
   if (!p && hasProduct) return 'product-detail';
   if (!p) return 'home';
   if (p === 'catalog' || p === 'products' || p === 'shop') return 'products';
@@ -485,7 +571,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       if (typeof window !== 'undefined' && !inAdminChromeUrl()) {
         const url = new URL(window.location.href);
+        const basePath = coffeeStorefrontBasePath();
         if (targetRoute === 'home') {
+          url.pathname = basePath;
           url.searchParams.delete('page');
           url.searchParams.delete('product');
           url.searchParams.delete('productId');
@@ -504,10 +592,23 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const pid = productId || productIdFromQuery();
           if ((targetRoute === 'product-detail' || targetRoute === 'product-buy') && pid) {
             url.searchParams.set('product', pid);
+            // Custom-domain / bare host: keep shareable SEO path `/product/{id}`
+            if (basePath === '/') {
+              url.pathname = `/product/${encodeURIComponent(pid)}`;
+            }
+          } else if (targetRoute === 'products' && basePath === '/') {
+            url.searchParams.delete('product');
+            url.searchParams.delete('productId');
+            url.searchParams.delete('pid');
+            url.pathname = '/products';
           } else if (targetRoute !== 'product-detail' && targetRoute !== 'product-buy') {
             url.searchParams.delete('product');
             url.searchParams.delete('productId');
             url.searchParams.delete('pid');
+            // Leaving PDP: drop `/product/...` path so home chrome does not stick
+            if (/\/product\//i.test(url.pathname) || /^\/products(\/|$)/i.test(url.pathname)) {
+              url.pathname = targetRoute === 'products' ? '/products' : basePath;
+            }
           }
         }
         const href = `${url.pathname}${url.search}${url.hash}`;
@@ -554,14 +655,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
     } catch {}
 
-    const coffeeHomeHref = () => {
-      const path = window.location.pathname;
-      const base =
-        /\/coffee/i.test(path) || /\/public_html/i.test(path)
-          ? path.replace(/\/$/, '') || '/coffee'
-          : '/coffee';
-      return storefrontHomeHref(base);
-    };
+    const coffeeHomeHref = () => storefrontHomeHref(coffeeStorefrontBasePath());
 
     const onPop = () => {
       try {
@@ -652,14 +746,25 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const selectedOptions = extra?.selectedOptions || null;
 
     setCart((prev) => {
-      const existingIdx = prev.findIndex(
-        (item) =>
+      const notesKey = (extra?.purchaseNotes || []).join('|');
+      const bundlesKey = (bundles || []).map((b) => b.id).sort().join(',');
+      const optsKey = JSON.stringify(selectedOptions || {});
+      const existingIdx = prev.findIndex((item) => {
+        const itemNotes = (item.purchaseNotes || []).join('|');
+        const itemBundles = (item.selectedBundles || []).map((b) => b.id).sort().join(',');
+        const itemOpts = JSON.stringify(item.selectedOptions || {});
+        return (
           item.productId === product.id &&
           (item.variationId || null) === variationId &&
           (item.optionSummary || '') === (extra?.optionSummary || '') &&
           item.selectedColor?.name === selectedColor.name &&
-          item.selectedStorage?.capacity === selectedStorage.capacity,
-      );
+          item.selectedStorage?.capacity === selectedStorage.capacity &&
+          (item.selectedWarranty?.name || '') === (warranty?.name || '') &&
+          itemNotes === notesKey &&
+          itemBundles === bundlesKey &&
+          itemOpts === optsKey
+        );
+      });
       if (existingIdx >= 0) {
         const next = [...prev];
         next[existingIdx] = {
@@ -667,6 +772,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           quantity: next[existingIdx].quantity + 1,
           unitPrice,
           image: extra?.image || next[existingIdx].image,
+          purchaseNotes: extra?.purchaseNotes || next[existingIdx].purchaseNotes,
+          selectedOptions: selectedOptions || next[existingIdx].selectedOptions,
+          selectedBundles: bundles || next[existingIdx].selectedBundles,
         };
         return next;
       }
@@ -1204,7 +1312,54 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return resolvedList.filter((p) => !childIds.has(String(p.id)));
   }, [tenant?.currentProducts, tenant?.allProducts, tenant?.cacheEpoch, tenant?.activeStore?.id, syncTick]);
 
-  const selectedProduct = mergedProducts.find(p => p.id === selectedProductId) || mergedProducts[0];
+  // Deep-link fetch when URL product is a hidden group child (not in shop listing).
+  const [deepLinkProduct, setDeepLinkProduct] = useState<Product | null>(null);
+  useEffect(() => {
+    const id = String(selectedProductId || '').trim();
+    const storeId = tenant?.activeStore?.id || '';
+    if (!id || !storeId) {
+      setDeepLinkProduct(null);
+      return;
+    }
+    const inList =
+      mergedProducts.some((p) => String(p.id) === id) ||
+      mergedProducts.some((p) => (p.groupChildren || []).some((c) => String(c.id) === id));
+    if (inList) {
+      setDeepLinkProduct(null);
+      return;
+    }
+    let cancelled = false;
+    void fetchProduct(storeId, id)
+      .then((full) => {
+        if (cancelled || !full?.id) return;
+        setDeepLinkProduct(mapApiProductToTheme(full));
+      })
+      .catch(() => {
+        if (!cancelled) setDeepLinkProduct(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProductId, mergedProducts, tenant?.activeStore?.id]);
+
+  // Group children are hidden from listing but still deep-linkable: resolve to parent shell
+  // when membership is known; otherwise use deep-link fetch (standalone child PDP).
+  const selectedProduct = useMemo(() => {
+    const id = String(selectedProductId || '');
+    const direct = mergedProducts.find((p) => String(p.id) === id);
+    if (direct) return direct;
+    for (const parent of mergedProducts) {
+      const hit = (parent.groupChildren || []).find((c) => String(c.id) === id);
+      if (hit) return parent;
+    }
+    if (deepLinkProduct) {
+      if (String(deepLinkProduct.id) === id) return deepLinkProduct;
+      if ((deepLinkProduct.groupChildren || []).some((c) => String(c.id) === id)) {
+        return deepLinkProduct;
+      }
+    }
+    return mergedProducts[0];
+  }, [mergedProducts, selectedProductId, deepLinkProduct]);
 
   const storeIdentity = useMemo(() => {
       if (!tenant?.activeStore?.id) return readStoreIdentity('', { name: '' });

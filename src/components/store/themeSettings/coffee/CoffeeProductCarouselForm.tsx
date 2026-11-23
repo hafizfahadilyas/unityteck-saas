@@ -17,6 +17,8 @@ import {
   reorderCarouselItems,
   resolveCarouselCards,
 } from '../../../../themes/coffeeRoasters/components/coffeeProductCarouselLogic';
+import { normalizeProductSource } from '../../../../themes/coffeeRoasters/components/coffeeProductSourceLogic';
+import { CoffeeProductSourceControl } from './CoffeeProductSourceControl';
 
 type SidebarTab = 'content' | 'templates' | 'style' | 'layout' | 'code' | 'ai';
 
@@ -169,6 +171,7 @@ export const ProductCarouselForm: React.FC<CoffeeFormChromeProps> = ({ onBack, e
         nameAr: p.nameAr,
         nameEn: p.nameEn,
         category: p.category,
+        brand: p.brand,
         stock: p.stock,
         price: p.price,
         originalPrice: p.originalPrice,
@@ -178,6 +181,10 @@ export const ProductCarouselForm: React.FC<CoffeeFormChromeProps> = ({ onBack, e
         images: p.images,
         galleryUrls: p.galleryUrls,
         colors: p.colors,
+        isFeatured: p.isFeatured,
+        featured: p.featured,
+        salesCount: (p as { salesCount?: number }).salesCount,
+        soldCount: (p as { soldCount?: number }).soldCount,
       })),
     [currentProducts],
   );
@@ -378,33 +385,27 @@ export const ProductCarouselForm: React.FC<CoffeeFormChromeProps> = ({ onBack, e
                       }
                     />
                   </label>
-                  <label className="block space-y-1">
-                    <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
-                      {isAr ? 'تصنيف الكتالوج (عند فراغ القائمة)' : 'Catalog category (when list empty)'}
-                    </span>
-                    <input
-                      className={inputCls}
-                      style={inputStyle}
-                      dir="ltr"
-                      value={draft?.categoryId || ''}
-                      onChange={(e) => patchSection({ categoryId: e.target.value })}
-                      placeholder={isAr ? 'فارغ = الكل' : 'empty = all'}
+                  <div className="rounded-xl border p-3 space-y-2" style={{ borderColor: 'var(--border)' }} data-pc-product-source>
+                    <CoffeeProductSourceControl
+                      isAr={isAr}
+                      catalog={catalog}
+                      maxCount={PRODUCT_CAROUSEL_MAX_ITEMS}
+                      value={normalizeProductSource({
+                        productSource: draft?.productSource,
+                        categoryId: draft?.categoryId,
+                        productCount: draft?.productCount,
+                        items: draft?.items,
+                      })}
+                      onChange={(next) =>
+                        patchSection({
+                          productSource: next,
+                          categoryId: next.categoryIds[0] || draft?.categoryId || '',
+                          productCount: next.productCount,
+                          enabled: true,
+                        })
+                      }
                     />
-                  </label>
-                  <label className="block space-y-1">
-                    <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
-                      {isAr ? 'عدد منتجات الكتالوج (احتياطي)' : 'Catalog product count (fallback)'}
-                    </span>
-                    <input
-                      type="number"
-                      min={1}
-                      max={PRODUCT_CAROUSEL_MAX_ITEMS}
-                      className={inputCls}
-                      style={inputStyle}
-                      value={draft?.productCount || 8}
-                      onChange={(e) => patchSection({ productCount: Number(e.target.value) || 8 })}
-                    />
-                  </label>
+                  </div>
                 </section>
 
                 <section className={cardCls} style={cardStyle} data-product-carousel-panel="products">

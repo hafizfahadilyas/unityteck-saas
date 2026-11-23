@@ -3,7 +3,7 @@ import { GripVertical, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { MediaUploadField } from '../../../common/MediaUploadField';
 import { GlobalModal } from '../../../common/GlobalModal';
 import { useTenant } from '../../../../context/TenantContext';
-import { useCoffeeDraft } from './coffeeFormKit';
+import { syncBilingualPatch, useCoffeeDraft } from './coffeeFormKit';
 import { CoffeeWordSettingsShell, type CoffeeFormChromeProps, type PreviewDevice } from './CoffeeWordSettingsShell';
 import {
   bi,
@@ -16,6 +16,7 @@ import {
   blankShowcaseBanner,
   colsForDevice,
   reorderByIndex,
+  resolveShowcaseCardChrome,
   resolveShowcaseProductIds,
   spacingPx,
   visibleShowcaseBanners,
@@ -60,8 +61,31 @@ export const FeaturedCategoriesProductsForm: React.FC<CoffeeFormChromeProps> = (
   const productIds = draft?.productIds || [];
   const editing = banners.find((b) => b.id === editBannerId) || null;
   const lang = isAr ? 'ar' : 'en';
+  const chrome = resolveShowcaseCardChrome(draft);
 
-  const patch = (p: Partial<FeaturedCategoriesProductsSettings>) => setDraft({ ...draft, ...p });
+  const patch = (p: Partial<FeaturedCategoriesProductsSettings>) => {
+    const next: FeaturedCategoriesProductsSettings = { ...draft, ...p };
+    const sections = [...(next.sections || [])];
+    if (sections[0]) {
+      sections[0] = {
+        ...sections[0],
+        titleEn: next.titleEn ?? sections[0].titleEn,
+        titleAr: next.titleAr ?? sections[0].titleAr,
+        descriptionEn: next.descriptionEn ?? sections[0].descriptionEn,
+        descriptionAr: next.descriptionAr ?? sections[0].descriptionAr,
+        showPrice: next.showPrice ?? sections[0].showPrice,
+        showDiscount: next.showDiscount ?? sections[0].showDiscount,
+        showViewMore: next.showMoreProducts ?? sections[0].showViewMore,
+        viewMoreEn: next.moreProductsEn ?? sections[0].viewMoreEn,
+        viewMoreAr: next.moreProductsAr ?? sections[0].viewMoreAr,
+        viewMoreLink: next.moreProductsUrl ?? sections[0].viewMoreLink,
+        cardStyle: next.cardStyle ?? sections[0].cardStyle,
+        spacing: next.cardSpacing ?? sections[0].spacing,
+      };
+      next.sections = sections;
+    }
+    setDraft(next);
+  };
   const setBanners = (next: CategoryShowcaseBanner[]) => patch({ banners: next });
   const patchBanner = (id: string, p: Partial<CategoryShowcaseBanner>) =>
     setBanners(banners.map((b) => (b.id === id ? { ...b, ...p } : b)));
@@ -89,8 +113,12 @@ export const FeaturedCategoriesProductsForm: React.FC<CoffeeFormChromeProps> = (
     }
     const cols = colsForDevice(draft, device);
     const gap = spacingPx(draft?.cardSpacing);
+    const visible = selectedProducts.slice(0, chrome.maxVisibleProducts);
+    const hasMore = selectedProducts.length > chrome.maxVisibleProducts;
+    const buyTxt = isAr ? chrome.buyLabelAr : chrome.buyLabelEn;
+    const learnTxt = isAr ? chrome.learnMoreLabelAr : chrome.learnMoreLabelEn;
     return (
-      <div className="p-3 space-y-3" style={{ background: draft?.bgColor || 'transparent' }}>
+      <div className="p-3 space-y-3" style={{ background: chrome.bgColor || 'transparent' }}>
         {(draft.titleEn || draft.titleAr) && (
           <div className="font-bold text-sm text-center">{bi(lang, draft.titleEn, draft.titleAr)}</div>
         )}
@@ -108,25 +136,54 @@ export const FeaturedCategoriesProductsForm: React.FC<CoffeeFormChromeProps> = (
         ) : (
           <p className="text-[11px] text-center" style={{ color: 'var(--muted)' }}>{isAr ? 'لا بانرات علوية' : 'No top banners'}</p>
         )}
-        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap }}>
-          {selectedProducts.length === 0 ? (
+        <div
+          className="grid gap-2"
+          style={{
+            gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+            gap,
+            alignItems: chrome.equalCardHeights ? 'stretch' : 'start',
+          }}
+        >
+          {visible.length === 0 ? (
             <div className="col-span-full text-[11px] text-center" style={{ color: 'var(--muted)' }}>
               {isAr ? 'لا منتجات محددة' : 'No selected products'}
             </div>
           ) : (
-            selectedProducts.slice(0, cols * 2).map((p) => (
-              <div key={p.id} className="rounded-xl border p-2 text-center" style={{ borderColor: 'var(--border)', borderRadius: draft?.cardStyle === 'square' ? 0 : 12 }}>
+            visible.map((p) => (
+              <div
+                key={p.id}
+                className={`rounded-xl border p-2 text-center bg-white ${chrome.equalCardHeights ? 'h-full flex flex-col' : ''}`}
+                style={{ borderColor: 'var(--border)', borderRadius: chrome.cardRadius > 0 ? 12 : 0 }}
+              >
                 {p.image ? <img src={p.image} alt="" className="h-14 w-full object-contain mb-1" /> : null}
                 {draft?.showProductName !== false ? (
-                  <div className="text-[10px] font-bold truncate">{isAr ? p.nameAr || p.name : p.nameEn || p.name}</div>
+                  <div
+                    className="font-bold line-clamp-2"
+                    style={{ fontSize: chrome.titleFontSizePx, color: chrome.titleColor }}
+                  >
+                    {isAr ? p.nameAr || p.name : p.nameEn || p.name}
+                  </div>
                 ) : null}
                 {draft?.showPrice !== false && p.price != null ? (
-                  <div className="text-[9px]" style={{ color: 'var(--muted)' }}>{isAr ? `${p.price} ⃁` : `⃁ ${p.price}`}</div>
+                  <div className="mt-1" style={{ fontSize: chrome.priceFontSizePx, color: chrome.priceColor }}>
+                    {isAr ? `${p.price} ⃁` : `⃁ ${p.price}`}
+                  </div>
                 ) : null}
+                <div className={`flex items-center justify-center gap-3 pt-2 ${chrome.equalCardHeights ? 'mt-auto' : ''}`}>
+                  <span style={{ fontSize: chrome.ctaFontSizePx, color: chrome.buyColor }}>{buyTxt} ›</span>
+                  <span style={{ fontSize: chrome.ctaFontSizePx, color: chrome.learnMoreColor }}>{learnTxt} ›</span>
+                </div>
               </div>
             ))
           )}
         </div>
+        {chrome.showMoreProducts && hasMore ? (
+          <div className="flex justify-center pt-1">
+            <span className="inline-flex px-3 py-1.5 rounded-full bg-neutral-900 text-white text-[10px] font-bold">
+              {isAr ? chrome.moreProductsAr : chrome.moreProductsEn}
+            </span>
+          </div>
+        ) : null}
       </div>
     );
   };
@@ -179,12 +236,91 @@ export const FeaturedCategoriesProductsForm: React.FC<CoffeeFormChromeProps> = (
                   <Toggle on={!!draft?.enabled} onChange={(v) => patch({ enabled: v })} label={isAr ? 'تفعيل القسم' : 'Enable Section'} />
                   <label className="block space-y-1">
                     <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>{isAr ? 'عنوان القسم' : 'Main Section Title'}</span>
-                    <input className={inputCls} style={inputStyle} dir={isAr ? 'rtl' : 'ltr'} maxLength={100} value={isAr ? draft?.titleAr || '' : draft?.titleEn || ''} onChange={(e) => patch(isAr ? { titleAr: e.target.value } : { titleEn: e.target.value })} />
+                    <input
+                      className={inputCls}
+                      style={inputStyle}
+                      dir={isAr ? 'rtl' : 'ltr'}
+                      maxLength={100}
+                      value={isAr ? draft?.titleAr || '' : draft?.titleEn || ''}
+                      onChange={(e) => patch(syncBilingualPatch<FeaturedCategoriesProductsSettings>('titleEn', 'titleAr', e.target.value))}
+                    />
                   </label>
                   <label className="block space-y-1">
                     <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>{isAr ? 'الوصف (اختياري)' : 'Section Description (Optional)'}</span>
-                    <input className={inputCls} style={inputStyle} dir={isAr ? 'rtl' : 'ltr'} maxLength={200} value={isAr ? draft?.descriptionAr || '' : draft?.descriptionEn || ''} onChange={(e) => patch(isAr ? { descriptionAr: e.target.value } : { descriptionEn: e.target.value })} />
+                    <input
+                      className={inputCls}
+                      style={inputStyle}
+                      dir={isAr ? 'rtl' : 'ltr'}
+                      maxLength={200}
+                      value={isAr ? draft?.descriptionAr || '' : draft?.descriptionEn || ''}
+                      onChange={(e) => patch(syncBilingualPatch<FeaturedCategoriesProductsSettings>('descriptionEn', 'descriptionAr', e.target.value))}
+                    />
                   </label>
+                  <label className="block space-y-1">
+                    <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>{isAr ? 'نص الشراء' : 'Buy Label'}</span>
+                    <input
+                      className={inputCls}
+                      style={inputStyle}
+                      dir={isAr ? 'rtl' : 'ltr'}
+                      maxLength={40}
+                      value={isAr ? draft?.buyLabelAr || '' : draft?.buyLabelEn || ''}
+                      onChange={(e) => patch(syncBilingualPatch<FeaturedCategoriesProductsSettings>('buyLabelEn', 'buyLabelAr', e.target.value))}
+                      placeholder={isAr ? 'شراء' : 'Buy'}
+                    />
+                  </label>
+                  <label className="block space-y-1">
+                    <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>{isAr ? 'نص اعرف المزيد' : 'Learn More Label'}</span>
+                    <input
+                      className={inputCls}
+                      style={inputStyle}
+                      dir={isAr ? 'rtl' : 'ltr'}
+                      maxLength={40}
+                      value={isAr ? draft?.learnMoreLabelAr || '' : draft?.learnMoreLabelEn || ''}
+                      onChange={(e) => patch(syncBilingualPatch<FeaturedCategoriesProductsSettings>('learnMoreLabelEn', 'learnMoreLabelAr', e.target.value))}
+                      placeholder={isAr ? 'تعرف على المزيد' : 'Learn More'}
+                    />
+                  </label>
+                  <Toggle on={draft?.showMoreProducts !== false} onChange={(v) => patch({ showMoreProducts: v })} label={isAr ? 'زر المزيد من المنتجات' : 'More Products Button'} />
+                  {draft?.showMoreProducts !== false ? (
+                    <>
+                      <label className="block space-y-1">
+                        <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>{isAr ? 'نص زر المزيد' : 'More Products Label'}</span>
+                        <input
+                          className={inputCls}
+                          style={inputStyle}
+                          dir={isAr ? 'rtl' : 'ltr'}
+                          maxLength={60}
+                          value={isAr ? draft?.moreProductsAr || '' : draft?.moreProductsEn || ''}
+                          onChange={(e) => patch(syncBilingualPatch<FeaturedCategoriesProductsSettings>('moreProductsEn', 'moreProductsAr', e.target.value))}
+                          placeholder={isAr ? 'المزيد من المنتجات' : 'More Products'}
+                        />
+                      </label>
+                      <label className="block space-y-1">
+                        <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>{isAr ? 'رابط صفحة المتجر (افتراضي: المتجر)' : 'Shop Page URL (default: shop)'}</span>
+                        <input
+                          className={inputCls}
+                          style={inputStyle}
+                          dir="ltr"
+                          maxLength={200}
+                          value={draft?.moreProductsUrl || 'products'}
+                          onChange={(e) => patch({ moreProductsUrl: e.target.value || 'products' })}
+                          placeholder="products"
+                        />
+                      </label>
+                      <label className="block space-y-1">
+                        <span className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>{isAr ? 'أقصى منتجات ظاهرة قبل زر المزيد' : 'Max Visible Before More Products'}</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={CATEGORY_SHOWCASE_MAX_PRODUCTS}
+                          className={inputCls}
+                          style={inputStyle}
+                          value={draft?.maxVisibleProducts || 5}
+                          onChange={(e) => patch({ maxVisibleProducts: Math.max(1, Number(e.target.value) || 5) })}
+                        />
+                      </label>
+                    </>
+                  ) : null}
                 </section>
 
                 <section className={cardCls} style={cardStyle} data-category-showcase-panel="banners">
@@ -299,10 +435,58 @@ export const FeaturedCategoriesProductsForm: React.FC<CoffeeFormChromeProps> = (
                     </div>
                   </label>
                 </div>
+                <Toggle on={draft?.equalCardHeights !== false} onChange={(v) => patch({ equalCardHeights: v })} label={isAr ? 'تساوي ارتفاع البطاقات' : 'Equal Card Heights'} />
                 <Toggle on={draft?.showProductName !== false} onChange={(v) => patch({ showProductName: v })} label={isAr ? 'إظهار اسم المنتج' : 'Show Product Name'} />
                 <Toggle on={draft?.showPrice !== false} onChange={(v) => patch({ showPrice: v })} label={isAr ? 'إظهار السعر' : 'Show Price'} />
                 <Toggle on={draft?.showOriginalPrice === true} onChange={(v) => patch({ showOriginalPrice: v })} label={isAr ? 'إظهار السعر الأصلي' : 'Show Original Price'} />
                 <Toggle on={draft?.showDiscount !== false} onChange={(v) => patch({ showDiscount: v })} label={isAr ? 'إظهار الخصم' : 'Show Discount'} />
+
+                <h4 className="text-xs font-bold pt-2" style={{ color: 'var(--text)' }}>{isAr ? 'الخطوط والألوان' : 'Fonts & Colors'}</h4>
+                {([
+                  ['titleFontSizePx', 'titleColor', isAr ? 'اسم المنتج' : 'Product Title', 16, '#171717'],
+                  ['taglineFontSizePx', 'taglineColor', isAr ? 'الوصف القصير' : 'Tagline', 13, '#525252'],
+                  ['priceFontSizePx', 'priceColor', isAr ? 'السعر' : 'Price', 15, '#171717'],
+                  ['ctaFontSizePx', 'buyColor', isAr ? 'نص الشراء' : 'Buy Text', 12, '#171717'],
+                ] as const).map(([sizeKey, colorKey, label, defSize, defColor]) => (
+                  <div key={sizeKey} className="grid grid-cols-[1fr_auto_auto] gap-2 items-end">
+                    <label className="space-y-1 block text-[11px] font-semibold">
+                      <span style={{ color: 'var(--muted)' }}>{label} · {isAr ? 'الحجم' : 'Size'}</span>
+                      <input
+                        type="number"
+                        min={10}
+                        max={28}
+                        className={inputCls}
+                        style={inputStyle}
+                        value={(draft?.[sizeKey] as number | undefined) || defSize}
+                        onChange={(e) => patch({ [sizeKey]: Number(e.target.value) || defSize } as Partial<FeaturedCategoriesProductsSettings>)}
+                      />
+                    </label>
+                    <label className="space-y-1 block text-[11px] font-semibold">
+                      <span style={{ color: 'var(--muted)' }}>{isAr ? 'اللون' : 'Color'}</span>
+                      <input
+                        type="color"
+                        value={(draft?.[colorKey] as string | undefined) || defColor}
+                        onChange={(e) => patch({ [colorKey]: e.target.value } as Partial<FeaturedCategoriesProductsSettings>)}
+                        className="w-9 h-9 rounded-lg border p-1"
+                        style={{ borderColor: 'var(--border)' }}
+                      />
+                    </label>
+                    <input
+                      className={`${inputCls} w-[5.5rem]`}
+                      style={inputStyle}
+                      dir="ltr"
+                      value={(draft?.[colorKey] as string | undefined) || defColor}
+                      onChange={(e) => patch({ [colorKey]: e.target.value } as Partial<FeaturedCategoriesProductsSettings>)}
+                    />
+                  </div>
+                ))}
+                <label className="space-y-1 block text-[11px] font-semibold">
+                  <span style={{ color: 'var(--muted)' }}>{isAr ? 'لون اعرف المزيد' : 'Learn More Color'}</span>
+                  <div className="flex gap-2">
+                    <input type="color" value={draft?.learnMoreColor || '#171717'} onChange={(e) => patch({ learnMoreColor: e.target.value })} className="w-9 h-9 rounded-lg border p-1" style={{ borderColor: 'var(--border)' }} />
+                    <input className={inputCls} style={inputStyle} dir="ltr" value={draft?.learnMoreColor || '#171717'} onChange={(e) => patch({ learnMoreColor: e.target.value })} />
+                  </div>
+                </label>
               </section>
             ) : null}
 

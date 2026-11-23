@@ -4,7 +4,10 @@ import { useTenant } from '../../../context/TenantContext';
 import { ShieldCheck, Truck, Star, MessageCircle, Wrench, Layers, CreditCard, Palette } from 'lucide-react';
 import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
 import { bi, coffeeWhatsAppDigits } from '../../settings/coffeeModularSettings';
+import { resolveStoreContact } from '../../settings/storeContact';
 import { benefitCardFaded, visibleBenefitItems } from './coffeeBenefitsLogic';
+import cornerCabinetImg from '../assets/images/hero_coffee_corner_cabinet_1791217199146.jpg';
+import baristaSupportImg from '../assets/images/saudi_cafe_machine_1791363309148.jpg';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   ShieldCheck,
@@ -27,7 +30,11 @@ export const ExclusivePerksBar: React.FC = () => {
   useEffect(() => {
     const sync = () => setTick((n) => n + 1);
     window.addEventListener('unityteck-theme-settings', sync);
-    return () => window.removeEventListener('unityteck-theme-settings', sync);
+    window.addEventListener('unityteck-store-contact', sync);
+    return () => {
+      window.removeEventListener('unityteck-theme-settings', sync);
+      window.removeEventListener('unityteck-store-contact', sync);
+    };
   }, []);
 
   const settings = useMemo(() => {
@@ -42,34 +49,47 @@ export const ExclusivePerksBar: React.FC = () => {
   const benefits = settings?.exclusiveBenefits;
   const visibleItems = useMemo(() => visibleBenefitItems(benefits), [benefits]);
 
+  const storeContact = useMemo(() => {
+    if (!activeStore?.id) return null;
+    return resolveStoreContact(activeStore.id, activeStore, storeIdentity);
+  }, [activeStore, storeIdentity, tick]);
+
+  /** Identity / store contact wins; theme mirrors are fallback only. */
+  const cleanPhone = useMemo(() => {
+    return (
+      storeContact?.whatsappDigits ||
+      coffeeWhatsAppDigits(storeIdentity?.whatsapp || storeIdentity?.phone || '') ||
+      coffeeWhatsAppDigits(settings?.customOrder?.whatsappNumber) ||
+      coffeeWhatsAppDigits(settings?.heroBanners?.whatsappNumber) ||
+      coffeeWhatsAppDigits((activeStore as { whatsapp?: string } | null)?.whatsapp || activeStore?.phone || '') ||
+      ''
+    );
+  }, [storeContact, storeIdentity, settings, activeStore]);
+
+  const displayPhone =
+    storeContact?.whatsapp ||
+    storeIdentity?.whatsapp ||
+    storeIdentity?.phone ||
+    activeStore?.phone ||
+    (cleanPhone ? `+${cleanPhone}` : '');
+
   if (benefits?.enabled === false) return null;
   if (!visibleItems.length) return null;
 
-  const displayPhone =
-    storeIdentity?.whatsapp ||
-    (activeStore as any)?.whatsapp ||
-    storeIdentity?.phone ||
-    activeStore?.phone ||
-    '';
-  const cleanPhone = coffeeWhatsAppDigits(displayPhone);
-
-  const handleOpenWhatsApp = (e?: React.MouseEvent) => {
+  const handleOpenWhatsApp = (e?: React.MouseEvent, customMsg?: string) => {
     if (e) e.stopPropagation();
     if (!cleanPhone) return;
-    const msg = isAr
-      ? `السلام عليكم، أود الاستفسار والتواصل بخصوص متجر${storeName}`
-      : `Hello, I would like to get in touch with ${storeName}.`;
-    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+    const msg =
+      customMsg ||
+      (isAr
+        ? `السلام عليكم، أود الاستفسار والتواصل بخصوص متجر ${storeName}`
+        : `Hello, I would like to get in touch with ${storeName}.`);
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
   };
 
-  const handleCustomOrderWhatsApp = (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    if (!cleanPhone) return;
-    const msg = isAr
-      ? `السلام عليكم، أود الاستفسار وطلب تفصيل ركن قهوة مخصص حسب المقاسات والتصميم`
-      : `Hello, I would like to inquire about placing a custom coffee corner order.`;
-    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
-  };
+  const customCornerMsg = isAr
+    ? `السلام عليكم، أود الاستفسار وطلب تفصيل ركن قهوة مخصص حسب المقاسات والتصميم`
+    : `Hello, I would like to inquire about placing a custom coffee corner order.`;
 
   const perks = visibleItems
     .map((it) => {
@@ -78,7 +98,9 @@ export const ExclusivePerksBar: React.FC = () => {
       const descEn = (it.descriptionEn || '').trim();
       const descAr = (it.descriptionAr || '').trim();
       const blob = `${titleEn} ${titleAr} ${descEn} ${descAr}`.toLowerCase();
-      const buttons = (it.buttons || []).filter((b) => b.enabled !== false && ((b.labelEn || '').trim() || (b.labelAr || '').trim()));
+      const buttons = (it.buttons || []).filter(
+        (b) => b.enabled !== false && ((b.labelEn || '').trim() || (b.labelAr || '').trim()),
+      );
       return {
         id: it.id,
         titleEn: titleEn || titleAr,
@@ -106,6 +128,26 @@ export const ExclusivePerksBar: React.FC = () => {
   const showTitle = benefits?.showTitle !== false;
   const showDescription = benefits?.showDescription !== false;
 
+  const WhatsAppBtn = ({
+    label,
+    onClick,
+    enabled,
+  }: {
+    label: string;
+    onClick: (e: React.MouseEvent) => void;
+    enabled: boolean;
+  }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!enabled}
+      className="w-full py-1.5 px-2 bg-[#25D366] hover:bg-[#20ba59] text-white rounded-lg text-[10px] sm:text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs flex items-center justify-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#25D366]"
+    >
+      <MessageCircle className="w-3.5 h-3.5 fill-white text-[#25D366]" />
+      <span>{label}</span>
+    </button>
+  );
+
   return (
     <section data-customize-section="C-BEN" className="w-full max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-10 select-none">
       {(showTitle || showDescription) && (
@@ -128,6 +170,9 @@ export const ExclusivePerksBar: React.FC = () => {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5 sm:gap-4 lg:gap-5">
         {perks.map((perk) => {
           const Icon = ICON_MAP[perk.icon] || ShieldCheck;
+          const waOnlyButtons = perk.buttons.filter(
+            (btn) => btn.style === 'whatsapp' || /wa\.me|whatsapp/i.test(btn.url || ''),
+          );
           return (
             <div
               key={perk.id}
@@ -151,8 +196,14 @@ export const ExclusivePerksBar: React.FC = () => {
                     </span>
                   </div>
                 ) : perk.isCustomAction ? (
-                  <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-full bg-white border-0 flex items-center justify-center shadow-2xs group-hover:scale-110 transition-transform duration-300">
-                    <Wrench className="w-4 h-4 sm:w-5 sm:h-5 text-[#8C531B]" />
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden border-0 shadow-2xs group-hover:scale-105 transition-transform duration-300 bg-white">
+                    <img
+                      src={cornerCabinetImg}
+                      alt={isAr ? perk.titleAr : perk.titleEn}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                    />
                   </div>
                 ) : (
                   <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-full bg-white border-0 flex items-center justify-center shadow-2xs group-hover:scale-110 transition-transform duration-300">
@@ -167,58 +218,34 @@ export const ExclusivePerksBar: React.FC = () => {
 
               {perk.faded ? (
                 <div className="text-[10px] font-bold text-[#7A593D] mt-1">{isAr ? 'غير متاح حالياً' : 'Currently unavailable'}</div>
-              ) : perk.buttons.length > 0 ? (
+              ) : waOnlyButtons.length > 0 ? (
                 <div className="w-full space-y-1.5 pt-1 border-0">
-                  {perk.buttons.slice(0, 2).map((btn) => {
+                  {waOnlyButtons.slice(0, 1).map((btn) => {
                     const label = isAr ? btn.labelAr || btn.labelEn : btn.labelEn || btn.labelAr;
-                    const isWa = btn.style === 'whatsapp' || /wa\.me|whatsapp/i.test(btn.url || '');
                     return (
-                      <button
+                      <WhatsAppBtn
                         key={btn.id}
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (isWa) {
-                            handleOpenWhatsApp();
-                            return;
-                          }
-                          const href = (btn.url || '').trim();
-                          if (href) window.open(href, '_blank', 'noopener,noreferrer');
-                        }}
-                        className={`w-full py-1.5 px-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs flex items-center justify-center gap-1 ${
-                          isWa ? 'bg-[#25D366] hover:bg-[#20ba59] text-white' : 'bg-[#2B1809] hover:bg-black text-white'
-                        }`}
-                      >
-                        {isWa ? <MessageCircle className="w-3.5 h-3.5 fill-white text-[#25D366]" /> : null}
-                        <span>{label}</span>
-                      </button>
+                        label={label || (isAr ? 'واتساب' : 'WhatsApp')}
+                        enabled={Boolean(cleanPhone)}
+                        onClick={(e) => handleOpenWhatsApp(e)}
+                      />
                     );
                   })}
                 </div>
               ) : perk.isCustomAction ? (
                 <div className="w-full space-y-1.5 pt-1 border-0">
-                  <button
-                    type="button"
-                    onClick={handleCustomOrderWhatsApp}
-                    className="w-full py-1.5 px-2 bg-[#2B1809] hover:bg-black text-white rounded-lg text-[10px] sm:text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs flex items-center justify-center gap-1.5"
-                  >
-                    <MessageCircle className="w-3.5 h-3.5 fill-[#25D366] text-[#25D366]" />
-                    <span>{isAr ? 'طلب تفصيل مخصص' : 'Custom Order'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleOpenWhatsApp}
-                    className="w-full py-1.5 px-2 bg-[#25D366] hover:bg-[#20ba59] text-white rounded-lg text-[10px] sm:text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs flex items-center justify-center gap-1"
-                  >
-                    <MessageCircle className="w-3.5 h-3.5 fill-white text-[#25D366]" />
-                    <span>{isAr ? 'تواصل واتساب' : 'WhatsApp'}</span>
-                  </button>
+                  <WhatsAppBtn
+                    label={isAr ? 'تواصل واتساب' : 'WhatsApp'}
+                    enabled={Boolean(cleanPhone)}
+                    onClick={(e) => handleOpenWhatsApp(e, customCornerMsg)}
+                  />
                 </div>
               ) : null}
             </div>
           );
         })}
 
+        {/* VIP Care — always enabled chrome; WhatsApp uses store number */}
         <div className="col-span-2 md:col-span-1 bg-gradient-to-b from-[#FAF4EC] via-[#F3E7D7] to-[#EBD8C3] border-0 rounded-xl sm:rounded-2xl p-3.5 sm:p-5 flex flex-col justify-between items-center text-center hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 group min-h-[190px] sm:min-h-[235px] relative overflow-hidden">
           <div className="w-full">
             <h3 className="font-bold text-xs sm:text-sm lg:text-[15px] text-[#2B1809] line-clamp-1">
@@ -229,51 +256,42 @@ export const ExclusivePerksBar: React.FC = () => {
             </p>
           </div>
 
-          {cleanPhone ? (
-            <button
-              type="button"
-              onClick={handleCustomOrderWhatsApp}
-              className="my-auto flex flex-col items-center justify-center py-1 sm:py-2 gap-1 group/phone cursor-pointer focus:outline-hidden"
-              title={isAr ? 'تواصل عبر واتساب لطلب تفصيل مخصص' : 'Chat via WhatsApp for custom order'}
-            >
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#25D366] text-white flex items-center justify-center shadow-md group-hover/phone:scale-110 transition-transform duration-300 relative">
-                <MessageCircle className="w-5 h-5 fill-white text-[#25D366]" />
-                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-300 rounded-full animate-ping opacity-75" />
-              </div>
+          <button
+            type="button"
+            onClick={(e) => handleOpenWhatsApp(e, customCornerMsg)}
+            disabled={!cleanPhone}
+            className="my-auto flex flex-col items-center justify-center py-1 sm:py-2 gap-1.5 group/phone cursor-pointer focus:outline-hidden disabled:cursor-not-allowed"
+            title={isAr ? 'تواصل عبر واتساب' : 'Chat via WhatsApp'}
+          >
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden shadow-md group-hover/phone:scale-105 transition-transform duration-300 relative">
+              <img
+                src={baristaSupportImg}
+                alt={isAr ? 'تفصيل واستشارة فورية' : 'Custom & VIP Care'}
+                className="w-full h-full object-cover"
+                loading="lazy"
+                decoding="async"
+              />
+              <span className="absolute bottom-1 end-1 w-6 h-6 rounded-full bg-[#25D366] text-white flex items-center justify-center shadow">
+                <MessageCircle className="w-3.5 h-3.5 fill-white text-[#25D366]" />
+              </span>
+            </div>
+            {cleanPhone ? (
               <span className="font-sans font-bold text-[11px] sm:text-xs text-[#2B1809] group-hover/phone:text-[#25D366] tracking-tight dir-ltr transition-colors">
                 {displayPhone}
               </span>
-            </button>
-          ) : (
-            <div className="my-auto flex flex-col items-center justify-center py-1 sm:py-2 gap-1 opacity-60">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#D6C4B0] text-[#7A593D] flex items-center justify-center">
-                <MessageCircle className="w-5 h-5" />
-              </div>
+            ) : (
               <span className="font-sans font-bold text-[11px] sm:text-xs text-[#7A593D] tracking-tight">
                 {isAr ? 'رقم واتساب غير متوفر' : 'WhatsApp number unavailable'}
               </span>
-            </div>
-          )}
+            )}
+          </button>
 
           <div className="w-full space-y-1.5 mt-1 pt-1.5 border-0">
-            <button
-              type="button"
-              onClick={handleCustomOrderWhatsApp}
-              disabled={!cleanPhone}
-              className="inline-flex items-center justify-center gap-1.5 w-full py-1.5 px-3 rounded-lg sm:rounded-xl bg-[#2B1809] hover:bg-black text-white text-[10px] sm:text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#2B1809]"
-            >
-              <MessageCircle className="w-3.5 h-3.5 fill-[#25D366] text-[#25D366]" />
-              <span>{isAr ? 'طلب تفصيل مخصص' : 'Custom Order'}</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleOpenWhatsApp}
-              disabled={!cleanPhone}
-              className="inline-flex items-center justify-center gap-1.5 w-full py-1.5 px-3 rounded-lg sm:rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-[10px] sm:text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#25D366]"
-            >
-              <MessageCircle className="w-3.5 h-3.5 fill-white text-[#25D366]" />
-              <span>{isAr ? 'تواصل عبر واتساب' : 'WhatsApp Chat'}</span>
-            </button>
+            <WhatsAppBtn
+              label={isAr ? 'تواصل عبر واتساب' : 'WhatsApp Chat'}
+              enabled={Boolean(cleanPhone)}
+              onClick={(e) => handleOpenWhatsApp(e, customCornerMsg)}
+            />
           </div>
         </div>
       </div>

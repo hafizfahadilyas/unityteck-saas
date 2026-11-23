@@ -16,7 +16,6 @@ import {
   ArrowRight,
   Headphones,
   Check,
-  Sparkles,
   ChevronDown,
   ChevronUp,
   MessageSquare,
@@ -34,6 +33,7 @@ import {
 } from 'lucide-react';
 import { TabbyIcon, TamaraIcon, MadaIcon, ApplePayIcon, VisaIcon, MastercardIcon } from './PaymentIcons';
 import { ProductComparisonSection } from './ProductComparisonSection';
+import { GroupChildrenComparison } from './GroupChildrenComparison';
 import { ProductDynamicPurchase } from '../../../components/storefront/ProductDynamicPurchase';
 import {
   customFieldsExtra,
@@ -49,6 +49,7 @@ import { useTenant } from '../../../context/TenantContext';
 import { effectiveProductPricing } from '../../../utils/productSaleSchedule';
 import { saleCountdownParts } from '../../../utils/saleCountdown';
 import { customFieldIsFillable, normalizeCustomFieldType } from '../../../utils/customFieldTypes';
+import { isPurchaseCustomField } from '../../../utils/coffeeLearnMoreFields';
 import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
 import { fetchProduct, fetchStoreReviews, submitStoreReviewApi } from '../../../api/tenantApi';
 import type { Product as ThemeProduct } from '../types';
@@ -151,23 +152,47 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
   );
 
   // Keep URL on parent; commerce uses the selected independent child.
+  const compareChildren = useMemo(() => {
+    if (!parentIsGrouped) return [] as ThemeProduct[];
+    return groupChildren.length > 0
+      ? groupChildren
+      : (parentProduct?.groupChildren || []);
+  }, [parentIsGrouped, groupChildren, parentProduct?.groupChildren]);
+
   const product = useMemo(() => {
     if (!parentIsGrouped) return parentProduct;
-    const pool =
-      groupChildren.length > 0
-        ? groupChildren
-        : (parentProduct?.groupChildren || []);
+    const pool = compareChildren;
     if (!pool.length) return parentProduct;
-    const active = pool.find((c) => c.id === activeChildId) || pool[0];
+    const active =
+      pool.find((c) => String(c.id) === String(activeChildId || '')) || pool[0];
     return active || parentProduct;
-  }, [parentIsGrouped, parentProduct, groupChildren, activeChildId]);
+  }, [parentIsGrouped, parentProduct, compareChildren, activeChildId]);
 
   useEffect(() => {
+    const urlPid = (() => {
+      try {
+        if (typeof window === 'undefined') return '';
+        const q = new URLSearchParams(window.location.search);
+        const fromQ = (q.get('product') || q.get('productId') || q.get('pid') || '').trim();
+        if (fromQ) return fromQ;
+        const path = String(window.location.pathname || '').replace(/\/$/, '') || '/';
+        const m = path.match(/(?:^|\/)product\/([^/]+)$/i);
+        return m ? decodeURIComponent(m[1]).trim() : '';
+      } catch {
+        return '';
+      }
+    })();
+    const pickChildId = (kids: ThemeProduct[]) => {
+      if (urlPid && kids.some((c) => String(c.id) === String(urlPid))) return String(urlPid);
+      return kids[0]?.id != null ? String(kids[0].id) : null;
+    };
     const seeded = parentProduct?.groupChildren || [];
     if (seeded.length > 0) {
       setGroupChildren(seeded);
       setActiveChildId((prev) =>
-        prev && seeded.some((c) => c.id === prev) ? prev : seeded[0]?.id || null,
+        prev && seeded.some((c) => String(c.id) === String(prev))
+          ? String(prev)
+          : pickChildId(seeded),
       );
       return;
     }
@@ -191,7 +216,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
         if (cancelled) return;
         const kids = (full.groupChildren || []).map(mapApiChildToThemeProduct);
         setGroupChildren(kids);
-        setActiveChildId(kids[0]?.id || null);
+        setActiveChildId(pickChildId(kids));
       })
       .catch(() => {
         if (!cancelled) {
@@ -258,6 +283,8 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
   const [isHoveringImage, setIsHoveringImage] = useState(false);
   const [zoomPos, setZoomPos] = useState({ x: 0, y: 0, percentX: 0, percentY: 0 });
   const imageStageRef = useRef<HTMLDivElement | null>(null);
+  const buyStickyBarRef = useRef<HTMLDivElement | null>(null);
+  const [buyStickyBarH, setBuyStickyBarH] = useState(56);
 
   // Reviews System State (Screenshot 4)
   const [activeReviewTab, setActiveReviewTab] = useState<'all' | 'images'>('all');
@@ -365,7 +392,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
   }
 
   const allImages = Array.from(new Set(candidateImages));
-  const displayThumbnails = allImages.slice(0, 5);
+  const displayThumbnails = allImages.slice(0, 8);
 
   const liveOptions = useMemo(
     () => visibleProductOptions(product?.productOptions as never),
@@ -384,12 +411,18 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
   const purchaseFields = (product?.customFields || []).filter(
     (field) =>
       field &&
+      isPurchaseCustomField(field) &&
       !field.hidden &&
       customFieldIsFillable(field.type) &&
       normalizeCustomFieldType(field.type) !== 'Content' &&
       !String(field.id || '').startsWith('catalog-spec-'),
   );
   const hasCustomFields = purchaseFields.length > 0;
+  const hasCustomCareField = purchaseFields.some((field) =>
+    /care|warranty|protection|حماية|رعاية|ضمان|صيانة|عناية/i.test(
+      `${field.name || ''} ${field.nameAr || ''} ${field.type || ''}`,
+    ),
+  );
   const fieldExtra = useMemo(
     () =>
       customFieldsExtra(
@@ -609,6 +642,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
       fieldValues,
       product.conditionalRules as never,
       optionPick,
+      language === 'AR',
     );
     const labels = optionSummary.split(' · ').filter(Boolean);
     const colorForCart = useDynamicOptions
@@ -628,16 +662,15 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
           priceDelta: 0,
         }
       : selectedStorage;
-    const extra = useDynamicOptions || fieldExtra > 0 || notes.length
-      ? {
-          unitPrice,
-          image: currentDisplayImage,
-          optionSummary: useDynamicOptions ? optionSummary : undefined,
-          purchaseNotes: notes.length ? notes : undefined,
-          variationId: useDynamicOptions ? resolvedPick?.variant?.id || null : null,
-          selectedOptions: useDynamicOptions ? { ...optionPick } : null,
-        }
-      : undefined;
+    // Always snapshot selections so order admin sees what the customer picked.
+    const extra = {
+      unitPrice,
+      image: currentDisplayImage,
+      optionSummary: useDynamicOptions ? optionSummary || undefined : undefined,
+      purchaseNotes: notes.length ? notes : undefined,
+      variationId: useDynamicOptions ? resolvedPick?.variant?.id || null : null,
+      selectedOptions: useDynamicOptions && Object.keys(optionPick).length ? { ...optionPick } : null,
+    };
     for (let i = 0; i < quantity; i++) {
       addToCart(product, colorForCart, storageForCart, selectedWarranty, selectedBundles, false, extra);
     }
@@ -654,6 +687,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
       fieldValues,
       product.conditionalRules as never,
       optionPick,
+      language === 'AR',
     );
     const labels = optionSummary.split(' · ').filter(Boolean);
     const colorForCart = useDynamicOptions
@@ -673,19 +707,51 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
           priceDelta: 0,
         }
       : selectedStorage;
-    const extra = useDynamicOptions || fieldExtra > 0 || notes.length
-      ? {
-          unitPrice,
-          image: currentDisplayImage,
-          optionSummary: useDynamicOptions ? optionSummary : undefined,
-          purchaseNotes: notes.length ? notes : undefined,
-          variationId: useDynamicOptions ? resolvedPick?.variant?.id || null : null,
-          selectedOptions: useDynamicOptions ? { ...optionPick } : null,
-        }
-      : undefined;
+    const extra = {
+      unitPrice,
+      image: currentDisplayImage,
+      optionSummary: useDynamicOptions ? optionSummary || undefined : undefined,
+      purchaseNotes: notes.length ? notes : undefined,
+      variationId: useDynamicOptions ? resolvedPick?.variant?.id || null : null,
+      selectedOptions: useDynamicOptions && Object.keys(optionPick).length ? { ...optionPick } : null,
+    };
     for (let i = 0; i < quantity; i++) {
       addToCart(product, colorForCart, storageForCart, selectedWarranty, selectedBundles, true, extra);
     }
+    navigateTo('checkout');
+  };
+
+  /** Comparison column Buy: purchase that child at list price (no parent shell). */
+  const handleCompareBuy = (child: ThemeProduct) => {
+    if (!child?.id) return;
+    setActiveChildId(child.id);
+    const unit =
+      Number(child.basePrice) > 0
+        ? Number(child.basePrice)
+        : Number(child.price) || 0;
+    const img =
+      child.selectorImageUrl ||
+      child.images?.[0] ||
+      child.image ||
+      '';
+    addToCart(
+      child,
+      {
+        name: '',
+        nameAr: '',
+        hex: '#1c1917',
+        image: img,
+        priceDelta: 0,
+      },
+      undefined,
+      undefined,
+      [],
+      true,
+      {
+        unitPrice: unit,
+        image: img,
+      },
+    );
     navigateTo('checkout');
   };
 
@@ -750,11 +816,38 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
     }
     const el = document.getElementById(id);
     if (el) {
-      const yOffset = -145;
+      // Site chrome + fixed Honor buy bar
+      const chromeRaw = getComputedStyle(document.documentElement)
+        .getPropertyValue('--theme-chrome-offset')
+        .trim();
+      const chromePx = Number.parseFloat(chromeRaw) || 64;
+      const barRaw = getComputedStyle(document.documentElement)
+        .getPropertyValue('--buy-sticky-bar-h')
+        .trim();
+      const barPx = Number.parseFloat(barRaw) || buyStickyBarH || 56;
+      const yOffset = -(chromePx + barPx + 8);
       const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset;
       window.scrollTo({ top: y, behavior: 'smooth' });
     }
   };
+
+  useEffect(() => {
+    const measure = () => {
+      const h = buyStickyBarRef.current?.getBoundingClientRect().height || 56;
+      setBuyStickyBarH(Math.round(h));
+      document.documentElement.style.setProperty('--buy-sticky-bar-h', `${Math.round(h)}px`);
+      const root = buyStickyBarRef.current?.closest('.hibrew-theme-root') as HTMLElement | null;
+      root?.style.setProperty('--buy-sticky-bar-h', `${Math.round(h)}px`);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (buyStickyBarRef.current) ro.observe(buyStickyBarRef.current);
+    window.addEventListener('resize', measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [language, product?.id]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -767,7 +860,11 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
         { id: 'buy-stage-section', tab: 'configure' },
       ];
 
-      const scrollPosition = window.scrollY + 160;
+      const chromeRaw = getComputedStyle(document.documentElement)
+        .getPropertyValue('--theme-chrome-offset')
+        .trim();
+      const chromePx = Number.parseFloat(chromeRaw) || 64;
+      const scrollPosition = window.scrollY + chromePx + buyStickyBarH + 8;
       for (const sec of sections) {
         const el = document.getElementById(sec.id);
         if (el && el.offsetTop <= scrollPosition) {
@@ -778,7 +875,17 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [buyStickyBarH]);
+
+  const stickyProductName =
+    language === 'AR' && product?.nameAr ? product.nameAr : product?.name || '';
+  const honorNavItems: { id: string; tab: BuyTabType; labelAr: string; labelEn: string }[] = [
+    { id: 'buy-stage-section', tab: 'configure', labelAr: 'نظرة عامة', labelEn: 'Overview' },
+    { id: 'overview-features', tab: 'features', labelAr: 'المميزات', labelEn: 'Features' },
+    { id: 'specs-comparison-section', tab: 'specs', labelAr: 'المواصفات', labelEn: 'Specs' },
+    { id: 'customer-reviews-section', tab: 'reviews', labelAr: 'التقييمات', labelEn: 'Reviews' },
+    { id: 'faq-section', tab: 'faq', labelAr: 'الأسئلة', labelEn: 'FAQ' },
+  ];
 
   if (!product) {
     return (
@@ -787,11 +894,6 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
       </div>
     );
   }
-
-  const categoryLabel =
-    language === 'AR'
-      ? String((product as { categoryAr?: string }).categoryAr || product.category || 'منتجات المتجر')
-      : String(product.category || 'Products');
 
   // FAQ items
   const FAQS = [
@@ -830,116 +932,113 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
   return (
     <div className="min-h-screen bg-white text-neutral-900 text-start pb-28 lg:pb-24 selection:bg-neutral-900 selection:text-white w-full max-w-full">
       {/* ========================================================================= */}
-      {/* 1. HONOR-STYLE STICKY SUB-BAR (Back Button, Breadcrumbs, Multi-Sections)  */}
+      {/* 1. HONOR fixed sub-bar — always pinned under site header while scrolling  */}
       {/* ========================================================================= */}
-      <div className="sticky top-16 z-40 bg-white/95 backdrop-blur-md border-b border-[#E5E5E5] w-full shadow-xs">
-        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Top Row: Back button, Breadcrumbs trail, Learn More CTA & Instant Buy */}
-          <div className="h-11 sm:h-12 flex items-center justify-between gap-3 border-b border-neutral-100 py-1 sm:py-1.5">
-            {/* Left: Prominent Back Button & Breadcrumbs */}
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 overflow-x-auto no-scrollbar py-0.5">
-              <button
-                onClick={goBack}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-xs font-bold transition-all border border-neutral-300/80 cursor-pointer shrink-0 shadow-xs active:scale-95"
-                title={language === 'AR' ? 'الرجوع للصفحة السابقة' : 'Go back'}
-              >
-                {language === 'AR' ? <ArrowRight className="w-3.5 h-3.5" /> : <ArrowLeft className="w-3.5 h-3.5" />}
-                <span>{language === 'AR' ? 'رجوع' : 'Back'}</span>
-              </button>
+      <div
+        ref={buyStickyBarRef}
+        data-buy-sticky-bar="1"
+        className="fixed inset-x-0 z-40 bg-white border-b border-[#E5E5E5] w-full shadow-none"
+        style={{
+          boxShadow: 'none',
+          top: 'var(--theme-chrome-offset, 4rem)',
+          backgroundColor: '#FFFFFF',
+        }}
+      >
+        <div className="max-w-[1200px] mx-auto px-3 sm:px-6 lg:px-8 min-h-12 sm:h-14 flex items-center gap-2 sm:gap-5 overflow-hidden">
+          <button
+            type="button"
+            onClick={goBack}
+            className="shrink-0 text-neutral-500 hover:text-black p-1 cursor-pointer"
+            title={language === 'AR' ? 'رجوع' : 'Back'}
+            aria-label={language === 'AR' ? 'رجوع' : 'Back'}
+          >
+            {language === 'AR' ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}
+          </button>
 
-              <span className="text-neutral-300 shrink-0 hidden xs:inline">|</span>
-
-              {/* Breadcrumbs */}
-              <nav aria-label={language === 'AR' ? 'مسار التنقل' : 'Breadcrumb'} className="flex items-center gap-1.5 text-xs text-neutral-500 whitespace-nowrap min-w-0">
-                <button
-                  onClick={() => navigateTo('home')}
-                  className="hover:text-black transition-colors cursor-pointer shrink-0 font-medium"
-                >
-                  {language === 'AR' ? 'الرئيسية' : 'Home'}
-                </button>
-                <span className="text-neutral-300 shrink-0">/</span>
-                <button
-                  onClick={() => navigateTo('products')}
-                  className="hover:text-black transition-colors cursor-pointer shrink-0 font-medium"
-                >
-                  {language === 'AR' ? 'المنتجات' : 'Products'}
-                </button>
-                <span className="text-neutral-300 shrink-0 hidden sm:inline">/</span>
-                <button
-                  onClick={() => navigateTo('products')}
-                  className="hover:text-black transition-colors cursor-pointer shrink-0 font-medium text-neutral-500 hidden sm:inline"
-                >
-                  {categoryLabel}
-                </button>
-                <span className="text-neutral-300 shrink-0">/</span>
-                <button
-                  onClick={() => navigateTo('product-detail', product.id)}
-                  className="hover:text-black transition-colors cursor-pointer shrink-0 font-medium text-neutral-600 truncate max-w-[120px] sm:max-w-[200px]"
-                  title={language === 'AR' ? 'انقر لعرض تفاصيل ومميزات الماكينة' : 'Click to view product detail page'}
-                >
-                  {language === 'AR' && product.nameAr ? product.nameAr : product.name}
-                </button>
-                <span className="text-neutral-300 shrink-0">/</span>
-                <span className="font-extrabold text-black shrink-0">
-                  {language === 'AR' ? 'شراء الآن' : 'Buy Now'}
-                </span>
-              </nav>
-            </div>
-
-            {/* Right: Learn More Link & Instant Buy CTA */}
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              <button
-                onClick={() => navigateTo('product-detail', product.id)}
-                className="hidden sm:flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full border border-neutral-300 text-neutral-700 hover:text-black hover:border-black text-xs font-semibold transition-colors cursor-pointer shadow-xs"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                <span>{language === 'AR' ? 'تفاصيل الماكينة' : 'Learn More'}</span>
-              </button>
-
-              <button
-                onClick={handleInstantBuy}
-                className="px-4 sm:px-5 py-1 sm:py-1.5 bg-black hover:bg-neutral-800 text-white font-bold text-xs rounded-full transition-transform active:scale-95 cursor-pointer shadow-xs flex items-center gap-1.5"
-              >
-                <ShoppingBag className="w-3.5 h-3.5" />
-                <span>{language === 'AR' ? 'شراء الآن' : 'Buy Now'}</span>
-              </button>
-            </div>
+          <div className="min-w-0 flex-1 md:flex-none md:shrink truncate text-sm sm:text-base font-extrabold text-neutral-900 max-w-[40%] sm:max-w-[28%] md:max-w-[22%]">
+            {stickyProductName}
           </div>
 
-          {/* Bottom Row: Multi-Sections Navigation Bar (Mobile swipeable & desktop clean pills) */}
-          <div className="py-1 sm:py-1.5 overflow-x-auto no-scrollbar flex items-center gap-1 sm:gap-1.5">
-            {[
-              { id: 'buy-stage-section', tab: 'configure', labelAr: 'خيارات الشراء واللون', labelEn: 'Options & Color' },
-              { id: 'bundle-offers-section', tab: 'bundles', labelAr: 'الهدايا والملحقات', labelEn: 'Gifts & Bundles' },
-              { id: 'overview-features', tab: 'features', labelAr: 'نظرة عامة والمميزات', labelEn: 'Features' },
-              { id: 'specs-comparison-section', tab: 'specs', labelAr: 'المواصفات والمقارنة', labelEn: 'Tech Specs' },
-              { id: 'customer-reviews-section', tab: 'reviews', labelAr: 'التقييمات والتجارب', labelEn: 'Reviews' },
-              { id: 'faq-section', tab: 'faq', labelAr: 'الأسئلة الشائعة', labelEn: 'FAQ' },
-            ].map(item => (
+          <nav
+            aria-label={language === 'AR' ? 'أقسام المنتج' : 'Product sections'}
+            className="hidden md:flex flex-1 items-center justify-center gap-4 lg:gap-6 min-w-0 overflow-x-auto no-scrollbar"
+          >
+            {honorNavItems.map((item) => {
+              const on = activeBuyTab === item.tab;
+              return (
+                <button
+                  key={item.tab}
+                  type="button"
+                  onClick={() => scrollToSection(item.id, item.tab)}
+                  className={`text-[13px] whitespace-nowrap transition-colors cursor-pointer shrink-0 pb-0.5 border-b-2 ${
+                    on
+                      ? 'text-neutral-900 font-bold border-neutral-900'
+                      : 'text-neutral-500 font-medium border-transparent hover:text-neutral-900'
+                  }`}
+                >
+                  {language === 'AR' ? item.labelAr : item.labelEn}
+                </button>
+              );
+            })}
+          </nav>
+
+          <div className="ms-auto flex items-center gap-2 sm:gap-3 shrink-0">
+            <div className="hidden sm:flex items-baseline gap-2 flex-wrap justify-end">
+              {savingsSAR > 0 ? (
+                <span className="text-red-600 font-bold text-xs whitespace-nowrap">
+                  {language === 'AR'
+                    ? `وفر ${savingsSAR.toLocaleString()}.00 ⃁`
+                    : `Save SAR ${savingsSAR.toLocaleString()}.00`}
+                </span>
+              ) : null}
+              {originalPrice ? (
+                <span className="text-neutral-400 line-through text-xs font-sans whitespace-nowrap">
+                  {language === 'AR'
+                    ? `${originalPrice.toLocaleString()}.00 ⃁`
+                    : `SAR ${originalPrice.toLocaleString()}.00`}
+                </span>
+              ) : null}
+              <span className="text-sm sm:text-base font-black text-neutral-900 font-sans tracking-tight whitespace-nowrap">
+                {language === 'AR'
+                  ? `${totalPrice.toLocaleString()}.00 ⃁`
+                  : `SAR ${totalPrice.toLocaleString()}.00`}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleInstantBuy}
+              className="px-4 sm:px-5 py-1.5 sm:py-2 bg-black hover:bg-neutral-800 text-white font-bold text-xs rounded-full transition-transform active:scale-95 cursor-pointer flex items-center gap-1.5 shadow-none"
+              style={{ boxShadow: 'none' }}
+            >
+              <ShoppingBag className="w-3.5 h-3.5" />
+              <span>{language === 'AR' ? 'شراء الآن' : 'Buy Now'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile section links under Honor bar */}
+        <div className="md:hidden border-t border-neutral-100 px-3 overflow-x-auto no-scrollbar flex items-center gap-4 py-1.5">
+          {honorNavItems.map((item) => {
+            const on = activeBuyTab === item.tab;
+            return (
               <button
-                key={item.tab}
-                onClick={() => scrollToSection(item.id, item.tab as BuyTabType)}
-                className={`px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all cursor-pointer shrink-0 ${
-                  activeBuyTab === item.tab
-                    ? 'bg-black text-white font-bold shadow-xs'
-                    : 'text-neutral-600 hover:text-black hover:bg-neutral-100'
+                key={`m-${item.tab}`}
+                type="button"
+                onClick={() => scrollToSection(item.id, item.tab)}
+                className={`text-[12px] whitespace-nowrap shrink-0 pb-0.5 border-b-2 cursor-pointer ${
+                  on
+                    ? 'text-neutral-900 font-bold border-neutral-900'
+                    : 'text-neutral-500 font-medium border-transparent'
                 }`}
               >
                 {language === 'AR' ? item.labelAr : item.labelEn}
               </button>
-            ))}
-
-            {/* Mobile Learn More pill shortcut */}
-            <button
-              onClick={() => navigateTo('product-detail', parentProduct?.id || product.id)}
-              className="sm:hidden ltr:ml-auto rtl:mr-auto flex items-center gap-1 text-[11px] font-bold text-neutral-800 hover:text-black bg-neutral-100 px-2 py-0.5 rounded-full shrink-0"
-            >
-              <Sparkles className="w-3 h-3 text-amber-500" />
-              <span>{language === 'AR' ? 'تفاصيل الماكينة' : 'Details'}</span>
-            </button>
-          </div>
+            );
+          })}
         </div>
       </div>
+      {/* Spacer so page content starts below the fixed Honor bar */}
+      <div aria-hidden style={{ height: buyStickyBarH }} data-buy-sticky-spacer="1" />
 
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
         {/* ========================================================================= */}
@@ -964,277 +1063,321 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
         {/* ========================================================================= */}
         {/* 3. MAIN 2-COLUMN STAGE (Honor Buy Layout with Glass Zoom Effect)          */}
         {/* ========================================================================= */}
-        <div id="buy-stage-section" className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 pt-8 items-start relative scroll-mt-28">
-          {/* HiBrew grouped products: switch independent children without changing URL */}
-          {parentIsGrouped &&
-            (groupChildren.length > 0 || (parentProduct?.groupChildren?.length || 0) > 0) && (
-              <div className="lg:col-span-12 space-y-2">
-                <p className="text-xs font-semibold text-neutral-600">
-                  {language === 'AR' ? 'اختر المنتج داخل المجموعة' : 'Choose a product in this group'}
-                </p>
-                <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
-                  {(groupChildren.length > 0
-                    ? groupChildren
-                    : parentProduct?.groupChildren || []
-                  ).map((child, childIndex) => {
-                    const thumb =
-                      child.selectorImageUrl ||
-                      child.images?.[0] ||
-                      child.image ||
-                      '/images/hibrew_h7a_flagship_machine.png';
-                    const selected = activeChildId
-                      ? activeChildId === child.id
-                      : childIndex === 0;
-                    return (
-                      <button
-                        key={child.id}
-                        type="button"
-                        onClick={() => setActiveChildId(child.id)}
-                        className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-white transition-all cursor-pointer shrink-0 ${
-                          selected
-                            ? 'ring-2 ring-black border-2 border-black scale-[1.02] shadow-md'
-                            : 'border border-[#D2D2D7] opacity-85 hover:opacity-100 hover:border-neutral-400'
-                        }`}
-                        aria-pressed={selected}
-                        title={language === 'AR' ? child.nameAr || child.name : child.name}
-                      >
-                        <img
-                          src={thumb}
-                          alt={language === 'AR' ? child.nameAr || child.name : child.name}
-                          className="w-full h-full object-contain p-1"
-                          referrerPolicy="no-referrer"
-                        />
-                        {selected ? (
-                          <span className="absolute bottom-1 inset-x-1 text-[9px] font-bold text-center bg-black/80 text-white rounded px-0.5 truncate">
-                            {language === 'AR' ? child.nameAr || child.name : child.name}
-                          </span>
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
+        <div
+          id="buy-stage-section"
+          className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 pt-6 items-start relative overflow-visible"
+          style={{ scrollMarginTop: 'calc(var(--theme-chrome-offset, 4rem) + 3.5rem)' }}
+        >
           {/* ----------------------------------------------------------------------- */}
-          {/* LEFT COLUMN: Gallery, Badges, Glass Zoom Lens, Installment Banner       */}
+          {/* LEFT: sticky gallery (Honor) — image stays; right config scrolls past   */}
           {/* ----------------------------------------------------------------------- */}
-          <div className="lg:col-span-6 space-y-4 lg:sticky lg:top-24 lg:self-start z-10 flex flex-col items-center">
-            {/* Main Image Stage — full bleed, no white pad/shadow */}
+          <div
+            data-buy-gallery-sticky="1"
+            className="lg:col-span-6 z-10 w-full self-start h-fit lg:sticky"
+            style={{
+              top: 'calc(var(--theme-chrome-offset, 4rem) + var(--buy-sticky-bar-h, 3.5rem) + 8px)',
+            }}
+          >
+            <div className="space-y-3 flex flex-col items-center w-full">
+            {/* Honor-style hero: image + side gift capsules + bottom price bar */}
             <div
               ref={imageStageRef}
               onMouseEnter={() => setIsHoveringImage(true)}
               onMouseLeave={() => setIsHoveringImage(false)}
               onMouseMove={handleMouseMove}
-              className="relative w-full flex items-center justify-center select-none bg-transparent p-0 m-0 shadow-none ring-0 border-0 group cursor-zoom-in overflow-hidden rounded-2xl"
+              className="relative w-full select-none bg-[#FAFAFA] rounded-2xl overflow-hidden group cursor-zoom-in"
             >
-              {/* Top-left Spec badge pill — only when real option/badge exists */}
-              {badgeLabel ? (
-              <div className="absolute top-2 left-2 sm:top-3 sm:left-4 z-20 pointer-events-none">
-                <span className="px-3.5 sm:px-4 py-1 sm:py-1.5 rounded-full border border-[#D2D2D7] bg-white text-neutral-800 font-normal text-[12px] sm:text-[13px] tracking-wide inline-block shadow-none">
-                  {badgeLabel}
-                </span>
-              </div>
-              ) : null}
-
-              {/* Main Product Image — full width/height auto, no white pad/shadow */}
-              <img
-                src={currentDisplayImage}
-                alt={product.name}
-                className="w-full h-auto max-w-full block object-contain object-center shadow-none drop-shadow-none group-hover:scale-[1.02] transition-transform duration-300"
-                referrerPolicy="no-referrer"
-              />
-
-              {/* Interactive Glass Zoom Magnifier Lens */}
-              {isHoveringImage && (
-                <div
-                  className="pointer-events-none absolute z-30 w-36 h-36 sm:w-44 sm:h-44 rounded-full border-2 border-white/95 ring-1 ring-[#8B5A2B]/35 shadow-[0_16px_40px_rgba(0,0,0,0.22),inset_0_2px_8px_rgba(255,255,255,0.9),inset_0_-4px_10px_rgba(0,0,0,0.08)] overflow-hidden"
-                  style={{
-                    left: `${zoomPos.x}px`,
-                    top: `${zoomPos.y}px`,
-                    transform: 'translate(-50%, -50%)',
-                    backgroundImage: `url(${currentDisplayImage})`,
-                    backgroundRepeat: 'no-repeat',
-                    backgroundSize: '260%',
-                    backgroundPosition: `${zoomPos.percentX}% ${zoomPos.percentY}%`,
-                    backgroundColor: '#ffffff',
-                  }}
-                >
-                  {/* Realistic Optical Glass Glare & Reflection Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/15 to-white/40 pointer-events-none" />
-                  <div className="absolute inset-1 rounded-full border border-white/50 pointer-events-none" />
-                </div>
-              )}
-            </div>
-
-            {/* Gift strip below image — all breakpoints (no overlay on product photo) */}
-            <div className="w-full flex items-center justify-between gap-3 bg-neutral-50 border border-neutral-200/80 rounded-xl px-3 py-2.5 text-xs">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-7 h-7 rounded-full bg-[#8B5A2B] text-white flex items-center justify-center shrink-0">
-                  <Gift className="w-3.5 h-3.5" />
-                </div>
-                <div className="flex items-center gap-2 min-w-0">
-                  <img
-                    src={baristaKitImg}
-                    alt=""
-                    className="hidden sm:block w-9 h-9 object-contain mix-blend-multiply shrink-0"
-                    referrerPolicy="no-referrer"
-                  />
-                  <img
-                    src={scaleImg}
-                    alt=""
-                    className="hidden sm:block w-8 h-8 object-contain mix-blend-multiply shrink-0"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="flex flex-col min-w-0">
-                    <span className="font-bold text-[11px] sm:text-xs text-neutral-900 leading-tight truncate">
-                      {language === 'AR' ? 'بكج هدايا الباريستا المجاني' : 'Free Barista Bonus Kit'}
+              <div className="relative w-full min-h-[300px] sm:min-h-[380px] lg:min-h-[420px] flex items-center justify-center px-2 pt-3 pb-16 sm:pb-[4.5rem]">
+                {/* Top-start badge (Honor pill) */}
+                {badgeLabel ? (
+                  <div className="absolute top-3 start-3 z-20 pointer-events-none">
+                    <span className="px-3.5 sm:px-4 py-1 sm:py-1.5 rounded-full border border-[#D2D2D7] bg-white/95 text-neutral-800 font-medium text-[12px] sm:text-[13px] tracking-wide inline-block">
+                      {badgeLabel}
                     </span>
-                    <span className="text-[10px] text-neutral-500 truncate">
+                  </div>
+                ) : null}
+
+                <img
+                  src={currentDisplayImage}
+                  alt={product.name}
+                  className="relative z-0 w-full h-auto max-h-[260px] sm:max-h-[340px] lg:max-h-[380px] max-w-[88%] block object-contain object-center"
+                  referrerPolicy="no-referrer"
+                />
+
+                {/* Right-side Honor gift capsules */}
+                <div className="absolute end-2 sm:end-3 top-1/2 -translate-y-[58%] z-20 flex flex-col gap-2.5 sm:gap-3 pointer-events-none">
+                  <div className="w-[72px] sm:w-[84px] rounded-2xl bg-white/95 border border-neutral-200/90 px-1.5 pt-2 pb-2 flex flex-col items-center text-center">
+                    <span className="w-5 h-5 rounded-full bg-[#8B5A2B] text-white flex items-center justify-center mb-1">
+                      <Gift className="w-3 h-3" />
+                    </span>
+                    <img
+                      src={baristaKitImg}
+                      alt=""
+                      className="w-10 h-10 sm:w-12 sm:h-12 object-contain mix-blend-multiply"
+                      referrerPolicy="no-referrer"
+                    />
+                    <span className="mt-1 text-[9px] sm:text-[10px] font-bold text-neutral-800 font-sans leading-tight">
+                      {language === 'AR' ? '99 + 199 ⃁' : 'SAR 99 + 199'}
+                    </span>
+                    <span className="text-[8px] font-semibold text-emerald-700">
+                      {language === 'AR' ? 'مجاناً' : 'Free'}
+                    </span>
+                  </div>
+                  <div className="w-[72px] sm:w-[84px] rounded-2xl bg-white/95 border border-neutral-200/90 px-1.5 pt-2 pb-2 flex flex-col items-center text-center">
+                    <span className="w-5 h-5 rounded-full bg-neutral-900 text-white flex items-center justify-center mb-1">
+                      <ShoppingBag className="w-3 h-3" />
+                    </span>
+                    <img
+                      src={scaleImg}
+                      alt=""
+                      className="w-10 h-10 sm:w-12 sm:h-12 object-contain mix-blend-multiply"
+                      referrerPolicy="no-referrer"
+                    />
+                    <span className="mt-1 text-[9px] sm:text-[10px] font-bold text-neutral-800 font-sans leading-tight">
+                      {language === 'AR' ? '+ 79 ⃁' : '+ SAR 79'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Glass zoom lens */}
+                {isHoveringImage && (
+                  <div
+                    className="pointer-events-none absolute z-30 w-36 h-36 sm:w-44 sm:h-44 rounded-full border-2 border-white/95 ring-1 ring-[#8B5A2B]/35 overflow-hidden"
+                    style={{
+                      left: `${zoomPos.x}px`,
+                      top: `${zoomPos.y}px`,
+                      transform: 'translate(-50%, -50%)',
+                      backgroundImage: `url(${currentDisplayImage})`,
+                      backgroundRepeat: 'no-repeat',
+                      backgroundSize: '260%',
+                      backgroundPosition: `${zoomPos.percentX}% ${zoomPos.percentY}%`,
+                      backgroundColor: '#ffffff',
+                    }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/15 to-white/40 pointer-events-none" />
+                    <div className="absolute inset-1 rounded-full border border-white/50 pointer-events-none" />
+                  </div>
+                )}
+              </div>
+
+              {/* Honor cream price / installment bar pinned to hero bottom */}
+              <div className="absolute inset-x-2 sm:inset-x-3 bottom-2 sm:bottom-3 z-20">
+                <div
+                  className="w-full rounded-2xl bg-[#F3E7D4] border border-[#E8D5B8] px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2"
+                  dir={language === 'AR' ? 'rtl' : 'ltr'}
+                >
+                  <div className="min-w-0 flex flex-col">
+                    <span className="text-lg sm:text-2xl font-black text-neutral-900 font-sans tracking-tight leading-none">
                       {language === 'AR'
-                        ? 'تامبر 30 باوند + إبريق تبخير ستانلس'
-                        : '30lb Tamper + Frothing Pitcher'}
+                        ? `${totalPrice.toLocaleString()} ⃁`
+                        : `SAR ${totalPrice.toLocaleString()}`}
+                    </span>
+                    {savingsSAR > 0 ? (
+                      <span className="text-[10px] sm:text-xs font-semibold text-red-600 mt-0.5">
+                        {language === 'AR'
+                          ? `وفر ${savingsSAR.toLocaleString()} ⃁`
+                          : `Save SAR ${savingsSAR.toLocaleString()}`}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="text-end sm:text-start min-w-0">
+                      <p className="text-[10px] sm:text-xs font-semibold text-neutral-800 leading-snug">
+                        {language === 'AR'
+                          ? `أو يبدأ من ${ (totalPrice / 12).toFixed(2) } ⃁ / شهر`
+                          : `or starts from SAR ${(totalPrice / 12).toFixed(2)}/month`}
+                      </p>
+                      <p className="text-[9px] sm:text-[11px] text-neutral-600">
+                        {language === 'AR' ? '(بدون فوائد)' : '(interest free)'}
+                      </p>
+                    </div>
+                    <span className="hidden xs:flex w-9 h-9 rounded-xl bg-white border border-[#E8D5B8] items-center justify-center text-[#8B5A2B] shrink-0">
+                      <ShoppingBag className="w-4 h-4" />
                     </span>
                   </div>
                 </div>
               </div>
-              <div className="flex flex-col items-end gap-0.5 shrink-0">
-                <span className="text-[10px] font-medium text-neutral-500 font-sans hidden sm:inline">
-                  {language === 'AR' ? '99 + 199 \u20C1' : '\u20C1 99 + 199'}
-                </span>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-                  {language === 'AR' ? 'بقيمة 457 \u20C1 مجاناً' : '\u20C1 457 Free'}
-                </span>
-              </div>
             </div>
 
-            {/* Coffee Brown Promotional Installment Wave Banner (Exact 1:1 Match with Image 1) */}
-            <div className="w-full h-[52px] sm:h-[60px] rounded-2xl sm:rounded-[20px] overflow-hidden relative flex items-center justify-between select-none shadow-2xs" dir="ltr">
-              {/* Dual-Tone SVG Wave Background */}
-              <svg
-                className="absolute inset-0 w-full h-full pointer-events-none"
-                preserveAspectRatio="none"
-                viewBox="0 0 500 60"
-              >
-                {/* Right side background #A46836 */}
-                <rect width="500" height="60" fill="#A46836" />
+            {/* Honor thumbs — ONE horizontal strip (group children OR gallery images) */}
+            {(() => {
+              const useGroupStrip = parentIsGrouped && compareChildren.length > 0;
+              const stripCount = useGroupStrip ? compareChildren.length : displayThumbnails.length;
+              if (stripCount < 1) return null;
 
-                {/* Left side wave path #8B5A2B */}
-                <path
-                  d="M 0,0 L 225,0 C 248,0 256,18 268,36 C 278,50 290,60 310,60 L 0,60 Z"
-                  fill="#8B5A2B"
-                />
+              const scrollStrip = (dir: -1 | 1) => {
+                const el = document.querySelector(
+                  '[data-honor-thumb-scroll="1"]',
+                ) as HTMLElement | null;
+                if (el) el.scrollBy({ left: dir * 72, behavior: 'smooth' });
+              };
 
-                {/* Bottom right decorative light origami facets */}
-                <polygon points="500,24 500,60 455,60" fill="#BA7D49" opacity="0.6" />
-                <polygon points="455,60 482,36 430,60" fill="#CD9562" opacity="0.35" />
-              </svg>
-
-              {/* Left Side: Installment Content + Star (Matches Image 1) */}
-              <div className="relative pl-3 xs:pl-4 sm:pl-6 text-white text-left flex flex-col justify-center z-10 shrink-0">
-                <span className="text-[9.5px] xs:text-[11px] sm:text-xs font-semibold leading-tight text-white drop-shadow-2xs">
-                  {language === 'AR'
-                    ? `أو يبدأ من${(totalPrice / 12).toFixed(2)}⃁ شهرياً`
-                    : `or starts from SAR ${(totalPrice / 12).toFixed(2)}/mo`}
-                </span>
-                <span className="text-[8.5px] xs:text-[10px] sm:text-[11px] text-white/95 font-medium leading-tight mt-0.5">
-                  {language === 'AR' ? '(بدون فوائد)' : '(interest free)'}
-                </span>
-
-                {/* Decorative Sparkle Star on Left */}
-                <svg
-                  className="w-3 h-3 sm:w-4 sm:h-4 text-white/80 fill-white absolute -left-1 sm:left-1 bottom-0.5 pointer-events-none"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M12 2L13.8 9.2L21 11L13.8 12.8L12 20L10.2 12.8L3 11L10.2 9.2L12 2Z" />
-                </svg>
-              </div>
-
-              {/* Right Side: Price Content + Dual Sparkles (Matches Image 1) */}
-              <div className="relative pr-3 xs:pr-4 sm:pr-6 flex items-center gap-1 sm:gap-1.5 z-10 shrink-0">
-                <span className="text-base xs:text-lg sm:text-2xl font-black text-white font-sans tracking-wide">
-                  {language === 'AR' ? `${totalPrice.toLocaleString()}⃁` : `⃁ ${totalPrice.toLocaleString()}`}
-                </span>
-                <div className="relative ml-0.5 sm:ml-1 shrink-0">
-                  <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-white fill-white drop-shadow-2xs" viewBox="0 0 24 24">
-                    <path d="M12 2L13.8 9.2L21 11L13.8 12.8L12 20L10.2 12.8L3 11L10.2 9.2L12 2Z" />
-                  </svg>
-                  <svg className="w-2 h-2 sm:w-3 sm:h-3 text-white/90 fill-white absolute -top-1 -right-1.5" viewBox="0 0 24 24">
-                    <path d="M12 2L13.8 9.2L21 11L13.8 12.8L12 20L10.2 12.8L3 11L10.2 9.2L12 2Z" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            {/* Thumbnail Carousel Slider (Matches Image 1 5-Box Array with Clean Outline Chevrons) */}
-            <div className="w-full flex items-center justify-center gap-2 sm:gap-3 pt-2" dir="ltr">
-              <button
-                onClick={handlePrevImage}
-                aria-label={language === 'AR' ? 'الصورة السابقة' : 'Previous image'}
-                className="text-neutral-400 hover:text-black transition-colors cursor-pointer p-1 shrink-0"
-              >
-                <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 stroke-[1.5]" />
-              </button>
-
-              <div className="flex items-center gap-1.5 xs:gap-2 sm:gap-3">
-                {displayThumbnails.map((img, idx) => {
-                  const isActive = activeImageIndex === idx;
-                  return (
+              return (
+                <div className="w-full space-y-1.5" data-honor-thumb-strip="1">
+                  {useGroupStrip ? (
+                    <p className="text-xs font-semibold text-neutral-600 text-center sm:text-start">
+                      {language === 'AR' ? 'اختر المنتج داخل المجموعة' : 'Choose a product in this group'}
+                    </p>
+                  ) : null}
+                  <div
+                    className="w-full flex flex-nowrap items-center gap-1.5"
+                    dir="ltr"
+                    style={{ flexWrap: 'nowrap' }}
+                  >
                     <button
-                      key={idx}
-                      onClick={() => handleThumbnailClick(idx)}
-                      className={`w-11 h-11 xs:w-13 xs:h-13 sm:w-15 sm:h-15 rounded-lg sm:rounded-xl bg-white p-1 transition-all cursor-pointer shrink-0 overflow-hidden ${
-                        isActive
-                          ? 'border-2 border-black scale-102'
-                          : 'border border-[#D2D2D7] hover:border-neutral-400 opacity-90 hover:opacity-100'
-                      }`}
+                      type="button"
+                      onClick={() => {
+                        if (useGroupStrip) {
+                          const idx = compareChildren.findIndex(
+                            (c) => String(c.id) === String(activeChildId),
+                          );
+                          const cur = idx < 0 ? 0 : idx;
+                          const prev = compareChildren[Math.max(0, cur - 1)];
+                          if (prev) setActiveChildId(String(prev.id));
+                        } else {
+                          handlePrevImage();
+                        }
+                        scrollStrip(-1);
+                      }}
+                      aria-label={language === 'AR' ? 'السابق' : 'Previous'}
+                      className="shrink-0 grow-0 text-black hover:opacity-70 transition-opacity cursor-pointer p-0.5"
                     >
-                      <img
-                        src={img}
-                        alt=""
-                        className="w-full h-full object-contain"
-                        referrerPolicy="no-referrer"
-                      />
+                      <ChevronLeft className="w-5 h-5 stroke-[2] text-black" />
                     </button>
-                  );
-                })}
-              </div>
 
-              <button
-                onClick={handleNextImage}
-                aria-label={language === 'AR' ? 'الصورة التالية' : 'Next image'}
-                className="text-neutral-400 hover:text-black transition-colors cursor-pointer p-1 shrink-0"
-              >
-                <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 stroke-[1.5]" />
-              </button>
-            </div>
+                    <div
+                      data-honor-thumb-scroll="1"
+                      className="flex-1 min-w-0 overflow-x-auto overflow-y-hidden no-scrollbar"
+                      style={{ WebkitOverflowScrolling: 'touch' }}
+                    >
+                      <div
+                        className="flex flex-nowrap items-center gap-2"
+                        style={{
+                          display: 'flex',
+                          flexWrap: 'nowrap',
+                          flexDirection: 'row',
+                          width: 'max-content',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {useGroupStrip
+                          ? compareChildren.map((child, childIndex) => {
+                              const thumb =
+                                child.selectorImageUrl ||
+                                child.images?.[0] ||
+                                child.image ||
+                                '/images/hibrew_h7a_flagship_machine.png';
+                              const selected = activeChildId
+                                ? String(activeChildId) === String(child.id)
+                                : childIndex === 0;
+                              return (
+                                <button
+                                  key={child.id}
+                                  type="button"
+                                  onClick={() => setActiveChildId(String(child.id))}
+                                  className="relative rounded-lg overflow-hidden bg-white cursor-pointer shrink-0 grow-0 box-border"
+                                  style={{
+                                    width: 64,
+                                    height: 64,
+                                    flex: '0 0 64px',
+                                    boxShadow: 'none',
+                                    border: selected ? '2px solid #000000' : '1px solid #000000',
+                                  }}
+                                  aria-pressed={selected}
+                                  title={
+                                    language === 'AR' ? child.nameAr || child.name : child.name
+                                  }
+                                >
+                                  <img
+                                    src={thumb}
+                                    alt={
+                                      language === 'AR' ? child.nameAr || child.name : child.name
+                                    }
+                                    className="w-full h-full object-contain p-1 pointer-events-none"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                </button>
+                              );
+                            })
+                          : displayThumbnails.map((img, idx) => {
+                              const isActive = activeImageIndex === idx;
+                              return (
+                                <button
+                                  key={`${img}-${idx}`}
+                                  type="button"
+                                  onClick={() => handleThumbnailClick(idx)}
+                                  className="rounded-lg bg-white p-1 cursor-pointer shrink-0 grow-0 box-border"
+                                  style={{
+                                    width: 64,
+                                    height: 64,
+                                    flex: '0 0 64px',
+                                    boxShadow: 'none',
+                                    border: isActive ? '2px solid #000000' : '1px solid #000000',
+                                  }}
+                                >
+                                  <img
+                                    src={img}
+                                    alt=""
+                                    className="w-full h-full object-contain object-center pointer-events-none"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                </button>
+                              );
+                            })}
+                      </div>
+                    </div>
 
-            {/* 3 Trust Assurance Outline Icons + Bottom Indicator Bar (Matches Image 4) */}
-            <div className="w-full pt-4 sm:pt-5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (useGroupStrip) {
+                          const idx = compareChildren.findIndex(
+                            (c) => String(c.id) === String(activeChildId),
+                          );
+                          const cur = idx < 0 ? 0 : idx;
+                          const next =
+                            compareChildren[Math.min(compareChildren.length - 1, cur + 1)];
+                          if (next) setActiveChildId(String(next.id));
+                        } else {
+                          handleNextImage();
+                        }
+                        scrollStrip(1);
+                      }}
+                      aria-label={language === 'AR' ? 'التالي' : 'Next'}
+                      className="shrink-0 grow-0 text-black hover:opacity-70 transition-opacity cursor-pointer p-0.5"
+                    >
+                      <ChevronRight className="w-5 h-5 stroke-[2] text-black" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Trust icons */}
+            <div className="w-full pt-1">
               <div className="flex items-center justify-around max-w-xs mx-auto px-4">
-                <div className="flex items-center justify-center text-neutral-800 hover:text-black transition-colors cursor-default">
-                  <Truck className="w-6 h-6 stroke-[1.5]" />
+                <div className="flex items-center justify-center text-neutral-800">
+                  <Truck className="w-5 h-5 stroke-[1.5]" />
                 </div>
-                <div className="flex items-center justify-center text-neutral-800 hover:text-black transition-colors cursor-default">
-                  <ShieldCheck className="w-6 h-6 stroke-[1.5]" />
+                <div className="flex items-center justify-center text-neutral-800">
+                  <ShieldCheck className="w-5 h-5 stroke-[1.5]" />
                 </div>
-                <div className="flex items-center justify-center text-neutral-800 hover:text-black transition-colors cursor-default">
-                  <Headphones className="w-6 h-6 stroke-[1.5]" />
+                <div className="flex items-center justify-center text-neutral-800">
+                  <Headphones className="w-5 h-5 stroke-[1.5]" />
                 </div>
               </div>
-
-              {/* Horizontal divider with center indicator pill */}
-              <div className="w-full border-t border-[#E5E5E7] mt-4 relative">
+              <div className="w-full border-t border-[#E5E5E7] mt-2.5 relative">
                 <div className="absolute -top-[1.5px] left-1/2 -translate-x-1/2 w-14 sm:w-18 h-[3px] bg-neutral-900 rounded-full" />
               </div>
+            </div>
             </div>
           </div>
 
 
           {/* ----------------------------------------------------------------------- */}
-          {/* RIGHT COLUMN: Product Title, Rating, Offers, Color, Specs, Buy Actions */}
+          {/* RIGHT sideinfo — Honor: title free, each block its own border           */}
           {/* ----------------------------------------------------------------------- */}
-          <div className="lg:col-span-6 space-y-5">
+          <div className="lg:col-span-6 space-y-4 bg-white shadow-none" style={{ boxShadow: 'none' }}>
             {/* PRODUCT TITLE & STAR REVIEWS & SHARE ICON (Exact 1:1 Match with Reference Image 2) */}
             <div className="space-y-1.5 pb-1">
               <h1 className={`text-xl sm:text-2xl font-black text-neutral-900 ${
@@ -1336,11 +1479,11 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
             ) : null}
 
             {showSaleBanner && displayDiscount > 0 ? (
-            <div className="relative w-full rounded-2xl bg-gradient-to-r from-[#8B5A2B] via-[#986131] to-[#A46836] p-4 sm:p-4.5 text-white shadow-sm overflow-hidden select-none my-3">
+            <div className="relative w-full rounded-2xl bg-gradient-to-r from-[#8B5A2B] via-[#986131] to-[#A46836] p-4 sm:p-4.5 text-white overflow-hidden select-none my-3">
               {/* Top Row: Title + Discount Text + Sparkling Star */}
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-1">
-                  <h3 className="text-base sm:text-lg font-black tracking-tight text-white drop-shadow-2xs">
+                  <h3 className="text-base sm:text-lg font-black tracking-tight text-white">
                     {language === 'AR' ? 'عرض لفترة محدودة' : 'Limited Time Offer'}
                   </h3>
                   <div className="text-xs sm:text-sm font-bold text-white/95 font-sans">
@@ -1352,7 +1495,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
 
                 {/* Decorative 4-point Sparkle Icon (Matches Image 1) */}
                 <div className="relative shrink-0 p-1">
-                  <svg className="w-7 h-7 text-white fill-white drop-shadow-sm" viewBox="0 0 24 24">
+                  <svg className="w-7 h-7 text-white fill-white" viewBox="0 0 24 24">
                     <path d="M12 2L13.8 9.2L21 11L13.8 12.8L12 20L10.2 12.8L3 11L10.2 9.2L12 2Z" />
                   </svg>
                   <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-white/90" />
@@ -1374,7 +1517,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
 
                   {/* Days */}
                   <div className="flex items-center gap-1">
-                    <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white text-[#8B5A2B] font-black text-xs sm:text-sm font-sans flex items-center justify-center shadow-xs">
+                    <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white text-[#8B5A2B] font-black text-xs sm:text-sm font-sans flex items-center justify-center">
                       {timeLeft.days}
                     </span>
                     <span className="text-[10px] sm:text-xs font-semibold text-white">
@@ -1384,7 +1527,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
 
                   {/* Hours */}
                   <div className="flex items-center gap-1">
-                    <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white text-[#8B5A2B] font-black text-xs sm:text-sm font-sans flex items-center justify-center shadow-xs">
+                    <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white text-[#8B5A2B] font-black text-xs sm:text-sm font-sans flex items-center justify-center">
                       {String(timeLeft.hours).padStart(2, '0')}
                     </span>
                     <span className="text-[10px] sm:text-xs font-semibold text-white">
@@ -1394,7 +1537,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
 
                   {/* Minutes */}
                   <div className="flex items-center gap-1">
-                    <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white text-[#8B5A2B] font-black text-xs sm:text-sm font-sans flex items-center justify-center shadow-xs">
+                    <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white text-[#8B5A2B] font-black text-xs sm:text-sm font-sans flex items-center justify-center">
                       {String(timeLeft.minutes).padStart(2, '0')}
                     </span>
                     <span className="text-[10px] sm:text-xs font-semibold text-white">
@@ -1404,7 +1547,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
 
                   {/* Seconds */}
                   <div className="flex items-center gap-1">
-                    <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white text-[#8B5A2B] font-black text-xs sm:text-sm font-sans flex items-center justify-center shadow-xs">
+                    <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white text-[#8B5A2B] font-black text-xs sm:text-sm font-sans flex items-center justify-center">
                       {String(timeLeft.seconds).padStart(2, '0')}
                     </span>
                     <span className="text-[10px] sm:text-xs font-semibold text-white">
@@ -1437,6 +1580,54 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               </p>
             )}
 
+            {/* Honor Care box — product.warranties (when custom Care field is absent) */}
+            {!hasCustomCareField && product.warranties && product.warranties.length > 0 ? (
+              <div className="rounded-xl bg-white p-4 sm:p-5 space-y-3 shadow-none border border-solid border-black box-border" style={{ boxShadow: 'none', border: '1px solid #000000' }}>
+                <h2 className="text-base font-extrabold text-neutral-900 tracking-tight">
+                  {language === 'AR' ? 'باقة رعاية هايبرو' : 'HiBrew Care Package'}
+                </h2>
+                <div className="space-y-1">
+                  {product.warranties.map((w) => {
+                    const on = selectedWarranty?.id === w.id;
+                    return (
+                      <button
+                        key={w.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={on}
+                        onClick={() => setSelectedWarranty(on ? undefined : w)}
+                        className="w-full flex items-center gap-3 py-3 text-start bg-transparent cursor-pointer shadow-none border-0"
+                        style={{ boxShadow: 'none' }}
+                      >
+                        <span
+                          className="w-[18px] h-[18px] rounded-[3px] flex items-center justify-center shrink-0 bg-white border border-solid border-neutral-900 box-border"
+                          style={{ boxShadow: 'none', border: '1px solid #000000', borderColor: '#000000' }}
+                          aria-hidden
+                        >
+                          {on ? <span className="w-2.5 h-2.5 bg-black block rounded-[1px]" /> : null}
+                        </span>
+                        <span
+                          className="w-10 h-10 rounded-lg bg-[#E8F4FF] flex items-center justify-center shrink-0"
+                          style={{ border: '1px solid #D2D2D7' }}
+                          aria-hidden
+                        >
+                          <ShieldCheck className="w-5 h-5 text-[#2B7CD3]" />
+                        </span>
+                        <span className="flex-1 min-w-0 text-xs sm:text-sm font-bold text-neutral-900 leading-snug">
+                          {language === 'AR' && w.nameAr ? w.nameAr : w.name}
+                        </span>
+                        <span className="shrink-0 text-xs sm:text-sm font-bold text-neutral-900 font-sans">
+                          {language === 'AR'
+                            ? `${Number(w.price || 0).toLocaleString()}⃁`
+                            : `SAR ${Number(w.price || 0).toLocaleString()}`}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
             {/* 2. COLOR SELECTION — only real colors (never fake Default) */}
             {hasLegacyColors && (
             <div className="space-y-3 pt-3 border-t border-neutral-100">
@@ -1460,7 +1651,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                       }`}
                     >
                       <span
-                        className="w-full h-full rounded-full border border-neutral-300/80 shadow-xs block"
+                        className="w-full h-full rounded-full border border-neutral-300/80 block"
                         style={{ backgroundColor: c.hex }}
                       />
                     </button>
@@ -1495,11 +1686,10 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                       <button
                         key={opt.capacity || idx}
                         onClick={() => setSelectedStorage(opt)}
-                        className={`p-4 rounded-2xl text-start transition-all cursor-pointer border ${
-                          isSelected
-                            ? 'border-2 border-black bg-white shadow-xs'
-                            : 'border-neutral-200 bg-white hover:border-neutral-400'
+                        className={`p-4 rounded-xl text-start transition-all cursor-pointer bg-white shadow-none border border-solid border-black box-border ${
+                          isSelected ? 'bg-neutral-50' : ''
                         }`}
+                        style={{ boxShadow: 'none', border: '1px solid #000000' }}
                       >
                         <div className="font-extrabold text-sm text-neutral-900">
                           {language === 'AR' && opt.capacityAr ? opt.capacityAr : opt.capacity}
@@ -1529,30 +1719,31 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                   </span>
                 </h2>
 
-                <div className="space-y-2">
+                {/* Honor Gift style — each bundle its own bordered card */}
+                <div className="space-y-3">
                   {product.bundles.map(bundle => {
                     const isSelected = selectedBundles.some(b => b.id === bundle.id);
                     return (
                       <button
                         key={bundle.id}
                         onClick={() => toggleBundle(bundle)}
-                        className={`w-full p-3.5 rounded-2xl flex items-center justify-between transition-all cursor-pointer border ${
-                          isSelected
-                            ? 'border-black bg-neutral-50 font-bold'
-                            : 'border-neutral-200 hover:border-neutral-300 bg-white'
+                        className={`w-full px-4 py-3.5 rounded-xl flex items-center gap-3 transition-all cursor-pointer bg-white shadow-none border border-solid border-black box-border ${
+                          isSelected ? 'bg-neutral-50 font-bold' : ''
                         }`}
+                        style={{ boxShadow: 'none', border: '1px solid #000000' }}
                       >
-                        <div className="flex items-center gap-2.5 text-start">
-                          <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${isSelected ? 'bg-black text-white border-black' : 'border-neutral-300'}`}>
-                            {isSelected && <Check className="w-3 h-3" />}
-                          </div>
-                          <div>
-                            <span className="font-bold text-xs text-neutral-900 block">
-                              {language === 'AR' && bundle.nameAr ? bundle.nameAr : bundle.name}
-                            </span>
-                          </div>
+                        <div
+                          className={`w-[18px] h-[18px] rounded-[3px] flex items-center justify-center shrink-0 border border-solid border-neutral-900 box-border ${
+                            isSelected ? 'bg-black text-white' : 'bg-white'
+                          }`}
+                          style={{ boxShadow: 'none', border: '1px solid #000000', borderColor: '#000000' }}
+                        >
+                          {isSelected ? <Check className="w-3 h-3" /> : null}
                         </div>
-                        <span className="font-sans text-xs font-bold text-neutral-900">
+                        <span className="flex-1 min-w-0 text-start font-bold text-xs sm:text-sm text-neutral-900">
+                          {language === 'AR' && bundle.nameAr ? bundle.nameAr : bundle.name}
+                        </span>
+                        <span className="font-sans text-xs sm:text-sm font-bold text-neutral-900 shrink-0">
                           {language === 'AR' ? `+${bundle.price}⃁` : `+SAR ${bundle.price}`}
                         </span>
                       </button>
@@ -1563,7 +1754,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
             )}
 
             {/* 5. QUANTITY STEPPER */}
-            <div className="flex items-center justify-between p-4 rounded-2xl bg-[#F8F9FA] border border-neutral-100">
+            <div className="flex items-center justify-between p-4 rounded-xl bg-[#F8F9FA] shadow-none border border-solid border-black box-border" style={{ boxShadow: 'none', border: '1px solid #000000' }}>
               <span className="text-xs font-bold text-neutral-800">
                 {language === 'AR' ? 'الكمية المطلوبة:' : 'Quantity:'}
               </span>
@@ -1585,7 +1776,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
             </div>
 
             {/* 6. HONOR SUMMARY BOX (Exact 1:1 match with Reference Image 1) */}
-            <div className="rounded-2xl bg-[#F8F9FA] p-5 sm:p-6 space-y-4">
+            <div className="rounded-xl bg-[#F8F9FA] p-5 sm:p-6 space-y-4 shadow-none border border-solid border-black box-border" style={{ boxShadow: 'none', border: '1px solid #000000' }}>
               <h3 className="font-bold text-base sm:text-lg text-neutral-900 tracking-tight">
                 {language === 'AR' ? 'ملخص الطلب' : 'Order Summary'}
               </h3>
@@ -1623,6 +1814,32 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                   </span>
                 </div>
               </div>
+
+              {hasCustomFields &&
+              purchaseNotes(
+                purchaseFields as never,
+                fieldValues,
+                product?.conditionalRules as never,
+                optionPick,
+                language === 'AR',
+              ).length > 0 ? (
+                <div className="space-y-1.5 pt-1 border-t border-neutral-200/70">
+                  <p className="text-[11px] font-bold text-neutral-800">
+                    {language === 'AR' ? 'الخيارات المخصصة' : 'Custom selections'}
+                  </p>
+                  {purchaseNotes(
+                    purchaseFields as never,
+                    fieldValues,
+                    product?.conditionalRules as never,
+                    optionPick,
+                    language === 'AR',
+                  ).map((line) => (
+                    <div key={line} className="text-xs text-neutral-600 leading-snug">
+                      {line}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
 
               {savingsSAR > 0 ? (
               <div className="border-t border-neutral-200/70" />
@@ -1699,7 +1916,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                 <button
                   onClick={handleInstantBuy}
                   disabled={Boolean(blockedReason)}
-                  className="w-full py-3.5 sm:py-4 px-8 rounded-full bg-black hover:bg-neutral-800 text-white font-bold text-sm sm:text-base flex items-center justify-center transition-all cursor-pointer active:scale-95 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-3.5 sm:py-4 px-8 rounded-full bg-black hover:bg-neutral-800 text-white font-bold text-sm sm:text-base flex items-center justify-center transition-all cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span>{language === 'AR' ? 'شراء الآن' : 'Buy Now'}</span>
                 </button>
@@ -1719,7 +1936,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
             {/* ========================================================================= */}
             <div className="space-y-3">
               {/* Tabby Installment Card */}
-              <div className="bg-white border border-neutral-200/90 rounded-xl p-4 shadow-2xs hover:border-neutral-300 transition-all">
+              <div className="bg-white border border-neutral-200/90 rounded-xl p-4 hover:border-neutral-300 transition-all">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs text-neutral-700 leading-relaxed">
@@ -1765,7 +1982,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               </div>
 
               {/* Tamara Installment Card */}
-              <div className="bg-white border border-neutral-200/90 rounded-xl p-4 shadow-2xs hover:border-neutral-300 transition-all">
+              <div className="bg-white border border-neutral-200/90 rounded-xl p-4 hover:border-neutral-300 transition-all">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs text-neutral-700 leading-relaxed">
@@ -1829,7 +2046,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-[#F8F9FA] rounded-[28px] p-6 sm:p-8 flex flex-col justify-between border border-neutral-100 hover:shadow-[0_12px_36px_rgba(0,0,0,0.04)] transition-all">
+            <div className="bg-[#F8F9FA] rounded-[28px] p-6 sm:p-8 flex flex-col justify-between border border-neutral-100 transition-all">
               <div className="w-12 h-12 rounded-2xl bg-black text-white flex items-center justify-center mb-6">
                 <Gauge className="w-6 h-6" />
               </div>
@@ -1845,7 +2062,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               </div>
             </div>
 
-            <div className="bg-[#F8F9FA] rounded-[28px] p-6 sm:p-8 flex flex-col justify-between border border-neutral-100 hover:shadow-[0_12px_36px_rgba(0,0,0,0.04)] transition-all">
+            <div className="bg-[#F8F9FA] rounded-[28px] p-6 sm:p-8 flex flex-col justify-between border border-neutral-100 transition-all">
               <div className="w-12 h-12 rounded-2xl bg-black text-white flex items-center justify-center mb-6">
                 <Flame className="w-6 h-6" />
               </div>
@@ -1861,7 +2078,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               </div>
             </div>
 
-            <div className="bg-[#F8F9FA] rounded-[28px] p-6 sm:p-8 flex flex-col justify-between border border-neutral-100 hover:shadow-[0_12px_36px_rgba(0,0,0,0.04)] transition-all">
+            <div className="bg-[#F8F9FA] rounded-[28px] p-6 sm:p-8 flex flex-col justify-between border border-neutral-100 transition-all">
               <div className="w-12 h-12 rounded-2xl bg-black text-white flex items-center justify-center mb-6">
                 <Layers className="w-6 h-6" />
               </div>
@@ -1880,9 +2097,26 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
         </section>
 
         {/* ========================================================================= */}
-        {/* 5. HARDWARE SPECIFICATIONS & DYNAMIC MODEL COMPARISON (Image 1 & Image 2)  */}
+        {/* 5. GROUP CHILD COMPARISON + optional merchant comparison banner image     */}
         {/* ========================================================================= */}
-        <ProductComparisonSection currentProduct={product} language={language} />
+        {parentIsGrouped && compareChildren.length >= 2 ? (
+          <GroupChildrenComparison
+            children={compareChildren}
+            selectedId={activeChildId}
+            language={language}
+            onSelect={(id) => setActiveChildId(String(id))}
+            onBuy={handleCompareBuy}
+          />
+        ) : null}
+        <ProductComparisonSection
+          currentProduct={parentProduct || product}
+          language={language}
+          anchorId={
+            parentIsGrouped && compareChildren.length >= 2
+              ? ''
+              : 'specs-comparison-section'
+          }
+        />
 
         {/* ========================================================================= */}
         {/* 6. HONOR-STYLE CUSTOMER REVIEWS (Screenshot 4)                            */}
@@ -1906,7 +2140,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
 
             <button
               onClick={() => setIsWritingReview(!isWritingReview)}
-              className="px-6 py-2.5 rounded-full bg-black hover:bg-neutral-800 text-white text-xs sm:text-sm font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer self-start sm:self-auto shrink-0"
+              className="px-6 py-2.5 rounded-full bg-black hover:bg-neutral-800 text-white text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-pointer self-start sm:self-auto shrink-0"
             >
               <MessageSquare className="w-4 h-4" />
               <span>
@@ -1995,7 +2229,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
           {isWritingReview && (
             <form
               onSubmit={handleSubmitReview}
-              className="bg-white border border-neutral-200 rounded-[28px] p-6 sm:p-8 space-y-4 shadow-sm"
+              className="bg-white border border-neutral-200 rounded-[28px] p-6 sm:p-8 space-y-4"
             >
               <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
                 <span className="font-extrabold text-sm sm:text-base text-neutral-900">
@@ -2221,7 +2455,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
       {/* ========================================================================= */}
       {/* 8. MOBILE FIXED BOTTOM BUY BAR (< lg screens)                             */}
       {/* ========================================================================= */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-neutral-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] py-2.5 px-4 safe-area-pb">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-neutral-200 py-2.5 px-4 safe-area-pb">
         <div className="flex items-center justify-between gap-3 max-w-lg mx-auto">
           {/* Price & savings */}
           <div className="flex flex-col min-w-0">
@@ -2244,7 +2478,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handleAddToCart}
-              className="px-3.5 py-2.5 rounded-full border border-neutral-300 hover:border-black bg-white text-neutral-900 font-bold text-xs flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer shadow-2xs"
+              className="px-3.5 py-2.5 rounded-full border border-neutral-300 hover:border-black bg-white text-neutral-900 font-bold text-xs flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
               title={language === 'AR' ? 'أضف للسلة' : 'Add to Bag'}
             >
               <ShoppingBag className="w-4 h-4" />
@@ -2252,7 +2486,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
             </button>
             <button
               onClick={handleInstantBuy}
-              className="px-5 py-2.5 rounded-full bg-black hover:bg-neutral-800 text-white font-bold text-xs flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer shadow-md"
+              className="px-5 py-2.5 rounded-full bg-black hover:bg-neutral-800 text-white font-bold text-xs flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
             >
               <span>{language === 'AR' ? 'شراء الآن' : 'Buy Now'}</span>
             </button>

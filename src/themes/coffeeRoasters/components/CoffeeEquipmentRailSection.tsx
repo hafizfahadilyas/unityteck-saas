@@ -4,6 +4,10 @@ import { bi } from '../../settings/coffeeModularSettings';
 import type { AllThemeSettings } from '../../settings/themeSettingsStore';
 import { ChevronRight, ChevronLeft, Sparkles } from 'lucide-react';
 import { coffeeIsolatedCardImage } from '../utils/coffeeIsolatedImage';
+import {
+  resolveShowcaseCardChrome,
+  resolveShowcaseShopTarget,
+} from './coffeeCategoryShowcaseLogic';
 
 /** C-FCP / C-FP equipment rail — same JSX on live home + page builder canvas. */
 export const CoffeeEquipmentRailSection: React.FC<{
@@ -61,8 +65,16 @@ export const CoffeeEquipmentRailSection: React.FC<{
     ];
   }, [themeSettings, products]);
 
+  const showcaseChrome = useMemo(
+    () => resolveShowcaseCardChrome(themeSettings?.featuredCategoriesProducts),
+    [themeSettings?.featuredCategoriesProducts],
+  );
+
   const homeRailTitle = useMemo(() => {
     const fcp = themeSettings?.featuredCategoriesProducts;
+    if (fcp?.enabled !== false && (fcp?.titleEn || fcp?.titleAr)) {
+      return bi(language, fcp.titleEn || '', fcp.titleAr || '');
+    }
     const fcpSection = fcp?.enabled !== false
       ? (fcp?.sections || []).find((s) => s.enabled !== false)
       : undefined;
@@ -85,20 +97,38 @@ export const CoffeeEquipmentRailSection: React.FC<{
     const fcpSection = fcpOn ? (fcp?.sections || []).find((s) => s.enabled !== false) : undefined;
     const fcpHasCats = (fcpSection?.categories || []).some((c) => c.enabled !== false);
     const sectionEnabled = fcpHasCats ? fcpOn : fpOn || fcpOn;
+    const topDesc = bi(language, fcp?.descriptionEn, fcp?.descriptionAr);
     return {
       sectionEnabled,
       showPrice: fcpHasCats
-        ? fcpSection?.showPrice !== false
+        ? (fcp?.showPrice !== false && fcpSection?.showPrice !== false)
         : fp?.showPrice !== false,
       showRating: fcpHasCats
         ? fcpSection?.showRating !== false
         : fp?.showRating !== false,
       highlightFirst: fp?.highlightFirst !== false,
-      description: fcpHasCats
+      description: topDesc || (fcpHasCats
         ? bi(language, fcpSection?.descriptionEn, fcpSection?.descriptionAr)
-        : bi(language, fp?.descriptionEn, fp?.descriptionAr),
+        : bi(language, fp?.descriptionEn, fp?.descriptionAr)),
     };
   }, [themeSettings, language]);
+
+  const goShowcaseShop = () => {
+    const target = resolveShowcaseShopTarget(showcaseChrome.moreProductsUrl);
+    if (target === 'products') {
+      navigateTo('products');
+      return;
+    }
+    if (/^https?:\/\//i.test(target.href)) {
+      window.open(target.href, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    navigateTo('products');
+  };
+
+  const buyLabel = language === 'AR' ? showcaseChrome.buyLabelAr : showcaseChrome.buyLabelEn;
+  const learnMoreLabel = language === 'AR' ? showcaseChrome.learnMoreLabelAr : showcaseChrome.learnMoreLabelEn;
+  const moreProductsLabel = language === 'AR' ? showcaseChrome.moreProductsAr : showcaseChrome.moreProductsEn;
 
   useEffect(() => {
     if (!homeCategoryTabs.some((t) => t.id === activeCategoryTab) && homeCategoryTabs[0]) {
@@ -126,9 +156,11 @@ export const CoffeeEquipmentRailSection: React.FC<{
   }, [products, activeCategoryTab]);
 
   // Live catalog only — never paint CATEGORY_SHOWCASE_MAP seed products when this store has none.
+  const maxVisible = showcaseChrome.maxVisibleProducts;
   const currentShowcase = useMemo(() => {
     if (filteredCategoryProducts.length === 0) return null;
     const first = filteredCategoryProducts[0];
+    const companionCap = Math.max(0, maxVisible - 1);
     return {
       featured: {
         productId: first.id,
@@ -143,23 +175,31 @@ export const CoffeeEquipmentRailSection: React.FC<{
         price: first.basePrice,
         originalPrice: first.originalPrice,
       },
-      // Honor 1+4 rail — never dump entire catalog into the right column (caused blank left + huge scroll)
-      companionIds: filteredCategoryProducts.slice(1, 5).map((p) => p.id),
+      companionIds: filteredCategoryProducts.slice(1, 1 + companionCap).map((p) => p.id),
+      hasMoreProducts: filteredCategoryProducts.length > maxVisible,
     };
-  }, [filteredCategoryProducts]);
+  }, [filteredCategoryProducts, maxVisible]);
 
   const companionProducts = useMemo(() => {
+    const companionCap = Math.max(0, maxVisible - 1);
     if (filteredCategoryProducts.length > 1) {
-      return filteredCategoryProducts.slice(1, 5);
+      return filteredCategoryProducts.slice(1, 1 + companionCap);
     }
     if (!currentShowcase) return [];
     return currentShowcase.companionIds
-      .slice(0, 4)
+      .slice(0, companionCap)
       .map((id) => (products && products.length > 0 ? products.find((p) => p.id === id) : undefined))
       .filter(Boolean) as NonNullable<typeof products>;
-  }, [filteredCategoryProducts, currentShowcase, products]);
+  }, [filteredCategoryProducts, currentShowcase, products, maxVisible]);
 
-  const totalMobileSlides = Math.max(1 + companionProducts.length + 1, 1); // 1 featured + up to 4 companions + 1 explore card
+  const showMoreProductsCta =
+    showcaseChrome.showMoreProducts &&
+    Boolean(currentShowcase?.hasMoreProducts || (filteredCategoryProducts.length > maxVisible));
+
+  const totalMobileSlides = Math.max(
+    1 + companionProducts.length + (showcaseChrome.showMoreProducts ? 1 : 0),
+    1,
+  ); // featured + companions + optional More Products
   const safeActiveSlide = Math.min(Math.max(activeMobileSlide ?? 0, 0), Math.max(totalMobileSlides - 1, 0));
 
   // High-performance IntersectionObserver for tracking active slide without layout thrashing
@@ -238,7 +278,12 @@ export const CoffeeEquipmentRailSection: React.FC<{
   return (
     <>
       {homeRailFlags.sectionEnabled ? (
-      <section id="all-equipment-section" data-customize-section="C-FP C-FCP" className="w-full bg-[#F9F9F9] py-12 sm:py-16 lg:py-20 overflow-hidden">
+      <section
+        id="all-equipment-section"
+        data-customize-section="C-FP C-FCP"
+        className="w-full py-12 sm:py-16 lg:py-20 overflow-hidden"
+        style={{ background: showcaseChrome.bgColor || '#F9F9F9' }}
+      >
         <div className="w-full max-w-[1360px] mx-auto px-3 sm:px-6 lg:px-8">
           <div className="text-center max-w-[1360px] mx-auto mb-8 sm:mb-10">
             <h2 className={`text-3xl sm:text-4xl lg:text-[40px] font-bold text-black text-center ${
@@ -301,10 +346,19 @@ export const CoffeeEquipmentRailSection: React.FC<{
             </div>
           ) : (
           <>
-          {/* Desktop Layout: Unified Honor Architecture 1+4 Layout */}
-          <div className="hidden lg:grid lg:grid-cols-12 gap-5 sm:gap-6 items-start w-full max-w-full">
-            {/* Left Large Featured Card (Full width & height image with bottom gradient shade, Honor-style) */}
-            <div className="lg:col-span-6 lg:sticky lg:top-24 bg-white rounded-[28px] sm:rounded-[32px] relative overflow-hidden flex flex-col justify-end transition-all duration-300 text-center w-full min-h-[500px] sm:min-h-[560px] lg:h-[640px] border-0 shadow-none hover:shadow-none group">
+          {/* Desktop Layout: Unified Honor Architecture 1+4 Layout — equal column heights */}
+          <div
+            className={`hidden lg:grid lg:grid-cols-12 gap-5 sm:gap-6 w-full max-w-full ${
+              showcaseChrome.equalCardHeights ? 'items-stretch' : 'items-start'
+            }`}
+          >
+            {/* Left Large Featured Card — stretch to match companion column (no fixed 640px / sticky) */}
+            <div
+              className={`lg:col-span-6 bg-white relative overflow-hidden flex flex-col justify-end transition-all duration-300 text-center w-full min-h-[500px] sm:min-h-[560px] lg:min-h-[640px] border-0 shadow-none hover:shadow-none group ${
+                showcaseChrome.equalCardHeights ? 'h-full self-stretch' : ''
+              }`}
+              style={{ borderRadius: showcaseChrome.cardRadius }}
+            >
               {/* Full Width & Height Background Image */}
               <div
                 onClick={() => navigateTo('product-detail', currentShowcase.featured.productId)}
@@ -325,13 +379,14 @@ export const CoffeeEquipmentRailSection: React.FC<{
               <div className="relative z-10 px-6 pb-6 sm:pb-8 pt-6 text-center flex flex-col items-center justify-end">
                 <h3
                   onClick={() => navigateTo('product-detail', currentShowcase.featured.productId)}
-                  className={`text-xl sm:text-[22px] font-bold text-neutral-900 cursor-pointer hover:text-black text-center ${
+                  className={`font-bold cursor-pointer hover:opacity-80 text-center ${
                     language === 'AR' ? 'leading-[1.38] tracking-normal' : 'leading-snug tracking-[-0.01em]'
                   }`}
+                  style={{ fontSize: Math.max(showcaseChrome.titleFontSizePx + 4, 20), color: showcaseChrome.titleColor }}
                 >
                   {language === 'AR' ? currentShowcase.featured.titleAr : currentShowcase.featured.titleEn}
                 </h3>
-                <p className="text-[13px] text-neutral-600 flex items-center justify-center gap-1 font-normal mt-1">
+                <p className="flex items-center justify-center gap-1 font-normal mt-1" style={{ fontSize: showcaseChrome.taglineFontSizePx, color: showcaseChrome.taglineColor }}>
                   <Sparkles className="w-3.5 h-3.5 text-amber-700 inline shrink-0" />
                   <span>
                     {language === 'AR' ? currentShowcase.featured.taglineAr : currentShowcase.featured.taglineEn}
@@ -341,7 +396,7 @@ export const CoffeeEquipmentRailSection: React.FC<{
                 {/* Price — C-FCP / C-FP showPrice */}
                 {homeRailFlags.showPrice ? (
                 <div className="flex items-baseline justify-center gap-2 pt-2 pb-1 font-sans">
-                  <span className="text-[15px] sm:text-base font-bold text-neutral-900">
+                  <span className="font-bold" style={{ fontSize: showcaseChrome.priceFontSizePx, color: showcaseChrome.priceColor }}>
                     {language === 'AR' ? `${currentShowcase.featured.price.toLocaleString()}.00 ⃁` : `⃁ ${currentShowcase.featured.price.toLocaleString()}.00`}
                   </span>
                   {currentShowcase.featured.originalPrice && (
@@ -355,34 +410,47 @@ export const CoffeeEquipmentRailSection: React.FC<{
                 {/* Buttons (Honor style: solid black pill Buy + Learn More text link) */}
                 <div className="flex items-center justify-center gap-6 pt-3">
                   <button
+                    type="button"
                     onClick={() => navigateTo('product-buy', currentShowcase.featured.productId)}
-                    className="px-6 py-2 bg-black hover:bg-neutral-800 text-white font-medium text-xs rounded-full transition-transform active:scale-95 cursor-pointer shadow-none"
+                    className="px-6 py-2 bg-black hover:bg-neutral-800 text-white font-medium rounded-full transition-transform active:scale-95 cursor-pointer shadow-none"
+                    style={{ fontSize: showcaseChrome.ctaFontSizePx }}
                   >
-                    {language === 'AR' ? 'شراء' : 'Buy'}
+                    {buyLabel}
                   </button>
                   <button
+                    type="button"
                     onClick={() => navigateTo('product-detail', currentShowcase.featured.productId)}
-                    className="text-xs font-normal text-neutral-900 hover:text-black flex items-center gap-0.5 cursor-pointer hover:underline underline-offset-2"
+                    className="font-normal hover:opacity-80 flex items-center gap-0.5 cursor-pointer hover:underline underline-offset-2"
+                    style={{ fontSize: showcaseChrome.ctaFontSizePx, color: showcaseChrome.learnMoreColor }}
                   >
-                    <span>{language === 'AR' ? 'تعرف على المزيد' : 'Learn More'}</span>
+                    <span>{learnMoreLabel}</span>
                     <ChevronRight className={`w-3.5 h-3.5 shrink-0 ${language === 'AR' ? 'rotate-180' : ''}`} />
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* Right 2x2 Grid of 4 Companion Hardware Products */}
-            <div className="lg:col-span-6 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 w-full">
+            {/* Right companion grid — stretch rows + pin CTAs so every card matches */}
+            <div
+              className={`lg:col-span-6 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 w-full ${
+                showcaseChrome.equalCardHeights
+                  ? 'h-full min-h-0 items-stretch auto-rows-fr'
+                  : 'items-start'
+              }`}
+            >
               {companionProducts.map(prod => (
                 <div
                   key={prod.id}
-                  className="bg-white rounded-[24px] sm:rounded-[28px] p-5 sm:p-6 flex flex-col justify-between transition-all duration-300 text-center w-full border-0 shadow-none hover:shadow-none group"
+                  className={`bg-white p-5 sm:p-6 flex flex-col min-h-[280px] transition-all duration-300 text-center w-full border-0 shadow-none hover:shadow-none group ${
+                    showcaseChrome.equalCardHeights ? 'h-full' : ''
+                  }`}
+                  style={{ borderRadius: Math.max(0, showcaseChrome.cardRadius - 4) }}
                 >
-                  <div>
+                  <div className="flex-1 flex flex-col min-h-0">
                     {/* Centered Isolated Product PNG (Pure White Background) */}
                     <div
                       onClick={() => navigateTo('product-detail', prod.id)}
-                      className="w-full h-40 sm:h-44 flex items-center justify-center mb-2 relative cursor-pointer bg-transparent"
+                      className="w-full h-40 sm:h-44 shrink-0 flex items-center justify-center mb-2 relative cursor-pointer bg-transparent"
                     >
                       <img
                         src={coffeeIsolatedCardImage(prod.id, prod.colors[0]?.image || prod.images[0])}
@@ -393,24 +461,23 @@ export const CoffeeEquipmentRailSection: React.FC<{
                       />
                     </div>
 
-                    {/* Title: Exactly Honor Reference - font-bold ~700, 15-16px, clean sans-serif */}
                     <h4
                       onClick={() => navigateTo('product-detail', prod.id)}
-                      className={`font-bold text-[15px] sm:text-base text-neutral-900 cursor-pointer hover:text-black text-center ${
+                      className={`font-bold cursor-pointer hover:opacity-80 text-center line-clamp-2 min-h-[2.8em] ${
                         language === 'AR' ? 'leading-[1.4] tracking-normal' : 'leading-snug tracking-[-0.01em]'
                       }`}
+                      style={{ fontSize: showcaseChrome.titleFontSizePx, color: showcaseChrome.titleColor }}
                     >
                       {language === 'AR' && prod.nameAr ? prod.nameAr : prod.name}
                     </h4>
 
-                    {/* Tagline: Exactly Honor Reference - font-normal, 13px, neutral-600 */}
-                    <p className="text-[12px] sm:text-[13px] text-neutral-600 line-clamp-1 mt-1 text-center font-normal">
+                    <p className="line-clamp-1 min-h-[1.25em] mt-1 text-center font-normal" style={{ fontSize: showcaseChrome.taglineFontSizePx, color: showcaseChrome.taglineColor }}>
                       {language === 'AR' && prod.taglineAr ? prod.taglineAr : prod.tagline}
                     </p>
 
                     {homeRailFlags.showPrice ? (
                     <div className="pt-2 font-sans text-center flex items-baseline justify-center gap-1">
-                      <span className="text-[14px] sm:text-[15px] font-bold text-neutral-900">
+                      <span className="font-bold" style={{ fontSize: showcaseChrome.priceFontSizePx, color: showcaseChrome.priceColor }}>
                         {language === 'AR' ? `${prod.basePrice.toLocaleString()}.00 ⃁` : `⃁ ${prod.basePrice.toLocaleString()}.00`}
                       </span>
                     </div>
@@ -418,19 +485,23 @@ export const CoffeeEquipmentRailSection: React.FC<{
                   </div>
 
                   {/* Clean Links: Exactly Honor Reference - Buy >    Learn More > */}
-                  <div className="flex items-center justify-center gap-6 pt-3 mt-1">
+                  <div className={`flex items-center justify-center gap-6 pt-3 shrink-0 ${showcaseChrome.equalCardHeights ? 'mt-auto' : ''}`}>
                     <button
+                      type="button"
                       onClick={() => navigateTo('product-buy', prod.id)}
-                      className="text-xs font-normal text-neutral-900 hover:text-black flex items-center gap-0.5 cursor-pointer hover:underline underline-offset-2"
+                      className="font-normal hover:opacity-80 flex items-center gap-0.5 cursor-pointer hover:underline underline-offset-2"
+                      style={{ fontSize: showcaseChrome.ctaFontSizePx, color: showcaseChrome.buyColor }}
                     >
-                      <span>{language === 'AR' ? 'شراء' : 'Buy'}</span>
+                      <span>{buyLabel}</span>
                       <ChevronRight className={`w-3 h-3 ${language === 'AR' ? 'rotate-180' : ''}`} />
                     </button>
                     <button
+                      type="button"
                       onClick={() => navigateTo('product-detail', prod.id)}
-                      className="text-xs font-normal text-neutral-900 hover:text-black flex items-center gap-0.5 cursor-pointer hover:underline underline-offset-2"
+                      className="font-normal hover:opacity-80 flex items-center gap-0.5 cursor-pointer hover:underline underline-offset-2"
+                      style={{ fontSize: showcaseChrome.ctaFontSizePx, color: showcaseChrome.learnMoreColor }}
                     >
-                      <span>{language === 'AR' ? 'تعرف على المزيد' : 'Learn More'}</span>
+                      <span>{learnMoreLabel}</span>
                       <ChevronRight className={`w-3 h-3 ${language === 'AR' ? 'rotate-180' : ''}`} />
                     </button>
                   </div>
@@ -438,6 +509,20 @@ export const CoffeeEquipmentRailSection: React.FC<{
               ))}
             </div>
           </div>
+
+          {showMoreProductsCta ? (
+            <div className="hidden lg:flex justify-center mt-8">
+              <button
+                type="button"
+                onClick={goShowcaseShop}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-neutral-900 hover:bg-black text-white text-xs sm:text-sm font-bold transition-transform active:scale-95 cursor-pointer"
+                data-showcase-more-products
+              >
+                <span>{moreProductsLabel}</span>
+                <ChevronRight className={`w-4 h-4 ${language === 'AR' ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
+          ) : null}
 
           {/* Mobile & Tablet Only: Responsive Touch-Swipe Slider Carousel */}
           <div className="block lg:hidden w-full relative">
@@ -535,16 +620,20 @@ export const CoffeeEquipmentRailSection: React.FC<{
 
                   <div className="flex items-center justify-center gap-5 pt-3 pointer-events-auto">
                     <button
+                      type="button"
                       onClick={() => navigateTo('product-buy', currentShowcase.featured.productId)}
-                      className="px-6 py-2 bg-black hover:bg-neutral-800 text-white font-medium text-xs rounded-full transition-transform active:scale-95 cursor-pointer shadow-none"
+                      className="px-6 py-2 bg-black hover:bg-neutral-800 text-white font-medium rounded-full transition-transform active:scale-95 cursor-pointer shadow-none"
+                      style={{ fontSize: showcaseChrome.ctaFontSizePx }}
                     >
-                      {language === 'AR' ? 'شراء' : 'Buy'}
+                      {buyLabel}
                     </button>
                     <button
+                      type="button"
                       onClick={() => navigateTo('product-detail', currentShowcase.featured.productId)}
-                      className="text-xs font-normal text-neutral-900 hover:text-black flex items-center gap-0.5 cursor-pointer hover:underline underline-offset-2"
+                      className="font-normal hover:opacity-80 flex items-center gap-0.5 cursor-pointer hover:underline underline-offset-2"
+                      style={{ fontSize: showcaseChrome.ctaFontSizePx, color: showcaseChrome.learnMoreColor }}
                     >
-                      <span>{language === 'AR' ? 'تعرف على المزيد' : 'Learn More'}</span>
+                      <span>{learnMoreLabel}</span>
                       <ChevronRight className={`w-3.5 h-3.5 shrink-0 ${language === 'AR' ? 'rotate-180' : ''}`} />
                     </button>
                   </div>
@@ -556,11 +645,11 @@ export const CoffeeEquipmentRailSection: React.FC<{
                 <div
                   key={prod.id}
                   data-slide-index={pIdx + 1}
-                  className="w-[82vw] xs:w-[84vw] max-w-[320px] shrink-0 snap-center bg-white rounded-[26px] p-5 flex flex-col justify-between text-center min-h-[460px] border-0 shadow-xs group select-none"
+                  className="w-[82vw] xs:w-[84vw] max-w-[320px] shrink-0 snap-center bg-white rounded-[26px] p-5 flex flex-col text-center min-h-[460px] border-0 shadow-xs group select-none self-stretch"
                 >
-                  <div>
+                  <div className="flex-1 flex flex-col min-h-0">
                     {/* Top Tag */}
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-2 shrink-0">
                       <span className="text-[10px] font-bold text-neutral-500 bg-neutral-100 px-2.5 py-0.5 rounded-full">
                         {language === 'AR' ? `منتج 0${pIdx + 2}` : `ITEM 0${pIdx + 2}`}
                       </span>
@@ -574,7 +663,7 @@ export const CoffeeEquipmentRailSection: React.FC<{
                     {/* Isolated Product Image */}
                     <div
                       onClick={() => navigateTo('product-detail', prod.id)}
-                      className="w-full h-44 flex items-center justify-center my-2 cursor-pointer bg-transparent rounded-2xl p-2 select-none"
+                      className="w-full h-44 shrink-0 flex items-center justify-center my-2 cursor-pointer bg-transparent rounded-2xl p-2 select-none"
                     >
                       <img
                         src={coffeeIsolatedCardImage(prod.id, prod.colors[0]?.image || prod.images[0])}
@@ -589,7 +678,7 @@ export const CoffeeEquipmentRailSection: React.FC<{
                     {/* Title */}
                     <h4
                       onClick={() => navigateTo('product-detail', prod.id)}
-                      className={`font-bold text-[15px] text-neutral-900 cursor-pointer hover:text-black text-center mt-2 ${
+                      className={`font-bold text-[15px] text-neutral-900 cursor-pointer hover:text-black text-center mt-2 line-clamp-2 min-h-[2.8em] ${
                         language === 'AR' ? 'leading-[1.4] tracking-normal' : 'leading-snug'
                       }`}
                     >
@@ -597,7 +686,7 @@ export const CoffeeEquipmentRailSection: React.FC<{
                     </h4>
 
                     {/* Tagline */}
-                    <p className="text-[12px] text-neutral-600 line-clamp-1 mt-1 text-center font-normal">
+                    <p className="text-[12px] text-neutral-600 line-clamp-1 min-h-[1.25em] mt-1 text-center font-normal">
                       {language === 'AR' && prod.taglineAr ? prod.taglineAr : prod.tagline}
                     </p>
 
@@ -611,28 +700,33 @@ export const CoffeeEquipmentRailSection: React.FC<{
                   </div>
 
                   {/* Clean Links */}
-                  <div className="flex items-center justify-center gap-5 pt-4 border-0">
+                  <div className="flex items-center justify-center gap-5 pt-4 border-0 mt-auto shrink-0">
                     <button
+                      type="button"
                       onClick={() => navigateTo('product-buy', prod.id)}
-                      className="px-5 py-2 bg-black hover:bg-neutral-800 text-white font-medium text-xs rounded-full transition-transform active:scale-95 cursor-pointer shadow-none"
+                      className="px-5 py-2 bg-black hover:bg-neutral-800 text-white font-medium rounded-full transition-transform active:scale-95 cursor-pointer shadow-none"
+                      style={{ fontSize: showcaseChrome.ctaFontSizePx }}
                     >
-                      {language === 'AR' ? 'شراء' : 'Buy'}
+                      {buyLabel}
                     </button>
                     <button
+                      type="button"
                       onClick={() => navigateTo('product-detail', prod.id)}
-                      className="text-xs font-normal text-neutral-900 hover:text-black flex items-center gap-0.5 cursor-pointer hover:underline underline-offset-2"
+                      className="font-normal hover:opacity-80 flex items-center gap-0.5 cursor-pointer hover:underline underline-offset-2"
+                      style={{ fontSize: showcaseChrome.ctaFontSizePx, color: showcaseChrome.learnMoreColor }}
                     >
-                      <span>{language === 'AR' ? 'تعرف على المزيد' : 'Learn More'}</span>
+                      <span>{learnMoreLabel}</span>
                       <ChevronRight className={`w-3 h-3 ${language === 'AR' ? 'rotate-180' : ''}`} />
                     </button>
                   </div>
                 </div>
               ))}
 
-              {/* Slide 6: Explore Full Category Card */}
+              {/* Explore / More Products → default shop page */}
+              {showcaseChrome.showMoreProducts ? (
               <div
                 data-slide-index={companionProducts.length + 1}
-                onClick={() => navigateTo('products')}
+                onClick={goShowcaseShop}
                 className="w-[82vw] xs:w-[84vw] max-w-[320px] shrink-0 snap-center bg-gradient-to-br from-neutral-900 to-black text-white rounded-[26px] p-6 flex flex-col justify-between items-center text-center min-h-[460px] shadow-sm cursor-pointer group select-none"
               >
                 <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-white mt-8 group-hover:scale-110 transition-transform">
@@ -640,7 +734,7 @@ export const CoffeeEquipmentRailSection: React.FC<{
                 </div>
                 <div className="space-y-2">
                   <h4 className="font-extrabold text-lg text-white">
-                    {language === 'AR' ? 'استكشف كافة الموديلات' : 'Explore Full Collection'}
+                    {moreProductsLabel}
                   </h4>
                   <p className="text-xs text-neutral-300 leading-relaxed max-w-[240px]">
                     {language === 'AR'
@@ -653,14 +747,15 @@ export const CoffeeEquipmentRailSection: React.FC<{
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigateTo('products');
+                      goShowcaseShop();
                     }}
                     className="w-full py-3 bg-white text-black font-bold text-xs rounded-full hover:bg-neutral-100 transition-transform active:scale-95 cursor-pointer"
                   >
-                    {language === 'AR' ? 'عرض جميع المنتجات' : 'View All Products'}
+                    {moreProductsLabel}
                   </button>
                 </div>
               </div>
+              ) : null}
             </div>
 
             {/* Bottom Dots Pagination */}

@@ -10,7 +10,9 @@ import {
   CATEGORY_SHOWCASE_MAX_PRODUCTS,
   blankShowcaseBanner,
   colsForDevice,
+  resolveShowcaseCardChrome,
   resolveShowcaseProductIds,
+  resolveShowcaseShopTarget,
   visibleShowcaseBanners,
 } from '../../../../themes/coffeeRoasters/components/coffeeCategoryShowcaseLogic.ts';
 
@@ -28,6 +30,12 @@ const base: FeaturedCategoriesProductsSettings = {
   productsPerRowDesktop: 5,
   productsPerRowTablet: 3,
   productsPerRowMobile: 2,
+  buyLabelEn: 'Shop',
+  buyLabelAr: 'تسوق',
+  equalCardHeights: true,
+  showMoreProducts: true,
+  moreProductsUrl: 'products',
+  maxVisibleProducts: 5,
   sections: [],
 };
 
@@ -40,11 +48,25 @@ assert.deepEqual(resolveShowcaseProductIds({ ...base, productIds: [] }), []);
 assert.equal(colsForDevice(base, 'desktop'), 5);
 assert.equal(colsForDevice(base, 'mobile'), 2);
 
+const chrome = resolveShowcaseCardChrome(base);
+assert.equal(chrome.buyLabelEn, 'Shop');
+assert.equal(chrome.buyLabelAr, 'تسوق');
+assert.equal(chrome.equalCardHeights, true);
+assert.equal(chrome.showMoreProducts, true);
+assert.equal(chrome.moreProductsUrl, 'products');
+assert.equal(resolveShowcaseShopTarget('products'), 'products');
+assert.equal(resolveShowcaseShopTarget('shop'), 'products');
+assert.deepEqual(resolveShowcaseShopTarget('https://example.com/shop'), { href: 'https://example.com/shop' });
+
 const formPath = join(process.cwd(), 'src/components/store/themeSettings/coffee/CoffeeCategoryShowcaseForm.tsx');
 assert.ok(existsSync(formPath));
 const form = readFileSync(formPath, 'utf8');
 assert.match(form, /data-category-showcase-tab/);
 assert.match(form, /data-category-showcase-panel="layout"/);
+assert.match(form, /data-category-showcase-panel="style"/);
+assert.match(form, /equalCardHeights/);
+assert.match(form, /moreProductsUrl/);
+assert.match(form, /titleFontSizePx/);
 assert.match(form, /GlobalModal/);
 
 console.log('coffee category showcase controls ok');

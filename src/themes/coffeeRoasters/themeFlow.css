@@ -1,7 +1,14 @@
-/* Shared flow for the builder canvas and the coffee storefront. */
+/*
+ * Shared flow for the builder canvas and the coffee storefront.
+ * Use overflow-x: clip + overflow-y: visible (not overflow-x: hidden).
+ * Hidden on X forces overflow-y to auto → creates a non-scrolling scrollport
+ * and breaks position:sticky (product buy gallery, etc.). Clip still blocks
+ * horizontal bleed without becoming a Y scroll container.
+ */
 .hibrew-theme-root,
 .theme-builder-root {
-  overflow-x: hidden;
+  overflow-x: clip;
+  overflow-y: visible;
 }
 
 .hibrew-theme-root h1,
@@ -33,6 +40,72 @@
 
 .hibrew-theme-root [data-theme-sticky-chrome] {
   z-index: 50;
+}
+
+/* Honor buy bar — fixed under site header; content scrolls underneath (iPhone safe) */
+.hibrew-theme-root [data-buy-sticky-bar='1'] {
+  position: fixed !important;
+  left: 0;
+  right: 0;
+  top: var(--theme-chrome-offset, 4rem);
+  background-color: #ffffff;
+  z-index: 40;
+  max-width: 100vw;
+  overflow-x: clip;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+.hibrew-theme-root [data-buy-gallery-sticky='1'] {
+  top: calc(var(--theme-chrome-offset, 4rem) + var(--buy-sticky-bar-h, 3.5rem) + 8px);
+}
+
+/* Honor thumb strip: exactly one horizontal row, never wrap */
+.hibrew-theme-root [data-honor-thumb-strip='1'] {
+  width: 100%;
+  max-width: 100%;
+}
+
+.hibrew-theme-root [data-honor-thumb-scroll='1'] {
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  flex-wrap: nowrap !important;
+}
+
+.hibrew-theme-root [data-honor-thumb-scroll='1'] > div {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  width: max-content !important;
+  white-space: nowrap !important;
+}
+
+.hibrew-theme-root [data-honor-thumb-scroll='1'] > div > button {
+  flex: 0 0 64px !important;
+  width: 64px !important;
+  height: 64px !important;
+  border: 1px solid #000000 !important;
+  box-shadow: none !important;
+}
+
+.hibrew-theme-root [data-honor-thumb-scroll='1'] > div > button[aria-pressed='true'] {
+  border-width: 2px !important;
+}
+
+/* Honor select squares — always show black border (Care / Gift / bundles) */
+.hibrew-theme-root [role='radio'] > span.border-neutral-900,
+.hibrew-theme-root [role='checkbox'] > span.border-neutral-900,
+.hibrew-theme-root [role='radio'] > div.border-neutral-900,
+.hibrew-theme-root [role='checkbox'] > div.border-neutral-900 {
+  border: 1px solid #000000 !important;
+  box-shadow: none !important;
+}
+
+/* Extraction / Care panel + Gift / Add-on rows — 1px solid black */
+.hibrew-theme-root [data-honor-offer='care'] > div,
+.hibrew-theme-root [data-honor-offer-row='1'] {
+  border: 1px solid #000000 !important;
+  box-shadow: none !important;
 }
 
 .hibrew-theme-root [data-theme-menu] {

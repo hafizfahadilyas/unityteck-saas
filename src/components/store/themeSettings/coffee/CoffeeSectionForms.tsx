@@ -23,6 +23,9 @@ import { fetchProducts, updateProduct, fetchStoreReviewsApi, saveStoreReviewsApi
 import type { Product } from '../../../../types';
 import { CoffeeWordSettingsShell, type CoffeeFormChromeProps, type PreviewDevice } from './CoffeeWordSettingsShell';
 import { safeFeatureImage } from '../../../../themes/coffeeRoasters/components/CoffeeFeatureIconsBar';
+import { useTenant } from '../../../../context/TenantContext';
+import { normalizeProductSource } from '../../../../themes/coffeeRoasters/components/coffeeProductSourceLogic';
+import { CoffeeProductSourceControl } from './CoffeeProductSourceControl';
 
 export { CoffeeFeaturesForm } from './CoffeeFeatureIconsForm';
 export { HeroBannersForm } from './CoffeeHeroBannersForm';
@@ -929,6 +932,15 @@ export const CoffeeBannersSectionForm: React.FC<CoffeeFormChromeProps> = ({ onBa
 
 export const ProductCarouselBannerForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embedded }) => {
   const { draft, setDraft, save, saving, savedFlash, isAr } = useCoffeeDraft('productCarouselBanner');
+  const { currentProducts } = useTenant();
+  const catalog = (currentProducts || []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    nameAr: p.nameAr,
+    nameEn: p.nameEn,
+    category: p.category,
+    brand: p.brand,
+  }));
   return wordForm({
     onBack,
     embedded,
@@ -957,10 +969,26 @@ export const ProductCarouselBannerForm: React.FC<CoffeeFormChromeProps> = ({ onB
       <BiFields isAr={isAr} labelEn="Title" labelAr="العنوان" en={draft?.titleEn || ''} ar={draft?.titleAr || ''} onEn={(v) => setDraft({ ...draft, titleEn: v })} onAr={(v) => setDraft({ ...draft, titleAr: v })} />
       <BiFields isAr={isAr} labelEn="Subtitle" labelAr="الوصف" en={draft?.subtitleEn || ''} ar={draft?.subtitleAr || ''} onEn={(v) => setDraft({ ...draft, subtitleEn: v })} onAr={(v) => setDraft({ ...draft, subtitleAr: v })} />
       <BiFields isAr={isAr} labelEn="Button" labelAr="الزر" en={draft?.buttonEn || ''} ar={draft?.buttonAr || ''} onEn={(v) => setDraft({ ...draft, buttonEn: v })} onAr={(v) => setDraft({ ...draft, buttonAr: v })} />
-      <label className="text-[11px] font-bold space-y-1 block">
-        <span>{isAr ? 'تصنيف المنتجات بجانب البانر' : 'Products beside the banner'}</span>
-        <input value={draft?.categoryId || ''} onChange={(e) => setDraft({ ...draft, categoryId: e.target.value })} className="w-full px-3 py-2 rounded-xl border text-xs" style={{ borderColor: 'var(--border)' }} dir="ltr" />
-      </label>
+      <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)' }} data-pcb-product-source>
+        <CoffeeProductSourceControl
+          isAr={isAr}
+          catalog={catalog}
+          value={normalizeProductSource({
+            productSource: draft?.productSource,
+            categoryId: draft?.categoryId,
+            productCount: draft?.productCount,
+          })}
+          onChange={(next) =>
+            setDraft({
+              ...draft,
+              productSource: next,
+              categoryId: next.categoryIds[0] || draft?.categoryId || '',
+              productCount: next.productCount,
+              enabled: true,
+            })
+          }
+        />
+      </div>
     </>
   ));
 };

@@ -6,6 +6,11 @@ interface ProductComparisonSectionProps {
   language: 'EN' | 'AR';
   /** Optional override from parent (same store product field). */
   customSpecImgUrl?: string;
+  /**
+   * DOM id for sticky-tab scroll. Pass empty string when a sibling
+   * (e.g. GroupChildrenComparison) already owns `specs-comparison-section`.
+   */
+  anchorId?: string;
 }
 
 /**
@@ -16,6 +21,7 @@ export const ProductComparisonSection: React.FC<ProductComparisonSectionProps> =
   currentProduct,
   language,
   customSpecImgUrl,
+  anchorId = 'specs-comparison-section',
 }) => {
   const isAr = language === 'AR';
   const [imageError, setImageError] = useState(false);
@@ -48,7 +54,7 @@ export const ProductComparisonSection: React.FC<ProductComparisonSectionProps> =
 
   return (
     <section
-      id="specs-comparison-section"
+      id={anchorId || undefined}
       className="mt-12 sm:mt-16 scroll-mt-28 w-full"
       dir={isAr ? 'rtl' : 'ltr'}
       data-comparison-banner="image-only"

@@ -151,8 +151,8 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [activeActionMenuId, setActiveActionMenuId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  /** Admin catalog: up to 100 rows per page, then next page. */
-  const [pageSize, setPageSize] = useState(100);
+  /** Admin list: default 40 rows per page so one long page shows a full batch. */
+  const [pageSize, setPageSize] = useState(40);
   const listScrollRef = useRef<HTMLDivElement | null>(null);
 
   // Makdah Flowers Catalog Table & Inline Edit State (Spec Section 6 & 9)
@@ -615,7 +615,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
     return list;
   }, [filteredProducts]);
 
-  // True page windows: Show 100 → rows 1–100 on page 1, 101–200 on page 2, etc.
+  // True page windows: Show 50 → rows 1–50 on page 1, 51–100 on page 2, etc.
   const totalCount = dataSource === 'api' ? apiTotal : sortedProducts.length;
   // Never trust a stale/wrong last_page when total + pageSize already imply fewer pages
   const pageCountFromTotal = Math.max(1, Math.ceil((totalCount || 0) / pageSize) || 1);
@@ -1581,7 +1581,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
           <div
             className="rounded-2xl border shadow-xs overflow-visible flex flex-col flex-1"
             style={{
-              minHeight: 'calc(100dvh - 18rem)',
+              minHeight: 'calc(100dvh - 12rem)',
               background: 'var(--surface)',
               borderColor: 'var(--border)',
               color: 'var(--text)',
@@ -1784,8 +1784,11 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
             {/* ── CONDITIONAL VIEW: GRID OR TABLE ── */}
             <div
               ref={listScrollRef}
-              className="relative z-0 flex-1 min-h-0 overflow-x-auto overflow-y-auto overscroll-contain"
-              style={{ maxHeight: 'calc(100dvh - 19rem)' }}
+              className="relative z-0 flex-1 overflow-x-auto overflow-y-visible"
+              style={{
+                /* Long page: show ~40 rows without a short clipped inner box. */
+                minHeight: 'min(85dvh, calc(100dvh - 10rem))',
+              }}
             >
             {viewMode === 'grid' ? (
               /* ── 1. GRID VIEW (Mockup 06 & Screenshot 2 Exact) ── */
@@ -2731,7 +2734,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
               onPageSizeChange={setPageSize}
               isAr={isAr}
               itemLabel={isAr ? 'منتج' : 'products'}
-              pageSizeOptions={[20, 50, 100]}
+              pageSizeOptions={[10, 20, 30, 40, 50]}
             />
             </div>
           </div>

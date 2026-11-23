@@ -166,7 +166,7 @@ export const PopularModelsSection: React.FC = () => {
           {isAr ? 'لا منتجات في الكتالوج.' : 'No products in the catalog.'}
         </p>
       ) : (
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-6 lg:gap-8">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-6 lg:gap-8 items-stretch auto-rows-fr">
         {displayProducts.map((product) => (
           <HonorProductCard key={product.id} product={product} flags={cardFlags} />
         ))}

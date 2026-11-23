@@ -49,6 +49,8 @@ import {
   type CollectionCatalogProduct,
   type ProductCollectionDevice,
 } from '../../../../themes/coffeeRoasters/components/coffeeProductCollectionLogic';
+import { normalizeProductSource } from '../../../../themes/coffeeRoasters/components/coffeeProductSourceLogic';
+import { CoffeeProductSourceControl } from './CoffeeProductSourceControl';
 
 type Tab = 'content' | 'style' | 'layout' | 'advanced';
 const TABS: { id: Tab; en: string; ar: string }[] = [
@@ -118,6 +120,7 @@ export const CoffeeProductCollectionForm: React.FC<CoffeeFormChromeProps> = ({ o
         nameEn: p.name,
         nameAr: p.nameAr,
         category: String(p.category || ''),
+        brand: String((p as { brand?: string }).brand || ''),
         basePrice: p.basePrice,
         price: p.basePrice,
         originalPrice: p.originalPrice ?? null,
@@ -256,22 +259,38 @@ export const CoffeeProductCollectionForm: React.FC<CoffeeFormChromeProps> = ({ o
 
                 <section className={cardCls} style={cardStyle} data-product-collection-panel="source">
                   <h3 className="text-sm font-bold">{isAr ? 'مصدر المنتجات' : 'Product Source'}</h3>
-                  <select className={inputCls} style={inputStyle} value={draft?.sourceType || 'manual'} onChange={(e) => patch({ sourceType: e.target.value as ProductSliderSource, enabled: true })}>
-                    <option value="manual">{isAr ? 'اختيار يدوي' : 'Manual Selection'}</option>
-                    <option value="category">{isAr ? 'تصنيف' : 'Category'}</option>
-                    <option value="featured">{isAr ? 'منتجات مميزة' : 'Featured Products'}</option>
-                    <option value="latest">{isAr ? 'أحدث المنتجات' : 'Latest Products'}</option>
-                    <option value="best_selling">{isAr ? 'الأكثر مبيعاً' : 'Best Selling'}</option>
-                  </select>
-                  {draft?.sourceType === 'category' ? (
-                    <input className={inputCls} style={inputStyle} dir="ltr" value={draft?.categoryId || ''} onChange={(e) => patch({ categoryId: e.target.value })} placeholder={isAr ? 'معرف التصنيف' : 'Category ID'} />
-                  ) : null}
-                  {draft?.sourceType !== 'manual' ? (
-                    <label className="block space-y-1 text-[11px] font-semibold">
-                      <span style={{ color: 'var(--muted)' }}>{isAr ? 'عدد المنتجات' : 'Product count'}</span>
-                      <input type="number" min={1} max={PRODUCT_COLLECTION_MAX_ITEMS} className={inputCls} style={inputStyle} value={draft?.productCount ?? 8} onChange={(e) => patch({ productCount: Number(e.target.value) || 1 })} />
-                    </label>
-                  ) : null}
+                  <CoffeeProductSourceControl
+                    isAr={isAr}
+                    catalog={catalog}
+                    maxCount={PRODUCT_COLLECTION_MAX_ITEMS}
+                    value={normalizeProductSource({
+                      productSource: draft?.productSource,
+                      sourceType: draft?.sourceType,
+                      categoryId: draft?.categoryId,
+                      productCount: draft?.productCount,
+                      items: draft?.items,
+                    })}
+                    onChange={(next) =>
+                      patch({
+                        productSource: next,
+                        sourceType:
+                          next.mode === 'selected'
+                            ? 'manual'
+                            : next.mode === 'category'
+                              ? 'category'
+                              : next.mode === 'featured'
+                                ? 'featured'
+                                : next.mode === 'latest'
+                                  ? 'latest'
+                                  : next.mode === 'best_selling'
+                                    ? 'best_selling'
+                                    : 'manual',
+                        categoryId: next.categoryIds[0] || draft?.categoryId || '',
+                        productCount: next.productCount,
+                        enabled: true,
+                      })
+                    }
+                  />
                 </section>
 
                 {draft?.sourceType === 'manual' || !draft?.sourceType ? (

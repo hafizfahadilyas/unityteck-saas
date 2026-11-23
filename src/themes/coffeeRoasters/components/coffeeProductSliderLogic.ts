@@ -5,6 +5,10 @@ import type {
   ProductSliderSettings,
   ProductSliderSource,
 } from '../../settings/coffeeModularSettings';
+import {
+  normalizeProductSource,
+  resolveProductsBySource,
+} from './coffeeProductSourceLogic';
 
 export const PRODUCT_SLIDER_MAX_ITEMS = 24;
 
@@ -34,6 +38,7 @@ export type SliderCatalogProduct = {
   nameAr?: string;
   nameEn?: string;
   category?: string;
+  brand?: string | null;
   stock?: number;
   price?: number;
   basePrice?: number;
@@ -48,6 +53,7 @@ export type SliderCatalogProduct = {
   featured?: boolean;
   salesCount?: number;
   soldCount?: number;
+  createdAt?: string | number | null;
   tagline?: string;
   taglineAr?: string;
   overview?: string;
@@ -195,7 +201,7 @@ export type ResolvedSliderCard = {
   catalog: SliderCatalogProduct | null;
 };
 
-/** Resolve rail cards from source type + live catalog. Empty stays empty. */
+/** Resolve rail cards from productSource filter or legacy sourceType. Empty stays empty. */
 export function resolveProductSliderCards(
   settings: ProductSliderSettings | null | undefined,
   catalog: SliderCatalogProduct[],
@@ -203,11 +209,46 @@ export function resolveProductSliderCards(
   if (!settings || settings.enabled === false) return [];
   const count = clampCount(settings);
   const byId = new Map(catalog.map((p) => [p.id, p]));
+  const items = (settings.items || []).filter((it) => it.enabled !== false);
+
+  if (settings.productSource?.mode) {
+    const cfg = normalizeProductSource({
+      productSource: settings.productSource,
+      sourceType: settings.sourceType,
+      categoryId: settings.categoryId,
+      productCount: settings.productCount,
+      items,
+    });
+    if (cfg.mode === 'selected' && items.length > 0 && !(settings.productSource.productIds || []).length) {
+      return items
+        .map((item) => {
+          const hit = item.productId ? byId.get(item.productId) || null : null;
+          return { item, catalog: hit };
+        })
+        .filter(({ item, catalog: hit }) => itemHasContent(item, hit))
+        .slice(0, PRODUCT_SLIDER_MAX_ITEMS);
+    }
+    return resolveProductsBySource(cfg, catalog).slice(0, PRODUCT_SLIDER_MAX_ITEMS).map((p) => ({
+      item: blankProductSliderItem({
+        id: `auto-${p.id}`,
+        productId: p.id,
+        nameEn: p.nameEn || p.name || '',
+        nameAr: p.nameAr || '',
+        descriptionEn: p.tagline || p.overview || '',
+        descriptionAr: p.taglineAr || p.overviewAr || '',
+        image: catalogProductImage(p),
+        price: p.discountedPrice ?? p.basePrice ?? p.price ?? null,
+        originalPrice: p.originalPrice ?? null,
+        featured: isFeaturedProduct(p),
+      }),
+      catalog: p,
+    }));
+  }
+
   const source: ProductSliderSource = settings.sourceType || 'manual';
 
   if (source === 'manual') {
-    return (settings.items || [])
-      .filter((it) => it.enabled !== false)
+    return items
       .map((item) => {
         const hit = item.productId ? byId.get(item.productId) || null : null;
         return { item, catalog: hit };

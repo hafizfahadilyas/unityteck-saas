@@ -7,6 +7,7 @@ import type {
   Product,
   ProductConditionalRuleDefinition,
   ProductCustomField,
+  ProductCustomFieldOptionItem,
   ProductOptionDefinition,
   ProductVariation,
 } from '../types';
@@ -110,6 +111,49 @@ function hasAnswer(value: FieldValue | undefined): boolean {
   return String(value ?? '').trim() !== '';
 }
 
+/** Normalize string / object custom-field options for Honor-style cards. */
+export function normalizeCustomFieldOptions(
+  options: ProductCustomField['options'] | undefined,
+): ProductCustomFieldOptionItem[] {
+  if (!Array.isArray(options)) return [];
+  return options
+    .map((opt) => {
+      if (typeof opt === 'string') {
+        const label = opt.trim();
+        if (!label) return null;
+        // "Name (+SAR 99)" / "Name (99)" → label + price hint
+        const priced = label.match(/^(.*?)\s*\(\+?\s*(?:SAR|⃁|ر\.?\s*س\.?)?\s*([\d.,]+)\s*\)$/i);
+        if (priced) {
+          const price = Number(String(priced[2]).replace(/,/g, ''));
+          return {
+            label: priced[1].trim() || label,
+            ...(Number.isFinite(price) ? { price } : {}),
+          };
+        }
+        if (choiceLooksLikeImage(label)) {
+          return { label, imageUrl: label };
+        }
+        return { label };
+      }
+      if (opt && typeof opt === 'object') {
+        const label = String(opt.label || '').trim();
+        if (!label) return null;
+        return {
+          label,
+          labelAr: opt.labelAr ? String(opt.labelAr) : undefined,
+          imageUrl: opt.imageUrl ? String(opt.imageUrl) : undefined,
+          price: opt.price != null && Number.isFinite(Number(opt.price)) ? Number(opt.price) : undefined,
+          compareAtPrice:
+            opt.compareAtPrice != null && Number.isFinite(Number(opt.compareAtPrice))
+              ? Number(opt.compareAtPrice)
+              : undefined,
+        };
+      }
+      return null;
+    })
+    .filter((row): row is ProductCustomFieldOptionItem => !!row);
+}
+
 export function isCustomFieldVisible(
   field: ProductCustomField,
   values: FieldValueMap,
@@ -141,6 +185,16 @@ export function customFieldsExtra(
     if (!customFieldIsFillable(field.type)) return sum;
     if (!isCustomFieldVisible(field, values, rules, selected)) return sum;
     if (!hasAnswer(values[field.id])) return sum;
+    const value = values[field.id];
+    const picked = Array.isArray(value) ? value : [String(value)];
+    const items = normalizeCustomFieldOptions(field.options);
+    let optionSum = 0;
+    for (const label of picked) {
+      const row = items.find((item) => item.label === label);
+      const p = Number(row?.price) || 0;
+      if (p > 0) optionSum += p;
+    }
+    if (optionSum > 0) return sum + optionSum;
     const extra = Number(field.extraPrice) || 0;
     return sum + (extra > 0 ? extra : 0);
   }, 0);
@@ -169,6 +223,7 @@ export function purchaseNotes(
   values: FieldValueMap,
   rules: ProductConditionalRuleDefinition[] | undefined,
   selected: Record<string, string>,
+  isAr = false,
 ): string[] {
   if (!fields?.length) return [];
   const notes: string[] = [];
@@ -177,10 +232,85 @@ export function purchaseNotes(
     if (!isCustomFieldVisible(field, values, rules, selected)) continue;
     const value = values[field.id];
     if (!hasAnswer(value)) continue;
-    const text = Array.isArray(value) ? value.join(', ') : String(value);
-    notes.push(`${field.name}: ${text}`);
+    const fieldLabel = isAr && field.nameAr ? field.nameAr : field.name;
+    const items = normalizeCustomFieldOptions(field.options);
+    const labels = (Array.isArray(value) ? value : [String(value)]).map((raw) => {
+      const row = items.find((item) => item.label === raw);
+      if (!row) return String(raw);
+      return isAr && row.labelAr ? row.labelAr : row.label;
+    });
+    notes.push(`${fieldLabel}: ${labels.join(', ')}`);
   }
   return notes;
+}
+
+/**
+ * Flatten cart line selections into order_items.selected_options so admin + invoices
+ * show every choice the customer made (options, add-ons, care, color, bundles…).
+ */
+export function buildCartLineSelectedOptions(item: {
+  selectedOptions?: Record<string, string> | null;
+  optionSummary?: string;
+  purchaseNotes?: string[];
+  selectedColor?: { name?: string; nameAr?: string } | null;
+  selectedStorage?: { capacity?: string; capacityAr?: string } | null;
+  selectedWarranty?: { name?: string; nameAr?: string } | null;
+  selectedBundles?: Array<{ name?: string; nameAr?: string; price?: number }> | null;
+  customCornerSpecs?: unknown;
+}, isAr = false): Record<string, string> {
+  const out: Record<string, string> = {};
+  const fromOpts = item.selectedOptions;
+  if (fromOpts && typeof fromOpts === 'object') {
+    for (const [k, v] of Object.entries(fromOpts)) {
+      if (k.startsWith('_')) continue;
+      if (v == null || String(v).trim() === '') continue;
+      out[k] = Array.isArray(v) ? v.join(', ') : String(v);
+    }
+  }
+  if (item.optionSummary && String(item.optionSummary).trim()) {
+    out[isAr ? 'الخيارات' : 'Options'] = String(item.optionSummary).trim();
+  }
+  const colorName = isAr
+    ? (item.selectedColor?.nameAr || item.selectedColor?.name || '')
+    : (item.selectedColor?.name || item.selectedColor?.nameAr || '');
+  if (colorName.trim()) out[isAr ? 'اللون' : 'Color'] = colorName.trim();
+
+  const edition = isAr
+    ? (item.selectedStorage?.capacityAr || item.selectedStorage?.capacity || '')
+    : (item.selectedStorage?.capacity || item.selectedStorage?.capacityAr || '');
+  if (edition.trim()) out[isAr ? 'الإصدار' : 'Edition'] = edition.trim();
+
+  const warranty = isAr
+    ? (item.selectedWarranty?.nameAr || item.selectedWarranty?.name || '')
+    : (item.selectedWarranty?.name || item.selectedWarranty?.nameAr || '');
+  if (warranty.trim()) out[isAr ? 'الضمان' : 'Warranty'] = warranty.trim();
+
+  const bundles = (item.selectedBundles || [])
+    .map((b) => {
+      const label = isAr ? (b.nameAr || b.name || '') : (b.name || b.nameAr || '');
+      return label.trim();
+    })
+    .filter(Boolean);
+  if (bundles.length) out[isAr ? 'الإضافات' : 'Bundles'] = bundles.join(', ');
+
+  for (const note of item.purchaseNotes || []) {
+    const raw = String(note || '').trim();
+    if (!raw) continue;
+    const idx = raw.indexOf(':');
+    if (idx > 0) {
+      const k = raw.slice(0, idx).trim();
+      const v = raw.slice(idx + 1).trim();
+      if (k && v) out[k] = v;
+    } else {
+      out[raw] = isAr ? 'نعم' : 'Yes';
+    }
+  }
+
+  if (item.customCornerSpecs) {
+    out[isAr ? 'ركن مخصص' : 'Custom corner'] = isAr ? 'نعم' : 'Yes';
+  }
+
+  return out;
 }
 
 export function choiceLooksLikeImage(value: string): boolean {

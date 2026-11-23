@@ -686,9 +686,10 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
                 }}
                 className="order-2 relative z-0 flex-1 min-h-[240px] w-full object-cover object-center sm:absolute sm:inset-0 sm:flex-none sm:min-h-0 sm:h-full sm:object-[75%_center] md:object-[80%_center] lg:object-right shadow-none transition-transform duration-700 ease-out group-hover:scale-[1.01]"
               />
-              {/* Desktop: light scrim so hero copy stays readable on busy lifestyle photos */}
+              {/* Desktop white scrim — always physical LEFT with the copy card (parent is forced LTR).
+                  Do NOT use start-0: in AR/RTL that flips the wash to the right while the card stays left. */}
               <div
-                className="hidden sm:block absolute inset-y-0 start-0 w-[min(100%,58%)] max-w-[620px] bg-gradient-to-r from-white via-white/90 to-transparent z-[5] pointer-events-none"
+                className="hidden sm:block absolute inset-y-0 left-0 w-[min(100%,58%)] max-w-[620px] bg-gradient-to-r from-white via-white/90 to-transparent z-[5] pointer-events-none"
                 aria-hidden
               />
 

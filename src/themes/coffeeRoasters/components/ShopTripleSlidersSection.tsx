@@ -45,10 +45,10 @@ const SliderCard: React.FC<SliderCardProps> = ({
   return (
     <div
       onClick={() => onNavigate('product-detail', String(product.id))}
-      className="w-[260px] sm:w-[290px] md:w-[310px] shrink-0 snap-start bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 border-0 shadow-xs hover:shadow-xl transition-all duration-300 flex flex-col justify-between group cursor-pointer text-start select-none relative overflow-hidden"
+      className="w-[260px] sm:w-[290px] md:w-[310px] min-h-[340px] sm:min-h-[360px] shrink-0 snap-start bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 border-0 shadow-xs hover:shadow-xl transition-all duration-300 flex flex-col group cursor-pointer text-start select-none relative overflow-hidden self-stretch"
     >
       {/* Top: Product Image Showcase */}
-      <div className="relative w-full h-40 sm:h-48 flex items-center justify-center p-2 mb-2 bg-[#FAFAFA] rounded-xl sm:rounded-2xl overflow-hidden group-hover:bg-neutral-50 transition-colors">
+      <div className="relative w-full h-40 sm:h-48 shrink-0 flex items-center justify-center p-2 mb-2 bg-[#FAFAFA] rounded-xl sm:rounded-2xl overflow-hidden group-hover:bg-neutral-50 transition-colors">
         <img
           src={prodImg}
           alt={prodTitle}
@@ -66,7 +66,7 @@ const SliderCard: React.FC<SliderCardProps> = ({
       </div>
 
       {/* Middle Content */}
-      <div className="w-full space-y-1 min-w-0">
+      <div className="w-full space-y-1 min-w-0 flex-1">
         {/* LINE 1: Products Title (Strictly 1 single line) */}
         <h4
           className="font-extrabold text-sm sm:text-base text-neutral-900 group-hover:text-black truncate whitespace-nowrap block"
@@ -85,7 +85,7 @@ const SliderCard: React.FC<SliderCardProps> = ({
       </div>
 
       {/* Bottom Action Row: PRICE, ADD TO CART, BUY NOW — ALL 3 TOGETHER IN ONE LINE WITH BLACK BUTTONS */}
-      <div className="pt-3 border-0 flex items-center justify-between gap-2 w-full mt-3">
+      <div className="pt-3 border-0 flex items-center justify-between gap-2 w-full mt-auto shrink-0">
         {/* 1. Price */}
         <div className="flex flex-col text-start shrink-0 min-w-0">
           <div className="flex items-baseline gap-1">

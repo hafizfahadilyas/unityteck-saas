@@ -6,6 +6,10 @@ import type {
   ProductSliderItem,
   ProductSliderSource,
 } from '../../settings/coffeeModularSettings';
+import {
+  normalizeProductSource,
+  resolveProductsBySource,
+} from './coffeeProductSourceLogic';
 
 export type ProductCollectionDevice = 'desktop' | 'tablet' | 'mobile';
 
@@ -18,6 +22,7 @@ export type CollectionCatalogProduct = {
   nameAr?: string;
   nameEn?: string;
   category?: string;
+  brand?: string | null;
   price?: number;
   basePrice?: number;
   originalPrice?: number | null;
@@ -31,6 +36,7 @@ export type CollectionCatalogProduct = {
   featured?: boolean;
   salesCount?: number;
   soldCount?: number;
+  createdAt?: string | number | null;
   tagline?: string;
   taglineAr?: string;
   overview?: string;
@@ -183,6 +189,24 @@ export type ResolvedCollectionCard = {
   catalog: CollectionCatalogProduct | null;
 };
 
+function collectionCardsFromList(list: CollectionCatalogProduct[]): ResolvedCollectionCard[] {
+  return list.map((p) => ({
+    item: blankProductCollectionItem({
+      id: `auto-${p.id}`,
+      productId: p.id,
+      nameEn: p.nameEn || p.name || '',
+      nameAr: p.nameAr || '',
+      descriptionEn: p.tagline || p.overview || '',
+      descriptionAr: p.taglineAr || p.overviewAr || '',
+      image: catalogImage(p),
+      price: p.discountedPrice ?? p.basePrice ?? p.price ?? null,
+      originalPrice: p.originalPrice ?? null,
+      featured: p.isFeatured === true || p.featured === true,
+    }),
+    catalog: p,
+  }));
+}
+
 export function resolveProductCollectionCards(
   settings: ProductCollectionSettings | null | undefined,
   catalog: CollectionCatalogProduct[] = [],
@@ -194,6 +218,28 @@ export function resolveProductCollectionCards(
       ? 8
       : Math.min(PRODUCT_COLLECTION_MAX_ITEMS, Math.floor(countRaw));
   const byId = new Map(catalog.map((p) => [p.id, p]));
+
+  if (settings.productSource?.mode) {
+    const cfg = normalizeProductSource({
+      productSource: settings.productSource,
+      sourceType: settings.sourceType,
+      categoryId: settings.categoryId,
+      productCount: settings.productCount,
+      items: settings.items,
+    });
+    if (cfg.mode === 'selected' && !(settings.productSource.productIds || []).length) {
+      return (settings.items || [])
+        .filter((it) => it.enabled !== false)
+        .map((item) => {
+          const hit = item.productId ? byId.get(item.productId) || null : null;
+          return { item, catalog: hit };
+        })
+        .filter(({ item, catalog: hit }) => itemHasContent(item, hit))
+        .slice(0, PRODUCT_COLLECTION_MAX_ITEMS);
+    }
+    return collectionCardsFromList(resolveProductsBySource(cfg, catalog).slice(0, count));
+  }
+
   const source: ProductSliderSource = settings.sourceType || 'manual';
 
   if (source === 'manual') {
@@ -220,21 +266,7 @@ export function resolveProductCollectionCards(
     list = list.slice().reverse();
   }
 
-  return list.slice(0, count).map((p) => ({
-    item: blankProductCollectionItem({
-      id: `auto-${p.id}`,
-      productId: p.id,
-      nameEn: p.nameEn || p.name || '',
-      nameAr: p.nameAr || '',
-      descriptionEn: p.tagline || p.overview || '',
-      descriptionAr: p.taglineAr || p.overviewAr || '',
-      image: catalogImage(p),
-      price: p.discountedPrice ?? p.basePrice ?? p.price ?? null,
-      originalPrice: p.originalPrice ?? null,
-      featured: p.isFeatured === true || p.featured === true,
-    }),
-    catalog: p,
-  }));
+  return collectionCardsFromList(list.slice(0, count));
 }
 
 export function collectionItemsPerView(

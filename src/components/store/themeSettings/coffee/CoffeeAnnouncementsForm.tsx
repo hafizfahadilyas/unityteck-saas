@@ -1,6 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, Copy, Eye, EyeOff, Trash2 } from 'lucide-react';
 import type { AnnouncementMessage } from '../../../../themes/settings/themeSettingsStore';
+import {
+  isFlexibleHrefValid,
+  normalizeFlexibleHref,
+} from '../../../../themes/settings/storeContact';
 import { duplicateAt, useCoffeeDraft, moveItem } from './coffeeFormKit';
 import { CoffeeWordSettingsShell, type CoffeeFormChromeProps, type PreviewDevice } from './CoffeeWordSettingsShell';
 
@@ -10,6 +14,62 @@ const cardStyle: React.CSSProperties = {
   background: 'var(--surface)',
 };
 const cardCls = 'rounded-2xl border p-4 shadow-sm space-y-3';
+
+/** Link row: hidden until text exists; then required. WhatsApp / social / any URL OK. */
+function RequiredLinkField({
+  isAr,
+  textValue,
+  linkValue,
+  onLinkChange,
+  invalid,
+}: {
+  isAr: boolean;
+  textValue: string;
+  linkValue: string;
+  onLinkChange: (v: string) => void;
+  invalid?: boolean;
+}) {
+  if (!textValue.trim()) return null;
+  return (
+    <label className="space-y-1 text-[11px] font-semibold block md:col-span-2" style={{ color: 'var(--muted)' }} data-ann-link-required>
+      <span className="inline-flex items-center gap-1 font-bold underline decoration-[var(--accent)] underline-offset-2" style={{ color: 'var(--text)' }}>
+        {isAr ? 'إضافة رابط' : 'Add link'}
+        <span aria-hidden>{isAr ? '‹' : '>'}</span>
+        <span className="text-rose-500 no-underline" title={isAr ? 'مطلوب' : 'Required'}>
+          *
+        </span>
+      </span>
+      <input
+        className={inputCls}
+        dir="ltr"
+        required
+        aria-required
+        aria-invalid={invalid || undefined}
+        value={linkValue}
+        onChange={(e) => onLinkChange(e.target.value)}
+        onBlur={() => {
+          const n = normalizeFlexibleHref(linkValue);
+          if (n && n !== linkValue.trim()) onLinkChange(n);
+        }}
+        placeholder={
+          isAr
+            ? 'واتساب / رابط تواصل اجتماعي / https://… / مسار المتجر'
+            : 'WhatsApp number, social URL, https://…, or shop path'
+        }
+        style={invalid ? { borderColor: '#e11d48' } : undefined}
+      />
+      <span className="block text-[10px] font-medium" style={{ color: invalid ? '#e11d48' : 'var(--muted)' }}>
+        {invalid
+          ? isAr
+            ? 'الرابط مطلوب مع النص — رقم واتساب أو إنستغرام أو أي رابط.'
+            : 'Link is required with text — WhatsApp number, Instagram, or any URL.'
+          : isAr
+            ? 'يُقبل رقم واتساب أو رابط إنستغرام/إكس أو أي رابط ويب.'
+            : 'Accepts WhatsApp number, Instagram/X link, or any web URL.'}
+      </span>
+    </label>
+  );
+}
 
 type DisplayMode = 'rotate' | 'stacked' | 'single';
 type AnnTab = 'content' | 'style' | 'layout';
@@ -72,16 +132,26 @@ function PreviewBar({
   const minH = typeof heightPx === 'number' && heightPx > 0 ? `${heightPx}px` : undefined;
   const widthCls = contentWidth === 'boxed' ? 'max-w-3xl mx-auto w-full' : 'w-full';
 
-  const renderOne = (m: AnnouncementMessage) => (
-    <div
-      key={m.id}
-      className={`${pad} font-bold text-center ${widthCls}`}
-      style={{ background: m.bgColor || '#173B35', color: m.textColor || '#FFFFFF', minHeight: minH }}
-      data-ann-preview-msg={m.id}
-    >
-      {msgText(m, isAr)}
-    </div>
-  );
+  const renderOne = (m: AnnouncementMessage) => {
+    const label = msgText(m, isAr);
+    const href = normalizeFlexibleHref(m.link);
+    return (
+      <div
+        key={m.id}
+        className={`${pad} font-bold text-center ${widthCls}`}
+        style={{ background: m.bgColor || '#173B35', color: m.textColor || '#FFFFFF', minHeight: minH }}
+        data-ann-preview-msg={m.id}
+      >
+        {href ? (
+          <a href={href} className="underline underline-offset-2 hover:opacity-90" target={href.startsWith('http') ? '_blank' : undefined} rel={href.startsWith('http') ? 'noopener noreferrer' : undefined}>
+            {label}
+          </a>
+        ) : (
+          label
+        )}
+      </div>
+    );
+  };
 
   if (mode === 'stacked') {
     return <div className="space-y-1" data-ann-preview="stacked">{eligible.map(renderOne)}</div>;
@@ -107,7 +177,7 @@ function HolstToggle({ on, onChange, label }: { on: boolean; onChange: (v: boole
 }
 
 export const CoffeeAnnouncementsForm: React.FC<CoffeeFormChromeProps> = ({ onBack, embedded }) => {
-  const { draft, setDraft, save, saving, savedFlash, isAr } = useCoffeeDraft('announcementBar');
+  const { draft, setDraft, save, saving, savedFlash, isAr, toast } = useCoffeeDraft('announcementBar');
   const messages = draft?.messages || [];
   const mode: DisplayMode =
     draft?.displayMode ||
@@ -116,13 +186,53 @@ export const CoffeeAnnouncementsForm: React.FC<CoffeeFormChromeProps> = ({ onBac
   const [tab, setTab] = useState<AnnTab>('content');
   const [newTextEn, setNewTextEn] = useState('');
   const [newTextAr, setNewTextAr] = useState('');
+  const [newLink, setNewLink] = useState('');
   const [newTextColor, setNewTextColor] = useState('#FFFFFF');
   const [newBgColor, setNewBgColor] = useState('#173B35');
+  const [linkErrorIds, setLinkErrorIds] = useState<string[]>([]);
+  const [ctaLinkError, setCtaLinkError] = useState(false);
+  const [newLinkError, setNewLinkError] = useState(false);
 
   const eligibleCount = useMemo(
     () => messages.filter((m) => m.active && (m.textEn || m.textAr || m.text)).length,
     [messages],
   );
+
+  const buttonTextValue = (draft?.buttonTextEn || draft?.buttonTextAr || draft?.buttonText || '').trim();
+
+  const saveWithLinkGuard = async () => {
+    const badIds = messages
+      .filter((m) => {
+        const t = (m.textEn || m.textAr || m.text || '').trim();
+        return t !== '' && !isFlexibleHrefValid(m.link);
+      })
+      .map((m) => m.id);
+    const ctaBad = buttonTextValue !== '' && !isFlexibleHrefValid(draft?.buttonLink);
+    setLinkErrorIds(badIds);
+    setCtaLinkError(ctaBad);
+    if (badIds.length || ctaBad) {
+      setTab('content');
+      toast(
+        isAr
+          ? 'كل نص يحتاج رابطًا — واتساب أو تواصل اجتماعي أو أي رابط ويب.'
+          : 'Every text needs a link — WhatsApp, social, or any web URL.',
+        'error',
+      );
+      return;
+    }
+    // Normalize destinations before persist (override avoids setState race)
+    const normalizedMsgs = messages.map((m) => ({
+      ...m,
+      link: normalizeFlexibleHref(m.link) || undefined,
+    }));
+    const nextDraft = {
+      ...draft,
+      messages: normalizedMsgs,
+      buttonLink: normalizeFlexibleHref(draft?.buttonLink),
+      showButton: buttonTextValue !== '' ? true : Boolean(draft?.showButton),
+    };
+    await save(undefined, nextDraft);
+  };
 
   const setMode = (next: DisplayMode) => {
     setDraft({
@@ -150,17 +260,31 @@ export const CoffeeAnnouncementsForm: React.FC<CoffeeFormChromeProps> = ({ onBac
     const en = newTextEn.trim();
     const ar = newTextAr.trim();
     if (!en && !ar) return;
+    const href = normalizeFlexibleHref(newLink);
+    if (!href) {
+      setNewLinkError(true);
+      toast(
+        isAr
+          ? 'الرابط مطلوب مع نص الإعلان — واتساب أو تواصل اجتماعي أو أي رابط.'
+          : 'Link is required with announcement text — WhatsApp, social, or any URL.',
+        'error',
+      );
+      return;
+    }
+    setNewLinkError(false);
     const row: AnnouncementMessage = {
       ...blankMessage(),
       textEn: en,
       textAr: ar,
       text: en || ar,
+      link: href,
       textColor: newTextColor || '#FFFFFF',
       bgColor: newBgColor || '#173B35',
     };
     setDraft({ ...draft, messages: [...messages, row] });
     setNewTextEn('');
     setNewTextAr('');
+    setNewLink('');
   };
 
   const chipActive = (on: boolean): React.CSSProperties =>
@@ -177,7 +301,7 @@ export const CoffeeAnnouncementsForm: React.FC<CoffeeFormChromeProps> = ({ onBac
       titleAr="الإعلانات الترويجية"
       subtitleEn={`${eligibleCount} announcements | Manage each announcement independently`}
       subtitleAr={`${eligibleCount} إعلانات | إدارة كل إعلان بشكل مستقل`}
-      onSave={() => save()}
+      onSave={() => void saveWithLinkGuard()}
       saving={saving}
       savedFlash={savedFlash}
       preview={(device) => (
@@ -257,11 +381,27 @@ export const CoffeeAnnouncementsForm: React.FC<CoffeeFormChromeProps> = ({ onBac
                         dir="auto"
                         placeholder={isAr ? 'اكتب النص بأي لغة' : 'Type in any language'}
                         value={m.textEn || m.textAr || m.text || ''}
-                        onChange={(e) =>
-                          patchMsg(m.id, { textEn: e.target.value, textAr: e.target.value, text: e.target.value })
-                        }
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          patchMsg(m.id, { textEn: v, textAr: v, text: v });
+                          if (!v.trim()) {
+                            setLinkErrorIds((ids) => ids.filter((id) => id !== m.id));
+                          }
+                        }}
                       />
                     </label>
+                    <RequiredLinkField
+                      isAr={isAr}
+                      textValue={m.textEn || m.textAr || m.text || ''}
+                      linkValue={m.link || ''}
+                      invalid={linkErrorIds.includes(m.id)}
+                      onLinkChange={(v) => {
+                        patchMsg(m.id, { link: v });
+                        if (isFlexibleHrefValid(v)) {
+                          setLinkErrorIds((ids) => ids.filter((id) => id !== m.id));
+                        }
+                      }}
+                    />
                     <label className="space-y-1 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
                       <span>{isAr ? 'لون النص' : 'Text color'}</span>
                       <div className="flex gap-2">
@@ -316,9 +456,20 @@ export const CoffeeAnnouncementsForm: React.FC<CoffeeFormChromeProps> = ({ onBac
                       onChange={(e) => {
                         setNewTextEn(e.target.value);
                         setNewTextAr(e.target.value);
+                        if (!e.target.value.trim()) setNewLinkError(false);
                       }}
                     />
                   </label>
+                  <RequiredLinkField
+                    isAr={isAr}
+                    textValue={newTextEn || newTextAr}
+                    linkValue={newLink}
+                    invalid={newLinkError}
+                    onLinkChange={(v) => {
+                      setNewLink(v);
+                      if (isFlexibleHrefValid(v)) setNewLinkError(false);
+                    }}
+                  />
                   <label className="space-y-1 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
                     <span>{isAr ? 'لون النص' : 'Text color'}</span>
                     <div className="flex gap-2">
@@ -358,11 +509,25 @@ export const CoffeeAnnouncementsForm: React.FC<CoffeeFormChromeProps> = ({ onBac
               <section className={cardCls} style={cardStyle} data-ann-controls="action-display" data-ann-panel="action">
                 <h3 className="text-sm font-bold" style={{ color: 'var(--text)' }}>{isAr ? 'زر الإجراء' : 'Action Button'}</h3>
                 <HolstToggle
-                  on={Boolean(draft?.showButton)}
-                  onChange={(v) => setDraft({ ...draft, showButton: v })}
+                  on={Boolean(draft?.showButton) || buttonTextValue !== ''}
+                  onChange={(v) => {
+                    if (!v) {
+                      setDraft({
+                        ...draft,
+                        showButton: false,
+                        buttonText: '',
+                        buttonTextEn: '',
+                        buttonTextAr: '',
+                        buttonLink: '',
+                      });
+                      setCtaLinkError(false);
+                      return;
+                    }
+                    setDraft({ ...draft, showButton: true });
+                  }}
                   label={isAr ? 'إظهار زر الإجراء' : 'Show Action Button'}
                 />
-                {draft?.showButton ? (
+                {draft?.showButton || buttonTextValue !== '' ? (
                   <div className="grid grid-cols-1 gap-2">
                     <label className="space-y-1 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
                       <span>{isAr ? 'نص الزر' : 'Button text'}</span>
@@ -370,21 +535,30 @@ export const CoffeeAnnouncementsForm: React.FC<CoffeeFormChromeProps> = ({ onBac
                         className={inputCls}
                         dir="auto"
                         value={draft?.buttonTextEn || draft?.buttonTextAr || draft?.buttonText || ''}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const v = e.target.value;
                           setDraft({
                             ...draft,
-                            buttonTextEn: e.target.value,
-                            buttonTextAr: e.target.value,
-                            buttonText: e.target.value,
-                          })
-                        }
+                            showButton: true,
+                            buttonTextEn: v,
+                            buttonTextAr: v,
+                            buttonText: v,
+                          });
+                          if (!v.trim()) setCtaLinkError(false);
+                        }}
                         placeholder={isAr ? 'تسوق الآن' : 'Shop Now'}
                       />
                     </label>
-                    <label className="space-y-1 text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
-                      <span>{isAr ? 'رابط الزر' : 'Button link (URL)'}</span>
-                      <input className={inputCls} dir="ltr" value={draft?.buttonLink || ''} onChange={(e) => setDraft({ ...draft, buttonLink: e.target.value })} placeholder="/shop" />
-                    </label>
+                    <RequiredLinkField
+                      isAr={isAr}
+                      textValue={buttonTextValue}
+                      linkValue={draft?.buttonLink || ''}
+                      invalid={ctaLinkError}
+                      onLinkChange={(v) => {
+                        setDraft({ ...draft, buttonLink: v, showButton: true });
+                        if (isFlexibleHrefValid(v)) setCtaLinkError(false);
+                      }}
+                    />
                   </div>
                 ) : null}
               </section>
