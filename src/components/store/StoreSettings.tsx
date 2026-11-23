@@ -50,7 +50,6 @@ import { ConnectedWorkspaceBanner } from '../common/ConnectedWorkspaceBanner';
 import { readAllThemeSettings, writeAllThemeSettings } from '../../themes/settings/themeSettingsStore';
 import { readStoreIdentity, splitStoreName, writeStoreIdentity, type StoreIdentitySettings } from '../../themes/settings/storeIdentity';
 import { StoreChromeFields } from './settings/StoreChromeFields';
-import { DashboardLookSwitch } from './dashboard/DashboardLookSwitch';
 import {
   bindStoreChrome,
   cacheStoreChromeNow,
@@ -61,7 +60,6 @@ import {
   markChromeImageCleared,
   readChromeCache,
   rememberPendingChrome,
-  resolveDashboardLookId,
   saveStoreChrome,
   type StoreChromeBrand,
 } from '../../i18n/storeChrome';
@@ -1047,14 +1045,6 @@ export const StoreSettings: React.FC = () => {
       {/* ── TAB 3: Theme, Colors & Google Fonts (Top 15 + Weights) ── */}
       {activeTab === 'appearance' && (
         <div className="space-y-6">
-          <DashboardLookSwitch
-            variant="card"
-            activeLookId={resolveDashboardLookId(chrome)}
-            onApplied={(next) => {
-              setChrome(next);
-              setChromeDirty(true);
-            }}
-          />
           <BrandingPanel
             storeScoped
             activePalette={chrome.fill === 'palette' ? chrome.palette : null}

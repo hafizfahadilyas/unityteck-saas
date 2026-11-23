@@ -11,7 +11,6 @@ export const BUILDER_PAGE_IDS = [
   'about',
   'contact',
   '404',
-  'custom',
 ] as const;
 
 export function builderPageMeta(previewId: string): { slug: string; type: string } {
@@ -38,7 +37,7 @@ export function builderPageMeta(previewId: string): { slug: string; type: string
 export function builderPageTitles(previewId: string): { title_en: string; title_ar: string } {
   const titles: Record<string, { title_en: string; title_ar: string }> = {
     home: { title_en: 'Home', title_ar: 'الرئيسية' },
-    catalog: { title_en: 'Shop', title_ar: 'المتجر' },
+    catalog: { title_en: 'Shop page', title_ar: 'صفحة المتجر' },
     product: { title_en: 'Product', title_ar: 'المنتج' },
     cart: { title_en: 'Cart', title_ar: 'السلة' },
     checkout: { title_en: 'Checkout', title_ar: 'إتمام الشراء' },
@@ -59,7 +58,7 @@ export function builderPageTitles(previewId: string): { title_en: string; title_
 export function builderPageFromQuery(params: URLSearchParams): string | null {
   const raw = (params.get('page') || params.get('builderPage') || '').trim();
   if (raw === '' || raw === 'crm') return null;
-  if (raw === 'shop') return 'catalog';
+  if (raw === 'shop' || raw === 'custom') return 'catalog';
   const known = new Set<string>([...BUILDER_PAGE_IDS, 'location', 'track-order', 'privacy', 'return']);
   return known.has(raw) ? raw : null;
 }
@@ -80,7 +79,8 @@ export function resolveBuilderPreviewPage(opts: {
     (params.get('builder') === '1' || params.get('builder') === 'true' || params.get('tab') === 'builder');
   if (builderActive) return 'home';
   const saved = (opts.sessionPage || '').trim();
-  const known = new Set<string>(['home', 'catalog', 'product', 'cart', 'checkout', 'thankyou', 'faq', 'reviews', '404', 'custom', 'about', 'contact', 'location', 'track-order', 'privacy', 'return']);
+  const known = new Set<string>(['home', 'catalog', 'product', 'cart', 'checkout', 'thankyou', 'faq', 'reviews', '404', 'about', 'contact', 'location', 'track-order', 'privacy', 'return']);
+  if (saved === 'custom') return 'catalog';
   if (saved && saved !== 'crm' && known.has(saved)) return saved;
   return 'home';
 }

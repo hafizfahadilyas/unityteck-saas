@@ -844,7 +844,7 @@ export const StoreShipping: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         {logoSrc ? (
-                          <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center p-1.5 shadow-2xs shrink-0">
+                          <div className="u-logo-tile w-12 h-12 rounded-xl flex items-center justify-center p-1.5 shadow-2xs shrink-0">
                             <img
                               src={logoSrc}
                               alt=""
@@ -1273,7 +1273,7 @@ export const StoreShipping: React.FC = () => {
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-2.5 min-w-0">
                         {methodLogo ? (
-                          <div className="w-10 h-10 rounded-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 flex items-center justify-center p-1 shrink-0">
+                          <div className="u-logo-tile w-10 h-10 rounded-lg flex items-center justify-center p-1 shrink-0">
                             <img
                               src={methodLogo}
                               alt=""
@@ -1573,7 +1573,7 @@ export const StoreShipping: React.FC = () => {
                         }}
                       >
                         {logo ? (
-                          <span className="w-full h-8 rounded-md bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-slate-700 flex items-center justify-center px-1.5">
+                          <span className="u-logo-tile w-full h-8 rounded-md flex items-center justify-center px-1.5">
                             <img src={logo} alt="" className="max-h-6 max-w-full object-contain" loading="lazy" />
                           </span>
                         ) : null}

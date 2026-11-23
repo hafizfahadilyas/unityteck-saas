@@ -153,6 +153,15 @@ async function openClient(target, tries = 4) {
   throw lastErr || new Error('FTP connect failed');
 }
 
+function isCriticalRel(rel) {
+  return (
+    rel === 'index.html' ||
+    rel === '.htaccess' ||
+    rel === 'storefront-shell.php' ||
+    (rel.startsWith('assets/') && /^assets\/index-[^/]+\.(js|css)$/i.test(rel))
+  );
+}
+
 async function uploadTarget(target) {
   const all = [];
   collectFiles(distDir, distDir, all);
@@ -182,7 +191,15 @@ async function uploadTarget(target) {
   );
   const byRel = new Map();
   for (const f of [...changed, ...must]) byRel.set(f.rel, f);
-  const queue = [...byRel.values()];
+  // Re-verify disk right before queue (parallel/clean races used to skip index.html)
+  const queue = [...byRel.values()].filter((f) => {
+    if (fs.existsSync(f.full)) return true;
+    if (isCriticalRel(f.rel)) {
+      throw new Error(`Critical dist file missing before upload: ${f.rel}`);
+    }
+    console.warn(`  drop missing from queue: ${f.rel}`);
+    return false;
+  });
 
   console.log(
     `\n==== ${target.label} ====`,
@@ -224,6 +241,9 @@ async function uploadTarget(target) {
       while (attempts < 5) {
         try {
           if (!fs.existsSync(file.full)) {
+            if (isCriticalRel(file.rel)) {
+              throw new Error(`Critical dist file missing during upload: ${file.rel}`);
+            }
             console.warn(`  skip missing local file: ${file.rel}`);
             break;
           }
@@ -285,10 +305,23 @@ async function uploadTarget(target) {
   }
 }
 
-function bundleApiIntoDist() {
+/** Strip Hostinger LiteShield captcha-drop block (causes site-wide 403 when quota is exceeded). */
+function writeCleanHtaccess(destPath) {
   const htaccessSource = path.join(rootDir, 'public', '.htaccess');
+  if (!fs.existsSync(htaccessSource)) return;
+  let txt = fs.readFileSync(htaccessSource, 'utf8');
+  txt = txt.replace(
+    /### HOSTINGER LITESHIELD RECAPTCHA[\s\S]*?### HOSTINGER LITESHIELD RECAPTCHA, DO NOT REMOVE THIS LINE ###\s*/gi,
+    '',
+  );
+  txt = txt.replace(/^\s*LsRecaptcha\s+\d+\s*$/gim, '');
+  txt = txt.replace(/^\s*RewriteRule\s+\.\*\s+-\s+\[E=verifycaptcha:drop\]\s*$/gim, '');
+  fs.writeFileSync(destPath, txt);
+}
+
+function bundleApiIntoDist() {
   const htaccessDist = path.join(distDir, '.htaccess');
-  if (fs.existsSync(htaccessSource)) fs.copyFileSync(htaccessSource, htaccessDist);
+  writeCleanHtaccess(htaccessDist);
 
   const publicApiDir = path.join(rootDir, 'public', 'api');
   const distApiDir = path.join(distDir, 'api');
@@ -325,8 +358,10 @@ async function main() {
     process.exit(1);
   }
 
-  // Parallel hosts = half the wall time when deploying all
-  await Promise.all(ready.map((t) => uploadTarget(t)));
+  // Sequential hosts — parallel FTP + shared dist caused skip-missing / stale mobile SPA
+  for (const t of ready) {
+    await uploadTarget(t);
+  }
   console.log('\nFast delta deploy finished.');
 }
 

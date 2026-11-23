@@ -35,11 +35,11 @@
 }
 
 .alsaeedi-theme-container[dir="rtl"] {
-  font-family: 'Tajawal', system-ui, -apple-system, sans-serif;
+  font-family: 'SaudiRiyalSign', 'Tajawal', system-ui, -apple-system, sans-serif;
 }
 
 .alsaeedi-theme-container[dir="ltr"] {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'SaudiRiyalSign', 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 /* 1. Slim Announcement Micro-Bar */

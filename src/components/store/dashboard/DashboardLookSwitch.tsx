@@ -3,6 +3,7 @@ import { LayoutTemplate } from 'lucide-react';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useTenant } from '../../../context/TenantContext';
 import { useToast } from '../../common/ToastProvider';
+import { GlobalModal } from '../../common/GlobalModal';
 import {
   applyDashboardLookPack,
   bindStoreChrome,
@@ -27,6 +28,7 @@ type DashboardLookSwitchProps = {
 /**
  * Exactly 2 full-dashboard look packs (Glass Soft | Night Luxe).
  * Soft-applies chrome + persists per store_id.
+ * Switching look = default pack change → confirm popup first.
  */
 export const DashboardLookSwitch: React.FC<DashboardLookSwitchProps> = ({
   variant = 'compact',
@@ -42,6 +44,7 @@ export const DashboardLookSwitch: React.FC<DashboardLookSwitchProps> = ({
     resolveDashboardLookId(readChromeCache(storeId)),
   );
   const [busy, setBusy] = useState(false);
+  const [pendingLookId, setPendingLookId] = useState<DashboardLookId | null>(null);
 
   useEffect(() => {
     if (!storeId) return;
@@ -56,6 +59,7 @@ export const DashboardLookSwitch: React.FC<DashboardLookSwitchProps> = ({
     async (id: DashboardLookId) => {
       if (!storeId || busy || id === activeId) return;
       setBusy(true);
+      setPendingLookId(null);
       const prev = readChromeCache(storeId);
       const next = applyDashboardLookPack(prev, id);
       try {
@@ -79,6 +83,59 @@ export const DashboardLookSwitch: React.FC<DashboardLookSwitchProps> = ({
     [storeId, busy, activeId, onApplied, toast, isAr],
   );
 
+  const pendingPack = pendingLookId
+    ? DASHBOARD_LOOK_PACKS.find((p) => p.id === pendingLookId)
+    : null;
+
+  const confirmModal = (
+    <GlobalModal
+      isOpen={pendingLookId != null}
+      onClose={() => setPendingLookId(null)}
+      role="alertdialog"
+      aria-label={isAr ? 'تأكيد تغيير المظهر الافتراضي' : 'Confirm default look change'}
+      contentClassName="max-w-md"
+    >
+      {pendingPack ? (
+        <div
+          className="w-full rounded-[1.25rem] p-5 sm:p-6 space-y-4 shadow-2xl border"
+          style={{
+            background: 'var(--glass-fill-strong, var(--surface, #fff))',
+            borderColor: 'var(--glass-border, var(--border))',
+            color: 'var(--text)',
+          }}
+        >
+          <h3 className="text-base font-black">
+            {isAr ? 'تغيير مظهر لوحة التحكم؟' : 'Change dashboard look?'}
+          </h3>
+          <p className="text-sm" style={{ color: 'var(--muted)' }}>
+            {isAr
+              ? `سيتم تطبيق «${pendingPack.labelAr}» على هذا المتجر فقط. يمكنك لاحقاً تخصيص الألوان من الإعدادات.`
+              : `Apply “${pendingPack.label}” for this store only. You can still customize colors later in Settings.`}
+          </p>
+          <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-1">
+            <button
+              type="button"
+              className="px-4 py-2.5 rounded-xl text-sm font-bold border cursor-pointer"
+              style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+              onClick={() => setPendingLookId(null)}
+            >
+              {isAr ? 'إلغاء' : 'Cancel'}
+            </button>
+            <button
+              type="button"
+              className="unity-btn-primary px-4 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer disabled:opacity-55"
+              disabled={busy}
+              aria-busy={busy || undefined}
+              onClick={() => void applyLook(pendingPack.id)}
+            >
+              {isAr ? 'تأكيد' : 'Confirm'}
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </GlobalModal>
+  );
+
   const buttons = (
     <div
       className={`inline-flex items-stretch rounded-full border p-0.5 gap-0.5 ${
@@ -100,7 +157,10 @@ export const DashboardLookSwitch: React.FC<DashboardLookSwitchProps> = ({
             disabled={busy}
             aria-pressed={pressed}
             aria-busy={busy && pressed ? true : undefined}
-            onClick={() => void applyLook(pack.id)}
+            onClick={() => {
+              if (busy || pack.id === activeId) return;
+              setPendingLookId(pack.id);
+            }}
             className="flex-1 sm:flex-none px-3 py-1.5 rounded-full text-[11px] font-bold transition-all cursor-pointer disabled:opacity-55 disabled:cursor-wait"
             style={
               pressed
@@ -127,6 +187,7 @@ export const DashboardLookSwitch: React.FC<DashboardLookSwitchProps> = ({
       <div className="inline-flex items-center gap-2 min-w-0">
         <span className="sr-only">{isAr ? 'مظهر لوحة التحكم' : 'Dashboard look'}</span>
         {buttons}
+        {confirmModal}
       </div>
     );
   }
@@ -152,12 +213,13 @@ export const DashboardLookSwitch: React.FC<DashboardLookSwitchProps> = ({
           </h3>
           <p className="text-[11px] mt-0.5" style={{ color: 'var(--muted)' }}>
             {isAr
-              ? 'زجاج ناعم أو ليل فاخر — الشريط والخلفية والألوان معاً لهذا المتجر فقط.'
-              : 'Glass Soft or Night Luxe — sidebar, wallpaper, and colors together for this store only.'}
+              ? 'زجاج ناعم أو ليل فاخر — الشريط والخلفية والألوان معاً لهذا المتجر فقط. التغيير يحتاج تأكيداً.'
+              : 'Glass Soft or Night Luxe — sidebar, wallpaper, and colors together for this store only. Change asks for confirmation.'}
           </p>
         </div>
       </div>
       {buttons}
+      {confirmModal}
     </div>
   );
 };

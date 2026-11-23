@@ -131,7 +131,111 @@ export function customFieldNeedsOptions(type: string | undefined | null): boolea
   );
 }
 
+/** Explicit Image choice types — option rows show Upload / Media library. */
+export function customFieldNeedsOptionImages(type: string | undefined | null): boolean {
+  const t = normalizeCustomFieldType(type);
+  return t === 'Single Choice Image' || t === 'Multiple Choice Image';
+}
+
+/**
+ * Option thumbnails only for Image choice types.
+ * Single/Multiple Choice (Text) and Size Selector stay text (+ price) only.
+ */
+export function customFieldAllowsOptionImages(type: string | undefined | null): boolean {
+  return customFieldNeedsOptionImages(type);
+}
+
+/** True when an option carries a real image URL (not a color hex). */
+export function customFieldOptionHasImage(
+  opt: string | { imageUrl?: string | null; label?: string | null } | null | undefined,
+): boolean {
+  if (opt == null) return false;
+  const looksLikeImage = (raw: string) => {
+    const value = raw.trim();
+    if (!value || /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value)) return false;
+    if (/^(https?:|data:image|blob:|\/)/i.test(value)) return true;
+    if (/\.(png|jpe?g|webp|gif|svg|avif)(\?|$)/i.test(value)) return true;
+    // Media library / R2 relative keys e.g. stores/{id}/media/...
+    if (value.includes('/') && !/\s/.test(value)) return true;
+    return false;
+  };
+  if (typeof opt === 'string') return looksLikeImage(opt);
+  const url = String(opt.imageUrl || '').trim();
+  if (looksLikeImage(url)) return true;
+  return looksLikeImage(String(opt.label || ''));
+}
+
+/**
+ * Upgrade legacy Text choice fields that already store option images
+ * → Single/Multiple Choice Image (keeps thumbs; matches field-type rules).
+ */
+export function coerceCustomFieldTypeForOptions(
+  type: string | undefined | null,
+  options?: Array<string | { imageUrl?: string | null; label?: string | null }> | null,
+): CustomFieldType {
+  const t = normalizeCustomFieldType(type);
+  const rows = Array.isArray(options) ? options : [];
+  if (!rows.some((row) => customFieldOptionHasImage(row))) return t;
+  if (t === 'Single Choice') return 'Single Choice Image';
+  if (t === 'Multiple Choice') return 'Multiple Choice Image';
+  return t;
+}
+
+/** Choice rows that use a color swatch / HEX. */
+export function customFieldNeedsOptionColors(type: string | undefined | null): boolean {
+  const t = normalizeCustomFieldType(type);
+  return (
+    t === 'Single Choice Color' ||
+    t === 'Multiple Choice Color' ||
+    t === 'Color Selector'
+  );
+}
+
+/** Customer uploads on the product page — merchant does not add choice options. */
+export function customFieldIsCustomerUpload(type: string | undefined | null): boolean {
+  const t = normalizeCustomFieldType(type);
+  return t === 'Image Upload' || t === 'File Upload';
+}
+
+/** Multiple Choice* = customer can pick several options (checkboxes). */
+export function customFieldAllowsMultiSelect(type: string | undefined | null): boolean {
+  const t = normalizeCustomFieldType(type);
+  return t.startsWith('Multiple Choice');
+}
+
 export function customFieldIsFillable(type: string | undefined | null): boolean {
   const kind = normalizeCustomFieldType(type);
   return kind !== 'Divider' && kind !== 'Content';
+}
+
+/**
+ * Per-option Price / Compare-at — only on commerce choice rows (not Size/Color swatches).
+ */
+export function customFieldAllowsOptionPrices(type: string | undefined | null): boolean {
+  const t = normalizeCustomFieldType(type);
+  return (
+    t === 'Single Choice' ||
+    t === 'Single Choice Image' ||
+    t === 'Single Choice Color' ||
+    t === 'Multiple Choice' ||
+    t === 'Multiple Choice Image' ||
+    t === 'Multiple Choice Color'
+  );
+}
+
+/**
+ * Field-level Extra Price — only freeform fill fields that can add a surcharge.
+ * Choice types use per-option prices; uploads / content / divider never show price.
+ */
+export function customFieldAllowsFieldExtraPrice(type: string | undefined | null): boolean {
+  const t = normalizeCustomFieldType(type);
+  return (
+    t === 'Short Text' ||
+    t === 'Long Text' ||
+    t === 'Number' ||
+    t === 'Location' ||
+    t === 'Date' ||
+    t === 'Time' ||
+    t === 'Date and Time'
+  );
 }

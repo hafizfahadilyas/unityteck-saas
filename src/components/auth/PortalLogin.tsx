@@ -145,6 +145,7 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
     return () => window.removeEventListener('unityteck-theme-identity', onIdentity);
   }, [isMaster, resolvedStoreId]);
 
+  // Login chrome stays generic — never show coffee / flowers / Bleco store brand names.
   const portalInfo = useMemo(() => {
     if (isMaster) {
       return {
@@ -155,41 +156,14 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
           : 'Global master scope across all merchant stores and Saudi infrastructure',
       };
     }
-    if (isBleco) {
-      return {
-        title: isAr ? 'مؤسسة بلاكو للتجارة · السعودية' : 'Blacko Trading Est. · Saudi Arabia',
-        badge: isAr ? 'مؤسسة بلاكو (الرياض)' : 'Blacko Trading (Riyadh)',
-        scopeNote: isAr
-          ? 'حساب التاجر معزول تماماً ومخصص لمؤسسة بلاكو للتجارة فقط'
-          : 'Isolated tenant session strictly scoped to the Bleco store',
-      };
-    }
-    if (isCoffee) {
-      return {
-        title: isAr ? 'متجر القهوة المختصة · السعودية' : 'Specialty Coffee Roasters · KSA',
-        badge: isAr ? 'متجر القهوة المختصة' : 'Specialty Coffee KSA',
-        scopeNote: isAr
-          ? 'حساب التاجر معزول ومخصص لمتجر القهوة المختصة فقط'
-          : 'Isolated tenant session strictly scoped to the coffee store',
-      };
-    }
-    if (isFlowers) {
-      return {
-        title: isAr ? 'هدايا وزهور مكة المكرمة' : 'Makkah Fresh Flowers & Luxury Gifts',
-        badge: isAr ? 'هدايا مكة المكرمة' : 'Makkah Flowers KSA',
-        scopeNote: isAr
-          ? 'حساب التاجر معزول ومخصص لمتجر هدايا مكة فقط'
-          : 'Isolated tenant session strictly scoped to the flowers store',
-      };
-    }
     return {
       title: isAr ? 'بوابة المتاجر السعودية الموحدة' : 'Saudi Unified Merchants Portal',
-      badge: isAr ? 'مبادرة 100 متجر سعودي' : 'KSA 100 Stores Mission',
+      badge: isAr ? 'بوابة التاجر' : 'Merchant Portal',
       scopeNote: isAr
         ? 'كل تاجر يفتح لوحة تحكم مستقلة ومحمية بالكامل ومعزولة برقم متجره الخاص'
-        : 'Every merchant accesses a strictly isolated, encrypted vault scoped to their store',
+        : 'Every merchant accesses a strictly isolated session scoped to their store',
     };
-  }, [isMaster, isBleco, isCoffee, isFlowers, isAr]);
+  }, [isMaster, isAr]);
 
   const expectedLoginHint = useMemo(() => {
     if (isMaster) return 'master@unityteck.com';

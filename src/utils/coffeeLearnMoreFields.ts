@@ -40,13 +40,13 @@ export function isLearnMoreSpecField(field: LearnMoreFieldLike | null | undefine
   return String(field?.id || '').startsWith(LEARN_MORE_SPEC_PREFIX);
 }
 
-/** Content blocks that render as Learn More cinematic feature banners. */
+/**
+ * Content blocks that render as Learn More cinematic feature banners.
+ * Only `learn-more-*` ids — plain Custom Field type "Content" must stay on the buy page.
+ */
 export function isLearnMoreSectionField(field: LearnMoreFieldLike | null | undefined): boolean {
   if (!field || isLearnMoreSpecField(field)) return false;
-  const id = String(field.id || '');
-  if (id.startsWith(LEARN_MORE_FIELD_PREFIX)) return true;
-  if (!isContentFieldType(field.type)) return false;
-  return !!(field.imageUrl || field.videoUrl || field.contentEn || field.contentAr || field.description);
+  return String(field.id || '').startsWith(LEARN_MORE_FIELD_PREFIX);
 }
 
 export function isComparisonBannerField(field: LearnMoreFieldLike | null | undefined): boolean {

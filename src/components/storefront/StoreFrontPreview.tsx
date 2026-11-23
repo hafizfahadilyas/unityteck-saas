@@ -199,7 +199,11 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
         } else {
           url.searchParams.set('page', sfPage);
         }
-        window.history.replaceState({ page: sfPage }, '', url.toString());
+        const href = url.toString();
+        const cur = window.location.href;
+        const state = { unityteckSpa: 'storefront', page: sfPage };
+        if (cur === href) window.history.replaceState(state, '', href);
+        else window.history.pushState(state, '', href);
       }
     } catch {}
 

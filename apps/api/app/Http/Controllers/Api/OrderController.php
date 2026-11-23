@@ -739,11 +739,11 @@ class OrderController extends Controller
                 Log::warning('Customer activity log skipped: '.$e->getMessage());
             }
 
-            // Trigger instant WhatsApp / SMS notification for new order (+966 Saudi)
+            // Auto WhatsApp/SMS/Email: order + payment pending reminder OR paid+invoice (customer + admin)
             try {
-                (new NotificationService())->sendOrderNotification('order_placed', $order);
+                (new NotificationService())->notifyOrderCreated($order->fresh(['items', 'customer']) ?? $order);
             } catch (\Throwable $e) {
-                Log::warning('Order notification error (order_placed): ' . $e->getMessage());
+                Log::warning('Order notification error (order_created lifecycle): ' . $e->getMessage());
             }
 
             $freshOrder = $order->fresh(['items', 'customer']);
@@ -1073,10 +1073,22 @@ class OrderController extends Controller
 
                 if ($newPay !== $oldPay) {
                     if (in_array($newPay, ['paid', 'completed', 'success', 'captured'], true)) {
-                        $notificationService->sendOrderNotification('payment_received', $fresh);
-                    } elseif (in_array($newPay, ['pending', 'unpaid', 'failed', 'cancelled', 'canceled'], true)) {
+                        $notificationService->notifyPaymentConfirmed($fresh);
+                    } elseif (in_array($newPay, ['pending', 'unpaid', 'failed', 'cancelled', 'canceled'], true)
+                        || str_contains($newPay, 'pending')
+                    ) {
                         $notificationService->sendOrderNotification('payment_pending', $fresh);
                     }
+                }
+
+                // Order completed/delivered while already paid → ensure invoice WhatsApp goes out once
+                if (
+                    $newStatus !== $prevStatus
+                    && in_array($newStatus, ['delivered', 'completed'], true)
+                    && in_array($newPay, ['paid', 'completed', 'success', 'captured'], true)
+                    && ! $notificationService->wasRecentlyNotified((string) $storeId, (string) $fresh->id, 'invoice_ready', 24)
+                ) {
+                    $notificationService->sendOrderNotification('invoice_ready', $fresh);
                 }
             } catch (\Throwable $e) {
                 Log::warning('Order status notification error (' . $newStatus . '): ' . $e->getMessage());
@@ -1193,22 +1205,38 @@ class OrderController extends Controller
             'cod_notes' => ['nullable', 'string', 'max:255'],
         ]);
 
+        $prevPay = strtolower((string) ($order->payment_status ?? ''));
         $order->cod_status = $validated['cod_status'];
+        $becamePaid = false;
         if ($validated['cod_status'] === 'collected_by_courier') {
             $order->cod_collected_at = now();
             $order->payment_status = 'Paid';
+            $becamePaid = true;
         } elseif ($validated['cod_status'] === 'remitted_to_bank') {
             $order->cod_remitted_at = now();
             $order->payment_status = 'Paid';
+            $becamePaid = true;
         }
         if (isset($validated['cod_notes'])) {
             $order->cod_notes = $validated['cod_notes'];
         }
         $order->save();
 
+        $fresh = $order->fresh(['items', 'customer']);
+        if ($becamePaid && ! in_array($prevPay, ['paid', 'completed', 'success', 'captured'], true)) {
+            try {
+                (new NotificationService())->notifyPaymentConfirmed($fresh);
+            } catch (\Throwable $e) {
+                Log::warning('COD paid notification failed: '.$e->getMessage(), [
+                    'store_id' => $storeId,
+                    'order_id' => $order->id,
+                ]);
+            }
+        }
+
         return response()->json([
             'message' => 'COD status updated successfully.',
-            'order' => $order->fresh(),
+            'order' => $fresh,
         ]);
     }
 

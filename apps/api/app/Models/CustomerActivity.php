@@ -19,6 +19,8 @@ class CustomerActivity extends Model
         'add_to_cart',
         'remove_from_cart',
         'checkout_started',
+        'shipping_info_added',
+        'payment_info_added',
         'order_created',
         'payment_completed',
         'order_cancelled',

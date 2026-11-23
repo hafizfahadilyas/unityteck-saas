@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useTenant } from '../../../context/TenantContext';
-import { ADDON_OPTIONS } from '../data/mockData';
 import { AddonOption, Product } from '../types';
 import { ProductCard } from '../components/ProductCard';
 import {
@@ -166,8 +165,33 @@ export const ProductDetailPage: React.FC = () => {
   ];
   const [selectedRibbon, setSelectedRibbon] = useState(ribbonColors[0]);
 
-  // Selected Add-ons
+  // Selected Add-ons — from this store's live catalog only (never mockData.ADDON_OPTIONS)
   const [selectedAddons, setSelectedAddons] = useState<AddonOption[]>([]);
+
+  const addonOptions = useMemo<AddonOption[]>(() => {
+    if (!product || !products?.length) return [];
+    const keywords = [
+      'شوكول', 'choc', 'باتشي', 'فاز', 'vase', 'بالون', 'balloon',
+      'بطاقة', 'card', 'إضافة', 'addon', 'حلا', 'sweet', 'ضيافة',
+    ];
+    const matched = products.filter((p) => {
+      if (p.id === product.id) return false;
+      const blob = `${p.name || ''} ${p.nameEn || ''} ${p.category || ''} ${(p as any).categoryEn || ''}`.toLowerCase();
+      return keywords.some((k) => blob.includes(k.toLowerCase()));
+    });
+    // Empty = hide section. Never invent mock add-ons.
+    return matched.slice(0, 4).map((p) => ({
+      id: p.id,
+      name: p.name || p.nameEn || '',
+      nameEn: p.nameEn || p.name || '',
+      price: Number(p.price) || 0,
+      image: p.image || '',
+    }));
+  }, [products, product?.id]);
+
+  useEffect(() => {
+    setSelectedAddons((prev) => prev.filter((a) => addonOptions.some((o) => o.id === a.id)));
+  }, [addonOptions]);
 
   const toggleAddon = (addon: AddonOption) => {
     if (selectedAddons.some((a) => a.id === addon.id)) {
@@ -889,13 +913,14 @@ export const ProductDetailPage: React.FC = () => {
               </div>
             </div>
 
-            {/* 3. Luxury Add-ons */}
+            {/* 3. Luxury Add-ons — live store catalog only; hide when empty */}
+            {addonOptions.length > 0 ? (
             <div className="space-y-1.5 pt-1.5 border-t border-[#e8e4dc] dark:border-slate-800">
               <label className="text-[11px] font-bold text-[#102a1c] dark:text-slate-200 block">
                 {isAr ? '3. إضافات هدايا فاخرة:' : '3. Luxury Add-ons:'}
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                {ADDON_OPTIONS.map((addon) => {
+                {addonOptions.map((addon) => {
                   const isSelected = selectedAddons.some((a) => a.id === addon.id);
                   return (
                     <div
@@ -934,6 +959,7 @@ export const ProductDetailPage: React.FC = () => {
                 })}
               </div>
             </div>
+            ) : null}
 
             {/* 4. Handwritten Greeting Card */}
             <div className="space-y-2 pt-1.5 border-t border-[#e8e4dc] dark:border-slate-800">

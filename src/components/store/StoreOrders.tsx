@@ -79,14 +79,7 @@ import { OrderFilters, type OrderFilterState } from './OrderFilters';
 import { WindowedPagination } from '../common/WindowedPagination';
 import { handleImageError, FALLBACK_PRODUCT_IMAGE, resolveProductThumbnail } from '../../utils/imageFallback';
 import { OrderSourceIcon, ShippingCarrierIcon } from '../common/BrandIcons';
-import {
-  MadaIcon,
-  ApplePayIcon,
-  StcPayIcon,
-  VisaIcon,
-  MastercardIcon,
-  CodIcon,
-} from '../../themes/coffeeRoasters/components/PaymentIcons';
+import { PaymentMethodMark } from '../../themes/coffeeRoasters/components/PaymentIcons';
 import {
   ORDER_STATUS_CATALOG,
   catalogLabel,
@@ -1124,52 +1117,13 @@ export const StoreOrders: React.FC = () => {
     return <OrderSourceIcon source={source} className="w-4 h-4 shrink-0" />;
   };
 
-  // ── Payment Badge Renderer (Saudi brand marks) ──
+  // ── Payment Badge Renderer (official PNG tiles — same as Create Order) ──
   const getPaymentBadge = (method: string) => {
-    const m = (method || '').toLowerCase();
-    if (m.includes('mada')) {
-      return (
-        <span className="inline-flex items-center gap-1.5 font-bold text-xs">
-          <MadaIcon className="h-5 w-auto" />
-          <span style={{ color: 'var(--text)' }}>{locale === 'en' ? 'mada' : 'مدى'}</span>
-        </span>
-      );
-    }
-    if (m.includes('apple')) {
-      return (
-        <span className="inline-flex items-center gap-1.5 font-bold text-xs" style={{ color: 'var(--text)' }}>
-          <ApplePayIcon className="h-5 w-auto" />
-          <span>{t('applePay')}</span>
-        </span>
-      );
-    }
-    if (m.includes('stc')) {
-      return (
-        <span className="inline-flex items-center gap-1.5 font-bold text-xs">
-          <StcPayIcon className="h-5 w-auto" />
-        </span>
-      );
-    }
-    if (m.includes('visa') || m.includes('mc') || m.includes('master')) {
-      return (
-        <span className="inline-flex items-center gap-1 font-bold text-xs">
-          <VisaIcon className="h-5 w-auto" />
-          <MastercardIcon className="h-5 w-auto" />
-        </span>
-      );
-    }
-    if (m.includes('cash') || m.includes('cod')) {
-      return (
-        <span className="inline-flex items-center gap-1.5 font-semibold text-xs text-emerald-700 dark:text-emerald-400">
-          <CodIcon className="h-5 w-auto" />
-          <span>{t('cashOnDelivery')}</span>
-        </span>
-      );
-    }
+    const label = localizePaymentMethod(method, locale);
     return (
-      <span className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--text)' }}>
-        <CreditCard className="w-3.5 h-3.5 text-slate-400" />
-        <span>{t('creditCard')}</span>
+      <span className="inline-flex items-center gap-1.5 font-bold text-xs" style={{ color: 'var(--text)' }}>
+        <PaymentMethodMark method={method} className="h-5 w-auto" />
+        <span>{label}</span>
       </span>
     );
   };
@@ -2251,10 +2205,10 @@ export const StoreOrders: React.FC = () => {
                                 </span>
                               )}
                               {it.selectedOptions &&
-                                Object.keys(it.selectedOptions).filter((k) => !k.startsWith('_')).length > 0 && (
+                                Object.keys(it.selectedOptions).filter((k) => !String(k).startsWith('_')).length > 0 && (
                                   <div className="mt-1 flex flex-wrap gap-1">
                                     {Object.entries(it.selectedOptions)
-                                      .filter(([k]) => !k.startsWith('_'))
+                                      .filter(([k]) => !String(k).startsWith('_'))
                                       .map(([k, v]) => (
                                         <span
                                           key={k}
@@ -2266,6 +2220,11 @@ export const StoreOrders: React.FC = () => {
                                       ))}
                                   </div>
                                 )}
+                              {it.selectedOptions?._purchase_notes ? (
+                                <p className="mt-1 text-[10px] font-semibold leading-snug" style={{ color: 'var(--muted)' }}>
+                                  {String(it.selectedOptions._purchase_notes)}
+                                </p>
+                              ) : null}
                             </div>
                           </div>
                         </td>

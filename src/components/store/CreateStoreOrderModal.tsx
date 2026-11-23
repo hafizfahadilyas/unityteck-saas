@@ -1301,7 +1301,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                         }`}
                       >
                         {pm.logoSrc ? (
-                          <span className="h-8 w-full flex items-center justify-center rounded-lg bg-white dark:bg-slate-900 px-1.5 py-1 border border-slate-100 dark:border-slate-700">
+                          <span className="u-logo-tile h-8 w-full flex items-center justify-center rounded-lg px-1.5 py-1">
                             <img
                               src={pm.logoSrc}
                               alt={isAr ? pm.labelAr : pm.labelEn}

@@ -1,0 +1,40 @@
+---
+description: Autocannon + Lighthouse + Gitleaks mandatory on Master and every store (LOCKED)
+alwaysApply: true
+---
+
+# Mandatory testing trio (LOCKED)
+
+**User order (lifetime):** Har project / har slice ke baad ye **3 tests lazmi**. Skip **NA**.  
+**Scope:** Master Admin (`mieraf-ksa.com/master`) + **har store** dashboard + storefront (flowers, coffee, bleco, future tenants) — sab mein.
+
+## 1) Gitleaks — secrets (pehle)
+- Scan repo / changed paths for leaked keys, tokens, passwords, `.env` commits.
+- Fail → **fix pehle**, deploy mat socho.
+- Never commit secrets; never print tokens in toasts/logs/UI.
+
+## 2) Autocannon — load (API / critical routes)
+- Hit live (or staging) **health + key APIs** per affected host/`store_id`.
+- Master + each touched store: `/api/health`, catalog/products, auth gate as relevant.
+- Report: RPS, latency p50/p99, error %. Spike errors → fix before “done”.
+- Soft load only unless user asks heavy stress (do not DDoS production).
+
+## 3) Lighthouse — page quality (UI surfaces)
+- Run on touched public/admin URLs: storefront home, key shop pages, `/admin`, `/master` when Master changed.
+- Check Performance + Accessibility + Best Practices + SEO (public pages).
+- No fake score decoration — real report only. Regressions → fix or call out clearly.
+
+## When to run
+- After meaningful UI, API, auth, SEO, or deploy-path changes.
+- Before claiming **Ho gaya** on Master or any store.
+- Multi-store change → sample **each affected store**, not only one demo tenant.
+
+## Banned
+- “Code looks fine” without trio (when surface was touched)
+- Testing only flowers and skipping other stores / Master
+- Inventing Lighthouse scores or Autocannon numbers
+- Running destructive/full-blast load that takes down Hostinger
+
+## Status (Roman Urdu)
+End with **Ho gaya** / **Baqi** + short trio result (Gitleaks clean? Autocannon OK? Lighthouse notes?).
+---

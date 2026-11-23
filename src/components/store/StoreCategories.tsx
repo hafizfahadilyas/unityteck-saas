@@ -640,10 +640,10 @@ export const StoreCategories: React.FC = () => {
   useEffect(() => {
     const onData = (e: Event) => {
       const tag = String((e as CustomEvent).detail?.tag ?? '');
+      // Do not reload on platform/soft-refresh tags (request storm).
       if (
         tag.includes(`:${activeStore.id}:categories`) ||
-        tag.includes(`:${activeStore.id}:products`) ||
-        tag === 'soft-refresh'
+        tag.includes(`:${activeStore.id}:products`)
       ) {
         void load(true);
       }

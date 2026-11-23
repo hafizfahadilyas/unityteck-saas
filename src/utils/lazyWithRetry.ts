@@ -9,17 +9,18 @@ export function isChunkLoadError(err: unknown): boolean {
   );
 }
 
-/** One hard reload after stale deploy / missing hashed chunk. */
+/** One hard reload after stale deploy / missing hashed chunk — never loop. */
 export function reloadOnceForStaleChunk(): void {
   try {
     const now = Date.now();
     const last = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
-    if (now - last > 10_000) {
+    // 60s gate — avoids refresh loops that also wipe in-flight locale UX
+    if (now - last > 60_000) {
       sessionStorage.setItem(RELOAD_KEY, String(now));
       window.location.reload();
     }
   } catch {
-    window.location.reload();
+    /* If sessionStorage blocked, skip hard reload to avoid infinite refresh. */
   }
 }
 

@@ -1,0 +1,17 @@
+# Store glass · Mobile · Holst CTA (LOCKED LIFETIME)
+
+**Surface:** Store admin + merchant login (`[data-portal="store"]`, `.portal-auth-shell`). CSS: `src/styles/portal-tokens.css` (end-of-file **LIFETIME DEFAULT LOCK** wins).
+
+## Defaults (do not revert)
+
+- **CTA / active / primary / login buttons / brand marks** = Holst teal `linear-gradient(90deg, #1d8b94, #4fb8b4)` / `#1d8b94`
+- **Banned:** solid black / navy CTA (`#0f172a`, `--portal-cta: #0f172a`, `background: var(--glass-navy)` on buttons)
+- **Mobile cards:** uniform frost fill — **no** tall-card `backdrop-filter` (Android dual-color clip)
+- **Mobile drawer:** frosted glass when **open** (`transform: none` + blur). Closed may skip blur (Safari translate3d). Never force solid `#ffffff` as the permanent open look
+- **Login mobile:** translucent glass header/card + soft veil — not opaque white + black button
+
+## When editing glass / branding / sidebar / login
+
+- Extend frost / wallpaper / Holst — do **not** restore black CTAs or opaque mobile shells “for Safari”
+- Prefer `var(--portal-cta)` over `var(--glass-navy, #0f172a)` on buttons
+- `--glass-navy` = soft Holst ink `#0a3d4a` for rare non-CTA accents only

@@ -111,13 +111,49 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
        new URLSearchParams(window.location.search).get('tenant') || '').toLowerCase().trim()
     : '';
 
-  const matchedStore = urlStoreParam ? stores?.find((st: any) => st.id?.toLowerCase() === urlStoreParam || st.slug?.toLowerCase() === urlStoreParam) : null;
+  const matchedStore = urlStoreParam
+    ? stores?.find(
+        (st: any) =>
+          st.id?.toLowerCase() === urlStoreParam ||
+          st.slug?.toLowerCase() === urlStoreParam ||
+          String(st.domain || '').toLowerCase().includes(urlStoreParam),
+      )
+    : null;
 
-  const explicitUrlStoreId =
-    pathname.startsWith('/coffee') || urlStoreParam.includes('coffee') || urlStoreParam.includes('hibrew') || urlStoreParam.includes('roaster') ? 'store-coffee' :
-    pathname.startsWith('/car') || pathname.startsWith('/cars') || pathname.startsWith('/bleco') || pathname.startsWith('/transport') || urlStoreParam.includes('car') || urlStoreParam.includes('bleco') || urlStoreParam.includes('saeedi') ? 'store-bleco' :
-    pathname.startsWith('/flowers') || pathname.startsWith('/hadaya') || pathname.startsWith('/gifts') || urlStoreParam.includes('flower') || urlStoreParam.includes('gift') || urlStoreParam.includes('makkah') ? 'store-1' :
-    (matchedStore ? matchedStore.id : '');
+  /** Resolve niche path → real store from tenant list only. Never invent store-1 / Flora. */
+  const findStoreIdByHints = (hints: string[]): string => {
+    const hit = stores?.find((st: any) => {
+      const blob = `${st.id || ''} ${st.slug || ''} ${st.domain || ''} ${st.name || ''} ${st.nameEn || ''}`.toLowerCase();
+      return hints.some((h) => blob.includes(h));
+    });
+    return hit?.id || '';
+  };
+
+  const nicheHintStoreId =
+    pathname.startsWith('/coffee') ||
+    urlStoreParam.includes('coffee') ||
+    urlStoreParam.includes('hibrew') ||
+    urlStoreParam.includes('roaster')
+      ? findStoreIdByHints(['coffee', 'hibrew', 'roaster', 'store-coffee'])
+      : pathname.startsWith('/car') ||
+          pathname.startsWith('/cars') ||
+          pathname.startsWith('/bleco') ||
+          pathname.startsWith('/transport') ||
+          urlStoreParam.includes('car') ||
+          urlStoreParam.includes('bleco') ||
+          urlStoreParam.includes('saeedi')
+        ? findStoreIdByHints(['bleco', 'car', 'saeedi', 'store-bleco'])
+        : pathname.startsWith('/flowers') ||
+            pathname.startsWith('/hadaya') ||
+            pathname.startsWith('/gifts') ||
+            urlStoreParam.includes('flower') ||
+            urlStoreParam.includes('gift') ||
+            urlStoreParam.includes('makkah') ||
+            urlStoreParam.includes('hadaya')
+          ? findStoreIdByHints(['flower', 'gift', 'hadaya', 'makkah', 'flora', 'store-1'])
+          : '';
+
+  const explicitUrlStoreId = matchedStore?.id || nicheHintStoreId || '';
 
   const urlThemeParam =
     typeof window !== 'undefined'
@@ -179,15 +215,36 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
 
   // Resolve initial page key mapping per theme conventions
   const resolvedInitialPage = useMemo(() => {
-    const raw = (initialPage || urlPageParam || fallbackPage || 'home').toLowerCase().trim();
+    // SEO custom-domain paths: `/product/{id}` must open PDP — never fall through to home.
+    const pathIsProduct = /(?:^|\/)product\/[^/]+\/?$/i.test(pathname);
+    const pathIsCatalog =
+      pathname === '/catalog' ||
+      pathname.startsWith('/catalog/') ||
+      pathname === '/products' ||
+      pathname.startsWith('/products/') ||
+      pathname === '/shop' ||
+      pathname.startsWith('/shop/') ||
+      pathname.startsWith('/category/');
+    const raw = (
+      initialPage ||
+      urlPageParam ||
+      (pathIsProduct ? 'product-detail' : '') ||
+      (pathIsCatalog ? 'products' : '') ||
+      fallbackPage ||
+      'home'
+    )
+      .toLowerCase()
+      .trim();
     const mid = manifest?.id || '';
     if (raw === 'shop' || raw === 'catalog' || raw === 'products') {
       if (mid === 'theme-transport' || mid === 'theme-saudia-transport') return 'catalog';
       if (mid === 'theme-coffee-artisan' || mid === 'theme-coffee') return 'products';
       return 'catalog';
     }
-    if (raw === 'product' || raw === 'product-detail' || raw === 'detail') {
-      if (mid === 'theme-coffee-artisan' || mid === 'theme-coffee') return 'product-detail';
+    if (raw === 'product' || raw === 'product-detail' || raw === 'detail' || raw === 'buy' || raw === 'product-buy') {
+      if (mid === 'theme-coffee-artisan' || mid === 'theme-coffee') {
+        return raw === 'buy' || raw === 'product-buy' ? 'product-buy' : 'product-detail';
+      }
       return 'product';
     }
     if (raw === 'profile' || raw === 'crm' || raw === 'account' || raw === 'login') {
@@ -195,7 +252,7 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
       return 'profile';
     }
     return raw;
-  }, [initialPage, fallbackPage, manifest?.id, isAdmin, urlPageParam]);
+  }, [initialPage, fallbackPage, manifest?.id, isAdmin, urlPageParam, pathname]);
 
   const isPreviewEmbed =
     typeof window !== 'undefined' &&

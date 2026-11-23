@@ -910,6 +910,120 @@ function souq_store_data(PDO $pdo, string $storeId): array
     return $data;
 }
 
+/** Normalize SA mobile to digits for Meta WhatsApp Cloud (9665xxxxxxxx). */
+function souq_wa_digits(?string $phone): string
+{
+    $d = preg_replace('/\D+/', '', (string)$phone);
+    if (preg_match('/^05(\d{8})$/', $d, $m)) return '9665' . $m[1];
+    if (preg_match('/^5(\d{8})$/', $d, $m)) return '9665' . $m[1];
+    if (preg_match('/^9665\d{8}$/', $d)) return $d;
+    return $d;
+}
+
+/**
+ * Real Meta WhatsApp Cloud send for THIS store only (no cross-tenant tokens).
+ * @return array{status:string,error?:string}
+ */
+function souq_wa_cloud_send(PDO $pdo, string $storeId, string $toDigits, string $body): array
+{
+    if ($storeId === '' || $toDigits === '' || trim($body) === '') {
+        return ['status' => 'skipped', 'error' => 'missing_fields'];
+    }
+    $data = souq_store_data($pdo, $storeId);
+    $wa = is_array($data['whatsapp'] ?? null) ? $data['whatsapp'] : [];
+    // Also read store_settings.settings JSON blob when present
+    try {
+        if (souq_table_has_column($pdo, 'store_settings', 'settings')) {
+            $st = $pdo->prepare('SELECT settings FROM store_settings WHERE store_id = ? LIMIT 1');
+            $st->execute([$storeId]);
+            $raw = $st->fetchColumn();
+            $decoded = is_string($raw) ? (json_decode($raw, true) ?: []) : [];
+            if (is_array($decoded['whatsapp'] ?? null)) {
+                $wa = array_replace($wa, $decoded['whatsapp']);
+            }
+        }
+    } catch (Throwable) {
+    }
+    $token = trim((string)($wa['access_token'] ?? ''));
+    $phoneId = trim((string)($wa['phone_number_id'] ?? ''));
+    if ($token === '' || $phoneId === '' || str_contains($token, '...')) {
+        return ['status' => 'skipped', 'error' => 'whatsapp_not_connected'];
+    }
+    $url = 'https://graph.facebook.com/v19.0/' . rawurlencode($phoneId) . '/messages';
+    $payload = json_encode([
+        'messaging_product' => 'whatsapp',
+        'recipient_type' => 'individual',
+        'to' => $toDigits,
+        'type' => 'text',
+        'text' => ['preview_url' => true, 'body' => $body],
+    ], JSON_UNESCAPED_UNICODE);
+    $ch = curl_init($url);
+    if ($ch === false) {
+        return ['status' => 'failed', 'error' => 'curl_init'];
+    }
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_HTTPHEADER => [
+            'Authorization: Bearer ' . $token,
+            'Content-Type: application/json',
+        ],
+        CURLOPT_POSTFIELDS => $payload,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 18,
+    ]);
+    $resp = curl_exec($ch);
+    $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($code >= 200 && $code < 300) {
+        return ['status' => 'sent'];
+    }
+    $err = is_string($resp) ? (json_decode($resp, true)['error']['message'] ?? ('HTTP ' . $code)) : ('HTTP ' . $code);
+    return ['status' => 'failed', 'error' => (string)$err];
+}
+
+/**
+ * Auto customer + admin WhatsApp: paid → payment+invoice; else → pending reminder.
+ * Fire-and-forget; never blocks order API on WA failure.
+ */
+function souq_notify_order_whatsapp(PDO $pdo, string $storeId, array $orderRow, string $phase = 'created'): void
+{
+    try {
+        $pay = strtolower(trim((string)($orderRow['payment_status'] ?? 'pending')));
+        $num = (string)($orderRow['order_number'] ?? $orderRow['id'] ?? '');
+        $total = number_format((float)($orderRow['total_amount'] ?? 0), 2);
+        $name = (string)($orderRow['customer_name'] ?? '');
+        $method = (string)($orderRow['payment_method'] ?? '');
+        $custDigits = souq_wa_digits((string)($orderRow['customer_phone'] ?? ''));
+        $store = $pdo->prepare('SELECT name, name_ar, phone, custom_domain, domain FROM stores WHERE id = ? LIMIT 1');
+        $store->execute([$storeId]);
+        $srow = $store->fetch(PDO::FETCH_ASSOC) ?: [];
+        $storeName = (string)($srow['name_ar'] ?? $srow['name'] ?? 'Store');
+        $domain = trim((string)($srow['custom_domain'] ?? $srow['domain'] ?? ''));
+        $base = $domain !== '' ? (preg_match('#^https?://#i', $domain) ? rtrim($domain, '/') : ('https://' . $domain)) : '';
+        $invoiceUrl = $base !== '' ? ($base . '/invoice?order=' . rawurlencode($num)) : '';
+        $payUrl = $base !== '' ? ($base . '/checkout?pay_order=' . rawurlencode($num)) : '';
+        $trackUrl = $base !== '' ? ($base . '/track-order?order=' . rawurlencode($num)) : '';
+
+        $paid = in_array($pay, ['paid', 'completed', 'success', 'captured'], true);
+        if ($paid) {
+            $msg = "✅ *تم استلام الدفع*\nالمتجر: *{$storeName}*\nالطلب: *#{$num}*\nالمبلغ: *{$total} SAR*\nالطريقة: {$method}\n\n🧾 الفاتورة: {$invoiceUrl}\n🔗 التتبع: {$trackUrl}";
+        } else {
+            $msg = "💳 *تذكير دفع / طلب بانتظار الدفع*\nالمتجر: *{$storeName}*\nالطلب: *#{$num}*\nالعميل: {$name}\nالمبلغ: *{$total} SAR*\nالحالة: {$pay}\n\nأكمل الدفع: {$payUrl}\nتتبع: {$trackUrl}";
+        }
+
+        if (preg_match('/^9665\d{8}$/', $custDigits)) {
+            souq_wa_cloud_send($pdo, $storeId, $custDigits, $msg);
+        }
+        $adminDigits = souq_wa_digits((string)($srow['phone'] ?? ''));
+        if (preg_match('/^9665\d{8}$/', $adminDigits) && $adminDigits !== $custDigits) {
+            $adminMsg = '[ADMIN] ' . $msg;
+            souq_wa_cloud_send($pdo, $storeId, $adminDigits, $adminMsg);
+        }
+    } catch (Throwable $e) {
+        // never break commerce path
+    }
+}
+
 function souq_save_store_data(PDO $pdo, string $storeId, array $data): void
 {
     if (function_exists('souq_ensure_mysql_store_data_column')) {
@@ -1726,7 +1840,7 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             return true;
         }
         $name = strtolower(trim((string)($input['event'] ?? '')));
-        $allowed = ['page_view', 'product_view', 'add_to_cart', 'begin_checkout', 'purchase', 'search'];
+        $allowed = ['page_view', 'product_view', 'add_to_cart', 'begin_checkout', 'add_shipping_info', 'add_payment_info', 'purchase', 'search'];
         if (!in_array($name, $allowed, true)) {
             http_response_code(422);
             echo json_encode(['message' => 'Unknown event.']);
@@ -1984,6 +2098,10 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             $fresh = $pdo->prepare('SELECT * FROM orders WHERE id = ? AND store_id = ?');
             $fresh->execute([$orderId, $storeId]);
             $row = $fresh->fetch() ?: [];
+            // Auto WhatsApp: paid → payment+invoice; unpaid → pending reminder (customer + store admin)
+            if (is_array($row) && $row) {
+                souq_notify_order_whatsapp($pdo, $storeId, $row, 'created');
+            }
             $custFresh = $pdo->prepare('SELECT * FROM customers WHERE id = ? AND store_id = ?');
             $custFresh->execute([$customer['id'], $storeId]);
             $custRow = $custFresh->fetch();
@@ -2143,7 +2261,16 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
 
         $fresh = $pdo->prepare('SELECT * FROM orders WHERE id = ? AND store_id = ? LIMIT 1');
         $fresh->execute([$orderId, $storeId]);
-        echo json_encode(['data' => souq_order_row($pdo, $fresh->fetch() ?: $row)]);
+        $freshRow = $fresh->fetch() ?: $row;
+        $payChanged = array_key_exists('payment_status', $input)
+            && strtolower((string)($input['payment_status'] ?? '')) !== strtolower((string)($row['payment_status'] ?? ''));
+        $completedNow = array_key_exists('status', $input)
+            && in_array(souq_normalize_order_status($input['status']), ['completed', 'delivered'], true)
+            && !in_array(strtolower((string)($row['status'] ?? '')), ['completed', 'delivered'], true);
+        if (is_array($freshRow) && ($payChanged || $completedNow)) {
+            souq_notify_order_whatsapp($pdo, $storeId, $freshRow, 'updated');
+        }
+        echo json_encode(['data' => souq_order_row($pdo, $freshRow)]);
         return true;
     }
 
@@ -2710,11 +2837,107 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
         while ($g = $st->fetch(PDO::FETCH_ASSOC)) {
             $g['is_enabled'] = (bool)(int)$g['is_enabled'];
             $g['is_sandbox'] = (bool)(int)$g['is_sandbox'];
-            $g['supported_methods'] = json_decode((string)($g['supported_methods'] ?? '[]'), true) ?: [];
+            $methodsList = json_decode((string)($g['supported_methods'] ?? '[]'), true) ?: [];
+            $g['supported_methods'] = $methodsList;
+            $g['show_product_logo'] = in_array('show_product_logo', $methodsList, true);
             $g['masked_secret_key'] = '';
             $rows[] = $g;
         }
         echo json_encode(['data' => $rows, 'store_id' => $storeId, 'meta' => ['total' => count($rows)]]);
+        return true;
+    }
+
+    if ($uri === '/payment-gateways' && $method === 'POST') {
+        souq_ensure_payment_defaults($pdo, $storeId);
+        $provider = strtolower(trim((string)($input['provider'] ?? '')));
+        $title = trim((string)($input['title'] ?? $provider));
+        $titleAr = trim((string)($input['title_ar'] ?? ''));
+        $allowed = ['moyasar', 'tap', 'hyperpay', 'stripe', 'paypal', 'tabby', 'tamara', 'stcpay', 'cod', 'bank_transfer'];
+        if ($storeId === '' || $provider === '' || !in_array($provider, $allowed, true)) {
+            http_response_code(422);
+            echo json_encode(['message' => 'provider and store_id are required.']);
+            return true;
+        }
+        $apiKey = trim((string)($input['api_key'] ?? ''));
+        $secretKey = trim((string)($input['secret_key'] ?? ''));
+        $publicKey = trim((string)($input['public_key'] ?? ''));
+        if ($provider === 'tamara' && $secretKey === '' && $apiKey !== '') {
+            $secretKey = $apiKey;
+        }
+        $isEnabled = array_key_exists('is_enabled', $input) ? (int)!empty($input['is_enabled']) : 1;
+        $isSandbox = array_key_exists('is_sandbox', $input) ? (int)!empty($input['is_sandbox']) : 0;
+        $methods = $input['supported_methods'] ?? [];
+        if (!is_array($methods)) $methods = [];
+        $methods = array_values(array_unique(array_map('strval', $methods)));
+        if ($provider === 'tamara' && !in_array('tamara', $methods, true)) {
+            $methods[] = 'tamara';
+        }
+        if (array_key_exists('show_product_logo', $input)) {
+            $methods = array_values(array_filter($methods, static fn($m) => $m !== 'show_product_logo'));
+            if (!empty($input['show_product_logo'])) {
+                $methods[] = 'show_product_logo';
+            }
+        }
+        $feePct = isset($input['transaction_fee_percent']) ? (float)$input['transaction_fee_percent'] : 0;
+        $feeFixed = isset($input['transaction_fee_fixed']) ? (float)$input['transaction_fee_fixed'] : 0;
+
+        $keyless = in_array($provider, ['cod', 'bank_transfer'], true);
+        if ($provider === 'tamara' && ($secretKey === '' || $publicKey === '')) {
+            http_response_code(422);
+            echo json_encode(['message' => 'Tamara merchant key and public key are required before this gateway can connect.']);
+            return true;
+        }
+        if (!$keyless && $secretKey === '' && $apiKey === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'API secret key is required before this gateway can connect.']);
+            return true;
+        }
+
+        $status = $keyless ? 'connected' : ((strlen($secretKey ?: $apiKey) >= 16) ? 'connected' : 'error');
+        $now = date('c');
+        $st = $pdo->prepare('SELECT id FROM payment_gateways WHERE store_id = ? AND provider = ? LIMIT 1');
+        $st->execute([$storeId, $provider]);
+        $existing = $st->fetch(PDO::FETCH_ASSOC);
+        if ($existing) {
+            $id = $existing['id'];
+            $upd = $pdo->prepare('UPDATE payment_gateways SET title = ?, title_ar = ?, is_enabled = ?, is_sandbox = ?, api_key = COALESCE(NULLIF(?, ""), api_key), secret_key = COALESCE(NULLIF(?, ""), secret_key), public_key = COALESCE(NULLIF(?, ""), public_key), supported_methods = ?, transaction_fee_percent = ?, transaction_fee_fixed = ?, status = ?, last_tested_at = ?, updated_at = ? WHERE id = ? AND store_id = ?');
+            $upd->execute([
+                $title, $titleAr !== '' ? $titleAr : null, $isEnabled, $isSandbox,
+                $apiKey, $secretKey, $publicKey, json_encode($methods, JSON_UNESCAPED_UNICODE),
+                $feePct, $feeFixed, $status, $now, $now, $id, $storeId,
+            ]);
+        } else {
+            $id = souq_new_id('gw');
+            $ins = $pdo->prepare('INSERT INTO payment_gateways (id, store_id, provider, title, title_ar, is_enabled, is_sandbox, api_key, secret_key, public_key, supported_methods, transaction_fee_percent, transaction_fee_fixed, status, last_tested_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+            $ins->execute([
+                $id, $storeId, $provider, $title, $titleAr !== '' ? $titleAr : null,
+                $isEnabled, $isSandbox, $apiKey !== '' ? $apiKey : null, $secretKey !== '' ? $secretKey : null,
+                $publicKey !== '' ? $publicKey : null, json_encode($methods, JSON_UNESCAPED_UNICODE),
+                $feePct, $feeFixed, $status, $now, $now, $now,
+            ]);
+        }
+
+        $code = $status === 'connected' ? 200 : 422;
+        http_response_code($code);
+        echo json_encode([
+            'data' => [
+                'id' => $id,
+                'store_id' => $storeId,
+                'provider' => $provider,
+                'title' => $title,
+                'title_ar' => $titleAr !== '' ? $titleAr : null,
+                'is_enabled' => (bool)$isEnabled,
+                'is_sandbox' => (bool)$isSandbox,
+                'public_key' => $publicKey !== '' ? $publicKey : null,
+                'supported_methods' => $methods,
+                'show_product_logo' => in_array('show_product_logo', $methods, true),
+                'status' => $status,
+                'last_tested_at' => $now,
+            ],
+            'message' => $status === 'connected'
+                ? 'Payment gateway connection saved securely.'
+                : 'Credentials saved but connection test failed. Fix keys and test again.',
+        ]);
         return true;
     }
 
@@ -2726,11 +2949,13 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             return true;
         }
         souq_ensure_payment_defaults($pdo, $sid);
-        $st = $pdo->prepare('SELECT provider FROM payment_gateways WHERE store_id = ? AND is_enabled = 1 AND status = ?');
+        $st = $pdo->prepare('SELECT provider, supported_methods FROM payment_gateways WHERE store_id = ? AND is_enabled = 1 AND status = ?');
         $st->execute([$sid, 'connected']);
         $connected = [];
         while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
-            $connected[$r['provider']] = true;
+            $methodsList = json_decode((string)($r['supported_methods'] ?? '[]'), true);
+            if (!is_array($methodsList)) $methodsList = [];
+            $connected[$r['provider']] = $methodsList;
         }
         $catalog = [
             ['id' => 'mada', 'provider' => 'moyasar', 'name_ar' => 'بطاقة مدى البنكية', 'name_en' => 'Mada Debit Card', 'type' => 'card', 'icon' => 'mada', 'is_instant' => true],
@@ -2747,6 +2972,12 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
                 continue;
             }
             $row['is_enabled'] = true;
+            if ($row['id'] === 'tamara') {
+                $gwMethods = $connected[$row['provider']];
+                $row['show_product_logo'] = in_array('tamara', $gwMethods, true)
+                    ? in_array('show_product_logo', $gwMethods, true)
+                    : true;
+            }
             $methods[] = $row;
         }
         echo json_encode([
@@ -2952,27 +3183,71 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
         return true;
     }
 
-    // ── Shipping zones (store_data only — empty → []) ──
+    // ── Shipping zones (shipping_zones table first; store_data fallback) ──
     if ($uri === '/shipping' && $method === 'GET') {
         if ($storeId === '') {
             http_response_code(422);
             echo json_encode(['message' => 'store_id is required.']);
             return true;
         }
-        $data = souq_store_data($pdo, $storeId);
-        $zones = $data['shipping'] ?? $data['shipping_zones'] ?? [];
-        if (!is_array($zones)) {
-            $zones = [];
-        }
         $out = [];
-        foreach ($zones as $z) {
-            if (!is_array($z)) {
-                continue;
+        $hasZonesTable = false;
+        try {
+            $hasZonesTable = (bool) $pdo->query("SHOW TABLES LIKE 'shipping_zones'")->fetch(PDO::FETCH_NUM);
+        } catch (Throwable) {
+            $hasZonesTable = false;
+        }
+        if ($hasZonesTable) {
+            $st = $pdo->prepare('SELECT * FROM shipping_zones WHERE store_id = ? ORDER BY name');
+            $st->execute([$storeId]);
+            while ($z = $st->fetch(PDO::FETCH_ASSOC)) {
+                $cities = $z['city_names'] ?? null;
+                if (is_string($cities)) {
+                    $decoded = json_decode($cities, true);
+                    $cities = is_array($decoded) ? $decoded : [];
+                }
+                if (!is_array($cities)) {
+                    $cities = [];
+                }
+                $out[] = [
+                    'id' => (string) $z['id'],
+                    'store_id' => $storeId,
+                    'name' => (string) ($z['name'] ?? ''),
+                    'cityName' => (string) ($z['name'] ?? ''),
+                    'region' => (string) ($z['region'] ?? ''),
+                    'province' => (string) ($z['region'] ?? ''),
+                    'rate' => (float) ($z['rate'] ?? 0),
+                    'rate_per_kg' => (float) ($z['rate_per_kg'] ?? 0),
+                    'ratePerKg' => (float) ($z['rate_per_kg'] ?? 0),
+                    'min_weight_kg' => isset($z['min_weight_kg']) ? (float) $z['min_weight_kg'] : null,
+                    'max_weight_kg' => isset($z['max_weight_kg']) ? (float) $z['max_weight_kg'] : null,
+                    'free_above' => isset($z['free_above']) ? (float) $z['free_above'] : null,
+                    'freeShippingAbove' => isset($z['free_above']) ? (float) $z['free_above'] : null,
+                    'estimated_delivery' => (string) ($z['estimated_delivery'] ?? ''),
+                    'estimatedDelivery' => (string) ($z['estimated_delivery'] ?? ''),
+                    'courier_code' => $z['courier_code'] ?? null,
+                    'cod_available' => (bool) (int) ($z['cod_available'] ?? 1),
+                    'city_names' => $cities,
+                    'status' => ((int) ($z['is_active'] ?? 1) === 1) ? 'active' : 'inactive',
+                    'is_active' => (bool) (int) ($z['is_active'] ?? 1),
+                ];
             }
-            $out[] = array_merge($z, [
-                'id' => (string)($z['id'] ?? ('ship-' . bin2hex(random_bytes(4)))),
-                'store_id' => $storeId,
-            ]);
+        }
+        if ($out === []) {
+            $data = souq_store_data($pdo, $storeId);
+            $zones = $data['shipping'] ?? $data['shipping_zones'] ?? [];
+            if (!is_array($zones)) {
+                $zones = [];
+            }
+            foreach ($zones as $z) {
+                if (!is_array($z)) {
+                    continue;
+                }
+                $out[] = array_merge($z, [
+                    'id' => (string) ($z['id'] ?? ('ship-' . bin2hex(random_bytes(4)))),
+                    'store_id' => $storeId,
+                ]);
+            }
         }
         echo json_encode(['data' => $out, 'store_id' => $storeId, 'meta' => ['total' => count($out)]]);
         return true;

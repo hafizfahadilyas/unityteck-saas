@@ -106,8 +106,10 @@ export const MasterTopBar: React.FC<MasterTopBarProps> = ({
 
   return (
     <header
-      className="min-h-14 border-b px-2 sm:px-3 md:px-4 lg:px-6 flex flex-wrap items-center gap-x-2 gap-y-2 w-full bg-[var(--bg)] text-[var(--text)] border-[var(--border)] shrink-0 z-30 select-none max-lg:sticky max-lg:top-0"
+      className="min-h-14 border-b px-2 sm:px-3 md:px-4 lg:px-6 flex flex-wrap items-center gap-x-2 gap-y-2 w-full max-w-full min-w-0 overflow-x-clip bg-[var(--bg)] text-[var(--text)] border-[var(--border)] shrink-0 z-30 select-none"
       style={{
+        position: 'relative',
+        paddingTop: 'max(0.35rem, env(safe-area-inset-top, 0px))',
         background: 'var(--bg)',
         borderColor: 'var(--border)',
         color: 'var(--text)',

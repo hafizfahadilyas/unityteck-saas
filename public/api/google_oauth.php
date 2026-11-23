@@ -30,7 +30,7 @@ function souq_google_client_secret(): string
     return souq_google_env('GOOGLE_CLIENT_SECRET');
 }
 
-function souq_google_http_json(string $method, string $url, ?array $form = null, ?string $bearer = null): array
+function souq_google_http_json(string $method, string $url, ?array $form = null, ?string $bearer = null, bool $jsonBody = false): array
 {
     $ch = curl_init($url);
     if ($ch === false) {
@@ -47,8 +47,13 @@ function souq_google_http_json(string $method, string $url, ?array $form = null,
         CURLOPT_HTTPHEADER => $headers,
     ]);
     if ($form !== null) {
-        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($form));
-        $headers[] = 'Content-Type: application/x-www-form-urlencoded';
+        if ($jsonBody) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($form, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            $headers[] = 'Content-Type: application/json';
+        } else {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($form));
+            $headers[] = 'Content-Type: application/x-www-form-urlencoded';
+        }
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
     }
     $raw = curl_exec($ch);
@@ -232,7 +237,7 @@ function souq_google_discover(string $token): array
     ];
 }
 
-function souq_google_pick_defaults(PDO $pdo, string $storeId, array $discovered): array
+function souq_google_pick_defaults(PDO $pdo, string $storeId, array $discovered, string $accessToken = ''): array
 {
     $row = souq_store_row($pdo, $storeId);
     $domain = '';
@@ -263,10 +268,13 @@ function souq_google_pick_defaults(PDO $pdo, string $storeId, array $discovered)
     $gtm = (string)($discovered['tag_manager'][0]['containerId'] ?? '');
     $gtmAcc = (string)($discovered['tag_manager'][0]['accountId'] ?? '');
     $public = $domain !== '' ? ('https://' . $domain) : '';
+    $measurement = $accessToken !== '' && $ga4 !== ''
+        ? souq_google_resolve_measurement_id($accessToken, $ga4)
+        : '';
     return [
         'ga4_property_id' => $ga4,
         'ga4_property_name' => $ga4Name,
-        'ga4_measurement_id' => '',
+        'ga4_measurement_id' => $measurement,
         'gsc_site_url' => $suggestedGsc,
         'gtm_account_id' => $gtmAcc,
         'gtm_container_id' => $gtm,
@@ -275,6 +283,37 @@ function souq_google_pick_defaults(PDO $pdo, string $storeId, array $discovered)
         'store_public_url' => $public,
         'sitemap_url' => $public !== '' ? ($public . '/sitemap.xml') : '',
     ];
+}
+
+/**
+ * Resolve real GA4 web Measurement ID (G-…) from Analytics Admin data streams.
+ */
+function souq_google_resolve_measurement_id(string $token, string $propertyId): string
+{
+    $propertyId = trim(str_replace('properties/', '', $propertyId));
+    if ($token === '' || $propertyId === '' || !preg_match('/^\d+$/', $propertyId)) {
+        return '';
+    }
+    $res = souq_google_http_json(
+        'GET',
+        'https://analyticsadmin.googleapis.com/v1beta/properties/' . rawurlencode($propertyId) . '/dataStreams',
+        null,
+        $token
+    );
+    $streams = $res['dataStreams'] ?? [];
+    if (!is_array($streams)) {
+        return '';
+    }
+    foreach ($streams as $stream) {
+        if (!is_array($stream)) {
+            continue;
+        }
+        $mid = trim((string)($stream['webStreamData']['measurementId'] ?? ''));
+        if ($mid !== '' && preg_match('/^G-[A-Z0-9]+$/i', $mid)) {
+            return strtoupper($mid);
+        }
+    }
+    return '';
 }
 
 /**
@@ -471,7 +510,7 @@ function souq_google_dispatch(PDO $pdo, string $uri, string $method, string $sto
         }
 
         $discovered = souq_google_discover($accessToken);
-        $picks = souq_google_pick_defaults($pdo, $storeId, $discovered);
+        $picks = souq_google_pick_defaults($pdo, $storeId, $discovered, $accessToken);
         $existing = souq_google_load_integration($pdo, $storeId);
 
         $integration = [
@@ -579,6 +618,15 @@ function souq_google_dispatch(PDO $pdo, string $uri, string $method, string $sto
                 $int[$key] = is_string($input[$key]) ? trim($input[$key]) : $input[$key];
             }
         }
+        $measurement = trim((string)($int['ga4_measurement_id'] ?? ''));
+        $propertyId = trim((string)($int['ga4_property_id'] ?? ''));
+        $token = trim((string)($int['access_token'] ?? ''));
+        if ($measurement === '' && $propertyId !== '' && $token !== '') {
+            $resolved = souq_google_resolve_measurement_id($token, $propertyId);
+            if ($resolved !== '') {
+                $int['ga4_measurement_id'] = $resolved;
+            }
+        }
         $int['last_synced_at'] = date('c');
         $int['sync_status'] = 'synced';
         souq_google_save_integration($pdo, $storeId, $int);
@@ -586,6 +634,61 @@ function souq_google_dispatch(PDO $pdo, string $uri, string $method, string $sto
             'message' => 'Google properties successfully saved',
             'integration' => souq_google_public_integration($int),
             'sync' => ['ok' => true],
+        ]);
+        return true;
+    }
+
+    // POST /google/indexing — real Indexing API (store-scoped token)
+    if ($uri === '/google/indexing' && $method === 'POST') {
+        $pageUrl = trim((string)($input['url'] ?? ''));
+        $type = strtoupper(trim((string)($input['type'] ?? 'URL_UPDATED')));
+        if (!in_array($type, ['URL_UPDATED', 'URL_DELETED'], true)) {
+            $type = 'URL_UPDATED';
+        }
+        if ($pageUrl === '' || !preg_match('#^https?://#i', $pageUrl)) {
+            http_response_code(422);
+            echo json_encode([
+                'ok' => false,
+                'message' => 'A real http(s) URL is required for indexing.',
+                'error' => 'invalid_url',
+            ]);
+            return true;
+        }
+        $int = souq_google_load_integration($pdo, $storeId);
+        if (empty($int['is_connected']) || empty($int['access_token'])) {
+            http_response_code(400);
+            echo json_encode([
+                'ok' => false,
+                'message' => 'Connect Google for this store first, then request indexing.',
+                'error' => 'google_not_connected',
+            ]);
+            return true;
+        }
+        $res = souq_google_http_json(
+            'POST',
+            'https://indexing.googleapis.com/v3/urlNotifications:publish',
+            ['url' => $pageUrl, 'type' => $type],
+            (string)$int['access_token'],
+            true
+        );
+        $http = (int)($res['_http'] ?? 0);
+        $ok = $http >= 200 && $http < 300;
+        if (!$ok) {
+            http_response_code(502);
+            echo json_encode([
+                'ok' => false,
+                'url' => $pageUrl,
+                'type' => $type,
+                'message' => 'Google Indexing API rejected or failed this URL. Verify ownership and Indexing API access.',
+                'error' => 'indexing_failed',
+            ]);
+            return true;
+        }
+        echo json_encode([
+            'ok' => true,
+            'url' => $pageUrl,
+            'type' => $type,
+            'message' => 'Indexing request accepted by Google.',
         ]);
         return true;
     }

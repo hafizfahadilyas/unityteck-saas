@@ -40,6 +40,7 @@ import {
 import { useTenant } from '../../context/TenantContext';
 import { submitPublicStorefrontOrder } from '../../utils/submitStorefrontOrder';
 import { readTrafficSource } from '../../utils/trafficSource';
+import { trackStorefrontEvent } from '../../utils/storefrontAnalytics';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { Product, CategoryItem } from '../../types';
 import { 
@@ -113,7 +114,6 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
   const { activeStore, addOrder, syncOrderFromApi, recordStoreVisit, currentProducts, addToCart: tenantAddToCart } = useTenant();
   const prefs = usePrefs();
   const locale = prefs?.locale;
-  const setLocale = prefs?.setLocale;
 
   const [syncTick, setSyncTick] = useState(0);
 
@@ -147,14 +147,18 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
     }
   }, [storeId, activeStore, syncTick]);
 
-  // Bilingual State (AR / EN)
+  // Bilingual State (AR / EN) — local storefront only; do not write admin prefs (avoids chrome flip).
   const [currentLang, setCurrentLang] = useState<'ar' | 'en'>(locale === 'en' ? 'en' : 'ar');
   const isAr = currentLang === 'ar';
+
+  useEffect(() => {
+    const next = locale === 'en' ? 'en' : 'ar';
+    setCurrentLang((prev) => (prev === next ? prev : next));
+  }, [locale]);
 
   const toggleLanguage = () => {
     const nextLang = currentLang === 'ar' ? 'en' : 'ar';
     setCurrentLang(nextLang);
-    if (setLocale) setLocale(nextLang);
   };
 
   const recordedVisitRef = useRef(false);
@@ -416,6 +420,43 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
     notes: '',
   });
 
+  useEffect(() => {
+    if (!checkoutOpen || !activeStore?.id) return;
+    const cartValue = cart.reduce(
+      (sum, it) => sum + (Number(it.unitPrice) || 0) * (it.quantity || 1),
+      0,
+    );
+    trackStorefrontEvent(activeStore.id, 'begin_checkout', {
+      path: typeof location !== 'undefined' ? location.pathname : '/checkout',
+      meta: {
+        cart_items: cart.length,
+        items_count: cart.reduce((n, it) => n + (it.quantity || 1), 0),
+        cart_value: cartValue,
+        cart_total: cartValue,
+      },
+    });
+  }, [checkoutOpen, activeStore?.id, cart.length]);
+
+  useEffect(() => {
+    if (!checkoutOpen || !activeStore?.id) return;
+    if (!checkoutForm.city.trim() && !checkoutForm.address.trim()) return;
+    trackStorefrontEvent(activeStore.id, 'add_shipping_info', {
+      path: typeof location !== 'undefined' ? location.pathname : '/checkout',
+      meta: {
+        city: checkoutForm.city || undefined,
+        address_set: Boolean(checkoutForm.address.trim()),
+      },
+    });
+  }, [checkoutOpen, activeStore?.id, checkoutForm.city, checkoutForm.address]);
+
+  useEffect(() => {
+    if (!checkoutOpen || !activeStore?.id || !checkoutForm.paymentMethod) return;
+    trackStorefrontEvent(activeStore.id, 'add_payment_info', {
+      path: typeof location !== 'undefined' ? location.pathname : '/checkout',
+      meta: { payment_method: checkoutForm.paymentMethod },
+    });
+  }, [checkoutOpen, activeStore?.id, checkoutForm.paymentMethod]);
+
   // Super Advanced Vehicle Match Popup Alert State
   const [vehicleMatchModalOpen, setVehicleMatchModalOpen] = useState(false);
 
@@ -485,6 +526,17 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
       }
     }
   }, [storeCatalog]);
+
+  useEffect(() => {
+    if (!activeStore?.id || !selectedProduct?.id) return;
+    trackStorefrontEvent(activeStore.id, 'product_view', {
+      path: typeof location !== 'undefined' ? location.pathname : '/product',
+      meta: {
+        product_id: selectedProduct.id,
+        product_name: selectedProduct.nameAr || selectedProduct.name || undefined,
+      },
+    });
+  }, [activeStore?.id, selectedProduct?.id]);
 
   // Dynamically computed counts from actual store catalog
   const brandProductCounts = useMemo(() => {
@@ -604,6 +656,17 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
     const unitPrice = customPrice || product.discountedPrice || product.price;
     const prodColors = getProductColors(product);
     const selectedCol = color || cardSelectedColors[product.id] || prodColors[0];
+
+    if (activeStore?.id && product?.id) {
+      trackStorefrontEvent(activeStore.id, 'add_to_cart', {
+        path: typeof location !== 'undefined' ? location.pathname : '/cart',
+        meta: {
+          product_id: product.id,
+          product_name: product.nameAr || product.name || undefined,
+          quantity,
+        },
+      });
+    }
 
     setCart(prev => {
       const existing = prev.find(item => 
@@ -767,6 +830,10 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
             paymentMethod: checkoutForm.paymentMethod === 'cod' ? 'Cash on Delivery' : 'mada',
             paymentStatus: 'pending',
             source: readTrafficSource().source,
+            medium: readTrafficSource().medium || undefined,
+            campaign: readTrafficSource().campaign || undefined,
+            utmTerm: readTrafficSource().utmTerm || undefined,
+            utmContent: readTrafficSource().utmContent || undefined,
             items: cart.map((it) => {
               const sp = it.specs as Record<string, unknown> | undefined;
               const selectedOptions: Record<string, string> = {};

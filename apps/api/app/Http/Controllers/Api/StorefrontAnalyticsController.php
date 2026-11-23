@@ -45,6 +45,8 @@ class StorefrontAnalyticsController extends Controller
             'product_view',
             'add_to_cart',
             'begin_checkout',
+            'add_shipping_info',
+            'add_payment_info',
             'purchase',
             'search',
         ];

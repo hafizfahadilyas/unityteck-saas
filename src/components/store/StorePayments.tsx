@@ -45,6 +45,11 @@ import { useToast } from '../common/ToastProvider';
 import { GlobalModal } from '../common/GlobalModal';
 import { PageDocsGuideModal } from '../common/PageDocsGuideModal';
 import { downloadCsv } from '../../utils/exportSpreadsheet';
+import {
+  TamaraGatewayModal,
+  type TamaraGatewayFormState,
+} from './payments/TamaraGatewayModal';
+import { PAYMENT_METHOD_LOGO } from '../../utils/paymentMethodLogos';
 
 const emptyBankForm = (): StoreBankAccountPayload => ({
   bank_name: '',
@@ -122,6 +127,10 @@ export const StorePayments: React.FC = () => {
   const [stcPayEnabled, setStcPayEnabled] = useState(true);
   const [codEnabled, setCodEnabled] = useState(true);
   const [bnplEnabled, setBnplEnabled] = useState(true);
+  const [tabbyEnabled, setTabbyEnabled] = useState(true);
+  const [tamaraEnabled, setTamaraEnabled] = useState(true);
+  const [showTamaraModal, setShowTamaraModal] = useState(false);
+  const [savingTamara, setSavingTamara] = useState(false);
 
   // Payment Offers / Fee structure
   const [feePercent, setFeePercent] = useState('1.5');
@@ -158,6 +167,13 @@ export const StorePayments: React.FC = () => {
   useEffect(() => {
     void loadBankAccounts();
   }, [loadBankAccounts]);
+
+  useEffect(() => {
+    const tamara = currentPaymentGateways.find((g) => g.provider === 'tamara');
+    const tabby = currentPaymentGateways.find((g) => g.provider === 'tabby');
+    if (tamara) setTamaraEnabled(Boolean(tamara.isEnabled && tamara.status === 'connected'));
+    if (tabby) setTabbyEnabled(Boolean(tabby.isEnabled && tabby.status === 'connected'));
+  }, [currentPaymentGateways]);
 
   const openCreateBankModal = () => {
     setEditingBankRow(null);
@@ -370,22 +386,36 @@ export const StorePayments: React.FC = () => {
       badge: isAr ? 'تحويل مبالغ المندوب مفعّل' : 'Courier Remittance Enabled',
       badgeCls: 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10',
     },
-    // 6. Tabby & Tamara BNPL
+    // 6. Tabby BNPL
     {
-      key: 'bnpl',
-      name: 'Tabby & Tamara',
+      key: 'tabby',
+      name: isAr ? 'تابي' : 'Tabby',
       sub: isAr ? 'التقسيط على 4 دفعات' : 'Split in 4 installments',
-      defaultAccount: 'BNPL-SA-33410',
-      gatewayType: 'tap',
+      defaultAccount: '',
+      gatewayType: 'tabby',
       logo: (
-        <div className="w-11 h-9 rounded-xl bg-gradient-to-tr from-pink-500 to-purple-600 text-white font-black flex items-center justify-center text-[10px] shadow-2xs">
-          BNPL
-        </div>
+        <img src={PAYMENT_METHOD_LOGO.tabby} alt="Tabby" className="w-11 h-9 object-contain rounded-xl bg-white border border-slate-100 p-1" />
       ),
       desc: isAr
-        ? 'يقسّم المتسوقون باقات الزهور الفاخرة وباقات الأعراس على 4 دفعات شهرية دون فوائد، ويستلم التاجر المبلغ كاملاً مقدماً.'
-        : 'Shoppers split luxury flower & bridal packages in 4 monthly payments with 0% interest. Merchant is paid in full upfront.',
-      badge: isAr ? 'يرفع متوسط قيمة الطلب بنسبة 36%+' : 'Increases AOV by +36%',
+        ? 'قسّم مشتريات العملاء على 4 دفعات شهرية بدون فوائد عبر تابي، ويستلم التاجر المبلغ كاملاً مقدماً.'
+        : 'Split purchases into 4 interest-free monthly payments via Tabby. Merchant is paid in full upfront.',
+      badge: isAr ? 'اشتر الآن وادفع لاحقاً' : 'Buy now, pay later',
+      badgeCls: 'text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-500/10',
+    },
+    // 7. Tamara BNPL (full connect modal)
+    {
+      key: 'tamara',
+      name: isAr ? 'تمارا' : 'Tamara',
+      sub: isAr ? 'قسّم فاتورتك على 4 دفعات' : 'Split your bill into 4 payments',
+      defaultAccount: '',
+      gatewayType: 'tamara',
+      logo: (
+        <img src={PAYMENT_METHOD_LOGO.tamara} alt="Tamara" className="w-11 h-9 object-contain rounded-xl bg-white border border-slate-100 p-1" />
+      ),
+      desc: isAr
+        ? 'ربط تمارا بمفتاح التاجر والمفتاح العام، مع خيار إظهار الشعار في صفحة المنتج وتقسيط متوافق مع الشريعة.'
+        : 'Connect Tamara with merchant + public keys, optional product-page logo, and Sharia-compliant installments.',
+      badge: isAr ? 'متوافقة مع الشريعة' : 'Sharia compliant',
       badgeCls: 'text-pink-700 dark:text-pink-300 bg-pink-50 dark:bg-pink-500/10',
     },
   ];
@@ -404,6 +434,10 @@ export const StorePayments: React.FC = () => {
         return codEnabled;
       case 'bnpl':
         return bnplEnabled;
+      case 'tabby':
+        return tabbyEnabled;
+      case 'tamara':
+        return tamaraEnabled;
       default:
         return true;
     }
@@ -423,12 +457,40 @@ export const StorePayments: React.FC = () => {
         return setCodEnabled;
       case 'bnpl':
         return setBnplEnabled;
+      case 'tabby':
+        return setTabbyEnabled;
+      case 'tamara':
+        return setTamaraEnabled;
       default:
         return () => {};
     }
   };
 
+  const tamaraGateway = useMemo(
+    () => currentPaymentGateways.find((g) => g.provider === 'tamara'),
+    [currentPaymentGateways],
+  );
+
+  const tamaraModalInitial: TamaraGatewayFormState = useMemo(
+    () => ({
+      merchantKey: '',
+      publicKey: tamaraGateway?.publicKey || '',
+      isSandbox: tamaraGateway?.isSandbox ?? false,
+      showProductLogo: tamaraGateway?.showProductLogo !== false,
+      policyAccepted: Boolean(
+        tamaraGateway?.supportedMethods?.includes('policy_accepted') ||
+          tamaraGateway?.status === 'connected',
+      ),
+    }),
+    [tamaraGateway],
+  );
+
   const handleConfigureMethodOrGateway = (method: PaymentMethodCardConfig) => {
+    if (method.key === 'tamara' || method.gatewayType === 'tamara') {
+      setShowTamaraModal(true);
+      return;
+    }
+
     setSelectedProvider(method.key);
     setGatewayTitle(method.name);
     setGatewayMerchantId(method.defaultAccount);
@@ -437,20 +499,67 @@ export const StorePayments: React.FC = () => {
       (g) => g.provider === method.gatewayType || g.provider === (method.key as any)
     );
 
+    // Zero-mock: never invent placeholder API keys
     if (existing) {
-      setGatewayPublicKey(existing.publicKey || `pk_live_${method.key}_${activeStore.slug.slice(0, 4)}8819`);
+      setGatewayPublicKey(existing.publicKey || '');
       setGatewayIsSandbox(existing.isSandbox);
       setGatewayFeePct(existing.transactionFeePercent.toString());
       setGatewayFeeFixed(existing.transactionFeeFixed.toString());
+      setGatewaySecretKey('');
+      setGatewayWebhookSecret('');
     } else {
-      setGatewayPublicKey(`pk_live_${method.key}_${activeStore.slug.slice(0, 4)}8819`);
+      setGatewayPublicKey('');
       setGatewayIsSandbox(false);
       setGatewayFeePct('1.5');
       setGatewayFeeFixed('1.0');
+      setGatewaySecretKey('');
+      setGatewayWebhookSecret('');
     }
-    setGatewaySecretKey('sk_live_••••••••••••••••••••');
-    setGatewayWebhookSecret(`whsec_${method.key}_${activeStore.slug.slice(0, 5)}_2026`);
     setShowGatewayModal(true);
+  };
+
+  const handleSaveTamara = async (next: TamaraGatewayFormState) => {
+    setSavingTamara(true);
+    try {
+      const res = await savePaymentGatewayConfig({
+        provider: 'tamara',
+        title: 'Tamara',
+        titleAr: 'تمارا',
+        apiKey: next.merchantKey,
+        secretKey: next.merchantKey,
+        publicKey: next.publicKey,
+        isSandbox: next.isSandbox,
+        isEnabled: true,
+        showProductLogo: next.showProductLogo,
+        supportedMethods: [
+          'tamara',
+          ...(next.showProductLogo ? ['show_product_logo'] : []),
+          ...(next.policyAccepted ? ['policy_accepted'] : []),
+        ],
+        transactionFeePercent: 0,
+        transactionFeeFixed: 0,
+      });
+      if (res?.success) {
+        setTamaraEnabled(true);
+        setShowTamaraModal(false);
+        toast(
+          isAr ? 'تم ربط تمارا وحفظ الإعدادات بنجاح' : 'Tamara connected and settings saved',
+          'success',
+        );
+      } else {
+        toast(
+          res?.message ||
+            (isAr
+              ? 'تعذر التحقق من مفاتيح تمارا. راجع المفاتيح وحاول مرة أخرى.'
+              : 'Could not verify Tamara keys. Check credentials and try again.'),
+          'error',
+        );
+      }
+    } catch {
+      toast(isAr ? 'فشل حفظ إعدادات تمارا' : 'Failed to save Tamara settings', 'error');
+    } finally {
+      setSavingTamara(false);
+    }
   };
 
   const handleSaveGateway = async (e: React.FormEvent) => {
@@ -1415,6 +1524,30 @@ export const StorePayments: React.FC = () => {
           </div>
         </GlobalModal>
       )}
+
+      <TamaraGatewayModal
+        open={showTamaraModal}
+        isAr={isAr}
+        initial={tamaraModalInitial}
+        saving={savingTamara}
+        statusLabel={
+          tamaraGateway
+            ? tamaraGateway.status === 'connected'
+              ? isAr
+                ? 'الحالة: متصل'
+                : 'Status: Connected'
+              : tamaraGateway.status === 'error'
+                ? isAr
+                  ? 'الحالة: خطأ في التحقق'
+                  : 'Status: Verification error'
+                : isAr
+                  ? 'الحالة: غير متصل'
+                  : 'Status: Disconnected'
+            : undefined
+        }
+        onClose={() => setShowTamaraModal(false)}
+        onSave={handleSaveTamara}
+      />
 
       {/* Docs Guide Modal */}
       <PageDocsGuideModal

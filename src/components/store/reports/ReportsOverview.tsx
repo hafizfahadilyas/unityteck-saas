@@ -30,6 +30,8 @@ import {
   Clock,
   ArrowDownRight,
   Package,
+  Truck,
+  CreditCard,
   LineChart as LineChartIcon,
 } from 'lucide-react';
 
@@ -184,6 +186,8 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
     const views = Number(f?.product_views ?? 0) || 0;
     const cart = Number(f?.add_to_cart ?? 0) || 0;
     const checkout = Number(f?.checkout_started ?? 0) || 0;
+    const shipping = Number(f?.shipping_info ?? 0) || 0;
+    const payment = Number(f?.payment_info ?? 0) || 0;
     const orders = Number(f?.orders_placed ?? totalOrders) || 0;
     const pct = (n: number) => (visits > 0 ? `${((n / visits) * 100).toFixed(1)}%` : '0%');
 
@@ -223,6 +227,24 @@ export const ReportsOverview: React.FC<ReportsOverviewProps> = ({
         pct: pct(checkout),
         color: '#f97316',
         icon: ShoppingBag,
+      },
+      {
+        id: 'shipping',
+        nameAr: 'معلومات الشحن',
+        nameEn: 'Shipping Info',
+        count: shipping,
+        pct: pct(shipping),
+        color: '#0ea5e9',
+        icon: Truck,
+      },
+      {
+        id: 'payment',
+        nameAr: 'معلومات الدفع',
+        nameEn: 'Payment Info',
+        count: payment,
+        pct: pct(payment),
+        color: '#8b5cf6',
+        icon: CreditCard,
       },
       {
         id: 'orders',

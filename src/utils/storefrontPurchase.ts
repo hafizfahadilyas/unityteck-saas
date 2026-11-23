@@ -11,7 +11,12 @@ import type {
   ProductOptionDefinition,
   ProductVariation,
 } from '../types';
-import { customFieldIsFillable, normalizeCustomFieldType } from './customFieldTypes';
+import {
+  coerceCustomFieldTypeForOptions,
+  customFieldAllowsFieldExtraPrice,
+  customFieldIsFillable,
+  normalizeCustomFieldType,
+} from './customFieldTypes';
 import { mergeBilingualProductOptions } from './existingProductCommerce';
 import {
   evalConditionGroup,
@@ -195,6 +200,7 @@ export function customFieldsExtra(
       if (p > 0) optionSum += p;
     }
     if (optionSum > 0) return sum + optionSum;
+    if (!customFieldAllowsFieldExtraPrice(field.type)) return sum;
     const extra = Number(field.extraPrice) || 0;
     return sum + (extra > 0 ? extra : 0);
   }, 0);
@@ -321,6 +327,9 @@ export function choiceLooksLikeColor(value: string): boolean {
   return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value.trim());
 }
 
-export function fieldControlKind(type: string | undefined): string {
-  return normalizeCustomFieldType(type);
+export function fieldControlKind(
+  type: string | undefined,
+  options?: ProductCustomField['options'],
+): string {
+  return coerceCustomFieldTypeForOptions(type, options);
 }

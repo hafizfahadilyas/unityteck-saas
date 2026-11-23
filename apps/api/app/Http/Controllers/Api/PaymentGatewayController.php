@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\PaymentGateway;
 use App\Models\PaymentTransaction;
+use App\Services\Notification\NotificationService;
 use App\Services\Payment\PaymentManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -28,6 +30,7 @@ class PaymentGatewayController extends Controller
         $gateways = PaymentGateway::query()->forStore($storeId)->get();
 
         $data = $gateways->map(function ($g) {
+            $methods = is_array($g->supported_methods) ? $g->supported_methods : [];
             return [
                 'id' => $g->id,
                 'store_id' => $g->store_id,
@@ -38,7 +41,8 @@ class PaymentGatewayController extends Controller
                 'is_sandbox' => $g->is_sandbox,
                 'public_key' => $g->public_key,
                 'masked_secret_key' => $g->masked_secret_key,
-                'supported_methods' => $g->supported_methods,
+                'supported_methods' => $methods,
+                'show_product_logo' => in_array('show_product_logo', $methods, true),
                 'transaction_fee_percent' => (float) $g->transaction_fee_percent,
                 'transaction_fee_fixed' => (float) $g->transaction_fee_fixed,
                 'status' => $g->status,
@@ -72,6 +76,7 @@ class PaymentGatewayController extends Controller
             'public_key' => ['nullable', 'string'],
             'webhook_secret' => ['nullable', 'string'],
             'supported_methods' => ['nullable', 'array'],
+            'show_product_logo' => ['nullable', 'boolean'],
             'transaction_fee_percent' => ['nullable', 'numeric', 'min:0'],
             'transaction_fee_fixed' => ['nullable', 'numeric', 'min:0'],
         ]);
@@ -94,9 +99,27 @@ class PaymentGatewayController extends Controller
         $gateway->is_sandbox = $data['is_sandbox'] ?? true;
         if (!empty($data['api_key'])) $gateway->api_key = $data['api_key'];
         if (!empty($data['secret_key'])) $gateway->secret_key = $data['secret_key'];
+        // Tamara merchant token often arrives as api_key only — mirror into secret_key for Bearer auth
+        if ($gateway->provider === 'tamara' && empty($gateway->secret_key) && !empty($gateway->api_key)) {
+            $gateway->secret_key = $gateway->api_key;
+        }
         if (!empty($data['public_key'])) $gateway->public_key = $data['public_key'];
         if (!empty($data['webhook_secret'])) $gateway->webhook_secret = $data['webhook_secret'];
-        if (isset($data['supported_methods'])) $gateway->supported_methods = $data['supported_methods'];
+
+        $methods = isset($data['supported_methods']) && is_array($data['supported_methods'])
+            ? array_values(array_unique(array_map('strval', $data['supported_methods'])))
+            : (is_array($gateway->supported_methods) ? $gateway->supported_methods : []);
+        if ($gateway->provider === 'tamara' && !in_array('tamara', $methods, true)) {
+            $methods[] = 'tamara';
+        }
+        if (array_key_exists('show_product_logo', $data)) {
+            $methods = array_values(array_filter($methods, static fn ($m) => $m !== 'show_product_logo'));
+            if ($data['show_product_logo']) {
+                $methods[] = 'show_product_logo';
+            }
+        }
+        $gateway->supported_methods = $methods;
+
         if (isset($data['transaction_fee_percent'])) $gateway->transaction_fee_percent = $data['transaction_fee_percent'];
         if (isset($data['transaction_fee_fixed'])) $gateway->transaction_fee_fixed = $data['transaction_fee_fixed'];
 
@@ -108,6 +131,15 @@ class PaymentGatewayController extends Controller
             $gateway->save();
         } else {
             $hasSecret = !empty($gateway->secret_key) || !empty($gateway->api_key);
+            // Tamara also requires public key for widget / checkout
+            if ($gateway->provider === 'tamara' && (empty($gateway->public_key) || !$hasSecret)) {
+                $gateway->status = 'disconnected';
+                $gateway->save();
+
+                return response()->json([
+                    'message' => 'Tamara merchant key and public key are required before this gateway can connect.',
+                ], 422);
+            }
             if (!$hasSecret) {
                 $gateway->status = 'disconnected';
                 $gateway->save();
@@ -116,7 +148,8 @@ class PaymentGatewayController extends Controller
                     'message' => 'API secret key is required before this gateway can connect.',
                 ], 422);
             }
-            $gateway->status = 'pending';
+            // Enum is connected|disconnected|error — never write invalid "pending"
+            $gateway->status = 'disconnected';
             $gateway->save();
 
             try {
@@ -132,13 +165,23 @@ class PaymentGatewayController extends Controller
             }
         }
 
+        $savedMethods = is_array($gateway->supported_methods) ? $gateway->supported_methods : [];
+
         return response()->json([
             'data' => [
                 'id' => $gateway->id,
+                'store_id' => $gateway->store_id,
                 'provider' => $gateway->provider,
                 'title' => $gateway->title,
+                'title_ar' => $gateway->title_ar,
                 'is_enabled' => $gateway->is_enabled,
                 'is_sandbox' => $gateway->is_sandbox,
+                'public_key' => $gateway->public_key,
+                'masked_secret_key' => $gateway->masked_secret_key,
+                'supported_methods' => $savedMethods,
+                'show_product_logo' => in_array('show_product_logo', $savedMethods, true),
+                'transaction_fee_percent' => (float) $gateway->transaction_fee_percent,
+                'transaction_fee_fixed' => (float) $gateway->transaction_fee_fixed,
                 'status' => $gateway->status,
                 'webhook_url' => url("/api/webhooks/payments/{$gateway->provider}?store_id={$gateway->store_id}"),
                 'last_tested_at' => $gateway->last_tested_at?->toIso8601String(),
@@ -255,11 +298,21 @@ class PaymentGatewayController extends Controller
         $order->payment_method = $validated['payment_method'];
         $order->save();
 
+        $freshOrder = $order->fresh(['items', 'customer']);
+        try {
+            (new NotificationService())->notifyPaymentConfirmed($freshOrder);
+        } catch (\Throwable $e) {
+            Log::warning('Payment verify notification failed: '.$e->getMessage(), [
+                'store_id' => $storeId,
+                'order_id' => $order->id,
+            ]);
+        }
+
         return response()->json([
             'verified' => true,
             'status' => 'paid',
             'transaction' => $transaction,
-            'order' => $order->fresh(),
+            'order' => $freshOrder,
             'message' => 'Payment verified and confirmed server-side.',
         ]);
     }
@@ -448,7 +501,17 @@ class PaymentGatewayController extends Controller
             if (!$dbGateways->has($row['provider'])) {
                 continue;
             }
-            $methods[] = array_merge($row, ['is_enabled' => true]);
+            $gw = $dbGateways->get($row['provider']);
+            $gwMethods = is_array($gw?->supported_methods) ? $gw->supported_methods : [];
+            $extra = ['is_enabled' => true];
+            if (($row['id'] ?? '') === 'tamara') {
+                // Explicit save with 'tamara' in methods → respect show_product_logo flag.
+                // Legacy connected rows without methods → default logo ON.
+                $extra['show_product_logo'] = in_array('tamara', $gwMethods, true)
+                    ? in_array('show_product_logo', $gwMethods, true)
+                    : true;
+            }
+            $methods[] = array_merge($row, $extra);
         }
 
         return response()->json([
@@ -641,6 +704,23 @@ class PaymentGatewayController extends Controller
             $order->payment_transaction_id = $transaction->id;
             $order->payment_method = $validated['payment_method'];
             $order->save();
+        }
+
+        if ($order && $transaction->status === 'paid') {
+            try {
+                (new NotificationService())->notifyPaymentConfirmed($order->fresh(['items', 'customer']));
+            } catch (\Throwable $e) {
+                Log::warning('Storefront payment notify failed: '.$e->getMessage(), [
+                    'store_id' => $storeId,
+                    'order_id' => $order->id,
+                ]);
+            }
+        } elseif ($order && in_array($transaction->status, ['pending', 'failed'], true)) {
+            try {
+                (new NotificationService())->sendOrderNotification('payment_pending', $order->fresh(['items', 'customer']));
+            } catch (\Throwable $e) {
+                Log::warning('Storefront pending payment notify failed: '.$e->getMessage());
+            }
         }
 
         return response()->json([

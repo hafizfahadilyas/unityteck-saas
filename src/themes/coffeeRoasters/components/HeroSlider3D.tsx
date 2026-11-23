@@ -4,7 +4,7 @@ import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
 import { PRODUCTS } from '../data/products';
 import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
-import { coffeeWhatsAppDigits } from '../../settings/coffeeModularSettings';
+import { coffeeWhatsAppDigits, resolveHeroDeviceStyle } from '../../settings/coffeeModularSettings';
 import { resolveStoreContact } from '../../settings/storeContact';
 import { resolveCustomMadeWhatsAppHref } from '../customMadeWhatsApp';
 import { learnMoreHref } from '../learnMoreHref';
@@ -174,9 +174,18 @@ const splitBannerHeading = (fullText: string, lang: 'EN' | 'AR') => {
 export interface HeroSlider3DProps {
   variant?: 'home' | 'shop';
   banners?: Array<Record<string, any>> | null;
+  /** Override section contentMode for dual-slider home (`both`). */
+  forceContentMode?: 'image_only' | 'full';
+  /** Which banner list to read from theme settings. */
+  bannersKey?: 'banners' | 'imageOnlyBanners';
 }
 
-export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', banners = null }) => {
+export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({
+  variant = 'home',
+  banners = null,
+  forceContentMode,
+  bannersKey = 'banners',
+}) => {
   const { navigateTo, language, addToCart, triggerFlyToCart, products, storeIdentity } = useCart();
   const { activeStore } = useTenant();
   const catalogProducts = Array.isArray(products) ? products : [];
@@ -225,11 +234,15 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
     storeIdentity,
   ]);
 
-  // Home slides: Word C-HERO `heroBanners` first, then legacy `slider.slides`. Never flowers/MKS.
+  // Home slides: Word C-HERO `heroBanners` / `imageOnlyBanners`, then legacy `slider.slides`.
   const homeSlides: HeroBannerSlide[] = useMemo(() => {
     const fromBlock = Array.isArray(banners) && banners.length > 0;
     const hero = themeSettings?.heroBanners;
-    const heroBanners = (fromBlock ? banners : (hero?.enabled !== false ? hero?.banners : [])) || [];
+    const listFromSettings =
+      bannersKey === 'imageOnlyBanners'
+        ? (hero?.imageOnlyBanners?.length ? hero.imageOnlyBanners : hero?.banners)
+        : hero?.banners;
+    const heroBanners = (fromBlock ? banners : (hero?.enabled !== false ? listFromSettings : [])) || [];
     const activeHero = heroBanners.filter(
       (b) =>
         b.enabled !== false &&
@@ -317,18 +330,42 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
       });
     }
     return [];
-  }, [themeSettings, banners, activeStore?.id]);
+  }, [themeSettings, banners, activeStore?.id, bannersKey]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(1);
   const [isPaused, setIsPaused] = useState(false);
   const [keyCounter, setKeyCounter] = useState(0);
+  const [viewportDevice, setViewportDevice] = useState<'mobile' | 'laptop' | 'desktop'>('desktop');
 
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartXRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
 
-  const SLIDE_DURATION = Math.max(3500, (themeSettings?.slider?.transitionDuration || 5) * 1000);
+  useEffect(() => {
+    const syncDevice = () => {
+      const w = typeof window !== 'undefined' ? window.innerWidth : 1280;
+      if (w < 768) setViewportDevice('mobile');
+      else if (w < 1280) setViewportDevice('laptop');
+      else setViewportDevice('desktop');
+    };
+    syncDevice();
+    window.addEventListener('resize', syncDevice);
+    return () => window.removeEventListener('resize', syncDevice);
+  }, []);
+
+  const heroContentMode =
+    forceContentMode ||
+    (themeSettings?.heroBanners?.contentMode === 'image_only' ? 'image_only' : 'full');
+  const heroShowArrows = themeSettings?.heroBanners?.showArrows !== false;
+  const heroShowDots = themeSettings?.heroBanners?.showDots !== false;
+  const heroAutoplay = themeSettings?.heroBanners?.autoplay !== false;
+  const SLIDE_DURATION = Math.max(
+    3500,
+    Number(themeSettings?.heroBanners?.intervalMs) > 0
+      ? Number(themeSettings?.heroBanners?.intervalMs)
+      : (themeSettings?.slider?.transitionDuration || 5) * 1000,
+  );
 
   const isRTL = language === 'AR';
   const visualDirection = isRTL ? -direction : direction;
@@ -449,7 +486,8 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
             aria-label={language === 'AR' ? 'السابق' : 'Previous'}
             className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white/95 border border-neutral-200 shadow-md flex items-center justify-center text-black active:scale-95 transition-transform"
           >
-            <ChevronLeft className="w-5 h-5 rtl:rotate-180" />
+            {/* Physical left/right — do not rtl:rotate (double-flip bug in Arabic) */}
+            <ChevronLeft className="w-5 h-5" />
           </button>
           <button
             type="button"
@@ -457,7 +495,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
             aria-label={language === 'AR' ? 'التالي' : 'Next'}
             className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white/95 border border-neutral-200 shadow-md flex items-center justify-center text-black active:scale-95 transition-transform"
           >
-            <ChevronRight className="w-5 h-5 rtl:rotate-180" />
+            <ChevronRight className="w-5 h-5" />
           </button>
         </div>
       </section>
@@ -486,7 +524,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
 
   // Auto-play timer (paused inside theme customizer iframe)
   useEffect(() => {
-    if (isPaused || isCustomizerPreview || slides.length === 0) return;
+    if (!heroAutoplay || isPaused || isCustomizerPreview || slides.length === 0) return;
 
     const timer = setInterval(() => {
       setDirection(1);
@@ -495,7 +533,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
     }, SLIDE_DURATION);
 
     return () => clearInterval(timer);
-  }, [isPaused, isCustomizerPreview, currentIndex, slides.length, SLIDE_DURATION]);
+  }, [heroAutoplay, isPaused, isCustomizerPreview, currentIndex, slides.length, SLIDE_DURATION]);
 
   const goToSlide = (targetIndex: number) => {
     if (targetIndex === currentIndex) return;
@@ -612,6 +650,35 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
       ? activeSlide.taglineAr || matchedProduct?.taglineAr || ''
       : activeSlide.taglineEn || matchedProduct?.tagline || '';
 
+  const heroPool =
+    bannersKey === 'imageOnlyBanners'
+      ? (themeSettings?.heroBanners?.imageOnlyBanners?.length
+          ? themeSettings.heroBanners.imageOnlyBanners
+          : themeSettings?.heroBanners?.banners)
+      : themeSettings?.heroBanners?.banners;
+  const rawSlideForStyle = (heroPool || []).find((b) => b.id === activeSlide.id) || null;
+
+  const deviceChrome = resolveHeroDeviceStyle(
+    viewportDevice,
+    themeSettings?.heroBanners,
+    rawSlideForStyle,
+  );
+  const cardAlpha = Math.min(1, Math.max(0, Number(deviceChrome.cardOpacity ?? 0.8)));
+  const cardBgCss = (() => {
+    const hex = (deviceChrome.cardBg || '#ffffff').replace('#', '');
+    if (hex.length !== 6) return `rgba(255,255,255,${cardAlpha})`;
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    return `rgba(${r},${g},${b},${cardAlpha})`;
+  })();
+  const textInk = deviceChrome.textColor || '#111111';
+  const priceInk = deviceChrome.priceColor || textInk;
+  const linkInk = deviceChrome.linkColor || textInk;
+  const btnBg = deviceChrome.buttonBg || '#111111';
+  const btnFg = deviceChrome.buttonTextColor || '#ffffff';
+  const scrimFrom = deviceChrome.scrimFrom || '#ffffff';
+
   return (
     <section
       ref={containerRef}
@@ -621,10 +688,15 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
       onTouchEnd={handleTouchEnd}
       aria-label={language === 'AR' ? 'شريحة مجموعة المنتجات' : 'Coffee Collection Slider'}
       data-customize-section="C-HERO"
-      className="relative w-full overflow-hidden select-none bg-white text-neutral-900 border-none"
+      data-hero-content-mode={heroContentMode}
+      data-hero-device={viewportDevice}
+      className="relative w-full max-w-full overflow-hidden select-none bg-white text-neutral-900 border-none"
     >
-      {/* Responsive Aspect Ratio Stage */}
-      <div data-slider-stage="locked" className="theme-slider-stage relative w-full h-[640px] sm:h-[510px] md:h-[550px] lg:h-[600px] xl:h-[640px] bg-white overflow-hidden">
+      {/* Responsive stage — shorter on phones, full on laptop/desktop */}
+      <div
+        data-slider-stage="locked"
+        className="theme-slider-stage relative w-full max-w-full h-[min(72vw,420px)] xs:h-[460px] sm:h-[510px] md:h-[550px] lg:h-[600px] xl:h-[640px] bg-white overflow-hidden"
+      >
         {/* ========================================================================= */}
         {/* 1. SLIDE BACKGROUND IMAGES + OVERLAY                                       */}
         {/* ========================================================================= */}
@@ -669,7 +741,9 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
                 if (isDraggingRef.current) return;
                 navigateTo('product-buy', activeSlide.productId);
               }}
-              className="w-full h-full relative overflow-hidden cursor-pointer group shadow-none bg-white flex flex-col sm:block"
+              className={`w-full h-full relative overflow-hidden cursor-pointer group shadow-none bg-white ${
+                heroContentMode === 'image_only' ? 'block' : 'flex flex-col sm:block'
+              }`}
             >
               <img
                 src={activeSlide.image}
@@ -684,16 +758,25 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
                     target.src = activeSlide.fallbackImage;
                   }
                 }}
-                className="order-2 relative z-0 flex-1 min-h-[240px] w-full object-cover object-center sm:absolute sm:inset-0 sm:flex-none sm:min-h-0 sm:h-full sm:object-[75%_center] md:object-[80%_center] lg:object-right shadow-none transition-transform duration-700 ease-out group-hover:scale-[1.01]"
+                className={
+                  heroContentMode === 'image_only'
+                    ? 'absolute inset-0 z-0 w-full h-full object-cover object-center shadow-none transition-transform duration-700 ease-out group-hover:scale-[1.01]'
+                    : 'order-2 relative z-0 flex-1 min-h-[240px] w-full object-cover object-center sm:absolute sm:inset-0 sm:flex-none sm:min-h-0 sm:h-full sm:object-[75%_center] md:object-[80%_center] lg:object-right shadow-none transition-transform duration-700 ease-out group-hover:scale-[1.01]'
+                }
               />
-              {/* Desktop white scrim — always physical LEFT with the copy card (parent is forced LTR).
-                  Do NOT use start-0: in AR/RTL that flips the wash to the right while the card stays left. */}
-              <div
-                className="hidden sm:block absolute inset-y-0 left-0 w-[min(100%,58%)] max-w-[620px] bg-gradient-to-r from-white via-white/90 to-transparent z-[5] pointer-events-none"
-                aria-hidden
-              />
+              {/* Device-colored scrim — full mode only (hidden for image-only slider). */}
+              {heroContentMode === 'full' ? (
+                <div
+                  className="hidden sm:block absolute inset-y-0 left-0 w-[min(100%,58%)] max-w-[620px] z-[5] pointer-events-none"
+                  style={{
+                    background: `linear-gradient(to right, ${scrimFrom} 0%, ${scrimFrom}cc 45%, transparent 100%)`,
+                  }}
+                  aria-hidden
+                />
+              ) : null}
 
-              {/* Text, Price and Action Buttons Overlay */}
+              {/* Text, Price and Action Buttons Overlay — full mode only */}
+              {heroContentMode === 'full' ? (
               <div className="order-1 relative pt-8 pb-5 sm:pt-10 sm:pb-8 md:pt-12 md:pb-10 lg:pt-14 sm:absolute sm:inset-0 z-20 flex items-center pointer-events-none">
                 <div
                   dir="ltr"
@@ -704,12 +787,16 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
                     initial={{ opacity: 0, y: 14 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.55, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-                    className="w-full max-w-full sm:max-w-[380px] md:max-w-[430px] lg:max-w-[460px] text-start pointer-events-auto sm:bg-white/80 sm:backdrop-blur-[2px] sm:rounded-2xl sm:px-4 sm:py-3 md:px-5 md:py-4 shadow-none border-none p-0"
+                    className="w-full max-w-full sm:max-w-[380px] md:max-w-[430px] lg:max-w-[460px] text-start pointer-events-auto sm:backdrop-blur-[2px] sm:rounded-2xl sm:px-4 sm:py-3 md:px-5 md:py-4 shadow-none border-none p-0"
+                    style={{ background: viewportDevice === 'mobile' ? 'transparent' : cardBgCss, color: textInk }}
                   >
                     {/* Badge */}
                     {activeSlide.badgeEn && (
                       <div className="mb-2">
-                        <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-black/5 text-neutral-900 border border-black/10">
+                        <span
+                          className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border"
+                          style={{ color: textInk, borderColor: `${textInk}22`, background: `${textInk}0a` }}
+                        >
                           <Sparkles className="w-3 h-3 text-amber-700" />
                           <span>{language === 'AR' ? activeSlide.badgeAr : activeSlide.badgeEn}</span>
                         </span>
@@ -718,36 +805,37 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
 
                     {/* 1. Title */}
                     <h2
-                      className={`honor-heading text-[15px] xs:text-[17px] sm:text-2xl md:text-3xl lg:text-[34px] xl:text-[36px] text-black font-extrabold break-words ${
+                      className={`honor-heading text-[15px] xs:text-[17px] sm:text-2xl md:text-3xl lg:text-[34px] xl:text-[36px] font-extrabold break-words ${
                         language === 'AR'
                           ? 'leading-[1.28] tracking-normal'
                           : 'leading-[1.18] tracking-[-0.015em]'
                       }`}
+                      style={{ color: textInk }}
                     >
-                      <span className="font-black text-black">{boldPart}</span>
+                      <span className="font-black" style={{ color: textInk }}>{boldPart}</span>
                       {lightPart && (
                         <>
                           {' '}
-                          <span className="font-semibold text-neutral-900">{lightPart}</span>
+                          <span className="font-semibold" style={{ color: textInk, opacity: 0.88 }}>{lightPart}</span>
                         </>
                       )}
                     </h2>
 
                     {/* 2. Subtitle / Product Tagline (Clear Specifications Text) */}
                     {activeTagline && (
-                      <p className="mt-1.5 xs:mt-2 sm:mt-3 md:mt-3.5 text-[11px] xs:text-xs sm:text-sm font-medium sm:font-semibold text-neutral-600 sm:text-neutral-700 line-clamp-2 leading-relaxed">
+                      <p className="mt-1.5 xs:mt-2 sm:mt-3 md:mt-3.5 text-[11px] xs:text-xs sm:text-sm font-medium sm:font-semibold line-clamp-2 leading-relaxed" style={{ color: textInk, opacity: 0.72 }}>
                         {activeTagline}
                       </p>
                     )}
 
                     {/* 3. Price */}
                     <div className="mt-2 xs:mt-2.5 sm:mt-4 flex items-baseline gap-1.5">
-                      <span className="text-sm xs:text-base sm:text-lg md:text-xl font-black text-black tracking-tight">
+                      <span className="text-sm xs:text-base sm:text-lg md:text-xl font-black tracking-tight" style={{ color: priceInk }}>
                         {language === 'AR' ? activeSlide.priceAr : activeSlide.priceEn}
                       </span>
                     </div>
 
-                    {/* 4. Action Buttons: [ Buy ] black pill + [ Add to Cart ] outlined + Learn More > */}
+                    {/* 4. Action Buttons — colors from device chrome (mobile / laptop / desktop) */}
                     <div className="mt-2.5 xs:mt-3.5 sm:mt-5 flex items-center gap-1.5 xs:gap-2 sm:gap-3 flex-wrap">
                       <button
                         type="button"
@@ -755,7 +843,8 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
                           e.stopPropagation();
                           navigateTo('product-buy', activeSlide.productId);
                         }}
-                        className="px-3.5 xs:px-4.5 sm:px-7 py-1.5 xs:py-2 sm:py-2.5 bg-black hover:bg-neutral-800 text-white font-bold text-[11px] xs:text-xs sm:text-sm rounded-full transition-all duration-200 active:scale-95 cursor-pointer shadow-none inline-flex items-center justify-center shrink-0"
+                        className="px-3.5 xs:px-4.5 sm:px-7 py-1.5 xs:py-2 sm:py-2.5 font-bold text-[11px] xs:text-xs sm:text-sm rounded-full transition-all duration-200 active:scale-95 cursor-pointer shadow-none inline-flex items-center justify-center shrink-0"
+                        style={{ background: btnBg, color: btnFg }}
                       >
                         <span>{language === 'AR' ? 'شراء' : 'Buy'}</span>
                       </button>
@@ -770,11 +859,12 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
                           triggerFlyToCart(rect, activeSlide.image);
                           addToCart(matchedProduct, undefined, undefined, undefined, undefined, false);
                         }}
-                        className="group/addcart px-2.5 xs:px-3.5 sm:px-5 py-1.5 xs:py-2 sm:py-2.5 rounded-full border border-black bg-transparent hover:bg-black/5 text-black font-bold text-[11px] xs:text-xs sm:text-sm transition-all duration-200 active:scale-95 cursor-pointer inline-flex items-center gap-1.5 shadow-none shrink-0"
+                        className="group/addcart px-2.5 xs:px-3.5 sm:px-5 py-1.5 xs:py-2 sm:py-2.5 rounded-full border bg-transparent font-bold text-[11px] xs:text-xs sm:text-sm transition-all duration-200 active:scale-95 cursor-pointer inline-flex items-center gap-1.5 shadow-none shrink-0"
+                        style={{ borderColor: btnBg, color: textInk }}
                         title={language === 'AR' ? 'أضف للسلة' : 'Add to Cart'}
                       >
-                        <ShoppingBag className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4 sm:h-4 text-black stroke-[2.2] shrink-0 transition-transform duration-200 group-hover/addcart:scale-110" />
-                        <span className="text-black font-bold">{language === 'AR' ? 'أضف للسلة' : 'Add to Cart'}</span>
+                        <ShoppingBag className="w-3 h-3 xs:w-3.5 xs:h-3.5 sm:w-4 sm:h-4 stroke-[2.2] shrink-0 transition-transform duration-200 group-hover/addcart:scale-110" style={{ color: textInk }} />
+                        <span className="font-bold">{language === 'AR' ? 'أضف للسلة' : 'Add to Cart'}</span>
                       </button>
                       ) : null}
 
@@ -785,15 +875,17 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
                           e.stopPropagation();
                           navigateTo('product-detail', activeSlide.productId);
                         }}
-                        className="hidden sm:inline-flex group/learn text-xs sm:text-sm font-bold text-black hover:text-neutral-700 transition-colors cursor-pointer items-center gap-1 active:scale-95 text-center shrink-0 ms-1"
+                        className="hidden sm:inline-flex group/learn text-xs sm:text-sm font-bold transition-colors cursor-pointer items-center gap-1 active:scale-95 text-center shrink-0 ms-1"
+                        style={{ color: linkInk }}
                       >
                         <span>{language === 'AR' ? 'تعرف على المزيد' : 'Learn More'}</span>
                         <ChevronRight
-                          className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-black stroke-[2.5] shrink-0 transition-transform duration-200 ${
+                          className={`w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5] shrink-0 transition-transform duration-200 ${
                             language === 'AR'
                               ? 'rotate-180 group-hover/learn:-translate-x-0.5'
                               : 'group-hover/learn:translate-x-0.5'
                           }`}
+                          style={{ color: linkInk }}
                         />
                       </button>
                     </div>
@@ -878,6 +970,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
                   </motion.div>
                 </div>
               </div>
+              ) : null}
             </div>
           </motion.div>
         </AnimatePresence>
@@ -885,6 +978,8 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
         {/* ========================================================================= */}
         {/* 2. PREV & NEXT ARROWS (Desktop & Tablet only - swipe on mobile)           */}
         {/* ========================================================================= */}
+        {heroShowArrows ? (
+          <>
         <button
           type="button"
           onClick={(e) => {
@@ -894,7 +989,8 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
           aria-label={language === 'AR' ? 'الشريحة السابقة' : 'Previous Slide'}
           className="hidden sm:flex absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-30 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white/90 hover:bg-white text-neutral-900 shadow-md items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer backdrop-blur-sm"
         >
-          <ChevronLeft className="w-5 h-5 rtl:rotate-180 transition-transform" />
+          {/* Physical left/right — do not rtl:rotate (Arabic double-flip showed › on left / ‹ on right) */}
+          <ChevronLeft className="w-5 h-5" />
         </button>
 
         <button
@@ -906,14 +1002,17 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
           aria-label={language === 'AR' ? 'الشريحة التالية' : 'Next Slide'}
           className="hidden sm:flex absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-30 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white/90 hover:bg-white text-neutral-900 shadow-md items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer backdrop-blur-sm"
         >
-          <ChevronRight className="w-5 h-5 rtl:rotate-180 transition-transform" />
+          <ChevronRight className="w-5 h-5" />
         </button>
+          </>
+        ) : null}
 
         {/* Support dock lives in FloatingHelpWidget (email / hours / hotline — no header WhatsApp) */}
 
         {/* ========================================================================= */}
         {/* 3. BOTTOM PILL INDICATORS WITH SMOOTH TIMER PROGRESS                      */}
         {/* ========================================================================= */}
+        {heroShowDots ? (
         <div className="absolute bottom-2 sm:bottom-3 inset-x-0 z-40 flex items-center justify-center gap-1 pointer-events-auto">
           {slides.map((slide, idx) => {
             const isActive = idx === currentIndex;
@@ -954,6 +1053,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({ variant = 'home', ba
             );
           })}
         </div>
+        ) : null}
       </div>
     </section>
   );

@@ -25,7 +25,7 @@ export type ClerkSessionOptions = {
   persist?: boolean;
 };
 
-/** Map Clerk user → tab session. A closed browser or logout asks for OTP again. */
+/** Map Clerk user → lifetime portal session (persists until explicit logout). */
 export function sessionFromClerkUser(
   portal: AuthPortal,
   user: ClerkUserLike,
@@ -70,7 +70,7 @@ export function sessionFromClerkUser(
       storeId: null,
       storeName: null,
       abilities: abilitiesFor(role),
-      isLifetime: false,
+      isLifetime: true,
       loggedInAt: Date.now(),
     };
     if (options?.persist !== false) {
@@ -111,7 +111,7 @@ export function sessionFromClerkUser(
     storeId: merchant.storeId,
     storeName: merchant.storeName,
     abilities: abilitiesFor(role),
-    isLifetime: false,
+    isLifetime: true,
     loggedInAt: Date.now(),
   };
   if (options?.persist !== false) {

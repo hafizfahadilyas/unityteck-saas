@@ -9,6 +9,8 @@ export const STORE_TABS_COMING_SOON = new Set<string>([
   'commerce-tools',
   // Hosting & Domain — locked until ready
   'hosting',
+  // Native store mobile app — sidebar placeholder until launch
+  'mobile-app',
   // Unlocked for all stores: Design Studio (Canva), AI Media, WhatsApp/SMS marketing
 ]);
 

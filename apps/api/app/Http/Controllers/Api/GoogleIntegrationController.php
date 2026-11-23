@@ -152,7 +152,8 @@ class GoogleIntegrationController extends Controller
             $ga4Properties,
             $gscSites,
             $gtmContainers,
-            $adsAccounts
+            $adsAccounts,
+            $accessToken,
         );
 
         // Auto-link discovered tools (never invent IDs)
@@ -342,6 +343,21 @@ class GoogleIntegrationController extends Controller
                 'error' => 'google_not_connected',
             ], 400);
         }
+
+        // Auto-resolve G-… when property linked but measurement ID blank (never invent)
+        $measurement = trim((string) ($data['ga4_measurement_id'] ?? ''));
+        $propertyId = trim((string) ($data['ga4_property_id'] ?? $integration->ga4_property_id ?? ''));
+        if ($measurement === '' && $propertyId !== '') {
+            $token = $this->googleService->getValidToken($integration);
+            if ($token) {
+                $resolved = $this->googleService->resolveGa4MeasurementId($token, $propertyId);
+                if ($resolved) {
+                    $data['ga4_measurement_id'] = $resolved;
+                    $measurement = $resolved;
+                }
+            }
+        }
+
         $integration->fill($data)->save();
 
         // Sync with SeoConfig table
@@ -350,8 +366,8 @@ class GoogleIntegrationController extends Controller
             $seo->id = $this->newId('seo');
             $seo->store_id = $storeId;
         }
-        if (!empty($data['ga4_measurement_id'])) {
-            $seo->ga4_measurement_id = $data['ga4_measurement_id'];
+        if ($measurement !== '') {
+            $seo->ga4_measurement_id = $measurement;
         }
         if (!empty($data['gtm_container_id'])) {
             $seo->gtm_container_id = $data['gtm_container_id'];
@@ -406,6 +422,88 @@ class GoogleIntegrationController extends Controller
             'integration' => $integration->fresh(),
             'modules' => $result['modules'] ?? [],
         ]);
+    }
+
+    /**
+     * Request Google Indexing API for one public URL (store-scoped token).
+     * Never claim success without a successful Google response.
+     */
+    public function requestIndexing(Request $request): JsonResponse
+    {
+        $storeId = $this->requireStoreId($request);
+        if ($storeId instanceof JsonResponse) {
+            return $storeId;
+        }
+
+        $data = $request->validate([
+            'url' => ['required', 'string', 'max:2048'],
+            'type' => ['nullable', 'string', 'in:URL_UPDATED,URL_DELETED'],
+        ]);
+
+        $pageUrl = trim((string) $data['url']);
+        if (!preg_match('#^https?://#i', $pageUrl)) {
+            return response()->json([
+                'message' => 'A real http(s) URL is required for indexing.',
+                'error' => 'invalid_url',
+                'ok' => false,
+            ], 422);
+        }
+
+        $integration = StoreGoogleIntegration::query()->forStore($storeId)->first();
+        if (!$integration || !$integration->is_connected) {
+            return response()->json([
+                'message' => 'Connect Google for this store first, then request indexing.',
+                'error' => 'google_not_connected',
+                'ok' => false,
+            ], 400);
+        }
+
+        $token = $this->googleService->getValidToken($integration);
+        if (!$token) {
+            return response()->json([
+                'message' => 'Google token expired. Reconnect this store’s Google account.',
+                'error' => 'token_expired',
+                'ok' => false,
+            ], 401);
+        }
+
+        $type = (string) ($data['type'] ?? 'URL_UPDATED');
+        $ok = $this->googleService->requestUrlIndexing($token, $pageUrl, $type);
+
+        if ($ok) {
+            $seo = SeoConfig::withoutGlobalScope('store')->firstOrNew(['store_id' => $storeId]);
+            if (!$seo->exists) {
+                $seo->id = $this->newId('seo');
+                $seo->store_id = $storeId;
+            }
+            $extra = is_array($seo->extra) ? $seo->extra : [];
+            $extra['last_indexing_ping'] = now()->toDateTimeString();
+            $submitted = is_array($extra['submitted_urls'] ?? null) ? $extra['submitted_urls'] : [];
+            $entry = [
+                'url' => $pageUrl,
+                'submitted_at' => now()->toIso8601String(),
+                'status' => 'indexed',
+            ];
+            $submitted = array_values(array_filter(
+                $submitted,
+                static fn ($row) => !is_array($row) || (($row['url'] ?? '') !== $pageUrl)
+            ));
+            array_unshift($submitted, $entry);
+            $extra['submitted_urls'] = array_slice($submitted, 0, 100);
+            $seo->extra = $extra;
+            $seo->indexing_api_enabled = true;
+            $seo->save();
+        }
+
+        return response()->json([
+            'ok' => $ok,
+            'url' => $pageUrl,
+            'type' => $type,
+            'message' => $ok
+                ? 'Indexing request accepted by Google.'
+                : 'Google Indexing API rejected or failed this URL. Verify ownership and Indexing API access.',
+            'error' => $ok ? null : 'indexing_failed',
+        ], $ok ? 200 : 502);
     }
 
     /**

@@ -1,6 +1,6 @@
 /**
- * Auth session for the open browser tab only.
- * Logout or a closed browser session requires a fresh email OTP.
+ * Auth session — lifetime until explicit logout.
+ * Survives tab close, Safari background, and browser restart (localStorage + backup).
  */
 
 import { abilitiesFor, normalizeRole, roleLabel, roleLevel } from './roles';
@@ -111,22 +111,36 @@ function healAuthSession(session: AuthSession): AuthSession {
 const STORAGE_KEY = 'unityteck_auth';
 const BACKUP_STORAGE_KEY = 'unityteck_auth_lifetime_backup';
 const LIFETIME_FLAG = 'unityteck_session_lifetime';
+const EXPLICIT_LOGOUT_KEY = 'unityteck_explicit_logout';
+/** ~10 years. Session ends only when the admin signs out. */
+const COOKIE_MAX_AGE_SEC = 60 * 60 * 24 * 365 * 10;
 
-function clearDurableSession(): void {
+function readCookieSession(): string | null {
   try {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(BACKUP_STORAGE_KEY);
-      localStorage.removeItem(LIFETIME_FLAG);
-      localStorage.removeItem('unityteck_explicit_logout');
+    if (typeof document === 'undefined') return null;
+    const parts = document.cookie.split(';');
+    for (const part of parts) {
+      const trimmed = part.trim();
+      if (!trimmed.startsWith(`${STORAGE_KEY}=`)) continue;
+      return decodeURIComponent(trimmed.slice(STORAGE_KEY.length + 1));
     }
   } catch {
     /* ignore */
   }
+  return null;
+}
+
+function writeCookieSession(serialized: string | null): void {
   try {
     if (typeof document === 'undefined') return;
     const secure = typeof location !== 'undefined' && location.protocol === 'https:' ? '; Secure' : '';
-    document.cookie = `${STORAGE_KEY}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
+    if (!serialized) {
+      document.cookie = `${STORAGE_KEY}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
+      return;
+    }
+    // Cookie is a short fallback; skip if payload is too large for browsers (~4KB).
+    if (serialized.length > 3500) return;
+    document.cookie = `${STORAGE_KEY}=${encodeURIComponent(serialized)}; Path=/; Max-Age=${COOKIE_MAX_AGE_SEC}; SameSite=Lax${secure}`;
   } catch {
     /* ignore */
   }
@@ -153,21 +167,71 @@ function emitAuthChange(): void {
   }
 }
 
+function persistLifetime(session: AuthSession): AuthSession {
+  const healed = healAuthSession(session);
+  const next: AuthSession = {
+    ...healed,
+    isLifetime: true,
+    loggedInAt: healed.loggedInAt || Date.now(),
+  };
+  const serialized = JSON.stringify(next);
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(STORAGE_KEY, serialized);
+    localStorage.setItem(BACKUP_STORAGE_KEY, serialized);
+    localStorage.setItem(LIFETIME_FLAG, '1');
+    localStorage.removeItem(EXPLICIT_LOGOUT_KEY);
+  }
+  // Drop legacy tab-only copy so Safari iOS never prefers a dying sessionStorage key.
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem(STORAGE_KEY);
+    }
+  } catch {
+    /* ignore */
+  }
+  writeCookieSession(serialized);
+  return next;
+}
+
 export function readAuthSession(): AuthSession | null {
   try {
-    clearDurableSession();
-    if (typeof sessionStorage === 'undefined') return null;
-    const parsed = parseSession(sessionStorage.getItem(STORAGE_KEY));
-    if (!parsed) return null;
-    const healed = healAuthSession(parsed);
-    if (healed !== parsed) {
-      try {
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(healed));
-      } catch {
-        /* ignore */
-      }
+    if (typeof localStorage === 'undefined') return null;
+
+    // Explicit Sign out stays logged out until the next successful login.
+    if (localStorage.getItem(EXPLICIT_LOGOUT_KEY) === '1') {
+      return null;
     }
-    return healed;
+
+    const primary = parseSession(localStorage.getItem(STORAGE_KEY));
+    if (primary) {
+      const healed = healAuthSession(primary);
+      if (healed !== primary) persistLifetime(healed);
+      return healed;
+    }
+
+    // Lifetime fallback: backup key, then cookie, then migrate old tab-only sessionStorage.
+    const backup = parseSession(localStorage.getItem(BACKUP_STORAGE_KEY));
+    if (backup) {
+      return persistLifetime(backup);
+    }
+
+    const fromCookie = parseSession(readCookieSession());
+    if (fromCookie) {
+      return persistLifetime(fromCookie);
+    }
+
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        const legacyTab = parseSession(sessionStorage.getItem(STORAGE_KEY));
+        if (legacyTab) {
+          return persistLifetime(legacyTab);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+
+    return null;
   } catch {
     return null;
   }
@@ -175,29 +239,36 @@ export function readAuthSession(): AuthSession | null {
 
 export function writeAuthSession(session: AuthSession): void {
   try {
-    if (typeof sessionStorage === 'undefined') return;
-    clearDurableSession();
-    const healed = healAuthSession(session);
-    const next: AuthSession = {
-      ...healed,
-      isLifetime: false,
-      loggedInAt: healed.loggedInAt || Date.now(),
-    };
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    if (typeof localStorage === 'undefined') return;
+    persistLifetime(session);
     emitAuthChange();
   } catch {
     /* ignore */
   }
 }
 
-/** Ends the tab session. The next login must verify a fresh email OTP. */
+/**
+ * Clears session only on explicit logout (force=true).
+ * Accidental / auto clear calls are ignored so the dashboard stays lifetime.
+ */
 export function clearAuthSession(force = false): void {
   try {
     if (!force) return;
-    clearDurableSession();
-    if (typeof sessionStorage !== 'undefined') {
-      sessionStorage.removeItem(STORAGE_KEY);
+
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(EXPLICIT_LOGOUT_KEY, '1');
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(BACKUP_STORAGE_KEY);
+      localStorage.removeItem(LIFETIME_FLAG);
     }
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem(STORAGE_KEY);
+      }
+    } catch {
+      /* ignore */
+    }
+    writeCookieSession(null);
     emitAuthChange();
   } catch {
     /* ignore */

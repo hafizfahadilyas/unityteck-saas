@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import { Product, CartItem, Order, Language, OccasionReminder, SavedAddress, AddonOption } from '../types';
-import { INITIAL_ORDERS, INITIAL_OCCASIONS, INITIAL_ADDRESSES } from '../data/mockData';
 import { useTenant } from '../../../context/TenantContext';
 import { submitPublicStorefrontOrder } from '../../../utils/submitStorefrontOrder';
 import { CouponItem } from '../../../types';
@@ -10,6 +9,8 @@ import {
   trackCartInterceptActionApi,
 } from '../../../api/tenantApi';
 import { useActiveSpecialOfferDiscount } from '../../../hooks/useActiveSpecialOfferDiscount';
+import { trackStorefrontEvent } from '../../../utils/storefrontAnalytics';
+import { readTrafficSource } from '../../../utils/trafficSource';
 
 interface UserInfo {
   name: string;
@@ -251,18 +252,59 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         } else {
           url.searchParams.set('page', valid);
         }
-        window.history.pushState({ page: valid }, '', url.toString());
+        window.history.pushState({ unityteckSpa: 'storefront', page: valid }, '', url.toString());
       }
     } catch {}
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   useEffect(() => {
+    const flowersHomeHref = () => {
+      try {
+        const url = new URL(window.location.href);
+        const path = url.pathname.replace(/\/$/, '') || '/flowers';
+        const base =
+          path.includes('/flowers') || path.includes('/hadaya') ? path : '/flowers';
+        url.pathname = base;
+        url.searchParams.delete('page');
+        url.searchParams.delete('product');
+        url.searchParams.delete('productId');
+        const q = url.searchParams.toString();
+        return `${url.pathname}${q ? `?${q}` : ''}`;
+      } catch {
+        return '/flowers';
+      }
+    };
+
     const handlePopState = (e: PopStateEvent) => {
       try {
+        const path = window.location.pathname.replace(/\/$/, '') || '/';
+        // Left storefront → force flowers home (never dump to admin dashboard)
+        if (
+          path.includes('/admin') ||
+          path.includes('/master') ||
+          path.includes('/store/login') ||
+          path.includes('/master/login')
+        ) {
+          window.history.pushState(
+            { unityteckSpa: 'storefront', page: 'home' },
+            '',
+            flowersHomeHref(),
+          );
+          setCurrentPageState('home');
+          return;
+        }
+
         if (e.state && e.state.page) {
           const resolved = resolveValidPage(e.state.page) || 'home';
           setCurrentPageState(resolved);
+          if (resolved === 'home') {
+            window.history.pushState(
+              { unityteckSpa: 'storefront', page: 'home' },
+              '',
+              flowersHomeHref(),
+            );
+          }
           return;
         }
         const searchParams = new URLSearchParams(window.location.search);
@@ -270,6 +312,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const resolvedPage = resolveValidPage(pageParam);
         if (resolvedPage) {
           setCurrentPageState(resolvedPage);
+          if (resolvedPage === 'home') {
+            window.history.pushState(
+              { unityteckSpa: 'storefront', page: 'home' },
+              '',
+              flowersHomeHref(),
+            );
+          }
           return;
         }
 
@@ -280,14 +329,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           return;
         }
 
-        const path = window.location.pathname.replace(/\/$/, '') || '/';
         if (path === '/cart') setCurrentPageState('cart');
         else if (path === '/checkout') setCurrentPageState('checkout');
         else if (path === '/crm' || path === '/profile' || path === '/account' || path === '/orders') setCurrentPageState('crm');
         else if (path === '/catalog' || path === '/shop') setCurrentPageState('catalog');
         else if (path === '/product') setCurrentPageState('product');
         else if (path === '/thankyou') setCurrentPageState('thankyou');
-        else setCurrentPageState('home');
+        else {
+          setCurrentPageState('home');
+          window.history.pushState(
+            { unityteckSpa: 'storefront', page: 'home' },
+            '',
+            flowersHomeHref(),
+          );
+        }
       } catch {}
     };
     window.addEventListener('popstate', handlePopState);
@@ -357,6 +412,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
     }
   }, [products]);
+
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
   const [wishlist, setWishlist] = useState<string[]>(() => {
     try {
@@ -535,6 +591,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [cart, activeStore?.id]);
 
   useEffect(() => {
+    if (currentPage !== 'checkout' || !activeStore?.id) return;
+    const cartValue = cart.reduce((acc, item) => {
+      const addonsTotal = (item.addons || []).reduce((aSum, a) => aSum + (Number(a.price) || 0), 0);
+      const unit = Number(item.unitPrice ?? item.product?.price) || 0;
+      return acc + (unit + addonsTotal) * (item.quantity || 1);
+    }, 0);
+    trackStorefrontEvent(activeStore.id, 'begin_checkout', {
+      path: typeof location !== 'undefined' ? location.pathname : '/checkout',
+      meta: {
+        cart_items: cart.length,
+        items_count: cart.reduce((n, i) => n + (i.quantity || 1), 0),
+        cart_value: cartValue,
+        cart_total: cartValue,
+      },
+    });
+  }, [currentPage, activeStore?.id, cart.length]);
+
+  useEffect(() => {
     document.documentElement.lang = language;
     document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
   }, [language]);
@@ -665,6 +739,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         unitPrice: variation?.unitPrice ?? product.price,
       };
       setCart((prev) => [newItem, ...prev]);
+    }
+
+    if (activeStore?.id) {
+      trackStorefrontEvent(activeStore.id, 'add_to_cart', {
+        path: typeof location !== 'undefined' ? location.pathname : '/cart',
+        meta: {
+          product_id: product.id,
+          product_name: product.nameAr || product.name || undefined,
+          quantity,
+        },
+      });
     }
 
     setIsCartOpen(true);
@@ -880,6 +965,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const navigateToProduct = (product: Product) => {
     setSelectedProduct(product);
     setCurrentPage('product');
+    if (activeStore?.id && product?.id) {
+      trackStorefrontEvent(activeStore.id, 'product_view', {
+        path: typeof location !== 'undefined' ? location.pathname : '/product',
+        meta: {
+          product_id: product.id,
+          product_name: product.nameAr || product.name || undefined,
+        },
+      });
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -1141,6 +1235,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         };
       });
 
+      const traffic = readTrafficSource();
       const storefrontPayload = {
         customerName: newOrder.recipientName,
         customerPhone: newOrder.recipientPhone,
@@ -1150,7 +1245,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         status: 'pending',
         paymentMethod: newOrder.paymentMethod,
         paymentStatus: 'pending',
-        source: orderSource,
+        source: orderSource || traffic.source,
+        medium: traffic.medium || attributionDetails?.medium || undefined,
+        campaign: traffic.campaign || attributionDetails?.campaign || undefined,
+        utmTerm: traffic.utmTerm || attributionDetails?.utmTerm || undefined,
+        utmContent: traffic.utmContent || attributionDetails?.utmContent || undefined,
         sourceDetails: attributionDetails ? JSON.stringify(attributionDetails) : orderSource,
         items: lineItems.map((i) => ({
           id: i.id,
@@ -1373,8 +1472,8 @@ const DEFAULT_FALLBACK_APP_CONTEXT: AppContextType = {
   orders: [],
   lastOrder: null,
   loyaltyPoints: 0,
-  savedAddresses: INITIAL_ADDRESSES,
-  savedOccasions: INITIAL_OCCASIONS,
+  savedAddresses: [],
+  savedOccasions: [],
   toastMessage: null,
   user: {
     name: 'عميل مكة المكرمة',

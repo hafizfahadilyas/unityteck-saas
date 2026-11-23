@@ -74,6 +74,11 @@ export function isKnownAppPath(path: string): boolean {
     clean === '/hadaya' ||
     clean.startsWith('/hadaya') ||
     clean === '/catalog' ||
+    clean.startsWith('/catalog/') ||
+    clean === '/products' ||
+    clean.startsWith('/products/') ||
+    clean === '/shop' ||
+    clean.startsWith('/shop/') ||
     clean === '/cart' ||
     clean === '/checkout' ||
     clean === '/crm' ||
@@ -85,7 +90,6 @@ export function isKnownAppPath(path: string): boolean {
     clean === '/thankyou' ||
     clean.startsWith('/product/') ||
     clean.startsWith('/category/') ||
-    clean.startsWith('/catalog/') ||
     clean === '/master' ||
     clean === '/master/login' ||
     clean === '/master/forgot-password' ||

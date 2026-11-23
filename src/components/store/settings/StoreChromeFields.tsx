@@ -1,12 +1,15 @@
-import React from 'react';
-import { ALargeSmall, Image as ImageIcon, PaintBucket, Palette } from 'lucide-react';
+import React, { useState } from 'react';
+import { ALargeSmall, Image as ImageIcon, PaintBucket, Palette, RotateCcw } from 'lucide-react';
 import { MediaUploadField } from '../../common/MediaUploadField';
+import { GlobalModal } from '../../common/GlobalModal';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import {
   applySidebarDesign,
   CHROME_GRADIENTS,
   DEFAULT_SHELL_WALLPAPER_URL,
+  defaultStoreChrome,
   isDefaultShellWallpaper,
+  PLATFORM_CHROME_DEFAULTS,
   SIDEBAR_DESIGNS,
   type ShellTextMode,
   type StoreChromeBrand,
@@ -19,6 +22,8 @@ const TEXT_MODES: Array<{ id: ShellTextMode; labelEn: string; labelAr: string }>
   { id: 'custom', labelEn: 'Custom hex', labelAr: 'لون مخصص' },
 ];
 
+type DefaultResetKind = 'wallpaper' | 'sidebarBg' | 'pageBg' | 'pageText' | 'platformDefaults';
+
 export const StoreChromeFields: React.FC<{
   chrome: StoreChromeBrand;
   onChange: (next: StoreChromeBrand) => void;
@@ -27,13 +32,84 @@ export const StoreChromeFields: React.FC<{
   const isAr = locale === 'ar';
   const pageBg = chrome.pageBgColor || '';
   const pageText = chrome.pageTextColor || '';
-  const textMode: ShellTextMode = chrome.shellTextMode || (pageText ? 'custom' : 'auto');
+  const textMode: ShellTextMode = chrome.shellTextMode || (pageText ? 'custom' : 'light');
+  const [pendingReset, setPendingReset] = useState<DefaultResetKind | null>(null);
 
   const syncBrandColors = (bg: string, text: string) => {
     setBrand({
       customBgHex: bg || null,
       customTextHex: text || null,
     });
+  };
+
+  const resetCopy: Record<
+    DefaultResetKind,
+    { titleEn: string; titleAr: string; bodyEn: string; bodyAr: string }
+  > = {
+    wallpaper: {
+      titleEn: 'Reset wallpaper to default?',
+      titleAr: 'إعادة الخلفية الافتراضية؟',
+      bodyEn: 'This restores the platform default dashboard wallpaper for this store only. Your other colors stay until you change them.',
+      bodyAr: 'سيُعاد خلفية لوحة التحكم الافتراضية للمنصة لهذا المتجر فقط. باقي الألوان تبقى كما هي حتى تغيّرها.',
+    },
+    sidebarBg: {
+      titleEn: 'Remove sidebar background image?',
+      titleAr: 'إزالة صورة خلفية الشريط؟',
+      bodyEn: 'Sidebar returns to the default panel look for this store only.',
+      bodyAr: 'سيعود الشريط الجانبي للمظهر الافتراضي لهذا المتجر فقط.',
+    },
+    pageBg: {
+      titleEn: 'Clear custom background color?',
+      titleAr: 'مسح لون الخلفية المخصص؟',
+      bodyEn: 'Page background returns to the platform default for this store.',
+      bodyAr: 'ستعود خلفية الصفحات للون الافتراضي للمنصة لهذا المتجر.',
+    },
+    pageText: {
+      titleEn: 'Clear custom text color?',
+      titleAr: 'مسح لون النص المخصص؟',
+      bodyEn: 'Dashboard text color returns to the platform default for this store.',
+      bodyAr: 'سيعود لون نص لوحة التحكم للافتراضي للمنصة لهذا المتجر.',
+    },
+    platformDefaults: {
+      titleEn: 'Reset appearance to platform defaults?',
+      titleAr: 'إعادة المظهر إلى إعدادات المنصة الافتراضية؟',
+      bodyEn: 'Colors, sidebar look, and wallpaper reset to platform defaults for this store only. Click Save appearance after to lock. Other stores are not affected.',
+      bodyAr: 'ستُعاد الألوان ومظهر الشريط والخلفية إلى إعدادات المنصة الافتراضية لهذا المتجر فقط. بعد التأكيد اضغط «حفظ المظهر». المتاجر الأخرى لا تتأثر.',
+    },
+  };
+
+  const applyPendingReset = () => {
+    if (!pendingReset) return;
+    if (pendingReset === 'wallpaper') {
+      onChange({
+        ...chrome,
+        shellWallpaperPreset: 'custom',
+        shellWallpaper: DEFAULT_SHELL_WALLPAPER_URL,
+        shellWallpaperBlur: PLATFORM_CHROME_DEFAULTS.shellWallpaperBlur,
+        shellWallpaperOpacity: PLATFORM_CHROME_DEFAULTS.shellWallpaperOpacity,
+      });
+    } else if (pendingReset === 'sidebarBg') {
+      onChange({ ...chrome, fill: 'palette', bgImage: '' });
+    } else if (pendingReset === 'pageBg') {
+      onChange({ ...chrome, pageBgColor: '' });
+      syncBrandColors('', pageText);
+    } else if (pendingReset === 'pageText') {
+      onChange({ ...chrome, pageTextColor: '', shellTextMode: 'light' });
+      syncBrandColors(pageBg, '');
+    } else if (pendingReset === 'platformDefaults') {
+      const next = {
+        ...defaultStoreChrome(),
+        // Keep merchant-uploaded media URLs empty → true defaults; never borrow other stores
+        bgImage: '',
+        fontAr: chrome.fontAr,
+        fontWeight: chrome.fontWeight,
+        customFontFamilyAr: chrome.customFontFamilyAr,
+        customFontUrlAr: chrome.customFontUrlAr,
+      };
+      onChange(next);
+      syncBrandColors('', '');
+    }
+    setPendingReset(null);
   };
 
   return (
@@ -102,10 +178,7 @@ export const StoreChromeFields: React.FC<{
               type="button"
               className="text-[10px] font-bold cursor-pointer"
               style={{ color: 'var(--accent)' }}
-              onClick={() => {
-                onChange({ ...chrome, pageBgColor: '' });
-                syncBrandColors('', pageText);
-              }}
+              onClick={() => setPendingReset('pageBg')}
             >
               {isAr ? 'مسح' : 'Clear'}
             </button>
@@ -155,10 +228,7 @@ export const StoreChromeFields: React.FC<{
               type="button"
               className="text-[10px] font-bold cursor-pointer"
               style={{ color: 'var(--accent)' }}
-              onClick={() => {
-                onChange({ ...chrome, pageTextColor: '', shellTextMode: 'auto' });
-                syncBrandColors(pageBg, '');
-              }}
+              onClick={() => setPendingReset('pageText')}
             >
               {isAr ? 'مسح' : 'Clear'}
             </button>
@@ -368,13 +438,7 @@ export const StoreChromeFields: React.FC<{
               type="button"
               className="text-[11px] font-semibold cursor-pointer"
               style={{ color: 'var(--accent)' }}
-              onClick={() =>
-                onChange({
-                  ...chrome,
-                  shellWallpaperPreset: 'custom',
-                  shellWallpaper: DEFAULT_SHELL_WALLPAPER_URL,
-                })
-              }
+              onClick={() => setPendingReset('wallpaper')}
             >
               {isAr ? 'إعادة الخلفية الافتراضية' : 'Reset to default wallpaper'}
             </button>
@@ -401,12 +465,86 @@ export const StoreChromeFields: React.FC<{
             type="button"
             className="text-[11px] font-semibold cursor-pointer"
             style={{ color: 'var(--accent)' }}
-            onClick={() => onChange({ ...chrome, fill: 'palette', bgImage: '' })}
+            onClick={() => setPendingReset('sidebarBg')}
           >
             {isAr ? 'إزالة صورة الخلفية' : 'Remove background image'}
           </button>
         ) : null}
       </div>
+
+      <div
+        className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between p-3 rounded-xl border"
+        style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
+      >
+        <div className="min-w-0">
+          <div className="text-xs font-bold flex items-center gap-1.5">
+            <RotateCcw className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+            <span>{isAr ? 'الإعدادات الافتراضية للمنصة' : 'Platform defaults'}</span>
+          </div>
+          <p className="text-[11px] opacity-70 mt-0.5">
+            {isAr
+              ? 'مالك المتجر يغيّر الألوان هنا. إعادة الافتراضي تحتاج تأكيداً — لهذا المتجر فقط.'
+              : 'Store owner changes colors here. Resetting defaults needs confirmation — this store only.'}
+          </p>
+        </div>
+        <button
+          type="button"
+          className="unity-btn-primary shrink-0 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-white cursor-pointer"
+          onClick={() => setPendingReset('platformDefaults')}
+        >
+          <RotateCcw className="w-3.5 h-3.5" aria-hidden />
+          {isAr ? 'إعادة الافتراضي' : 'Reset to defaults'}
+        </button>
+      </div>
+
+      <GlobalModal
+        isOpen={pendingReset != null}
+        onClose={() => setPendingReset(null)}
+        role="alertdialog"
+        aria-label={
+          pendingReset
+            ? isAr
+              ? resetCopy[pendingReset].titleAr
+              : resetCopy[pendingReset].titleEn
+            : undefined
+        }
+        contentClassName="max-w-md"
+      >
+        {pendingReset ? (
+          <div
+            className="w-full rounded-[1.25rem] p-5 sm:p-6 space-y-4 shadow-2xl border"
+            style={{
+              background: 'var(--glass-fill-strong, var(--surface, #fff))',
+              borderColor: 'var(--glass-border, var(--border))',
+              color: 'var(--text)',
+            }}
+          >
+            <h3 className="text-base font-black">
+              {isAr ? resetCopy[pendingReset].titleAr : resetCopy[pendingReset].titleEn}
+            </h3>
+            <p className="text-sm" style={{ color: 'var(--muted)' }}>
+              {isAr ? resetCopy[pendingReset].bodyAr : resetCopy[pendingReset].bodyEn}
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-1">
+              <button
+                type="button"
+                className="px-4 py-2.5 rounded-xl text-sm font-bold border cursor-pointer"
+                style={{ borderColor: 'var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+                onClick={() => setPendingReset(null)}
+              >
+                {isAr ? 'إلغاء' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                className="unity-btn-primary px-4 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer"
+                onClick={applyPendingReset}
+              >
+                {isAr ? 'تأكيد' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </GlobalModal>
     </div>
   );
 };

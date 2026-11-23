@@ -95,27 +95,40 @@ class NotificationService
                 'event' => 'payment_received',
                 'name_en' => 'Payment Received',
                 'name_ar' => 'تم استلام الدفع',
-                'sms_template_ar' => 'تم تأكيد دفع طلب #{{order_number}} بمبلغ {{order_total}} ⃁ عبر {{payment_method}}.',
-                'sms_template_en' => 'Payment confirmed for #{{order_number}} — {{order_total}} ⃁ via {{payment_method}}.',
-                'whatsapp_template_ar' => "✅ تم استلام الدفع لطلب *#{{order_number}}*\nالمبلغ: {{order_total}} {{currency}}\nالطريقة: {{payment_method}}",
-                'whatsapp_template_en' => "✅ Payment received for *#{{order_number}}*\nAmount: {{order_total}} {{currency}}\nMethod: {{payment_method}}",
+                'sms_template_ar' => 'تم تأكيد دفع طلب #{{order_number}} بمبلغ {{order_total}} ⃁ عبر {{payment_method}}. الفاتورة: {{invoice_url}}',
+                'sms_template_en' => 'Payment confirmed for #{{order_number}} — {{order_total}} ⃁ via {{payment_method}}. Invoice: {{invoice_url}}',
+                'whatsapp_template_ar' => "✅ *تم استلام الدفع*\nطلب *#{{order_number}}*\nالمبلغ: *{{order_total}} {{currency}}*\nالطريقة: {{payment_method}}\n\n🧾 الفاتورة: {{invoice_url}}\n🔗 التتبع: {{order_track_url}}",
+                'whatsapp_template_en' => "✅ *Payment received*\nOrder *#{{order_number}}*\nAmount: *{{order_total}} {{currency}}*\nMethod: {{payment_method}}\n\n🧾 Invoice: {{invoice_url}}\n🔗 Track: {{order_track_url}}",
                 'email_subject_ar' => 'تأكيد الدفع — طلب #{{order_number}}',
                 'email_subject_en' => 'Payment confirmed — order #{{order_number}}',
-                'email_body_ar' => '<p>تم تأكيد دفع طلب <strong>#{{order_number}}</strong> بمبلغ {{order_total}} {{currency}} عبر {{payment_method}}.</p>',
-                'email_body_en' => '<p>Payment confirmed for order <strong>#{{order_number}}</strong>: {{order_total}} {{currency}} via {{payment_method}}.</p>',
+                'email_body_ar' => '<p>تم تأكيد دفع طلب <strong>#{{order_number}}</strong> بمبلغ {{order_total}} {{currency}} عبر {{payment_method}}.</p><p><a href="{{invoice_url}}">عرض الفاتورة</a></p>',
+                'email_body_en' => '<p>Payment confirmed for order <strong>#{{order_number}}</strong>: {{order_total}} {{currency}} via {{payment_method}}.</p><p><a href="{{invoice_url}}">View invoice</a></p>',
             ],
             'payment_pending' => [
                 'event' => 'payment_pending',
                 'name_en' => 'Payment Pending / Reminder',
                 'name_ar' => 'الدفع معلّق — تذكير',
-                'sms_template_ar' => 'تذكير: طلب #{{order_number}} بانتظار إتمام الدفع ({{order_total}} ⃁).',
-                'sms_template_en' => 'Reminder: order #{{order_number}} awaits payment ({{order_total}} ⃁).',
-                'whatsapp_template_ar' => "💳 تذكير دفع لطلب *#{{order_number}}*\nالمبلغ: {{order_total}} {{currency}}\nالحالة: {{payment_status}}",
-                'whatsapp_template_en' => "💳 Payment reminder for *#{{order_number}}*\nAmount: {{order_total}} {{currency}}\nStatus: {{payment_status}}",
+                'sms_template_ar' => 'تذكير: طلب #{{order_number}} بانتظار إتمام الدفع ({{order_total}} ⃁). أكمل الدفع: {{pay_url}}',
+                'sms_template_en' => 'Reminder: order #{{order_number}} awaits payment ({{order_total}} ⃁). Pay: {{pay_url}}',
+                'whatsapp_template_ar' => "💳 *تذكير دفع*\nطلب *#{{order_number}}* ما زال بانتظار الدفع.\nالمبلغ: *{{order_total}} {{currency}}*\nالحالة: {{payment_status}}\n\nأكمل الدفع من هنا:\n{{pay_url}}\n\nتتبع الطلب: {{order_track_url}}",
+                'whatsapp_template_en' => "💳 *Payment reminder*\nOrder *#{{order_number}}* is still awaiting payment.\nAmount: *{{order_total}} {{currency}}*\nStatus: {{payment_status}}\n\nComplete payment:\n{{pay_url}}\n\nTrack order: {{order_track_url}}",
                 'email_subject_ar' => 'تذكير الدفع — طلب #{{order_number}}',
                 'email_subject_en' => 'Payment reminder — order #{{order_number}}',
-                'email_body_ar' => '<p>طلبك <strong>#{{order_number}}</strong> بانتظار الدفع ({{order_total}} {{currency}}).</p>',
-                'email_body_en' => '<p>Order <strong>#{{order_number}}</strong> is awaiting payment ({{order_total}} {{currency}}).</p>',
+                'email_body_ar' => '<p>طلبك <strong>#{{order_number}}</strong> بانتظار الدفع ({{order_total}} {{currency}}).</p><p><a href="{{pay_url}}">إتمام الدفع</a></p>',
+                'email_body_en' => '<p>Order <strong>#{{order_number}}</strong> is awaiting payment ({{order_total}} {{currency}}).</p><p><a href="{{pay_url}}">Complete payment</a></p>',
+            ],
+            'invoice_ready' => [
+                'event' => 'invoice_ready',
+                'name_en' => 'Invoice Ready',
+                'name_ar' => 'الفاتورة جاهزة',
+                'sms_template_ar' => 'فاتورة طلب #{{order_number}} جاهزة ({{order_total}} ⃁): {{invoice_url}}',
+                'sms_template_en' => 'Invoice for order #{{order_number}} ({{order_total}} ⃁): {{invoice_url}}',
+                'whatsapp_template_ar' => "🧾 *فاتورة الطلب جاهزة*\nالطلب: *#{{order_number}}*\nالمبلغ: *{{order_total}} {{currency}}*\nالدفع: {{payment_method}} ({{payment_status}})\n\nعرض / تحميل الفاتورة:\n{{invoice_url}}\n\nتتبع الطلب: {{order_track_url}}",
+                'whatsapp_template_en' => "🧾 *Invoice ready*\nOrder: *#{{order_number}}*\nAmount: *{{order_total}} {{currency}}*\nPayment: {{payment_method}} ({{payment_status}})\n\nView / download invoice:\n{{invoice_url}}\n\nTrack order: {{order_track_url}}",
+                'email_subject_ar' => 'فاتورة الطلب #{{order_number}} — {{store_name}}',
+                'email_subject_en' => 'Invoice for order #{{order_number}} — {{store_name}}',
+                'email_body_ar' => '<p>مرحباً {{customer_name}}،</p><p>فاتورة طلبك <strong>#{{order_number}}</strong> جاهزة بمبلغ <strong>{{order_total}} {{currency}}</strong>.</p><p><a href="{{invoice_url}}">عرض الفاتورة</a></p>',
+                'email_body_en' => '<p>Hello {{customer_name}},</p><p>Your invoice for order <strong>#{{order_number}}</strong> ({{order_total}} {{currency}}) is ready.</p><p><a href="{{invoice_url}}">View invoice</a></p>',
             ],
             'order_shipped' => [
                 'event' => 'order_shipped',
@@ -224,9 +237,17 @@ class NotificationService
             $storeUrl = $frontendBase;
         }
         $orderNumber = (string) ($order->order_number ?: $order->id);
-        $orderTrackUrl = $storeUrl !== ''
-            ? (rtrim($storeUrl, '/') . '/track-order?order=' . rawurlencode($orderNumber))
+        $orderId = (string) ($order->id ?: $orderNumber);
+        $base = $storeUrl !== '' ? rtrim($storeUrl, '/') : '';
+        $orderTrackUrl = $base !== ''
+            ? ($base . '/track-order?order=' . rawurlencode($orderNumber))
             : '';
+        $invoiceUrl = $base !== ''
+            ? ($base . '/invoice?order=' . rawurlencode($orderNumber) . '&id=' . rawurlencode($orderId))
+            : $orderTrackUrl;
+        $payUrl = $base !== ''
+            ? ($base . '/checkout?pay_order=' . rawurlencode($orderNumber))
+            : $orderTrackUrl;
 
         $totalVal = (float) ($order->total_amount ?? $order->total ?? 0);
 
@@ -241,6 +262,8 @@ class NotificationService
             '{{store_name}}' => $storeName,
             '{{store_url}}' => $storeUrl,
             '{{order_track_url}}' => $orderTrackUrl,
+            '{{invoice_url}}' => $invoiceUrl,
+            '{{pay_url}}' => $payUrl,
             '{{courier_name}}' => $courierName,
             '{{tracking_number}}' => $trackingNumber,
             '{{tracking_url}}' => $trackingUrl,
@@ -357,7 +380,78 @@ class NotificationService
             array_map('strval', is_array($merged['merchant_alert_emails'] ?? null) ? $merged['merchant_alert_emails'] : [])
         ));
 
+        // Fallback admin phone = THIS store phone / WhatsApp identity (never another tenant)
+        if ($merged['merchant_alert_phones'] === [] && $store) {
+            $candidates = [
+                $store->phone ?? null,
+                is_array($store->settings ?? null) ? ($store->settings['whatsapp'] ?? null) : null,
+                is_array($store->settings ?? null) ? ($store->settings['contact_phone'] ?? null) : null,
+                is_array($waSettings) ? ($waSettings['business_phone'] ?? null) : null,
+            ];
+            foreach ($candidates as $cand) {
+                $norm = self::normalizeSaudiPhoneNumber(is_string($cand) ? $cand : null);
+                if ($norm && self::isValidSaudiMobile($norm)) {
+                    $merged['merchant_alert_phones'][] = $norm;
+                    break;
+                }
+            }
+        }
+
         return $merged;
+    }
+
+    /**
+     * After order create: always order_placed; unpaid → payment_pending; paid → payment_received + invoice_ready.
+     */
+    public function notifyOrderCreated(Order $order): array
+    {
+        $out = ['events' => []];
+        $out['events']['order_placed'] = $this->sendOrderNotification('order_placed', $order);
+
+        $pay = strtolower(trim((string) ($order->payment_status ?? 'pending')));
+        if (in_array($pay, ['paid', 'completed', 'success', 'captured'], true)) {
+            $out['events']['payment_received'] = $this->sendOrderNotification('payment_received', $order);
+            $out['events']['invoice_ready'] = $this->sendOrderNotification('invoice_ready', $order);
+        } elseif (in_array($pay, ['pending', 'unpaid', 'awaiting', 'failed', ''], true)
+            || str_contains($pay, 'pending')
+            || str_contains($pay, 'unpaid')
+            || str_contains($pay, 'cod')
+        ) {
+            // COD stays pending cash → still remind merchant + customer that payment is not captured yet
+            $out['events']['payment_pending'] = $this->sendOrderNotification('payment_pending', $order);
+        }
+
+        return $out;
+    }
+
+    /**
+     * When gateway / admin marks payment paid — payment + invoice WhatsApp to customer & admin.
+     */
+    public function notifyPaymentConfirmed(Order $order): array
+    {
+        return [
+            'payment_received' => $this->sendOrderNotification('payment_received', $order),
+            'invoice_ready' => $this->sendOrderNotification('invoice_ready', $order),
+        ];
+    }
+
+    /**
+     * Avoid reminder spam: true if same store+order+event was already sent successfully within $hours.
+     */
+    public function wasRecentlyNotified(string $storeId, string $orderId, string $event, int $hours = 12): bool
+    {
+        try {
+            return NotificationDelivery::query()
+                ->withoutGlobalScope('store')
+                ->where('store_id', $storeId)
+                ->where('order_id', $orderId)
+                ->where('event', $event)
+                ->where('status', 'sent')
+                ->where('created_at', '>=', now()->subHours(max(1, $hours)))
+                ->exists();
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     public function isWhatsAppConnected(array $wa): bool
@@ -585,6 +679,7 @@ class NotificationService
             'order_preparing',
             'payment_received',
             'payment_pending',
+            'invoice_ready',
             'order_shipped',
             'order_delivered',
             'order_cancelled',

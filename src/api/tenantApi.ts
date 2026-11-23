@@ -3457,6 +3457,10 @@ export function mapPaymentGatewayRow(
           }
         })()
       : [];
+  const showProductLogo =
+    row.show_product_logo != null
+      ? Boolean(row.show_product_logo)
+      : supportedMethods.includes('show_product_logo');
   return {
     id: String(row.id || ''),
     storeId: String(row.store_id || row.storeId || storeId),
@@ -3473,6 +3477,7 @@ export function mapPaymentGatewayRow(
           ? String(row.maskedSecretKey)
           : undefined,
     supportedMethods,
+    showProductLogo,
     transactionFeePercent: Number(row.transaction_fee_percent ?? row.transactionFeePercent ?? 0),
     transactionFeeFixed: Number(row.transaction_fee_fixed ?? row.transactionFeeFixed ?? 0),
     status: (row.status as import('../types').PaymentGatewayItem['status']) || 'disconnected',

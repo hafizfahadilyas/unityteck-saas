@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { PRODUCTS } from '../data/mockData';
 import { ProductCard } from './ProductCard';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 
 export const ProductGrid: React.FC = () => {
   const { language, setCurrentPage, setSelectedCategory, products } = useApp();
   const isAr = language === 'ar';
+  // Live catalog from AppContext only — never mockData.PRODUCTS
   const allProds = products || [];
 
   const [activeTab, setActiveTab] = useState<string>('all');

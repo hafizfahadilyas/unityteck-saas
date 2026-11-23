@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import type { Order } from '../../types';
+import React, { Suspense, lazy, useState, useMemo, useRef, useEffect } from 'react';
+import type { Order, OrderStatus } from '../../types';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useTenant } from '../../context/TenantContext';
 import { useToast } from '../common/ToastProvider';
@@ -8,7 +8,6 @@ import {
   ShoppingCart,
   ChevronLeft,
   ChevronRight,
-  Eye,
   Search,
   Filter,
   ArrowUpDown,
@@ -22,29 +21,32 @@ import {
   Check,
   X,
   Trash2,
-  Building2,
+  Edit,
+  MoreHorizontal,
+  Printer,
+  Copy,
+  RefreshCw,
+  CreditCard,
+  Archive,
 } from 'lucide-react';
 import { getOrderDate, parseOrderDate, statusChipStyle } from '../../utils/liveSeries';
 import { formatRelativeTime } from '../../notification-system/utils/dateFilters';
 import { OrderDetailsModal } from './orders/OrderDetailsModal';
 import { OrderSourceIcon } from '../common/BrandIcons';
-import {
-  MadaIcon,
-  ApplePayIcon,
-  StcPayIcon,
-  VisaIcon,
-  MastercardIcon,
-  CodIcon,
-  TabbyIcon,
-  TamaraIcon,
-} from '../../themes/coffeeRoasters/components/PaymentIcons';
+import { PaymentMethodMark } from '../../themes/coffeeRoasters/components/PaymentIcons';
 import { getCustomerDisplayName, getLocalizedItemName } from '../../utils/storeLocalization';
 import { formatOrderRef } from '../../utils/orderDisplay';
+import { displayOrderNumber } from '../../utils/orderNumber';
 import {
   localizeOrderStatus,
   localizePaymentMethod,
   localizeSalesChannel,
 } from '../../utils/domainLabels';
+import { ORDER_STATUS_CATALOG, catalogLabel } from '../../utils/orderCatalogOptions';
+
+const RetailInvoiceModal = lazy(() =>
+  import('../common/RetailInvoiceModal').then((m) => ({ default: m.RetailInvoiceModal })),
+);
 
 interface DashboardOrdersTableProps {
   orders: Order[];
@@ -65,9 +67,20 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
 }) => {
   const { t, money, locale, dir } = usePrefs();
   const isAr = locale === 'ar';
-  const { permanentDeleteOrder, currentProducts } = useTenant();
-  const { toast, confirmWithReason } = useToast();
+  const {
+    permanentDeleteOrder,
+    archiveOrder,
+    updateOrderStatus,
+    currentProducts,
+    activeStore,
+  } = useTenant();
+  const { toast, confirm, confirmWithReason } = useToast();
   const [inspectOrder, setInspectOrder] = useState<Order | null>(null);
+  const [invoiceOrder, setInvoiceOrder] = useState<Order | null>(null);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [activeActionMenuId, setActiveActionMenuId] = useState<string | null>(null);
+  const [actionMenuMode, setActionMenuMode] = useState<'main' | 'status'>('main');
+  const actionMenuAnchorRef = useRef<HTMLElement | null>(null);
 
   // Search, Filter & Sort states
   const [searchQuery, setSearchQuery] = useState('');
@@ -227,34 +240,10 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
   };
 
   const getPaymentBadge = (method?: string) => {
-    const pm = (method || '').toLowerCase();
     const label = localizePaymentMethod(method, locale);
-    let icon = <VisaIcon className="h-5 w-auto shrink-0" />;
-    if (pm.includes('cash') || pm.includes('استلام') || pm.includes('cod')) {
-      icon = <CodIcon className="h-5 w-auto shrink-0" />;
-    } else if (pm.includes('apple')) {
-      icon = <ApplePayIcon className="h-5 w-auto shrink-0" />;
-    } else if (pm.includes('mada') || pm.includes('مدى')) {
-      icon = <MadaIcon className="h-5 w-auto shrink-0" />;
-    } else if (pm.includes('stc')) {
-      icon = <StcPayIcon className="h-5 w-auto shrink-0" />;
-    } else if (pm.includes('tamara') || pm.includes('تمارا')) {
-      icon = <TamaraIcon className="h-5 w-auto shrink-0" />;
-    } else if (pm.includes('tabby') || pm.includes('تابي')) {
-      icon = <TabbyIcon className="h-5 w-auto shrink-0" />;
-    } else if (pm.includes('bank')) {
-      icon = <Building2 className="h-4 w-4 shrink-0 text-teal-600" />;
-    } else if (pm.includes('visa') || pm.includes('master') || pm.includes('card')) {
-      icon = (
-        <span className="inline-flex items-center gap-0.5 shrink-0">
-          <VisaIcon className="h-5 w-auto" />
-          <MastercardIcon className="h-5 w-auto" />
-        </span>
-      );
-    }
     return (
       <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-        {icon}
+        <PaymentMethodMark method={method} className="h-5 w-auto shrink-0" />
         <span className="text-sm font-semibold">{label}</span>
       </div>
     );
@@ -263,16 +252,44 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
   const startRange = totalCount === 0 ? 0 : (validPage - 1) * PAGE_SIZE + 1;
   const endRange = Math.min(validPage * PAGE_SIZE, totalCount);
 
+  const closeActionMenu = () => {
+    setActiveActionMenuId(null);
+    setActionMenuMode('main');
+    actionMenuAnchorRef.current = null;
+  };
+
+  const handleArchiveOrder = async (ord: Order) => {
+    const ok = await confirm({
+      title: t('archiveOrderConfirmTitle') || (isAr ? 'أرشفة الطلب' : 'Archive Order'),
+      message: (
+        t('archiveOrderConfirmMsg') ||
+        (isAr
+          ? 'هل أنت متأكد من نقل الطلب {number} إلى الأرشيف؟ يمكنك استعادته في أي وقت من قسم الأرشيف.'
+          : 'Are you sure you want to move order {number} to the archive? You can restore it anytime.')
+      ).replace('{number}', String(ord.orderNumber || ord.id)),
+      confirmLabel: t('archiveOrder') || (isAr ? 'نقل إلى الأرشيف' : 'Move to Archive'),
+      cancelLabel: isAr ? 'إلغاء' : 'Cancel',
+      danger: false,
+    });
+    if (!ok) return;
+    archiveOrder(ord.id, ord.storeId || activeStore?.id);
+    if (inspectOrder?.id === ord.id) setInspectOrder(null);
+    toast(
+      t('archiveOrderSuccess') || (isAr ? 'تم نقل الطلب إلى الأرشيف بنجاح' : 'Order moved to archive successfully'),
+      'success',
+    );
+  };
+
   const handleDeleteOrder = async (ord: Order) => {
     const reason = await confirmWithReason({
-      title: t('permanentDeleteOrderConfirmTitle') || (isAr ? 'حذف الطلب' : 'Delete Order'),
+      title: t('permanentDeleteOrderConfirmTitle') || (isAr ? 'حذف الطلب نهائياً' : 'Permanently Delete Order'),
       message: (
         t('permanentDeleteOrderConfirmMsg') ||
         (isAr
-          ? 'هل أنت متأكد من حذف الطلب {number}؟ اكتب سبب الحذف للمتابعة.'
-          : 'Are you sure you want to delete order {number}? Enter a reason to continue.')
+          ? 'هل أنت متأكد من الحذف النهائي للطلب {number}؟ اكتب سبب الحذف للمتابعة. هذا الإجراء نهائي!'
+          : 'Are you sure you want to permanently delete order {number}? Enter a reason to continue. This cannot be undone!')
       ).replace('{number}', String(ord.orderNumber || ord.id)),
-      confirmLabel: t('permanentDeleteOrder') || (isAr ? 'حذف' : 'Delete'),
+      confirmLabel: t('permanentDeleteOrder') || (isAr ? 'حذف نهائي' : 'Delete Permanently'),
       cancelLabel: isAr ? 'إلغاء' : 'Cancel',
       danger: true,
       reasonRequired: true,
@@ -292,9 +309,15 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
     }
     if (inspectOrder?.id === ord.id) setInspectOrder(null);
     toast(
-      t('permanentDeleteOrderSuccess') || (isAr ? 'تم حذف الطلب بنجاح' : 'Order deleted successfully'),
+      t('permanentDeleteOrderSuccess') || (isAr ? 'تم حذف الطلب نهائياً بنجاح' : 'Order permanently deleted'),
       'success',
     );
+  };
+
+  const copyOrderNumber = (ord: Order) => {
+    const num = displayOrderNumber(ord.orderNumber) || String(ord.orderNumber || ord.id);
+    void navigator.clipboard.writeText(num);
+    toast(isAr ? `تم نسخ رقم الطلب ${num}` : `Order number ${num} copied`, 'info');
   };
 
   return (
@@ -786,28 +809,44 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
                       {ord.date || '—'}
                     </td>
 
-                    {/* 9. Actions */}
-                    <td className="text-center whitespace-nowrap">
-                      <div className="inline-flex items-center justify-center gap-1.5 flex-nowrap">
+                    {/* 9. Actions — same Edit + More menu as Orders page */}
+                    <td className="text-center whitespace-nowrap w-16 min-w-[65px]">
+                      <div className="inline-flex items-center justify-center gap-1 w-full">
                         <button
                           type="button"
                           onClick={() => setInspectOrder(ord)}
-                          className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer inline-flex items-center justify-center shadow-2xs"
-                          style={{ border: '1px solid var(--table-border, rgba(15,23,42,0.16))' }}
-                          title={t('viewOrder')}
-                          aria-label={t('viewOrder')}
+                          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors shrink-0"
+                          style={{
+                            border: '1px solid var(--table-border, rgba(15,23,42,0.16))',
+                            color: 'var(--glass-navy, #0f172a)',
+                          }}
+                          title={isAr ? 'تعديل الطلب' : 'Edit Order'}
+                          aria-label={isAr ? 'تعديل الطلب' : 'Edit Order'}
                         >
-                          <Eye className="w-4 h-4" />
+                          <Edit className="w-3.5 h-3.5" />
                         </button>
                         <button
                           type="button"
-                          onClick={() => void handleDeleteOrder(ord)}
-                          className="p-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer inline-flex items-center justify-center shadow-2xs"
-                          style={{ border: '1px solid rgba(225, 29, 72, 0.35)' }}
-                          title={t('permanentDeleteOrder') || (isAr ? 'حذف' : 'Delete')}
-                          aria-label={t('permanentDeleteOrder') || (isAr ? 'حذف' : 'Delete')}
+                          data-order-actions-trigger
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (activeActionMenuId === ord.id) {
+                              closeActionMenu();
+                              return;
+                            }
+                            actionMenuAnchorRef.current = e.currentTarget;
+                            setActionMenuMode('main');
+                            setActiveActionMenuId(ord.id);
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors shrink-0"
+                          style={{
+                            border: '1px solid var(--table-border, rgba(15,23,42,0.16))',
+                            color: '#475569',
+                          }}
+                          title={isAr ? 'المزيد' : 'More Actions'}
+                          aria-label={isAr ? 'المزيد' : 'More Actions'}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <MoreHorizontal className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>
@@ -887,15 +926,171 @@ export const DashboardOrdersTable: React.FC<DashboardOrdersTableProps> = ({
         </div>
       </div>
 
+      {/* Row actions — same FloatingPopover menu as Orders page */}
+      {(() => {
+        const ord =
+          (activeActionMenuId &&
+            (paginatedOrders.find((o) => o.id === activeActionMenuId) ||
+              processedOrders.find((o) => o.id === activeActionMenuId))) ||
+          null;
+        return (
+          <FloatingPopover
+            open={!!activeActionMenuId && !!ord}
+            anchorRef={actionMenuAnchorRef}
+            onClose={closeActionMenu}
+            width={208}
+            align="end"
+            estimatedHeight={actionMenuMode === 'status' ? 560 : 420}
+            className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl p-1 text-xs font-semibold"
+          >
+            {!ord ? null : actionMenuMode === 'status' ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setActionMenuMode('main')}
+                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-600 dark:text-slate-300"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5 rtl:rotate-180" />
+                  <span>{isAr ? 'رجوع' : 'Back'}</span>
+                </button>
+                <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  {isAr ? 'تحديث حالة الطلب' : 'Update Order Status'}
+                </div>
+                {ORDER_STATUS_CATALOG.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => {
+                      updateOrderStatus(ord.id, opt.value as OrderStatus, ord.storeId || activeStore?.id);
+                      toast(
+                        isAr
+                          ? `تم تحديث الحالة إلى «${catalogLabel(opt, isAr)}»`
+                          : `Status updated to “${catalogLabel(opt, isAr)}”`,
+                        'success',
+                      );
+                      closeActionMenu();
+                    }}
+                    className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200"
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${
+                        ord.status === opt.value ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-600'
+                      }`}
+                    />
+                    <span>{catalogLabel(opt, isAr)}</span>
+                  </button>
+                ))}
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInspectOrder(ord);
+                    closeActionMenu();
+                  }}
+                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200"
+                >
+                  <Edit className="w-3.5 h-3.5 text-teal-500" />
+                  <span>{isAr ? 'تعديل الطلب' : 'Edit Order'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInvoiceOrder(ord);
+                    setShowInvoiceModal(true);
+                    closeActionMenu();
+                  }}
+                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200"
+                >
+                  <Printer className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>{isAr ? 'طباعة فاتورة' : 'Print Invoice'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    copyOrderNumber(ord);
+                    closeActionMenu();
+                  }}
+                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200"
+                >
+                  <Copy className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{isAr ? 'نسخ رقم الطلب' : 'Copy Order Number'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActionMenuMode('status')}
+                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-sky-500" />
+                  <span>{isAr ? 'تحديث حالة الطلب' : 'Update Order Status'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInspectOrder(ord);
+                    closeActionMenu();
+                  }}
+                  className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-200"
+                >
+                  <CreditCard className="w-3.5 h-3.5 text-amber-500" />
+                  <span>{isAr ? 'عرض الدفع المالي' : 'View Payment'}</span>
+                </button>
+                <div className="h-[1px] my-1 bg-slate-100 dark:bg-slate-800" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeActionMenu();
+                    void handleArchiveOrder(ord);
+                  }}
+                  className="w-full text-start px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                >
+                  <Archive className="w-3.5 h-3.5 text-slate-500" />
+                  <span>{isAr ? 'أرشفة الطلب' : 'Archive Order'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeActionMenu();
+                    void handleDeleteOrder(ord);
+                  }}
+                  className="w-full text-start px-3 py-2 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{t('permanentDeleteOrder') || (isAr ? 'حذف نهائي' : 'Delete Permanently')}</span>
+                </button>
+              </>
+            )}
+          </FloatingPopover>
+        );
+      })()}
+
       {inspectOrder && (
         <OrderDetailsModal
           isOpen={Boolean(inspectOrder)}
           onClose={() => setInspectOrder(null)}
           order={inspectOrder}
-          onPrintInvoice={() => onNavigateTab('orders')}
+          onPrintInvoice={(ord) => {
+            setInvoiceOrder(ord);
+            setShowInvoiceModal(true);
+          }}
           onEditOrder={() => onNavigateTab('orders')}
         />
       )}
+
+      <Suspense fallback={null}>
+        {showInvoiceModal && invoiceOrder && activeStore && (
+          <RetailInvoiceModal
+            isOpen={showInvoiceModal}
+            onClose={() => {
+              setShowInvoiceModal(false);
+              setInvoiceOrder(null);
+            }}
+            order={invoiceOrder}
+            store={activeStore}
+          />
+        )}
+      </Suspense>
     </div>
   );
 };

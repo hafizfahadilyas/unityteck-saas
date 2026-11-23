@@ -9,6 +9,7 @@ export * from './services/thresholdManager';
 export * from './services/whatsappService';
 export * from './services/notificationAPI';
 export * from './services/notificationEngine';
+export * from './services/notificationSound';
 export * from './hooks/useNotifications';
 export * from './hooks/useNotificationFilter';
 export * from './hooks/useRealtimeSync';

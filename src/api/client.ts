@@ -312,6 +312,15 @@ export async function apiFetch<T>(
           return apiFetch<T>(path, { ...options, authRetried: true });
         }
       }
+      // Public store-scoped GETs: Sanctum without membership → 403. Retry once guest.
+      const publicGuestGet =
+        isGet &&
+        (path.startsWith('/categories') ||
+          path.startsWith('/stores') ||
+          path.startsWith('/storefront'));
+      if (res.status === 403 && !skipAuth && !authRetried && publicGuestGet) {
+        return apiFetch<T>(path, { ...options, skipAuth: true, authRetried: true });
+      }
       const bodyMessage = extractBodyMessage(json);
       const code =
         json && typeof json === 'object' && typeof (json as { code?: unknown }).code === 'string'

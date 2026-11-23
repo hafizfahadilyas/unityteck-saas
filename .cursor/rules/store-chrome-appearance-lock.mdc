@@ -8,8 +8,11 @@ Locked in `PLATFORM_CHROME_DEFAULTS` + `defaultStoreChrome()`:
 - **Glass wallpaper:** `/images/shell-wallpaper-default.webp` (mountain photo)
 - **Blur:** `10px` · **Opacity:** `92%`
 - **Fill:** `custom` (not random palette)
+- **Title / page text:** Dark text (`shellTextMode: 'light'`, ink `#0f172a`) — not Auto
+- **Look:** Single platform glass shell (`ensurePlatformGlassShell`) — **Glass Soft / Night Luxe toggle buttons retired**
+- Desktop = mobile same glass (no Night Luxe brown bar; no mobile-only white override)
 
-Merchant overrides stay per `store_id`. **Reset to default wallpaper** returns to the platform image above. Never borrow Store A’s upload as Store B’s default row.
+Merchant wallpaper / sidebar photo / fonts stay per `store_id`. **Reset to default wallpaper** returns to the platform image above. Never borrow Store A’s upload as Store B’s default row.
 
 ## Locked behaviors
 - Custom **picture wallpaper** must sample brightness (`shellWallpaperLuma`) — never hardcode `shell-luma=dark` for every photo (white titles on light sky = banned).

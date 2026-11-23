@@ -46,10 +46,19 @@ export const HomePage: React.FC = () => {
   }, [activeStore, settingsVersion]);
 
 
+  const heroMode = themeSettings?.heroBanners?.contentMode || 'full';
+  const showImageOnlyHero = heroMode === 'image_only' || heroMode === 'both';
+  const showFullHero = heroMode === 'full' || heroMode === 'both';
+
   return (
     <div className="min-h-screen bg-white text-neutral-900 pb-20 selection:bg-neutral-900 selection:text-white w-full max-w-full overflow-x-clip">
-      {/* 1. Fast & Smooth Hero Slider (Honor KV Carousel Style) */}
-      <HeroSlider3D variant="home" />
+      {/* Dual coffee heroes: image-only and/or full text+buttons (Customize Themes → C-HERO) */}
+      {showImageOnlyHero ? (
+        <HeroSlider3D variant="home" forceContentMode="image_only" bannersKey="imageOnlyBanners" />
+      ) : null}
+      {showFullHero ? (
+        <HeroSlider3D variant="home" forceContentMode="full" bannersKey="banners" />
+      ) : null}
 
       {/* Commercial Hero (C-COMM) — ≠ Hero Banners / FSB; empty slides hide */}
       <CoffeeCommercialHeroSection

@@ -38,14 +38,14 @@ export const NotificationSettings: React.FC = () => {
       whatsapp: {
         enabled: true,
         provider: 'whatsapp_cloud_api',
-        sender_phone: '+966125558899',
+        sender_phone: '',
         auto_notify_customer: true,
         auto_notify_merchant: true,
       },
       sms: {
         enabled: true,
         provider: 'unifonic_ksa',
-        sender_id: 'MakkahGifts',
+        sender_id: '',
         auto_notify_customer: true,
         auto_notify_merchant: false,
       },
@@ -54,7 +54,7 @@ export const NotificationSettings: React.FC = () => {
         provider: 'smtp',
         auto_notify_customer: true,
         auto_notify_merchant: true,
-        allow_platform_mail: true,
+        allow_platform_mail: false,
       },
     },
     templates: {
@@ -110,14 +110,51 @@ export const NotificationSettings: React.FC = () => {
         whatsapp_template_en:
           'ℹ️ *Order Cancellation Notice*\n\nHello {{customer_name}}, order #{{order_number}} has been cancelled.\n\nA refund of {{order_total}} {{currency}} has been processed back to your payment method and will reflect within 2-7 business days.',
       },
+      payment_received: {
+        event: 'payment_received',
+        name_en: 'Payment Received',
+        name_ar: 'تم استلام الدفع',
+        sms_template_ar:
+          'تم تأكيد دفع طلب #{{order_number}} بمبلغ {{order_total}} ⃁. الفاتورة: {{invoice_url}}',
+        sms_template_en:
+          'Payment confirmed for #{{order_number}} — {{order_total}} ⃁. Invoice: {{invoice_url}}',
+        whatsapp_template_ar:
+          '✅ *تم استلام الدفع*\nطلب *#{{order_number}}*\nالمبلغ: *{{order_total}} {{currency}}*\n\n🧾 الفاتورة: {{invoice_url}}\n🔗 التتبع: {{order_track_url}}',
+        whatsapp_template_en:
+          '✅ *Payment received*\nOrder *#{{order_number}}*\nAmount: *{{order_total}} {{currency}}*\n\n🧾 Invoice: {{invoice_url}}\n🔗 Track: {{order_track_url}}',
+      },
+      payment_pending: {
+        event: 'payment_pending',
+        name_en: 'Payment Pending Reminder',
+        name_ar: 'تذكير الدفع المعلّق',
+        sms_template_ar:
+          'تذكير: طلب #{{order_number}} بانتظار الدفع ({{order_total}} ⃁). أكمل: {{pay_url}}',
+        sms_template_en:
+          'Reminder: order #{{order_number}} awaits payment ({{order_total}} ⃁). Pay: {{pay_url}}',
+        whatsapp_template_ar:
+          '💳 *تذكير دفع*\nطلب *#{{order_number}}* بانتظار الدفع.\nالمبلغ: *{{order_total}} {{currency}}*\n\nأكمل الدفع:\n{{pay_url}}',
+        whatsapp_template_en:
+          '💳 *Payment reminder*\nOrder *#{{order_number}}* awaits payment.\nAmount: *{{order_total}} {{currency}}*\n\nPay here:\n{{pay_url}}',
+      },
+      invoice_ready: {
+        event: 'invoice_ready',
+        name_en: 'Invoice Ready',
+        name_ar: 'الفاتورة جاهزة',
+        sms_template_ar: 'فاتورة طلب #{{order_number}} جاهزة: {{invoice_url}}',
+        sms_template_en: 'Invoice for #{{order_number}} is ready: {{invoice_url}}',
+        whatsapp_template_ar:
+          '🧾 *فاتورة الطلب جاهزة*\nالطلب: *#{{order_number}}*\nالمبلغ: *{{order_total}} {{currency}}*\n\n{{invoice_url}}',
+        whatsapp_template_en:
+          '🧾 *Invoice ready*\nOrder: *#{{order_number}}*\nAmount: *{{order_total}} {{currency}}*\n\n{{invoice_url}}',
+      },
     },
-    merchant_alert_phones: ['+966554128899'],
+    merchant_alert_phones: [],
     merchant_alert_emails: [],
   });
 
   const [activeEventTab, setActiveEventTab] = useState<string>('order_placed');
   const [templateLang, setTemplateLang] = useState<'ar' | 'en'>(isAr ? 'ar' : 'en');
-  const [testPhone, setTestPhone] = useState('+966554128899');
+  const [testPhone, setTestPhone] = useState('');
   const [testEmail, setTestEmail] = useState('');
   const [testChannel, setTestChannel] = useState<'whatsapp' | 'sms' | 'email' | 'both' | 'all'>('all');
   const [lastTestResult, setLastTestResult] = useState<any>(null);

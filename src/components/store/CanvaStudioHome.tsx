@@ -391,7 +391,7 @@ export const CanvaStudioHome: React.FC<Props> = ({
 
   return (
     <div
-      className="cs-canva-home u-page w-full min-w-0 max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 pb-16"
+      className="cs-canva-home u-page w-full min-w-0 max-w-[1400px] mx-auto px-3 sm:px-6 lg:px-8 pb-6"
       dir={isAr ? 'rtl' : 'ltr'}
     >
       {/* Hero — own glass panel */}

@@ -1221,7 +1221,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
       {subView === 'offers' && (
         <div className="space-y-6">
           {/* Stepper */}
-          <div className="p-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-x-auto">
+          <div className="p-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-x-auto max-w-full min-w-0" data-mobile-scroll="x">
             <div className="flex items-center justify-between min-w-[700px] text-xs">
               {[
                 { step: 1, title: isAr ? 'نوع العرض' : 'Offer Type', desc: isAr ? 'اختر نوع العرض' : 'Select type of offer' },

@@ -236,10 +236,19 @@ async function deploy() {
     process.exit(1);
   }
 
+  // Always ship clean SPA .htaccess — never Hostinger LiteShield verifycaptcha:drop
+  // (that block returns site-wide 403 when reCAPTCHA free quota is exceeded).
   const htaccessSource = path.join(rootDir, 'public', '.htaccess');
   const htaccessDist = path.join(distDir, '.htaccess');
   if (fs.existsSync(htaccessSource)) {
-    fs.copyFileSync(htaccessSource, htaccessDist);
+    let txt = fs.readFileSync(htaccessSource, 'utf8');
+    txt = txt.replace(
+      /### HOSTINGER LITESHIELD RECAPTCHA[\s\S]*?### HOSTINGER LITESHIELD RECAPTCHA, DO NOT REMOVE THIS LINE ###\s*/gi,
+      '',
+    );
+    txt = txt.replace(/^\s*LsRecaptcha\s+\d+\s*$/gim, '');
+    txt = txt.replace(/^\s*RewriteRule\s+\.\*\s+-\s+\[E=verifycaptcha:drop\]\s*$/gim, '');
+    fs.writeFileSync(htaccessDist, txt);
   }
 
   // Live Hostinger gateway (SQLite REST) — keep visits/events/commerce fixes in sync

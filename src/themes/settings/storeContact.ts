@@ -57,8 +57,7 @@ export type StoreContact = {
 
 /** Retired seed / demo placeholders — never treat as live merchant contact. */
 const RETIRED_CONTACT_DIGITS = new Set([
-  '966549876543',
-  '549876543',
+  // 966549876543 kept live — store-coffee merchant phone on Hostinger (not a discarded seed)
   '966114892030',
   '114892030',
   '9668008440443',
@@ -114,6 +113,40 @@ export function normalizeWhatsAppDigits(raw?: string | null): string {
   else if (clean.startsWith('5') && clean.length === 9) clean = `966${clean}`;
   if (isRetiredContactDigits(clean)) return '';
   return clean;
+}
+
+/**
+ * Merchant flexible destination: WhatsApp number, wa.me, social URL, https, or internal path.
+ * Empty input → empty (caller decides required). Never invents a demo number.
+ */
+export function normalizeFlexibleHref(raw?: string | null): string {
+  const v = String(raw || '').trim();
+  if (!v) return '';
+  if (/^(https?:|mailto:|tel:|whatsapp:)/i.test(v)) return v;
+  if (v.startsWith('#') || v.startsWith('/')) return v;
+  if (/^(wa\.me\/|api\.whatsapp\.com\/)/i.test(v)) {
+    return `https://${v.replace(/^\/\//, '')}`;
+  }
+  // Phone / WhatsApp digits only (05… / +966… / 966…)
+  const phoneLike = /^[\d\s+\-().]+$/.test(v) && digitsOnly(v).length >= 9;
+  if (phoneLike) {
+    const digits = normalizeWhatsAppDigits(v);
+    return digits ? `https://wa.me/${digits}` : '';
+  }
+  // Bare domain or social path (instagram.com/…, x.com/…)
+  if (/^[a-z0-9.-]+\.[a-z]{2,}([\/?#].*)?$/i.test(v)) {
+    return `https://${v}`;
+  }
+  // Internal slug (products, shop, custom-order)
+  if (/^[a-z0-9][a-z0-9/_-]*$/i.test(v)) {
+    return v.startsWith('/') ? v : `/${v}`;
+  }
+  return v;
+}
+
+/** True when normalizeFlexibleHref yields a usable destination. */
+export function isFlexibleHrefValid(raw?: string | null): boolean {
+  return normalizeFlexibleHref(raw).length > 0;
 }
 
 function pickDisplay(...candidates: Array<string | undefined | null>): string {

@@ -191,6 +191,7 @@ import { HeroSlider3D as CoffeeHeroSlider3D } from '../../../themes/coffeeRoaste
 import { FlagshipThreeJsSection as CoffeeFlagshipSection } from '../../../themes/coffeeRoasters/components/FlagshipThreeJsSection';
 import { MachineStoryCinematic as CoffeeMachineStory } from '../../../themes/coffeeRoasters/components/MachineStoryCinematic';
 import { ProductDetailPage as CoffeeProductDetailPage } from '../../../themes/coffeeRoasters/components/ProductDetailPage';
+import { ProductsListPage as CoffeeProductsListPage } from '../../../themes/coffeeRoasters/components/ProductsListPage';
 import {
   CartProvider as CoffeeCartProvider,
   useCart as useCoffeeCart,
@@ -284,16 +285,8 @@ import { getStoreDisplayName } from '../../../utils/storeLocalization';
 import { CartDrawer } from '../../../themes/meccaGifts/components/CartDrawer';
 import { CatalogPage } from '../../../themes/meccaGifts/pages/CatalogPage';
 import { Product } from '../../../themes/meccaGifts/types';
-import {
-  NATURAL_BOUQUETS,
-  CHOCOLATE_ROSES,
-  CAKE_ROSES,
-  COFFEE_SWEETS_ROSES,
-  FLOWER_VASES,
-  MAWAJEEB_PRODUCTS,
-  LUXURY_SETS,
-  ARTICLES,
-} from '../../../themes/meccaGifts/data/mockData';
+import { fetchBlogDataApi } from '../../../api/tenantApi';
+import type { BlogArticleItem } from '../../../types/blog';
 import {
   BuilderWidgetLibrary,
   getCoffeePageBuilderWidgetCatalog,
@@ -399,7 +392,10 @@ export const FeaturedPostsBlock: React.FC<{
   settings: Record<string, any>;
   isAr: boolean;
   compact?: boolean;
-}> = ({ settings, isAr, compact = false }) => {
+  storeId?: string;
+}> = ({ settings, isAr, compact = false, storeId }) => {
+  const { activeStore } = useTenant();
+  const resolvedStoreId = (storeId || activeStore?.id || '').trim();
   const label = settings.columnLabel || '1';
   const labelFontSize = settings.labelFontSize ?? 82;
   const headingText = isAr
@@ -413,17 +409,42 @@ export const FeaturedPostsBlock: React.FC<{
   const showMeta = settings.showMeta !== false;
   const showTag = settings.showTag !== false;
 
+  const [articles, setArticles] = useState<BlogArticleItem[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!resolvedStoreId) {
+      setArticles([]);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    fetchBlogDataApi(resolvedStoreId, { status: 'published' })
+      .then((res) => {
+        if (cancelled) return;
+        setArticles(Array.isArray(res?.data) ? res.data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setArticles([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedStoreId]);
+
   const displayedArticles = useMemo(() => {
-    let list = [...(ARTICLES || [])];
+    let list = [...articles];
     if (postSource === 'most_liked') {
-      list = [...list].reverse();
+      list = [...list].sort((a, b) => (b.views || 0) - (a.views || 0));
     }
     return list.slice(0, maxPosts);
-  }, [postSource, maxPosts]);
+  }, [articles, postSource, maxPosts]);
 
   return (
     <div className={`w-full ${compact ? 'p-2' : 'p-6 max-w-7xl mx-auto'}`}>
-      {/* Step 3: Big Number/Label (82px) */}
       {label && (
         <div
           style={{ fontSize: `${labelFontSize}px` }}
@@ -433,65 +454,105 @@ export const FeaturedPostsBlock: React.FC<{
         </div>
       )}
 
-      {/* Step 3: Category Heading (H3) */}
       <HeadingTag className="text-xl sm:text-2xl font-bold text-slate-900 mt-2 mb-4 tracking-tight border-b pb-2 border-slate-200/80 flex items-center justify-between">
         <span>{headingText}</span>
         <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[color:var(--portal-50)] text-[color:var(--accent)] font-bold uppercase">
-          {postSource === 'latest' ? (isAr ? 'الأحدث' : 'Latest') : (isAr ? 'الأكثر إعجاباً' : 'Most Liked')}
+          {postSource === 'latest' ? (isAr ? 'الأحدث' : 'Latest') : (isAr ? 'الأكثر مشاهدة' : 'Most Viewed')}
         </span>
       </HeadingTag>
 
-      {/* Step 3: Typer Articles Module */}
-      <div className={`grid gap-4 ${compact ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'}`}>
-        {displayedArticles.map((art) => (
-          <article
-            key={art.id}
-            className="group rounded-2xl border border-slate-200 bg-white overflow-hidden hover:shadow-lg hover:border-indigo-400 transition-all flex flex-col justify-between"
-          >
-            {showImage && (
-              <div className="aspect-[16/10] w-full overflow-hidden bg-slate-100 relative">
-                <img
-                  src={art.image}
-                  alt={isAr ? art.title : art.titleEn}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  referrerPolicy="no-referrer"
-                />
-                {showCategory && (
-                  <span className="absolute top-2.5 start-2.5 bg-slate-900/85 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    {isAr ? art.category : art.categoryEn}
-                  </span>
-                )}
-              </div>
-            )}
-            <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2">
-              <div>
-                {showMeta && (
-                  <div className="flex items-center gap-2 text-[10px] text-slate-400 mb-1">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      <span>{art.readTime || '3 min'}</span>
-                    </span>
-                    <span>•</span>
-                    <span>{isAr ? 'بواسطة الكاتب' : 'By Sarah'}</span>
-                    <span>•</span>
-                    <span>💬 12</span>
+      {loading && displayedArticles.length === 0 ? (
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 animate-pulse">
+          {Array.from({ length: Math.min(maxPosts, 3) }).map((_, i) => (
+            <div key={i} className="rounded-2xl border border-slate-200 bg-slate-100 h-40" />
+          ))}
+        </div>
+      ) : displayedArticles.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+          {isAr ? 'لا توجد مقالات' : 'No records found'}
+        </div>
+      ) : (
+        <div className={`grid gap-4 ${compact ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'}`}>
+          {displayedArticles.map((art) => {
+            const anyArt = art as BlogArticleItem & {
+              titleAr?: string;
+              titleEn?: string;
+              categoryAr?: string;
+              categoryEn?: string;
+              image?: string;
+              readTime?: string;
+            };
+            const title = isAr
+              ? (anyArt.titleAr || art.title || '')
+              : (anyArt.titleEn || art.title || '');
+            const category = isAr
+              ? (anyArt.categoryAr || art.category || '')
+              : (anyArt.categoryEn || art.category || '');
+            const image = art.thumbnail || anyArt.image || '';
+            const authorName = art.author?.name || '';
+            const commentCount = typeof art.comments === 'number' ? art.comments : 0;
+            return (
+              <article
+                key={art.id}
+                className="group rounded-2xl border border-slate-200 bg-white overflow-hidden hover:shadow-lg hover:border-[color:var(--accent)] transition-all flex flex-col justify-between"
+              >
+                {showImage && image ? (
+                  <div className="aspect-[16/10] w-full overflow-hidden bg-slate-100 relative">
+                    <img
+                      src={image}
+                      alt={title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      referrerPolicy="no-referrer"
+                    />
+                    {showCategory && category ? (
+                      <span className="absolute top-2.5 start-2.5 bg-slate-900/85 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        {category}
+                      </span>
+                    ) : null}
                   </div>
-                )}
-                <h4 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-2 leading-snug">
-                  {isAr ? art.title : art.titleEn}
-                </h4>
-              </div>
+                ) : null}
+                <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2">
+                  <div>
+                    {showMeta && (authorName || commentCount > 0 || anyArt.readTime) ? (
+                      <div className="flex items-center gap-2 text-[10px] text-slate-400 mb-1 flex-wrap">
+                        {anyArt.readTime ? (
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            <span>{anyArt.readTime}</span>
+                          </span>
+                        ) : null}
+                        {authorName ? (
+                          <>
+                            {anyArt.readTime ? <span>•</span> : null}
+                            <span>{isAr ? `بواسطة ${authorName}` : `By ${authorName}`}</span>
+                          </>
+                        ) : null}
+                        {commentCount > 0 ? (
+                          <>
+                            <span>•</span>
+                            <span>{commentCount}</span>
+                          </>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-[color:var(--accent)] transition-colors line-clamp-2 leading-snug">
+                      {title}
+                    </h4>
+                  </div>
 
-              {showTag && (
-                <div className="flex items-center gap-1 pt-1 flex-wrap">
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">#Featured</span>
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[color:var(--portal-50)] text-[color:var(--accent)]">#TopPick</span>
+                  {showTag && art.featured ? (
+                    <div className="flex items-center gap-1 pt-1 flex-wrap">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[color:var(--portal-50)] text-[color:var(--accent)]">
+                        {isAr ? 'مميز' : 'Featured'}
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
-              )}
-            </div>
-          </article>
-        ))}
-      </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
@@ -1486,6 +1547,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
           settings={b.settings}
           isAr={isAr}
           compact={false}
+          storeId={storeId}
         />
       );
     }
@@ -1594,7 +1656,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
                         colWidgets.map((cw: any, cwIdx: number) => (
                           <div key={cw.id || cwIdx} className="w-full" style={{ position: widgetPosition(cw) }}>
                             {cw.type === 'featured_posts' ? (
-                              <FeaturedPostsBlock settings={cw.settings} isAr={isAr} compact={true} />
+                              <FeaturedPostsBlock settings={cw.settings} isAr={isAr} compact={true} storeId={storeId} />
                             ) : cw.type === 'text_editor' ? (
                               <div style={{ fontSize: `${cw.settings.fontSize || 82}px`, fontWeight: cw.settings.fontWeight || 900 }} className="text-slate-900 leading-none font-serif select-none">
                                 {cw.settings.text || String(colIdx + 1)}
@@ -2137,14 +2199,15 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   const isAr = locale === 'ar';
 
   const handleToggleLanguage = (newLang: 'ar' | 'en') => {
+    // Admin chrome is source of truth — preview context follows one-way.
     setLocale(newLang);
     setLanguage(newLang);
   };
 
-  // Keep preview context synced with active locale
+  // Keep preview context synced with active locale (never write prefs from preview)
   useEffect(() => {
     if (language !== locale) {
-      setLanguage(locale as any);
+      setLanguage(locale as 'ar' | 'en');
     }
   }, [locale, language, setLanguage]);
 
@@ -2293,9 +2356,10 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   // Apply page switch from sidebar / parent when builder opens on a target page
   useEffect(() => {
     if (!initialPage) return;
-    const allowed = ['home', 'catalog', 'product', 'cart', 'checkout', 'thankyou', 'faq', 'reviews', '404', 'custom', 'about', 'contact', 'location', 'track-order', 'privacy', 'return'];
-    if (allowed.includes(initialPage) && initialPage !== previewPage) {
-      setPreviewPage(initialPage);
+    const allowed = ['home', 'catalog', 'product', 'cart', 'checkout', 'thankyou', 'faq', 'reviews', '404', 'about', 'contact', 'location', 'track-order', 'privacy', 'return'];
+    const next = initialPage === 'custom' ? 'catalog' : initialPage;
+    if (allowed.includes(next) && next !== previewPage) {
+      setPreviewPage(next as PreviewPage);
     }
   }, [initialPage, isOpen]);
 
@@ -2591,14 +2655,15 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       };
     }
 
+    // Zero-mock: fill shelves from this store's live catalog only (never meccaGifts mockData).
     return {
-      natural: filterByKeywords(['طبيعي', 'باقة', 'rose', 'bouquet', 'peony', 'valent'], NATURAL_BOUQUETS, 6),
-      luxury: filterByKeywords(['ملكي', 'سلة', 'طقم', 'vip', 'hamper', 'luxury', 'men', 'نساء'], LUXURY_SETS, 6),
-      chocolate: filterByKeywords(['شوكول', 'باتشي', 'بستاني', 'choc'], CHOCOLATE_ROSES, 6),
-      cake: filterByKeywords(['كيك', 'حلا', 'cake', 'ريد فيلفت', 'ميلاد'], CAKE_ROSES, 6),
-      coffee: filterByKeywords(['قهوة', 'ضيافة', 'coffee'], COFFEE_SWEETS_ROSES, 6),
-      vases: filterByKeywords(['فاز', 'كريستال', 'lily', 'orchid', 'vase'], FLOWER_VASES, 6),
-      mawajeeb: filterByKeywords(['مواجيب', 'تراث', 'خشب', 'بخور'], MAWAJEEB_PRODUCTS, 4),
+      natural: filterByKeywords(['طبيعي', 'باقة', 'rose', 'bouquet', 'peony', 'valent'], list, 6),
+      luxury: filterByKeywords(['ملكي', 'سلة', 'طقم', 'vip', 'hamper', 'luxury', 'men', 'نساء'], list, 6),
+      chocolate: filterByKeywords(['شوكول', 'باتشي', 'بستاني', 'choc'], list, 6),
+      cake: filterByKeywords(['كيك', 'حلا', 'cake', 'ريد فيلفت', 'ميلاد'], list, 6),
+      coffee: filterByKeywords(['قهوة', 'ضيافة', 'coffee'], list, 6),
+      vases: filterByKeywords(['فاز', 'كريستال', 'lily', 'orchid', 'vase'], list, 6),
+      mawajeeb: filterByKeywords(['مواجيب', 'تراث', 'خشب', 'بخور'], list, 4),
     };
   }, [currentProducts, activeStore.id, activeStore.domain, currentThemeId]);
 
@@ -3840,10 +3905,12 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
   const ensureThemePage = async (layout: Record<string, unknown>) => {
     const meta = builderPageMeta(previewPage);
     const current = activePageRef.current;
+    // Partial draft save only — never send blank slug/type/titles (gateway preserves them).
+    // Skip updated_at stamp: Hostinger gateway does not conflict-check; stale stamps caused
+    // needless 409s against Laravel and confused retries after a failed Save.
     if (current && current.slug === meta.slug) {
       return updateThemePageApi(activeStore.id, current.id, {
         draft_layout: layout,
-        updated_at: current.updated_at,
       });
     }
     try {
@@ -3851,7 +3918,6 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
       if (!existing) throw new Error('page not found');
       return updateThemePageApi(activeStore.id, existing.id, {
         draft_layout: layout,
-        updated_at: existing.updated_at,
       });
     } catch {
       const titles = builderPageTitles(previewPage);
@@ -4012,11 +4078,17 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             ? sliderBlock.settings.slides
             : [];
         if (banners.length > 0) {
+          const mode =
+            sliderBlock.settings?.heroBanners?.contentMode === 'image_only'
+              || sliderBlock.settings?.contentMode === 'image_only'
+              ? 'image_only'
+              : (full.heroBanners?.contentMode === 'image_only' ? 'image_only' : 'full');
           full.heroBanners = {
             ...(full.heroBanners || {}),
             // Keep visibility from Layers soft-hide (do not force enabled:true)
             enabled: sliderBlock.visible !== false,
             autoplay: Boolean(sliderBlock.settings?.autoplay ?? sliderBlock.settings?.heroBanners?.autoplay),
+            contentMode: mode,
             banners,
           };
         }
@@ -4242,7 +4314,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     badge?: string;
   }> = [
     { id: 'home', icon: Home, labelAr: 'الرئيسية', labelEn: 'Home Page' },
-    { id: 'catalog', icon: LayoutGrid, labelAr: 'الكتالوج والتشكيلات', labelEn: 'All Collections Catalog', badge: 'Shop' },
+    { id: 'catalog', icon: LayoutGrid, labelAr: 'صفحة المتجر', labelEn: 'Shop page' },
     { id: 'product', icon: ShoppingBag, labelAr: 'تفاصيل المنتج', labelEn: 'Product Details Page', badge: 'VIP' },
     { id: 'cart', icon: ShoppingCart, labelAr: 'سلة المشتريات', labelEn: 'Shopping Bag / Cart' },
     { id: 'checkout', icon: CreditCard, labelAr: 'الدفع', labelEn: 'Saudi Checkout (ZATCA)', badge: 'KSA' },
@@ -4252,7 +4324,6 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     { id: 'about', icon: Info, labelAr: 'من نحن', labelEn: 'About' },
     { id: 'contact', icon: Phone, labelAr: 'اتصل بنا', labelEn: 'Contact' },
     { id: '404', icon: Info, labelAr: 'صفحة غير موجودة', labelEn: 'Missing page' },
-    { id: 'custom', icon: FileText, labelAr: 'صفحة مخصصة', labelEn: 'Custom page' },
     { id: 'location', icon: MapPin, labelAr: 'فروع المتجر', labelEn: 'Store Locator' },
     { id: 'track-order', icon: Truck, labelAr: 'تتبع الطلب', labelEn: 'Live Delivery Tracker', badge: 'Live' },
     { id: 'privacy', icon: Lock, labelAr: 'سياسة الخصوصية', labelEn: 'Privacy Policy' },
@@ -4379,7 +4450,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
             {pageDropdownOpen && (
               <div className="absolute top-full mt-2 start-0 w-64 sm:w-72 bg-white rounded-2xl shadow-2xl ring-1 ring-slate-900/10 border border-slate-200/90 p-1.5 z-[130] space-y-0.5 max-h-[75vh] overflow-y-auto animate-in fade-in-50 zoom-in-95 duration-150">
                 <div className="px-3 py-1 text-[10px] font-bold uppercase text-slate-400 border-b border-slate-100 mb-1">
-                  {isAr ? 'صفحات المتجر (١١ صفحة)' : 'Store Pages (11 Pages)'}
+                  {isAr ? 'صفحات المتجر' : 'Store Pages'}
                 </div>
                 {ALL_BUILDER_PAGES.map((p) => {
                   const isActive = previewPage === p.id;
@@ -5496,7 +5567,13 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
                 />
               </div>
             ) : previewPage === 'catalog' ? (
-              <CatalogPage />
+              isCoffeeStore ? (
+                <div className="w-full" data-coffee-builder-shop-preview>
+                  <CoffeeProductsListPage />
+                </div>
+              ) : (
+                <CatalogPage />
+              )
             ) : previewPage === 'product' ? (
               isCoffeeStore ? (
                 <CoffeeBuilderProductPreview isAr={isAr} />

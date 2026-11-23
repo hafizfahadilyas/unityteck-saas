@@ -449,6 +449,7 @@ interface TenantContextType {
       publicKey?: string;
       webhookSecret?: string;
       supportedMethods?: string[];
+      showProductLogo?: boolean;
       transactionFeePercent?: number;
       transactionFeeFixed?: number;
     },
@@ -511,7 +512,10 @@ interface TenantContextType {
   prefetchStoreHealthBundle: (storeId: string) => Promise<void>;
   connectGoogleAccount: (storeId: string, email: string) => void;
   disconnectGoogleAccount: (storeId: string) => void;
-  submitUrlToGoogleIndexing: (storeId: string, url: string) => void;
+  submitUrlToGoogleIndexing: (
+    storeId: string,
+    url: string,
+  ) => Promise<{ ok: boolean; message?: string }>;
 
   // Central Media Library System
   currentMedia: MediaAsset[];
@@ -688,6 +692,8 @@ export function createFallbackTenantContext(): TenantContextType {
       metaTitle: '',
       metaDescription: '',
       keywords: [],
+      robotsTxt: '',
+      llmsTxt: '',
       sitemapUrl: '',
       indexedUrlsCount: 0,
       totalSearchClicks: 0,
@@ -702,7 +708,7 @@ export function createFallbackTenantContext(): TenantContextType {
     prefetchStoreHealthBundle: async () => {},
     connectGoogleAccount: () => {},
     disconnectGoogleAccount: () => {},
-    submitUrlToGoogleIndexing: () => {},
+    submitUrlToGoogleIndexing: async () => ({ ok: false, message: 'Tenant not ready' }),
     currentMedia: (INITIAL_MEDIA && store && INITIAL_MEDIA[store.id]) || [],
     allStoreMedia: INITIAL_MEDIA || {},
     addMediaAsset: () => ({} as any),
@@ -1533,6 +1539,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const [cacheEpoch, setCacheEpoch] = useState(0);
   const storeLoadedAtRef = useRef<Record<string, number>>({});
+  const bootLastAtRef = useRef(0);
+  const bootInflightRef = useRef(false);
+  const bootFailCountRef = useRef(0);
   const scopedInflightRef = useRef(new Map<string, Promise<void>>());
 
   const loadStoreScopedData = useCallback(async (
@@ -1679,11 +1688,82 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setActivities([]);
   }, []);
 
+  const softRefreshInflightRef = useRef(false);
+  const softRefreshLastAtRef = useRef(0);
+
   const softRefreshTenantData = useCallback(async () => {
-    if (!isApiEnabled() || dataSourceRef.current !== 'api') {
-      // Pure mock mode only — never re-seed INITIAL_* when VITE_USE_API is on
-      // (that path previously wiped live catalogs after a failed Sanctum exchange).
-      if (API_MODE) {
+    const now = Date.now();
+    // Hard cooldown + single-flight — stops BroadcastChannel / focus storm.
+    if (softRefreshInflightRef.current || now - softRefreshLastAtRef.current < 25_000) {
+      return;
+    }
+    softRefreshInflightRef.current = true;
+    softRefreshLastAtRef.current = now;
+    try {
+      if (!isApiEnabled() || dataSourceRef.current !== 'api') {
+        // Pure mock mode only — never re-seed INITIAL_* when VITE_USE_API is on
+        // (that path previously wiped live catalogs after a failed Sanctum exchange).
+        if (API_MODE) {
+          const sid = activeStoreIdRef.current;
+          if (sid) {
+            try {
+              const recentlyLoaded = Date.now() - (storeLoadedAtRef.current[sid] || 0) < 90_000;
+              if (!recentlyLoaded) {
+                const page = await tenantApi.fetchStorefrontCatalogPage(sid, 1, 24);
+                applyProductsFromApi(sid, page.data, page.total);
+                storeLoadedAtRef.current[sid] = Date.now();
+                await loadStoreScopedData(sid, { tier: 'core' });
+              }
+            } catch {
+              /* keep last list */
+            }
+          }
+          setCacheEpoch((n) => n + 1);
+          return;
+        }
+        // Mock mode: Re-synchronize latest master catalog data for all stores
+        setStores((prev) => {
+          const parsedMap = new Map(prev.map((s) => [s.id, s]));
+          const merged: Store[] = INITIAL_STORES.map((initStore) => {
+            const s = parsedMap.get(initStore.id);
+            return s ? { ...initStore, ...s } : initStore;
+          });
+          prev.forEach((s) => {
+            if (!merged.some((m) => m.id === s.id)) merged.push(s);
+          });
+          try { localStorage.setItem('unityteck_stores', JSON.stringify(merged)); } catch {}
+          return merged;
+        });
+
+        setProductsMap((prev) => {
+          const next = { ...prev };
+          Object.keys(INITIAL_PRODUCTS).forEach((id) => {
+            const init = INITIAL_PRODUCTS[id] || [];
+            if (!next[id] || next[id].length < init.length) next[id] = init;
+          });
+          try { localStorage.setItem('unityteck_products_map', JSON.stringify(next)); } catch {}
+          return next;
+        });
+
+        // Do not re-seed fake INITIAL_ORDERS / INITIAL_CUSTOMERS on soft refresh — real data only
+
+        // Keep existing customersMap as-is in mock soft refresh (zero-mock: never inflate from INITIAL_*)
+
+        setDomains((prev) => {
+          const merged = [...prev];
+          INITIAL_DOMAINS.forEach((d) => {
+            if (!merged.some((m) => m.id === d.id || m.domainName === d.domainName)) merged.push(d);
+          });
+          try { localStorage.setItem('unityteck_domains', JSON.stringify(merged)); } catch {}
+          return merged;
+        });
+
+        // localOnly — never BroadcastChannel ping-pong soft-refresh ↔ platformTag
+        bumpCacheTag(platformTag(), { localOnly: true });
+        setCacheEpoch((n) => n + 1);
+        return;
+      }
+      if (!hasLiveApiAuth()) {
         const sid = activeStoreIdRef.current;
         if (sid) {
           try {
@@ -1692,6 +1772,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               const page = await tenantApi.fetchStorefrontCatalogPage(sid, 1, 24);
               applyProductsFromApi(sid, page.data, page.total);
               storeLoadedAtRef.current[sid] = Date.now();
+              // Still hydrate orders/customers via guest-readable GETs (Sanctum optional).
               await loadStoreScopedData(sid, { tier: 'core' });
             }
           } catch {
@@ -1701,79 +1782,22 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setCacheEpoch((n) => n + 1);
         return;
       }
-      // Mock mode: Re-synchronize latest master catalog data for all stores
-      setStores((prev) => {
-        const parsedMap = new Map(prev.map((s) => [s.id, s]));
-        const merged: Store[] = INITIAL_STORES.map((initStore) => {
-          const s = parsedMap.get(initStore.id);
-          return s ? { ...initStore, ...s } : initStore;
-        });
-        prev.forEach((s) => {
-          if (!merged.some((m) => m.id === s.id)) merged.push(s);
-        });
-        try { localStorage.setItem('unityteck_stores', JSON.stringify(merged)); } catch {}
-        return merged;
-      });
-
-      setProductsMap((prev) => {
-        const next = { ...prev };
-        Object.keys(INITIAL_PRODUCTS).forEach((id) => {
-          const init = INITIAL_PRODUCTS[id] || [];
-          if (!next[id] || next[id].length < init.length) next[id] = init;
-        });
-        try { localStorage.setItem('unityteck_products_map', JSON.stringify(next)); } catch {}
-        return next;
-      });
-
-      // Do not re-seed fake INITIAL_ORDERS / INITIAL_CUSTOMERS on soft refresh — real data only
-
-      // Keep existing customersMap as-is in mock soft refresh (zero-mock: never inflate from INITIAL_*)
-
-      setDomains((prev) => {
-        const merged = [...prev];
-        INITIAL_DOMAINS.forEach((d) => {
-          if (!merged.some((m) => m.id === d.id || m.domainName === d.domainName)) merged.push(d);
-        });
-        try { localStorage.setItem('unityteck_domains', JSON.stringify(merged)); } catch {}
-        return merged;
-      });
-
-      bumpCacheTag(platformTag());
-      setCacheEpoch((n) => n + 1);
-      return;
-    }
-    if (!hasLiveApiAuth()) {
-      const sid = activeStoreIdRef.current;
-      if (sid) {
-        try {
-          const recentlyLoaded = Date.now() - (storeLoadedAtRef.current[sid] || 0) < 90_000;
-          if (!recentlyLoaded) {
-            const page = await tenantApi.fetchStorefrontCatalogPage(sid, 1, 24);
-            applyProductsFromApi(sid, page.data, page.total);
-            storeLoadedAtRef.current[sid] = Date.now();
-            // Still hydrate orders/customers via guest-readable GETs (Sanctum optional).
-            await loadStoreScopedData(sid, { tier: 'core' });
-          }
-        } catch {
-          /* keep last list */
+      try {
+        const sid = activeStoreIdRef.current;
+        const recentlyLoaded = sid
+          ? Date.now() - (storeLoadedAtRef.current[sid] || 0) < 90_000
+          : false;
+        // Soft refresh: lean core only — skip full stores+domains round-trip every poll (hang fix).
+        if (sid && !recentlyLoaded) {
+          await loadStoreScopedData(sid, { tier: 'core' });
         }
+        bumpCacheTag(platformTag(), { localOnly: true });
+        setCacheEpoch(getCacheEpoch() + 1);
+      } catch {
+        setCacheEpoch((n) => n + 1);
       }
-      setCacheEpoch((n) => n + 1);
-      return;
-    }
-    try {
-      const sid = activeStoreIdRef.current;
-      const recentlyLoaded = sid
-        ? Date.now() - (storeLoadedAtRef.current[sid] || 0) < 90_000
-        : false;
-      // Soft refresh: lean core only — skip full stores+domains round-trip every poll (hang fix).
-      if (sid && !recentlyLoaded) {
-        await loadStoreScopedData(sid, { tier: 'core' });
-      }
-      bumpCacheTag(platformTag());
-      setCacheEpoch(getCacheEpoch() + 1);
-    } catch {
-      setCacheEpoch((n) => n + 1);
+    } finally {
+      softRefreshInflightRef.current = false;
     }
   }, [loadStoreScopedData, applyProductsFromApi]);
 
@@ -2026,7 +2050,16 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
+    // Circuit breaker: authTick / dep churn must not re-hit /stores thousands of times.
+    const now = Date.now();
+    const failBackoffMs = Math.min(120_000, 8_000 * Math.max(1, bootFailCountRef.current));
+    if (bootInflightRef.current) return;
+    if (now - bootLastAtRef.current < failBackoffMs && bootFailCountRef.current > 0) return;
+    if (now - bootLastAtRef.current < 20_000 && bootFailCountRef.current === 0 && apiReady) return;
+
     let cancelled = false;
+    bootInflightRef.current = true;
+    bootLastAtRef.current = now;
 
     (async () => {
       const loadCatalogsAnyway = async () => {
@@ -2185,14 +2218,20 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           // Other stores load when opened. Prefetching every tenant blocks the active catalog
           // (3 stores now, 100 later).
           if (!cancelled) {
-            bumpCacheTag(platformTag());
+            bootFailCountRef.current = 0;
+            // localOnly — boot must not BroadcastChannel → softRefresh → boot loop
+            bumpCacheTag(platformTag(), { localOnly: true });
             setCacheEpoch(getCacheEpoch() + 1);
           }
         })();
       } catch (err) {
         if (cancelled) return;
+        bootFailCountRef.current = Math.min(12, bootFailCountRef.current + 1);
         const message = err instanceof Error ? err.message : 'API unavailable';
-        console.warn(`[TenantContext] API store load warning (${message}). Keeping the live catalog path.`);
+        // Cap console spam during network/403 storms (same message every tick).
+        if (bootFailCountRef.current <= 3) {
+          console.warn(`[TenantContext] API store load warning (${message}). Keeping the live catalog path.`);
+        }
         // A slow /stores call must not flip the catalog to "not connected".
         if (API_MODE) {
           dataSourceRef.current = 'api';
@@ -2223,14 +2262,15 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
         }
       }
-    })();
+    })().finally(() => {
+      if (!cancelled) bootInflightRef.current = false;
+      else bootInflightRef.current = false;
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [loadStoreScopedData, clearTenantMaps, authTick]);
-
-  // Soft-refresh when switching active store. Products load even if the session token is stale.
+  }, [loadStoreScopedData, clearTenantMaps, authTick, apiReady]);
   useEffect(() => {
     if (!activeStoreId || !API_MODE) return;
 
@@ -2316,6 +2356,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       metaTitle: '',
       metaDescription: '',
       keywords: [] as string[],
+      robotsTxt: '',
+      llmsTxt: '',
       sitemapUrl: '',
       indexedUrlsCount: 0,
       totalSearchClicks: 0,
@@ -2584,11 +2626,22 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   useEffect(() => {
     const sync = () => setAuthTick((n) => n + 1);
+    const onStorage = (e: StorageEvent) => {
+      // Only real auth session keys — not active_store / products / categories writes
+      // (those were restarting boot → /api/stores storm → ERR_INSUFFICIENT_RESOURCES).
+      if (
+        e.key === 'unityteck_auth' ||
+        e.key === 'unityteck_auth_lifetime_backup' ||
+        e.key === null
+      ) {
+        sync();
+      }
+    };
     window.addEventListener('unityteck-auth', sync);
-    window.addEventListener('storage', sync);
+    window.addEventListener('storage', onStorage);
     return () => {
       window.removeEventListener('unityteck-auth', sync);
-      window.removeEventListener('storage', sync);
+      window.removeEventListener('storage', onStorage);
     };
   }, []);
 
@@ -5383,6 +5436,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       publicKey?: string;
       webhookSecret?: string;
       supportedMethods?: string[];
+      showProductLogo?: boolean;
       transactionFeePercent?: number;
       transactionFeeFixed?: number;
     },
@@ -5390,54 +5444,63 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   ) => {
     const sId = targetStoreId || activeStoreId;
     if (!sId) return { success: false, message: 'No store selected' };
+
+    const methods = [...(gatewayData.supportedMethods ?? [])];
+    if (gatewayData.showProductLogo === true && !methods.includes('show_product_logo')) {
+      methods.push('show_product_logo');
+    }
+    if (gatewayData.showProductLogo === false) {
+      const idx = methods.indexOf('show_product_logo');
+      if (idx >= 0) methods.splice(idx, 1);
+    }
+
+    // Laravel expects snake_case — never send camelCase-only payloads
+    const apiPayload: Record<string, unknown> = {
+      provider: gatewayData.provider,
+      title: gatewayData.title,
+      title_ar: gatewayData.titleAr,
+      is_enabled: gatewayData.isEnabled ?? true,
+      is_sandbox: gatewayData.isSandbox ?? false,
+      supported_methods: methods.length ? methods : undefined,
+      transaction_fee_percent: gatewayData.transactionFeePercent,
+      transaction_fee_fixed: gatewayData.transactionFeeFixed,
+      show_product_logo: gatewayData.showProductLogo,
+    };
+    if (gatewayData.apiKey) apiPayload.api_key = gatewayData.apiKey;
+    if (gatewayData.secretKey) apiPayload.secret_key = gatewayData.secretKey;
+    if (gatewayData.publicKey) apiPayload.public_key = gatewayData.publicKey;
+    if (gatewayData.webhookSecret) apiPayload.webhook_secret = gatewayData.webhookSecret;
+
     try {
-      const res = await tenantApi.savePaymentGateway(sId, gatewayData as any);
-      const gw: PaymentGatewayItem = {
-        id: res.data.id,
-        storeId: sId,
-        provider: res.data.provider,
-        title: res.data.title,
-        titleAr: res.data.title_ar,
-        isEnabled: Boolean(res.data.is_enabled),
-        isSandbox: Boolean(res.data.is_sandbox),
-        publicKey: res.data.public_key,
-        maskedSecretKey: res.data.masked_secret_key,
-        supportedMethods: res.data.supported_methods ?? ['mada', 'apple_pay'],
-        transactionFeePercent: Number(res.data.transaction_fee_percent ?? 1.5),
-        transactionFeeFixed: Number(res.data.transaction_fee_fixed ?? 1.0),
-        status: 'connected',
-        webhookUrl: res.data.webhook_url,
-        lastTestedAt: res.data.last_tested_at,
-      };
+      const res = await tenantApi.savePaymentGateway(sId, apiPayload);
+      const row = (res && typeof res === 'object' && 'data' in res ? (res as { data: Record<string, unknown> }).data : res) as Record<string, unknown>;
+      const gw = tenantApi.mapPaymentGatewayRow(
+        {
+          ...row,
+          public_key: row.public_key ?? gatewayData.publicKey,
+          supported_methods: row.supported_methods ?? methods,
+          show_product_logo: row.show_product_logo ?? gatewayData.showProductLogo,
+        },
+        sId,
+      );
       setPaymentGatewaysMap(prev => {
         const list = prev[sId] || [];
         const filtered = list.filter(g => g.provider !== gatewayData.provider);
         return { ...prev, [sId]: [gw, ...filtered] };
       });
-      return { success: true, message: 'Payment gateway connected securely.' };
-    } catch {
-      const fallback: PaymentGatewayItem = {
-        id: `gw-${gatewayData.provider}-${Date.now()}`,
-        storeId: sId,
-        provider: gatewayData.provider,
-        title: gatewayData.title,
-        titleAr: gatewayData.titleAr,
-        isEnabled: gatewayData.isEnabled ?? true,
-        isSandbox: gatewayData.isSandbox ?? true,
-        publicKey: gatewayData.publicKey,
-        maskedSecretKey: gatewayData.secretKey ? gatewayData.secretKey.slice(0, 4) + '••••••••' : undefined,
-        supportedMethods: gatewayData.supportedMethods ?? ['mada', 'apple_pay'],
-        transactionFeePercent: gatewayData.transactionFeePercent ?? 1.5,
-        transactionFeeFixed: gatewayData.transactionFeeFixed ?? 1.0,
-        status: 'connected',
-        lastTestedAt: new Date().toISOString(),
+      const ok = gw.status === 'connected';
+      return {
+        success: ok,
+        message: ok
+          ? 'Payment gateway connected securely.'
+          : 'Credentials saved but connection test failed. Fix keys and test again.',
       };
-      setPaymentGatewaysMap(prev => {
-        const list = prev[sId] || [];
-        const filtered = list.filter(g => g.provider !== gatewayData.provider);
-        return { ...prev, [sId]: [fallback, ...filtered] };
-      });
-      return { success: true, message: 'Payment gateway configuration saved.' };
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'message' in err
+          ? String((err as { message: unknown }).message)
+          : 'Failed to save payment gateway.';
+      return { success: false, message: msg };
     }
   }, [activeStoreId]);
 
@@ -5884,29 +5947,51 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const submitUrlToGoogleIndexing = (storeId: string, url: string) => {
-    setSeoConfigs(prev => {
-      const existing = prev[storeId] || currentSEOConfig;
-      const newEntry = {
-        url,
-        submittedAt: new Date().toISOString(),
-        status: 'pending' as const,
-      };
-      return {
-        ...prev,
-        [storeId]: {
-          ...existing,
-          lastIndexingPing: newEntry.submittedAt,
-          submittedUrls: [newEntry, ...existing.submittedUrls.filter(u => u.url !== url)],
-        }
-      };
-    });
+  const submitUrlToGoogleIndexing = async (
+    storeId: string,
+    url: string,
+  ): Promise<{ ok: boolean; message?: string }> => {
+    const submittedAt = new Date().toISOString();
+    const patchLocal = (status: 'indexed' | 'pending' | 'crawling' | 'failed') => {
+      setSeoConfigs((prev) => {
+        const existing = prev[storeId] || currentSEOConfig;
+        const newEntry = { url, submittedAt, status };
+        return {
+          ...prev,
+          [storeId]: {
+            ...existing,
+            lastIndexingPing: submittedAt,
+            submittedUrls: [newEntry, ...existing.submittedUrls.filter((u) => u.url !== url)],
+          },
+        };
+      });
+    };
 
-    addActivity({
-      title: 'Google Indexing API Triggered',
-      subtitle: `Instant index request dispatched for ${url}`,
-      type: 'product',
-    });
+    patchLocal('crawling');
+
+    if (dataSourceRef.current !== 'api' || !storeId) {
+      patchLocal('failed');
+      return { ok: false, message: 'Live API required for Google Indexing' };
+    }
+
+    try {
+      const res = await tenantApi.requestGoogleIndexing(storeId, url);
+      const ok = Boolean(res?.ok);
+      patchLocal(ok ? 'indexed' : 'failed');
+      if (ok) {
+        addActivity({
+          title: 'Google Indexing API',
+          subtitle: `Indexing accepted for ${url}`,
+          type: 'product',
+        });
+      }
+      return { ok, message: res?.message || (ok ? undefined : 'Indexing failed') };
+    } catch (err) {
+      patchLocal('failed');
+      const message = err instanceof Error ? err.message : 'Indexing request failed';
+      setApiError(message);
+      return { ok: false, message };
+    }
   };
 
   // Central Media Library Operations

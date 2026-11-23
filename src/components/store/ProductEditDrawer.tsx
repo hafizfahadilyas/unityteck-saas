@@ -48,13 +48,14 @@ export type ProductEditSectionKey =
   | 'seo'
   | 'categoryTags';
 
-/** Default: all sections visible in Large Image (grid) and List edit drawers. */
+/** Default sections for Large Image (grid) and List edit drawers.
+ * Variations / Product Options hidden by default (restore via Filter / Show chip). */
 export const DEFAULT_PRODUCT_EDIT_SECTIONS: Record<ProductEditSectionKey, boolean> = {
   images: true,
   basic: true,
   pricing: true,
   inventory: true,
-  variations: true,
+  variations: false,
   customFields: true,
   learnMore: true,
   seo: true,
@@ -86,6 +87,7 @@ export interface ProductEditDrawerProps {
   categoryOptions?: { value: string; label: string; depth?: number; id?: string }[];
   storeCategories?: StoreCategory[];
   availableBrands?: { id: string; name: string }[];
+  onCategoriesCreated?: () => void;
   onClose: () => void;
   onSave: (updatedData: Partial<Product>) => void;
   onExpandFullView?: () => void;
@@ -103,6 +105,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
   categoryOptions,
   storeCategories = [],
   availableBrands = [],
+  onCategoriesCreated,
   onClose,
   onSave,
   onExpandFullView,
@@ -873,10 +876,12 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                       storeId={storeId}
                       isAr={isAr}
                       locale={locale}
+                      showAddButton
                       onChange={(next, primary) => {
                         setProductCategories(next);
                         setCategory(primary || next[0] || '');
                       }}
+                      onCategoriesCreated={onCategoriesCreated}
                     />
                   </div>
                   <div>

@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { hasLiveApiAuth } from '../../auth/session';
 import {
@@ -9,8 +9,42 @@ import { NotificationItem, NotificationZone } from '../types/notification.types'
 import { NotificationEngine } from '../services/notificationEngine';
 import { notificationAPI } from '../services/notificationAPI';
 import { WhatsAppService } from '../services/whatsappService';
+import {
+  ensureNotificationAudioUnlock,
+  inferAlertSoundKind,
+  playNotificationSound,
+} from '../services/notificationSound';
 import { useRealtimeSync } from './useRealtimeSync';
 import { usePrefs } from '../../i18n/PrefsContext';
+
+/** Stable business signature — ignores clock-skew timestamps that recompute every poll. */
+function soundSignature(item: NotificationItem): string {
+  const meta = item.metadata || {};
+  return [
+    item.id,
+    item.aggregatedCount ?? '',
+    meta.orderId ?? '',
+    meta.orderNumber ?? '',
+    meta.count ?? '',
+    meta.customerName ?? '',
+    meta.customerPhone ?? '',
+    item.registryCode ?? '',
+  ].join('|');
+}
+
+function isAdminDashboardSurface(): boolean {
+  if (typeof window === 'undefined') return false;
+  const path = window.location.pathname.toLowerCase();
+  return path.includes('/admin') || path.includes('/master');
+}
+
+/** Module singletons — safe if multiple hook instances mount before NotificationsProvider. */
+let sharedSeenSoundKeys: Set<string> | null = null;
+let sharedSoundStoreId: string | null = null;
+let commercePollTimer: number | null = null;
+let commercePollListeners = 0;
+let commercePollInFlight = false;
+let lastCommercePollAt = 0;
 
 const DELIVERY_ID_PREFIX = 'delivery-';
 
@@ -111,8 +145,15 @@ export interface NotificationsContextValue {
 const NotificationsContext = createContext<NotificationsContextValue | null>(null);
 
 function useNotificationsInternal(): NotificationsContextValue {
-  const { activeStore, currentOrders, currentProducts, currentCustomers, currentCoupons, dataSource } =
-    useTenant();
+  const {
+    activeStore,
+    currentOrders,
+    currentProducts,
+    currentCustomers,
+    currentCoupons,
+    dataSource,
+    revalidateResource,
+  } = useTenant();
   const { locale } = usePrefs();
   const isAr = locale === 'ar';
 
@@ -162,6 +203,13 @@ function useNotificationsInternal(): NotificationsContextValue {
     }
   }, [activeStore?.id, dataSource]);
 
+  const revalidateRef = useRef(revalidateResource);
+  const deliveryLoaderRef = useRef(loadDeliveryNotifications);
+  const storeIdRef = useRef(activeStore?.id);
+  revalidateRef.current = revalidateResource;
+  deliveryLoaderRef.current = loadDeliveryNotifications;
+  storeIdRef.current = activeStore?.id;
+
   useEffect(() => {
     computeNotifications();
   }, [computeNotifications]);
@@ -186,6 +234,59 @@ function useNotificationsInternal(): NotificationsContextValue {
 
   // Realtime background sync every 120s (reduced from 30s to eliminate CPU spikes)
   useRealtimeSync(computeNotifications, 120000);
+
+  // Unlock Web Audio on first tap/click (required for mobile notification sound)
+  useEffect(() => ensureNotificationAudioUnlock(), []);
+
+  // Single shared lean poll while any dashboard notifications hook is mounted
+  useEffect(() => {
+    if (dataSource !== 'api' || !activeStore?.id) return;
+
+    commercePollListeners += 1;
+
+    const pollCommerce = async () => {
+      if (commercePollInFlight) return;
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      if (!isAdminDashboardSurface()) return;
+      const sid = storeIdRef.current;
+      if (!sid) return;
+      const now = Date.now();
+      if (now - lastCommercePollAt < 20_000) return;
+      lastCommercePollAt = now;
+      commercePollInFlight = true;
+      try {
+        await Promise.all([
+          revalidateRef.current(sid, 'orders'),
+          revalidateRef.current(sid, 'customers'),
+          deliveryLoaderRef.current(),
+        ]);
+      } catch {
+        /* keep last snapshot */
+      } finally {
+        commercePollInFlight = false;
+      }
+    };
+
+    if (commercePollTimer == null) {
+      commercePollTimer = window.setInterval(() => {
+        void pollCommerce();
+      }, 25_000);
+    }
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void pollCommerce();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      commercePollListeners = Math.max(0, commercePollListeners - 1);
+      document.removeEventListener('visibilitychange', onVisible);
+      if (commercePollListeners === 0 && commercePollTimer != null) {
+        window.clearInterval(commercePollTimer);
+        commercePollTimer = null;
+      }
+    };
+  }, [activeStore?.id, dataSource]);
 
   // Filter out dismissed and currently snoozed notifications
   const activeNotifications = useMemo(() => {
@@ -234,6 +335,33 @@ function useNotificationsInternal(): NotificationsContextValue {
       total: countZone1 + countZone2 + countZone3,
     };
   }, [zone1Items, zone2Items, zone3Items]);
+
+  // Play chime + vibrate when brand-new unread alerts appear (dashboard open, mobile OK after unlock)
+  useEffect(() => {
+    const storeId = activeStore?.id || null;
+    if (sharedSoundStoreId !== storeId) {
+      sharedSoundStoreId = storeId;
+      sharedSeenSoundKeys = null;
+    }
+
+    const unread = activeNotifications.filter((item) => !item.read && !item.dismissed);
+    const keys = unread.map(soundSignature);
+
+    if (sharedSeenSoundKeys === null) {
+      sharedSeenSoundKeys = new Set(keys);
+      return;
+    }
+
+    const freshItems = unread.filter((item) => !sharedSeenSoundKeys!.has(soundSignature(item)));
+    if (freshItems.length > 0 && isAdminDashboardSurface()) {
+      const kind = inferAlertSoundKind(freshItems[0]);
+      playNotificationSound(kind);
+    }
+
+    for (const key of keys) {
+      sharedSeenSoundKeys.add(key);
+    }
+  }, [activeNotifications, activeStore?.id]);
 
   // Mark as read (optimistic)
   const markAsRead = useCallback(

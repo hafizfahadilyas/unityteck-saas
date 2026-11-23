@@ -66,6 +66,7 @@ export const STORE_NAV_KEYS: Record<string, DictKey> = {
   'commerce-tools': 'navCommerceTools',
   commerceTools: 'navCommerceTools',
   appstore: 'navAppStore',
+  'mobile-app': 'navMobileApp',
   payments: 'navPayments',
   settings: 'navStoreSettings',
 };

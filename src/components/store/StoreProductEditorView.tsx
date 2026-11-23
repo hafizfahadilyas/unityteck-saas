@@ -14,11 +14,21 @@ import { getProductDisplayCategory } from '../../utils/storeLocalization';
 import {
   CUSTOM_FIELD_TYPES,
   CONDITIONAL_OPERATORS,
+  coerceCustomFieldTypeForOptions,
+  customFieldAllowsFieldExtraPrice,
+  customFieldAllowsMultiSelect,
+  customFieldAllowsOptionImages,
+  customFieldAllowsOptionPrices,
+  customFieldIsCustomerUpload,
   customFieldIsFillable,
+  customFieldNeedsOptionColors,
+  customFieldNeedsOptionImages,
   customFieldNeedsOptions,
   getCustomFieldTypeLabel,
   normalizeCustomFieldType,
 } from '../../utils/customFieldTypes';
+import type { ProductCustomFieldOptionItem } from '../../types';
+import { normalizeCustomFieldOptions } from '../../utils/storefrontPurchase';
 import { listAvailableProductChannels, normalizeProductSalesChannels } from '../../config/productChannels';
 import {
   GOOGLE_PRODUCT_TAXONOMY,
@@ -133,6 +143,8 @@ export interface StoreProductEditorViewProps {
   categoryOptions?: { value: string; label: string; depth?: number; id?: string }[];
   storeCategories?: StoreCategory[];
   availableBrands?: string[];
+  /** Refresh store category list after runtime "Add New" create. */
+  onCategoriesCreated?: () => void;
   onBack: () => void;
   onSave: (updatedData: Partial<Product>) => void;
   onDelete: () => void;
@@ -164,8 +176,106 @@ export interface CustomFieldItem {
   conditions?: Array<{ fieldId: string; operator: string; value?: string }>;
   conditionJoin?: 'AND' | 'OR';
   extraPrice?: number;
-  options?: string[];
+  /** Plain labels or rich Honor-style items (image / price / compare). */
+  options?: Array<string | ProductCustomFieldOptionItem>;
   value?: string;
+}
+
+/** Draft row while editing custom-field choice options in the modal. */
+interface FldOptionDraft {
+  id: string;
+  label: string;
+  labelAr?: string;
+  imageUrl?: string;
+  price: string;
+  compareAtPrice: string;
+  colorHex?: string;
+}
+
+function blankFldOption(partial: Partial<FldOptionDraft> = {}): FldOptionDraft {
+  return {
+    id: `cfopt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+    label: '',
+    labelAr: '',
+    imageUrl: '',
+    price: '',
+    compareAtPrice: '',
+    colorHex: '',
+    ...partial,
+  };
+}
+
+function toFldOptionDrafts(
+  options: CustomFieldItem['options'] | undefined,
+): FldOptionDraft[] {
+  const rows = normalizeCustomFieldOptions(options);
+  if (!rows.length) return [];
+  return rows.map((row) =>
+    blankFldOption({
+      label: row.label || '',
+      labelAr: row.labelAr || '',
+      imageUrl: row.imageUrl || '',
+      price: row.price != null && Number.isFinite(row.price) ? String(row.price) : '',
+      compareAtPrice:
+        row.compareAtPrice != null && Number.isFinite(row.compareAtPrice)
+          ? String(row.compareAtPrice)
+          : '',
+      colorHex:
+        row.imageUrl && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(row.imageUrl)
+          ? row.imageUrl
+          : /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(row.label)
+            ? row.label
+            : '',
+    }),
+  );
+}
+
+function draftsToCustomFieldOptions(
+  drafts: FldOptionDraft[],
+  type: string,
+): Array<string | ProductCustomFieldOptionItem> {
+  const allowsImage = customFieldAllowsOptionImages(type);
+  const needsColor = customFieldNeedsOptionColors(type);
+  const allowsPrice = customFieldAllowsOptionPrices(type);
+  return drafts
+    .map((d) => {
+      const label = d.label.trim();
+      if (!label) return null;
+      const price =
+        allowsPrice && d.price.trim() !== '' ? Number(d.price) : undefined;
+      const compareAtPrice =
+        allowsPrice && d.compareAtPrice.trim() !== ''
+          ? Number(d.compareAtPrice)
+          : undefined;
+      const imageUrl = (d.imageUrl || '').trim();
+      const colorHex = (d.colorHex || '').trim();
+      // Color swatch wins for color kinds; otherwise keep Honor thumbnail URL.
+      const resolvedImage = needsColor
+        ? colorHex || imageUrl || undefined
+        : allowsImage
+          ? imageUrl || undefined
+          : undefined;
+      const rich: ProductCustomFieldOptionItem = {
+        label,
+        ...(d.labelAr?.trim() ? { labelAr: d.labelAr.trim() } : {}),
+        ...(resolvedImage ? { imageUrl: resolvedImage } : {}),
+        ...(price != null && Number.isFinite(price) ? { price } : {}),
+        ...(compareAtPrice != null && Number.isFinite(compareAtPrice)
+          ? { compareAtPrice }
+          : {}),
+      };
+      // Keep plain string when no extra meta (text / size simple lists).
+      if (
+        !rich.imageUrl &&
+        rich.price == null &&
+        rich.compareAtPrice == null &&
+        !rich.labelAr
+      ) {
+        return label;
+      }
+      return rich;
+    })
+    .filter((row): row is string | ProductCustomFieldOptionItem => row != null);
 }
 
 export interface ProductOptionValueItem {
@@ -315,6 +425,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   categoryOptions,
   storeCategories = [],
   availableBrands = [],
+  onCategoriesCreated,
   onBack,
   onSave,
   onDelete,
@@ -484,8 +595,13 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isMediaPickerOpen, setIsMediaPickerOpen] = useState(false);
-  const [mediaPickerTarget, setMediaPickerTarget] = useState<'main' | 'gallery' | 'variant' | 'thumbnail' | 'optionValue'>('gallery');
+  const [mediaPickerTarget, setMediaPickerTarget] = useState<
+    'main' | 'gallery' | 'variant' | 'thumbnail' | 'optionValue' | 'customFieldOption'
+  >('gallery');
   const [optionValueMediaId, setOptionValueMediaId] = useState<string | null>(null);
+  const [fldOptionMediaId, setFldOptionMediaId] = useState<string | null>(null);
+  const fldOptionImageInputRef = useRef<HTMLInputElement>(null);
+  const [pendingFldOptionImageId, setPendingFldOptionImageId] = useState<string | null>(null);
   const [targetThumbIndex, setTargetThumbIndex] = useState<number | null>(null);
   const [variantMediaTargetIndex, setVariantMediaTargetIndex] = useState<number | null>(null);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -644,25 +760,33 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
   // ── Custom Fields State (Strictly Real Product Specs / Fields - ZERO DUMMY FIELDS) ──
   const [customFields, setCustomFields] = useState<CustomFieldItem[]>(() => {
-    const mapField = (f: any, i: number): CustomFieldItem => ({
+    const mapField = (f: any, i: number): CustomFieldItem => {
+      const options = Array.isArray(f.options) ? f.options : [];
+      return {
       id: f.id || `field_${i}`,
       name: f.name || '',
       nameAr: f.nameAr || '',
       description: f.description || '',
-      type: normalizeCustomFieldType(f.type),
+      // Legacy Text+images → Image type so existing Care / Add-on rows keep thumbs.
+      type: coerceCustomFieldTypeForOptions(f.type, options),
       required: f.required ?? false,
       conditionalRule: f.conditionalRule || '—',
       conditions: Array.isArray(f.conditions) ? f.conditions : [],
       conditionJoin: f.conditionJoin === 'OR' ? 'OR' : 'AND',
-      extraPrice: f.extraPrice ?? 0,
-      options: Array.isArray(f.options) ? f.options : [],
+      extraPrice: customFieldAllowsFieldExtraPrice(
+        coerceCustomFieldTypeForOptions(f.type, options),
+      )
+        ? f.extraPrice ?? 0
+        : 0,
+      options,
       imageUrl: f.imageUrl || '',
       videoUrl: f.videoUrl || '',
       contentEn: f.contentEn || '',
       contentAr: f.contentAr || '',
       hidden: !!f.hidden,
       value: f.value || '',
-    });
+    };
+    };
     if (product.customFields && Array.isArray(product.customFields) && product.customFields.length > 0) {
       return product.customFields.map(mapField);
     }
@@ -723,8 +847,24 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   const [fldConditions, setFldConditions] = useState<
     Array<{ fieldId: string; operator: string; value?: string }>
   >([]);
-  const [fldOptionsInput, setFldOptionsInput] = useState<string[]>([]);
-  const [fldOptionDraft, setFldOptionDraft] = useState('');
+  const [fldOptionsDraft, setFldOptionsDraft] = useState<FldOptionDraft[]>([]);
+  /** One content box — merchant types any language (golden rule). */
+  const [fldContentInput, setFldContentInput] = useState('');
+
+  // One-shot: upgrade Text+images → Image type; strip price on Image/File upload.
+  useEffect(() => {
+    setCustomFields((prev) => {
+      let changed = false;
+      const next = prev.map((f) => {
+        const type = coerceCustomFieldTypeForOptions(f.type, f.options);
+        const extraPrice = customFieldAllowsFieldExtraPrice(type) ? f.extraPrice ?? 0 : 0;
+        if (type === f.type && extraPrice === (f.extraPrice ?? 0)) return f;
+        changed = true;
+        return { ...f, type, extraPrice };
+      });
+      return changed ? next : prev;
+    });
+  }, [product.id]);
 
   const [isRuleModalOpen, setIsRuleModalOpen] = useState(false);
   const [ruleOptionName, setRuleOptionName] = useState(conditionalRule?.optionName || (options[0]?.name ?? ''));
@@ -753,8 +893,9 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     basic: true,
     pricing: true,
     inventory: true,
-    variations: true,
-    options: true,
+    /* Product Options + Generated Variant Inventory — hidden by default */
+    variations: false,
+    options: false,
     category_tags: true,
     custom_fields: true,
     learn_more: true,
@@ -985,6 +1126,12 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
         prev.map((row) => (row.id === optionValueMediaId ? { ...row, imageUrl: url } : row)),
       );
       setOptionValueMediaId(null);
+    } else if (mediaPickerTarget === 'customFieldOption' && fldOptionMediaId) {
+      const url = newUrls[0];
+      setFldOptionsDraft((prev) =>
+        prev.map((row) => (row.id === fldOptionMediaId ? { ...row, imageUrl: url } : row)),
+      );
+      setFldOptionMediaId(null);
     }
     setIsMediaPickerOpen(false);
   };
@@ -1077,42 +1224,52 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     setFldConditionalRuleInput('');
     setFldConditionJoin('AND');
     setFldConditions([]);
-    setFldOptionsInput([]);
-    setFldOptionDraft('');
+    setFldOptionsDraft([]);
+    setFldContentInput('');
     setIsFieldModalOpen(true);
   };
 
   const handleOpenEditField = (field: CustomFieldItem) => {
+    const coercedType = coerceCustomFieldTypeForOptions(field.type, field.options);
     setFieldModalMode('edit');
-    setEditingField(field);
+    setEditingField({ ...field, type: coercedType });
     setFldNameInput(field.name);
     setFldDescriptionInput(field.description || '');
-    setFldTypeInput(normalizeCustomFieldType(field.type));
+    setFldTypeInput(coercedType);
     setFldRequiredInput(field.required ?? false);
-    setFldExtraPriceInput(field.extraPrice || 0);
+    setFldExtraPriceInput(
+      customFieldAllowsFieldExtraPrice(coercedType) ? field.extraPrice || 0 : 0,
+    );
     setFldConditionalRuleInput(field.conditionalRule && field.conditionalRule !== '—' ? field.conditionalRule : '');
     setFldConditionJoin(field.conditionJoin || 'AND');
     setFldConditions(Array.isArray(field.conditions) ? [...field.conditions] : []);
-    setFldOptionsInput(
-      Array.isArray(field.options)
-        ? field.options
-            .map((o) => (typeof o === 'string' ? o : String(o?.label || '').trim()))
-            .filter(Boolean)
-        : [],
-    );
-    setFldOptionDraft('');
+    // Keep already-saved image / price / compare — do not strip to labels only.
+    setFldOptionsDraft(toFldOptionDrafts(field.options));
+    // One box — show whatever merchant already saved (any language).
+    setFldContentInput(field.contentEn || field.contentAr || field.description || '');
     setIsFieldModalOpen(true);
   };
 
-  const handleAddFldOption = () => {
-    const val = fldOptionDraft.trim();
-    if (!val) return;
-    if (fldOptionsInput.includes(val)) {
-      toast(isAr ? 'هذه القيمة موجودة مسبقاً' : 'This option already exists', 'error');
-      return;
+  const patchFldOption = (id: string, next: Partial<FldOptionDraft>) => {
+    setFldOptionsDraft((rows) => rows.map((row) => (row.id === id ? { ...row, ...next } : row)));
+  };
+
+  const handleAddFldOptionRow = () => {
+    setFldOptionsDraft((rows) => [...rows, blankFldOption()]);
+  };
+
+  const handleFldOptionImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const id = pendingFldOptionImageId;
+    e.target.value = '';
+    setPendingFldOptionImageId(null);
+    if (!file || !id) return;
+    try {
+      const opt = await optimizeImageFile(file, 1200, 200 * 1024);
+      patchFldOption(id, { imageUrl: opt.webpUrl || URL.createObjectURL(opt.file) });
+    } catch {
+      patchFldOption(id, { imageUrl: URL.createObjectURL(file) });
     }
-    setFldOptionsInput([...fldOptionsInput, val]);
-    setFldOptionDraft('');
   };
 
   const handleSaveField = () => {
@@ -1120,29 +1277,33 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       toast(isAr ? 'يرجى إدخال اسم الحقل' : 'Please enter field name', 'error');
       return;
     }
-    const normalizedType = normalizeCustomFieldType(fldTypeInput);
-    if (customFieldNeedsOptions(normalizedType) && fldOptionsInput.length === 0) {
+    const selectedType = normalizeCustomFieldType(fldTypeInput);
+    const options = customFieldNeedsOptions(selectedType)
+      ? draftsToCustomFieldOptions(fldOptionsDraft, selectedType)
+      : [];
+    // Keep legacy image rows valid: Text + saved thumbs → Image type.
+    const normalizedType = coerceCustomFieldTypeForOptions(selectedType, options);
+    if (customFieldNeedsOptions(normalizedType) && options.length === 0) {
       toast(
         isAr ? 'أضف خياراً واحداً على الأقل لهذا النوع من الحقول' : 'Add at least one option for this field type',
-        'error'
+        'error',
+      );
+      return;
+    }
+    if (
+      customFieldNeedsOptionImages(normalizedType) &&
+      options.every((o) => typeof o === 'string' || !String(o.imageUrl || '').trim())
+    ) {
+      toast(
+        isAr
+          ? 'ارفع صورة لخيار واحد على الأقل (أو من مكتبة الوسائط)'
+          : 'Upload an image for at least one option (or pick from Media library)',
+        'error',
       );
       return;
     }
     const fillable = customFieldIsFillable(normalizedType);
     const cleanRule = fldConditionalRuleInput.trim() || '—';
-    // Keep Honor-style image/price meta when merchant only edits labels in the modal.
-    const prevOpts = Array.isArray(editingField?.options) ? editingField!.options! : [];
-    const options = customFieldNeedsOptions(normalizedType)
-      ? fldOptionsInput.map((label) => {
-          const prev = prevOpts.find((o) =>
-            typeof o === 'string' ? o === label : String(o?.label || '') === label,
-          );
-          if (prev && typeof prev === 'object') {
-            return { ...prev, label };
-          }
-          return label;
-        })
-      : [];
     const payload = {
       name: fldNameInput.trim(),
       description: fldDescriptionInput.trim(),
@@ -1151,13 +1312,26 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       conditionalRule: cleanRule,
       conditions: fldConditions.filter((c) => c.fieldId && c.operator),
       conditionJoin: fldConditionJoin,
-      extraPrice: fillable ? Number(fldExtraPriceInput) || 0 : 0,
+      // Price only on freeform types that allow a field surcharge.
+      extraPrice: customFieldAllowsFieldExtraPrice(normalizedType)
+        ? Number(fldExtraPriceInput) || 0
+        : 0,
       options,
-      // Media/content extras removed from custom-field modal UI; preserve existing on edit.
       imageUrl: fieldModalMode === 'edit' ? editingField?.imageUrl || '' : '',
       videoUrl: fieldModalMode === 'edit' ? editingField?.videoUrl || '' : '',
-      contentEn: fieldModalMode === 'edit' ? editingField?.contentEn || '' : '',
-      contentAr: fieldModalMode === 'edit' ? editingField?.contentAr || '' : '',
+      // Golden rule: one merchant text for any language — mirror into both locale slots for storefront.
+      contentEn:
+        normalizedType === 'Content'
+          ? fldContentInput.trim()
+          : fieldModalMode === 'edit'
+            ? editingField?.contentEn || ''
+            : '',
+      contentAr:
+        normalizedType === 'Content'
+          ? fldContentInput.trim()
+          : fieldModalMode === 'edit'
+            ? editingField?.contentAr || ''
+            : '',
     };
     if (fieldModalMode === 'add') {
       const newFld: CustomFieldItem = {
@@ -1174,8 +1348,8 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                 ...f,
                 ...payload,
               }
-            : f
-        )
+            : f,
+        ),
       );
       toast(isAr ? 'تم تحديث الحقل بنجاح' : 'Custom field updated', 'success');
     }
@@ -1647,25 +1821,29 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       additionalImages: gallery.slice(1),
       salesChannels: normalizeProductSalesChannels(salesChannels),
       tags,
-      customFields: customFields.map((f, i) => ({
+      customFields: customFields.map((f, i) => {
+        const options = customFieldNeedsOptions(f.type) ? f.options || [] : [];
+        const type = coerceCustomFieldTypeForOptions(f.type, options);
+        return {
         id: f.id || `cf_${i}`,
         name: f.name,
         nameAr: f.nameAr || '',
         description: f.description || '',
-        type: normalizeCustomFieldType(f.type),
-        required: customFieldIsFillable(f.type) ? !!f.required : false,
+        type,
+        required: customFieldIsFillable(type) ? !!f.required : false,
         conditionalRule: f.conditionalRule,
         conditions: f.conditions || [],
         conditionJoin: f.conditionJoin || 'AND',
-        extraPrice: customFieldIsFillable(f.type) ? (f.extraPrice ?? 0) : 0,
-        options: customFieldNeedsOptions(f.type) ? f.options || [] : [],
+        extraPrice: customFieldAllowsFieldExtraPrice(type) ? f.extraPrice ?? 0 : 0,
+        options: customFieldNeedsOptions(type) ? options : [],
         imageUrl: f.imageUrl || '',
         videoUrl: f.videoUrl || '',
         contentEn: f.contentEn || '',
         contentAr: f.contentAr || '',
         hidden: !!f.hidden,
         value: f.value ?? '',
-      })),
+      };
+      }),
       productOptions: optionsEnabled
         ? mergeBilingualProductOptions(
             options.map((opt) => ({
@@ -2409,87 +2587,81 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                 </div>
               </div>
 
-              {/* Form Row 2: Category, Brand, Product Type */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Form Row 2: Categories (multi + Add New), Brand, Product status */}
+              <div className="space-y-3">
                 <div>
                   <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                    {isAr ? 'التصنيف' : 'Category'}
+                    {isAr ? 'التصنيفات' : 'Categories'}
                   </label>
-                  <select
-                    value={category}
-                    onChange={(e) => {
-                      const next = e.target.value;
-                      setCategory(next);
-                      if (next && !productCategories.includes(next)) {
-                        setProductCategories([next, ...productCategories.filter((c) => c !== next)]);
-                      }
-                    }}
-                    className="w-full px-2.5 py-2 rounded-xl border text-xs font-medium cursor-pointer focus:outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                  >
-                    {(categoryOptions && categoryOptions.length > 0
-                      ? categoryOptions
-                      : categories.map((c) => ({
-                          value: c,
-                          label: getProductDisplayCategory(c, locale),
-                        }))
-                    ).map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                    {category &&
-                      !(categoryOptions ?? []).some((o) => o.value === category) &&
-                      !categories.includes(category) && (
-                        <option value={category}>{category}</option>
-                      )}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                    {isAr ? 'العلامة التجارية' : 'Brand'}
-                  </label>
-                  <select
-                    value={brand}
-                    onChange={(e) => setBrand(e.target.value)}
-                    className="w-full px-2.5 py-2 rounded-xl border text-xs font-medium cursor-pointer focus:outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                  >
-                    <option value={storeName}>{storeName}</option>
-                    {availableBrands.map((b) => (
-                      <option key={b} value={b}>{b}</option>
-                    ))}
-                    <option value="Nike">Nike</option>
-                    <option value="Adidas">Adidas</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
-                    {isAr ? 'حالة المنتج' : 'Product status'}
-                  </label>
-                  <select
-                    value={merchantVisibility}
-                    onChange={(e) =>
-                      setMerchantVisibility(e.target.value as 'active' | 'draft' | 'scheduled')
+                  <ProductCategoryMultiPicker
+                    selected={productCategories}
+                    options={
+                      categoryOptions && categoryOptions.length > 0
+                        ? categoryOptions
+                        : categories.map((c) => ({
+                            value: c,
+                            label: getProductDisplayCategory(c, locale),
+                          }))
                     }
-                    className="w-full px-2.5 py-2 rounded-xl border text-xs font-medium cursor-pointer focus:outline-none"
-                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                  >
-                    <option value="active">{isAr ? 'نشط' : 'Active'}</option>
-                    <option value="draft">{isAr ? 'مسودة' : 'Draft'}</option>
-                    <option value="scheduled">{isAr ? 'مجدول' : 'Scheduled'}</option>
-                  </select>
-                  {merchantVisibility === 'scheduled' ? (
-                    <input
-                      type="datetime-local"
-                      value={scheduledPublishAt}
-                      onChange={(e) => setScheduledPublishAt(e.target.value)}
-                      className="w-full mt-2 px-2.5 py-2 rounded-xl border text-xs"
+                    storeCategories={storeCategories}
+                    storeId={storeId}
+                    isAr={isAr}
+                    locale={locale}
+                    showAddButton
+                    onChange={(next, primary) => {
+                      setProductCategories(next);
+                      setCategory(primary || next[0] || '');
+                    }}
+                    onCategoriesCreated={onCategoriesCreated}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
+                      {isAr ? 'العلامة التجارية' : 'Brand'}
+                    </label>
+                    <select
+                      value={brand}
+                      onChange={(e) => setBrand(e.target.value)}
+                      className="w-full px-2.5 py-2 rounded-xl border text-xs font-medium cursor-pointer focus:outline-none"
                       style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
-                    />
-                  ) : null}
+                    >
+                      <option value={storeName}>{storeName}</option>
+                      {availableBrands.map((b) => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                      <option value="Nike">Nike</option>
+                      <option value="Adidas">Adidas</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
+                      {isAr ? 'حالة المنتج' : 'Product status'}
+                    </label>
+                    <select
+                      value={merchantVisibility}
+                      onChange={(e) =>
+                        setMerchantVisibility(e.target.value as 'active' | 'draft' | 'scheduled')
+                      }
+                      className="w-full px-2.5 py-2 rounded-xl border text-xs font-medium cursor-pointer focus:outline-none"
+                      style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                    >
+                      <option value="active">{isAr ? 'نشط' : 'Active'}</option>
+                      <option value="draft">{isAr ? 'مسودة' : 'Draft'}</option>
+                      <option value="scheduled">{isAr ? 'مجدول' : 'Scheduled'}</option>
+                    </select>
+                    {merchantVisibility === 'scheduled' ? (
+                      <input
+                        type="datetime-local"
+                        value={scheduledPublishAt}
+                        onChange={(e) => setScheduledPublishAt(e.target.value)}
+                        className="w-full mt-2 px-2.5 py-2 rounded-xl border text-xs"
+                        style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                      />
+                    ) : null}
+                  </div>
                 </div>
               </div>
 
@@ -3804,11 +3976,45 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                         key={field.id}
                         className="transition-colors hover:bg-slate-50/60 dark:hover:bg-slate-900/30"
                       >
-                        {/* Field Name */}
+                        {/* Field Name + already-saved option preview */}
                         <td className="py-3 px-4">
                           <span className="font-bold text-xs text-slate-900 dark:text-slate-100">
                             {isAr && field.nameAr ? field.nameAr : field.name}
                           </span>
+                          {customFieldNeedsOptions(field.type) &&
+                          Array.isArray(field.options) &&
+                          field.options.length > 0 ? (
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                              {normalizeCustomFieldOptions(field.options)
+                                .slice(0, 4)
+                                .map((opt) => (
+                                  <span
+                                    key={opt.label}
+                                    className="inline-flex items-center gap-1 max-w-[9rem] px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/70 dark:border-slate-700 truncate"
+                                    title={opt.label}
+                                  >
+                                    {customFieldNeedsOptionImages(field.type) &&
+                                    opt.imageUrl &&
+                                    !/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(opt.imageUrl) ? (
+                                      <img
+                                        src={opt.imageUrl}
+                                        alt=""
+                                        className="w-3.5 h-3.5 rounded object-cover shrink-0"
+                                      />
+                                    ) : null}
+                                    <span className="truncate">{opt.label}</span>
+                                    {opt.price != null && opt.price > 0 ? (
+                                      <span className="shrink-0 text-slate-400">+{opt.price}</span>
+                                    ) : null}
+                                  </span>
+                                ))}
+                              {normalizeCustomFieldOptions(field.options).length > 4 ? (
+                                <span className="text-[10px] text-slate-400 font-semibold">
+                                  +{normalizeCustomFieldOptions(field.options).length - 4}
+                                </span>
+                              ) : null}
+                            </div>
+                          ) : null}
                         </td>
 
                         {/* Field Type Badge */}
@@ -3847,10 +4053,12 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                           )}
                         </td>
 
-                        {/* Extra Price */}
+                        {/* Extra Price — Image/File upload show no price */}
                         <td className="py-3 px-4">
                           <span className="font-semibold text-xs text-slate-800 dark:text-slate-200">
-                            SAR {field.extraPrice || 0}
+                            {customFieldAllowsFieldExtraPrice(field.type)
+                              ? `SAR ${field.extraPrice || 0}`
+                              : '—'}
                           </span>
                         </td>
 
@@ -4017,10 +4225,12 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   storeId={storeId}
                   isAr={isAr}
                   locale={locale}
+                  showAddButton
                   onChange={(next, primary) => {
                     setProductCategories(next);
                     setCategory(primary || next[0] || '');
                   }}
+                  onCategoriesCreated={onCategoriesCreated}
                 />
               </div>
 
@@ -4163,12 +4373,12 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
         </div>
       </form>
 
-      {/* Sticky bottom Save — floating dock so SEO/tags never sit under the bar */}
+      {/* Sticky bottom Save — flush edge-to-edge dock (no side/bottom float gap) */}
       <div
-        className="sticky bottom-0 z-40 mt-4 px-1 sm:px-2 pb-3 product-editor-sticky-footer"
-        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
+        className="sticky bottom-0 z-40 mt-4 product-editor-sticky-footer"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
-        <div className="product-editor-sticky-dock w-full flex items-center justify-between gap-3 flex-wrap rounded-2xl border px-3.5 sm:px-4 py-3">
+        <div className="product-editor-sticky-dock w-full flex items-center justify-between gap-3 flex-wrap rounded-none border-x-0 border-b-0 px-4 sm:px-6 py-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <span
               className="hidden sm:inline-flex w-8 h-8 rounded-xl items-center justify-center shrink-0"
@@ -4256,10 +4466,22 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
             ? isAr
               ? 'اختيار صورة القيمة'
               : 'Choose Value Image'
+            : mediaPickerTarget === 'customFieldOption'
+            ? isAr
+              ? 'اختيار صورة خيار الحقل'
+              : 'Choose Field Option Image'
             : isAr
             ? 'إضافة صور إلى معرض المنتج'
             : 'Add Images to Product Gallery'
         }
+      />
+
+      <input
+        ref={fldOptionImageInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFldOptionImageFile}
       />
 
       {/* ── LIGHTBOX / PREVIEW MODAL ── */}
@@ -4742,11 +4964,37 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     const next = normalizeCustomFieldType(e.target.value);
                     setFldTypeInput(next);
                     if (!customFieldNeedsOptions(next)) {
-                      setFldOptionsInput([]);
-                      setFldOptionDraft('');
+                      setFldOptionsDraft([]);
+                    } else if (fldOptionsDraft.length === 0) {
+                      // Start with one empty row so Add option is visible immediately.
+                      setFldOptionsDraft([blankFldOption()]);
+                    } else {
+                      // Strip controls that do not belong to the selected field type.
+                      setFldOptionsDraft((rows) =>
+                        rows.map((row) => {
+                          if (customFieldNeedsOptionImages(next)) {
+                            return { ...row, colorHex: '' };
+                          }
+                          if (customFieldNeedsOptionColors(next)) {
+                            const hex =
+                              row.colorHex ||
+                              (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(row.imageUrl || '')
+                                ? row.imageUrl
+                                : '') ||
+                              '';
+                            return { ...row, colorHex: hex, imageUrl: hex };
+                          }
+                          // Text / Size → label + price only
+                          return { ...row, imageUrl: '', colorHex: '' };
+                        }),
+                      );
                     }
                     if (!customFieldIsFillable(next)) {
                       setFldRequiredInput(false);
+                      setFldExtraPriceInput(0);
+                    }
+                    // Price only on types that allow a field surcharge.
+                    if (!customFieldAllowsFieldExtraPrice(next)) {
                       setFldExtraPriceInput(0);
                     }
                   }}
@@ -4761,116 +5009,300 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
               </div>
 
               {customFieldNeedsOptions(fldTypeInput) && (
-                <div>
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    {normalizeCustomFieldType(fldTypeInput) === 'Color Selector'
-                      ? isAr
-                        ? 'ألوان الاختيار'
-                        : 'Color Options'
-                      : isAr
-                      ? 'خيارات الحقل'
-                      : 'Field Options'}
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type={normalizeCustomFieldType(fldTypeInput) === 'Color Selector' ? 'color' : 'text'}
-                      value={
-                        normalizeCustomFieldType(fldTypeInput) === 'Color Selector' && !fldOptionDraft
-                          ? '#ef4444'
-                          : fldOptionDraft
-                      }
-                      onChange={(e) => setFldOptionDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddFldOption();
-                        }
-                      }}
-                      placeholder={
-                        normalizeCustomFieldType(fldTypeInput) === 'Color Selector'
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      {customFieldNeedsOptionColors(fldTypeInput)
+                        ? isAr
+                          ? 'ألوان / خيارات الاختيار'
+                          : 'Color / Choice Options'
+                        : customFieldNeedsOptionImages(fldTypeInput)
                           ? isAr
-                            ? 'أو اكتب اسم لون / رمز HEX'
-                            : 'Or type a color name / HEX'
+                            ? 'خيارات الصور'
+                            : 'Image Options'
                           : isAr
-                          ? 'أضف خياراً ثم اضغط إضافة'
-                          : 'Add an option then press Add'
-                      }
-                      className={`px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 ${
-                        normalizeCustomFieldType(fldTypeInput) === 'Color Selector' ? 'w-14 h-10 p-1' : 'flex-1'
-                      }`}
-                    />
-                    {normalizeCustomFieldType(fldTypeInput) === 'Color Selector' && (
-                      <input
-                        type="text"
-                        value={fldOptionDraft}
-                        onChange={(e) => setFldOptionDraft(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleAddFldOption();
-                          }
-                        }}
-                        placeholder={isAr ? 'مثال: أحمر أو #ef4444' : 'e.g. Red or #ef4444'}
-                        className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500"
-                      />
+                            ? 'خيارات النص'
+                            : 'Text Options'}
+                    </label>
+                    {customFieldAllowsMultiSelect(fldTypeInput) ? (
+                      <span className="text-[10px] font-semibold text-[var(--muted)]">
+                        {isAr
+                          ? 'العميل يمكنه اختيار أكثر من خيار'
+                          : 'Customer can select multiple options'}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-semibold text-[var(--muted)]">
+                        {isAr ? 'اختيار واحد للعميل' : 'Customer picks one option'}
+                      </span>
                     )}
-                    <button
-                      type="button"
-                      onClick={handleAddFldOption}
-                      className="px-3 py-2 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold hover:opacity-90 cursor-pointer shrink-0"
-                    >
-                      {isAr ? 'إضافة' : 'Add'}
-                    </button>
                   </div>
-                  {fldOptionsInput.length > 0 ? (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {fldOptionsInput.map((opt) => (
-                        <span
-                          key={opt}
-                          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700"
+
+                  {fldOptionsDraft.length > 0 ? (
+                    <div className="space-y-2">
+                      {fldOptionsDraft.map((row) => (
+                        <div
+                          key={row.id}
+                          className="rounded-xl border border-slate-200 dark:border-slate-700 p-2.5 space-y-2 bg-slate-50/60 dark:bg-slate-900/40"
                         >
-                          {normalizeCustomFieldType(fldTypeInput) === 'Color Selector' &&
-                            /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(opt) && (
-                              <span
-                                className="w-3 h-3 rounded-full border border-slate-300 dark:border-slate-600 shrink-0"
-                                style={{ backgroundColor: opt }}
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                            <input
+                              type="text"
+                              value={row.label}
+                              onChange={(e) => patchFldOption(row.id, { label: e.target.value })}
+                              placeholder={
+                                isAr ? 'اسم الخيار (مثال: Care Pro 1 Year)' : 'Option name (e.g. Care Pro 1 Year)'
+                              }
+                              className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[var(--accent)]"
+                            />
+                            {customFieldNeedsOptionColors(fldTypeInput) && (
+                              <input
+                                type="color"
+                                value={row.colorHex || '#64748b'}
+                                onChange={(e) =>
+                                  patchFldOption(row.id, {
+                                    colorHex: e.target.value,
+                                    imageUrl: e.target.value,
+                                  })
+                                }
+                                className="w-10 h-10 p-0.5 rounded-xl border border-slate-200 cursor-pointer shrink-0"
+                                title={isAr ? 'اللون' : 'Color'}
+                                aria-label={isAr ? 'اللون' : 'Color'}
                               />
                             )}
-                          {opt}
-                          <button
-                            type="button"
-                            onClick={() => setFldOptionsInput(fldOptionsInput.filter((o) => o !== opt))}
-                            className="text-slate-400 hover:text-rose-500 cursor-pointer"
-                            title={isAr ? 'حذف' : 'Remove'}
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </span>
+                            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800"
+                                onClick={() =>
+                                  setFldOptionsDraft((rows) => {
+                                    const i = rows.findIndex((r) => r.id === row.id);
+                                    const { id: _ignored, ...rest } = row;
+                                    const copy = blankFldOption(rest);
+                                    const next = rows.slice();
+                                    next.splice(i + 1, 0, copy);
+                                    return next;
+                                  })
+                                }
+                              >
+                                <Copy className="w-3.5 h-3.5 shrink-0" />
+                                <span>{isAr ? 'نسخ' : 'Copy'}</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 cursor-pointer hover:bg-rose-100 dark:hover:bg-rose-950/70"
+                                onClick={() =>
+                                  setFldOptionsDraft((rows) => rows.filter((r) => r.id !== row.id))
+                                }
+                              >
+                                <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                                <span>{isAr ? 'حذف' : 'Remove'}</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {customFieldNeedsOptionImages(fldTypeInput) && (
+                            <div className="flex flex-wrap items-center gap-2">
+                              {row.imageUrl &&
+                              !/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(row.imageUrl) ? (
+                                <img
+                                  src={row.imageUrl}
+                                  alt=""
+                                  className="w-14 h-14 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shrink-0"
+                                />
+                              ) : (
+                                <span className="w-14 h-14 rounded-xl bg-slate-100 dark:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center shrink-0">
+                                  <ImageIcon className="w-5 h-5 text-slate-400" />
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPendingFldOptionImageId(row.id);
+                                  fldOptionImageInputRef.current?.click();
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 shadow-xs"
+                              >
+                                <UploadCloud className="w-4 h-4 shrink-0 text-[var(--accent)]" />
+                                <span>{isAr ? 'رفع صورة' : 'Upload image'}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setFldOptionMediaId(row.id);
+                                  setMediaPickerTarget('customFieldOption');
+                                  setIsMediaPickerOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold border border-[var(--accent)] bg-[var(--surface)] text-[var(--accent)] cursor-pointer hover:opacity-90"
+                              >
+                                <Folder className="w-4 h-4 shrink-0" />
+                                <span>{isAr ? 'مكتبة الوسائط' : 'Media library'}</span>
+                              </button>
+                              {row.imageUrl ? (
+                                <button
+                                  type="button"
+                                  onClick={() => patchFldOption(row.id, { imageUrl: '' })}
+                                  className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold border border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 cursor-pointer hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                >
+                                  <X className="w-3.5 h-3.5 shrink-0" />
+                                  <span>{isAr ? 'إزالة الصورة' : 'Clear image'}</span>
+                                </button>
+                              ) : null}
+                            </div>
+                          )}
+
+                          {customFieldAllowsOptionPrices(fldTypeInput) ? (
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-[10px] font-bold text-slate-500 block mb-0.5">
+                                  {isAr ? 'السعر (⃁)' : 'Price (⃁)'}
+                                </label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={row.price}
+                                  onChange={(e) => patchFldOption(row.id, { price: e.target.value })}
+                                  placeholder="0"
+                                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold focus:outline-none focus:border-[var(--accent)]"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] font-bold text-slate-500 block mb-0.5">
+                                  {isAr ? 'السعر قبل الخصم (⃁)' : 'Compare-at (⃁)'}
+                                </label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={row.compareAtPrice}
+                                  onChange={(e) =>
+                                    patchFldOption(row.id, { compareAtPrice: e.target.value })
+                                  }
+                                  placeholder={isAr ? 'اختياري' : 'Optional'}
+                                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:border-[var(--accent)]"
+                                />
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="mt-1.5 text-[11px] text-slate-400">
-                      {isAr ? 'لا توجد خيارات بعد.' : 'No options yet.'}
+                    <p className="text-[11px] text-slate-400 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 px-3 py-2">
+                      {isAr
+                        ? 'لا توجد خيارات بعد. اضغط «إضافة خيار» لإنشاء صفوف مثل عروض الإضافات.'
+                        : 'No options yet. Click “Add option” to build rows like add-on / care package offers.'}
                     </p>
                   )}
+
+                  <button
+                    type="button"
+                    onClick={handleAddFldOptionRow}
+                    className="inline-flex items-center justify-center gap-2 min-h-[42px] px-4 py-2.5 rounded-xl text-sm font-bold unity-btn-primary cursor-pointer w-full sm:w-auto"
+                  >
+                    <Plus className="w-4 h-4 shrink-0" />
+                    <span>{isAr ? 'إضافة خيار جديد' : 'Add another option'}</span>
+                  </button>
+                </div>
+              )}
+
+              {customFieldIsCustomerUpload(fldTypeInput) && (
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40 p-3.5 space-y-3">
+                  <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                    <UploadCloud className="w-3.5 h-3.5 text-[var(--accent)]" />
+                    {normalizeCustomFieldType(fldTypeInput) === 'Image Upload'
+                      ? isAr
+                        ? 'رفع صورة من العميل'
+                        : 'Customer image upload'
+                      : isAr
+                        ? 'رفع ملف من العميل'
+                        : 'Customer file upload'}
+                  </p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    {isAr
+                      ? 'هذا النوع بدون سعر. التاجر لا يرفع صورة هنا — الزر يظهر للعميل على صفحة المنتج فقط.'
+                      : 'No price on this type. Merchant does not upload here — the button appears for the customer on the product page.'}
+                  </p>
+                  {/* Storefront preview — same control the customer sees */}
+                  <div
+                    className="rounded-xl border border-dashed border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-950 px-3 py-4 flex flex-col items-center gap-2"
+                    aria-hidden
+                  >
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                      {isAr ? 'معاينة زر العميل' : 'Customer button preview'}
+                    </span>
+                    <button
+                      type="button"
+                      disabled
+                      className="inline-flex items-center justify-center gap-2 min-h-[44px] px-5 py-2.5 rounded-xl text-sm font-bold unity-btn-primary opacity-90 cursor-not-allowed w-full sm:w-auto"
+                    >
+                      <UploadCloud className="w-4 h-4 shrink-0" />
+                      <span>
+                        {normalizeCustomFieldType(fldTypeInput) === 'Image Upload'
+                          ? isAr
+                            ? 'رفع صورة'
+                            : 'Upload image'
+                          : isAr
+                            ? 'رفع ملف'
+                            : 'Upload file'}
+                      </span>
+                    </button>
+                    <p className="text-[10px] text-slate-400 text-center">
+                      {isAr
+                        ? 'لخيارات بصورة من التاجر استخدم: اختيار واحد – صورة'
+                        : 'For merchant option images use: Single Choice – Image'}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {normalizeCustomFieldType(fldTypeInput) === 'Content' && (
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                    {isAr ? 'محتوى العرض' : 'Display content'}
+                  </label>
+                  <textarea
+                    value={fldContentInput}
+                    onChange={(e) => setFldContentInput(e.target.value)}
+                    rows={4}
+                    placeholder={
+                      isAr
+                        ? 'اكتب بأي لغة — عربي أو إنجليزي أو الاثنين'
+                        : 'Type in any language — Arabic, English, or mixed'
+                    }
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:outline-none focus:border-[var(--accent)]"
+                  />
+                  <p className="text-[10px] text-slate-400">
+                    {isAr
+                      ? 'حقل واحد — التاجر يكتب كما يريد بأي لغة.'
+                      : 'One field — merchant types as-is in any language.'}
+                  </p>
                 </div>
               )}
 
               {customFieldIsFillable(fldTypeInput) && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                      {isAr ? 'سعر إضافي (⃁)' : 'Extra Price (⃁)'}
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={fldExtraPriceInput}
-                      onChange={(e) => setFldExtraPriceInput(Number(e.target.value))}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 font-bold focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
+                <div
+                  className={
+                    customFieldAllowsFieldExtraPrice(fldTypeInput)
+                      ? 'grid grid-cols-2 gap-3'
+                      : 'grid grid-cols-1 gap-3'
+                  }
+                >
+                  {customFieldAllowsFieldExtraPrice(fldTypeInput) ? (
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                        {isAr ? 'سعر إضافي للحقل (⃁)' : 'Field Extra Price (⃁)'}
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={fldExtraPriceInput}
+                        onChange={(e) => setFldExtraPriceInput(Number(e.target.value))}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-slate-100 font-bold focus:outline-none focus:border-[var(--accent)]"
+                      />
+                    </div>
+                  ) : null}
 
                   <div>
                     <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
@@ -4881,7 +5313,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                         type="checkbox"
                         checked={fldRequiredInput}
                         onChange={(e) => setFldRequiredInput(e.target.checked)}
-                        className="w-4 h-4 rounded text-blue-600 accent-blue-600 cursor-pointer"
+                        className="w-4 h-4 rounded accent-[var(--accent)] cursor-pointer"
                       />
                       <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                         {isAr ? 'حقل إلزامي' : 'Required field'}
@@ -4961,10 +5393,11 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     />
                     <button
                       type="button"
-                      className="col-span-1 text-rose-500 cursor-pointer"
+                      className="col-span-12 sm:col-span-1 inline-flex items-center justify-center gap-1 min-h-[36px] px-2 rounded-lg text-[11px] font-bold text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 cursor-pointer hover:bg-rose-50 dark:hover:bg-rose-950/40"
                       onClick={() => setFldConditions(fldConditions.filter((_, i) => i !== idx))}
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <X className="w-3.5 h-3.5 shrink-0" />
+                      <span className="sm:hidden">{isAr ? 'حذف' : 'Remove'}</span>
                     </button>
                   </div>
                 ))}
@@ -4976,9 +5409,10 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                       { fieldId: '', operator: 'equals', value: '' },
                     ])
                   }
-                  className="text-[11px] font-bold text-blue-600 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold border border-[var(--accent)] text-[var(--accent)] bg-[var(--surface)] cursor-pointer hover:opacity-90"
                 >
-                  {isAr ? '+ إضافة شرط' : '+ Add condition'}
+                  <Plus className="w-3.5 h-3.5 shrink-0" />
+                  <span>{isAr ? 'إضافة شرط' : 'Add condition'}</span>
                 </button>
                 <input
                   type="text"
@@ -4992,20 +5426,21 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800 sticky bottom-0 bg-[var(--surface)]">
               <button
                 type="button"
                 onClick={() => setIsFieldModalOpen(false)}
-                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 {isAr ? 'إلغاء' : 'Cancel'}
               </button>
               <button
                 type="button"
                 onClick={handleSaveField}
-                className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors shadow-2xs cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 min-h-[44px] px-5 py-2.5 rounded-xl text-sm font-bold unity-btn-primary cursor-pointer"
               >
-                {isAr ? 'حفظ الحقل' : 'Save Field'}
+                <Save className="w-4 h-4 shrink-0" />
+                <span>{isAr ? 'حفظ الحقل' : 'Save Field'}</span>
               </button>
             </div>
           </div>

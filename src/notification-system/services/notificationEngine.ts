@@ -182,7 +182,7 @@ export class NotificationEngine {
         titleAr: reg.titleAr,
         description: `You have ${pendingOrders.length} pending orders waiting (latest: #${latestPending?.orderNumber || latestPending?.id})`,
         descriptionAr: `لديك${pendingOrders.length}طلبات جديدة بانتظار المعالجة والتأكيد (أحدثها #${latestPending?.orderNumber || latestPending?.id})`,
-        timestamp: toSafeISO(latestPending?.date, nowMs),
+        timestamp: toSafeISO(latestPending?.date || latestPending?.createdAt, nowMs),
         read: false,
         dismissed: false,
         aggregatedCount: pendingOrders.length,
@@ -197,6 +197,98 @@ export class NotificationEngine {
         metadata: {
           count: pendingOrders.length,
           orderNumber: latestPending?.orderNumber || latestPending?.id,
+          orderId: latestPending?.id || latestPending?.orderNumber,
+        },
+      });
+    }
+
+    // 1b. Per-order "new order" alerts (unique ids → sound on each new arrival)
+    const regNewOrder = NOTIFICATION_REGISTRY.new_order;
+    const recentNewOrders = currentOrders
+      .filter((o) => {
+        const status = String(o.status || '').toLowerCase();
+        if (status === 'cancelled' || status === 'canceled') return false;
+        const created = o.date || o.createdAt || o.created_at || o.placedAt;
+        if (created) {
+          const ts = new Date(created).getTime();
+          if (!isNaN(ts) && nowMs - ts > 7 * 24 * 60 * 60 * 1000) return false;
+        }
+        return status === 'pending' || status === 'processing' || status === 'new' || !status;
+      })
+      .slice(0, 8);
+    for (const ord of recentNewOrders) {
+      const oid = String(ord.id || ord.orderNumber || '');
+      if (!oid) continue;
+      const orderNumber = ord.orderNumber || ord.id;
+      const amount = Number(ord.total) || 0;
+      items.push({
+        id: `alert-new-order-${oid}`,
+        dedup_key: `new_order_${oid}`,
+        registryCode: regNewOrder.code,
+        zone: 'zone2_marketing',
+        category: 'Orders',
+        severity: 'info',
+        status: 'unread',
+        title: `New order #${orderNumber}`,
+        titleAr: `طلب جديد #${orderNumber}`,
+        description: `New order #${orderNumber} (${amount} ⃁) from ${ord.customer || ord.customerName || 'customer'}.`,
+        descriptionAr: `طلب جديد #${orderNumber} بمبلغ ${amount} ⃁ من ${ord.customer || ord.customerName || 'عميل'}.`,
+        timestamp: toSafeISO(ord.date || ord.createdAt || ord.created_at, nowMs),
+        read: false,
+        dismissed: false,
+        actionLabel: regNewOrder.actionLabel,
+        actionLabelAr: regNewOrder.actionLabelAr,
+        actionType: 'navigate',
+        destination: 'orders',
+        resolution: regNewOrder.resolution,
+        solutionText: regNewOrder.solutionText,
+        solutionTextAr: regNewOrder.solutionTextAr,
+        metadata: {
+          orderId: oid,
+          orderNumber,
+          amount,
+          customerName: ord.customer || ord.customerName,
+        },
+      });
+    }
+
+    // 1c. New customer alerts (unique ids → sound when a new customer registers)
+    const recentCustomers = currentCustomers
+      .filter((c) => {
+        const created = c.registeredDate || c.createdAt || c.created_at || c.joinedAt;
+        if (!created) return String(c.status || '').toLowerCase() === 'new';
+        const ts = new Date(created).getTime();
+        if (isNaN(ts)) return false;
+        return nowMs - ts <= 7 * 24 * 60 * 60 * 1000;
+      })
+      .slice(0, 8);
+    for (const cust of recentCustomers) {
+      const cid = String(cust.id || cust.phone || cust.email || '');
+      if (!cid) continue;
+      const name = cust.name || cust.nameAr || cust.email || 'Customer';
+      const nameAr = cust.nameAr || cust.name || 'عميل';
+      items.push({
+        id: `alert-new-customer-${cid}`,
+        dedup_key: `new_customer_${cid}`,
+        registryCode: 'new_customer',
+        zone: 'zone2_marketing',
+        category: 'Customers & Service',
+        severity: 'info',
+        status: 'unread',
+        title: `New customer: ${name}`,
+        titleAr: `عميل جديد: ${nameAr}`,
+        description: `A new customer registered (${cust.city || cust.phone || cust.email || 'Saudi Arabia'}).`,
+        descriptionAr: `تم تسجيل عميل جديد (${cust.city || cust.phone || cust.email || 'المملكة العربية السعودية'}).`,
+        timestamp: toSafeISO(cust.registeredDate || cust.createdAt || cust.created_at, nowMs),
+        read: false,
+        dismissed: false,
+        actionLabel: 'View Customer',
+        actionLabelAr: 'عرض العميل',
+        actionType: 'navigate',
+        destination: 'customers',
+        metadata: {
+          customerName: name,
+          customerPhone: cust.phone,
         },
       });
     }

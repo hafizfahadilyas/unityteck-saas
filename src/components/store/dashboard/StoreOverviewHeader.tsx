@@ -2,7 +2,6 @@ import React, { useState, useRef } from 'react';
 import { Store, Calendar, ChevronDown, Check } from 'lucide-react';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { FloatingPopover } from '../../common/FloatingPopover';
-import { DashboardLookSwitch } from './DashboardLookSwitch';
 
 interface StoreOverviewHeaderProps {
   storeName: string;
@@ -50,12 +49,9 @@ export const StoreOverviewHeader: React.FC<StoreOverviewHeaderProps> = React.mem
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 min-w-0">
-          {/* Full dashboard look — Glass Soft | Night Luxe */}
-          <DashboardLookSwitch variant="compact" />
-
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 min-w-0 w-full sm:w-auto">
           {/* Date Range Selector — glass pill */}
-          <div>
+          <div className="w-full sm:w-auto min-w-0">
             <button
               type="button"
               ref={dateBtnRef}

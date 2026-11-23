@@ -320,6 +320,15 @@ export interface ProductCustomFieldCondition {
   value?: string;
 }
 
+/** Choice option for purchase custom fields (Honor-style offer rows). */
+export interface ProductCustomFieldOptionItem {
+  label: string;
+  labelAr?: string;
+  imageUrl?: string;
+  price?: number;
+  compareAtPrice?: number;
+}
+
 export interface ProductCustomField {
   id: string;
   name: string;
@@ -342,7 +351,8 @@ export interface ProductCustomField {
   conditions?: ProductCustomFieldCondition[];
   conditionJoin?: 'AND' | 'OR';
   extraPrice?: number;
-  options?: string[];
+  /** Plain labels or rich items with image / price for storefront cards */
+  options?: Array<string | ProductCustomFieldOptionItem>;
   value?: string;
 }
 
@@ -873,6 +883,10 @@ export interface StoreSEOConfig {
   keywords: string[];
   keywordsEn?: string | null;
   keywordsAr?: string | null;
+  /** Per-store robots.txt body served at /robots.txt */
+  robotsTxt?: string;
+  /** Per-store llms.txt (Markdown) served at /llms.txt */
+  llmsTxt?: string;
   sitemapUrl: string;
   indexedUrlsCount: number;
   totalSearchClicks: number;
@@ -880,7 +894,7 @@ export interface StoreSEOConfig {
   avgCtr: number;
   avgPosition: number;
   lastIndexingPing: string;
-  submittedUrls: { url: string; submittedAt: string; status: 'indexed' | 'pending' | 'crawling' }[];
+  submittedUrls: { url: string; submittedAt: string; status: 'indexed' | 'pending' | 'crawling' | 'failed' }[];
   topQueries: { query: string; clicks: number; impressions: number; position: number }[];
 }
 
@@ -978,6 +992,8 @@ export interface StorefrontPaymentMethod {
   type: 'card' | 'digital_wallet' | 'bnpl' | 'cod' | 'bank_wire' | 'bank_transfer';
   icon: 'mada' | 'apple_pay' | 'card' | 'tabby' | 'tamara' | 'cod' | 'bank_wire' | 'bank_transfer';
   installments_count?: number;
+  /** Tamara / BNPL: show logo widget on product page when true */
+  show_product_logo?: boolean;
 }
 
 export interface StorefrontPaymentSession {
@@ -1022,6 +1038,8 @@ export interface PaymentGatewayItem {
   publicKey?: string;
   maskedSecretKey?: string;
   supportedMethods: string[];
+  /** Tamara: show installment logo on storefront product pages */
+  showProductLogo?: boolean;
   transactionFeePercent: number;
   transactionFeeFixed: number;
   status: 'connected' | 'disconnected' | 'error';

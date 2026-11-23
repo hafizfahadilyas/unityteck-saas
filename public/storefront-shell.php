@@ -148,7 +148,30 @@ if ($gtm && preg_match('/^GTM-[A-Z0-9]+$/i', (string) $gtm) && !str_contains($ht
     $html = preg_replace('/<body([^>]*)>/i', '<body$1>' . $noscript, $html, 1) ?? $html;
 }
 
+// Bust stale mobile / LiteSpeed / CDN HTML so admin always pulls newest hashed assets.
+$buildStamp = is_file($htmlFile) ? (string) filemtime($htmlFile) : (string) time();
+$html = preg_replace(
+    '/\b(src|href)=["\'](\/assets\/[^"\']+)["\']/i',
+    '$1="$2?v=' . $esc($buildStamp) . '"',
+    $html
+) ?? $html;
+if (!str_contains($html, 'http-equiv="Cache-Control"')) {
+    $html = str_replace(
+        '</head>',
+        "    <meta http-equiv=\"Cache-Control\" content=\"no-cache, no-store, must-revalidate\" />\n"
+        . "    <meta http-equiv=\"Pragma\" content=\"no-cache\" />\n"
+        . "    <meta name=\"souq-build\" content=\"" . $esc($buildStamp) . "\" />\n"
+        . "  </head>",
+        $html
+    );
+}
+
 header('Content-Type: text/html; charset=utf-8');
-header('Cache-Control: no-cache, no-store, must-revalidate');
+header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0');
 header('Pragma: no-cache');
+header('Expires: 0');
+header('X-LiteSpeed-Cache-Control: no-cache');
+header('CDN-Cache-Control: no-store');
+header('Cloudflare-CDN-Cache-Control: no-store');
+header('Surrogate-Control: no-store');
 echo $html;

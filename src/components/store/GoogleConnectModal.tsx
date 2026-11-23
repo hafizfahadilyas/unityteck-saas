@@ -4,7 +4,14 @@ import { useTenant } from '../../context/TenantContext';
 import { useToast } from '../common/ToastProvider';
 import { GlobalModal } from '../common/GlobalModal';
 import { ModernSegmentedTabs } from '../common/ModernSegmentedTabs';
-import { realTrackingId, seoSetupStep, storeGoogleEmail } from './seo/storeSeoSetup';
+import {
+  applySiteKitCallback,
+  realTrackingId,
+  seoSetupStep,
+  siteKitDoneMessage,
+  storeGoogleEmail,
+  type SiteKitLinkedTools,
+} from './seo/storeSeoSetup';
 import {
   fetchGoogleStatus,
   fetchGoogleAuthUrl,
@@ -95,6 +102,8 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
   const [accountEmail, setAccountEmail] = useState<string | null>(currentSEOConfig.googleAccountEmail);
   const [accountName, setAccountName] = useState<string | null>(null);
   const [accountPicture, setAccountPicture] = useState<string | null>(null);
+  const [autoDoneBanner, setAutoDoneBanner] = useState<string | null>(null);
+  const [linkedTools, setLinkedTools] = useState<SiteKitLinkedTools | null>(null);
 
   // Progress animation steps
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(-1);
@@ -223,29 +232,21 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
         setAccountName(userProfile.name);
         setAccountPicture(userProfile.picture || null);
 
-        // Step 3: Finding GA4 Properties
+        // Step 3–6: discover + auto-link (server Site Kit — merchant does nothing else)
         updateStep(2, 'running');
-        const autoGa4Id = selectedGA4MeasurementId || '';
-        const autoGscSite = '';
-        const autoGtmCode = selectedGTM || '';
-        const autoAdsId = '';
-
+        let callbackRes: any = existingCallback || null;
         try {
-          const callbackRes = existingCallback || await submitGoogleCallback(activeStore.id, {
-            access_token: tokenResp.access_token,
-            expires_in: tokenResp.expires_in,
-            email: userProfile.email,
-            name: userProfile.name,
-          });
+          if (!callbackRes) {
+            callbackRes = await submitGoogleCallback(activeStore.id, {
+              access_token: tokenResp.access_token,
+              expires_in: tokenResp.expires_in,
+              email: userProfile.email,
+              name: userProfile.name,
+            });
+          }
 
-          if (callbackRes && callbackRes.discovered_properties) {
+          if (callbackRes?.discovered_properties) {
             setDiscoveredProperties(callbackRes.discovered_properties);
-            if (callbackRes.auto_selection) {
-              if (callbackRes.auto_selection.suggested_ga4) setSelectedGA4(callbackRes.auto_selection.suggested_ga4);
-              if (callbackRes.auto_selection.suggested_gsc) setSelectedGSC(callbackRes.auto_selection.suggested_gsc);
-              if (callbackRes.auto_selection.suggested_gtm) setSelectedGTM(callbackRes.auto_selection.suggested_gtm);
-              if (callbackRes.auto_selection.suggested_ads) setSelectedAds(callbackRes.auto_selection.suggested_ads);
-            }
           }
         } catch {
           setDiscoveredProperties({
@@ -256,86 +257,58 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
           });
         }
 
-        await new Promise((r) => setTimeout(r, 400));
+        const applied = applySiteKitCallback(callbackRes, userProfile.email);
+        if (applied) {
+          setSelectedGA4(applied.selection.ga4PropertyId);
+          setSelectedGA4MeasurementId(applied.selection.ga4MeasurementId);
+          setSelectedGSC(applied.selection.gscSiteUrl);
+          setSelectedGTM(applied.selection.gtmContainerId);
+          setSelectedAds(applied.selection.adsCustomerId);
+          setLinkedTools(applied.linked);
+        }
+
+        await new Promise((r) => setTimeout(r, 280));
         updateStep(2, 'completed');
-
-        // Step 4: Finding Search Console Properties
         updateStep(3, 'running');
-        await new Promise((r) => setTimeout(r, 400));
+        await new Promise((r) => setTimeout(r, 220));
         updateStep(3, 'completed');
-
-        // Step 5: Finding Tag Manager Containers
         updateStep(4, 'running');
-        await new Promise((r) => setTimeout(r, 350));
+        await new Promise((r) => setTimeout(r, 220));
         updateStep(4, 'completed');
-
-        // Step 6: Checking Google Ads Access
         updateStep(5, 'running');
-        await new Promise((r) => setTimeout(r, 350));
+        await new Promise((r) => setTimeout(r, 220));
         updateStep(5, 'completed');
 
-        // Step 7: Auto Sync Real Data
+        // Step 7: persist + optional refresh sync (already synced on callback)
         updateStep(6, 'running');
-        await new Promise((r) => setTimeout(r, 400));
-        
-        // Save integration
-        connectGoogleAccount(activeStore.id, userProfile.email);
-        updateStoreSEOConfig(activeStore.id, existingCallback ? {
-          googleConnected: true,
-          googleAccountEmail: userProfile.email,
-          connectedAt: new Date().toISOString().split('T')[0],
-          searchConsoleConnected: Boolean(existingCallback?.site_kit?.linked?.search_console),
-          ga4MeasurementId: existingCallback?.integration?.ga4_measurement_id || autoGa4Id,
-          gtmContainerId: existingCallback?.integration?.gtm_container_id || autoGtmCode,
-          indexingApiEnabled: Boolean(existingCallback?.site_kit?.indexing_homepage_pinged),
-        } : {
-          googleConnected: Boolean(tokenResp.access_token),
-          googleAccountEmail: userProfile.email,
-          connectedAt: tokenResp.access_token ? new Date().toISOString().split('T')[0] : null,
-          searchConsoleConnected: false,
-          searchConsoleVerificationTag: '',
-          ga4MeasurementId: autoGa4Id,
-          gtmContainerId: autoGtmCode,
-          indexingApiEnabled: false,
-          totalSearchClicks: 0,
-          totalSearchImpressions: 0,
-          avgCtr: 0,
-          avgPosition: 0,
-          indexedUrlsCount: 0,
-        });
-
-        if (!tokenResp.access_token) {
-          updateStep(6, 'completed');
+        if (!applied) {
+          updateStep(6, 'error');
           setIsLoading(false);
-          return;
-        }
-        if (tokenResp.access_token === 'server-held') {
-          clearStoreGoogleState(activeStore.id);
-          updateStep(6, 'completed');
-          setIsConnected(true);
-          setIsLoading(false);
-          toast(
+          setErrorMessage(
             isAr
-              ? `تم ربط جوجل لهذا المتجر:${userProfile.email}`
-              : `Google connected for this store: ${userProfile.email}`,
-            'success',
+              ? 'جوجل لم يحفظ حساب هذا المتجر.'
+              : 'Google did not save this store account.',
           );
-          if (onConnected) onConnected();
           return;
         }
+
+        connectGoogleAccount(activeStore.id, applied.email);
+        updateStoreSEOConfig(activeStore.id, applied.seoPatch);
+
+        const selection = applied.selection;
         saveStoreGoogleState(activeStore.id, {
           connected: true,
-          accessToken: tokenResp.access_token,
+          accessToken: tokenResp.access_token === 'server-held' ? 'server-held' : tokenResp.access_token,
           expiresAt: Date.now() + 3600000 * 24 * 30,
-          accountEmail: userProfile.email,
-          accountName: userProfile.name,
+          accountEmail: applied.email,
+          accountName: userProfile.name || applied.email,
           accountPicture: userProfile.picture || null,
-          ga4PropertyId: selectedGA4 || null,
-          ga4MeasurementId: autoGa4Id || null,
-          gscSiteUrl: autoGscSite || null,
+          ga4PropertyId: selection.ga4PropertyId || null,
+          ga4MeasurementId: selection.ga4MeasurementId || null,
+          gscSiteUrl: selection.gscSiteUrl || null,
           gtmAccountId: null,
-          gtmContainerId: autoGtmCode || null,
-          indexingEnabled: false,
+          gtmContainerId: selection.gtmContainerId || null,
+          indexingEnabled: applied.linked.indexing,
           psiScoreMobile: 0,
           psiScoreDesktop: 0,
           fcp: '—',
@@ -346,28 +319,28 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
           lastSyncedAt: new Date().toLocaleString(),
         });
 
+        // Soft refresh only — callback already auto-linked; never invent IDs
         try {
-          await saveGoogleProperties(activeStore.id, {
-            ga4_property_id: selectedGA4 || '',
-            ga4_measurement_id: realTrackingId(autoGa4Id),
-            gsc_site_url: autoGscSite,
-            gtm_container_id: autoGtmCode,
-            google_ads_customer_id: autoAdsId,
-          });
+          if (selection.ga4PropertyId || selection.gscSiteUrl || selection.gtmContainerId) {
+            await saveGoogleProperties(activeStore.id, {
+              ga4_property_id: selection.ga4PropertyId || undefined,
+              ga4_measurement_id: realTrackingId(selection.ga4MeasurementId) || undefined,
+              gsc_site_url: selection.gscSiteUrl || undefined,
+              gtm_container_id: realTrackingId(selection.gtmContainerId) || undefined,
+              google_ads_customer_id: selection.adsCustomerId || undefined,
+            });
+          }
           await syncGoogleData(activeStore.id);
-        } catch {}
+        } catch {
+          /* sync soft-fail — connect itself already succeeded */
+        }
 
+        const doneMsg = siteKitDoneMessage(applied.linked, applied.email, isAr);
+        setAutoDoneBanner(doneMsg);
         updateStep(6, 'completed');
         setIsConnected(true);
         setIsLoading(false);
-
-        toast(
-          isAr
-            ? `تم ربط ومزامنة خدمات جوجل لـ (${userProfile.email}) بنجاح ✓`
-            : `Google Services connected & synced for ${userProfile.email} ✓`,
-          'success'
-        );
-
+        toast(doneMsg, 'success');
         if (onConnected) onConnected();
       };
 
@@ -462,37 +435,10 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
       const ga4Val = selectedGA4MeasurementId || '';
       const gtmVal = selectedGTM || '';
       const gscVal = selectedGSC || '';
-      if (!ga4Val && !gtmVal && !gscVal) {
-        setIsSyncing(false);
-        setErrorMessage(
-          isAr
-            ? 'اختر أو أدخل معرّفات GA4 / مدير العلامات / وحدة البحث الحقيقية.'
-            : 'Select or enter real GA4 / GTM / Search Console IDs.',
-        );
-        return;
-      }
 
-      // 1. Save properties on server
-      await saveGoogleProperties(activeStore.id, {
-        ga4_property_id: selectedGA4,
-        ga4_measurement_id: ga4Val,
-        gsc_site_url: gscVal,
-        gtm_container_id: gtmVal,
-        google_ads_customer_id: selectedAds,
-      });
-
-      // 2. Trigger real sync
-      await syncGoogleData(activeStore.id);
-
-      // 3. Update tenant state
-      const readyEmail = accountEmail || activeStore.ownerEmail || '';
-      if (!readyEmail.includes('@')) {
-        setIsSyncing(false);
-        setErrorMessage(isAr ? 'بريد المتجر غير جاهز.' : 'The store email is not ready.');
-        return;
-      }
-      const saved = getStoreGoogleState(activeStore.id);
-      if (!saved?.accessToken) {
+      // 1. Confirm server-held OAuth session
+      const status = await fetchGoogleStatus(activeStore.id);
+      if (!status?.is_connected && !status?.integration?.is_connected) {
         setIsSyncing(false);
         setErrorMessage(
           isAr
@@ -501,6 +447,37 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
         );
         return;
       }
+
+      // 2. Refresh properties when IDs present (auto-resolves G-…); skip invent
+      let savedProps: any = null;
+      if (selectedGA4 || ga4Val || gtmVal || gscVal || selectedAds) {
+        savedProps = await saveGoogleProperties(activeStore.id, {
+          ga4_property_id: selectedGA4 || undefined,
+          ga4_measurement_id: ga4Val || undefined,
+          gsc_site_url: gscVal || undefined,
+          gtm_container_id: gtmVal || undefined,
+          google_ads_customer_id: selectedAds || undefined,
+        });
+      }
+
+      // 3. Trigger real sync
+      await syncGoogleData(activeStore.id);
+
+      // 4. Update tenant state
+      const readyEmail =
+        accountEmail ||
+        status?.integration?.google_account_email ||
+        activeStore.ownerEmail ||
+        '';
+      if (!readyEmail.includes('@')) {
+        setIsSyncing(false);
+        setErrorMessage(isAr ? 'بريد المتجر غير جاهز.' : 'The store email is not ready.');
+        return;
+      }
+      const resolvedGa4 =
+        String(savedProps?.integration?.ga4_measurement_id || ga4Val || '').trim();
+      const resolvedGtm =
+        String(savedProps?.integration?.gtm_container_id || gtmVal || '').trim();
       connectGoogleAccount(activeStore.id, readyEmail);
       updateStoreSEOConfig(activeStore.id, {
         googleConnected: true,
@@ -508,23 +485,24 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
         connectedAt: new Date().toISOString().split('T')[0],
         searchConsoleConnected: gscVal.startsWith('http') || gscVal.startsWith('sc-domain:'),
         searchConsoleVerificationTag: '',
-        ga4MeasurementId: ga4Val,
-        gtmContainerId: gtmVal,
-        indexingApiEnabled: false,
+        ga4MeasurementId: resolvedGa4,
+        gtmContainerId: resolvedGtm,
+        indexingApiEnabled: true,
       });
 
+      const saved = getStoreGoogleState(activeStore.id);
       saveStoreGoogleState(activeStore.id, {
         connected: true,
-        accessToken: saved.accessToken,
-        expiresAt: saved.expiresAt,
+        accessToken: saved?.accessToken || 'server-held',
+        expiresAt: saved?.expiresAt || Date.now() + 3600000 * 24 * 30,
         accountEmail: readyEmail,
-        accountName: accountName || saved.accountName,
-        accountPicture,
-        ga4PropertyId: selectedGA4,
-        ga4MeasurementId: ga4Val,
-        gscSiteUrl: gscVal,
-        gtmAccountId: saved.gtmAccountId,
-        gtmContainerId: gtmVal,
+        accountName: accountName || saved?.accountName || readyEmail,
+        accountPicture: accountPicture || saved?.accountPicture || null,
+        ga4PropertyId: selectedGA4 || savedProps?.integration?.ga4_property_id || null,
+        ga4MeasurementId: resolvedGa4 || null,
+        gscSiteUrl: gscVal || null,
+        gtmAccountId: saved?.gtmAccountId || null,
+        gtmContainerId: resolvedGtm || null,
         indexingEnabled: true,
         psiScoreMobile: 0,
         psiScoreDesktop: 0,
@@ -570,6 +548,8 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
     setIsConnected(false);
     setAccountEmail(null);
     setAccountName(null);
+    setAutoDoneBanner(null);
+    setLinkedTools(null);
     toast(isAr ? 'تم فصل حساب جوجل بنجاح' : 'Google Account disconnected', 'info');
   };
 
@@ -582,28 +562,32 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
       dir={dir}
       aria-label={isAr ? 'ربط خدمات جوجل الرسمية' : 'Connect Google Services'}
     >
-      <div className="relative w-full max-w-3xl bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[min(92vh,92dvh)]">
-        {/* Modal Header */}
-        <div className="p-5 sm:p-6 bg-gradient-to-r from-slate-900 via-slate-800 to-teal-950 text-white flex items-center justify-between border-b border-slate-700/60 shrink-0">
-          <div className="flex items-center gap-3">
-            <span className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center shadow-md shrink-0">
-              <svg className="w-6 h-6" viewBox="0 0 24 24">
+      <div className="relative w-[min(48rem,calc(100vw-1.25rem))] bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[min(92vh,92dvh)]">
+        {/* Modal Header — light ink locked (glass remap must not paint dark-on-dark) */}
+        <div
+          data-on-dark-panel="true"
+          className="p-4 sm:p-6 bg-gradient-to-r from-slate-900 via-slate-800 to-teal-950 text-white flex items-start sm:items-center justify-between gap-2 border-b border-slate-700/60 shrink-0"
+          style={{ color: '#f8fafc', ['--text' as string]: '#f8fafc', ['--muted' as string]: '#cbd5e1' }}
+        >
+          <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+            <span className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white flex items-center justify-center shadow-md shrink-0">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
               </svg>
             </span>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-black tracking-tight text-white">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-sm sm:text-lg font-black tracking-tight text-white" style={{ color: '#ffffff' }}>
                   {isAr ? 'ربط خدمات جوجل الرسمية' : 'Connect Google Services'}
                 </h2>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono shrink-0">
                   {isAr ? 'الإصدار ٢' : 'Site Kit 2.0'}
                 </span>
               </div>
-              <p className="text-xs text-slate-300">
+              <p className="text-[11px] sm:text-xs text-slate-300 mt-0.5 leading-snug" style={{ color: '#cbd5e1' }}>
                 {isAr
                   ? 'ربط مباشر وموثّق لوحدة تحكم البحث وتحليلات ٤ ومدير العلامات ومؤشرات الأداء الأساسية'
                   : 'Official connection for Search Console, GA4, Tag Manager, and Core Web Vitals.'}
@@ -613,7 +597,9 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
 
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+            className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
+            style={{ color: '#ffffff' }}
+            aria-label={isAr ? 'إغلاق' : 'Close'}
           >
             <X className="w-5 h-5" />
           </button>
@@ -653,8 +639,25 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
           {activeTab === 'connect' && (
             <div className="space-y-6">
               {isConnected ? (
-                /* Connected State Card */
+                /* Connected State Card — one Gmail connect, tools auto-linked */
                 <div className="p-5 rounded-3xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 space-y-4">
+                  {(autoDoneBanner || linkedTools) && (
+                    <div className="rounded-2xl bg-emerald-600 text-white px-4 py-3 flex items-start gap-2 shadow-sm">
+                      <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
+                      <div className="space-y-1 min-w-0">
+                        <p className="text-sm font-black">
+                          {isAr ? 'تم — الربط نجح' : 'Done — Connected'}
+                        </p>
+                        <p className="text-xs font-medium leading-relaxed opacity-95">
+                          {autoDoneBanner ||
+                            (isAr
+                              ? 'لا حاجة لأي خطوة إضافية. الأدوات تفعّلت تلقائياً.'
+                              : 'No extra steps needed. Tools were auto-linked.')}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       {accountPicture ? (
@@ -675,22 +678,39 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
                           {accountEmail}
                         </span>
                         <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold block mt-0.5">
-                          {isAr ? 'حساب جوجل متصل وموثّق رسميًا' : 'Official Google Account Active & Authorized'}
+                          {isAr
+                            ? 'تم — حساب جوجل متصل · الأدوات تعمل تلقائياً'
+                            : 'Done — Google connected · tools auto-active'}
                         </span>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 self-start sm:self-auto">
                       <button
+                        type="button"
                         onClick={handleConfirmAndSync}
                         disabled={isSyncing}
-                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 shadow-sm"
+                        className="px-4 py-2 unity-btn-primary rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 shadow-sm"
+                        title={
+                          isAr
+                            ? 'اختياري — تحديث البيانات فقط'
+                            : 'Optional — refresh live data only'
+                        }
                       >
                         <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                        <span>{isSyncing ? (isAr ? 'جاري المزامنة...' : 'Syncing...') : isAr ? 'مزامنة فورية' : 'Sync Real Data'}</span>
+                        <span>
+                          {isSyncing
+                            ? isAr
+                              ? 'جاري التحديث...'
+                              : 'Refreshing...'
+                            : isAr
+                              ? 'تحديث البيانات'
+                              : 'Refresh data'}
+                        </span>
                       </button>
 
                       <button
+                        type="button"
                         onClick={handleDisconnect}
                         className="px-3 py-2 bg-white dark:bg-slate-800 border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-300 hover:bg-rose-50 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                       >
@@ -699,33 +719,55 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
                     </div>
                   </div>
 
-                  {/* 4 Connected Services Summary */}
+                  {/* Auto-linked services — real IDs only */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2 border-t border-emerald-200/60 dark:border-emerald-800/60 text-xs">
                     <div className="p-2.5 bg-white/80 dark:bg-slate-900/60 rounded-xl border border-emerald-100 dark:border-emerald-900">
-                      <span className="text-[10px] text-slate-500 font-bold block">GA4 Measurement ID</span>
+                      <span className="text-[10px] text-slate-500 font-bold block">
+                        {isAr ? 'معرّف القياس' : 'GA4 Measurement'}
+                      </span>
                       <span className="font-bold font-mono text-[11px] text-slate-800 dark:text-slate-200 truncate block">
-                        {selectedGA4MeasurementId || (isAr ? 'غير متصل' : 'Not connected')}
+                        {selectedGA4MeasurementId ||
+                          (linkedTools?.ga4
+                            ? isAr
+                              ? 'مرتبط · بانتظار المعرّف'
+                              : 'Linked · waiting for ID'
+                            : isAr
+                              ? 'بانتظار البيانات'
+                              : 'Waiting for Data')}
                       </span>
                     </div>
 
                     <div className="p-2.5 bg-white/80 dark:bg-slate-900/60 rounded-xl border border-emerald-100 dark:border-emerald-900">
-                      <span className="text-[10px] text-slate-500 font-bold block">Search Console</span>
+                      <span className="text-[10px] text-slate-500 font-bold block">
+                        {isAr ? 'وحدة البحث' : 'Search Console'}
+                      </span>
                       <span className="font-bold font-mono text-[11px] text-slate-800 dark:text-slate-200 truncate block">
-                        {selectedGSC || (isAr ? 'غير متصل' : 'Not connected')}
+                        {selectedGSC || (isAr ? 'بانتظار البيانات' : 'Waiting for Data')}
                       </span>
                     </div>
 
                     <div className="p-2.5 bg-white/80 dark:bg-slate-900/60 rounded-xl border border-emerald-100 dark:border-emerald-900">
-                      <span className="text-[10px] text-slate-500 font-bold block">Tag Manager</span>
+                      <span className="text-[10px] text-slate-500 font-bold block">
+                        {isAr ? 'مدير العلامات' : 'Tag Manager'}
+                      </span>
                       <span className="font-bold font-mono text-[11px] text-slate-800 dark:text-slate-200 truncate block">
-                        {selectedGTM || (isAr ? 'غير متصل' : 'Not connected')}
+                        {selectedGTM || (isAr ? 'بانتظار البيانات' : 'Waiting for Data')}
                       </span>
                     </div>
 
                     <div className="p-2.5 bg-white/80 dark:bg-slate-900/60 rounded-xl border border-emerald-100 dark:border-emerald-900">
-                      <span className="text-[10px] text-slate-500 font-bold block">Google Ads & Indexing</span>
+                      <span className="text-[10px] text-slate-500 font-bold block">
+                        {isAr ? 'الفهرسة / الإعلانات' : 'Indexing / Ads'}
+                      </span>
                       <span className="font-bold font-mono text-[11px] text-slate-800 dark:text-slate-200 truncate block">
-                        {selectedAds || (isAr ? 'غير متصل' : 'Not connected')}
+                        {selectedAds ||
+                          (linkedTools?.indexing
+                            ? isAr
+                              ? 'الفهرسة جاهزة'
+                              : 'Indexing ready'
+                            : isAr
+                              ? 'بانتظار البيانات'
+                              : 'Waiting for Data')}
                       </span>
                     </div>
                   </div>
@@ -749,8 +791,8 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
                       </h3>
                       <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                         {isAr
-                          ? 'يسجّل مالك هذا المتجر الدخول بحساب جوجل الخاص به. لا يُنشأ ربط بدون تلك الموافقة.'
-                          : 'This store’s owner signs in with their own Google account. Nothing is marked connected without that approval.'}
+                          ? 'مرة واحدة واحدةً فقط: سجّل الدخول بجيميل المتجر. بعد النجاح تظهر رسالة «تم»، وتُفعَّل التحليلات ووحدة البحث ومدير العلامات والفهرسة تلقائياً.'
+                          : 'Once only: sign in with this store’s Gmail. After success you see Done, and Analytics, Search Console, Tag Manager, and Indexing auto-link.'}
                       </p>
                     </div>
                   </div>
@@ -772,7 +814,7 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
                         type="button"
                         onClick={() => handleStartGoogleConnect('oauth')}
                         disabled={isLoading}
-                        className="w-full sm:w-auto whitespace-nowrap px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer transform active:scale-95 disabled:opacity-50"
+                        className="w-full sm:w-auto whitespace-nowrap px-6 py-2.5 unity-btn-primary rounded-xl text-xs font-black shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer transform active:scale-95 disabled:opacity-50"
                       >
                         {isLoading ? (
                           <>

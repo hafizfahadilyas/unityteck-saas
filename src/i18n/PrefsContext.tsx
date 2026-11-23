@@ -89,6 +89,32 @@ export function PrefsProvider({
     writePrefs(prefs);
   }, [prefs, portal]);
 
+  /**
+   * Rehydrate locale from localStorage when another tab/window updates prefs.
+   * Never invent a new locale — only apply a persisted ar|en value.
+   * Prevents “auto switch” after soft remount / multi-tab drift.
+   */
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== 'unityteck_prefs' || !e.newValue) return;
+      try {
+        const parsed = JSON.parse(e.newValue) as { locale?: string };
+        const next = parsed.locale === 'ar' ? 'ar' : parsed.locale === 'en' ? 'en' : null;
+        if (!next) return;
+        setPrefs((prev) => {
+          if (prev.locale === next) return prev;
+          const merged = { ...prev, locale: next as AppLocale };
+          applyDocumentPrefs(merged, portal);
+          return merged;
+        });
+      } catch {
+        /* ignore bad prefs payload */
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [portal]);
+
   /** Patch prefs and apply dir/lang/theme to <html> immediately (no waiting for paint). */
   const patch = useCallback(
     (partial: Partial<PrefsState>) => {

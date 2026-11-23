@@ -68,9 +68,17 @@ export const SalesVsProfitChart: React.FC<SalesVsProfitChartProps> = React.memo(
 
   const layouts = useMemo<BarLayout[]>(() => {
     if (!points.length) return [];
-    const groupWidth = CHART_INNER / points.length;
+    /*
+     * Few days (1–4): cap group width so bars sit as a compact cluster —
+     * avoids huge empty mid-gap on phone (2 dates at far edges).
+     */
+    const rawGroup = CHART_INNER / points.length;
+    const groupWidth =
+      points.length <= 4 ? Math.min(rawGroup, 72) : rawGroup;
+    const usedInner = groupWidth * points.length;
+    const offsetX = CHART_PAD_LEFT + Math.max(0, (CHART_INNER - usedInner) / 2);
     return points.map((pt, idx) => {
-      const groupX = CHART_PAD_LEFT + idx * groupWidth;
+      const groupX = offsetX + idx * groupWidth;
       const salesH = (pt.sales / maxVal) * CHART_HEIGHT;
       const profitH = (pt.profit / maxVal) * CHART_HEIGHT;
       return {
@@ -89,7 +97,17 @@ export const SalesVsProfitChart: React.FC<SalesVsProfitChartProps> = React.memo(
     });
   }, [points, maxVal, barWidth, barGap]);
 
-  const groupWidth = points.length > 0 ? CHART_INNER / points.length : 0;
+  const groupWidth = useMemo(() => {
+    if (!points.length) return 0;
+    const raw = CHART_INNER / points.length;
+    return points.length <= 4 ? Math.min(raw, 72) : raw;
+  }, [points.length]);
+
+  const chartOffsetX = useMemo(() => {
+    if (!points.length) return CHART_PAD_LEFT;
+    const usedInner = groupWidth * points.length;
+    return CHART_PAD_LEFT + Math.max(0, (CHART_INNER - usedInner) / 2);
+  }, [points.length, groupWidth]);
 
   const setHoverFast = useCallback((idx: number | null) => {
     if (hoverRef.current === idx) return;
@@ -100,18 +118,18 @@ export const SalesVsProfitChart: React.FC<SalesVsProfitChartProps> = React.memo(
   const onPointerMove = useCallback(
     (e: React.PointerEvent<SVGSVGElement>) => {
       const svg = svgRef.current;
-      if (!svg || !layouts.length) return;
+      if (!svg || !layouts.length || groupWidth <= 0) return;
       const rect = svg.getBoundingClientRect();
       if (rect.width <= 0) return;
       const x = ((e.clientX - rect.left) / rect.width) * CHART_WIDTH;
-      const idx = Math.floor((x - CHART_PAD_LEFT) / groupWidth);
+      const idx = Math.floor((x - chartOffsetX) / groupWidth);
       if (idx < 0 || idx >= layouts.length) {
         setHoverFast(null);
         return;
       }
       setHoverFast(idx);
     },
-    [layouts.length, groupWidth, setHoverFast],
+    [layouts.length, groupWidth, chartOffsetX, setHoverFast],
   );
 
   const tooltipInfo = useMemo(() => {
@@ -133,8 +151,8 @@ export const SalesVsProfitChart: React.FC<SalesVsProfitChartProps> = React.memo(
 
   return (
     <div
-      className="u-card p-4 sm:p-5 rounded-[1.25rem] shadow-xs flex flex-col justify-between h-full min-h-[280px] contain-layout"
-      style={{ fontFamily: 'var(--font-ui)', contentVisibility: 'auto' }}
+      className="u-card p-4 sm:p-5 rounded-[1.25rem] shadow-xs flex flex-col justify-between h-full min-h-[280px] sm:min-h-[300px]"
+      style={{ fontFamily: 'var(--font-ui)' }}
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2.5">
@@ -177,7 +195,7 @@ export const SalesVsProfitChart: React.FC<SalesVsProfitChartProps> = React.memo(
           </p>
         </div>
       ) : (
-        <div className="relative w-full pt-2">
+        <div className="relative w-full pt-2 min-w-0 overflow-x-auto overflow-y-visible [-webkit-overflow-scrolling:touch]">
           {tooltipInfo && (
             <div
               dir={isAr ? 'rtl' : 'ltr'}
@@ -195,7 +213,7 @@ export const SalesVsProfitChart: React.FC<SalesVsProfitChartProps> = React.memo(
                 marginTop: tooltipInfo.placeBelow ? '0px' : '-10px',
               }}
             >
-              <div className="bg-slate-950/95 text-white p-3 rounded-2xl shadow-2xl border border-slate-700/80 backdrop-blur-md w-max min-w-[170px] max-w-[260px]">
+              <div className="bg-slate-950/95 text-white p-3 rounded-2xl shadow-2xl border border-slate-700/80 w-max min-w-[170px] max-w-[min(260px,70vw)]">
                 <div className="text-[11px] font-bold text-slate-300 pb-2 mb-2 border-b border-slate-700/70 flex items-center justify-between gap-3">
                   <span className="flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--accent)' }} />
@@ -245,7 +263,10 @@ export const SalesVsProfitChart: React.FC<SalesVsProfitChartProps> = React.memo(
           <svg
             ref={svgRef}
             viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT + 35}`}
-            className="w-full h-auto overflow-visible touch-none"
+            className="w-full h-auto max-h-[220px] sm:max-h-none overflow-visible touch-none block"
+            preserveAspectRatio="xMidYMid meet"
+            role="img"
+            aria-label={isAr ? 'المبيعات مقابل الأرباح التقديرية' : 'Sales vs Estimated Profit'}
             onPointerMove={onPointerMove}
             onPointerLeave={() => setHoverFast(null)}
           >

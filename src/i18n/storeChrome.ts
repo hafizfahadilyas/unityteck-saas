@@ -213,16 +213,16 @@ type SidebarPreset = {
 export const SIDEBAR_DESIGNS: SidebarPreset[] = [
   {
     id: 'classic',
-    label: 'Classic teal',
-    labelAr: 'تركواز كلاسيكي',
+    label: 'Classic slate',
+    labelAr: 'رمادي كلاسيكي',
     fill: 'palette',
     palette: 'holst',
-    from: '#0A3D4A',
-    to: '#1D8B94',
-    idle: '#C8ECE7',
-    accent: '#1D8B94',
+    from: '#0f172a',
+    to: '#1e293b',
+    idle: '#94a3b8',
+    accent: '#1e293b',
     activeFg: '#ffffff',
-    cta: 'linear-gradient(90deg, #1D8B94, #4FB8B4)',
+    cta: '#0f172a',
   },
   {
     id: 'navy',
@@ -392,33 +392,48 @@ export function resolveDashboardLookId(chrome: StoreChromeBrand): DashboardLookI
 }
 
 /**
+ * Platform lock: one glass dashboard for every store (desktop = mobile).
+ * Keeps merchant wallpaper / sidebar photo / fonts; strips Night Luxe gradients.
+ */
+export function ensurePlatformGlassShell(chrome: StoreChromeBrand): StoreChromeBrand {
+  const keepShell =
+    Boolean((chrome.shellWallpaper || '').trim()) && !isDefaultShellWallpaper(chrome.shellWallpaper);
+  const keepBg = Boolean((chrome.bgImage || '').trim());
+  const keepCustomText =
+    chrome.shellTextMode === 'custom' && Boolean(optionalHex(chrome.pageTextColor));
+  return {
+    ...chrome,
+    palette: PLATFORM_CHROME_DEFAULTS.palette,
+    fill: keepBg ? 'image' : PLATFORM_CHROME_DEFAULTS.fill,
+    customColor: PLATFORM_CHROME_DEFAULTS.customColor,
+    gradientFrom: '#0A3D4A',
+    gradientTo: '#1D8B94',
+    sidebarDesign: 'classic',
+    shellWallpaperPreset: 'custom',
+    shellWallpaper: keepShell ? chrome.shellWallpaper : DEFAULT_SHELL_WALLPAPER_URL,
+    shellWallpaperBlur: keepShell
+      ? clampBlur(chrome.shellWallpaperBlur)
+      : PLATFORM_CHROME_DEFAULTS.shellWallpaperBlur,
+    shellWallpaperOpacity: keepShell
+      ? clampOpacity(chrome.shellWallpaperOpacity)
+      : PLATFORM_CHROME_DEFAULTS.shellWallpaperOpacity,
+    bgImage: keepBg ? chrome.bgImage : '',
+    shellTextMode: keepCustomText ? 'custom' : 'light',
+    dashboardLookId: 'glass',
+  };
+}
+
+/**
  * Apply a full dashboard look pack (sidebar + colors).
  * Merchant custom wallpaper / sidebar images are kept — never wiped by a look toggle.
  * Empty wallpaper falls back to the platform default image (not color gradients).
+ * @deprecated Look packs retired — always resolves to platform glass shell.
  */
 export function applyDashboardLookPack(
   chrome: StoreChromeBrand,
-  id: DashboardLookId,
+  _id?: DashboardLookId,
 ): StoreChromeBrand {
-  const pack = DASHBOARD_LOOK_PACKS.find((p) => p.id === id) ?? DASHBOARD_LOOK_PACKS[0];
-  const keepShell = Boolean((chrome.shellWallpaper || '').trim()) && !isDefaultShellWallpaper(chrome.shellWallpaper);
-  const keepBg = Boolean((chrome.bgImage || '').trim());
-  return {
-    ...chrome,
-    ...pack.chrome,
-    dashboardLookId: pack.id,
-    shellWallpaper: keepShell ? chrome.shellWallpaper : DEFAULT_SHELL_WALLPAPER_URL,
-    shellWallpaperPreset: 'custom',
-    shellWallpaperBlur: keepShell
-      ? clampBlur(chrome.shellWallpaperBlur)
-      : pack.chrome.shellWallpaperBlur,
-    shellWallpaperOpacity: keepShell
-      ? clampOpacity(chrome.shellWallpaperOpacity)
-      : pack.chrome.shellWallpaperOpacity,
-    bgImage: keepBg ? chrome.bgImage : '',
-    fill: keepBg ? 'image' : pack.chrome.fill,
-    updatedAt: Date.now(),
-  };
+  return ensurePlatformGlassShell(chrome);
 }
 
 export const CHROME_GRADIENTS: { id: string; from: string; to: string; label: string; labelAr: string }[] = [
@@ -455,7 +470,8 @@ export function defaultStoreChrome(): StoreChromeBrand {
     shellWallpaperOpacity: PLATFORM_CHROME_DEFAULTS.shellWallpaperOpacity,
     pageBgColor: '',
     pageTextColor: '',
-    shellTextMode: 'auto',
+    /** Platform default = Dark text over wallpaper (UI label). Merchant may change per store. */
+    shellTextMode: 'light',
     dashboardLookId: 'glass',
   };
 }
@@ -606,7 +622,7 @@ export function parseStoreChrome(raw: unknown): StoreChromeBrand {
     ? row.shellTextMode
     : pageTextColor
       ? 'custom'
-      : 'auto';
+      : 'light';
   const fontArRaw = typeof row.fontAr === 'string' ? row.fontAr : '';
   const fontAr: BrandFontArId | undefined = AR_FONTS.includes(fontArRaw as BrandFontArId)
     ? (fontArRaw as BrandFontArId)
@@ -989,12 +1005,13 @@ function applyShellInlineWallpaper(
   root.style.setProperty('--store-shell-wallpaper', `url("${cssUrl(painted)}")`);
   root.style.setProperty('--store-shell-wallpaper-blur', `${clampBlur(blurPx)}px`);
   root.style.setProperty('--store-shell-wallpaper-opacity', String(clampOpacity(opacity)));
-  // Scrim adapts to photo brightness so page titles stay readable (light→dark ink, dark→light ink)
+  // Light default: soft wash so wallpaper + dark titles stay readable (never flat navy block)
   const scrim =
     shellLuma === 'light'
-      ? 'linear-gradient(180deg, rgba(248, 250, 252, 0.55), rgba(241, 245, 249, 0.42))'
-      : 'linear-gradient(180deg, rgba(15, 23, 42, 0.55), rgba(15, 23, 42, 0.68))';
+      ? 'linear-gradient(180deg, rgba(248, 250, 252, 0.42), rgba(241, 245, 249, 0.28))'
+      : 'linear-gradient(180deg, rgba(15, 23, 42, 0.45), rgba(15, 23, 42, 0.58))';
   document.querySelectorAll<HTMLElement>('.unity-shell[data-portal="store"]').forEach((el) => {
+    el.style.setProperty('background-color', 'transparent', 'important');
     el.style.setProperty('background-image', scrim, 'important');
     el.style.setProperty('background-size', 'cover', 'important');
     el.style.setProperty('background-position', 'center', 'important');
@@ -1089,11 +1106,12 @@ function paint(root: HTMLElement): void {
    * - shellTextMode light/dark/custom → store owner force
    * - Photo + auto → sample image luma (default mountain is bright → light shell)
    */
+  // Missing mode → Dark text (platform default). Auto only when merchant picked it.
   const textMode: ShellTextMode = isShellTextMode(chrome.shellTextMode)
     ? chrome.shellTextMode
     : ownerText
       ? 'custom'
-      : 'auto';
+      : 'light';
   let shellLuma: ShellLuma =
     textMode === 'light'
       ? 'light'
@@ -1109,9 +1127,13 @@ function paint(root: HTMLElement): void {
   root.setAttribute('data-shell-text-mode', textMode);
   {
     const paintUrl = absolutePaintUrl(wallpaperUrl, boundStoreId);
-    const allowAutoLuma = textMode === 'auto';
+    // Platform default mountain stays Dark text — never let async/cached luma flip titles white.
+    const allowAutoLuma = textMode === 'auto' && !isDefaultShellWallpaper(wallpaperUrl);
     const cachedLuma = allowAutoLuma && paintUrl ? cachedShellWallpaperLuma(paintUrl) : null;
     if (cachedLuma) shellLuma = cachedLuma;
+    if (!allowAutoLuma && isDefaultShellWallpaper(wallpaperUrl) && textMode === 'auto') {
+      shellLuma = 'light';
+    }
     root.setAttribute('data-shell-luma', shellLuma);
     if (paintUrl) {
       applyShellInlineWallpaper(
@@ -1127,7 +1149,7 @@ function paint(root: HTMLElement): void {
         void sampleShellWallpaperLuma(paintUrl).then((luma) => {
           if (boundStoreId !== storeId) return;
           if (resolveShellWallpaperUrl(boundChrome) !== pendingUrl) return;
-          if ((boundChrome?.shellTextMode || 'auto') !== 'auto') return;
+          if ((boundChrome?.shellTextMode || 'light') !== 'auto') return;
           const html = document.documentElement;
           if (html.getAttribute('data-shell-luma') === luma) {
             applyShellInlineWallpaper(
@@ -1241,14 +1263,10 @@ function paint(root: HTMLElement): void {
       root.setAttribute('data-sidebar-luma', 'dark');
     }
     root.style.removeProperty('--chrome-header-bg');
-  } else if (chrome.fill === 'custom' && isDarkHexColor(chrome.customColor)) {
-    root.style.removeProperty('--chrome-sidebar-bg');
-    root.setAttribute('data-sidebar-luma', 'dark');
-    root.style.removeProperty('--chrome-header-bg');
   } else {
+    // Platform glass (custom #1e293b CTA): frosted sidebar + dark nav text — never Night wash.
     root.removeAttribute('data-sidebar-luma');
     root.style.removeProperty('--chrome-sidebar-bg');
-    // Palette / solid: header + main share --bg only
     root.style.removeProperty('--chrome-header-bg');
   }
 
@@ -1295,7 +1313,8 @@ setChromePainter(paint);
 export function bindStoreChrome(storeId: string, chrome: StoreChromeBrand): void {
   chromeRevision += 1;
   boundStoreId = storeId;
-  boundChrome = chrome;
+  // Always paint platform glass (dark text + wallpaper) — Night Luxe / look packs retired.
+  boundChrome = ensurePlatformGlassShell(chrome);
   paint(document.documentElement);
 }
 
@@ -1327,7 +1346,7 @@ function mergePendingChrome(storeId: string, base: StoreChromeBrand): StoreChrom
     sidebarDesign: pending.sidebarDesign || base.sidebarDesign,
     pageBgColor: pending.pageBgColor ?? '',
     pageTextColor: pending.pageTextColor ?? '',
-    shellTextMode: isShellTextMode(pending.shellTextMode) ? pending.shellTextMode : 'auto',
+    shellTextMode: isShellTextMode(pending.shellTextMode) ? pending.shellTextMode : 'light',
     fontAr: pending.fontAr ?? base.fontAr,
     fontWeight: pending.fontWeight ?? base.fontWeight,
     customFontFamilyAr:
@@ -1496,6 +1515,7 @@ export async function loadStoreChrome(storeId: string): Promise<StoreChromeBrand
       /* local cache remains */
     }
 
+    merged = ensurePlatformGlassShell(merged);
     writeChromeCache(storeId, persistableStoreChrome(merged));
     return merged;
   })();
@@ -1509,7 +1529,10 @@ export async function loadStoreChrome(storeId: string): Promise<StoreChromeBrand
 }
 
 export async function saveStoreChrome(storeId: string, chrome: StoreChromeBrand): Promise<void> {
-  const live = parseStoreChrome({ ...chrome, updatedAt: Date.now() });
+  const live = parseStoreChrome({
+    ...ensurePlatformGlassShell(chrome),
+    updatedAt: Date.now(),
+  });
   const next = persistableStoreChrome(live);
   const shellWallpaper = resolveShellWallpaperUrl(live.shellWallpaper);
   let painted: StoreChromeBrand = {

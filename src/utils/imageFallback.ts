@@ -54,7 +54,13 @@ const LEGACY_COFFEE_PATH_ALIASES: Record<string, string> = {
   '/hero_coffee_banner_white_1.webp': '/images/coffee_banner_white_gray_1.webp',
   '/hero_coffee_banner_white_2.webp': '/images/coffee_banner_white_gray_2.webp',
   '/hero_coffee_banner_white_3.webp': '/images/coffee_banner_white_gray_3.webp',
+  '/images/group_demo_child_silver.jpg': '/images/product_machine_silver_pro.png',
+  '/images/group_demo_child_black.jpg': '/images/product_machine_compact_black.png',
+  '/images/group_demo_child_gold.jpg': '/images/product_machine_delonghi_black.png',
+  '/images/group_demo_parent.jpg': '/images/hibrew_h7a_flagship_machine.png',
 };
+
+export const COFFEE_STOREFRONT_IMAGE_FALLBACK = '/images/hibrew_h7a_flagship_machine.png';
 
 /**
  * Normalize any legacy /src/assets/images/ paths to canonical /images/
@@ -72,8 +78,18 @@ export function cleanImageUrl(url?: string | null): string {
   if (trimmed.startsWith('src/assets/images/')) {
     trimmed = trimmed.replace('src/assets/images/', '/images/');
   }
+  const pathOnly = trimmed.replace(/^https?:\/\/[^/]+/, '').split('?')[0];
+  if (LEGACY_COFFEE_PATH_ALIASES[pathOnly]) {
+    return LEGACY_COFFEE_PATH_ALIASES[pathOnly];
+  }
   if (LEGACY_COFFEE_PATH_ALIASES[trimmed]) {
     return LEGACY_COFFEE_PATH_ALIASES[trimmed];
+  }
+  if (/\/group_demo_/i.test(pathOnly)) {
+    if (/silver/i.test(pathOnly)) return '/images/product_machine_silver_pro.png';
+    if (/black|duo|compact/i.test(pathOnly)) return '/images/product_machine_compact_black.png';
+    if (/gold|delonghi/i.test(pathOnly)) return '/images/product_machine_delonghi_black.png';
+    return COFFEE_STOREFRONT_IMAGE_FALLBACK;
   }
   return trimmed;
 }
@@ -171,6 +187,9 @@ export const KNOWN_PRODUCT_CATALOG_IMAGES: Record<string, string> = {
   'hb-mill-g5-pro': '/images/coffee_grinder_mill_banner_1791218928342.jpg',
   'hb-nordic-cabinet': '/images/coffee_corner_luxury_station_1791219182840.jpg',
   'bundle-mill-g5': '/images/coffee_grinder_mill_banner_1791218928342.jpg',
+  'prod-c1-yvdusf': '/images/product_machine_silver_pro.png',
+  'grp-child-silver': '/images/product_machine_silver_pro.png',
+  'GRP-CHILD-SILVER': '/images/product_machine_silver_pro.png',
   // Luxury Flowers & Hadaya Makkah Catalog (Pure Local Images)
   'WM-PEONY-05': '/images/hadaya_pink_peonies_1791216156090.jpg',
   'wm-peony-05': '/images/hadaya_pink_peonies_1791216156090.jpg',

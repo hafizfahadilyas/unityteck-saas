@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Store;
 use App\Models\StoreGoogleIntegration;
 use App\Models\SeoConfig;
+use App\Support\Ga4MeasurementId;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -251,6 +252,35 @@ class GoogleService
         }
 
         return $properties;
+    }
+
+    /**
+     * Resolve GA4 web Measurement ID (G-…) from Analytics Admin data streams.
+     * Never invent — returns null when no WEB stream / API failure.
+     */
+    public function resolveGa4MeasurementId(string $accessToken, string $propertyId): ?string
+    {
+        if (!Ga4MeasurementId::isValidPropertyId($propertyId)) {
+            return null;
+        }
+        $propertyId = Ga4MeasurementId::normalizePropertyId($propertyId);
+
+        try {
+            $res = Http::withToken($accessToken)
+                ->get("https://analyticsadmin.googleapis.com/v1beta/properties/{$propertyId}/dataStreams");
+
+            if (!$res->successful()) {
+                Log::warning('GA4 dataStreams failed: ' . $res->body());
+
+                return null;
+            }
+
+            return Ga4MeasurementId::fromDataStreamsPayload($res->json() ?? []);
+        } catch (\Throwable $e) {
+            Log::warning('GA4 measurement resolve exception: ' . $e->getMessage());
+        }
+
+        return null;
     }
 
     /**
@@ -629,9 +659,16 @@ class GoogleService
     /**
      * Pick best GA4 / GSC / GTM / Ads for this store (Site Kit auto-link).
      * Prefer GSC property matching published domain; otherwise first available — never invent IDs.
+     * When $accessToken is set, resolve real G-… Measurement ID from Admin data streams.
      */
-    public function pickSiteKitDefaults(?Store $store, array $ga4, array $gsc, array $gtm, array $ads): array
-    {
+    public function pickSiteKitDefaults(
+        ?Store $store,
+        array $ga4,
+        array $gsc,
+        array $gtm,
+        array $ads,
+        ?string $accessToken = null,
+    ): array {
         $base = $this->resolveStorePublicBaseUrl($store);
         $host = $base ? strtolower(parse_url($base, PHP_URL_HOST) ?: '') : '';
         $slug = $store ? strtolower((string) ($store->slug ?? '')) : '';
@@ -656,12 +693,22 @@ class GoogleService
         $gtmFirst = $gtm[0] ?? null;
         $adsFirst = $ads[0] ?? null;
 
+        $ga4PropertyId = $ga4First['propertyId'] ?? null;
+        if (!$ga4PropertyId && !empty($ga4First['propertyResource'])) {
+            $ga4PropertyId = str_replace('properties/', '', (string) $ga4First['propertyResource']);
+        }
+
+        $measurementId = null;
+        if ($accessToken && $ga4PropertyId) {
+            $measurementId = $this->resolveGa4MeasurementId($accessToken, (string) $ga4PropertyId);
+        }
+
         $sitemapUrl = $base !== '' ? rtrim($base, '/') . '/sitemap.xml' : null;
 
         return [
-            'ga4_property_id' => $ga4First['propertyId'] ?? ($ga4First['propertyResource'] ?? null),
+            'ga4_property_id' => $ga4PropertyId,
             'ga4_property_name' => $ga4First['displayName'] ?? null,
-            'ga4_measurement_id' => null, // filled only when merchant/API provides Measurement ID
+            'ga4_measurement_id' => $measurementId,
             'gsc_site_url' => $matchedGsc['siteUrl'] ?? null,
             'gtm_account_id' => isset($gtmFirst['accountId']) ? (string) $gtmFirst['accountId'] : null,
             'gtm_container_id' => $gtmFirst['containerId'] ?? null,

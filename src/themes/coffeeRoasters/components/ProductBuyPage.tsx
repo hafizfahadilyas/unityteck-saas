@@ -48,20 +48,44 @@ import { optionValuesList } from '../../../utils/productVariants';
 import { useTenant } from '../../../context/TenantContext';
 import { effectiveProductPricing } from '../../../utils/productSaleSchedule';
 import { saleCountdownParts } from '../../../utils/saleCountdown';
-import { customFieldIsFillable, normalizeCustomFieldType } from '../../../utils/customFieldTypes';
 import { isPurchaseCustomField } from '../../../utils/coffeeLearnMoreFields';
 import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
-import { fetchProduct, fetchStoreReviews, submitStoreReviewApi } from '../../../api/tenantApi';
+import {
+  fetchProduct,
+  fetchStoreReviews,
+  fetchStorefrontPaymentMethodsApi,
+  submitStoreReviewApi,
+} from '../../../api/tenantApi';
 import type { Product as ThemeProduct } from '../types';
 import baristaKitImg from '../assets/images/hibrew_barista_kit_isolated.jpg';
 import scaleImg from '../assets/images/hibrew_scale_isolated.jpg';
+import {
+  cleanImageUrl,
+  COFFEE_STOREFRONT_IMAGE_FALLBACK,
+  handleImageError,
+  resolveProductThumbnail,
+} from '../../../utils/imageFallback';
+
+function resolveBuyPageImage(
+  url: string | undefined,
+  item?: { id?: string; sku?: string; name?: string; nameAr?: string },
+): string {
+  return resolveProductThumbnail({
+    image: cleanImageUrl(url || ''),
+    id: item?.id,
+    sku: item?.sku,
+    name: item?.name,
+    nameAr: item?.nameAr,
+  });
+}
 
 function mapApiChildToThemeProduct(child: import('../../../types').Product): ThemeProduct {
-  const primary =
+  const primary = cleanImageUrl(
     child.image ||
-    child.imageUrl ||
-    (child.galleryUrls && child.galleryUrls[0]) ||
-    '';
+      child.imageUrl ||
+      (child.galleryUrls && child.galleryUrls[0]) ||
+      '',
+  );
   const regular = Number(child.price) || 0;
   const sale = Number(child.discountedPrice) || 0;
   const selling = sale > 0 && sale < regular ? sale : regular;
@@ -90,8 +114,13 @@ function mapApiChildToThemeProduct(child: import('../../../types').Product): The
     storageOptions: [],
     specs: Array.isArray(child.specs) ? child.specs : [],
     images: primary
-      ? [primary, ...(child.galleryUrls || []).filter((u) => u !== primary)]
-      : [...(child.galleryUrls || [])],
+      ? [
+          primary,
+          ...(child.galleryUrls || [])
+            .map((u) => cleanImageUrl(u))
+            .filter((u) => u && u !== primary),
+        ]
+      : (child.galleryUrls || []).map((u) => cleanImageUrl(u)).filter(Boolean),
     overview: child.description || '',
     overviewAr: child.descriptionAr || '',
     productOptions: (child.productOptions as ThemeProduct['productOptions']) || [],
@@ -128,6 +157,8 @@ interface ProductBuyPageProps {
 export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false }) => {
   const {
     selectedProduct,
+    selectedProductId,
+    productSelectionReady,
     addToCart,
     triggerFlyToCart,
     navigateTo,
@@ -143,6 +174,9 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
   const parentProduct = selectedProduct;
   const [groupChildren, setGroupChildren] = useState<ThemeProduct[]>([]);
   const [activeChildId, setActiveChildId] = useState<string | null>(null);
+  /** Real Tamara gateway: only show product-page widget when connected + logo toggle ON */
+  const [showTamaraOnProduct, setShowTamaraOnProduct] = useState(false);
+  const [showTabbyOnProduct, setShowTabbyOnProduct] = useState(false);
 
   const parentIsGrouped = Boolean(
     parentProduct?.isGrouped ||
@@ -167,6 +201,58 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
       pool.find((c) => String(c.id) === String(activeChildId || '')) || pool[0];
     return active || parentProduct;
   }, [parentIsGrouped, parentProduct, compareChildren, activeChildId]);
+
+  const buyPageReady = useMemo(() => {
+    if (!productSelectionReady || !parentProduct || !product) return false;
+    const targetId = String(selectedProductId || '').trim();
+    if (!targetId) return true;
+    if (!parentIsGrouped) return String(product.id) === targetId;
+    // Parent SEO URL (/product/{parentId}) must open buy once children hydrate;
+    // commerce still uses the selected child (activeChildId).
+    if (!compareChildren.length) return false;
+    const parentId = String(parentProduct.id || '');
+    const targetIsParent = targetId === parentId;
+    const targetIsChild = compareChildren.some((c) => String(c.id) === targetId);
+    if (!targetIsParent && !targetIsChild) return false;
+    const activeId = String(activeChildId || compareChildren[0]?.id || '');
+    return Boolean(activeId) && String(product.id) === activeId;
+  }, [
+    productSelectionReady,
+    parentProduct,
+    product,
+    parentIsGrouped,
+    selectedProductId,
+    compareChildren,
+    activeChildId,
+  ]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const storeId = activeStore?.id;
+    if (!storeId) {
+      setShowTamaraOnProduct(false);
+      setShowTabbyOnProduct(false);
+      return;
+    }
+    (async () => {
+      try {
+        const methods = await fetchStorefrontPaymentMethodsApi(storeId);
+        if (cancelled) return;
+        const tamara = methods.find((m) => m.id === 'tamara' && m.is_enabled !== false);
+        const tabby = methods.find((m) => m.id === 'tabby' && m.is_enabled !== false);
+        setShowTamaraOnProduct(Boolean(tamara && tamara.show_product_logo !== false));
+        setShowTabbyOnProduct(Boolean(tabby));
+      } catch {
+        if (!cancelled) {
+          setShowTamaraOnProduct(false);
+          setShowTabbyOnProduct(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeStore?.id]);
 
   useEffect(() => {
     const urlPid = (() => {
@@ -377,18 +463,24 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
   // Stable gallery images: all product colors first in fixed order, followed by product images
   const productColors = product?.colors || [];
   const productImages = product?.images || [];
+  const imgMeta = {
+    id: product?.id,
+    sku: product?.sku,
+    name: product?.name,
+    nameAr: product?.nameAr,
+  };
   const candidateImages = [
-    ...productColors.map(c => c.image),
-    ...productImages.filter(img => !productColors.some(col => col.image === img)),
+    ...productColors.map((c) => resolveBuyPageImage(c.image, imgMeta)),
+    ...productImages
+      .filter((img) => !productColors.some((col) => col.image === img))
+      .map((img) => resolveBuyPageImage(img, imgMeta)),
   ].filter(Boolean) as string[];
 
-  // Fallback to product.image or flagship PNG if empty
   if (candidateImages.length === 0) {
-    if ((product as any)?.image) {
-      candidateImages.push((product as any).image);
-    } else {
-      candidateImages.push('/images/hibrew_h7a_flagship_machine.png');
-    }
+    candidateImages.push(
+      resolveBuyPageImage((product as { image?: string })?.image, imgMeta) ||
+        COFFEE_STOREFRONT_IMAGE_FALLBACK,
+    );
   }
 
   const allImages = Array.from(new Set(candidateImages));
@@ -408,13 +500,13 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
       product.variations as never,
     );
   }, [product, useDynamicOptions, liveOptions, optionPick]);
+  // Include Content + Divider so every Custom Field type can show on the buy page.
+  // Price math still uses fillable types only (see customFieldsExtra / cart).
   const purchaseFields = (product?.customFields || []).filter(
     (field) =>
       field &&
       isPurchaseCustomField(field) &&
       !field.hidden &&
-      customFieldIsFillable(field.type) &&
-      normalizeCustomFieldType(field.type) !== 'Content' &&
       !String(field.id || '').startsWith('catalog-spec-'),
   );
   const hasCustomFields = purchaseFields.length > 0;
@@ -929,6 +1021,18 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
     }
   ];
 
+  if (!buyPageReady) {
+    return (
+      <div
+        className="min-h-[50vh] w-full flex items-center justify-center bg-white"
+        aria-busy="true"
+        role="status"
+      >
+        <div className="w-9 h-9 rounded-full border-2 border-neutral-200 border-t-[#8B5A2B] animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white text-neutral-900 text-start pb-28 lg:pb-24 selection:bg-neutral-900 selection:text-white w-full max-w-full">
       {/* ========================================================================= */}
@@ -937,11 +1041,16 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
       <div
         ref={buyStickyBarRef}
         data-buy-sticky-bar="1"
-        className="sticky z-40 w-full bg-white border-b border-[#E5E5E5] shadow-none"
+        className="sticky z-40 w-full border-b border-[#E5E5E5] shadow-none"
         style={{
           boxShadow: 'none',
           top: 'var(--theme-chrome-offset, 4rem)',
+          // Solid only — never bg-white (portal glass remaps it to 72% frost)
+          background: '#FFFFFF',
           backgroundColor: '#FFFFFF',
+          backdropFilter: 'none',
+          WebkitBackdropFilter: 'none',
+          opacity: 1,
         }}
       >
         <div className="max-w-[1200px] mx-auto px-3 sm:px-6 lg:px-8 min-h-12 sm:h-14 flex items-center gap-2 sm:gap-5 overflow-hidden">
@@ -1096,10 +1205,11 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                 ) : null}
 
                 <img
-                  src={currentDisplayImage}
+                  src={resolveBuyPageImage(currentDisplayImage, imgMeta)}
                   alt={product.name}
                   className="relative z-0 w-full h-auto max-h-[260px] sm:max-h-[340px] lg:max-h-[380px] max-w-[88%] block object-contain object-center"
                   referrerPolicy="no-referrer"
+                  onError={(e) => handleImageError(e, COFFEE_STOREFRONT_IMAGE_FALLBACK)}
                 />
 
                 {/* Right-side Honor gift capsules */}
@@ -1202,6 +1312,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               const useGroupStrip = parentIsGrouped && compareChildren.length > 0;
               const stripCount = useGroupStrip ? compareChildren.length : displayThumbnails.length;
               if (stripCount < 1) return null;
+              const fitThumbRow = stripCount <= 4;
 
               const scrollStrip = (dir: -1 | 1) => {
                 const el = document.querySelector(
@@ -1218,7 +1329,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                     </p>
                   ) : null}
                   <div
-                    className="w-full flex flex-nowrap items-center gap-1.5"
+                    className={`w-full flex flex-nowrap items-center gap-1.5 ${fitThumbRow ? 'justify-center' : ''}`}
                     dir="ltr"
                     style={{ flexWrap: 'nowrap' }}
                   >
@@ -1245,26 +1356,46 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
 
                     <div
                       data-honor-thumb-scroll="1"
-                      className="flex-1 min-w-0 overflow-x-auto overflow-y-hidden no-scrollbar"
-                      style={{ WebkitOverflowScrolling: 'touch' }}
+                      className={
+                        fitThumbRow
+                          ? 'flex-1 min-w-0 overflow-visible'
+                          : 'flex-1 min-w-0 overflow-x-auto overflow-y-hidden no-scrollbar'
+                      }
+                      style={fitThumbRow ? undefined : { WebkitOverflowScrolling: 'touch' }}
                     >
                       <div
-                        className="flex flex-nowrap items-center gap-2"
-                        style={{
-                          display: 'flex',
-                          flexWrap: 'nowrap',
-                          flexDirection: 'row',
-                          width: 'max-content',
-                          whiteSpace: 'nowrap',
-                        }}
+                        className={`flex flex-nowrap items-center gap-2 ${fitThumbRow ? 'w-full justify-center' : ''}`}
+                        style={
+                          fitThumbRow
+                            ? {
+                                display: 'flex',
+                                flexWrap: 'nowrap',
+                                flexDirection: 'row',
+                                width: '100%',
+                              }
+                            : {
+                                display: 'flex',
+                                flexWrap: 'nowrap',
+                                flexDirection: 'row',
+                                width: 'max-content',
+                                whiteSpace: 'nowrap',
+                              }
+                        }
                       >
                         {useGroupStrip
                           ? compareChildren.map((child, childIndex) => {
-                              const thumb =
+                              const thumb = resolveBuyPageImage(
                                 child.selectorImageUrl ||
-                                child.images?.[0] ||
-                                child.image ||
-                                '/images/hibrew_h7a_flagship_machine.png';
+                                  child.images?.[0] ||
+                                  child.image ||
+                                  '',
+                                {
+                                  id: child.id,
+                                  sku: child.sku,
+                                  name: child.name,
+                                  nameAr: child.nameAr,
+                                },
+                              );
                               const selected = activeChildId
                                 ? String(activeChildId) === String(child.id)
                                 : childIndex === 0;
@@ -1275,9 +1406,12 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                                   onClick={() => setActiveChildId(String(child.id))}
                                   className="relative rounded-lg overflow-hidden bg-white cursor-pointer shrink-0 grow-0 box-border"
                                   style={{
-                                    width: 64,
-                                    height: 64,
-                                    flex: '0 0 64px',
+                                    width: fitThumbRow ? undefined : 64,
+                                    height: fitThumbRow ? undefined : 64,
+                                    minWidth: fitThumbRow ? 56 : 64,
+                                    maxWidth: fitThumbRow ? 80 : 64,
+                                    flex: fitThumbRow ? '1 1 0' : '0 0 64px',
+                                    aspectRatio: '1',
                                     boxShadow: 'none',
                                     border: selected ? '2px solid #000000' : '1px solid #000000',
                                   }}
@@ -1293,6 +1427,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                                     }
                                     className="w-full h-full object-contain p-1 pointer-events-none"
                                     referrerPolicy="no-referrer"
+                                    onError={(e) => handleImageError(e, COFFEE_STOREFRONT_IMAGE_FALLBACK)}
                                   />
                                 </button>
                               );
@@ -1306,18 +1441,22 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                                   onClick={() => handleThumbnailClick(idx)}
                                   className="rounded-lg bg-white p-1 cursor-pointer shrink-0 grow-0 box-border"
                                   style={{
-                                    width: 64,
-                                    height: 64,
-                                    flex: '0 0 64px',
+                                    width: fitThumbRow ? undefined : 64,
+                                    height: fitThumbRow ? undefined : 64,
+                                    minWidth: fitThumbRow ? 56 : 64,
+                                    maxWidth: fitThumbRow ? 80 : 64,
+                                    flex: fitThumbRow ? '1 1 0' : '0 0 64px',
+                                    aspectRatio: '1',
                                     boxShadow: 'none',
                                     border: isActive ? '2px solid #000000' : '1px solid #000000',
                                   }}
                                 >
                                   <img
-                                    src={img}
+                                    src={resolveBuyPageImage(img, imgMeta)}
                                     alt=""
                                     className="w-full h-full object-contain object-center pointer-events-none"
                                     referrerPolicy="no-referrer"
+                                    onError={(e) => handleImageError(e, COFFEE_STOREFRONT_IMAGE_FALLBACK)}
                                   />
                                 </button>
                               );
@@ -1580,7 +1719,17 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
 
             {/* Honor Care box — product.warranties (when custom Care field is absent) */}
             {!hasCustomCareField && product.warranties && product.warranties.length > 0 ? (
-              <div className="rounded-xl bg-white p-4 sm:p-5 space-y-3 shadow-none border border-solid border-black box-border" style={{ boxShadow: 'none', border: '1px solid #000000' }}>
+              <div
+                data-honor-care-panel="1"
+                className="rounded-xl bg-white p-4 sm:p-5 space-y-3 shadow-none box-border"
+                style={{
+                  boxShadow: 'none',
+                  border: '1px solid #000000',
+                  outline: '1px solid #000000',
+                  outlineOffset: '-1px',
+                  borderRadius: '12px',
+                }}
+              >
                 <h2 className="text-base font-extrabold text-neutral-900 tracking-tight">
                   {language === 'AR' ? 'باقة رعاية هايبرو' : 'HiBrew Care Package'}
                 </h2>
@@ -1725,10 +1874,17 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                       <button
                         key={bundle.id}
                         onClick={() => toggleBundle(bundle)}
-                        className={`w-full px-4 py-3.5 rounded-xl flex items-center gap-3 transition-all cursor-pointer bg-white shadow-none border border-solid border-black box-border ${
+                        className={`w-full px-4 py-3.5 rounded-xl flex items-center gap-3 transition-all cursor-pointer bg-white shadow-none box-border ${
                           isSelected ? 'bg-neutral-50 font-bold' : ''
                         }`}
-                        style={{ boxShadow: 'none', border: '1px solid #000000' }}
+                        data-honor-offer-row="1"
+                        style={{
+                          boxShadow: 'none',
+                          border: '1px solid #9A9A9A',
+                          outline: '1px solid #9A9A9A',
+                          outlineOffset: '-1px',
+                          borderRadius: '12px',
+                        }}
                       >
                         <div
                           className={`w-[18px] h-[18px] rounded-[3px] flex items-center justify-center shrink-0 border border-solid border-neutral-900 box-border ${
@@ -1979,36 +2135,46 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                 </div>
               </div>
 
-              {/* Tamara Installment Card */}
-              <div className="bg-white border border-neutral-200/90 rounded-xl p-4 hover:border-neutral-300 transition-all">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs text-neutral-700 leading-relaxed">
-                      {language === 'AR' ? (
-                        <>
-                          يبدأ من <span className="font-bold text-neutral-900">﷼ {(totalPrice / 24).toFixed(2)}/شهرياً</span> حتى 24 شهراً، متوافق مع الشريعة!
-                        </>
-                      ) : (
-                        <>
-                          From <span className="font-bold text-neutral-900">﷼ {(totalPrice / 24).toFixed(2)}/Month</span> for up to 24 months, shariah compliant!
-                        </>
-                      )}
-                    </p>
-                    <button
-                      type="button"
-                      className="mt-1 text-xs font-semibold text-neutral-900 underline hover:text-black cursor-pointer block text-start"
-                    >
-                      {language === 'AR' ? 'خيارات إضافية' : 'More options'}
-                    </button>
-                  </div>
-                  <div className="shrink-0 bg-gradient-to-r from-[#FF9863] to-[#EB5D82] text-white font-extrabold text-[12px] px-2.5 py-1 rounded-md tracking-tight select-none">
-                    tamara
+              {/* Tamara Installment Card — only when gateway connected + product logo toggle ON */}
+              {showTamaraOnProduct ? (
+                <div className="bg-white border border-neutral-200/90 rounded-xl p-4 hover:border-neutral-300 transition-all">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-neutral-700 leading-relaxed">
+                        {language === 'AR' ? (
+                          <>
+                            أو قسّمها على{' '}
+                            <span className="font-bold text-neutral-900">
+                              4 دفعات × ﷼ {(totalPrice / 4).toFixed(2)}
+                            </span>{' '}
+                            بدون فوائد، متوافق مع الشريعة!
+                          </>
+                        ) : (
+                          <>
+                            Or split into{' '}
+                            <span className="font-bold text-neutral-900">
+                              4 × ﷼ {(totalPrice / 4).toFixed(2)}
+                            </span>{' '}
+                            interest-free, Sharia compliant!
+                          </>
+                        )}
+                      </p>
+                      <button
+                        type="button"
+                        className="mt-1 text-xs font-semibold text-neutral-900 underline hover:text-black cursor-pointer block text-start"
+                      >
+                        {language === 'AR' ? 'خيارات إضافية' : 'More options'}
+                      </button>
+                    </div>
+                    <div className="shrink-0">
+                      <TamaraIcon className="h-6" />
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : null}
             </div>
 
-            {/* APPROVED PAYMENT LOGOS */}
+            {/* APPROVED PAYMENT LOGOS — BNPL logos only when that gateway is connected */}
             <div className="pt-2 space-y-2">
               <span className="text-[11px] text-neutral-500 block text-center">
                 {language === 'AR' ? 'وسائل الدفع المعتمدة والتقسيط بالمملكة:' : 'Approved Payment & Installment Methods in KSA:'}
@@ -2016,8 +2182,8 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               <div className="flex items-center justify-center gap-3.5 flex-wrap">
                 <MadaIcon className="h-4.5" />
                 <ApplePayIcon className="h-4.5" />
-                <TabbyIcon className="h-4" />
-                <TamaraIcon className="h-4" />
+                {showTabbyOnProduct ? <TabbyIcon className="h-4" /> : null}
+                {showTamaraOnProduct ? <TamaraIcon className="h-4" /> : null}
                 <VisaIcon className="h-4" />
                 <MastercardIcon className="h-4" />
               </div>

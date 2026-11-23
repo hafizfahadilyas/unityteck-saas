@@ -23,6 +23,8 @@ type Props = {
   isAr: boolean;
   locale: string;
   compact?: boolean;
+  /** Show a visible Add New button beside the trigger (not only inside the menu). */
+  showAddButton?: boolean;
   className?: string;
   onChange: (next: string[], primary: string) => void;
   onCategoriesCreated?: () => void;
@@ -57,6 +59,7 @@ export const ProductCategoryMultiPicker: React.FC<Props> = ({
   isAr,
   locale,
   compact = false,
+  showAddButton = true,
   className = '',
   onChange,
   onCategoriesCreated,
@@ -191,18 +194,32 @@ export const ProductCategoryMultiPicker: React.FC<Props> = ({
         </div>
       ) : null}
 
-      <button
-        ref={anchorRef}
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={`w-full flex items-center justify-between gap-1.5 px-2 py-1.5 text-xs font-medium rounded-lg border bg-white dark:bg-slate-900 focus:outline-none cursor-pointer ${compact ? 'max-w-[160px]' : ''}`}
-        style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-        aria-expanded={open}
-        aria-haspopup="listbox"
-      >
-        <span className="truncate text-start">{triggerLabel}</span>
-        <ChevronDown className={`w-3.5 h-3.5 shrink-0 opacity-70 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
+      <div className={`flex items-stretch gap-1.5 ${compact ? 'max-w-[220px]' : 'w-full'}`}>
+        <button
+          ref={anchorRef}
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex-1 min-w-0 flex items-center justify-between gap-1.5 px-2 py-1.5 text-xs font-medium rounded-lg border bg-white dark:bg-slate-900 focus:outline-none cursor-pointer"
+          style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+          aria-expanded={open}
+          aria-haspopup="listbox"
+        >
+          <span className="truncate text-start">{triggerLabel}</span>
+          <ChevronDown className={`w-3.5 h-3.5 shrink-0 opacity-70 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+        {showAddButton ? (
+          <button
+            type="button"
+            onClick={openAddNew}
+            className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold unity-btn-primary shrink-0 cursor-pointer"
+            title={isAr ? 'تصنيف جديد' : 'Add New Category'}
+            aria-label={isAr ? 'تصنيف جديد' : 'Add New Category'}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            {!compact ? <span>{isAr ? 'جديد' : 'New'}</span> : null}
+          </button>
+        ) : null}
+      </div>
 
       {compact && selectedClean.length > 1 ? (
         <div className="mt-1 flex flex-wrap gap-0.5 max-w-[160px]">

@@ -12,6 +12,8 @@ class SeoBilingual
         'meta_description_ar',
         'keywords_en',
         'keywords_ar',
+        // llms.txt lives in extra JSON (no new DB column required on shared Hostinger)
+        'llms_txt',
     ];
 
     /**

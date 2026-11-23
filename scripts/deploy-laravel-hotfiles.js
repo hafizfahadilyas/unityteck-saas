@@ -79,6 +79,30 @@ const files = [
     remote: 'app/Http/Controllers/Api/AnalyticsReportController.php',
   },
   {
+    local: 'apps/api/app/Http/Controllers/Api/GoogleIntegrationController.php',
+    remote: 'app/Http/Controllers/Api/GoogleIntegrationController.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/StorefrontAnalyticsController.php',
+    remote: 'app/Http/Controllers/Api/StorefrontAnalyticsController.php',
+  },
+  {
+    local: 'apps/api/app/Services/GoogleService.php',
+    remote: 'app/Services/GoogleService.php',
+  },
+  {
+    local: 'apps/api/app/Support/Ga4MeasurementId.php',
+    remote: 'app/Support/Ga4MeasurementId.php',
+  },
+  {
+    local: 'apps/api/app/Models/CustomerActivity.php',
+    remote: 'app/Models/CustomerActivity.php',
+  },
+  {
+    local: 'apps/api/app/Console/Commands/ReportAbandonedCarts.php',
+    remote: 'app/Console/Commands/ReportAbandonedCarts.php',
+  },
+  {
     local: 'apps/api/routes/api.php',
     remote: 'routes/api.php',
   },

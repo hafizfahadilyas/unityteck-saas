@@ -287,6 +287,7 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     Route::get('/google/analytics', [GoogleIntegrationController::class, 'getAnalytics'])->middleware('plan.feature:analytics');
     Route::get('/google/search-console', [GoogleIntegrationController::class, 'getSearchConsole']);
     Route::get('/google/pagespeed', [GoogleIntegrationController::class, 'getPageSpeed']);
+    Route::post('/google/indexing', [GoogleIntegrationController::class, 'requestIndexing']);
 
     // Google Ads — store-isolated campaigns / budgets / ROAS (real API only)
     Route::get('/google/ads/overview', [\App\Http\Controllers\Api\GoogleAdsController::class, 'overview']);
@@ -559,7 +560,8 @@ Route::get('/resolve-domain', [DomainController::class, 'resolveDomain']);
 // Public Theme & Page Builder Layout for Storefront
 Route::get('/storefront/theme', [StoreThemeController::class, 'storefrontTheme']);
 Route::get('/storefront/sitemap', [StoreThemeController::class, 'storefrontSitemap']);
-Route::get('/storefront/robots', [StoreThemeController::class, 'storefrontRobots']);
+    Route::get('/storefront/robots', [StoreThemeController::class, 'storefrontRobots']);
+    Route::get('/storefront/llms', [StoreThemeController::class, 'storefrontLlms']);
 Route::get('/storefront/seo-bootstrap', [StorefrontSeoBootstrapController::class, 'show']);
 Route::post('/storefront/events', [StorefrontAnalyticsController::class, 'storeEvent']);
 Route::get('/storefront/builder-layout', [StoreThemeController::class, 'storefrontTheme']);

@@ -12,10 +12,18 @@ import {
   ShoppingCart,
   Users,
   Layers,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { NotificationItem } from '../types/notification.types';
 import { useNotifications } from '../hooks/useNotifications';
 import { formatRelativeTime } from '../utils/dateFilters';
+import {
+  isNotificationSoundMuted,
+  playNotificationSound,
+  setNotificationSoundMuted,
+  unlockNotificationAudio,
+} from '../services/notificationSound';
 import { usePrefs } from '../../i18n/PrefsContext';
 
 type HeaderTab = 'all' | 'orders' | 'customers';
@@ -62,6 +70,7 @@ export const BellDropdown: React.FC<BellDropdownProps> = ({
 
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<HeaderTab>('all');
+  const [soundMuted, setSoundMuted] = useState(() => isNotificationSoundMuted());
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -74,6 +83,26 @@ export const BellDropdown: React.FC<BellDropdownProps> = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
+
+  useEffect(() => {
+    const onMute = (e: Event) => {
+      const detail = (e as CustomEvent<{ muted?: boolean }>).detail;
+      if (typeof detail?.muted === 'boolean') setSoundMuted(detail.muted);
+      else setSoundMuted(isNotificationSoundMuted());
+    };
+    window.addEventListener('souq:notification_sound_mute', onMute as EventListener);
+    return () => window.removeEventListener('souq:notification_sound_mute', onMute as EventListener);
+  }, []);
+
+  const toggleSound = () => {
+    unlockNotificationAudio();
+    const next = !soundMuted;
+    setNotificationSoundMuted(next);
+    setSoundMuted(next);
+    if (!next) {
+      playNotificationSound('alert');
+    }
+  };
 
   const headerItems = useMemo(
     () => notifications.filter(isHeaderBellItem),
@@ -174,15 +203,46 @@ export const BellDropdown: React.FC<BellDropdownProps> = ({
                 </span>
               )}
             </div>
-            <button
-              type="button"
-              onClick={markHeaderAllRead}
-              disabled={unreadTotal === 0}
-              className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer shrink-0"
-            >
-              <CheckCheck className="w-3.5 h-3.5 shrink-0" />
-              <span className="whitespace-nowrap">{isAr ? 'قراءة الكل' : 'Mark all read'}</span>
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={toggleSound}
+                title={
+                  soundMuted
+                    ? isAr
+                      ? 'تشغيل صوت الإشعارات'
+                      : 'Enable notification sound'
+                    : isAr
+                      ? 'كتم صوت الإشعارات'
+                      : 'Mute notification sound'
+                }
+                aria-label={
+                  soundMuted
+                    ? isAr
+                      ? 'تشغيل صوت الإشعارات'
+                      : 'Enable notification sound'
+                    : isAr
+                      ? 'كتم صوت الإشعارات'
+                      : 'Mute notification sound'
+                }
+                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-500/10 cursor-pointer text-slate-600 dark:text-slate-300"
+              >
+                {soundMuted ? (
+                  <VolumeX className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                ) : (
+                  <Volume2 className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={markHeaderAllRead}
+                disabled={unreadTotal === 0}
+                className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer shrink-0"
+              >
+                <CheckCheck className="w-3.5 h-3.5 shrink-0" />
+                <span className="whitespace-nowrap">{isAr ? 'قراءة الكل' : 'Mark all read'}</span>
+              </button>
+            </div>
           </div>
 
           {/* Tabs: All / Orders / Customers — equal columns, no wrap */}

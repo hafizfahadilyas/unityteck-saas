@@ -208,7 +208,26 @@ function mapCustomFields(raw: unknown): ProductCustomField[] | undefined {
             if (typeof opt === 'string') return opt;
             if (opt && typeof opt === 'object') {
               const row = opt as Record<string, unknown>;
-              return str(row.label ?? row.value ?? '');
+              const label = str(row.label ?? row.value ?? row.name ?? '');
+              if (!label) return '';
+              const imageUrl = str(row.imageUrl ?? row.image_url ?? '');
+              const priceRaw = row.price ?? row.extraPrice ?? row.extra_price;
+              const compareRaw = row.compareAtPrice ?? row.compare_at_price ?? row.originalPrice;
+              const price = priceRaw == null || priceRaw === '' ? undefined : num(priceRaw);
+              const compareAtPrice =
+                compareRaw == null || compareRaw === '' ? undefined : num(compareRaw);
+              const labelAr =
+                row.labelAr == null || row.labelAr === '' ? undefined : str(row.labelAr);
+              if (!imageUrl && price == null && compareAtPrice == null && !labelAr) return label;
+              return {
+                label,
+                ...(labelAr ? { labelAr } : {}),
+                ...(imageUrl ? { imageUrl } : {}),
+                ...(price != null && Number.isFinite(price) ? { price } : {}),
+                ...(compareAtPrice != null && Number.isFinite(compareAtPrice)
+                  ? { compareAtPrice }
+                  : {}),
+              };
             }
             return '';
           })
@@ -950,6 +969,8 @@ export function mapSeo(
       metaTitle: '',
       metaDescription: '',
       keywords: [],
+      robotsTxt: '',
+      llmsTxt: '',
       sitemapUrl: '',
       indexedUrlsCount: 0,
       totalSearchClicks: 0,
@@ -992,6 +1013,8 @@ export function mapSeo(
     keywords: parseKeywords(row.keywords),
     keywordsEn: extra.keywords_en == null ? null : str(extra.keywords_en),
     keywordsAr: extra.keywords_ar == null ? null : str(extra.keywords_ar),
+    robotsTxt: str(row.robots_txt ?? extra.robots_txt),
+    llmsTxt: str(row.llms_txt ?? extra.llms_txt),
     sitemapUrl: str(row.sitemap_url),
     indexedUrlsCount: num(extra.indexed_urls_count),
     totalSearchClicks: num(extra.total_search_clicks),
@@ -1053,6 +1076,8 @@ export function seoPatchToApi(
     body.indexing_api_enabled = patch.indexingApiEnabled;
   }
   if (patch.sitemapUrl !== undefined) body.sitemap_url = patch.sitemapUrl;
+  if (patch.robotsTxt !== undefined) body.robots_txt = patch.robotsTxt;
+  if (patch.llmsTxt !== undefined) body.llms_txt = patch.llmsTxt;
   return body;
 }
 

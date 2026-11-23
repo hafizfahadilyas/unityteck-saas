@@ -1202,7 +1202,7 @@ export const BrandingPanel: React.FC<{
               onClick={applyCustomArabicFont}
               className="px-3.5 py-2 text-xs font-bold rounded-xl text-white cursor-pointer"
               style={{
-                background: 'var(--glass-navy, #0f172a)',
+                background: 'var(--portal-cta)',
                 borderRadius: 'var(--radius-ctrl)',
                 color: '#ffffff',
               }}
@@ -1270,7 +1270,7 @@ export const BrandingPanel: React.FC<{
             onClick={saveApplyTypography}
             className="unity-btn-primary inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold text-white rounded-xl cursor-pointer shrink-0"
             style={{
-              background: 'var(--glass-navy, #0f172a)',
+              background: 'var(--portal-cta)',
               borderRadius: 'var(--radius-ctrl)',
               color: '#ffffff',
             }}

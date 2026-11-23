@@ -10,22 +10,30 @@ export const MagazineSection: React.FC = () => {
   const { language } = useApp();
   const isAr = language === 'ar';
   const { activeStore } = useTenant();
-  const storeId = activeStore?.id || 'store-1';
+  const storeId = (activeStore?.id || '').trim();
 
   const [articles, setArticles] = useState<BlogArticleItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedArticle, setSelectedArticle] = useState<BlogArticleItem | null>(null);
 
-  // Load articles from real backend Hostinger API
+  // Load articles from real backend Hostinger API (this store_id only — never store-1 fallback)
   const loadArticles = useCallback(async () => {
+    if (!storeId) {
+      setArticles([]);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       const res = await fetchBlogDataApi(storeId);
       if (res && res.data && res.data.length > 0) {
         setArticles(res.data);
+      } else {
+        setArticles([]);
       }
     } catch (err) {
       console.error('Failed to load magazine articles from API:', err);
+      setArticles([]);
     } finally {
       setLoading(false);
     }

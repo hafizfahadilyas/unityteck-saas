@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';
-import { realTrackingId, seoSetupStep, storeGoogleEmail, storePublicHost } from './storeSeoSetup.ts';
+import {
+  applySiteKitCallback,
+  realTrackingId,
+  seoSetupStep,
+  siteKitDoneMessage,
+  storeGoogleEmail,
+  storePublicHost,
+} from './storeSeoSetup.ts';
 
 assert.equal(realTrackingId('G-UNITYKSA01-COFFE'), '');
 assert.equal(realTrackingId('GTM-KSA9901-FLOW'), '');
@@ -15,4 +22,29 @@ assert.equal(seoSetupStep({ ownerEmail: 'a@b.com', custom_domain: '' }), 'need_d
 assert.equal(seoSetupStep({ ownerEmail: '', custom_domain: 'shop.sa' }), 'need_email');
 assert.equal(seoSetupStep({ ownerEmail: 'a@b.com', domain: 'shop.sa' }), 'ready');
 assert.equal(seoSetupStep({ ownerEmail: 'a@b.com', demo_domain: 'mieraf-ksa.com' }), 'ready');
+
+const applied = applySiteKitCallback({
+  integration: {
+    google_account_email: 'owner@shop.sa',
+    ga4_property_id: '555',
+    ga4_measurement_id: 'G-REAL123',
+    gtm_container_id: 'GTM-ABC123',
+    gsc_site_url: 'https://shop.sa/',
+  },
+  site_kit: {
+    sitemap_url: 'https://shop.sa/sitemap.xml',
+    sitemap_submitted: true,
+    indexing_homepage_pinged: true,
+    linked: { ga4: true, search_console: true, gtm: true, ads: false },
+  },
+});
+assert.ok(applied);
+assert.equal(applied!.seoPatch.googleConnected, true);
+assert.equal(applied!.seoPatch.ga4MeasurementId, 'G-REAL123');
+assert.equal(applied!.seoPatch.gtmContainerId, 'GTM-ABC123');
+assert.equal(applied!.linked.ga4, true);
+assert.equal(applied!.linked.gtm, true);
+assert.equal(applySiteKitCallback({}), null);
+assert.match(siteKitDoneMessage(applied!.linked, 'owner@shop.sa', false), /Done — Google connected/);
+assert.match(siteKitDoneMessage(applied!.linked, 'owner@shop.sa', true), /تم — ربط جوجل نجح/);
 console.log('store seo setup ok');

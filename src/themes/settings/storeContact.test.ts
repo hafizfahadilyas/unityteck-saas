@@ -5,7 +5,9 @@
 import assert from 'node:assert/strict';
 import {
   emptyStoreContact,
+  isFlexibleHrefValid,
   isRetiredContactDigits,
+  normalizeFlexibleHref,
   normalizeWhatsAppDigits,
   scrubPublicEmail,
   resolveStoreContact,
@@ -14,7 +16,7 @@ import {
 assert.equal(normalizeWhatsAppDigits(''), '');
 assert.equal(normalizeWhatsAppDigits('+966 5 1234 5678'), '966512345678');
 assert.equal(normalizeWhatsAppDigits('0512345678'), '966512345678');
-assert.equal(normalizeWhatsAppDigits('+966549876543'), '', 'retired coffee demo WA stripped');
+assert.equal(normalizeWhatsAppDigits('+966549876543'), '966549876543', 'coffee store merchant WA kept');
 assert.equal(normalizeWhatsAppDigits('966581617712'), '', 'retired flowers demo WA stripped');
 assert.equal(normalizeWhatsAppDigits('9668008440443'), '', 'retired header fallback stripped');
 assert.ok(isRetiredContactDigits('966500000000'));
@@ -24,6 +26,14 @@ assert.equal(scrubPublicEmail('billing@makkah-gifts.sa'), '');
 assert.equal(scrubPublicEmail('hello@my-store.sa'), 'hello@my-store.sa');
 
 assert.equal(emptyStoreContact('x').hasWhatsApp, false);
+
+assert.equal(normalizeFlexibleHref('0512345678'), 'https://wa.me/966512345678');
+assert.equal(normalizeFlexibleHref('instagram.com/hibrew'), 'https://instagram.com/hibrew');
+assert.equal(normalizeFlexibleHref('/shop'), '/shop');
+assert.equal(normalizeFlexibleHref('products'), '/products');
+assert.equal(normalizeFlexibleHref(''), '');
+assert.equal(isFlexibleHrefValid('https://x.com/a'), true);
+assert.equal(isFlexibleHrefValid(''), false);
 
 // Without localStorage identity, empty contacts (no invented demos)
 const bare = resolveStoreContact('store-new-tenant', { id: 'store-new-tenant', name: 'New' });

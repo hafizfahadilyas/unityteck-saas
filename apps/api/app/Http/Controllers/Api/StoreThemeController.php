@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\SeoConfig;
 use App\Models\Store;
 use App\Models\StoreSetting;
 use App\Models\StoreTheme;
@@ -611,7 +612,36 @@ class StoreThemeController extends Controller
             return $store;
         }
         $origin = ThemePageSeo::originForStore((string) ($store->domain ?? ''), $request->getSchemeAndHttpHost());
-        $body = "User-agent: *\nAllow: /\nSitemap: ".rtrim($origin, '/')."/sitemap.xml\n";
+        $seo = SeoConfig::query()->forStore((string) $store->id)->first();
+        $custom = is_string($seo?->robots_txt) ? trim((string) $seo->robots_txt) : '';
+        if ($custom !== '') {
+            $body = $custom;
+            if (! str_contains(strtolower($body), 'sitemap:')) {
+                $body = rtrim($body)."\nSitemap: ".rtrim($origin, '/')."/sitemap.xml\n";
+            }
+        } else {
+            $body = "User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /master\nDisallow: /cart\nDisallow: /checkout\nSitemap: ".rtrim($origin, '/')."/sitemap.xml\n";
+        }
+
+        return response($body, 200)->header('Content-Type', 'text/plain; charset=utf-8');
+    }
+
+    public function storefrontLlms(Request $request): \Symfony\Component\HttpFoundation\Response|JsonResponse
+    {
+        $store = $this->publicStore($request);
+        if ($store instanceof JsonResponse) {
+            return $store;
+        }
+        $origin = rtrim(ThemePageSeo::originForStore((string) ($store->domain ?? ''), $request->getSchemeAndHttpHost()), '/');
+        $seo = SeoConfig::query()->forStore((string) $store->id)->first();
+        $extra = is_array($seo?->extra) ? $seo->extra : [];
+        $custom = isset($extra['llms_txt']) && is_string($extra['llms_txt']) ? trim($extra['llms_txt']) : '';
+        if ($custom !== '') {
+            $body = $custom;
+        } else {
+            $name = trim((string) ($store->name ?? 'Store'));
+            $body = "# {$name}\n\n> {$name}\n\n## Pages\n\n- [Home]({$origin}/): Store home\n- [Products]({$origin}/products): Product catalog\n- [Sitemap]({$origin}/sitemap.xml): XML sitemap\n";
+        }
 
         return response($body, 200)->header('Content-Type', 'text/plain; charset=utf-8');
     }

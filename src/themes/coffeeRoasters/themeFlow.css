@@ -46,11 +46,29 @@
  * Honor buy bar — sticky (not fixed).
  * Fixed breaks inside .hibrew-theme-root { overflow-x: clip } and overlaps
  * Extraction Profile / Care mid-page. Sticky pins under site chrome cleanly.
+ *
+ * MUST stay fully opaque: portal glass remaps `main .bg-white` →
+ * rgba(255,255,255,0.72) + blur, which lets Extraction Profile text bleed
+ * through the stuck bar (looks like header overlap). Beat that remap here.
  */
-.hibrew-theme-root [data-buy-sticky-bar='1'] {
+.hibrew-theme-root [data-buy-sticky-bar='1'],
+[data-theme='light'][data-portal='store'] main .hibrew-theme-root [data-buy-sticky-bar='1'],
+[data-theme='dark'][data-portal='store'] main .hibrew-theme-root [data-buy-sticky-bar='1'],
+[data-theme='light'] .unity-shell[data-portal='store'] main .hibrew-theme-root [data-buy-sticky-bar='1'],
+[data-theme='dark'] .unity-shell[data-portal='store'] main .hibrew-theme-root [data-buy-sticky-bar='1'] {
   position: sticky !important;
   top: var(--theme-chrome-offset, 4rem);
+  background: #ffffff !important;
   background-color: #ffffff !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 0 !important;
+  border-bottom-width: 1px !important;
+  border-bottom-style: solid !important;
+  border-bottom-color: #e5e5e5 !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
   z-index: 40;
   isolation: isolate;
   max-width: 100%;
@@ -112,11 +130,24 @@
   box-shadow: none !important;
 }
 
-/* Extraction / Care panel + Gift / Add-on rows — 1px solid black */
-.hibrew-theme-root [data-honor-offer='care'] > div,
-.hibrew-theme-root [data-honor-offer-row='1'] {
+/* Honor Care = black panel; Gift = gray cards (same as Honor Magic ref) */
+.hibrew-theme-root [data-honor-care-panel='1'],
+.hibrew-theme-root [data-honor-offer='care'] > div {
   border: 1px solid #000000 !important;
+  border-radius: 12px !important;
+  outline: 1px solid #000000 !important;
+  outline-offset: -1px;
   box-shadow: none !important;
+  background-color: #ffffff !important;
+}
+
+.hibrew-theme-root [data-honor-offer='gift'] [data-honor-offer-row='1'] {
+  border: 1px solid #9A9A9A !important;
+  border-radius: 12px !important;
+  outline: 1px solid #9A9A9A !important;
+  outline-offset: -1px;
+  box-shadow: none !important;
+  background-color: #ffffff !important;
 }
 
 .hibrew-theme-root [data-theme-menu] {

@@ -40,7 +40,14 @@ import {
 import { PageDocsGuideModal } from '../common/PageDocsGuideModal';
 import { GlobalModal } from '../common/GlobalModal';
 import { PortalHubCard } from '../common/PortalHubCard';
-import { realTrackingId, seoSetupStep, storeGoogleEmail, storePublicHost } from './seo/storeSeoSetup';
+import {
+  applySiteKitCallback,
+  realTrackingId,
+  seoSetupStep,
+  siteKitDoneMessage,
+  storeGoogleEmail,
+  storePublicHost,
+} from './seo/storeSeoSetup';
 import { GoogleConnectModal } from './GoogleConnectModal';
 import { UtmCampaignBuilder } from './UtmCampaignBuilder';
 import {
@@ -59,6 +66,11 @@ import {
   getStoreSeoDeepAudit,
   type SeoDeepAuditItem,
 } from '../../services/ksaAutomationEngine';
+import {
+  defaultLlmsTxt,
+  defaultRobotsTxt,
+  publicSeoFileUrl,
+} from '../../utils/storeSeoFiles';
 
 interface StoreSEOProps {
   onNavigateTab?: (tab: string) => void;
@@ -108,6 +120,8 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
     setGa4Id(resolvedGa4);
     setGtmId(resolvedGtm);
     setGscTag(resolvedGsc);
+    setRobotsTxt(currentSEOConfig.robotsTxt || '');
+    setLlmsTxt(currentSEOConfig.llmsTxt || '');
     setDeepAuditItems(
       getStoreSeoDeepAudit(activeStore.id, activeStore.name, activeStore.slug, currentProducts.length),
     );
@@ -204,11 +218,15 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
     return list;
   }, [storeBaseUrl, currentProducts]);
 
-  // Execute Auto-Pilot Sync across all store catalog routes without merchant manual typing
-  const handleAutoPilotSyncAll = React.useCallback((silent = false) => {
+  // Execute Auto-Pilot Sync — real Google Indexing API only (honest counts)
+  const handleAutoPilotSyncAll = React.useCallback(async (silent = false) => {
     setIsAutoPilotSyncing(true);
-    const existingSet = new Set((currentSEOConfig.submittedUrls || []).map((u) => u.url));
-    const urlsToSubmit = candidateUrls.filter((u) => !existingSet.has(u));
+    const indexedSet = new Set(
+      (currentSEOConfig.submittedUrls || [])
+        .filter((u) => u.status === 'indexed')
+        .map((u) => u.url),
+    );
+    const urlsToSubmit = candidateUrls.filter((u) => !indexedSet.has(u));
 
     const timestamp = new Date().toLocaleTimeString(isAr ? 'ar-SA' : 'en-US', {
       hour: '2-digit',
@@ -225,43 +243,58 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
       if (!silent) {
         toast(
           isAr
-            ? `كافة روابط المتجر (${candidateUrls.length}) مفهرسة بالفعل ومحدَّثة في محركات البحث`
-            : `All store routes (${candidateUrls.length}) are already indexed & up to date with Googlebot`,
-          'success'
+            ? `كافة روابط المتجر (${candidateUrls.length}) أُرسلت مسبقاً إلى واجهة الفهرسة`
+            : `All store routes (${candidateUrls.length}) were already submitted to the Indexing API`,
+          'success',
         );
       }
       return;
     }
 
-    urlsToSubmit.forEach((u, i) => {
-      setTimeout(() => {
-        submitUrlToGoogleIndexing(activeStore.id, u);
-        if (i === urlsToSubmit.length - 1) {
-          setIsAutoPilotSyncing(false);
-          setAutoPilotLastSync(timestamp);
-          try {
-            localStorage.setItem(`unityteck_seo_autopilot_${activeStore.id}`, timestamp);
-          } catch {}
-          if (!silent) {
-            toast(
-              isAr
-                ? `تمت أرشفة وتحديث (${urlsToSubmit.length}) رابط تلقائياً بنجاح في جوجل واجهة الفهرسة`
-                : `Successfully auto-indexed (${urlsToSubmit.length}) store URLs with Google Indexing API`,
-              'success'
-            );
-          }
-        }
-      }, i * 300);
-    });
+    let okCount = 0;
+    for (let i = 0; i < urlsToSubmit.length; i += 1) {
+      const res = await submitUrlToGoogleIndexing(activeStore.id, urlsToSubmit[i]);
+      if (res.ok) okCount += 1;
+      if (i < urlsToSubmit.length - 1) {
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    }
+
+    setIsAutoPilotSyncing(false);
+    setAutoPilotLastSync(timestamp);
+    try {
+      localStorage.setItem(`unityteck_seo_autopilot_${activeStore.id}`, timestamp);
+    } catch {}
+    if (!silent) {
+      if (okCount > 0) {
+        toast(
+          isAr
+            ? `قبل جوجل فهرسة ${okCount} من ${urlsToSubmit.length} رابط`
+            : `Google accepted indexing for ${okCount} of ${urlsToSubmit.length} URLs`,
+          okCount === urlsToSubmit.length ? 'success' : 'info',
+        );
+      } else {
+        toast(
+          isAr
+            ? 'لم يقبل جوجل أي رابط. تحقق من الربط وملكية الموقع'
+            : 'Google accepted no URLs. Verify connect and site ownership',
+          'error',
+        );
+      }
+    }
   }, [candidateUrls, currentSEOConfig.submittedUrls, isAr, activeStore.id, submitUrlToGoogleIndexing, toast]);
 
-  // ⚡ Auto-Pilot Effect 1: Auto-submit unindexed catalog routes on mount & catalog change
+  // Auto-submit unindexed routes only when Google is connected (real API)
   useEffect(() => {
     if (!currentSEOConfig.googleConnected) return;
-    const existingSet = new Set((currentSEOConfig.submittedUrls || []).map((u) => u.url));
-    const pending = candidateUrls.filter((u) => !existingSet.has(u));
+    const indexedSet = new Set(
+      (currentSEOConfig.submittedUrls || [])
+        .filter((u) => u.status === 'indexed')
+        .map((u) => u.url),
+    );
+    const pending = candidateUrls.filter((u) => !indexedSet.has(u));
     if (pending.length > 0) {
-      handleAutoPilotSyncAll(true);
+      void handleAutoPilotSyncAll(true);
     }
   }, [candidateUrls.length, currentSEOConfig.googleConnected, handleAutoPilotSyncAll]);
 
@@ -277,6 +310,9 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
   const [gscTag, setGscTag] = useState(currentSEOConfig.searchConsoleVerificationTag);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [ogImageUrl, setOgImageUrl] = useState('');
+  const [robotsTxt, setRobotsTxt] = useState(currentSEOConfig.robotsTxt || '');
+  const [llmsTxt, setLlmsTxt] = useState(currentSEOConfig.llmsTxt || '');
+  const [seoFilesSaving, setSeoFilesSaving] = useState(false);
   const ogFileInputRef = React.useRef<HTMLInputElement>(null);
 
   // PageSpeed always audits this store's own URL only (no manual typing / cross-store URLs)
@@ -413,9 +449,9 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
         onCode: async (code, redirectUri) => {
           try {
             const res = await submitGoogleCallback(activeStore.id, { code, redirect_uri: redirectUri });
-            const savedEmail = String(res?.integration?.google_account_email || '').trim();
+            const applied = applySiteKitCallback(res);
             setIsAuthenticating(false);
-            if (!savedEmail) {
+            if (!applied) {
               setOauthError(
                 isAr
                   ? 'جوجل لم يحفظ حساب هذا المتجر. أعد المحاولة من النطاق العام.'
@@ -423,20 +459,15 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
               );
               return;
             }
-            connectGoogleAccount(activeStore.id, savedEmail);
+            connectGoogleAccount(activeStore.id, applied.email);
             updateStoreSEOConfig(activeStore.id, {
-              googleConnected: true,
-              googleAccountEmail: savedEmail,
-              connectedAt: new Date().toISOString().split('T')[0],
-              searchConsoleConnected: Boolean(res?.site_kit?.linked?.search_console),
-              ga4MeasurementId: res?.integration?.ga4_measurement_id || realTrackingId(currentSEOConfig.ga4MeasurementId),
-              gtmContainerId: res?.integration?.gtm_container_id || realTrackingId(currentSEOConfig.gtmContainerId),
-              indexingApiEnabled: Boolean(res?.site_kit?.indexing_homepage_pinged),
+              ...applied.seoPatch,
+              ga4MeasurementId:
+                applied.seoPatch.ga4MeasurementId || realTrackingId(currentSEOConfig.ga4MeasurementId),
+              gtmContainerId:
+                applied.seoPatch.gtmContainerId || realTrackingId(currentSEOConfig.gtmContainerId),
             });
-            toast(
-              isAr ? `تم ربط جوجل لهذا المتجر:${savedEmail}` : `Google connected for this store: ${savedEmail}`,
-              'success',
-            );
+            toast(siteKitDoneMessage(applied.linked, applied.email, isAr), 'success');
           } catch (err) {
             setIsAuthenticating(false);
             setOauthError(mapGoogleConnectError(err, isAr));
@@ -466,15 +497,30 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
     setShowConfigModal(false);
   };
 
-  const handleUrlSubmit = (e: React.FormEvent) => {
+  const handleUrlSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!urlToSubmit.trim()) return;
     setIsSubmittingIndex(true);
-    setTimeout(() => {
-      submitUrlToGoogleIndexing(activeStore.id, urlToSubmit.trim());
-      setUrlToSubmit('');
+    try {
+      const res = await submitUrlToGoogleIndexing(activeStore.id, urlToSubmit.trim());
+      if (res.ok) {
+        toast(
+          isAr ? 'قبل جوجل طلب الفهرسة لهذا الرابط' : 'Google accepted the indexing request for this URL',
+          'success',
+        );
+        setUrlToSubmit('');
+      } else {
+        toast(
+          res.message ||
+            (isAr
+              ? 'فشل طلب الفهرسة. تحقق من ربط جوجل وملكية الموقع'
+              : 'Indexing request failed. Verify Google connect and site ownership'),
+          'error',
+        );
+      }
+    } finally {
       setIsSubmittingIndex(false);
-    }, 600);
+    }
   };
 
   const handleSaveMeta = (e: React.FormEvent) => {
@@ -493,6 +539,24 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2500);
   };
+
+  const handleSaveSeoFiles = () => {
+    setSeoFilesSaving(true);
+    updateStoreSEOConfig(activeStore.id, {
+      robotsTxt: robotsTxt.trim(),
+      llmsTxt: llmsTxt.trim(),
+    });
+    toast(
+      isAr ? 'تم حفظ ملف الروبوتات وملف نماذج اللغة' : 'robots.txt and llms.txt saved for this store',
+      'success',
+    );
+    setTimeout(() => setSeoFilesSaving(false), 600);
+  };
+
+  const robotsLiveUrl = publicSeoFileUrl(storeBaseUrl, 'robots.txt');
+  const llmsLiveUrl = publicSeoFileUrl(storeBaseUrl, 'llms.txt');
+  const sitemapLiveUrl =
+    currentSEOConfig.sitemapUrl || publicSeoFileUrl(storeBaseUrl, 'sitemap.xml');
 
   const handleAddKeyword = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && newKeyword.trim()) {
@@ -526,10 +590,14 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
       </div>
       {/* ── Top Header Banner with Official Google Identity ── */}
       <div
-        className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 text-white p-6 sm:p-7 rounded-3xl shadow-sm border"
+        data-on-dark-panel="true"
+        className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 text-white p-4 sm:p-7 rounded-3xl shadow-sm border min-w-0"
         style={{
           background: 'linear-gradient(135deg, #0f172a 0%, #032320 50%, #021a18 100%)',
           borderColor: 'rgba(255,255,255,0.08)',
+          color: '#f8fafc',
+          ['--text' as string]: '#f8fafc',
+          ['--muted' as string]: '#cbd5e1',
         }}
       >
         <div className="space-y-2">
@@ -551,8 +619,8 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
           </div>
           <p className="text-sm text-slate-200 max-w-3xl leading-relaxed font-medium">
             {isAr
-              ? 'اربط حساب جوجل الخاص بهذا المتجر بعد أن يصبح النطاق مباشراً على الاستضافة. الأرقام تظهر فقط عندما ترسلها جوجل أو ميتا. قبل ذلك تبقى الخانات فارغة.'
-              : 'Connect this store’s own Google account after the domain is live on Hostinger. Numbers appear only when Google or Meta sends them. Until then the fields stay empty.'}
+              ? 'مرة واحدةً فقط: سجّل الدخول بجيميل هذا المتجر. بعد «تم» تُفعَّل التحليلات ووحدة البحث ومدير العلامات والفهرسة تلقائياً. الأرقام تظهر عندما ترسلها جوجل فقط.'
+              : 'Once only: sign in with this store’s Gmail. After Done, Analytics, Search Console, Tag Manager, and Indexing auto-link. Numbers appear only when Google sends them.'}
           </p>
         </div>
 
@@ -576,7 +644,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
                   <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                 </div>
                 <div className="text-[10px] text-emerald-300">
-                  {isAr ? 'حساب جوجل متصل' : 'Google account connected'}
+                  {isAr ? 'تم — متصل · الأدوات تلقائية' : 'Done — connected · tools auto'}
                 </div>
               </div>
               <button
@@ -596,11 +664,11 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
               <button
                 onClick={() => setShowConnectModal(true)}
                 disabled={isAuthenticating}
-                className="px-5 py-3 bg-white hover:bg-slate-100 text-slate-900 rounded-2xl text-xs font-black flex items-center gap-2.5 shadow-lg transition-all cursor-pointer transform active:scale-95 disabled:opacity-60"
+                className="flex-1 sm:flex-none px-4 sm:px-5 py-3 bg-white hover:bg-slate-100 text-slate-900 rounded-2xl text-xs font-black flex items-center justify-center gap-2.5 shadow-lg transition-all cursor-pointer transform active:scale-95 disabled:opacity-60 min-w-0"
               >
                 {isAuthenticating ? (
                   <>
@@ -680,8 +748,10 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
               {
                 id: 'meta' as const,
                 icon: Globe,
-                title: isAr ? 'وسوم الصفحة وخريطة الموقع' : 'Page tags and sitemap',
-                desc: isAr ? 'وسوم الصفحات وخريطة الموقع.' : 'Page meta tags and sitemap.',
+                title: isAr ? 'وسوم الصفحة وملفات الفهرسة' : 'Page tags and index files',
+                desc: isAr
+                  ? 'وسوم الصفحات وخريطة الموقع وملف الروبوتات وملف نماذج اللغة.'
+                  : 'Page meta tags, sitemap, robots.txt, and llms.txt.',
               },
               {
                 id: 'simulator' as const,
@@ -1474,23 +1544,42 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
                         </td>
                         <td className="py-2.5 px-3 text-slate-400 text-[11px]">{item.submittedAt}</td>
                         <td className="py-2.5 px-3">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1 w-fit">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 w-fit border ${
+                              item.status === 'indexed'
+                                ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                                : item.status === 'failed'
+                                ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+                                : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                            }`}
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
                             <span>
                               {item.status === 'indexed'
                                 ? (isAr ? 'مفهرس' : 'Indexed')
                                 : item.status === 'crawling'
                                 ? (isAr ? 'قيد الزحف' : 'Crawling')
+                                : item.status === 'failed'
+                                ? (isAr ? 'فشل' : 'Failed')
                                 : (isAr ? 'بانتظار التأكيد' : 'Waiting')}
                             </span>
                           </span>
                         </td>
                         <td className="py-2.5 px-3 text-right">
                           <button
+                            type="button"
                             onClick={() => {
-                              submitUrlToGoogleIndexing(activeStore.id, item.url);
+                              void submitUrlToGoogleIndexing(activeStore.id, item.url).then((res) => {
+                                toast(
+                                  res.ok
+                                    ? (isAr ? 'قبل جوجل إعادة الفهرسة' : 'Google accepted re-index')
+                                    : res.message ||
+                                        (isAr ? 'فشلت إعادة الفهرسة' : 'Re-index failed'),
+                                  res.ok ? 'success' : 'error',
+                                );
+                              });
                             }}
-                            className="text-[11px] text-slate-500 hover:text-blue-600 font-semibold cursor-pointer"
+                            className="text-[11px] text-slate-500 hover:text-[var(--accent)] font-semibold cursor-pointer"
                           >
                             {isAr ? 'إعادة الإرسال' : 'Send again'}
                           </button>
@@ -1818,7 +1907,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
                   onClick={() => ogFileInputRef.current?.click()}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-16 h-11 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900 shrink-0">
+                    <div className="u-logo-tile w-16 h-11 rounded-xl overflow-hidden shrink-0">
                       <img src={ogImageUrl} alt="OG Preview" className="w-full h-full object-cover" />
                     </div>
                     <div>
@@ -1849,13 +1938,18 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
               {isAr ? 'خريطة الموقع التلقائية' : 'Automated Sitemap.xml'}
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              Dynamically generated at Next.js SSR build and refreshed on every product creation.
+              {isAr
+                ? 'تُنشأ ديناميكياً من منتجات وصفحات هذا المتجر فقط، وتتحدث عند إضافة منتج جديد.'
+                : "Generated dynamically from this store's products and pages, and refreshed when catalog changes."}
             </p>
-            <div className="p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono text-blue-700 dark:text-blue-400 truncate">
-              {currentSEOConfig.sitemapUrl || `https://${activeStore.slug}.saudi-stores.com/sitemap.xml`}
+            <div
+              className="p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono truncate"
+              style={{ color: 'var(--accent)' }}
+            >
+              {sitemapLiveUrl}
             </div>
             <a
-              href={currentSEOConfig.sitemapUrl || `https://${activeStore.slug}.saudi-stores.com/sitemap.xml`}
+              href={sitemapLiveUrl}
               target="_blank"
               rel="noreferrer"
               className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer transition-colors"
@@ -1863,6 +1957,157 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
               <span>{isAr ? 'معاينة خريطة الموقع المباشرة' : 'Inspect Live XML Sitemap'}</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
+          </div>
+
+          <div className="lg:col-span-3 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
+              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    {isAr ? 'ملف الروبوتات' : 'robots.txt'}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    {isAr
+                      ? 'يُعرض على نطاق هذا المتجر فقط — يتحكم في زواحف محركات البحث.'
+                      : "Served on this store's domain only — guides search crawlers."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRobotsTxt(defaultRobotsTxt(storeBaseUrl))}
+                  className="px-3 py-1.5 rounded-xl border text-[11px] font-bold cursor-pointer"
+                  style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--surface)' }}
+                >
+                  {isAr ? 'تعبئة افتراضي' : 'Fill default'}
+                </button>
+              </div>
+              <div
+                className="p-2.5 rounded-xl border text-[11px] font-mono truncate"
+                style={{ borderColor: 'var(--border)', color: 'var(--accent)', background: 'var(--surface)' }}
+                title={robotsLiveUrl}
+              >
+                {robotsLiveUrl}
+              </div>
+              <textarea
+                rows={10}
+                value={robotsTxt}
+                onChange={(e) => setRobotsTxt(e.target.value)}
+                dir="ltr"
+                spellCheck={false}
+                placeholder={defaultRobotsTxt(storeBaseUrl)}
+                className="w-full px-3 py-2 text-xs font-mono bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2"
+                style={{ ['--tw-ring-color' as string]: 'var(--accent)' }}
+              />
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href={robotsLiveUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-2 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                  style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--surface)' }}
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  {isAr ? 'معاينة مباشرة' : 'Open live'}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(robotsTxt || defaultRobotsTxt(storeBaseUrl));
+                    toast(isAr ? 'تم النسخ' : 'Copied', 'success');
+                  }}
+                  className="px-3 py-2 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                  style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--surface)' }}
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  {isAr ? 'نسخ' : 'Copy'}
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
+              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    {isAr ? 'ملف نماذج اللغة' : 'llms.txt'}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    {isAr
+                      ? 'ملخص ماركداون لمساعدة نماذج الذكاء الاصطناعي على فهم متجرك.'
+                      : 'Markdown summary that helps AI agents understand this store.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLlmsTxt(defaultLlmsTxt(activeStore.name || activeStore.slug || '', storeBaseUrl))}
+                  className="px-3 py-1.5 rounded-xl border text-[11px] font-bold cursor-pointer"
+                  style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--surface)' }}
+                >
+                  {isAr ? 'تعبئة افتراضي' : 'Fill default'}
+                </button>
+              </div>
+              <div
+                className="p-2.5 rounded-xl border text-[11px] font-mono truncate"
+                style={{ borderColor: 'var(--border)', color: 'var(--accent)', background: 'var(--surface)' }}
+                title={llmsLiveUrl}
+              >
+                {llmsLiveUrl}
+              </div>
+              <textarea
+                rows={10}
+                value={llmsTxt}
+                onChange={(e) => setLlmsTxt(e.target.value)}
+                dir="ltr"
+                spellCheck={false}
+                placeholder={defaultLlmsTxt(activeStore.name || activeStore.slug || '', storeBaseUrl)}
+                className="w-full px-3 py-2 text-xs font-mono bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2"
+                style={{ ['--tw-ring-color' as string]: 'var(--accent)' }}
+              />
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href={llmsLiveUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-2 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                  style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--surface)' }}
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  {isAr ? 'معاينة مباشرة' : 'Open live'}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(
+                      llmsTxt || defaultLlmsTxt(activeStore.name || activeStore.slug || '', storeBaseUrl),
+                    );
+                    toast(isAr ? 'تم النسخ' : 'Copied', 'success');
+                  }}
+                  className="px-3 py-2 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                  style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--surface)' }}
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  {isAr ? 'نسخ' : 'Copy'}
+                </button>
+              </div>
+            </div>
+
+            <div className="lg:col-span-2 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleSaveSeoFiles}
+                disabled={seoFilesSaving}
+                aria-busy={seoFilesSaving}
+                className="unity-btn-primary px-5 py-2.5 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-60"
+              >
+                {seoFilesSaving
+                  ? (isAr ? 'جارٍ الحفظ…' : 'Saving…')
+                  : (isAr ? 'حفظ ملف الروبوتات وملف نماذج اللغة' : 'Save robots.txt & llms.txt')}
+              </button>
+              {!robotsTxt.trim() && !llmsTxt.trim() ? (
+                <span className="text-[11px] text-slate-500">
+                  {isAr ? 'بانتظار البيانات — الحقول فارغة حتى الحفظ.' : 'Waiting for Data — fields empty until you save.'}
+                </span>
+              ) : null}
+            </div>
           </div>
         </div>
       )}

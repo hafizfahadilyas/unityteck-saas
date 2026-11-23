@@ -23,6 +23,7 @@ import {
 } from '../../../components/storefront/checkout/CheckoutLocationPicker';
 import { resolveBankCardDiscount } from '../../../utils/bankOffers';
 import { useSaudiCityOptions } from '../../../hooks/useSaudiCityOptions';
+import { trackStorefrontEvent } from '../../../utils/storefrontAnalytics';
 export const CheckoutPage: React.FC = () => {
   const {
     language,
@@ -74,6 +75,28 @@ export const CheckoutPage: React.FC = () => {
   const [cardMessage, setCardMessage] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>('mada');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  React.useEffect(() => {
+    if (!activeStore?.id) return;
+    if (!city.trim() && !deliveryTimeSlot) return;
+    trackStorefrontEvent(activeStore.id, 'add_shipping_info', {
+      path: typeof location !== 'undefined' ? location.pathname : '/checkout',
+      meta: {
+        city: city || undefined,
+        delivery_slot: deliveryTimeSlot || undefined,
+        delivery_date: deliveryDate || undefined,
+        shipping_fee: freeShippingRemaining === 0 ? 0 : 35,
+      },
+    });
+  }, [activeStore?.id, city, deliveryTimeSlot, deliveryDate, freeShippingRemaining]);
+
+  React.useEffect(() => {
+    if (!activeStore?.id || !paymentMethod) return;
+    trackStorefrontEvent(activeStore.id, 'add_payment_info', {
+      path: typeof location !== 'undefined' ? location.pathname : '/checkout',
+      meta: { payment_method: paymentMethod },
+    });
+  }, [activeStore?.id, paymentMethod]);
 
   const shipping = freeShippingRemaining === 0 ? 0 : 35;
   const paymentLabel =

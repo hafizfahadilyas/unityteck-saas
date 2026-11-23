@@ -49,16 +49,32 @@ function isHonorCareField(
 ): boolean {
   const blob = `${field.name || ''} ${field.nameAr || ''} ${field.type || ''}`.toLowerCase();
   if (/care|warranty|protection|حماية|رعاية|ضمان|صيانة|عناية/.test(blob)) return true;
+  const kind = fieldControlKind(field.type, field.options);
+  // Image choice types use gift cards when options have images; Text/Size stay care/list (no thumbs).
+  if (!kind.includes('Image')) return true;
   const hasImg = optionItems.some((o) => !!o.imageUrl || choiceLooksLikeImage(o.label));
   return !hasImg;
 }
 
-/** Honor coffee side-info: always 1px solid black on cards / panels. */
-const honorBorder = {
+/** Honor Care panel = black; Gift cards = medium gray (exact ref). */
+const honorCareBorder = {
   boxShadow: 'none' as const,
   border: '1px solid #000000',
   borderColor: '#000000',
+  outline: '1px solid #000000',
+  outlineOffset: '-1px',
+  borderRadius: '12px',
 };
+const honorGiftBorder = {
+  boxShadow: 'none' as const,
+  border: '1px solid #9A9A9A',
+  borderColor: '#9A9A9A',
+  outline: '1px solid #9A9A9A',
+  outlineOffset: '-1px',
+  borderRadius: '12px',
+};
+/** @deprecated use honorCareBorder / honorGiftBorder */
+const honorBorder = honorCareBorder;
 
 /** Square select control — always show a visible black border (all Care / Gift / offer rows). */
 const honorRadioBox =
@@ -249,11 +265,13 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
       })}
 
       {visibleFields.map((field) => {
-        const kind = fieldControlKind(field.type);
+        const kind = fieldControlKind(field.type, field.options);
         const value = fieldValues[field.id];
         const text = Array.isArray(value) ? '' : String(value ?? '');
         const many = Array.isArray(value) ? value : [];
-        const content = isAr ? field.contentAr || field.contentEn || field.description : field.contentEn || field.contentAr || field.description;
+        // Golden rule: merchant content is one text (any language) — show as typed.
+        const content =
+          field.contentEn || field.contentAr || field.description || '';
         const fillable = customFieldIsFillable(field.type);
         const extra = Number(field.extraPrice) || 0;
         const optionItemsEarly = normalizeCustomFieldOptions(field.options);
@@ -267,20 +285,10 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
           kind === 'Single Choice Color' ||
           kind === 'Multiple Choice Color' ||
           kind === 'Color Selector';
-        // Coffee buy page: every choice list → Honor Care panel or Gift cards (borders required)
+        // Coffee buy: ALL choice lists → Honor Care panel OR Gift cards (borders always)
         const coffeeHonorList =
-          coffee &&
-          fillable &&
-          isChoiceKind &&
-          optionItemsEarly.length > 0 &&
-          !kind.includes('Color') &&
-          (kind.startsWith('Multiple') ||
-            kind.includes('Image') ||
-            kind === 'Single Choice' ||
-            kind === 'Size Selector' ||
-            optionItemsEarly.some(
-              (o) => o.imageUrl || (o.price != null && Number(o.price) > 0) || choiceLooksLikeImage(o.label),
-            ));
+          coffee && fillable && isChoiceKind && optionItemsEarly.length > 0 && !kind.includes('Color');
+        const isImageChoiceKind = kind.includes('Image');
 
         // Honor Care / Gift layouts for coffee side-info
         if (coffeeHonorList) {
@@ -296,12 +304,13 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
           };
 
           if (careMode) {
-            // Honor Care / Extraction: ONE panel 1px solid black, title inside, checkbox rows
+            // Honor Care: ONE black-border panel, title inside, checkbox rows (no per-row card)
             return (
               <div key={field.id} className="pt-3" data-honor-offer="care">
                 <div
-                  className="rounded-xl bg-white p-4 sm:p-5 space-y-3 shadow-none border border-solid border-black box-border"
-                  style={honorBorder}
+                  data-honor-care-panel="1"
+                  className="rounded-xl bg-white p-4 sm:p-5 space-y-1 shadow-none box-border"
+                  style={honorCareBorder}
                 >
                   <div className="space-y-1">
                     <h2 className="text-base font-extrabold text-neutral-900 tracking-tight">
@@ -316,9 +325,9 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
                     {optionItemsEarly.map((item) => {
                       const on = multiple ? many.includes(item.label) : text === item.label;
                       const title = isAr && item.labelAr ? item.labelAr : item.label;
-                      const thumb =
-                        item.imageUrl ||
-                        (choiceLooksLikeImage(item.label) ? item.label : '');
+                      const thumb = isImageChoiceKind
+                        ? item.imageUrl || (choiceLooksLikeImage(item.label) ? item.label : '')
+                        : '';
                       const price = Number(item.price) || 0;
                       const compare = Number(item.compareAtPrice) || 0;
                       return (
@@ -340,14 +349,14 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
                             <img
                               src={thumb}
                               alt=""
-                              className="w-10 h-10 rounded-lg object-contain bg-neutral-50 shrink-0 border border-solid border-black box-border"
-                              style={{ border: '1px solid #000000' }}
+                              className="w-10 h-10 rounded-lg object-contain bg-neutral-50 shrink-0"
+                              style={{ border: '1px solid #D2D2D7' }}
                               referrerPolicy="no-referrer"
                             />
                           ) : (
                             <span
-                              className="w-10 h-10 rounded-lg bg-[#E8F4FF] flex items-center justify-center shrink-0 border border-solid border-black box-border"
-                              style={{ border: '1px solid #000000' }}
+                              className="w-10 h-10 rounded-lg bg-[#E8F4FF] flex items-center justify-center shrink-0"
+                              style={{ border: '1px solid #D2D2D7' }}
                               aria-hidden
                             >
                               <svg width="20" height="20" viewBox="0 0 24 24" fill="#2B7CD3" aria-hidden>
@@ -377,9 +386,9 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
             );
           }
 
-          // Honor Gift / Add-ons: title outside, EACH row 1px solid black card
+          // Honor Gift: title outside, EACH card medium-gray border (ref image)
           return (
-            <div key={field.id} className={`${sectionClass} space-y-3`} data-honor-offer="gift">
+            <div key={field.id} className="space-y-3 pt-3" data-honor-offer="gift">
               <div className="space-y-1">
                 <h2 className={titleClass}>
                   {fieldTitle}
@@ -393,9 +402,9 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
                 {optionItemsEarly.map((item) => {
                   const on = multiple ? many.includes(item.label) : text === item.label;
                   const title = isAr && item.labelAr ? item.labelAr : item.label;
-                  const thumb =
-                    item.imageUrl ||
-                    (choiceLooksLikeImage(item.label) ? item.label : '');
+                  const thumb = isImageChoiceKind
+                    ? item.imageUrl || (choiceLooksLikeImage(item.label) ? item.label : '')
+                    : '';
                   const price = Number(item.price) || 0;
                   const compare = Number(item.compareAtPrice) || 0;
                   return (
@@ -405,31 +414,28 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
                       role={multiple ? 'checkbox' : 'radio'}
                       aria-checked={on}
                       onClick={() => toggle(item.label)}
-                      className={`w-full flex items-center gap-3 px-4 py-3.5 text-start rounded-xl bg-white shadow-none transition-colors cursor-pointer border border-solid border-black box-border ${
+                      className={`w-full flex items-center gap-3 px-4 py-3.5 text-start rounded-xl bg-white shadow-none transition-colors cursor-pointer box-border ${
                         on ? 'bg-neutral-50' : ''
                       }`}
-                      style={honorBorder}
+                      style={honorGiftBorder}
                       data-honor-offer-row="1"
                     >
-                      <span className={honorRadioBox} style={honorRadioBoxStyle} aria-hidden>
-                        {on ? (
-                          <span className="w-2.5 h-2.5 bg-black block rounded-[1px]" />
-                        ) : null}
-                      </span>
-                      {thumb ? (
-                        <img
-                          src={thumb}
-                          alt=""
-                          className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg object-contain bg-neutral-50 shrink-0 border border-solid border-black box-border"
-                          style={{ border: '1px solid #000000' }}
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : (
-                        <span
-                          className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-neutral-100 shrink-0 border border-solid border-black box-border"
-                          style={{ border: '1px solid #000000' }}
-                        />
-                      )}
+                      {isImageChoiceKind ? (
+                        thumb ? (
+                          <img
+                            src={thumb}
+                            alt=""
+                            className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg object-contain bg-neutral-50 shrink-0"
+                            style={{ border: '1px solid #D2D2D7' }}
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <span
+                            className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-neutral-100 shrink-0"
+                            style={{ border: '1px solid #D2D2D7' }}
+                          />
+                        )
+                      ) : null}
                       <span className="flex-1 min-w-0 text-xs sm:text-sm font-bold text-neutral-900 leading-snug">
                         {title}
                       </span>
@@ -461,7 +467,10 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
                   {fieldTitle}
                   {field.required ? <span className="text-rose-600"> *</span> : null}
                 </span>
-                {extra > 0 && !optionItemsEarly.some((o) => (Number(o.price) || 0) > 0) ? (
+                {extra > 0 &&
+                kind !== 'Image Upload' &&
+                kind !== 'File Upload' &&
+                !optionItemsEarly.some((o) => (Number(o.price) || 0) > 0) ? (
                   <span className="text-xs font-semibold text-neutral-500 shrink-0">+{money(extra, isAr)}</span>
                 ) : null}
               </h2>
@@ -518,23 +527,53 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
             );
           }
           if (kind === 'Image Upload' || kind === 'File Upload') {
+            const inputId = `cf-upload-${field.id}`;
+            const isImage = kind === 'Image Upload';
             return (
               <div className="space-y-2">
                 <input
+                  id={inputId}
                   type="file"
-                  accept={kind === 'Image Upload' ? 'image/*' : undefined}
-                  className="text-xs"
+                  accept={isImage ? 'image/*' : undefined}
+                  className="sr-only"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (!file) return;
                     setField(field.id, file.name);
-                    if (kind === 'Image Upload') {
+                    if (isImage) {
                       setPreviews((prev) => ({ ...prev, [field.id]: URL.createObjectURL(file) }));
                     }
                   }}
                 />
+                <label
+                  htmlFor={inputId}
+                  className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-xl text-sm font-bold cursor-pointer w-full sm:w-auto ${
+                    coffee
+                      ? 'bg-black text-white border border-black'
+                      : 'bg-[#102a1c] text-white border border-[#102a1c]'
+                  }`}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden className="shrink-0">
+                    <path
+                      d="M12 16V4m0 0l-4 4m4-4l4 4M4 16.5V18a2 2 0 002 2h12a2 2 0 002-2v-1.5"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <span>
+                    {isImage
+                      ? isAr
+                        ? 'رفع صورة'
+                        : 'Upload image'
+                      : isAr
+                        ? 'رفع ملف'
+                        : 'Upload file'}
+                  </span>
+                </label>
                 {previews[field.id] ? (
-                  <img src={previews[field.id]} alt="" className="w-16 h-16 rounded-xl object-cover" />
+                  <img src={previews[field.id]} alt="" className="w-20 h-20 rounded-xl object-cover border border-neutral-200" />
                 ) : null}
                 {text ? <p className="text-[11px] text-neutral-500">{text}</p> : null}
               </div>
@@ -574,17 +613,20 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
 
             const isColorKind = kind.includes('Color');
             const isImageKind = kind.includes('Image');
-            const allColor = optionItems.every(
-              (o) => choiceLooksLikeColor(o.label) || choiceLooksLikeColor(o.imageUrl || ''),
-            );
-            const allImage =
-              isImageKind ||
-              optionItems.every((o) => !!o.imageUrl || choiceLooksLikeImage(o.label));
+            const allColor =
+              isColorKind ||
+              optionItems.every(
+                (o) => choiceLooksLikeColor(o.label) || choiceLooksLikeColor(o.imageUrl || ''),
+              );
+            // Image grid only for Image field types — Text choices stay text chips.
+            const allImage = isImageKind;
 
             // Coffee / Honor: Memory-style cards (single) or offer list with radio + thumb
             if (coffee && !isColorKind && !allColor) {
-              const honorOfferList = multiple || optionItems.some((o) => o.imageUrl || (o.price != null && o.price > 0));
-              if (honorOfferList && (multiple || optionItems.some((o) => o.imageUrl))) {
+              const honorOfferList =
+                isImageKind &&
+                (multiple || optionItems.some((o) => o.imageUrl || (o.price != null && o.price > 0)));
+              if (honorOfferList) {
                 return (
                   <div className="space-y-2.5">
                     {optionItems.map((item) => {
@@ -602,27 +644,24 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
                           role="radio"
                           aria-checked={on}
                           onClick={() => toggle(item.label)}
-                          className={`w-full flex items-center gap-3 px-3.5 py-3 text-start rounded-xl bg-white shadow-none transition-colors cursor-pointer border border-solid border-black box-border ${
+                          className={`w-full flex items-center gap-3 px-3.5 py-3 text-start rounded-xl bg-white shadow-none transition-colors cursor-pointer box-border ${
                             on ? 'bg-neutral-50' : ''
                           }`}
-                          style={honorBorder}
+                          style={honorGiftBorder}
                           data-honor-offer-row="1"
                         >
-                          <span className={honorRadioBox} style={honorRadioBoxStyle} aria-hidden>
-                            {on ? <span className="w-2.5 h-2.5 bg-black block rounded-[1px]" /> : null}
-                          </span>
                           {thumb ? (
                             <img
                               src={thumb}
                               alt=""
-                              className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg object-contain bg-neutral-50 shrink-0 border border-solid border-black box-border"
-                              style={{ border: '1px solid #000000' }}
+                              className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg object-contain bg-neutral-50 shrink-0"
+                              style={{ border: '1px solid #D2D2D7' }}
                               referrerPolicy="no-referrer"
                             />
                           ) : (
                             <span
-                              className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-neutral-100 shrink-0 border border-solid border-black box-border"
-                              style={{ border: '1px solid #000000' }}
+                              className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-neutral-100 shrink-0"
+                              style={{ border: '1px solid #D2D2D7' }}
                             />
                           )}
                           <span className="flex-1 min-w-0">
@@ -662,7 +701,7 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
                     const on = text === item.label;
                     const title = isAr && item.labelAr ? item.labelAr : item.label;
                     const price = Number(item.price) || Number(field.extraPrice) || 0;
-                    const thumb = item.imageUrl || '';
+                    const thumb = isImageKind ? item.imageUrl || '' : '';
                     return (
                       <button
                         key={item.label}
@@ -714,7 +753,7 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
                       />
                     );
                   }
-                  if (allImage || choiceLooksLikeImage(opt) || item.imageUrl) {
+                  if (isImageKind || allImage) {
                     const src = item.imageUrl || (choiceLooksLikeImage(opt) ? opt : '');
                     return (
                       <button

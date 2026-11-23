@@ -80,3 +80,32 @@ export function paymentMethodLogoSrc(id: string | undefined | null): string | nu
   const key = id as CreateOrderPaymentMethodId;
   return PAYMENT_METHOD_LOGO[key] || null;
 }
+
+/**
+ * Map free-form order/payment labels (EN/AR) → official PNG path.
+ * Used by orders tables, badges, storefront — same assets as Create Order tiles.
+ */
+export function resolvePaymentLogoFromMethod(raw: string | undefined | null): string | null {
+  if (!raw) return null;
+  const s = String(raw).toLowerCase().trim();
+  if (!s) return null;
+
+  const exact = paymentMethodLogoSrc(s);
+  if (exact) return exact;
+
+  if (s.includes('mada') || s.includes('مدى')) return PAYMENT_METHOD_LOGO.mada;
+  if (s.includes('apple')) return PAYMENT_METHOD_LOGO.apple;
+  if (s.includes('paypal') || s.includes('باي بال') || s.includes('بايبال')) return PAYMENT_METHOD_LOGO.paypal;
+  if (s.includes('samsung')) return PAYMENT_METHOD_LOGO.samsung;
+  if (s.includes('tamara') || s.includes('تمارا')) return PAYMENT_METHOD_LOGO.tamara;
+  if (s.includes('tabby') || s.includes('تابي')) return PAYMENT_METHOD_LOGO.tabby;
+  if (s.includes('mis') || s.includes('ام اي اس')) return PAYMENT_METHOD_LOGO.mispay;
+  if (s.includes('madfoat') || s.includes('مدفوع')) return PAYMENT_METHOD_LOGO.madfoat;
+  if (s.includes('stc') || s.includes('أس تي سي') || s.includes('اس تي سي')) return PAYMENT_METHOD_LOGO.stc;
+  if (s.includes('google')) return PAYMENT_METHOD_LOGO.googlepay;
+  if (s.includes('emkan') || s.includes('إمكان') || s.includes('امكان')) return PAYMENT_METHOD_LOGO.emkan;
+  if (s.includes('wallet') || s.includes('محفظة')) return PAYMENT_METHOD_LOGO.customer_wallet;
+  if (s.includes('bank') || s.includes('تحويل') || s.includes('wire')) return PAYMENT_METHOD_LOGO.bank_transfer;
+  if (s.includes('visa') || s.includes('فيزا')) return PAYMENT_METHOD_LOGO.visa;
+  return null;
+}

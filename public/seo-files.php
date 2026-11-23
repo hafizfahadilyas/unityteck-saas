@@ -50,12 +50,59 @@ function souq_write_sitemap(): void
     echo "</urlset>\n";
 }
 
+function souq_seo_file_bodies(string $host): array
+{
+    $resolved = souq_seo_resolve($host);
+    $robots = '';
+    $llms = '';
+    $storeId = is_array($resolved) ? trim((string) ($resolved['store_id'] ?? '')) : '';
+    if ($storeId !== '') {
+        $pdo = souq_seo_pdo();
+        if ($pdo) {
+            try {
+                $st = $pdo->prepare('SELECT robots_txt, extra FROM seo_configs WHERE store_id = ? LIMIT 1');
+                $st->execute([$storeId]);
+                $row = $st->fetch() ?: [];
+                $robots = trim((string) ($row['robots_txt'] ?? ''));
+                $extra = [];
+                if (!empty($row['extra'])) {
+                    $decoded = json_decode((string) $row['extra'], true);
+                    if (is_array($decoded)) {
+                        $extra = $decoded;
+                    }
+                }
+                $llms = trim((string) ($extra['llms_txt'] ?? ''));
+            } catch (Throwable $e) {
+                $robots = '';
+                $llms = '';
+            }
+        }
+    }
+
+    return [
+        'store_id' => $storeId,
+        'store_name' => is_array($resolved) ? '' : '',
+        'robots' => $robots,
+        'llms' => $llms,
+        'origin' => souq_seo_origin_from_request($host),
+    ];
+}
+
 function souq_write_robots(): void
 {
     $host = souq_seo_normalize_host($_SERVER['HTTP_HOST'] ?? 'localhost');
-    $origin = souq_seo_origin_from_request($host);
+    $files = souq_seo_file_bodies($host);
+    $origin = $files['origin'];
     header('Content-Type: text/plain; charset=utf-8');
     header('Cache-Control: no-cache, no-store, must-revalidate');
+    $custom = trim((string) ($files['robots'] ?? ''));
+    if ($custom !== '') {
+        echo $custom;
+        if (!str_contains(strtolower($custom), 'sitemap:')) {
+            echo "\nSitemap: {$origin}/sitemap.xml\n";
+        }
+        return;
+    }
     echo "User-agent: *\n";
     echo "Allow: /\n";
     echo "Disallow: /admin\n";
@@ -63,4 +110,28 @@ function souq_write_robots(): void
     echo "Disallow: /cart\n";
     echo "Disallow: /checkout\n";
     echo "Sitemap: {$origin}/sitemap.xml\n";
+}
+
+function souq_write_llms(): void
+{
+    $host = souq_seo_normalize_host($_SERVER['HTTP_HOST'] ?? 'localhost');
+    $files = souq_seo_file_bodies($host);
+    $origin = $files['origin'];
+    header('Content-Type: text/plain; charset=utf-8');
+    header('Cache-Control: no-cache, no-store, must-revalidate');
+    $custom = trim((string) ($files['llms'] ?? ''));
+    if ($custom !== '') {
+        echo $custom;
+        if (!str_ends_with($custom, "\n")) {
+            echo "\n";
+        }
+        return;
+    }
+    // Genuine empty store file when merchant has not saved llms.txt yet
+    $title = $host !== '' ? $host : 'Store';
+    echo "# {$title}\n\n";
+    echo "> Waiting for Data\n\n";
+    echo "## Pages\n\n";
+    echo "- [Home]({$origin}/)\n";
+    echo "- [Sitemap]({$origin}/sitemap.xml)\n";
 }

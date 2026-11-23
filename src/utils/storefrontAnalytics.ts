@@ -1,11 +1,14 @@
 import { isApiEnabled } from '../api/client';
 import { readTrafficSource } from './trafficSource';
+import { shouldSkipDuplicatePageView } from './storefrontPageViewDedupe';
 
-type StorefrontEventName =
+export type StorefrontEventName =
   | 'page_view'
   | 'product_view'
   | 'add_to_cart'
   | 'begin_checkout'
+  | 'add_shipping_info'
+  | 'add_payment_info'
   | 'purchase'
   | 'search';
 
@@ -23,6 +26,8 @@ const EVENT_TO_ACTIVITY: Partial<Record<StorefrontEventName, string>> = {
   product_view: 'product_viewed',
   add_to_cart: 'add_to_cart',
   begin_checkout: 'checkout_started',
+  add_shipping_info: 'shipping_info_added',
+  add_payment_info: 'payment_info_added',
   purchase: 'order_created',
 };
 
@@ -139,11 +144,16 @@ export function trackStorefrontEvent(
   // Hard lock: never count Store Admin / Master / preview as visits
   if (!isPublicStorefrontContext()) return;
 
+  const path = extra?.path || (typeof location !== 'undefined' ? location.pathname : '');
+  if (event === 'page_view' && shouldSkipDuplicatePageView(storeId, sessionKey(), path)) {
+    return;
+  }
+
   const traffic = readTrafficSource();
   const meta = { ...(extra?.meta || {}), surface: PUBLIC_SURFACE };
   const body = {
     event,
-    path: extra?.path || (typeof location !== 'undefined' ? location.pathname : ''),
+    path,
     source: traffic.source,
     medium: traffic.medium || undefined,
     campaign: traffic.campaign || undefined,

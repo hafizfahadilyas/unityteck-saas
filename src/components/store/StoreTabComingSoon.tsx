@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, ArrowLeft, Lock, Bell, MessageCircle } from 'lucide-react';
+import { Sparkles, ArrowLeft, Lock, Bell, MessageCircle, Smartphone } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { labelForNav, STORE_NAV_KEYS } from '../../i18n/nav';
 
@@ -12,11 +12,18 @@ export const StoreTabComingSoon: React.FC<StoreTabComingSoonProps> = ({
   tabId,
   onNavigateTab,
 }) => {
-  const { t, locale } = usePrefs();
+  const { locale } = usePrefs();
   const isAr = locale === 'ar';
   const title = labelForNav(locale, STORE_NAV_KEYS, tabId);
 
-  const Icon = tabId === 'whatsapp' ? MessageCircle : tabId === 'notifications' ? Bell : Sparkles;
+  const Icon =
+    tabId === 'whatsapp'
+      ? MessageCircle
+      : tabId === 'notifications'
+        ? Bell
+        : tabId === 'mobile-app'
+          ? Smartphone
+          : Sparkles;
 
   return (
     <div

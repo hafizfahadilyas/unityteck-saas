@@ -404,6 +404,8 @@ class AnalyticsReportController extends Controller
                 'product_views' => $productViews,
                 'add_to_cart' => $addToCart,
                 'checkout_started' => $checkoutStarted,
+                'shipping_info' => (int) ($eventCounts['add_shipping_info'] ?? 0),
+                'payment_info' => (int) ($eventCounts['add_payment_info'] ?? 0),
                 'orders_placed' => $ordersPlaced,
             ],
             'abandoned_carts' => [
@@ -961,6 +963,8 @@ class AnalyticsReportController extends Controller
             ['stage' => 'Product Views', 'stage_ar' => 'مشاهدة المنتجات', 'count' => (int) ($eventCounts['product_view'] ?? 0), 'pct' => '—'],
             ['stage' => 'Add to Cart', 'stage_ar' => 'إضافة للسلة', 'count' => (int) ($eventCounts['add_to_cart'] ?? 0), 'pct' => '—'],
             ['stage' => 'Checkout Started', 'stage_ar' => 'بدء إتمام الطلب', 'count' => $checkoutStarted, 'pct' => '—'],
+            ['stage' => 'Shipping Info', 'stage_ar' => 'معلومات الشحن', 'count' => (int) ($eventCounts['add_shipping_info'] ?? 0), 'pct' => '—'],
+            ['stage' => 'Payment Info', 'stage_ar' => 'معلومات الدفع', 'count' => (int) ($eventCounts['add_payment_info'] ?? 0), 'pct' => '—'],
             ['stage' => 'Orders Placed', 'stage_ar' => 'الطلبات المكتملة', 'count' => $totalOrders, 'pct' => '—'],
         ];
 
