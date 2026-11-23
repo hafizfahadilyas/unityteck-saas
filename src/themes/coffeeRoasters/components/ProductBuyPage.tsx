@@ -284,7 +284,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
   const [zoomPos, setZoomPos] = useState({ x: 0, y: 0, percentX: 0, percentY: 0 });
   const imageStageRef = useRef<HTMLDivElement | null>(null);
   const buyStickyBarRef = useRef<HTMLDivElement | null>(null);
-  const [buyStickyBarH, setBuyStickyBarH] = useState(56);
+  const [buyStickyBarH, setBuyStickyBarH] = useState(56); // used for scroll offset / gallery top
 
   // Reviews System State (Screenshot 4)
   const [activeReviewTab, setActiveReviewTab] = useState<'all' | 'images'>('all');
@@ -932,12 +932,12 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
   return (
     <div className="min-h-screen bg-white text-neutral-900 text-start pb-28 lg:pb-24 selection:bg-neutral-900 selection:text-white w-full max-w-full">
       {/* ========================================================================= */}
-      {/* 1. HONOR fixed sub-bar — always pinned under site header while scrolling  */}
+      {/* 1. HONOR sticky sub-bar — sticks under site header (NOT fixed: clip root) */}
       {/* ========================================================================= */}
       <div
         ref={buyStickyBarRef}
         data-buy-sticky-bar="1"
-        className="fixed inset-x-0 z-40 bg-white border-b border-[#E5E5E5] w-full shadow-none"
+        className="sticky z-40 w-full bg-white border-b border-[#E5E5E5] shadow-none"
         style={{
           boxShadow: 'none',
           top: 'var(--theme-chrome-offset, 4rem)',
@@ -1037,8 +1037,6 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
           })}
         </div>
       </div>
-      {/* Spacer so page content starts below the fixed Honor bar */}
-      <div aria-hidden style={{ height: buyStickyBarH }} data-buy-sticky-spacer="1" />
 
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
         {/* ========================================================================= */}
