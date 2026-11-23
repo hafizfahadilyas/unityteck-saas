@@ -1284,6 +1284,79 @@ export async function fetchProduct(storeId: string, id: string): Promise<Product
   return mapProduct(res.data);
 }
 
+export type ProductGroupMemberPayload = {
+  child_product_id: string;
+  selector_image_url?: string | null;
+  sort_order?: number;
+};
+
+export type ProductGroupMemberRow = {
+  id: string;
+  store_id: string;
+  parent_product_id: string;
+  child_product_id: string;
+  sort_order: number;
+  selector_image_url?: string | null;
+  child?: Product | null;
+};
+
+/** HiBrew coffee-only: list children of a grouped parent. */
+export async function fetchProductGroupMembers(
+  storeId: string,
+  parentId: string,
+): Promise<ProductGroupMemberRow[]> {
+  const res = await apiFetch<{ data?: Array<Record<string, unknown>> }>(
+    `/products/${parentId}/group-members`,
+    { storeId },
+  );
+  return (res.data || []).map((row) => {
+    const childRaw = row.child as ApiProductRow | undefined;
+    return {
+      id: String(row.id || ''),
+      store_id: String(row.store_id || storeId),
+      parent_product_id: String(row.parent_product_id || parentId),
+      child_product_id: String(row.child_product_id || ''),
+      sort_order: Number(row.sort_order || 0),
+      selector_image_url:
+        row.selector_image_url == null || row.selector_image_url === ''
+          ? null
+          : String(row.selector_image_url),
+      child: childRaw ? mapProduct(childRaw) : null,
+    };
+  });
+}
+
+/** HiBrew coffee-only: replace ordered 3–4 child membership. */
+export async function syncProductGroupMembers(
+  storeId: string,
+  parentId: string,
+  members: ProductGroupMemberPayload[],
+): Promise<ProductGroupMemberRow[]> {
+  const res = await apiFetch<{ data?: Array<Record<string, unknown>> }>(
+    `/products/${parentId}/group-members`,
+    {
+      method: 'PUT',
+      storeId,
+      body: { members },
+    },
+  );
+  return (res.data || []).map((row) => {
+    const childRaw = row.child as ApiProductRow | undefined;
+    return {
+      id: String(row.id || ''),
+      store_id: String(row.store_id || storeId),
+      parent_product_id: String(row.parent_product_id || parentId),
+      child_product_id: String(row.child_product_id || ''),
+      sort_order: Number(row.sort_order || 0),
+      selector_image_url:
+        row.selector_image_url == null || row.selector_image_url === ''
+          ? null
+          : String(row.selector_image_url),
+      child: childRaw ? mapProduct(childRaw) : null,
+    };
+  });
+}
+
 /** Soft-delete → recycle bin (status=archived). */
 export async function deleteProduct(
   storeId: string,

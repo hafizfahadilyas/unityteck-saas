@@ -50,9 +50,58 @@ import { effectiveProductPricing } from '../../../utils/productSaleSchedule';
 import { saleCountdownParts } from '../../../utils/saleCountdown';
 import { customFieldIsFillable, normalizeCustomFieldType } from '../../../utils/customFieldTypes';
 import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
-import { fetchStoreReviews, submitStoreReviewApi } from '../../../api/tenantApi';
+import { fetchProduct, fetchStoreReviews, submitStoreReviewApi } from '../../../api/tenantApi';
+import type { Product as ThemeProduct } from '../types';
 import baristaKitImg from '../assets/images/hibrew_barista_kit_isolated.jpg';
 import scaleImg from '../assets/images/hibrew_scale_isolated.jpg';
+
+function mapApiChildToThemeProduct(child: import('../../../types').Product): ThemeProduct {
+  const primary =
+    child.image ||
+    child.imageUrl ||
+    (child.galleryUrls && child.galleryUrls[0]) ||
+    '';
+  const regular = Number(child.price) || 0;
+  const sale = Number(child.discountedPrice) || 0;
+  const selling = sale > 0 && sale < regular ? sale : regular;
+  return {
+    id: child.id,
+    sku: child.sku,
+    brand: child.brand,
+    name: child.name,
+    nameAr: child.nameAr || child.name,
+    tagline: child.subtitle || '',
+    taglineAr: child.subtitleAr || '',
+    category: (child.category as ThemeProduct['category']) || '',
+    categoryAr: child.categoryAr,
+    stock: typeof child.stock === 'number' ? child.stock : undefined,
+    seoTitle: child.seoTitle || undefined,
+    seoDescription: child.seoDescription || undefined,
+    discountStartAt: child.discountStartAt || undefined,
+    discountEndAt: child.discountEndAt || undefined,
+    basePrice: selling,
+    originalPrice: child.originalPrice || undefined,
+    price: regular,
+    discountedPrice: sale || undefined,
+    reviewCount: child.reviewsCount || 0,
+    rating: child.rating || 0,
+    colors: [],
+    storageOptions: [],
+    specs: Array.isArray(child.specs) ? child.specs : [],
+    images: primary
+      ? [primary, ...(child.galleryUrls || []).filter((u) => u !== primary)]
+      : [...(child.galleryUrls || [])],
+    overview: child.description || '',
+    overviewAr: child.descriptionAr || '',
+    productOptions: (child.productOptions as ThemeProduct['productOptions']) || [],
+    variations: (child.variations as ThemeProduct['variations']) || [],
+    conditionalRules: (child.conditionalRules as ThemeProduct['conditionalRules']) || [],
+    customFields: (child.customFields as ThemeProduct['customFields']) || [],
+    selectorImageUrl: child.selectorImageUrl || null,
+    purchasable: true,
+    isGrouped: false,
+  };
+}
 
 type StorefrontReviewRow = {
   id: string;
@@ -90,7 +139,77 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
     couponDiscount,
   } = useCart();
   const { activeStore } = useTenant();
-  const product = selectedProduct;
+  const parentProduct = selectedProduct;
+  const [groupChildren, setGroupChildren] = useState<ThemeProduct[]>([]);
+  const [activeChildId, setActiveChildId] = useState<string | null>(null);
+
+  const parentIsGrouped = Boolean(
+    parentProduct?.isGrouped ||
+      String(parentProduct?.productType || '').toLowerCase() === 'grouped' ||
+      (parentProduct?.groupChildren && parentProduct.groupChildren.length > 0) ||
+      groupChildren.length > 0,
+  );
+
+  // Keep URL on parent; commerce uses the selected independent child.
+  const product = useMemo(() => {
+    if (!parentIsGrouped) return parentProduct;
+    const pool =
+      groupChildren.length > 0
+        ? groupChildren
+        : (parentProduct?.groupChildren || []);
+    if (!pool.length) return parentProduct;
+    const active = pool.find((c) => c.id === activeChildId) || pool[0];
+    return active || parentProduct;
+  }, [parentIsGrouped, parentProduct, groupChildren, activeChildId]);
+
+  useEffect(() => {
+    const seeded = parentProduct?.groupChildren || [];
+    if (seeded.length > 0) {
+      setGroupChildren(seeded);
+      setActiveChildId((prev) =>
+        prev && seeded.some((c) => c.id === prev) ? prev : seeded[0]?.id || null,
+      );
+      return;
+    }
+    setGroupChildren([]);
+    setActiveChildId(null);
+    const storeId = activeStore?.id;
+    const parentId = parentProduct?.id;
+    if (
+      !storeId ||
+      !parentId ||
+      !(
+        parentProduct?.isGrouped ||
+        String(parentProduct?.productType || '').toLowerCase() === 'grouped'
+      )
+    ) {
+      return;
+    }
+    let cancelled = false;
+    void fetchProduct(storeId, parentId)
+      .then((full) => {
+        if (cancelled) return;
+        const kids = (full.groupChildren || []).map(mapApiChildToThemeProduct);
+        setGroupChildren(kids);
+        setActiveChildId(kids[0]?.id || null);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setGroupChildren([]);
+          setActiveChildId(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeStore?.id,
+    parentProduct?.id,
+    parentProduct?.isGrouped,
+    parentProduct?.productType,
+    parentProduct?.groupChildren,
+  ]);
+
   const showCouponOnBuy = activeStore?.id
     ? resolveCoffeeThemeSettings(activeStore.id, activeStore).checkoutFields?.showCoupon !== false
     : true;
@@ -121,7 +240,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
   const [optionPick, setOptionPick] = useState<Record<string, string>>({});
   const [fieldValues, setFieldValues] = useState<FieldValueMap>({});
 
-  // Sync state whenever selectedProduct changes — no fake Default/Standard when empty
+  // Sync state whenever selected parent or active child changes — no URL navigation
   useEffect(() => {
     if (product) {
       setSelectedColor(product.colors?.[0]);
@@ -133,7 +252,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
       setOptionPick(initialOptionSelection(product.productOptions as never, product.variations as never));
       setFieldValues({});
     }
-  }, [product?.id]);
+  }, [parentProduct?.id, product?.id]);
 
   // Glass Zoom Magnifier State (Screenshot 2)
   const [isHoveringImage, setIsHoveringImage] = useState(false);
@@ -812,7 +931,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
 
             {/* Mobile Learn More pill shortcut */}
             <button
-              onClick={() => navigateTo('product-detail', product.id)}
+              onClick={() => navigateTo('product-detail', parentProduct?.id || product.id)}
               className="sm:hidden ltr:ml-auto rtl:mr-auto flex items-center gap-1 text-[11px] font-bold text-neutral-800 hover:text-black bg-neutral-100 px-2 py-0.5 rounded-full shrink-0"
             >
               <Sparkles className="w-3 h-3 text-amber-500" />
@@ -846,17 +965,68 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
         {/* 3. MAIN 2-COLUMN STAGE (Honor Buy Layout with Glass Zoom Effect)          */}
         {/* ========================================================================= */}
         <div id="buy-stage-section" className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 pt-8 items-start relative scroll-mt-28">
+          {/* HiBrew grouped products: switch independent children without changing URL */}
+          {parentIsGrouped &&
+            (groupChildren.length > 0 || (parentProduct?.groupChildren?.length || 0) > 0) && (
+              <div className="lg:col-span-12 space-y-2">
+                <p className="text-xs font-semibold text-neutral-600">
+                  {language === 'AR' ? 'اختر المنتج داخل المجموعة' : 'Choose a product in this group'}
+                </p>
+                <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+                  {(groupChildren.length > 0
+                    ? groupChildren
+                    : parentProduct?.groupChildren || []
+                  ).map((child, childIndex) => {
+                    const thumb =
+                      child.selectorImageUrl ||
+                      child.images?.[0] ||
+                      child.image ||
+                      '/images/hibrew_h7a_flagship_machine.png';
+                    const selected = activeChildId
+                      ? activeChildId === child.id
+                      : childIndex === 0;
+                    return (
+                      <button
+                        key={child.id}
+                        type="button"
+                        onClick={() => setActiveChildId(child.id)}
+                        className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-white transition-all cursor-pointer shrink-0 ${
+                          selected
+                            ? 'ring-2 ring-black border-2 border-black scale-[1.02] shadow-md'
+                            : 'border border-[#D2D2D7] opacity-85 hover:opacity-100 hover:border-neutral-400'
+                        }`}
+                        aria-pressed={selected}
+                        title={language === 'AR' ? child.nameAr || child.name : child.name}
+                      >
+                        <img
+                          src={thumb}
+                          alt={language === 'AR' ? child.nameAr || child.name : child.name}
+                          className="w-full h-full object-contain p-1"
+                          referrerPolicy="no-referrer"
+                        />
+                        {selected ? (
+                          <span className="absolute bottom-1 inset-x-1 text-[9px] font-bold text-center bg-black/80 text-white rounded px-0.5 truncate">
+                            {language === 'AR' ? child.nameAr || child.name : child.name}
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
           {/* ----------------------------------------------------------------------- */}
           {/* LEFT COLUMN: Gallery, Badges, Glass Zoom Lens, Installment Banner       */}
           {/* ----------------------------------------------------------------------- */}
           <div className="lg:col-span-6 space-y-4 lg:sticky lg:top-24 lg:self-start z-10 flex flex-col items-center">
-            {/* Main Image Stage - Pure White Clean Background Matching Image 1 */}
+            {/* Main Image Stage — full bleed, no white pad/shadow */}
             <div
               ref={imageStageRef}
               onMouseEnter={() => setIsHoveringImage(true)}
               onMouseLeave={() => setIsHoveringImage(false)}
               onMouseMove={handleMouseMove}
-              className="relative w-full h-[300px] sm:h-[350px] flex items-center justify-center select-none bg-white py-2 px-4 group cursor-zoom-in overflow-hidden rounded-2xl"
+              className="relative w-full flex items-center justify-center select-none bg-transparent p-0 m-0 shadow-none ring-0 border-0 group cursor-zoom-in overflow-hidden rounded-2xl"
             >
               {/* Top-left Spec badge pill — only when real option/badge exists */}
               {badgeLabel ? (
@@ -867,11 +1037,11 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               </div>
               ) : null}
 
-              {/* Main Product Image (Direct, Unobstructed — gift strip sits below, no overlay) */}
+              {/* Main Product Image — full width/height auto, no white pad/shadow */}
               <img
                 src={currentDisplayImage}
                 alt={product.name}
-                className="max-h-[300px] sm:max-h-[380px] w-auto max-w-[95%] sm:max-w-[88%] object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.06)] group-hover:scale-105 transition-transform duration-300"
+                className="w-full h-auto max-w-full block object-contain object-center shadow-none drop-shadow-none group-hover:scale-[1.02] transition-transform duration-300"
                 referrerPolicy="no-referrer"
               />
 
@@ -1080,6 +1250,30 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                     </>
                   )}
               </h1>
+              {(product.sku || typeof product.stock === 'number') && (
+                <p className="text-[11px] sm:text-xs text-neutral-500 font-medium tracking-wide">
+                  {product.sku ? (
+                    <span>
+                      {language === 'AR' ? 'رمز المنتج: ' : 'SKU: '}
+                      {product.sku}
+                    </span>
+                  ) : null}
+                  {product.sku && typeof product.stock === 'number' ? (
+                    <span className="mx-2 text-neutral-300">·</span>
+                  ) : null}
+                  {typeof product.stock === 'number' ? (
+                    <span>
+                      {language === 'AR'
+                        ? product.stock > 0
+                          ? `المتوفر: ${product.stock}`
+                          : 'غير متوفر'
+                        : product.stock > 0
+                          ? `In stock: ${product.stock}`
+                          : 'Out of stock'}
+                    </span>
+                  ) : null}
+                </p>
+              )}
 
               {/* Star Rating, Total Reviews Link & Brown Paper Airplane Share Icon (Image 2) */}
               <div className="flex items-center justify-between pt-1">

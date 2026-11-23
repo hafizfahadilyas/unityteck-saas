@@ -251,6 +251,14 @@ export interface Product {
   /** Homepage / collection featuring (independent of badge ribbon) */
   isFeatured?: boolean;
   productType?: string;
+  /** HiBrew grouped parent → independent child products (coffee-only). */
+  isGrouped?: boolean;
+  /** False for grouped parents (not sold). Defaults true when omitted. */
+  purchasable?: boolean;
+  /** Children attached to a grouped parent (from API `group_children`). */
+  groupChildren?: Product[];
+  /** Optional switcher thumb when this row is a group member. */
+  selectorImageUrl?: string | null;
   weight?: string | number | null;
   type?: string;
   rating?: number;

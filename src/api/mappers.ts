@@ -459,6 +459,28 @@ export function mapProduct(row: ApiProductRow): Product {
     shippingPaymentOptions: Array.isArray(row.shipping_payment_options)
       ? row.shipping_payment_options
       : null,
+    isGrouped: (() => {
+      if (row.is_grouped === true || row.isGrouped === true) return true;
+      const pt = str(row.product_type ?? row.productType, '').toLowerCase();
+      return pt === 'grouped';
+    })(),
+    purchasable: (() => {
+      if (row.purchasable === false) return false;
+      if (row.is_grouped === true || row.isGrouped === true) return false;
+      const pt = str(row.product_type ?? row.productType, '').toLowerCase();
+      return pt !== 'grouped';
+    })(),
+    groupChildren: Array.isArray(row.group_children)
+      ? (row.group_children as ApiProductRow[]).map((child) => mapProduct(child))
+      : Array.isArray(row.groupChildren)
+        ? (row.groupChildren as ApiProductRow[]).map((child) => mapProduct(child))
+        : undefined,
+    selectorImageUrl:
+      row.selector_image_url == null || row.selector_image_url === ''
+        ? row.selectorImageUrl == null || row.selectorImageUrl === ''
+          ? null
+          : str(row.selectorImageUrl)
+        : str(row.selector_image_url),
   };
 }
 

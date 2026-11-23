@@ -49,6 +49,7 @@ import { commerceTerm } from '../../i18n/commerceTerms';
 import { buildStorefrontProductUrl } from '../../utils/storefrontLinks';
 import type { ProductEditSectionKey } from './ProductEditDrawer';
 import { CoffeeLearnMoreProductSection } from './CoffeeLearnMoreProductSection';
+import { GroupedProductMembersPanel } from './GroupedProductMembersPanel';
 import { MediaUploadField } from '../common/MediaUploadField';
 import {
   isCoffeeProductEditorStore,
@@ -141,6 +142,10 @@ export interface StoreProductEditorViewProps {
   /** Shared with list Filter popover — hide/show editor cards. */
   visibleSections?: Partial<Record<ProductEditSectionKey, boolean>>;
   onVisibleSectionsChange?: (next: Record<ProductEditSectionKey, boolean>) => void;
+  /** Catalog rows for HiBrew group-member picker. */
+  catalogProducts?: Product[];
+  /** Open another product (e.g. group child) in the full editor. */
+  onOpenProduct?: (productId: string) => void;
 }
 
 export interface CustomFieldItem {
@@ -316,10 +321,12 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   onDuplicate,
   visibleSections,
   onVisibleSectionsChange,
+  catalogProducts = [],
+  onOpenProduct,
 }) => {
   const { t, locale, currency, money } = usePrefs();
   const { toast } = useToast();
-  const { storeActiveTheme, activeStore, updateProduct } = useTenant();
+  const { storeActiveTheme, activeStore, updateProduct, currentProducts } = useTenant();
   const isAr = locale === 'ar';
   const isCreateMode = mode === 'create';
   const coffeeThemeId =
@@ -331,6 +338,12 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     themeId: coffeeThemeId,
     slug: activeStore?.slug || storeSlug,
   });
+  const isGroupedParent =
+    showCoffeeLearnMore &&
+    (product.productType === 'grouped' ||
+      product.isGrouped === true ||
+      product.type === 'grouped-product');
+  const groupCatalog = catalogProducts.length > 0 ? catalogProducts : currentProducts;
 
   // ── Form State ──
   const [name, setName] = useState(product.name || '');
@@ -1667,6 +1680,17 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       seoDescription,
       customUrl: urlSlug,
       videoUrl: learnMoreVideoUrl.trim() || null,
+      // Preserve create-method type (e.g. HiBrew `grouped` parent shell)
+      productType: product.productType,
+      type: product.type,
+      isGrouped: Boolean(product.isGrouped || product.productType === 'grouped'),
+      purchasable:
+        product.purchasable === false ||
+        product.productType === 'grouped' ||
+        product.isGrouped
+          ? false
+          : true,
+      groupChildren: product.groupChildren,
     };
 
     onSave(payload);
@@ -3652,6 +3676,29 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
             </div>
             </>
           </div>
+        )}
+
+        {/* HiBrew Grouped Products — independent children (coffee-only) */}
+        {isGroupedParent && (
+          <GroupedProductMembersPanel
+            storeId={storeId || activeStore?.id || ''}
+            parentProduct={product}
+            catalogProducts={groupCatalog}
+            isAr={isAr}
+            locale={locale}
+            canSync={!isCreateMode && !String(product.id || '').startsWith('draft-')}
+            onEditChild={(childId) => {
+              if (onOpenProduct) onOpenProduct(childId);
+              else {
+                toast(
+                  isAr
+                    ? 'افتح المنتج الفرعي من قائمة المنتجات للتعديل'
+                    : 'Open the child product from the products list to edit',
+                  'info',
+                );
+              }
+            }}
+          />
         )}
 
         {/* Coffee Learn More — per-SKU product-detail content */}

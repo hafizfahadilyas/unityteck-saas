@@ -65,6 +65,11 @@ import { resolveSubscription } from '../../auth/subscriptions';
 import { StoreBrandsView, getStoreBrands } from './StoreBrandsView';
 import { MediaPickerModal } from '../common/MediaPickerModal';
 import { BulkProductUploadModal } from './BulkProductUploadModal';
+import {
+  ProductCreateMethodChooser,
+  type ProductCreateMethod,
+} from './ProductCreateMethodChooser';
+import { isCoffeeProductEditorStore } from '../../utils/coffeeLearnMoreFields';
 import { ConnectedWorkspaceBanner } from '../common/ConnectedWorkspaceBanner';
 import { WindowedPagination } from '../common/WindowedPagination';
 import { ProductVariationsPanel } from './ProductVariationsPanel';
@@ -135,6 +140,12 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
 
   // List View Controls
   const [showBulkModal, setShowBulkModal] = useState(false);
+  const [showCreateMethodChooser, setShowCreateMethodChooser] = useState(false);
+  const isCoffeeStoreUi = isCoffeeProductEditorStore({
+    storeId: activeStore.id,
+    slug: activeStore.slug,
+    themeId: undefined,
+  });
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
@@ -762,7 +773,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
   };
 
   // Open New Product — straight into full editor (default: ready / physical product)
-  const handleOpenNewProduct = useCallback(() => {
+  const handleOpenNewProduct = useCallback((opts?: { grouped?: boolean }) => {
     if (!sub.writable) {
       toast(sub.message ?? t('subNotWritable'), 'error');
       return;
@@ -771,12 +782,17 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
       toast(planGate.message, 'error');
       return;
     }
-    const readyTypeTitle = isAr ? 'منتج جاهز' : 'Ready Product';
+    const grouped = Boolean(opts?.grouped);
+    const readyTypeTitle = grouped
+      ? 'grouped'
+      : isAr
+        ? 'منتج جاهز'
+        : 'Ready Product';
     const draft: Product = {
       id: `draft-${Date.now()}`,
       storeId: activeStore.id,
       name: '',
-      sku: '',
+      sku: grouped ? `GRP-${Date.now().toString(36).toUpperCase()}` : '',
       category: categories[0] || 'General',
       categories: categories[0] ? [categories[0]] : [],
       price: 0,
@@ -793,11 +809,14 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
       description: '',
       subtitle: '',
       productType: readyTypeTitle,
-      type: 'ready-product',
+      type: grouped ? 'grouped-product' : 'ready-product',
+      isGrouped: grouped,
+      purchasable: !grouped,
+      groupChildren: [],
       brand: '',
       countryOfOrigin: 'Saudi Arabia',
       requiresShipping: true,
-      trackInventory: true,
+      trackInventory: !grouped,
       salesCount: 0,
       customUrl: '',
       seoTitle: '',
@@ -811,6 +830,38 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
     setIsSideDrawerOpen(false);
     setCurrentView('edit');
   }, [activeStore.id, categories, isAr, planGate, sub, t, toast]);
+
+  const handleCreateMethodSelect = useCallback(
+    (method: ProductCreateMethod) => {
+      setShowCreateMethodChooser(false);
+      if (method === 'bulk') {
+        setShowBulkModal(true);
+        return;
+      }
+      if (method === 'grouped') {
+        handleOpenNewProduct({ grouped: true });
+        return;
+      }
+      handleOpenNewProduct();
+    },
+    [handleOpenNewProduct],
+  );
+
+  const handleAddProductClick = useCallback(() => {
+    if (isCoffeeStoreUi) {
+      if (!sub.writable) {
+        toast(sub.message ?? t('subNotWritable'), 'error');
+        return;
+      }
+      if (!planGate.ok) {
+        toast(planGate.message, 'error');
+        return;
+      }
+      setShowCreateMethodChooser(true);
+      return;
+    }
+    handleOpenNewProduct();
+  }, [handleOpenNewProduct, isCoffeeStoreUi, planGate, sub, t, toast]);
 
   useEffect(() => {
     const handleSubView = (e: Event) => {
@@ -972,6 +1023,17 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
               storeCategories={storeCategoryRows}
         availableBrands={availableStoreBrands.map((b: any) => (typeof b === 'string' ? b : (b.nameEn || b.nameAr || '')))}
         visibleSections={visibleEditSections}
+        catalogProducts={[...apiRows, ...currentProducts]}
+        onOpenProduct={(childId) => {
+          setCreatingProduct(null);
+          setEditingProductId(childId);
+          setEditingProductDetail(null);
+          setIsSideDrawerOpen(false);
+          setCurrentView('edit');
+          void fetchProduct(activeStore.id, childId)
+            .then((full) => setEditingProductDetail(full))
+            .catch(() => undefined);
+        }}
         onBack={() => {
           setCreatingProduct(null);
           setEditingProductId(null);
@@ -982,12 +1044,18 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
           if (isCreatingProduct) {
             const { id: _id, storeId: _storeId, publishedAt: _publishedAt, isStale: _isStale, ...restDraft } =
               editingProduct;
+            const isGroupedCreate =
+              (updatedData.productType || restDraft.productType) === 'grouped' ||
+              Boolean(updatedData.isGrouped || restDraft.isGrouped);
             addProduct(
               {
                 ...restDraft,
                 ...updatedData,
                 name: (updatedData.name ?? restDraft.name ?? '').trim(),
                 sku: (updatedData.sku ?? restDraft.sku ?? '').trim(),
+                productType: isGroupedCreate ? 'grouped' : (updatedData.productType ?? restDraft.productType),
+                isGrouped: isGroupedCreate,
+                purchasable: isGroupedCreate ? false : (updatedData.purchasable ?? true),
                 status: updatedData.status ?? 'draft',
                 isActive: updatedData.isActive ?? true,
                 image: updatedData.image || FALLBACK_PRODUCT_IMAGE,
@@ -1000,7 +1068,14 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
             setEditingProductId(null);
             setEditingProductDetail(null);
             setCurrentView('list');
-            toast(t('productCreatedSuccess'), 'success');
+            toast(
+              isGroupedCreate
+                ? isAr
+                  ? 'تم إنشاء المجموعة. افتحها مجدداً لإضافة المنتجات الفرعية (3–4).'
+                  : 'Group created. Re-open it to add 3–4 child products.'
+                : t('productCreatedSuccess'),
+              'success',
+            );
             return;
           }
           updateProduct(editingProduct.id, updatedData, activeStore.id);
@@ -1384,7 +1459,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
           {/* + Add Product Primary CTA Button */}
           <button
             type="button"
-            onClick={handleOpenNewProduct}
+            onClick={handleAddProductClick}
             className="px-4 py-2 text-xs font-bold text-white rounded-xl flex items-center gap-2 shadow-xs cursor-pointer transition-all hover:opacity-95 shrink-0"
             style={{ background: 'var(--portal-cta)' }}
           >
@@ -3062,6 +3137,15 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
         storeName={activeStore.name}
         storeId={activeStore.id}
       />
+
+      {isCoffeeStoreUi && (
+        <ProductCreateMethodChooser
+          open={showCreateMethodChooser}
+          isAr={isAr}
+          onClose={() => setShowCreateMethodChooser(false)}
+          onSelect={handleCreateMethodSelect}
+        />
+      )}
     </AdminPageShell>
   );
 };

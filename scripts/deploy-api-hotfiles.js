@@ -20,6 +20,7 @@ const files = [
   'index.php',
   'commerce.php',
   'live_extensions.php',
+  'product_groups.php',
   'google_oauth.php',
   'canva_connect.php',
   'session_lite.php',

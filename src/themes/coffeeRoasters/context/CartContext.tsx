@@ -20,6 +20,14 @@ import { useActiveSpecialOfferDiscount } from '../../../hooks/useActiveSpecialOf
 
 import { FlyingCartOverlay, FlyingCartItem } from '../components/FlyingCartOverlay';
 import { readStoreIdentity, type StoreIdentitySettings } from '../../settings/storeIdentity';
+import {
+  isAdminChromePath,
+  isSpaState,
+  isStorefrontPath,
+  spaPushOrReplace,
+  storefrontHomeHref,
+  trapSpaHomeIfEscaped,
+} from '../../../utils/spaNavigationGuard';
 
 function optionRows(opt: any): any[] {
   if (!opt || !Array.isArray(opt.values)) return [];
@@ -422,6 +430,17 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  const inAdminChromeUrl = useCallback(() => {
+    if (typeof window === 'undefined') return true;
+    const url = new URL(window.location.href);
+    return (
+      isAdminChromePath(url.pathname) ||
+      url.searchParams.get('builder') === '1' ||
+      url.searchParams.get('customizer') === '1' ||
+      url.searchParams.get('customize') === '1'
+    );
+  }, []);
+
   const navigateTo = useCallback((route: string, productId?: string, pageSlug?: string) => {
     if (productId) {
       setSelectedProductId((prev) => (prev !== productId ? productId : prev));
@@ -464,40 +483,36 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     const targetRoute = route as RouteType;
     try {
-      if (typeof window !== 'undefined') {
+      if (typeof window !== 'undefined' && !inAdminChromeUrl()) {
         const url = new URL(window.location.href);
-        // Never pollute admin page-builder / customizer deep links with storefront page=buy&product=
-        const inAdminChrome =
-          url.pathname.includes('/admin') ||
-          url.searchParams.get('builder') === '1' ||
-          url.searchParams.get('customizer') === '1' ||
-          url.searchParams.get('customize') === '1';
-        if (!inAdminChrome) {
-          if (targetRoute === 'home') {
-            url.searchParams.delete('page');
+        if (targetRoute === 'home') {
+          url.searchParams.delete('page');
+          url.searchParams.delete('product');
+          url.searchParams.delete('productId');
+          url.searchParams.delete('pid');
+        } else {
+          url.searchParams.set(
+            'page',
+            targetRoute === 'product-detail'
+              ? 'product'
+              : targetRoute === 'product-buy'
+                ? 'buy'
+                : targetRoute === 'products'
+                  ? 'products'
+                  : targetRoute,
+          );
+          const pid = productId || productIdFromQuery();
+          if ((targetRoute === 'product-detail' || targetRoute === 'product-buy') && pid) {
+            url.searchParams.set('product', pid);
+          } else if (targetRoute !== 'product-detail' && targetRoute !== 'product-buy') {
             url.searchParams.delete('product');
             url.searchParams.delete('productId');
-          } else {
-            url.searchParams.set(
-              'page',
-              targetRoute === 'product-detail'
-                ? 'product'
-                : targetRoute === 'product-buy'
-                  ? 'buy'
-                  : targetRoute === 'products'
-                    ? 'products'
-                    : targetRoute,
-            );
-            const pid = productId || productIdFromQuery();
-            if ((targetRoute === 'product-detail' || targetRoute === 'product-buy') && pid) {
-              url.searchParams.set('product', pid);
-            } else if (targetRoute !== 'product-detail' && targetRoute !== 'product-buy') {
-              url.searchParams.delete('product');
-              url.searchParams.delete('productId');
-            }
+            url.searchParams.delete('pid');
           }
-          window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
         }
+        const href = `${url.pathname}${url.search}${url.hash}`;
+        // pushState so browser Back returns to previous storefront page / home — not admin
+        spaPushOrReplace('storefront', href, { page: targetRoute, product: productId || null });
       }
     } catch {}
     setCurrentRoute((prev) => {
@@ -509,23 +524,85 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return targetRoute;
     });
-  }, []);
+  }, [inAdminChromeUrl]);
 
   const goBack = useCallback(() => {
-    setRouteHistory((prevHistory) => {
-      if (prevHistory.length > 1) {
-        const updatedHistory = [...prevHistory];
-        updatedHistory.pop();
-        const prev = updatedHistory[updatedHistory.length - 1] || 'home';
-        setCurrentRoute(prev);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        return updatedHistory;
+    try {
+      if (typeof window !== 'undefined' && !inAdminChromeUrl()) {
+        // Prefer real browser history when we pushed SPA entries
+        if (isSpaState(window.history.state, 'storefront') || window.history.length > 1) {
+          window.history.back();
+          return;
+        }
       }
-      setCurrentRoute('products');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      return ['home', 'products'];
-    });
-  }, []);
+    } catch {}
+    navigateTo('home');
+  }, [inAdminChromeUrl, navigateTo]);
+
+  // Browser Back: sync route from URL; never exit storefront to admin/dashboard
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (inAdminChromeUrl()) return;
+
+    try {
+      const route = routeFromPreviewQuery();
+      spaPushOrReplace(
+        'storefront',
+        `${window.location.pathname}${window.location.search}${window.location.hash}`,
+        { page: route },
+        true,
+      );
+    } catch {}
+
+    const coffeeHomeHref = () => {
+      const path = window.location.pathname;
+      const base =
+        /\/coffee/i.test(path) || /\/public_html/i.test(path)
+          ? path.replace(/\/$/, '') || '/coffee'
+          : '/coffee';
+      return storefrontHomeHref(base);
+    };
+
+    const onPop = () => {
+      try {
+        if (inAdminChromeUrl()) return;
+
+        const path = window.location.pathname;
+        const inside = isStorefrontPath(path) && !isAdminChromePath(path);
+
+        // Left storefront (e.g. back into /admin) → force coffee home
+        if (trapSpaHomeIfEscaped('storefront', inside, coffeeHomeHref(), { page: 'home' })) {
+          setCurrentRoute('home');
+          setPreviousRoute('home');
+          setRouteHistory(['home']);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+
+        const route = routeFromPreviewQuery();
+        const pid = productIdFromQuery();
+        if (pid) setSelectedProductId(pid);
+        setCurrentRoute(route);
+        setRouteHistory((h) => {
+          if (h.length > 0 && h[h.length - 1] === route) return h;
+          return [...h, route];
+        });
+
+        // On home: re-push so another Back does not exit to dashboard
+        if (route === 'home') {
+          window.history.pushState(
+            { unityteckSpa: 'storefront', page: 'home' },
+            '',
+            coffeeHomeHref(),
+          );
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch {}
+    };
+
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [inAdminChromeUrl]);
 
   const addToCart = (
     product: Product,
@@ -543,6 +620,19 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       selectedOptions?: Record<string, string> | null;
     }
   ) => {
+    // Grouped parent is display-only — never purchasable.
+    if (
+      product?.isGrouped === true ||
+      product?.purchasable === false ||
+      String(product?.productType || '').toLowerCase() === 'grouped'
+    ) {
+      showToast(
+        language === 'AR'
+          ? 'اختر منتجاً فرعياً من المجموعة ثم أضفه إلى السلة'
+          : 'Select a child product from the group, then add it to cart',
+      );
+      return;
+    }
     const selectedColor = color || product.colors?.[0] || {
       name: '',
       hex: '#1c1917',
@@ -1044,10 +1134,74 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         variations: commerceNew.variations?.length ? commerceNew.variations : [],
         conditionalRules: Array.isArray(dp.conditionalRules) ? dp.conditionalRules : [],
         videoUrl: storyNew.video || dp.videoUrl || undefined,
+        productType: dp.productType,
+        isGrouped: Boolean(dp.isGrouped || String(dp.productType || '').toLowerCase() === 'grouped'),
+        purchasable:
+          dp.purchasable === false ||
+          dp.isGrouped === true ||
+          String(dp.productType || '').toLowerCase() === 'grouped'
+            ? false
+            : true,
+        groupChildren: Array.isArray(dp.groupChildren)
+          ? dp.groupChildren.map((child: any) => {
+              const childPrimary =
+                child.image ||
+                child.imageUrl ||
+                (child.galleryUrls && child.galleryUrls[0]) ||
+                '';
+              const childPricing = mergeListPricing(child);
+              return {
+                id: child.id,
+                sku: child.sku,
+                brand: child.brand,
+                name: child.name,
+                nameAr: child.nameAr || child.name,
+                tagline: child.subtitle || '',
+                taglineAr: child.subtitleAr || '',
+                category: (child.category as any) || '',
+                categoryAr: child.categoryAr,
+                stock: typeof child.stock === 'number' ? child.stock : undefined,
+                seoTitle: child.seoTitle,
+                seoDescription: child.seoDescription,
+                discountStartAt: child.discountStartAt,
+                discountEndAt: child.discountEndAt,
+                basePrice: childPricing.basePrice || (child.price ?? 0),
+                originalPrice: childPricing.originalPrice,
+                saleActive: childPricing.saleActive,
+                price: childPricing.price,
+                discountedPrice: childPricing.discountedPrice,
+                reviewCount: child.reviewsCount || 0,
+                rating: child.rating || 0,
+                colors: [],
+                storageOptions: [],
+                specs: Array.isArray(child.specs) ? child.specs : [],
+                images: childPrimary
+                  ? [childPrimary, ...(child.galleryUrls || []).filter((u: string) => u !== childPrimary)]
+                  : [...(child.galleryUrls || [])],
+                overview: child.description || '',
+                overviewAr: child.descriptionAr || '',
+                productOptions: Array.isArray(child.productOptions) ? child.productOptions : [],
+                variations: Array.isArray(child.variations) ? child.variations : [],
+                conditionalRules: Array.isArray(child.conditionalRules) ? child.conditionalRules : [],
+                customFields: Array.isArray(child.customFields) ? child.customFields : [],
+                selectorImageUrl: child.selectorImageUrl || null,
+                purchasable: true,
+                isGrouped: false,
+              } as Product;
+            })
+          : undefined,
       });
     });
 
-    return resolvedList;
+    // Hide group children from shop listing; they remain on parent.groupChildren for PDP switching.
+    const childIds = new Set<string>();
+    resolvedList.forEach((p) => {
+      (p.groupChildren || []).forEach((c) => {
+        if (c?.id) childIds.add(String(c.id));
+      });
+    });
+    if (childIds.size === 0) return resolvedList;
+    return resolvedList.filter((p) => !childIds.has(String(p.id)));
   }, [tenant?.currentProducts, tenant?.allProducts, tenant?.cacheEpoch, tenant?.activeStore?.id, syncTick]);
 
   const selectedProduct = mergedProducts.find(p => p.id === selectedProductId) || mergedProducts[0];

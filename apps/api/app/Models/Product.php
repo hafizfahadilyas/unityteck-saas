@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToStore;
+use App\Support\CoffeeGroupedProducts;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Product extends Model
 {
@@ -113,5 +115,23 @@ class Product extends Model
     public function variations(): HasMany
     {
         return $this->hasMany(ProductVariation::class);
+    }
+
+    /** Parent → membership rows (ordered by sort_order). */
+    public function groupMembers(): HasMany
+    {
+        return $this->hasMany(ProductGroupMember::class, 'parent_product_id')
+            ->orderBy('sort_order');
+    }
+
+    /** Child → which parent group it belongs to (at most one). */
+    public function groupParentMembership(): HasOne
+    {
+        return $this->hasOne(ProductGroupMember::class, 'child_product_id');
+    }
+
+    public function isGrouped(): bool
+    {
+        return CoffeeGroupedProducts::isGroupedType($this->product_type ?? null);
     }
 }

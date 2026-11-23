@@ -386,6 +386,14 @@ class OrderController extends Controller
                         ->lockForUpdate()
                         ->first();
 
+                    if ($product && $product->isGrouped()) {
+                        abort(response()->json([
+                            'message' => 'Grouped parent products cannot be purchased. Add a child product instead.',
+                            'message_ar' => 'لا يمكن شراء منتج المجموعة الأب. أضف المنتج الفرعي المحدد بدلاً منه.',
+                            'product_id' => $product->id,
+                        ], 422));
+                    }
+
                     if ($product && (int) $product->stock < $qty) {
                         abort(response()->json([
                             'message' => "Insufficient stock for '{$product->name}'. Available: {$product->stock}, Requested: {$qty}",

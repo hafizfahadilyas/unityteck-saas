@@ -331,6 +331,14 @@ export const ProductsListPage: React.FC = () => {
         triggerFlyToCart(btnRect, prodImg);
       }
     }
+    if (
+      product.isGrouped ||
+      product.purchasable === false ||
+      String(product.productType || '').toLowerCase() === 'grouped'
+    ) {
+      navigateTo('product-buy', String(product.id));
+      return;
+    }
     addToCart(product, undefined, undefined, undefined, undefined, true);
     setRecentlyAddedId(String(product.id));
     setTimeout(() => setRecentlyAddedId(null), 2000);
@@ -339,6 +347,14 @@ export const ProductsListPage: React.FC = () => {
   // Buy Now handler: Add to cart immediately and navigate directly to checkout/buy page
   const handleBuyNow = (e: React.MouseEvent | undefined, product: Product) => {
     if (e) e.stopPropagation();
+    if (
+      product.isGrouped ||
+      product.purchasable === false ||
+      String(product.productType || '').toLowerCase() === 'grouped'
+    ) {
+      navigateTo('product-buy', String(product.id));
+      return;
+    }
     addToCart(product, undefined, undefined, undefined, undefined, false);
     navigateTo('product-buy', String(product.id));
   };

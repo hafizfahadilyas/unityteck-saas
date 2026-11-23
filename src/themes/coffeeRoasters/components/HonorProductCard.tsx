@@ -95,6 +95,14 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
     if (onBuyNow) {
       onBuyNow(product);
     } else {
+      if (
+        product.isGrouped ||
+        product.purchasable === false ||
+        String(product.productType || '').toLowerCase() === 'grouped'
+      ) {
+        navigateTo('product-buy', String(product.id));
+        return;
+      }
       addToCart(product, undefined, undefined, undefined, undefined, false);
       navigateTo('product-buy', String(product.id));
     }
@@ -102,6 +110,14 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
 
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (
+      product.isGrouped ||
+      product.purchasable === false ||
+      String(product.productType || '').toLowerCase() === 'grouped'
+    ) {
+      navigateTo('product-buy', String(product.id));
+      return;
+    }
     const rect = e.currentTarget.getBoundingClientRect();
     if (triggerFlyToCart) {
       triggerFlyToCart(rect, prodImg);
@@ -154,14 +170,14 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
   return (
     <div
       onClick={() => navigateTo('product-detail', String(product.id))}
-      className="bg-white rounded-2xl sm:rounded-3xl p-2.5 xs:p-3 sm:p-5 border-0 shadow-2xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between group cursor-pointer text-center relative overflow-hidden select-none"
+      className="h-full min-h-0 bg-white rounded-2xl sm:rounded-3xl p-2.5 xs:p-3 sm:p-5 border-0 shadow-2xs hover:shadow-lg transition-all duration-300 flex flex-col group cursor-pointer text-center relative overflow-hidden select-none"
     >
       {/* 1. TOP HEADER: Product Name */}
-      <div className="space-y-1.5 sm:space-y-2.5">
+      <div className="space-y-1.5 sm:space-y-2.5 shrink-0">
         {card.showTitle ? (
         <h3
-          className={`font-black text-xs sm:text-base lg:text-lg text-neutral-900 group-hover:text-black line-clamp-1 transition-colors ${
-            isAr ? 'tracking-normal' : 'tracking-tight'
+          className={`font-black text-xs sm:text-base lg:text-lg text-neutral-900 group-hover:text-black line-clamp-2 min-h-[2.5em] sm:min-h-[2.75em] transition-colors ${
+            isAr ? 'tracking-normal leading-[1.35]' : 'tracking-tight leading-snug'
           }`}
           title={prodTitle}
         >
@@ -241,7 +257,7 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
 
       {/* 4. PRODUCT IMAGE SHOWCASE (Centered, Clean, High Res) */}
       {card.showImage ? (
-      <div className="relative w-full h-32 sm:h-48 lg:h-56 flex items-center justify-center my-2 sm:my-4 overflow-hidden p-1.5 sm:p-3 bg-neutral-50/50 rounded-xl sm:rounded-2xl">
+      <div className="relative w-full h-32 sm:h-48 lg:h-56 flex-1 min-h-[8rem] flex items-center justify-center my-2 sm:my-4 overflow-hidden p-1.5 sm:p-3 bg-neutral-50/50 rounded-xl sm:rounded-2xl">
         <img
           src={prodImg}
           alt={prodTitle}
@@ -260,10 +276,12 @@ export const HonorProductCard: React.FC<HonorProductCardProps> = ({
           }}
         />
       </div>
-      ) : null}
+      ) : (
+        <div className="flex-1 min-h-[1rem]" aria-hidden />
+      )}
 
       {/* 5. BOTTOM ACTION BUTTONS: Dual Buttons [Buy Now + Add to Cart] & Spaced [Learn More] */}
-      <div className="pt-2 sm:pt-3 space-y-2">
+      <div className="pt-2 sm:pt-3 space-y-2 mt-auto shrink-0">
         {(showBuyNow || card.showAddToCart) ? (
         <div className={`${showBuyNow && card.showAddToCart ? 'grid grid-cols-2' : 'grid grid-cols-1'} gap-1.5 sm:gap-2`}>
           {showBuyNow ? (

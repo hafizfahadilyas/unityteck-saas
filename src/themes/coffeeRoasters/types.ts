@@ -77,6 +77,23 @@ export interface Product {
   categoryAr?: string;
   basePrice: number;
   originalPrice?: number;
+  /** HiBrew grouped parent shell (coffee-only). */
+  productType?: string;
+  isGrouped?: boolean;
+  purchasable?: boolean;
+  groupChildren?: Product[];
+  selectorImageUrl?: string | null;
+  sku?: string;
+  brand?: string;
+  stock?: number;
+  seoTitle?: string;
+  seoDescription?: string;
+  discountStartAt?: string;
+  discountEndAt?: string;
+  saleActive?: boolean;
+  price?: number;
+  discountedPrice?: number;
+  categories?: string[];
   badge?: string;
   badgeAr?: string;
   reviewCount: number;

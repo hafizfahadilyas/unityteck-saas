@@ -27,6 +27,10 @@ const files = [
     remote: 'app/Models/Product.php',
   },
   {
+    local: 'apps/api/app/Models/ProductGroupMember.php',
+    remote: 'app/Models/ProductGroupMember.php',
+  },
+  {
     local: 'apps/api/app/Models/OrderItem.php',
     remote: 'app/Models/OrderItem.php',
   },
@@ -35,12 +39,24 @@ const files = [
     remote: 'app/Support/ProductStorefront.php',
   },
   {
+    local: 'apps/api/app/Support/CoffeeGroupedProducts.php',
+    remote: 'app/Support/CoffeeGroupedProducts.php',
+  },
+  {
     local: 'apps/api/app/Http/Controllers/Api/ProductController.php',
     remote: 'app/Http/Controllers/Api/ProductController.php',
   },
   {
+    local: 'apps/api/app/Http/Controllers/Api/ProductGroupController.php',
+    remote: 'app/Http/Controllers/Api/ProductGroupController.php',
+  },
+  {
     local: 'apps/api/app/Http/Controllers/Api/OrderController.php',
     remote: 'app/Http/Controllers/Api/OrderController.php',
+  },
+  {
+    local: 'apps/api/scripts/ensure-product-group-members-table.php',
+    remote: 'scripts/ensure-product-group-members-table.php',
   },
   {
     local: 'apps/api/app/Http/Controllers/Api/StoreReviewsController.php',

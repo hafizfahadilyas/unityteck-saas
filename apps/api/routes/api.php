@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\PlanController;
 use App\Http\Controllers\Api\DesignTemplatesController;
 use App\Http\Controllers\Api\SocialController;
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\ProductGroupController;
 use App\Http\Controllers\Api\ProductVariationController;
 use App\Http\Controllers\Api\SeoController;
 use App\Http\Controllers\Api\ShippingController;
@@ -126,6 +127,7 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
         Route::get('/products', [ProductController::class, 'index']);
         Route::get('/products/{id}', [ProductController::class, 'show']);
         Route::get('/products/{productId}/variations', [ProductVariationController::class, 'index']);
+        Route::get('/products/{parentId}/group-members', [ProductGroupController::class, 'index']);
     });
     Route::middleware([
         'role.can:products.write',
@@ -139,6 +141,7 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
         Route::post('/products/{id}/restore', [ProductController::class, 'restore']);
         Route::delete('/products/{id}/force', [ProductController::class, 'forceDestroy']);
         Route::post('/products/{id}/toggle-publish', [ProductController::class, 'togglePublish']);
+        Route::put('/products/{parentId}/group-members', [ProductGroupController::class, 'sync']);
         Route::post('/products/{productId}/variations', [ProductVariationController::class, 'store']);
         Route::patch('/products/{productId}/variations/{id}', [ProductVariationController::class, 'update']);
         Route::delete('/products/{productId}/variations/{id}', [ProductVariationController::class, 'destroy']);

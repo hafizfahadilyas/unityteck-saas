@@ -739,8 +739,10 @@ function souq_upsert_customer(PDO $pdo, string $storeId, string $name, string $p
         if ($existingEmail !== '' && !str_ends_with(strtolower($existingEmail), '@noemail.local') && str_contains($emailValue, '@noemail.local')) {
             $nextEmail = $existingEmail;
         }
-        $upd = $pdo->prepare('UPDATE customers SET name = ?, email = ?, phone = ?, city = COALESCE(NULLIF(?, \'\'), city), total_orders = ?, total_spend = ?, avg_order_value = ?, last_order_date = ?, status = ?, `group` = ?, acquisition_source = COALESCE(acquisition_source, ?) WHERE id = ? AND store_id = ?');
-        $upd->execute([$name, $nextEmail, $phone, $city, $orders, $spend, $avg, $now, $status, $group, $source, $found['id'], $storeId]);
+        // Avoid NULLIF('', …) — Hostinger mixes utf8mb4_general_ci vs unicode_ci and throws 1267.
+        $cityWrite = $city !== '' ? $city : null;
+        $upd = $pdo->prepare('UPDATE customers SET name = ?, email = ?, phone = ?, city = COALESCE(?, city), total_orders = ?, total_spend = ?, avg_order_value = ?, last_order_date = ?, status = ?, `group` = ?, acquisition_source = COALESCE(acquisition_source, ?) WHERE id = ? AND store_id = ?');
+        $upd->execute([$name, $nextEmail, $phone, $cityWrite, $orders, $spend, $avg, $now, $status, $group, $source, $found['id'], $storeId]);
         $found['name'] = $name;
         $found['email'] = $nextEmail;
         $found['total_orders'] = $orders;
@@ -785,8 +787,9 @@ function souq_upsert_customer(PDO $pdo, string $storeId, string $name, string $p
             $avg = $orders > 0 ? round($spend / $orders, 2) : $total;
             $status = ($spend >= 1500 || $orders >= 3) ? 'VIP' : 'Active';
             $group = $status === 'VIP' ? 'VIP' : 'Regular';
-            $pdo->prepare('UPDATE customers SET name = ?, email = ?, phone = ?, city = COALESCE(NULLIF(?, \'\'), city), total_orders = ?, total_spend = ?, avg_order_value = ?, last_order_date = ?, status = ?, `group` = ? WHERE id = ? AND store_id = ?')
-                ->execute([$name, $emailValue, $phone, $city, $orders, $spend, $avg, $now, $status, $group, $legacy['id'], $storeId]);
+            $cityWrite = $city !== '' ? $city : null;
+            $pdo->prepare('UPDATE customers SET name = ?, email = ?, phone = ?, city = COALESCE(?, city), total_orders = ?, total_spend = ?, avg_order_value = ?, last_order_date = ?, status = ?, `group` = ? WHERE id = ? AND store_id = ?')
+                ->execute([$name, $emailValue, $phone, $cityWrite, $orders, $spend, $avg, $now, $status, $group, $legacy['id'], $storeId]);
             $legacy['name'] = $name;
             $legacy['email'] = $emailValue;
             $legacy['phone'] = $phone;
@@ -1301,7 +1304,47 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
         if ($location !== '') {
             $city = trim(explode(',', explode('-', $location)[0])[0]);
         }
+        // MySQL NOT NULL on delivery_location — never insert null.
+        if ($location === '') {
+            $location = $city !== '' ? $city : 'Saudi Arabia';
+        }
+        if ($city === '') {
+            $city = trim(explode(',', explode('-', $location)[0])[0]);
+        }
         $items = is_array($input['items'] ?? null) ? $input['items'] : [];
+        // Reject HiBrew grouped parent shells — only independent child products may be purchased.
+        foreach ($items as $item) {
+            $pid = trim((string)($item['product_id'] ?? $item['id'] ?? ''));
+            if ($pid === '') {
+                continue;
+            }
+            try {
+                $pst = $pdo->prepare('SELECT product_type, data FROM products WHERE id = ? AND store_id = ? LIMIT 1');
+                $pst->execute([$pid, $storeId]);
+                $prow = $pst->fetch();
+                if (!$prow) {
+                    continue;
+                }
+                $ptype = (string)($prow['product_type'] ?? '');
+                if ($ptype === '' && !empty($prow['data'])) {
+                    $decoded = json_decode((string)$prow['data'], true);
+                    if (is_array($decoded)) {
+                        $ptype = (string)($decoded['product_type'] ?? $decoded['productType'] ?? '');
+                    }
+                }
+                if (strtolower(trim($ptype)) === 'grouped') {
+                    http_response_code(422);
+                    echo json_encode([
+                        'message' => 'Grouped parent products cannot be purchased. Add a child product instead.',
+                        'message_ar' => 'لا يمكن شراء منتج المجموعة الأب. أضف المنتج الفرعي المحدد بدلاً منه.',
+                        'product_id' => $pid,
+                    ]);
+                    return true;
+                }
+            } catch (Throwable) {
+                /* product_type column optional on some hosts */
+            }
+        }
         $couponCode = strtoupper(trim((string)($input['coupon_code'] ?? '')));
         $discount = 0.0;
         if ($couponCode !== '') {
@@ -1368,7 +1411,7 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
         $vals = [
             $orderId, $storeId, $number, $customer['id'], $name, $email, $phone,
             count($items) ?: 1, $summary, $charged, 'SAR', $source, $details !== '' ? $details : $source,
-            $location !== '' ? $location : null, 'pending', $methodName, 'Pending', 'pending',
+            $location, 'pending', $methodName, 'Pending', 'pending',
             substr($now, 0, 10), $now,
         ];
         if (function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'orders', 'coupon_code')) {

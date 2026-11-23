@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\Category;
 use App\Models\Store;
 use App\Services\GeminiAiMediaService;
+use App\Support\CoffeeGroupedProducts;
 use App\Support\Plans;
 use App\Support\ProductStorefront;
 use Illuminate\Http\JsonResponse;
@@ -92,6 +93,12 @@ class ProductController extends Controller
     {
         self::localFastCache()->put('sf_catalog_epoch:'.$storeId, self::catalogCacheEpoch($storeId) + 1, 86400);
         self::localFastCache()->forget('products:promote_due:'.$storeId);
+    }
+
+    /** Public wrapper for group-member sync and other product-adjacent writers. */
+    public static function bustStorefrontCatalogCachePublic(string $storeId): void
+    {
+        self::bustStorefrontCatalogCache($storeId);
     }
 
     public function index(Request $request): JsonResponse
@@ -180,8 +187,17 @@ class ProductController extends Controller
 
         $paginator = $query->paginate($perPage, ['*'], 'page', $page);
 
+        $items = collect($paginator->items())->map(static function ($product) {
+            if ($product instanceof Product
+                && CoffeeGroupedProducts::isGroupedType($product->product_type ?? null)) {
+                return ProductStorefront::enrichRow($product);
+            }
+
+            return $product;
+        })->values()->all();
+
         return response()->json([
-            'data' => $paginator->items(),
+            'data' => $items,
             'store_id' => $storeId,
             'meta' => [
                 'total' => $paginator->total(),
@@ -261,6 +277,14 @@ class ProductController extends Controller
         $data = $request->validate($this->rules());
         $data = $this->mergeCategoryList($data);
 
+        if (CoffeeGroupedProducts::isGroupedType($data['product_type'] ?? null)
+            && ! CoffeeGroupedProducts::allowedForStoreId($storeId)) {
+            return response()->json([
+                'message' => 'Grouped products are only available for the HiBrew coffee store.',
+                'message_ar' => 'المنتجات المجمعة متاحة فقط لمتجر هايبرو للقهوة.',
+            ], 403);
+        }
+
         $data['id'] = $data['id'] ?? $this->newId('prod');
         $data['store_id'] = $storeId;
         $data['slug'] = $data['slug'] ?? Str::slug($data['name']).'-'.Str::lower(Str::random(4));
@@ -270,6 +294,11 @@ class ProductController extends Controller
         $data['is_featured'] = $data['is_featured'] ?? false;
         $data['gallery_urls'] = $data['gallery_urls'] ?? [];
         $data['tags'] = $data['tags'] ?? [];
+        if (CoffeeGroupedProducts::isGroupedType($data['product_type'] ?? null)) {
+            // Parent is a display shell — not sold; keep price at 0.
+            $data['price'] = $data['price'] ?? 0;
+            $data['stock'] = $data['stock'] ?? 0;
+        }
         $data = $this->applyPublicationState($data);
         $data = $this->onlyExistingJsonColumns($data);
 
@@ -295,6 +324,15 @@ class ProductController extends Controller
 
         $data = $request->validate($this->rules(true));
         $data = $this->mergeCategoryList($data);
+
+        $nextType = array_key_exists('product_type', $data) ? $data['product_type'] : $product->product_type;
+        if (CoffeeGroupedProducts::isGroupedType($nextType)
+            && ! CoffeeGroupedProducts::allowedForStoreId($storeId)) {
+            return response()->json([
+                'message' => 'Grouped products are only available for the HiBrew coffee store.',
+                'message_ar' => 'المنتجات المجمعة متاحة فقط لمتجر هايبرو للقهوة.',
+            ], 403);
+        }
 
         if (isset($data['sku']) && $this->skuExists($storeId, $data['sku'], $product->id)) {
             return response()->json(['message' => 'SKU already exists for this store.'], 422);
@@ -594,7 +632,7 @@ class ProductController extends Controller
         $idsRaw = (string) $request->query('ids', '');
 
         // Cache before any MySQL — warm hits must not pay Hostinger RTT for store resolve.
-        $cacheKey = 'sf_catalog:v3:'.$key.':'.self::catalogCacheEpoch($key).':'.md5(json_encode([
+        $cacheKey = 'sf_catalog:v4:'.$key.':'.self::catalogCacheEpoch($key).':'.md5(json_encode([
             $source, $page, $perPage, $category, $idsRaw,
         ], JSON_THROW_ON_ERROR));
 
@@ -609,6 +647,13 @@ class ProductController extends Controller
             $base = ProductStorefront::visibleScope(
                 Product::withoutGlobalScope('store')->where('store_id', $store->id)
             );
+
+            // Hide group children from public catalog; parents remain listed.
+            $childIds = ProductStorefront::groupChildIdsForStore($store->id);
+            if ($childIds !== []) {
+                $base->whereNotIn('id', $childIds);
+            }
+
             if ($source === 'featured') {
                 $base->where('is_featured', true);
             } elseif ($source === 'category') {
@@ -665,6 +710,8 @@ class ProductController extends Controller
                 'seo_title',
                 'seo_description',
                 'seo_keywords',
+                self::productHasColumn('brand') ? 'brand' : null,
+                self::productHasColumn('product_type') ? 'product_type' : null,
                 self::productHasColumn('discount_start_at') ? 'discount_start_at' : null,
                 self::productHasColumn('discount_end_at') ? 'discount_end_at' : null,
                 'status',

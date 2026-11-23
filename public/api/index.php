@@ -40,6 +40,7 @@ if ($method === 'POST' && in_array($methodOverride, ['PUT', 'PATCH', 'DELETE'], 
 // Prefer Laravel Hostinger MySQL when DB_* is present (same commerce as apps/api).
 // Fallback: local platform.sqlite (legacy Hostinger gateway) — NEVER preferred on flowers live.
 require_once __DIR__ . '/live_extensions.php';
+require_once __DIR__ . '/product_groups.php';
 $souqEnv = souq_load_root_env();
 $dbDriver = 'sqlite';
 $pdo = null;
@@ -807,7 +808,7 @@ function souq_decode_json_column(mixed $raw): ?array {
     return is_array($decoded) ? $decoded : null;
 }
 
-function formatProduct(array $row, bool $lite = false): array {
+function formatProduct(array $row, bool $lite = false, bool $attachGroupChildren = false): array {
     $full = [];
     if (!empty($row['data'])) {
         $decoded = json_decode($row['data'], true);
@@ -907,7 +908,14 @@ function formatProduct(array $row, bool $lite = false): array {
     $rawCompare = !empty($row['original_price']) ? (float)$row['original_price'] : null;
     $pricing = souq_product_effective_pricing($rawPrice, $rawCompare, $discountStart, $discountEnd);
 
-    return array_merge($full, [
+    $productType = function_exists('souq_product_type_from_row')
+        ? souq_product_type_from_row($row, $full)
+        : (string)($row['product_type'] ?? $full['product_type'] ?? $full['productType'] ?? '');
+    $isGrouped = function_exists('souq_is_grouped_product_type')
+        ? souq_is_grouped_product_type($productType)
+        : (strtolower(trim($productType)) === 'grouped');
+
+    $formatted = array_merge($full, [
         'id' => (string)$row['id'],
         'storeId' => (string)$row['store_id'],
         'store_id' => (string)$row['store_id'],
@@ -951,7 +959,27 @@ function formatProduct(array $row, bool $lite = false): array {
         'descriptionAr' => (string)souq_product_text_field($row, $full, ['description_ar', 'descriptionAr']),
         'description_en' => (string)souq_product_text_field($row, $full, ['description_en', 'descriptionEn']),
         'descriptionEn' => (string)souq_product_text_field($row, $full, ['description_en', 'descriptionEn']),
+        'product_type' => $productType !== '' ? $productType : null,
+        'productType' => $productType !== '' ? $productType : null,
+        'is_grouped' => $isGrouped,
+        'isGrouped' => $isGrouped,
+        'purchasable' => !$isGrouped,
+        'group_children' => [],
+        'groupChildren' => [],
     ]);
+
+    $statsPdoAttach = $GLOBALS['souq_pdo'] ?? null;
+    if (
+        $attachGroupChildren
+        && !$lite
+        && $isGrouped
+        && $statsPdoAttach instanceof PDO
+        && function_exists('souq_attach_group_meta')
+    ) {
+        $formatted = souq_attach_group_meta($statsPdoAttach, $formatted, $row, true);
+    }
+
+    return $formatted;
 }
 
 /** Prefer non-empty column, then products.data JSON (empty DB column must not wipe saved copy). */
@@ -1155,6 +1183,19 @@ function listStoreProducts(PDO $pdo, string $storeId, array $query, bool $public
         // Storefront: only live published products for this store_id.
         $where[] = "(status = 'published' OR status IS NULL OR status = '')";
         $where[] = '(is_active = 1 OR is_active IS NULL)';
+        // Hide HiBrew group children from public catalog (parent remains listed).
+        if (function_exists('souq_group_child_ids_for_store')) {
+            $childIds = souq_group_child_ids_for_store($pdo, $storeId);
+            if ($childIds !== []) {
+                $placeholders = [];
+                foreach ($childIds as $i => $cid) {
+                    $key = ':gchild'.$i;
+                    $placeholders[] = $key;
+                    $params[$key] = $cid;
+                }
+                $where[] = 'id NOT IN ('.implode(',', $placeholders).')';
+            }
+        }
     } elseif (($query['status'] ?? '') !== 'archived' && empty($query['status'])) {
         $where[] = "(status IS NULL OR status != 'archived')";
     }
@@ -1185,7 +1226,7 @@ function listStoreProducts(PDO $pdo, string $storeId, array $query, bool $public
     $offset = ($page - 1) * $perPage;
     // Lean columns for list/catalog — skip heavy description blobs when present as separate cols.
     // Keep `data` for gallery fallback but avoid SELECT * wildcard expansion cost on wide tables.
-    $listCols = 'id, store_id, name, name_ar, sku, price, original_price, stock, category, category_ar, image_url, gallery_urls, status, is_active, data, updated_at, sale_starts_at, sale_ends_at';
+    $listCols = 'id, store_id, name, name_ar, sku, price, original_price, stock, category, category_ar, image_url, gallery_urls, status, is_active, data, updated_at, sale_starts_at, sale_ends_at, product_type, brand';
     try {
         $stmt = $pdo->prepare("SELECT $listCols FROM products WHERE $sqlWhere ORDER BY updated_at DESC, id ASC LIMIT $perPage OFFSET $offset");
         $stmt->execute($params);
@@ -1518,6 +1559,12 @@ if (preg_match('#^/categories/([^/]+)$#', $uri, $matches) && $method === 'DELETE
     exit;
 }
 
+// HiBrew grouped products: /products/{id}/group-members
+if (function_exists('souq_product_groups_dispatch')
+    && souq_product_groups_dispatch($pdo, $uri, $method, (string)$storeId, is_array($inputData) ? $inputData : [])) {
+    exit;
+}
+
 // 5. Products Endpoints (CRUD)
 if ($uri === '/products' && $method === 'GET') {
     if ($storeId === '') {
@@ -1610,7 +1657,12 @@ if ($uri === '/products' && $method === 'POST') {
             $cols[] = 'data';
             $vals[] = json_encode($inputData, JSON_UNESCAPED_UNICODE);
         }
-        foreach (['seo_title' => ['seo_title', 'seoTitle'], 'seo_description' => ['seo_description', 'seoDescription']] as $col => $keys) {
+        foreach ([
+            'seo_title' => ['seo_title', 'seoTitle'],
+            'seo_description' => ['seo_description', 'seoDescription'],
+            'product_type' => ['product_type', 'productType'],
+            'brand' => ['brand'],
+        ] as $col => $keys) {
             if (!function_exists('souq_table_has_column') || !souq_table_has_column($pdo, 'products', $col)) {
                 continue;
             }
@@ -1623,6 +1675,18 @@ if ($uri === '/products' && $method === 'POST') {
             }
             if ($v === null) {
                 continue;
+            }
+            // Coffee-only gate for grouped parents.
+            if ($col === 'product_type' && function_exists('souq_is_grouped_product_type')
+                && souq_is_grouped_product_type((string)$v)
+                && function_exists('souq_is_coffee_grouped_store')
+                && !souq_is_coffee_grouped_store((string)$storeId)) {
+                http_response_code(403);
+                echo json_encode([
+                    'message' => 'Grouped products are only available for the HiBrew coffee store.',
+                    'message_ar' => 'المنتجات المجمعة متاحة فقط لمتجر هايبرو للقهوة.',
+                ]);
+                exit;
             }
             $cols[] = $col;
             $vals[] = $v;
@@ -1751,7 +1815,7 @@ if (preg_match('#^/products/([^/]+)$#', $uri, $matches) && $method === 'GET') {
         echo json_encode(['message' => 'Product not found: ' . $pId]);
         exit;
     }
-    echo json_encode(['data' => formatProduct($existing)]);
+    echo json_encode(['data' => formatProduct($existing, false, true)]);
     exit;
 }
 
@@ -2870,63 +2934,117 @@ if (preg_match('#^/stores/([^/]+)/pages(?:/([^/]+))?(?:/(publish))?$#', $uri, $m
             }
 
             if (in_array($method, ['PUT', 'POST'], true)) {
-                $draftIn = is_array($inputData['draft_layout'] ?? null) ? $inputData['draft_layout'] : [];
-                $publishedLayout = is_array($inputData['published_layout'] ?? null) ? $inputData['published_layout'] : null;
-                $seo = is_array($inputData['seo'] ?? null) ? $inputData['seo'] : [];
-                $slug = (string) ($inputData['slug'] ?? $pageKey);
-                $type = (string) ($inputData['type'] ?? 'custom');
-                $titleEn = (string) ($inputData['titleEn'] ?? ($inputData['title_en'] ?? ''));
-                $titleAr = (string) ($inputData['titleAr'] ?? ($inputData['title_ar'] ?? ''));
-                $status = (string) ($inputData['status'] ?? '');
-                if ($status === '' && $publishedLayout) {
-                    $status = 'published';
-                }
-                if ($status === '') {
-                    $status = 'draft';
-                }
-                $headerMode = (string) ($inputData['header_mode'] ?? 'global');
-                $footerMode = (string) ($inputData['footer_mode'] ?? 'global');
-
+                // Resolve existing row first so partial Save (draft_layout only)
+                // never overwrites slug/type/titles or hits collation-unsafe SQL.
                 $existing = null;
                 if ($pageKey !== '') {
                     $find = $pdo->prepare('SELECT * FROM theme_pages WHERE store_id = ? AND (id = ? OR slug = ?) LIMIT 1');
                     $find->execute([$targetStore, $pageKey, $pageKey]);
                     $existing = $find->fetch() ?: null;
                 }
-                if (!$existing && $slug !== '') {
+                $slugHint = (string) ($inputData['slug'] ?? '');
+                if (!$existing && $slugHint !== '') {
                     $find = $pdo->prepare('SELECT * FROM theme_pages WHERE store_id = ? AND slug = ? LIMIT 1');
-                    $find->execute([$targetStore, $slug]);
+                    $find->execute([$targetStore, $slugHint]);
                     $existing = $find->fetch() ?: null;
                 }
 
-                $pId = (string) ($inputData['id'] ?? ($existing['id'] ?? ('tpage-' . bin2hex(random_bytes(6)))));
-                if ($slug === '' && $existing) {
-                    $slug = (string) $existing['slug'];
+                $hasDraftKey = array_key_exists('draft_layout', $inputData);
+                $hasPublishedKey = array_key_exists('published_layout', $inputData);
+                $hasSeoKey = array_key_exists('seo', $inputData);
+                $hasStatusKey = array_key_exists('status', $inputData);
+                $hasSlugKey = array_key_exists('slug', $inputData);
+                $hasTypeKey = array_key_exists('type', $inputData);
+                $hasTitleEn = array_key_exists('title_en', $inputData) || array_key_exists('titleEn', $inputData);
+                $hasTitleAr = array_key_exists('title_ar', $inputData) || array_key_exists('titleAr', $inputData);
+                $hasHeaderKey = array_key_exists('header_mode', $inputData);
+                $hasFooterKey = array_key_exists('footer_mode', $inputData);
+
+                $slug = $hasSlugKey
+                    ? (string) $inputData['slug']
+                    : ($existing ? (string) ($existing['slug'] ?? '') : $slugHint);
+                // Never treat a page id (tpage-…) as the slug on partial PUT.
+                if ($slug === '' || ($slug === $pageKey && str_starts_with($pageKey, 'tpage-'))) {
+                    $slug = $existing ? (string) ($existing['slug'] ?? '') : '';
                 }
+                $type = $hasTypeKey
+                    ? (string) $inputData['type']
+                    : ($existing ? (string) ($existing['type'] ?? 'custom') : 'custom');
+                $titleEn = $hasTitleEn
+                    ? (string) ($inputData['titleEn'] ?? ($inputData['title_en'] ?? ''))
+                    : ($existing ? (string) ($existing['title_en'] ?? '') : '');
+                $titleAr = $hasTitleAr
+                    ? (string) ($inputData['titleAr'] ?? ($inputData['title_ar'] ?? ''))
+                    : ($existing ? (string) ($existing['title_ar'] ?? '') : '');
+                $headerMode = $hasHeaderKey
+                    ? (string) ($inputData['header_mode'] ?? 'global')
+                    : ($existing ? (string) ($existing['header_mode'] ?? 'global') : 'global');
+                $footerMode = $hasFooterKey
+                    ? (string) ($inputData['footer_mode'] ?? 'global')
+                    : ($existing ? (string) ($existing['footer_mode'] ?? 'global') : 'global');
+
+                $status = $hasStatusKey ? (string) ($inputData['status'] ?? '') : '';
+                if ($status === '' && $hasPublishedKey && is_array($inputData['published_layout'] ?? null)) {
+                    $status = 'published';
+                }
+                if ($status === '') {
+                    $status = $existing ? (string) ($existing['status'] ?? 'draft') : 'draft';
+                }
+                if ($status !== 'published' && $status !== 'draft') {
+                    $status = 'draft';
+                }
+
+                $pId = (string) ($inputData['id'] ?? ($existing['id'] ?? ($pageKey !== '' && str_starts_with($pageKey, 'tpage-') ? $pageKey : ('tpage-' . bin2hex(random_bytes(6))))));
                 if ($slug === '') {
                     http_response_code(422);
                     echo json_encode(['message' => 'slug is required.']);
                     exit;
                 }
-                if ($type === '' && $existing) {
-                    $type = (string) ($existing['type'] ?? 'custom');
-                }
                 if ($type === '') {
                     $type = 'custom';
                 }
 
-                $draftJson = json_encode($draftIn ?: new stdClass(), JSON_UNESCAPED_UNICODE);
-                $publishedJson = $publishedLayout !== null
-                    ? json_encode($publishedLayout, JSON_UNESCAPED_UNICODE)
-                    : ($status === 'published' && $existing ? ($existing['published_layout'] ?? null) : null);
-                if ($status === 'published' && $publishedJson === null) {
+                if ($hasDraftKey) {
+                    $draftIn = is_array($inputData['draft_layout'] ?? null) ? $inputData['draft_layout'] : [];
+                    $draftJson = json_encode($draftIn ?: new stdClass(), JSON_UNESCAPED_UNICODE);
+                } elseif ($existing && array_key_exists('draft_layout', $existing)) {
+                    $draftJson = $existing['draft_layout'];
+                } else {
+                    $draftJson = json_encode(new stdClass(), JSON_UNESCAPED_UNICODE);
+                }
+
+                if ($hasPublishedKey) {
+                    $publishedLayout = is_array($inputData['published_layout'] ?? null) ? $inputData['published_layout'] : null;
+                    $publishedJson = $publishedLayout !== null
+                        ? json_encode($publishedLayout, JSON_UNESCAPED_UNICODE)
+                        : null;
+                } elseif ($existing && array_key_exists('published_layout', $existing)) {
+                    $publishedJson = $existing['published_layout'];
+                } else {
+                    $publishedJson = null;
+                }
+                if ($status === 'published' && ($publishedJson === null || $publishedJson === '')) {
                     $publishedJson = $draftJson;
                 }
-                $seoJson = json_encode($seo ?: new stdClass(), JSON_UNESCAPED_UNICODE);
+
+                if ($hasSeoKey) {
+                    $seo = is_array($inputData['seo'] ?? null) ? $inputData['seo'] : [];
+                    $seoJson = json_encode($seo ?: new stdClass(), JSON_UNESCAPED_UNICODE);
+                } elseif ($existing && array_key_exists('seo', $existing) && $existing['seo'] !== null && $existing['seo'] !== '') {
+                    $seoJson = $existing['seo'];
+                } else {
+                    $seoJson = json_encode(new stdClass(), JSON_UNESCAPED_UNICODE);
+                }
+
+                // Avoid IF(? = 'published') — Hostinger MySQL mixes utf8mb4_general_ci /
+                // utf8mb4_unicode_ci and throws 1267 Illegal mix of collations.
                 $publishedAtSql = $status === 'published' ? $nowExpr : 'NULL';
+                $publishedAtSet = $status === 'published'
+                    ? "published_at = COALESCE(published_at, {$nowExpr})"
+                    : 'published_at = published_at';
 
                 if ($existing) {
-                    $upd = $pdo->prepare("UPDATE theme_pages SET slug = ?, type = ?, title_en = ?, title_ar = ?, draft_layout = ?, published_layout = ?, seo = ?, header_mode = ?, footer_mode = ?, status = ?, published_at = IF(? = 'published', COALESCE(published_at, {$nowExpr}), published_at), updated_at = {$nowExpr} WHERE store_id = ? AND id = ?");
+                    $upd = $pdo->prepare("UPDATE theme_pages SET slug = ?, type = ?, title_en = ?, title_ar = ?, draft_layout = ?, published_layout = ?, seo = ?, header_mode = ?, footer_mode = ?, status = ?, {$publishedAtSet}, updated_at = {$nowExpr} WHERE store_id = ? AND id = ?");
                     $upd->execute([
                         $slug,
                         $type,
@@ -2937,7 +3055,6 @@ if (preg_match('#^/stores/([^/]+)/pages(?:/([^/]+))?(?:/(publish))?$#', $uri, $m
                         $seoJson,
                         $headerMode,
                         $footerMode,
-                        $status,
                         $status,
                         $targetStore,
                         $pId,
@@ -3188,6 +3305,30 @@ if ($uri === '/upload' && $method === 'POST') {
 
     http_response_code(400);
     echo json_encode(['error' => 'No file provided or invalid payload']);
+    exit;
+}
+
+// Storefront marketing stubs — empty when no rows (never 404 hang the admin/builder).
+if ($uri === '/storefront/special-offers/active' && $method === 'GET') {
+    $key = trim((string) ($_GET['store_id'] ?? $_GET['storeId'] ?? ''));
+    $resolved = $key !== '' ? resolveLiveStoreId($pdo, $key) : null;
+    if ($key === '' || $resolved === null) {
+        http_response_code($key === '' ? 422 : 404);
+        echo json_encode(['success' => false, 'message' => $key === '' ? 'store_id is required.' : 'Store not found.', 'data' => []]);
+        exit;
+    }
+    echo json_encode(['success' => true, 'store_id' => $resolved, 'data' => []]);
+    exit;
+}
+if ($uri === '/storefront/cashback/active' && $method === 'GET') {
+    $key = trim((string) ($_GET['store_id'] ?? $_GET['storeId'] ?? ''));
+    $resolved = $key !== '' ? resolveLiveStoreId($pdo, $key) : null;
+    if ($key === '' || $resolved === null) {
+        http_response_code($key === '' ? 422 : 404);
+        echo json_encode(['success' => false, 'message' => $key === '' ? 'store_id is required.' : 'Store not found.', 'data' => []]);
+        exit;
+    }
+    echo json_encode(['success' => true, 'store_id' => $resolved, 'data' => []]);
     exit;
 }
 
