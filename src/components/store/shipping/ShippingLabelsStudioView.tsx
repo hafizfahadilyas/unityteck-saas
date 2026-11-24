@@ -3,12 +3,9 @@ import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
 import { ModernSegmentedTabs } from '../../common/ModernSegmentedTabs';
-import type { Order } from '../../../types';
 import {
   generateCode128Svg,
-  getCarrierBrand,
   type CourierCarrierCode,
-  type ShippingLabelData,
 } from '../../../utils/courierBarcode';
 import { generateQrSvgDataUri } from '../../../utils/zatca';
 import {
@@ -20,27 +17,64 @@ import {
   Download,
   MoreHorizontal,
   MapPin,
-  Phone,
   ShieldCheck,
-  ChevronDown,
-  RotateCcw,
-  Search,
-  ExternalLink,
   Layers,
-  FileText,
-  AlertCircle,
-  Copy,
-  ChevronRight,
-  ChevronLeft,
+  ExternalLink,
+  Eye,
 } from 'lucide-react';
 import {
   getCustomerDisplayName,
   getLocalizedAddress,
   getLocalizedCity,
 } from '../../../utils/storeLocalization';
+import { resolveStoreContact } from '../../../themes/settings/storeContact';
+import { fetchNotificationSettingsApi } from '../../../api/tenantApi';
+import { ShippingOrderDetailsSheet } from './ShippingOrderDetailsSheet';
+import { ShippingOrderDetailsModal } from './ShippingOrderDetailsModal';
+
+/** True only when THIS store has a real WhatsApp / SMS / Email channel connected. */
+async function storeHasCustomerNotifyChannel(storeId: string | undefined | null): Promise<boolean> {
+  if (!storeId) return false;
+  try {
+    const ns = await fetchNotificationSettingsApi(storeId);
+    const ch = (ns as any)?.data?.channels ?? (ns as any)?.channels ?? {};
+    return Boolean(ch?.whatsapp?.connected || ch?.sms?.connected || ch?.email?.connected);
+  } catch {
+    return false;
+  }
+}
 
 interface ShippingLabelsStudioViewProps {
   initialOrderId?: string;
+}
+
+/** Real carrier refs only — never invent SPL… numbers. */
+function realOrderAwb(order: {
+  awbNumber?: string;
+  shippingLabelNumber?: string;
+  trackingNumber?: string;
+} | null | undefined): string {
+  if (!order) return '';
+  return String(
+    (order as { awbNumber?: string }).awbNumber ||
+      order.shippingLabelNumber ||
+      order.trackingNumber ||
+      '',
+  ).trim();
+}
+
+function realOrderTracking(order: {
+  trackingNumber?: string;
+  awbNumber?: string;
+  shippingLabelNumber?: string;
+} | null | undefined): string {
+  if (!order) return '';
+  return String(
+    order.trackingNumber ||
+      (order as { awbNumber?: string }).awbNumber ||
+      order.shippingLabelNumber ||
+      '',
+  ).trim();
 }
 
 export const ShippingLabelsStudioView: React.FC<ShippingLabelsStudioViewProps> = ({ initialOrderId }) => {
@@ -49,29 +83,38 @@ export const ShippingLabelsStudioView: React.FC<ShippingLabelsStudioViewProps> =
   const isAr = locale === 'ar';
   const { toast } = useToast();
 
-  // Sub-tabs: Create Shipping Label, Label History, Bulk Actions, Failed Labels
   const [activeSubTab, setActiveSubTab] = useState<'create' | 'history' | 'bulk' | 'failed'>('create');
-
-  // Stepper state (1 to 4)
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
 
-  // Ready orders for shipping selection
   const eligibleOrders = useMemo(() => {
     return (currentOrders || []).filter(
-      (o) => o.status !== 'cancelled' && o.status !== 'completed' && o.status !== 'delivered'
+      (o) => o.status !== 'cancelled' && o.status !== 'completed' && o.status !== 'delivered',
     );
   }, [currentOrders]);
 
-  // Selected Order
   const [selectedOrderId, setSelectedOrderId] = useState<string>(
-    initialOrderId || (eligibleOrders[0]?.id ?? currentOrders[0]?.id ?? '')
+    initialOrderId || (eligibleOrders[0]?.id ?? currentOrders[0]?.id ?? ''),
   );
 
   const selectedOrder = useMemo(() => {
     return (currentOrders || []).find((o) => o.id === selectedOrderId) || currentOrders[0] || null;
   }, [currentOrders, selectedOrderId]);
 
-  // Shipping Details Form State
+  const matchingShipment = useMemo(() => {
+    if (!selectedOrder) return null;
+    const list = currentShipments || [];
+    return (
+      list.find((s) => s.orderId === selectedOrder.id) ||
+      list.find(
+        (s) =>
+          selectedOrder.trackingNumber &&
+          (s.trackingNumber === selectedOrder.trackingNumber ||
+            s.awbNumber === selectedOrder.trackingNumber),
+      ) ||
+      null
+    );
+  }, [currentShipments, selectedOrder]);
+
   const [selectedCourier, setSelectedCourier] = useState<CourierCarrierCode>('spl');
   const [serviceType, setServiceType] = useState<string>('standard');
   const [packageType, setPackageType] = useState<'box' | 'flyer' | 'pallet'>('box');
@@ -83,48 +126,79 @@ export const ShippingLabelsStudioView: React.FC<ShippingLabelsStudioViewProps> =
   const [isInsuranceEnabled, setIsInsuranceEnabled] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // Generated Tracking Info
-  const [generatedAwb, setGeneratedAwb] = useState<string>(
-    (selectedOrder as any)?.awbNumber || selectedOrder?.shippingLabelNumber || (selectedOrder ? `SPL${selectedOrder.id.replace(/\D/g, '').padEnd(9, '0').slice(-9)}` : '')
-  );
-  const [generatedTracking, setGeneratedTracking] = useState<string>(
-    selectedOrder?.trackingNumber || (selectedOrder ? `SPL${selectedOrder.id.replace(/\D/g, '').padEnd(9, '0').slice(-9)}` : '')
+  const [generatedAwb, setGeneratedAwb] = useState<string>(() => realOrderAwb(selectedOrder));
+  const [generatedTracking, setGeneratedTracking] = useState<string>(() => realOrderTracking(selectedOrder));
+  const [capturedLabelUrl, setCapturedLabelUrl] = useState<string>(() =>
+    String(matchingShipment?.labelUrl || '').trim(),
   );
 
-  // Sync COD status when order changes
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [detailsModalOrderId, setDetailsModalOrderId] = useState<string | null>(null);
+  const [detailsModalLabelUrl, setDetailsModalLabelUrl] = useState<string | null>(null);
+
+  const storeContact = useMemo(() => {
+    if (!activeStore?.id) return null;
+    return resolveStoreContact(activeStore.id, activeStore);
+  }, [activeStore]);
+
+  const storePhone =
+    storeContact?.phone ||
+    storeContact?.whatsapp ||
+    activeStore?.phone ||
+    activeStore?.contactPhone ||
+    '';
+  const storeCity =
+    getLocalizedCity((activeStore as { city?: string; cityAr?: string } | null)?.city, locale) || '';
+  const storeAddressLine = storeCity || '—';
+
   React.useEffect(() => {
-    if (selectedOrder) {
-      setIsCodEnabled(selectedOrder.paymentMethod === 'COD');
-      const courier = (selectedOrder as any).courierCode || selectedOrder.shippingCompany;
-      if (courier) {
-        const c = String(courier).toLowerCase();
-        if (c.includes('spl')) setSelectedCourier('spl');
-        else if (c.includes('aramex')) setSelectedCourier('aramex');
-        else if (c.includes('smsa')) setSelectedCourier('smsa');
-        else if (c.includes('dhl')) setSelectedCourier('dhl');
-      }
-      setGeneratedAwb((selectedOrder as any).awbNumber || selectedOrder.shippingLabelNumber || `SPL${selectedOrder.id.replace(/\D/g, '').padEnd(9, '0').slice(-9)}`);
-      setGeneratedTracking(selectedOrder.trackingNumber || `SPL${selectedOrder.id.replace(/\D/g, '').padEnd(9, '0').slice(-9)}`);
+    if (!selectedOrder) {
+      setGeneratedAwb('');
+      setGeneratedTracking('');
+      setCapturedLabelUrl('');
+      return;
     }
-  }, [selectedOrder]);
+    setIsCodEnabled(selectedOrder.paymentMethod === 'COD');
+    const courier = (selectedOrder as { courierCode?: string }).courierCode || selectedOrder.shippingCompany;
+    if (courier) {
+      const c = String(courier).toLowerCase();
+      if (c.includes('spl')) setSelectedCourier('spl');
+      else if (c.includes('aramex')) setSelectedCourier('aramex');
+      else if (c.includes('smsa')) setSelectedCourier('smsa');
+      else if (c.includes('dhl')) setSelectedCourier('dhl');
+    }
+    setGeneratedAwb(realOrderAwb(selectedOrder));
+    setGeneratedTracking(realOrderTracking(selectedOrder));
+    const ship =
+      (currentShipments || []).find((s) => s.orderId === selectedOrder.id) || null;
+    setCapturedLabelUrl(String(ship?.labelUrl || '').trim());
+  }, [selectedOrder, currentShipments]);
 
-  // Dynamic calculations for totals
+  const effectiveLabelUrl = String(
+    capturedLabelUrl || matchingShipment?.labelUrl || '',
+  ).trim();
+
   const orderItemsTotal = useMemo(() => {
     if (!selectedOrder) return 0;
-    return Number((selectedOrder as any).totalAmount || selectedOrder.total || 0);
+    return Number((selectedOrder as { totalAmount?: number }).totalAmount || selectedOrder.total || 0);
   }, [selectedOrder]);
 
   const shippingCost = useMemo(() => {
-    if (!selectedOrder) return 0;
-    return Number(selectedOrder.shippingFee || (selectedOrder as any).shippingCost || 0);
+    if (!selectedOrder) return null as number | null;
+    if (typeof selectedOrder.shippingFee === 'number' && Number.isFinite(selectedOrder.shippingFee)) {
+      return selectedOrder.shippingFee;
+    }
+    const alt = (selectedOrder as { shippingCost?: number }).shippingCost;
+    if (typeof alt === 'number' && Number.isFinite(alt)) return alt;
+    return null;
   }, [selectedOrder]);
 
   const grandTotal = useMemo(() => {
-    return orderItemsTotal + (selectedOrder?.shippingFee ? 0 : shippingCost);
-  }, [orderItemsTotal, shippingCost, selectedOrder]);
+    return orderItemsTotal + (shippingCost ?? 0);
+  }, [orderItemsTotal, shippingCost]);
 
-  // Barcode and QR code generation
   const awbBarcodeSvg = useMemo(() => {
+    if (!generatedTracking) return '';
     return generateCode128Svg(generatedTracking, {
       height: 48,
       barWidth: 2,
@@ -133,11 +207,37 @@ export const ShippingLabelsStudioView: React.FC<ShippingLabelsStudioViewProps> =
   }, [generatedTracking]);
 
   const qrDataUri = useMemo(() => {
-    const data = `https://track.unityteck.sa/?c=${selectedCourier}&awb=${generatedAwb}&ord=${selectedOrder?.orderNumber || selectedOrderId}`;
+    if (effectiveLabelUrl) return generateQrSvgDataUri(effectiveLabelUrl, 90);
+    if (!generatedAwb && !selectedOrder) return generateQrSvgDataUri('WAITING', 90);
+    const data =
+      'ORDER:' +
+      (selectedOrder?.orderNumber || selectedOrderId) +
+      '|STORE:' +
+      (activeStore?.id || '') +
+      '|TRACK:' +
+      (generatedAwb || generatedTracking || '');
     return generateQrSvgDataUri(data, 90);
-  }, [selectedCourier, generatedAwb, selectedOrder, selectedOrderId]);
+  }, [
+    effectiveLabelUrl,
+    selectedCourier,
+    generatedAwb,
+    generatedTracking,
+    selectedOrder,
+    selectedOrderId,
+    activeStore?.id,
+  ]);
 
-  // Handle Create Shipment API Call
+  const detailsModalOrder = useMemo(() => {
+    if (!detailsModalOrderId) return null;
+    return (currentOrders || []).find((o) => o.id === detailsModalOrderId) || null;
+  }, [currentOrders, detailsModalOrderId]);
+
+  const openOrderDetailsModal = (orderId: string, labelUrl?: string | null) => {
+    setDetailsModalOrderId(orderId);
+    setDetailsModalLabelUrl(labelUrl ? String(labelUrl).trim() : null);
+    setDetailsModalOpen(true);
+  };
+
   const handleCreateShipment = async () => {
     if (!selectedOrder) {
       toast(isAr ? 'يرجى اختيار طلب أولاً' : 'Please select an order first', 'error');
@@ -149,15 +249,38 @@ export const ShippingLabelsStudioView: React.FC<ShippingLabelsStudioViewProps> =
       if (res.success) {
         if (res.awb) setGeneratedAwb(res.awb);
         if (res.trackingNumber) setGeneratedTracking(res.trackingNumber);
+        const fromRes = String(res.labelUrl || '').trim();
+        if (fromRes) {
+          setCapturedLabelUrl(fromRes);
+        } else {
+          const ship =
+            (currentShipments || []).find((s) => s.orderId === selectedOrder.id) || null;
+          const url = String(ship?.labelUrl || '').trim();
+          if (url) setCapturedLabelUrl(url);
+        }
         setCurrentStep(4);
         toast(
           isAr
-            ? `تم إنشاء بوليصة الشحن بنجاح (رقم التتبع:${res.trackingNumber || res.awb})`
-            : `Shipping waybill created successfully (AWB: ${res.awb || res.trackingNumber})`,
-          'success'
+            ? `تم إنشاء بوليصة الشحن بنجاح (رقم التتبع: ${res.trackingNumber || res.awb || '—'})`
+            : `Shipping waybill created successfully (AWB: ${res.awb || res.trackingNumber || '—'})`,
+          'success',
+        );
+        const channelsOk = await storeHasCustomerNotifyChannel(activeStore?.id);
+        toast(
+          channelsOk
+            ? isAr
+              ? 'سيتم إشعار العميل عبر واتساب / الرسائل النصية / البريد إن كانت القنوات متصلة لهذا المتجر'
+              : 'Customer will be notified via WhatsApp / SMS / Email if channels are connected for this store'
+            : isAr
+              ? 'لم يتم الإشعار — اربط واتساب أو الرسائل النصية أو البريد لهذا المتجر أولاً'
+              : 'Not notified — connect WhatsApp, SMS, or Email for this store first',
+          channelsOk ? 'info' : 'info',
         );
       } else {
-        toast(isAr ? 'فشل إنشاء بوليصة الشحن مع الناقل' : 'Failed to generate shipment waybill with carrier', 'error');
+        toast(
+          isAr ? 'فشل إنشاء بوليصة الشحن مع الناقل' : 'Failed to generate shipment waybill with carrier',
+          'error',
+        );
       }
     } catch {
       toast(isAr ? 'حدث خطأ في الاتصال بالخدمة' : 'Error connecting to carrier API', 'error');
@@ -166,27 +289,25 @@ export const ShippingLabelsStudioView: React.FC<ShippingLabelsStudioViewProps> =
     }
   };
 
-  // Direct thermal print handler
-  const handlePrint = () => {
-    window.print();
+  const handlePrintOrderDetails = () => {
+    if (!selectedOrder) {
+      toast(isAr ? 'لا توجد سجلات' : 'No records found', 'info');
+      return;
+    }
+    openOrderDetailsModal(selectedOrder.id, effectiveLabelUrl || null);
   };
 
-  // Download PDF handler
   const handleDownloadPdf = () => {
-    toast(
-      isAr
-        ? 'جاري تجهيز ملف ملف محمول للطباعة الحرارية 4x6...'
-        : 'Preparing 4x6 thermal printable PDF waybill...',
-      'info'
-    );
-    setTimeout(() => {
-      window.print();
-    }, 250);
+    if (!selectedOrder) {
+      toast(isAr ? 'لا توجد سجلات' : 'No records found', 'info');
+      return;
+    }
+    openOrderDetailsModal(selectedOrder.id, effectiveLabelUrl || null);
+    setTimeout(() => window.print(), 300);
   };
 
   return (
     <div className="space-y-6 animate-fadeIn pb-12">
-      {/* ── 1. Top Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-sm shrink-0">
@@ -209,19 +330,18 @@ export const ShippingLabelsStudioView: React.FC<ShippingLabelsStudioViewProps> =
           onClick={() =>
             toast(
               isAr
-                ? 'دليل الربط اللوجستي: يمكنك طباعة بوالص الشحن بمقاس 4x6 إنش مباشرة عبر طابعات الباركود الحرارية.'
-                : 'Help Guide: Labels are optimized for standard 4x6 thermal barcode printers (Zebra, TSC, Xprinter).',
-              'info'
+                ? 'دليل الربط اللوجستي: يمكنك طباعة تفاصيل الطلب أو البوليصة الرسمية عند توفر رابط الناقل.'
+                : 'Help Guide: Print Order Details, or open the official carrier label when a label URL exists.',
+              'info',
             )
           }
           className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-xs self-start sm:self-auto transition-colors"
         >
-          <HelpCircle className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+          <HelpCircle className="w-4 h-4" style={{ color: 'var(--accent)' }} />
           <span>{isAr ? 'دليل المساعدة' : 'Help Guide'}</span>
         </button>
       </div>
 
-      {/* ── 2. Sub-tabs — modern segmented toggles ── */}
       <ModernSegmentedTabs
         accent="blue"
         aria-label={isAr ? 'أقسام بوالص الشحن' : 'Shipping label sections'}
@@ -237,10 +357,8 @@ export const ShippingLabelsStudioView: React.FC<ShippingLabelsStudioViewProps> =
 
       {activeSubTab === 'create' && (
         <div className="space-y-6">
-          {/* ── 3. Four-Step Stepper Bar ── */}
           <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
             <div className="flex items-center justify-between max-w-3xl mx-auto relative">
-              {/* Connector Line */}
               <div className="absolute top-1/2 -translate-y-1/2 start-8 end-8 h-0.5 bg-slate-200 dark:bg-slate-800 -z-0" />
 
               {[
@@ -255,28 +373,30 @@ export const ShippingLabelsStudioView: React.FC<ShippingLabelsStudioViewProps> =
                   <button
                     key={s.step}
                     type="button"
-                    onClick={() => setCurrentStep(s.step as any)}
+                    onClick={() => setCurrentStep(s.step as 1 | 2 | 3 | 4)}
                     className="flex items-center gap-2 relative z-10 bg-white dark:bg-slate-900 px-2 group cursor-pointer"
                   >
                     <div
                       className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
                         isCurrent
-                          ? 'bg-blue-600 text-white ring-4 ring-blue-100 dark:ring-blue-950/60'
+                          ? 'text-white ring-4 ring-[color:var(--accent)]/20'
                           : isCompleted
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
                       }`}
+                      style={isCurrent ? { background: 'var(--portal-cta)' } : undefined}
                     >
                       {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : s.step}
                     </div>
                     <span
                       className={`text-xs font-semibold hidden sm:inline ${
                         isCurrent
-                          ? 'text-blue-600 dark:text-blue-400 font-bold'
+                          ? 'font-bold'
                           : isCompleted
-                          ? 'text-slate-800 dark:text-slate-200'
-                          : 'text-slate-400'
+                            ? 'text-slate-800 dark:text-slate-200'
+                            : 'text-slate-400'
                       }`}
+                      style={isCurrent ? { color: 'var(--accent)' } : undefined}
                     >
                       {s.label}
                     </span>
@@ -286,7 +406,6 @@ export const ShippingLabelsStudioView: React.FC<ShippingLabelsStudioViewProps> =
             </div>
           </div>
 
-          {/* ── 4. Main 3-Column Studio Layout or Empty State ── */}
           {!selectedOrder ? (
             <div className="p-12 text-center rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
               <Truck className="w-12 h-12 mx-auto mb-3 text-slate-300 dark:text-slate-600 rtl:rotate-180" />
@@ -295,504 +414,521 @@ export const ShippingLabelsStudioView: React.FC<ShippingLabelsStudioViewProps> =
               </h3>
               <p className="text-xs text-slate-500 max-w-md mx-auto">
                 {isAr
-                  ? 'بمجرد استلام طلبات جديدة في المتجر، ستتمكن من إصدار بوالص الشحن الرسمية وتتبعها وطباعتها حرارياً فوراً.'
+                  ? 'بمجرد استلام طلبات جديدة في المتجر، ستتمكن من إصدار بوالص الشحن الرسمية وتتبعها وطباعتها فوراً.'
                   : 'Once customers place orders in your store, you will be able to generate and print official carrier waybills here.'}
               </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-              {/* ── Left Column (4 cols): Order Information ── */}
               <div className="lg:col-span-4 p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs flex flex-col justify-between">
                 <div>
-                  {/* Header */}
-                <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base font-bold text-blue-600 dark:text-blue-400">
-                      {selectedOrder?.orderNumber || (selectedOrder ? `#${selectedOrder.id.slice(-8)}` : '—')}
+                  <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base font-bold" style={{ color: 'var(--accent)' }}>
+                        {selectedOrder?.orderNumber ||
+                          (selectedOrder ? `#${selectedOrder.id.slice(-8)}` : '—')}
+                      </span>
+                    </div>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>{isAr ? 'جاهز للشحن' : 'Ready to Ship'}</span>
                     </span>
                   </div>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40">
-                    <CheckCircle2 className="w-3 h-3" />
-                    <span>{isAr ? 'جاهز للشحن' : 'Ready to Ship'}</span>
-                  </span>
-                </div>
 
-                {/* Customer Info */}
-                <div className="mt-4 space-y-3 text-xs">
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold shrink-0">
-                      {(getCustomerDisplayName(selectedOrder?.customerName, locale) || 'C').charAt(0).toUpperCase()}
+                  <div className="mt-4 space-y-3 text-xs">
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold shrink-0">
+                        {(getCustomerDisplayName(selectedOrder?.customerName, locale) || 'C')
+                          .charAt(0)
+                          .toUpperCase()}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-900 dark:text-white">
+                          {getCustomerDisplayName(selectedOrder?.customerName, locale)}
+                        </h4>
+                        <p className="text-[11px] text-slate-500 font-mono mt-0.5" dir="ltr">
+                          {selectedOrder?.customerPhone || '—'}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-bold text-slate-900 dark:text-white">
-                        {getCustomerDisplayName(selectedOrder?.customerName, locale)}
-                      </h4>
-                      <p className="text-[11px] text-slate-500 font-mono mt-0.5">
-                        {selectedOrder?.customerPhone || activeStore?.phone || '—'}
-                      </p>
+
+                    <div className="flex items-start gap-2 text-slate-600 dark:text-slate-300 pt-1">
+                      <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-semibold text-slate-800 dark:text-slate-200">
+                          {getLocalizedCity(
+                            (selectedOrder as { city?: string })?.city,
+                            locale,
+                          ) ||
+                            getLocalizedAddress(selectedOrder?.deliveryLocation, locale) ||
+                            '—'}
+                        </div>
+                        <div className="text-[11px] text-slate-500">
+                          {getLocalizedAddress(
+                            typeof selectedOrder?.shippingAddress === 'string'
+                              ? selectedOrder.shippingAddress
+                              : (selectedOrder?.shippingAddress as { address?: string } | undefined)
+                                  ?.address || selectedOrder?.deliveryLocation,
+                            locale,
+                          ) || '—'}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Delivery Location */}
-                  <div className="flex items-start gap-2 text-slate-600 dark:text-slate-300 pt-1">
-                    <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-                    <div>
-                      <div className="font-semibold text-slate-800 dark:text-slate-200">
-                        {getLocalizedCity((selectedOrder as any)?.city || (activeStore as any)?.city, locale) ||
-                          getLocalizedAddress(selectedOrder?.deliveryLocation, locale) ||
-                          (isAr ? 'المملكة العربية السعودية' : 'Saudi Arabia')}
-                      </div>
-                      <div className="text-[11px] text-slate-500">
-                        {getLocalizedAddress(
-                          typeof selectedOrder?.shippingAddress === 'string'
-                            ? selectedOrder.shippingAddress
-                            : (selectedOrder?.shippingAddress as any)?.address ||
-                              selectedOrder?.deliveryLocation,
-                          locale,
-                        ) || (isAr ? 'العنوان الوطني' : 'National Address')}
-                      </div>
-                    </div>
+                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1.5">
+                      {isAr ? 'تبديل الطلب' : 'Switch Order'}
+                    </label>
+                    <select
+                      value={selectedOrderId}
+                      onChange={(e) => setSelectedOrderId(e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:outline-hidden"
+                    >
+                      {eligibleOrders.map((ord) => (
+                        <option key={ord.id} value={ord.id}>
+                          {ord.orderNumber || `#${ord.id.slice(-8)}`} —{' '}
+                          {getCustomerDisplayName(ord.customerName, locale)} (
+                          {getLocalizedCity((ord as { city?: string }).city, locale) ||
+                            getLocalizedAddress(ord.deliveryLocation, locale) ||
+                            '—'}
+                          )
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                </div>
 
-                {/* Order Selector (Switch order easily) */}
-                <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase block mb-1.5">
-                    {isAr ? 'تبديل الطلب' : 'Switch Order'}
-                  </label>
-                  <select
-                    value={selectedOrderId}
-                    onChange={(e) => setSelectedOrderId(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:outline-hidden"
-                  >
-                    {eligibleOrders.map((ord) => (
-                      <option key={ord.id} value={ord.id}>
-                        {ord.orderNumber || `#${ord.id.slice(-8)}`} — {getCustomerDisplayName(ord.customerName, locale)} ({getLocalizedCity((ord as any).city, locale) || getLocalizedAddress(ord.deliveryLocation, locale) || (isAr ? 'السعودية' : 'KSA')})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide block mb-2.5">
+                      {isAr ? 'المنتجات' : 'Items'}
+                    </span>
 
-                {/* Items Section */}
-                <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide block mb-2.5">
-                    {isAr ? 'المنتجات' : 'Items'}
-                  </span>
-
-                  <div className="space-y-2">
-                    {selectedOrder?.items && selectedOrder.items.length > 0 ? (
-                      selectedOrder.items.slice(0, 3).map((item, idx) => {
-                        const itemImg = item.image || (item as any).productImage;
-                        const itemTitle = item.name || (item as any).productTitle || 'Product';
-                        const itemVar = (item as any).variantTitle || (isAr ? 'طرد الشحنة' : 'Package parcel');
-                        return (
-                          <div key={idx} className="flex items-center justify-between gap-3 text-xs">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <div className="w-10 h-10 rounded-lg bg-amber-950/20 border border-slate-200 dark:border-slate-800 flex items-center justify-center shrink-0 overflow-hidden">
-                                {itemImg ? (
-                                  <img
-                                    src={itemImg}
-                                    alt={itemTitle}
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <Package className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                                )}
+                    <div className="space-y-2">
+                      {selectedOrder?.items && selectedOrder.items.length > 0 ? (
+                        selectedOrder.items.slice(0, 3).map((item, idx) => {
+                          const itemImg = item.image || (item as { productImage?: string }).productImage;
+                          const itemTitle =
+                            item.name || (item as { productTitle?: string }).productTitle || '—';
+                          const itemVar =
+                            (item as { variantTitle?: string }).variantTitle ||
+                            (isAr ? 'طرد الشحنة' : 'Package parcel');
+                          return (
+                            <div key={idx} className="flex items-center justify-between gap-3 text-xs">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-10 h-10 rounded-lg bg-amber-950/20 border border-slate-200 dark:border-slate-800 flex items-center justify-center shrink-0 overflow-hidden">
+                                  {itemImg ? (
+                                    <img
+                                      src={itemImg}
+                                      alt={itemTitle}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <Package className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <h5 className="font-semibold text-slate-900 dark:text-white truncate">
+                                    {itemTitle}
+                                  </h5>
+                                  <p className="text-[11px] text-slate-500">{itemVar}</p>
+                                </div>
                               </div>
-                              <div className="min-w-0">
-                                <h5 className="font-semibold text-slate-900 dark:white truncate">
-                                  {itemTitle}
-                                </h5>
-                                <p className="text-[11px] text-slate-500">
-                                  {itemVar}
-                                </p>
+                              <div className="text-end shrink-0">
+                                <span className="text-[11px] font-bold text-slate-400 block">
+                                  x {item.quantity}
+                                </span>
+                                <span className="font-bold text-slate-900 dark:text-white">
+                                  {money(item.price)}
+                                </span>
                               </div>
                             </div>
-                            <div className="text-end shrink-0">
-                            <span className="text-[11px] font-bold text-slate-400 block">
-                              x {item.quantity}
-                            </span>
-                            <span className="font-bold text-slate-900 dark:text-white">
-                              {money(item.price)}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })
-                  ) : (
-                      <div className="py-6 text-center text-slate-400">
-                        <Package className="w-8 h-8 mx-auto mb-1 opacity-40" />
-                        <p className="text-xs font-semibold">{isAr ? 'لا توجد منتجات مسجلة في هذا الطلب' : 'No items recorded in this order'}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Financial Breakdown */}
-              <div className="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800 space-y-2 text-xs">
-                <div className="flex items-center justify-between text-slate-500">
-                  <span>{isAr ? 'مجموع الطلب' : 'Order Total'}</span>
-                  <span className="font-bold text-slate-800 dark:text-slate-200">
-                    {money(orderItemsTotal)}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between text-slate-500">
-                  <div className="flex items-center gap-1.5">
-                    <span>{isAr ? 'طريقة الشحن' : 'Shipping Method'}</span>
-                    <button
-                      type="button"
-                      onClick={() => toast(isAr ? 'يمكنك تغيير طريقة الشحن في الخطوة 2' : 'Change courier in section 2', 'info')}
-                      className="text-blue-600 dark:text-blue-400 font-semibold hover:underline text-[11px]"
-                    >
-                      {isAr ? 'تعديل' : 'Edit'}
-                    </button>
-                  </div>
-                  <span className="font-medium text-slate-700 dark:text-slate-300">
-                    {selectedCourier.toUpperCase()} - Standard
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between text-slate-500">
-                  <span>{isAr ? 'تكلفة الشحن' : 'Shipping Cost'}</span>
-                  <span className="font-bold text-slate-800 dark:text-slate-200">
-                    {money(shippingCost)}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-sm font-black text-slate-900 dark:text-white">
-                  <span>{isAr ? 'الإجمالي الكلي' : 'Total'}</span>
-                  <span>{money(grandTotal)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* ── Middle Column (4 cols): Shipping Details Form ── */}
-            <div className="lg:col-span-4 p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs flex flex-col justify-between">
-              <div className="space-y-4 text-xs">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white pb-3 border-b border-slate-100 dark:border-slate-800">
-                  {isAr ? 'تفاصيل الشحن والطرود' : 'Shipping Details'}
-                </h3>
-
-                {/* Courier Selection */}
-                <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    {isAr ? 'شركة الشحن' : 'Courier'}
-                  </label>
-                  <select
-                    value={selectedCourier}
-                    onChange={(e) => setSelectedCourier(e.target.value as any)}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
-                  >
-                    <option value="spl">{isAr ? 'البريد السعودي' : 'SPL'}</option>
-                    <option value="aramex">{isAr ? 'أرامكس' : 'Aramex'}</option>
-                    <option value="smsa">{isAr ? 'سمسا إكسبريس' : 'SMSA Express'}</option>
-                    <option value="dhl">{isAr ? 'دي إتش إل إكسبريس' : 'DHL Express'}</option>
-                  </select>
-                </div>
-
-                {/* Service Type */}
-                <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    {isAr ? 'نوع الخدمة' : 'Service Type'}
-                  </label>
-                  <select
-                    value={serviceType}
-                    onChange={(e) => setServiceType(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
-                  >
-                    <option value="standard">Standard Delivery (2-4 days)</option>
-                    <option value="express">Express Delivery (Same Day / 24h)</option>
-                    <option value="economy">Economy Freight (3-5 days)</option>
-                  </select>
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    {isAr ? 'التوصيل التقديري: 2 - 4 أيام عمل' : 'Estimated delivery: 2 - 4 days'}
-                  </p>
-                </div>
-
-                {/* Package Type */}
-                <div>
-                  <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    {isAr ? 'نوع الطرد' : 'Package Type'}
-                  </label>
-                  <select
-                    value={packageType}
-                    onChange={(e) => setPackageType(e.target.value as any)}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
-                  >
-                    <option value="box">{isAr ? 'صندوق كرتوني' : 'Box'}</option>
-                    <option value="flyer">{isAr ? 'كيس شحن' : 'Flyer / Pouch'}</option>
-                    <option value="pallet">{isAr ? 'طبلية شحن' : 'Pallet'}</option>
-                  </select>
-                </div>
-
-                {/* Weight & Dimensions */}
-                <div className="grid grid-cols-4 gap-2 pt-1">
-                  <div className="col-span-1">
-                    <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1 text-[11px]">
-                      {isAr ? 'الوزن كجم' : 'Weight (KG)'}
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0.1"
-                      value={weightKg}
-                      onChange={(e) => setWeightKg(parseFloat(e.target.value) || 0.1)}
-                      className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-center text-slate-800 dark:text-slate-200"
-                    />
-                  </div>
-
-                  <div className="col-span-3">
-                    <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1 text-[11px]">
-                      {isAr ? 'الأبعاد سم: الطول × العرض × الارتفاع' : 'Dimensions (cm): L × W × H'}
-                    </label>
-                    <div className="grid grid-cols-3 gap-1">
-                      <input
-                        type="number"
-                        placeholder="L"
-                        value={dimLength}
-                        onChange={(e) => setDimLength(parseInt(e.target.value) || 1)}
-                        className="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-center font-bold text-slate-800 dark:text-slate-200"
-                      />
-                      <input
-                        type="number"
-                        placeholder="W"
-                        value={dimWidth}
-                        onChange={(e) => setDimWidth(parseInt(e.target.value) || 1)}
-                        className="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-center font-bold text-slate-800 dark:text-slate-200"
-                      />
-                      <input
-                        type="number"
-                        placeholder="H"
-                        value={dimHeight}
-                        onChange={(e) => setDimHeight(parseInt(e.target.value) || 1)}
-                        className="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-center font-bold text-slate-800 dark:text-slate-200"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Option buttons (4 per row) */}
-                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    {isAr ? 'خيارات الشحنة والدفع' : 'Shipment & payment options'}
-                  </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsCodEnabled(true)}
-                      className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border cursor-pointer ${
-                        isCodEnabled
-                          ? 'bg-emerald-600 text-white border-emerald-600'
-                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 border-slate-200 dark:border-slate-700'
-                      }`}
-                    >
-                      {isAr ? 'عند الاستلام' : 'COD'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsCodEnabled(false)}
-                      className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border cursor-pointer ${
-                        !isCodEnabled
-                          ? 'bg-emerald-600 text-white border-emerald-600'
-                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 border-slate-200 dark:border-slate-700'
-                      }`}
-                    >
-                      {isAr ? 'مدفوع مسبقاً' : 'Prepaid'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsInsuranceEnabled(true)}
-                      className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border cursor-pointer ${
-                        isInsuranceEnabled
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 border-slate-200 dark:border-slate-700'
-                      }`}
-                    >
-                      {isAr ? 'تأمين' : 'Insurance'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsInsuranceEnabled(false)}
-                      className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border cursor-pointer ${
-                        !isInsuranceEnabled
-                          ? 'bg-slate-700 text-white border-slate-700'
-                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 border-slate-200 dark:border-slate-700'
-                      }`}
-                    >
-                      {isAr ? 'بدون تأمين' : 'No insurance'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Actions Footer */}
-              <div className="mt-6 pt-3 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  disabled={isSubmitting}
-                  onClick={handleCreateShipment}
-                  className="w-full py-2.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>
-                    {isSubmitting
-                      ? isAr
-                        ? 'جاري الربط مع الناقل...'
-                        : 'Creating with Carrier...'
-                      : isAr
-                      ? 'إنشاء بوليصة الشحن وتثبيتها'
-                      : 'Create & Validate Waybill'}
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            {/* ── Right Column (4 cols): Live 4x6 Thermal Label Preview ── */}
-            <div className="lg:col-span-4 p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    {isAr ? 'معاينة بوليصة الشحن' : 'Label Preview'}
-                  </h3>
-                  <span className="text-[11px] font-mono text-slate-400">4x6 Thermal</span>
-                </div>
-
-                {/* The Realistic 4x6 Thermal Label Card */}
-                <div className="mt-4 p-4 rounded-xl border-2 border-slate-900 bg-white text-slate-950 font-sans shadow-sm select-none">
-                  {/* Carrier Top Header */}
-                  <div className="flex items-start justify-between pb-2 border-b border-slate-800">
-                    <div className="text-2xl font-black tracking-tighter uppercase font-mono">
-                      {selectedCourier === 'spl' ? (
-                        <span className="text-emerald-700 font-extrabold tracking-normal">SPL</span>
-                      ) : selectedCourier === 'aramex' ? (
-                        <span className="text-orange-600 font-extrabold tracking-normal">aramex</span>
-                      ) : selectedCourier === 'smsa' ? (
-                        <span className="text-blue-800 font-extrabold tracking-normal">SMSA</span>
+                          );
+                        })
                       ) : (
-                        selectedCourier.toUpperCase()
+                        <div className="py-6 text-center text-slate-400">
+                          <Package className="w-8 h-8 mx-auto mb-1 opacity-40" />
+                          <p className="text-xs font-semibold">
+                            {isAr ? 'لا توجد سجلات' : 'No records found'}
+                          </p>
+                        </div>
                       )}
                     </div>
-                    <div className="text-end">
-                      <div className="text-[11px] font-bold tracking-tight">
-                        {selectedCourier === 'spl'
-                          ? 'سبل SPL'
-                          : selectedCourier === 'aramex'
-                          ? 'أرامكس'
-                          : selectedCourier === 'smsa'
-                          ? 'سمسا'
-                          : 'EXPRESS'}
-                      </div>
-                      <div className="text-[9px] text-slate-500 font-mono">DOMESTIC PARCEL</div>
-                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800 space-y-2 text-xs">
+                  <div className="flex items-center justify-between text-slate-500">
+                    <span>{isAr ? 'مجموع الطلب' : 'Order Total'}</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {money(orderItemsTotal)}
+                    </span>
                   </div>
 
-                  {/* Crisp SVG Barcode */}
-                  <div className="my-2.5 flex flex-col items-center justify-center overflow-hidden">
-                    <div
-                      className="w-full flex justify-center"
-                      dangerouslySetInnerHTML={{ __html: awbBarcodeSvg }}
-                    />
-                    <div className="text-xs font-mono font-bold tracking-widest mt-1">
-                      {generatedTracking}
+                  <div className="flex items-center justify-between text-slate-500">
+                    <div className="flex items-center gap-1.5">
+                      <span>{isAr ? 'طريقة الشحن' : 'Shipping Method'}</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toast(
+                            isAr ? 'يمكنك تغيير طريقة الشحن في الخطوة 2' : 'Change courier in section 2',
+                            'info',
+                          )
+                        }
+                        className="font-semibold hover:underline text-[11px]"
+                        style={{ color: 'var(--accent)' }}
+                      >
+                        {isAr ? 'تعديل' : 'Edit'}
+                      </button>
                     </div>
+                    <span className="font-medium text-slate-700 dark:text-slate-300">
+                      {selectedCourier.toUpperCase()}
+                    </span>
                   </div>
 
-                  {/* From / To & QR Code */}
-                  <div className="grid grid-cols-12 gap-2 py-2 border-y border-slate-800 text-[10px]">
-                    <div className="col-span-5 border-e border-slate-300 pe-1">
-                      <span className="font-black block uppercase text-[9px] text-slate-500">From:</span>
-                      <strong className="block truncate">{activeStore?.name || 'My Store'}</strong>
-                      <span className="block text-slate-600">Riyadh, Saudi Arabia</span>
-                      <span className="block font-mono text-slate-600">{(activeStore as any)?.phone || '+966 11 000 0000'}</span>
-                    </div>
-
-                    <div className="col-span-4 border-e border-slate-300 pe-1">
-                      <span className="font-black block uppercase text-[9px] text-slate-500">To:</span>
-                      <strong className="block truncate">
-                        {getCustomerDisplayName(selectedOrder?.customerName, locale)}
-                      </strong>
-                      <span className="block truncate text-slate-600">
-                        {getLocalizedCity(
-                          (selectedOrder as any)?.city || (activeStore as any)?.city,
-                          locale,
-                        ) ||
-                          getLocalizedAddress(selectedOrder?.deliveryLocation, locale) ||
-                          (isAr ? 'المملكة العربية السعودية' : 'Saudi Arabia')}
-                        {isAr ? '، السعودية' : ', KSA'}
-                      </span>
-                      <span className="block font-mono text-slate-600 truncate">
-                        {selectedOrder?.customerPhone || '—'}
-                      </span>
-                    </div>
-
-                    <div className="col-span-3 flex items-center justify-center">
-                      <img src={qrDataUri} alt="Driver QR" className="w-14 h-14 object-contain" />
-                    </div>
+                  <div className="flex items-center justify-between text-slate-500">
+                    <span>{isAr ? 'تكلفة الشحن' : 'Shipping Cost'}</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {shippingCost == null
+                        ? '—'
+                        : shippingCost === 0
+                          ? isAr
+                            ? 'مجاني'
+                            : 'Free'
+                          : money(shippingCost)}
+                    </span>
                   </div>
 
-                  {/* Bottom Stats Grid */}
-                  <div className="grid grid-cols-3 gap-2 pt-2 text-[10px] text-center font-mono">
-                    <div className="border-e border-slate-300">
-                      <span className="text-[9px] text-slate-500 block uppercase">Weight</span>
-                      <strong className="text-xs">{weightKg} KG</strong>
-                    </div>
-                    <div className="border-e border-slate-300">
-                      <span className="text-[9px] text-slate-500 block uppercase">Service</span>
-                      <strong className="text-xs truncate block">Standard</strong>
-                    </div>
-                    <div>
-                      <span className="text-[9px] text-slate-500 block uppercase">COD</span>
-                      <strong className="text-xs text-rose-700">
-                        {isCodEnabled ? `⃁ ${grandTotal.toFixed(2)}` : 'PREPAID'}
-                      </strong>
-                    </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-sm font-black text-slate-900 dark:text-white">
+                    <span>{isAr ? 'الإجمالي الكلي' : 'Total'}</span>
+                    <span>{money(grandTotal)}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Action Buttons (Download PDF, Print Label, More Actions) */}
-              <div className="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleDownloadPdf}
-                  className="flex-1 py-2 px-3 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>{isAr ? 'تحميل ملف محمول' : 'Download PDF'}</span>
-                </button>
+              <div className="lg:col-span-4 p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs flex flex-col justify-between">
+                <div className="space-y-4 text-xs">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white pb-3 border-b border-slate-100 dark:border-slate-800">
+                    {isAr ? 'تفاصيل الشحن والطرود' : 'Shipping Details'}
+                  </h3>
 
-                <button
-                  type="button"
-                  onClick={handlePrint}
-                  className="flex-1 py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>{isAr ? 'طباعة البوليصة' : 'Print Label'}</span>
-                </button>
+                  <div>
+                    <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      {isAr ? 'شركة الشحن' : 'Courier'}
+                    </label>
+                    <select
+                      value={selectedCourier}
+                      onChange={(e) => setSelectedCourier(e.target.value as CourierCarrierCode)}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[color:var(--accent)]/20"
+                    >
+                      <option value="spl">{isAr ? 'البريد السعودي' : 'SPL'}</option>
+                      <option value="aramex">{isAr ? 'أرامكس' : 'Aramex'}</option>
+                      <option value="smsa">{isAr ? 'سمسا إكسبريس' : 'SMSA Express'}</option>
+                      <option value="dhl">{isAr ? 'دي إتش إل إكسبريس' : 'DHL Express'}</option>
+                    </select>
+                  </div>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    toast(
-                      isAr ? 'تم نسخ بيانات البوليصة إلى الحافظة' : 'Waybill manifest data copied to clipboard',
-                      'info'
-                    )
-                  }
-                  className="p-2 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
-                  title={isAr ? 'إجراءات إضافية' : 'More Actions'}
-                >
-                  <MoreHorizontal className="w-4 h-4" />
-                </button>
+                  <div>
+                    <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      {isAr ? 'نوع الخدمة' : 'Service Type'}
+                    </label>
+                    <select
+                      value={serviceType}
+                      onChange={(e) => setServiceType(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[color:var(--accent)]/20"
+                    >
+                      <option value="standard">
+                        {isAr ? 'توصيل قياسي (2-4 أيام)' : 'Standard Delivery (2-4 days)'}
+                      </option>
+                      <option value="express">
+                        {isAr ? 'توصيل سريع (نفس اليوم / 24 ساعة)' : 'Express Delivery (Same Day / 24h)'}
+                      </option>
+                      <option value="economy">
+                        {isAr ? 'شحن اقتصادي (3-5 أيام)' : 'Economy Freight (3-5 days)'}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      {isAr ? 'نوع الطرد' : 'Package Type'}
+                    </label>
+                    <select
+                      value={packageType}
+                      onChange={(e) => setPackageType(e.target.value as 'box' | 'flyer' | 'pallet')}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[color:var(--accent)]/20"
+                    >
+                      <option value="box">{isAr ? 'صندوق كرتوني' : 'Box'}</option>
+                      <option value="flyer">{isAr ? 'كيس شحن' : 'Flyer / Pouch'}</option>
+                      <option value="pallet">{isAr ? 'طبلية شحن' : 'Pallet'}</option>
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2 pt-1">
+                    <div className="col-span-1">
+                      <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1 text-[11px]">
+                        {isAr ? 'الوزن كجم' : 'Weight (KG)'}
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0.1"
+                        value={weightKg}
+                        onChange={(e) => setWeightKg(parseFloat(e.target.value) || 0.1)}
+                        className="w-full px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-center text-slate-800 dark:text-slate-200"
+                      />
+                    </div>
+
+                    <div className="col-span-3">
+                      <label className="font-semibold text-slate-700 dark:text-slate-300 block mb-1 text-[11px]">
+                        {isAr ? 'الأبعاد سم: الطول × العرض × الارتفاع' : 'Dimensions (cm): L × W × H'}
+                      </label>
+                      <div className="grid grid-cols-3 gap-1">
+                        <input
+                          type="number"
+                          placeholder={isAr ? 'ط' : 'L'}
+                          value={dimLength}
+                          onChange={(e) => setDimLength(parseInt(e.target.value) || 1)}
+                          className="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-center font-bold text-slate-800 dark:text-slate-200"
+                        />
+                        <input
+                          type="number"
+                          placeholder={isAr ? 'ع' : 'W'}
+                          value={dimWidth}
+                          onChange={(e) => setDimWidth(parseInt(e.target.value) || 1)}
+                          className="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-center font-bold text-slate-800 dark:text-slate-200"
+                        />
+                        <input
+                          type="number"
+                          placeholder={isAr ? 'ا' : 'H'}
+                          value={dimHeight}
+                          onChange={(e) => setDimHeight(parseInt(e.target.value) || 1)}
+                          className="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-center font-bold text-slate-800 dark:text-slate-200"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      {isAr ? 'خيارات الشحنة والدفع' : 'Shipment & payment options'}
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsCodEnabled(true)}
+                        className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border cursor-pointer ${
+                          isCodEnabled
+                            ? 'bg-emerald-600 text-white border-emerald-600'
+                            : 'bg-slate-50 dark:bg-slate-800 text-slate-600 border-slate-200 dark:border-slate-700'
+                        }`}
+                      >
+                        {isAr ? 'عند الاستلام' : 'COD'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsCodEnabled(false)}
+                        className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border cursor-pointer ${
+                          !isCodEnabled
+                            ? 'bg-emerald-600 text-white border-emerald-600'
+                            : 'bg-slate-50 dark:bg-slate-800 text-slate-600 border-slate-200 dark:border-slate-700'
+                        }`}
+                      >
+                        {isAr ? 'مدفوع مسبقاً' : 'Prepaid'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsInsuranceEnabled(true)}
+                        className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border cursor-pointer ${
+                          isInsuranceEnabled
+                            ? 'text-white'
+                            : 'bg-slate-50 dark:bg-slate-800 text-slate-600 border-slate-200 dark:border-slate-700'
+                        }`}
+                        style={
+                          isInsuranceEnabled
+                            ? { background: 'var(--portal-cta)', borderColor: 'var(--portal-cta)' }
+                            : undefined
+                        }
+                      >
+                        {isAr ? 'تأمين' : 'Insurance'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsInsuranceEnabled(false)}
+                        className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border cursor-pointer ${
+                          !isInsuranceEnabled
+                            ? 'bg-slate-700 text-white border-slate-700'
+                            : 'bg-slate-50 dark:bg-slate-800 text-slate-600 border-slate-200 dark:border-slate-700'
+                        }`}
+                      >
+                        {isAr ? 'بدون تأمين' : 'No insurance'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={handleCreateShipment}
+                    className="w-full py-2.5 px-3 rounded-lg disabled:opacity-50 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    style={{ background: 'var(--portal-cta)' }}
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>
+                      {isSubmitting
+                        ? isAr
+                          ? 'جاري الربط مع الناقل...'
+                          : 'Creating with Carrier...'
+                        : isAr
+                          ? 'إنشاء بوليصة الشحن وتثبيتها'
+                          : 'Create & Validate Waybill'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Primary preview: Order Details sheet */}
+              <div className="lg:col-span-4 p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs flex flex-col justify-between gap-4">
+                <div>
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                      {isAr ? 'معاينة تفاصيل الطلب' : 'Order Details Preview'}
+                    </h3>
+                    <span className="text-[11px] font-mono text-slate-400">
+                      {generatedTracking || (isAr ? 'بانتظار البيانات' : 'Waiting for Data')}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 max-h-[420px] overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 p-2">
+                    <ShippingOrderDetailsSheet
+                      order={selectedOrder}
+                      store={activeStore}
+                      locale={locale}
+                      labelUrl={effectiveLabelUrl || null}
+                      className="scale-[0.72] origin-top max-w-none shadow-none"
+                    />
+                  </div>
+
+                  {/* Optional secondary thermal strip */}
+                  <details className="mt-3 text-xs">
+                    <summary className="cursor-pointer font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
+                      {isAr ? 'معاينة حرارية اختيارية (4×6)' : 'Optional thermal preview (4×6)'}
+                    </summary>
+                    <div className="mt-2 p-3 rounded-xl border-2 border-slate-900 bg-white text-slate-950 font-sans shadow-sm select-none">
+                      <div className="flex items-start justify-between pb-2 border-b border-slate-800">
+                        <div className="text-xl font-black tracking-tighter uppercase font-mono">
+                          {selectedCourier.toUpperCase()}
+                        </div>
+                        <div className="text-end text-[9px] text-slate-500 font-mono">
+                          {isAr ? 'طرود محلية' : 'DOMESTIC PARCEL'}
+                        </div>
+                      </div>
+                      {generatedTracking ? (
+                        <div className="my-2 flex flex-col items-center overflow-hidden">
+                          <div
+                            className="w-full flex justify-center"
+                            dangerouslySetInnerHTML={{ __html: awbBarcodeSvg }}
+                          />
+                          <div className="text-xs font-mono font-bold tracking-widest mt-1">
+                            {generatedTracking}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="py-4 text-center text-[11px] text-slate-500">
+                          {isAr ? 'بانتظار رقم التتبع من الناقل' : 'Waiting for tracking from carrier'}
+                        </p>
+                      )}
+                      <div className="grid grid-cols-12 gap-2 py-2 border-y border-slate-800 text-[10px]">
+                        <div className="col-span-5 border-e border-slate-300 pe-1">
+                          <span className="font-black block uppercase text-[9px] text-slate-500">
+                            {isAr ? 'من:' : 'From:'}
+                          </span>
+                          <strong className="block truncate">
+                            {activeStore?.name || (isAr ? 'المتجر' : 'Store')}
+                          </strong>
+                          <span className="block text-slate-600">{storeAddressLine}</span>
+                          <span className="block font-mono text-slate-600" dir="ltr">
+                            {storePhone || '—'}
+                          </span>
+                        </div>
+                        <div className="col-span-4 border-e border-slate-300 pe-1">
+                          <span className="font-black block uppercase text-[9px] text-slate-500">
+                            {isAr ? 'إلى:' : 'To:'}
+                          </span>
+                          <strong className="block truncate">
+                            {getCustomerDisplayName(selectedOrder?.customerName, locale)}
+                          </strong>
+                          <span className="block truncate text-slate-600">
+                            {getLocalizedCity((selectedOrder as { city?: string })?.city, locale) ||
+                              getLocalizedAddress(selectedOrder?.deliveryLocation, locale) ||
+                              '—'}
+                          </span>
+                          <span className="block font-mono text-slate-600 truncate" dir="ltr">
+                            {selectedOrder?.customerPhone || '—'}
+                          </span>
+                        </div>
+                        <div className="col-span-3 flex items-center justify-center">
+                          <img
+                            src={qrDataUri}
+                            alt={isAr ? 'رمز الاستجابة السريعة' : 'QR'}
+                            className="w-14 h-14 object-contain"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </details>
+                </div>
+
+                <div className="pt-3.5 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-2">
+                  {effectiveLabelUrl ? (
+                    <a
+                      href={effectiveLabelUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 min-w-[140px] py-2 px-3 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center justify-center gap-1.5 transition-colors"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
+                      <span>{isAr ? 'فتح البوليصة الرسمية' : 'Open official label'}</span>
+                    </a>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    onClick={handleDownloadPdf}
+                    className="flex-1 min-w-[120px] py-2 px-3 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>{isAr ? 'طباعة ملف' : 'Print PDF'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handlePrintOrderDetails}
+                    className="flex-1 min-w-[120px] py-2 px-3 rounded-lg text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer unity-btn-primary"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>{isAr ? 'معاينة وطباعة' : 'Preview & Print'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedOrder) openOrderDetailsModal(selectedOrder.id, effectiveLabelUrl || null);
+                    }}
+                    className="p-2 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                    title={isAr ? 'عرض تفاصيل الطلب' : 'View Order Details'}
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
-    )}
+          )}
+        </div>
+      )}
 
-      {/* ── Sub-tab 2: Label History ── */}
       {activeSubTab === 'history' && (
         <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
@@ -808,84 +944,104 @@ export const ShippingLabelsStudioView: React.FC<ShippingLabelsStudioViewProps> =
             <div className="py-12 text-center text-slate-400">
               <Package className="w-10 h-10 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
               <p className="text-xs font-bold text-slate-600 dark:text-slate-400">
-                {isAr ? 'لم يتم إصدار بوالص شحن بعد' : 'No shipping waybills generated yet'}
+                {isAr ? 'لا توجد سجلات' : 'No records found'}
               </p>
             </div>
           ) : (
             <div className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-              {currentShipments.map((s) => (
-                <div key={s.id} className="py-3 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="px-2 py-0.5 rounded font-extrabold text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 uppercase">
-                      {s.provider}
-                    </span>
-                    <div>
-                      <div className="font-bold font-mono text-slate-900 dark:text-white">
-                        {s.trackingNumber || s.awbNumber}
+              {currentShipments.map((s) => {
+                const matchedOrder = (currentOrders || []).find((o) => o.id === s.orderId);
+                const shipLabel = String(s.labelUrl || '').trim();
+                return (
+                  <div key={s.id} className="py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="px-2 py-0.5 rounded font-extrabold text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 uppercase shrink-0">
+                        {s.provider}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="font-bold font-mono text-slate-900 dark:text-white truncate">
+                          {s.trackingNumber || s.awbNumber || '—'}
+                        </div>
+                        <div className="text-[11px] text-slate-500 truncate">
+                          {isAr ? 'الطلب:' : 'Order:'}{' '}
+                          {matchedOrder?.orderNumber || s.orderId}
+                        </div>
                       </div>
-                      <div className="text-[11px] text-slate-500">Order: {s.orderId}</div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {shipLabel ? (
+                        <a
+                          href={shipLabel}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 font-semibold inline-flex items-center gap-1"
+                          style={{ color: 'var(--accent)' }}
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          {isAr ? 'البوليصة الرسمية' : 'Official label'}
+                        </a>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!matchedOrder) {
+                            toast(
+                              isAr
+                                ? 'لا يوجد طلب مطابق لهذه الشحنة'
+                                : 'No matching order found for this shipment',
+                              'info',
+                            );
+                            return;
+                          }
+                          setSelectedOrderId(matchedOrder.id);
+                          setGeneratedTracking(s.trackingNumber || s.awbNumber || '');
+                          setGeneratedAwb(s.awbNumber || s.trackingNumber || '');
+                          setCapturedLabelUrl(shipLabel);
+                          openOrderDetailsModal(matchedOrder.id, shipLabel || null);
+                        }}
+                        className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 font-semibold"
+                        style={{ color: 'var(--accent)' }}
+                      >
+                        {isAr ? 'معاينة وطباعة' : 'Preview & Print'}
+                      </button>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setGeneratedTracking(s.trackingNumber || s.awbNumber);
-                        setGeneratedAwb(s.awbNumber || s.trackingNumber);
-                        setActiveSubTab('create');
-                      }}
-                      className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 text-blue-600 dark:text-blue-400 font-semibold"
-                    >
-                      {isAr ? 'معاينة وطباعة' : 'Preview & Print'}
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
       )}
 
-      {/* ── Sub-tab 3: Bulk Actions ── */}
       {activeSubTab === 'bulk' && (
         <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-xs text-center space-y-3">
-          <Layers className="w-10 h-10 text-blue-600 dark:text-blue-400 mx-auto" />
+          <Layers className="w-10 h-10 mx-auto" style={{ color: 'var(--accent)' }} />
           <h3 className="font-bold text-sm text-slate-900 dark:text-white">
             {isAr ? 'إصدار وطباعة بوالص الشحن الجماعية' : 'Bulk Shipping Waybill Generation'}
           </h3>
           <p className="text-xs text-slate-500 max-w-md mx-auto">
             {isAr
-              ? 'يمكنك تحديد مجموعة من الطلبات الجاهزة لإصدار بوالصها دفعة واحدة وطباعتها على ورق حراري متصل.'
-              : 'Select multiple ready-to-ship orders to batch generate carrier waybills and print consecutive 4x6 labels.'}
+              ? 'يتطلب الربط الفعلي مع شركة الشحن. لا يتم إنشاء بوالص وهمية.'
+              : 'Requires a real connected courier. Fake batch waybills are never generated.'}
           </p>
           <button
             type="button"
             onClick={() => {
-              if (eligibleOrders.length === 0) {
-                toast(
-                  isAr
-                    ? 'لا توجد طلبات جاهزة للشحن للطباعة الجماعية'
-                    : 'No ready-to-ship orders available for batch processing',
-                  'info'
-                );
-                return;
-              }
               toast(
                 isAr
-                  ? `تم تجهيز${eligibleOrders.length}بوليصة شحن جماعية للطباعة`
-                  : `${eligibleOrders.length} batch waybill(s) processed for printing`,
-                'success'
+                  ? 'يجب ربط شركة الشحن أولاً. لا تتوفر طباعة جماعية وهمية.'
+                  : 'Connect a courier first. No fake batch processing is available.',
+                'info',
               );
             }}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold shadow-xs hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 rounded-lg text-white text-xs font-bold shadow-xs transition-colors unity-btn-primary"
           >
             {isAr ? 'بدء الطباعة الجماعية' : 'Start Batch Processing'}
           </button>
         </div>
       )}
 
-      {/* ── Sub-tab 4: Failed Labels ── */}
       {activeSubTab === 'failed' && (
         <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-xs text-center space-y-2">
           <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
@@ -894,11 +1050,26 @@ export const ShippingLabelsStudioView: React.FC<ShippingLabelsStudioViewProps> =
           </h3>
           <p className="text-xs text-slate-500">
             {isAr
-              ? 'جميع بوالص الشحن تم التحقق منها ومزامنتها بنجاح مع بوابات شركات الشحن.'
-              : 'All dispatched shipping labels have passed carrier API validation successfully.'}
+              ? 'لا توجد سجلات فشل من واجهة الناقل لهذا المتجر.'
+              : 'No failed carrier API records for this store.'}
           </p>
         </div>
       )}
+
+      {detailsModalOpen && detailsModalOrder ? (
+        <ShippingOrderDetailsModal
+          isOpen={detailsModalOpen}
+          onClose={() => {
+            setDetailsModalOpen(false);
+            setDetailsModalOrderId(null);
+            setDetailsModalLabelUrl(null);
+          }}
+          order={detailsModalOrder}
+          store={activeStore}
+          locale={locale}
+          labelUrl={detailsModalLabelUrl}
+        />
+      ) : null}
     </div>
   );
 };

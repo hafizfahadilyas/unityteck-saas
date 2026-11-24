@@ -641,7 +641,7 @@ export const ProductDetailPage: React.FC = () => {
             <p className="text-xs sm:text-sm text-neutral-400">
               {language === 'AR'
                 ? 'شحن فوري مجاني لكافة مدن المملكة · إمكانية التقسيط على 4 دفعات بدون فوائد عبر تابي وتمارا'
-                : 'Free express delivery across KSA · 4 interest-free installments via Tabby & Tamara'}
+                : 'Free express delivery nationwide · 4 interest-free installments via Tabby & Tamara'}
             </p>
           </div>
 

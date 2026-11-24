@@ -205,7 +205,7 @@ export const HOMEPAGE_TEMPLATES: HomepageTemplateItem[] = [
       'High-contrast product photography & specs table',
       'Direct Custom Order Builder for bespoke coffee bars',
       'Split payments with Tabby & Tamara (4 installments)',
-      'Official HiBrew KSA Customer Support & Spare Parts',
+      'Official HiBrew Customer Support & Spare Parts',
     ],
     featuresAr: [
       'عرض أركان ودواليب القهوة الفاخرة المصممة خصيصاً للمنازل',

@@ -420,7 +420,7 @@ const QUICK_ICONS = [
   { id: 'cart', labelEn: 'Cart', labelAr: 'سلة', glyph: '🛒', fa: 'fa-cart-shopping' },
   { id: 'crown', labelEn: 'Crown', labelAr: 'تاج', glyph: '👑', fa: 'fa-crown' },
   { id: 'flower', labelEn: 'Flower', labelAr: 'زهرة', glyph: '🌸', fa: 'fa-spa' },
-  { id: 'ksa', labelEn: 'KSA', labelAr: 'السعودية', glyph: '🇸🇦', fa: 'fa-flag' },
+  { id: 'ksa', labelEn: 'Saudi', labelAr: 'السعودية', glyph: '🇸🇦', fa: 'fa-flag' },
   { id: 'package', labelEn: 'Box', labelAr: 'طرد', glyph: '📦', fa: 'fa-box' },
   { id: 'money', labelEn: 'Money', labelAr: 'مال', glyph: '💰', fa: 'fa-coins' },
   { id: 'trophy', labelEn: 'Trophy', labelAr: 'كأس', glyph: '🏆', fa: 'fa-trophy' },
@@ -5476,7 +5476,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                 {/* KSA Marketing Quotes */}
                 <div className="space-y-2 pt-2 border-t border-slate-800">
                   <span className="text-xs font-black uppercase text-slate-400">
-                    {isAr ? 'عبارات تسويقية جاهزة' : 'Quick KSA Presets'}
+                    {isAr ? 'عبارات تسويقية جاهزة' : 'Quick Saudi Presets'}
                   </span>
                   <div className="space-y-1.5">
                     {QUICK_KSA_TEXTS.map((q, idx) => (
@@ -8503,7 +8503,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
         defaultCaption={
           isAr
             ? 'عروض مميزة وحصرية من متجرنا! ✨ توصيل سريع لكافة مدن المملكة ودفع عند الاستلام. اطلب الآن!\n\n#متجر_سعودي #عروض_السعودية #الرياض'
-            : 'Exclusive special offer from our store! ✨ Express shipping across KSA. Order now!\n\n#SaudiMade #KSAShop #Deals'
+            : 'Exclusive special offer from our store! ✨ Express shipping across Saudi Arabia. Order now!\n\n#SaudiMade #SaudiShop #Deals'
         }
         onOpenSocialHub={onOpenSocialHub}
       />

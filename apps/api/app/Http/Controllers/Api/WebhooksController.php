@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\PaymentGateway;
 use App\Models\PaymentTransaction;
 use App\Models\Shipment;
+use App\Services\Notification\NotificationService;
 use App\Services\Payment\PaymentManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -57,8 +58,31 @@ class WebhooksController extends Controller
                     if ($tx->order_id) {
                         $order = Order::query()->find($tx->order_id);
                         if ($order) {
-                            $order->payment_status = $tx->status;
-                            $order->save();
+                            // Keep payment update store-scoped to the gateway tenant when known
+                            if ($gateway->store_id && (string) $order->store_id !== (string) $gateway->store_id) {
+                                Log::warning('Payment webhook store mismatch — skipped order update', [
+                                    'gateway_store' => $gateway->store_id,
+                                    'order_store' => $order->store_id,
+                                    'order_id' => $order->id,
+                                ]);
+                            } else {
+                                $order->payment_status = $tx->status;
+                                $order->save();
+
+                                $pay = strtolower(trim((string) $tx->status));
+                                if (in_array($pay, ['paid', 'completed', 'success', 'captured'], true)) {
+                                    try {
+                                        (new NotificationService())->notifyPaymentConfirmed(
+                                            $order->fresh(['items', 'customer', 'shipments'])
+                                        );
+                                    } catch (\Throwable $e) {
+                                        Log::warning('Payment webhook notify failed: '.$e->getMessage(), [
+                                            'store_id' => $order->store_id,
+                                            'order_id' => $order->id,
+                                        ]);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -85,16 +109,22 @@ class WebhooksController extends Controller
         Log::info("Courier webhook received for {$provider}, tracking: {$trackingNumber}");
 
         if ($trackingNumber) {
-            $shipment = Shipment::query()
-                ->where('tracking_number', $trackingNumber)
-                ->orWhere('awb_number', $trackingNumber)
-                ->first();
+            $shipmentQuery = Shipment::query()->where(function ($q) use ($trackingNumber) {
+                $q->where('tracking_number', $trackingNumber)
+                    ->orWhere('awb_number', $trackingNumber);
+            });
+            $storeId = $request->query('store_id') ?? ($payload['store_id'] ?? null);
+            if ($storeId) {
+                $shipmentQuery->where('store_id', $storeId);
+            }
+            $shipment = $shipmentQuery->first();
 
             if ($shipment) {
                 $mappedStatus = match ($status) {
                     'delivered', 'dlv' => 'delivered',
                     'out_for_delivery', 'ofd' => 'out_for_delivery',
                     'picked_up', 'pu' => 'picked_up',
+                    'shipped' => 'in_transit',
                     'returned', 'rts' => 'returned',
                     'failed' => 'failed',
                     default => 'in_transit',
@@ -115,15 +145,37 @@ class WebhooksController extends Controller
                 $shipment->tracking_events = $events;
                 $shipment->save();
 
-                // Update associated order
+                // Update associated order (same store_id as shipment)
                 if ($shipment->order_id) {
-                    $order = Order::query()->find($shipment->order_id);
+                    $order = Order::query()
+                        ->where('id', $shipment->order_id)
+                        ->where('store_id', $shipment->store_id)
+                        ->first();
                     if ($order) {
                         $order->shipping_status = $mappedStatus;
                         if ($mappedStatus === 'delivered') {
-                            $order->status = 'completed';
+                            $order->status = 'delivered';
+                        } elseif ($mappedStatus === 'out_for_delivery') {
+                            $order->status = 'out_for_delivery';
+                        } elseif (in_array($mappedStatus, ['picked_up', 'in_transit', 'created'], true)) {
+                            if (!in_array($order->status, ['delivered', 'completed', 'out_for_delivery'], true)) {
+                                $order->status = 'shipped';
+                            }
                         }
                         $order->save();
+
+                        try {
+                            (new NotificationService())->notifyOrderShippingProgress(
+                                $order->fresh(['items', 'customer', 'shipments']),
+                                $mappedStatus
+                            );
+                        } catch (\Throwable $e) {
+                            Log::warning('Courier webhook notify failed: '.$e->getMessage(), [
+                                'store_id' => $shipment->store_id,
+                                'order_id' => $order->id,
+                                'status' => $mappedStatus,
+                            ]);
+                        }
                     }
                 }
             }

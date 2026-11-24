@@ -44,12 +44,25 @@ export const CheckoutShippingMethods: React.FC<Props> = ({
   }
 
   if (!methods.length) {
+    const adminHref = typeof window !== 'undefined'
+      ? `${window.location.origin}/admin?tab=shipping&view=methods`
+      : '/admin?tab=shipping&view=methods';
     return (
-      <p className="text-xs text-neutral-500">
-        {isAr
-          ? 'لا توجد طرق شحن مفعّلة لهذا المتجر حالياً'
-          : 'No shipping methods are active for this store yet'}
-      </p>
+      <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-3 space-y-2">
+        <p className="text-xs text-amber-900 font-semibold">
+          {isAr
+            ? 'لا توجد طرق شحن مفعّلة لهذا المتجر حالياً'
+            : 'No shipping methods are active for this store yet'}
+        </p>
+        <a
+          href={adminHref}
+          className="inline-flex text-[11px] font-extrabold text-emerald-800 underline underline-offset-2"
+        >
+          {isAr
+            ? 'افتح إعدادات الشحن في لوحة التحكم للتحقق'
+            : 'Open Shipping settings in admin to verify'}
+        </a>
+      </div>
     );
   }
 
@@ -87,37 +100,37 @@ export const CheckoutShippingMethods: React.FC<Props> = ({
                   : 'border-neutral-200 bg-white hover:border-neutral-300'
               }`}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 space-y-1">
-                  <div className="flex items-center gap-2">
+              <div className="flex items-start justify-between gap-2 sm:gap-3 min-w-0">
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                     {selected ? (
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                     ) : (
                       <span className="w-4 h-4 rounded-full border border-neutral-300 shrink-0" />
                     )}
                     {logo ? (
-                      <span className="w-9 h-9 rounded-lg bg-white border border-neutral-200 flex items-center justify-center p-1 shrink-0">
+                      <span className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-white border border-neutral-200 flex items-center justify-center p-1 shrink-0">
                         <img src={logo} alt="" className="max-w-full max-h-full object-contain" loading="lazy" />
                       </span>
                     ) : null}
-                    <span className="text-sm font-bold text-neutral-900 truncate">{title}</span>
+                    <span className="text-xs sm:text-sm font-bold text-neutral-900 break-words min-w-0">{title}</span>
                     {m.courier_code ? (
-                      <span className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded-md bg-neutral-100 text-neutral-600">
+                      <span className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded-md bg-neutral-100 text-neutral-600 shrink-0">
                         {m.courier_code}
                       </span>
                     ) : null}
                   </div>
                   {m.estimated_delivery ? (
-                    <p className="text-[11px] text-neutral-500 flex items-center gap-1 ps-6">
-                      <Clock className="w-3 h-3 shrink-0" />
-                      <span>
+                    <p className="text-[10px] sm:text-[11px] text-neutral-500 flex items-start gap-1 ps-0 sm:ps-6 leading-snug">
+                      <Clock className="w-3 h-3 shrink-0 mt-0.5" />
+                      <span className="min-w-0 break-words">
                         {isAr ? 'الوقت المتوقع للتوصيل:' : 'Estimated delivery: '}
                         {m.estimated_delivery}
                       </span>
                     </p>
                   ) : null}
                 </div>
-                <span className="text-sm font-black text-neutral-900 tabular-nums shrink-0">
+                <span className="text-xs sm:text-sm font-black text-neutral-900 tabular-nums shrink-0 pt-0.5">
                   {feeLabel}
                 </span>
               </div>

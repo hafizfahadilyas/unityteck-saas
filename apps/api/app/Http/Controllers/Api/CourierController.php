@@ -7,8 +7,10 @@ use App\Models\CourierConnection;
 use App\Models\Order;
 use App\Models\Shipment;
 use App\Services\Courier\CourierManager;
+use App\Services\Notification\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 class CourierController extends Controller
@@ -214,9 +216,17 @@ class CourierController extends Controller
         $service = CourierManager::resolve($connection->provider);
         $result = $service->createShipment($connection, $order, ['weight_kg' => $data['weight_kg'] ?? 1.5]);
 
-        if (!$result['success']) {
-            return response()->json(['message' => 'Shipment creation failed with carrier API.'], 502);
+        $awb = trim((string) ($result['awb_number'] ?? ''));
+        $tracking = trim((string) ($result['tracking_number'] ?? ''));
+        if (!($result['success'] ?? false) || ($awb === '' && $tracking === '')) {
+            return response()->json([
+                'message' => $result['message']
+                    ?? 'Shipment creation failed with carrier API. No AWB returned — nothing invented.',
+            ], 422);
         }
+
+        $awb = $awb !== '' ? $awb : $tracking;
+        $tracking = $tracking !== '' ? $tracking : $awb;
 
         $shipmentId = $this->newId('shp');
         $shipment = Shipment::create([
@@ -225,11 +235,11 @@ class CourierController extends Controller
             'order_id' => $order->id,
             'courier_id' => $connection->id,
             'provider' => $connection->provider,
-            'awb_number' => $result['awb_number'],
-            'tracking_number' => $result['tracking_number'],
+            'awb_number' => $awb,
+            'tracking_number' => $tracking,
             'label_url' => $result['label_url'] ?? null,
             'status' => 'created',
-            'shipping_cost' => $result['cost'] ?? 25.00,
+            'shipping_cost' => $result['cost'] ?? 0,
             'cod_amount' => $order->payment_method === 'COD' ? $order->total_amount : 0,
             'pickup_requested_at' => now(),
             'destination_address' => ['location' => $order->delivery_location],
@@ -237,23 +247,33 @@ class CourierController extends Controller
                 [
                     'time' => now()->toIso8601String(),
                     'status' => 'Created',
-                    'description' => "Shipment created with {$connection->provider} (AWB: {$result['awb_number']})",
+                    'description' => "Shipment created with {$connection->provider} (AWB: {$awb})",
                 ],
             ],
         ]);
 
         // Update order with real courier operational tracking
         $order->courier_code = $connection->provider;
-        $order->awb_number = $result['awb_number'];
-        $order->tracking_number = $result['tracking_number'];
+        $order->awb_number = $awb;
+        $order->tracking_number = $tracking;
         $order->shipping_cost = $shipment->shipping_cost;
         $order->shipping_status = 'created';
-        $order->status = 'processing';
+        $order->status = 'shipped';
         $order->save();
+
+        $freshOrder = $order->fresh(['items', 'customer', 'shipments']);
+        try {
+            (new NotificationService())->sendOrderNotification('order_shipped', $freshOrder);
+        } catch (\Throwable $e) {
+            Log::warning('order_shipped notify failed after createShipment: '.$e->getMessage(), [
+                'store_id' => $storeId,
+                'order_id' => $order->id,
+            ]);
+        }
 
         return response()->json([
             'data' => $shipment,
-            'order' => $order->fresh(),
+            'order' => $freshOrder,
             'message' => "Shipment created successfully. AWB: {$shipment->awb_number}",
         ], 201);
     }
@@ -270,8 +290,10 @@ class CourierController extends Controller
 
         $shipment = Shipment::query()
             ->forStore($storeId)
-            ->where('tracking_number', $trackingNumber)
-            ->orWhere('awb_number', $trackingNumber)
+            ->where(function ($q) use ($trackingNumber) {
+                $q->where('tracking_number', $trackingNumber)
+                    ->orWhere('awb_number', $trackingNumber);
+            })
             ->first();
 
         if ($shipment && $shipment->provider) {
@@ -340,7 +362,7 @@ class CourierController extends Controller
             'note' => ['nullable', 'string'],
         ]);
 
-        $shipment = Shipment::query()->forStore($storeId)->where('id', $id)->firstOrFail();
+        $shipment = Shipment::query()->forStore($storeId)->where('id', $id)->with('order')->firstOrFail();
         $shipment->status = $validated['status'];
         if ($validated['status'] === 'delivered') {
             $shipment->delivered_at = now();
@@ -355,11 +377,31 @@ class CourierController extends Controller
         $shipment->save();
 
         if ($shipment->order) {
-            $shipment->order->shipping_status = $shipment->status;
+            $order = $shipment->order;
+            $order->shipping_status = $shipment->status;
             if ($shipment->status === 'delivered') {
-                $shipment->order->status = 'delivered';
+                $order->status = 'delivered';
+            } elseif ($shipment->status === 'out_for_delivery') {
+                $order->status = 'out_for_delivery';
+            } elseif (in_array($shipment->status, ['created', 'picked_up', 'in_transit'], true)) {
+                if (!in_array($order->status, ['delivered', 'completed', 'out_for_delivery'], true)) {
+                    $order->status = 'shipped';
+                }
             }
-            $shipment->order->save();
+            $order->save();
+
+            try {
+                (new NotificationService())->notifyOrderShippingProgress(
+                    $order->fresh(['items', 'customer', 'shipments']),
+                    $shipment->status
+                );
+            } catch (\Throwable $e) {
+                Log::warning('Shipment status notify failed: '.$e->getMessage(), [
+                    'store_id' => $storeId,
+                    'order_id' => $order->id,
+                    'status' => $shipment->status,
+                ]);
+            }
         }
 
         return response()->json([

@@ -32,6 +32,10 @@ export type StorefrontOrderInput = {
   campaign?: string;
   utmTerm?: string;
   utmContent?: string;
+  shippingFee?: number;
+  deliveryMode?: string;
+  customerNotes?: string;
+  couponCode?: string;
   items?: StorefrontOrderLine[];
 };
 
@@ -51,6 +55,13 @@ export function toStorefrontOrderPayload(data: StorefrontOrderInput): Record<str
     campaign: data.campaign || undefined,
     utm_term: data.utmTerm || undefined,
     utm_content: data.utmContent || undefined,
+    delivery_mode: data.deliveryMode || undefined,
+    customer_notes: data.customerNotes || undefined,
+    coupon_code: data.couponCode || undefined,
+    shipping_cost:
+      typeof data.shippingFee === 'number' && Number.isFinite(data.shippingFee)
+        ? data.shippingFee
+        : undefined,
     items: (data.items || []).map((i) => ({
       product_id: i.id,
       variation_id: i.variationId || undefined,

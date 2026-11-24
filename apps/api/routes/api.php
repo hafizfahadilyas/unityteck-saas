@@ -588,6 +588,8 @@ Route::post('/whatsapp/webhook', [WhatsAppController::class, 'handleWebhook']);
 Route::post('/storefront/shipping/calculate', [ShippingController::class, 'calculate']);
 Route::post('/storefront/orders', [OrderController::class, 'storefrontStore']);
 Route::post('/storefront/orders/track', [OrderController::class, 'storefrontTrack']);
+Route::post('/storefront/orders/mine', [OrderController::class, 'storefrontMine']);
+Route::post('/storefront/notifications/mine', [NotificationSettingsController::class, 'storefrontCustomerDeliveries']);
 Route::post('/storefront/coupons/validate', [CouponController::class, 'storefrontValidate']);
 
 // Public Storefront Saudi Payments (Mada, Apple Pay, Tabby, Tamara, Card, COD)

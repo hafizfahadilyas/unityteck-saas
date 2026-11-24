@@ -1123,6 +1123,83 @@ function souq_gemini_enhance_prompt(string $rawPrompt, string $locale = 'en', st
  * @param array{name?:string,category?:string,brand?:string,product_type?:string,store_name?:string,seed?:string,locale?:string} $input
  * @return array{ok:bool,code?:string,message?:string,title?:string,subtitle?:string,description?:string,model?:string}
  */
+/**
+ * Download a public product image for Gemini vision (HTTPS only, size-capped).
+ * @return array{mime:string,base64:string}|null
+ */
+function souq_fetch_remote_image_inline(string $url, int $maxBytes = 3500000): ?array
+{
+    $url = trim($url);
+    if ($url === '' || !preg_match('#^https?://#i', $url)) {
+        return null;
+    }
+    if (preg_match('#^(blob:|data:)#i', $url)) {
+        return null;
+    }
+    $ch = curl_init($url);
+    if ($ch === false) {
+        return null;
+    }
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_MAXREDIRS => 3,
+        CURLOPT_CONNECTTIMEOUT => 8,
+        CURLOPT_TIMEOUT => 18,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_USERAGENT => 'SouqProductAI/1.0',
+        CURLOPT_HTTPHEADER => ['Accept: image/*,*/*;q=0.8'],
+    ]);
+    $bin = curl_exec($ch);
+    $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $ctype = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+    curl_close($ch);
+    if ($bin === false || $status < 200 || $status >= 300 || $bin === '') {
+        return null;
+    }
+    if (strlen($bin) < 64 || strlen($bin) > $maxBytes) {
+        return null;
+    }
+    $mime = 'image/jpeg';
+    $ctypeLow = strtolower(explode(';', $ctype)[0] ?? '');
+    if (str_starts_with($ctypeLow, 'image/')) {
+        $mime = $ctypeLow;
+    } elseif (class_exists('finfo')) {
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $detected = $finfo->buffer($bin);
+        if (is_string($detected) && str_starts_with($detected, 'image/')) {
+            $mime = $detected;
+        } else {
+            return null;
+        }
+    } else {
+        // Magic bytes fallback when fileinfo is unavailable.
+        $head = substr($bin, 0, 12);
+        if (str_starts_with($head, "\xFF\xD8\xFF")) {
+            $mime = 'image/jpeg';
+        } elseif (str_starts_with($head, "\x89PNG")) {
+            $mime = 'image/png';
+        } elseif (str_starts_with($head, 'GIF8')) {
+            $mime = 'image/gif';
+        } elseif (str_starts_with($head, 'RIFF') && str_contains(substr($head, 8, 4), 'WEBP')) {
+            $mime = 'image/webp';
+        } else {
+            return null;
+        }
+    }
+    if (!in_array($mime, ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'], true)) {
+        return null;
+    }
+    if ($mime === 'image/jpg') {
+        $mime = 'image/jpeg';
+    }
+
+    return [
+        'mime' => $mime,
+        'base64' => base64_encode($bin),
+    ];
+}
+
 function souq_gemini_suggest_product_copy(array $input): array
 {
     $apiKey = souq_gemini_api_key();
@@ -1141,16 +1218,46 @@ function souq_gemini_suggest_product_copy(array $input): array
     $productType = trim((string)($input['product_type'] ?? ''));
     $storeName = trim((string)($input['store_name'] ?? ''));
     $seed = trim((string)($input['seed'] ?? ''));
-
-    $facts = [];
-    if ($name !== '') {
-        $facts[] = 'Current name: ' . $name;
+    $imageUrl = trim((string)($input['image_url'] ?? ''));
+    $availableCategories = [];
+    if (is_array($input['available_categories'] ?? null)) {
+        foreach ($input['available_categories'] as $c) {
+            $c = trim((string)$c);
+            if ($c !== '' && mb_strlen($c) <= 120) {
+                $availableCategories[] = $c;
+            }
+            if (count($availableCategories) >= 80) {
+                break;
+            }
+        }
     }
+    $availableBrands = [];
+    if (is_array($input['available_brands'] ?? null)) {
+        foreach ($input['available_brands'] as $b) {
+            $b = trim((string)$b);
+            if ($b !== '' && mb_strlen($b) <= 80) {
+                $availableBrands[] = $b;
+            }
+            if (count($availableBrands) >= 60) {
+                break;
+            }
+        }
+    }
+
+    if (mb_strlen($name) < 2) {
+        return [
+            'ok' => false,
+            'code' => 'missing_context',
+            'message' => 'Enter a product name first so AI can fetch real product details.',
+        ];
+    }
+
+    $facts = ['Product name (required): ' . $name];
     if ($category !== '') {
-        $facts[] = 'Category: ' . $category;
+        $facts[] = 'Current category: ' . $category;
     }
     if ($brand !== '') {
-        $facts[] = 'Brand: ' . $brand;
+        $facts[] = 'Current brand: ' . $brand;
     }
     if ($productType !== '') {
         $facts[] = 'Product type: ' . $productType;
@@ -1161,40 +1268,63 @@ function souq_gemini_suggest_product_copy(array $input): array
     if ($seed !== '') {
         $facts[] = 'Merchant notes: ' . $seed;
     }
-    if ($facts === []) {
-        return [
-            'ok' => false,
-            'code' => 'missing_context',
-            'message' => 'Enter a product name, category, or brand first so AI can suggest copy.',
-        ];
+    if ($availableCategories !== []) {
+        $facts[] = 'Store category options (prefer exact matches only): ' . implode(' | ', $availableCategories);
+    }
+    if ($availableBrands !== []) {
+        $facts[] = 'Store brand options (prefer exact matches when possible): ' . implode(' | ', $availableBrands);
     }
 
-    $langLine = $wantAr
-        ? 'Write ALL three fields in clear formal Arabic only (no English words in the values).'
-        : 'Write ALL three fields in clear English only (no Arabic words in the values).';
+    $inline = $imageUrl !== '' ? souq_fetch_remote_image_inline($imageUrl) : null;
+    if ($inline) {
+        $facts[] = 'A real product photo is attached — read brand/logo, model text, labels, visible specs, and any printed SAR price from the image.';
+    }
+
     $instruction = implode("\n", [
-        'You write Saudi e-commerce product catalog copy for a multi-store SaaS merchant.',
-        $langLine,
-        'Return ONLY valid JSON with keys: title, subtitle, description.',
-        'title = product display name, max 80 characters, no quotes.',
-        'subtitle = one short marketing line under the title, max 120 characters.',
-        'description = 2-4 short paragraphs of honest product description HTML using <p> tags only (no scripts, no fake reviews, no invented specs).',
-        'Do not invent stock counts, prices, ratings, or competitor claims.',
+        'You enrich Saudi e-commerce product catalog fields from the REAL product name and optional product photo.',
+        'Always return BOTH Arabic and English text for every copy field (bilingual). Arabic values = formal Arabic only (no English words). English values = English only (no Arabic words). Brand names and model codes may stay as printed.',
+        'Return ONLY valid JSON with keys: title_en, title_ar, subtitle_en, subtitle_ar, description_en, description_ar, seo_title_en, seo_title_ar, seo_description_en, seo_description_ar, seo_keywords_en, seo_keywords_ar, tags_en, tags_ar, brand, categories, price_sar, price_source, google_taxonomy, barcode, weight_kg.',
+        'title_en / title_ar = accurate product display names, max 80 chars each.',
+        'subtitle_en / subtitle_ar = one short factual marketing line each, max 120 chars.',
+        'description_en / description_ar = 2-4 short HTML <p> paragraphs each based on identifiable product facts from name/image. No invented reviews, ratings, or competitor claims.',
+        'seo_title_* max 60 chars; seo_description_* max 155 chars — honest Saudi shopper SEO in that language.',
+        'seo_keywords_en / seo_keywords_ar = comma-separated 4-8 real keywords for that language.',
+        'tags_en / tags_ar = JSON arrays of 3-6 short catalog tags in that language. No fake sales numbers.',
+        'brand = real brand if identifiable from name or image logo/text; else empty string. Prefer a store brand option when it matches.',
+        'categories = JSON array of 1-3 labels chosen ONLY from the store category options list when provided; if no good match, return []. Never invent unrelated categories.',
+        'price_sar = number in Saudi Riyal ONLY if a price is clearly printed on the image OR you are highly certain of the official list price for this exact model. Otherwise null. NEVER guess a random price.',
+        'price_source = "image" | "known_model" | null matching price_sar.',
+        'google_taxonomy = short Google product category path if confidently known, else empty string.',
+        'barcode = only if clearly readable on the image, else empty string.',
+        'weight_kg = only if clearly printed on packaging/image, else null.',
+        'Do NOT invent stock, SKU, ratings, fake engagement, or dummy commerce metrics.',
         'Facts:',
         implode("\n", $facts),
     ]);
 
+    $parts = [];
+    if ($inline) {
+        $parts[] = [
+            'inline_data' => [
+                'mime_type' => $inline['mime'],
+                'data' => $inline['base64'],
+            ],
+        ];
+    }
+    $parts[] = ['text' => $instruction];
+
     $lastFail = ['ok' => false, 'code' => 'provider_error', 'message' => 'AI product copy returned an error.'];
+    $timeout = $inline ? 45 : 28;
     foreach (souq_gemini_text_model_candidates() as $model) {
         $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($model) . ':generateContent';
         $res = souq_gemini_curl_json_retry($url, [
-            'contents' => [['parts' => [['text' => $instruction]]]],
+            'contents' => [['parts' => $parts]],
             'generationConfig' => souq_gemini_text_generation_config($model, [
-                'temperature' => 0.55,
-                'maxOutputTokens' => 1024,
+                'temperature' => 0.35,
+                'maxOutputTokens' => 2048,
                 'responseMimeType' => 'application/json',
             ]),
-        ], 22, $apiKey);
+        ], $timeout, $apiKey);
 
         if ($res['raw'] === false || $res['status'] < 200 || $res['status'] >= 300) {
             $msg = $res['err'] !== '' ? $res['err'] : 'AI product copy returned an error.';
@@ -1234,12 +1364,127 @@ function souq_gemini_suggest_product_copy(array $input): array
             $lastFail = ['ok' => false, 'code' => 'empty_result', 'message' => 'AI product copy returned invalid JSON.'];
             continue;
         }
-        $title = trim((string)($decoded['title'] ?? ''));
-        $subtitle = trim((string)($decoded['subtitle'] ?? ''));
-        $description = trim((string)($decoded['description'] ?? ''));
+        $titleEn = trim((string)($decoded['title_en'] ?? $decoded['title'] ?? ''));
+        $titleAr = trim((string)($decoded['title_ar'] ?? ''));
+        $subtitleEn = trim((string)($decoded['subtitle_en'] ?? $decoded['subtitle'] ?? ''));
+        $subtitleAr = trim((string)($decoded['subtitle_ar'] ?? ''));
+        $descriptionEn = trim((string)($decoded['description_en'] ?? $decoded['description'] ?? ''));
+        $descriptionAr = trim((string)($decoded['description_ar'] ?? ''));
+        $seoTitleEn = trim((string)($decoded['seo_title_en'] ?? $decoded['seo_title'] ?? ''));
+        $seoTitleAr = trim((string)($decoded['seo_title_ar'] ?? ''));
+        $seoDescriptionEn = trim((string)($decoded['seo_description_en'] ?? $decoded['seo_description'] ?? ''));
+        $seoDescriptionAr = trim((string)($decoded['seo_description_ar'] ?? ''));
+        $seoKeywordsEn = trim((string)($decoded['seo_keywords_en'] ?? $decoded['seo_keywords'] ?? ''));
+        $seoKeywordsAr = trim((string)($decoded['seo_keywords_ar'] ?? ''));
+        $title = $wantAr ? ($titleAr !== '' ? $titleAr : $titleEn) : ($titleEn !== '' ? $titleEn : $titleAr);
+        $subtitle = $wantAr ? ($subtitleAr !== '' ? $subtitleAr : $subtitleEn) : ($subtitleEn !== '' ? $subtitleEn : $subtitleAr);
+        $description = $wantAr
+            ? ($descriptionAr !== '' ? $descriptionAr : $descriptionEn)
+            : ($descriptionEn !== '' ? $descriptionEn : $descriptionAr);
+        $seoTitle = $wantAr ? ($seoTitleAr !== '' ? $seoTitleAr : $seoTitleEn) : ($seoTitleEn !== '' ? $seoTitleEn : $seoTitleAr);
+        $seoDescription = $wantAr
+            ? ($seoDescriptionAr !== '' ? $seoDescriptionAr : $seoDescriptionEn)
+            : ($seoDescriptionEn !== '' ? $seoDescriptionEn : $seoDescriptionAr);
+        $outBrand = trim((string)($decoded['brand'] ?? ''));
+        $googleTaxonomy = trim((string)($decoded['google_taxonomy'] ?? ''));
+        $barcode = trim((string)($decoded['barcode'] ?? ''));
+        $parseTags = static function ($raw): array {
+            $out = [];
+            if (!is_array($raw)) {
+                return $out;
+            }
+            foreach ($raw as $tag) {
+                $t = trim((string)$tag);
+                if ($t === '' || mb_strlen($t) > 40) {
+                    continue;
+                }
+                $out[] = $t;
+                if (count($out) >= 8) {
+                    break;
+                }
+            }
+            return $out;
+        };
+        $tagsEn = $parseTags($decoded['tags_en'] ?? ($wantAr ? [] : ($decoded['tags'] ?? [])));
+        $tagsAr = $parseTags($decoded['tags_ar'] ?? ($wantAr ? ($decoded['tags'] ?? []) : []));
+        $tags = $wantAr ? ($tagsAr !== [] ? $tagsAr : $tagsEn) : ($tagsEn !== [] ? $tagsEn : $tagsAr);
+        $catsRaw = $decoded['categories'] ?? [];
+        $categoriesOut = [];
+        if (is_array($catsRaw)) {
+            foreach ($catsRaw as $c) {
+                $c = trim((string)$c);
+                if ($c === '' || mb_strlen($c) > 120) {
+                    continue;
+                }
+                if ($availableCategories !== []) {
+                    $hit = null;
+                    foreach ($availableCategories as $opt) {
+                        if (mb_strtolower($opt) === mb_strtolower($c)) {
+                            $hit = $opt;
+                            break;
+                        }
+                    }
+                    if ($hit === null) {
+                        foreach ($availableCategories as $opt) {
+                            $ol = mb_strtolower($opt);
+                            $cl = mb_strtolower($c);
+                            if (str_contains($ol, $cl) || str_contains($cl, $ol)) {
+                                $hit = $opt;
+                                break;
+                            }
+                        }
+                    }
+                    if ($hit === null) {
+                        continue;
+                    }
+                    $c = $hit;
+                }
+                if (!in_array($c, $categoriesOut, true)) {
+                    $categoriesOut[] = $c;
+                }
+                if (count($categoriesOut) >= 3) {
+                    break;
+                }
+            }
+        }
+        $priceSar = null;
+        $priceSource = null;
+        if (array_key_exists('price_sar', $decoded) && $decoded['price_sar'] !== null && $decoded['price_sar'] !== '') {
+            $p = (float)$decoded['price_sar'];
+            $src = strtolower(trim((string)($decoded['price_source'] ?? '')));
+            if ($p > 0 && $p < 500000 && ($src === 'image' || $src === 'known_model')) {
+                $priceSar = round($p, 2);
+                $priceSource = $src;
+            }
+        }
+        $weightKg = null;
+        if (array_key_exists('weight_kg', $decoded) && $decoded['weight_kg'] !== null && $decoded['weight_kg'] !== '') {
+            $w = (float)$decoded['weight_kg'];
+            if ($w > 0 && $w < 500) {
+                $weightKg = round($w, 3);
+            }
+        }
         if (mb_strlen($title) < 2 && mb_strlen($description) < 8) {
             $lastFail = ['ok' => false, 'code' => 'empty_result', 'message' => 'AI product copy returned empty text.'];
             continue;
+        }
+        if ($title === '') {
+            $title = $name;
+        }
+        if ($seoTitle === '' && $title !== '') {
+            $seoTitle = mb_substr($title, 0, 60);
+        }
+        if ($seoDescription === '' && $description !== '') {
+            $plain = trim(preg_replace('/\s+/u', ' ', strip_tags($description)) ?? '');
+            $seoDescription = mb_substr($plain, 0, 155);
+        }
+        if ($outBrand !== '' && $availableBrands !== []) {
+            foreach ($availableBrands as $ob) {
+                if (mb_strtolower($ob) === mb_strtolower($outBrand)) {
+                    $outBrand = $ob;
+                    break;
+                }
+            }
         }
 
         return [
@@ -1247,6 +1492,31 @@ function souq_gemini_suggest_product_copy(array $input): array
             'title' => mb_substr($title, 0, 120),
             'subtitle' => mb_substr($subtitle, 0, 200),
             'description' => mb_substr($description, 0, 8000),
+            'seo_title' => mb_substr($seoTitle, 0, 70),
+            'seo_description' => mb_substr($seoDescription, 0, 160),
+            'tags' => $tags,
+            'title_en' => mb_substr($titleEn !== '' ? $titleEn : $title, 0, 120),
+            'title_ar' => mb_substr($titleAr !== '' ? $titleAr : ($wantAr ? $title : ''), 0, 120),
+            'subtitle_en' => mb_substr($subtitleEn !== '' ? $subtitleEn : $subtitle, 0, 200),
+            'subtitle_ar' => mb_substr($subtitleAr !== '' ? $subtitleAr : ($wantAr ? $subtitle : ''), 0, 200),
+            'description_en' => mb_substr($descriptionEn !== '' ? $descriptionEn : $description, 0, 8000),
+            'description_ar' => mb_substr($descriptionAr !== '' ? $descriptionAr : ($wantAr ? $description : ''), 0, 8000),
+            'seo_title_en' => mb_substr($seoTitleEn !== '' ? $seoTitleEn : $seoTitle, 0, 70),
+            'seo_title_ar' => mb_substr($seoTitleAr !== '' ? $seoTitleAr : ($wantAr ? $seoTitle : ''), 0, 70),
+            'seo_description_en' => mb_substr($seoDescriptionEn !== '' ? $seoDescriptionEn : $seoDescription, 0, 160),
+            'seo_description_ar' => mb_substr($seoDescriptionAr !== '' ? $seoDescriptionAr : ($wantAr ? $seoDescription : ''), 0, 160),
+            'seo_keywords_en' => mb_substr($seoKeywordsEn, 0, 240),
+            'seo_keywords_ar' => mb_substr($seoKeywordsAr, 0, 240),
+            'tags_en' => $tagsEn !== [] ? $tagsEn : $tags,
+            'tags_ar' => $tagsAr !== [] ? $tagsAr : ($wantAr ? $tags : []),
+            'brand' => mb_substr($outBrand, 0, 80),
+            'categories' => $categoriesOut,
+            'price_sar' => $priceSar,
+            'price_source' => $priceSource,
+            'google_taxonomy' => mb_substr($googleTaxonomy, 0, 160),
+            'barcode' => mb_substr(preg_replace('/\s+/', '', $barcode) ?? '', 0, 64),
+            'weight_kg' => $weightKg,
+            'used_image' => $inline !== null,
             'model' => $model,
         ];
     }
@@ -2403,6 +2673,13 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
                 'store_name' => $storeName,
                 'seed' => (string)($input['seed'] ?? ''),
                 'locale' => (string)($input['locale'] ?? 'en'),
+                'image_url' => (string)($input['image_url'] ?? ''),
+                'available_categories' => is_array($input['available_categories'] ?? null)
+                    ? $input['available_categories']
+                    : [],
+                'available_brands' => is_array($input['available_brands'] ?? null)
+                    ? $input['available_brands']
+                    : [],
             ]);
             if (!$result['ok']) {
                 $code = (string) ($result['code'] ?? 'provider_error');
@@ -2430,6 +2707,31 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
                     'title' => $result['title'] ?? '',
                     'subtitle' => $result['subtitle'] ?? '',
                     'description' => $result['description'] ?? '',
+                    'seo_title' => $result['seo_title'] ?? '',
+                    'seo_description' => $result['seo_description'] ?? '',
+                    'tags' => is_array($result['tags'] ?? null) ? $result['tags'] : [],
+                    'title_en' => $result['title_en'] ?? '',
+                    'title_ar' => $result['title_ar'] ?? '',
+                    'subtitle_en' => $result['subtitle_en'] ?? '',
+                    'subtitle_ar' => $result['subtitle_ar'] ?? '',
+                    'description_en' => $result['description_en'] ?? '',
+                    'description_ar' => $result['description_ar'] ?? '',
+                    'seo_title_en' => $result['seo_title_en'] ?? '',
+                    'seo_title_ar' => $result['seo_title_ar'] ?? '',
+                    'seo_description_en' => $result['seo_description_en'] ?? '',
+                    'seo_description_ar' => $result['seo_description_ar'] ?? '',
+                    'seo_keywords_en' => $result['seo_keywords_en'] ?? '',
+                    'seo_keywords_ar' => $result['seo_keywords_ar'] ?? '',
+                    'tags_en' => is_array($result['tags_en'] ?? null) ? $result['tags_en'] : [],
+                    'tags_ar' => is_array($result['tags_ar'] ?? null) ? $result['tags_ar'] : [],
+                    'brand' => $result['brand'] ?? '',
+                    'categories' => is_array($result['categories'] ?? null) ? $result['categories'] : [],
+                    'price_sar' => $result['price_sar'] ?? null,
+                    'price_source' => $result['price_source'] ?? null,
+                    'google_taxonomy' => $result['google_taxonomy'] ?? '',
+                    'barcode' => $result['barcode'] ?? '',
+                    'weight_kg' => $result['weight_kg'] ?? null,
+                    'used_image' => !empty($result['used_image']),
                     'saved' => false,
                     'model' => $result['model'] ?? null,
                 ],
@@ -2891,9 +3193,436 @@ function souq_gateway_table_exists(PDO $pdo, string $table): bool
     return $cache[$key];
 }
 
+/**
+ * Normalize a delivery_drivers MySQL/SQLite row for the admin API (JSON cols + bools).
+ *
+ * @param array<string, mixed> $row
+ * @return array<string, mixed>
+ */
+function souq_map_delivery_driver_row(array $row): array
+{
+    foreach (['service_areas', 'payment_options'] as $jsonCol) {
+        if (!array_key_exists($jsonCol, $row)) {
+            continue;
+        }
+        $raw = $row[$jsonCol];
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            $row[$jsonCol] = is_array($decoded) ? $decoded : [];
+        } elseif ($raw === null) {
+            $row[$jsonCol] = [];
+        } elseif (!is_array($raw)) {
+            $row[$jsonCol] = [];
+        }
+    }
+    if (array_key_exists('is_active', $row)) {
+        $row['is_active'] = (bool) $row['is_active'];
+    }
+    if (array_key_exists('same_day', $row)) {
+        $row['same_day'] = (bool) $row['same_day'];
+    }
+    foreach (['fixed_rate', 'per_kg_rate', 'per_km_rate'] as $numCol) {
+        if (array_key_exists($numCol, $row) && $row[$numCol] !== null && $row[$numCol] !== '') {
+            $row[$numCol] = round((float) $row[$numCol], 2);
+        }
+    }
+
+    return $row;
+}
+
+/** Ensure delivery_drivers exists + expanded rate/area columns (MySQL or SQLite fallback). */
+function souq_ensure_delivery_drivers_table(PDO $pdo): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    try {
+        if (souq_driver_is_mysql($pdo)) {
+            $pdo->exec(
+                'CREATE TABLE IF NOT EXISTS `delivery_drivers` (
+                    `id` VARCHAR(64) NOT NULL,
+                    `store_id` VARCHAR(64) NOT NULL,
+                    `name` VARCHAR(191) NOT NULL,
+                    `name_ar` VARCHAR(191) NULL,
+                    `phone` VARCHAR(32) NOT NULL,
+                    `email` VARCHAR(191) NULL,
+                    `vehicle_type` VARCHAR(64) NULL,
+                    `city` VARCHAR(100) NULL,
+                    `base_location` VARCHAR(191) NULL,
+                    `service_areas` JSON NULL,
+                    `rate_mode` VARCHAR(32) NOT NULL DEFAULT \'fixed\',
+                    `fixed_rate` DECIMAL(10,2) NOT NULL DEFAULT 0,
+                    `per_kg_rate` DECIMAL(10,2) NOT NULL DEFAULT 0,
+                    `per_km_rate` DECIMAL(10,2) NOT NULL DEFAULT 0,
+                    `same_day` TINYINT(1) NOT NULL DEFAULT 0,
+                    `eta_text` VARCHAR(100) NULL,
+                    `payment_options` JSON NULL,
+                    `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+                    `notes` TEXT NULL,
+                    `created_at` TIMESTAMP NULL DEFAULT NULL,
+                    `updated_at` TIMESTAMP NULL DEFAULT NULL,
+                    PRIMARY KEY (`id`),
+                    KEY `delivery_drivers_store_id_index` (`store_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+            );
+            $alters = [
+                'base_location' => 'VARCHAR(191) NULL',
+                'service_areas' => 'JSON NULL',
+                'rate_mode' => "VARCHAR(32) NOT NULL DEFAULT 'fixed'",
+                'fixed_rate' => 'DECIMAL(10,2) NOT NULL DEFAULT 0',
+                'per_kg_rate' => 'DECIMAL(10,2) NOT NULL DEFAULT 0',
+                'per_km_rate' => 'DECIMAL(10,2) NOT NULL DEFAULT 0',
+                'same_day' => 'TINYINT(1) NOT NULL DEFAULT 0',
+                'eta_text' => 'VARCHAR(100) NULL',
+                'payment_options' => 'JSON NULL',
+            ];
+            foreach ($alters as $col => $ddl) {
+                if (!souq_table_has_column($pdo, 'delivery_drivers', $col)) {
+                    try {
+                        $pdo->exec("ALTER TABLE `delivery_drivers` ADD COLUMN `{$col}` {$ddl}");
+                        souq_table_has_column($pdo, 'delivery_drivers', $col, true);
+                    } catch (Throwable) {
+                        /* ignore — INSERT will skip missing cols */
+                    }
+                }
+            }
+            return;
+        }
+
+        // SQLite fallback host (when MySQL credentials fail on shared hosting)
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS delivery_drivers (
+                id TEXT PRIMARY KEY,
+                store_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                name_ar TEXT,
+                phone TEXT NOT NULL,
+                email TEXT,
+                vehicle_type TEXT,
+                city TEXT,
+                base_location TEXT,
+                service_areas TEXT,
+                rate_mode TEXT DEFAULT 'fixed',
+                fixed_rate REAL DEFAULT 0,
+                per_kg_rate REAL DEFAULT 0,
+                per_km_rate REAL DEFAULT 0,
+                same_day INTEGER DEFAULT 0,
+                eta_text TEXT,
+                payment_options TEXT,
+                is_active INTEGER DEFAULT 1,
+                notes TEXT,
+                created_at TEXT,
+                updated_at TEXT
+            )"
+        );
+        $pdo->exec('CREATE INDEX IF NOT EXISTS idx_delivery_drivers_store ON delivery_drivers(store_id)');
+        $sqliteAlters = [
+            'base_location' => 'TEXT',
+            'service_areas' => 'TEXT',
+            'rate_mode' => "TEXT DEFAULT 'fixed'",
+            'fixed_rate' => 'REAL DEFAULT 0',
+            'per_kg_rate' => 'REAL DEFAULT 0',
+            'per_km_rate' => 'REAL DEFAULT 0',
+            'same_day' => 'INTEGER DEFAULT 0',
+            'eta_text' => 'TEXT',
+            'payment_options' => 'TEXT',
+        ];
+        foreach ($sqliteAlters as $col => $ddl) {
+            if (!souq_table_has_column($pdo, 'delivery_drivers', $col)) {
+                try {
+                    $pdo->exec("ALTER TABLE delivery_drivers ADD COLUMN {$col} {$ddl}");
+                    souq_table_has_column($pdo, 'delivery_drivers', $col, true);
+                } catch (Throwable) {
+                    /* ignore */
+                }
+            }
+        }
+    } catch (Throwable) {
+        /* soft — handlers return empty / 503 */
+    }
+}
+
 function souq_gateway_bank_wallet_activity_dispatch(PDO $pdo, string $uri, string $method, string $storeId, array $input): bool
 {
     $nowExpr = souq_sql_now_expr($pdo);
+
+    // GET/POST /delivery-drivers  · PATCH/DELETE /delivery-drivers/{id}
+    if ($uri === '/delivery-drivers' || preg_match('#^/delivery-drivers/([^/]+)$#', $uri, $mDrv)) {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.', 'data' => []]);
+            return true;
+        }
+        souq_ensure_delivery_drivers_table($pdo);
+        // Re-check after ensure (static table-exists cache may be stale).
+        $drvTableOk = false;
+        try {
+            if (souq_driver_is_mysql($pdo)) {
+                $chk = $pdo->query("SHOW TABLES LIKE 'delivery_drivers'");
+                $drvTableOk = (bool) ($chk && $chk->fetchColumn());
+            } else {
+                $chk = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name='delivery_drivers' LIMIT 1");
+                $drvTableOk = (bool) ($chk && $chk->fetchColumn());
+            }
+        } catch (Throwable) {
+            $drvTableOk = souq_gateway_table_exists($pdo, 'delivery_drivers');
+        }
+        if (!$drvTableOk) {
+            if ($method === 'GET') {
+                echo json_encode([
+                    'data' => [],
+                    'store_id' => $storeId,
+                    'meta' => ['total' => 0, 'page' => 1, 'per_page' => 1, 'last_page' => 1],
+                ]);
+                return true;
+            }
+            http_response_code(503);
+            echo json_encode(['message' => 'Delivery drivers table is not available on this host.', 'data' => []]);
+            return true;
+        }
+
+        $driverId = isset($mDrv[1]) ? rawurldecode((string) $mDrv[1]) : '';
+
+        try {
+            if ($method === 'GET' && $driverId === '') {
+                $sql = 'SELECT * FROM delivery_drivers WHERE store_id = ?';
+                $params = [$storeId];
+                if (isset($_GET['is_active']) && $_GET['is_active'] !== '') {
+                    $active = filter_var($_GET['is_active'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                    if ($active !== null) {
+                        $sql .= ' AND is_active = ?';
+                        $params[] = $active ? 1 : 0;
+                    }
+                }
+                if (!empty($_GET['city'])) {
+                    $sql .= ' AND city = ?';
+                    $params[] = (string) $_GET['city'];
+                }
+                if (!empty($_GET['q'])) {
+                    $q = '%' . (string) $_GET['q'] . '%';
+                    $sql .= ' AND (name LIKE ? OR name_ar LIKE ? OR phone LIKE ? OR email LIKE ?)';
+                    $params[] = $q;
+                    $params[] = $q;
+                    $params[] = $q;
+                    $params[] = $q;
+                }
+                $sql .= ' ORDER BY name ASC';
+                $st = $pdo->prepare($sql);
+                $st->execute($params);
+                $rows = array_map('souq_map_delivery_driver_row', $st->fetchAll() ?: []);
+                echo json_encode([
+                    'data' => $rows,
+                    'store_id' => $storeId,
+                    'meta' => [
+                        'total' => count($rows),
+                        'page' => 1,
+                        'per_page' => max(1, count($rows)),
+                        'last_page' => 1,
+                    ],
+                ], JSON_UNESCAPED_UNICODE);
+                return true;
+            }
+
+            if ($method === 'POST' && $driverId === '') {
+                $name = trim((string) ($input['name'] ?? ''));
+                $phone = trim((string) ($input['phone'] ?? ''));
+                if ($name === '' || $phone === '') {
+                    http_response_code(422);
+                    echo json_encode(['message' => 'name and phone are required.']);
+                    return true;
+                }
+                $email = trim((string) ($input['email'] ?? ''));
+                if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    http_response_code(422);
+                    echo json_encode(['message' => 'email must be a valid email address.']);
+                    return true;
+                }
+                $rateMode = (string) ($input['rate_mode'] ?? 'fixed');
+                if (!in_array($rateMode, ['fixed', 'per_kg', 'per_km', 'zone'], true)) {
+                    $rateMode = 'fixed';
+                }
+                $serviceAreas = $input['service_areas'] ?? [];
+                if (!is_array($serviceAreas)) {
+                    $serviceAreas = [];
+                }
+                $serviceAreas = array_values(array_filter(array_map(static function ($v) {
+                    return trim((string) $v);
+                }, $serviceAreas)));
+                $paymentOptions = $input['payment_options'] ?? ['cod'];
+                if (!is_array($paymentOptions) || count($paymentOptions) === 0) {
+                    $paymentOptions = ['cod'];
+                }
+                $paymentOptions = array_values(array_filter($paymentOptions, static function ($v) {
+                    return in_array((string) $v, ['cod', 'online', 'bank_transfer'], true);
+                }));
+                if (count($paymentOptions) === 0) {
+                    $paymentOptions = ['cod'];
+                }
+
+                $id = 'drv-' . bin2hex(random_bytes(6));
+                $cols = ['id', 'store_id', 'name', 'phone', 'is_active', 'created_at', 'updated_at'];
+                $vals = [$id, $storeId, $name, $phone, array_key_exists('is_active', $input) ? (!empty($input['is_active']) ? 1 : 0) : 1];
+                $placeholders = ['?', '?', '?', '?', '?', $nowExpr, $nowExpr];
+                $quoteCol = static function (string $c) use ($pdo): string {
+                    return souq_driver_is_mysql($pdo) ? '`' . $c . '`' : $c;
+                };
+
+                $optional = [
+                    'name_ar' => trim((string) ($input['name_ar'] ?? '')) ?: null,
+                    'email' => $email !== '' ? $email : null,
+                    'vehicle_type' => trim((string) ($input['vehicle_type'] ?? '')) ?: null,
+                    'city' => trim((string) ($input['city'] ?? '')) ?: null,
+                    'base_location' => trim((string) ($input['base_location'] ?? '')) ?: null,
+                    'service_areas' => json_encode($serviceAreas, JSON_UNESCAPED_UNICODE),
+                    'rate_mode' => $rateMode,
+                    'fixed_rate' => max(0, (float) ($input['fixed_rate'] ?? 0)),
+                    'per_kg_rate' => max(0, (float) ($input['per_kg_rate'] ?? 0)),
+                    'per_km_rate' => max(0, (float) ($input['per_km_rate'] ?? 0)),
+                    'same_day' => !empty($input['same_day']) ? 1 : 0,
+                    'eta_text' => trim((string) ($input['eta_text'] ?? '')) ?: null,
+                    'payment_options' => json_encode($paymentOptions, JSON_UNESCAPED_UNICODE),
+                    'notes' => trim((string) ($input['notes'] ?? '')) ?: null,
+                ];
+                foreach ($optional as $col => $val) {
+                    if (!souq_table_has_column($pdo, 'delivery_drivers', $col)) {
+                        continue;
+                    }
+                    $cols[] = $col;
+                    $vals[] = $val;
+                    $placeholders[] = '?';
+                }
+
+                $colSql = implode(', ', array_map($quoteCol, $cols));
+                $phSql = implode(', ', $placeholders);
+                $ins = $pdo->prepare("INSERT INTO delivery_drivers ({$colSql}) VALUES ({$phSql})");
+                $ins->execute($vals);
+
+                $st = $pdo->prepare('SELECT * FROM delivery_drivers WHERE store_id = ? AND id = ? LIMIT 1');
+                $st->execute([$storeId, $id]);
+                $row = $st->fetch(PDO::FETCH_ASSOC);
+                http_response_code(201);
+                echo json_encode(['data' => $row ? souq_map_delivery_driver_row($row) : null], JSON_UNESCAPED_UNICODE);
+                return true;
+            }
+
+            if (in_array($method, ['PATCH', 'PUT'], true) && $driverId !== '') {
+                $st = $pdo->prepare('SELECT * FROM delivery_drivers WHERE store_id = ? AND id = ? LIMIT 1');
+                $st->execute([$storeId, $driverId]);
+                $existing = $st->fetch(PDO::FETCH_ASSOC);
+                if (!$existing) {
+                    http_response_code(404);
+                    echo json_encode(['message' => 'Delivery driver not found.']);
+                    return true;
+                }
+
+                $sets = [];
+                $params = [];
+                $qCol = static function (string $c) use ($pdo): string {
+                    return souq_driver_is_mysql($pdo) ? '`' . $c . '`' : $c;
+                };
+                $stringFields = ['name', 'name_ar', 'phone', 'email', 'vehicle_type', 'city', 'base_location', 'eta_text', 'notes', 'rate_mode'];
+                foreach ($stringFields as $field) {
+                    if (!array_key_exists($field, $input) || !souq_table_has_column($pdo, 'delivery_drivers', $field)) {
+                        continue;
+                    }
+                    $val = $input[$field];
+                    if ($field === 'rate_mode') {
+                        $mode = (string) $val;
+                        $val = in_array($mode, ['fixed', 'per_kg', 'per_km', 'zone'], true) ? $mode : 'fixed';
+                    } elseif ($field === 'email') {
+                        $email = trim((string) ($val ?? ''));
+                        if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                            http_response_code(422);
+                            echo json_encode(['message' => 'email must be a valid email address.']);
+                            return true;
+                        }
+                        $val = $email !== '' ? $email : null;
+                    } elseif (is_string($val)) {
+                        $val = trim($val);
+                        if ($val === '' && $field !== 'name' && $field !== 'phone') {
+                            $val = null;
+                        }
+                    }
+                    if (($field === 'name' || $field === 'phone') && ($val === null || $val === '')) {
+                        http_response_code(422);
+                        echo json_encode(['message' => "{$field} is required."]);
+                        return true;
+                    }
+                    $sets[] = $qCol($field) . ' = ?';
+                    $params[] = $val;
+                }
+                foreach (['fixed_rate', 'per_kg_rate', 'per_km_rate'] as $numField) {
+                    if (!array_key_exists($numField, $input) || !souq_table_has_column($pdo, 'delivery_drivers', $numField)) {
+                        continue;
+                    }
+                    $sets[] = $qCol($numField) . ' = ?';
+                    $params[] = max(0, (float) $input[$numField]);
+                }
+                if (array_key_exists('service_areas', $input) && souq_table_has_column($pdo, 'delivery_drivers', 'service_areas')) {
+                    $areas = is_array($input['service_areas']) ? $input['service_areas'] : [];
+                    $areas = array_values(array_filter(array_map(static fn ($v) => trim((string) $v), $areas)));
+                    $sets[] = $qCol('service_areas') . ' = ?';
+                    $params[] = json_encode($areas, JSON_UNESCAPED_UNICODE);
+                }
+                if (array_key_exists('payment_options', $input) && souq_table_has_column($pdo, 'delivery_drivers', 'payment_options')) {
+                    $opts = is_array($input['payment_options']) ? $input['payment_options'] : [];
+                    $opts = array_values(array_filter($opts, static fn ($v) => in_array((string) $v, ['cod', 'online', 'bank_transfer'], true)));
+                    if (count($opts) === 0) {
+                        $opts = ['cod'];
+                    }
+                    $sets[] = $qCol('payment_options') . ' = ?';
+                    $params[] = json_encode($opts, JSON_UNESCAPED_UNICODE);
+                }
+                if (array_key_exists('same_day', $input) && souq_table_has_column($pdo, 'delivery_drivers', 'same_day')) {
+                    $sets[] = $qCol('same_day') . ' = ?';
+                    $params[] = !empty($input['same_day']) ? 1 : 0;
+                }
+                if (array_key_exists('is_active', $input) && souq_table_has_column($pdo, 'delivery_drivers', 'is_active')) {
+                    $sets[] = $qCol('is_active') . ' = ?';
+                    $params[] = !empty($input['is_active']) ? 1 : 0;
+                }
+
+                if (count($sets) === 0) {
+                    echo json_encode(['data' => souq_map_delivery_driver_row($existing)], JSON_UNESCAPED_UNICODE);
+                    return true;
+                }
+                $sets[] = $qCol('updated_at') . " = {$nowExpr}";
+                $params[] = $storeId;
+                $params[] = $driverId;
+                $upd = $pdo->prepare('UPDATE delivery_drivers SET ' . implode(', ', $sets) . ' WHERE store_id = ? AND id = ?');
+                $upd->execute($params);
+
+                $st2 = $pdo->prepare('SELECT * FROM delivery_drivers WHERE store_id = ? AND id = ? LIMIT 1');
+                $st2->execute([$storeId, $driverId]);
+                $fresh = $st2->fetch(PDO::FETCH_ASSOC);
+                echo json_encode(['data' => $fresh ? souq_map_delivery_driver_row($fresh) : null], JSON_UNESCAPED_UNICODE);
+                return true;
+            }
+
+            if ($method === 'DELETE' && $driverId !== '') {
+                $st = $pdo->prepare('SELECT id FROM delivery_drivers WHERE store_id = ? AND id = ? LIMIT 1');
+                $st->execute([$storeId, $driverId]);
+                if (!$st->fetchColumn()) {
+                    http_response_code(404);
+                    echo json_encode(['message' => 'Delivery driver not found.']);
+                    return true;
+                }
+                $pdo->prepare('DELETE FROM delivery_drivers WHERE store_id = ? AND id = ?')->execute([$storeId, $driverId]);
+                echo json_encode(['message' => 'Delivery driver deleted.', 'id' => $driverId]);
+                return true;
+            }
+
+            http_response_code(405);
+            echo json_encode(['message' => 'Method not allowed for delivery-drivers.']);
+            return true;
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['message' => 'Delivery drivers request failed.', 'error' => $e->getMessage()]);
+            return true;
+        }
+    }
 
     // GET/POST /bank-accounts  · PATCH/DELETE /bank-accounts/{id}
     if ($uri === '/bank-accounts' || preg_match('#^/bank-accounts/([^/]+)$#', $uri, $mBank)) {

@@ -53,6 +53,12 @@ import {
   type DeliveryDriverRow,
 } from '../../api/tenantApi';
 import { shippingMethodLogoSrc } from '../../utils/shippingMethodLogos';
+import { useSaudiCityOptions } from '../../hooks/useSaudiCityOptions';
+import {
+  SaudiCityMultiSelect,
+  normalizeDriverServiceAreas,
+} from '../common/SaudiCityMultiSelect';
+import { SaudiCitySelect } from '../common/SaudiCitySelect';
 
 const REGIONS = [
   'All',
@@ -262,7 +268,7 @@ export const StoreShipping: React.FC = () => {
   const [driverCity, setDriverCity] = useState('');
   const [driverVehicle, setDriverVehicle] = useState('');
   const [driverBaseLocation, setDriverBaseLocation] = useState('');
-  const [driverAreas, setDriverAreas] = useState<string[]>(['makkah']);
+  const [driverAreas, setDriverAreas] = useState<string[]>([]);
   const [driverRateMode, setDriverRateMode] = useState<'fixed' | 'per_kg' | 'per_km' | 'zone'>('fixed');
   const [driverFixedRate, setDriverFixedRate] = useState('25');
   const [driverPerKg, setDriverPerKg] = useState('0');
@@ -272,12 +278,7 @@ export const StoreShipping: React.FC = () => {
   const [driverPayments, setDriverPayments] = useState<Array<'cod' | 'online' | 'bank_transfer'>>(['cod']);
   const [driverActive, setDriverActive] = useState(true);
 
-  const SERVICE_AREA_OPTIONS = [
-    { id: 'makkah', en: 'Makkah', ar: 'مكة المكرمة' },
-    { id: 'makkah_outside', en: 'Outside Makkah', ar: 'خارج مكة' },
-    { id: 'jeddah', en: 'Jeddah', ar: 'جدة' },
-    { id: 'all_saudi', en: 'All Saudi Arabia', ar: 'كل السعودية' },
-  ] as const;
+  const { cities: saudiCities } = useSaudiCityOptions(activeStore?.id);
 
   const loadDrivers = useCallback(async () => {
     if (!activeStore?.id) {
@@ -308,7 +309,7 @@ export const StoreShipping: React.FC = () => {
     setDriverCity('');
     setDriverVehicle('');
     setDriverBaseLocation('');
-    setDriverAreas(['makkah']);
+    setDriverAreas([]);
     setDriverRateMode('fixed');
     setDriverFixedRate('25');
     setDriverPerKg('0');
@@ -328,7 +329,7 @@ export const StoreShipping: React.FC = () => {
     setDriverCity(row.city || '');
     setDriverVehicle(row.vehicle_type || '');
     setDriverBaseLocation(row.base_location || '');
-    setDriverAreas(Array.isArray(row.service_areas) && row.service_areas.length ? row.service_areas : ['makkah']);
+    setDriverAreas(normalizeDriverServiceAreas(row.service_areas, saudiCities));
     setDriverRateMode((row.rate_mode as typeof driverRateMode) || 'fixed');
     setDriverFixedRate(String(row.fixed_rate ?? 25));
     setDriverPerKg(String(row.per_kg_rate ?? 0));
@@ -346,9 +347,23 @@ export const StoreShipping: React.FC = () => {
 
   const handleSaveDriver = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeStore?.id || !driverName.trim() || !driverPhone.trim()) return;
+    if (!activeStore?.id) {
+      toast(isAr ? 'المتجر غير محدد' : 'Store is not selected', 'error');
+      return;
+    }
+    if (!driverName.trim() || !driverPhone.trim()) {
+      toast(
+        isAr ? 'الاسم والجوال مطلوبان' : 'Name and phone are required',
+        'error',
+      );
+      return;
+    }
     setDriversBusy(true);
     try {
+      const payments =
+        Array.isArray(driverPayments) && driverPayments.length > 0
+          ? driverPayments
+          : (['cod'] as Array<'cod' | 'online' | 'bank_transfer'>);
       const payload = {
         name: driverName.trim(),
         phone: driverPhone.trim(),
@@ -356,15 +371,15 @@ export const StoreShipping: React.FC = () => {
         city: driverCity.trim() || null,
         vehicle_type: driverVehicle.trim() || null,
         base_location: driverBaseLocation.trim() || null,
-        service_areas: driverAreas,
+        service_areas: Array.isArray(driverAreas) ? driverAreas : [],
         rate_mode: driverRateMode,
-        fixed_rate: parseFloat(driverFixedRate) || 0,
-        per_kg_rate: parseFloat(driverPerKg) || 0,
-        per_km_rate: parseFloat(driverPerKm) || 0,
-        same_day: driverSameDay,
+        fixed_rate: Number.isFinite(parseFloat(driverFixedRate)) ? parseFloat(driverFixedRate) : 0,
+        per_kg_rate: Number.isFinite(parseFloat(driverPerKg)) ? parseFloat(driverPerKg) : 0,
+        per_km_rate: Number.isFinite(parseFloat(driverPerKm)) ? parseFloat(driverPerKm) : 0,
+        same_day: Boolean(driverSameDay),
         eta_text: driverEta.trim() || null,
-        payment_options: driverPayments,
-        is_active: driverActive,
+        payment_options: payments,
+        is_active: Boolean(driverActive),
       };
       if (editingDriver) {
         await updateDeliveryDriverApi(activeStore.id, editingDriver.id, payload);
@@ -376,7 +391,21 @@ export const StoreShipping: React.FC = () => {
       setShowDriverModal(false);
       await loadDrivers();
     } catch (err: any) {
-      toast(err?.message || (isAr ? 'تعذر حفظ مندوب التوصيل' : 'Could not save delivery driver'), 'error');
+      const payload = err?.payload && typeof err.payload === 'object' ? err.payload : null;
+      const errors =
+        payload && payload.errors && typeof payload.errors === 'object' ? payload.errors : null;
+      const firstFieldError =
+        errors &&
+        Object.values(errors as Record<string, unknown>)
+          .flatMap((v) => (Array.isArray(v) ? v : [v]))
+          .map((v) => String(v || '').trim())
+          .find(Boolean);
+      toast(
+        firstFieldError ||
+          err?.message ||
+          (isAr ? 'تعذر حفظ مندوب التوصيل' : 'Could not save delivery driver'),
+        'error',
+      );
     } finally {
       setDriversBusy(false);
     }
@@ -644,9 +673,9 @@ export const StoreShipping: React.FC = () => {
       id: 'drivers' as ShippingTab,
       icon: UserRound,
       label: isAr
-        ? `توصيل محلي داخل مدينة مكة (${drivers.length})`
-        : `Local delivery within Makkah city (${drivers.length})`,
-      desc: isAr ? 'السائقون والتوصيل المحلي.' : 'Drivers and local city delivery.',
+        ? `توصيل محلي (${drivers.length})`
+        : `Local delivery (${drivers.length})`,
+      desc: isAr ? 'السائقون والتوصيل المحلي للمدن المختارة.' : 'Drivers and local delivery for selected cities.',
     },
   ];
   const activeTabMeta = activeTab
@@ -1061,7 +1090,7 @@ export const StoreShipping: React.FC = () => {
             <button
               type="button"
               onClick={openCreateDriver}
-              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
+              className="unity-btn-primary px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>{isAr ? 'إضافة مندوب' : 'Add Driver'}</span>
@@ -1298,7 +1327,19 @@ export const StoreShipping: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-end font-black text-slate-900 dark:text-white tabular-nums">
-                      {m.baseRate === 0 ? (isAr ? 'مجاني' : 'Free') : money(m.baseRate)}
+                      {m.type === 'free'
+                        ? isAr
+                          ? 'مجاني'
+                          : 'Free'
+                        : !Number.isFinite(Number(m.baseRate))
+                          ? '—'
+                          : Number(m.baseRate) === 0
+                            ? m.type === 'flat_rate'
+                              ? isAr
+                                ? 'مجاني'
+                                : 'Free'
+                              : '—'
+                            : money(m.baseRate)}
                     </td>
                     <td className="py-3.5 px-4 text-end text-emerald-600 dark:text-emerald-400 font-bold tabular-nums">
                       {m.freeShippingThreshold ? money(m.freeShippingThreshold) : '—'}
@@ -1590,15 +1631,15 @@ export const StoreShipping: React.FC = () => {
                     className={optionBtnClass(true)}
                     onClick={() => {
                       setMethodCourierCode(null);
-                      setMethodName('Local Delivery (Within Makkah City Limits)');
-                      setMethodNameAr('توصيل محلي (داخل حدود مدينة مكة)');
+                      setMethodName('Local Delivery');
+                      setMethodNameAr('توصيل محلي');
                       setMethodType('same_day');
                       setMethodBaseRate('0');
                       setMethodEstimatedDays('2–3 days');
                       setMethodEtaType('days');
                     }}
                   >
-                    {isAr ? 'تعبئة توصيل مكة المحلي' : 'Fill Local Makkah Delivery'}
+                    {isAr ? 'تعبئة التوصيل المحلي' : 'Fill Local Delivery'}
                   </button>
                 </div>
               )}
@@ -1888,11 +1929,11 @@ export const StoreShipping: React.FC = () => {
           dir={isAr ? 'rtl' : 'ltr'}
           aria-label={editingDriver ? commerceTerm('deliveryDriver', isAr) : commerceTerm('ownDelivery', isAr)}
         >
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
-              <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
-                <UserRound className="w-5 h-5 text-blue-600" />
-                <span>
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl w-full max-w-3xl lg:max-w-4xl p-5 sm:p-6 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2 min-w-0">
+                <UserRound className="w-5 h-5 shrink-0" style={{ color: 'var(--accent)' }} />
+                <span className="truncate">
                   {editingDriver
                     ? isAr
                       ? 'تعديل مندوب التوصيل'
@@ -1905,14 +1946,14 @@ export const StoreShipping: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowDriverModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleSaveDriver} className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
                     {isAr ? 'الاسم *' : 'Name *'}
@@ -1932,8 +1973,6 @@ export const StoreShipping: React.FC = () => {
                     className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono"
                   />
                 </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
                     {isAr ? 'البريد الإلكتروني' : 'Email'}
@@ -1944,15 +1983,20 @@ export const StoreShipping: React.FC = () => {
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
                     {isAr ? 'موقع الانطلاق' : 'Base location'}
                   </label>
-                  <input type="text" value={driverBaseLocation} onChange={(e) => setDriverBaseLocation(e.target.value)} placeholder={isAr ? 'مثال: العزيزية، مكة' : 'e.g. Aziziyah, Makkah'} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold" />
+                  <input type="text" value={driverBaseLocation} onChange={(e) => setDriverBaseLocation(e.target.value)} placeholder={isAr ? 'مثال: العزيزية' : 'e.g. Al Aziziyah'} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold" />
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
                     {isAr ? 'المدينة' : 'City'}
                   </label>
-                  <input type="text" value={driverCity} onChange={(e) => setDriverCity(e.target.value)} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold" />
+                  <SaudiCitySelect
+                    value={driverCity}
+                    onChange={setDriverCity}
+                    cities={saudiCities}
+                    isAr={isAr}
+                    placeholder={isAr ? 'اختر المدينة' : 'Select city'}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold"
+                  />
                 </div>
                 <div>
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
@@ -1971,83 +2015,91 @@ export const StoreShipping: React.FC = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-2">
-                  {isAr ? 'مناطق التوصيل' : 'Delivery areas'}
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {SERVICE_AREA_OPTIONS.map((area) => {
-                    const on = driverAreas.includes(area.id);
-                    return (
-                      <button
-                        key={area.id}
-                        type="button"
-                        className={optionBtnClass(on)}
-                        onClick={() =>
-                          setDriverAreas((prev) =>
-                            on ? prev.filter((x) => x !== area.id) : [...prev, area.id],
-                          )
-                        }
-                      >
-                        {isAr ? area.ar : area.en}
-                      </button>
-                    );
-                  })}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <div className="min-w-0">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    {isAr ? 'مناطق التوصيل' : 'Delivery areas'}
+                  </label>
+                  <SaudiCityMultiSelect
+                    value={driverAreas}
+                    onChange={setDriverAreas}
+                    cities={saudiCities}
+                    isAr={isAr}
+                    placeholder={isAr ? 'اختر مدن التوصيل' : 'Select delivery cities'}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold"
+                  />
+                </div>
+
+                <div className="space-y-3 min-w-0">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                      {isAr ? 'حساب أجرة التوصيل' : 'Delivery fee mode'}
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                      {(
+                        [
+                          { id: 'fixed' as const, en: 'Fixed', ar: 'ثابت' },
+                          { id: 'per_kg' as const, en: 'Per kg', ar: 'حسب الكيلو' },
+                          { id: 'per_km' as const, en: 'Per km', ar: 'حسب الكيلومتر' },
+                          { id: 'zone' as const, en: 'By zone', ar: 'حسب المنطقة' },
+                        ] as const
+                      ).map((opt) => (
+                        <button key={opt.id} type="button" className={optionBtnClass(driverRateMode === opt.id)} onClick={() => setDriverRateMode(opt.id)}>
+                          {isAr ? opt.ar : opt.en}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">{isAr ? 'ثابت' : 'Fixed'}</label>
+                      <input type="number" min="0" step="0.01" value={driverFixedRate} onChange={(e) => setDriverFixedRate(e.target.value)} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">{isAr ? 'للكل كجم' : 'Per kg'}</label>
+                      <input type="number" min="0" step="0.01" value={driverPerKg} onChange={(e) => setDriverPerKg(e.target.value)} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">{isAr ? 'للكل كم' : 'Per km'}</label>
+                      <input type="number" min="0" step="0.01" value={driverPerKm} onChange={(e) => setDriverPerKm(e.target.value)} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold" />
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-2">
-                  {isAr ? 'حساب أجرة التوصيل' : 'Delivery fee mode'}
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {(
-                    [
-                      { id: 'fixed' as const, en: 'Fixed', ar: 'ثابت' },
-                      { id: 'per_kg' as const, en: 'Per kg', ar: 'حسب الكيلو' },
-                      { id: 'per_km' as const, en: 'Per km', ar: 'حسب الكيلومتر' },
-                      { id: 'zone' as const, en: 'By zone', ar: 'حسب المنطقة' },
-                    ] as const
-                  ).map((opt) => (
-                    <button key={opt.id} type="button" className={optionBtnClass(driverRateMode === opt.id)} onClick={() => setDriverRateMode(opt.id)}>
-                      {isAr ? opt.ar : opt.en}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                <div className="lg:col-span-2">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    {isAr ? 'الوقت والدفع' : 'Timing & payment'}
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                    <button type="button" className={optionBtnClass(driverSameDay)} onClick={() => setDriverSameDay((v) => !v)}>
+                      {isAr ? 'نفس اليوم' : 'Same day'}
                     </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">{isAr ? 'ثابت' : 'Fixed'}</label>
-                  <input type="number" min="0" step="0.01" value={driverFixedRate} onChange={(e) => setDriverFixedRate(e.target.value)} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold" />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">{isAr ? 'للكل كجم' : 'Per kg'}</label>
-                  <input type="number" min="0" step="0.01" value={driverPerKg} onChange={(e) => setDriverPerKg(e.target.value)} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold" />
+                    <button type="button" className={optionBtnClass(driverPayments.includes('cod'))} onClick={() => togglePaymentOption(driverPayments, setDriverPayments, 'cod')}>
+                      {isAr ? 'عند الاستلام' : 'COD'}
+                    </button>
+                    <button type="button" className={optionBtnClass(driverPayments.includes('online'))} onClick={() => togglePaymentOption(driverPayments, setDriverPayments, 'online')}>
+                      {isAr ? 'إلكتروني' : 'Online'}
+                    </button>
+                    <button type="button" className={optionBtnClass(driverPayments.includes('bank_transfer'))} onClick={() => togglePaymentOption(driverPayments, setDriverPayments, 'bank_transfer')}>
+                      {isAr ? 'تحويل بنكي' : 'Bank'}
+                    </button>
+                  </div>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">{isAr ? 'للكل كم' : 'Per km'}</label>
-                  <input type="number" min="0" step="0.01" value={driverPerKm} onChange={(e) => setDriverPerKm(e.target.value)} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold" />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-2">
-                  {isAr ? 'الوقت والدفع' : 'Timing & payment'}
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <button type="button" className={optionBtnClass(driverSameDay)} onClick={() => setDriverSameDay((v) => !v)}>
-                    {isAr ? 'نفس اليوم' : 'Same day'}
-                  </button>
-                  <button type="button" className={optionBtnClass(driverPayments.includes('cod'))} onClick={() => togglePaymentOption(driverPayments, setDriverPayments, 'cod')}>
-                    {isAr ? 'عند الاستلام' : 'COD'}
-                  </button>
-                  <button type="button" className={optionBtnClass(driverPayments.includes('online'))} onClick={() => togglePaymentOption(driverPayments, setDriverPayments, 'online')}>
-                    {isAr ? 'إلكتروني' : 'Online'}
-                  </button>
-                  <button type="button" className={optionBtnClass(driverPayments.includes('bank_transfer'))} onClick={() => togglePaymentOption(driverPayments, setDriverPayments, 'bank_transfer')}>
-                    {isAr ? 'تحويل بنكي' : 'Bank'}
-                  </button>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    {isAr ? 'الحالة' : 'Status'}
+                  </label>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button type="button" className={optionBtnClass(driverActive)} onClick={() => setDriverActive(true)}>
+                      {isAr ? 'نشط' : 'Active'}
+                    </button>
+                    <button type="button" className={optionBtnClass(!driverActive)} onClick={() => setDriverActive(false)}>
+                      {isAr ? 'غير نشط' : 'Inactive'}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -2056,15 +2108,6 @@ export const StoreShipping: React.FC = () => {
                   {isAr ? 'الوقت المتوقع / التتبع' : 'ETA / tracking note'}
                 </label>
                 <input type="text" value={driverEta} onChange={(e) => setDriverEta(e.target.value)} className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold" />
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <button type="button" className={optionBtnClass(driverActive)} onClick={() => setDriverActive(true)}>
-                  {isAr ? 'نشط' : 'Active'}
-                </button>
-                <button type="button" className={optionBtnClass(!driverActive)} onClick={() => setDriverActive(false)}>
-                  {isAr ? 'غير نشط' : 'Inactive'}
-                </button>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -2078,10 +2121,10 @@ export const StoreShipping: React.FC = () => {
                 <button
                   type="submit"
                   disabled={driversBusy}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
+                  className="unity-btn-primary text-white px-4 py-2 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
                 >
-                  {driversBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                  <span>{commerceTerm('saveChanges', isAr)}</span>
+                  {driversBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin text-white" /> : null}
+                  <span className="text-white">{commerceTerm('saveChanges', isAr)}</span>
                 </button>
               </div>
             </form>

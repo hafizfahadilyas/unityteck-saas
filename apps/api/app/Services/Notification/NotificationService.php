@@ -211,6 +211,83 @@ class NotificationService
         ];
     }
 
+    /**
+     * Resolve a real customer-facing tracking URL for THIS store's order.
+     * Prefer shipment label/track URL → known carrier public track page → storefront track page.
+     * Never invent track.unityteck.sa (or any fake domain).
+     */
+    public static function resolveTrackingUrl(Order $order, ?Store $store = null): string
+    {
+        $trackingNumber = trim((string) ($order->tracking_number ?: $order->awb_number ?: ''));
+        $courierName = strtolower(trim((string) ($order->courier_code ?: '')));
+
+        $shipment = null;
+        try {
+            if ($order->relationLoaded('shipments')) {
+                $shipment = $order->shipments
+                    ->sortByDesc(fn ($s) => $s->created_at?->getTimestamp() ?? 0)
+                    ->first();
+            } else {
+                $shipment = $order->shipments()->orderByDesc('created_at')->first();
+            }
+        } catch (\Throwable $e) {
+            $shipment = null;
+        }
+
+        if ($shipment) {
+            $labelUrl = trim((string) ($shipment->label_url ?? ''));
+            if ($labelUrl !== '') {
+                $path = strtolower((string) (parse_url($labelUrl, PHP_URL_PATH) ?: ''));
+                // PDF labels are printable docs — prefer a track page when possible
+                if (!str_ends_with($path, '.pdf')) {
+                    return $labelUrl;
+                }
+            }
+            if ($courierName === '') {
+                $courierName = strtolower(trim((string) ($shipment->provider ?? '')));
+            }
+            if ($trackingNumber === '') {
+                $trackingNumber = trim((string) ($shipment->tracking_number ?: $shipment->awb_number ?: ''));
+            }
+        }
+
+        if ($trackingNumber !== '') {
+            $carrierUrl = match ($courierName) {
+                'smsa' => 'https://www.smsaexpress.com/trackingdetails?tracknumbers=' . rawurlencode($trackingNumber),
+                'aramex' => 'https://www.aramex.com/track/results?mode=0&ShipmentNumber=' . rawurlencode($trackingNumber),
+                'dhl' => 'https://www.dhl.com/sa-en/home/tracking.html?tracking-id=' . rawurlencode($trackingNumber),
+                'fedex' => 'https://www.fedex.com/fedextrack/?trknbr=' . rawurlencode($trackingNumber),
+                'ups' => 'https://www.ups.com/track?tracknum=' . rawurlencode($trackingNumber),
+                'spl' => 'https://www.splonline.com.sa/en/query-item?itemid=' . rawurlencode($trackingNumber),
+                default => '',
+            };
+            if ($carrierUrl !== '') {
+                return $carrierUrl;
+            }
+        }
+
+        $frontendBase = rtrim((string) env('FRONTEND_URL', ''), '/');
+        $storeUrl = '';
+        if ($store) {
+            $domain = trim((string) ($store->custom_domain ?: $store->domain ?: ''));
+            if ($domain !== '') {
+                $storeUrl = preg_match('#^https?://#i', $domain) ? $domain : ('https://' . $domain);
+            } elseif ($frontendBase !== '') {
+                $slug = trim((string) ($store->slug ?: ''));
+                $storeUrl = $slug !== '' ? ($frontendBase . '/' . rawurlencode($slug)) : $frontendBase;
+            }
+        } elseif ($frontendBase !== '') {
+            $storeUrl = $frontendBase;
+        }
+
+        $orderNumber = (string) ($order->order_number ?: $order->id);
+        $base = $storeUrl !== '' ? rtrim($storeUrl, '/') : '';
+
+        return $base !== ''
+            ? ($base . '/track-order?order=' . rawurlencode($orderNumber))
+            : '';
+    }
+
     public static function interpolateTemplate(string $template, Order $order, ?Store $store = null): string
     {
         $storeName = $store
@@ -219,9 +296,7 @@ class NotificationService
 
         $trackingNumber = (string) ($order->tracking_number ?: $order->awb_number ?: '');
         $courierName = (string) ($order->courier_code ?: '');
-        $trackingUrl = $trackingNumber !== ''
-            ? ('https://track.unityteck.sa/?c=' . urlencode(strtolower($courierName !== '' ? $courierName : 'courier')) . '&awb=' . urlencode($trackingNumber))
-            : '';
+        $trackingUrl = self::resolveTrackingUrl($order, $store);
 
         $frontendBase = rtrim((string) env('FRONTEND_URL', ''), '/');
         $storeUrl = '';
@@ -242,6 +317,10 @@ class NotificationService
         $orderTrackUrl = $base !== ''
             ? ($base . '/track-order?order=' . rawurlencode($orderNumber))
             : '';
+        // If no carrier/storefront track URL, leave blank — template still shows {{tracking_number}} text
+        if ($trackingUrl === '' && $orderTrackUrl !== '') {
+            $trackingUrl = $orderTrackUrl;
+        }
         $invoiceUrl = $base !== ''
             ? ($base . '/invoice?order=' . rawurlencode($orderNumber) . '&id=' . rawurlencode($orderId))
             : $orderTrackUrl;
@@ -432,6 +511,43 @@ class NotificationService
         return [
             'payment_received' => $this->sendOrderNotification('payment_received', $order),
             'invoice_ready' => $this->sendOrderNotification('invoice_ready', $order),
+        ];
+    }
+
+    /**
+     * Map shipment / shipping_status transitions → customer order_shipped / order_delivered.
+     * Dedupes via wasRecentlyNotified so create + webhook + manual update do not spam.
+     */
+    public function notifyOrderShippingProgress(Order $order, string $shippingStatus): array
+    {
+        $status = strtolower(trim($shippingStatus));
+        $event = null;
+
+        if (in_array($status, ['delivered', 'completed'], true)) {
+            $event = 'order_delivered';
+        } elseif (in_array($status, [
+            'shipped',
+            'created',
+            'picked_up',
+            'in_transit',
+            'out_for_delivery',
+        ], true)) {
+            $event = 'order_shipped';
+        }
+
+        if ($event === null) {
+            return ['skipped' => true, 'reason' => 'status_not_notifiable', 'status' => $status];
+        }
+
+        $storeId = (string) ($order->store_id ?? '');
+        $orderId = (string) ($order->id ?? '');
+        if ($storeId !== '' && $orderId !== '' && $this->wasRecentlyNotified($storeId, $orderId, $event, 12)) {
+            return ['skipped' => true, 'reason' => 'recently_notified', 'event' => $event];
+        }
+
+        return [
+            'event' => $event,
+            'result' => $this->sendOrderNotification($event, $order),
         ];
     }
 

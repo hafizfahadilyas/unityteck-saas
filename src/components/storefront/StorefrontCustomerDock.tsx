@@ -2,16 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   Coins,
   MapPin,
-  Bell,
-  Award,
   CreditCard,
-  Truck,
-  Sparkles,
-  CheckCircle2,
-  XCircle,
   X,
-  Gift,
-  Clock,
 } from 'lucide-react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
@@ -23,16 +15,25 @@ import {
   getStoreOrderPolicy,
   type CustomerGamifiedProfile,
 } from '../../services/ksaAutomationEngine';
+import {
+  fetchStorefrontCustomerOrders,
+  type StorefrontCustomerOrderRow,
+} from '../../api/tenantApi';
+import { readSfCustomer } from '../../themes/flowersPremium/sfCustomerSession';
+import {
+  customerOrderStatusLabel,
+  customerPaymentStatusLabel,
+} from '../../utils/orderTrackingDisplay';
 
 export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId }) => {
-  const { activeStore, allStoreCustomers, currentOrders, updateOrderStatus } = useTenant();
+  const { activeStore, allStoreCustomers, updateOrderStatus } = useTenant();
   const { locale, money } = usePrefs();
   const { toast } = useToast();
   const isAr = locale === 'ar';
 
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'game' | 'card' | 'orders'>('game');
-  const [isSpinning, setIsSpinning] = useState(false);
+  const [activeTab, setActiveTab] = useState<'card' | 'orders'>('card');
+  const [liveOrders, setLiveOrders] = useState<StorefrontCustomerOrderRow[]>([]);
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
     try {
       return localStorage.getItem(`dock_collapsed_${storeId}`) === 'true';
@@ -42,12 +43,60 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
   });
 
   const storeCusts = (allStoreCustomers && allStoreCustomers[storeId]) || [];
-  const primaryCust = storeCusts[0] || null;
+  const sfCust = readSfCustomer(storeId);
+  const primaryCust =
+    storeCusts.find((c) => sfCust?.customerId && c.id === sfCust.customerId) ||
+    storeCusts.find(
+      (c) =>
+        sfCust?.email && (c.email || '').toLowerCase() === sfCust.email.toLowerCase(),
+    ) ||
+    (sfCust?.email || sfCust?.phone
+      ? {
+          id: sfCust.customerId || '',
+          name: sfCust.name || '',
+          email: sfCust.email || '',
+          phone: sfCust.phone || '',
+        }
+      : null) ||
+    storeCusts[0] ||
+    null;
 
   const [profile, setProfile] = useState<CustomerGamifiedProfile | null>(null);
 
   const [loyaltySettings, setLoyaltySettings] = useState(() => getStoreLoyaltyGameSettings(storeId));
   const orderPolicy = getStoreOrderPolicy(storeId);
+
+  useEffect(() => {
+    if (!primaryCust?.email && !primaryCust?.phone && !primaryCust?.id) {
+      setLiveOrders([]);
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const rows = await fetchStorefrontCustomerOrders(storeId, {
+          email: primaryCust.email || undefined,
+          phone: primaryCust.phone || undefined,
+          customer_id: primaryCust.id || undefined,
+        });
+        if (!cancelled) setLiveOrders(Array.isArray(rows) ? rows : []);
+      } catch {
+        if (!cancelled) setLiveOrders([]);
+      }
+    };
+    void load();
+    const t = window.setInterval(() => void load(), 30_000);
+    const onUpd = (e: Event) => {
+      const d = (e as CustomEvent<{ storeId?: string }>).detail;
+      if (!d?.storeId || d.storeId === storeId) void load();
+    };
+    window.addEventListener('unityteck-order-updated', onUpd);
+    return () => {
+      cancelled = true;
+      window.clearInterval(t);
+      window.removeEventListener('unityteck-order-updated', onUpd);
+    };
+  }, [storeId, primaryCust?.id, primaryCust?.email, primaryCust?.phone]);
 
   useEffect(() => {
     setLoyaltySettings(getStoreLoyaltyGameSettings(storeId));
@@ -126,48 +175,6 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
     } else {
       completeGrant();
     }
-  };
-
-  // Play Daily Spin & Win Coin Game (24h Cooldown Timer)
-  const handleSpinGame = () => {
-    if (!profile) return;
-    if (
-      profile.lastGameSpinAt &&
-      Date.now() - profile.lastGameSpinAt < loyaltySettings.spinCooldownHours * 3600 * 1000
-    ) {
-      const hrs = Math.ceil(
-        (loyaltySettings.spinCooldownHours * 3600 * 1000 - (Date.now() - profile.lastGameSpinAt)) / 3600000,
-      );
-      toast(
-        isAr
-          ? `لعبت اليوم بالفعل! يمكنك اللعب مجدداً بعد ${hrs} ساعة.`
-          : `You already played today! Next daily spin available in ~${hrs}h.`,
-        'info',
-      );
-      return;
-    }
-
-    setIsSpinning(true);
-    setTimeout(() => {
-      const won =
-        Math.floor(
-          Math.random() * (loyaltySettings.maxSpinCoins - loyaltySettings.minSpinCoins + 1),
-        ) + loyaltySettings.minSpinCoins;
-      const updated = saveCustomerGamifiedProfile(storeId, {
-        ...profile,
-        coinsBalance: profile.coinsBalance + won,
-        totalCoinsEarned: profile.totalCoinsEarned + won,
-        lastGameSpinAt: Date.now(),
-      });
-      setProfile(updated);
-      setIsSpinning(false);
-      toast(
-        isAr
-          ? `مبروك! ربحت +${won}عملة يمكنك التسوق بها فوراً!`
-          : `Congratulations! You won +${won} Coins to shop with at checkout!`,
-        'success',
-      );
-    }, 650);
   };
 
   // Zero-mock: no invented guest customer — hide dock until a real customer exists
@@ -291,15 +298,8 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
               )}
             </div>
 
-            {/* Sub Tabs */}
-            <div className="grid grid-cols-3 gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs font-bold">
-              <button
-                type="button"
-                onClick={() => setActiveTab('game')}
-                className={`py-2 rounded-xl cursor-pointer ${activeTab === 'game' ? 'bg-white dark:bg-slate-900 shadow-xs' : ''}`}
-              >
-                {isAr ? 'لعبة العملات' : 'Coin Game'}
-              </button>
+            {/* Sub Tabs — orange daily game removed */}
+            <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs font-bold">
               <button
                 type="button"
                 onClick={() => setActiveTab('card')}
@@ -316,33 +316,7 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
               </button>
             </div>
 
-            {/* TAB 1: DAILY COIN GAME & SHOPPING REDEMPTION */}
-            {activeTab === 'game' && (
-              <div className="space-y-4 text-center">
-                <div className="p-5 rounded-3xl bg-gradient-to-br from-amber-500/15 to-emerald-500/15 border border-amber-500/30 space-y-3">
-                  <Coins className={`w-10 h-10 text-amber-500 mx-auto ${isSpinning ? 'animate-spin' : ''}`} />
-                  <div className="text-2xl font-black font-mono">
-                    {profile.coinsBalance} {isAr ? 'عملة' : 'Coins'} = {sarDiscountWorth} ⃁
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    {isAr
-                      ? 'العب يومياً لربح العملات واستخدمها كخصم نقدي مباشر عند إتمام الطلب!'
-                      : 'Play daily to win Coins and redeem them directly as SAR cash discount at checkout!'}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleSpinGame}
-                    disabled={isSpinning}
-                    className="w-full py-3 rounded-2xl text-xs font-black text-white shadow-md cursor-pointer"
-                    style={{ background: 'linear-gradient(135deg, #d97706, #ea580c)' }}
-                  >
-                    {isAr ? 'العب الآن واربح عملات التسوق (مؤقت 24 ساعة)' : 'Play Daily Spin & Win Coins (24h Timer)'}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* TAB 2: DIGITAL LOYALTY CARD & SAVED PAYMENT CARDS */}
+            {/* Loyalty card + saved payment cards */}
             {activeTab === 'card' && (
               <div className="space-y-3">
                 <div
@@ -401,38 +375,53 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
               </div>
             )}
 
-            {/* TAB 3: LIVE ORDER TRACKING & POLICY-GOVERNED CANCELLATION */}
+            {/* Live order / payment / shipping tracking from API */}
             {activeTab === 'orders' && (
               <div className="space-y-3 max-h-64 overflow-y-auto">
-                {currentOrders.length === 0 ? (
+                {liveOrders.length === 0 ? (
                   <div className="p-6 text-center text-xs text-slate-500">
                     {isAr ? 'لا توجد طلبات حالية.' : 'No orders found.'}
                   </div>
                 ) : (
-                  currentOrders.slice(0, 4).map((ord) => {
+                  liveOrders.slice(0, 6).map((ord) => {
                     const canCancel =
                       orderPolicy.allowCustomerCancel &&
                       (ord.status === 'pending' || ord.status === 'processing');
                     return (
                       <div
-                        key={ord.id}
-                        className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-xs"
+                        key={ord.id || ord.order_number}
+                        className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-1.5 text-xs"
                       >
-                        <div>
-                          <div className="font-black font-mono">#{ord.orderNumber || ord.id}</div>
-                          <div className="text-[11px] text-slate-500">
-                            {ord.status.toUpperCase()} · {money(ord.total)} · {orderPolicy.shippingCarrierDefault}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="font-black font-mono">#{ord.order_number || ord.id}</div>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800">
+                            {customerOrderStatusLabel(ord.status, isAr)}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 space-y-0.5">
+                          <div>
+                            {customerPaymentStatusLabel(String(ord.payment_status || 'pending'), isAr)}
+                            {' · '}
+                            {money(Number(ord.total_amount) || 0)}
+                          </div>
+                          <div>
+                            {ord.tracking_number || ord.awb_number
+                              ? `${isAr ? 'تتبع' : 'Track'}: ${ord.tracking_number || ord.awb_number}`
+                              : isAr
+                                ? 'رقم التتبع غير متوفر بعد'
+                                : 'Tracking not available yet'}
+                            {ord.courier_code ? ` · ${ord.courier_code}` : ''}
                           </div>
                         </div>
                         {canCancel ? (
                           <button
                             type="button"
                             onClick={() => {
-                              updateOrderStatus(ord.id, 'cancelled');
+                              updateOrderStatus(ord.id, 'cancelled', storeId);
                               toast(
                                 isAr
-                                  ? 'تم إلغاء الطلب ضمن المهلة المسموحة وإرسال إشعار للإدارة والبريد!'
-                                  : 'Order cancelled within policy window & Admin/Email notified!',
+                                  ? 'تم إلغاء الطلب ضمن المهلة المسموحة.'
+                                  : 'Order cancelled within the allowed window.',
                                 'info',
                               );
                             }}
@@ -440,11 +429,7 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
                           >
                             {isAr ? 'إلغاء الطلب' : 'Cancel Order'}
                           </button>
-                        ) : (
-                          <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">
-                            {ord.status}
-                          </span>
-                        )}
+                        ) : null}
                       </div>
                     );
                   })

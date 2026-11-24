@@ -256,16 +256,16 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
   return (
     <div className={`space-y-5 ${className}`}>
       {/* Header with Security Trust Badge */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-neutral-200">
-        <div className="flex items-center gap-2">
-          <CreditCard className="w-5 h-5 text-emerald-700" />
-          <h3 className="font-extrabold text-sm sm:text-base text-neutral-900">
-            {isAr ? 'وسيلة الدفع الإلكتروني المعتمدة' : 'Authorized Saudi Payment Gateways'}
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-neutral-200 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <CreditCard className="w-5 h-5 text-emerald-700 shrink-0" />
+          <h3 className="font-extrabold text-sm sm:text-base text-neutral-900 leading-snug">
+            {isAr ? 'وسيلة الدفع الإلكتروني المعتمدة' : 'Authorized Payment Gateways'}
           </h3>
         </div>
-        <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-          <span>{isAr ? 'معتمد من البنك المركزي السعودي ساما' : 'SAMA & ZATCA Approved'}</span>
+        <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 sm:px-2.5 py-1 rounded-full max-w-full">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+          <span className="truncate">{isAr ? 'معتمد من البنك المركزي السعودي ساما' : 'SAMA & ZATCA Approved'}</span>
         </div>
       </div>
 
@@ -630,7 +630,7 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
               </div>
               <div>
                 <label className="block text-[11px] font-bold text-neutral-700 mb-1">
-                  {isAr ? 'رمز الأمان رمز الأمان' : 'CVV'}
+                  {isAr ? 'رمز الأمان' : 'CVV'}
                 </label>
                 <input
                   type="password"
@@ -690,12 +690,14 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
             <div>
               <p className="font-extrabold">{verificationFeedback.message}</p>
               {verificationFeedback.reference && (
-                <p className="text-[10px] font-mono opacity-80">Ref: {verificationFeedback.reference}</p>
+                <p className="text-[10px] font-mono opacity-80">
+                  {isAr ? 'المرجع:' : 'Ref:'} {verificationFeedback.reference}
+                </p>
               )}
             </div>
           </div>
           <span className="text-[10px] font-extrabold bg-emerald-200/60 text-emerald-900 px-2 py-0.5 rounded-full">
-            SAMA Verified
+            {isAr ? 'معتمد من ساما' : 'SAMA Verified'}
           </span>
         </div>
       )}

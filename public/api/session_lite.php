@@ -1086,16 +1086,7 @@ function souq_session_lite_dispatch(PDO $pdo, string $uri, string $method, strin
         return true;
     }
 
-    // /customer-activities is handled by souq_gateway_bank_wallet_activity_dispatch (real MySQL rows).
-    if ($uri === '/delivery-drivers' && $method === 'GET') {
-        if ($storeId === '') {
-            http_response_code(422);
-            echo json_encode(['message' => 'store_id is required.', 'data' => []]);
-            return true;
-        }
-        echo json_encode(['data' => []]);
-        return true;
-    }
+    // /customer-activities + /delivery-drivers → souq_gateway_bank_wallet_activity_dispatch (real MySQL).
 
     return false;
 }

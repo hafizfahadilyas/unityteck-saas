@@ -411,7 +411,7 @@ export const NotificationSettings: React.FC = () => {
           <div className="space-y-2 text-xs">
             <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40">
               <span className="text-slate-700 dark:text-slate-300 font-bold">
-                {isAr ? 'إرسال رسائل الرسائل النصية للأرقام السعودية (+966)' : 'Send SMS to verified KSA numbers (+966)'}
+                {isAr ? 'إرسال رسائل الرسائل النصية للأرقام السعودية (+966)' : 'Send SMS to verified Saudi numbers (+966)'}
               </span>
               <input
                 type="checkbox"
@@ -720,7 +720,7 @@ export const NotificationSettings: React.FC = () => {
             </h4>
           </div>
           <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300">
-            KSA Test Sandbox
+            {isAr ? 'بيئة اختبار الإرسال' : 'Test Sandbox'}
           </span>
         </div>
 

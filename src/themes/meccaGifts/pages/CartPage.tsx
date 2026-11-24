@@ -10,7 +10,9 @@ export const CartPage: React.FC = () => {
     removeFromCart,
     updateQuantity,
     cartSubtotal,
+    shippingFee,
     freeShippingRemaining,
+    freeShippingThreshold,
     setCurrentPage,
     appliedCoupon,
     appliedDiscount,
@@ -30,7 +32,7 @@ export const CartPage: React.FC = () => {
     if (res.success) setPromoCode('');
   };
 
-  const shipping = freeShippingRemaining === 0 ? 0 : 35;
+  const shipping = shippingFee;
   const total = Math.max(0, cartSubtotal - appliedDiscount + (cart.length > 0 ? shipping : 0));
 
   if (cart.length === 0) {
@@ -200,7 +202,15 @@ export const CartPage: React.FC = () => {
               <div className="flex justify-between">
                 <span>{isAr ? 'رسوم التوصيل المبرد:' : 'Delivery:'}</span>
                 <span className="font-mono font-medium">
-                  {shipping === 0 ? <span className="text-[#102a1c] font-bold">{isAr ? 'مجاني' : 'Free'}</span> : `${shipping} ${'⃁'}`}
+                  {shipping <= 0 &&
+                  (freeShippingThreshold === 0 ||
+                    (freeShippingThreshold != null && freeShippingRemaining === 0)) ? (
+                    <span className="text-[#102a1c] font-bold">{isAr ? 'مجاني' : 'Free'}</span>
+                  ) : shipping > 0 ? (
+                    `${shipping} ${'⃁'}`
+                  ) : (
+                    '—'
+                  )}
                 </span>
               </div>
               <div className="pt-2 border-t border-[#e2ddd1] flex justify-between text-base font-bold text-[#102a1c]">

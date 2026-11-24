@@ -880,6 +880,11 @@ class ProductController extends Controller
             'product_type' => ['nullable', 'string', 'max:120'],
             'seed' => ['nullable', 'string', 'max:1000'],
             'locale' => ['nullable', 'string', 'in:ar,en'],
+            'image_url' => ['nullable', 'string', 'max:2000'],
+            'available_categories' => ['nullable', 'array', 'max:80'],
+            'available_categories.*' => ['string', 'max:120'],
+            'available_brands' => ['nullable', 'array', 'max:60'],
+            'available_brands.*' => ['string', 'max:80'],
         ]);
 
         $result = $gemini->suggestProductCopy([
@@ -890,6 +895,9 @@ class ProductController extends Controller
             'store_name' => (string) ($store->name ?? ''),
             'seed' => $validated['seed'] ?? '',
             'locale' => $validated['locale'] ?? 'en',
+            'image_url' => $validated['image_url'] ?? '',
+            'available_categories' => $validated['available_categories'] ?? [],
+            'available_brands' => $validated['available_brands'] ?? [],
         ]);
 
         if (! $result['ok']) {
@@ -910,6 +918,17 @@ class ProductController extends Controller
                 'title' => $result['title'],
                 'subtitle' => $result['subtitle'],
                 'description' => $result['description'],
+                'seo_title' => $result['seo_title'] ?? '',
+                'seo_description' => $result['seo_description'] ?? '',
+                'tags' => is_array($result['tags'] ?? null) ? $result['tags'] : [],
+                'brand' => $result['brand'] ?? '',
+                'categories' => is_array($result['categories'] ?? null) ? $result['categories'] : [],
+                'price_sar' => $result['price_sar'] ?? null,
+                'price_source' => $result['price_source'] ?? null,
+                'google_taxonomy' => $result['google_taxonomy'] ?? '',
+                'barcode' => $result['barcode'] ?? '',
+                'weight_kg' => $result['weight_kg'] ?? null,
+                'used_image' => ! empty($result['used_image']),
                 'saved' => false,
                 'model' => $result['model'],
             ],

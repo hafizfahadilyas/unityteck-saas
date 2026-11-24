@@ -164,7 +164,7 @@ export const CanvaSocialPostModal: React.FC<CanvaSocialPostModalProps> = ({
       defaultCaption ||
         (isAr
           ? `عروض استثنائية من متجرنا لفترة محدودة! ✨ توصيل سريع لجميع مدن المملكة ودفع عند الاستلام. اطلب الآن عبر الرابط في البايو أو تفضل بزيارة متجرنا.\n\n#متجر_سعودي #عروض_السعودية #توصيل_سريع`
-          : `Exclusive limited-time offer from our official store! ✨ Fast express shipping across KSA with flexible payment. Shop now via link in bio.\n\n#SaudiMade #KSAShop #SpecialOffers`),
+          : `Exclusive limited-time offer from our official store! ✨ Fast express shipping across Saudi Arabia with flexible payment. Shop now via link in bio.\n\n#SaudiMade #SaudiShop #SpecialOffers`),
     );
     void fetchSocialAccounts(storeId)
       .then(setAccounts)
@@ -208,7 +208,7 @@ export const CanvaSocialPostModal: React.FC<CanvaSocialPostModalProps> = ({
         ]
       : [
           `Elevate your daily routine with our premium collection! ✨ Free express delivery across Saudi Arabia. Shop now!\n\n#SaudiDeals #PremiumQuality #SpecialOffer`,
-          `Limited Edition Drop! 🔥 Grab yours today before stock runs out. Cash on Delivery available.\n\n#KSAOffers #Riyadh #FastShipping`,
+          `Limited Edition Drop! 🔥 Grab yours today before stock runs out. Cash on Delivery available.\n\n#SaudiOffers #Riyadh #FastShipping`,
         ];
     const picked = promos[Math.floor(Math.random() * promos.length)];
     setCaption(picked);
@@ -600,7 +600,7 @@ export const CanvaSocialPostModal: React.FC<CanvaSocialPostModalProps> = ({
               {/* Hashtag Quick-Add Buttons */}
               <div className="space-y-1">
                 <span className="text-[10px] font-bold text-slate-400 block">
-                  {isAr ? 'هاشتاقات سعودية متداولة (انقر للإضافة):' : 'Trending KSA Hashtags (click to add):'}
+                  {isAr ? 'هاشتاقات سعودية متداولة (انقر للإضافة):' : 'Trending Saudi Hashtags (click to add):'}
                 </span>
                 <div className="flex flex-wrap gap-1">
                   {KSA_HASHTAGS.map((tag) => (

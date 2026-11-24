@@ -126,9 +126,13 @@ export function customFieldNeedsOptions(type: string | undefined | null): boolea
     t === 'Multiple Choice' ||
     t === 'Multiple Choice Image' ||
     t === 'Multiple Choice Color' ||
-    t === 'Color Selector' ||
     t === 'Size Selector'
   );
+}
+
+/** Free color picker on the product page — customer picks any HEX (not fixed swatches). */
+export function customFieldIsFreeColorPicker(type: string | undefined | null): boolean {
+  return normalizeCustomFieldType(type) === 'Color Selector';
 }
 
 /** Explicit Image choice types — option rows show Upload / Media library. */
@@ -181,14 +185,10 @@ export function coerceCustomFieldTypeForOptions(
   return t;
 }
 
-/** Choice rows that use a color swatch / HEX. */
+/** Choice rows that use a color swatch / HEX (fixed merchant options). */
 export function customFieldNeedsOptionColors(type: string | undefined | null): boolean {
   const t = normalizeCustomFieldType(type);
-  return (
-    t === 'Single Choice Color' ||
-    t === 'Multiple Choice Color' ||
-    t === 'Color Selector'
-  );
+  return t === 'Single Choice Color' || t === 'Multiple Choice Color';
 }
 
 /** Customer uploads on the product page — merchant does not add choice options. */
@@ -209,23 +209,22 @@ export function customFieldIsFillable(type: string | undefined | null): boolean 
 }
 
 /**
- * Per-option Price / Compare-at — only on commerce choice rows (not Size/Color swatches).
+ * Per-option Price / Compare-at — commerce choice rows only
+ * (Text / Image add-ons). Color swatches + Size + free Color Picker = no price row.
  */
 export function customFieldAllowsOptionPrices(type: string | undefined | null): boolean {
   const t = normalizeCustomFieldType(type);
   return (
     t === 'Single Choice' ||
     t === 'Single Choice Image' ||
-    t === 'Single Choice Color' ||
     t === 'Multiple Choice' ||
-    t === 'Multiple Choice Image' ||
-    t === 'Multiple Choice Color'
+    t === 'Multiple Choice Image'
   );
 }
 
 /**
- * Field-level Extra Price — only freeform fill fields that can add a surcharge.
- * Choice types use per-option prices; uploads / content / divider never show price.
+ * Field-level Extra Price — freeform surcharges (engraving / custom paint).
+ * Date/Time/Location/uploads/content/divider/choice rows never show field price.
  */
 export function customFieldAllowsFieldExtraPrice(type: string | undefined | null): boolean {
   const t = normalizeCustomFieldType(type);
@@ -233,9 +232,6 @@ export function customFieldAllowsFieldExtraPrice(type: string | undefined | null
     t === 'Short Text' ||
     t === 'Long Text' ||
     t === 'Number' ||
-    t === 'Location' ||
-    t === 'Date' ||
-    t === 'Time' ||
-    t === 'Date and Time'
+    t === 'Color Selector'
   );
 }

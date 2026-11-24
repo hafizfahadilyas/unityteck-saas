@@ -3,6 +3,31 @@
  * Compliant with CITC (Communications, Space & Technology Commission) specifications.
  */
 
+/** Locked checkout / form dial prefix (international 00 format). */
+export const SAUDI_DIAL_PREFIX_00966 = '00966';
+
+/**
+ * Strip to the 9-digit Saudi mobile local part (5xxxxxxxx), or shorter while typing.
+ */
+export function extractSaudiLocalDigits(phone?: string | null): string {
+  if (!phone) return '';
+  let digits = String(phone).replace(/\D/g, '');
+  if (digits.startsWith('00966')) digits = digits.slice(5);
+  else if (digits.startsWith('966')) digits = digits.slice(3);
+  if (digits.startsWith('0') && digits.length >= 2) digits = digits.slice(1);
+  return digits.slice(0, 9);
+}
+
+/**
+ * Build `009665XXXXXXXX` from any pasted/typed Saudi mobile variant.
+ * Returns '' when no local digits yet.
+ */
+export function toSaudi00966(phone?: string | null): string {
+  const local = extractSaudiLocalDigits(phone);
+  if (!local) return '';
+  return `${SAUDI_DIAL_PREFIX_00966}${local}`;
+}
+
 /**
  * Normalizes any variation of a Saudi phone number into E.164 format (+9665XXXXXXXX).
  * Accepts: '0551234567', '551234567', '966551234567', '+966551234567', '00966551234567'

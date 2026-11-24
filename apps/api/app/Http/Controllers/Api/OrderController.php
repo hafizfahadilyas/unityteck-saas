@@ -217,6 +217,7 @@ class OrderController extends Controller
         $order = Order::query()
             ->withoutGlobalScope('store')
             ->forStore($storeId)
+            ->with(['items'])
             ->where(function ($q) use ($orderRef, $orderRefDigits) {
                 $q->whereRaw('UPPER(TRIM(order_number)) = ?', [$orderRef])
                     ->orWhereRaw('UPPER(TRIM(order_number)) = ?', ['#' . $orderRefDigits])
@@ -248,19 +249,167 @@ class OrderController extends Controller
             'data' => [
                 'order_number' => $order->order_number,
                 'status' => $status,
+                'payment_status' => $order->payment_status,
+                'payment_method' => $order->payment_method,
                 'shipping_status' => $order->shipping_status,
                 'tracking_number' => $order->tracking_number,
                 'courier_code' => $order->courier_code,
                 'items_summary' => $order->items_summary,
-                'items_count' => (int) ($order->items_count ?? 0),
+                'items_count' => (int) ($order->items_count ?? $order->items->count()),
                 'delivery_location' => $order->delivery_location,
+                'total_amount' => (float) ($order->total_amount ?? 0),
+                'shipping_cost' => Schema::hasColumn('orders', 'shipping_cost')
+                    ? (float) ($order->shipping_cost ?? 0)
+                    : null,
+                'currency' => $order->currency ?: 'SAR',
+                'customer_name' => $order->customer_name,
+                'customer_phone' => $order->customer_phone,
+                'customer_notes' => $order->customer_notes,
+                'updated_at' => $order->updated_at
+                    ? (method_exists($order->updated_at, 'toIso8601String')
+                        ? $order->updated_at->toIso8601String()
+                        : (string) $order->updated_at)
+                    : null,
                 'order_date' => $order->order_date
                     ? (method_exists($order->order_date, 'format')
                         ? $order->order_date->format('Y-m-d')
                         : substr((string) $order->order_date, 0, 10))
                     : null,
                 'estimated_delivery' => $estimated,
+                'items' => $order->items->map(static function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'product_id' => $item->product_id,
+                        'product_name' => $item->product_name,
+                        'name' => $item->product_name,
+                        'sku' => $item->sku,
+                        'image' => $item->image_url,
+                        'image_url' => $item->image_url,
+                        'quantity' => (int) $item->quantity,
+                        'unit_price' => (float) $item->unit_price,
+                        'price' => (float) $item->unit_price,
+                        'subtotal' => (float) ($item->subtotal ?? ((float) $item->unit_price * (int) $item->quantity)),
+                        'variation_id' => $item->variation_id ?? null,
+                        'selected_options' => $item->selected_options ?? null,
+                    ];
+                })->values()->all(),
             ],
+        ]);
+    }
+
+    /**
+     * Public storefront: list THIS customer's real orders for store_id only
+     * (email and/or phone match — never cross-tenant).
+     */
+    public function storefrontMine(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => ['nullable', 'string', 'max:191'],
+            'phone' => ['nullable', 'string', 'max:32'],
+            'customer_id' => ['nullable', 'string', 'max:64'],
+            'store_id' => ['nullable', 'string', 'max:64'],
+        ]);
+
+        $email = strtolower(trim((string) ($validated['email'] ?? '')));
+        $phoneDigits = preg_replace('/\D/', '', (string) ($validated['phone'] ?? '')) ?: '';
+        $customerId = trim((string) ($validated['customer_id'] ?? ''));
+
+        if ($email === '' && $phoneDigits === '' && $customerId === '') {
+            return response()->json(['message' => 'Email, phone, or customer_id required.'], 422);
+        }
+
+        $raw = (string) ($request->header('X-Store-Id') ?? $validated['store_id'] ?? '');
+        if (trim($raw) === '') {
+            return response()->json(['message' => 'Store ID required.'], 400);
+        }
+
+        $storeId = $this->resolveStorefrontStoreId($raw);
+        if (!$storeId) {
+            return response()->json(['message' => 'Store not found.'], 404);
+        }
+
+        $query = Order::query()
+            ->withoutGlobalScope('store')
+            ->forStore($storeId)
+            ->with(['items'])
+            ->orderByDesc('updated_at')
+            ->orderByDesc('created_at');
+
+        $query->where(function ($q) use ($email, $phoneDigits, $customerId) {
+            $matched = false;
+            if ($customerId !== '' && !str_starts_with($customerId, 'sf-')) {
+                $q->orWhere('customer_id', $customerId);
+                $matched = true;
+            }
+            if ($email !== '') {
+                $q->orWhereRaw('LOWER(TRIM(customer_email)) = ?', [$email]);
+                $matched = true;
+            }
+            if (strlen($phoneDigits) >= 8) {
+                $tail = substr($phoneDigits, -9);
+                $q->orWhereRaw(
+                    "REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(customer_phone,''),'+',''),' ',''),'-',''),'00','') LIKE ?",
+                    ['%' . $tail]
+                );
+                $matched = true;
+            }
+            if (!$matched) {
+                $q->whereRaw('1 = 0');
+            }
+        });
+
+        $orders = $query->limit(50)->get();
+
+        $data = $orders->map(function (Order $order) {
+            return [
+                'id' => $order->id,
+                'store_id' => $order->store_id,
+                'order_number' => $order->order_number,
+                'status' => $order->status,
+                'payment_status' => $order->payment_status,
+                'payment_method' => $order->payment_method,
+                'shipping_status' => $order->shipping_status,
+                'tracking_number' => $order->tracking_number,
+                'courier_code' => $order->courier_code,
+                'awb_number' => $order->awb_number,
+                'delivery_location' => $order->delivery_location,
+                'items_count' => (int) ($order->items_count ?? $order->items->count()),
+                'items_summary' => $order->items_summary,
+                'total_amount' => (float) ($order->total_amount ?? 0),
+                'shipping_cost' => (float) ($order->shipping_cost ?? 0),
+                'currency' => $order->currency ?: 'SAR',
+                'customer_name' => $order->customer_name,
+                'customer_email' => $order->customer_email,
+                'customer_phone' => $order->customer_phone,
+                'order_date' => $order->order_date
+                    ? (method_exists($order->order_date, 'format')
+                        ? $order->order_date->format('Y-m-d')
+                        : substr((string) $order->order_date, 0, 10))
+                    : null,
+                'updated_at' => $order->updated_at
+                    ? (method_exists($order->updated_at, 'toIso8601String')
+                        ? $order->updated_at->toIso8601String()
+                        : (string) $order->updated_at)
+                    : null,
+                'items' => $order->items->map(static function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'product_id' => $item->product_id,
+                        'product_name' => $item->product_name,
+                        'sku' => $item->sku,
+                        'image' => $item->image_url,
+                        'quantity' => (int) $item->quantity,
+                        'unit_price' => (float) $item->unit_price,
+                        'subtotal' => (float) ($item->subtotal ?? ((float) $item->unit_price * (int) $item->quantity)),
+                    ];
+                })->values()->all(),
+            ];
+        })->values()->all();
+
+        return response()->json([
+            'data' => $data,
+            'store_id' => $storeId,
+            'meta' => ['total' => count($data)],
         ]);
     }
 
@@ -305,7 +454,11 @@ class OrderController extends Controller
             'payment_plan' => ['nullable', Rule::in(['full', 'partial', 'installment'])],
             'amount_paid' => ['nullable', 'numeric', 'min:0'],
             'remaining_balance' => ['nullable', 'numeric', 'min:0'],
+            'shipping_cost' => ['nullable', 'numeric', 'min:0'],
+            'shipping_fee' => ['nullable', 'numeric', 'min:0'],
             'estimated_delivery_at' => ['nullable', 'date'],
+            'customer_notes' => ['nullable', 'string', 'max:2000'],
+            'coupon_code' => ['nullable', 'string', 'max:64'],
             'items' => ['nullable', 'array'],
             'items.*.product_id' => ['nullable', 'string', 'max:64'],
             'items.*.variation_id' => ['nullable', 'string', 'max:64'],
@@ -445,14 +598,23 @@ class OrderController extends Controller
                 $paymentMethod = 'Apple Pay';
             } elseif (stripos($rawMethod, 'cod') !== false || stripos($rawMethod, 'cash') !== false) {
                 $paymentMethod = 'COD';
-            } elseif (stripos($rawMethod, 'visa') !== false || stripos($rawMethod, 'master') !== false) {
-                $paymentMethod = 'Visa/MC';
+            } elseif (stripos($rawMethod, 'bank') !== false || stripos($rawMethod, 'transfer') !== false) {
+                $paymentMethod = 'Bank Transfer';
             } elseif (stripos($rawMethod, 'tabby') !== false) {
                 $paymentMethod = 'Tabby';
             } elseif (stripos($rawMethod, 'tamara') !== false) {
                 $paymentMethod = 'Tamara';
             } elseif (stripos($rawMethod, 'stc') !== false) {
                 $paymentMethod = 'stc pay';
+            } elseif (
+                stripos($rawMethod, 'visa') !== false
+                || stripos($rawMethod, 'master') !== false
+                || stripos($rawMethod, 'credit') !== false
+                || strcasecmp($rawMethod, 'card') === 0
+            ) {
+                $paymentMethod = 'Visa/MC';
+            } elseif (stripos($rawMethod, 'mada') !== false || stripos($rawMethod, 'atm') !== false) {
+                $paymentMethod = 'Mada';
             } else {
                 $paymentMethod = 'Mada';
             }
@@ -560,7 +722,14 @@ class OrderController extends Controller
                 }
             }
 
-            $order = Order::query()->create([
+            $shippingCost = 0.0;
+            if (array_key_exists('shipping_cost', $validated) && $validated['shipping_cost'] !== null) {
+                $shippingCost = (float) $validated['shipping_cost'];
+            } elseif (array_key_exists('shipping_fee', $validated) && $validated['shipping_fee'] !== null) {
+                $shippingCost = (float) $validated['shipping_fee'];
+            }
+
+            $orderPayload = [
                 'id' => $orderId,
                 'store_id' => $storeId,
                 'order_number' => $orderNum,
@@ -590,7 +759,18 @@ class OrderController extends Controller
                 'remaining_balance' => $remainingBalance,
                 'estimated_delivery_at' => $validated['estimated_delivery_at'] ?? null,
                 'order_date' => now(),
-            ]);
+            ];
+            if (Schema::hasColumn('orders', 'shipping_cost')) {
+                $orderPayload['shipping_cost'] = $shippingCost;
+            }
+            if (Schema::hasColumn('orders', 'customer_notes') && ! empty($validated['customer_notes'])) {
+                $orderPayload['customer_notes'] = trim((string) $validated['customer_notes']);
+            }
+            if (Schema::hasColumn('orders', 'coupon_code') && ! empty($validated['coupon_code'])) {
+                $orderPayload['coupon_code'] = strtoupper(trim((string) $validated['coupon_code']));
+            }
+
+            $order = Order::query()->create($orderPayload);
 
             // 4. Create Items and Deduct Inventory Atomically
             if (!empty($items)) {
@@ -819,6 +999,8 @@ class OrderController extends Controller
             'payment_plan' => ['nullable', Rule::in(['full', 'partial', 'installment'])],
             'amount_paid' => ['nullable', 'numeric', 'min:0'],
             'remaining_balance' => ['nullable', 'numeric', 'min:0'],
+            'shipping_cost' => ['nullable', 'numeric', 'min:0'],
+            'shipping_fee' => ['nullable', 'numeric', 'min:0'],
             'estimated_delivery_at' => ['nullable', 'date'],
             'cod_status' => ['nullable', Rule::in(['not_cod', 'pending_collection', 'collected_by_courier', 'remitted_to_bank', 'failed_collection'])],
             'cod_notes' => ['nullable', 'string', 'max:255'],
@@ -901,6 +1083,13 @@ class OrderController extends Controller
             }
             if (array_key_exists('remaining_balance', $data)) {
                 $order->remaining_balance = $data['remaining_balance'];
+            }
+            if (Schema::hasColumn('orders', 'shipping_cost')) {
+                if (array_key_exists('shipping_cost', $data) && $data['shipping_cost'] !== null) {
+                    $order->shipping_cost = (float) $data['shipping_cost'];
+                } elseif (array_key_exists('shipping_fee', $data) && $data['shipping_fee'] !== null) {
+                    $order->shipping_cost = (float) $data['shipping_fee'];
+                }
             }
             if (array_key_exists('estimated_delivery_at', $data)) {
                 $order->estimated_delivery_at = $data['estimated_delivery_at'];

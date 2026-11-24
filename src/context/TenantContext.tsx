@@ -63,7 +63,11 @@ import {
   INITIAL_ORDERS,
 } from '../data/mockData';
 import { syncCatalogImagesToMediaAssets } from '../utils/mediaOptimizer';
-import { resolveProductThumbnail, FALLBACK_PRODUCT_IMAGE } from '../utils/imageFallback';
+import {
+  resolveProductThumbnail,
+  FALLBACK_PRODUCT_IMAGE,
+  sanitizeProductImageUrl,
+} from '../utils/imageFallback';
 import { resolveStoreLogoSrc } from '../utils/storeLogo';
 import { getArabCustomerAvatar } from '../utils/customerAvatars';
 import { normalizeProductPricingFields, toApiPricing } from '../utils/productPricing';
@@ -429,7 +433,7 @@ interface TenantContextType {
   }) => Promise<{ success: boolean; message: string }>;
   testCourier: (id: string) => Promise<{ success: boolean; message: string }>;
   syncCourier: (id: string) => Promise<{ success: boolean; message: string }>;
-  createShipmentForOrder: (orderId: string, provider: CourierProviderCode, weightKg?: number) => Promise<{ success: boolean; awb?: string; trackingNumber?: string }>;
+  createShipmentForOrder: (orderId: string, provider: CourierProviderCode, weightKg?: number) => Promise<{ success: boolean; awb?: string; trackingNumber?: string; labelUrl?: string }>;
   updateShipmentStatus: (shipmentId: string, status: any, note?: string) => Promise<void>;
 
   // Real Payment Gateways & Transactions
@@ -1404,22 +1408,22 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return INITIAL_COUPONS;
   });
   const [shippingMap, setShippingMap] = useState<Record<string, ShippingZone[]>>(() =>
-    isLiveApiActive() ? {} : INITIAL_SHIPPING,
+    API_MODE ? {} : INITIAL_SHIPPING,
   );
   const [shippingMethodsMap, setShippingMethodsMap] = useState<Record<string, ShippingMethodItem[]>>(() =>
-    isLiveApiActive() ? {} : INITIAL_SHIPPING_METHODS,
+    API_MODE ? {} : INITIAL_SHIPPING_METHODS,
   );
   const [couriersMap, setCouriersMap] = useState<Record<string, CourierConnectionItem[]>>(() =>
-    isLiveApiActive() ? {} : INITIAL_COURIERS,
+    API_MODE ? {} : INITIAL_COURIERS,
   );
   const [shipmentsMap, setShipmentsMap] = useState<Record<string, ShipmentItem[]>>(() =>
-    isLiveApiActive() ? {} : INITIAL_SHIPMENTS,
+    API_MODE ? {} : INITIAL_SHIPMENTS,
   );
   const [paymentGatewaysMap, setPaymentGatewaysMap] = useState<Record<string, PaymentGatewayItem[]>>(() =>
-    isLiveApiActive() ? {} : INITIAL_PAYMENT_GATEWAYS,
+    API_MODE ? {} : INITIAL_PAYMENT_GATEWAYS,
   );
   const [paymentTransactionsMap, setPaymentTransactionsMap] = useState<Record<string, PaymentTransactionItem[]>>(() =>
-    isLiveApiActive() ? {} : INITIAL_PAYMENT_TRANSACTIONS,
+    API_MODE ? {} : INITIAL_PAYMENT_TRANSACTIONS,
   );
   const [blogs] = useState<PlatformBlog[]>(() => (isLiveApiActive() ? [] : INITIAL_BLOGS));
 
@@ -3707,12 +3711,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               : prodData.scheduledPublishAt
                 ? 'scheduled'
                 : 'draft',
-          image_url: prodData.image,
+          image_url: sanitizeProductImageUrl(prodData.image),
           original_price: apiPricing.original_price,
           description: prodData.description ?? null,
           subtitle: prodData.subtitle ?? null,
           subtitle_ar: prodData.subtitleAr ?? null,
-          gallery_urls: prodData.galleryUrls ?? [],
+          gallery_urls: (prodData.galleryUrls ?? [])
+            .map((u) => sanitizeProductImageUrl(u))
+            .filter(Boolean),
           video_url: prodData.videoUrl ?? null,
           tags: prodData.tags ?? [],
           product_options: prodData.productOptions ?? [],
@@ -3901,6 +3907,10 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (dataSourceRef.current === 'api') {
       const body: import('../api/tenantApi').UpdateProductPayload = {};
       if (patch.name !== undefined) body.name = patch.name;
+      if (patch.nameAr !== undefined) body.name_ar = patch.nameAr ?? null;
+      if (patch.nameEn !== undefined && patch.name === undefined) {
+        body.name = patch.nameEn;
+      }
       if (
         patch.price !== undefined ||
         patch.discountedPrice !== undefined ||
@@ -3934,11 +3944,15 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               ? 'scheduled'
               : 'draft';
       }
-      if (patch.image !== undefined) body.image_url = patch.image;
+      if (patch.image !== undefined) body.image_url = sanitizeProductImageUrl(patch.image);
       if (patch.description !== undefined) body.description = patch.description;
       if (patch.subtitle !== undefined) body.subtitle = patch.subtitle;
       if (patch.subtitleAr !== undefined) body.subtitle_ar = patch.subtitleAr;
-      if (patch.galleryUrls !== undefined) body.gallery_urls = patch.galleryUrls;
+      if (patch.galleryUrls !== undefined) {
+        body.gallery_urls = (patch.galleryUrls || [])
+          .map((u) => sanitizeProductImageUrl(u))
+          .filter(Boolean);
+      }
       if (patch.videoUrl !== undefined) body.video_url = patch.videoUrl;
       if (patch.tags !== undefined) body.tags = patch.tags;
       if (patch.productOptions !== undefined) body.product_options = patch.productOptions;
@@ -4185,6 +4199,22 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     payment_plan: orderData.paymentPlan ?? undefined,
     amount_paid: orderData.amountPaid ?? undefined,
     remaining_balance: orderData.remainingBalance ?? undefined,
+    shipping_cost:
+      typeof orderData.shippingFee === 'number' && Number.isFinite(orderData.shippingFee)
+        ? Number(orderData.shippingFee)
+        : undefined,
+    subtotal:
+      typeof orderData.subtotal === 'number' && Number.isFinite(orderData.subtotal)
+        ? Number(orderData.subtotal)
+        : undefined,
+    discount_amount:
+      typeof orderData.discountAmount === 'number' && Number.isFinite(orderData.discountAmount)
+        ? Number(orderData.discountAmount)
+        : undefined,
+    tax:
+      typeof orderData.tax === 'number' && Number.isFinite(orderData.tax)
+        ? Number(orderData.tax)
+        : undefined,
     items:
       orderData.items?.map((i) => ({
         product_id: i.id,
@@ -4496,6 +4526,20 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             return next;
           });
           bumpCacheTag(storeTag(resolvedStoreId, 'orders'));
+          try {
+            window.dispatchEvent(
+              new CustomEvent('unityteck-order-updated', {
+                detail: {
+                  storeId: resolvedStoreId,
+                  orderId,
+                  status: updated.status || status,
+                  order: updated,
+                },
+              }),
+            );
+          } catch {
+            /* ignore */
+          }
           // Skip full revalidate — optimistic update already shows the new status instantly.
         })
         .catch((err) => {
@@ -4548,6 +4592,22 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return next;
         });
         bumpCacheTag(storeTag(resolvedStoreId, 'orders'));
+        try {
+          window.dispatchEvent(
+            new CustomEvent('unityteck-order-updated', {
+              detail: {
+                storeId: resolvedStoreId,
+                orderId,
+                status: updated.status,
+                paymentStatus: updated.paymentStatus,
+                shippingStatus: (updated as { shippingStatus?: string }).shippingStatus,
+                order: updated,
+              },
+            }),
+          );
+        } catch {
+          /* ignore */
+        }
         void revalidateResource(resolvedStoreId, 'orders');
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Update order failed';
@@ -5382,7 +5442,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           shippingStatus: 'In Transit',
         } : o),
       }));
-      return { success: true, awb: created.awbNumber, trackingNumber: created.trackingNumber };
+      return {
+        success: true,
+        awb: created.awbNumber,
+        trackingNumber: created.trackingNumber,
+        labelUrl: created.labelUrl || undefined,
+      };
     } catch (err) {
       // Zero-mock: never invent AWB / tracking on courier API failure.
       setApiError(

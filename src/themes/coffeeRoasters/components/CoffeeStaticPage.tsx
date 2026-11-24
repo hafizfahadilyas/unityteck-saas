@@ -48,6 +48,8 @@ import {
   StoreCustomPage,
 } from '../../../services/storePagesService';
 import { useTenant } from '../../../context/TenantContext';
+import { trackStorefrontOrder } from '../../../api/tenantApi';
+import { mapTrackApiToCoffeeResult } from '../../../utils/orderTrackingDisplay';
 import { coffeeWhatsAppDigits } from '../../settings/coffeeModularSettings';
 import { fetchStorefrontThemeApi } from '../../../api/tenantApi';
 import { publishedLayoutCopy } from '../publishedLayout';
@@ -261,64 +263,62 @@ export const CoffeeStaticPage: React.FC<CoffeeStaticPageProps> = ({ pageRoute, s
     return () => window.removeEventListener('unityteck-pages-changed', handleSync);
   }, [effectiveSlug, activeStore?.id, isPublicLayout]);
 
-  // Order tracking search against real store orders
+  // Order tracking — live Hostinger API (store_id + order + phone)
   const handleTrackSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!trackOrderInput.trim()) return;
+    const storeId = activeStore?.id;
+    if (!storeId) {
+      showToast(isAr ? 'المتجر غير معروف.' : 'Store is unknown.');
+      return;
+    }
+    if (!trackPhoneInput.trim()) {
+      showToast(isAr ? 'أدخل رقم الجوال المرتبط بالطلب.' : 'Enter the mobile number on the order.');
+      return;
+    }
 
     setIsSearchingTrack(true);
-    setTimeout(() => {
-      setIsSearchingTrack(false);
-      const cleanNum = trackOrderInput.trim().toUpperCase();
-      const phoneClean = trackPhoneInput.trim().replace(/[^0-9]/g, '');
-
-      // Search real store orders
-      const foundOrder = (currentOrders || []).find((o: any) => {
-        const orderNum = String(o.orderNumber || o.id || '').toUpperCase();
-        const oPhone = String(o.customerPhone || '').replace(/[^0-9]/g, '');
-        if (cleanNum && orderNum.includes(cleanNum)) return true;
-        if (phoneClean && oPhone && oPhone.includes(phoneClean)) return true;
-        return false;
-      });
-
-      if (foundOrder) {
-        const isDelivered = foundOrder.status === 'delivered';
-        const isShipped = foundOrder.status === 'shipped' || isDelivered;
-        const isProcessing = foundOrder.status === 'processing' || isShipped;
-
-        const tracking = String((foundOrder as { trackingNumber?: string }).trackingNumber || '').trim();
-        const carrier = String((foundOrder as { shippingCompany?: string }).shippingCompany || '').trim();
-        const waiting = isAr ? 'بانتظار التحديث' : 'Waiting for an update';
+    void (async () => {
+      try {
+        const data = await trackStorefrontOrder(storeId, {
+          order_number: trackOrderInput.trim(),
+          phone: trackPhoneInput.trim(),
+          store_id: storeId,
+        });
+        const mapped = mapTrackApiToCoffeeResult(data, isAr);
         setTrackingResult({
-          orderNumber: foundOrder.orderNumber || foundOrder.id,
-          status: isAr
-            ? (isDelivered ? 'تم تسليم الشحنة' : isShipped ? 'الشحنة في الطريق' : 'الطلب قيد التجهيز')
-            : (isDelivered ? 'Delivered' : isShipped ? 'In transit' : 'Being prepared'),
-          courier: carrier || (isAr ? 'شركة الشحن غير محددة' : 'Carrier not set'),
-          trackingNumber: tracking || (isAr ? 'رقم التتبع غير محفوظ' : 'No tracking number saved'),
-          estimatedDelivery: isAr ? 'يظهر عند توفره من شركة الشحن' : 'Shown when the carrier provides it',
-          destination: foundOrder.deliveryLocation || (isAr ? 'العنوان غير محفوظ' : 'Address not saved'),
-          steps: [
-            { titleAr: 'تم تسجيل الطلب', titleEn: 'Order recorded', date: foundOrder.date || waiting, done: true },
-            { titleAr: 'قيد التجهيز', titleEn: 'Being prepared', date: waiting, done: isProcessing },
-            { titleAr: 'خرجت للشحن', titleEn: 'Shipped', date: waiting, done: isShipped },
-            { titleAr: 'مع المندوب', titleEn: 'Out for delivery', date: waiting, done: isShipped },
-            { titleAr: 'تم التسليم', titleEn: 'Delivered', date: waiting, done: isDelivered },
-          ]
+          orderNumber: mapped.orderNumber,
+          status: mapped.status,
+          courier: mapped.courier || (isAr ? 'شركة الشحن غير محددة' : 'Carrier not set'),
+          trackingNumber:
+            mapped.trackingNumber ||
+            (isAr ? 'رقم التتبع غير محفوظ' : 'No tracking number saved'),
+          estimatedDelivery:
+            mapped.estimatedDelivery ||
+            (isAr ? 'يظهر عند توفره من شركة الشحن' : 'Shown when the carrier provides it'),
+          destination:
+            mapped.destination || (isAr ? 'العنوان غير محفوظ' : 'Address not saved'),
+          steps: mapped.steps,
         });
         showToast(
-          tracking
-            ? (isAr ? 'تم العثور على الطلب ورقم التتبع' : 'Order and tracking number found')
-            : (isAr ? 'تم العثور على الطلب. رقم التتبع غير محفوظ بعد' : 'Order found. No tracking number is saved yet'),
+          mapped.trackingNumber
+            ? isAr
+              ? 'تم العثور على الطلب ورقم التتبع'
+              : 'Order and tracking number found'
+            : isAr
+              ? 'تم العثور على الطلب. رقم التتبع غير محفوظ بعد'
+              : 'Order found. No tracking number is saved yet',
         );
-      } else {
+      } catch {
         setTrackingResult({
           notFound: true,
-          orderNumber: cleanNum,
+          orderNumber: trackOrderInput.trim().toUpperCase(),
         });
         showToast(isAr ? 'لم يتم العثور على طلب بهذا الرقم' : 'No order found with this reference');
+      } finally {
+        setIsSearchingTrack(false);
       }
-    }, 500);
+    })();
   };
 
   // Warranty serial — search real order/product metadata for this store only (no fake hits)

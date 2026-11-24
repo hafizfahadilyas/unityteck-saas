@@ -747,7 +747,7 @@ export const BuilderCheckoutPage: React.FC<BuilderPageProps> = ({
             {isAr ? 'الدفع السريع المعتمد (مدى · أبل باي · تمارا)' : 'Saudi Express Checkout & ZATCA Invoice'}
           </h1>
           <p className="text-xs text-slate-500">
-            {isAr ? 'دفع آمن ومشفر متوافق مع هيئة الزكاة والضريبة والجمارك' : 'Encrypted 256-bit checkout compliant with ZATCA KSA standards'}
+            {isAr ? 'دفع آمن ومشفر متوافق مع هيئة الزكاة والضريبة والجمارك' : 'Encrypted 256-bit checkout compliant with ZATCA standards'}
           </p>
         </div>
         <button
@@ -1513,7 +1513,7 @@ export const BuilderPrivacyPage: React.FC<BuilderPageProps> = ({
           {isAr ? `سياسة الخصوصية وسرية البيانات -${storeName}` : `Privacy & Data Protection Policy - ${storeName}`}
         </h1>
         <p className="text-xs text-slate-500">
-          {isAr ? 'متوافقة مع نظام حماية البيانات الشخصية بالمملكة وهيئة الزكاة والضريبة والجمارك' : 'Compliant with KSA Personal Data Protection Law (PDPL) and ZATCA regulations'}
+          {isAr ? 'متوافقة مع نظام حماية البيانات الشخصية بالمملكة وهيئة الزكاة والضريبة والجمارك' : 'Compliant with Saudi Personal Data Protection Law (PDPL) and ZATCA regulations'}
         </p>
       </div>
 

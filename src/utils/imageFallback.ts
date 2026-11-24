@@ -2,13 +2,10 @@
  * Standard Image Fallback Utilities
  * Provides resilient fallbacks for products, banners, and icons.
  * Guarantees zero broken image icons across all dashboards and storefronts.
+ *
+ * NEVER persist FALLBACK_PRODUCT_IMAGE / synthetic placeholders into product rows.
+ * Empty product image → empty string in DB; UI shows neutral SVG only for display/onError.
  */
-
-export const FALLBACK_PRODUCT_IMAGE =
-  '/images/hadaya_saudi_luxury_bouquet_1791300211553.webp';
-
-export const FALLBACK_STORE_LOGO =
-  '/images/logo.png';
 
 /**
  * Clean inline SVG data URL for instant zero-network fallback
@@ -16,6 +13,36 @@ export const FALLBACK_STORE_LOGO =
 export const FALLBACK_SVG_PLACEHOLDER =
   'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="%23f1f5f9"/><path d="M70 130 L95 100 L115 120 L130 105 L150 130 Z" fill="%23cbd5e1"/><circle cx="85" cy="80" r="12" fill="%23cbd5e1"/></svg>';
 
+/** Legacy flowers bouquet that was wrongly injected as every-store default — never re-use as create seed. */
+export const LEGACY_FLOWERS_PRODUCT_FALLBACK =
+  '/images/hadaya_saudi_luxury_bouquet_1791300211553.webp';
+
+/** Neutral display-only placeholder (not a real product photo; never save this). */
+export const FALLBACK_PRODUCT_IMAGE = FALLBACK_SVG_PLACEHOLDER;
+
+export const FALLBACK_STORE_LOGO =
+  '/images/logo.png';
+
+/** True when URL is empty or a synthetic/legacy default — must not be stored as product image. */
+export function isSyntheticProductImage(url?: string | null): boolean {
+  if (!url || typeof url !== 'string') return true;
+  const t = url.trim();
+  if (!t) return true;
+  if (t === FALLBACK_SVG_PLACEHOLDER || t.startsWith('data:image/svg')) return true;
+  // Only the auto-injected .webp default (catalog may still use the .jpg asset intentionally).
+  if (t === LEGACY_FLOWERS_PRODUCT_FALLBACK || /hadaya_saudi_luxury_bouquet_1791300211553\.webp/i.test(t)) {
+    return true;
+  }
+  return false;
+}
+
+/** Persist-safe image URL: empty when missing/synthetic; otherwise cleaned real path. */
+export function sanitizeProductImageUrl(url?: string | null): string {
+  if (isSyntheticProductImage(url)) return '';
+  const cleaned = cleanImageUrl(String(url).trim());
+  if (isSyntheticProductImage(cleaned)) return '';
+  return cleaned;
+}
 /**
  * Validates that an image URL is non-empty and has a valid protocol/scheme
  * (handles http, https, data:image, blob, relative path, svg)
@@ -64,11 +91,12 @@ export const COFFEE_STOREFRONT_IMAGE_FALLBACK = '/images/hibrew_h7a_flagship_mac
 
 /**
  * Normalize any legacy /src/assets/images/ paths to canonical /images/
+ * Empty / missing → '' (caller chooses display fallback; never invent a flowers photo).
  */
 export function cleanImageUrl(url?: string | null): string {
-  if (!url || typeof url !== 'string') return FALLBACK_PRODUCT_IMAGE;
+  if (!url || typeof url !== 'string') return '';
   let trimmed = url.trim();
-  if (!trimmed) return FALLBACK_PRODUCT_IMAGE;
+  if (!trimmed) return '';
   if (trimmed.startsWith('./src/assets/images/')) {
     trimmed = trimmed.replace('./src/assets/images/', '/images/');
   }
@@ -240,9 +268,8 @@ export function resolveProductThumbnail(item?: {
   product_name?: string;
 } | null): string {
   if (!item) return FALLBACK_PRODUCT_IMAGE;
-  if (item.image && typeof item.image === 'string' && item.image.trim().length > 5) {
-    return cleanImageUrl(item.image);
-  }
+  const fromRow = sanitizeProductImageUrl(item.image);
+  if (fromRow) return fromRow;
 
   // 1. Direct SKU or ID match
   const sku = (item.sku || '').toUpperCase();

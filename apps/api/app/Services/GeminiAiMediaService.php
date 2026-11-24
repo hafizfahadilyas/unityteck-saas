@@ -641,16 +641,46 @@ final class GeminiAiMediaService
         $productType = trim((string) ($input['product_type'] ?? ''));
         $storeName = trim((string) ($input['store_name'] ?? ''));
         $seed = trim((string) ($input['seed'] ?? ''));
-
-        $facts = [];
-        if ($name !== '') {
-            $facts[] = 'Current name: '.$name;
+        $imageUrl = trim((string) ($input['image_url'] ?? ''));
+        $availableCategories = [];
+        if (is_array($input['available_categories'] ?? null)) {
+            foreach ($input['available_categories'] as $c) {
+                $c = trim((string) $c);
+                if ($c !== '' && mb_strlen($c) <= 120) {
+                    $availableCategories[] = $c;
+                }
+                if (count($availableCategories) >= 80) {
+                    break;
+                }
+            }
         }
+        $availableBrands = [];
+        if (is_array($input['available_brands'] ?? null)) {
+            foreach ($input['available_brands'] as $b) {
+                $b = trim((string) $b);
+                if ($b !== '' && mb_strlen($b) <= 80) {
+                    $availableBrands[] = $b;
+                }
+                if (count($availableBrands) >= 60) {
+                    break;
+                }
+            }
+        }
+
+        if (mb_strlen($name) < 2) {
+            return [
+                'ok' => false,
+                'code' => 'missing_context',
+                'message' => 'Enter a product name first so AI can fetch real product details.',
+            ];
+        }
+
+        $facts = ['Product name (required): '.$name];
         if ($category !== '') {
-            $facts[] = 'Category: '.$category;
+            $facts[] = 'Current category: '.$category;
         }
         if ($brand !== '') {
-            $facts[] = 'Brand: '.$brand;
+            $facts[] = 'Current brand: '.$brand;
         }
         if ($productType !== '') {
             $facts[] = 'Product type: '.$productType;
@@ -661,29 +691,77 @@ final class GeminiAiMediaService
         if ($seed !== '') {
             $facts[] = 'Merchant notes: '.$seed;
         }
-        if ($facts === []) {
-            return [
-                'ok' => false,
-                'code' => 'missing_context',
-                'message' => 'Enter a product name, category, or brand first so AI can suggest copy.',
-            ];
+        if ($availableCategories !== []) {
+            $facts[] = 'Store category options (prefer exact matches only): '.implode(' | ', $availableCategories);
+        }
+        if ($availableBrands !== []) {
+            $facts[] = 'Store brand options (prefer exact matches when possible): '.implode(' | ', $availableBrands);
+        }
+
+        $inline = null;
+        if ($imageUrl !== '' && preg_match('#^https?://#i', $imageUrl)) {
+            try {
+                $imgRes = Http::timeout(18)
+                    ->withHeaders(['Accept' => 'image/*,*/*;q=0.8', 'User-Agent' => 'SouqProductAI/1.0'])
+                    ->get($imageUrl);
+                if ($imgRes->successful()) {
+                    $bin = $imgRes->body();
+                    $len = strlen($bin);
+                    if ($len >= 64 && $len <= 3500000) {
+                        $mime = strtolower(explode(';', (string) $imgRes->header('Content-Type'))[0] ?? '');
+                        if (! str_starts_with($mime, 'image/')) {
+                            $finfo = new \finfo(FILEINFO_MIME_TYPE);
+                            $mime = (string) $finfo->buffer($bin);
+                        }
+                        if ($mime === 'image/jpg') {
+                            $mime = 'image/jpeg';
+                        }
+                        if (in_array($mime, ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], true)) {
+                            $inline = ['mime' => $mime, 'base64' => base64_encode($bin)];
+                            $facts[] = 'A real product photo is attached — read brand/logo, model text, labels, visible specs, and any printed SAR price from the image.';
+                        }
+                    }
+                }
+            } catch (\Throwable) {
+                $inline = null;
+            }
         }
 
         $langLine = $wantAr
-            ? 'Write ALL three fields in clear formal Arabic only (no English words in the values).'
-            : 'Write ALL three fields in clear English only (no Arabic words in the values).';
+            ? 'Write title/subtitle/description/seo_title/seo_description/tags in clear formal Arabic only (no English words inside those values). Brand names and model codes may stay as printed on the product.'
+            : 'Write title/subtitle/description/seo_title/seo_description/tags in clear English only (no Arabic words inside those values). Brand names and model codes may stay as printed on the product.';
 
         $instruction = implode("\n", [
-            'You write Saudi e-commerce product catalog copy for a multi-store SaaS merchant.',
+            'You enrich Saudi e-commerce product catalog fields from the REAL product name and optional product photo.',
             $langLine,
-            'Return ONLY valid JSON with keys: title, subtitle, description.',
-            'title = product display name, max 80 characters, no quotes.',
-            'subtitle = one short marketing line under the title, max 120 characters.',
-            'description = 2-4 short paragraphs of honest product description HTML using <p> tags only (no scripts, no fake reviews, no invented specs).',
-            'Do not invent stock counts, prices, ratings, or competitor claims.',
+            'Return ONLY valid JSON with keys: title, subtitle, description, seo_title, seo_description, tags, brand, categories, price_sar, price_source, google_taxonomy, barcode, weight_kg.',
+            'title = accurate product display name from the given name/image, max 80 chars.',
+            'subtitle = one short factual marketing line, max 120 chars.',
+            'description = 2-4 short HTML <p> paragraphs based on identifiable product facts from name/image. No invented reviews, ratings, or competitor claims.',
+            'seo_title max 60 chars; seo_description max 155 chars — honest Saudi shopper SEO.',
+            'tags = 3-6 short catalog tags. No fake sales numbers.',
+            'brand = real brand if identifiable from name or image logo/text; else empty string. Prefer a store brand option when it matches.',
+            'categories = JSON array of 1-3 labels chosen ONLY from the store category options list when provided; if no good match, return []. Never invent unrelated categories.',
+            'price_sar = number in Saudi Riyal ONLY if a price is clearly printed on the image OR you are highly certain of the official list price for this exact model. Otherwise null. NEVER guess a random price.',
+            'price_source = "image" | "known_model" | null matching price_sar.',
+            'google_taxonomy = short Google product category path if confidently known, else empty string.',
+            'barcode = only if clearly readable on the image, else empty string.',
+            'weight_kg = only if clearly printed on packaging/image, else null.',
+            'Do NOT invent stock, SKU, ratings, fake engagement, or dummy commerce metrics.',
             'Facts:',
             implode("\n", $facts),
         ]);
+
+        $contentParts = [];
+        if ($inline) {
+            $contentParts[] = [
+                'inline_data' => [
+                    'mime_type' => $inline['mime'],
+                    'data' => $inline['base64'],
+                ],
+            ];
+        }
+        $contentParts[] = ['text' => $instruction];
 
         $lastFail = [
             'ok' => false,
@@ -697,17 +775,17 @@ final class GeminiAiMediaService
                 .':generateContent?key='.rawurlencode($apiKey);
 
             try {
-                $response = Http::timeout(35)
+                $response = Http::timeout($inline ? 55 : 35)
                     ->withOptions(['curl' => self::geminiCurlOpts()])
                     ->acceptJson()
                     ->asJson()
                     ->post($url, [
                         'contents' => [
-                            ['parts' => [['text' => $instruction]]],
+                            ['parts' => $contentParts],
                         ],
                         'generationConfig' => self::textGenerationConfig($model, [
-                            'temperature' => 0.55,
-                            'maxOutputTokens' => 1024,
+                            'temperature' => 0.35,
+                            'maxOutputTokens' => 2048,
                             'responseMimeType' => 'application/json',
                         ]),
                     ]);
@@ -748,6 +826,80 @@ final class GeminiAiMediaService
                 $title = trim((string) ($decoded['title'] ?? ''));
                 $subtitle = trim((string) ($decoded['subtitle'] ?? ''));
                 $description = trim((string) ($decoded['description'] ?? ''));
+                $seoTitle = trim((string) ($decoded['seo_title'] ?? ''));
+                $seoDescription = trim((string) ($decoded['seo_description'] ?? ''));
+                $outBrand = trim((string) ($decoded['brand'] ?? ''));
+                $googleTaxonomy = trim((string) ($decoded['google_taxonomy'] ?? ''));
+                $tagsRaw = $decoded['tags'] ?? [];
+                $tags = [];
+                if (is_array($tagsRaw)) {
+                    foreach ($tagsRaw as $tag) {
+                        $t = trim((string) $tag);
+                        if ($t === '' || mb_strlen($t) > 40) {
+                            continue;
+                        }
+                        $tags[] = $t;
+                        if (count($tags) >= 8) {
+                            break;
+                        }
+                    }
+                }
+                $catsRaw = $decoded['categories'] ?? [];
+                $categoriesOut = [];
+                if (is_array($catsRaw)) {
+                    foreach ($catsRaw as $c) {
+                        $c = trim((string) $c);
+                        if ($c === '' || mb_strlen($c) > 120) {
+                            continue;
+                        }
+                        if ($availableCategories !== []) {
+                            $hit = null;
+                            foreach ($availableCategories as $opt) {
+                                if (mb_strtolower($opt) === mb_strtolower($c)) {
+                                    $hit = $opt;
+                                    break;
+                                }
+                            }
+                            if ($hit === null) {
+                                foreach ($availableCategories as $opt) {
+                                    $ol = mb_strtolower($opt);
+                                    $cl = mb_strtolower($c);
+                                    if (str_contains($ol, $cl) || str_contains($cl, $ol)) {
+                                        $hit = $opt;
+                                        break;
+                                    }
+                                }
+                            }
+                            if ($hit === null) {
+                                continue;
+                            }
+                            $c = $hit;
+                        }
+                        if (! in_array($c, $categoriesOut, true)) {
+                            $categoriesOut[] = $c;
+                        }
+                        if (count($categoriesOut) >= 3) {
+                            break;
+                        }
+                    }
+                }
+                $priceSar = null;
+                $priceSource = null;
+                if (array_key_exists('price_sar', $decoded) && $decoded['price_sar'] !== null && $decoded['price_sar'] !== '') {
+                    $p = (float) $decoded['price_sar'];
+                    $src = strtolower(trim((string) ($decoded['price_source'] ?? '')));
+                    if ($p > 0 && $p < 500000 && ($src === 'image' || $src === 'known_model')) {
+                        $priceSar = round($p, 2);
+                        $priceSource = $src;
+                    }
+                }
+                $weightKg = null;
+                if (array_key_exists('weight_kg', $decoded) && $decoded['weight_kg'] !== null && $decoded['weight_kg'] !== '') {
+                    $w = (float) $decoded['weight_kg'];
+                    if ($w > 0 && $w < 500) {
+                        $weightKg = round($w, 3);
+                    }
+                }
                 if (mb_strlen($title) < 2 && mb_strlen($description) < 8) {
                     $lastFail = [
                         'ok' => false,
@@ -756,12 +908,41 @@ final class GeminiAiMediaService
                     ];
                     continue;
                 }
+                if ($title === '') {
+                    $title = $name;
+                }
+                if ($seoTitle === '' && $title !== '') {
+                    $seoTitle = mb_substr($title, 0, 60);
+                }
+                if ($seoDescription === '' && $description !== '') {
+                    $plain = trim(preg_replace('/\s+/u', ' ', strip_tags($description)) ?? '');
+                    $seoDescription = mb_substr($plain, 0, 155);
+                }
+                if ($outBrand !== '' && $availableBrands !== []) {
+                    foreach ($availableBrands as $ob) {
+                        if (mb_strtolower($ob) === mb_strtolower($outBrand)) {
+                            $outBrand = $ob;
+                            break;
+                        }
+                    }
+                }
 
                 return [
                     'ok' => true,
                     'title' => mb_substr($title, 0, 120),
                     'subtitle' => mb_substr($subtitle, 0, 200),
                     'description' => mb_substr($description, 0, 8000),
+                    'seo_title' => mb_substr($seoTitle, 0, 70),
+                    'seo_description' => mb_substr($seoDescription, 0, 160),
+                    'tags' => $tags,
+                    'brand' => mb_substr($outBrand, 0, 80),
+                    'categories' => $categoriesOut,
+                    'price_sar' => $priceSar,
+                    'price_source' => $priceSource,
+                    'google_taxonomy' => mb_substr($googleTaxonomy, 0, 160),
+                    'barcode' => '',
+                    'weight_kg' => $weightKg,
+                    'used_image' => $inline !== null,
                     'model' => $model,
                 ];
             } catch (\Throwable $e) {

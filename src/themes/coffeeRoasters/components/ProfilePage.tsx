@@ -30,8 +30,22 @@ import {
 
 import { useTenant } from '../../../context/TenantContext';
 import { CustomerLoyaltyProfileSection } from '../../../components/storefront/CustomerLoyaltyProfileSection';
-import { fetchStorefrontLoyaltyBalanceApi } from '../../../api/tenantApi';
+import {
+  fetchStorefrontLoyaltyBalanceApi,
+  fetchStorefrontCustomerOrders,
+  fetchStorefrontCustomerNotifications,
+  type StorefrontCustomerOrderRow,
+  type StorefrontCustomerNotificationRow,
+} from '../../../api/tenantApi';
 import { readSfCustomer } from '../../flowersPremium/sfCustomerSession';
+import {
+  customerNotificationEventLabel,
+  customerOrderStatusLabel,
+  customerPaymentStatusLabel,
+  customerShippingStatusLabel,
+} from '../../../utils/orderTrackingDisplay';
+import { localizePaymentMethod } from '../../../utils/domainLabels';
+import { parseDeliveryLocation } from '../thankYouOrder';
 
 type ClerkCustomerBridge = {
   isLoaded: boolean;
@@ -59,7 +73,7 @@ type ClerkCustomerBridge = {
 };
 
 function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
-  const { user, logoutUser, language, showToast, lastOrder, navigateTo } = useCart();
+  const { user, logoutUser, language, showToast, lastOrder, setLastOrder, navigateTo } = useCart();
   const { activeStore, currentOrders } = useTenant();
 
   const [emailInput, setEmailInput] = useState('');
@@ -69,6 +83,9 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authErrorCode, setAuthErrorCode] = useState('');
   const [loyaltyPoints, setLoyaltyPoints] = useState(user.points || 0);
+  const [liveOrders, setLiveOrders] = useState<StorefrontCustomerOrderRow[]>([]);
+  const [liveNotifs, setLiveNotifs] = useState<StorefrontCustomerNotificationRow[]>([]);
+  const [ordersBusy, setOrdersBusy] = useState(false);
   const sfCustomer = activeStore?.id ? readSfCustomer(activeStore.id) : null;
 
   const storeDisplayName = activeStore?.name || (language === 'AR' ? 'متجر القهوة المختصة' : 'Specialty Coffee Roasters');
@@ -102,6 +119,69 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
       window.removeEventListener('unityteck-loyalty-balance', onBalance);
     };
   }, [activeStore?.id, sfCustomer?.customerId, user.isLoggedIn]);
+
+  // Real order / payment / shipping + notifications for this customer (store_id only).
+  useEffect(() => {
+    if (!user.isLoggedIn || !activeStore?.id) {
+      setLiveOrders([]);
+      setLiveNotifs([]);
+      return;
+    }
+    const email = (user.email || sfCustomer?.email || '').trim();
+    const phone = (user.phone || sfCustomer?.phone || '').trim();
+    const customerId = sfCustomer?.customerId || '';
+    if (!email && !phone && !customerId) return;
+
+    let cancelled = false;
+    const load = async (silent = false) => {
+      if (!silent) setOrdersBusy(true);
+      try {
+        const [orders, notifs] = await Promise.all([
+          fetchStorefrontCustomerOrders(activeStore.id, {
+            email: email || undefined,
+            phone: phone || undefined,
+            customer_id: customerId || undefined,
+          }),
+          email || phone
+            ? fetchStorefrontCustomerNotifications(activeStore.id, {
+                email: email || undefined,
+                phone: phone || undefined,
+              })
+            : Promise.resolve([] as StorefrontCustomerNotificationRow[]),
+        ]);
+        if (cancelled) return;
+        setLiveOrders(Array.isArray(orders) ? orders : []);
+        setLiveNotifs(Array.isArray(notifs) ? notifs : []);
+      } catch {
+        if (!cancelled && !silent) {
+          /* keep previous — never invent rows */
+        }
+      } finally {
+        if (!cancelled) setOrdersBusy(false);
+      }
+    };
+
+    void load(false);
+    const poll = window.setInterval(() => void load(true), 25_000);
+    const onOrderUpdated = (e: Event) => {
+      const d = (e as CustomEvent<{ storeId?: string }>).detail;
+      if (!d?.storeId || d.storeId === activeStore.id) void load(true);
+    };
+    window.addEventListener('unityteck-order-updated', onOrderUpdated);
+    return () => {
+      cancelled = true;
+      window.clearInterval(poll);
+      window.removeEventListener('unityteck-order-updated', onOrderUpdated);
+    };
+  }, [
+    user.isLoggedIn,
+    user.email,
+    user.phone,
+    activeStore?.id,
+    sfCustomer?.email,
+    sfCustomer?.phone,
+    sfCustomer?.customerId,
+  ]);
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,7 +236,8 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
       });
       setOtpStep(false);
       setOtpCode('');
-      void clerk.signOut({ redirectUrl: window.location.href }).catch(() => undefined);
+      // Stay on storefront profile — never hard-nav (can yank into /admin).
+      void clerk.signOut({ redirectUrl: undefined }).catch(() => undefined);
     } catch {
       setAuthErrorCode('CODE_WRONG');
     } finally {
@@ -268,7 +349,44 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
     }
   }, []);
 
-  // Real store orders for this customer — this store_id only
+  // Prefer live API orders for this customer + store_id; merge local lastOrder if missing.
+  const apiMappedOrders = liveOrders.map((o) => {
+    const loc = parseDeliveryLocation(o.delivery_location || '');
+    return {
+      id: o.id || o.order_number,
+      orderNumber: o.order_number,
+      date: o.order_date || (o.updated_at ? o.updated_at.slice(0, 10) : ''),
+      paymentStatus: o.payment_status || 'pending',
+      shippingStatus: o.shipping_status || '',
+      trackingNumber: o.tracking_number || o.awb_number || '',
+      courierCode: o.courier_code || '',
+      items: (o.items || []).map((it) => ({
+        id: it.id || it.product_id || 'item',
+        productId: it.product_id || it.sku || it.id,
+        productName: it.product_name || (isAr ? 'منتج' : 'Product'),
+        unitPrice: Number(it.unit_price) || 0,
+        quantity: Number(it.quantity) || 1,
+        image: it.image || '',
+        selectedColor: { name: 'Standard', nameAr: 'قياسي', hex: '#333', image: it.image || '' },
+        selectedStorage: { capacity: 'Standard', ram: '', priceDelta: 0 },
+      })),
+      total: Number(o.total_amount) || 0,
+      shippingFee: typeof o.shipping_cost === 'number' ? o.shipping_cost : undefined,
+      paymentMethod: String(o.payment_method || ''),
+      customerNotes: (o as { customer_notes?: string | null }).customer_notes || undefined,
+      customerEmail: o.customer_email || undefined,
+      shippingAddress: {
+        name: o.customer_name || user.name,
+        phone: o.customer_phone || user.phone || '',
+        city: loc.city,
+        district: loc.district,
+        street: loc.street,
+      },
+      status: o.status || 'pending',
+      updatedAt: o.updated_at || '',
+    };
+  });
+
   const matchedTenantOrders = (currentOrders || [])
     .filter((o) => !o.storeId || !activeStore?.id || o.storeId === activeStore.id)
     .filter(
@@ -276,44 +394,81 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
         (user.phone && o.customerPhone && o.customerPhone.includes(user.phone)) ||
         (user.email && o.customerEmail && o.customerEmail.toLowerCase() === user.email.toLowerCase()),
     )
-    .map((o: any) => ({
-      id: o.orderNumber || o.id,
-      orderNumber: o.orderNumber || o.id,
-      date: o.date || new Date().toLocaleDateString('en-GB'),
-      paymentStatus: o.paymentStatus || 'Pending',
-      items: (o.items || []).map((it: any) => ({
-        id: it.id || 'item',
-        productId: it.sku || it.id,
-        productName: it.name,
-        unitPrice: it.price || 0,
-        quantity: it.quantity || 1,
-        image: it.image || '/images/coffee_hero_flagship_machine_1791218907782.jpg',
-        selectedColor: { name: 'Standard', nameAr: 'قياسي', hex: '#333', image: it.image || '' },
-        selectedStorage: { capacity: 'Standard', ram: '', priceDelta: 0 },
-      })),
-      total: o.total || 0,
-      shippingFee: typeof o.shippingFee === 'number' ? o.shippingFee : undefined,
-      paymentMethod: String(o.paymentMethod || 'mada'),
-      shippingAddress: {
-        name: o.customerName || user.name,
-        phone: o.customerPhone || user.phone,
-        city: o.deliveryLocation || '',
-        district: '',
-        street: '',
-      },
-      status: o.status || 'Confirmed',
-    }));
+    .map((o: any) => {
+      const loc = parseDeliveryLocation(o.deliveryLocation || o.shippingAddress || '');
+      return {
+        id: o.orderNumber || o.id,
+        orderNumber: o.orderNumber || o.id,
+        date: o.date || '',
+        paymentStatus: o.paymentStatus || 'Pending',
+        shippingStatus: o.shippingStatus || '',
+        trackingNumber: o.trackingNumber || '',
+        courierCode: o.courierCode || '',
+        items: (o.items || []).map((it: any) => ({
+          id: it.id || 'item',
+          productId: it.sku || it.id,
+          productName: it.name,
+          unitPrice: it.price || 0,
+          quantity: it.quantity || 1,
+          image: it.image || '',
+          selectedColor: { name: 'Standard', nameAr: 'قياسي', hex: '#333', image: it.image || '' },
+          selectedStorage: { capacity: 'Standard', ram: '', priceDelta: 0 },
+        })),
+        total: o.total || 0,
+        shippingFee: typeof o.shippingFee === 'number' ? o.shippingFee : undefined,
+        paymentMethod: String(o.paymentMethod || ''),
+        customerNotes: o.customerNotes || undefined,
+        customerEmail: o.customerEmail || undefined,
+        shippingAddress: {
+          name: o.customerName || user.name,
+          phone: o.customerPhone || user.phone || '',
+          city: loc.city || '',
+          district: loc.district || '',
+          street: loc.street || '',
+        },
+        status: o.status || 'pending',
+        updatedAt: '',
+      };
+    });
 
   const allOrders = [
-    ...(lastOrder ? [lastOrder] : []),
-    ...(user.orders || []),
-    ...matchedTenantOrders,
+    ...apiMappedOrders,
+    ...(lastOrder && !apiMappedOrders.some((o) => o.orderNumber === lastOrder.orderNumber)
+      ? [lastOrder as any]
+      : []),
+    ...matchedTenantOrders.filter(
+      (m) => !apiMappedOrders.some((o) => o.orderNumber === m.orderNumber),
+    ),
   ].filter((v, i, a) => a.findIndex((t) => t.orderNumber === v.orderNumber) === i);
 
   const pendingPaymentOrders = allOrders.filter((o: any) => {
-    const ps = String(o.paymentStatus || o.status || '').toLowerCase();
+    const ps = String(o.paymentStatus || '').toLowerCase();
     return ps === 'pending' || ps === 'unpaid' || ps === 'awaiting_payment';
   });
+
+  const derivedNotifs =
+    liveNotifs.length > 0
+      ? liveNotifs
+      : allOrders.slice(0, 8).map((o: any) => ({
+          id: `ord-${o.orderNumber}-${o.status}-${o.paymentStatus}`,
+          store_id: activeStore?.id || '',
+          order_number: o.orderNumber,
+          event:
+            String(o.status).toLowerCase() === 'shipped'
+              ? 'order_shipped'
+              : String(o.status).toLowerCase() === 'delivered' ||
+                  String(o.status).toLowerCase() === 'completed'
+                ? 'order_delivered'
+                : String(o.paymentStatus).toLowerCase() === 'paid'
+                  ? 'payment_received'
+                  : String(o.status).toLowerCase() === 'cancelled'
+                    ? 'order_cancelled'
+                    : 'order_processing',
+          channel: 'in_app',
+          status: 'sent',
+          preview: null,
+          created_at: o.updatedAt || o.date || null,
+        }));
 
   if (!user.isLoggedIn) {
     return (
@@ -492,11 +647,15 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
             </div>
             <div className="space-y-1">
               <h1 className="honor-heading text-xl sm:text-2xl font-bold text-black tracking-normal">
-                {user.name || user.email}
+                {user.name || sfCustomer?.name || user.email || sfCustomer?.email}
               </h1>
-              <div className="flex items-center gap-3 text-xs text-neutral-500 font-mono">
-                {user.name ? <span>{user.email}</span> : null}
-                {user.phone ? <span>{user.name ? '· ' : ''}{user.phone}</span> : null}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-500 font-mono">
+                {(user.email || sfCustomer?.email) ? (
+                  <span>{user.email || sfCustomer?.email}</span>
+                ) : null}
+                {(user.phone || sfCustomer?.phone) ? (
+                  <span>· {user.phone || sfCustomer?.phone}</span>
+                ) : null}
                 {user.city ? <span>· {user.city}</span> : null}
               </div>
               <div className="flex items-center gap-2 pt-1 text-xs">
@@ -514,7 +673,30 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <button
-              onClick={() => navigateTo('thankyou')}
+              onClick={() => {
+                const latest = allOrders[0];
+                if (latest) {
+                  setLastOrder({
+                    id: String(latest.id || latest.orderNumber),
+                    orderNumber: String(latest.orderNumber),
+                    date: String(latest.date || ''),
+                    items: Array.isArray(latest.items) ? latest.items : [],
+                    total: Number(latest.total) || 0,
+                    shippingFee:
+                      typeof latest.shippingFee === 'number' ? latest.shippingFee : undefined,
+                    paymentMethod: String(latest.paymentMethod || ''),
+                    shippingAddress: {
+                      name: latest.shippingAddress?.name || user.name || '',
+                      phone: latest.shippingAddress?.phone || user.phone || '',
+                      city: latest.shippingAddress?.city || '',
+                      district: latest.shippingAddress?.district || '',
+                      street: latest.shippingAddress?.street || '',
+                    },
+                    status: String(latest.status || 'pending'),
+                  });
+                }
+                navigateTo('thankyou');
+              }}
               className="flex-1 sm:flex-initial px-4 py-2 rounded-full text-xs font-semibold text-neutral-800 hover:text-black transition-colors cursor-pointer bg-neutral-200 hover:bg-neutral-300"
             >
               {language === 'AR' ? 'آخر فاتورة' : 'Latest Invoice'}
@@ -532,15 +714,45 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
 
         <div id="coffee-profile-account" className="scroll-mt-24" />
         <div id="coffee-profile-settings" className="scroll-mt-24" />
-        <div id="coffee-profile-notifications" className="rounded-2xl border border-neutral-100 bg-[#F8F9FA] p-5 scroll-mt-24">
-          <h2 className="text-sm font-bold text-neutral-900 mb-1">
-            {language === 'AR' ? 'الإشعارات' : 'Notifications'}
-          </h2>
-          <p className="text-xs text-neutral-500">
-            {language === 'AR'
-              ? 'لا توجد إشعارات جديدة لهذا المتجر.'
-              : 'No new notifications for this store.'}
-          </p>
+        <div id="coffee-profile-notifications" className="rounded-2xl border border-neutral-100 bg-[#F8F9FA] p-5 scroll-mt-24 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-bold text-neutral-900">
+              {language === 'AR' ? 'الإشعارات' : 'Notifications'}
+            </h2>
+            <span className="text-[10px] font-mono text-neutral-500">
+              {derivedNotifs.length}
+            </span>
+          </div>
+          {derivedNotifs.length === 0 ? (
+            <p className="text-xs text-neutral-500">
+              {language === 'AR'
+                ? 'لا توجد إشعارات جديدة لهذا المتجر.'
+                : 'No new notifications for this store.'}
+            </p>
+          ) : (
+            <ul className="space-y-2 max-h-56 overflow-y-auto">
+              {derivedNotifs.slice(0, 12).map((n) => (
+                <li
+                  key={n.id}
+                  className="rounded-xl bg-white border border-neutral-100 px-3 py-2.5 text-xs space-y-0.5"
+                >
+                  <div className="font-bold text-neutral-900">
+                    {customerNotificationEventLabel(n.event, isAr)}
+                    {n.order_number ? (
+                      <span className="font-mono text-neutral-500"> · #{n.order_number}</span>
+                    ) : null}
+                  </div>
+                  {n.preview ? (
+                    <p className="text-neutral-500 line-clamp-2">{n.preview}</p>
+                  ) : null}
+                  <div className="text-[10px] text-neutral-400 font-mono flex gap-2">
+                    {n.created_at ? <span>{String(n.created_at).slice(0, 16).replace('T', ' ')}</span> : null}
+                    {n.channel && n.channel !== 'in_app' ? <span>{n.channel}</span> : null}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <div id="coffee-profile-wishlist" className="rounded-2xl border border-neutral-100 bg-[#F8F9FA] p-5 scroll-mt-24">
@@ -571,6 +783,8 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
               customerName={user.name || sfCustomer.name}
               customerEmail={user.email || sfCustomer.email}
               customerPhone={user.phone || sfCustomer.phone}
+              language={language === 'AR' || language === 'ar' ? 'AR' : 'EN'}
+              hideDailyGame
             />
           ) : (
             <div className="rounded-2xl border border-neutral-100 bg-[#F8F9FA] p-5">
@@ -594,49 +808,95 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
               {language === 'AR' ? 'لا توجد طلبات بانتظار الدفع.' : 'No orders awaiting payment.'}
             </p>
           ) : (
-            <p className="text-xs font-mono text-amber-800">
-              {pendingPaymentOrders.length}{' '}
-              {language === 'AR' ? 'طلبات بانتظار الدفع' : 'orders awaiting payment'}
-            </p>
+            <div className="space-y-2">
+              {pendingPaymentOrders.map((o: any) => (
+                <div
+                  key={o.orderNumber}
+                  className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs flex flex-wrap items-center justify-between gap-2"
+                >
+                  <span className="font-mono font-bold">#{o.orderNumber}</span>
+                  <span className="font-semibold text-amber-900">
+                    {customerPaymentStatusLabel(String(o.paymentStatus || 'pending'), isAr)}
+                  </span>
+                  <span className="font-mono">
+                    {isAr
+                      ? `${Number(o.total || 0).toLocaleString()} ⃁`
+                      : `⃁ ${Number(o.total || 0).toLocaleString()}`}
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 
-        {/* Order History */}
+        {/* Order History — live track payment + shipping */}
         <div id="coffee-profile-orders" className="space-y-4 scroll-mt-24">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <h2 className="text-xl font-bold text-neutral-900 flex items-center gap-2">
               <Package className="w-5 h-5 text-neutral-700" />
-              <span>{language === 'AR' ? 'سجل الطلبات والفواتير' : 'Order & Invoice History'}</span>
+              <span>{language === 'AR' ? 'تتبع الطلبات والدفع والشحن' : 'Order, payment & shipping tracking'}</span>
             </h2>
-            <span className="text-xs text-neutral-500 font-mono">
+            <span className="text-xs text-neutral-500 font-mono flex items-center gap-1.5">
+              {ordersBusy ? <RefreshCw className="w-3 h-3 animate-spin" /> : null}
               {allOrders.length} {language === 'AR' ? 'طلبات' : 'Orders'}
             </span>
           </div>
 
           <div className="space-y-4">
-            {allOrders.map((order, oIdx) => (
+            {allOrders.length === 0 ? (
+              <p className="text-xs text-neutral-500 rounded-2xl border border-neutral-100 bg-[#F8F9FA] p-4">
+                {language === 'AR' ? 'لا توجد طلبات لهذا المتجر بعد.' : 'No orders found for this store yet.'}
+              </p>
+            ) : null}
+            {allOrders.map((order: any, oIdx: number) => (
               <div
                 key={order.id || oIdx}
                 className="p-5 sm:p-6 rounded-2xl bg-[#F8F9FA] border border-neutral-100 space-y-4"
               >
-                {/* Order Top Bar */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-neutral-200/70 text-xs">
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono font-bold text-neutral-900 bg-white px-2.5 py-1 rounded-md border border-neutral-200">
                       {order.orderNumber}
                     </span>
-                    <span className="text-neutral-500 font-mono">{order.date}</span>
-                    <span className="text-neutral-500 uppercase font-semibold">· {order.paymentMethod}</span>
+                    {order.date ? <span className="text-neutral-500 font-mono">{order.date}</span> : null}
+                    {order.paymentMethod ? (
+                      <span className="text-neutral-600 font-semibold">
+                        · {localizePaymentMethod(order.paymentMethod, language === 'AR' ? 'ar' : 'en')}
+                      </span>
+                    ) : null}
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full flex items-center gap-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-full flex items-center gap-1">
                       <Truck className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>{order.status}</span>
+                      <span>{customerOrderStatusLabel(String(order.status || ''), isAr)}</span>
                     </span>
-
+                    <span className="text-[11px] font-bold text-amber-900 bg-amber-100 px-2.5 py-1 rounded-full">
+                      {customerPaymentStatusLabel(String(order.paymentStatus || 'pending'), isAr)}
+                    </span>
                     <button
-                      onClick={() => navigateTo('thankyou')}
+                      type="button"
+                      onClick={() => {
+                        setLastOrder({
+                          id: String(order.id || order.orderNumber),
+                          orderNumber: String(order.orderNumber),
+                          date: String(order.date || ''),
+                          items: Array.isArray(order.items) ? order.items : [],
+                          total: Number(order.total) || 0,
+                          shippingFee:
+                            typeof order.shippingFee === 'number' ? order.shippingFee : undefined,
+                          paymentMethod: String(order.paymentMethod || ''),
+                          shippingAddress: {
+                            name: order.shippingAddress?.name || user.name || '',
+                            phone: order.shippingAddress?.phone || user.phone || '',
+                            city: order.shippingAddress?.city || '',
+                            district: order.shippingAddress?.district || '',
+                            street: order.shippingAddress?.street || '',
+                          },
+                          status: String(order.status || 'pending'),
+                        });
+                        navigateTo('thankyou');
+                      }}
                       className="text-xs font-bold text-black underline hover:text-neutral-600 cursor-pointer"
                     >
                       {language === 'AR' ? 'عرض الفاتورة ومشاركتها' : 'View & Share Invoice'}
@@ -644,16 +904,78 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
                   </div>
                 </div>
 
-                {/* Items */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                  <div className="rounded-xl bg-white border border-neutral-100 px-3 py-2">
+                    <div className="text-neutral-500 mb-0.5">
+                      {language === 'AR' ? 'طريقة الدفع' : 'Payment method'}
+                    </div>
+                    <div className="font-bold text-neutral-900">
+                      {order.paymentMethod
+                        ? localizePaymentMethod(order.paymentMethod, language === 'AR' ? 'ar' : 'en')
+                        : language === 'AR'
+                          ? 'غير محدد'
+                          : 'Unspecified'}
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-white border border-neutral-100 px-3 py-2">
+                    <div className="text-neutral-500 mb-0.5">
+                      {language === 'AR' ? 'الجوال' : 'Mobile'}
+                    </div>
+                    <div className="font-mono font-bold text-neutral-900" dir="ltr">
+                      {order.shippingAddress?.phone || user.phone || (language === 'AR' ? '—' : '—')}
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-white border border-neutral-100 px-3 py-2 sm:col-span-2">
+                    <div className="text-neutral-500 mb-0.5">
+                      {language === 'AR' ? 'موقع التوصيل' : 'Delivery location'}
+                    </div>
+                    <div className="font-bold text-neutral-900 break-words">
+                      {[
+                        order.shippingAddress?.city,
+                        order.shippingAddress?.district,
+                        order.shippingAddress?.street,
+                      ]
+                        .map((x) => String(x || '').trim())
+                        .filter(Boolean)
+                        .join(language === 'AR' ? ' · ' : ' · ') ||
+                        (language === 'AR' ? 'بانتظار العنوان' : 'Waiting for address')}
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-white border border-neutral-100 px-3 py-2">
+                    <div className="text-neutral-500 mb-0.5">
+                      {language === 'AR' ? 'حالة الشحن' : 'Shipping status'}
+                    </div>
+                    <div className="font-bold text-neutral-900">
+                      {customerShippingStatusLabel(
+                        String(order.shippingStatus || order.status || ''),
+                        isAr,
+                      )}
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-white border border-neutral-100 px-3 py-2">
+                    <div className="text-neutral-500 mb-0.5">
+                      {language === 'AR' ? 'رقم التتبع' : 'Tracking number'}
+                    </div>
+                    <div className="font-mono font-bold text-neutral-900 break-all">
+                      {order.trackingNumber || (language === 'AR' ? 'غير متوفر بعد' : 'Not available yet')}
+                      {order.courierCode ? ` · ${order.courierCode}` : ''}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   {(Array.isArray(order.items) ? order.items : []).map((item: any, iIdx: number) => (
                     <div key={iIdx} className="flex items-center justify-between gap-3 text-xs">
                       <div className="flex items-center gap-3 min-w-0">
-                        <img
-                          src={item.image}
-                          alt={item.productName}
-                          className="w-12 h-12 object-contain rounded-xl bg-white p-1 shrink-0"
-                        />
+                        {item.image ? (
+                          <img
+                            src={item.image}
+                            alt={item.productName || ''}
+                            className="w-12 h-12 object-contain rounded-xl bg-white p-1 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-xl bg-white border border-neutral-100 shrink-0" />
+                        )}
                         <div className="min-w-0">
                           <h4 className="font-bold text-neutral-900 truncate">{item.productName}</h4>
                           <span className="text-[11px] text-neutral-500 block">
@@ -661,17 +983,17 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
                           </span>
                         </div>
                       </div>
-
                       <div className="text-end shrink-0">
                         <span className="font-mono font-bold text-neutral-900">
-                          {language === 'AR' ? `${(item.unitPrice * item.quantity).toLocaleString()}.00 ⃁` : `⃁ ${(item.unitPrice * item.quantity).toLocaleString()}.00`}
+                          {language === 'AR'
+                            ? `${(Number(item.unitPrice) * Number(item.quantity)).toLocaleString()}.00 ⃁`
+                            : `⃁ ${(Number(item.unitPrice) * Number(item.quantity)).toLocaleString()}.00`}
                         </span>
                       </div>
                     </div>
                   ))}
                 </div>
 
-                {/* Total */}
                 <div className="flex items-center justify-between pt-3 border-t border-neutral-200/70 text-xs">
                   <span className="text-neutral-500">
                     {order.shippingAddress?.city}
@@ -684,7 +1006,9 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
                   <div className="text-end">
                     <span className="text-neutral-500 mr-2">{language === 'AR' ? 'الإجمالي:' : 'Total:'}</span>
                     <span className="font-mono font-black text-sm text-neutral-950">
-                      {language === 'AR' ? `${Number(order.total || 0).toLocaleString()}.00 ⃁` : `⃁ ${Number(order.total || 0).toLocaleString()}.00`}
+                      {language === 'AR'
+                        ? `${Number(order.total || 0).toLocaleString()}.00 ⃁`
+                        : `⃁ ${Number(order.total || 0).toLocaleString()}.00`}
                     </span>
                   </div>
                 </div>

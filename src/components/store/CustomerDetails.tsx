@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { commerceTerm, type CommerceTermKey } from '../../i18n/commerceTerms';
+import { localizePaymentMethod, localizeOrderStatus } from '../../utils/domainLabels';
 import { Customer, CustomerWalletTransaction, Order } from '../../types';
 import { isApiEnabled } from '../../api/client';
 import {
@@ -71,6 +72,8 @@ import { CUSTOMER_GENDER_OPTIONS, normalizeSaudiCityId } from '../../data/saudiC
 import { slugCityId, useSaudiCityOptions } from '../../hooks/useSaudiCityOptions';
 import { PortalSelect } from '../common/PortalSelect';
 import { SaudiCitySelect } from '../common/SaudiCitySelect';
+import { SaudiMobileInput } from '../common/SaudiMobileInput';
+import { toSaudi00966 } from '../../utils/phone';
 import { DateCalendarField } from '../common/DateCalendarField';
 import {
   getCustomerDisplayName,
@@ -186,7 +189,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     customer.lastName || customer.name.split(' ').slice(1).join(' ') || ''
   );
   const [email, setEmail] = useState(customer.email || '');
-  const [phone, setPhone] = useState(customer.phone?.replace(/^\+966\s?/, '') || '');
+  const [phone, setPhone] = useState(() => toSaudi00966(customer.phone) || customer.phone || '');
   const [gender, setGender] = useState(customer.gender || '');
   const [country, setCountry] = useState(customer.country || '');
   const [city, setCity] = useState(customer.city || '');
@@ -413,7 +416,7 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
     e.preventDefault();
     setIsSavingInfo(true);
     const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
-    const formattedPhone = phone.startsWith('+') ? phone : `+966${phone.trim()}`;
+    const formattedPhone = toSaudi00966(phone) || phone.trim();
 
     const updates: Partial<Customer> = {
       name: fullName,
@@ -1216,11 +1219,19 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                           </td>
                           <td className="py-3.5 px-3">
                             <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              {ord.status || (isAr ? 'غير محدد' : 'Not Specified')}
+                              {ord.status
+                                ? localizeOrderStatus(ord.status, locale)
+                                : isAr
+                                  ? 'غير محدد'
+                                  : 'Not Specified'}
                             </span>
                           </td>
                           <td className="py-3.5 px-3 text-slate-600 dark:text-slate-400">
-                            {ord.paymentMethod || (isAr ? 'غير محدد' : 'Not Specified')}
+                            {ord.paymentMethod
+                              ? localizePaymentMethod(ord.paymentMethod, locale)
+                              : isAr
+                                ? 'غير محدد'
+                                : 'Not Specified'}
                           </td>
                           <td className="py-3.5 px-3 text-end">
                             <button className="text-teal-600 hover:text-teal-700 font-semibold text-xs cursor-pointer">
@@ -1643,23 +1654,19 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
                   {isAr ? 'رقم الهاتف' : 'Phone Number'}
                 </label>
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="flex items-center gap-1 px-2.5 min-h-[2.25rem] rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 shrink-0">
-                    <span className="text-sm">🇸🇦</span>
-                    <span>+966</span>
-                  </div>
-                  <input
-                    type="text"
-                    disabled={!isEditingInfo}
+                  <SaudiMobileInput
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="flex-1 min-w-0 min-h-[2.25rem] px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white disabled:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-mono"
+                    onChange={setPhone}
+                    isAr={isAr}
+                    disabled={!isEditingInfo}
+                    shellClassName="flex-1 rounded-xl border-slate-200 dark:border-slate-700"
                   />
                   {hasPhone && (
                     <a
                       href={`https://wa.me/${cleanPhoneForWa}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-2 rounded-xl bg-[#25D366]/15 text-[#25D366] border border-[#25D366]/30 hover:bg-[#25D366]/25 transition-colors"
+                      className="p-2 rounded-xl bg-[#25D366]/15 text-[#25D366] border border-[#25D366]/30 hover:bg-[#25D366]/25 transition-colors shrink-0"
                       title={isAr ? 'واتساب' : 'WhatsApp'}
                     >
                       <WhatsAppBrandIcon className="w-3.5 h-3.5" title="WhatsApp" />

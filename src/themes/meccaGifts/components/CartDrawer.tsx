@@ -24,6 +24,8 @@ export const CartDrawer: React.FC = () => {
     removeFromCart,
     updateQuantity,
     cartSubtotal,
+    shippingFee,
+    freeShippingThreshold,
     freeShippingRemaining,
     setCurrentPage,
     user,
@@ -56,9 +58,17 @@ export const CartDrawer: React.FC = () => {
     }
   };
 
-  const shipping = freeShippingRemaining === 0 ? 0 : 35;
+  const shipping = shippingFee;
   const finalTotal = Math.max(0, cartSubtotal - appliedDiscount + (cart.length > 0 ? shipping : 0));
-  const freeShippingPercent = Math.min(100, Math.round(((299 - freeShippingRemaining) / 299) * 100));
+  const freeShippingPercent =
+    freeShippingThreshold != null && freeShippingThreshold > 0
+      ? Math.min(
+          100,
+          Math.round(((freeShippingThreshold - freeShippingRemaining) / freeShippingThreshold) * 100),
+        )
+      : shipping <= 0
+        ? 100
+        : 0;
 
   const handleProceedCheckout = () => {
     setIsCartOpen(false);
@@ -104,33 +114,35 @@ export const CartDrawer: React.FC = () => {
             </button>
           </div>
 
-          {/* Free Shipping Progress Indicator */}
-          <div className="bg-[#f2efe6] px-5 py-3 border-b border-[#e2dcd0]">
-            <div className="flex items-center justify-between text-xs mb-1.5">
-              <div className="flex items-center gap-1.5 text-[#102a1c] font-semibold">
-                <Truck className="w-4 h-4 text-[#102a1c]" />
-                {freeShippingRemaining > 0 ? (
-                  <span>
-                    {isAr
-                      ? `تبقّى${freeShippingRemaining}⃁ للحصول على شحن مجاني`
-                      : `Add ${freeShippingRemaining} ⃁ more for free delivery`}
-                  </span>
-                ) : (
-                  <span className="text-[#102a1c] font-bold">
-                    {isAr ? 'تهانينا! حصلت على شحن مجاني' : 'Congratulations! You unlocked free shipping'}
-                  </span>
-                )}
+          {/* Free Shipping Progress — only when store has a real threshold */}
+          {freeShippingThreshold != null && freeShippingThreshold > 0 ? (
+            <div className="bg-[#f2efe6] px-5 py-3 border-b border-[#e2dcd0]">
+              <div className="flex items-center justify-between text-xs mb-1.5">
+                <div className="flex items-center gap-1.5 text-[#102a1c] font-semibold">
+                  <Truck className="w-4 h-4 text-[#102a1c]" />
+                  {freeShippingRemaining > 0 ? (
+                    <span>
+                      {isAr
+                        ? `تبقّى ${freeShippingRemaining}⃁ للحصول على شحن مجاني`
+                        : `Add ${freeShippingRemaining} ⃁ more for free delivery`}
+                    </span>
+                  ) : (
+                    <span className="text-[#102a1c] font-bold">
+                      {isAr ? 'تهانينا! حصلت على شحن مجاني' : 'Congratulations! You unlocked free shipping'}
+                    </span>
+                  )}
+                </div>
+                <span className="font-mono text-[11px] text-[#6c757d]">{freeShippingPercent}%</span>
               </div>
-              <span className="font-mono text-[11px] text-[#6c757d]">{freeShippingPercent}%</span>
-            </div>
 
-            <div className="w-full bg-[#dfd8cb] h-2 rounded-full overflow-hidden">
-              <div
-                className="bg-[#102a1c] h-full rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${freeShippingPercent}%` }}
-              />
+              <div className="w-full bg-[#dfd8cb] h-2 rounded-full overflow-hidden">
+                <div
+                  className="bg-[#102a1c] h-full rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${freeShippingPercent}%` }}
+                />
+              </div>
             </div>
-          </div>
+          ) : null}
 
           {/* Cart Items List */}
           <div className="flex-1 overflow-y-auto p-5 space-y-4 divide-y divide-[#f0ede6]">
@@ -306,10 +318,14 @@ export const CartDrawer: React.FC = () => {
                 <div className="flex justify-between">
                   <span>{isAr ? 'رسوم التوصيل:' : 'Delivery:'}</span>
                   <span className="font-mono font-medium">
-                    {shipping === 0 ? (
+                    {shipping <= 0 &&
+                    (freeShippingThreshold === 0 ||
+                      (freeShippingThreshold != null && freeShippingRemaining === 0)) ? (
                       <span className="text-[#102a1c] font-bold">{isAr ? 'مجاني' : 'Free'}</span>
-                    ) : (
+                    ) : shipping > 0 ? (
                       `${shipping} ${'⃁'}`
+                    ) : (
+                      '—'
                     )}
                   </span>
                 </div>

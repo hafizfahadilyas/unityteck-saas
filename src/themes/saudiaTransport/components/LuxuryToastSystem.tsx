@@ -55,7 +55,7 @@ export const LuxuryToastSystem: React.FC<LuxuryToastSystemProps> = ({
 
   return (
     <div 
-      className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-[9999] flex flex-col items-center gap-2 max-w-md w-[92vw] sm:w-[420px] pointer-events-none transition-all duration-300"
+      className="fixed top-4 sm:top-6 left-1/2 -translate-x-1/2 z-[200000] flex flex-col items-center gap-2 max-w-md w-[92vw] sm:w-[420px] pointer-events-none transition-all duration-300"
       dir={isAr ? 'rtl' : 'ltr'}
     >
       <ToastCard 

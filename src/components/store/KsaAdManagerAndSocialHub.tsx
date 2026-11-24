@@ -64,8 +64,8 @@ const AD_PLATFORMS: Array<{
   nameAr: string;
   badgeColor: string;
 }> = [
-  { id: 'snapchat', nameEn: 'Snapchat Ads KSA', nameAr: 'إعلانات سناب شات السعودية', badgeColor: 'bg-amber-400 text-slate-950' },
-  { id: 'tiktok', nameEn: 'TikTok Ads KSA', nameAr: 'إعلانات تيك توك السعودية', badgeColor: 'bg-pink-600 text-white' },
+  { id: 'snapchat', nameEn: 'Snapchat Ads Saudi', nameAr: 'إعلانات سناب شات السعودية', badgeColor: 'bg-amber-400 text-slate-950' },
+  { id: 'tiktok', nameEn: 'TikTok Ads Saudi', nameAr: 'إعلانات تيك توك السعودية', badgeColor: 'bg-pink-600 text-white' },
   { id: 'instagram', nameEn: 'Instagram / Meta Ads', nameAr: 'إعلانات إنستغرام وميتا', badgeColor: 'bg-purple-600 text-white' },
   { id: 'google', nameEn: 'Google Search & Shopping', nameAr: 'إعلانات بحث وتسوق جوجل', badgeColor: 'bg-blue-600 text-white' },
   { id: 'youtube', nameEn: 'YouTube Shorts & Video', nameAr: 'إعلانات يوتيوب شورتس', badgeColor: 'bg-rose-600 text-white' },
@@ -305,7 +305,7 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
       return;
     }
 
-    const createdName = manualName.trim() || `Google KSA — ${activeStore.name}`;
+    const createdName = manualName.trim() || `Google Ads — ${activeStore.name}`;
     setIsAiLaunching(true);
     try {
       const res = await createGoogleAdsCampaignApi(activeStore.id, {
@@ -485,7 +485,7 @@ export const KsaAdManagerAndSocialHub: React.FC<{ initialTab?: 'ads' | 'schedule
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-black uppercase text-emerald-500 flex items-center gap-1.5">
                     <Coins className="w-4 h-4" />
-                    <span>{isAr ? 'محفظة إعلانات المتجر (السعودية)' : 'Store KSA Ad Wallet Balance'}</span>
+                    <span>{isAr ? 'محفظة إعلانات المتجر (السعودية)' : 'Store Ad Wallet Balance'}</span>
                   </span>
                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-500">
                     {activeStore.name} (+966 / SAR)

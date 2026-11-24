@@ -9,8 +9,10 @@ import { GlobalModal } from '../common/GlobalModal';
 import { MediaUploadField } from '../common/MediaUploadField';
 import { PortalSelect } from '../common/PortalSelect';
 import { SaudiCitySelect } from '../common/SaudiCitySelect';
+import { SaudiMobileInput } from '../common/SaudiMobileInput';
 import { useToast } from '../common/ToastProvider';
 import { getArabCustomerAvatar, getCustomerSeoAlt } from '../../utils/customerAvatars';
+import { isValidSaudiMobile, toSaudi00966 } from '../../utils/phone';
 
 export type AddCustomerPayload = {
   name: string;
@@ -65,7 +67,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('+966 50 ');
+  const [phone, setPhone] = useState('');
   const [city, setCity] = useState('Riyadh');
   const [source, setSource] = useState<CustomerSource>('Instagram');
   const [status, setStatus] = useState<CustomerStatus>('Active');
@@ -110,6 +112,11 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
     const fullName = `${first} ${last}`.trim();
     if (!fullName) return;
 
+    const normalizedPhone = toSaudi00966(phone);
+    if (!isValidSaudiMobile(normalizedPhone)) {
+      toast(isAr ? 'أدخل رقم جوال صحيح' : 'Enter a valid mobile number', 'error');
+      return;
+    }
     const emailFallback = `${fullName.toLowerCase().replace(/\s+/g, '.')}@example.sa`;
     const groupValue = group.trim() || (status === 'VIP' ? 'VIP' : 'Regular');
 
@@ -117,7 +124,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
       name: fullName,
       firstName: first,
       lastName: last,
-      phone,
+      phone: normalizedPhone,
       email: emailFallback,
       status,
       city: normalizeSaudiCityId(city, saudiCities) || city,
@@ -197,12 +204,12 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
               <label className="block font-semibold mb-1" style={{ color: 'var(--text)' }}>
                 {isAr ? 'رقم الجوال' : 'Phone Number'}
               </label>
-              <input
-                type="text"
-                required
+              <SaudiMobileInput
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className={`${fieldClass} font-mono`}
+                onChange={setPhone}
+                isAr={isAr}
+                required
+                shellClassName="rounded-lg"
               />
             </div>
             <div>

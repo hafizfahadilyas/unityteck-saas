@@ -62,9 +62,13 @@ export const SHIPPING_COMPANY_CATALOG: LabeledOption[] = [
 /** حالة / طريقة الدفع — Payment Method */
 export const PAYMENT_METHOD_CATALOG: LabeledOption[] = [
   { value: 'visa', labelEn: 'Visa', labelAr: 'فيزا' },
+  { value: 'visa_mc', labelEn: 'Visa/MC', labelAr: 'فيزا / ماستركارد' },
+  { value: 'credit_card', labelEn: 'Credit Card', labelAr: 'بطاقة ائتمانية' },
+  { value: 'card', labelEn: 'Credit Card', labelAr: 'بطاقة ائتمانية' },
   { value: 'apple', labelEn: 'Apple Pay', labelAr: 'أبل باي' },
   { value: 'paypal', labelEn: 'PayPal', labelAr: 'باي بال' },
   { value: 'mada', labelEn: 'Mada', labelAr: 'مدى' },
+  { value: 'atm', labelEn: 'Mada', labelAr: 'مدى' },
   { value: 'customer_wallet', labelEn: 'Customer Wallet', labelAr: 'محفظة العميل' },
   { value: 'samsung', labelEn: 'Samsung Pay', labelAr: 'سامسونج باي' },
   { value: 'tamara', labelEn: 'Tamara', labelAr: 'تمارا' },
@@ -74,6 +78,8 @@ export const PAYMENT_METHOD_CATALOG: LabeledOption[] = [
   { value: 'stc', labelEn: 'stc pay', labelAr: 'أس تي سي باي' },
   { value: 'googlepay', labelEn: 'Google Pay', labelAr: 'جوجل باي' },
   { value: 'bank', labelEn: 'Bank Transfer', labelAr: 'تحويل بنكي' },
+  { value: 'bank_transfer', labelEn: 'Bank Transfer', labelAr: 'تحويل بنكي' },
+  { value: 'cod', labelEn: 'Cash on Delivery', labelAr: 'الدفع عند الاستلام' },
 ];
 
 export function catalogLabel(opt: LabeledOption, isAr: boolean): string {

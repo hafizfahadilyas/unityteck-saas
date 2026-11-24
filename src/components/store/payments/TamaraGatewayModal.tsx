@@ -250,7 +250,7 @@ export const TamaraGatewayModal: React.FC<Props> = ({
               <p>
                 {isAr
                   ? 'تمارا خدمة شراء الآن وادفع لاحقاً معتمدة في المملكة، تتيح للعملاء تقسيط المشتريات على دفعات بدون فوائد، ويستلم التاجر المبلغ مقدماً.'
-                  : 'Tamara is a KSA-approved buy-now-pay-later service. Shoppers split purchases into interest-free installments while the merchant is paid upfront.'}
+                  : 'Tamara is a Saudi-approved buy-now-pay-later service. Shoppers split purchases into interest-free installments while the merchant is paid upfront.'}
               </p>
               <ul className="list-disc ps-4 space-y-1.5">
                 <li>{isAr ? 'عزل كامل حسب معرّف المتجر' : 'Fully isolated per store_id'}</li>

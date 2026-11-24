@@ -1067,7 +1067,7 @@ const CanvasBlockItem: React.FC<CanvasBlockItemProps> = React.memo(
           <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 truncate">
               <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping shrink-0" />
-              <span className="truncate">{isAr ? ann.textAr || 'توصيل سريع لجميع مدن المملكة' : ann.textEn || 'Express delivery across KSA'}</span>
+              <span className="truncate">{isAr ? ann.textAr || 'توصيل سريع لجميع مدن المملكة' : ann.textEn || 'Express delivery across Saudi Arabia'}</span>
             </div>
             {ann.showButton && (
               <span className="px-2.5 py-0.5 rounded-full bg-[#e6ca98] text-[#102a1c] text-[10px] font-extrabold shadow-xs shrink-0">
@@ -4317,7 +4317,7 @@ const VisualThemeBuilderInner: React.FC<VisualThemeBuilderProps> = ({
     { id: 'catalog', icon: LayoutGrid, labelAr: 'صفحة المتجر', labelEn: 'Shop page' },
     { id: 'product', icon: ShoppingBag, labelAr: 'تفاصيل المنتج', labelEn: 'Product Details Page', badge: 'VIP' },
     { id: 'cart', icon: ShoppingCart, labelAr: 'سلة المشتريات', labelEn: 'Shopping Bag / Cart' },
-    { id: 'checkout', icon: CreditCard, labelAr: 'الدفع', labelEn: 'Saudi Checkout (ZATCA)', badge: 'KSA' },
+    { id: 'checkout', icon: CreditCard, labelAr: 'الدفع', labelEn: 'Saudi Checkout (ZATCA)', badge: 'SA' },
     { id: 'thankyou', icon: CheckCircle2, labelAr: 'تأكيد الطلب', labelEn: 'Thank you' },
     { id: 'faq', icon: HelpCircle, labelAr: 'الأسئلة الشائعة', labelEn: 'Questions' },
     { id: 'reviews', icon: Star, labelAr: 'التقييمات', labelEn: 'Reviews' },

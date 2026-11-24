@@ -83,8 +83,8 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
   order,
   store,
 }) => {
-  const { money } = usePrefs();
-  const [invoiceLocale, setInvoiceLocale] = useState<'en' | 'ar'>('ar');
+  const { money, locale: appLocale } = usePrefs();
+  const [invoiceLocale, setInvoiceLocale] = useState<'en' | 'ar'>(appLocale === 'ar' ? 'ar' : 'en');
   const [printLayout, setPrintLayout] = useState<'a4' | 'thermal'>('a4');
   const [isEditing, setIsEditing] = useState(false);
 
@@ -107,6 +107,7 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
   // Sync state whenever activeStore or modal opens
   useEffect(() => {
     if (isOpen) {
+      setInvoiceLocale(appLocale === 'ar' ? 'ar' : 'en');
       setStoreName(storeProfile.name);
       setStoreNameAr(storeProfile.nameAr);
       setStoreAddress(storeProfile.address);
@@ -116,7 +117,7 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
       setTaxNumber(storeProfile.taxNumber);
       setCrNumber(storeProfile.crNumber);
     }
-  }, [isOpen, storeProfile]);
+  }, [isOpen, storeProfile, appLocale]);
 
   const isAr = invoiceLocale === 'ar';
 
@@ -191,7 +192,16 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
     >
       {/* Dynamic Print Stylesheet for A4 and Thermal */}
       <style>{`
+        @page {
+          size: ${printLayout === 'thermal' ? '80mm auto' : 'A4'};
+          margin: ${printLayout === 'thermal' ? '4mm' : '8mm'};
+        }
         @media print {
+          html, body {
+            height: auto !important;
+            overflow: visible !important;
+            background: #fff !important;
+          }
           body * {
             visibility: hidden !important;
           }
@@ -199,17 +209,19 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
             visibility: visible !important;
           }
           #retail-invoice-print-area {
-            position: fixed !important;
-            left: 0 !important;
-            top: 0 !important;
+            position: static !important;
+            left: auto !important;
+            top: auto !important;
             width: ${printLayout === 'thermal' ? '80mm' : '100%'} !important;
             max-width: ${printLayout === 'thermal' ? '80mm' : '100%'} !important;
             margin: 0 auto !important;
-            padding: ${printLayout === 'thermal' ? '12px' : '32px'} !important;
+            padding: ${printLayout === 'thermal' ? '8px' : '0'} !important;
             background: #ffffff !important;
             color: #0f172a !important;
             box-shadow: none !important;
             border: none !important;
+            border-radius: 0 !important;
+            overflow: visible !important;
             z-index: 999999 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
@@ -227,6 +239,7 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
           }
           .no-print {
             display: none !important;
+            visibility: hidden !important;
           }
         }
       `}</style>
@@ -271,7 +284,7 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
                 }`}
               >
                 <FileText className="w-3.5 h-3.5" />
-                <span>{isAr ? 'نموذج A4' : 'A4 Invoice'}</span>
+                <span>{isAr ? 'نموذج ورق' : 'A4 Invoice'}</span>
               </button>
               <button
                 type="button"
@@ -455,38 +468,38 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
         )}
 
         {/* ── INVOICE DISPLAY CANVAS ── */}
-        <div className="overflow-y-auto p-4 sm:p-8 md:p-10 bg-[#f1f5f9] dark:bg-[#070d18] flex justify-center items-start min-h-[500px]">
+        <div className="overflow-y-auto p-2 sm:p-6 md:p-8 bg-[#f1f5f9] dark:bg-[#070d18] flex justify-center items-start min-h-0 min-w-0">
           {printLayout === 'a4' ? (
             /* ══════════════════════════════════════════════════════════════
-               LAYOUT 1: A4 EXECUTIVE TAX INVOICE (100% SAME AS IMAGES 1, 2, 3)
+               LAYOUT 1: A4 EXECUTIVE TAX INVOICE (compact single-page print)
                ══════════════════════════════════════════════════════════════ */
             <div
               id="retail-invoice-print-area"
               dir={isAr ? 'rtl' : 'ltr'}
-              className="w-full max-w-[840px] bg-white text-slate-900 p-8 sm:p-12 rounded-3xl shadow-xl border border-slate-200/90 select-text font-sans"
+              className="w-full max-w-[840px] bg-white text-slate-900 p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl shadow-xl border border-slate-200/90 select-text font-sans min-w-0 overflow-x-auto"
               style={{ fontFamily: portalFontFamily(isAr ? 'ar' : 'en') }}
             >
-              {/* Top Accent Gradient Stripe (Image 1 Exact) */}
-              <div className="w-full h-2 rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-amber-500 mb-8" />
+              {/* Top Accent Gradient Stripe */}
+              <div className="w-full h-1.5 rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-amber-500 mb-4 sm:mb-5" />
 
-              {/* ── Upper Section: Brand Info (Right in RTL) & ZATCA QR (Left in RTL) ── */}
-              <div className="flex items-start justify-between gap-6 pb-8 border-b border-slate-200">
-                {/* Store Brand & Contact Information (Right in RTL) */}
-                <div className="space-y-3 max-w-[62%]">
-                  <div className="flex items-center gap-3.5">
+              {/* ── Upper Section: Brand Info & QR ── */}
+              <div className="flex flex-col sm:flex-row items-start justify-between gap-4 sm:gap-6 pb-4 sm:pb-5 border-b border-slate-200">
+                {/* Store Brand & Contact Information */}
+                <div className="space-y-2 sm:space-y-3 w-full sm:max-w-[62%] min-w-0">
+                  <div className="flex items-center gap-3">
                     {storeProfile.logo ? (
                       <img
                         src={storeProfile.logo}
-                        alt="Store Logo"
-                        className="w-14 h-14 rounded-2xl object-cover shadow-lg border border-slate-200 shrink-0"
+                        alt={isAr ? 'شعار المتجر' : 'Store Logo'}
+                        className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl object-cover shadow-lg border border-slate-200 shrink-0"
                       />
                     ) : (
-                      <div className="w-14 h-14 rounded-2xl bg-[#091122] text-amber-400 font-black text-2xl flex items-center justify-center shadow-lg border border-slate-800 shrink-0">
+                      <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-[#091122] text-amber-400 font-black text-xl sm:text-2xl flex items-center justify-center shadow-lg border border-slate-800 shrink-0">
                         {storeProfile.initials}
                       </div>
                     )}
-                    <div>
-                      <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-snug">
+                    <div className="min-w-0">
+                      <h1 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight leading-snug break-words">
                         {isAr ? storeNameAr : storeName}
                       </h1>
                       <p className="text-xs font-bold text-emerald-700 tracking-wide mt-0.5">
@@ -524,42 +537,41 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
                   </div>
                 </div>
 
-                {/* Left (in RTL): Badge, Invoice Number & ZATCA QR Card */}
-                <div className="text-end flex flex-col items-end space-y-2.5 shrink-0">
-                  <div className="px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider bg-slate-900 text-white shadow-sm flex items-center gap-1.5">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>{isAr ? 'فاتورة ضريبية' : 'TAX INVOICE'}</span>
+                {/* Badge, Invoice Number & QR Card */}
+                <div className="text-start sm:text-end flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-3 sm:space-y-2 w-full sm:w-auto shrink-0">
+                  <div className="space-y-1.5">
+                    <div className="px-3 py-1.5 rounded-xl text-xs font-black tracking-wider bg-slate-900 text-white shadow-sm inline-flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>{isAr ? 'فاتورة ضريبية' : 'TAX INVOICE'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-bold text-slate-400 tracking-wider block">
+                        {isAr ? 'رقم الفاتورة' : 'Invoice Number'}
+                      </span>
+                      <span className="text-base sm:text-lg font-black font-mono text-slate-900 tracking-tight">
+                        {order.orderNumber}
+                      </span>
+                    </div>
                   </div>
 
-                  <div>
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                      {isAr ? 'رقم الفاتورة' : 'Invoice Number'}
-                    </span>
-                    <span className="text-lg font-black font-mono text-slate-900 tracking-tight">
-                      {order.orderNumber}
-                    </span>
-                  </div>
-
-                  {/* ZATCA Phase 1 & 2 QR Card (Image 1 Exact) */}
-                  <div className="p-2 rounded-2xl border border-slate-200 bg-white shadow-xs flex flex-col items-center">
+                  <div className="p-1.5 rounded-2xl border border-slate-200 bg-white shadow-xs flex flex-col items-center">
                     <img
                       src={zatcaQrUri}
-                      alt="ZATCA QR Code"
-                      className="w-24 h-24 rounded-lg object-contain"
+                      alt={isAr ? 'رمز التحقق الضريبي' : 'Tax verification QR'}
+                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg object-contain"
                     />
                     <span className="text-[9px] font-bold text-emerald-700 mt-1 flex items-center gap-0.5">
                       <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
-                      ZATCA QR
+                      {isAr ? 'رمز التحقق' : 'Tax QR'}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* ── Metadata 4 Cards Grid (Image 2 Exact) ── */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 my-8">
-                {/* Card 1: Issue Date (Rightmost in RTL) */}
-                <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs space-y-1">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+              {/* ── Metadata cards ── */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 my-4 sm:my-5">
+                <div className="p-3 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs space-y-1 min-w-0">
+                  <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 tracking-wider block">
                     {isAr ? 'تاريخ الإصدار' : 'Issue Date'}
                   </span>
                   <p className="text-xs font-black text-slate-900 font-mono">
@@ -570,26 +582,24 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
                   </p>
                 </div>
 
-                {/* Card 2: Customer Name */}
-                <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs space-y-1">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                <div className="p-3 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs space-y-1 min-w-0">
+                  <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 tracking-wider block">
                     {isAr ? 'اسم العميل' : 'Customer Name'}
                   </span>
                   <p className="text-xs font-black text-slate-900 truncate">
                     {order.customerName || (isAr ? 'عميل المتجر' : 'Store Customer')}
                   </p>
                   <p className="text-[11px] text-slate-500 font-mono truncate" dir="ltr">
-                    {order.customerPhone || 'N/A'}
+                    {order.customerPhone || (isAr ? '—' : 'N/A')}
                   </p>
                 </div>
 
-                {/* Card 3: Payment Method */}
-                <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs space-y-1">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                <div className="p-3 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs space-y-1 min-w-0">
+                  <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 tracking-wider block">
                     {isAr ? 'طريقة السداد' : 'Payment Method'}
                   </span>
-                  <p className="text-xs font-black text-slate-900 uppercase">
-                    {order.paymentMethod || 'MADA'}
+                  <p className="text-xs font-black text-slate-900">
+                    {order.paymentMethod || (isAr ? 'مدى' : 'Mada')}
                   </p>
                   <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-emerald-600">
                     <Check className="w-3.5 h-3.5" />
@@ -597,31 +607,30 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
                   </span>
                 </div>
 
-                {/* Card 4: Order Status (Leftmost in RTL) */}
-                <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs space-y-1">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                <div className="p-3 sm:p-4 rounded-2xl bg-white border border-slate-200/80 shadow-2xs space-y-1 min-w-0">
+                  <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 tracking-wider block">
                     {isAr ? 'حالة الطلب' : 'Order Status'}
                   </span>
-                  <p className="text-xs font-black text-slate-900 capitalize">
-                    {order.status || 'Processing'}
+                  <p className="text-xs font-black text-slate-900">
+                    {order.status || (isAr ? 'قيد المعالجة' : 'Processing')}
                   </p>
-                  <p className="text-[11px] text-slate-400 font-mono">
+                  <p className="text-[11px] text-slate-400">
                     {isAr ? `أمين الصندوق: ${cashierName}` : `Cashier: ${cashierName}`}
                   </p>
                 </div>
               </div>
 
-              {/* ── Line Items Table (Image 3 Exact: Dark Navy Header) ── */}
-              <div className="py-2">
-                <div className="rounded-xl overflow-hidden border border-slate-200 shadow-2xs">
+              {/* ── Line Items Table ── */}
+              <div className="py-1 overflow-x-auto">
+                <div className="rounded-xl overflow-hidden border border-slate-200 shadow-2xs min-w-[520px] sm:min-w-0">
                   <table className="w-full text-xs border-collapse">
                     <thead>
                       <tr className="bg-slate-900 font-bold text-[11px]" style={{ backgroundColor: '#0f172a', color: '#ffffff' }}>
-                        <th className="py-3.5 px-4 text-start" style={{ color: '#ffffff', backgroundColor: '#0f172a' }}>{isAr ? 'الصنف والوصف' : 'Item Description'}</th>
-                        <th className="py-3.5 px-3 text-center" style={{ color: '#ffffff', backgroundColor: '#0f172a' }}>{isAr ? 'الكمية' : 'Qty'}</th>
-                        <th className="py-3.5 px-3 text-end" style={{ color: '#ffffff', backgroundColor: '#0f172a' }}>{isAr ? 'سعر الوحدة' : 'Unit Price'}</th>
-                        <th className="py-3.5 px-3 text-end" style={{ color: '#ffffff', backgroundColor: '#0f172a' }}>{isAr ? 'الضريبة (15%)' : 'VAT (15%)'}</th>
-                        <th className="py-3.5 px-4 text-end" style={{ color: '#ffffff', backgroundColor: '#0f172a' }}>{isAr ? 'الإجمالي' : 'Total'}</th>
+                        <th className="py-2.5 sm:py-3 px-3 sm:px-4 text-start" style={{ color: '#ffffff', backgroundColor: '#0f172a' }}>{isAr ? 'الصنف والوصف' : 'Item Description'}</th>
+                        <th className="py-2.5 sm:py-3 px-2 sm:px-3 text-center" style={{ color: '#ffffff', backgroundColor: '#0f172a' }}>{isAr ? 'الكمية' : 'Qty'}</th>
+                        <th className="py-2.5 sm:py-3 px-2 sm:px-3 text-end" style={{ color: '#ffffff', backgroundColor: '#0f172a' }}>{isAr ? 'سعر الوحدة' : 'Unit Price'}</th>
+                        <th className="py-2.5 sm:py-3 px-2 sm:px-3 text-end" style={{ color: '#ffffff', backgroundColor: '#0f172a' }}>{isAr ? 'ضريبة القيمة المضافة (15%)' : 'VAT (15%)'}</th>
+                        <th className="py-2.5 sm:py-3 px-3 sm:px-4 text-end" style={{ color: '#ffffff', backgroundColor: '#0f172a' }}>{isAr ? 'الإجمالي' : 'Total'}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -630,20 +639,20 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
                         const itemVat = Math.round(itemTotal * 0.15 * 100) / 100;
                         return (
                           <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                            <td className="py-3.5 px-4 text-start font-semibold text-slate-900">
-                              <div className="font-bold text-slate-900">{it.name}</div>
+                            <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-start font-semibold text-slate-900">
+                              <div className="font-bold text-slate-900 break-words">{it.name}</div>
                               <div className="text-[10px] font-mono text-slate-400 mt-0.5">
-                                SKU: {it.sku || `SKU-${idx + 101}`}
+                                {isAr ? 'رمز المنتج:' : 'SKU:'} {it.sku || `${idx + 101}`}
                               </div>
                             </td>
-                            <td className="py-3.5 px-3 text-center font-mono font-bold text-slate-700">
+                            <td className="py-2.5 sm:py-3 px-2 sm:px-3 text-center font-mono font-bold text-slate-700">
                               <span className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-800">
                                 {it.quantity}
                               </span>
                             </td>
-                            <td className="py-3.5 px-3 text-end font-mono text-slate-700">{money(it.price)}</td>
-                            <td className="py-3.5 px-3 text-end font-mono text-slate-500">{money(itemVat)}</td>
-                            <td className="py-3.5 px-4 text-end font-mono font-black text-slate-900">{money(itemTotal)}</td>
+                            <td className="py-2.5 sm:py-3 px-2 sm:px-3 text-end font-mono text-slate-700">{money(it.price)}</td>
+                            <td className="py-2.5 sm:py-3 px-2 sm:px-3 text-end font-mono text-slate-500">{money(itemVat)}</td>
+                            <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-end font-mono font-black text-slate-900">{money(itemTotal)}</td>
                           </tr>
                         );
                       })}
@@ -652,49 +661,46 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
                 </div>
               </div>
 
-              {/* ── Financial Schedule & Compliance Section (Image 3 Exact) ── */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-slate-200/80 mt-6">
-                {/* Left side in RTL / Right in LTR: Financial Schedule */}
-                <div className={`space-y-2.5 ${isAr ? 'order-1 md:order-1' : 'order-2 md:order-2'}`}>
-                  <div className="flex justify-between text-xs text-slate-600">
+              {/* ── Financial Schedule & Compliance ── */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 pt-4 sm:pt-5 border-t border-slate-200/80 mt-4">
+                <div className={`space-y-2 ${isAr ? 'order-1 md:order-1' : 'order-2 md:order-2'}`}>
+                  <div className="flex justify-between gap-2 text-xs text-slate-600">
                     <span>{isAr ? 'المجموع قبل الضريبة (غير شامل):' : 'Subtotal (Excl. VAT):'}</span>
-                    <span className="font-mono font-bold text-slate-800">{money(subtotalExclTax)}</span>
+                    <span className="font-mono font-bold text-slate-800 shrink-0">{money(subtotalExclTax)}</span>
                   </div>
 
                   {discount > 0 && (
-                    <div className="flex justify-between text-xs text-rose-600 font-semibold">
+                    <div className="flex justify-between gap-2 text-xs text-rose-600 font-semibold">
                       <span>{isAr ? 'الخصم الترويجي:' : 'Promotional Discount:'}</span>
-                      <span className="font-mono">- {money(discount)}</span>
+                      <span className="font-mono shrink-0">- {money(discount)}</span>
                     </div>
                   )}
 
-                  <div className="flex justify-between text-xs text-slate-600">
+                  <div className="flex justify-between gap-2 text-xs text-slate-600">
                     <span>{isAr ? 'رسوم الشحن والتوصيل:' : 'Shipping & Delivery:'}</span>
-                    <span className="font-mono font-bold text-slate-800">{money(shippingFee)}</span>
+                    <span className="font-mono font-bold text-slate-800 shrink-0">{money(shippingFee)}</span>
                   </div>
 
-                  <div className="flex justify-between text-xs text-slate-600">
+                  <div className="flex justify-between gap-2 text-xs text-slate-600">
                     <span>{isAr ? 'ضريبة القيمة المضافة (15%):' : 'VAT (15%):'}</span>
-                    <span className="font-mono font-bold text-emerald-700">{money(tax)}</span>
+                    <span className="font-mono font-bold text-emerald-700 shrink-0">{money(tax)}</span>
                   </div>
 
-                  {/* Grand Total Black Bar Highlight (Image 3 Exact) */}
-                  <div className="pt-3 border-t-2 border-slate-900 flex justify-between items-center text-slate-900">
-                    <div>
+                  <div className="pt-2 border-t-2 border-slate-900 flex justify-between items-center gap-2 text-slate-900">
+                    <div className="min-w-0">
                       <span className="text-sm font-black block">{isAr ? 'الإجمالي الكلي النهائي' : 'Grand Total (Incl. VAT)'}</span>
                       <span className="text-[10px] text-slate-500 font-medium">{isAr ? 'شامل ضريبة القيمة المضافة' : 'All taxes included'}</span>
                     </div>
-                    <div className="text-end">
-                      <span className="text-2xl font-black font-mono text-slate-900">{money(grandTotal)}</span>
+                    <div className="text-end shrink-0">
+                      <span className="text-xl sm:text-2xl font-black font-mono text-slate-900">{money(grandTotal)}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Right side in RTL / Left in LTR: Warranty & Compliance Card */}
-                <div className={`space-y-3 ${isAr ? 'order-2 md:order-2' : 'order-1 md:order-1'}`}>
-                  <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-2">
+                <div className={`space-y-2 ${isAr ? 'order-2 md:order-2' : 'order-1 md:order-1'}`}>
+                  <div className="p-3 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-2">
                     <div className="flex items-center gap-1.5 font-bold text-slate-800">
-                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                       <span>{isAr ? 'إشعار الامتثال والضمان' : 'Warranty & Compliance Notice'}</span>
                     </div>
                     <p className="text-[11px] leading-relaxed text-slate-600">
@@ -702,19 +708,19 @@ export const RetailInvoiceModal: React.FC<RetailInvoiceModalProps> = ({
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono px-1">
-                    <span>UUID: ord-{order.id ? order.id.slice(0, 14) : Date.now().toString()}</span>
-                    <span>ZATCA Phase 1 & 2 Compliant</span>
+                  <div className="flex flex-wrap items-center justify-between gap-1 text-[10px] text-slate-400 px-1">
+                    <span className="font-mono">ord-{order.id ? order.id.slice(0, 14) : Date.now().toString()}</span>
+                    <span>{isAr ? 'متوافق مع هيئة الزكاة والضريبة والجمارك' : 'ZATCA Compliant'}</span>
                   </div>
                 </div>
               </div>
 
-              {/* ── Footer Barcode & Legal Disclaimer ── */}
-              <div className="mt-8 pt-4 border-t border-slate-200 text-center space-y-1">
-                <p className="text-[10px] font-mono text-slate-400 tracking-widest uppercase">
+              {/* ── Footer ── */}
+              <div className="mt-4 sm:mt-5 pt-3 border-t border-slate-200 text-center space-y-1">
+                <p className="text-[10px] font-mono text-slate-400 tracking-widest">
                   * {order.orderNumber.replace('#', '')}-{taxNumber.slice(-4)} *
                 </p>
-                <p className="text-[9px] text-slate-400">
+                <p className="text-[9px] text-slate-400 leading-relaxed px-1">
                   {isAr
                     ? 'تم إصدار هذه الفاتورة إلكترونياً وتعتبر وثيقة رسمية معتمدة وفق اشتراطات هيئة الزكاة والضريبة والجمارك.'
                     : 'This electronic invoice is generated digitally and compliant with official ZATCA e-invoicing regulations.'}

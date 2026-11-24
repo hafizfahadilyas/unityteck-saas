@@ -8,10 +8,13 @@ import {
 } from '../../data/saudiCities';
 import { FloatingPopover } from './FloatingPopover';
 
+/** Accepts catalog `{id,nameEn,nameAr}` or legacy `{en,ar}` checkout shape. */
+type CityInput = SaudiCityOption | { en: string; ar: string; id?: string; nameEn?: string; nameAr?: string };
+
 type SaudiCitySelectProps = {
   value: string;
   onChange: (cityId: string) => void;
-  cities: SaudiCityOption[];
+  cities: CityInput[];
   isAr: boolean;
   disabled?: boolean;
   required?: boolean;
@@ -26,6 +29,22 @@ type SaudiCitySelectProps = {
   /** Keep list under the trigger (modal-safe). Default true. */
   preferBelow?: boolean;
 };
+
+function normalizeCityInput(raw: CityInput): SaudiCityOption | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const legacy = raw as { en?: string; ar?: string };
+  const id = String(
+    (raw as SaudiCityOption).id || legacy.en || (raw as SaudiCityOption).nameEn || '',
+  ).trim();
+  const nameEn = String(
+    (raw as SaudiCityOption).nameEn || legacy.en || id,
+  ).trim();
+  const nameAr = String(
+    (raw as SaudiCityOption).nameAr || legacy.ar || nameEn,
+  ).trim();
+  if (!id && !nameEn && !nameAr) return null;
+  return { id: id || nameEn || nameAr, nameEn: nameEn || nameAr, nameAr: nameAr || nameEn };
+}
 
 /**
  * Portal-based Saudi city picker — never clipped by overflow / never overlaps siblings.
@@ -53,30 +72,48 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
   const [query, setQuery] = useState('');
   const [newEn, setNewEn] = useState('');
   const [newAr, setNewAr] = useState('');
-  const listEstimate = Math.min(16 + (includeAllOption ? 1 : 0) * 40 + cities.length * 40 + (manageEnabled ? 56 : 0), 520);
+
+  const normalizedCities = useMemo(() => {
+    const seen = new Set<string>();
+    const out: SaudiCityOption[] = [];
+    for (const raw of cities || []) {
+      const c = normalizeCityInput(raw);
+      if (!c) continue;
+      const key = c.id.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(c);
+    }
+    return out;
+  }, [cities]);
+
+  const listEstimate = Math.min(
+    16 + (includeAllOption ? 1 : 0) * 40 + normalizedCities.length * 40 + (manageEnabled ? 56 : 0),
+    520,
+  );
 
   const selectedLabel = useMemo(() => {
     if (includeAllOption && value === 'All') {
       return allLabel || (isAr ? 'الكل' : 'All');
     }
-    const hit = findSaudiCityOption(value, cities);
+    const hit = findSaudiCityOption(value, normalizedCities);
     if (hit) return cityLabel(hit, isAr);
     if (value) return value;
     return placeholder || (isAr ? 'اختر المدينة' : 'Select city');
-  }, [allLabel, cities, includeAllOption, isAr, placeholder, value]);
+  }, [allLabel, normalizedCities, includeAllOption, isAr, placeholder, value]);
 
   const hasSelection = Boolean(value) && !(value === '' && !includeAllOption);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return cities;
-    return cities.filter((c) => {
+    if (!q) return normalizedCities;
+    return normalizedCities.filter((c) => {
       const en = String(c?.nameEn || '').toLowerCase();
       const ar = String(c?.nameAr || '').toLowerCase();
       const id = String(c?.id || '').toLowerCase();
       return en.includes(q) || ar.includes(q) || id.includes(q);
     });
-  }, [cities, query]);
+  }, [normalizedCities, query]);
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,7 +158,7 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
         >
           <option value="">{placeholder || ''}</option>
           {includeAllOption ? <option value="All">{allLabel || 'All'}</option> : null}
-          {cities.map((c) => (
+          {normalizedCities.map((c) => (
             <option key={c.id} value={c.id}>
               {cityLabel(c, isAr)}
             </option>
@@ -163,10 +200,17 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
         estimatedHeight={listEstimate}
         preferBelow={preferBelow}
         className="rounded-xl shadow-xl p-2 text-xs"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)' }}
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          color: 'var(--text)',
+          // Single scrollbar only — list scrolls; outer panel must not also scroll.
+          overflowY: 'hidden',
+          overflowX: 'hidden',
+        }}
       >
-        <div className="space-y-2">
-          <div className="relative">
+        <div className="flex flex-col gap-2 min-h-0 max-h-full">
+          <div className="relative shrink-0">
             <Search
               className={`w-3.5 h-3.5 absolute top-1/2 -translate-y-1/2 ${isAr ? 'right-2.5' : 'left-2.5'}`}
               style={{ color: 'var(--muted)' }}
@@ -190,7 +234,7 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
             managing ? (
               <form
                 onSubmit={handleAdd}
-                className="grid grid-cols-1 gap-1.5 rounded-lg border border-dashed p-2"
+                className="grid grid-cols-1 gap-1.5 rounded-lg border border-dashed p-2 shrink-0"
                 style={{ borderColor: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 8%, transparent)' }}
               >
                 <input
@@ -245,7 +289,7 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
               <button
                 type="button"
                 onClick={() => setManaging(true)}
-                className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg border border-dashed text-[11px] font-semibold hover:opacity-90"
+                className="w-full inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg border border-dashed text-[11px] font-semibold hover:opacity-90 shrink-0"
                 style={{
                   borderColor: 'var(--accent)',
                   background: 'color-mix(in srgb, var(--accent) 10%, transparent)',
@@ -258,10 +302,14 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
             )
           ) : null}
 
+          {/* Only the city list scrolls — avoids double-scrollbar overlap with FloatingPopover */}
           <ul
             role="listbox"
-            className="u-dropdown-list rounded-lg border divide-y"
-            style={{ borderColor: 'var(--border)' }}
+            className="min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain rounded-lg border divide-y"
+            style={{
+              borderColor: 'var(--border)',
+              maxHeight: 'min(50vh, 18rem)',
+            }}
           >
             {includeAllOption ? (
               <li>
@@ -296,7 +344,7 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
               </li>
             ) : (
               filtered.map((c) => {
-                const selected = saudiCitiesEquivalent(value, c.id, cities);
+                const selected = saudiCitiesEquivalent(value, c.id, normalizedCities);
                 return (
                   <li key={c.id}>
                     <div
@@ -334,7 +382,7 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
                             e.stopPropagation();
                             onRemoveCity(c.id);
                             if (value === c.id) {
-                              const next = cities.find((x) => x.id !== c.id);
+                              const next = normalizedCities.find((x) => x.id !== c.id);
                               onChange(includeAllOption ? 'All' : next?.id || '');
                             }
                           }}
@@ -353,7 +401,8 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
 
             {value &&
             value !== 'All' &&
-            !cities.some((c) => c.id === value) ? (
+            !normalizedCities.some((c) => c.id === value) &&
+            !findSaudiCityOption(value, normalizedCities) ? (
               <li>
                 <button
                   type="button"
@@ -371,7 +420,7 @@ export const SaudiCitySelect: React.FC<SaudiCitySelectProps> = ({
           <button
             type="button"
             onClick={close}
-            className="inline-flex items-center gap-1 text-[10px] hover:opacity-80"
+            className="inline-flex items-center gap-1 text-[10px] hover:opacity-80 shrink-0"
             style={{ color: 'var(--muted)' }}
           >
             <X className="w-3 h-3" />

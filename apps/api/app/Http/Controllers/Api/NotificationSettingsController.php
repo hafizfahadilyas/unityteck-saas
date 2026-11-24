@@ -296,4 +296,90 @@ class NotificationSettingsController extends Controller
             'updated' => $updated,
         ]);
     }
+
+    /**
+     * Public storefront: real customer notification deliveries for THIS store_id only.
+     * Matches recipient email/phone — empty list when none (never invent).
+     */
+    public function storefrontCustomerDeliveries(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => ['nullable', 'string', 'max:191'],
+            'phone' => ['nullable', 'string', 'max:32'],
+            'store_id' => ['nullable', 'string', 'max:64'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $email = strtolower(trim((string) ($validated['email'] ?? '')));
+        $phoneDigits = preg_replace('/\D/', '', (string) ($validated['phone'] ?? '')) ?: '';
+        if ($email === '' && strlen($phoneDigits) < 8) {
+            return response()->json(['message' => 'Email or phone required.'], 422);
+        }
+
+        $raw = (string) ($request->header('X-Store-Id') ?? $validated['store_id'] ?? '');
+        if (trim($raw) === '') {
+            return response()->json(['message' => 'Store ID required.'], 400);
+        }
+
+        $s = strtolower(trim($raw));
+        if (in_array($s, ['flowers', 'hadaya', 'makkah', 'giftshop'], true)) {
+            $storeId = 'store-1';
+        } elseif (in_array($s, ['coffee', 'roasters', 'hibrew'], true)) {
+            $storeId = 'store-coffee';
+        } elseif (in_array($s, ['bleco', 'car', 'cars', 'alsaeedi'], true)) {
+            $storeId = 'store-bleco';
+        } else {
+            $matched = Store::query()->where('id', $raw)->orWhere('slug', $raw)->orWhere('slug', $s)->value('id');
+            $storeId = $matched ?: trim($raw);
+        }
+        if (!Store::query()->where('id', $storeId)->exists()) {
+            return response()->json(['message' => 'Store not found.'], 404);
+        }
+
+        $limit = (int) ($validated['limit'] ?? 40);
+        $query = NotificationDelivery::query()
+            ->forStore($storeId)
+            ->where('audience', 'customer')
+            ->orderByDesc('created_at')
+            ->limit($limit);
+
+        $query->where(function ($q) use ($email, $phoneDigits) {
+            if ($email !== '') {
+                $q->orWhereRaw("LOWER(TRIM(IFNULL(recipient,''))) = ?", [$email]);
+            }
+            if (strlen($phoneDigits) >= 8) {
+                $tail = substr($phoneDigits, -9);
+                $q->orWhereRaw(
+                    "REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(recipient,''),'+',''),' ',''),'-',''),'00','') LIKE ?",
+                    ['%' . $tail]
+                );
+            }
+        });
+
+        $rows = $query->get()->map(static function (NotificationDelivery $row) {
+            return [
+                'id' => $row->id,
+                'store_id' => $row->store_id,
+                'order_id' => $row->order_id,
+                'order_number' => $row->order_number,
+                'event' => $row->event,
+                'channel' => $row->channel,
+                'status' => $row->status,
+                'preview' => $row->preview,
+                'created_at' => $row->created_at
+                    ? (method_exists($row->created_at, 'toIso8601String')
+                        ? $row->created_at->toIso8601String()
+                        : (string) $row->created_at)
+                    : null,
+            ];
+        })->values()->all();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'store_id' => $storeId,
+                'items' => $rows,
+            ],
+        ]);
+    }
 }

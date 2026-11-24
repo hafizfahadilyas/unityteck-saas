@@ -16,7 +16,7 @@ export const ProformaInvoiceTemplate: React.FC<TemplateProps> = ({ document, con
 
   return (
     <div
-      className="bg-white text-slate-900 w-full min-h-[1050px] p-8 sm:p-12 flex flex-col justify-between relative select-text"
+      className="bg-white text-slate-900 w-full min-h-0 p-4 sm:p-6 md:p-8 flex flex-col gap-5 relative select-text invoice-a4-sheet"
       style={{
         fontFamily: invoiceDocFontFamily(config.fontFamily, locale),
       }}

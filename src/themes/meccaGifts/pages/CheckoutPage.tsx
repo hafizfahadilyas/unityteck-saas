@@ -23,12 +23,16 @@ import {
 } from '../../../components/storefront/checkout/CheckoutLocationPicker';
 import { resolveBankCardDiscount } from '../../../utils/bankOffers';
 import { useSaudiCityOptions } from '../../../hooks/useSaudiCityOptions';
+import { SaudiMobileInput } from '../../../components/common/SaudiMobileInput';
+import { isValidSaudiMobile, toSaudi00966 } from '../../../utils/phone';
 import { trackStorefrontEvent } from '../../../utils/storefrontAnalytics';
 export const CheckoutPage: React.FC = () => {
   const {
     language,
     cart,
     cartSubtotal,
+    shippingFee,
+    freeShippingThreshold,
     freeShippingRemaining,
     placeOrder,
     setCurrentPage,
@@ -37,7 +41,7 @@ export const CheckoutPage: React.FC = () => {
     appliedCoupon,
     appliedDiscount,
     applyCouponCode,
-    removeAppliedCoupon
+    removeAppliedCoupon,
   } = useApp();
   const { activeStore } = useTenant();
   const { cities: saudiCities } = useSaudiCityOptions(activeStore?.id);
@@ -85,10 +89,10 @@ export const CheckoutPage: React.FC = () => {
         city: city || undefined,
         delivery_slot: deliveryTimeSlot || undefined,
         delivery_date: deliveryDate || undefined,
-        shipping_fee: freeShippingRemaining === 0 ? 0 : 35,
+        shipping_fee: shippingFee,
       },
     });
-  }, [activeStore?.id, city, deliveryTimeSlot, deliveryDate, freeShippingRemaining]);
+  }, [activeStore?.id, city, deliveryTimeSlot, deliveryDate, shippingFee]);
 
   React.useEffect(() => {
     if (!activeStore?.id || !paymentMethod) return;
@@ -98,7 +102,7 @@ export const CheckoutPage: React.FC = () => {
     });
   }, [activeStore?.id, paymentMethod]);
 
-  const shipping = freeShippingRemaining === 0 ? 0 : 35;
+  const shipping = shippingFee;
   const paymentLabel =
     paymentMethod === 'mada'
       ? 'مدى (Mada)'
@@ -129,13 +133,17 @@ export const CheckoutPage: React.FC = () => {
 
   const handlePlaceOrder = (e: React.FormEvent) => {
     e.preventDefault();
+    const normalizedPhone = toSaudi00966(recipientPhone);
+    if (!isValidSaudiMobile(normalizedPhone)) {
+      return;
+    }
     setIsSubmitting(true);
 
     setTimeout(() => {
       const geoBit = geo ? ` · ${geo.lat.toFixed(5)},${geo.lng.toFixed(5)}` : '';
       placeOrder({
         recipientName,
-        recipientPhone,
+        recipientPhone: normalizedPhone,
         city,
         address: `${district} - ${streetAddress}${geoBit}`,
         deliveryDate,
@@ -269,13 +277,12 @@ export const CheckoutPage: React.FC = () => {
                 <label className="text-xs font-semibold text-[#1a1f1b] block mb-1">
                   {isAr ? 'رقم جوال المستلم للتنسيق *' : 'Recipient Phone Number *'}
                 </label>
-                <input
-                  type="text"
-                  required
+                <SaudiMobileInput
                   value={recipientPhone}
-                  onChange={(e) => setRecipientPhone(e.target.value)}
-                  dir="ltr"
-                  className="w-full bg-white border border-[#d6cfc0] rounded-xl px-3.5 py-2.5 text-xs text-[#1a1f1b] focus:outline-none focus:border-[#102a1c]"
+                  onChange={setRecipientPhone}
+                  isAr={isAr}
+                  required
+                  shellClassName="border-[#d6cfc0] rounded-xl focus-within:border-[#102a1c]"
                 />
               </div>
 
@@ -423,7 +430,7 @@ export const CheckoutPage: React.FC = () => {
                     type="text"
                     value={promoCode}
                     onChange={(e) => setPromoCode(e.target.value)}
-                    placeholder={isAr ? 'كود الخصم (مثل MAKKAH15)' : 'Coupon Code (e.g. MAKKAH15)'}
+                    placeholder={isAr ? 'أدخل رمز الخصم' : 'Coupon Code (e.g. MAKKAH15)'}
                     className="flex-1 bg-white border border-[#d6cfc0] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#102a1c] uppercase font-mono"
                   />
                   <button
@@ -473,10 +480,14 @@ export const CheckoutPage: React.FC = () => {
               <div className="flex justify-between">
                 <span>{isAr ? 'رسوم التوصيل المبرد السريع:' : 'Express Delivery:'}</span>
                 <span className="font-mono font-medium">
-                  {shipping === 0 ? (
+                  {shipping <= 0 &&
+                  (freeShippingThreshold === 0 ||
+                    (freeShippingThreshold != null && freeShippingRemaining === 0)) ? (
                     <span className="text-[#102a1c] font-bold">{isAr ? 'مجاني' : 'Free'}</span>
-                  ) : (
+                  ) : shipping > 0 ? (
                     `${shipping} ${'⃁'}`
+                  ) : (
+                    '—'
                   )}
                 </span>
               </div>

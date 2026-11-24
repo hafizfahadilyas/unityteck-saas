@@ -1010,10 +1010,10 @@ export const MasterGeneralView: React.FC<MasterGeneralViewProps> = ({
     const totalWalletBalance = stores.reduce((acc, s) => acc + (getStoreAdWallet(s.id).balanceSar || 0), 0);
 
     const channelKeys: Array<{ id: string; sourceMatch: string[]; name: string; nameAr: string }> = [
-      { id: 'ig', sourceMatch: ['Instagram', 'instagram'], name: 'Instagram Ads (KSA)', nameAr: 'إعلانات إنستغرام (السعودية)' },
-      { id: 'gads', sourceMatch: ['Google Ads', 'Google Search', 'google_search'], name: 'Google Search & Shopping Ads (KSA)', nameAr: 'إعلانات وبحث جوجل (السعودية)' },
-      { id: 'tt', sourceMatch: ['TikTok', 'tiktok'], name: 'TikTok Ads Manager (KSA)', nameAr: 'إعلانات تيك توك (السعودية)' },
-      { id: 'snap', sourceMatch: ['Snapchat', 'snapchat'], name: 'Snapchat Story Ads (KSA)', nameAr: 'إعلانات سناب شات (السعودية)' },
+      { id: 'ig', sourceMatch: ['Instagram', 'instagram'], name: 'Instagram Ads', nameAr: 'إعلانات إنستغرام (السعودية)' },
+      { id: 'gads', sourceMatch: ['Google Ads', 'Google Search', 'google_search'], name: 'Google Search & Shopping Ads', nameAr: 'إعلانات وبحث جوجل (السعودية)' },
+      { id: 'tt', sourceMatch: ['TikTok', 'tiktok'], name: 'TikTok Ads Manager', nameAr: 'إعلانات تيك توك (السعودية)' },
+      { id: 'snap', sourceMatch: ['Snapchat', 'snapchat'], name: 'Snapchat Story Ads', nameAr: 'إعلانات سناب شات (السعودية)' },
     ];
 
     const totalOrdersCount = Math.max(1, globalOrders.length);

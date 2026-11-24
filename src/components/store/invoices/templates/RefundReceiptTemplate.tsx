@@ -22,7 +22,7 @@ export const RefundReceiptTemplate: React.FC<TemplateProps> = ({ document, confi
 
   return (
     <div
-      className="bg-white text-slate-900 w-full min-h-[1050px] p-8 sm:p-12 flex flex-col justify-between select-text"
+      className="bg-white text-slate-900 w-full min-h-0 p-4 sm:p-6 md:p-8 flex flex-col gap-5 select-text invoice-a4-sheet"
       style={{
         fontFamily: invoiceDocFontFamily(config.fontFamily, locale),
       }}

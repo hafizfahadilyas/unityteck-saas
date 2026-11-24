@@ -5,6 +5,7 @@ import { submitPublicStorefrontOrder } from '../../../utils/submitStorefrontOrde
 import { CouponItem } from '../../../types';
 import {
   CartInterceptConfig,
+  calculateShippingRates,
   fetchCartInterceptSettingsApi,
   trackCartInterceptActionApi,
 } from '../../../api/tenantApi';
@@ -75,6 +76,9 @@ interface AppContextType {
   removeAddress: (id: string) => void;
   cartSubtotal: number;
   cartCount: number;
+  /** Real fee from /shipping/calculate or store methods — never invent 35. */
+  shippingFee: number;
+  freeShippingThreshold: number | null;
   freeShippingRemaining: number;
   appliedCoupon: CouponItem | null;
   appliedDiscount: number;
@@ -99,6 +103,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     currentOrders,
     activeStore,
     currentCoupons,
+    currentShippingMethods,
     addOrder: tenantAddOrder,
     syncOrderFromApi,
     updateOrderStatus,
@@ -989,8 +994,134 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, 0);
 
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const freeShippingThreshold = 299;
-  const freeShippingRemaining = Math.max(0, freeShippingThreshold - cartSubtotal);
+
+  const methodShipping = useMemo(() => {
+    const active = (currentShippingMethods || []).filter((m) => m.isActive !== false);
+    if (!active.length) {
+      return { fee: 0, threshold: null as number | null, hasConfig: false };
+    }
+    const freeMethod = active.find((m) => m.type === 'free');
+    const thresholds = active
+      .map((m) => m.freeShippingThreshold)
+      .filter((t): t is number => typeof t === 'number' && Number.isFinite(t) && t > 0);
+    const threshold = thresholds.length ? Math.min(...thresholds) : freeMethod ? 0 : null;
+    if (freeMethod && (threshold == null || threshold <= 0)) {
+      return { fee: 0, threshold: 0, hasConfig: true };
+    }
+    const ranked = [...active].sort((a, b) => (Number(a.baseRate) || 0) - (Number(b.baseRate) || 0));
+    const best = ranked.find((m) => m.type === 'flat_rate') || ranked[0];
+    const fee =
+      best?.type === 'free'
+        ? 0
+        : Number.isFinite(Number(best?.baseRate))
+          ? Math.max(0, Number(best?.baseRate))
+          : 0;
+    return { fee, threshold, hasConfig: true };
+  }, [currentShippingMethods]);
+
+  const [estimatedShippingFee, setEstimatedShippingFee] = useState<number | null>(null);
+  const [estimatedIsFree, setEstimatedIsFree] = useState(false);
+  const [estimatedThreshold, setEstimatedThreshold] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!activeStore?.id || cartSubtotal <= 0 || cart.length === 0) {
+      setEstimatedShippingFee(null);
+      setEstimatedIsFree(false);
+      setEstimatedThreshold(null);
+      return;
+    }
+    let cancelled = false;
+    const productIds = cart
+      .map((i) => String(i.productId || i.product?.id || '').trim())
+      .filter(Boolean);
+    void calculateShippingRates(activeStore.id, {
+      city: 'مكة المكرمة',
+      order_total: cartSubtotal,
+      product_ids: productIds.length ? productIds : undefined,
+    })
+      .then((res) => {
+        if (cancelled) return;
+        const methods = Array.isArray(res?.available_methods) ? res.available_methods : [];
+        let fee = Number(res?.calculated_shipping_fee);
+        let isFree = Boolean(res?.is_free_shipping);
+        if (methods.length > 0) {
+          const best = [...methods].sort(
+            (a, b) => (Number(a?.fee) || 0) - (Number(b?.fee) || 0),
+          )[0];
+          fee = Number(best?.fee);
+          isFree = Boolean(best?.is_free) || (Number.isFinite(fee) && fee <= 0);
+          const methodThreshold = best?.free_shipping_threshold ?? best?.freeShippingThreshold;
+          if (methodThreshold != null && Number(methodThreshold) > 0) {
+            setEstimatedThreshold(Number(methodThreshold));
+          } else {
+            const zoneThreshold =
+              res?.matched_zone?.free_above ?? res?.matched_zone?.freeAbove ?? null;
+            setEstimatedThreshold(
+              zoneThreshold != null && Number(zoneThreshold) > 0 ? Number(zoneThreshold) : null,
+            );
+          }
+        } else {
+          const zoneThreshold =
+            res?.matched_zone?.free_above ?? res?.matched_zone?.freeAbove ?? null;
+          setEstimatedThreshold(
+            zoneThreshold != null && Number(zoneThreshold) > 0 ? Number(zoneThreshold) : null,
+          );
+        }
+        const hasZone =
+          Boolean(res?.matched_zone) || methods.length > 0 || res?.fulfillment_hint === 'own_delivery';
+        if (!Number.isFinite(fee) || !hasZone) {
+          setEstimatedShippingFee(null);
+          setEstimatedIsFree(false);
+          return;
+        }
+        setEstimatedShippingFee(Math.max(0, Math.round(fee * 100) / 100));
+        setEstimatedIsFree(Boolean(isFree) || fee <= 0);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setEstimatedShippingFee(null);
+        setEstimatedIsFree(false);
+        setEstimatedThreshold(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeStore?.id, cartSubtotal, cart]);
+
+  const freeShippingThreshold =
+    estimatedThreshold != null
+      ? estimatedThreshold
+      : methodShipping.threshold != null
+        ? methodShipping.threshold
+        : null;
+
+  const shippingFee = useMemo(() => {
+    if (freeShippingThreshold != null && freeShippingThreshold > 0 && cartSubtotal >= freeShippingThreshold) {
+      return 0;
+    }
+    if (freeShippingThreshold === 0) return 0;
+    if (estimatedShippingFee != null) {
+      return estimatedIsFree ? 0 : estimatedShippingFee;
+    }
+    if (!methodShipping.hasConfig) return 0;
+    if (freeShippingThreshold != null && cartSubtotal >= freeShippingThreshold) return 0;
+    return methodShipping.fee;
+  }, [
+    cartSubtotal,
+    estimatedIsFree,
+    estimatedShippingFee,
+    freeShippingThreshold,
+    methodShipping.fee,
+    methodShipping.hasConfig,
+  ]);
+
+  /** 0 = unlocked free; >0 = SAR remaining; -1 = no free-shipping rule configured. */
+  const freeShippingRemaining =
+    freeShippingThreshold != null && freeShippingThreshold > 0
+      ? Math.max(0, freeShippingThreshold - cartSubtotal)
+      : freeShippingThreshold === 0
+        ? 0
+        : -1;
 
   const [appliedCoupon, setAppliedCoupon] = useState<CouponItem | null>(null);
 
@@ -1147,7 +1278,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const placeOrder = (orderInfo: Partial<Order>): Order => {
-    const shipping = cartSubtotal >= 299 ? 0 : 35;
+    const shipping =
+      typeof orderInfo.shipping === 'number' && Number.isFinite(orderInfo.shipping)
+        ? Math.max(0, orderInfo.shipping)
+        : shippingFee;
     const discount = orderInfo.discount !== undefined ? orderInfo.discount : appliedDiscount;
     const finalTotal = Math.max(0, cartSubtotal + shipping - discount);
 
@@ -1251,6 +1385,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         utmTerm: traffic.utmTerm || attributionDetails?.utmTerm || undefined,
         utmContent: traffic.utmContent || attributionDetails?.utmContent || undefined,
         sourceDetails: attributionDetails ? JSON.stringify(attributionDetails) : orderSource,
+        shippingFee: shipping,
         items: lineItems.map((i) => ({
           id: i.id,
           name: i.name,
@@ -1435,6 +1570,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         removeAddress,
         cartSubtotal,
         cartCount,
+        shippingFee,
+        freeShippingThreshold,
         freeShippingRemaining,
         appliedCoupon,
         appliedDiscount,
@@ -1503,7 +1640,9 @@ const DEFAULT_FALLBACK_APP_CONTEXT: AppContextType = {
   removeAddress: () => {},
   cartSubtotal: 0,
   cartCount: 0,
-  freeShippingRemaining: 299,
+  shippingFee: 0,
+  freeShippingThreshold: null,
+  freeShippingRemaining: -1,
   appliedCoupon: null,
   appliedDiscount: 0,
   applyCouponCode: async () => ({ success: false, message: '', discount: 0 }),

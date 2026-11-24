@@ -440,7 +440,7 @@ export const ShippingZonesRatesView: React.FC = () => {
                 {totalCitiesCovered}
               </span>
               <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                100% KSA
+                100% Saudi
               </span>
             </div>
           </div>
@@ -863,7 +863,19 @@ export const ShippingZonesRatesView: React.FC = () => {
                           {m.courierCode ? m.courierCode.toUpperCase() : 'All Couriers'}
                         </td>
                         <td className="py-2.5 px-2 font-bold text-slate-900 dark:text-white">
-                          {m.baseRate === 0 ? 'Free' : money(m.baseRate)}
+                          {m.type === 'free'
+                            ? isAr
+                              ? 'مجاني'
+                              : 'Free'
+                            : !Number.isFinite(Number(m.baseRate))
+                              ? '—'
+                              : Number(m.baseRate) === 0
+                                ? m.type === 'flat_rate'
+                                  ? isAr
+                                    ? 'مجاني'
+                                    : 'Free'
+                                  : '—'
+                                : money(m.baseRate)}
                         </td>
                         <td className="py-2.5 px-2">
                           <span

@@ -781,6 +781,9 @@ export function orderPatchToApi(patch: Record<string, unknown>): Record<string, 
   assign('remainingBalance', 'remaining_balance');
   assign('isArchived', 'is_archived');
   assign('archivedAt', 'archived_at');
+  if (src.shippingFee !== undefined) out.shipping_cost = src.shippingFee;
+  else if (src.shipping_cost !== undefined) out.shipping_cost = src.shipping_cost;
+  else if (src.shipping_fee !== undefined) out.shipping_cost = src.shipping_fee;
   if (src.restock !== undefined) out.restock = src.restock;
 
   return out;

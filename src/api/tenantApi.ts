@@ -1406,11 +1406,36 @@ export type ProductCopySuggestion = {
   title: string;
   subtitle: string;
   description: string;
+  seo_title?: string;
+  seo_description?: string;
+  tags?: string[];
+  title_en?: string;
+  title_ar?: string;
+  subtitle_en?: string;
+  subtitle_ar?: string;
+  description_en?: string;
+  description_ar?: string;
+  seo_title_en?: string;
+  seo_title_ar?: string;
+  seo_description_en?: string;
+  seo_description_ar?: string;
+  seo_keywords_en?: string;
+  seo_keywords_ar?: string;
+  tags_en?: string[];
+  tags_ar?: string[];
+  brand?: string;
+  categories?: string[];
+  price_sar?: number | null;
+  price_source?: 'image' | 'known_model' | null;
+  google_taxonomy?: string;
+  barcode?: string;
+  weight_kg?: number | null;
+  used_image?: boolean;
   saved: boolean;
   model?: string;
 };
 
-/** AI title/description suggestion — does not save the product. */
+/** AI product details from name (+ optional image) — does not save the product. */
 export async function suggestProductCopy(
   storeId: string,
   payload: {
@@ -1420,11 +1445,14 @@ export async function suggestProductCopy(
     product_type?: string;
     seed?: string;
     locale?: 'ar' | 'en';
+    image_url?: string;
+    available_categories?: string[];
+    available_brands?: string[];
   },
 ): Promise<ProductCopySuggestion> {
   const res = await apiFetch<{ data: ProductCopySuggestion }>(
     '/ai-media/product-copy',
-    { method: 'POST', storeId, body: payload, timeoutMs: 55_000 },
+    { method: 'POST', storeId, body: payload, timeoutMs: 70_000 },
   );
   return res.data;
 }
@@ -1823,14 +1851,38 @@ export type StorefrontTrackOrderPayload = {
 export type StorefrontTrackOrderResult = {
   order_number: string;
   status: string;
+  payment_status?: string | null;
+  payment_method?: string | null;
   shipping_status?: string | null;
   tracking_number?: string | null;
   courier_code?: string | null;
   items_summary?: string | null;
   items_count?: number;
   delivery_location?: string | null;
+  total_amount?: number;
+  shipping_cost?: number | null;
+  currency?: string;
+  updated_at?: string | null;
   order_date?: string | null;
   estimated_delivery?: string | null;
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  customer_notes?: string | null;
+  items?: Array<{
+    id?: string;
+    product_id?: string;
+    product_name?: string;
+    name?: string;
+    sku?: string | null;
+    image?: string | null;
+    image_url?: string | null;
+    quantity: number;
+    unit_price: number;
+    price?: number;
+    subtotal?: number;
+    variation_id?: string | null;
+    selected_options?: Record<string, unknown> | null;
+  }>;
 };
 
 export async function trackStorefrontOrder(
@@ -1846,6 +1898,100 @@ export async function trackStorefrontOrder(
     },
   );
   return res.data;
+}
+
+export type StorefrontCustomerOrderRow = {
+  id: string;
+  store_id: string;
+  order_number: string;
+  status: string;
+  payment_status?: string | null;
+  payment_method?: string | null;
+  shipping_status?: string | null;
+  tracking_number?: string | null;
+  courier_code?: string | null;
+  awb_number?: string | null;
+  customer_notes?: string | null;
+  customer_name?: string | null;
+  customer_email?: string | null;
+  customer_phone?: string | null;
+  delivery_location?: string | null;
+  shipping_cost?: number | null;
+  delivery_location?: string | null;
+  items_count?: number;
+  items_summary?: string | null;
+  total_amount: number;
+  shipping_cost?: number;
+  currency?: string;
+  customer_name?: string | null;
+  customer_email?: string | null;
+  customer_phone?: string | null;
+  order_date?: string | null;
+  updated_at?: string | null;
+  items?: Array<{
+    id?: string;
+    product_id?: string;
+    product_name?: string;
+    sku?: string;
+    image?: string | null;
+    quantity: number;
+    unit_price: number;
+    subtotal?: number;
+  }>;
+};
+
+/** Public: real orders for this customer + store_id only. */
+export async function fetchStorefrontCustomerOrders(
+  storeId: string,
+  payload: { email?: string; phone?: string; customer_id?: string },
+): Promise<StorefrontCustomerOrderRow[]> {
+  const res = await apiFetch<{ data?: StorefrontCustomerOrderRow[] }>(
+    '/storefront/orders/mine',
+    {
+      method: 'POST',
+      storeId,
+      body: {
+        store_id: storeId,
+        email: payload.email || undefined,
+        phone: payload.phone || undefined,
+        customer_id: payload.customer_id || undefined,
+      },
+    },
+  );
+  return Array.isArray(res?.data) ? res.data : [];
+}
+
+export type StorefrontCustomerNotificationRow = {
+  id: string;
+  store_id: string;
+  order_id?: string | null;
+  order_number?: string | null;
+  event: string;
+  channel: string;
+  status: string;
+  preview?: string | null;
+  created_at?: string | null;
+};
+
+/** Public: real customer notification deliveries for this store_id. */
+export async function fetchStorefrontCustomerNotifications(
+  storeId: string,
+  payload: { email?: string; phone?: string; limit?: number },
+): Promise<StorefrontCustomerNotificationRow[]> {
+  const res = await apiFetch<{
+    success?: boolean;
+    data?: { items?: StorefrontCustomerNotificationRow[] };
+  }>('/storefront/notifications/mine', {
+    method: 'POST',
+    storeId,
+    body: {
+      store_id: storeId,
+      email: payload.email || undefined,
+      phone: payload.phone || undefined,
+      limit: payload.limit ?? 40,
+    },
+  });
+  return Array.isArray(res?.data?.items) ? res.data.items : [];
 }
 
 export async function processOrderReturn(
@@ -3247,11 +3393,45 @@ export async function calculateShippingRates(
     requires_own_driver: boolean;
   }>;
 }> {
-  return apiFetch('/shipping/calculate', {
+  const res = await apiFetch<Record<string, any>>('/shipping/calculate', {
     method: 'POST',
     storeId,
     body: payload,
   });
+  const rawList = Array.isArray(res?.available_methods)
+    ? res.available_methods
+    : Array.isArray(res?.methods)
+      ? res.methods
+      : Array.isArray(res?.data)
+        ? res.data
+        : [];
+  const available_methods = rawList.map((row: any) => {
+    const fee = Number(row?.fee ?? row?.rate ?? 0) || 0;
+    return {
+      ...row,
+      id: String(row?.id || ''),
+      name: String(row?.name || ''),
+      name_ar: row?.name_ar ?? null,
+      fee,
+      rate: fee,
+      is_free: Boolean(row?.is_free) || fee <= 0,
+      estimated_delivery: row?.estimated_delivery ?? null,
+      courier_code: row?.courier_code ?? null,
+      logo_url: row?.logo_url ?? null,
+      fulfillment_mode: row?.fulfillment_mode ?? null,
+    };
+  }).filter((m: any) => m.id && m.name);
+  const calculated = Number(
+    res?.calculated_shipping_fee ?? res?.rate ?? available_methods[0]?.fee ?? 0,
+  );
+  return {
+    matched_zone: res?.matched_zone ?? null,
+    calculated_shipping_fee: Number.isFinite(calculated) ? calculated : 0,
+    is_free_shipping: Boolean(res?.is_free_shipping ?? res?.is_free),
+    available_methods,
+    fulfillment_hint: res?.fulfillment_hint,
+    product_shipping: Array.isArray(res?.product_shipping) ? res.product_shipping : [],
+  };
 }
 
 /** Example KSA courier methods merchants can install (real DB rows — not checkout mocks). */
@@ -3335,8 +3515,8 @@ export const EXAMPLE_SHIPPING_METHOD_PRESETS = [
     paymentOptions: ['cod', 'online'] as Array<'cod' | 'online' | 'bank_transfer'>,
   },
   {
-    name: 'Local Delivery (Within Makkah City Limits)',
-    nameAr: 'توصيل محلي (داخل حدود مدينة مكة)',
+    name: 'Local Delivery',
+    nameAr: 'توصيل محلي',
     type: 'same_day' as const,
     fulfillmentMode: 'own_delivery' as const,
     baseRate: 0,

@@ -23,7 +23,7 @@ export const OrderInvoiceTemplate: React.FC<TemplateProps> = ({ document, config
 
   return (
     <div
-      className="bg-white text-slate-900 w-full min-h-[1050px] p-8 sm:p-12 flex flex-col justify-between select-text"
+      className="bg-white text-slate-900 w-full min-h-0 p-4 sm:p-6 md:p-8 flex flex-col gap-5 select-text invoice-a4-sheet"
       style={{
         fontFamily: invoiceDocFontFamily(config.fontFamily, locale),
       }}
@@ -31,7 +31,7 @@ export const OrderInvoiceTemplate: React.FC<TemplateProps> = ({ document, config
     >
       {/* Header Section */}
       <div>
-        <div className="flex items-start justify-between border-b pb-8" style={{ borderColor: '#e2e8f0' }}>
+        <div className="flex flex-col sm:flex-row items-start justify-between gap-4 border-b pb-4" style={{ borderColor: '#e2e8f0' }}>
           {/* Brand Info */}
           <div className="space-y-2">
             <div className="flex items-center gap-3">

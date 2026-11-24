@@ -184,7 +184,7 @@ export const SaudiGoogleMapPicker: React.FC<Props> = ({
         setLocError(
           isAr
             ? 'الموقع خارج المملكة العربية السعودية. اختر موقعاً داخل السعودية فقط.'
-            : 'Location is outside Saudi Arabia. Choose a pin inside KSA only.',
+            : 'Location is outside Saudi Arabia. Choose a pin inside Saudi Arabia only.',
         );
       }
       return;
@@ -437,7 +437,7 @@ export const SaudiGoogleMapPicker: React.FC<Props> = ({
           setLocError(
             isAr
               ? 'موقعك الحالي خارج السعودية. ضع الدبوس داخل المملكة فقط.'
-              : 'Your live location is outside Saudi Arabia. Drop the pin inside KSA only.',
+              : 'Your live location is outside Saudi Arabia. Drop the pin inside Saudi Arabia only.',
           );
           return;
         }
@@ -507,7 +507,7 @@ export const SaudiGoogleMapPicker: React.FC<Props> = ({
         </div>
         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-800/50 shrink-0">
           <ShieldCheck className="w-3 h-3" />
-          {isAr ? 'السعودية فقط' : 'KSA only'}
+          {isAr ? 'السعودية فقط' : 'Saudi only'}
         </span>
       </div>
 

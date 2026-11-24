@@ -29,6 +29,7 @@ import {
   Copy,
   UploadCloud,
   Check,
+  CheckCircle2,
   TrendingUp,
   TrendingDown,
   X,
@@ -76,7 +77,11 @@ import { ProductVariationsPanel } from './ProductVariationsPanel';
 import type { ProductColorOption } from '../../types';
 import { SEAT_COLORS, getProductColors } from '../../data/blecoStoreData';
 import { getProductDisplayName, getProductDisplayCategory } from '../../utils/storeLocalization';
-import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
+import {
+  handleImageError,
+  FALLBACK_PRODUCT_IMAGE,
+  sanitizeProductImageUrl,
+} from '../../utils/imageFallback';
 import {
   parseOrderDate,
   periodCountGrowth,
@@ -137,6 +142,8 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
   const [editingProductDetail, setEditingProductDetail] = useState<Product | null>(null);
   /** Unsaved manual create draft — never persisted until user clicks Save */
   const [creatingProduct, setCreatingProduct] = useState<Product | null>(null);
+  /** Animated success popup after new-product create → then auto back to list */
+  const [createSaveSuccess, setCreateSaveSuccess] = useState<{ message: string } | null>(null);
 
   // List View Controls
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -210,6 +217,21 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
       setApiCounts(null);
     }
   }, [activeStore?.id]);
+
+  /** After create success popup animation → leave editor for products list */
+  useEffect(() => {
+    if (!createSaveSuccess) return;
+    const timer = window.setTimeout(() => {
+      setCreatingProduct(null);
+      setEditingProductId(null);
+      setEditingProductDetail(null);
+      setCurrentView('list');
+      setPage(1);
+      setCatalogNonce((n) => n + 1);
+      setCreateSaveSuccess(null);
+    }, 1700);
+    return () => window.clearTimeout(timer);
+  }, [createSaveSuccess]);
 
   const reloadCatalog = () => {
     if (!activeStore?.id) return;
@@ -621,7 +643,21 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
 
   const sortedProducts = useMemo(() => {
     const list = [...filteredProducts];
-    list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    const ts = (p: (typeof list)[number]) => {
+      const raw =
+        (p as { updatedAt?: string }).updatedAt ||
+        (p as { createdAt?: string }).createdAt ||
+        p.publishedAt ||
+        '';
+      const n = Date.parse(String(raw));
+      return Number.isFinite(n) ? n : 0;
+    };
+    // Latest first (matches API sort=updated_at&dir=desc)
+    list.sort((a, b) => {
+      const d = ts(b) - ts(a);
+      if (d !== 0) return d;
+      return (a.name || '').localeCompare(b.name || '');
+    });
     return list;
   }, [filteredProducts]);
 
@@ -1023,10 +1059,12 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
   // ────────────────────────────────────────────────
   if (currentView === 'edit' && editingProduct) {
     return (
+      <>
       <StoreProductEditorView
         key={editingProduct.id}
         product={editingProduct}
         mode={isCreatingProduct ? 'create' : 'edit'}
+        saveSuccessBusy={Boolean(createSaveSuccess)}
         storeName={activeStore.name}
         storeSlug={activeStore.slug}
         storeId={activeStore.id}
@@ -1050,12 +1088,14 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
             .catch(() => undefined);
         }}
         onBack={() => {
+          if (createSaveSuccess) return;
           setCreatingProduct(null);
           setEditingProductId(null);
           setEditingProductDetail(null);
           setCurrentView('list');
         }}
         onSave={(updatedData) => {
+          if (createSaveSuccess) return;
           if (isCreatingProduct) {
             const { id: _id, storeId: _storeId, publishedAt: _publishedAt, isStale: _isStale, ...restDraft } =
               editingProduct;
@@ -1073,27 +1113,34 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                 purchasable: isGroupedCreate ? false : (updatedData.purchasable ?? true),
                 status: updatedData.status ?? 'draft',
                 isActive: updatedData.isActive ?? true,
-                image: updatedData.image || FALLBACK_PRODUCT_IMAGE,
-                galleryUrls: (updatedData.galleryUrls || []).filter(Boolean),
+                image: sanitizeProductImageUrl(updatedData.image),
+                galleryUrls: (updatedData.galleryUrls || [])
+                  .map((u) => sanitizeProductImageUrl(u))
+                  .filter(Boolean),
                 salesCount: 0,
               },
               activeStore.id,
             );
-            setCreatingProduct(null);
-            setEditingProductId(null);
-            setEditingProductDetail(null);
-            setCurrentView('list');
-            toast(
-              isGroupedCreate
-                ? isAr
-                  ? 'تم إنشاء المجموعة. افتحها مجدداً لإضافة المنتجات الفرعية (3–4).'
-                  : 'Group created. Re-open it to add 3–4 child products.'
-                : t('productCreatedSuccess'),
-              'success',
-            );
+            const successMsg = isGroupedCreate
+              ? isAr
+                ? 'تم إنشاء المجموعة. افتحها مجدداً لإضافة المنتجات الفرعية (3–4).'
+                : 'Group created. Re-open it to add 3–4 child products.'
+              : t('productCreatedSuccess');
+            setCreateSaveSuccess({ message: successMsg });
             return;
           }
-          updateProduct(editingProduct.id, updatedData, activeStore.id);
+          updateProduct(
+            editingProduct.id,
+            {
+              ...updatedData,
+              image: sanitizeProductImageUrl(updatedData.image),
+              galleryUrls: (updatedData.galleryUrls || [])
+                .map((u) => sanitizeProductImageUrl(u))
+                .filter(Boolean),
+            },
+            activeStore.id,
+          );
+          setCatalogNonce((n) => n + 1);
           toast(t('productSavedSuccess'), 'success');
         }}
         onDelete={() => {
@@ -1126,6 +1173,47 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
               }
         }
       />
+      <GlobalModal
+        isOpen={Boolean(createSaveSuccess)}
+        onClose={() => undefined}
+        closeOnBackdrop={false}
+        closeOnEscape={false}
+        zIndexClassName="z-[120000]"
+        contentClassName="w-full max-w-sm"
+        aria-label={createSaveSuccess?.message || (isAr ? 'تم الحفظ' : 'Saved')}
+        role="alertdialog"
+      >
+        <div
+          className="product-save-success-card rounded-3xl border p-7 sm:p-8 text-center space-y-4 shadow-2xl"
+          style={{
+            background: 'var(--surface)',
+            borderColor: 'var(--border)',
+            color: 'var(--text)',
+          }}
+        >
+          <div className="product-save-success-icon-wrap mx-auto relative flex h-20 w-20 items-center justify-center">
+            <span className="product-save-success-ring absolute inset-0 rounded-full" aria-hidden />
+            <span
+              className="product-save-success-icon relative flex h-16 w-16 items-center justify-center rounded-full text-white"
+              style={{ background: 'var(--portal-cta, var(--accent))' }}
+            >
+              <CheckCircle2 className="h-9 w-9" strokeWidth={2.25} />
+            </span>
+          </div>
+          <div className="space-y-1.5">
+            <h3 className="text-lg font-bold tracking-tight" style={{ color: 'var(--text)' }}>
+              {isAr ? 'تم الحفظ' : 'Saved'}
+            </h3>
+            <p className="text-sm font-medium leading-relaxed" style={{ color: 'var(--muted)' }}>
+              {createSaveSuccess?.message}
+            </p>
+            <p className="text-[11px] font-semibold pt-1" style={{ color: 'var(--accent)' }}>
+              {isAr ? 'جاري الرجوع إلى المنتجات…' : 'Returning to products…'}
+            </p>
+          </div>
+        </div>
+      </GlobalModal>
+    </>
     );
   }
 
@@ -1679,8 +1767,8 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                   </button>
                 </div>
 
-                {/* Grid density: items per row (next to grid toggle) */}
-                {viewMode === 'grid' && (
+                {/* Grid density — hide while Edit drawer is open (narrow list + panel) */}
+                {viewMode === 'grid' && !tableCompact && (
                   <div
                     className="flex items-center p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xs"
                     role="group"
@@ -2792,7 +2880,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
 
         {/* ── RIGHT COLUMN: PRODUCT EDIT DRAWER (MATCHING SCREENSHOT 2) ── */}
         {isSideDrawerOpen && editingProduct && (
-          <div className="lg:col-span-7 xl:col-span-6 min-w-0">
+          <div className="lg:col-span-7 xl:col-span-6 min-w-0 sticky top-2 self-start h-[calc(100dvh-5rem)] max-h-[calc(100dvh-5rem)]">
             <ProductEditDrawer
               isOpen={isSideDrawerOpen}
               product={editingProduct}
@@ -2803,6 +2891,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
               onCategoriesCreated={() => void reloadStoreCategories()}
               availableBrands={availableStoreBrands}
               visibleSections={visibleEditSections}
+              onNavigateTab={onNavigateTab}
               onClose={() => {
                 setIsSideDrawerOpen(false);
                 setEditingProductId(null);

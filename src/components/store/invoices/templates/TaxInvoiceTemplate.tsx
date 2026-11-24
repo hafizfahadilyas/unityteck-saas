@@ -24,7 +24,7 @@ export const TaxInvoiceTemplate: React.FC<TemplateProps> = ({ document, config, 
 
   return (
     <div
-      className="bg-white text-slate-900 w-full min-h-[1050px] p-8 sm:p-12 flex flex-col justify-between select-text"
+      className="bg-white text-slate-900 w-full min-h-0 p-4 sm:p-6 md:p-8 flex flex-col gap-5 select-text invoice-a4-sheet"
       style={{
         fontFamily: invoiceDocFontFamily(config.fontFamily, locale),
       }}
@@ -32,7 +32,7 @@ export const TaxInvoiceTemplate: React.FC<TemplateProps> = ({ document, config, 
     >
       <div>
         {/* Top Tax Compliance Header */}
-        <div className="flex items-start justify-between border-b-2 pb-6" style={{ borderColor: '#0f172a' }}>
+        <div className="flex flex-col sm:flex-row items-start justify-between gap-4 border-b-2 pb-4" style={{ borderColor: '#0f172a' }}>
           <div className="space-y-1 max-w-[60%]">
             <div className="flex items-center gap-2">
               <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-lg shadow-md shrink-0">
@@ -96,7 +96,7 @@ export const TaxInvoiceTemplate: React.FC<TemplateProps> = ({ document, config, 
         </div>
 
         {/* Invoice Metadata & Buyer Information Grid */}
-        <div className="grid grid-cols-2 gap-6 py-6 border-b" style={{ borderColor: '#e2e8f0' }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4 border-b" style={{ borderColor: '#e2e8f0' }}>
           {/* Dates & Reference */}
           <div className="space-y-2 text-xs">
             <div>

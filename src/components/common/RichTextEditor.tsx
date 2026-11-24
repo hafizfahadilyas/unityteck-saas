@@ -110,12 +110,15 @@ const EDITOR_PROSE_CLASS =
   '[&_h1]:text-2xl [&_h1]:font-black [&_h1]:my-2 [&_h2]:text-xl [&_h2]:font-extrabold [&_h2]:my-2 ' +
   '[&_h3]:text-lg [&_h3]:font-bold [&_h3]:my-1.5 [&_h4]:text-base [&_h4]:font-bold [&_h4]:my-1.5 ' +
   '[&_h5]:text-sm [&_h5]:font-bold [&_h5]:my-1 [&_h6]:text-xs [&_h6]:font-bold [&_h6]:my-1 ' +
-  '[&_p]:my-1.5 [&_img]:max-w-full [&_img]:rounded-lg [&_img]:my-2 [&_video]:max-w-full [&_video]:rounded-lg [&_video]:my-2 ' +
+  '[&_p]:my-1.5 [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-2 [&_img]:cursor-pointer ' +
+  '[&_img.rte-img-selected]:outline [&_img.rte-img-selected]:outline-2 [&_img.rte-img-selected]:outline-[color:var(--accent,#0d9488)] [&_img.rte-img-selected]:outline-offset-2 ' +
+  '[&_video]:max-w-full [&_video]:rounded-lg [&_video]:my-2 ' +
   '[&_iframe]:max-w-full [&_iframe]:aspect-video [&_iframe]:w-full [&_iframe]:rounded-lg [&_iframe]:my-2 ' +
   '[&_table]:w-full [&_table]:border-collapse [&_table]:my-3 [&_td]:border [&_td]:border-slate-300 [&_td]:p-2 [&_th]:border [&_th]:border-slate-300 [&_th]:p-2 [&_th]:bg-slate-50 ' +
   '[&_.rte-cols]:grid [&_.rte-cols]:gap-3 [&_.rte-cols]:my-3 [&_.rte-cols-2]:grid-cols-1 [&_.rte-cols-2]:sm:grid-cols-2 ' +
   '[&_.rte-cols-3]:grid-cols-1 [&_.rte-cols-3]:sm:grid-cols-3 [&_.rte-icon]:inline-block [&_.rte-icon]:mx-0.5 ' +
-  '[&_.rte-img-sm]:max-w-[33%] [&_.rte-img-md]:max-w-[55%] [&_.rte-img-full]:max-w-full';
+  '[&_.rte-img-sm]:max-w-[33%] [&_.rte-img-md]:max-w-[55%] [&_.rte-img-full]:max-w-full ' +
+  '[&_.rte-media]:relative [&_.rte-media]:inline-block [&_.rte-media]:max-w-full';
 
 function detectBlockTag(node: Node | null, root: HTMLElement): string {
   let el: Element | null =
@@ -201,6 +204,23 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const [linkUrl, setLinkUrl] = useState('https://');
   const [tableRows, setTableRows] = useState(3);
   const [tableCols, setTableCols] = useState(3);
+  /** Mouse-resize: selected image + overlay frame inside the editor wrap. */
+  const selectedImgRef = useRef<HTMLImageElement | null>(null);
+  const [imgFrame, setImgFrame] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const resizeDragRef = useRef<{
+    startX: number;
+    startY: number;
+    startW: number;
+    startH: number;
+    ratio: number;
+    corner: 'se' | 'sw' | 'ne' | 'nw';
+  } | null>(null);
+  const [isResizingImg, setIsResizingImg] = useState(false);
 
   const emitChange = useCallback(() => {
     if (!editorRef.current) return;
@@ -209,6 +229,56 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     setSourceCode(html);
     setCharCount((editorRef.current.innerText || '').trim().length);
   }, [onChange]);
+
+  const clearImgSelection = useCallback(() => {
+    const prev = selectedImgRef.current;
+    if (prev) prev.classList.remove('rte-img-selected');
+    selectedImgRef.current = null;
+    setImgFrame(null);
+  }, []);
+
+  const refreshImgFrame = useCallback(() => {
+    const img = selectedImgRef.current;
+    const editor = editorRef.current;
+    if (!img || !editor || !editor.contains(img)) {
+      clearImgSelection();
+      return;
+    }
+    const ir = img.getBoundingClientRect();
+    const er = editor.getBoundingClientRect();
+    // Overlay sits outside the scrolling editor — use viewport delta only (no scrollTop).
+    setImgFrame({
+      top: ir.top - er.top,
+      left: ir.left - er.left,
+      width: ir.width,
+      height: ir.height,
+    });
+  }, [clearImgSelection]);
+
+  const selectImg = useCallback(
+    (img: HTMLImageElement) => {
+      if (selectedImgRef.current && selectedImgRef.current !== img) {
+        selectedImgRef.current.classList.remove('rte-img-selected');
+      }
+      selectedImgRef.current = img;
+      img.classList.add('rte-img-selected');
+      img.setAttribute('draggable', 'false');
+      refreshImgFrame();
+    },
+    [refreshImgFrame],
+  );
+
+  const applyImgWidth = useCallback((img: HTMLImageElement, widthPx: number) => {
+    const editor = editorRef.current;
+    const maxW = Math.max(120, (editor?.clientWidth || 480) - 24);
+    const w = Math.round(Math.min(maxW, Math.max(64, widthPx)));
+    img.style.width = `${w}px`;
+    img.style.maxWidth = '100%';
+    img.style.height = 'auto';
+    img.removeAttribute('width');
+    img.removeAttribute('height');
+    img.classList.remove('rte-img-sm', 'rte-img-md', 'rte-img-full');
+  }, []);
 
   const updateToolbarStatus = useCallback(() => {
     if (!editorRef.current || isSourceMode) return;
@@ -256,6 +326,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     } else {
       editorRef.current.innerHTML = incoming;
     }
+    selectedImgRef.current = null;
+    setImgFrame(null);
     setCharCount((editorRef.current.innerText || '').trim().length);
   }, [value]);
 
@@ -264,6 +336,62 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     document.addEventListener('selectionchange', handleSelectionChange);
     return () => document.removeEventListener('selectionchange', handleSelectionChange);
   }, [updateToolbarStatus]);
+
+  useEffect(() => {
+    if (!imgFrame) return;
+    const editor = editorRef.current;
+    if (!editor) return;
+    const onScrollOrResize = () => refreshImgFrame();
+    editor.addEventListener('scroll', onScrollOrResize, { passive: true });
+    window.addEventListener('resize', onScrollOrResize);
+    return () => {
+      editor.removeEventListener('scroll', onScrollOrResize);
+      window.removeEventListener('resize', onScrollOrResize);
+    };
+  }, [imgFrame, refreshImgFrame]);
+
+  useEffect(() => {
+    if (isSourceMode) clearImgSelection();
+  }, [isSourceMode, clearImgSelection]);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      const drag = resizeDragRef.current;
+      const img = selectedImgRef.current;
+      if (!drag || !img) return;
+      e.preventDefault();
+      const dx = e.clientX - drag.startX;
+      const dy = e.clientY - drag.startY;
+      let nextW = drag.startW;
+      if (drag.corner === 'se' || drag.corner === 'ne') {
+        nextW = drag.startW + dx;
+      } else {
+        nextW = drag.startW - dx;
+      }
+      // Prefer width-driven resize; if vertical drag dominates, derive from height.
+      if (Math.abs(dy) > Math.abs(dx) * 1.25 && drag.ratio > 0) {
+        let nextH = drag.startH;
+        if (drag.corner === 'se' || drag.corner === 'sw') nextH = drag.startH + dy;
+        else nextH = drag.startH - dy;
+        nextW = nextH * drag.ratio;
+      }
+      applyImgWidth(img, nextW);
+      refreshImgFrame();
+    };
+    const onUp = () => {
+      if (!resizeDragRef.current) return;
+      resizeDragRef.current = null;
+      setIsResizingImg(false);
+      emitChange();
+      refreshImgFrame();
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    return () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+  }, [applyImgWidth, emitChange, refreshImgFrame]);
 
   const execCmd = (command: string, arg?: string) => {
     if (isSourceMode) return;
@@ -342,10 +470,43 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const insertImageWithSize = (url: string, alt: string, size: 'full' | 'md' | 'sm') => {
     const sizeClass = size === 'sm' ? 'rte-img-sm' : size === 'md' ? 'rte-img-md' : 'rte-img-full';
     insertHtml(
-      `<figure class="rte-media"><img class="${sizeClass}" src="${escapeAttr(url)}" alt="${escapeAttr(alt)}" loading="lazy" /></figure><p></p>`,
+      `<figure class="rte-media"><img class="${sizeClass}" src="${escapeAttr(url)}" alt="${escapeAttr(alt)}" loading="lazy" draggable="false" /></figure><p></p>`,
     );
     setPendingImageUrl(null);
     setPopover(null);
+  };
+
+  const beginImgResize = (
+    e: React.MouseEvent,
+    corner: 'se' | 'sw' | 'ne' | 'nw',
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const img = selectedImgRef.current;
+    if (!img) return;
+    const rect = img.getBoundingClientRect();
+    const ratio = rect.height > 0 ? rect.width / rect.height : 1;
+    resizeDragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startW: rect.width,
+      startH: rect.height,
+      ratio,
+      corner,
+    };
+    setIsResizingImg(true);
+  };
+
+  const handleEditorMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement | null;
+    if (!target) return;
+    if (target.closest('.rte-img-resize-overlay')) return;
+    if (target.tagName === 'IMG') {
+      e.preventDefault();
+      selectImg(target as HTMLImageElement);
+      return;
+    }
+    clearImgSelection();
   };
 
   const handleMediaSelect = (selected: MediaAsset | MediaAsset[]) => {
@@ -1144,6 +1305,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
               onInput={handleInput}
               onKeyUp={updateToolbarStatus}
               onMouseUp={updateToolbarStatus}
+              onMouseDown={handleEditorMouseDown}
               onClick={() => {
                 if (popover && popover !== 'imgsize') setPopover(null);
               }}
@@ -1151,7 +1313,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
               data-placeholder={placeholder}
               className={`w-full p-3.5 text-xs focus:outline-none leading-relaxed overflow-y-auto cursor-text ${
                 charCount === 0 ? 'empty-editor' : ''
-              } ${EDITOR_PROSE_CLASS}`}
+              } ${EDITOR_PROSE_CLASS} ${isResizingImg ? 'select-none' : ''}`}
               style={{
                 minHeight: typeof minHeight === 'number' ? `${minHeight}px` : minHeight,
                 maxHeight: enableAdvanced ? '640px' : '480px',
@@ -1167,6 +1329,55 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 className="absolute top-3.5 start-3.5 text-slate-400 text-xs pointer-events-none select-none"
               >
                 {placeholder}
+              </div>
+            )}
+            {imgFrame && !isSourceMode && (
+              <div
+                className="rte-img-resize-overlay pointer-events-none absolute z-10"
+                style={{
+                  top: imgFrame.top,
+                  left: imgFrame.left,
+                  width: imgFrame.width,
+                  height: imgFrame.height,
+                }}
+                aria-hidden
+              >
+                <div
+                  className="absolute inset-0 rounded-lg border-2 pointer-events-none"
+                  style={{ borderColor: 'var(--accent, #0d9488)' }}
+                />
+                {(
+                  [
+                    { corner: 'nw' as const, style: { top: -5, left: -5, cursor: 'nwse-resize' } },
+                    { corner: 'ne' as const, style: { top: -5, right: -5, cursor: 'nesw-resize' } },
+                    { corner: 'sw' as const, style: { bottom: -5, left: -5, cursor: 'nesw-resize' } },
+                    { corner: 'se' as const, style: { bottom: -5, right: -5, cursor: 'nwse-resize' } },
+                  ] as const
+                ).map((h) => (
+                  <button
+                    key={h.corner}
+                    type="button"
+                    className="pointer-events-auto absolute w-3 h-3 rounded-sm border-2 shadow-sm p-0"
+                    style={{
+                      ...h.style,
+                      background: '#fff',
+                      borderColor: 'var(--accent, #0d9488)',
+                    }}
+                    title={isAr ? 'اسحب لتغيير الحجم' : 'Drag to resize'}
+                    onMouseDown={(ev) => beginImgResize(ev, h.corner)}
+                  />
+                ))}
+                <div
+                  className="pointer-events-none absolute -top-6 start-0 px-1.5 py-0.5 rounded text-[9px] font-bold whitespace-nowrap"
+                  style={{
+                    background: 'var(--accent, #0d9488)',
+                    color: '#fff',
+                  }}
+                >
+                  {isAr
+                    ? `${Math.round(imgFrame.width)} بكسل — اسحب الزاوية`
+                    : `${Math.round(imgFrame.width)}px — drag corner`}
+                </div>
               </div>
             )}
           </div>
@@ -1204,10 +1415,11 @@ export const PRODUCT_DESCRIPTION_PROSE_CLASS =
   '[&_h1]:text-2xl [&_h1]:font-black [&_h1]:my-3 [&_h2]:text-xl [&_h2]:font-extrabold [&_h2]:my-2.5 ' +
   '[&_h3]:text-lg [&_h3]:font-bold [&_h3]:my-2 [&_h4]:text-base [&_h4]:font-bold [&_h4]:my-2 ' +
   '[&_h5]:text-sm [&_h5]:font-bold [&_h5]:my-1.5 [&_h6]:text-xs [&_h6]:font-bold [&_h6]:my-1.5 ' +
-  '[&_p]:my-2 [&_img]:max-w-full [&_img]:rounded-xl [&_img]:my-3 [&_video]:max-w-full [&_video]:rounded-xl [&_video]:my-3 ' +
+  '[&_p]:my-2 [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-xl [&_img]:my-3 [&_video]:max-w-full [&_video]:rounded-xl [&_video]:my-3 ' +
   '[&_iframe]:max-w-full [&_iframe]:w-full [&_iframe]:aspect-video [&_iframe]:rounded-xl [&_iframe]:my-3 [&_figure]:my-3 ' +
   '[&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:p-2 ' +
-  '[&_.rte-cols]:grid [&_.rte-cols]:gap-4 [&_.rte-cols-2]:sm:grid-cols-2 [&_.rte-cols-3]:sm:grid-cols-3';
+  '[&_.rte-cols]:grid [&_.rte-cols]:gap-4 [&_.rte-cols-2]:sm:grid-cols-2 [&_.rte-cols-3]:sm:grid-cols-3 ' +
+  '[&_.rte-img-sm]:max-w-[33%] [&_.rte-img-md]:max-w-[55%] [&_.rte-img-full]:max-w-full';
 
 export function looksLikeHtml(value?: string | null): boolean {
   return !!value && /<[a-z][\s\S]*>/i.test(value);

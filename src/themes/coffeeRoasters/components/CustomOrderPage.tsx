@@ -3,6 +3,7 @@ import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
 import { useSaudiCityOptions } from '../../../hooks/useSaudiCityOptions';
 import { SaudiCitySelect } from '../../../components/common/SaudiCitySelect';
+import { SaudiMobileInput } from '../../../components/common/SaudiMobileInput';
 import {
   resolveCoffeeThemeSettings,
 } from '../../settings/coffeeThemeDefaults';
@@ -963,7 +964,7 @@ Please contact me to confirm the details. Thank you!`;
             </div>
             <div className="flex items-center gap-2">
               <Truck className="w-4 h-4 text-blue-600 shrink-0" />
-              <span>{language === 'AR' ? 'توصيل وتركيب لكافة مدن المملكة' : 'White-Glove Setup across KSA'}</span>
+              <span>{language === 'AR' ? 'توصيل وتركيب لكافة مدن المملكة' : 'White-Glove Setup nationwide'}</span>
             </div>
             <div className="flex items-center gap-2">
               <Wrench className="w-4 h-4 text-amber-600 shrink-0" />
@@ -2453,14 +2454,14 @@ Please contact me to confirm the details. Thank you!`;
 
                   <div>
                     <label className="text-xs font-semibold text-neutral-700 block mb-1">
-                      {language === 'AR' ? 'رقم الجوال السعودي:' : 'Mobile Number (KSA):'}
+                      {language === 'AR' ? 'رقم الجوال:' : 'Mobile Number:'}
                     </label>
-                    <input
-                      type="tel"
-                      required
+                    <SaudiMobileInput
                       value={rfqPhone}
-                      onChange={e => setRfqPhone(e.target.value)}
-                      className="w-full bg-neutral-50 border border-neutral-300 rounded-xl p-3 text-xs font-mono text-neutral-900 focus:outline-hidden"
+                      onChange={setRfqPhone}
+                      isAr={language === 'AR'}
+                      required
+                      shellClassName="bg-neutral-50 border-neutral-300"
                     />
                   </div>
 

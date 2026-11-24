@@ -280,6 +280,9 @@ export interface OrderItemRecord {
   /** Real store shipping fee charged on this order (0 = free for this order only). */
   shippingFee?: number;
   paymentMethod: string;
+  shippingMethodLabel?: string;
+  customerEmail?: string;
+  customerNotes?: string;
   shippingAddress: {
     name: string;
     phone: string;
@@ -445,11 +448,24 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLanguage(next);
   }, [language, setLanguage]);
 
-  // Admin chrome locale wins — preview / storefront follows without writing back.
+  // One-way: admin preview lang may seed storefront once. Never keep overwriting
+  // Header AR/EN toggles (that broke Profile translation).
+  const seededLangFromPrefs = useRef(false);
   useEffect(() => {
-    if (!prefs?.locale) return;
+    if (!prefs?.locale || seededLangFromPrefs.current) return;
+    let hasLocal = false;
+    try {
+      hasLocal = Boolean(localStorage.getItem('unityteck_coffee_lang'));
+    } catch {
+      /* ignore */
+    }
+    if (hasLocal) {
+      seededLangFromPrefs.current = true;
+      return;
+    }
     const fromPrefs: 'EN' | 'AR' = prefs.locale === 'ar' ? 'AR' : 'EN';
-    setLocalLanguage((prev) => (prev === fromPrefs ? prev : fromPrefs));
+    seededLangFromPrefs.current = true;
+    setLocalLanguage(fromPrefs);
     try {
       localStorage.setItem('unityteck_coffee_lang', fromPrefs);
     } catch {
@@ -496,7 +512,23 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 820);
   };
 
-  const [lastOrder, setLastOrder] = useState<OrderItemRecord | null>(null);
+  const [lastOrder, setLastOrderState] = useState<OrderItemRecord | null>(null);
+
+  const setLastOrder = useCallback((order: OrderItemRecord | null) => {
+    setLastOrderState(order);
+    const sid = storeIdRef.current;
+    if (!sid) return;
+    try {
+      const key = `unityteck_coffee_last_order_${sid}`;
+      if (!order) {
+        sessionStorage.removeItem(key);
+      } else {
+        sessionStorage.setItem(key, JSON.stringify(order));
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const emptyUser: UserState = {
     isLoggedIn: false,
@@ -1016,7 +1048,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
   storeIdRef.current = tenant?.activeStore?.id || undefined;
 
-  // Reload cart/customer whenever the active store changes (per-store isolation).
+  // Reload cart/customer/last invoice whenever the active store changes (per-store isolation).
   useEffect(() => {
     const storeId = tenant?.activeStore?.id;
     storeIdRef.current = storeId;
@@ -1025,12 +1057,24 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!storeId) {
       setCart([]);
       setUser(emptyUser);
+      setLastOrderState(null);
       return;
     }
     setCart(readScopedJson<CartItem[]>(storeId, coffeeCartKey(storeId), 'unityteck_coffee_cart', []));
     setUser(
       readScopedJson<UserState>(storeId, coffeeCustomerKey(storeId), 'unityteck_coffee_customer', emptyUser),
     );
+    try {
+      const raw = sessionStorage.getItem(`unityteck_coffee_last_order_${storeId}`);
+      if (!raw) {
+        setLastOrderState(null);
+      } else {
+        const parsed = JSON.parse(raw) as OrderItemRecord;
+        setLastOrderState(parsed?.orderNumber ? { ...parsed, items: Array.isArray(parsed.items) ? parsed.items : [] } : null);
+      }
+    } catch {
+      setLastOrderState(null);
+    }
   }, [tenant?.activeStore?.id]);
 
   useEffect(() => {

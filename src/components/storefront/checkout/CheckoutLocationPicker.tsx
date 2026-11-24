@@ -5,11 +5,15 @@ import {
   type GeoPoint,
 } from '../../maps/SaudiGoogleMapPicker';
 import { SaudiCitySelect } from '../../common/SaudiCitySelect';
+import { type SaudiCityOption } from '../../../data/saudiCities';
 import { prefetchGoogleMaps, type SaudiAddressParts } from '../../../utils/googleMapsLoader';
 
 export type CheckoutGeoPoint = GeoPoint;
 
 type LocationMode = 'manual' | 'map';
+
+/** Catalog shape preferred; legacy `{en,ar}` still accepted by SaudiCitySelect. */
+type CheckoutCityOption = SaudiCityOption | { en: string; ar: string };
 
 type Props = {
   isAr: boolean;
@@ -21,7 +25,7 @@ type Props = {
   onStreetChange: (v: string) => void;
   geo: CheckoutGeoPoint | null;
   onGeoChange: (point: CheckoutGeoPoint | null) => void;
-  cities: Array<{ en: string; ar: string }>;
+  cities: CheckoutCityOption[];
   /** When true, city is free-text instead of select */
   allowCustomCity?: boolean;
 };
@@ -72,26 +76,36 @@ export const CheckoutLocationPicker: React.FC<Props> = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2" role="group" aria-label={isAr ? 'طريقة تحديد العنوان' : 'Address entry method'}>
         <button
           type="button"
           onClick={() => setMode('map')}
-          className={`px-3 py-2 rounded-xl text-[11px] font-bold border cursor-pointer ${
-            mode === 'map'
-              ? 'bg-neutral-900 text-white border-neutral-900'
-              : 'bg-white text-neutral-600 border-neutral-200'
+          aria-pressed={mode === 'map'}
+          data-checkout-loc-mode="map"
+          className={`px-3 py-2 rounded-xl text-[11px] font-extrabold border cursor-pointer ${
+            mode === 'map' ? 'border-neutral-900' : 'border-neutral-200'
           }`}
+          style={
+            mode === 'map'
+              ? { backgroundColor: '#171717', color: '#ffffff' }
+              : { backgroundColor: '#ffffff', color: '#404040' }
+          }
         >
           {isAr ? 'تثبيت بالدبوس' : 'Drop pin'}
         </button>
         <button
           type="button"
           onClick={() => setMode('manual')}
-          className={`px-3 py-2 rounded-xl text-[11px] font-bold border cursor-pointer ${
-            mode === 'manual'
-              ? 'bg-neutral-900 text-white border-neutral-900'
-              : 'bg-white text-neutral-600 border-neutral-200'
+          aria-pressed={mode === 'manual'}
+          data-checkout-loc-mode="manual"
+          className={`px-3 py-2 rounded-xl text-[11px] font-extrabold border cursor-pointer ${
+            mode === 'manual' ? 'border-neutral-900' : 'border-neutral-200'
           }`}
+          style={
+            mode === 'manual'
+              ? { backgroundColor: '#171717', color: '#ffffff' }
+              : { backgroundColor: '#ffffff', color: '#404040' }
+          }
         >
           {isAr ? 'إدخال يدوي' : 'Manual entry'}
         </button>
@@ -137,10 +151,10 @@ export const CheckoutLocationPicker: React.FC<Props> = ({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-        <div>
-          <label className="block font-semibold text-neutral-700 mb-1 flex items-center gap-1">
-            <MapPin className="w-3.5 h-3.5" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs min-w-0">
+        <div className="min-w-0">
+          <label className="block font-semibold text-neutral-700 mb-1 flex flex-wrap items-center gap-1">
+            <MapPin className="w-3.5 h-3.5 shrink-0" />
             {isAr ? 'المدينة' : 'City'}
             {!fieldsRequired ? (
               <span className="font-medium text-neutral-400">
@@ -185,7 +199,7 @@ export const CheckoutLocationPicker: React.FC<Props> = ({
           ) : null}
         </div>
 
-        <div>
+        <div className="min-w-0">
           <label className="block font-semibold text-neutral-700 mb-1">
             {isAr ? 'الحي' : 'District'}
             {!fieldsRequired ? (
@@ -199,11 +213,11 @@ export const CheckoutLocationPicker: React.FC<Props> = ({
             required={fieldsRequired}
             value={district}
             onChange={(e) => onDistrictChange(e.target.value)}
-            className="w-full bg-white rounded-xl p-3 text-neutral-900 border border-neutral-200/90 focus:border-neutral-900 focus:outline-hidden"
+            className="w-full min-w-0 bg-white rounded-xl p-3 text-neutral-900 border border-neutral-200/90 focus:border-neutral-900 focus:outline-hidden"
           />
         </div>
 
-        <div className="sm:col-span-2">
+        <div className="sm:col-span-2 min-w-0">
           <label className="block font-semibold text-neutral-700 mb-1">
             {isAr ? 'الشارع ورقم المبنى' : 'Street & Building Details'}
             {!fieldsRequired ? (
@@ -217,7 +231,7 @@ export const CheckoutLocationPicker: React.FC<Props> = ({
             required={fieldsRequired}
             value={street}
             onChange={(e) => onStreetChange(e.target.value)}
-            className="w-full bg-white rounded-xl p-3 text-neutral-900 border border-neutral-200/90 focus:border-neutral-900 focus:outline-hidden"
+            className="w-full min-w-0 bg-white rounded-xl p-3 text-neutral-900 border border-neutral-200/90 focus:border-neutral-900 focus:outline-hidden"
           />
         </div>
       </div>

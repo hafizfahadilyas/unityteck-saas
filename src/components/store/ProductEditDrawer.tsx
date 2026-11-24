@@ -5,7 +5,11 @@ import { usePrefs } from '../../i18n/PrefsContext';
 import { useTenant } from '../../context/TenantContext';
 import { useToast } from '../common/ToastProvider';
 import { MediaPickerModal } from '../common/MediaPickerModal';
-import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
+import {
+  handleImageError,
+  FALLBACK_PRODUCT_IMAGE,
+  sanitizeProductImageUrl,
+} from '../../utils/imageFallback';
 import { optimizeImageFile } from '../../utils/mediaOptimizer';
 import { RichTextEditor } from '../common/RichTextEditor';
 import { CoffeeLearnMoreProductSection } from './CoffeeLearnMoreProductSection';
@@ -34,7 +38,14 @@ import {
   UploadCloud,
   RotateCw,
   Star,
+  Truck,
+  ExternalLink,
+  Sparkles,
 } from 'lucide-react';
+import { commerceTerm } from '../../i18n/commerceTerms';
+import { aiChrome } from '../../i18n/aiChrome';
+import * as tenantApi from '../../api/tenantApi';
+import { isApiEnabled } from '../../api/client';
 
 /** Edit-panel sections merchants can show/hide via the Products toolbar Filter. */
 export type ProductEditSectionKey =
@@ -93,6 +104,7 @@ export interface ProductEditDrawerProps {
   onExpandFullView?: () => void;
   onDelete?: () => void;
   onDuplicate?: () => void;
+  onNavigateTab?: (tab: string) => void;
   /** Section visibility (all sections shown — Filter toggles removed). */
   visibleSections?: Record<ProductEditSectionKey, boolean>;
 }
@@ -111,6 +123,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
   onExpandFullView,
   onDelete,
   onDuplicate,
+  onNavigateTab,
   visibleSections = DEFAULT_PRODUCT_EDIT_SECTIONS,
 }) => {
   const { t, locale, money } = usePrefs();
@@ -144,10 +157,15 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
     return visibleSections[key] !== false;
   };
 
+  const aiUi = aiChrome(isAr);
+
   // Form Fields
   const [name, setName] = useState('');
+  const [nameAr, setNameAr] = useState('');
+  const [nameEn, setNameEn] = useState('');
   const [sku, setSku] = useState('');
   const [subtitle, setSubtitle] = useState('');
+  const [subtitleAr, setSubtitleAr] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
   const [productCategories, setProductCategories] = useState<string[]>([]);
@@ -159,13 +177,28 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
   // Pricing
   const [price, setPrice] = useState<number>(0);
   const [salePrice, setSalePrice] = useState<number | string>('');
+  const [costPrice, setCostPrice] = useState<number>(0);
   const [taxRate, setTaxRate] = useState<number>(15);
+  const [discountStartAt, setDiscountStartAt] = useState('');
+  const [discountEndAt, setDiscountEndAt] = useState('');
 
   // Inventory & Shipping
   const [stock, setStock] = useState<number>(0);
+  const [lowStockAlert, setLowStockAlert] = useState<number>(5);
   const [stockStatus, setStockStatus] = useState<string>('In Stock');
   const [weightKg, setWeightKg] = useState<number>(0.8);
   const [shippingClass, setShippingClass] = useState<string>('Shoes');
+  const [dimensions, setDimensions] = useState<{ length: number; width: number; height: number }>({
+    length: 30,
+    width: 20,
+    height: 12,
+  });
+  const [shippingMode, setShippingMode] = useState<'store_default' | 'own_delivery' | 'shipping_company'>(
+    'store_default',
+  );
+  const [allowOwnDelivery, setAllowOwnDelivery] = useState(true);
+  const [allowShippingCompany, setAllowShippingCompany] = useState(true);
+  const [requiresOwnDriver, setRequiresOwnDriver] = useState(false);
 
   // Images
   const [mainImage, setMainImage] = useState<string>('');
@@ -187,6 +220,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
   const [seoTitle, setSeoTitle] = useState('');
   const [seoDescription, setSeoDescription] = useState('');
   const [customUrl, setCustomUrl] = useState('');
+  const [aiSuggestBusy, setAiSuggestBusy] = useState(false);
 
   const purchaseCustomFields = useMemo(
     () => (showCoffeeLearnMore ? customFields.filter((f) => isPurchaseCustomField(f)) : customFields),
@@ -197,8 +231,11 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
   useEffect(() => {
     if (product) {
       setName(product.name || '');
+      setNameAr(product.nameAr || '');
+      setNameEn(product.nameEn || product.name || '');
       setSku(product.sku || '');
       setSubtitle(product.subtitle || '');
+      setSubtitleAr(product.subtitleAr || '');
       setDescription(typeof product.description === 'string' ? product.description : '');
       setCategory(product.category || (categories[0] || ''));
       setProductCategories(Array.isArray(product.categories) && product.categories.length ? product.categories : (product.category ? [product.category] : []));
@@ -215,12 +252,35 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
 
       setPrice(product.price ?? 0);
       setSalePrice(product.discountedPrice ?? '');
+      setCostPrice(Number(product.costPrice ?? 0) || 0);
       setTaxRate(product.taxRate ?? 15);
+      setDiscountStartAt(product.discountStartAt ? String(product.discountStartAt).slice(0, 16) : '');
+      setDiscountEndAt(product.discountEndAt ? String(product.discountEndAt).slice(0, 16) : '');
 
       setStock(product.stock ?? 0);
+      setLowStockAlert(Number(product.lowStockAlert ?? 5) || 5);
       setStockStatus(product.stockStatus || (product.stock > 0 ? 'In Stock' : 'Out of Stock'));
       setWeightKg(product.weightKg ?? 0.8);
       setShippingClass((product as any).shippingClass || (product.category === 'Shoes' ? 'Shoes' : 'Standard'));
+      const dims = product.dimensions;
+      if (dims && typeof dims === 'object') {
+        setDimensions({
+          length: Number(dims.length ?? 30) || 30,
+          width: Number(dims.width ?? 20) || 20,
+          height: Number(dims.height ?? 12) || 12,
+        });
+      } else {
+        setDimensions({ length: 30, width: 20, height: 12 });
+      }
+      const mode = product.shippingMode;
+      setShippingMode(
+        mode === 'own_delivery' || mode === 'shipping_company' || mode === 'store_default'
+          ? mode
+          : 'store_default',
+      );
+      setAllowOwnDelivery(product.allowOwnDelivery !== false);
+      setAllowShippingCompany(product.allowShippingCompany !== false);
+      setRequiresOwnDriver(Boolean(product.requiresOwnDriver));
 
       setMainImage(product.image || '');
       const list = [...(product.galleryUrls || [])];
@@ -488,6 +548,162 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
     toast(isAr ? 'تم حذف الصورة' : 'Image removed', 'info');
   };
 
+  const aiNameReady = name.trim().length >= 2;
+
+  const runAiAutoFillDetails = async () => {
+    if (!storeId || !isApiEnabled()) {
+      toast(aiUi.needApi, 'error');
+      return;
+    }
+    if (!aiNameReady) {
+      toast(aiUi.needNameToast, 'error');
+      return;
+    }
+    const seedCategory =
+      category.trim() ||
+      productCategories.find((c) => String(c).trim()) ||
+      '';
+    const rawImg = String(mainImage || gallery[0] || product?.image || '').trim();
+    const imageUrl =
+      rawImg &&
+      /^https?:\/\//i.test(rawImg) &&
+      rawImg !== FALLBACK_PRODUCT_IMAGE &&
+      !/placeholder|fallback|dummy/i.test(rawImg)
+        ? rawImg
+        : undefined;
+    const categoryPool = (
+      categoryOptions && categoryOptions.length > 0
+        ? categoryOptions.map((o) => o.value || o.label)
+        : categories
+    )
+      .map((c) => String(c || '').trim())
+      .filter(Boolean)
+      .slice(0, 80);
+    const brandPool = (availableBrands || [])
+      .map((b) => String(typeof b === 'string' ? b : b?.name || '').trim())
+      .filter(Boolean)
+      .slice(0, 60);
+
+    setAiSuggestBusy(true);
+    try {
+      const data = await tenantApi.suggestProductCopy(storeId, {
+        name: name.trim(),
+        category: String(seedCategory).trim() || undefined,
+        brand: brand.trim() || undefined,
+        product_type: product?.productType || product?.type || undefined,
+        locale: isAr ? 'ar' : 'en',
+        image_url: imageUrl,
+        available_categories: categoryPool,
+        available_brands: brandPool,
+      });
+      const titleEn = String(data.title_en || (!isAr ? data.title : '') || '').trim();
+      const titleAr = String(data.title_ar || (isAr ? data.title : '') || '').trim();
+      const subEn = String(data.subtitle_en || (!isAr ? data.subtitle : '') || '').trim();
+      const subAr = String(data.subtitle_ar || (isAr ? data.subtitle : '') || '').trim();
+      const localTitle = (isAr ? titleAr || data.title : titleEn || data.title || '').trim();
+      const localSub = (isAr ? subAr || data.subtitle : subEn || data.subtitle || '').trim();
+      const localDesc = (
+        isAr
+          ? data.description_ar || data.description
+          : data.description_en || data.description || ''
+      ).trim();
+      const nextSeoTitle =
+        (isAr ? data.seo_title_ar || data.seo_title : data.seo_title_en || data.seo_title || '').trim() ||
+        localTitle;
+      const nextSeoDesc =
+        (isAr
+          ? data.seo_description_ar || data.seo_description
+          : data.seo_description_en || data.seo_description || ''
+        ).trim() ||
+        (localDesc
+          ? localDesc.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
+          : '');
+      if (titleEn) setNameEn(titleEn);
+      if (titleAr) setNameAr(titleAr);
+      if (localTitle) setName(localTitle);
+      if (subAr) setSubtitleAr(subAr);
+      if (localSub) setSubtitle(localSub);
+      if (localDesc) setDescription(localDesc);
+      if (nextSeoTitle) setSeoTitle(nextSeoTitle.slice(0, 70));
+      if (nextSeoDesc) setSeoDescription(nextSeoDesc.slice(0, 160));
+      const tagsForLocale =
+        (isAr
+          ? data.tags_ar?.length
+            ? data.tags_ar
+            : data.tags
+          : data.tags_en?.length
+            ? data.tags_en
+            : data.tags) || [];
+      if (Array.isArray(tagsForLocale) && tagsForLocale.length > 0) {
+        const incoming = tagsForLocale
+          .map((t) => String(t || '').trim())
+          .filter((t) => t.length > 0 && t.length <= 40);
+        if (incoming.length) {
+          setTags((prev) => {
+            const merged = [...prev];
+            for (const t of incoming) {
+              if (!merged.some((x) => x.toLowerCase() === t.toLowerCase())) {
+                merged.push(t);
+              }
+            }
+            return merged.slice(0, 24);
+          });
+        }
+      }
+      if (data.brand && String(data.brand).trim()) {
+        setBrand(String(data.brand).trim());
+      }
+      if (Array.isArray(data.categories) && data.categories.length > 0) {
+        const matched = data.categories
+          .map((c) => String(c || '').trim())
+          .filter(Boolean)
+          .filter((c) =>
+            categoryPool.length === 0
+              ? true
+              : categoryPool.some((opt) => opt.toLowerCase() === c.toLowerCase()),
+          );
+        if (matched.length) {
+          setProductCategories(matched);
+          setCategory(matched[0]);
+        }
+      }
+      if (
+        data.price_sar != null &&
+        Number(data.price_sar) > 0 &&
+        (data.price_source === 'image' || data.price_source === 'known_model')
+      ) {
+        setPrice(Number(data.price_sar));
+      }
+      if (data.weight_kg != null && Number(data.weight_kg) > 0) {
+        setWeightKg(Number(data.weight_kg));
+      }
+      if (titleEn || localTitle) {
+        const latinSlug = (titleEn || localTitle)
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '');
+        if (latinSlug.length >= 3) {
+          setCustomUrl(latinSlug.slice(0, 80));
+        }
+      }
+      toast(data.used_image ? aiUi.appliedAllWithImage : aiUi.appliedAll, 'success');
+    } catch (err) {
+      const raw = err instanceof Error && err.message ? err.message : '';
+      const low = raw.toLowerCase();
+      let msg = raw;
+      if (!msg) {
+        msg = aiUi.fetchFailed;
+      } else if (low.includes('quota') || low.includes('rate limit') || low.includes('resource_exhausted')) {
+        msg = aiUi.quota;
+      } else if (low.includes('high demand') || low.includes('busy')) {
+        msg = aiUi.busy;
+      }
+      toast(msg, 'error');
+    } finally {
+      setAiSuggestBusy(false);
+    }
+  };
+
   const handleSave = () => {
     if (!name.trim()) {
       toast(isAr ? 'يرجى إدخال اسم المنتج' : 'Product name is required', 'error');
@@ -495,9 +711,12 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
     }
 
     const updatedData: Partial<Product> = {
-      name,
+      name: (isAr ? nameEn || name : name).trim() || name.trim(),
+      nameAr: (nameAr || (isAr ? name : '')).trim() || null,
+      nameEn: (nameEn || (!isAr ? name : '')).trim() || undefined,
       sku,
       subtitle: subtitle.trim() || null,
+      subtitleAr: (subtitleAr || (isAr ? subtitle : '')).trim() || null,
       description: description || null,
       category: productCategories[0] || category,
       categories: productCategories,
@@ -507,13 +726,22 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
       tags,
       price: Number(price) || 0,
       discountedPrice: salePrice !== '' ? Number(salePrice) : undefined,
+      costPrice: Number(costPrice) || 0,
       taxRate: Number(taxRate) || 15,
+      discountStartAt: discountStartAt || null,
+      discountEndAt: discountEndAt || null,
       stock: Number(stock) || 0,
+      lowStockAlert: Number(lowStockAlert) || 0,
       stockStatus,
       weightKg: Number(weightKg) || 0.8,
       shippingClass: shippingClass as any,
-      image: mainImage || gallery[0] || FALLBACK_PRODUCT_IMAGE,
-      galleryUrls: gallery,
+      dimensions,
+      shippingMode,
+      allowOwnDelivery,
+      allowShippingCompany,
+      requiresOwnDriver,
+      image: sanitizeProductImageUrl(mainImage || gallery[0] || ''),
+      galleryUrls: gallery.map((u) => sanitizeProductImageUrl(u)).filter(Boolean),
       customFields: customFields as any,
       videoUrl: showCoffeeLearnMore ? learnMoreVideoUrl.trim() || null : (product as any).videoUrl,
       seoTitle,
@@ -527,12 +755,7 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
   return (
     <>
       <div
-        className="bg-[var(--surface)] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-md flex flex-col sticky top-2 overflow-hidden animate-in fade-in slide-in-from-end-4 duration-150"
-        style={{
-          // Header 4rem + sticky top 0.5rem + 4rem so the action bar stays above the screen-bottom corner.
-          height: 'calc(100dvh - 8.5rem)',
-          maxHeight: 'calc(100dvh - 8.5rem)',
-        }}
+        className="bg-[var(--surface)] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-md flex flex-col h-full max-h-full overflow-hidden animate-in fade-in slide-in-from-end-4 duration-150"
       >
         {/* ── Top Header Bar ── */}
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 bg-slate-50/60 dark:bg-slate-900/40 shrink-0">
@@ -627,12 +850,23 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
 
                 {/* Main Image Large Preview */}
                 <div className="u-media-stage relative min-h-72 w-full rounded-xl overflow-hidden flex items-center justify-center group">
+                  {sanitizeProductImageUrl(mainImage) ? (
                   <img
-                    src={mainImage || FALLBACK_PRODUCT_IMAGE}
+                    src={sanitizeProductImageUrl(mainImage)}
                     alt={name}
                     onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
                     className="w-full h-full object-contain p-2 transition-transform duration-200 group-hover:scale-102"
                   />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center gap-2 p-6 text-center" style={{ color: 'var(--muted)' }}>
+                      <span className="text-sm font-bold" style={{ color: 'var(--text)' }}>
+                        {isAr ? 'لا توجد صورة' : 'No image'}
+                      </span>
+                      <span className="text-[11px]">
+                        {isAr ? 'ارفع صورة للمنتج' : 'Upload a product image'}
+                      </span>
+                    </div>
+                  )}
                   
                   {/* Badge */}
                   <span
@@ -792,6 +1026,28 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                       <ImageIcon className="w-4 h-4 mb-0.5" />
                       <span className="text-[8px] font-bold leading-tight">{isAr ? 'المكتبة' : 'Library'}</span>
                     </button>
+
+                    {/* AI image from prompt — Coming Soon */}
+                    <button
+                      type="button"
+                      onClick={() => toast(aiUi.imgPromptToast, 'info')}
+                      className="w-16 h-16 rounded-xl border-2 border-dashed flex flex-col items-center justify-center shrink-0 cursor-not-allowed opacity-80 transition-all"
+                      style={{
+                        borderColor: 'color-mix(in srgb, var(--accent) 35%, var(--border))',
+                        color: 'var(--muted)',
+                        background: 'color-mix(in srgb, var(--accent) 5%, var(--surface))',
+                      }}
+                      title={aiUi.imgPromptTitle}
+                      aria-disabled="true"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 mb-0.5" style={{ color: 'var(--accent)' }} />
+                      <span className="text-[8px] font-bold leading-tight" style={{ color: 'var(--text)' }}>
+                        {aiUi.short}
+                      </span>
+                      <span className="text-[7px] font-extrabold" style={{ color: 'var(--accent)' }}>
+                        {aiUi.imgPromptSoon}
+                      </span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -803,29 +1059,52 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
           {isSectionVisible('basic') && (
           <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900/50">
             <div
-              onClick={() => toggleAccordion('basic')}
-              className="p-3.5 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+              className="p-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
             >
-              <div className="flex items-center gap-2.5">
+              <div
+                className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
+                onClick={() => toggleAccordion('basic')}
+              >
                 <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 flex items-center justify-center shrink-0">
                   <FileText className="w-4 h-4" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h4 className="text-xs font-bold text-slate-900 dark:text-white">
                     {isAr ? 'المعلومات الأساسية' : 'Basic Information'}
                   </h4>
-                  <p className="text-[10px] text-slate-500">
-                    {isAr ? 'أدخل التفاصيل الرئيسية لمنتجك.' : 'Enter the main details of your product.'}
+                  <p className="text-[10px] text-slate-500 truncate">
+                    {aiNameReady ? aiUi.hintReady : aiUi.hintNeedName}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2.5">
-                {sectionsOpen.basic ? (
-                  <ChevronUp className="w-4 h-4 text-slate-400" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-slate-400" />
-                )}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  disabled={aiSuggestBusy || !aiNameReady}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void runAiAutoFillDetails();
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-all hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ background: aiNameReady ? 'var(--accent)' : 'var(--muted)', color: '#fff' }}
+                  title={!aiNameReady ? aiUi.needName : aiUi.autoFillTitle}
+                >
+                  <Sparkles className={`w-3 h-3 ${aiSuggestBusy ? 'animate-pulse' : ''}`} />
+                  <span>{aiSuggestBusy ? aiUi.fetching : aiUi.autoFillShort}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleAccordion('basic')}
+                  className="p-0.5 cursor-pointer"
+                  aria-label={sectionsOpen.basic ? (isAr ? 'طي' : 'Collapse') : isAr ? 'توسيع' : 'Expand'}
+                >
+                  {sectionsOpen.basic ? (
+                    <ChevronUp className="w-4 h-4 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                  )}
+                </button>
               </div>
             </div>
 
@@ -839,7 +1118,12 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                     <input
                       type="text"
                       value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setName(v);
+                        if (isAr) setNameAr(v);
+                        else setNameEn(v);
+                      }}
                       placeholder={isAr ? 'مثال: اسم المنتج' : 'e.g. Product name'}
                       className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-semibold focus:outline-none focus:ring-1 focus:ring-teal-500"
                     />
@@ -859,49 +1143,47 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                      {isAr ? 'التصنيفات' : 'Categories'}
-                    </label>
-                    <ProductCategoryMultiPicker
-                      compact
-                      selected={productCategories}
-                      options={
-                        categoryOptions && categoryOptions.length > 0
-                          ? categoryOptions
-                          : categories.map((c) => ({ value: c, label: c }))
-                      }
-                      storeCategories={storeCategories}
-                      storeId={storeId}
-                      isAr={isAr}
-                      locale={locale}
-                      showAddButton
-                      onChange={(next, primary) => {
-                        setProductCategories(next);
-                        setCategory(primary || next[0] || '');
-                      }}
-                      onCategoriesCreated={onCategoriesCreated}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                      {isAr ? 'العنوان الفرعي' : 'Subtitle'}
-                    </label>
-                    <input
-                      type="text"
-                      value={subtitle}
-                      onChange={(e) => setSubtitle(e.target.value)}
-                      maxLength={200}
-                      placeholder={
-                        isAr
-                          ? 'سطر قصير يظهر تحت اسم المنتج...'
-                          : 'Short line under the product name...'
-                      }
-                      className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-teal-500"
-                    />
-                    <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{subtitle.length}/200</p>
-                  </div>
+                <div>
+                  <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                    {isAr ? 'التصنيفات' : 'Categories'}
+                  </label>
+                  <ProductCategoryMultiPicker
+                    compact
+                    selected={productCategories}
+                    options={
+                      categoryOptions && categoryOptions.length > 0
+                        ? categoryOptions
+                        : categories.map((c) => ({ value: c, label: c }))
+                    }
+                    storeCategories={storeCategories}
+                    storeId={storeId}
+                    isAr={isAr}
+                    locale={locale}
+                    showAddButton
+                    onChange={(next, primary) => {
+                      setProductCategories(next);
+                      setCategory(primary || next[0] || '');
+                    }}
+                    onCategoriesCreated={onCategoriesCreated}
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                    {isAr ? 'العنوان الفرعي' : 'Subtitle'}
+                  </label>
+                  <input
+                    type="text"
+                    value={subtitle}
+                    onChange={(e) => setSubtitle(e.target.value)}
+                    maxLength={200}
+                    placeholder={
+                      isAr
+                        ? 'سطر قصير يظهر تحت اسم المنتج...'
+                        : 'Short line under the product name...'
+                    }
+                    className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{subtitle.length}/200</p>
                 </div>
 
                 <div>
@@ -1029,49 +1311,87 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
             </div>
 
             {sectionsOpen.pricing && (
-              <div className="p-3.5 pt-0 grid grid-cols-1 sm:grid-cols-3 gap-2.5 border-t border-slate-100 dark:border-slate-800/80">
-                <div>
-                  <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                    {isAr ? 'السعر الأساسي (⃁)' : 'Regular Price (⃁)'} <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={price}
-                    onChange={(e) => setPrice(Number(e.target.value))}
-                    className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-teal-500"
-                  />
+              <div className="p-3.5 pt-0 space-y-2.5 border-t border-slate-100 dark:border-slate-800/80">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <div>
+                    <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                      {isAr ? 'السعر الأساسي (ر.س)' : 'Regular Price (SAR)'}{' '}
+                      <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={price}
+                      onChange={(e) => setPrice(Number(e.target.value))}
+                      className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                      {isAr ? 'سعر العرض (ر.س)' : 'Sale Price (SAR)'}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={salePrice}
+                      onChange={(e) => setSalePrice(e.target.value === '' ? '' : Number(e.target.value))}
+                      placeholder="-"
+                      className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                      {isAr ? 'سعر التكلفة (ر.س)' : 'Cost Price (SAR)'}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={costPrice}
+                      onChange={(e) => setCostPrice(Number(e.target.value))}
+                      className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                      {isAr ? 'نسبة الضريبة' : 'Tax Rate'}
+                    </label>
+                    <select
+                      value={taxRate}
+                      onChange={(e) => setTaxRate(Number(e.target.value))}
+                      className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-teal-500 cursor-pointer"
+                    >
+                      <option value={15}>{isAr ? '١٥٪ (ضريبة القيمة المضافة)' : '15% (KSA VAT)'}</option>
+                      <option value={5}>{isAr ? '٥٪ (مخفضة)' : '5% (Reduced)'}</option>
+                      <option value={0}>{isAr ? '٠٪ (معفى)' : '0% (Exempt)'}</option>
+                    </select>
+                  </div>
                 </div>
-
-                <div>
-                  <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                    {isAr ? 'سعر العرض (⃁)' : 'Sale Price (⃁)'}
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={salePrice}
-                    onChange={(e) => setSalePrice(e.target.value === '' ? '' : Number(e.target.value))}
-                    placeholder="-"
-                    className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-teal-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                    {isAr ? 'نسبة الضريبة' : 'Tax Rate'}
-                  </label>
-                  <select
-                    value={taxRate}
-                    onChange={(e) => setTaxRate(Number(e.target.value))}
-                    className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-teal-500 cursor-pointer"
-                  >
-                    <option value={15}>15% (KSA VAT)</option>
-                    <option value={5}>5% (Reduced Tax)</option>
-                    <option value={0}>0% (Tax Exempt)</option>
-                  </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                      {isAr ? 'بداية الخصم' : 'Discount Start'}
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={discountStartAt}
+                      onChange={(e) => setDiscountStartAt(e.target.value)}
+                      className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                      {isAr ? 'نهاية الخصم' : 'Discount End'}
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={discountEndAt}
+                      onChange={(e) => setDiscountEndAt(e.target.value)}
+                      className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-teal-500"
+                    />
+                  </div>
                 </div>
               </div>
             )}
@@ -1110,10 +1430,10 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
 
             {sectionsOpen.inventory && (
               <div className="p-3.5 pt-2.5 space-y-2.5 border-t border-slate-100 dark:border-slate-800/80">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <div>
                     <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                      {isAr ? 'كمية المخزون' : 'Stock Quantity'}
+                      {isAr ? 'كمية المخزون' : 'Stock Quantity'} <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="number"
@@ -1123,7 +1443,18 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                       className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-teal-500"
                     />
                   </div>
-
+                  <div>
+                    <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                      {isAr ? 'تنبيه انخفاض المخزون' : 'Low Stock Alert'}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={lowStockAlert}
+                      onChange={(e) => setLowStockAlert(Number(e.target.value))}
+                      className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-teal-500"
+                    />
+                  </div>
                   <div>
                     <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
                       {isAr ? 'حالة المخزون' : 'Stock Status'}
@@ -1140,18 +1471,121 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
-                    {isAr ? 'الوزن (كجم)' : 'Weight (kg)'}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                      {isAr ? 'الوزن (كجم)' : 'Weight (kg)'}
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={weightKg}
+                      onChange={(e) => setWeightKg(Number(e.target.value))}
+                      className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono focus:outline-none focus:ring-1 focus:ring-teal-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold block mb-1 text-slate-700 dark:text-slate-300">
+                      {isAr ? 'الأبعاد (سم)' : 'Dimensions (cm)'}
+                    </label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <input
+                        type="number"
+                        min="0"
+                        value={dimensions.length}
+                        onChange={(e) => setDimensions({ ...dimensions, length: Number(e.target.value) })}
+                        placeholder={isAr ? 'طول' : 'L'}
+                        className="w-full px-2 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono text-center focus:outline-none focus:ring-1 focus:ring-teal-500"
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        value={dimensions.width}
+                        onChange={(e) => setDimensions({ ...dimensions, width: Number(e.target.value) })}
+                        placeholder={isAr ? 'عرض' : 'W'}
+                        className="w-full px-2 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono text-center focus:outline-none focus:ring-1 focus:ring-teal-500"
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        value={dimensions.height}
+                        onChange={(e) => setDimensions({ ...dimensions, height: Number(e.target.value) })}
+                        placeholder={isAr ? 'ارتفاع' : 'H'}
+                        className="w-full px-2 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono text-center focus:outline-none focus:ring-1 focus:ring-teal-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                  <label className="text-[11px] font-bold block text-slate-700 dark:text-slate-300">
+                    {isAr ? 'خيارات التوصيل للمنتج' : 'Product delivery options'}
                   </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    value={weightKg}
-                    onChange={(e) => setWeightKg(Number(e.target.value))}
-                    className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono focus:outline-none focus:ring-1 focus:ring-teal-500"
-                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !allowOwnDelivery;
+                        setAllowOwnDelivery(next);
+                        setRequiresOwnDriver(next);
+                        if (next) setShippingMode('own_delivery');
+                        else if (allowShippingCompany) setShippingMode('shipping_company');
+                        else setShippingMode('store_default');
+                      }}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold border cursor-pointer ${
+                        allowOwnDelivery
+                          ? 'bg-[var(--portal-cta,#0f172a)] text-white border-transparent'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      {commerceTerm('ownDelivery', isAr)}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !allowShippingCompany;
+                        setAllowShippingCompany(next);
+                        if (next && !allowOwnDelivery) setShippingMode('shipping_company');
+                        else if (!next && allowOwnDelivery) setShippingMode('own_delivery');
+                        else if (!next && !allowOwnDelivery) setShippingMode('store_default');
+                      }}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold border cursor-pointer ${
+                        allowShippingCompany
+                          ? 'bg-[var(--portal-cta,#0f172a)] text-white border-transparent'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      {commerceTerm('shippingCompany', isAr)}
+                    </button>
+                  </div>
+                  <p className="text-[10px] leading-relaxed text-slate-500">
+                    {isAr
+                      ? 'أسعار الشحن والوقت المتوقع وخيارات الدفع تُدار من صفحة الشحن.'
+                      : 'Shipping rates, ETA, and payment options are managed on the Shipping page.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        sessionStorage.setItem('unityteck-shipping-view', 'methods');
+                      } catch {
+                        /* ignore */
+                      }
+                      onNavigateTab?.('shipping');
+                      window.setTimeout(() => {
+                        window.dispatchEvent(
+                          new CustomEvent('unityteck-shipping-view', { detail: 'methods' }),
+                        );
+                      }, 60);
+                    }}
+                    className="w-full px-3 py-2 rounded-xl text-xs font-bold text-white inline-flex items-center justify-center gap-2 cursor-pointer"
+                    style={{ background: 'var(--portal-cta, #0f172a)' }}
+                  >
+                    <Truck className="w-3.5 h-3.5 shrink-0" />
+                    <span>{isAr ? 'فتح صفحة الشحن' : 'Open Shipping page'}</span>
+                    <ExternalLink className="w-3.5 h-3.5 shrink-0 opacity-90" />
+                  </button>
                 </div>
               </div>
             )}
@@ -1390,10 +1824,11 @@ export const ProductEditDrawer: React.FC<ProductEditDrawerProps> = ({
           <button
             type="button"
             onClick={handleSave}
-            className="unity-btn-primary px-5 py-2 rounded-xl text-xs font-bold text-white flex items-center gap-2 shadow-xs cursor-pointer transition-all"
+            disabled={aiSuggestBusy}
+            className="unity-btn-primary text-white px-5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Save className="w-3.5 h-3.5" />
-            <span>{isAr ? 'حفظ التعديلات' : 'Save Changes'}</span>
+            <Save className="w-3.5 h-3.5 text-white" />
+            <span className="text-white">{isAr ? 'حفظ التعديلات' : 'Save Changes'}</span>
           </button>
         </div>
       </div>

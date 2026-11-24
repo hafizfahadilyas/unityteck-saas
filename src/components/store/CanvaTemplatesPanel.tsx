@@ -811,7 +811,7 @@ export const CanvaTemplatesPanel: React.FC<CanvaTemplatesPanelProps> = ({
           <p className="text-[10px] text-slate-500 leading-relaxed">
             {isAr
               ? 'كل القوالب الجاهزة لهذا المتجر: الماستر، المرفوعة، والقوالب السعودية — ظاهرة للجميع هنا.'
-              : 'All ready designs for this store: Master, uploads, and KSA premades — visible here for everyone.'}
+              : 'All ready designs for this store: Master, uploads, and Saudi premades — visible here for everyone.'}
           </p>
           {filteredMasterTemplates.length > 0 && (
             <div className="space-y-1.5">

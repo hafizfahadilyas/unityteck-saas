@@ -19,17 +19,28 @@ import { readTrafficSource } from '../../../utils/trafficSource';
 import { trackStorefrontEvent } from '../../../utils/storefrontAnalytics';
 import { calculateShippingRates } from '../../../api/tenantApi';
 import { isApiEnabled } from '../../../api/client';
-import { saudiCitiesAsEnAr, loadSaudiCityCatalog } from '../../../data/saudiCities';
 import { useSaudiCityOptions } from '../../../hooks/useSaudiCityOptions';
+import { SaudiMobileInput } from '../../../components/common/SaudiMobileInput';
+import { isValidSaudiMobile, toSaudi00966 } from '../../../utils/phone';
+import { mapApiLineToCartItem } from '../thankYouOrder';
 
 export const CheckoutPage: React.FC = () => {
-  const { cart, cartTotal, clearCart, navigateTo, language, setLastOrder, user, updateSignedInContact, products } = useCart();
+  const {
+    cart,
+    cartTotal,
+    clearCart,
+    navigateTo,
+    language,
+    setLastOrder,
+    user,
+    updateSignedInContact,
+    products,
+    appliedCoupon,
+    couponDiscount,
+    removeCoupon,
+  } = useCart();
   const { addOrder, activeStore, syncOrderFromApi } = useTenant();
-  const { catalog } = useSaudiCityOptions(activeStore?.id);
-  const saudiCities = useMemo(
-    () => saudiCitiesAsEnAr(activeStore?.id ? catalog : loadSaudiCityCatalog('')),
-    [activeStore?.id, catalog],
-  );
+  const { cities: saudiCities } = useSaudiCityOptions(activeStore?.id);
   const [orderError, setOrderError] = useState('');
 
   const [name, setName] = useState(user?.name || '');
@@ -37,7 +48,9 @@ export const CheckoutPage: React.FC = () => {
   const [city, setCity] = useState(language === 'AR' ? 'الرياض' : 'Riyadh');
   const [district, setDistrict] = useState('');
   const [street, setStreet] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'tabby' | 'tamara' | 'mada' | 'apple_pay' | 'card' | 'cod'>('mada');
+  const [paymentMethod, setPaymentMethod] = useState<
+    'tabby' | 'tamara' | 'mada' | 'apple_pay' | 'card' | 'cod' | 'bank_transfer'
+  >('mada');
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderNote, setOrderNote] = useState('');
   const [shippingFee, setShippingFee] = useState(0);
@@ -52,9 +65,11 @@ export const CheckoutPage: React.FC = () => {
     : undefined;
   const showShipping = checkoutFields?.showShipping !== false;
   const showOrderNote = checkoutFields?.showOrderNote === true;
-  const guestBlocked = checkoutFields?.allowGuest === false && !user;
+  // Locked: storefront checkout requires customer login (no guest orders).
+  const guestBlocked = !user?.isLoggedIn;
 
-  const orderGrandTotal = cartTotal + (Number.isFinite(shippingFee) ? shippingFee : 0);
+  const discountedSubtotal = Math.max(0, cartTotal - (Number(couponDiscount) || 0));
+  const orderGrandTotal = discountedSubtotal + (Number.isFinite(shippingFee) ? shippingFee : 0);
 
   const moneyFmt = useMemo(
     () => (n: number) =>
@@ -130,9 +145,19 @@ export const CheckoutPage: React.FC = () => {
     })
       .then((res) => {
         if (cancelled) return;
-        const methods = Array.isArray(res?.available_methods)
-          ? (res.available_methods as CheckoutShippingMethodOption[])
-          : [];
+        const methods = (Array.isArray(res?.available_methods) ? res.available_methods : [])
+          .map((row: any) => ({
+            id: String(row?.id || ''),
+            name: String(row?.name || ''),
+            name_ar: row?.name_ar ?? null,
+            fee: Number(row?.fee ?? row?.rate ?? 0) || 0,
+            is_free: Boolean(row?.is_free),
+            estimated_delivery: row?.estimated_delivery ?? null,
+            courier_code: row?.courier_code ?? null,
+            fulfillment_mode: row?.fulfillment_mode ?? null,
+            logo_url: row?.logo_url ?? null,
+          }))
+          .filter((m: CheckoutShippingMethodOption) => Boolean(m.id && m.name));
         setShippingMethods(methods);
         setShippingHint(res?.fulfillment_hint ? String(res.fulfillment_hint) : null);
 
@@ -171,6 +196,15 @@ export const CheckoutPage: React.FC = () => {
   const handlePlaceOrder = (e: React.FormEvent) => {
     e.preventDefault();
     if (guestBlocked || !activeStore?.id) return;
+    const normalizedPhone = toSaudi00966(phone);
+    if (!isValidSaudiMobile(normalizedPhone)) {
+      setOrderError(
+        language === 'AR'
+          ? 'أدخل رقم جوال صحيح يبدأ بـ 5 (9 أرقام بعد 00966).'
+          : 'Enter a valid mobile number starting with 5 (9 digits after 00966).',
+      );
+      return;
+    }
     setIsProcessing(true);
     setOrderError('');
     const traffic = readTrafficSource();
@@ -178,15 +212,20 @@ export const CheckoutPage: React.FC = () => {
       paymentMethod === 'cod'
         ? 'Cash on Delivery'
         : paymentMethod === 'mada'
-        ? 'mada'
+        ? 'Mada'
         : paymentMethod === 'apple_pay'
         ? 'Apple Pay'
         : paymentMethod === 'tabby'
         ? 'Tabby'
         : paymentMethod === 'tamara'
         ? 'Tamara'
+        : paymentMethod === 'bank_transfer'
+        ? 'Bank Transfer'
+        : paymentMethod === 'card'
+        ? 'Credit Card'
         : 'Credit Card';
-    const lineItems = cart.map((it) => ({
+    const cartSnapshot = cart.map((it) => ({ ...it }));
+    const lineItems = cartSnapshot.map((it) => ({
       id: it.productId || it.id,
       sku: it.productId || it.id,
       name: it.productName || (language === 'AR' ? 'منتج' : 'Product'),
@@ -195,16 +234,40 @@ export const CheckoutPage: React.FC = () => {
       total: (it.unitPrice || 0) * (it.quantity || 1),
       image: it.image || it.selectedColor?.image || '',
     }));
+    const customerNotes = [
+      language === 'AR' ? `المدينة: ${city}` : `City: ${city}`,
+      language === 'AR' ? `الحي: ${district}` : `District: ${district}`,
+      language === 'AR' ? `الشارع: ${street}` : `Street: ${street}`,
+      selectedMethodLabel
+        ? language === 'AR'
+          ? `الشحن: ${selectedMethodLabel}`
+          : `Shipping: ${selectedMethodLabel}`
+        : null,
+      geo ? `Geo: ${geo.lat.toFixed(5)},${geo.lng.toFixed(5)}` : null,
+      distanceKm != null ? `DistanceKm: ${distanceKm}` : null,
+      appliedCoupon?.code
+        ? language === 'AR'
+          ? `قسيمة: ${appliedCoupon.code}`
+          : `Coupon: ${appliedCoupon.code}`
+        : null,
+      orderNote.trim()
+        ? language === 'AR'
+          ? `ملاحظة: ${orderNote.trim()}`
+          : `Note: ${orderNote.trim()}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
     const payload = {
       customerName: name,
-      customerPhone: phone,
+      customerPhone: normalizedPhone,
       customerEmail: user?.email || undefined,
       deliveryLocation: `${city} - ${district}, ${street}${
         geo ? ` · ${geo.lat.toFixed(5)},${geo.lng.toFixed(5)}` : ''
       }`,
-      itemsCount: cart.reduce((acc, curr) => acc + (curr.quantity || 1), 0),
+      itemsCount: cartSnapshot.reduce((acc, curr) => acc + (curr.quantity || 1), 0),
       items: lineItems,
-      subtotal: cartTotal,
+      subtotal: discountedSubtotal,
       shippingFee,
       total: orderGrandTotal,
       deliveryMode: shippingHint === 'own_delivery' ? ('own_delivery' as const) : undefined,
@@ -218,23 +281,14 @@ export const CheckoutPage: React.FC = () => {
       campaign: traffic.campaign,
       utmTerm: traffic.utmTerm,
       utmContent: traffic.utmContent,
-      customerNotes: [
-        `City: ${city}`,
-        `District: ${district}`,
-        `Street: ${street}`,
-        selectedMethodLabel ? `Shipping: ${selectedMethodLabel}` : null,
-        geo ? `Geo: ${geo.lat.toFixed(5)},${geo.lng.toFixed(5)}` : null,
-        distanceKm != null ? `DistanceKm: ${distanceKm}` : null,
-      ]
-        .filter(Boolean)
-        .join(' · '),
+      customerNotes,
     };
 
     void submitPublicStorefrontOrder(
       activeStore.id,
       {
         customerName: name,
-        customerPhone: phone,
+        customerPhone: normalizedPhone,
         customerEmail: user?.email || undefined,
         total: orderGrandTotal,
         deliveryLocation: payload.deliveryLocation,
@@ -247,7 +301,11 @@ export const CheckoutPage: React.FC = () => {
         campaign: traffic.campaign,
         utmTerm: traffic.utmTerm,
         utmContent: traffic.utmContent,
-        items: cart.map((it) => {
+        shippingFee: Number.isFinite(shippingFee) ? Number(shippingFee) : undefined,
+        deliveryMode: shippingHint === 'own_delivery' ? 'own_delivery' : undefined,
+        customerNotes,
+        couponCode: appliedCoupon?.code || undefined,
+        items: cartSnapshot.map((it) => {
           const catalog = products.find((p) => String(p.id) === String(it.productId));
           const selected = buildCartLineSelectedOptions(it, language === 'AR');
           const optionBits = Object.values(selected).filter(Boolean);
@@ -275,19 +333,32 @@ export const CheckoutPage: React.FC = () => {
       },
     )
       .then((order) => {
+        const apiItems = Array.isArray(order.items)
+          ? order.items.map((it: any, idx: number) => mapApiLineToCartItem(it, idx, language === 'AR'))
+          : [];
+        const placedItems = cartSnapshot.length > 0 ? cartSnapshot : apiItems;
         const placed = {
           id: order.id,
           orderNumber: order.orderNumber,
           date: order.date,
-          items: [...cart],
+          items: placedItems,
           total: orderGrandTotal,
-          shippingFee,
-          paymentMethod,
-          shippingAddress: { name, phone, city, district, street },
+          shippingFee: Number.isFinite(shippingFee) ? Number(shippingFee) : order.shippingFee,
+          // Prefer API canonical method (Mada / COD / Tabby / Tamara / Bank Transfer / Visa/MC)
+          paymentMethod: String(order.paymentMethod || paymentLabel || paymentMethod),
+          shippingMethodLabel: selectedMethodLabel || undefined,
+          customerEmail: user?.email || undefined,
+          customerNotes: customerNotes || undefined,
+          shippingAddress: { name, phone: normalizedPhone, city, district, street },
           status: 'Confirmed',
         };
-        updateSignedInContact(name, phone, city, placed);
+        // Prefer API lines when cart snapshot somehow empty but API has rows
+        if ((!placed.items || placed.items.length === 0) && apiItems.length > 0) {
+          placed.items = apiItems;
+        }
+        updateSignedInContact(name, normalizedPhone, city, placed);
         setLastOrder(placed);
+        removeCoupon();
         clearCart();
         navigateTo('thankyou');
       })
@@ -328,9 +399,9 @@ export const CheckoutPage: React.FC = () => {
   return (
     <div
       dir={language === 'AR' ? 'rtl' : 'ltr'}
-      className="min-h-screen bg-white py-6 sm:py-10 text-start text-neutral-900 selection:bg-neutral-900 selection:text-white"
+      className="min-h-screen bg-white py-4 sm:py-10 text-start text-neutral-900 selection:bg-neutral-900 selection:text-white overflow-x-hidden"
     >
-      <div className="max-w-[1360px] mx-auto px-4 lg:px-8">
+      <div className="max-w-[1360px] mx-auto px-3 sm:px-4 lg:px-8 w-full min-w-0">
         <button
           type="button"
           onClick={() => navigateTo('cart')}
@@ -340,24 +411,24 @@ export const CheckoutPage: React.FC = () => {
           <span>{language === 'AR' ? 'العودة إلى سلة المشتريات' : 'Back to Shopping Bag'}</span>
         </button>
 
-        <h1 className={`honor-heading text-2xl sm:text-3xl font-bold text-black mb-6 sm:mb-8 ${
+        <h1 className={`honor-heading text-xl sm:text-3xl font-bold text-black mb-5 sm:mb-8 ${
           language === 'AR' ? 'leading-[1.38] tracking-normal' : 'leading-tight tracking-[-0.01em]'
         }`}>
           {language === 'AR' ? 'إتمام الشراء والدفع الآمن' : 'Express Secure Checkout'}
         </h1>
 
-        <form onSubmit={handlePlaceOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+        <form onSubmit={handlePlaceOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8 items-start">
           {/* Left Form: Shipping + Payment (8 cols) */}
-          <div className="lg:col-span-8 space-y-6">
+          <div className="lg:col-span-8 space-y-4 sm:space-y-6 min-w-0 order-1">
             {/* 1. Delivery Address */}
-            <div className="bg-[#F8F9FA] rounded-3xl p-5 sm:p-8 space-y-5">
-              <h3 className="font-extrabold text-base text-neutral-900 flex items-center gap-2 pb-3 border-b border-neutral-200/50">
-                <MapPin className="w-4 h-4 text-neutral-700" />
-                <span>{language === 'AR' ? 'بيانات الشحن والتوصيل بالمملكة' : 'Shipping & Delivery Address'}</span>
+            <div className="bg-[#F8F9FA] rounded-2xl sm:rounded-3xl p-4 sm:p-8 space-y-4 sm:space-y-5">
+              <h3 className="font-extrabold text-sm sm:text-base text-neutral-900 flex items-center gap-2 pb-3 border-b border-neutral-200/50">
+                <MapPin className="w-4 h-4 text-neutral-700 shrink-0" />
+                <span>{language === 'AR' ? 'بيانات الشحن والتوصيل' : 'Shipping & Delivery Address'}</span>
               </h3>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs">
+                <div className="min-w-0">
                   <label className="block font-semibold text-neutral-700 mb-1">
                     {language === 'AR' ? 'الاسم الكامل' : 'Full Name'}
                   </label>
@@ -366,20 +437,20 @@ export const CheckoutPage: React.FC = () => {
                     required
                     value={name}
                     onChange={e => setName(e.target.value)}
-                    className="w-full bg-white rounded-xl p-3 text-neutral-900 border border-neutral-200/90 focus:border-neutral-900 focus:outline-hidden"
+                    autoComplete="name"
+                    className="w-full min-w-0 bg-white rounded-xl p-3 text-neutral-900 border border-neutral-200/90 focus:border-neutral-900 focus:outline-hidden"
                   />
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <label className="block font-semibold text-neutral-700 mb-1">
-                    {language === 'AR' ? 'رقم الجوال السعودي' : 'Mobile Number (KSA)'}
+                    {language === 'AR' ? 'رقم الجوال' : 'Mobile Number'}
                   </label>
-                  <input
-                    type="tel"
-                    required
+                  <SaudiMobileInput
                     value={phone}
-                    onChange={e => setPhone(e.target.value)}
-                    className="w-full bg-white rounded-xl p-3 text-neutral-900 font-mono border border-neutral-200/90 focus:border-neutral-900 focus:outline-hidden"
+                    onChange={setPhone}
+                    isAr={language === 'AR'}
+                    required
                   />
                 </div>
 
@@ -430,8 +501,8 @@ export const CheckoutPage: React.FC = () => {
               ) : null}
             </div>
 
-            {/* 2. Saudi Authorized Payment Gateways */}
-            <div className="bg-[#F8F9FA] rounded-3xl p-5 sm:p-8">
+            {/* 2. Authorized Payment Gateways */}
+            <div className="bg-[#F8F9FA] rounded-2xl sm:rounded-3xl p-4 sm:p-8 min-w-0">
               {activeStore?.id ? (
               <PaymentGatewaySelector
                 storeId={activeStore.id}
@@ -450,9 +521,9 @@ export const CheckoutPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Right Summary Box (4 cols) */}
-          <div className="lg:col-span-4 space-y-6">
-            <div className="p-5 sm:p-6 rounded-3xl bg-[#F8F9FA] space-y-5">
+          {/* Right Summary Box (4 cols) — on mobile sits under address, before payment via order */}
+          <div className="lg:col-span-4 space-y-4 sm:space-y-6 min-w-0 order-2 lg:order-none lg:sticky lg:top-4">
+            <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-[#F8F9FA] space-y-4 sm:space-y-5">
               <h2 className="text-base sm:text-lg font-bold text-neutral-900 pb-2 sm:pb-3 border-b border-neutral-200/50">
                 {language === 'AR' ? 'ملخص ومحتويات الطلب' : 'Order Summary'}
               </h2>
@@ -491,6 +562,20 @@ export const CheckoutPage: React.FC = () => {
                     {language === 'AR' ? `${cartTotal.toLocaleString()}.00 ⃁` : `⃁ ${cartTotal.toLocaleString()}.00`}
                   </span>
                 </div>
+                {couponDiscount > 0 && appliedCoupon?.code ? (
+                  <div className="flex justify-between items-center text-emerald-700 font-medium">
+                    <span>
+                      {language === 'AR'
+                        ? `خصم القسيمة (${appliedCoupon.code})`
+                        : `Discount (${appliedCoupon.code})`}
+                    </span>
+                    <span className="font-sans shrink-0">
+                      {language === 'AR'
+                        ? `−${couponDiscount.toLocaleString()}.00 ⃁`
+                        : `−⃁ ${couponDiscount.toLocaleString()}.00`}
+                    </span>
+                  </div>
+                ) : null}
                 {showShipping ? (
                   <div className="flex justify-between items-start gap-2 text-emerald-700 font-medium">
                     <span className="min-w-0">
@@ -532,25 +617,34 @@ export const CheckoutPage: React.FC = () => {
               ) : null}
 
               {guestBlocked ? (
-                <p className="text-[11px] text-rose-700" data-checkout-guest="blocked">
-                  {language === 'AR' ? 'يلزم تسجيل الدخول قبل إتمام الشراء.' : 'Sign in before placing the order.'}
-                </p>
-              ) : null}
-
-              <button
-                type="submit"
-                disabled={isProcessing || guestBlocked}
-                className="w-full py-3.5 sm:py-4 bg-black hover:bg-neutral-800 disabled:bg-neutral-400 text-white font-extrabold text-xs sm:text-sm rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
-              >
-                {isProcessing ? (
-                  <span>{language === 'AR' ? 'جاري تأكيد ومعالجة الطلب...' : 'Processing order...'}</span>
-                ) : (
-                  <>
-                    <span>{language === 'AR' ? 'تأكيد الطلب الآن' : 'Place Order Now'}</span>
-                    <ArrowRight className={`w-4 h-4 shrink-0 ${language === 'AR' ? 'rotate-180' : ''}`} />
-                  </>
-                )}
-              </button>
+                <div className="space-y-2" data-checkout-guest="blocked">
+                  <p className="text-[11px] text-rose-700">
+                    {language === 'AR' ? 'يلزم تسجيل الدخول قبل إتمام الشراء.' : 'Sign in before placing the order.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigateTo('profile')}
+                    className="w-full py-3 rounded-full bg-neutral-900 text-white text-xs font-extrabold cursor-pointer"
+                  >
+                    {language === 'AR' ? 'تسجيل الدخول للمتابعة' : 'Sign in to continue'}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={isProcessing}
+                  className="w-full py-3.5 sm:py-4 bg-black hover:bg-neutral-800 disabled:bg-neutral-400 text-white font-extrabold text-xs sm:text-sm rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                >
+                  {isProcessing ? (
+                    <span>{language === 'AR' ? 'جاري تأكيد ومعالجة الطلب...' : 'Processing order...'}</span>
+                  ) : (
+                    <>
+                      <span>{language === 'AR' ? 'تأكيد الطلب الآن' : 'Place Order Now'}</span>
+                      <ArrowRight className={`w-4 h-4 shrink-0 ${language === 'AR' ? 'rotate-180' : ''}`} />
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </form>

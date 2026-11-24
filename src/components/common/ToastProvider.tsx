@@ -7,9 +7,15 @@ import React, {
   useMemo,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, CheckCircle2, Info, X, XCircle } from 'lucide-react';
 import { toUserFriendlyError } from '../../utils/userFriendlyError';
 import { GlobalModal } from './GlobalModal';
+
+/** Above GlobalModal (10000), FloatingPopover (11000), MediaPicker (99999). */
+const TOAST_STACK_Z = 'z-[200000]';
+/** Confirm/alert dialogs must sit above MediaPicker + toasts host siblings. */
+const CONFIRM_STACK_Z = 'z-[210000]';
 
 type ToastKind = 'success' | 'error' | 'info' | 'warning';
 
@@ -111,56 +117,64 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const api = useMemo(() => ({ toast, confirm, confirmWithReason }), [toast, confirm, confirmWithReason]);
 
+  const toastLayer =
+    typeof document !== 'undefined'
+      ? createPortal(
+          <div
+            className={`fixed bottom-4 end-4 ${TOAST_STACK_Z} flex flex-col gap-2.5 max-w-sm w-[min(100%-2rem,24rem)] pointer-events-none`}
+            aria-live="polite"
+            data-unity-toast-stack="true"
+          >
+            {items.map((t) => (
+              <div
+                key={t.id}
+                className="pointer-events-auto flex items-start gap-3 rounded-2xl px-4 py-3.5 text-xs font-semibold shadow-xl border backdrop-blur-sm transition-all duration-150"
+                style={{
+                  background: 'color-mix(in srgb, var(--surface, #fff) 92%, transparent)',
+                  color: 'var(--text, #04222b)',
+                  borderColor: 'var(--border, #98d8d0)',
+                }}
+              >
+                <span
+                  className="shrink-0 w-8 h-8 rounded-xl flex items-center justify-center"
+                  style={{
+                    background:
+                      t.kind === 'error'
+                        ? 'color-mix(in srgb, #f43f5e 16%, transparent)'
+                        : t.kind === 'warning'
+                          ? 'color-mix(in srgb, #f59e0b 16%, transparent)'
+                          : 'color-mix(in srgb, var(--portal-600, #1d8b94) 16%, transparent)',
+                  }}
+                >
+                  {t.kind === 'success' && (
+                    <CheckCircle2 className="w-4 h-4 text-[var(--portal-600,#1d8b94)]" />
+                  )}
+                  {t.kind === 'error' && <XCircle className="w-4 h-4 text-rose-500" />}
+                  {t.kind === 'warning' && <AlertTriangle className="w-4 h-4 text-amber-500" />}
+                  {t.kind === 'info' && (
+                    <Info className="w-4 h-4 text-[var(--portal-400,#4fb8b4)]" />
+                  )}
+                </span>
+                <span className="flex-1 leading-snug pt-1.5">{t.message}</span>
+                <button
+                  type="button"
+                  onClick={() => dismiss(t.id)}
+                  className="shrink-0 p-1 rounded-lg opacity-50 hover:opacity-100 cursor-pointer"
+                  aria-label="Dismiss"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>,
+          document.body,
+        )
+      : null;
+
   return (
     <ToastContext.Provider value={api}>
       {children}
-
-      <div
-        className="fixed bottom-4 end-4 z-[100] flex flex-col gap-2.5 max-w-sm w-[min(100%-2rem,24rem)] pointer-events-none"
-        aria-live="polite"
-      >
-        {items.map((t) => (
-          <div
-            key={t.id}
-            className="pointer-events-auto flex items-start gap-3 rounded-2xl px-4 py-3.5 text-xs font-semibold shadow-xl border backdrop-blur-sm transition-all duration-150"
-            style={{
-              background: 'color-mix(in srgb, var(--surface, #fff) 92%, transparent)',
-              color: 'var(--text, #04222b)',
-              borderColor: 'var(--border, #98d8d0)',
-            }}
-          >
-            <span
-              className="shrink-0 w-8 h-8 rounded-xl flex items-center justify-center"
-              style={{
-                background:
-                  t.kind === 'error'
-                    ? 'color-mix(in srgb, #f43f5e 16%, transparent)'
-                    : t.kind === 'warning'
-                    ? 'color-mix(in srgb, #f59e0b 16%, transparent)'
-                    : 'color-mix(in srgb, var(--portal-600, #1d8b94) 16%, transparent)',
-              }}
-            >
-              {t.kind === 'success' && (
-                <CheckCircle2 className="w-4 h-4 text-[var(--portal-600,#1d8b94)]" />
-              )}
-              {t.kind === 'error' && <XCircle className="w-4 h-4 text-rose-500" />}
-              {t.kind === 'warning' && <AlertTriangle className="w-4 h-4 text-amber-500" />}
-              {t.kind === 'info' && (
-                <Info className="w-4 h-4 text-[var(--portal-400,#4fb8b4)]" />
-              )}
-            </span>
-            <span className="flex-1 leading-snug pt-1.5">{t.message}</span>
-            <button
-              type="button"
-              onClick={() => dismiss(t.id)}
-              className="shrink-0 p-1 rounded-lg opacity-50 hover:opacity-100 cursor-pointer"
-              aria-label="Dismiss"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ))}
-      </div>
+      {toastLayer}
 
       {confirmState && (
         <ConfirmModal
@@ -229,7 +243,7 @@ function ConfirmModal({
       dir={isAr ? 'rtl' : 'ltr'}
       aria-label={title}
       role="alertdialog"
-      zIndexClassName="z-[10000]"
+      zIndexClassName={CONFIRM_STACK_Z}
       backdropClassName="bg-[#04222B]/55 backdrop-blur-[2px]"
       closeOnEscape={false}
     >
@@ -343,7 +357,7 @@ function ConfirmReasonModal({
       dir={isAr ? 'rtl' : 'ltr'}
       aria-label={title}
       role="alertdialog"
-      zIndexClassName="z-[10000]"
+      zIndexClassName={CONFIRM_STACK_Z}
       backdropClassName="bg-[#04222B]/55 backdrop-blur-[2px]"
       closeOnEscape={false}
     >

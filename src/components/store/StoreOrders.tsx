@@ -103,6 +103,9 @@ const OrderDetailsModal = lazy(() =>
 const CourierShippingLabelModal = lazy(() =>
   import('./orders/CourierShippingLabelModal').then((m) => ({ default: m.CourierShippingLabelModal })),
 );
+const ShippingOrderDetailsModal = lazy(() =>
+  import('./shipping/ShippingOrderDetailsModal').then((m) => ({ default: m.ShippingOrderDetailsModal })),
+);
 const OrderStatusSettingsModal = lazy(() =>
   import('./orders/OrderStatusSettingsModal').then((m) => ({ default: m.OrderStatusSettingsModal })),
 );
@@ -138,6 +141,7 @@ export const StoreOrders: React.FC = () => {
     permanentDeleteOrder,
     addOrder,
     createShipmentForOrder,
+    currentShipments,
   } = useTenant();
   const { t, money, locale, dir } = usePrefs();
   const { toast, confirm, confirmWithReason } = useToast();
@@ -203,6 +207,9 @@ export const StoreOrders: React.FC = () => {
   const [detailsModalOrder, setDetailsModalOrder] = useState<Order | null>(null);
   const [showShippingLabelModal, setShowShippingLabelModal] = useState(false);
   const [shippingLabelOrder, setShippingLabelOrder] = useState<Order | null>(null);
+  const [showOrderDetailsSheetModal, setShowOrderDetailsSheetModal] = useState(false);
+  const [orderDetailsSheetOrder, setOrderDetailsSheetOrder] = useState<Order | null>(null);
+  const [orderDetailsSheetLabelUrl, setOrderDetailsSheetLabelUrl] = useState<string | null>(null);
 
   // Tools & Settings Sub-Modals (Image 1)
   const [showOrderToolsMenu, setShowOrderToolsMenu] = useState(false);
@@ -1174,12 +1181,21 @@ export const StoreOrders: React.FC = () => {
         ? o.subtotal
         : items.reduce((sum, it) => sum + (Number(it.price) || 0) * (Number(it.quantity) || 0), 0);
     const discount = typeof o.discountAmount === 'number' ? o.discountAmount : 0;
-    const shipping = typeof o.shippingFee === 'number' ? o.shippingFee : 0;
+    const shipping =
+      typeof o.shippingFee === 'number' && Number.isFinite(o.shippingFee) ? o.shippingFee : null;
     const tax = typeof o.tax === 'number' ? o.tax : 0;
     const grandTotal =
       typeof o.total === 'number'
         ? o.total
-        : Math.max(0, subtotal - discount + shipping + tax);
+        : Math.max(0, subtotal - discount + (shipping ?? 0) + tax);
+    const shippingFeeLabel =
+      shipping == null
+        ? '—'
+        : shipping === 0
+          ? isAr
+            ? 'مجاني'
+            : 'Free'
+          : money(shipping);
 
     // Timeline: API timeline only, else a single real "placed" step — never invent full journey
     const timeline =
@@ -1351,15 +1367,14 @@ export const StoreOrders: React.FC = () => {
             <button
               type="button"
               onClick={() => {
-                if (!String(o.trackingNumber || '').trim()) {
-                  toast(isAr ? 'أضف رقم التتبع قبل طباعة البوليصة' : 'Add a tracking number before printing the label', 'error');
-                  return;
-                }
-                setShippingLabelOrder(o);
-                setShowShippingLabelModal(true);
+                const ship = (currentShipments || []).find((s) => s.orderId === o.id);
+                const labelUrl = String(ship?.labelUrl || '').trim() || null;
+                setOrderDetailsSheetOrder(o);
+                setOrderDetailsSheetLabelUrl(labelUrl);
+                setShowOrderDetailsSheetModal(true);
               }}
               className="px-4 py-2.5 rounded-xl text-xs font-bold border border-sky-300 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 flex items-center gap-2 cursor-pointer shadow-xs transition-colors hover:bg-sky-100 dark:hover:bg-sky-900/50"
-              title={isAr ? 'طباعة بوليصة الشحن اللوجستية بالباركود الحراري سمسا/سبل/أرامكس' : 'Print Courier Shipping Label (Code 128 Barcode)'}
+              title={isAr ? 'عرض تفاصيل الطلب وبوليصة الشحن' : 'View Order Details and shipping waybill'}
             >
               <Truck className="w-4 h-4 text-sky-600 dark:text-sky-400" />
               <span>{isAr ? 'بوليصة الشحن' : 'Courier Waybill'}</span>
@@ -2274,7 +2289,7 @@ export const StoreOrders: React.FC = () => {
                 <div className="flex justify-between font-bold text-slate-700 dark:text-slate-300">
                   <span>{t('shippingFeeLabel')}</span>
                   <span className="font-black text-slate-950 dark:text-white">
-                    {money(shipping)}
+                    {shippingFeeLabel}
                   </span>
                 </div>
                 <div className="flex justify-between font-bold text-slate-700 dark:text-slate-300">
@@ -3392,7 +3407,23 @@ export const StoreOrders: React.FC = () => {
           />
         )}
 
-        {/* Courier Shipping Label Printable Barcode Modal */}
+        {/* Order Details sheet (OTO-style) — real order API data */}
+        {showOrderDetailsSheetModal && orderDetailsSheetOrder && (
+          <ShippingOrderDetailsModal
+            isOpen={showOrderDetailsSheetModal}
+            onClose={() => {
+              setShowOrderDetailsSheetModal(false);
+              setOrderDetailsSheetOrder(null);
+              setOrderDetailsSheetLabelUrl(null);
+            }}
+            order={orderDetailsSheetOrder}
+            store={activeStore}
+            locale={locale}
+            labelUrl={orderDetailsSheetLabelUrl}
+          />
+        )}
+
+        {/* Courier Shipping Label Printable Barcode Modal (thermal secondary) */}
         {showShippingLabelModal && shippingLabelOrder && (
           <CourierShippingLabelModal
             isOpen={showShippingLabelModal}

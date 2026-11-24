@@ -7,7 +7,13 @@ import { usePrefs } from '../../i18n/PrefsContext';
 import { useTenant } from '../../context/TenantContext';
 import { useToast } from '../common/ToastProvider';
 import { MediaPickerModal } from '../common/MediaPickerModal';
-import { handleImageError, FALLBACK_PRODUCT_IMAGE } from '../../utils/imageFallback';
+import {
+  handleImageError,
+  FALLBACK_PRODUCT_IMAGE,
+  FALLBACK_SVG_PLACEHOLDER,
+  isSyntheticProductImage,
+  sanitizeProductImageUrl,
+} from '../../utils/imageFallback';
 import { optimizeImageFile } from '../../utils/mediaOptimizer';
 import { RichTextEditor, looksLikeHtml, PRODUCT_DESCRIPTION_PROSE_CLASS } from '../common/RichTextEditor';
 import { getProductDisplayCategory } from '../../utils/storeLocalization';
@@ -21,6 +27,7 @@ import {
   customFieldAllowsOptionPrices,
   customFieldIsCustomerUpload,
   customFieldIsFillable,
+  customFieldIsFreeColorPicker,
   customFieldNeedsOptionColors,
   customFieldNeedsOptionImages,
   customFieldNeedsOptions,
@@ -56,6 +63,7 @@ import {
 import * as tenantApi from '../../api/tenantApi';
 import { isApiEnabled } from '../../api/client';
 import { commerceTerm } from '../../i18n/commerceTerms';
+import { aiChrome } from '../../i18n/aiChrome';
 import { buildStorefrontProductUrl } from '../../utils/storefrontLinks';
 import type { ProductEditSectionKey } from './ProductEditDrawer';
 import { CoffeeLearnMoreProductSection } from './CoffeeLearnMoreProductSection';
@@ -74,6 +82,7 @@ import {
   Copy,
   ExternalLink,
   Save,
+  CheckCircle2,
   Trash2,
   Maximize2,
   Plus,
@@ -147,6 +156,8 @@ export interface StoreProductEditorViewProps {
   onCategoriesCreated?: () => void;
   onBack: () => void;
   onSave: (updatedData: Partial<Product>) => void;
+  /** True while create-success popup is showing (disable Save / show done state). */
+  saveSuccessBusy?: boolean;
   onDelete: () => void;
   onDuplicate?: (product: Product) => void;
   /** Open store admin tab (e.g. shipping) from product editor. */
@@ -428,6 +439,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   onCategoriesCreated,
   onBack,
   onSave,
+  saveSuccessBusy = false,
   onDelete,
   onDuplicate,
   visibleSections,
@@ -458,10 +470,16 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
   // ── Form State ──
   const [name, setName] = useState(product.name || '');
+  const [nameAr, setNameAr] = useState(product.nameAr || '');
+  const [nameEn, setNameEn] = useState(product.nameEn || product.name || '');
   const [sku, setSku] = useState(product.sku || '');
   const [category, setCategory] = useState(product.category || (categories[0] || 'General'));
   const [brand, setBrand] = useState(product.brand || availableBrands[0] || storeName);
   const [subtitle, setSubtitle] = useState(product.subtitle || '');
+  const [subtitleAr, setSubtitleAr] = useState(product.subtitleAr || '');
+  const [descriptionAr, setDescriptionAr] = useState(product.descriptionAr || '');
+  const [descriptionEn, setDescriptionEn] = useState(product.descriptionEn || '');
+  const [seoKeywords, setSeoKeywords] = useState(product.seoKeywords || '');
   const [costPrice, setCostPrice] = useState<number>(product.costPrice ?? 0);
   const [merchantVisibility, setMerchantVisibility] = useState<'active' | 'draft' | 'scheduled'>(() => {
     if (product.scheduledPublishAt && product.status !== 'published') return 'scheduled';
@@ -579,18 +597,19 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   // ── Images State ──
   const [gallery, setGallery] = useState<string[]>(() => {
     const list: string[] = [];
-    if (product.image) list.push(product.image);
+    const pushUrl = (raw?: string | null) => {
+      const url = sanitizeProductImageUrl(raw);
+      if (url && !list.includes(url)) list.push(url);
+    };
+    pushUrl(product.image);
     if (product.galleryUrls && Array.isArray(product.galleryUrls)) {
-      product.galleryUrls.forEach((u) => {
-        if (u && !list.includes(u)) list.push(u);
-      });
+      product.galleryUrls.forEach((u) => pushUrl(u));
     }
     if (product.additionalImages && Array.isArray(product.additionalImages)) {
-      product.additionalImages.forEach((u) => {
-        if (u && !list.includes(u)) list.push(u);
-      });
+      product.additionalImages.forEach((u) => pushUrl(u));
     }
-    return list.length > 0 ? list : [product.image || ''];
+    // Create / empty product → no fake flowers seed; gallery stays empty until merchant uploads.
+    return list;
   });
 
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -995,27 +1014,28 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   });
 
   // ── Handlers ──
+  const applyMainImageUrl = (url: string) => {
+    const next =
+      gallery.length === 0
+        ? [url]
+        : gallery.map((u, i) => (i === selectedImageIndex ? url : u));
+    setGallery(next);
+    setSelectedImageIndex(0);
+    if (updateProduct && product?.id && storeId && !String(product.id).startsWith('draft-')) {
+      updateProduct(product.id, { image: next[0] || url, galleryUrls: next }, storeId);
+    }
+  };
+
   const handleMainFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
       const opt = await optimizeImageFile(file, 1200, 200 * 1024);
       const url = opt.webpUrl || URL.createObjectURL(opt.file);
-      const copy = [...gallery];
-      copy[selectedImageIndex] = url;
-      setGallery(copy);
-      if (updateProduct && product?.id && storeId) {
-        updateProduct(product.id, { image: copy[0] || url, galleryUrls: copy }, storeId);
-      }
+      applyMainImageUrl(url);
       toast(isAr ? `تم ضغط الصورة وتحسينها بنجاح (${opt.savingsPct}% وفر)` : `Optimized & saved (${opt.savingsPct}% smaller)`, 'success');
     } catch {
-      const url = URL.createObjectURL(file);
-      const copy = [...gallery];
-      copy[selectedImageIndex] = url;
-      setGallery(copy);
-      if (updateProduct && product?.id && storeId) {
-        updateProduct(product.id, { image: copy[0] || url, galleryUrls: copy }, storeId);
-      }
+      applyMainImageUrl(URL.createObjectURL(file));
       toast(isAr ? 'تم استبدال الصورة الرئيسية' : 'Main image updated', 'success');
     }
     e.target.value = '';
@@ -1086,12 +1106,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     if (newUrls.length === 0) return;
 
     if (mediaPickerTarget === 'main') {
-      const copy = [...gallery];
-      copy[selectedImageIndex] = newUrls[0];
-      setGallery(copy);
-      if (updateProduct && product?.id && storeId) {
-        updateProduct(product.id, { image: copy[0] || newUrls[0], galleryUrls: copy }, storeId);
-      }
+      applyMainImageUrl(newUrls[0]);
       toast(isAr ? 'تم استبدال الصورة الرئيسية' : 'Main image replaced', 'success');
     } else if (mediaPickerTarget === 'thumbnail' && targetThumbIndex !== null) {
       const copy = [...gallery];
@@ -1137,31 +1152,31 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   };
 
   const handleRemoveMainImage = () => {
-    if (gallery.length <= 1) {
-      toast(isAr ? 'يجب أن يحتوي المنتج على صورة واحدة على الأقل' : 'Product must have at least one image', 'error');
-      return;
-    }
     const next = gallery.filter((_, idx) => idx !== selectedImageIndex);
     setGallery(next);
-    setSelectedImageIndex(Math.max(0, selectedImageIndex - 1));
-    if (updateProduct && product?.id && storeId) {
-      updateProduct(product.id, { image: next[0] || '', galleryUrls: next }, storeId);
+    setSelectedImageIndex(Math.max(0, Math.min(selectedImageIndex, next.length - 1)));
+    if (updateProduct && product?.id && storeId && !String(product.id).startsWith('draft-')) {
+      updateProduct(
+        product.id,
+        { image: sanitizeProductImageUrl(next[0]), galleryUrls: next },
+        storeId,
+      );
     }
     toast(isAr ? 'تم حذف الصورة' : 'Image removed', 'info');
   };
 
   const handleRemoveThumbnail = (idxToRemove: number) => {
-    if (gallery.length <= 1) {
-      toast(isAr ? 'يجب أن يحتوي المنتج على صورة واحدة على الأقل' : 'Product must have at least one image', 'error');
-      return;
-    }
     const next = gallery.filter((_, idx) => idx !== idxToRemove);
     setGallery(next);
     if (selectedImageIndex >= next.length) {
       setSelectedImageIndex(Math.max(0, next.length - 1));
     }
-    if (updateProduct && product?.id && storeId) {
-      updateProduct(product.id, { image: next[0] || '', galleryUrls: next }, storeId);
+    if (updateProduct && product?.id && storeId && !String(product.id).startsWith('draft-')) {
+      updateProduct(
+        product.id,
+        { image: sanitizeProductImageUrl(next[0]), galleryUrls: next },
+        storeId,
+      );
     }
     toast(isAr ? 'تم حذف الصورة' : 'Image removed', 'info');
   };
@@ -1244,7 +1259,10 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     setFldConditionJoin(field.conditionJoin || 'AND');
     setFldConditions(Array.isArray(field.conditions) ? [...field.conditions] : []);
     // Keep already-saved image / price / compare — do not strip to labels only.
-    setFldOptionsDraft(toFldOptionDrafts(field.options));
+    // Color Picker is free-pick (no option rows).
+    setFldOptionsDraft(
+      customFieldNeedsOptions(coercedType) ? toFldOptionDrafts(field.options) : [],
+    );
     // One box — show whatever merchant already saved (any language).
     setFldContentInput(field.contentEn || field.contentAr || field.description || '');
     setIsFieldModalOpen(true);
@@ -1739,6 +1757,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   // Save changes
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (saveSuccessBusy) return;
 
     if (!name.trim()) {
       toast(isAr ? 'يرجى إدخال اسم المنتج' : 'Please enter product name', 'error');
@@ -1781,7 +1800,9 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       saveVariations.every((row) => row.isActive === false || row.unlimitedStock || Number(row.stock) === Number(stock));
     const computedStock = tracksVariantStock && !mirroredStock ? sumVariantStock(saveVariations) : Number(stock);
     const payload: Partial<Product> = {
-      name,
+      name: (isAr ? nameEn || name : name).trim() || name.trim(),
+      nameAr: (nameAr || (isAr ? name : '')).trim() || null,
+      nameEn: (nameEn || (!isAr ? name : '')).trim() || undefined,
       sku,
       category: primaryCategory,
       categories: productCategories,
@@ -1792,8 +1813,11 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       scheduledPublishAt:
         merchantVisibility === 'scheduled' && scheduledPublishAt ? scheduledPublishAt : null,
       subtitle: subtitle.trim() || null,
+      subtitleAr: (subtitleAr || (isAr ? subtitle : '')).trim() || null,
       googleTaxonomy: googleTaxonomy.trim() || null,
       description,
+      descriptionAr: (descriptionAr || (isAr ? description : '')).trim() || null,
+      descriptionEn: (descriptionEn || (!isAr ? description : '')).trim() || null,
       isFeatured,
       price: regular,
       discountedPrice: onSale ? sale : 0,
@@ -1816,9 +1840,14 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       shippingPerKmRate: Number(shippingPerKmRate) || 0,
       shippingPaymentOptions,
       dimensions,
-      image: gallery[selectedImageIndex] || gallery[0] || product.image,
-      galleryUrls: gallery,
-      additionalImages: gallery.slice(1),
+      image: sanitizeProductImageUrl(
+        gallery[selectedImageIndex] || gallery[0] || product.image || '',
+      ),
+      galleryUrls: gallery.map((u) => sanitizeProductImageUrl(u)).filter(Boolean),
+      additionalImages: gallery
+        .slice(1)
+        .map((u) => sanitizeProductImageUrl(u))
+        .filter(Boolean),
       salesChannels: normalizeProductSalesChannels(salesChannels),
       tags,
       customFields: customFields.map((f, i) => {
@@ -1874,6 +1903,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       variations: optionsEnabled ? saveVariations : [],
       seoTitle,
       seoDescription,
+      seoKeywords: seoKeywords.trim() || null,
       customUrl: urlSlug,
       videoUrl: learnMoreVideoUrl.trim() || null,
       // Preserve create-method type (e.g. HiBrew `grouped` parent shell)
@@ -1892,51 +1922,193 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
     onSave(payload);
   };
 
-  const runAiProductCopySuggest = async (opts?: { fillTitle?: boolean; fillDescription?: boolean }) => {
-    const fillTitle = opts?.fillTitle !== false;
-    const fillDescription = opts?.fillDescription !== false;
+  const aiUi = aiChrome(isAr);
+  const aiNameReady = name.trim().length >= 2;
+
+  const runAiProductCopySuggest = async (opts?: {
+    fillTitle?: boolean;
+    fillDescription?: boolean;
+    /** Fill all AI-safe fields from product name (+ image when available). */
+    fillAll?: boolean;
+  }) => {
+    const fillAll = Boolean(opts?.fillAll);
+    const fillTitle = fillAll || opts?.fillTitle !== false;
+    const fillDescription = fillAll || opts?.fillDescription !== false;
     if (!storeId || !isApiEnabled()) {
-      toast(
-        isAr ? 'اقتراح الذكاء الاصطناعي يتطلب اتصال الواجهة البرمجية' : 'AI suggestion needs the live API connection',
-        'error',
-      );
+      toast(aiUi.needApi, 'error');
       return;
     }
-    if (!name.trim() && !category.trim() && !brand.trim()) {
-      toast(
-        isAr
-          ? 'أدخل اسم المنتج أو التصنيف أو العلامة أولاً ثم اطلب الاقتراح'
-          : 'Enter a name, category, or brand first, then request a suggestion',
-        'error',
-      );
+    if (!aiNameReady) {
+      toast(aiUi.needNameToast, 'error');
       return;
     }
+    const seedCategory =
+      category.trim() ||
+      productCategories.find((c) => String(c).trim()) ||
+      '';
+    const rawImg = String(gallery[selectedImageIndex] || gallery[0] || product.image || '').trim();
+    const imageUrl =
+      rawImg &&
+      /^https?:\/\//i.test(rawImg) &&
+      rawImg !== FALLBACK_PRODUCT_IMAGE &&
+      !/placeholder|fallback|dummy/i.test(rawImg)
+        ? rawImg
+        : undefined;
+    const categoryPool = (
+      categoryOptions && categoryOptions.length > 0
+        ? categoryOptions.map((o) => o.value || o.label)
+        : categories
+    )
+      .map((c) => String(c || '').trim())
+      .filter(Boolean)
+      .slice(0, 80);
+    const brandPool = (availableBrands || [])
+      .map((b) => String(b || '').trim())
+      .filter(Boolean)
+      .slice(0, 60);
+
     setAiSuggestBusy(true);
     try {
       const data = await tenantApi.suggestProductCopy(storeId, {
-        name: name.trim() || undefined,
-        category: category.trim() || undefined,
+        name: name.trim(),
+        category: String(seedCategory).trim() || undefined,
         brand: brand.trim() || undefined,
+        product_type: product.productType || product.type || undefined,
         locale: isAr ? 'ar' : 'en',
+        image_url: imageUrl,
+        available_categories: categoryPool,
+        available_brands: brandPool,
       });
-      if (fillTitle && data.title) {
-        setName(data.title);
+      const titleEn = String(data.title_en || (!isAr ? data.title : '') || '').trim();
+      const titleAr = String(data.title_ar || (isAr ? data.title : '') || '').trim();
+      const subEn = String(data.subtitle_en || (!isAr ? data.subtitle : '') || '').trim();
+      const subAr = String(data.subtitle_ar || (isAr ? data.subtitle : '') || '').trim();
+      const descEn = String(data.description_en || (!isAr ? data.description : '') || '').trim();
+      const descAr = String(data.description_ar || (isAr ? data.description : '') || '').trim();
+      const seoTitleEn = String(data.seo_title_en || (!isAr ? data.seo_title : '') || '').trim();
+      const seoTitleAr = String(data.seo_title_ar || (isAr ? data.seo_title : '') || '').trim();
+      const seoDescEn = String(data.seo_description_en || (!isAr ? data.seo_description : '') || '').trim();
+      const seoDescAr = String(data.seo_description_ar || (isAr ? data.seo_description : '') || '').trim();
+      const kwEn = String(data.seo_keywords_en || '').trim();
+      const kwAr = String(data.seo_keywords_ar || '').trim();
+      const localTitle = (isAr ? titleAr || data.title : titleEn || data.title || '').trim();
+      const localSub = (isAr ? subAr || data.subtitle : subEn || data.subtitle || '').trim();
+      const localDesc = (isAr ? descAr || data.description : descEn || data.description || '').trim();
+      const localSeoTitle =
+        (isAr ? seoTitleAr || data.seo_title : seoTitleEn || data.seo_title || '').trim() ||
+        (localTitle ? `${localTitle} | ${storeName}` : '');
+      const localSeoDesc =
+        (isAr ? seoDescAr || data.seo_description : seoDescEn || data.seo_description || '').trim() ||
+        (localDesc
+          ? localDesc.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)
+          : '');
+      const localKeywords = (isAr ? kwAr || kwEn : kwEn || kwAr).trim();
+      const tagsForLocale = (
+        isAr
+          ? data.tags_ar?.length
+            ? data.tags_ar
+            : data.tags
+          : data.tags_en?.length
+            ? data.tags_en
+            : data.tags
+      ) || [];
+
+      if (titleEn) setNameEn(titleEn);
+      if (titleAr) setNameAr(titleAr);
+      if (fillTitle && localTitle) {
+        setName(localTitle);
+        setTitleEntryMode('ai');
       }
-      if (data.subtitle) {
-        setSubtitle(data.subtitle);
+      if (subEn || subAr) {
+        if (subAr) setSubtitleAr(subAr);
+        if (localSub) setSubtitle(localSub);
       }
-      if (fillDescription && data.description) {
-        setDescription(data.description);
+      if (descEn) setDescriptionEn(descEn);
+      if (descAr) setDescriptionAr(descAr);
+      if (fillDescription && localDesc) {
+        setDescription(localDesc);
+        setDescEntryMode('ai');
       }
-      if (data.title && !seoTitle.trim()) {
-        setSeoTitle(`${data.title} | ${storeName}`);
+
+      if (fillAll) {
+        if (localSeoTitle) setSeoTitle(localSeoTitle.slice(0, 70));
+        if (localSeoDesc) setSeoDescription(localSeoDesc.slice(0, 160));
+        if (localKeywords) setSeoKeywords(localKeywords.slice(0, 240));
+      } else {
+        if (localSeoTitle && !seoTitle.trim()) setSeoTitle(localSeoTitle.slice(0, 70));
+        if (localSeoDesc && !seoDescription.trim()) setSeoDescription(localSeoDesc.slice(0, 160));
+        if (localKeywords && !seoKeywords.trim()) setSeoKeywords(localKeywords.slice(0, 240));
       }
-      if (data.description && !seoDescription.trim()) {
-        const plain = data.description.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-        setSeoDescription(plain.slice(0, 160));
+
+      if (Array.isArray(tagsForLocale) && tagsForLocale.length > 0) {
+        const incoming = tagsForLocale
+          .map((t) => String(t || '').trim())
+          .filter((t) => t.length > 0 && t.length <= 40);
+        if (incoming.length) {
+          setTags((prev) => {
+            const merged = [...prev];
+            for (const t of incoming) {
+              if (!merged.some((x) => x.toLowerCase() === t.toLowerCase())) {
+                merged.push(t);
+              }
+            }
+            return merged.slice(0, 24);
+          });
+        }
       }
+
+      if (fillAll && data.brand && String(data.brand).trim()) {
+        setBrand(String(data.brand).trim());
+      }
+
+      if (fillAll && Array.isArray(data.categories) && data.categories.length > 0) {
+        const matched = data.categories
+          .map((c) => String(c || '').trim())
+          .filter(Boolean)
+          .filter((c) =>
+            categoryPool.length === 0
+              ? true
+              : categoryPool.some((opt) => opt.toLowerCase() === c.toLowerCase()),
+          );
+        if (matched.length) {
+          setProductCategories(matched);
+          setCategory(matched[0]);
+        }
+      }
+
+      if (
+        fillAll &&
+        data.price_sar != null &&
+        Number(data.price_sar) > 0 &&
+        (data.price_source === 'image' || data.price_source === 'known_model')
+      ) {
+        setPrice(Number(data.price_sar));
+      }
+
+      if (fillAll && data.google_taxonomy && String(data.google_taxonomy).trim()) {
+        setGoogleTaxonomy(String(data.google_taxonomy).trim());
+      }
+
+      if (fillAll && data.weight_kg != null && Number(data.weight_kg) > 0) {
+        setWeightKg(Number(data.weight_kg));
+      }
+
+      if (fillAll && (titleEn || localTitle)) {
+        const latinSlug = (titleEn || localTitle)
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '');
+        if (latinSlug.length >= 3) {
+          setUrlSlug(latinSlug.slice(0, 80));
+        }
+      }
+
       toast(
-        isAr ? 'تم تطبيق اقتراح العنوان والوصف — احفظ المنتج عند الجاهزية' : 'Title and description suggestion applied — save when ready',
+        fillAll
+          ? data.used_image
+            ? aiUi.appliedAllWithImage
+            : aiUi.appliedAll
+          : aiUi.appliedPartial,
         'success',
       );
     } catch (err) {
@@ -1944,15 +2116,11 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       const low = raw.toLowerCase();
       let msg = raw;
       if (!msg) {
-        msg = isAr ? 'تعذر الحصول على اقتراح الذكاء الاصطناعي' : 'Could not fetch AI suggestion';
+        msg = aiUi.fetchFailed;
       } else if (low.includes('quota') || low.includes('rate limit') || low.includes('resource_exhausted')) {
-        msg = isAr
-          ? 'تم تجاوز حد استخدام الذكاء الاصطناعي لهذا المفتاح. انتظر إعادة التعيين أو حدّث مفتاح الواجهة على الخادم.'
-          : 'AI quota exceeded for this key. Wait for the free-tier reset, or update GEMINI_API_KEY on the API server.';
+        msg = aiUi.quota;
       } else if (low.includes('high demand') || low.includes('busy')) {
-        msg = isAr
-          ? 'نموذج الذكاء الاصطناعي مشغول حالياً. حاول مرة أخرى بعد دقيقة.'
-          : 'AI model is busy right now. Try again in a minute.';
+        msg = aiUi.busy;
       }
       toast(msg, 'error');
     } finally {
@@ -1982,14 +2150,14 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
             ? { background: 'var(--portal-cta)', color: '#fff' }
             : { color: 'var(--muted)' }
         }
-        title={isAr ? 'كتابة يدوية' : 'Manual entry'}
+        title={aiUi.manualTitle}
       >
         <Pencil className="w-3 h-3" />
-        <span>{isAr ? 'يدوي' : 'Manual'}</span>
+        <span>{aiUi.manual}</span>
       </button>
       <button
         type="button"
-        disabled={aiSuggestBusy || !canMutate}
+        disabled={aiSuggestBusy || !canMutate || !aiNameReady}
         onClick={() => {
           onChange('ai');
           onPickAi();
@@ -2002,10 +2170,10 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
             ? { background: 'var(--accent)', color: '#fff' }
             : { color: 'var(--muted)' }
         }
-        title={isAr ? 'اقتراح بالذكاء الاصطناعي' : 'AI suggestion'}
+        title={!aiNameReady ? aiUi.needName : aiUi.suggestTitle}
       >
         <Sparkles className={`w-3 h-3 ${aiSuggestBusy ? 'animate-pulse' : ''}`} />
-        <span>{isAr ? 'ذكاء' : 'AI'}</span>
+        <span>{aiUi.short}</span>
       </button>
     </div>
   );
@@ -2151,18 +2319,29 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
           <button
             type="button"
             onClick={() => handleSubmit()}
-            disabled={!canMutate}
-            className="unity-btn-primary px-5 py-2 text-xs font-bold rounded-xl flex items-center gap-2 cursor-pointer shadow-xs transition-all hover:opacity-95 disabled:opacity-50"
+            disabled={!canMutate || saveSuccessBusy}
+            className={`unity-btn-primary px-5 py-2 text-xs font-bold rounded-xl flex items-center gap-2 cursor-pointer shadow-xs transition-all hover:opacity-95 disabled:opacity-50 ${
+              saveSuccessBusy ? 'product-save-btn-success' : ''
+            }`}
+            aria-busy={saveSuccessBusy || undefined}
           >
-            <Save className="w-4 h-4 shrink-0" />
+            {saveSuccessBusy ? (
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+            ) : (
+              <Save className="w-4 h-4 shrink-0" />
+            )}
             <span>
-              {isCreateMode
+              {saveSuccessBusy
                 ? isAr
-                  ? 'إنشاء المنتج'
-                  : 'Create Product'
-                : isAr
-                  ? 'حفظ التغييرات'
-                  : 'Save Changes'}
+                  ? 'تم الحفظ'
+                  : 'Saved'
+                : isCreateMode
+                  ? isAr
+                    ? 'إنشاء المنتج'
+                    : 'Create Product'
+                  : isAr
+                    ? 'حفظ التغييرات'
+                    : 'Save Changes'}
             </span>
           </button>
         </div>
@@ -2232,7 +2411,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
       {/* ── MAIN GRID (100% Mockup 07 Layout) ── */}
       <form
         onSubmit={handleSubmit}
-        className={`space-y-5 pb-24 sm:pb-28 ${isCreateMode ? 'product-create-form-animate' : ''}`}
+        className={`space-y-5 pb-32 sm:pb-36 ${isCreateMode ? 'product-create-form-animate' : ''}`}
       >
         {hiddenSectionKeys.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl border border-amber-200/80 dark:border-amber-900/50 bg-amber-50/70 dark:bg-amber-950/20">
@@ -2327,70 +2506,98 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
                 {/* Large Main Preview (approx 7 cols) — Holst media stage (no navy slate) */}
                 <div className="u-media-stage sm:col-span-8 relative rounded-2xl overflow-hidden aspect-square flex items-center justify-center p-4 group">
-                  {/* Action Buttons top-end */}
-                  <div className="absolute top-3 end-3 flex items-center gap-1.5 z-10">
-                    {/* Upload & Replace from Device */}
-                    <button
-                      type="button"
-                      onClick={() => mainFileInputRef.current?.click()}
-                      className="unity-btn-primary px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 shadow-md transition-all cursor-pointer text-xs font-bold"
-                      title={isAr ? 'تغيير واستبدال الصورة فوراً من جهازك' : 'Upload & replace from device'}
-                    >
-                      <UploadCloud className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">{isAr ? 'تغيير من الجهاز' : 'Change'}</span>
-                    </button>
-                    {/* Choose from Media Library */}
+                  {gallery.length > 0 && !isSyntheticProductImage(gallery[selectedImageIndex] || gallery[0]) ? (
+                    <>
+                      {/* Action Buttons top-end */}
+                      <div className="absolute top-3 end-3 flex items-center gap-1.5 z-10">
+                        <button
+                          type="button"
+                          onClick={() => mainFileInputRef.current?.click()}
+                          className="unity-btn-primary px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 shadow-md transition-all cursor-pointer text-xs font-bold"
+                          title={isAr ? 'تغيير واستبدال الصورة فوراً من جهازك' : 'Upload & replace from device'}
+                        >
+                          <UploadCloud className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">{isAr ? 'تغيير من الجهاز' : 'Change'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMediaPickerTarget('main');
+                            setIsMediaPickerOpen(true);
+                          }}
+                          className="p-2 rounded-xl flex items-center justify-center shadow-md transition-all cursor-pointer"
+                          style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                          title={isAr ? 'اختيار من مكتبة الوسائط' : 'Choose from Media Library'}
+                        >
+                          <ImageIcon className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleRemoveMainImage}
+                          className="p-2 rounded-xl flex items-center justify-center shadow-md transition-all cursor-pointer"
+                          style={{ background: 'var(--surface)', color: 'var(--tone-danger)', border: '1px solid var(--border)' }}
+                          title={isAr ? 'حذف الصورة' : 'Remove image'}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div
+                        className="absolute bottom-3 start-3 px-3 py-1 rounded-full backdrop-blur-xs text-[11px] font-bold z-10 flex items-center gap-1.5 shadow-md"
+                        style={{ background: 'color-mix(in srgb, var(--portal-950) 82%, transparent)', color: '#fff' }}
+                      >
+                        <Check className="w-3 h-3" style={{ color: 'var(--portal-400)' }} />
+                        <span>{isAr ? 'الصورة الرئيسية' : 'Main Image'}</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsLightboxOpen(true)}
+                        className="absolute bottom-3 end-3 w-8 h-8 rounded-xl flex items-center justify-center shadow-md transition-all cursor-pointer z-10"
+                        style={{ background: 'color-mix(in srgb, var(--portal-950) 70%, transparent)', color: '#fff' }}
+                        title={isAr ? 'تكبير الصورة' : 'Expand full image'}
+                      >
+                        <Maximize2 className="w-3.5 h-3.5" />
+                      </button>
+
+                      <img
+                        src={gallery[selectedImageIndex] || gallery[0]}
+                        alt={name}
+                        onError={(e) => handleImageError(e, FALLBACK_SVG_PLACEHOLDER)}
+                        className="w-full h-full object-contain filter drop-shadow-xl transition-transform duration-200 group-hover:scale-102"
+                      />
+                    </>
+                  ) : (
                     <button
                       type="button"
                       onClick={() => {
                         setMediaPickerTarget('main');
                         setIsMediaPickerOpen(true);
                       }}
-                      className="p-2 rounded-xl flex items-center justify-center shadow-md transition-all cursor-pointer"
-                      style={{ background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
-                      title={isAr ? 'اختيار من مكتبة الوسائط' : 'Choose from Media Library'}
+                      className="w-full h-full flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed cursor-pointer transition-colors hover:opacity-95"
+                      style={{ borderColor: 'var(--border)', color: 'var(--muted)', background: 'var(--surface)' }}
                     >
-                      <ImageIcon className="w-3.5 h-3.5" />
+                      <UploadCloud className="w-10 h-10" style={{ color: 'var(--accent)' }} />
+                      <span className="text-sm font-bold" style={{ color: 'var(--text)' }}>
+                        {isAr ? 'أضف صورة المنتج' : 'Add product image'}
+                      </span>
+                      <span className="text-[11px] font-medium px-6 text-center">
+                        {isAr
+                          ? 'لا توجد صورة بعد — ارفع من الجهاز أو المكتبة'
+                          : 'No image yet — upload from device or media library'}
+                      </span>
+                      <span
+                        className="mt-1 px-3 py-1.5 rounded-lg text-xs font-bold"
+                        style={{ background: 'var(--accent)', color: '#fff' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          mainFileInputRef.current?.click();
+                        }}
+                      >
+                        {isAr ? 'رفع من الجهاز' : 'Upload from device'}
+                      </span>
                     </button>
-                    {/* Trash */}
-                    <button
-                      type="button"
-                      onClick={handleRemoveMainImage}
-                      className="p-2 rounded-xl flex items-center justify-center shadow-md transition-all cursor-pointer"
-                      style={{ background: 'var(--surface)', color: 'var(--tone-danger)', border: '1px solid var(--border)' }}
-                      title={isAr ? 'حذف الصورة' : 'Remove image'}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  {/* Main Image Badge bottom-start */}
-                  <div
-                    className="absolute bottom-3 start-3 px-3 py-1 rounded-full backdrop-blur-xs text-[11px] font-bold z-10 flex items-center gap-1.5 shadow-md"
-                    style={{ background: 'color-mix(in srgb, var(--portal-950) 82%, transparent)', color: '#fff' }}
-                  >
-                    <Check className="w-3 h-3" style={{ color: 'var(--portal-400)' }} />
-                    <span>{isAr ? 'الصورة الرئيسية' : 'Main Image'}</span>
-                  </div>
-
-                  {/* Expand Fullscreen Icon bottom-end */}
-                  <button
-                    type="button"
-                    onClick={() => setIsLightboxOpen(true)}
-                    className="absolute bottom-3 end-3 w-8 h-8 rounded-xl flex items-center justify-center shadow-md transition-all cursor-pointer z-10"
-                    style={{ background: 'color-mix(in srgb, var(--portal-950) 70%, transparent)', color: '#fff' }}
-                    title={isAr ? 'تكبير الصورة' : 'Expand full image'}
-                  >
-                    <Maximize2 className="w-3.5 h-3.5" />
-                  </button>
-
-                  {/* Actual Main Image Preview */}
-                  <img
-                    src={gallery[selectedImageIndex] || gallery[0] || FALLBACK_PRODUCT_IMAGE}
-                    alt={name}
-                    onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
-                    className="w-full h-full object-contain filter drop-shadow-xl transition-transform duration-200 group-hover:scale-102"
-                  />
+                  )}
                 </div>
 
                 {/* Thumbnails strip & Add button — equal fixed heights */}
@@ -2415,10 +2622,10 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                       }
                     >
                       <img
-                        src={url || FALLBACK_PRODUCT_IMAGE}
+                        src={url || FALLBACK_SVG_PLACEHOLDER}
                         alt={`thumb-${idx}`}
                         onClick={() => setSelectedImageIndex(idx)}
-                        onError={(e) => handleImageError(e, FALLBACK_PRODUCT_IMAGE)}
+                        onError={(e) => handleImageError(e, FALLBACK_SVG_PLACEHOLDER)}
                         className="w-full h-full object-contain cursor-pointer"
                         title={isAr ? 'اضغط للعرض كصورة رئيسية' : 'Click to preview as main image'}
                       />
@@ -2510,6 +2717,34 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                         {isAr ? 'المكتبة' : 'Library'}
                       </span>
                     </button>
+
+                    {/* AI image-from-prompt — Coming Soon (not wired on product details) */}
+                    <button
+                      type="button"
+                      onClick={() => toast(aiUi.imgPromptToast, 'info')}
+                      className="col-span-2 h-14 rounded-xl border-2 border-dashed flex items-center justify-center gap-2 transition-all cursor-not-allowed opacity-80"
+                      style={{
+                        borderColor: 'color-mix(in srgb, var(--accent) 35%, var(--border))',
+                        color: 'var(--muted)',
+                        background: 'color-mix(in srgb, var(--accent) 5%, var(--surface))',
+                      }}
+                      title={aiUi.imgPromptTitle}
+                      aria-disabled="true"
+                    >
+                      <Sparkles className="w-4 h-4 shrink-0" style={{ color: 'var(--accent)' }} />
+                      <span className="text-[10px] font-bold text-center leading-tight" style={{ color: 'var(--text)' }}>
+                        {aiUi.imgPromptLabel}
+                      </span>
+                      <span
+                        className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-md shrink-0"
+                        style={{
+                          background: 'color-mix(in srgb, var(--accent) 16%, transparent)',
+                          color: 'var(--accent)',
+                        }}
+                      >
+                        {aiUi.imgPromptSoon}
+                      </span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -2524,7 +2759,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
               style={{ animationDelay: '90ms' }}
             >
               {/* Card Header */}
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="u-icon-brand w-9 h-9 rounded-xl flex items-center justify-center shrink-0">
                     <FileText className="w-5 h-5" />
@@ -2533,8 +2768,25 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     <h3 className="font-bold text-sm" style={{ color: 'var(--text)' }}>
                       {isAr ? 'المعلومات الأساسية' : 'Basic Information'}
                     </h3>
+                    <p className="text-[10px] font-medium truncate" style={{ color: 'var(--muted)' }}>
+                      {aiNameReady ? aiUi.hintReady : aiUi.hintNeedName}
+                    </p>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  disabled={aiSuggestBusy || !canMutate || !aiNameReady}
+                  onClick={() => void runAiProductCopySuggest({ fillAll: true })}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold cursor-pointer transition-all hover:opacity-95 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  style={{
+                    background: aiNameReady ? 'var(--accent)' : 'var(--muted)',
+                    color: '#fff',
+                  }}
+                  title={!aiNameReady ? aiUi.needName : aiUi.autoFillTitle}
+                >
+                  <Sparkles className={`w-3.5 h-3.5 ${aiSuggestBusy ? 'animate-pulse' : ''}`} />
+                  <span>{aiSuggestBusy ? aiUi.fetching : aiUi.autoFill}</span>
+                </button>
               </div>
 
               {/* Form Row 1: Product Name * and SKU * */}
@@ -2555,13 +2807,14 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     value={name}
                     onChange={(e) => {
                       setTitleEntryMode('manual');
-                      setName(e.target.value);
+                      const v = e.target.value;
+                      setName(v);
+                      if (isAr) setNameAr(v);
+                      else setNameEn(v);
                     }}
                     placeholder={
                       titleEntryMode === 'ai'
-                        ? isAr
-                          ? 'اضغط ذكاء لاقتراح العنوان تلقائياً...'
-                          : 'Press AI to auto-suggest the title...'
+                        ? aiUi.titlePlaceholder
                         : isAr
                           ? 'مثال: اسم المنتج'
                           : 'e.g. Product name'
@@ -2674,7 +2927,11 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   <input
                     type="text"
                     value={subtitle}
-                    onChange={(e) => setSubtitle(e.target.value)}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setSubtitle(v);
+                      if (isAr) setSubtitleAr(v);
+                    }}
                     maxLength={200}
                     placeholder={
                       isAr
@@ -2765,12 +3022,12 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
               onChange={(next) => {
                 setDescEntryMode('manual');
                 setDescription(next);
+                if (isAr) setDescriptionAr(next);
+                else setDescriptionEn(next);
               }}
               placeholder={
                 descEntryMode === 'ai'
-                  ? isAr
-                    ? 'اضغط ذكاء لاقتراح الوصف تلقائياً، أو عدّل يدوياً...'
-                    : 'Press AI to auto-suggest the description, or edit manually...'
+                  ? aiUi.descPlaceholder
                   : isAr
                     ? 'اكتب وصف المنتج مع عناوين وصور وفيديو...'
                     : 'Write product details with headings, images, and video...'
@@ -2862,7 +3119,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     className="w-full px-2.5 py-2 rounded-xl border text-xs font-medium cursor-pointer focus:outline-none"
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   >
-                    <option value={15}>15% (KSA VAT)</option>
+                    <option value={15}>15% (VAT)</option>
                     <option value={5}>5% (Reduced Tax)</option>
                     <option value={0}>0% (Tax Exempt)</option>
                   </select>
@@ -4350,6 +4607,24 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                 </div>
               </div>
 
+              <div>
+                <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
+                  {isAr ? 'كلمات مفتاحية' : 'SEO Keywords'}
+                </label>
+                <input
+                  type="text"
+                  value={seoKeywords}
+                  onChange={(e) => setSeoKeywords(e.target.value)}
+                  placeholder={
+                    isAr
+                      ? 'مفصولة بفاصلة — يمكن تعبئتها بالذكاء الاصطناعي'
+                      : 'Comma-separated — can be filled by AI'
+                  }
+                  className="w-full px-3 py-2 rounded-xl border text-xs focus:outline-none"
+                  style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                />
+              </div>
+
               {/* URL Slug with domain prefix */}
               <div>
                 <label className="text-xs font-bold block mb-1" style={{ color: 'var(--text)' }}>
@@ -4373,12 +4648,15 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
         </div>
       </form>
 
-      {/* Sticky bottom Save — flush edge-to-edge dock (no side/bottom float gap) */}
+      {/* Sticky bottom Save — lifted above Windows taskbar / Activate watermark */}
       <div
-        className="sticky bottom-0 z-40 mt-4 product-editor-sticky-footer"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        className="sticky z-40 mt-4 product-editor-sticky-footer"
+        style={{
+          bottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))',
+          paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0px))',
+        }}
       >
-        <div className="product-editor-sticky-dock w-full flex items-center justify-between gap-3 flex-wrap rounded-none border-x-0 border-b-0 px-4 sm:px-6 py-3">
+        <div className="product-editor-sticky-dock w-full flex items-center justify-between gap-3 flex-wrap rounded-2xl border px-4 sm:px-6 py-3 mx-0 sm:mx-1">
           <div className="flex items-center gap-2.5 min-w-0">
             <span
               className="hidden sm:inline-flex w-8 h-8 rounded-xl items-center justify-center shrink-0"
@@ -4423,18 +4701,29 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
             <button
               type="button"
               onClick={() => handleSubmit()}
-              disabled={!canMutate || aiSuggestBusy}
-              className="unity-btn-primary px-4 sm:px-5 py-2 text-xs font-bold rounded-xl flex items-center gap-2 cursor-pointer transition-all hover:opacity-95 hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!canMutate || aiSuggestBusy || saveSuccessBusy}
+              className={`unity-btn-primary text-white px-4 sm:px-5 py-2 text-xs font-bold rounded-xl flex items-center gap-2 cursor-pointer transition-all hover:opacity-95 hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${
+                saveSuccessBusy ? 'product-save-btn-success' : ''
+              }`}
+              aria-busy={saveSuccessBusy || undefined}
             >
-              <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-              <span>
-                {isCreateMode
+              {saveSuccessBusy ? (
+                <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-white" />
+              ) : (
+                <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-white" />
+              )}
+              <span className="text-white">
+                {saveSuccessBusy
                   ? isAr
-                    ? 'إنشاء المنتج'
-                    : 'Create Product'
-                  : isAr
-                    ? 'حفظ التغييرات'
-                    : 'Save Changes'}
+                    ? 'تم الحفظ'
+                    : 'Saved'
+                  : isCreateMode
+                    ? isAr
+                      ? 'إنشاء المنتج'
+                      : 'Create Product'
+                    : isAr
+                      ? 'حفظ التغييرات'
+                      : 'Save Changes'}
               </span>
             </button>
           </div>
@@ -4498,11 +4787,17 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
 
             <div className="flex flex-col md:flex-row gap-6">
               <div className="md:w-1/2 aspect-square rounded-2xl overflow-hidden bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
-                <img
-                  src={gallery[selectedImageIndex] || gallery[0] || FALLBACK_PRODUCT_IMAGE}
-                  alt={name}
-                  className="w-full h-full object-contain"
-                />
+                {sanitizeProductImageUrl(gallery[selectedImageIndex] || gallery[0]) ? (
+                  <img
+                    src={sanitizeProductImageUrl(gallery[selectedImageIndex] || gallery[0])}
+                    alt={name}
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <span className="text-sm font-medium" style={{ color: 'var(--muted)' }}>
+                    {isAr ? 'لا توجد صورة' : 'No image'}
+                  </span>
+                )}
               </div>
 
               <div className="md:w-1/2 space-y-4 flex flex-col justify-between">
@@ -5206,6 +5501,38 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                 </div>
               )}
 
+              {customFieldIsFreeColorPicker(fldTypeInput) && (
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40 p-3.5 space-y-3">
+                  <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                    <Pencil className="w-3.5 h-3.5 text-[var(--accent)]" />
+                    {isAr ? 'اختيار لون حر من العميل' : 'Customer free color pick'}
+                  </p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    {isAr
+                      ? 'لا خيارات ثابتة هنا — العميل يختار أي لون من محدد اللون على صفحة المنتج. للألوان الثابتة استخدم: اختيار واحد – لون.'
+                      : 'No fixed options here — the customer picks any color with the color tool on the product page. For fixed swatches use: Single Choice – Color.'}
+                  </p>
+                  <div
+                    className="rounded-xl border border-dashed border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-950 px-3 py-4 flex flex-col items-center gap-2"
+                    aria-hidden
+                  >
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                      {isAr ? 'معاينة أداة العميل' : 'Customer tool preview'}
+                    </span>
+                    <span className="inline-flex items-center gap-2.5 min-h-[44px] px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 opacity-90">
+                      <span
+                        className="w-9 h-9 rounded-lg border border-slate-200 shrink-0"
+                        style={{ backgroundColor: '#64748b' }}
+                      />
+                      <Pencil className="w-4 h-4 text-[var(--accent)] shrink-0" />
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-200 font-mono">
+                        #64748b
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {customFieldIsCustomerUpload(fldTypeInput) && (
                 <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40 p-3.5 space-y-3">
                   <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
@@ -5220,8 +5547,8 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                   </p>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                     {isAr
-                      ? 'هذا النوع بدون سعر. التاجر لا يرفع صورة هنا — الزر يظهر للعميل على صفحة المنتج فقط.'
-                      : 'No price on this type. Merchant does not upload here — the button appears for the customer on the product page.'}
+                      ? 'هذا النوع بدون سعر خيار. التاجر لا يرفع صورة هنا — الزر يظهر للعميل على صفحة المنتج فقط.'
+                      : 'No option price on this type. Merchant does not upload here — the button appears for the customer on the product page.'}
                   </p>
                   {/* Storefront preview — same control the customer sees */}
                   <div

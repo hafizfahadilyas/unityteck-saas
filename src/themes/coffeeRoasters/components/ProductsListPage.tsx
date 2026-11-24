@@ -404,7 +404,7 @@ export const ProductsListPage: React.FC = () => {
       bgColor: 'bg-emerald-400/10',
       borderColor: 'border-emerald-400/20',
       tag: isAr ? 'ضمان معتمد' : 'Official Coverage',
-      title: isAr ? 'ضمان الوكيل الرسمي سنتين بالمملكة' : 'Official 2-Year Agent Warranty in KSA',
+      title: isAr ? 'ضمان الوكيل الرسمي سنتين بالمملكة' : 'Official 2-Year Agent Warranty',
       description: isAr
         ? 'ضمان محلي شامل الصيانة وتوفير قطع الغيار الأصلية وفنيين معتمدين داخل المملكة العربية السعودية.'
         : 'Comprehensive nationwide coverage for parts and service through authorized support centers in Saudi Arabia.'
@@ -1223,7 +1223,7 @@ export const ProductsListPage: React.FC = () => {
           
           <div className="space-y-1 bg-white rounded-2xl border border-neutral-200/70 shadow-sm px-3 py-5 sm:py-6 min-w-0">
             <p className="text-xs sm:text-sm font-bold text-neutral-900">
-              {isAr ? 'شحن سريع لجميع المدن' : 'Express KSA Delivery'}
+              {isAr ? 'شحن سريع لجميع المدن' : 'Express Delivery'}
             </p>
             <p className="text-[11px] sm:text-xs text-neutral-500 font-normal">
               {isAr ? 'توصيل لباب منزلك خلال 24-48 ساعة' : 'To your doorstep in 24-48 hours'}
@@ -1235,7 +1235,7 @@ export const ProductsListPage: React.FC = () => {
               {isAr ? 'ضمان رسمي سنتين' : 'Official 2-Year Warranty'}
             </p>
             <p className="text-[11px] sm:text-xs text-neutral-500 font-normal">
-              {isAr ? 'قطع غيار وصيانة معتمدة بالمملكة' : 'Genuine parts & certified KSA centers'}
+              {isAr ? 'قطع غيار وصيانة معتمدة بالمملكة' : 'Genuine parts & certified service centers'}
             </p>
           </div>
 

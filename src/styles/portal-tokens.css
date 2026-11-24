@@ -2836,23 +2836,20 @@ button:active:not(:disabled) {
   pointer-events: auto;
   width: 100%;
   max-width: none;
-  border-radius: 0 !important;
+  border-radius: 1rem !important;
   background:
     linear-gradient(
       180deg,
       color-mix(in srgb, var(--surface) 94%, #fff 6%) 0%,
       color-mix(in srgb, var(--surface) 98%, transparent) 100%
     );
-  border-color: color-mix(in srgb, var(--border) 85%, var(--accent) 15%);
-  border-left: none !important;
-  border-right: none !important;
-  border-bottom: none !important;
+  border: 1px solid color-mix(in srgb, var(--border) 85%, var(--accent) 15%) !important;
   backdrop-filter: blur(14px) saturate(1.15);
   -webkit-backdrop-filter: blur(14px) saturate(1.15);
-  /* Top hairline only — docked flush to bottom, no floating side/bottom gap */
+  /* Lifted dock — clear of Windows taskbar / Activate watermark */
   box-shadow:
     0 1px 0 color-mix(in srgb, #fff 55%, transparent) inset,
-    0 -8px 24px -16px color-mix(in srgb, var(--text) 18%, transparent);
+    0 10px 28px -12px color-mix(in srgb, var(--text) 22%, transparent);
 }
 
 .dark .product-editor-sticky-footer .product-editor-sticky-dock,
@@ -2877,6 +2874,86 @@ button:active:not(:disabled) {
   .product-create-form-animate .product-create-section,
   .product-create-steps .product-create-step-chip,
   .product-create-steps .product-create-step-chip--active {
+    animation: none !important;
+  }
+}
+
+/* ─── Product create save success celebration ─── */
+@keyframes product-save-success-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.72) translateY(8px);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.06) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes product-save-success-icon-bounce {
+  0% {
+    opacity: 0;
+    transform: scale(0.35);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes product-save-success-ring-expand {
+  0% {
+    transform: scale(0.75);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+}
+
+@keyframes product-save-btn-flash {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  40% {
+    filter: brightness(1.12);
+  }
+}
+
+.product-save-success-card {
+  animation: product-save-success-pop 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.product-save-success-icon {
+  animation: product-save-success-icon-bounce 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both;
+  box-shadow: 0 10px 28px -10px color-mix(in srgb, var(--portal-cta, var(--accent)) 55%, transparent);
+}
+
+.product-save-success-ring {
+  border: 2px solid color-mix(in srgb, var(--portal-cta, var(--accent)) 55%, transparent);
+  animation: product-save-success-ring-expand 0.9s ease-out 0.12s both;
+}
+
+.product-save-btn-success {
+  animation: product-save-btn-flash 0.7s ease-in-out 1;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-save-success-card,
+  .product-save-success-icon,
+  .product-save-success-ring,
+  .product-save-btn-success {
     animation: none !important;
   }
 }
@@ -4991,10 +5068,11 @@ html:not([data-shell-luma='dark'])[data-theme="light"][data-portal="store"] main
   color: #f8fafc !important;
 }
 
-/* Modal body text / labels / table cells — never wash out on glass */
+/* Modal body text / labels / table cells — never wash out on glass.
+ * Do NOT target bare `span` here — that overrides inherited white on CTA
+ * button labels (black bg + black text). Panel root already sets readable ink. */
 [data-theme="light"][data-global-modal="backdrop"][data-portal="store"] [data-global-modal="panel"],
 [data-theme="light"][data-global-modal="backdrop"][data-portal="store"] [data-global-modal="panel"] p,
-[data-theme="light"][data-global-modal="backdrop"][data-portal="store"] [data-global-modal="panel"] span,
 [data-theme="light"][data-global-modal="backdrop"][data-portal="store"] [data-global-modal="panel"] label,
 [data-theme="light"][data-global-modal="backdrop"][data-portal="store"] [data-global-modal="panel"] th,
 [data-theme="light"][data-global-modal="backdrop"][data-portal="store"] [data-global-modal="panel"] td,
@@ -5025,8 +5103,28 @@ html:not([data-shell-luma='dark'])[data-theme="light"][data-portal="store"] main
 [data-global-modal="backdrop"][data-portal="store"] [data-on-dark-panel='true'],
 [data-global-modal="backdrop"][data-portal="store"] [data-on-dark-panel='true'] *,
 [data-global-modal="backdrop"][data-portal="store"] .unity-btn-primary,
-[data-global-modal="backdrop"][data-portal="store"] .unity-btn-primary * {
+[data-global-modal="backdrop"][data-portal="store"] .unity-btn-primary *,
+[data-global-modal="backdrop"][data-portal="store"] .unity-btn-secondary,
+[data-global-modal="backdrop"][data-portal="store"] .unity-btn-secondary *,
+[data-global-modal="backdrop"][data-portal="store"] button.text-white,
+[data-global-modal="backdrop"][data-portal="store"] button.text-white *,
+[data-global-modal="backdrop"][data-portal="store"] a.text-white,
+[data-global-modal="backdrop"][data-portal="store"] a.text-white *,
+[data-global-modal="backdrop"][data-portal="store"] button.bg-blue-600,
+[data-global-modal="backdrop"][data-portal="store"] button.bg-blue-600 *,
+[data-global-modal="backdrop"][data-portal="store"] button.bg-indigo-600,
+[data-global-modal="backdrop"][data-portal="store"] button.bg-indigo-600 *,
+[data-global-modal="backdrop"][data-portal="store"] button.bg-teal-600,
+[data-global-modal="backdrop"][data-portal="store"] button.bg-teal-600 *,
+[data-global-modal="backdrop"][data-portal="store"] button.bg-emerald-600,
+[data-global-modal="backdrop"][data-portal="store"] button.bg-emerald-600 *,
+[data-global-modal="backdrop"][data-portal="store"] button[style*='portal-cta'],
+[data-global-modal="backdrop"][data-portal="store"] button[style*='portal-cta'] *,
+[data-global-modal="backdrop"][data-portal="store"] button[style*='--active-bg'],
+[data-global-modal="backdrop"][data-portal="store"] button[style*='--active-bg'] * {
   color: #ffffff !important;
+  fill: currentColor;
+  stroke: currentColor;
 }
 [data-global-modal="backdrop"][data-portal="store"] [data-on-dark-panel='true'] .text-emerald-300 {
   color: #6ee7b7 !important;
@@ -5125,14 +5223,15 @@ html[data-shell-luma='dark'][data-theme="light"] [data-global-modal="backdrop"][
   box-shadow: none !important;
 }
 
-/* Inputs stay denser / legible over frost */
+/* Inputs stay denser / legible over frost — visible rim (not washed glass border) */
 [data-global-modal="backdrop"][data-portal="store"] [data-global-modal="panel"] input:not([type='checkbox']):not([type='radio']),
 [data-global-modal="backdrop"][data-portal="store"] [data-global-modal="panel"] select,
 [data-global-modal="backdrop"][data-portal="store"] [data-global-modal="panel"] textarea {
   background: var(--input-bg, rgba(255, 255, 255, 0.82)) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  border-color: var(--glass-border-soft, rgba(255, 255, 255, 0.35)) !important;
+  border: 1px solid var(--border, #cbd5e1) !important;
+  box-sizing: border-box !important;
 }
 
 /* Floating dropdown popovers — same glass rim as modals */
@@ -5380,5 +5479,108 @@ html[data-theme="dark"][data-portal="store"] [data-floating-popover="true"] .dar
 .portal-auth-shell[data-portal="store"] .portal-auth-badge-pill {
   background: var(--active-bg, #0f172a) !important;
   color: #ffffff !important;
+}
+
+/*
+ * LOCKED — Dark CTA contrast (ALL Master + Store dashboards + GlobalModal).
+ * Glass / luma / remapped fills paint black/navy CTA backgrounds; nested
+ * <span> / svg must stay white. Never black-on-black Save / primary buttons.
+ */
+[data-portal='master'] .unity-btn-primary,
+[data-portal='master'] .unity-btn-primary *,
+[data-portal='store'] .unity-btn-primary,
+[data-portal='store'] .unity-btn-primary *,
+[data-global-modal] .unity-btn-primary,
+[data-global-modal] .unity-btn-primary *,
+.unity-shell .unity-btn-primary,
+.unity-shell .unity-btn-primary *,
+.portal-auth-shell .unity-btn-primary,
+.portal-auth-shell .unity-btn-primary *,
+[data-portal='master'] .unity-btn-secondary,
+[data-portal='master'] .unity-btn-secondary *,
+[data-portal='store'] .unity-btn-secondary,
+[data-portal='store'] .unity-btn-secondary *,
+[data-global-modal] .unity-btn-secondary,
+[data-global-modal] .unity-btn-secondary *,
+[data-portal='master'] .unity-nav-active,
+[data-portal='master'] .unity-nav-active *,
+[data-portal='store'] .unity-nav-active,
+[data-portal='store'] .unity-nav-active *,
+.unity-shell .unity-nav-active,
+.unity-shell .unity-nav-active *,
+[data-portal='master'] button.bg-blue-600,
+[data-portal='master'] button.bg-blue-600 *,
+[data-portal='store'] button.bg-blue-600,
+[data-portal='store'] button.bg-blue-600 *,
+[data-global-modal] button.bg-blue-600,
+[data-global-modal] button.bg-blue-600 *,
+[data-portal='master'] button.bg-blue-500,
+[data-portal='master'] button.bg-blue-500 *,
+[data-portal='store'] button.bg-blue-500,
+[data-portal='store'] button.bg-blue-500 *,
+[data-global-modal] button.bg-blue-500,
+[data-global-modal] button.bg-blue-500 *,
+[data-portal='master'] button.bg-blue-700,
+[data-portal='master'] button.bg-blue-700 *,
+[data-portal='store'] button.bg-blue-700,
+[data-portal='store'] button.bg-blue-700 *,
+[data-global-modal] button.bg-blue-700,
+[data-global-modal] button.bg-blue-700 *,
+[data-portal='master'] button.bg-indigo-600,
+[data-portal='master'] button.bg-indigo-600 *,
+[data-portal='store'] button.bg-indigo-600,
+[data-portal='store'] button.bg-indigo-600 *,
+[data-global-modal] button.bg-indigo-600,
+[data-global-modal] button.bg-indigo-600 *,
+[data-portal='master'] button.bg-teal-600,
+[data-portal='master'] button.bg-teal-600 *,
+[data-portal='store'] button.bg-teal-600,
+[data-portal='store'] button.bg-teal-600 *,
+[data-global-modal] button.bg-teal-600,
+[data-global-modal] button.bg-teal-600 *,
+[data-portal='master'] button.bg-emerald-600,
+[data-portal='master'] button.bg-emerald-600 *,
+[data-portal='store'] button.bg-emerald-600,
+[data-portal='store'] button.bg-emerald-600 *,
+[data-global-modal] button.bg-emerald-600,
+[data-global-modal] button.bg-emerald-600 *,
+[data-portal='master'] button[style*='portal-cta'],
+[data-portal='master'] button[style*='portal-cta'] *,
+[data-portal='store'] button[style*='portal-cta'],
+[data-portal='store'] button[style*='portal-cta'] *,
+[data-global-modal] button[style*='portal-cta'],
+[data-global-modal] button[style*='portal-cta'] *,
+[data-portal='master'] a[style*='portal-cta'],
+[data-portal='master'] a[style*='portal-cta'] *,
+[data-portal='store'] a[style*='portal-cta'],
+[data-portal='store'] a[style*='portal-cta'] *,
+[data-global-modal] a[style*='portal-cta'],
+[data-global-modal] a[style*='portal-cta'] *,
+[data-portal='master'] button[style*='--active-bg'],
+[data-portal='master'] button[style*='--active-bg'] *,
+[data-portal='store'] button[style*='--active-bg'],
+[data-portal='store'] button[style*='--active-bg'] *,
+[data-global-modal] button[style*='--active-bg'],
+[data-global-modal] button[style*='--active-bg'] *,
+[data-theme='light'][data-global-modal='backdrop'][data-portal='store'] [data-global-modal='panel'] button.text-white,
+[data-theme='light'][data-global-modal='backdrop'][data-portal='store'] [data-global-modal='panel'] button.text-white *,
+[data-theme='light'][data-global-modal='backdrop'][data-portal='master'] [data-global-modal='panel'] button.text-white,
+[data-theme='light'][data-global-modal='backdrop'][data-portal='master'] [data-global-modal='panel'] button.text-white * {
+  color: #ffffff !important;
+}
+
+[data-portal='master'] .unity-btn-primary svg,
+[data-portal='store'] .unity-btn-primary svg,
+[data-global-modal] .unity-btn-primary svg,
+.unity-shell .unity-btn-primary svg,
+[data-portal='master'] .unity-btn-secondary svg,
+[data-portal='store'] .unity-btn-secondary svg,
+[data-global-modal] .unity-btn-secondary svg,
+[data-portal='store'] button.bg-blue-600 svg,
+[data-global-modal] button.bg-blue-600 svg,
+[data-portal='store'] button[style*='portal-cta'] svg,
+[data-global-modal] button[style*='portal-cta'] svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
 }
 

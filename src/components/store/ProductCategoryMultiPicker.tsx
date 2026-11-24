@@ -194,13 +194,13 @@ export const ProductCategoryMultiPicker: React.FC<Props> = ({
         </div>
       ) : null}
 
-      <div className={`flex items-stretch gap-1.5 ${compact ? 'max-w-[220px]' : 'w-full'}`}>
+      <div className="flex items-stretch gap-1.5 w-full min-w-0">
         <button
           ref={anchorRef}
           type="button"
           onClick={() => setOpen((v) => !v)}
           className="flex-1 min-w-0 flex items-center justify-between gap-1.5 px-2 py-1.5 text-xs font-medium rounded-lg border bg-white dark:bg-slate-900 focus:outline-none cursor-pointer"
-          style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+          style={{ borderColor: 'var(--border)', color: 'var(--text)', minHeight: compact ? '2rem' : undefined }}
           aria-expanded={open}
           aria-haspopup="listbox"
         >
@@ -211,18 +211,33 @@ export const ProductCategoryMultiPicker: React.FC<Props> = ({
           <button
             type="button"
             onClick={openAddNew}
-            className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold unity-btn-primary shrink-0 cursor-pointer"
+            className={
+              compact
+                ? 'inline-flex items-center justify-center w-8 h-8 rounded-lg shrink-0 cursor-pointer text-white'
+                : 'inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold unity-btn-primary text-white shrink-0 cursor-pointer'
+            }
+            style={
+              compact
+                ? {
+                    background: 'var(--portal-cta, #0f172a)',
+                    color: '#ffffff',
+                    minHeight: '2rem',
+                    minWidth: '2rem',
+                    padding: 0,
+                  }
+                : undefined
+            }
             title={isAr ? 'تصنيف جديد' : 'Add New Category'}
             aria-label={isAr ? 'تصنيف جديد' : 'Add New Category'}
           >
-            <Plus className="w-3.5 h-3.5" />
-            {!compact ? <span>{isAr ? 'جديد' : 'New'}</span> : null}
+            <Plus className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />
+            {!compact ? <span className="text-white">{isAr ? 'جديد' : 'New'}</span> : null}
           </button>
         ) : null}
       </div>
 
       {compact && selectedClean.length > 1 ? (
-        <div className="mt-1 flex flex-wrap gap-0.5 max-w-[160px]">
+        <div className="mt-1 flex flex-wrap gap-0.5 max-w-full">
           {selectedClean.slice(0, 3).map((cat) => (
             <span key={cat} className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-teal-50 dark:bg-teal-950/50 text-teal-800 dark:text-teal-200 truncate max-w-full" title={getProductDisplayCategory(cat, locale)}>
               {getProductDisplayCategory(cat, locale)}

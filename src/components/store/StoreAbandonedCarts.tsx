@@ -2536,7 +2536,7 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
                 <p className="text-slate-500 text-[11px]">
                   {isAr
                     ? 'إرسال رسائل نصية قصيرة فورية بأعلى معدلات وصول للمملكة والخليج.'
-                    : 'Instant SMS gateway integration for high delivery rates across KSA and GCC.'}
+                    : 'Instant SMS gateway integration for high delivery rates across Saudi Arabia and GCC.'}
                 </p>
               </div>
             </div>

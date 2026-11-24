@@ -1254,8 +1254,16 @@ const getDefaultStoreTheme = (storeId?: string): string => {
       p.startsWith('/store');
 
     if (session) {
-      // Logged-in merchant on bare "/" (bad redirect) → recover to admin dashboard.
-      if ((p === '/' || p === '') && session.portal === 'store' && !isFullscreenParam && !isTabStorefrontParam) {
+      // HIGH ALERT: customer/web storefront must NEVER land on merchant /admin.
+      // Only recover into dashboard when the URL is already an admin surface.
+      if (
+        onAdminSurface &&
+        (p === '/' || p === '') &&
+        session.portal === 'store' &&
+        !isPublicStorefront &&
+        !isFullscreenParam &&
+        !isTabStorefrontParam
+      ) {
         const sid = session.storeId || '';
         const slug =
           sid === 'store-coffee' ? 'coffee' : sid === 'store-bleco' ? 'car' : sid === 'store-1' ? 'flowers' : '';
@@ -1304,6 +1312,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     path,
     isFullscreenParam,
     isTabStorefrontParam,
+    isPublicStorefront,
   ]);
 
   // Renew the saved session while the dashboard is open. Never signs the admin out.
@@ -1336,12 +1345,30 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     }
   }, [session, isMasterLogin, isStoreLogin, isAdminLogin, isStoreRegister, isPasswordFlow, navigate]);
 
-  // Clerk afterSignOutUrl used to dump onto "/" mid-login. If a real admin session
-  // exists on bare "/" (not fullscreen storefront preview), recover to the dashboard.
+  // Clerk afterSignOutUrl used to dump onto "/" mid-login.
+  // HIGH ALERT: bare "/" on coffee/flowers web = storefront. Never auto-/admin.
   useEffect(() => {
     if (!session) return;
-    if (isFullscreenParam || isTabStorefrontParam) return;
+    if (isPublicStorefront || isFullscreenParam || isTabStorefrontParam) return;
     if (path !== '/' && path !== '') return;
+    // Defense: if path looks public, stay put even if flags raced.
+    try {
+      const href = typeof window !== 'undefined' ? window.location.pathname : path;
+      if (
+        href === '/' ||
+        href === '' ||
+        href.startsWith('/coffee') ||
+        href.startsWith('/profile') ||
+        href.startsWith('/checkout') ||
+        href.startsWith('/cart') ||
+        href.startsWith('/shop') ||
+        href.startsWith('/product')
+      ) {
+        return;
+      }
+    } catch {
+      return;
+    }
     if (session.portal === 'master') {
       navigate('/master', { replace: true });
       return;
@@ -1352,7 +1379,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
         sid === 'store-coffee' ? 'coffee' : sid === 'store-bleco' ? 'car' : sid === 'store-1' ? 'flowers' : '';
       navigate(slug ? `/admin?store=${slug}` : '/admin', { replace: true });
     }
-  }, [session, path, isFullscreenParam, isTabStorefrontParam, navigate]);
+  }, [session, path, isFullscreenParam, isTabStorefrontParam, isPublicStorefront, navigate]);
 
   // Phase 2.4 — soft SPA: if current tab denied by role, jump to first allowed (no reload)
   // Uses refs for canTab/firstAllowedTab so background data refreshes don't re-trigger this guard

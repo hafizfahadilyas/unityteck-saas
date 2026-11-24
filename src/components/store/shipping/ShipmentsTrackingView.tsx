@@ -39,6 +39,19 @@ import {
 import { downloadCsv } from '../../../utils/exportSpreadsheet';
 import { useSaudiCityOptions } from '../../../hooks/useSaudiCityOptions';
 import { SaudiCitySelect } from '../../common/SaudiCitySelect';
+import { fetchNotificationSettingsApi } from '../../../api/tenantApi';
+
+/** True only when THIS store has a real WhatsApp / SMS / Email channel connected. */
+async function storeHasCustomerNotifyChannel(storeId: string | undefined | null): Promise<boolean> {
+  if (!storeId) return false;
+  try {
+    const ns = await fetchNotificationSettingsApi(storeId);
+    const ch = (ns as any)?.data?.channels ?? (ns as any)?.channels ?? {};
+    return Boolean(ch?.whatsapp?.connected || ch?.sms?.connected || ch?.email?.connected);
+  } catch {
+    return false;
+  }
+}
 
 interface ShipmentsTrackingViewProps {
   onNavigateToLabels?: (orderId?: string) => void;
@@ -458,6 +471,22 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
     try {
       await updateShipmentStatus(shipmentId, newStatus, `Manual status change to ${newStatus}`);
       toast(isAr ? 'تم تحديث حالة الشحنة بنجاح' : 'Shipment status updated successfully', 'success');
+      const notifiesCustomer = ['created', 'picked_up', 'in_transit', 'out_for_delivery', 'delivered'].includes(
+        String(newStatus),
+      );
+      if (notifiesCustomer) {
+        const channelsOk = await storeHasCustomerNotifyChannel(activeStore?.id);
+        toast(
+          channelsOk
+            ? isAr
+              ? 'سيتم إشعار العميل عبر واتساب / الرسائل النصية / البريد إن كانت القنوات متصلة لهذا المتجر'
+              : 'Customer will be notified via WhatsApp / SMS / Email if channels are connected for this store'
+            : isAr
+              ? 'لم يتم الإشعار — اربط واتساب أو الرسائل النصية أو البريد لهذا المتجر أولاً'
+              : 'Not notified — connect WhatsApp, SMS, or Email for this store first',
+          'info',
+        );
+      }
       setActionMenuOpenId(null);
     } catch {
       toast(isAr ? 'فشل تحديث حالة الشحنة' : 'Failed to update shipment status', 'error');

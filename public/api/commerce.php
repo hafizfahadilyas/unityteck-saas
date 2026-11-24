@@ -331,9 +331,10 @@ function souq_payment_method(?string $raw): string
     if (str_contains($s, 'tabby')) return 'Tabby';
     if (str_contains($s, 'tamara')) return 'Tamara';
     if (str_contains($s, 'stc')) return 'stc pay';
-    if (str_contains($s, 'visa') || str_contains($s, 'master') || str_contains($s, 'card')) return 'Visa/MC';
-    if (str_contains($s, 'cod') || str_contains($s, 'cash')) return 'COD';
-    if (str_contains($s, 'mada')) return 'Mada';
+    if (str_contains($s, 'bank') || str_contains($s, 'transfer') || str_contains($s, 'تحويل')) return 'Bank Transfer';
+    if (str_contains($s, 'cod') || str_contains($s, 'cash') || str_contains($s, 'استلام')) return 'COD';
+    if (str_contains($s, 'mada') || str_contains($s, 'مدى') || str_contains($s, 'atm')) return 'Mada';
+    if (str_contains($s, 'visa') || str_contains($s, 'master') || str_contains($s, 'card') || str_contains($s, 'credit')) return 'Visa/MC';
     return $s === '' ? 'Mada' : (string)$raw;
 }
 
@@ -415,11 +416,16 @@ function souq_order_row(PDO $pdo, array $row, bool $lean = false): array
         'order_date' => $row['order_date'] ?? null,
         'coupon_code' => $row['coupon_code'] ?? null,
     ];
+    if (array_key_exists('shipping_cost', $row) && $row['shipping_cost'] !== null && $row['shipping_cost'] !== '') {
+        $out['shipping_cost'] = (float) $row['shipping_cost'];
+        $out['shipping_fee'] = (float) $row['shipping_cost'];
+    }
     foreach ([
         'cod_status', 'cod_notes', 'refund_status', 'refund_amount', 'return_reason', 'return_notes',
         'customer_notes', 'internal_notes',
         'delivery_mode', 'driver_id', 'bank_account_id', 'payment_plan', 'amount_paid', 'remaining_balance',
         'payment_transaction_id', 'is_archived', 'archived_at', 'estimated_delivery_at',
+        'shipping_method_id', 'courier_code', 'medium', 'campaign', 'utm_term', 'utm_content',
     ] as $extra) {
         if (array_key_exists($extra, $row)) {
             $out[$extra] = $row[$extra];
@@ -1532,6 +1538,28 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             $cols[] = 'coupon_code';
             $vals[] = $couponCode !== '' ? $couponCode : null;
         }
+        $shippingCostIn = null;
+        if (array_key_exists('shipping_cost', $input) && $input['shipping_cost'] !== null && $input['shipping_cost'] !== '') {
+            $shippingCostIn = (float) $input['shipping_cost'];
+        } elseif (array_key_exists('shipping_fee', $input) && $input['shipping_fee'] !== null && $input['shipping_fee'] !== '') {
+            $shippingCostIn = (float) $input['shipping_fee'];
+        }
+        if ($shippingCostIn !== null && function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'orders', 'shipping_cost')) {
+            $cols[] = 'shipping_cost';
+            $vals[] = max(0, $shippingCostIn);
+        }
+        $customerNotesIn = trim((string) ($input['customer_notes'] ?? $input['notes'] ?? ''));
+        if ($customerNotesIn !== '' && function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'orders', 'customer_notes')) {
+            $cols[] = 'customer_notes';
+            $vals[] = mb_substr($customerNotesIn, 0, 2000);
+        }
+        foreach (['medium', 'campaign', 'utm_term', 'utm_content', 'delivery_mode'] as $utmCol) {
+            $utmVal = trim((string) ($input[$utmCol] ?? ''));
+            if ($utmVal !== '' && function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'orders', $utmCol)) {
+                $cols[] = $utmCol;
+                $vals[] = mb_substr($utmVal, 0, 191);
+            }
+        }
         if (function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'orders', 'updated_at')) {
             $cols[] = 'updated_at';
             $vals[] = $now;
@@ -1718,6 +1746,7 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             echo json_encode(['message' => 'Order not found.']);
             return true;
         }
+        $tracked = souq_order_row($pdo, $found);
         echo json_encode(['data' => [
             'order_number' => $found['order_number'],
             'status' => $found['status'],
@@ -1730,7 +1759,50 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             'order_date' => $found['order_date'],
             'estimated_delivery' => null,
             'payment_status' => $found['payment_status'],
+            'payment_method' => $found['payment_method'] ?? null,
+            'total_amount' => (float) ($found['total_amount'] ?? 0),
+            'shipping_cost' => $tracked['shipping_cost'] ?? null,
+            'customer_name' => $found['customer_name'] ?? null,
+            'customer_phone' => $found['customer_phone'] ?? null,
+            'customer_notes' => $found['customer_notes'] ?? null,
+            'items' => $tracked['items'] ?? [],
         ]]);
+        return true;
+    }
+
+    // Customer profile: real orders for this store_id + email/phone/customer_id (with line items).
+    if ($uri === '/storefront/orders/mine' && $method === 'POST') {
+        $email = strtolower(trim((string) ($input['email'] ?? '')));
+        $phoneDigits = souq_digits((string) ($input['phone'] ?? ''));
+        $customerId = trim((string) ($input['customer_id'] ?? ''));
+        if ($email === '' && $phoneDigits === '' && $customerId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'Email, phone, or customer_id required.']);
+            return true;
+        }
+        $st = $pdo->prepare('SELECT * FROM orders WHERE store_id = ? ORDER BY COALESCE(updated_at, created_at, order_date) DESC LIMIT 50');
+        $st->execute([$storeId]);
+        $rows = [];
+        while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+            $match = false;
+            if ($customerId !== '' && !str_starts_with($customerId, 'sf-') && (string) ($row['customer_id'] ?? '') === $customerId) {
+                $match = true;
+            }
+            if (!$match && $email !== '' && strtolower(trim((string) ($row['customer_email'] ?? ''))) === $email) {
+                $match = true;
+            }
+            if (!$match && strlen($phoneDigits) >= 8 && souq_phones_match((string) ($row['customer_phone'] ?? ''), $phoneDigits)) {
+                $match = true;
+            }
+            if ($match) {
+                $rows[] = souq_order_row($pdo, $row);
+            }
+        }
+        echo json_encode([
+            'data' => $rows,
+            'store_id' => $storeId,
+            'meta' => ['total' => count($rows)],
+        ]);
         return true;
     }
 
@@ -3523,38 +3595,63 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
         souq_ensure_shipping_defaults($pdo, $sid);
         $city = trim((string)($input['city'] ?? ''));
         $orderTotal = (float)($input['order_total'] ?? $input['subtotal'] ?? 0);
+        $weightKg = (float)($input['total_weight_kg'] ?? 1);
+        $distanceKm = (float)($input['distance_km'] ?? 0);
         $st = $pdo->prepare('SELECT * FROM shipping_methods WHERE store_id = ? AND is_active = 1 ORDER BY sort_order, created_at');
         $st->execute([$sid]);
         $methods = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
         $options = [];
         foreach ($methods as $m) {
             $base = (float)($m['base_rate'] ?? 0);
+            $perKg = (float)($m['per_kg_rate'] ?? 0);
+            $perKm = (float)($m['per_km_rate'] ?? 0);
+            $type = (string)($m['type'] ?? 'flat_rate');
             $threshold = $m['free_shipping_threshold'] !== null && $m['free_shipping_threshold'] !== ''
                 ? (float)$m['free_shipping_threshold']
                 : null;
-            $isFree = $threshold !== null && $threshold > 0 && $orderTotal >= $threshold;
-            $rate = $isFree ? 0.0 : $base;
-            $options[] = [
+            $isFree = ($type === 'free')
+                || ($threshold !== null && $threshold > 0 && $orderTotal >= $threshold);
+            if ($isFree) {
+                $rate = 0.0;
+            } elseif ($type === 'weight_based' && $perKg > 0) {
+                $rate = $base + ($weightKg * $perKg);
+            } elseif ($perKm > 0 && $distanceKm > 0) {
+                $rate = $base + ($distanceKm * $perKm);
+            } else {
+                $rate = $base;
+            }
+            $rate = round($rate, 2);
+            $row = [
                 'id' => (string)$m['id'],
                 'name' => (string)$m['name'],
                 'name_ar' => (string)($m['name_ar'] ?? $m['name']),
-                'type' => (string)($m['type'] ?? 'flat_rate'),
+                'type' => $type,
+                'fee' => $rate,
                 'rate' => $rate,
                 'is_free' => $isFree,
                 'estimated_delivery' => (string)($m['estimated_delivery'] ?? '2-4 Days'),
+                'courier_code' => $m['courier_code'] ?? null,
+                'logo_url' => $m['logo_url'] ?? null,
+                'fulfillment_mode' => (string)($m['fulfillment_mode'] ?? 'courier'),
                 'is_cod_allowed' => (bool)(int)($m['is_cod_allowed'] ?? 1),
                 'city' => $city !== '' ? $city : null,
             ];
+            $options[] = $row;
         }
         $best = $options[0] ?? null;
+        $bestFee = (float)($best['fee'] ?? 0);
         echo json_encode([
             'store_id' => $sid,
             'city' => $city !== '' ? $city : null,
             'order_total' => $orderTotal,
-            'rate' => $best['rate'] ?? 0,
-            'is_free' => $best['is_free'] ?? false,
+            'rate' => $bestFee,
+            'calculated_shipping_fee' => $bestFee,
+            'is_free' => (bool)($best['is_free'] ?? false),
+            'is_free_shipping' => (bool)($best['is_free'] ?? false),
             'estimated_delivery' => $best['estimated_delivery'] ?? null,
             'cod_available' => $best['is_cod_allowed'] ?? true,
+            'matched_zone' => null,
+            'available_methods' => $options,
             'methods' => $options,
             'data' => $options,
         ]);

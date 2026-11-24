@@ -60,7 +60,7 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     invoiceService.recordPrintOrExport(document.storeId, document.id, 'exported_pdf', 'Store Administrator');
 
     toast(
-      isAr ? 'جاري تحضير ملف ملف محمول وتنزيله...' : 'Generating and downloading high-resolution PDF...',
+      isAr ? 'جاري تحضير الملف المحمول وتنزيله...' : 'Generating and downloading high-resolution PDF...',
       'info'
     );
 
@@ -97,7 +97,16 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     >
       {/* Print CSS to isolate document print area */}
       <style>{`
+        @page {
+          size: A4;
+          margin: 8mm;
+        }
         @media print {
+          html, body {
+            height: auto !important;
+            overflow: visible !important;
+            background: #fff !important;
+          }
           body * {
             visibility: hidden !important;
           }
@@ -105,47 +114,56 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
             visibility: visible !important;
           }
           #invoice-live-print-container {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
+            position: static !important;
+            left: auto !important;
+            top: auto !important;
             width: 100% !important;
+            max-width: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
             background: #ffffff !important;
             color: #000000 !important;
             box-shadow: none !important;
             border: none !important;
+            border-radius: 0 !important;
+            overflow: visible !important;
             z-index: 999999 !important;
+          }
+          #invoice-live-print-container .invoice-a4-sheet {
+            min-height: 0 !important;
+            padding: 0 !important;
+            gap: 12px !important;
           }
           .no-print {
             display: none !important;
+            visibility: hidden !important;
           }
         }
       `}</style>
 
       {/* Main Container */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[96vh] no-print">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[96vh] no-print min-w-0">
         {/* Top Control Toolbar */}
-        <div className="h-16 px-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900/90 shrink-0 text-slate-900 dark:text-white">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30 flex items-center justify-center font-bold">
+        <div className="min-h-14 px-3 sm:px-5 py-2 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-slate-900/90 shrink-0 text-slate-900 dark:text-white">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30 flex items-center justify-center font-bold shrink-0">
               <FileText className="w-5 h-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">{document.documentNumber}</h3>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white truncate">{document.documentNumber}</h3>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0 hidden sm:inline">
                   {document.documentType.replace(/_/g, ' ')}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                 {isAr ? document.titleAr || document.title : document.title || document.documentNumber}
               </p>
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             {/* Language Switch */}
             <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-0.5 border border-slate-200 dark:border-slate-700">
               <button
@@ -155,7 +173,7 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   previewLocale === 'ar' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                عربي (RTL)
+                عربي
               </button>
               <button
                 type="button"
@@ -164,7 +182,7 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   previewLocale === 'en' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                EN (LTR)
+                English
               </button>
             </div>
 
@@ -208,7 +226,7 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
               className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-md active:scale-95"
             >
               <Printer className="w-4 h-4" />
-              <span>{isAr ? 'طباعة A4' : 'Print A4'}</span>
+              <span>{isAr ? 'طباعة' : 'Print'}</span>
             </button>
 
             {/* Close Button */}
@@ -225,13 +243,13 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
         </div>
 
         {/* Modal Body with Settings Drawer & Live Document Canvas */}
-        <div className="flex-1 flex overflow-hidden min-h-0 relative">
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 relative">
           {/* Document Render Scroll Area */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center bg-slate-100 dark:bg-slate-950">
+          <div className="flex-1 overflow-y-auto p-2 sm:p-6 md:p-8 flex justify-center bg-slate-100 dark:bg-slate-950 min-w-0 order-2 lg:order-1">
             <div
               id="invoice-live-print-container"
               ref={printAreaRef}
-              className="w-full max-w-[820px] bg-white rounded-xl shadow-xl overflow-hidden border border-slate-200 dark:border-slate-800 my-auto"
+              className="w-full max-w-[820px] bg-white rounded-xl shadow-xl overflow-x-auto border border-slate-200 dark:border-slate-800 my-auto min-w-0"
             >
               <InvoiceTemplateRenderer
                 document={document}
@@ -243,7 +261,7 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
           {/* Quick Settings Drawer */}
           {showSettingsDrawer && (
-            <aside className="w-80 bg-white dark:bg-slate-900 border-s border-slate-200 dark:border-slate-800 flex flex-col p-5 space-y-4 overflow-y-auto text-slate-900 dark:text-white shrink-0 z-20">
+            <aside className="w-full lg:w-80 max-h-[40vh] lg:max-h-none bg-white dark:bg-slate-900 border-b lg:border-b-0 lg:border-s border-slate-200 dark:border-slate-800 flex flex-col p-4 sm:p-5 space-y-4 overflow-y-auto text-slate-900 dark:text-white shrink-0 z-20 order-1 lg:order-2">
               <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
                 <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                   {isAr ? 'تخصيص مظهر القالب' : 'Template Customizer'}

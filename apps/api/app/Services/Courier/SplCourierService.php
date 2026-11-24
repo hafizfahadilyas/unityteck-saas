@@ -5,7 +5,6 @@ namespace App\Services\Courier;
 use App\Models\CourierConnection;
 use App\Models\Order;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Str;
 
 class SplCourierService implements CourierInterface
 {
@@ -41,28 +40,23 @@ class SplCourierService implements CourierInterface
                 ];
             }
         } catch (\Throwable $e) {
-            // If live connection timeout / endpoint unreachable in dev sandbox, check credential format
-        }
-
-        // Realistic credential format validation for SPL
-        if (strlen($connection->api_key) >= 16) {
-            return [
-                'success' => true,
-                'message' => 'Saudi Post (SPL) credentials authenticated and authorized.',
-                'account' => $connection->account_number ?? 'SPL-MERCHANT-KSA',
-            ];
+            // Fall through to failure — never invent "connected"
         }
 
         return [
             'success' => false,
-            'message' => 'Invalid SPL API Key format or rejected by SPL authorization gateway.',
+            'message' => 'Invalid SPL API Key or rejected by SPL authorization gateway.',
         ];
     }
 
     public function createShipment(CourierConnection $connection, Order $order, array $params = []): array
     {
-        $awb = 'SPL-' . strtoupper(Str::random(4)) . '-' . rand(100000, 999999);
-        $tracking = 'SPL' . rand(100000000, 999999999);
+        if (empty($connection->api_key)) {
+            return [
+                'success' => false,
+                'message' => 'SPL API Key is missing.',
+            ];
+        }
 
         $payload = [
             'PartnerCode' => $connection->account_number,
@@ -82,67 +76,101 @@ class SplCourierService implements CourierInterface
             ])->timeout(8)->post($this->getBaseUrl($connection) . '/api/v2/shipments/create', $payload);
 
             if ($response->successful()) {
-                $data = $response->json();
+                $data = is_array($response->json()) ? $response->json() : [];
+                $awb = trim((string) ($data['Barcode'] ?? $data['AWB'] ?? $data['awb_number'] ?? ''));
+                $tracking = trim((string) ($data['TrackingNumber'] ?? $data['tracking_number'] ?? ''));
+                if ($awb === '' && $tracking === '') {
+                    return [
+                        'success' => false,
+                        'message' => 'SPL API returned no AWB/tracking number. Nothing invented.',
+                        'raw' => $data,
+                    ];
+                }
+
                 return [
                     'success' => true,
-                    'awb_number' => $data['Barcode'] ?? $awb,
-                    'tracking_number' => $data['TrackingNumber'] ?? $tracking,
-                    'label_url' => $data['LabelURL'] ?? null,
-                    'cost' => $data['ShippingCost'] ?? 18.00,
+                    'awb_number' => $awb !== '' ? $awb : $tracking,
+                    'tracking_number' => $tracking !== '' ? $tracking : $awb,
+                    'label_url' => $data['LabelURL'] ?? $data['label_url'] ?? null,
+                    'cost' => $data['ShippingCost'] ?? $data['cost'] ?? null,
                     'raw' => $data,
                 ];
             }
-        } catch (\Throwable $e) {
-            // Fallback for demo sandbox sandbox mode
-        }
 
-        return [
-            'success' => true,
-            'awb_number' => $awb,
-            'tracking_number' => $tracking,
-            'label_url' => 'https://api.splonline.com.sa/labels/' . $tracking . '.pdf',
-            'cost' => 18.00,
-            'raw' => ['status' => 'Created', 'carrier' => 'SPL'],
-        ];
+            return [
+                'success' => false,
+                'message' => 'SPL shipment creation failed: HTTP '.$response->status(),
+                'raw' => $response->json(),
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'SPL shipment creation failed: '.$e->getMessage(),
+            ];
+        }
     }
 
     public function trackShipment(CourierConnection $connection, string $trackingNumber): array
     {
+        if (empty($connection->api_key) || $trackingNumber === '') {
+            return [
+                'success' => false,
+                'tracking_number' => $trackingNumber,
+                'status' => 'not_found',
+                'status_label' => '',
+                'events' => [],
+                'message' => 'Missing SPL credentials or tracking number.',
+            ];
+        }
+
+        try {
+            $response = Http::withHeaders([
+                'X-API-KEY' => $connection->api_key,
+                'Accept' => 'application/json',
+            ])->timeout(8)->get(
+                $this->getBaseUrl($connection).'/api/v2/shipments/track/'.rawurlencode($trackingNumber)
+            );
+
+            if ($response->successful()) {
+                $data = is_array($response->json()) ? $response->json() : [];
+                $events = $data['Events'] ?? $data['events'] ?? [];
+
+                return [
+                    'success' => true,
+                    'tracking_number' => $trackingNumber,
+                    'status' => $data['Status'] ?? $data['status'] ?? 'unknown',
+                    'status_label' => (string) ($data['StatusLabel'] ?? $data['status_label'] ?? ''),
+                    'events' => is_array($events) ? $events : [],
+                    'raw' => $data,
+                ];
+            }
+        } catch (\Throwable $e) {
+            // No fabricated timeline
+        }
+
         return [
-            'success' => true,
+            'success' => false,
             'tracking_number' => $trackingNumber,
-            'status' => 'in_transit',
-            'status_label' => 'In Transit (في الطريق)',
-            'events' => [
-                [
-                    'time' => now()->subHours(6)->toIso8601String(),
-                    'location' => 'Riyadh Central Sorting Facility (مركز المعالجة المركزي بالرياض)',
-                    'description' => 'Parcel processed at central hub',
-                ],
-                [
-                    'time' => now()->subHours(1)->toIso8601String(),
-                    'location' => 'Dispatch to Destination Postal Unit',
-                    'description' => 'Out for final delivery courier assignment',
-                ],
-            ],
+            'status' => 'not_found',
+            'status_label' => '',
+            'events' => [],
+            'message' => 'No live tracking data from SPL for this number.',
         ];
     }
 
     public function cancelShipment(CourierConnection $connection, string $trackingNumber): array
     {
         return [
-            'success' => true,
-            'message' => 'Shipment ' . $trackingNumber . ' has been cancelled with SPL.',
+            'success' => false,
+            'message' => 'SPL cancel requires a live carrier API response. No local cancel invented.',
         ];
     }
 
     public function requestPickup(CourierConnection $connection, array $pickupDetails): array
     {
         return [
-            'success' => true,
-            'pickup_id' => 'SPL-PKP-' . rand(10000, 99999),
-            'scheduled_date' => $pickupDetails['date'] ?? now()->addDay()->format('Y-m-d'),
-            'message' => 'SPL Courier pickup request scheduled successfully.',
+            'success' => false,
+            'message' => 'SPL pickup requires a live carrier API response. No pickup id invented.',
         ];
     }
 }
