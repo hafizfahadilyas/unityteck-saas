@@ -366,9 +366,6 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
   }, [parentProduct?.id, product?.id]);
 
   // Glass Zoom Magnifier State (Screenshot 2)
-  const [isHoveringImage, setIsHoveringImage] = useState(false);
-  const [zoomPos, setZoomPos] = useState({ x: 0, y: 0, percentX: 0, percentY: 0 });
-  const imageStageRef = useRef<HTMLDivElement | null>(null);
   const buyStickyBarRef = useRef<HTMLDivElement | null>(null);
   const [buyStickyBarH, setBuyStickyBarH] = useState(56); // used for scroll offset / gallery top
 
@@ -627,19 +624,6 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
     if (res.success) setCouponCode('');
   };
 
-
-  // Mouse move handler for glass zoom magnifier
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!imageStageRef.current) return;
-    const rect = imageStageRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const percentX = Math.max(0, Math.min(100, (x / rect.width) * 100));
-    const percentY = Math.max(0, Math.min(100, (y / rect.height) * 100));
-
-    setZoomPos({ x, y, percentX, percentY });
-  };
 
   const handleThumbnailClick = (idx: number) => {
     setActiveImageIndex(idx);
@@ -1034,7 +1018,10 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
   }
 
   return (
-    <div className="min-h-screen bg-white text-neutral-900 text-start pb-28 lg:pb-24 selection:bg-neutral-900 selection:text-white w-full max-w-full">
+    <div
+      data-coffee-product-buy="1"
+      className="min-h-screen bg-white text-neutral-900 text-start pb-28 lg:pb-24 selection:bg-neutral-900 selection:text-white w-full max-w-full"
+    >
       {/* ========================================================================= */}
       {/* 1. HONOR sticky sub-bar — sticks under site header (NOT fixed: clip root) */}
       {/* ========================================================================= */}
@@ -1168,7 +1155,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
         </div>
 
         {/* ========================================================================= */}
-        {/* 3. MAIN 2-COLUMN STAGE (Honor Buy Layout with Glass Zoom Effect)          */}
+        {/* 3. MAIN 2-COLUMN STAGE (Honor buy layout)                                  */}
         {/* ========================================================================= */}
         <div
           id="buy-stage-section"
@@ -1188,13 +1175,11 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
             <div className="space-y-3 flex flex-col items-center w-full">
             {/* Honor-style hero: image + side gift capsules + bottom price bar */}
             <div
-              ref={imageStageRef}
-              onMouseEnter={() => setIsHoveringImage(true)}
-              onMouseLeave={() => setIsHoveringImage(false)}
-              onMouseMove={handleMouseMove}
-              className="relative w-full select-none bg-[#FAFAFA] rounded-2xl overflow-hidden group cursor-zoom-in"
+              data-buy-hero-gallery="1"
+              className="relative w-full select-none bg-[#FAFAFA] rounded-xl overflow-hidden border border-neutral-100"
+              style={{ boxShadow: 'none' }}
             >
-              <div className="relative w-full min-h-[300px] sm:min-h-[380px] lg:min-h-[420px] flex items-center justify-center px-2 pt-3 pb-16 sm:pb-[4.5rem]">
+              <div className="relative w-full min-h-[360px] sm:min-h-[440px] lg:min-h-[500px] flex items-center justify-center px-2 pt-3 pb-16 sm:pb-[4.75rem]">
                 {/* Top-start badge (Honor pill) */}
                 {badgeLabel ? (
                   <div className="absolute top-3 start-3 z-20 pointer-events-none">
@@ -1207,7 +1192,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                 <img
                   src={resolveBuyPageImage(currentDisplayImage, imgMeta)}
                   alt={product.name}
-                  className="relative z-0 w-full h-auto max-h-[260px] sm:max-h-[340px] lg:max-h-[380px] max-w-[88%] block object-contain object-center"
+                  className="relative z-0 w-full h-auto max-h-[320px] sm:max-h-[400px] lg:max-h-[460px] max-w-[92%] block object-contain object-center"
                   referrerPolicy="no-referrer"
                   onError={(e) => handleImageError(e, COFFEE_STOREFRONT_IMAGE_FALLBACK)}
                 />
@@ -1247,25 +1232,6 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                   </div>
                 </div>
 
-                {/* Glass zoom lens */}
-                {isHoveringImage && (
-                  <div
-                    className="pointer-events-none absolute z-30 w-36 h-36 sm:w-44 sm:h-44 rounded-full border-2 border-white/95 ring-1 ring-[#8B5A2B]/35 overflow-hidden"
-                    style={{
-                      left: `${zoomPos.x}px`,
-                      top: `${zoomPos.y}px`,
-                      transform: 'translate(-50%, -50%)',
-                      backgroundImage: `url(${currentDisplayImage})`,
-                      backgroundRepeat: 'no-repeat',
-                      backgroundSize: '260%',
-                      backgroundPosition: `${zoomPos.percentX}% ${zoomPos.percentY}%`,
-                      backgroundColor: '#ffffff',
-                    }}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/15 to-white/40 pointer-events-none" />
-                    <div className="absolute inset-1 rounded-full border border-white/50 pointer-events-none" />
-                  </div>
-                )}
               </div>
 
               {/* Honor cream price / installment bar pinned to hero bottom */}
@@ -1318,7 +1284,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                 const el = document.querySelector(
                   '[data-honor-thumb-scroll="1"]',
                 ) as HTMLElement | null;
-                if (el) el.scrollBy({ left: dir * 72, behavior: 'smooth' });
+                if (el) el.scrollBy({ left: dir * 80, behavior: 'smooth' });
               };
 
               return (
@@ -1404,16 +1370,16 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                                   key={child.id}
                                   type="button"
                                   onClick={() => setActiveChildId(String(child.id))}
-                                  className="relative rounded-lg overflow-hidden bg-white cursor-pointer shrink-0 grow-0 box-border"
+                                  className="relative rounded-[10px] overflow-hidden bg-white cursor-pointer shrink-0 grow-0 box-border"
                                   style={{
-                                    width: fitThumbRow ? undefined : 64,
-                                    height: fitThumbRow ? undefined : 64,
-                                    minWidth: fitThumbRow ? 56 : 64,
-                                    maxWidth: fitThumbRow ? 80 : 64,
-                                    flex: fitThumbRow ? '1 1 0' : '0 0 64px',
+                                    width: fitThumbRow ? undefined : 72,
+                                    height: fitThumbRow ? undefined : 72,
+                                    minWidth: fitThumbRow ? 60 : 72,
+                                    maxWidth: fitThumbRow ? 88 : 72,
+                                    flex: fitThumbRow ? '1 1 0' : '0 0 72px',
                                     aspectRatio: '1',
                                     boxShadow: 'none',
-                                    border: selected ? '2px solid #000000' : '1px solid #000000',
+                                    border: selected ? '2px solid #171717' : '1px solid #d4d4d4',
                                   }}
                                   aria-pressed={selected}
                                   title={
@@ -1439,16 +1405,16 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                                   key={`${img}-${idx}`}
                                   type="button"
                                   onClick={() => handleThumbnailClick(idx)}
-                                  className="rounded-lg bg-white p-1 cursor-pointer shrink-0 grow-0 box-border"
+                                  className="rounded-[10px] bg-white p-1 cursor-pointer shrink-0 grow-0 box-border"
                                   style={{
-                                    width: fitThumbRow ? undefined : 64,
-                                    height: fitThumbRow ? undefined : 64,
-                                    minWidth: fitThumbRow ? 56 : 64,
-                                    maxWidth: fitThumbRow ? 80 : 64,
-                                    flex: fitThumbRow ? '1 1 0' : '0 0 64px',
+                                    width: fitThumbRow ? undefined : 72,
+                                    height: fitThumbRow ? undefined : 72,
+                                    minWidth: fitThumbRow ? 60 : 72,
+                                    maxWidth: fitThumbRow ? 88 : 72,
+                                    flex: fitThumbRow ? '1 1 0' : '0 0 72px',
                                     aspectRatio: '1',
                                     boxShadow: 'none',
-                                    border: isActive ? '2px solid #000000' : '1px solid #000000',
+                                    border: isActive ? '2px solid #171717' : '1px solid #d4d4d4',
                                   }}
                                 >
                                   <img
@@ -2090,7 +2056,10 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
             {/* ========================================================================= */}
             <div className="space-y-3">
               {/* Tabby Installment Card */}
-              <div className="bg-white border border-neutral-200/90 rounded-xl p-4 hover:border-neutral-300 transition-all">
+              <div
+                className="bg-white border border-neutral-200 rounded-xl p-4 hover:border-neutral-300 transition-all shadow-none"
+                style={{ boxShadow: 'none' }}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs text-neutral-700 leading-relaxed">
@@ -2137,7 +2106,10 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
 
               {/* Tamara Installment Card — only when gateway connected + product logo toggle ON */}
               {showTamaraOnProduct ? (
-                <div className="bg-white border border-neutral-200/90 rounded-xl p-4 hover:border-neutral-300 transition-all">
+                <div
+                className="bg-white border border-neutral-200 rounded-xl p-4 hover:border-neutral-300 transition-all shadow-none"
+                style={{ boxShadow: 'none' }}
+              >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-xs text-neutral-700 leading-relaxed">
@@ -2177,7 +2149,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
             {/* APPROVED PAYMENT LOGOS — BNPL logos only when that gateway is connected */}
             <div className="pt-2 space-y-2">
               <span className="text-[11px] text-neutral-500 block text-center">
-                {language === 'AR' ? 'وسائل الدفع المعتمدة والتقسيط بالمملكة:' : 'Approved Payment & Installment Methods in KSA:'}
+                {language === 'AR' ? 'وسائل الدفع المعتمدة والتقسيط بالمملكة:' : 'Approved Payment & Installment Methods:'}
               </span>
               <div className="flex items-center justify-center gap-3.5 flex-wrap">
                 <MadaIcon className="h-4.5" />
@@ -2290,7 +2262,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
             <div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-neutral-100 text-neutral-800 text-xs font-bold uppercase tracking-wider mb-2">
                 <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                <span>{language === 'AR' ? 'تقييمات العملاء الموثقة بالمملكة' : 'Verified Customer Ratings in KSA'}</span>
+                <span>{language === 'AR' ? 'تقييمات العملاء الموثقة بالمملكة' : 'Verified Customer Ratings'}</span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 tracking-tight">
                 {language === 'AR' ? 'تجارب وآراء المشترين' : 'Customer Reviews & Feedback'}

@@ -9,7 +9,11 @@ import type {
   ProductOptionDefinition,
   ProductVariation,
 } from '../../types';
-import { customFieldIsFillable } from '../../utils/customFieldTypes';
+import {
+  customFieldIsFillable,
+  customFieldIsFreeColorPicker,
+  normalizeCustomFieldType,
+} from '../../utils/customFieldTypes';
 import { isOptionValueAvailable, optionValuesList } from '../../utils/productVariants';
 import {
   choiceLooksLikeColor,
@@ -18,6 +22,7 @@ import {
   isCustomFieldVisible,
   normalizeCustomFieldOptions,
   optionKind,
+  resolveChoiceSwatchColor,
   resolveSelectionPrice,
   type FieldValueMap,
 } from '../../utils/storefrontPurchase';
@@ -48,10 +53,12 @@ function isHonorCareField(
   optionItems: ReturnType<typeof normalizeCustomFieldOptions>,
 ): boolean {
   const blob = `${field.name || ''} ${field.nameAr || ''} ${field.type || ''}`.toLowerCase();
+  // Only real care/warranty fields use the Care panel — never force every Text choice into it
+  // (that was painting a fake heart / “img” placeholder on Single Choice – Text).
   if (/care|warranty|protection|حماية|رعاية|ضمان|صيانة|عناية/.test(blob)) return true;
   const kind = fieldControlKind(field.type, field.options);
-  // Image choice types use gift cards when options have images; Text/Size stay care/list (no thumbs).
-  if (!kind.includes('Image')) return true;
+  // Image choice without thumbs → care list style (radio + label). Text/Size → gift/chip cards.
+  if (!kind.includes('Image')) return false;
   const hasImg = optionItems.some((o) => !!o.imageUrl || choiceLooksLikeImage(o.label));
   return !hasImg;
 }
@@ -116,8 +123,12 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
     ? 'text-base font-extrabold text-neutral-900 tracking-tight'
     : 'text-[11px] font-bold text-[#102a1c] dark:text-slate-200';
 
+  const coffeeInputClass = coffee
+    ? 'w-full px-3.5 py-3 rounded-lg border border-solid border-neutral-200 bg-white text-sm text-neutral-900 placeholder:text-neutral-400 box-border shadow-none focus:border-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/10'
+    : 'w-full px-3 py-2.5 rounded-xl border border-solid border-[#cfc7b6] dark:border-slate-600 bg-white dark:bg-slate-900 text-xs box-border';
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-coffee-dynamic-purchase="1">
       {options.map((opt) => {
         const vals = optionValuesList(opt.values).filter((v) => v.selected !== false && v.label.trim());
         const kind = optionKind(opt);
@@ -265,6 +276,7 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
       })}
 
       {visibleFields.map((field) => {
+        const declaredKind = normalizeCustomFieldType(field.type);
         const kind = fieldControlKind(field.type, field.options);
         const value = fieldValues[field.id];
         const text = Array.isArray(value) ? '' : String(value ?? '');
@@ -283,12 +295,12 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
           kind === 'Single Choice Image' ||
           kind === 'Multiple Choice Image' ||
           kind === 'Single Choice Color' ||
-          kind === 'Multiple Choice Color' ||
-          kind === 'Color Selector';
+          kind === 'Multiple Choice Color';
         // Coffee buy: ALL choice lists → Honor Care panel OR Gift cards (borders always)
         const coffeeHonorList =
           coffee && fillable && isChoiceKind && optionItemsEarly.length > 0 && !kind.includes('Color');
-        const isImageChoiceKind = kind.includes('Image');
+        // Thumbs only when merchant chose an Image type (never invent icon for Text).
+        const isImageChoiceKind = declaredKind.includes('Image');
 
         // Honor Care / Gift layouts for coffee side-info
         if (coffeeHonorList) {
@@ -345,25 +357,22 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
                               <span className="w-2.5 h-2.5 bg-black block rounded-[1px]" />
                             ) : null}
                           </span>
-                          {thumb ? (
-                            <img
-                              src={thumb}
-                              alt=""
-                              className="w-10 h-10 rounded-lg object-contain bg-neutral-50 shrink-0"
-                              style={{ border: '1px solid #D2D2D7' }}
-                              referrerPolicy="no-referrer"
-                            />
-                          ) : (
-                            <span
-                              className="w-10 h-10 rounded-lg bg-[#E8F4FF] flex items-center justify-center shrink-0"
-                              style={{ border: '1px solid #D2D2D7' }}
-                              aria-hidden
-                            >
-                              <svg width="20" height="20" viewBox="0 0 24 24" fill="#2B7CD3" aria-hidden>
-                                <path d="M12 21s-6.7-4.35-9.33-7.4C.7 11.3 1.1 7.9 3.6 6.2c2-1.35 4.55-.7 5.9 1.05C10.85 5.5 13.4 4.85 15.4 6.2c2.5 1.7 2.9 5.1.93 7.4C18.7 16.65 12 21 12 21z" />
-                              </svg>
-                            </span>
-                          )}
+                          {/* Image thumbs only for Image field types — never fake icon on Text. */}
+                          {isImageChoiceKind ? (
+                            thumb ? (
+                              <img
+                                src={thumb}
+                                alt=""
+                                className="w-10 h-10 rounded-lg object-contain bg-neutral-50 shrink-0 border border-solid border-neutral-200"
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <span
+                                className="w-10 h-10 rounded-lg bg-neutral-100 shrink-0 border border-solid border-neutral-200"
+                                aria-hidden
+                              />
+                            )
+                          ) : null}
                           <span className="flex-1 min-w-0 text-xs sm:text-sm font-bold text-neutral-900 leading-snug">
                             {title}
                           </span>
@@ -493,8 +502,9 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
 
         function renderControl() {
           const inputClass = coffee
-            ? 'w-full px-3 py-2 rounded-xl border border-neutral-200 bg-white text-xs text-neutral-900'
-            : 'w-full px-3 py-2 rounded-xl border border-[#d6cfc0] dark:border-slate-700 bg-white dark:bg-slate-900 text-xs';
+            ? coffeeInputClass
+            : 'w-full px-3 py-2.5 rounded-xl border border-solid border-[#cfc7b6] dark:border-slate-600 bg-white dark:bg-slate-900 text-xs box-border';
+          const inputStyle = coffee ? ({ boxShadow: 'none' } as const) : undefined;
           if (kind === 'Long Text') {
             return (
               <textarea
@@ -502,6 +512,7 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
                 value={text}
                 onChange={(e) => setField(field.id, e.target.value)}
                 className={inputClass}
+                style={inputStyle}
               />
             );
           }
@@ -512,6 +523,7 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
                 value={text}
                 onChange={(e) => setField(field.id, e.target.value)}
                 className={inputClass}
+                style={inputStyle}
               />
             );
           }
@@ -523,6 +535,7 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
                 value={text}
                 onChange={(e) => setField(field.id, e.target.value)}
                 className={inputClass}
+                style={inputStyle}
               />
             );
           }
@@ -530,7 +543,7 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
             const inputId = `cf-upload-${field.id}`;
             const isImage = kind === 'Image Upload';
             return (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 <input
                   id={inputId}
                   type="file"
@@ -547,22 +560,29 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
                 />
                 <label
                   htmlFor={inputId}
-                  className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-xl text-sm font-bold cursor-pointer w-full sm:w-auto ${
+                  className={`flex flex-col items-center justify-center gap-2 w-full min-h-[120px] px-4 py-5 rounded-xl border-2 border-dashed cursor-pointer text-center transition-colors box-border ${
                     coffee
-                      ? 'bg-black text-white border border-black'
-                      : 'bg-[#102a1c] text-white border border-[#102a1c]'
+                      ? 'border-neutral-200 bg-neutral-50/90 hover:bg-neutral-50 hover:border-neutral-400'
+                      : 'border-[#cfc7b6] dark:border-slate-600 bg-white dark:bg-slate-900'
                   }`}
+                  style={{ boxShadow: 'none' }}
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden className="shrink-0">
-                    <path
-                      d="M12 16V4m0 0l-4 4m4-4l4 4M4 16.5V18a2 2 0 002 2h12a2 2 0 002-2v-1.5"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  <span>
+                  <span
+                    className={`inline-flex items-center justify-center w-10 h-10 rounded-full ${
+                      coffee ? 'bg-neutral-900 text-white' : 'bg-[#102a1c] text-white'
+                    }`}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+                      <path
+                        d="M12 16V4m0 0l-4 4m4-4l4 4M4 16.5V18a2 2 0 002 2h12a2 2 0 002-2v-1.5"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </span>
+                  <span className="text-sm font-bold text-neutral-900">
                     {isImage
                       ? isAr
                         ? 'رفع صورة'
@@ -571,11 +591,70 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
                         ? 'رفع ملف'
                         : 'Upload file'}
                   </span>
+                  <span className="text-[11px] text-neutral-500 max-w-xs">
+                    {isAr ? 'اضغط لاختيار ملف من جهازك' : 'Tap to choose a file from your device'}
+                  </span>
                 </label>
                 {previews[field.id] ? (
-                  <img src={previews[field.id]} alt="" className="w-20 h-20 rounded-xl object-cover border border-neutral-200" />
+                  <img
+                    src={previews[field.id]}
+                    alt=""
+                    className="w-24 h-24 rounded-lg object-cover border border-neutral-200"
+                    style={{ boxShadow: 'none' }}
+                  />
                 ) : null}
-                {text ? <p className="text-[11px] text-neutral-500">{text}</p> : null}
+                {text ? <p className="text-[11px] text-neutral-600 font-medium break-all">{text}</p> : null}
+              </div>
+            );
+          }
+          // Color Picker = free HEX pick (pencil / native color tool) — not fixed swatches.
+          if (customFieldIsFreeColorPicker(kind) || kind === 'Color Selector') {
+            const colorValue = choiceLooksLikeColor(text) ? text : '#64748b';
+            const pickerId = `cf-color-${field.id}`;
+            return (
+              <div className="inline-flex items-center gap-2.5 flex-wrap">
+                <label
+                  htmlFor={pickerId}
+                  className={`inline-flex items-center gap-3 min-h-[48px] px-3.5 py-2.5 rounded-xl border border-solid cursor-pointer select-none box-border ${
+                    coffee
+                      ? 'border-neutral-200 bg-white hover:bg-neutral-50'
+                      : 'border-[#cfc7b6] dark:border-slate-600 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
+                  style={{ boxShadow: 'none' }}
+                >
+                  <span
+                    className="w-10 h-10 rounded-lg border border-neutral-200 shrink-0"
+                    style={{ backgroundColor: colorValue, boxShadow: 'none' }}
+                    aria-hidden
+                  />
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden
+                    className="shrink-0 text-neutral-700 dark:text-slate-200"
+                  >
+                    <path
+                      d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <span className="text-xs font-bold font-mono text-neutral-800 dark:text-slate-100 uppercase tracking-wide">
+                    {colorValue}
+                  </span>
+                  <input
+                    id={pickerId}
+                    type="color"
+                    value={colorValue}
+                    onChange={(e) => setField(field.id, e.target.value)}
+                    className="sr-only"
+                    aria-label={fieldTitle || field.name}
+                  />
+                </label>
               </div>
             );
           }
@@ -588,20 +667,8 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
             kind === 'Single Choice Image' ||
             kind === 'Multiple Choice Image' ||
             kind === 'Single Choice Color' ||
-            kind === 'Multiple Choice Color' ||
-            kind === 'Color Selector'
+            kind === 'Multiple Choice Color'
           ) {
-            if (optionItems.length === 0 && kind === 'Color Selector') {
-              return (
-                <input
-                  type="color"
-                  value={choiceLooksLikeColor(text) ? text : '#1c1917'}
-                  onChange={(e) => setField(field.id, e.target.value)}
-                  className="w-10 h-10 p-1 rounded-lg border cursor-pointer"
-                  aria-label={field.name}
-                />
-              );
-            }
             const toggle = (opt: string) => {
               if (!multiple) {
                 setField(field.id, opt);
@@ -611,8 +678,9 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
               setField(field.id, next);
             };
 
-            const isColorKind = kind.includes('Color');
-            const isImageKind = kind.includes('Image');
+            const isColorKind = kind.includes('Color') || declaredKind.includes('Color');
+            // Respect merchant field type — Text never renders as image grid/icon.
+            const isImageKind = declaredKind.includes('Image');
             const allColor =
               isColorKind ||
               optionItems.every(
@@ -734,12 +802,49 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
               );
             }
 
+            if (isColorKind || allColor) {
+              return (
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(4.5rem,1fr))] gap-3 max-w-md">
+                  {optionItems.map((item) => {
+                    const opt = item.label;
+                    const on = multiple ? many.includes(opt) : text === opt;
+                    const swatch = resolveChoiceSwatchColor(item);
+                    const swatchLabel = isAr && item.labelAr ? item.labelAr : opt;
+                    return (
+                      <button
+                        key={opt}
+                        type="button"
+                        title={swatchLabel}
+                        aria-label={swatchLabel}
+                        aria-pressed={on}
+                        onClick={() => toggle(opt)}
+                        className="flex flex-col items-center gap-1.5 p-1 rounded-lg cursor-pointer bg-transparent border-0"
+                        style={{ boxShadow: 'none' }}
+                      >
+                        <span
+                          className={`w-11 h-11 rounded-full border-2 border-solid block shrink-0 ${
+                            on ? 'border-neutral-900 ring-2 ring-neutral-900/20' : 'border-neutral-200'
+                          }`}
+                          style={{ backgroundColor: swatch, boxShadow: 'none' }}
+                          aria-hidden
+                        />
+                        <span className="text-[10px] font-semibold text-neutral-700 text-center leading-tight max-w-[4.5rem] truncate">
+                          {swatchLabel}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            }
+
             return (
               <div className="flex flex-wrap gap-2">
                 {optionItems.map((item) => {
                   const opt = item.label;
                   const on = multiple ? many.includes(opt) : text === opt;
-                  if (choiceLooksLikeColor(opt) || isColorKind) {
+                  if (choiceLooksLikeColor(opt)) {
+                    const swatch = resolveChoiceSwatchColor(item);
                     return (
                       <button
                         key={opt}
@@ -748,8 +853,8 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
                         aria-label={opt}
                         aria-pressed={on}
                         onClick={() => toggle(opt)}
-                        className={`w-9 h-9 rounded-full border border-solid cursor-pointer shadow-none ${on ? 'border-neutral-900' : 'border-neutral-200'}`}
-                        style={{ backgroundColor: choiceLooksLikeColor(opt) ? opt : '#cbd5e1', boxShadow: 'none' }}
+                        className={`w-9 h-9 rounded-full border border-solid cursor-pointer shadow-none box-border ${on ? 'border-neutral-900' : 'border-neutral-300'}`}
+                        style={{ backgroundColor: swatch, boxShadow: 'none' }}
                       />
                     );
                   }
@@ -761,8 +866,8 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
                         type="button"
                         aria-pressed={on}
                         onClick={() => toggle(opt)}
-                        className={`w-14 h-14 rounded-xl border border-solid overflow-hidden cursor-pointer bg-white shadow-none ${
-                          on ? 'border-neutral-900' : 'border-neutral-200'
+                        className={`w-14 h-14 rounded-xl border border-solid overflow-hidden cursor-pointer bg-white shadow-none box-border ${
+                          on ? 'border-neutral-900' : 'border-neutral-300'
                         }`}
                         style={{ boxShadow: 'none' }}
                       >
@@ -780,12 +885,14 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
                       type="button"
                       aria-pressed={on}
                       onClick={() => toggle(opt)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border cursor-pointer ${
+                      className={`px-3.5 py-2 rounded-xl text-xs font-bold border border-solid cursor-pointer box-border ${
                         on
                           ? coffee
                             ? 'bg-black text-white border-black'
                             : 'bg-[#102a1c] text-white border-[#102a1c]'
-                          : 'bg-white text-neutral-800 border-neutral-200'
+                          : coffee
+                            ? 'bg-white text-neutral-800 border-neutral-300'
+                            : 'bg-white text-neutral-800 border-[#cfc7b6] dark:border-slate-600'
                       }`}
                     >
                       {isAr && item.labelAr ? item.labelAr : opt}
@@ -802,6 +909,7 @@ export const ProductDynamicPurchase: React.FC<ProductDynamicPurchaseProps> = ({
               onChange={(e) => setField(field.id, e.target.value)}
               placeholder={kind === 'Location' ? (isAr ? 'الموقع' : 'Location') : undefined}
               className={inputClass}
+              style={inputStyle}
             />
           );
         }

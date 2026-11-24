@@ -327,6 +327,29 @@ export function choiceLooksLikeColor(value: string): boolean {
   return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value.trim());
 }
 
+/** Map common color names (EN/AR) to HEX for storefront swatches. */
+export function guessColorHexFromLabel(label: string): string {
+  const l = (label || '').toLowerCase();
+  if (l.includes('red') || l.includes('احمر') || l.includes('أحمر')) return '#ef4444';
+  if (l.includes('white') || l.includes('ابيض') || l.includes('أبيض')) return '#ffffff';
+  if (l.includes('pink') || l.includes('وردي') || l.includes('زهري')) return '#f472b6';
+  if (l.includes('black') || l.includes('اسود') || l.includes('أسود')) return '#18181b';
+  if (l.includes('blue') || l.includes('ازرق') || l.includes('أزرق')) return '#3b82f6';
+  if (l.includes('green') || l.includes('اخضر') || l.includes('أخضر')) return '#22c55e';
+  if (l.includes('yellow') || l.includes('اصفر') || l.includes('أصفر')) return '#eab308';
+  if (l.includes('orange') || l.includes('برتقالي')) return '#f97316';
+  if (l.includes('silver') || l.includes('فضي')) return '#94a3b8';
+  return '#64748b';
+}
+
+/** Resolve swatch fill for Single/Multiple Choice – Color rows. */
+export function resolveChoiceSwatchColor(item: ProductCustomFieldOptionItem): string {
+  const img = (item.imageUrl || '').trim();
+  if (choiceLooksLikeColor(img)) return img;
+  if (choiceLooksLikeColor(item.label)) return item.label.trim();
+  return guessColorHexFromLabel(item.label);
+}
+
 export function fieldControlKind(
   type: string | undefined,
   options?: ProductCustomField['options'],
