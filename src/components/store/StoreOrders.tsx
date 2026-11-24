@@ -1,4 +1,5 @@
-import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useAdminInnerLayer } from '../../hooks/useAdminInnerLayer';
 import { useTenant } from '../../context/TenantContext';
 import type { Order, OrderStatus } from '../../types';
 import { usePrefs } from '../../i18n/PrefsContext';
@@ -170,6 +171,11 @@ export const StoreOrders: React.FC = () => {
   const [selectedShippingCompany, setSelectedShippingCompany] = useState<string>('all');
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const closeOrderDetail = useCallback(() => setSelectedOrder(null), []);
+  const { requestClose: requestCloseOrderDetail } = useAdminInnerLayer(
+    Boolean(selectedOrder),
+    closeOrderDetail,
+  );
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -1307,7 +1313,7 @@ export const StoreOrders: React.FC = () => {
             <div className="flex items-center gap-2 text-xs mb-1 font-semibold min-w-0" style={{ color: 'var(--muted)' }}>
               <button
                 type="button"
-                onClick={() => setSelectedOrder(null)}
+                onClick={() => requestCloseOrderDetail()}
                 className="hover:underline flex items-center gap-1 cursor-pointer transition-colors shrink-0"
                 style={{ color: 'var(--accent)' }}
               >

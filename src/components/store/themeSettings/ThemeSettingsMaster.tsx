@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
+import { useAdminInnerLayer } from '../../../hooks/useAdminInnerLayer';
 import {
   Palette,
   Sliders,
@@ -28,6 +29,7 @@ import {
 } from 'lucide-react';
 import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
+import { buildStorefrontHomeUrl } from '../../../utils/storefrontLinks';
 import { StoreIdentityForm } from './StoreIdentityForm';
 import { GeneralOptionsForm } from './GeneralOptionsForm';
 import { StoreColorsForm } from './StoreColorsForm';
@@ -47,7 +49,6 @@ import { CustomProductsForm } from './CustomProductsForm';
 import { SpecialOfferCountdownForm } from './SpecialOfferCountdownForm';
 import { StoreStatisticsForm } from './StoreStatisticsForm';
 import { ConnectedWorkspaceBanner } from '../../common/ConnectedWorkspaceBanner';
-import { CoffeeThemeSettingsHub } from './coffee/CoffeeThemeSettingsHub';
 import { isCoffeeStore } from '../../../themes/settings/coffeeThemeDefaults';
 
 export interface ThemeSectionMeta {
@@ -272,7 +273,6 @@ interface ThemeSettingsMasterProps {
 export const ThemeSettingsMaster: React.FC<ThemeSettingsMasterProps> = ({
   onOpenStorefront,
   onOpenThemeCustomizer,
-  onOpenPageBuilder,
 }) => {
   const { activeStore } = useTenant();
   const { locale } = usePrefs();
@@ -280,6 +280,11 @@ export const ThemeSettingsMaster: React.FC<ThemeSettingsMasterProps> = ({
   const coffeeStore = isCoffeeStore(activeStore);
 
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+  const closeThemeSection = useCallback(() => setActiveSectionId(null), []);
+  const { requestClose: requestCloseThemeSection } = useAdminInnerLayer(
+    Boolean(activeSectionId),
+    closeThemeSection,
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
 
@@ -305,35 +310,10 @@ export const ThemeSettingsMaster: React.FC<ThemeSettingsMasterProps> = ({
     return THEME_SECTIONS.find((s) => s.id === activeSectionId);
   }, [activeSectionId]);
 
+  // Coffee Themes page: Customize Theme / Page Builder CTAs live in StoreThemes header only.
+  // Do not render Active Widgets / Editable Sections hub here.
   if (coffeeStore) {
-    return (
-      <div className="space-y-6">
-        <ConnectedWorkspaceBanner page="settings" />
-        <div
-          className="p-5 rounded-2xl border"
-          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <span className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black">
-              <Palette className="w-4 h-4" />
-            </span>
-            <h2 className="text-lg font-black tracking-tight">
-              {isAr ? 'إعدادات ثيم متجر القهوة' : 'Coffee Store Theme Settings'}
-            </h2>
-          </div>
-          <p className="text-xs text-muted mb-4">
-            {isAr
-              ? 'أقسام وثيقة ثيم القهوة فقط — الصور والنصوص يضبطها التاجر من الإعدادات (ديناميكي بالكامل).'
-              : 'Coffee Word sections only — merchant sets all images and copy in settings (fully dynamic).'}
-          </p>
-          <CoffeeThemeSettingsHub
-            onOpenStorefront={onOpenStorefront}
-            onOpenThemeCustomizer={onOpenThemeCustomizer}
-            onOpenPageBuilder={onOpenPageBuilder}
-          />
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -352,7 +332,7 @@ export const ThemeSettingsMaster: React.FC<ThemeSettingsMasterProps> = ({
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => setActiveSectionId(null)}
+                onClick={() => requestCloseThemeSection()}
                 className="px-3 py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-bold cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                 style={{ borderColor: 'var(--border)' }}
               >
@@ -413,7 +393,7 @@ export const ThemeSettingsMaster: React.FC<ThemeSettingsMasterProps> = ({
                           ? 'bleco'
                           : 'flowers');
                     window.open(
-                      `/?store=${encodeURIComponent(storeSlug)}&fullscreen=1`,
+                      buildStorefrontHomeUrl({ storeSlug }),
                       '_blank',
                       'noopener,noreferrer',
                     );

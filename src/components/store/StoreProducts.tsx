@@ -23,7 +23,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
-  MoreHorizontal,
   Edit,
   Trash2,
   Copy,
@@ -59,6 +58,7 @@ import {
   GripVertical,
   Sliders,
   LayoutGrid,
+  MoreVertical,
 } from 'lucide-react';
 import { useToast } from '../common/ToastProvider';
 import { canAddProduct, planInfoForStore } from '../../auth/plans';
@@ -96,6 +96,7 @@ import { getProductChannelLabel } from '../../config/productChannels';
 import { resolveGoogleTaxonomyLabel } from '../../config/googleProductTaxonomy';
 import { mergeProductCatalogExtras } from '../../utils/productCatalogExtras';
 import { ProductCategoryMultiPicker } from './ProductCategoryMultiPicker';
+import { useAdminInnerLayer } from '../../hooks/useAdminInnerLayer';
 
 /**
  * StoreProducts — Store Admin Products & Catalog Directory & Editor
@@ -145,8 +146,24 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
   /** Animated success popup after new-product create → then auto back to list */
   const [createSaveSuccess, setCreateSaveSuccess] = useState<{ message: string } | null>(null);
 
+  const closeProductsInner = useCallback(() => {
+    setCreatingProduct(null);
+    setEditingProductId(null);
+    setEditingProductDetail(null);
+    setIsSideDrawerOpen(false);
+    setCurrentView('list');
+  }, []);
+
+  const productsInnerOpen = currentView !== 'list';
+  const { requestClose: requestCloseProductsInner } = useAdminInnerLayer(
+    productsInnerOpen,
+    closeProductsInner,
+  );
+
   // List View Controls
   const [showBulkModal, setShowBulkModal] = useState(false);
+  const [showProductsMoreMenu, setShowProductsMoreMenu] = useState(false);
+  const productsMoreMenuRef = useRef<HTMLDivElement | null>(null);
   const [showCreateMethodChooser, setShowCreateMethodChooser] = useState(false);
   const isCoffeeStoreUi = isCoffeeProductEditorStore({
     storeId: activeStore.id,
@@ -222,16 +239,27 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
   useEffect(() => {
     if (!createSaveSuccess) return;
     const timer = window.setTimeout(() => {
-      setCreatingProduct(null);
-      setEditingProductId(null);
-      setEditingProductDetail(null);
-      setCurrentView('list');
+      setCreateSaveSuccess(null);
       setPage(1);
       setCatalogNonce((n) => n + 1);
-      setCreateSaveSuccess(null);
+      // Prefer history.back so the inner-layer entry is popped (clean Back stack).
+      try {
+        if (
+          typeof window !== 'undefined' &&
+          window.history.state &&
+          typeof window.history.state === 'object' &&
+          (window.history.state as { adminInner?: boolean }).adminInner
+        ) {
+          window.history.back();
+          return;
+        }
+      } catch {
+        /* fall through */
+      }
+      closeProductsInner();
     }, 1700);
     return () => window.clearTimeout(timer);
-  }, [createSaveSuccess]);
+  }, [createSaveSuccess, closeProductsInner]);
 
   const reloadCatalog = () => {
     if (!activeStore?.id) return;
@@ -260,7 +288,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
         ? 'لا توجد منتجات مطابقة لخيارات البحث.'
         : 'No products found matching your criteria.';
 
-  // Advanced Filters & Deleted Products (Mockup / Screenshot 4 & Filters Panel)
+  // Advanced Filters (Filters panel only — Deleted Products opens from Products ⋮ menu)
   const [filterCriteria, setFilterCriteria] = useState<ProductFilterCriteria>({
     channel: 'All',
     brand: 'All',
@@ -425,6 +453,34 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
     setSelectedDeletedIds([]);
     void refreshRecycleBin();
   }, [activeStore?.id, refreshRecycleBin]);
+
+  useEffect(() => {
+    if (!showProductsMoreMenu) return;
+    const onPointerDown = (e: MouseEvent) => {
+      const el = productsMoreMenuRef.current;
+      if (el && !el.contains(e.target as Node)) setShowProductsMoreMenu(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [showProductsMoreMenu]);
+
+  useEffect(() => {
+    if (!activeActionMenuId) return;
+    const onPointerDown = () => setActiveActionMenuId(null);
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setActiveActionMenuId(null);
+    };
+    // Defer so the opening click does not immediately close the menu.
+    const timer = window.setTimeout(() => {
+      document.addEventListener('mousedown', onPointerDown);
+      document.addEventListener('keydown', onKeyDown);
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [activeActionMenuId]);
 
   // Dynamically load brands for active store
   const [availableStoreBrands, setAvailableStoreBrands] = useState(() => getStoreBrands(activeStore.id));
@@ -1089,10 +1145,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
         }}
         onBack={() => {
           if (createSaveSuccess) return;
-          setCreatingProduct(null);
-          setEditingProductId(null);
-          setEditingProductDetail(null);
-          setCurrentView('list');
+          requestCloseProductsInner();
         }}
         onSave={(updatedData) => {
           if (createSaveSuccess) return;
@@ -1145,10 +1198,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
         }}
         onDelete={() => {
           if (isCreatingProduct) {
-            setCreatingProduct(null);
-            setEditingProductId(null);
-            setEditingProductDetail(null);
-            setCurrentView('list');
+            requestCloseProductsInner();
             return;
           }
           handleDeleteProduct(editingProduct);
@@ -1217,48 +1267,14 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
     );
   }
 
-  // VIEW 5: ADVANCED FILTERS & DELETED PRODUCTS (Screenshot 4 Exact)
+  // VIEW 5: ADVANCED FILTERS (Deleted Products lives under Products ⋮ menu)
   if (currentView === 'filters') {
-    const pagedDeleted = deletedProducts.filter((p) => {
-      if (!searchDeleted.trim()) return true;
-      const q = searchDeleted.toLowerCase();
-      return p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || p.category.toLowerCase().includes(q);
-    });
-
-    const handleToggleSelectAllDeleted = () => {
-      if (selectedDeletedIds.length === pagedDeleted.length) {
-        setSelectedDeletedIds([]);
-      } else {
-        setSelectedDeletedIds(pagedDeleted.map((p) => p.id));
-      }
-    };
-
-    const handleRestoreItem = (item: TrashRow) => {
-      void handleRestoreTrashItem(item);
-    };
-
-    const handleRestoreSelected = () => {
-      if (selectedDeletedIds.length === 0) return;
-      selectedDeletedIds.forEach((delId) => {
-        const item = deletedProducts.find((p) => p.id === delId);
-        if (item) void handleRestoreTrashItem(item);
-      });
-    };
-
-    const handlePermanentDeleteSelected = () => {
-      if (selectedDeletedIds.length === 0) return;
-      selectedDeletedIds.forEach((delId) => {
-        const item = deletedProducts.find((p) => p.id === delId);
-        if (item) void handleForceDeleteTrashItem(item);
-      });
-    };
-
     return (
       <AdminPageShell className="pb-16 max-w-[1600px] mx-auto space-y-6">
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setCurrentView('list')}
+            onClick={() => requestCloseProductsInner()}
             className="px-3.5 py-2 text-xs font-bold rounded-xl border flex items-center gap-2 cursor-pointer"
             style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
           >
@@ -1267,13 +1283,12 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
           </button>
         </div>
 
-        {/* ── 1. The Exact Filters Header & Card (100% Pixel-Perfect to Reference Screenshot) ── */}
         <ProductFiltersPanel
           storeId={activeStore.id}
           criteria={filterCriteria}
           onCriteriaChange={setFilterCriteria}
           onApply={() => {
-            setCurrentView('list');
+            requestCloseProductsInner();
             toast(isAr ? 'تم تطبيق الفلاتر على قائمة المنتجات' : 'Filters applied to catalog', 'success');
           }}
           onClear={() => {
@@ -1290,181 +1305,8 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
           availableBrands={availableStoreBrands}
           availableCategories={categories}
           showHeader={true}
-          onNavigateBack={() => setCurrentView('list')}
+          onNavigateBack={() => requestCloseProductsInner()}
         />
-
-
-        {/* ── CARD 2: Deleted Products ── */}
-        <div className="p-5 bg-white dark:bg-[#071E26] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 flex items-center justify-center font-bold shrink-0">
-                <Trash2 className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
-                  {isAr ? 'المنتجات المحذوفة' : 'Deleted Products'}
-                </h3>
-                <p className="text-[11px] text-slate-500">
-                  {isAr
-                    ? 'عرض واستعادة المنتجات المحذوفة من متجرك.'
-                    : 'View and restore products that have been deleted from your store.'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap self-end sm:self-auto">
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 absolute start-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder={isAr ? 'بحث في المنتجات المحذوفة...' : 'Search deleted products...'}
-                  value={searchDeleted}
-                  onChange={(e) => setSearchDeleted(e.target.value)}
-                  className="ps-8 pe-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 focus:outline-none"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={handlePermanentDeleteSelected}
-                disabled={selectedDeletedIds.length === 0}
-                className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-rose-300 hover:text-rose-600 disabled:opacity-40 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>{isAr ? 'حذف نهائي' : 'Permanent Delete'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleRestoreSelected}
-                disabled={selectedDeletedIds.length === 0}
-                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-bold text-xs rounded-xl transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>{isAr ? 'استعادة المحدد' : 'Restore Selected'}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Deleted Products Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-start text-xs">
-              <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-semibold text-[11px] bg-slate-50/50 dark:bg-slate-900/50">
-                  <th className="py-3 px-4 w-10">
-                    <input
-                      type="checkbox"
-                      checked={pagedDeleted.length > 0 && selectedDeletedIds.length === pagedDeleted.length}
-                      onChange={handleToggleSelectAllDeleted}
-                      className="rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
-                    />
-                  </th>
-                  <th className="py-3 px-3 font-semibold">{isAr ? 'المنتج' : 'Product'}</th>
-                  <th className="py-3 px-3 font-semibold">{isAr ? 'النوع' : 'Type'}</th>
-                  <th className="py-3 px-3 font-semibold">{isAr ? 'السعر' : 'Price'}</th>
-                  <th className="py-3 px-3 font-semibold">{isAr ? 'التصنيف' : 'Category'}</th>
-                  <th className="py-3 px-3 font-semibold">{isAr ? 'تاريخ الحذف' : 'Deleted At'}</th>
-                  <th className="py-3 px-4 text-center font-semibold">{isAr ? 'إجراءات' : 'Actions'}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-                {pagedDeleted.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-10 text-center text-slate-400 text-xs">
-                      {isAr ? 'لا توجد منتجات محذوفة' : 'No deleted products found in trash.'}
-                    </td>
-                  </tr>
-                ) : (
-                  pagedDeleted.map((item) => {
-                    const isChecked = selectedDeletedIds.includes(item.id);
-                    return (
-                      <tr key={item.id} className="hover:bg-blue-50/30 transition-colors">
-                        <td className="py-3 px-4">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => {
-                              setSelectedDeletedIds((prev) =>
-                                prev.includes(item.id) ? prev.filter((i) => i !== item.id) : [...prev, item.id]
-                              );
-                            }}
-                            className="rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
-                          />
-                        </td>
-                        <td className="py-3 px-3">
-                          <div className="flex items-center gap-2.5">
-                            {item.image ? (
-                              <img
-                                src={item.image}
-                                alt={item.name}
-                                className="w-9 h-9 rounded-xl object-cover border border-slate-200 shrink-0"
-                              />
-                            ) : (
-                              <span className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
-                                <Package className="w-4 h-4 text-slate-400" />
-                              </span>
-                            )}
-                            <div>
-                              <div className="font-bold text-slate-900">{item.name}</div>
-                              <div className="text-[10px] text-slate-400 font-mono">{isAr ? 'رمز المنتج' : 'SKU'}: {item.sku}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-3 px-3 font-medium text-slate-600">{item.productType}</td>
-                        <td className="py-3 px-3 font-bold text-slate-900 tabular-nums">
-                          {money(item.price)}
-                        </td>
-                        <td className="py-3 px-3 font-medium text-slate-600">{item.category}</td>
-                        <td className="py-3 px-3 text-[11px] font-mono text-slate-500">{item.deletedAt}</td>
-                        <td className="py-3 px-4 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleRestoreItem(item)}
-                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
-                            >
-                              <RotateCcw className="w-3 h-3" />
-                              <span>{isAr ? 'استعادة' : 'Restore'}</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void handleForceDeleteTrashItem(item)}
-                              className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                              title={isAr ? 'حذف نهائي' : 'Delete permanently'}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Table Bottom Pagination */}
-          <div className="p-3 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500">
-            <div className="flex items-center gap-2">
-              <span>{isAr ? 'عرض ١٠ عناصر' : 'Show 10 entries'}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span>
-                {isAr
-                  ? `عرض ١ –${pagedDeleted.length}من${deletedProducts.length}منتج محذوف`
-                  : `Showing 1 – ${pagedDeleted.length} of ${deletedProducts.length} deleted products`}
-              </span>
-              <button
-                type="button"
-                className="w-6 h-6 rounded bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-2xs"
-              >
-                1
-              </button>
-            </div>
-          </div>
-        </div>
       </AdminPageShell>
     );
   }
@@ -1559,17 +1401,69 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
             <span>{isAr ? 'الفلاتر' : 'Filters'}</span>
           </button>
 
-          {/* Multiple Upload Google Sheet / CSV */}
-          <button
-            type="button"
-            onClick={() => setShowBulkModal(true)}
-            className="order-3 sm:order-none px-3.5 py-2 text-xs font-bold rounded-xl border flex items-center gap-2 shadow-xs cursor-pointer transition-all hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 shrink-0"
-            style={{ background: 'var(--surface)' }}
-          >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <span className="hidden sm:inline">{isAr ? 'استيراد منتجات' : 'Import Products'}</span>
-            <span className="sm:hidden">{isAr ? 'استيراد' : 'Import'}</span>
-          </button>
+          {/* Products more menu: Import Products + Deleted Products — desktop only (broken on mobile) */}
+          <div ref={productsMoreMenuRef} className="hidden sm:block order-3 sm:order-none relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowProductsMoreMenu((open) => !open)}
+              className="p-2 rounded-xl border shadow-xs cursor-pointer transition-all hover:opacity-90"
+              style={{
+                background: showProductsMoreMenu ? 'var(--bg)' : 'var(--surface)',
+                borderColor: 'var(--border)',
+                color: 'var(--text)',
+              }}
+              aria-label={isAr ? 'المزيد' : 'More actions'}
+              aria-expanded={showProductsMoreMenu}
+              aria-haspopup="menu"
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
+            {showProductsMoreMenu && (
+              <div
+                role="menu"
+                className="absolute end-0 top-full mt-1.5 z-40 min-w-[11.5rem] rounded-xl border shadow-lg overflow-hidden py-1"
+                style={{
+                  background: 'var(--surface)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--text)',
+                }}
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setShowProductsMoreMenu(false);
+                    setShowBulkModal(true);
+                  }}
+                  className="w-full px-3.5 py-2.5 text-xs font-bold flex items-center gap-2.5 hover:bg-[var(--bg)] cursor-pointer text-start"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--accent)' }} />
+                  <span>{isAr ? 'استيراد منتجات' : 'Import Products'}</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setShowProductsMoreMenu(false);
+                    void refreshRecycleBin();
+                    setShowRecycleBin(true);
+                  }}
+                  className="w-full px-3.5 py-2.5 text-xs font-bold flex items-center gap-2.5 hover:bg-[var(--bg)] cursor-pointer text-start"
+                >
+                  <Trash2 className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--accent)' }} />
+                  <span>{isAr ? 'المنتجات المحذوفة' : 'Deleted Products'}</span>
+                  {deletedProducts.length > 0 ? (
+                    <span
+                      className="ms-auto min-w-[1.15rem] h-[1.15rem] px-1 rounded-full text-[10px] font-black text-white flex items-center justify-center"
+                      style={{ background: 'var(--accent)' }}
+                    >
+                      {deletedProducts.length > 99 ? '99+' : deletedProducts.length}
+                    </span>
+                  ) : null}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1767,10 +1661,10 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                   </button>
                 </div>
 
-                {/* Grid density — hide while Edit drawer is open (narrow list + panel) */}
+                {/* Grid density — desktop only; hide on mobile + while Edit drawer is open */}
                 {viewMode === 'grid' && !tableCompact && (
                   <div
-                    className="flex items-center p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xs"
+                    className="hidden sm:flex items-center p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xs"
                     role="group"
                     aria-label={isAr ? 'عدد المنتجات في الصف' : 'Items per row'}
                     title={isAr ? 'عدد المنتجات في الصف' : 'Items per row'}
@@ -1793,33 +1687,6 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                     ))}
                   </div>
                 )}
-
-                {/* Recycle Bin — count badge opens deleted-products modal */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    void refreshRecycleBin();
-                    setShowRecycleBin(true);
-                  }}
-                  className="relative ms-1 p-1.5 rounded-xl border shadow-2xs cursor-pointer transition-colors"
-                  style={{
-                    background: 'var(--surface)',
-                    borderColor: 'var(--border)',
-                    color: 'var(--text)',
-                  }}
-                  title={isAr ? 'سلة المحذوفات' : 'Recycle Bin'}
-                  aria-label={isAr ? 'سلة المحذوفات' : 'Recycle Bin'}
-                >
-                  <Trash2 className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-                  {deletedProducts.length > 0 ? (
-                    <span
-                      className="absolute -top-1.5 -end-1.5 min-w-[1.15rem] h-[1.15rem] px-1 rounded-full text-[10px] font-black text-white flex items-center justify-center shadow-xs"
-                      style={{ background: 'var(--accent)' }}
-                    >
-                      {deletedProducts.length > 99 ? '99+' : deletedProducts.length}
-                    </span>
-                  ) : null}
-                </button>
 
                 {selectedProductIds.length > 0 && (
                   <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
@@ -1988,122 +1855,118 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                               />
                             </label>
 
-                            {/* Top-Right Action Buttons (Edit, Copy, Trash, More) — 44px touch targets on mobile */}
+                            {/* Single ⋮ actions menu — keeps product data visible on mobile */}
                             <div
-                              className="relative z-20 flex items-center gap-1 p-0.5 rounded-xl border shadow-2xs pointer-events-auto"
-                              style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+                              className="relative z-20 pointer-events-auto"
+                              style={{ background: 'var(--surface)' }}
                             >
-                              {/* Edit Pencil */}
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  handleOpenEdit(prod);
+                                  setActiveActionMenuId(activeActionMenuId === prod.id ? null : prod.id);
                                 }}
-                                className="min-h-10 min-w-10 sm:min-h-0 sm:min-w-0 p-2 sm:p-1.5 rounded-lg cursor-pointer transition-colors hover:opacity-90 touch-manipulation flex items-center justify-center"
-                                style={{ color: 'var(--accent)' }}
-                                title={t('editProduct')}
-                                aria-label={t('editProduct')}
+                                className="min-h-10 min-w-10 p-2 rounded-xl border shadow-2xs cursor-pointer transition-colors hover:opacity-90 touch-manipulation flex items-center justify-center"
+                                style={{ borderColor: 'var(--border)', color: 'var(--muted)', background: 'var(--surface)' }}
+                                title={isAr ? 'إجراءات المنتج' : 'Product actions'}
+                                aria-label={isAr ? 'إجراءات المنتج' : 'Product actions'}
+                                aria-expanded={activeActionMenuId === prod.id}
+                                aria-haspopup="menu"
                               >
-                                <Edit className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                                <MoreVertical className="w-4 h-4" />
                               </button>
 
-                              {/* Copy Duplicate */}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  handleDuplicateProduct(prod);
-                                }}
-                                className="min-h-10 min-w-10 sm:min-h-0 sm:min-w-0 p-2 sm:p-1.5 rounded-lg cursor-pointer transition-colors hover:opacity-90 touch-manipulation flex items-center justify-center"
-                                style={{ color: 'var(--muted)' }}
-                                title={isAr ? 'نسخ المنتج' : 'Duplicate'}
-                              >
-                                <Copy className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-                              </button>
-
-                              {/* Delete Trash */}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  handleDeleteProduct(prod);
-                                }}
-                                className="min-h-10 min-w-10 sm:min-h-0 sm:min-w-0 p-2 sm:p-1.5 rounded-lg cursor-pointer transition-colors hover:bg-rose-50 text-rose-600 touch-manipulation flex items-center justify-center"
-                                title={t('deleteProduct')}
-                              >
-                                <Trash2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-                              </button>
-
-                              {/* More 3-dots */}
-                              <div className="relative">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setActiveActionMenuId(activeActionMenuId === prod.id ? null : prod.id);
+                              {activeActionMenuId === prod.id && (
+                                <div
+                                  role="menu"
+                                  className="absolute end-0 top-full mt-1 z-50 w-48 rounded-xl border p-1 shadow-lg text-xs font-semibold animate-in fade-in duration-100"
+                                  style={{
+                                    background: 'var(--surface)',
+                                    borderColor: 'var(--border)',
+                                    color: 'var(--text)',
                                   }}
-                                  className="min-h-10 min-w-10 sm:min-h-0 sm:min-w-0 p-2 sm:p-1.5 rounded-lg cursor-pointer transition-colors hover:opacity-90 touch-manipulation flex items-center justify-center"
-                                  style={{ color: 'var(--muted)' }}
-                                  title={isAr ? 'المزيد' : 'More'}
                                 >
-                                  <MoreHorizontal className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-                                </button>
-
-                                {activeActionMenuId === prod.id && (
-                                  <div
-                                    className="absolute end-0 top-full mt-1 z-50 w-40 rounded-xl border p-1 shadow-lg text-xs font-semibold animate-in fade-in duration-100"
-                                    style={{
-                                      background: 'var(--surface)',
-                                      borderColor: 'var(--border)',
-                                      color: 'var(--text)',
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      handleOpenEdit(prod);
+                                      setActiveActionMenuId(null);
                                     }}
+                                    className="w-full text-start px-2.5 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
                                   >
+                                    <Edit className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--accent)' }} />
+                                    <span>{t('editProduct')}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      handleDuplicateProduct(prod);
+                                      setActiveActionMenuId(null);
+                                    }}
+                                    className="w-full text-start px-2.5 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <Copy className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--muted)' }} />
+                                    <span>{isAr ? 'نسخ المنتج' : 'Duplicate Product'}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      handleOpenEdit(prod, true);
+                                      setActiveActionMenuId(null);
+                                    }}
+                                    className="w-full text-start px-2.5 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <Eye className="w-3.5 h-3.5 shrink-0 text-blue-500" />
+                                    <span>{t('viewProduct')}</span>
+                                  </button>
+                                  {!isPublished ? (
                                     <button
                                       type="button"
+                                      role="menuitem"
                                       onClick={() => {
-                                        handleOpenEdit(prod, true);
+                                        updateProduct(prod.id, { status: 'published', isActive: true }, activeStore.id);
                                         setActiveActionMenuId(null);
+                                        toast(isAr ? 'تم نشر المنتج' : 'Product published', 'success');
                                       }}
-                                      className="w-full text-start px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                                      className="w-full text-start px-2.5 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
                                     >
-                                      <Eye className="w-3.5 h-3.5 text-blue-500" />
-                                      <span>{t('viewProduct')}</span>
+                                      <Check className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                                      <span>{isAr ? 'نشر المنتج' : 'Publish Product'}</span>
                                     </button>
-                                    {!isPublished ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          updateProduct(prod.id, { status: 'published', isActive: true }, activeStore.id);
-                                          setActiveActionMenuId(null);
-                                          toast(isAr ? 'تم نشر المنتج' : 'Product published', 'success');
-                                        }}
-                                        className="w-full text-start px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
-                                      >
-                                        <Check className="w-3.5 h-3.5 text-emerald-500" />
-                                        <span>{isAr ? 'نشر المنتج' : 'Publish Product'}</span>
-                                      </button>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          updateProduct(prod.id, { status: 'draft', isActive: false }, activeStore.id);
-                                          setActiveActionMenuId(null);
-                                          toast(isAr ? 'تم تحويل المنتج إلى مسودة' : 'Converted to draft', 'success');
-                                        }}
-                                        className="w-full text-start px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
-                                      >
-                                        <Bookmark className="w-3.5 h-3.5 text-amber-500" />
-                                        <span>{isAr ? 'تحويل إلى مسودة' : 'Convert to Draft'}</span>
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      onClick={() => {
+                                        updateProduct(prod.id, { status: 'draft', isActive: false }, activeStore.id);
+                                        setActiveActionMenuId(null);
+                                        toast(isAr ? 'تم تحويل المنتج إلى مسودة' : 'Converted to draft', 'success');
+                                      }}
+                                      className="w-full text-start px-2.5 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                                    >
+                                      <Bookmark className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+                                      <span>{isAr ? 'تحويل إلى مسودة' : 'Convert to Draft'}</span>
+                                    </button>
+                                  )}
+                                  <div className="h-px my-1" style={{ background: 'var(--border)' }} />
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      setActiveActionMenuId(null);
+                                      handleDeleteProduct(prod);
+                                    }}
+                                    className="w-full text-start px-2.5 py-2 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                                    <span>{t('deleteProduct')}</span>
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -2722,55 +2585,13 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                               </td>
                             )}
 
-                            {/* Actions — sticky end */}
+                            {/* Actions — single ⋮ menu so product/price columns stay readable */}
                             {visibleColumns.actions && (
                               <td
-                                className="py-2.5 px-2 text-center whitespace-nowrap relative w-36 min-w-[148px] align-middle sticky end-0 z-10 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]"
+                                className="py-2.5 px-2 text-center whitespace-nowrap relative w-12 min-w-[3rem] align-middle sticky end-0 z-10 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]"
                                 style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}
                               >
-                                <div className="inline-flex items-center justify-center gap-1.5 w-full relative z-20 pointer-events-auto">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      handleOpenEdit(prod);
-                                    }}
-                                    className="min-h-10 min-w-10 sm:min-h-0 sm:min-w-0 p-2 sm:p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors touch-manipulation flex items-center justify-center"
-                                    style={{ borderColor: 'var(--border)', color: 'var(--accent)' }}
-                                    title={t('editProduct')}
-                                    aria-label={t('editProduct')}
-                                  >
-                                    <Edit className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      handleDuplicateProduct(prod);
-                                    }}
-                                    className="min-h-10 min-w-10 sm:min-h-0 sm:min-w-0 p-2 sm:p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors touch-manipulation flex items-center justify-center"
-                                    style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
-                                    title={isAr ? 'نسخ المنتج' : 'Duplicate Product'}
-                                  >
-                                    <Copy className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      handleDeleteProduct(prod);
-                                    }}
-                                    className="min-h-10 min-w-10 sm:min-h-0 sm:min-w-0 p-2 sm:p-1.5 rounded-lg border border-rose-200 dark:border-rose-900/60 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer shadow-xs transition-colors touch-manipulation flex items-center justify-center"
-                                    title={t('deleteProduct')}
-                                  >
-                                    <Trash2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-                                  </button>
-
+                                <div className="inline-flex items-center justify-center w-full relative z-20 pointer-events-auto">
                                   <div className="relative">
                                     <button
                                       type="button"
@@ -2779,33 +2600,62 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                                         e.stopPropagation();
                                         setActiveActionMenuId(activeActionMenuId === prod.id ? null : prod.id);
                                       }}
-                                      className="min-h-10 min-w-10 sm:min-h-0 sm:min-w-0 p-2 sm:p-1.5 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors touch-manipulation flex items-center justify-center"
+                                      className="min-h-10 min-w-10 sm:min-h-9 sm:min-w-9 p-2 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs transition-colors touch-manipulation flex items-center justify-center"
                                       style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
-                                      title={isAr ? 'المزيد' : 'More Options'}
+                                      title={isAr ? 'إجراءات المنتج' : 'Product actions'}
+                                      aria-label={isAr ? 'إجراءات المنتج' : 'Product actions'}
+                                      aria-expanded={activeActionMenuId === prod.id}
+                                      aria-haspopup="menu"
                                     >
-                                      <MoreHorizontal className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                                      <MoreVertical className="w-4 h-4" />
                                     </button>
 
-                                    {/* Dropdown Action Popover */}
                                     {activeActionMenuId === prod.id && (
                                       <div
-                                        className="absolute end-0 top-8 z-50 w-44 rounded-xl border p-1 shadow-lg text-xs font-semibold animate-in fade-in duration-100"
+                                        role="menu"
+                                        className="absolute end-0 top-full mt-1 z-50 w-48 rounded-xl border p-1 shadow-lg text-xs font-semibold animate-in fade-in duration-100"
                                         style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
                                       >
                                         <button
                                           type="button"
+                                          role="menuitem"
+                                          onClick={() => {
+                                            handleOpenEdit(prod);
+                                            setActiveActionMenuId(null);
+                                          }}
+                                          className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                                        >
+                                          <Edit className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--accent)' }} />
+                                          <span>{t('editProduct')}</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          role="menuitem"
+                                          onClick={() => {
+                                            handleDuplicateProduct(prod);
+                                            setActiveActionMenuId(null);
+                                          }}
+                                          className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                                        >
+                                          <Copy className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--muted)' }} />
+                                          <span>{isAr ? 'نسخ المنتج' : 'Duplicate Product'}</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          role="menuitem"
                                           onClick={() => {
                                             handleOpenEdit(prod, true);
                                             setActiveActionMenuId(null);
                                           }}
                                           className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
                                         >
-                                          <Eye className="w-3.5 h-3.5 text-blue-500" />
+                                          <Eye className="w-3.5 h-3.5 shrink-0 text-blue-500" />
                                           <span>{t('viewProduct')}</span>
                                         </button>
                                         {!isPublished ? (
                                           <button
                                             type="button"
+                                            role="menuitem"
                                             onClick={() => {
                                               updateProduct(prod.id, { status: 'published', isActive: true }, activeStore.id);
                                               setActiveActionMenuId(null);
@@ -2813,12 +2663,13 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                                             }}
                                             className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
                                           >
-                                            <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                            <Check className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
                                             <span>{isAr ? 'نشر المنتج' : 'Publish Product'}</span>
                                           </button>
                                         ) : (
                                           <button
                                             type="button"
+                                            role="menuitem"
                                             onClick={() => {
                                               updateProduct(prod.id, { status: 'draft', isActive: false }, activeStore.id);
                                               setActiveActionMenuId(null);
@@ -2826,20 +2677,21 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                                             }}
                                             className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
                                           >
-                                            <Bookmark className="w-3.5 h-3.5 text-amber-500" />
+                                            <Bookmark className="w-3.5 h-3.5 shrink-0 text-amber-500" />
                                             <span>{isAr ? 'تحويل إلى مسودة' : 'Convert to Draft'}</span>
                                           </button>
                                         )}
-                                        <div className="h-[1px] my-1" style={{ background: 'var(--border)' }} />
+                                        <div className="h-px my-1" style={{ background: 'var(--border)' }} />
                                         <button
                                           type="button"
+                                          role="menuitem"
                                           onClick={() => {
                                             setActiveActionMenuId(null);
                                             handleDeleteProduct(prod);
                                           }}
                                           className="w-full text-start px-3 py-2 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer"
                                         >
-                                          <Trash2 className="w-3.5 h-3.5" />
+                                          <Trash2 className="w-3.5 h-3.5 shrink-0" />
                                           <span>{t('deleteProduct')}</span>
                                         </button>
                                       </div>
@@ -3032,12 +2884,12 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
         </div>
       </FloatingPopover>
 
-      {/* ── RECYCLE BIN MODAL (deleted / archived products for this store only) ── */}
+      {/* ── DELETED PRODUCTS MODAL (store-scoped trash; opened from Products ⋮ menu) ── */}
       <GlobalModal
         isOpen={showRecycleBin}
         onClose={() => setShowRecycleBin(false)}
         dir={dir}
-        aria-label={isAr ? 'سلة المحذوفات' : 'Recycle Bin'}
+        aria-label={isAr ? 'المنتجات المحذوفة' : 'Deleted Products'}
         contentClassName="w-full max-w-4xl mx-4"
       >
         <div
@@ -3063,7 +2915,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
               </div>
               <div className="min-w-0">
                 <h2 className="text-sm font-black text-white truncate">
-                  {isAr ? 'سلة المحذوفات' : 'Recycle Bin'}
+                  {isAr ? 'المنتجات المحذوفة' : 'Deleted Products'}
                 </h2>
                 <p className="text-[11px] text-white/70">
                   {isAr
@@ -3139,7 +2991,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
               );
             }).length === 0 ? (
               <div className="py-16 text-center text-xs opacity-60">
-                {isAr ? 'لا توجد منتجات في سلة المحذوفات' : 'Recycle Bin is empty'}
+                {isAr ? 'لا توجد منتجات محذوفة' : 'No deleted products found in trash.'}
               </div>
             ) : (
               <table className="w-full text-start text-xs">

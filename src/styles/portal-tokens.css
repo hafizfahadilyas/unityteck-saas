@@ -51,6 +51,8 @@
   --input-bg: #ffffff;
   --input-fg: var(--portal-950);
   --input-ph: var(--portal-800);
+  /* Visible field rim (never wash to white-on-white) */
+  --input-border: #cbd5e1;
   --table-head: var(--portal-950);
   --card-fg: var(--portal-950);
   --tone-success: #059669;
@@ -89,6 +91,7 @@
   --input-bg: #ffffff;
   --input-fg: var(--portal-950);
   --input-ph: var(--portal-800);
+  --input-border: #cbd5e1;
   --table-head: var(--portal-950);
   --card-fg: var(--portal-950);
   --tone-success: #059669;
@@ -239,6 +242,10 @@ html[dir="rtl"] .font-black {
 .u-logo-tile svg {
   color: #0f172a !important;
   stroke: currentColor;
+  fill: currentColor;
+}
+.u-logo-tile svg[fill='none'] {
+  fill: none;
 }
 
 /* Mono for Latin codes/SKU digits; Arabic letters fall back to portal UI face */
@@ -290,13 +297,42 @@ samp {
 .unity-shell textarea {
   background: var(--input-bg) !important;
   color: var(--input-fg) !important;
-  border-color: var(--border) !important;
+  /* Full rim — Tailwind preflight zeros width; border-color alone is invisible */
+  border: 1px solid var(--input-border, var(--border)) !important;
+  box-sizing: border-box;
 }
 
 .unity-shell input::placeholder,
 .unity-shell textarea::placeholder {
   color: var(--input-ph) !important;
   opacity: 1;
+}
+
+/*
+ * DateCalendarField — hide native calendar glyph (right duplicate).
+ * Only the Lucide button opens the picker (once). Prevents stacked showPicker().
+ */
+.u-date-calendar-input::-webkit-calendar-picker-indicator {
+  opacity: 0 !important;
+  display: block;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  position: absolute;
+  inset-inline-end: 0;
+  pointer-events: none !important;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.u-date-calendar-input::-webkit-inner-spin-button,
+.u-date-calendar-input::-webkit-clear-button {
+  display: none !important;
+  -webkit-appearance: none;
+}
+[data-global-modal] .u-date-calendar-input,
+.unity-shell .u-date-calendar-input {
+  color: var(--input-fg, var(--text)) !important;
 }
 
 .u-icon,
@@ -1818,13 +1854,28 @@ button.unity-btn-primary.hidden,
 [data-theme="light"] textarea {
   color: var(--input-fg);
   background: var(--input-bg);
+  border: 1px solid var(--input-border, #cbd5e1);
+  box-sizing: border-box;
 }
 [data-theme="dark"] input:not([type='checkbox']):not([type='radio']),
 [data-theme="dark"] select,
 [data-theme="dark"] textarea {
   color: var(--input-fg);
   background: var(--input-bg);
-  border-color: var(--border);
+  border: 1px solid var(--input-border, var(--border));
+  box-sizing: border-box;
+}
+
+/* Clerk profile / account fields (e.g. نبذة عنك) — keep rim visible in our portal */
+.cl-formFieldInput,
+.cl-input,
+.cl-textarea,
+textarea.cl-formFieldInput,
+input.cl-formFieldInput {
+  border: 1px solid var(--input-border, #cbd5e1) !important;
+  background: var(--input-bg, #fff) !important;
+  color: var(--input-fg, #0f172a) !important;
+  box-sizing: border-box !important;
 }
 
 [dir="rtl"] .unity-shell input.pl-9 {
@@ -2808,58 +2859,86 @@ button:active:not(:disabled) {
     product-create-step-pulse 1.6s ease-in-out 0.45s 1;
 }
 
-/* Break out of .u-page horizontal padding → full content width, flush bottom */
+/*
+ * Edit / Add Product: solid white canvas (no wallpaper bleed between cards).
+ * Scoped overrides keep frosted glass elsewhere; editor needs opaque readability.
+ */
+.product-editor-page.u-page {
+  --surface: #ffffff;
+  --glass-fill: #ffffff;
+  --glass-fill-strong: #ffffff;
+  --border: rgba(15, 23, 42, 0.12);
+  --card-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 16px rgba(15, 23, 42, 0.04);
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  min-height: 100%;
+  isolation: isolate;
+}
+[data-theme='dark'] .product-editor-page.u-page,
+.dark .product-editor-page.u-page {
+  --surface: #0f172a;
+  --glass-fill: #0f172a;
+  --glass-fill-strong: #0f172a;
+  --border: rgba(255, 255, 255, 0.12);
+  background: #0f172a !important;
+  background-color: #0f172a !important;
+}
+
+/* Fixed bottom Save bar — pinned to viewport bottom (not sticky mid-overlap) */
 .product-editor-page.u-page > .product-editor-sticky-footer,
 .product-editor-sticky-footer {
   pointer-events: none;
-  max-width: none;
-  margin-inline: -1rem; /* matches p-4 */
-  width: calc(100% + 2rem);
+  position: fixed !important;
+  inset-inline: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  margin: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  z-index: 45;
+  padding-inline: 0.75rem;
+  padding-top: 0.5rem;
+  background: linear-gradient(
+    to top,
+    #ffffff 55%,
+    color-mix(in srgb, #ffffff 88%, transparent) 85%,
+    transparent
+  );
+  box-sizing: border-box;
+}
+[data-theme='dark'] .product-editor-sticky-footer,
+.dark .product-editor-sticky-footer {
+  background: linear-gradient(
+    to top,
+    #0f172a 55%,
+    color-mix(in srgb, #0f172a 88%, transparent) 85%,
+    transparent
+  );
 }
 @media (min-width: 640px) {
-  .product-editor-page.u-page > .product-editor-sticky-footer,
   .product-editor-sticky-footer {
-    margin-inline: -1.5rem; /* matches sm:p-6 */
-    width: calc(100% + 3rem);
-  }
-}
-@media (max-width: 1023.98px) {
-  /* Mobile .u-page forces padding-inline: 0.75rem */
-  .product-editor-page.u-page > .product-editor-sticky-footer,
-  .product-editor-sticky-footer {
-    margin-inline: -0.75rem;
-    width: calc(100% + 1.5rem);
+    padding-inline: 1.5rem;
   }
 }
 
 .product-editor-sticky-footer .product-editor-sticky-dock {
   pointer-events: auto;
   width: 100%;
-  max-width: none;
+  max-width: 1600px;
   border-radius: 1rem !important;
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--surface) 94%, #fff 6%) 0%,
-      color-mix(in srgb, var(--surface) 98%, transparent) 100%
-    );
+  background: #ffffff !important;
   border: 1px solid color-mix(in srgb, var(--border) 85%, var(--accent) 15%) !important;
-  backdrop-filter: blur(14px) saturate(1.15);
-  -webkit-backdrop-filter: blur(14px) saturate(1.15);
-  /* Lifted dock — clear of Windows taskbar / Activate watermark */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   box-shadow:
     0 1px 0 color-mix(in srgb, #fff 55%, transparent) inset,
-    0 10px 28px -12px color-mix(in srgb, var(--text) 22%, transparent);
+    0 -8px 28px -8px color-mix(in srgb, var(--text) 18%, transparent),
+    0 10px 28px -12px color-mix(in srgb, var(--text) 14%, transparent);
 }
-
 .dark .product-editor-sticky-footer .product-editor-sticky-dock,
 [data-theme='dark'] .product-editor-sticky-footer .product-editor-sticky-dock {
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--surface) 90%, #fff 4%) 0%,
-      color-mix(in srgb, var(--surface) 98%, transparent) 100%
-    );
+  background: #0f172a !important;
   box-shadow:
     0 1px 0 color-mix(in srgb, #fff 8%, transparent) inset,
     0 -10px 28px -16px rgba(0, 0, 0, 0.5);
@@ -2867,6 +2946,20 @@ button:active:not(:disabled) {
 
 .product-editor-page .product-create-section {
   scroll-margin-top: 5.5rem;
+}
+
+/* Opaque sticky header — never let editor sections bleed through */
+.product-editor-page > .sticky.top-0,
+.product-editor-page > .product-editor-top-bar {
+  background: #ffffff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+[data-theme='dark'] .product-editor-page > .sticky.top-0,
+[data-theme='dark'] .product-editor-page > .product-editor-top-bar,
+.dark .product-editor-page > .sticky.top-0,
+.dark .product-editor-page > .product-editor-top-bar {
+  background: #0f172a !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3450,6 +3543,8 @@ button:active:not(:disabled) {
   --glass-radius-sm: 1.1rem;
   --surface: var(--glass-fill);
   --input-bg: rgba(255, 255, 255, 0.82);
+  /* Inputs need slate rim — white glass border vanishes on white fields */
+  --input-border: rgba(15, 23, 42, 0.2);
   --card-shadow: var(--glass-shadow);
   --card-shadow-hover: 0 14px 42px rgba(15, 23, 42, 0.14), 0 4px 12px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.6);
   --border: rgba(255, 255, 255, 0.4);
@@ -3477,6 +3572,7 @@ button:active:not(:disabled) {
   --glass-shadow: 0 10px 36px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   --surface: var(--glass-fill);
   --input-bg: rgba(15, 23, 42, 0.82);
+  --input-border: rgba(255, 255, 255, 0.28);
   --card-shadow: var(--glass-shadow);
   --border: rgba(255, 255, 255, 0.12);
 }
@@ -3792,7 +3888,7 @@ html:not([data-shell-wallpaper]) [data-theme="dark"] .unity-shell[data-portal="s
   color: #0f172a !important;
 }
 
-/* Product / name cells: allow wrap instead of cryptic ellipsis */
+/* Product / name cells: soft wrap — never collapse to 1-char vertical stacks */
 [data-portal="store"] main table td .truncate,
 [data-portal="store"] main table td .line-clamp-2 {
   white-space: normal !important;
@@ -3801,7 +3897,9 @@ html:not([data-shell-wallpaper]) [data-theme="dark"] .unity-shell[data-portal="s
   display: block !important;
   -webkit-line-clamp: unset !important;
   max-width: 14rem;
-  word-break: break-word;
+  min-width: 7.5rem;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 /* Sidebar nav labels — readable */
@@ -4050,7 +4148,7 @@ html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main table
 html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main [style*="var(--surface)"],
 html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .bg-white,
 html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .bg-slate-50,
-html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .rounded-2xl.border,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .rounded-2xl.border:not(.u-segmented-tabs),
 html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .rounded-3xl.border,
 html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .rounded-xl.border,
 html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .rounded-\[1\.25rem\],
@@ -4068,6 +4166,70 @@ html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store
   --plan-muted: #475569;
   --card-fg: #0f172a;
   color: #0f172a !important;
+}
+
+/*
+ * Segmented status/filter tabs (Shipments, Zones, WhatsApp, …):
+ * Opaque frost track + forced ink so dark-shell wallpaper / Holst CTA
+ * never leave labels invisible (navy-on-teal or teal-on-teal).
+ */
+[data-portal="master"] .u-segmented-tabs,
+[data-portal="store"] .u-segmented-tabs,
+[data-global-modal] .u-segmented-tabs,
+.unity-shell .u-segmented-tabs {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  background-image: none !important;
+  color: #0f172a !important;
+  --text: #0f172a;
+  --muted: #334155;
+}
+[data-portal="master"] .u-segmented-tabs .u-segmented-tab--idle,
+[data-portal="store"] .u-segmented-tabs .u-segmented-tab--idle,
+[data-global-modal] .u-segmented-tabs .u-segmented-tab--idle,
+.unity-shell .u-segmented-tabs .u-segmented-tab--idle,
+[data-portal="master"] .u-segmented-tabs .u-segmented-tab--idle *,
+[data-portal="store"] .u-segmented-tabs .u-segmented-tab--idle *,
+[data-global-modal] .u-segmented-tabs .u-segmented-tab--idle *,
+.unity-shell .u-segmented-tabs .u-segmented-tab--idle * {
+  color: #334155 !important;
+}
+[data-portal="master"] .u-segmented-tabs .u-segmented-tab--active,
+[data-portal="store"] .u-segmented-tabs .u-segmented-tab--active,
+[data-global-modal] .u-segmented-tabs .u-segmented-tab--active,
+.unity-shell .u-segmented-tabs .u-segmented-tab--active,
+[data-portal="master"] .u-segmented-tabs .u-segmented-tab--active *,
+[data-portal="store"] .u-segmented-tabs .u-segmented-tab--active *,
+[data-global-modal] .u-segmented-tabs .u-segmented-tab--active *,
+.unity-shell .u-segmented-tabs .u-segmented-tab--active *,
+[data-portal="master"] .u-segmented-tabs [data-u-segmented-tab='active'],
+[data-portal="store"] .u-segmented-tabs [data-u-segmented-tab='active'],
+[data-global-modal] .u-segmented-tabs [data-u-segmented-tab='active'],
+.unity-shell .u-segmented-tabs [data-u-segmented-tab='active'],
+[data-portal="master"] .u-segmented-tabs [data-u-segmented-tab='active'] *,
+[data-portal="store"] .u-segmented-tabs [data-u-segmented-tab='active'] *,
+[data-global-modal] .u-segmented-tabs [data-u-segmented-tab='active'] *,
+.unity-shell .u-segmented-tabs [data-u-segmented-tab='active'] * {
+  color: #ffffff !important;
+}
+html[data-theme="dark"] .u-segmented-tabs,
+html[data-theme="dark"][data-portal="store"] .u-segmented-tabs,
+html[data-theme="dark"][data-portal="master"] .u-segmented-tabs {
+  background: var(--surface, #0f172a) !important;
+  background-color: var(--surface, #0f172a) !important;
+  color: #e2e8f0 !important;
+  --text: #f8fafc;
+  --muted: #cbd5e1;
+}
+html[data-theme="dark"] .u-segmented-tabs .u-segmented-tab--idle,
+html[data-theme="dark"] .u-segmented-tabs .u-segmented-tab--idle * {
+  color: #cbd5e1 !important;
+}
+html[data-theme="dark"] .u-segmented-tabs .u-segmented-tab--active,
+html[data-theme="dark"] .u-segmented-tabs .u-segmented-tab--active *,
+html[data-theme="dark"] .u-segmented-tabs [data-u-segmented-tab='active'],
+html[data-theme="dark"] .u-segmented-tabs [data-u-segmented-tab='active'] * {
+  color: #ffffff !important;
 }
 
 /*
@@ -4175,6 +4337,14 @@ html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store
 html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .u-settings-luxe [data-brand-chip='active'] span,
 html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .u-settings-luxe .unity-btn-primary,
 html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .u-settings-luxe .unity-btn-primary * {
+  color: #ffffff !important;
+}
+
+/* Primary CTAs on Cashback / list pages — never inherit dark ink from white panels */
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .unity-btn-primary,
+html[data-shell-luma='dark'][data-theme="light"][data-portal="store"] main .unity-btn-primary *,
+html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .unity-btn-primary,
+html[data-shell-luma='dark'][data-theme="light"] .unity-shell[data-portal="store"] main .unity-btn-primary * {
   color: #ffffff !important;
 }
 
@@ -4621,7 +4791,7 @@ html[data-sidebar-luma='dark'][data-theme="light"] .unity-shell[data-portal="sto
   background-color: color-mix(in srgb, var(--glass-fill-strong) 88%, transparent);
 }
 
-/* Forms stay legible — denser fill, skip blur (speed) */
+/* Forms stay legible — denser fill + visible slate rim (not white glass wash) */
 [data-portal="store"] main input:not([type='checkbox']):not([type='radio']),
 [data-portal="store"] main select,
 [data-portal="store"] main textarea,
@@ -4631,7 +4801,8 @@ html[data-sidebar-luma='dark'][data-theme="light"] .unity-shell[data-portal="sto
   background: var(--input-bg) !important;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  border-color: var(--glass-border-soft) !important;
+  border: 1px solid var(--input-border, var(--table-border, #cbd5e1)) !important;
+  box-sizing: border-box !important;
 }
 
 /* Nested tiny chips inside frosted panels — no heavy shadow stack */
@@ -5182,28 +5353,29 @@ html:not([data-shell-luma='dark'])[data-theme="light"][data-portal="store"] main
   color: #0f172a !important;
 }
 
+/* Modal shells stay near-opaque so stacked sections (pipeline / actions / cards) never bleed */
 [data-theme="light"][data-global-modal="backdrop"][data-portal="store"] [data-global-modal="panel"] > * {
-  background: rgba(255, 255, 255, 0.78) !important;
+  background: rgba(255, 255, 255, 0.97) !important;
 }
 
 /* Soft night behind modals — keep body text dark on frosted shell; header stays white-on-navy */
 html[data-shell-luma='dark'][data-theme="light"] [data-global-modal="backdrop"][data-portal="store"] [data-global-modal="panel"] > * {
-  background: rgba(255, 255, 255, 0.82) !important;
+  background: rgba(255, 255, 255, 0.97) !important;
   color: #0f172a !important;
 }
 
-/* Nested header/footer strips inside modal → soft translucent, NO second blur */
+/* Nested header/footer strips inside modal → soft tint, still opaque enough to avoid section bleed */
 [data-theme="light"][data-global-modal="backdrop"][data-portal="store"] [data-global-modal="panel"] .bg-slate-50,
 [data-theme="light"][data-global-modal="backdrop"][data-portal="store"] [data-global-modal="panel"] .bg-slate-50\/80,
 [data-theme="light"][data-global-modal="backdrop"][data-portal="store"] [data-global-modal="panel"] .bg-slate-100,
 [data-theme="light"][data-global-modal="backdrop"][data-portal="store"] [data-global-modal="panel"] .bg-gray-50,
 [data-theme="light"][data-global-modal="backdrop"][data-portal="store"] [data-global-modal="panel"] .bg-slate-50\/50 {
-  background: rgba(255, 255, 255, 0.38) !important;
-  background-color: rgba(255, 255, 255, 0.38) !important;
+  background: rgba(248, 250, 252, 0.96) !important;
+  background-color: rgba(248, 250, 252, 0.96) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  border-color: var(--glass-border-soft, rgba(255, 255, 255, 0.35)) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  border-color: rgba(15, 23, 42, 0.08) !important;
+  box-shadow: none;
 }
 
 /*
@@ -5230,7 +5402,7 @@ html[data-shell-luma='dark'][data-theme="light"] [data-global-modal="backdrop"][
   background: var(--input-bg, rgba(255, 255, 255, 0.82)) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  border: 1px solid var(--border, #cbd5e1) !important;
+  border: 1px solid var(--input-border, var(--table-border, #cbd5e1)) !important;
   box-sizing: border-box !important;
 }
 
@@ -5582,5 +5754,24 @@ html[data-theme="dark"][data-portal="store"] [data-floating-popover="true"] .dar
 [data-global-modal] button[style*='portal-cta'] svg {
   color: #ffffff !important;
   stroke: #ffffff !important;
+}
+
+/* ── SEO tool: glass panels + icon contrast (ban light-on-light / dark-on-dark) ── */
+[data-portal='store'] .u-seo-page .u-icon-brand,
+.unity-shell[data-portal='store'] .u-seo-page .u-icon-brand,
+[data-portal='store'] main .u-page .u-icon-brand {
+  background: var(--icon-box-bg) !important;
+  color: var(--icon-box-fg) !important;
+  border-color: var(--border) !important;
+}
+[data-portal='store'] main .u-page .u-icon-brand svg {
+  color: inherit !important;
+  stroke: currentColor !important;
+}
+/* Nested glass chips: no second backdrop-filter (ultra speed) */
+[data-portal='store'] main .u-card .store-glass-card,
+[data-portal='store'] main .u-panel .store-glass-card {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 

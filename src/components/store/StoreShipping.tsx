@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAdminInnerLayer } from '../../hooks/useAdminInnerLayer';
 import { useTenant } from '../../context/TenantContext';
 import type { ShippingZone } from '../../types';
 import {
@@ -106,7 +107,19 @@ export const StoreShipping: React.FC = () => {
 
   // null = hub (buttons only); set = open that section's data
   const [activeTab, setActiveTab] = useState<ShippingTab | null>(null);
-  const [dateRange, setDateRange] = useState(isAr ? '١ يناير - ٣١ يناير ٢٠٢٦' : 'Jan 1, 2026 - Jan 31, 2026');
+  const closeShippingInner = useCallback(() => setActiveTab(null), []);
+  const { requestClose: requestCloseShippingInner } = useAdminInnerLayer(
+    activeTab !== null,
+    closeShippingInner,
+  );
+  const [dateRange, setDateRange] = useState(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const fmt = (d: Date) =>
+      d.toLocaleDateString(isAr ? 'ar-SA' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    return `${fmt(start)} - ${fmt(end)}`;
+  });
   const [search, setSearch] = useState('');
   const [carrierSearch, setCarrierSearch] = useState('');
 
@@ -703,7 +716,7 @@ export const StoreShipping: React.FC = () => {
         <div className="flex items-center gap-2.5 flex-wrap">
           <button
             type="button"
-            onClick={() => setActiveTab(null)}
+            onClick={() => requestCloseShippingInner()}
             className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-xs font-bold cursor-pointer shadow-xs transition-colors hover:opacity-95"
             style={{
               background: 'var(--surface)',

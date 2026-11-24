@@ -64,7 +64,7 @@ import * as tenantApi from '../../api/tenantApi';
 import { isApiEnabled } from '../../api/client';
 import { commerceTerm } from '../../i18n/commerceTerms';
 import { aiChrome } from '../../i18n/aiChrome';
-import { buildStorefrontProductUrl } from '../../utils/storefrontLinks';
+import { buildStorefrontBuyUrl } from '../../utils/storefrontLinks';
 import type { ProductEditSectionKey } from './ProductEditDrawer';
 import { CoffeeLearnMoreProductSection } from './CoffeeLearnMoreProductSection';
 import { GroupedProductMembersPanel } from './GroupedProductMembersPanel';
@@ -2219,11 +2219,14 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
   }, [createSteps]);
 
   return (
-    <div className="u-page p-4 sm:p-6 pb-6 max-w-[1600px] mx-auto space-y-5 w-full min-w-0 product-editor-page">
-      {/* ── HEADER ROW (sticky so Save stays visible) ── */}
+    <div className="u-page p-4 sm:p-6 pb-28 sm:pb-32 max-w-[1600px] mx-auto space-y-5 w-full min-w-0 product-editor-page">
+      {/* ── HEADER ROW (sticky so Save stays visible; opaque so sections never bleed through) ── */}
       <div
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-30 -mx-1 px-1 py-2 rounded-xl backdrop-blur-md"
-        style={{ background: 'color-mix(in srgb, var(--surface) 92%, transparent)' }}
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-30 -mx-1 px-1 py-2 rounded-xl border-b product-editor-top-bar"
+        style={{
+          background: 'var(--surface)',
+          borderColor: 'color-mix(in srgb, var(--border) 70%, transparent)',
+        }}
       >
         <div>
           {/* Green vertical indicator bar & Title */}
@@ -2297,13 +2300,13 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
             </button>
           )}
 
-          {/* View on Store Button — edit only */}
+          {/* View on Store — opens buy/single product page (not learn-more detail) */}
           {!isCreateMode && (
             <button
               type="button"
               onClick={() => {
                 window.open(
-                  buildStorefrontProductUrl({ storeSlug, productId: product.id }),
+                  buildStorefrontBuyUrl({ storeSlug, productId: product.id }),
                   '_blank',
                   'noopener,noreferrer',
                 );
@@ -4648,15 +4651,14 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
         </div>
       </form>
 
-      {/* Sticky bottom Save — lifted above Windows taskbar / Activate watermark */}
+      {/* Fixed bottom Save — always pinned to viewport bottom (never mid-screen overlap) */}
       <div
-        className="sticky z-40 mt-4 product-editor-sticky-footer"
+        className="fixed inset-x-0 bottom-0 z-40 product-editor-sticky-footer"
         style={{
-          bottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))',
           paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0px))',
         }}
       >
-        <div className="product-editor-sticky-dock w-full flex items-center justify-between gap-3 flex-wrap rounded-2xl border px-4 sm:px-6 py-3 mx-0 sm:mx-1">
+        <div className="product-editor-sticky-dock w-full flex items-center justify-between gap-3 flex-wrap rounded-2xl border px-4 sm:px-6 py-3 mx-auto max-w-[1600px]">
           <div className="flex items-center gap-2.5 min-w-0">
             <span
               className="hidden sm:inline-flex w-8 h-8 rounded-xl items-center justify-center shrink-0"
@@ -4840,7 +4842,7 @@ export const StoreProductEditorView: React.FC<StoreProductEditorViewProps> = ({
                     onClick={() => {
                       setIsLightboxOpen(false);
                       window.open(
-                        buildStorefrontProductUrl({ storeSlug, productId: product.id }),
+                        buildStorefrontBuyUrl({ storeSlug, productId: product.id }),
                         '_blank',
                         'noopener,noreferrer',
                       );

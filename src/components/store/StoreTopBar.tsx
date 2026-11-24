@@ -26,6 +26,7 @@ import { useToast } from '../common/ToastProvider';
 import { preloadVisualThemeBuilder } from './visualBuilder/preloadVisualBuilder';
 import { BellDropdown } from '../../notification-system';
 import { getStoreDisplayOwner, shortStoreOwnerName } from '../../utils/storeLocalization';
+import { buildStorefrontHomeUrl } from '../../utils/storefrontLinks';
 
 interface StoreTopBarProps {
   searchPlaceholder?: string;
@@ -129,10 +130,27 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
   }, [session, t]);
 
   const initials = useMemo(() => {
-    const parts = displayName.trim().split(/\s+/).filter(Boolean);
-    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-    return (displayName || activeStore.nameEn || activeStore.name || 'ST').slice(0, 2).toUpperCase();
-  }, [displayName, activeStore.name, activeStore.nameEn]);
+    // Prefer Latin ownerEn so chip stays Latin letters; isolate LTR so RTL chrome
+    // never visually flips AR ↔ RA. Family-name first (Al-Sulaiman + Rayan → AR).
+    const latinOwner = shortStoreOwnerName((activeStore.ownerEn || '').trim());
+    const source =
+      (latinOwner && !/[\u0600-\u06FF]/.test(latinOwner) ? latinOwner : '') ||
+      (!/[\u0600-\u06FF]/.test(displayName) ? displayName : '') ||
+      displayName ||
+      activeStore.nameEn ||
+      activeStore.name ||
+      'ST';
+    const parts = source.trim().split(/\s+/).filter(Boolean);
+    let letters = '';
+    if (parts.length >= 2) {
+      const family = parts[parts.length - 1] || '';
+      const given = parts[0] || '';
+      letters = `${family[0] || ''}${given[0] || ''}`;
+    } else {
+      letters = source.replace(/[^a-zA-Z0-9]/g, '').slice(0, 2);
+    }
+    return (letters || 'ST').toUpperCase();
+  }, [displayName, activeStore.ownerEn, activeStore.name, activeStore.nameEn]);
 
   // Click outside listener for all dropdowns
   useEffect(() => {
@@ -198,9 +216,14 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
       onOpenStorefront();
       return;
     }
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const storeSlug = activeStore?.slug || (activeStore?.id === 'store-coffee' ? 'coffee' : activeStore?.id === 'store-bleco' ? 'bleco' : 'flowers');
-    window.open(`${origin}/?store=${storeSlug}&fullscreen=1`, '_blank', 'noopener,noreferrer');
+    const storeSlug =
+      activeStore?.slug ||
+      (activeStore?.id === 'store-coffee'
+        ? 'coffee'
+        : activeStore?.id === 'store-bleco'
+          ? 'bleco'
+          : 'flowers');
+    window.open(buildStorefrontHomeUrl({ storeSlug }), '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -563,7 +586,9 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
               }}
               aria-hidden
             >
-              {initials}
+              <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>
+                {initials}
+              </span>
             </div>
             <div className="hidden 2xl:block text-start leading-tight min-w-0 max-w-[6rem] 2xl:max-w-[7.5rem]">
               <span
@@ -610,7 +635,7 @@ export const StoreTopBar: React.FC<StoreTopBarProps> = ({
                 </div>
 
                 <div className="md:hidden px-1 pb-1">
-                  <PrefsSwitcher compact variant="default" />
+                  <PrefsSwitcher compact variant="default" expandInline />
                 </div>
 
                 {/* Mobile-only: store + live storefront (header stays lean) */}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { ExternalLink, Globe, LayoutTemplate, Lock, Sparkles } from 'lucide-react';
@@ -8,6 +8,8 @@ import { useToast } from '../common/ToastProvider';
 import { ThemeSettingsMaster } from './themeSettings/ThemeSettingsMaster';
 import { preloadVisualThemeBuilder } from './visualBuilder/preloadVisualBuilder';
 import { ThemeBuilderLoadingShell } from './visualBuilder/ThemeBuilderLoadingShell';
+import { buildStorefrontHomeUrl } from '../../utils/storefrontLinks';
+import { useAdminInnerLayer } from '../../hooks/useAdminInnerLayer';
 
 const VisualThemeBuilder = React.lazy<React.ComponentType<any>>(() =>
   preloadVisualThemeBuilder().then((m: any) => ({ default: m.VisualThemeBuilder })),
@@ -49,7 +51,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
       currentThemeId?.includes('coffee'));
 
   const storeSlug = isCarStore ? 'car' : isCoffeeStore ? 'coffee' : 'hadaya';
-  const localStorefrontUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/?store=${storeSlug}&fullscreen=1`;
+  const localStorefrontUrl = buildStorefrontHomeUrl({ storeSlug });
 
   const isLocalHost =
     typeof window !== 'undefined' &&
@@ -161,7 +163,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
     }
   };
 
-  const closeVisualBuilder = () => {
+  const closeVisualBuilder = useCallback(() => {
     setIsVisualBuilderOpen(false);
     try {
       sessionStorage.removeItem('unityteck_visual_builder_open');
@@ -177,7 +179,12 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
     } catch {
       /* ignore */
     }
-  };
+  }, [activeStore.id]);
+
+  const { requestClose: requestCloseVisualBuilder } = useAdminInnerLayer(
+    isVisualBuilderOpen && !onCustomizeTheme,
+    closeVisualBuilder,
+  );
 
   useEffect(() => {
     const openFromSidebar = (e: Event) => {
@@ -264,15 +271,15 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-2.5 w-full lg:w-auto shrink-0">
           {onOpenThemeCustomizer && (
             <button
               type="button"
               onClick={() => onOpenThemeCustomizer('01_store_identity')}
-              className="unity-btn-primary px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all hover:opacity-95 cursor-pointer"
+              className="unity-btn-primary w-full sm:w-auto justify-center px-5 py-3.5 sm:py-2.5 rounded-xl text-sm sm:text-xs font-bold flex items-center gap-2.5 sm:gap-2 transition-all hover:opacity-95 cursor-pointer min-h-[48px] sm:min-h-0"
               title={isAr ? 'فتح مخصص الثيم' : 'Open Theme Customizer'}
             >
-              <Sparkles className="w-4 h-4" />
+              <Sparkles className="w-5 h-5 sm:w-4 sm:h-4 shrink-0" />
               <span>{isAr ? 'تخصيص الثيم' : 'Customize Theme'}</span>
             </button>
           )}
@@ -280,11 +287,11 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
           <button
             type="button"
             onClick={() => openVisualBuilder()}
-            className="px-4 py-2.5 rounded-xl text-xs font-bold text-white flex items-center gap-2 transition-all hover:opacity-95 cursor-pointer"
+            className="w-full sm:w-auto justify-center px-5 py-3.5 sm:py-2.5 rounded-xl text-sm sm:text-xs font-bold text-white flex items-center gap-2.5 sm:gap-2 transition-all hover:opacity-95 cursor-pointer min-h-[48px] sm:min-h-0"
             style={{ background: 'var(--portal-cta)' }}
             title={isAr ? 'فتح محرر الصفحات البصري' : 'Open Visual Page Builder'}
           >
-            <LayoutTemplate className="w-4 h-4" />
+            <LayoutTemplate className="w-5 h-5 sm:w-4 sm:h-4 shrink-0" />
             <span>{isAr ? 'محرر الصفحات' : 'Page Builder'}</span>
           </button>
 
@@ -292,7 +299,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
             href={liveStoreHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-4 py-2.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-all cursor-pointer hover:opacity-95"
+            className="w-full sm:w-auto justify-center px-5 py-3.5 sm:py-2.5 rounded-xl text-sm sm:text-xs font-bold border flex items-center gap-2 sm:gap-1.5 transition-all cursor-pointer hover:opacity-95 min-h-[48px] sm:min-h-0"
             style={{
               background: 'var(--hover-bg)',
               borderColor: 'var(--border)',
@@ -307,13 +314,14 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
               }
             }}
           >
-            <Globe className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+            <Globe className="w-5 h-5 sm:w-4 sm:h-4 shrink-0" style={{ color: 'var(--accent)' }} />
             <span>{liveStoreLabel}</span>
-            <ExternalLink className="w-3.5 h-3.5 opacity-70" />
+            <ExternalLink className="w-4 h-4 sm:w-3.5 sm:h-3.5 opacity-70 shrink-0" />
           </a>
         </div>
       </div>
 
+      {/* Coffee: header CTAs only — hub KPIs / editable-sections list removed from this page. */}
       <ThemeSettingsMaster
         onOpenStorefront={onOpenStorefront}
         onOpenThemeCustomizer={onOpenThemeCustomizer}
@@ -326,7 +334,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
             isOpen={isVisualBuilderOpen}
             themeId={builderThemeId}
             initialPage={builderInitialPage as any}
-            onClose={closeVisualBuilder}
+            onClose={requestCloseVisualBuilder}
             onPublishSuccess={() => {
               toast(
                 isAr ? 'تم نشر التعديلات بنجاح على المتجر المباشر!' : 'Changes published successfully to live store!',

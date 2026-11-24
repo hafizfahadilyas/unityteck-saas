@@ -37,7 +37,11 @@ import {
   isStatusPath,
   resolveStatusKind,
 } from './status/routes';
-import { isPublicStoreSlugPath, storeSlugFromStorePath } from './utils/storefrontLinks';
+import {
+  buildStorefrontHomeUrl,
+  isPublicStoreSlugPath,
+  storeSlugFromStorePath,
+} from './utils/storefrontLinks';
 import { useToast } from './components/common/ToastProvider';
 import { applyPortalHead } from './utils/portalHead';
 import { lazyWithRetry } from './utils/lazyWithRetry';
@@ -45,6 +49,7 @@ import { Lock, ShieldAlert } from 'lucide-react';
 import { CORE_STORE_CONTROL_IDS, isStoreControlEnabled } from './services/storeControlService';
 import { isStoreTabComingSoon } from './config/storeTabVisibility';
 import { adminHomeHref, isAdminChromePath, isStorefrontPath } from './utils/spaNavigationGuard';
+import { useAdminInnerLayer } from './hooks/useAdminInnerLayer';
 // HolstChromeBar retired — unified MasterTopBar / StoreTopBar (docs/21)
 
 /** Heavy tabs — code-split so dashboard/themes open fast */
@@ -547,6 +552,11 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     } catch {}
   }, []);
 
+  const { requestClose: requestCloseVisualBuilder } = useAdminInnerLayer(
+    isVisualBuilderOpen,
+    handleCloseVisualBuilder,
+  );
+
   const [isThemeCustomizerOpen, setIsThemeCustomizerOpen] = useState(() => {
     try {
       if (typeof window === 'undefined') return false;
@@ -599,6 +609,11 @@ const getDefaultStoreTheme = (storeId?: string): string => {
       }
     } catch {}
   }, []);
+
+  const { requestClose: requestCloseThemeCustomizer } = useAdminInnerLayer(
+    isThemeCustomizerOpen,
+    handleCloseThemeCustomizer,
+  );
 
   // Sidebar → Theme Settings opens the real customizer page (not a dead click)
   useEffect(() => {
@@ -702,6 +717,11 @@ const getDefaultStoreTheme = (storeId?: string): string => {
         'analytics',
         'reports',
         'whatsapp',
+        'email',
+        'sms',
+        'live-chat',
+        'in-app-notifications',
+        'ai-conversations',
         'social',
         'seo',
         'products',
@@ -930,6 +950,8 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     path === '/product' ||
     path === '/thankyou' ||
     path.startsWith('/product/') ||
+    path === '/buy' ||
+    path.startsWith('/buy/') ||
     path.startsWith('/category/');
   const isAuthPage =
     isMasterLogin ||
@@ -974,12 +996,18 @@ const getDefaultStoreTheme = (storeId?: string): string => {
           try {
             localStorage.setItem('unityteck_store_tab', next);
           } catch {}
+          // Stay on current admin URL — do NOT re-push dashboard (that stacked
+          // fake entries and made one Back jump out of every inner page).
           if (next === 'dashboard') {
-            window.history.pushState(
-              { unityteckSpa: 'admin', tab: 'dashboard' },
-              '',
-              adminHomeHref('admin'),
-            );
+            const href = adminHomeHref('admin');
+            const cur = `${window.location.pathname}${window.location.search}`;
+            if (cur !== href.split('#')[0]) {
+              window.history.replaceState(
+                { unityteckSpa: 'admin', tab: 'dashboard' },
+                '',
+                href,
+              );
+            }
           }
           return;
         }
@@ -999,11 +1027,15 @@ const getDefaultStoreTheme = (storeId?: string): string => {
           localStorage.setItem('unityteck_master_tab', next);
         } catch {}
         if (next === 'dashboard') {
-          window.history.pushState(
-            { unityteckSpa: 'master', tab: 'dashboard' },
-            '',
-            adminHomeHref('master'),
-          );
+          const href = adminHomeHref('master');
+          const cur = `${window.location.pathname}${window.location.search}`;
+          if (cur !== href.split('#')[0]) {
+            window.history.replaceState(
+              { unityteckSpa: 'master', tab: 'dashboard' },
+              '',
+              href,
+            );
+          }
         }
       } catch {}
     };
@@ -2156,7 +2188,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                               : 'flowers');
                         // Never same-tab navigate — that unmounts /admin into public storefront
                         window.open(
-                          `/?store=${encodeURIComponent(storeSlug)}&fullscreen=1`,
+                          buildStorefrontHomeUrl({ storeSlug }),
                           '_blank',
                           'noopener,noreferrer',
                         );
@@ -2192,7 +2224,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                               ? 'bleco'
                               : 'flowers');
                         window.open(
-                          `/?store=${encodeURIComponent(storeSlug)}&fullscreen=1`,
+                          buildStorefrontHomeUrl({ storeSlug }),
                           '_blank',
                           'noopener,noreferrer',
                         );
@@ -2230,7 +2262,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                 ? visualBuilderThemeId
                 : (activeStore ? storeActiveTheme[activeStore.id] : undefined) || getDefaultStoreTheme(activeStore?.id)
             }
-            onClose={handleCloseVisualBuilder}
+            onClose={requestCloseVisualBuilder}
             onPublishSuccess={() => {
               toast(
                 locale === 'ar'
@@ -2249,7 +2281,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
           <WordPressThemeCustomizer
             isOpen={isThemeCustomizerOpen}
             initialSectionId={customizerSectionId}
-            onClose={handleCloseThemeCustomizer}
+            onClose={requestCloseThemeCustomizer}
           />
         </Suspense>
       )}

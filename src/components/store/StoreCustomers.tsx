@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useAdminInnerLayer } from '../../hooks/useAdminInnerLayer';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { Customer, CustomerStatus, CustomerSource } from '../../types';
@@ -347,7 +348,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
     }
   }, [currentCustomers]);
 
-  const handleSelectCustomer = (id: string | null) => {
+  const handleSelectCustomer = useCallback((id: string | null) => {
     setSelectedCustomerId(id);
     const url = new URL(window.location.href);
     if (id) {
@@ -357,7 +358,12 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
       url.searchParams.delete('customer');
     }
     window.history.replaceState({}, '', url.toString());
-  };
+  }, []);
+
+  const { requestClose: requestCloseCustomerDetail } = useAdminInnerLayer(
+    Boolean(selectedCustomerId),
+    () => handleSelectCustomer(null),
+  );
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -655,7 +661,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
     return (
       <CustomerDetails
         customer={selectedCustomer}
-        onBack={() => handleSelectCustomer(null)}
+        onBack={() => requestCloseCustomerDetail()}
         onSelectCustomer={(id) => handleSelectCustomer(id)}
       />
     );
@@ -1045,14 +1051,14 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
       )}
 
       {/* Customer Data Table matching 08_customers.png */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-visible">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden min-w-0">
         {/* Table Top Toolbar */}
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-t-2xl">
-          <div className="flex flex-wrap items-center gap-2 min-w-0">
+        <div className="p-3 sm:p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-t-2xl min-w-0">
+          <div className="flex items-center gap-2 min-w-0 w-full sm:w-auto">
             <select
               value={bulkAction}
               onChange={(e) => setBulkAction(e.target.value)}
-              className="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 focus:outline-none min-h-[2.25rem]"
+              className="flex-1 sm:flex-none min-w-0 sm:min-w-[10rem] px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 focus:outline-none min-h-[2.25rem]"
             >
               <option value="">{isAr ? 'إجراءات جماعية' : 'Bulk Actions'}</option>
               <option value="assign_group">{isAr ? 'تعيين مجموعة' : 'Assign to Group'}</option>
@@ -1064,13 +1070,13 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
               type="button"
               onClick={handleApplyBulk}
               disabled={!bulkAction || selectedIds.length === 0}
-              className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 text-slate-800 dark:text-slate-100 rounded-lg text-xs font-medium transition-colors min-h-[2.25rem]"
+              className="shrink-0 px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 text-slate-800 dark:text-slate-100 rounded-lg text-xs font-semibold transition-colors min-h-[2.25rem] whitespace-nowrap"
             >
               {isAr ? 'تطبيق' : 'Apply'}
             </button>
           </div>
 
-          <div className="text-xs text-slate-500 dark:text-slate-400 shrink-0">
+          <div className="text-xs text-slate-500 dark:text-slate-400 shrink-0 whitespace-nowrap">
             {isAr
               ? `عرض ${fromRow}–${toRow} من ${filteredCustomers.length.toLocaleString()} عميل${
                   filteredCustomers.length !== totalCount
@@ -1085,9 +1091,9 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
           </div>
         </div>
 
-        {/* Table Grid — no forced min-width scrollbar on laptop; secondary cols hide */}
-        <div className="w-full overflow-x-auto [scrollbar-width:thin]">
-          <table className="w-full text-start text-xs table-auto">
+        {/* Table Grid — min-width + horizontal scroll so Customer col never collapses to 1-char wrap */}
+        <div className="w-full overflow-x-auto [scrollbar-width:thin] min-w-0">
+          <table className="w-full min-w-[640px] text-start text-xs table-fixed sm:table-auto border-collapse">
             <thead>
               <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-semibold text-[11px] bg-slate-50/50 dark:bg-slate-800/40">
                 <th className="py-3 px-3 sm:px-4 w-10">
@@ -1101,26 +1107,36 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                     className="rounded text-blue-600 focus:ring-blue-500"
                   />
                 </th>
-                <th className="py-3 pr-2 sm:pr-3 font-semibold">{isAr ? 'العميل' : 'Customer'}</th>
-                <th className="py-3 px-2 font-semibold">{isAr ? 'الحالة' : 'Status'}</th>
-                <th className="py-3 px-2 font-semibold hidden sm:table-cell">{isAr ? 'المدينة' : 'City'}</th>
-                <th className="py-3 px-2 font-semibold hidden md:table-cell">{isAr ? 'المصدر' : 'Source'}</th>
-                <th className="py-3 px-2 font-semibold text-center">
+                <th className="py-3 px-2 sm:pr-3 font-semibold min-w-[11rem] w-[40%] sm:w-auto whitespace-nowrap">
+                  {isAr ? 'العميل' : 'Customer'}
+                </th>
+                <th className="py-3 px-2 font-semibold min-w-[4.5rem] whitespace-nowrap">
+                  {isAr ? 'الحالة' : 'Status'}
+                </th>
+                <th className="py-3 px-2 font-semibold hidden sm:table-cell whitespace-nowrap">
+                  {isAr ? 'المدينة' : 'City'}
+                </th>
+                <th className="py-3 px-2 font-semibold hidden md:table-cell whitespace-nowrap">
+                  {isAr ? 'المصدر' : 'Source'}
+                </th>
+                <th className="py-3 px-2 font-semibold text-center min-w-[3.5rem] whitespace-nowrap">
                   {isAr ? 'الطلبات' : 'Orders'}
                 </th>
-                <th className="py-3 px-2 font-semibold text-end">
+                <th className="py-3 px-2 font-semibold text-end min-w-[5rem] whitespace-nowrap">
                   {isAr ? 'الإنفاق' : 'Spending'}
                 </th>
-                <th className="py-3 px-2 font-semibold text-end hidden xl:table-cell">
+                <th className="py-3 px-2 font-semibold text-end hidden xl:table-cell whitespace-nowrap">
                   {isAr ? 'تاريخ التسجيل' : 'Registered'}
                 </th>
-                <th className="py-3 px-2 font-semibold text-end hidden lg:table-cell">
+                <th className="py-3 px-2 font-semibold text-end hidden lg:table-cell whitespace-nowrap">
                   {isAr ? 'متوسط الطلب' : 'Avg. Order'}
                 </th>
-                <th className="py-3 px-2 font-semibold text-end hidden lg:table-cell">
+                <th className="py-3 px-2 font-semibold text-end hidden lg:table-cell whitespace-nowrap">
                   {isAr ? 'آخر طلب' : 'Last Order'}
                 </th>
-                <th className="py-3 px-3 sm:px-4 text-center w-12">{isAr ? 'الإجراءات' : 'Actions'}</th>
+                <th className="py-3 px-3 sm:px-4 text-center w-12 whitespace-nowrap">
+                  {isAr ? 'الإجراءات' : 'Actions'}
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-200">
@@ -1154,7 +1170,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                         />
                       </td>
 
-                      <td className="py-3 pr-2 sm:pr-3 align-middle min-w-0">
+                      <td className="py-3 px-2 sm:pr-3 align-middle min-w-[11rem]">
                         <div className="flex items-center gap-2.5 min-w-0">
                           <button
                             type="button"
@@ -1175,20 +1191,20 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                               <span>{displayName.substring(0, 2).toUpperCase()}</span>
                             )}
                           </button>
-                          <div className="text-start min-w-0 flex-1">
+                          <div className="text-start min-w-0 flex-1 overflow-hidden">
                             <button
                               type="button"
                               onClick={() => handleSelectCustomer(cust.id)}
-                              className="font-bold text-slate-900 dark:text-slate-100 hover:text-teal-600 dark:hover:text-teal-400 transition-colors text-start block cursor-pointer truncate max-w-[9rem] sm:max-w-[12rem] lg:max-w-[16rem]"
-                              title={isAr ? 'عرض تفاصيل العميل' : 'View Customer Details'}
+                              className="font-bold text-slate-900 dark:text-slate-100 hover:text-teal-600 dark:hover:text-teal-400 transition-colors text-start block cursor-pointer max-w-full overflow-hidden text-ellipsis whitespace-nowrap"
+                              title={displayName}
                             >
                               {displayName}
                             </button>
                             <button
                               type="button"
                               onClick={() => handleSelectCustomer(cust.id)}
-                              className="text-[11px] text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 font-mono transition-colors text-start block cursor-pointer mt-0.5 tracking-tight truncate"
-                              title={isAr ? 'عرض تفاصيل العميل' : 'View Customer Details'}
+                              className="text-[11px] text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 font-mono transition-colors text-start block cursor-pointer mt-0.5 tracking-tight max-w-full overflow-hidden text-ellipsis whitespace-nowrap"
+                              title={cust.phone || undefined}
                               dir="ltr"
                             >
                               {cust.phone}
@@ -1197,14 +1213,14 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
                         </div>
                       </td>
 
-                      <td className="py-3 px-2 align-middle">{renderStatusBadge(cust.status)}</td>
-                      <td className="py-3 px-2 text-slate-600 dark:text-slate-300 font-medium align-middle hidden sm:table-cell">
+                      <td className="py-3 px-2 align-middle whitespace-nowrap">{renderStatusBadge(cust.status)}</td>
+                      <td className="py-3 px-2 text-slate-600 dark:text-slate-300 font-medium align-middle hidden sm:table-cell whitespace-nowrap">
                         {displayCity}
                       </td>
                       <td className="py-3 px-2 align-middle hidden md:table-cell">
                         {renderSourceIcon(cust.source)}
                       </td>
-                      <td className="py-3 px-2 text-center font-bold tabular-nums text-slate-900 dark:text-white align-middle">
+                      <td className="py-3 px-2 text-center font-bold tabular-nums text-slate-900 dark:text-white align-middle whitespace-nowrap">
                         {cust.totalOrders}
                       </td>
                       <td className="py-3 px-2 text-end font-extrabold tabular-nums text-slate-900 dark:text-white align-middle whitespace-nowrap">
