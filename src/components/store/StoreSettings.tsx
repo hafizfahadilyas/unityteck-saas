@@ -33,6 +33,8 @@ import {
   AlertCircle,
   ArrowLeft,
   Save,
+  CreditCard,
+  Truck,
 } from 'lucide-react';
 import { PortalHubCard } from '../common/PortalHubCard';
 import { GoogleConnectModal } from './GoogleConnectModal';
@@ -48,7 +50,14 @@ import { NotificationSettings } from './settings/NotificationSettings';
 import { ConnectedWorkspaceBanner } from '../common/ConnectedWorkspaceBanner';
 
 import { readAllThemeSettings, writeAllThemeSettings } from '../../themes/settings/themeSettingsStore';
-import { readStoreIdentity, splitStoreName, writeStoreIdentity, type StoreIdentitySettings } from '../../themes/settings/storeIdentity';
+import {
+  bustMediaUrl,
+  readStoreIdentity,
+  resolveStoreDisplayName,
+  splitStoreName,
+  writeStoreIdentity,
+  type StoreIdentitySettings,
+} from '../../themes/settings/storeIdentity';
 import { StoreChromeFields } from './settings/StoreChromeFields';
 import {
   bindStoreChrome,
@@ -64,6 +73,7 @@ import {
   type StoreChromeBrand,
 } from '../../i18n/storeChrome';
 import { deleteChromeImage } from '../../i18n/storeChromeImageStore';
+import { applyPortalHead } from '../../utils/portalHead';
 
 type SettingsTab =
   | 'general'
@@ -299,11 +309,34 @@ export const StoreSettings: React.FC = () => {
   const [logoUrl, setLogoUrl] = useState(
     storeIdentity.logoUrl || activeStore.logo || ''
   );
-  const [faviconUrl, setFaviconUrl] = useState('/favicon.svg');
-  const [customDomain, setCustomDomain] = useState(`${activeStore.slug}.saudi-stores.com`);
+  const [faviconUrl, setFaviconUrl] = useState(
+    storeIdentity.faviconUrl || activeStore.favicon || '',
+  );
+  const [customDomain, setCustomDomain] = useState(
+    activeStore.custom_domain || activeStore.domain || `${activeStore.slug}.saudi-stores.com`,
+  );
   const [workspacePath, setWorkspacePath] = useState(
     String((activeStore as { workspacePath?: string }).workspacePath || '').trim(),
   );
+
+  // Keep form in sync when switching stores (isolation — never keep previous tenant values)
+  useEffect(() => {
+    const next = readStoreIdentity(activeStore.id, activeStore);
+    const names = splitStoreName(next);
+    setStoreNameEn(names.storeNameEn);
+    setStoreNameAr(names.storeNameAr);
+    setTaglineEn(next.taglineEn || '');
+    setTaglineAr(next.taglineAr || '');
+    setStoreEmail(next.email || '');
+    setStorePhone(next.phone || '');
+    setLogoUrl(next.logoUrl || activeStore.logo || '');
+    setFaviconUrl(next.faviconUrl || activeStore.favicon || '');
+    setWhatsappNumber(next.whatsapp || '');
+    setCustomDomain(
+      activeStore.custom_domain || activeStore.domain || `${activeStore.slug}.saudi-stores.com`,
+    );
+    setWorkspacePath(String((activeStore as { workspacePath?: string }).workspacePath || '').trim());
+  }, [activeStore.id]);
 
   // Regional Settings State
   const [timezone, setTimezone] = useState('Asia/Riyadh');
@@ -329,49 +362,67 @@ export const StoreSettings: React.FC = () => {
 
   const handleSaveGeneral = (e: React.FormEvent) => {
     e.preventDefault();
-    const updatedIdentity: StoreIdentitySettings = {
+    const enName = storeNameEn.trim();
+    const arName = storeNameAr.trim();
+    const logoForSave = bustMediaUrl(logoUrl);
+    const faviconForSave = bustMediaUrl(faviconUrl);
+    const identityWithBust: StoreIdentitySettings = {
       ...storeIdentity,
-      storeNameEn,
-      storeNameAr,
-      storeName: storeNameEn.trim() || storeIdentity.storeName,
+      storeNameEn: enName,
+      storeNameAr: arName,
+      // Primary name keeps EN when set; otherwise AR — never wipe the other language
+      storeName: enName || arName || storeIdentity.storeName,
       taglineEn,
       taglineAr,
-      logoUrl: logoUrl,
+      logoUrl: logoForSave || logoUrl || storeIdentity.logoUrl,
+      faviconUrl: faviconForSave || faviconUrl || '',
       email: storeEmail,
       phone: storePhone,
       whatsapp: whatsappNumber,
       instagram: socialLinks.instagram?.url || storeIdentity.instagram,
       updatedAt: new Date().toISOString(),
     };
-    const logoForSave = (() => {
-      const raw = (logoUrl || '').trim();
-      if (!raw || raw.startsWith('data:') || raw.startsWith('blob:')) return raw;
-      const stamp = Date.now();
-      if (/[?&]v=/.test(raw)) return raw.replace(/([?&]v=)[^&]*/i, `$1${stamp}`);
-      return `${raw}${raw.includes('?') ? '&' : '?'}v=${stamp}`;
-    })();
-    const identityWithBust: StoreIdentitySettings = {
-      ...updatedIdentity,
-      logoUrl: logoForSave || updatedIdentity.logoUrl,
-    };
     writeStoreIdentity(activeStore.id, identityWithBust);
     const currThemeSettings = readAllThemeSettings(activeStore.id, activeStore);
+    const nextHeader = currThemeSettings.customHeader
+      ? {
+          ...currThemeSettings.customHeader,
+          logo: {
+            ...(currThemeSettings.customHeader.logo || {}),
+            ...(enName ? { titleEn: enName } : {}),
+            ...(arName ? { titleAr: arName } : {}),
+            ...(identityWithBust.logoUrl ? { imageUrl: identityWithBust.logoUrl } : {}),
+            applyTitle: true,
+          },
+        }
+      : currThemeSettings.customHeader;
     writeAllThemeSettings(activeStore.id, {
       ...currThemeSettings,
       identity: identityWithBust,
+      ...(nextHeader ? { customHeader: nextHeader } : {}),
     });
     if (logoForSave && logoForSave !== logoUrl) setLogoUrl(logoForSave);
+    if (faviconForSave && faviconForSave !== faviconUrl) setFaviconUrl(faviconForSave);
     bumpStore(activeStore.id, 'settings');
     bumpStore(activeStore.id, 'theme');
     window.dispatchEvent(
       new CustomEvent('unityteck-store-updated', {
         detail: {
           storeId: activeStore.id,
-          name: storeNameEn || storeNameAr,
-          logo: logoForSave || logoUrl,
+          name: enName || arName,
+          nameEn: enName,
+          nameAr: arName,
+          logo: identityWithBust.logoUrl,
+          favicon: identityWithBust.faviconUrl || '',
         },
       }),
     );
+    // Live tab icon + title without waiting for remount
+    applyPortalHead({
+      portal: 'store',
+      storeName: resolveStoreDisplayName(identityWithBust, isAr, enName || arName),
+      faviconUrl: identityWithBust.faviconUrl || null,
+    });
     toast(
       isAr
         ? 'تم حفظ الإعدادات وتحديث المتجر فوراً!'
@@ -518,7 +569,42 @@ export const StoreSettings: React.FC = () => {
 
       {/* ── Settings hub: same Marketing-style big cards ── */}
       {activeTab === null ? (
-        <div className="u-equal-sections grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <PortalHubCard
+              icon={CreditCard}
+              title={isAr ? 'المدفوعات والحساب البنكي' : 'Payments & bank account'}
+              description={
+                isAr
+                  ? 'بوابات الدفع، التحويل البنكي، والمعاملات الحية لهذا المتجر'
+                  : 'Gateways, bank transfer IBAN, and live transactions for this store'
+              }
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('unityteck-open-store-tab', { detail: 'payments' }));
+              }}
+              isAr={isAr}
+            />
+            <PortalHubCard
+              icon={Truck}
+              title={isAr ? 'الشحن والتوصيل' : 'Shipping & delivery'}
+              description={
+                isAr
+                  ? 'الشحنات، المناطق، الناقلين، والتوصيل المحلي — بيانات حقيقية'
+                  : 'Shipments, zones, carriers, and local delivery — real data'
+              }
+              onClick={() => {
+                try {
+                  sessionStorage.setItem('unityteck-shipping-view', 'shipments');
+                } catch {
+                  /* ignore */
+                }
+                window.dispatchEvent(new CustomEvent('unityteck-open-store-tab', { detail: 'shipping' }));
+                window.dispatchEvent(new CustomEvent('unityteck-shipping-view', { detail: 'shipments' }));
+              }}
+              isAr={isAr}
+            />
+          </div>
+          <div className="u-equal-sections grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {tabs.map((tab) => (
             <PortalHubCard
               key={tab.id}
@@ -529,6 +615,7 @@ export const StoreSettings: React.FC = () => {
               isAr={isAr}
             />
           ))}
+          </div>
         </div>
       ) : (
         <div className="flex items-center gap-2.5 flex-wrap">
@@ -597,6 +684,8 @@ export const StoreSettings: React.FC = () => {
                         detail: {
                           storeId: activeStore.id,
                           name: storeNameEn || storeNameAr,
+                          nameEn: storeNameEn,
+                          nameAr: storeNameAr,
                           logo: next,
                         },
                       }),
@@ -611,7 +700,20 @@ export const StoreSettings: React.FC = () => {
                   <MediaUploadField
                     label={isAr ? 'أيقونة المتصفح' : 'Favicon Icon'}
                     value={faviconUrl}
-                    onChange={(url) => setFaviconUrl(url)}
+                    onChange={(url) => {
+                      const next = (url || '').trim();
+                      setFaviconUrl(next);
+                      // Live tab icon preview — persist on Save
+                      applyPortalHead({
+                        portal: 'store',
+                        storeName: resolveStoreDisplayName(
+                          { storeName: storeNameEn || storeNameAr, storeNameEn, storeNameAr },
+                          isAr,
+                          storeNameEn || storeNameAr,
+                        ),
+                        faviconUrl: next || null,
+                      });
+                    }}
                     recommendedSize="64 × 64 px SVG/PNG"
                     aspectRatio="square"
                     initialFolder="branding"
@@ -633,19 +735,33 @@ export const StoreSettings: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'اسم المتجر' : 'Store name'}
+                    {isAr ? 'اسم المتجر بالإنجليزية' : 'Store name (English)'}
                   </label>
                   <input
                     type="text"
-                    value={isAr ? storeNameAr : storeNameEn}
-                    onChange={(e) => (isAr ? setStoreNameAr(e.target.value) : setStoreNameEn(e.target.value))}
-                    dir={isAr ? 'rtl' : 'ltr'}
+                    value={storeNameEn}
+                    onChange={(e) => setStoreNameEn(e.target.value)}
+                    dir="ltr"
                     className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   />
                 </div>
 
                 <div>
+                  <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
+                    {isAr ? 'اسم المتجر بالعربية' : 'Store name (Arabic)'}
+                  </label>
+                  <input
+                    type="text"
+                    value={storeNameAr}
+                    onChange={(e) => setStoreNameAr(e.target.value)}
+                    dir="rtl"
+                    className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
+                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
                   <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
                     {isAr ? 'رمز المتجر التعريفي' : 'Store Slug'}
                   </label>
@@ -658,15 +774,29 @@ export const StoreSettings: React.FC = () => {
                   />
                 </div>
 
-                <div className="sm:col-span-2">
+                <div>
                   <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
-                    {isAr ? 'الوصف' : 'Tagline'}
+                    {isAr ? 'الوصف بالإنجليزية' : 'Tagline (English)'}
                   </label>
                   <input
                     type="text"
-                    value={isAr ? taglineAr : taglineEn}
-                    onChange={(e) => (isAr ? setTaglineAr(e.target.value) : setTaglineEn(e.target.value))}
-                    dir={isAr ? 'rtl' : 'ltr'}
+                    value={taglineEn}
+                    onChange={(e) => setTaglineEn(e.target.value)}
+                    dir="ltr"
+                    className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
+                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold mb-1.5" style={{ color: 'var(--muted)' }}>
+                    {isAr ? 'الوصف بالعربية' : 'Tagline (Arabic)'}
+                  </label>
+                  <input
+                    type="text"
+                    value={taglineAr}
+                    onChange={(e) => setTaglineAr(e.target.value)}
+                    dir="rtl"
                     className="w-full px-3 py-2 text-xs rounded-xl border focus:outline-none"
                     style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   />

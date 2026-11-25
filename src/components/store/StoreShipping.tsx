@@ -105,8 +105,8 @@ export const StoreShipping: React.FC = () => {
   const isAr = locale === 'ar';
   const { toast } = useToast();
 
-  // null = hub (buttons only); set = open that section's data
-  const [activeTab, setActiveTab] = useState<ShippingTab | null>(null);
+  // Default to live data (shipments) — hub still reachable via back button
+  const [activeTab, setActiveTab] = useState<ShippingTab | null>('shipments');
   const closeShippingInner = useCallback(() => setActiveTab(null), []);
   const { requestClose: requestCloseShippingInner } = useAdminInnerLayer(
     activeTab !== null,

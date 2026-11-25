@@ -55,6 +55,10 @@ const files = [
     remote: 'app/Http/Controllers/Api/OrderController.php',
   },
   {
+    local: 'apps/api/app/Http/Controllers/Api/ShippingController.php',
+    remote: 'app/Http/Controllers/Api/ShippingController.php',
+  },
+  {
     local: 'apps/api/scripts/ensure-product-group-members-table.php',
     remote: 'scripts/ensure-product-group-members-table.php',
   },
@@ -169,6 +173,34 @@ const files = [
   {
     local: 'apps/api/scripts/ensure-canva-oauth-table.php',
     remote: 'scripts/ensure-canva-oauth-table.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/UtmTrackingController.php',
+    remote: 'app/Http/Controllers/Api/UtmTrackingController.php',
+  },
+  {
+    local: 'apps/api/app/Models/StoreUtmLink.php',
+    remote: 'app/Models/StoreUtmLink.php',
+  },
+  {
+    local: 'apps/api/app/Models/Order.php',
+    remote: 'app/Models/Order.php',
+  },
+  {
+    local: 'apps/api/app/Models/StorefrontAnalyticsEvent.php',
+    remote: 'app/Models/StorefrontAnalyticsEvent.php',
+  },
+  {
+    local: 'apps/api/database/migrations/2026_11_24_120000_store_utm_links_and_order_attribution.php',
+    remote: 'database/migrations/2026_11_24_120000_store_utm_links_and_order_attribution.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/PaymentGatewayController.php',
+    remote: 'app/Http/Controllers/Api/PaymentGatewayController.php',
+  },
+  {
+    local: 'apps/api/app/Models/StoreBankAccount.php',
+    remote: 'app/Models/StoreBankAccount.php',
   },
 ];
 

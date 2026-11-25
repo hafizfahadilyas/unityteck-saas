@@ -28,10 +28,15 @@ function souq_ensure_analytics_tables(PDO $pdo): void
                 event_name VARCHAR(64) NOT NULL,
                 path VARCHAR(191) NULL,
                 source VARCHAR(64) NULL,
+                medium VARCHAR(128) NULL,
+                campaign VARCHAR(191) NULL,
                 session_key VARCHAR(64) NULL,
+                visitor_key VARCHAR(64) NULL,
+                meta TEXT NULL,
                 created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
                 KEY idx_analytics_store (store_id),
-                KEY idx_analytics_session (store_id, event_name, session_key)
+                KEY idx_analytics_session (store_id, event_name, session_key),
+                KEY idx_analytics_visitor (store_id, visitor_key, created_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
         );
         $pdo->exec(
@@ -41,6 +46,15 @@ function souq_ensure_analytics_tables(PDO $pdo): void
                 updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
         );
+        foreach (['medium' => 'VARCHAR(128) NULL', 'campaign' => 'VARCHAR(191) NULL', 'visitor_key' => 'VARCHAR(64) NULL', 'meta' => 'TEXT NULL'] as $col => $def) {
+            if (function_exists('souq_table_has_column') && !souq_table_has_column($pdo, 'analytics_events', $col)) {
+                try {
+                    $pdo->exec("ALTER TABLE analytics_events ADD COLUMN {$col} {$def}");
+                } catch (Throwable) {
+                    /* already exists / locked */
+                }
+            }
+        }
         return;
     }
     $pdo->exec("
@@ -50,7 +64,11 @@ function souq_ensure_analytics_tables(PDO $pdo): void
             event_name TEXT NOT NULL,
             path TEXT,
             source TEXT,
+            medium TEXT,
+            campaign TEXT,
             session_key TEXT,
+            visitor_key TEXT,
+            meta TEXT,
             created_at TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_analytics_store ON analytics_events(store_id);
@@ -60,6 +78,88 @@ function souq_ensure_analytics_tables(PDO $pdo): void
             updated_at TEXT
         );
     ");
+    foreach (['medium', 'campaign', 'visitor_key', 'meta'] as $col) {
+        try {
+            $pdo->exec("ALTER TABLE analytics_events ADD COLUMN {$col} TEXT");
+        } catch (Throwable) {
+            /* column may already exist */
+        }
+    }
+}
+
+/** UTM saved links + order first-touch columns (store_id isolated). */
+function souq_ensure_utm_schema(PDO $pdo): void
+{
+    $mysql = souq_pdo_is_mysql($pdo);
+    if ($mysql) {
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS store_utm_links (
+                id VARCHAR(64) NOT NULL PRIMARY KEY,
+                store_id VARCHAR(64) NOT NULL,
+                name VARCHAR(191) NOT NULL,
+                platform_key VARCHAR(64) NULL,
+                target_path VARCHAR(512) NULL,
+                product_id VARCHAR(64) NULL,
+                target_url VARCHAR(1024) NOT NULL,
+                utm_source VARCHAR(128) NOT NULL,
+                utm_medium VARCHAR(128) NOT NULL,
+                utm_campaign VARCHAR(191) NOT NULL,
+                utm_term VARCHAR(128) NULL,
+                utm_content VARCHAR(128) NULL,
+                click_sessions INT UNSIGNED NOT NULL DEFAULT 0,
+                conversion_count INT UNSIGNED NOT NULL DEFAULT 0,
+                created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                KEY sul_store_created_idx (store_id, created_at),
+                KEY sul_store_campaign_idx (store_id, utm_campaign)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+        );
+    } else {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS store_utm_links (
+                id TEXT PRIMARY KEY,
+                store_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                platform_key TEXT,
+                target_path TEXT,
+                product_id TEXT,
+                target_url TEXT NOT NULL,
+                utm_source TEXT NOT NULL,
+                utm_medium TEXT NOT NULL,
+                utm_campaign TEXT NOT NULL,
+                utm_term TEXT,
+                utm_content TEXT,
+                click_sessions INTEGER DEFAULT 0,
+                conversion_count INTEGER DEFAULT 0,
+                created_at TEXT,
+                updated_at TEXT
+            );
+            CREATE INDEX IF NOT EXISTS sul_store_created_idx ON store_utm_links(store_id, created_at);
+        ");
+    }
+
+    $orderCols = [
+        'first_touch_source' => $mysql ? 'VARCHAR(64) NULL' : 'TEXT',
+        'first_touch_medium' => $mysql ? 'VARCHAR(128) NULL' : 'TEXT',
+        'first_touch_campaign' => $mysql ? 'VARCHAR(191) NULL' : 'TEXT',
+        'first_touch_utm_term' => $mysql ? 'VARCHAR(128) NULL' : 'TEXT',
+        'first_touch_utm_content' => $mysql ? 'VARCHAR(128) NULL' : 'TEXT',
+        'landing_page' => $mysql ? 'VARCHAR(512) NULL' : 'TEXT',
+        'referral_host' => $mysql ? 'VARCHAR(191) NULL' : 'TEXT',
+        'medium' => $mysql ? 'VARCHAR(128) NULL' : 'TEXT',
+        'campaign' => $mysql ? 'VARCHAR(191) NULL' : 'TEXT',
+        'utm_term' => $mysql ? 'VARCHAR(128) NULL' : 'TEXT',
+        'utm_content' => $mysql ? 'VARCHAR(128) NULL' : 'TEXT',
+    ];
+    foreach ($orderCols as $col => $def) {
+        if (function_exists('souq_table_has_column') && !souq_table_has_column($pdo, 'orders', $col, true)) {
+            try {
+                $pdo->exec("ALTER TABLE orders ADD COLUMN {$col} {$def}");
+            } catch (Throwable) {
+                /* ignore */
+            }
+        }
+    }
 }
 
 function souq_commerce_schema(PDO $pdo): void
@@ -245,6 +345,38 @@ function souq_ensure_payment_defaults(PDO $pdo, string $storeId): void
     }
 }
 
+function souq_default_bank_account(PDO $pdo, string $storeId): ?array
+{
+    if ($storeId === '') {
+        return null;
+    }
+    if (!function_exists('souq_table_exists') || !souq_table_exists($pdo, 'store_bank_accounts')) {
+        return null;
+    }
+    $st = $pdo->prepare(
+        'SELECT * FROM store_bank_accounts WHERE store_id = ? AND is_active = 1 ORDER BY is_default DESC, created_at ASC LIMIT 1',
+    );
+    $st->execute([$storeId]);
+    $row = $st->fetch(PDO::FETCH_ASSOC);
+
+    return $row ?: null;
+}
+
+/** @return array<string, mixed> */
+function souq_format_public_bank_account(array $row): array
+{
+    return [
+        'id' => (string)($row['id'] ?? ''),
+        'bank_name' => (string)($row['bank_name'] ?? ''),
+        'bank_name_ar' => $row['bank_name_ar'] ?? null,
+        'account_title' => (string)($row['account_title'] ?? ''),
+        'account_title_ar' => $row['account_title_ar'] ?? null,
+        'iban' => (string)($row['iban'] ?? ''),
+        'account_number' => $row['account_number'] ?? null,
+        'payment_reference_prefix' => $row['payment_reference_prefix'] ?? null,
+    ];
+}
+
 /** Free defaults: flat rate + store pickup (no courier API). */
 function souq_ensure_shipping_defaults(PDO $pdo, string $storeId): void
 {
@@ -319,9 +451,12 @@ function souq_normalize_source(?string $raw): string
     if (str_contains($s, 'facebook')) return 'Facebook';
     if (str_contains($s, 'google')) return 'Google Ads';
     if (str_contains($s, 'organic') || $s === 'search') return 'Organic Search';
-    if (str_contains($s, 'referral')) return 'Referral';
+    if (str_contains($s, 'referral') || str_contains($s, 'telegram') || str_contains($s, 'email') || str_contains($s, 'influencer') || str_contains($s, 'qr')) {
+        return 'Referral';
+    }
     if ($s === 'direct') return 'Direct';
-    return 'Direct';
+    // Tagged but unknown platform → Referral (never invent WhatsApp/Facebook).
+    return 'Referral';
 }
 
 function souq_payment_method(?string $raw): string
@@ -690,6 +825,14 @@ function souq_fmt_growth(?float $growth): ?string
 
 function souq_customer_row(array $row): array
 {
+    $dob = $row['dob'] ?? null;
+    if ($dob !== null && $dob !== '') {
+        $dob = substr((string)$dob, 0, 10);
+    } else {
+        $dob = null;
+    }
+    $gender = isset($row['gender']) && $row['gender'] !== '' ? (string)$row['gender'] : null;
+
     return [
         'id' => $row['id'],
         'store_id' => $row['store_id'],
@@ -698,6 +841,8 @@ function souq_customer_row(array $row): array
         'phone' => $row['phone'],
         'city' => $row['city'] ?: '',
         'country' => $row['country'] ?: 'Saudi Arabia',
+        'gender' => $gender,
+        'dob' => $dob,
         'acquisition_source' => $row['acquisition_source'] ?: 'Direct',
         'group' => $row['group'] ?: 'Regular',
         'status' => $row['status'] ?: 'New',
@@ -1553,11 +1698,20 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             $cols[] = 'customer_notes';
             $vals[] = mb_substr($customerNotesIn, 0, 2000);
         }
-        foreach (['medium', 'campaign', 'utm_term', 'utm_content', 'delivery_mode'] as $utmCol) {
+        try {
+            souq_ensure_utm_schema($pdo);
+        } catch (Throwable) {
+            /* optional */
+        }
+        foreach ([
+            'medium', 'campaign', 'utm_term', 'utm_content', 'delivery_mode',
+            'first_touch_source', 'first_touch_medium', 'first_touch_campaign',
+            'first_touch_utm_term', 'first_touch_utm_content', 'landing_page', 'referral_host',
+        ] as $utmCol) {
             $utmVal = trim((string) ($input[$utmCol] ?? ''));
             if ($utmVal !== '' && function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'orders', $utmCol)) {
                 $cols[] = $utmCol;
-                $vals[] = mb_substr($utmVal, 0, 191);
+                $vals[] = mb_substr($utmVal, 0, $utmCol === 'landing_page' ? 512 : 191);
             }
         }
         if (function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'orders', 'updated_at')) {
@@ -1919,8 +2073,18 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             return true;
         }
         $sessionKey = substr(trim((string)($input['session_key'] ?? '')), 0, 64);
+        $visitorKey = substr(trim((string)($input['visitor_key'] ?? '')), 0, 64);
         $path = substr((string)($input['path'] ?? ''), 0, 180);
         $source = souq_normalize_source($input['source'] ?? null);
+        $medium = substr(strtolower(trim((string)($input['medium'] ?? ''))), 0, 128);
+        $campaign = substr(strtolower(trim((string)($input['campaign'] ?? ''))), 0, 191);
+        $metaRaw = $input['meta'] ?? null;
+        $metaJson = null;
+        if (is_array($metaRaw)) {
+            $metaJson = json_encode($metaRaw, JSON_UNESCAPED_UNICODE);
+        } elseif (is_string($metaRaw) && trim($metaRaw) !== '') {
+            $metaJson = substr(trim($metaRaw), 0, 4000);
+        }
         $now = date('Y-m-d H:i:s');
         $mysql = souq_pdo_is_mysql($pdo);
 
@@ -1945,8 +2109,28 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
                 }
             }
 
-            $pdo->prepare('INSERT INTO analytics_events (store_id, event_name, path, source, session_key, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-                ->execute([$storeId, $name, $path, $source, $sessionKey !== '' ? $sessionKey : null, $now]);
+            $hasMedium = function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'analytics_events', 'medium');
+            $hasCampaign = function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'analytics_events', 'campaign');
+            $hasVisitor = function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'analytics_events', 'visitor_key');
+            $hasMeta = function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'analytics_events', 'meta');
+            if ($hasMedium && $hasCampaign && $hasVisitor && $hasMeta) {
+                $pdo->prepare('INSERT INTO analytics_events (store_id, event_name, path, source, medium, campaign, session_key, visitor_key, meta, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+                    ->execute([
+                        $storeId,
+                        $name,
+                        $path,
+                        $source,
+                        $medium !== '' ? $medium : null,
+                        $campaign !== '' ? $campaign : null,
+                        $sessionKey !== '' ? $sessionKey : null,
+                        $visitorKey !== '' ? $visitorKey : null,
+                        $metaJson,
+                        $now,
+                    ]);
+            } else {
+                $pdo->prepare('INSERT INTO analytics_events (store_id, event_name, path, source, session_key, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+                    ->execute([$storeId, $name, $path, $source, $sessionKey !== '' ? $sessionKey : null, $now]);
+            }
         } catch (Throwable $e) {
             // Never break storefront for analytics — still acknowledge the event.
             echo json_encode(['ok' => true, 'success' => true, 'analytics' => 'skipped']);
@@ -2385,6 +2569,7 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
     }
 
     if ($uri === '/customers' && $method === 'GET') {
+        souq_ensure_customer_profile_columns($pdo);
         $st = $pdo->prepare('SELECT * FROM customers WHERE store_id = ? ORDER BY created_at DESC');
         $st->execute([$storeId]);
         $rows = [];
@@ -2392,6 +2577,139 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             $rows[] = souq_customer_row($row);
         }
         echo json_encode(['data' => $rows]);
+        return true;
+    }
+
+    if ($uri === '/customers' && $method === 'POST') {
+        souq_ensure_customer_profile_columns($pdo);
+        $name = trim((string)($input['name'] ?? ''));
+        $email = strtolower(trim((string)($input['email'] ?? '')));
+        $phone = trim((string)($input['phone'] ?? ''));
+        if ($name === '' || $email === '' || $phone === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'Name, email, and phone are required.']);
+            return true;
+        }
+        $id = trim((string)($input['id'] ?? ''));
+        if ($id === '') {
+            $id = 'cust-' . bin2hex(random_bytes(8));
+        }
+        $now = date('Y-m-d H:i:s');
+        $city = trim((string)($input['city'] ?? 'Makkah'));
+        $country = trim((string)($input['country'] ?? 'Saudi Arabia'));
+        $gender = trim((string)($input['gender'] ?? ''));
+        $dobRaw = trim((string)($input['dob'] ?? ''));
+        $dob = preg_match('/^\d{4}-\d{2}-\d{2}/', $dobRaw) ? substr($dobRaw, 0, 10) : null;
+        $group = trim((string)($input['group'] ?? 'Regular')) ?: 'Regular';
+        $status = trim((string)($input['status'] ?? 'New')) ?: 'New';
+        $source = trim((string)($input['acquisition_source'] ?? $input['source'] ?? 'Direct')) ?: 'Direct';
+        $cols = ['id', 'store_id', 'name', 'email', 'phone', 'city', 'country', 'acquisition_source', '`group`', 'status', 'total_orders', 'total_spend', 'avg_order_value', 'created_at', 'points'];
+        $vals = [$id, $storeId, $name, $email, $phone, $city, $country, $source, $group, $status, 0, 0, 0, $now, 0];
+        if (souq_table_has_column($pdo, 'customers', 'gender')) {
+            $cols[] = 'gender';
+            $vals[] = $gender !== '' ? $gender : null;
+        }
+        if (souq_table_has_column($pdo, 'customers', 'dob')) {
+            $cols[] = 'dob';
+            $vals[] = $dob;
+        }
+        if (souq_table_has_column($pdo, 'customers', 'updated_at')) {
+            $cols[] = 'updated_at';
+            $vals[] = $now;
+        }
+        $placeholders = implode(', ', array_fill(0, count($cols), '?'));
+        try {
+            $pdo->prepare('INSERT INTO customers (' . implode(', ', $cols) . ') VALUES (' . $placeholders . ')')->execute($vals);
+        } catch (Throwable $e) {
+            http_response_code(422);
+            echo json_encode(['message' => 'Failed to create customer.']);
+            return true;
+        }
+        $st = $pdo->prepare('SELECT * FROM customers WHERE id = ? AND store_id = ? LIMIT 1');
+        $st->execute([$id, $storeId]);
+        $row = $st->fetch() ?: [];
+        echo json_encode(['data' => souq_customer_row($row)]);
+        return true;
+    }
+
+    if (preg_match('#^/customers/([^/]+)$#', $uri, $cm) && in_array($method, ['PATCH', 'PUT'], true)) {
+        souq_ensure_customer_profile_columns($pdo);
+        $custId = $cm[1];
+        $st = $pdo->prepare('SELECT * FROM customers WHERE id = ? AND store_id = ? LIMIT 1');
+        $st->execute([$custId, $storeId]);
+        $existing = $st->fetch();
+        if (!$existing) {
+            http_response_code(404);
+            echo json_encode(['message' => 'Customer not found.']);
+            return true;
+        }
+        $sets = [];
+        $vals = [];
+        $map = [
+            'name' => 'name',
+            'email' => 'email',
+            'phone' => 'phone',
+            'city' => 'city',
+            'country' => 'country',
+            'group' => '`group`',
+            'status' => 'status',
+            'acquisition_source' => 'acquisition_source',
+        ];
+        foreach ($map as $inKey => $col) {
+            if (array_key_exists($inKey, $input)) {
+                $sets[] = $col . ' = ?';
+                $vals[] = $inKey === 'email'
+                    ? strtolower(trim((string)$input[$inKey]))
+                    : trim((string)$input[$inKey]);
+            }
+        }
+        if (array_key_exists('source', $input) && !array_key_exists('acquisition_source', $input)) {
+            $sets[] = 'acquisition_source = ?';
+            $vals[] = trim((string)$input['source']);
+        }
+        if (array_key_exists('gender', $input) && souq_table_has_column($pdo, 'customers', 'gender')) {
+            $g = trim((string)($input['gender'] ?? ''));
+            $sets[] = 'gender = ?';
+            $vals[] = $g !== '' ? $g : null;
+        }
+        if (array_key_exists('dob', $input) && souq_table_has_column($pdo, 'customers', 'dob')) {
+            $dobRaw = trim((string)($input['dob'] ?? ''));
+            $sets[] = 'dob = ?';
+            $vals[] = preg_match('/^\d{4}-\d{2}-\d{2}/', $dobRaw) ? substr($dobRaw, 0, 10) : null;
+        }
+        foreach (['total_orders' => 'total_orders', 'total_spend' => 'total_spend', 'avg_order_value' => 'avg_order_value'] as $inKey => $col) {
+            if (array_key_exists($inKey, $input)) {
+                $sets[] = $col . ' = ?';
+                $vals[] = $inKey === 'total_orders' ? (int)$input[$inKey] : (float)$input[$inKey];
+            }
+        }
+        if (array_key_exists('last_order_date', $input)) {
+            $sets[] = 'last_order_date = ?';
+            $vals[] = $input['last_order_date'] !== null && $input['last_order_date'] !== ''
+                ? (string)$input['last_order_date']
+                : null;
+        }
+        if ($sets === []) {
+            echo json_encode(['data' => souq_customer_row($existing)]);
+            return true;
+        }
+        if (souq_table_has_column($pdo, 'customers', 'updated_at')) {
+            $sets[] = 'updated_at = ?';
+            $vals[] = date('Y-m-d H:i:s');
+        }
+        $vals[] = $custId;
+        $vals[] = $storeId;
+        try {
+            $pdo->prepare('UPDATE customers SET ' . implode(', ', $sets) . ' WHERE id = ? AND store_id = ?')->execute($vals);
+        } catch (Throwable) {
+            http_response_code(422);
+            echo json_encode(['message' => 'Failed to update customer.']);
+            return true;
+        }
+        $st2 = $pdo->prepare('SELECT * FROM customers WHERE id = ? AND store_id = ? LIMIT 1');
+        $st2->execute([$custId, $storeId]);
+        $fresh = $st2->fetch() ?: $existing;
+        echo json_encode(['data' => souq_customer_row($fresh)]);
         return true;
     }
 
@@ -3038,8 +3356,12 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             ['id' => 'cod', 'provider' => 'cod', 'name_ar' => 'الدفع نقداً عند الاستلام', 'name_en' => 'Cash on Delivery', 'type' => 'cod', 'icon' => 'cod', 'is_instant' => false],
             ['id' => 'bank_transfer', 'provider' => 'bank_transfer', 'name_ar' => 'تحويل بنكي', 'name_en' => 'Bank Transfer', 'type' => 'bank_transfer', 'icon' => 'bank_transfer', 'is_instant' => false],
         ];
+        $bankAccount = souq_default_bank_account($pdo, $sid);
         $methods = [];
         foreach ($catalog as $row) {
+            if (($row['id'] ?? '') === 'bank_transfer' && ! $bankAccount) {
+                continue;
+            }
             if (!isset($connected[$row['provider']])) {
                 continue;
             }
@@ -3052,12 +3374,32 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             }
             $methods[] = $row;
         }
-        echo json_encode([
+        $payload = [
             'success' => true,
             'store_id' => $sid,
             'currency' => 'SAR',
             'methods' => $methods,
             'gateways_configured' => count($connected),
+        ];
+        if ($bankAccount) {
+            $payload['bank_account'] = souq_format_public_bank_account($bankAccount);
+        }
+        echo json_encode($payload);
+        return true;
+    }
+
+    if ($uri === '/storefront/payments/bank-account' && $method === 'GET') {
+        $sid = $storeId !== '' ? $storeId : trim((string)($_GET['store_id'] ?? ''));
+        if ($sid === '') {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'X-Store-Id is required.']);
+            return true;
+        }
+        $bankAccount = souq_default_bank_account($pdo, $sid);
+        echo json_encode([
+            'success' => true,
+            'store_id' => $sid,
+            'data' => $bankAccount ? souq_format_public_bank_account($bankAccount) : null,
         ]);
         return true;
     }
@@ -3092,8 +3434,16 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             echo json_encode(['success' => false, 'checkout_ready' => false, 'message' => 'Payment gateway keys are missing.']);
             return true;
         }
+        if ($payMethod === 'bank_transfer') {
+            $bank = souq_default_bank_account($pdo, $sid);
+            if (! $bank) {
+                http_response_code(422);
+                echo json_encode(['success' => false, 'checkout_ready' => false, 'message' => 'No active bank account configured for this store.']);
+                return true;
+            }
+        }
         $ref = strtoupper($provider) . '-' . strtoupper(bin2hex(random_bytes(5)));
-        echo json_encode([
+        $out = [
             'success' => true,
             'store_id' => $sid,
             'order_id' => $input['order_id'] ?? null,
@@ -3105,7 +3455,14 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             'currency' => 'SAR',
             'checkout_ready' => true,
             'timestamp' => date('c'),
-        ]);
+        ];
+        if ($payMethod === 'bank_transfer') {
+            $bank = souq_default_bank_account($pdo, $sid);
+            if ($bank) {
+                $out['bank_account'] = souq_format_public_bank_account($bank);
+            }
+        }
+        echo json_encode($out);
         return true;
     }
 
@@ -3128,13 +3485,9 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             echo json_encode(['verified' => false, 'status' => 'failed', 'message' => 'Payment gateway is not connected for this store.']);
             return true;
         }
-        // COD / bank: pending until merchant confirms. Card gateways need real Moyasar capture — never fake paid.
+        // COD / bank: pending until merchant confirms. Never mark verified=true without gateway paid.
         $status = in_array($provider, ['cod', 'bank_transfer'], true) ? 'pending' : 'failed';
         $verified = false;
-        if ($provider === 'cod') {
-            $status = 'pending';
-            $verified = true; // order may proceed; cash collected later
-        }
         if ($orderId !== '' && $status === 'pending') {
             $pdo->prepare('UPDATE orders SET payment_status = ?, payment_method = ? WHERE id = ? AND store_id = ?')
                 ->execute([$provider === 'cod' ? 'COD Pending' : 'Pending', $input['payment_method'] ?? $provider, $orderId, $sid]);
@@ -3611,16 +3964,32 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
                 : null;
             $isFree = ($type === 'free')
                 || ($threshold !== null && $threshold > 0 && $orderTotal >= $threshold);
+            $fulfillment = (string)($m['fulfillment_mode'] ?? 'courier');
             if ($isFree) {
                 $rate = 0.0;
             } elseif ($type === 'weight_based' && $perKg > 0) {
                 $rate = $base + ($weightKg * $perKg);
-            } elseif ($perKm > 0 && $distanceKm > 0) {
-                $rate = $base + ($distanceKm * $perKm);
+            } elseif ($perKm > 0) {
+                // Distance band: base + per_km, soft-capped +10 SAR (e.g. 10→20).
+                $rate = $base + (max(0.0, $distanceKm) * $perKm);
+                $rate = min($base + 10.0, max($base, $rate));
+            } elseif (
+                $sid === 'store-coffee'
+                && $fulfillment === 'own_delivery'
+                && $type !== 'local_pickup'
+            ) {
+                // Makkah local own fleet: 10–20 SAR by distance (live fallback).
+                $bandBase = 10.0;
+                $rate = min(20.0, max($bandBase, $bandBase + (max(0.0, $distanceKm) * 1.0)));
             } else {
                 $rate = $base;
             }
             $rate = round($rate, 2);
+            $logoUrl = $m['logo_url'] ?? null;
+            // Hide broken SPL PNG (file not in shipping-methods pack).
+            if (is_string($logoUrl) && stripos($logoUrl, 'spl.png') !== false) {
+                $logoUrl = null;
+            }
             $row = [
                 'id' => (string)$m['id'],
                 'name' => (string)$m['name'],
@@ -3631,8 +4000,8 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
                 'is_free' => $isFree,
                 'estimated_delivery' => (string)($m['estimated_delivery'] ?? '2-4 Days'),
                 'courier_code' => $m['courier_code'] ?? null,
-                'logo_url' => $m['logo_url'] ?? null,
-                'fulfillment_mode' => (string)($m['fulfillment_mode'] ?? 'courier'),
+                'logo_url' => $logoUrl,
+                'fulfillment_mode' => $fulfillment,
                 'is_cod_allowed' => (bool)(int)($m['is_cod_allowed'] ?? 1),
                 'city' => $city !== '' ? $city : null,
             ];
@@ -3814,6 +4183,327 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             ];
         }
         echo json_encode($payload);
+        return true;
+    }
+
+    // ── UTM saved links (per store_id) ──
+    if ($uri === '/utm-links' && in_array($method, ['GET', 'POST'], true)) {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        try {
+            souq_ensure_utm_schema($pdo);
+            souq_ensure_analytics_tables($pdo);
+        } catch (Throwable) {
+            /* continue */
+        }
+        if ($method === 'GET') {
+            $rows = [];
+            try {
+                $st = $pdo->prepare('SELECT * FROM store_utm_links WHERE store_id = ? ORDER BY created_at DESC LIMIT 200');
+                $st->execute([$storeId]);
+                while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+                    $campaign = strtolower(trim((string)($r['utm_campaign'] ?? '')));
+                    $medium = strtolower(trim((string)($r['utm_medium'] ?? '')));
+                    $srcRaw = strtolower(trim((string)($r['utm_source'] ?? '')));
+                    $sessions = 0;
+                    $orders = 0;
+                    $revenue = 0.0;
+                    try {
+                        $hasCamp = function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'analytics_events', 'campaign');
+                        if ($hasCamp && $campaign !== '') {
+                            $es = $pdo->prepare("SELECT COUNT(DISTINCT CASE WHEN session_key IS NOT NULL AND session_key != '' THEN session_key END) c FROM analytics_events WHERE store_id = ? AND event_name = 'page_view' AND LOWER(COALESCE(campaign,'')) = ? AND LOWER(COALESCE(medium,'')) = ?");
+                            $es->execute([$storeId, $campaign, $medium]);
+                            $sessions = (int)$es->fetchColumn();
+                        }
+                        $os = $pdo->prepare("SELECT COUNT(*) c, COALESCE(SUM(total_amount),0) revenue FROM orders WHERE store_id = ? AND status != 'cancelled' AND LOWER(COALESCE(campaign,'')) = ? AND LOWER(COALESCE(medium,'')) = ?");
+                        $os->execute([$storeId, $campaign, $medium]);
+                        $or = $os->fetch(PDO::FETCH_ASSOC) ?: [];
+                        $orders = (int)($or['c'] ?? 0);
+                        $revenue = (float)($or['revenue'] ?? 0);
+                    } catch (Throwable) {
+                        /* stats optional */
+                    }
+                    $rows[] = [
+                        'id' => (string)$r['id'],
+                        'name' => (string)$r['name'],
+                        'platform_key' => $r['platform_key'] ?? null,
+                        'target_path' => $r['target_path'] ?? null,
+                        'product_id' => $r['product_id'] ?? null,
+                        'url' => (string)$r['target_url'],
+                        'source' => (string)($r['utm_source'] ?? $srcRaw),
+                        'medium' => (string)($r['utm_medium'] ?? $medium),
+                        'campaign' => (string)($r['utm_campaign'] ?? $campaign),
+                        'term' => $r['utm_term'] ?? null,
+                        'content' => $r['utm_content'] ?? null,
+                        'created_at' => $r['created_at'] ?? null,
+                        'clicks' => $sessions,
+                        'conversions' => $orders,
+                        'revenue' => $revenue,
+                    ];
+                }
+            } catch (Throwable $e) {
+                $rows = [];
+            }
+            echo json_encode(['store_id' => $storeId, 'data' => $rows]);
+            return true;
+        }
+
+        // POST create
+        $name = trim((string)($input['name'] ?? ''));
+        $targetUrl = trim((string)($input['target_url'] ?? ''));
+        $utmSource = strtolower(trim((string)($input['utm_source'] ?? '')));
+        $utmMedium = strtolower(trim((string)($input['utm_medium'] ?? '')));
+        $utmCampaign = strtolower(trim((string)($input['utm_campaign'] ?? '')));
+        if ($name === '' || $targetUrl === '' || $utmSource === '' || $utmMedium === '' || $utmCampaign === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'name, target_url, utm_source, utm_medium, utm_campaign required.']);
+            return true;
+        }
+        $id = 'utm-' . bin2hex(random_bytes(8));
+        $now = date('Y-m-d H:i:s');
+        try {
+            $pdo->prepare(
+                'INSERT INTO store_utm_links (id, store_id, name, platform_key, target_path, product_id, target_url, utm_source, utm_medium, utm_campaign, utm_term, utm_content, click_sessions, conversion_count, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)'
+            )->execute([
+                $id,
+                $storeId,
+                mb_substr($name, 0, 191),
+                ($input['platform_key'] ?? null) !== null && (string)$input['platform_key'] !== '' ? mb_substr((string)$input['platform_key'], 0, 64) : null,
+                ($input['target_path'] ?? null) !== null && (string)$input['target_path'] !== '' ? mb_substr((string)$input['target_path'], 0, 512) : null,
+                ($input['product_id'] ?? null) !== null && (string)$input['product_id'] !== '' ? mb_substr((string)$input['product_id'], 0, 64) : null,
+                mb_substr($targetUrl, 0, 1024),
+                mb_substr($utmSource, 0, 128),
+                mb_substr($utmMedium, 0, 128),
+                mb_substr($utmCampaign, 0, 191),
+                ($input['utm_term'] ?? null) !== null && trim((string)$input['utm_term']) !== '' ? mb_substr(trim((string)$input['utm_term']), 0, 128) : null,
+                ($input['utm_content'] ?? null) !== null && trim((string)$input['utm_content']) !== '' ? mb_substr(strtolower(trim((string)$input['utm_content'])), 0, 128) : null,
+                $now,
+                $now,
+            ]);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['message' => 'Failed to save UTM link.', 'error' => $e->getMessage()]);
+            return true;
+        }
+        http_response_code(201);
+        echo json_encode(['success' => true, 'id' => $id]);
+        return true;
+    }
+
+    if (preg_match('#^/utm-links/([^/]+)$#', $uri, $utmM) && $method === 'DELETE') {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        $linkId = (string)$utmM[1];
+        try {
+            souq_ensure_utm_schema($pdo);
+            $del = $pdo->prepare('DELETE FROM store_utm_links WHERE id = ? AND store_id = ?');
+            $del->execute([$linkId, $storeId]);
+            if ($del->rowCount() < 1) {
+                http_response_code(404);
+                echo json_encode(['message' => 'Not found.']);
+                return true;
+            }
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['message' => 'Delete failed.']);
+            return true;
+        }
+        echo json_encode(['success' => true]);
+        return true;
+    }
+
+    // ── Souq internal marketing analytics (events + orders; not GA4) ──
+    if ($uri === '/analytics/marketing' && $method === 'GET') {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        try {
+            souq_ensure_analytics_tables($pdo);
+            souq_ensure_utm_schema($pdo);
+        } catch (Throwable) {
+            /* optional */
+        }
+
+        $fromQ = trim((string)($_GET['from'] ?? ''));
+        $toQ = trim((string)($_GET['to'] ?? ''));
+        $range = (string)($_GET['range'] ?? '30d');
+        if ($fromQ !== '' && $toQ !== '' && preg_match('/^\d{4}-\d{2}-\d{2}/', $fromQ) && preg_match('/^\d{4}-\d{2}-\d{2}/', $toQ)) {
+            $start = substr($fromQ, 0, 10) . ' 00:00:00';
+            $end = substr($toQ, 0, 10) . ' 23:59:59';
+        } else {
+            $days = match ($range) {
+                'today' => 0,
+                'yesterday' => 1,
+                '7d' => 7,
+                '90d' => 90,
+                default => 30,
+            };
+            if ($range === 'today') {
+                $start = date('Y-m-d') . ' 00:00:00';
+                $end = date('Y-m-d H:i:s');
+            } elseif ($range === 'yesterday') {
+                $start = date('Y-m-d', strtotime('-1 day')) . ' 00:00:00';
+                $end = date('Y-m-d', strtotime('-1 day')) . ' 23:59:59';
+            } else {
+                $end = date('Y-m-d H:i:s');
+                $start = date('Y-m-d H:i:s', strtotime("-{$days} days"));
+            }
+        }
+
+        $sessions = 0;
+        $pageViews = 0;
+        $productViews = 0;
+        $addToCart = 0;
+        $beginCheckout = 0;
+        $purchases = 0;
+        $uniqueVisitors = 0;
+        $newVisitors = 0;
+        $returningVisitors = 0;
+        $trafficBySource = [];
+        $trafficByMedium = [];
+        $productVisitors = [];
+
+        try {
+            $st = $pdo->prepare("SELECT COUNT(DISTINCT CASE WHEN session_key IS NOT NULL AND session_key != '' THEN session_key END) sessions FROM analytics_events WHERE store_id = ? AND event_name = 'page_view' AND created_at >= ? AND created_at <= ?");
+            $st->execute([$storeId, $start, $end]);
+            $sessions = (int)$st->fetchColumn();
+
+            $ec = $pdo->prepare('SELECT event_name, COUNT(*) c FROM analytics_events WHERE store_id = ? AND created_at >= ? AND created_at <= ? GROUP BY event_name');
+            $ec->execute([$storeId, $start, $end]);
+            while ($r = $ec->fetch(PDO::FETCH_ASSOC)) {
+                $n = (string)$r['event_name'];
+                $c = (int)$r['c'];
+                if ($n === 'page_view') $pageViews = $c;
+                if ($n === 'product_view') $productViews = $c;
+                if ($n === 'add_to_cart') $addToCart = $c;
+                if ($n === 'begin_checkout') $beginCheckout = $c;
+                if ($n === 'purchase') $purchases = $c;
+            }
+
+            if (function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'analytics_events', 'visitor_key')) {
+                $vs = $pdo->prepare("SELECT visitor_key, COUNT(DISTINCT session_key) sess_cnt FROM analytics_events WHERE store_id = ? AND event_name = 'page_view' AND created_at >= ? AND created_at <= ? AND visitor_key IS NOT NULL AND visitor_key != '' GROUP BY visitor_key");
+                $vs->execute([$storeId, $start, $end]);
+                while ($r = $vs->fetch(PDO::FETCH_ASSOC)) {
+                    $uniqueVisitors++;
+                    if ((int)($r['sess_cnt'] ?? 0) > 1) {
+                        $returningVisitors++;
+                    } else {
+                        $newVisitors++;
+                    }
+                }
+            }
+            if ($uniqueVisitors <= 0) {
+                $uniqueVisitors = $sessions;
+                $newVisitors = $sessions;
+            }
+
+            $ss = $pdo->prepare("SELECT COALESCE(NULLIF(TRIM(source), ''), 'Direct') src, COUNT(DISTINCT CASE WHEN session_key IS NOT NULL AND session_key != '' THEN session_key END) sessions FROM analytics_events WHERE store_id = ? AND event_name = 'page_view' AND created_at >= ? AND created_at <= ? GROUP BY src ORDER BY sessions DESC LIMIT 30");
+            $ss->execute([$storeId, $start, $end]);
+            while ($r = $ss->fetch(PDO::FETCH_ASSOC)) {
+                $trafficBySource[] = ['source' => (string)$r['src'], 'sessions' => (int)$r['sessions']];
+            }
+
+            if (function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'analytics_events', 'medium')) {
+                $ms = $pdo->prepare("SELECT COALESCE(NULLIF(TRIM(medium), ''), 'none') med, COUNT(DISTINCT CASE WHEN session_key IS NOT NULL AND session_key != '' THEN session_key END) sessions FROM analytics_events WHERE store_id = ? AND event_name = 'page_view' AND created_at >= ? AND created_at <= ? GROUP BY med ORDER BY sessions DESC LIMIT 30");
+                $ms->execute([$storeId, $start, $end]);
+                while ($r = $ms->fetch(PDO::FETCH_ASSOC)) {
+                    $trafficByMedium[] = ['medium' => (string)$r['med'], 'sessions' => (int)$r['sessions']];
+                }
+            }
+
+            $pv = $pdo->prepare("SELECT path, COUNT(*) views FROM analytics_events WHERE store_id = ? AND event_name = 'product_view' AND created_at >= ? AND created_at <= ? GROUP BY path ORDER BY views DESC LIMIT 25");
+            $pv->execute([$storeId, $start, $end]);
+            while ($r = $pv->fetch(PDO::FETCH_ASSOC)) {
+                $productVisitors[] = [
+                    'product_id' => (string)$r['path'],
+                    'views' => (int)$r['views'],
+                    'orders' => 0,
+                    'conv_rate' => 0.0,
+                ];
+            }
+        } catch (Throwable) {
+            /* empty analytics */
+        }
+
+        $totalOrders = 0;
+        $totalRevenue = 0.0;
+        $campaignRows = [];
+        $revenueBySource = [];
+        try {
+            $oq = $pdo->prepare("SELECT COUNT(*) c, COALESCE(SUM(total_amount),0) revenue FROM orders WHERE store_id = ? AND status != 'cancelled' AND created_at >= ? AND created_at <= ?");
+            $oq->execute([$storeId, $start, $end]);
+            $or = $oq->fetch(PDO::FETCH_ASSOC) ?: [];
+            $totalOrders = (int)($or['c'] ?? 0);
+            $totalRevenue = (float)($or['revenue'] ?? 0);
+
+            $cq = $pdo->prepare("SELECT campaign, COALESCE(NULLIF(source,''), 'Unknown') channel, COUNT(*) orders, COALESCE(SUM(total_amount),0) revenue FROM orders WHERE store_id = ? AND status != 'cancelled' AND created_at >= ? AND created_at <= ? AND campaign IS NOT NULL AND campaign != '' GROUP BY campaign, channel ORDER BY revenue DESC LIMIT 50");
+            $cq->execute([$storeId, $start, $end]);
+            while ($r = $cq->fetch(PDO::FETCH_ASSOC)) {
+                $campaignRows[] = [
+                    'campaign' => (string)$r['campaign'],
+                    'channel' => (string)$r['channel'],
+                    'orders' => (int)$r['orders'],
+                    'revenue' => (float)$r['revenue'],
+                    'conv_rate' => $sessions > 0 ? round(((int)$r['orders'] / $sessions) * 100, 2) : 0.0,
+                ];
+            }
+
+            $rq = $pdo->prepare("SELECT COALESCE(NULLIF(source,''), 'Direct') src, COUNT(*) orders, COALESCE(SUM(total_amount),0) revenue FROM orders WHERE store_id = ? AND status != 'cancelled' AND created_at >= ? AND created_at <= ? GROUP BY src ORDER BY revenue DESC");
+            $rq->execute([$storeId, $start, $end]);
+            while ($r = $rq->fetch(PDO::FETCH_ASSOC)) {
+                $revenueBySource[] = [
+                    'source' => (string)$r['src'],
+                    'orders' => (int)$r['orders'],
+                    'revenue' => (float)$r['revenue'],
+                ];
+            }
+        } catch (Throwable) {
+            /* empty orders */
+        }
+
+        $aov = $totalOrders > 0 ? round($totalRevenue / $totalOrders, 2) : 0.0;
+        $convRate = $sessions > 0 ? round(($totalOrders / $sessions) * 100, 2) : 0.0;
+        $cartRate = $sessions > 0 ? round(($addToCart / $sessions) * 100, 2) : 0.0;
+        $checkoutAbandon = $beginCheckout > 0
+            ? round((max(0, $beginCheckout - $totalOrders) / $beginCheckout) * 100, 2)
+            : 0.0;
+
+        echo json_encode([
+            'store_id' => $storeId,
+            'source' => 'souq_internal',
+            'range' => ['from' => $start, 'to' => $end],
+            'kpis' => [
+                'sessions' => $sessions,
+                'unique_visitors' => $uniqueVisitors,
+                'page_views' => $pageViews,
+                'new_visitors' => $newVisitors,
+                'returning_visitors' => $returningVisitors,
+                'total_orders' => $totalOrders,
+                'revenue' => $totalRevenue,
+                'conversion_rate' => $convRate,
+                'average_order_value' => $aov,
+                'add_to_cart_rate' => $cartRate,
+                'checkout_abandonment_rate' => $checkoutAbandon,
+                'product_views' => $productViews,
+                'add_to_cart' => $addToCart,
+                'checkouts_started' => $beginCheckout,
+                'purchase_events' => $purchases,
+            ],
+            'traffic_by_source' => $trafficBySource,
+            'traffic_by_medium' => $trafficByMedium,
+            'campaign_performance' => $campaignRows,
+            'revenue_by_source' => $revenueBySource,
+            'product_analytics' => $productVisitors,
+        ]);
         return true;
     }
 

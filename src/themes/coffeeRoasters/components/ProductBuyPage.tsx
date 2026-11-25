@@ -15,7 +15,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Headphones,
-  Check,
   ChevronDown,
   ChevronUp,
   MessageSquare,
@@ -36,9 +35,16 @@ import { ProductComparisonSection } from './ProductComparisonSection';
 import { GroupChildrenComparison } from './GroupChildrenComparison';
 import { ProductDynamicPurchase } from '../../../components/storefront/ProductDynamicPurchase';
 import {
+  HonorColorSwatch,
+  HonorMemoryCard,
+  HonorSelectMark,
+  honorCardStyle,
+} from '../../../components/storefront/honorSelectionUi';
+import {
   customFieldsExtra,
   initialOptionSelection,
   missingRequiredField,
+  missingRequiredFieldIds,
   purchaseNotes,
   resolveSelectionPrice,
   visibleProductOptions,
@@ -236,7 +242,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
     }
     (async () => {
       try {
-        const methods = await fetchStorefrontPaymentMethodsApi(storeId);
+        const { methods } = await fetchStorefrontPaymentMethodsApi(storeId);
         if (cancelled) return;
         const tamara = methods.find((m) => m.id === 'tamara' && m.is_enabled !== false);
         const tabby = methods.find((m) => m.id === 'tabby' && m.is_enabled !== false);
@@ -262,7 +268,8 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
         const fromQ = (q.get('product') || q.get('productId') || q.get('pid') || '').trim();
         if (fromQ) return fromQ;
         const path = String(window.location.pathname || '').replace(/\/$/, '') || '/';
-        const m = path.match(/(?:^|\/)product\/([^/]+)$/i);
+        // Short SEO paths: /product/{id} and /buy/{id}
+        const m = path.match(/(?:^|\/)(?:product|buy)\/([^/]+)$/i);
         return m ? decodeURIComponent(m[1]).trim() : '';
       } catch {
         return '';
@@ -282,33 +289,31 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
       );
       return;
     }
-    setGroupChildren([]);
-    setActiveChildId(null);
     const storeId = activeStore?.id;
     const parentId = parentProduct?.id;
-    if (
-      !storeId ||
-      !parentId ||
-      !(
-        parentProduct?.isGrouped ||
-        String(parentProduct?.productType || '').toLowerCase() === 'grouped'
-      )
-    ) {
+    const isGrouped =
+      Boolean(parentProduct?.isGrouped) ||
+      String(parentProduct?.productType || '').toLowerCase() === 'grouped';
+    if (!storeId || !parentId || !isGrouped) {
+      setGroupChildren([]);
+      setActiveChildId(null);
       return;
     }
+    // Keep prior children while refetching — clearing caused buyPageReady spinner / “auto refresh”.
     let cancelled = false;
     void fetchProduct(storeId, parentId)
       .then((full) => {
         if (cancelled) return;
         const kids = (full.groupChildren || []).map(mapApiChildToThemeProduct);
         setGroupChildren(kids);
-        setActiveChildId(pickChildId(kids));
+        setActiveChildId((prev) =>
+          prev && kids.some((c) => String(c.id) === String(prev))
+            ? String(prev)
+            : pickChildId(kids),
+        );
       })
       .catch(() => {
-        if (!cancelled) {
-          setGroupChildren([]);
-          setActiveChildId(null);
-        }
+        /* keep last good children */
       });
     return () => {
       cancelled = true;
@@ -350,6 +355,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [optionPick, setOptionPick] = useState<Record<string, string>>({});
   const [fieldValues, setFieldValues] = useState<FieldValueMap>({});
+  const [purchaseAttempted, setPurchaseAttempted] = useState(false);
 
   // Sync state whenever selected parent or active child changes — no URL navigation
   useEffect(() => {
@@ -362,6 +368,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
       setQuantity(1);
       setOptionPick(initialOptionSelection(product.productOptions as never, product.variations as never));
       setFieldValues({});
+      setPurchaseAttempted(false);
     }
   }, [parentProduct?.id, product?.id]);
 
@@ -507,11 +514,12 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
       !String(field.id || '').startsWith('catalog-spec-'),
   );
   const hasCustomFields = purchaseFields.length > 0;
-  const hasCustomCareField = purchaseFields.some((field) =>
-    /care|warranty|protection|حماية|رعاية|ضمان|صيانة|عناية/i.test(
-      `${field.name || ''} ${field.nameAr || ''} ${field.type || ''}`,
-    ),
-  );
+  const hasCustomCareField = purchaseFields.some((field) => {
+    const f = field as { name?: string; nameAr?: string; type?: string };
+    return /care|warranty|protection|حماية|رعاية|ضمان|صيانة|عناية/i.test(
+      `${f.name || ''} ${f.nameAr || ''} ${f.type || ''}`,
+    );
+  });
   const fieldExtra = useMemo(
     () =>
       customFieldsExtra(
@@ -688,7 +696,15 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
     : selectedStorage
       ? (language === 'AR' && selectedStorage.capacityAr ? selectedStorage.capacityAr : selectedStorage.capacity)
       : (language === 'AR' ? (product?.badgeAr || product?.badge || '') : (product?.badge || ''));
-  const blockedReason = !product
+  const requiredMissingIds = !product
+    ? []
+    : missingRequiredFieldIds(
+        purchaseFields as never,
+        fieldValues,
+        product.conditionalRules as never,
+        optionPick,
+      );
+  const requiredBlockedReason = !product
     ? null
     : missingRequiredField(
         purchaseFields as never,
@@ -696,17 +712,29 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
         product.conditionalRules as never,
         optionPick,
         language === 'AR',
-      ) ||
-      (useDynamicOptions && resolvedPick?.purchasable === false
-        ? language === 'AR'
-          ? 'هذا الخيار غير متوفر'
-          : 'This option is out of stock'
-        : null);
+      );
+  const outOfStockReason =
+    useDynamicOptions && resolvedPick?.purchasable === false
+      ? language === 'AR'
+        ? 'هذا الخيار غير متوفر'
+        : 'This option is out of stock'
+      : null;
+  const blockedReason = requiredBlockedReason || outOfStockReason;
+  const invalidFieldIds = purchaseAttempted ? requiredMissingIds : [];
+
+  const focusFirstInvalidField = (ids: string[]) => {
+    const first = ids[0];
+    if (!first) return;
+    const el = document.getElementById(`cf-field-${first}`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
 
   const handleAddToCart = (e?: React.MouseEvent) => {
     if (!product) return;
+    setPurchaseAttempted(true);
     if (blockedReason) {
       showToast(blockedReason);
+      focusFirstInvalidField(requiredMissingIds);
       return;
     }
     if (e) {
@@ -754,8 +782,10 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
 
   const handleInstantBuy = () => {
     if (!product) return;
+    setPurchaseAttempted(true);
     if (blockedReason) {
       showToast(blockedReason);
+      focusFirstInvalidField(requiredMissingIds);
       return;
     }
     const notes = purchaseNotes(
@@ -1675,6 +1705,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                 isAr={language === 'AR'}
                 tone="coffee"
                 basePrice={Number(product.basePrice) || 0}
+                invalidFieldIds={invalidFieldIds}
               />
             )}
             {useDynamicOptions && resolvedPick?.purchasable === false && (
@@ -1741,81 +1772,67 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               </div>
             ) : null}
 
-            {/* 2. COLOR SELECTION — only real colors (never fake Default) */}
+            {/* 2. COLOR — Honor ring (one select) */}
             {hasLegacyColors && (
             <div className="space-y-3 pt-3 border-t border-neutral-100">
               <h2 className="text-base font-extrabold text-neutral-900 tracking-tight">
                 {language === 'AR' ? 'اللون' : 'Color'}
               </h2>
-
-              {/* Swatch circular dots */}
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 flex-wrap" role="radiogroup" aria-label={language === 'AR' ? 'اللون' : 'Color'}>
                 {productColors.map((c, idx) => {
                   const isSelected = selectedColor?.name === c.name;
+                  const label = language === 'AR' && c.nameAr ? c.nameAr : c.name;
                   return (
-                    <button
+                    <HonorColorSwatch
                       key={c.name || idx}
+                      hex={c.hex}
+                      selected={isSelected}
+                      label={label}
                       onClick={() => handleColorChange(c)}
-                      aria-label={c.name}
-                      className={`relative w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-                        isSelected
-                          ? 'ring-2 ring-black ring-offset-2 scale-105'
-                          : 'hover:scale-105 opacity-80 hover:opacity-100'
-                      }`}
-                    >
-                      <span
-                        className="w-full h-full rounded-full border border-neutral-300/80 block"
-                        style={{ backgroundColor: c.hex }}
-                      />
-                    </button>
+                    />
                   );
                 })}
               </div>
-
-              {/* Selected Color Name and Price */}
-              <div className="pt-1">
+              <div className="pt-1 space-y-1">
                 <div className="text-sm font-bold text-neutral-900">
                   {language === 'AR' && selectedColor?.nameAr ? selectedColor.nameAr : selectedColor?.name}
                 </div>
-                <div className="text-xs text-neutral-500 font-sans mt-0.5">
-                  {language === 'AR' ? `${unitPrice.toLocaleString()}.00 ⃁` : `⃁ ${unitPrice.toLocaleString()}.00`}
+                <div className="inline-block px-2.5 py-1 rounded-md bg-[#2B7CD3] text-white text-xs font-bold font-sans">
+                  {language === 'AR' ? `${unitPrice.toLocaleString()}.00 ⃁` : `SAR ${unitPrice.toLocaleString()}.00`}
                 </div>
               </div>
             </div>
             )}
 
-            {/* 3. SPECIFICATION EDITIONS (Screenshot 2 Rounded Cards) */}
+            {/* 3. Memory / edition — Honor card (selected = thick black border) */}
             {hasLegacyStorage && product.storageOptions && (
               <div className="space-y-3 pt-3 border-t border-neutral-100">
                 <h2 className="text-base font-extrabold text-neutral-900 tracking-tight">
                   {language === 'AR' ? 'الإصدار / المواصفات' : 'Specification / Edition'}
                 </h2>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="radiogroup">
                   {product.storageOptions.map((opt, idx) => {
                     const isSelected = selectedStorage?.capacity === opt.capacity;
                     const optPrice = product.basePrice + colorOrImagePriceDelta + (opt.priceDelta || 0);
                     return (
-                      <button
+                      <HonorMemoryCard
                         key={opt.capacity || idx}
+                        selected={isSelected}
+                        title={language === 'AR' && opt.capacityAr ? opt.capacityAr : opt.capacity}
+                        subtitle={
+                          opt.ramAr || opt.ram
+                            ? language === 'AR' && opt.ramAr
+                              ? opt.ramAr
+                              : opt.ram
+                            : undefined
+                        }
+                        priceLabel={
+                          language === 'AR'
+                            ? `${optPrice.toLocaleString()}.00 ⃁`
+                            : `SAR ${optPrice.toLocaleString()}.00`
+                        }
                         onClick={() => setSelectedStorage(opt)}
-                        className={`p-4 rounded-xl text-start transition-all cursor-pointer bg-white shadow-none border border-solid border-black box-border ${
-                          isSelected ? 'bg-neutral-50' : ''
-                        }`}
-                        style={{ boxShadow: 'none', border: '1px solid #000000' }}
-                      >
-                        <div className="font-extrabold text-sm text-neutral-900">
-                          {language === 'AR' && opt.capacityAr ? opt.capacityAr : opt.capacity}
-                        </div>
-                        {(opt.ramAr || opt.ram) && (
-                          <div className="text-xs text-neutral-500 mt-0.5">
-                            {language === 'AR' && opt.ramAr ? opt.ramAr : opt.ram}
-                          </div>
-                        )}
-                        <div className="font-sans text-xs font-semibold text-neutral-600 mt-2">
-                          {language === 'AR' ? `${optPrice.toLocaleString()}.00 ⃁` : `⃁ ${optPrice.toLocaleString()}.00`}
-                        </div>
-                      </button>
+                      />
                     );
                   })}
                 </div>
@@ -1839,27 +1856,17 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
                     return (
                       <button
                         key={bundle.id}
+                        type="button"
+                        role="checkbox"
+                        aria-checked={isSelected}
                         onClick={() => toggleBundle(bundle)}
-                        className={`w-full px-4 py-3.5 rounded-xl flex items-center gap-3 transition-all cursor-pointer bg-white shadow-none box-border ${
-                          isSelected ? 'bg-neutral-50 font-bold' : ''
+                        className={`w-full px-4 py-3.5 flex items-center gap-3 transition-all cursor-pointer box-border ${
+                          isSelected ? 'bg-neutral-50 font-bold' : 'bg-white'
                         }`}
                         data-honor-offer-row="1"
-                        style={{
-                          boxShadow: 'none',
-                          border: '1px solid #9A9A9A',
-                          outline: '1px solid #9A9A9A',
-                          outlineOffset: '-1px',
-                          borderRadius: '12px',
-                        }}
+                        style={honorCardStyle(isSelected)}
                       >
-                        <div
-                          className={`w-[18px] h-[18px] rounded-[3px] flex items-center justify-center shrink-0 border border-solid border-neutral-900 box-border ${
-                            isSelected ? 'bg-black text-white' : 'bg-white'
-                          }`}
-                          style={{ boxShadow: 'none', border: '1px solid #000000', borderColor: '#000000' }}
-                        >
-                          {isSelected ? <Check className="w-3 h-3" /> : null}
-                        </div>
+                        <HonorSelectMark selected={isSelected} multiple />
                         <span className="flex-1 min-w-0 text-start font-bold text-xs sm:text-sm text-neutral-900">
                           {language === 'AR' && bundle.nameAr ? bundle.nameAr : bundle.name}
                         </span>
@@ -2035,7 +2042,7 @@ export const ProductBuyPage: React.FC<ProductBuyPageProps> = ({ isAdmin = false 
               <div className="pt-2">
                 <button
                   onClick={handleInstantBuy}
-                  disabled={Boolean(blockedReason)}
+                  disabled={Boolean(outOfStockReason)}
                   className="w-full py-3.5 sm:py-4 px-8 rounded-full bg-black hover:bg-neutral-800 text-white font-bold text-sm sm:text-base flex items-center justify-center transition-all cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span>{language === 'AR' ? 'شراء الآن' : 'Buy Now'}</span>

@@ -26,7 +26,8 @@ import {
 import {
   fetchStorefrontPaymentMethodsApi,
   initiateStorefrontPaymentApi,
-  verifyStorefrontPaymentApi
+  verifyStorefrontPaymentApi,
+  type StorefrontBankAccount,
 } from '../../../api/tenantApi';
 import type { StorefrontPaymentMethod, PaymentVerifyResponse } from '../../../types';
 
@@ -68,11 +69,12 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
   const [saveCard, setSaveCard] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationFeedback, setVerificationFeedback] = useState<{
-    success: boolean;
+    tone: 'paid' | 'pending' | 'failed';
     message: string;
     reference?: string;
   } | null>(null);
   const [availableMethods, setAvailableMethods] = useState<StorefrontPaymentMethod[]>([]);
+  const [bankAccount, setBankAccount] = useState<StorefrontBankAccount | null>(null);
   const [methodsLoading, setMethodsLoading] = useState(true);
   const [methodsError, setMethodsError] = useState<string | null>(null);
 
@@ -82,6 +84,49 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
 
   const methodEnabled = (id: PaymentMethodId) =>
     availableMethods.some((m) => m.id === id && m.is_enabled !== false);
+
+  const comingSoonLabel = isAr ? 'قريباً' : 'Coming Soon';
+
+  /** Enabled = selectable; disabled = Coming Soon tile (still visible, not fake-connected). */
+  const PaymentTileShell: React.FC<{
+    id: PaymentMethodId;
+    selectedClass: string;
+    idleClass: string;
+    children: React.ReactNode;
+    radioClass: string;
+  }> = ({ id, selectedClass, idleClass, children, radioClass }) => {
+    const enabled = methodEnabled(id);
+    if (!enabled) {
+      return (
+        <div
+          className={`p-4 rounded-2xl border border-dashed border-neutral-200 bg-neutral-50/80 opacity-80 flex items-start justify-between gap-3 cursor-not-allowed`}
+          aria-disabled="true"
+        >
+          <div className="space-y-1.5 min-w-0">{children}</div>
+          <span className="text-[10px] font-extrabold shrink-0 px-2 py-0.5 rounded-md bg-neutral-200 text-neutral-700">
+            {comingSoonLabel}
+          </span>
+        </div>
+      );
+    }
+    return (
+      <div
+        onClick={() => onMethodChange(id)}
+        className={`p-4 rounded-2xl cursor-pointer transition-all border flex items-start justify-between gap-3 ${
+          selectedMethod === id ? selectedClass : idleClass
+        }`}
+      >
+        <div className="space-y-1.5 min-w-0">{children}</div>
+        <div
+          className={`w-4 h-4 rounded-full mt-1 flex items-center justify-center shrink-0 ${
+            selectedMethod === id ? radioClass : 'bg-neutral-300'
+          }`}
+        >
+          {selectedMethod === id && <div className="w-2 h-2 rounded-full bg-white" />}
+        </div>
+      </div>
+    );
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -94,10 +139,10 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
       setMethodsLoading(true);
       setMethodsError(null);
       try {
-        const rows = await fetchStorefrontPaymentMethodsApi(storeId);
+        const { methods: list, bankAccount: bank } = await fetchStorefrontPaymentMethodsApi(storeId);
         if (cancelled) return;
-        const list = Array.isArray(rows) ? rows : [];
         setAvailableMethods(list);
+        setBankAccount(bank);
         if (list.length > 0 && !list.some((m) => m.id === selectedMethod)) {
           onMethodChange(list[0].id as PaymentMethodId);
         }
@@ -129,14 +174,14 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
     return madaBins.some(bin => clean.startsWith(bin)) || clean.startsWith('5888') || clean.startsWith('4406');
   };
 
-  // Server-side payment session + verify (no fake success fallback)
-  const handleSimulatePayment = async () => {
+  // Server-side payment session + verify (never invent paid — gateway must confirm)
+  const handleGatewayPayment = async () => {
     setIsVerifying(true);
     setVerificationFeedback(null);
 
     if (!orderId && selectedMethod !== 'cod' && selectedMethod !== 'bank_transfer') {
       setVerificationFeedback({
-        success: false,
+        tone: 'failed',
         message: isAr ? 'رقم الطلب مطلوب لإتمام الدفع' : 'Order id is required to complete payment',
       });
       setIsVerifying(false);
@@ -174,15 +219,15 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
       const effectiveOrderId = orderId || (session as { order_id?: string }).order_id || '';
       if (!effectiveOrderId) {
         setVerificationFeedback({
-          success: true,
+          tone: 'pending',
           message:
             selectedMethod === 'cod'
               ? isAr
-                ? 'تم اختيار الدفع عند الاستلام — أكمل الطلب'
-                : 'Cash on delivery selected — complete the order'
+                ? 'تم اختيار الدفع عند الاستلام — أكمل الطلب (لم يُسجّل الدفع بعد)'
+                : 'Cash on delivery selected — complete the order (not paid yet)'
               : isAr
-                ? 'تم اختيار التحويل البنكي — أكمل الطلب'
-                : 'Bank transfer selected — complete the order',
+                ? 'تم اختيار التحويل البنكي — أكمل الطلب ثم حوّل المبلغ (بانتظار التأكيد)'
+                : 'Bank transfer selected — complete the order, then transfer (awaiting confirmation)',
           reference: session.transaction_reference,
         });
         setIsVerifying(false);
@@ -207,17 +252,23 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
         },
       });
 
+      const paid = Boolean(verifyRes.verified);
+      const pending = !paid && verifyRes.status === 'pending';
       setVerificationFeedback({
-        success: Boolean(verifyRes.verified) || verifyRes.status === 'pending',
+        tone: paid ? 'paid' : pending ? 'pending' : 'failed',
         message:
           verifyRes.message ||
-          (verifyRes.verified
+          (paid
             ? isAr
-              ? 'تم التحقق من الدفع بنجاح'
-              : 'Payment verified successfully'
-            : isAr
-              ? 'بانتظار تأكيد الدفع'
-              : 'Awaiting payment confirmation'),
+              ? 'تم تأكيد الدفع بنجاح'
+              : 'Payment confirmed successfully'
+            : pending
+              ? isAr
+                ? 'تم تسجيل العملية — بانتظار تأكيد المتجر (لم يُدفع بعد)'
+                : 'Recorded — awaiting store confirmation (not paid yet)'
+              : isAr
+                ? 'فشل التحقق من الدفع — لم يُقبل الدفع'
+                : 'Payment verification failed — not accepted'),
         reference: verifyRes.reference || session.transaction_reference,
       });
 
@@ -226,7 +277,7 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
       }
     } catch (err: any) {
       setVerificationFeedback({
-        success: false,
+        tone: 'failed',
         message:
           err?.message ||
           (isAr ? 'فشل الدفع — تحقق من إعدادات البوابة' : 'Payment failed — check gateway settings'),
@@ -236,7 +287,7 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
     }
   };
 
-  // Launch simulated Apple Pay sheet
+  // Apple Pay sheet → real initiate/verify only (no fake authorize success)
   const handleLaunchApplePay = () => {
     setShowApplePayModal(true);
     setApplePayStage('idle');
@@ -245,12 +296,10 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
   const handleAuthorizeApplePay = () => {
     setApplePayStage('scanning');
     setTimeout(() => {
-      setApplePayStage('authorized');
-      setTimeout(() => {
-        setShowApplePayModal(false);
-        handleSimulatePayment();
-      }, 900);
-    }, 1200);
+      setShowApplePayModal(false);
+      setApplePayStage('idle');
+      void handleGatewayPayment();
+    }, 800);
   };
 
   return (
@@ -282,232 +331,151 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
       )}
       {!methodsLoading && !methodsError && availableMethods.length === 0 && (
         <p className="text-xs text-amber-700 font-medium">
-          {isAr ? 'لا توجد وسائل دفع متصلة لهذا المتجر' : 'No payment methods connected for this store'}
+          {isAr
+            ? 'لا توجد وسائل دفع متصلة حالياً — الوسائل أدناه تظهر كـ قريباً حتى يفعّلها المتجر.'
+            : 'No payment methods connected yet — options below show Coming Soon until the store enables them.'}
         </p>
       )}
 
-      {/* Only connected gateways from API (zero-mock) */}
+      {/* Connected = selectable · Not connected = Coming Soon (never fake-enabled) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-        {/* 1. Mada */}
-        {methodEnabled('mada') && (
-        <div
-          onClick={() => onMethodChange('mada')}
-          className={`p-4 rounded-2xl cursor-pointer transition-all border flex items-start justify-between gap-3 ${
-            selectedMethod === 'mada'
-              ? 'border-emerald-600 bg-emerald-50/70 shadow-sm ring-1 ring-emerald-600 font-bold'
-              : 'border-neutral-200 bg-white hover:border-emerald-500/50 hover:bg-neutral-50/80'
-          }`}
+        <PaymentTileShell
+          id="mada"
+          selectedClass="border-emerald-600 bg-emerald-50/70 shadow-sm ring-1 ring-emerald-600 font-bold"
+          idleClass="border-neutral-200 bg-white hover:border-emerald-500/50 hover:bg-neutral-50/80"
+          radioClass="bg-emerald-600"
         >
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <MadaIcon className="h-5" />
-              <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded-md">
-                {isAr ? 'الأكثر استخداماً بالمملكة' : 'Most Popular'}
-              </span>
-            </div>
-            <p className="font-bold text-neutral-900 text-xs pt-0.5">
-              {isAr ? 'بطاقة مدى البنكية' : 'Mada Debit Card'}
-            </p>
-            <p className="text-[11px] text-neutral-500">
-              {isAr ? 'خصم فوري مباشر من جميع البنوك السعودية' : 'Instant direct debit from all Saudi banks'}
-            </p>
+          <div className="flex items-center gap-2">
+            <MadaIcon className="h-5" />
+            <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded-md">
+              {isAr ? 'الأكثر استخداماً بالمملكة' : 'Most Popular'}
+            </span>
           </div>
-          <div className={`w-4 h-4 rounded-full mt-1 flex items-center justify-center shrink-0 ${
-            selectedMethod === 'mada' ? 'bg-emerald-600' : 'bg-neutral-300'
-          }`}>
-            {selectedMethod === 'mada' && <div className="w-2 h-2 rounded-full bg-white" />}
-          </div>
-        </div>
-        )}
+          <p className="font-bold text-neutral-900 text-xs pt-0.5">
+            {isAr ? 'بطاقة مدى البنكية' : 'Mada Debit Card'}
+          </p>
+          <p className="text-[11px] text-neutral-500">
+            {isAr ? 'خصم فوري مباشر من جميع البنوك السعودية' : 'Instant direct debit from all Saudi banks'}
+          </p>
+        </PaymentTileShell>
 
-        {/* 2. Apple Pay */}
-        {methodEnabled('apple_pay') && (
-        <div
-          onClick={() => onMethodChange('apple_pay')}
-          className={`p-4 rounded-2xl cursor-pointer transition-all border flex items-start justify-between gap-3 ${
-            selectedMethod === 'apple_pay'
-              ? 'border-black bg-neutral-100 shadow-sm ring-1 ring-black font-bold'
-              : 'border-neutral-200 bg-white hover:border-neutral-900 hover:bg-neutral-50/80'
-          }`}
+        <PaymentTileShell
+          id="apple_pay"
+          selectedClass="border-black bg-neutral-100 shadow-sm ring-1 ring-black font-bold"
+          idleClass="border-neutral-200 bg-white hover:border-neutral-900 hover:bg-neutral-50/80"
+          radioClass="bg-black"
         >
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <ApplePayIcon className="h-5" />
-              <span className="text-[10px] font-extrabold bg-neutral-900 text-white px-2 py-0.5 rounded-md">
-                {isAr ? 'نقرة واحدة' : '1-Tap'}
-              </span>
-            </div>
-            <p className="font-bold text-neutral-900 text-xs pt-0.5">
-              {isAr ? 'آبل باي' : 'Apple Pay'}
-            </p>
-            <p className="text-[11px] text-neutral-500">
-              {isAr ? 'دفع فوري آمن ومحمي ببصمة الوجه واللمس' : 'FaceID / TouchID biometric checkout'}
-            </p>
+          <div className="flex items-center gap-2">
+            <ApplePayIcon className="h-5" />
+            <span className="text-[10px] font-extrabold bg-neutral-900 text-white px-2 py-0.5 rounded-md">
+              {isAr ? 'نقرة واحدة' : '1-Tap'}
+            </span>
           </div>
-          <div className={`w-4 h-4 rounded-full mt-1 flex items-center justify-center shrink-0 ${
-            selectedMethod === 'apple_pay' ? 'bg-black' : 'bg-neutral-300'
-          }`}>
-            {selectedMethod === 'apple_pay' && <div className="w-2 h-2 rounded-full bg-white" />}
-          </div>
-        </div>
-        )}
+          <p className="font-bold text-neutral-900 text-xs pt-0.5">
+            {isAr ? 'آبل باي' : 'Apple Pay'}
+          </p>
+          <p className="text-[11px] text-neutral-500">
+            {isAr ? 'دفع فوري آمن ومحمي ببصمة الوجه واللمس' : 'FaceID / TouchID biometric checkout'}
+          </p>
+        </PaymentTileShell>
 
-        {/* 3. Tabby */}
-        {methodEnabled('tabby') && (
-        <div
-          onClick={() => onMethodChange('tabby')}
-          className={`p-4 rounded-2xl cursor-pointer transition-all border flex items-start justify-between gap-3 ${
-            selectedMethod === 'tabby'
-              ? 'border-[#29E3A5] bg-[#3EFEBA]/15 shadow-sm ring-1 ring-[#29E3A5] font-bold'
-              : 'border-neutral-200 bg-white hover:border-[#29E3A5] hover:bg-neutral-50/80'
-          }`}
+        <PaymentTileShell
+          id="tabby"
+          selectedClass="border-[#29E3A5] bg-[#3EFEBA]/15 shadow-sm ring-1 ring-[#29E3A5] font-bold"
+          idleClass="border-neutral-200 bg-white hover:border-[#29E3A5] hover:bg-neutral-50/80"
+          radioClass="bg-black"
         >
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <TabbyIcon className="h-5" />
-              <span className="text-[10px] font-extrabold bg-[#3EFEBA] text-neutral-950 px-2 py-0.5 rounded-md">
-                {isAr ? '0% فوائد' : '0% Interest'}
-              </span>
-            </div>
-            <p className="font-bold text-neutral-900 text-xs pt-0.5">
-              {isAr ? 'تابي: قسّمها على 4 دفعات شهرية' : 'Tabby: Split in 4 Monthly Payments'}
-            </p>
-            <p className="text-[11px] text-emerald-800 font-mono font-semibold">
-              {isAr ? `${installment4}⃁ / شهرياً (بدون رسوم تأخير)` : `⃁ ${installment4} / month (No late fees)`}
-            </p>
+          <div className="flex items-center gap-2">
+            <TabbyIcon className="h-5" />
+            <span className="text-[10px] font-extrabold bg-[#3EFEBA] text-neutral-950 px-2 py-0.5 rounded-md">
+              {isAr ? 'بدون فوائد' : '0% Interest'}
+            </span>
           </div>
-          <div className={`w-4 h-4 rounded-full mt-1 flex items-center justify-center shrink-0 ${
-            selectedMethod === 'tabby' ? 'bg-black' : 'bg-neutral-300'
-          }`}>
-            {selectedMethod === 'tabby' && <div className="w-2 h-2 rounded-full bg-white" />}
-          </div>
-        </div>
-        )}
+          <p className="font-bold text-neutral-900 text-xs pt-0.5">
+            {isAr ? 'تابي: قسّمها على 4 دفعات شهرية' : 'Tabby: Split in 4 Monthly Payments'}
+          </p>
+          <p className="text-[11px] text-emerald-800 font-mono font-semibold">
+            {isAr ? `${installment4}⃁ / شهرياً` : `SAR ${installment4} / month`}
+          </p>
+        </PaymentTileShell>
 
-        {/* 4. Tamara */}
-        {methodEnabled('tamara') && (
-        <div
-          onClick={() => onMethodChange('tamara')}
-          className={`p-4 rounded-2xl cursor-pointer transition-all border flex items-start justify-between gap-3 ${
-            selectedMethod === 'tamara'
-              ? 'border-[#F1728A] bg-[#FFF0F3] shadow-sm ring-1 ring-[#F1728A] font-bold'
-              : 'border-neutral-200 bg-white hover:border-[#F1728A] hover:bg-neutral-50/80'
-          }`}
+        <PaymentTileShell
+          id="tamara"
+          selectedClass="border-[#F1728A] bg-[#FFF0F3] shadow-sm ring-1 ring-[#F1728A] font-bold"
+          idleClass="border-neutral-200 bg-white hover:border-[#F1728A] hover:bg-neutral-50/80"
+          radioClass="bg-[#F1728A]"
         >
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <TamaraIcon className="h-5" />
-              <span className="text-[10px] font-extrabold bg-[#F9A55B]/20 text-[#A04516] px-2 py-0.5 rounded-md">
-                {isAr ? 'متوافقة مع الشريعة' : 'Sharia Certified'}
-              </span>
-            </div>
-            <p className="font-bold text-neutral-900 text-xs pt-0.5">
-              {isAr ? 'تمارا: قسّم فاتورتك على 4 دفعات' : 'Tamara: 4 Easy Installments'}
-            </p>
-            <p className="text-[11px] text-[#A04516] font-mono font-semibold">
-              {isAr ? `${installment4}⃁ / شهرياً (بدون رسوم خفية)` : `⃁ ${installment4} / month (No hidden fees)`}
-            </p>
+          <div className="flex items-center gap-2">
+            <TamaraIcon className="h-5" />
+            <span className="text-[10px] font-extrabold bg-[#F9A55B]/20 text-[#A04516] px-2 py-0.5 rounded-md">
+              {isAr ? 'متوافقة مع الشريعة' : 'Sharia Certified'}
+            </span>
           </div>
-          <div className={`w-4 h-4 rounded-full mt-1 flex items-center justify-center shrink-0 ${
-            selectedMethod === 'tamara' ? 'bg-[#F1728A]' : 'bg-neutral-300'
-          }`}>
-            {selectedMethod === 'tamara' && <div className="w-2 h-2 rounded-full bg-white" />}
-          </div>
-        </div>
-        )}
+          <p className="font-bold text-neutral-900 text-xs pt-0.5">
+            {isAr ? 'تمارا: قسّم فاتورتك على 4 دفعات' : 'Tamara: 4 Easy Installments'}
+          </p>
+          <p className="text-[11px] text-[#A04516] font-mono font-semibold">
+            {isAr ? `${installment4}⃁ / شهرياً` : `SAR ${installment4} / month`}
+          </p>
+        </PaymentTileShell>
 
-        {/* 5. Visa / Mastercard */}
-        {methodEnabled('card') && (
-        <div
-          onClick={() => onMethodChange('card')}
-          className={`p-4 rounded-2xl cursor-pointer transition-all border flex items-start justify-between gap-3 ${
-            selectedMethod === 'card'
-              ? 'border-indigo-600 bg-indigo-50/60 shadow-sm ring-1 ring-indigo-600 font-bold'
-              : 'border-neutral-200 bg-white hover:border-indigo-500 hover:bg-neutral-50/80'
-          }`}
+        <PaymentTileShell
+          id="card"
+          selectedClass="border-neutral-800 bg-neutral-50 shadow-sm ring-1 ring-neutral-800 font-bold"
+          idleClass="border-neutral-200 bg-white hover:border-neutral-500 hover:bg-neutral-50/80"
+          radioClass="bg-neutral-800"
         >
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <VisaIcon className="h-4" />
-              <MastercardIcon className="h-4" />
-            </div>
-            <p className="font-bold text-neutral-900 text-xs pt-0.5">
-              {isAr ? 'بطاقات الائتمان (فيزا / ماستركارد)' : 'Credit Card (Visa / Mastercard)'}
-            </p>
-            <p className="text-[11px] text-neutral-500">
-              {isAr ? 'البطاقات الدولية والمحلية مع حماية الحماية ثلاثية الأبعاد' : 'Local and international cards with 3D Secure'}
-            </p>
+          <div className="flex items-center gap-2">
+            <VisaIcon className="h-4" />
+            <MastercardIcon className="h-4" />
           </div>
-          <div className={`w-4 h-4 rounded-full mt-1 flex items-center justify-center shrink-0 ${
-            selectedMethod === 'card' ? 'bg-indigo-600' : 'bg-neutral-300'
-          }`}>
-            {selectedMethod === 'card' && <div className="w-2 h-2 rounded-full bg-white" />}
-          </div>
-        </div>
-        )}
+          <p className="font-bold text-neutral-900 text-xs pt-0.5">
+            {isAr ? 'بطاقات الائتمان (فيزا / ماستركارد)' : 'Credit Card (Visa / Mastercard)'}
+          </p>
+          <p className="text-[11px] text-neutral-500">
+            {isAr ? 'البطاقات الدولية والمحلية مع الحماية ثلاثية الأبعاد' : 'Local and international cards with 3D Secure'}
+          </p>
+        </PaymentTileShell>
 
-        {/* 6. COD */}
-        {methodEnabled('cod') && (
-        <div
-          onClick={() => onMethodChange('cod')}
-          className={`p-4 rounded-2xl cursor-pointer transition-all border flex items-start justify-between gap-3 ${
-            selectedMethod === 'cod'
-              ? 'border-amber-600 bg-amber-50/70 shadow-sm ring-1 ring-amber-600 font-bold'
-              : 'border-neutral-200 bg-white hover:border-amber-500 hover:bg-neutral-50/80'
-          }`}
+        <PaymentTileShell
+          id="cod"
+          selectedClass="border-amber-600 bg-amber-50/70 shadow-sm ring-1 ring-amber-600 font-bold"
+          idleClass="border-neutral-200 bg-white hover:border-amber-500 hover:bg-neutral-50/80"
+          radioClass="bg-amber-600"
         >
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <CodIcon className="h-5" />
-              <span className="text-[10px] font-extrabold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-md">
-                {isAr ? 'نقدي عند الباب' : 'Cash at Door'}
-              </span>
-            </div>
-            <p className="font-bold text-neutral-900 text-xs pt-0.5">
-              {isAr ? 'الدفع نقداً عند الاستلام' : 'Cash on Delivery'}
-            </p>
-            <p className="text-[11px] text-neutral-500">
-              {isAr ? 'سدد المندوب نقداً فور استلام شحنتك' : 'Pay courier directly upon parcel delivery'}
-            </p>
+          <div className="flex items-center gap-2">
+            <CodIcon className="h-5" />
+            <span className="text-[10px] font-extrabold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-md">
+              {isAr ? 'نقدي عند الباب' : 'Cash at Door'}
+            </span>
           </div>
-          <div className={`w-4 h-4 rounded-full mt-1 flex items-center justify-center shrink-0 ${
-            selectedMethod === 'cod' ? 'bg-amber-600' : 'bg-neutral-300'
-          }`}>
-            {selectedMethod === 'cod' && <div className="w-2 h-2 rounded-full bg-white" />}
-          </div>
-        </div>
-        )}
+          <p className="font-bold text-neutral-900 text-xs pt-0.5">
+            {isAr ? 'الدفع نقداً عند الاستلام' : 'Cash on Delivery'}
+          </p>
+          <p className="text-[11px] text-neutral-500">
+            {isAr ? 'سدد المندوب نقداً فور استلام شحنتك' : 'Pay courier directly upon parcel delivery'}
+          </p>
+        </PaymentTileShell>
 
-        {methodEnabled('bank_transfer') && (
-        <div
-          onClick={() => onMethodChange('bank_transfer')}
-          className={`p-4 rounded-2xl cursor-pointer transition-all border flex items-start justify-between gap-3 ${
-            selectedMethod === 'bank_transfer'
-              ? 'border-sky-600 bg-sky-50/70 shadow-sm ring-1 ring-sky-600 font-bold'
-              : 'border-neutral-200 bg-white hover:border-sky-500 hover:bg-neutral-50/80'
-          }`}
+        <PaymentTileShell
+          id="bank_transfer"
+          selectedClass="border-sky-600 bg-sky-50/70 shadow-sm ring-1 ring-sky-600 font-bold"
+          idleClass="border-neutral-200 bg-white hover:border-sky-500 hover:bg-neutral-50/80"
+          radioClass="bg-sky-600"
         >
-          <div className="space-y-1.5">
-            <p className="font-bold text-neutral-900 text-xs pt-0.5">
-              {isAr ? 'تحويل بنكي' : 'Bank Transfer'}
-            </p>
-            <p className="text-[11px] text-neutral-500">
-              {isAr ? 'حوّل إلى حساب المتجر ثم أرسل إيصال التحويل' : 'Transfer to the store bank account, then send the receipt'}
-            </p>
-          </div>
-          <div className={`w-4 h-4 rounded-full mt-1 flex items-center justify-center shrink-0 ${
-            selectedMethod === 'bank_transfer' ? 'bg-sky-600' : 'bg-neutral-300'
-          }`}>
-            {selectedMethod === 'bank_transfer' && <div className="w-2 h-2 rounded-full bg-white" />}
-          </div>
-        </div>
-        )}
+          <p className="font-bold text-neutral-900 text-xs pt-0.5">
+            {isAr ? 'تحويل بنكي' : 'Bank Transfer'}
+          </p>
+          <p className="text-[11px] text-neutral-500">
+            {isAr ? 'حوّل إلى حساب المتجر ثم أرسل إيصال التحويل' : 'Transfer to the store bank account, then send the receipt'}
+          </p>
+        </PaymentTileShell>
       </div>
 
       {/* Dynamic Detail Panel based on selected payment method */}
 
       {/* Tabby / Tamara 4-Month Installment Timeline */}
-      {(selectedMethod === 'tabby' || selectedMethod === 'tamara') && (
+      {methodEnabled(selectedMethod) && (selectedMethod === 'tabby' || selectedMethod === 'tamara') && (
         <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-4 sm:p-5 space-y-3 animate-in fade-in duration-200">
           <div className="flex items-center justify-between text-xs">
             <span className="font-extrabold text-neutral-900 flex items-center gap-1.5">
@@ -566,7 +534,7 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
       )}
 
       {/* Mada or Credit Card Form Simulator */}
-      {(selectedMethod === 'mada' || selectedMethod === 'card') && (
+      {methodEnabled(selectedMethod) && (selectedMethod === 'mada' || selectedMethod === 'card') && (
         <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-4 sm:p-5 space-y-3.5 animate-in fade-in duration-200 text-xs">
           <div className="flex items-center justify-between">
             <span className="font-bold text-neutral-900 flex items-center gap-1.5">
@@ -576,7 +544,7 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
             <div className="flex items-center gap-1.5">
               {isMadaCard(cardNumber) ? (
                 <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 font-extrabold text-[10px]">
-                  مدى Mada Detected
+                  {isAr ? 'تم التعرف على مدى' : 'Mada detected'}
                 </span>
               ) : (
                 <VisaIcon className="h-4" />
@@ -592,13 +560,21 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
               <div className="relative">
                 <input
                   type="text"
+                  inputMode="numeric"
+                  autoComplete="cc-number"
                   maxLength={19}
                   placeholder={selectedMethod === 'mada' ? '5888 4500 1234 5678' : '4000 1234 5678 9010'}
                   value={cardNumber}
                   onChange={handleCardNumberChange}
-                  className="w-full bg-white border border-neutral-300 rounded-xl p-2.5 font-mono text-neutral-900 focus:outline-none focus:border-emerald-600"
+                  className={`w-full bg-white border border-neutral-300 rounded-xl py-2.5 font-mono text-neutral-900 focus:outline-none focus:border-emerald-600 ${
+                    isAr ? 'pr-10 pl-3 text-right' : 'pl-10 pr-3 text-left'
+                  }`}
                 />
-                <CreditCard className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
+                <CreditCard
+                  className={`w-4 h-4 text-neutral-400 absolute top-1/2 -translate-y-1/2 pointer-events-none ${
+                    isAr ? 'right-3' : 'left-3'
+                  }`}
+                />
               </div>
             </div>
 
@@ -647,7 +623,7 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
       )}
 
       {/* Apple Pay 1-Tap Trigger */}
-      {selectedMethod === 'apple_pay' && (
+      {methodEnabled(selectedMethod) && selectedMethod === 'apple_pay' && (
         <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-4 sm:p-5 text-center space-y-3 animate-in fade-in duration-200">
           <p className="text-xs text-neutral-600">
             {isAr ? 'انقر على زر آبل باي للدفع الفوري ببصمة الوجه مع التحقق من الرصيد وعنوان الشحن' : 'Click the Apple Pay button to authenticate via FaceID with automatic address check'}
@@ -663,8 +639,75 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
         </div>
       )}
 
+      {/* Bank transfer — live IBAN from store (never invented) */}
+      {methodEnabled(selectedMethod) && selectedMethod === 'bank_transfer' && (
+        <div className="bg-sky-50/90 border-2 border-sky-300 rounded-2xl p-4 text-xs text-sky-950 space-y-2 animate-in fade-in duration-200">
+          <p className="font-extrabold flex items-center gap-1.5">
+            <AlertCircle className="w-4 h-4 text-sky-800 shrink-0" />
+            <span>{isAr ? 'تعليمات التحويل البنكي' : 'Bank transfer instructions'}</span>
+          </p>
+          {bankAccount ? (
+            <dl className="space-y-1.5 font-mono text-[11px] leading-relaxed">
+              <div className="flex flex-wrap gap-x-2">
+                <dt className="font-bold text-sky-900">{isAr ? 'البنك:' : 'Bank:'}</dt>
+                <dd>{isAr ? bankAccount.bank_name_ar || bankAccount.bank_name : bankAccount.bank_name}</dd>
+              </div>
+              <div className="flex flex-wrap gap-x-2">
+                <dt className="font-bold text-sky-900">{isAr ? 'المستفيد:' : 'Beneficiary:'}</dt>
+                <dd>
+                  {isAr
+                    ? bankAccount.account_title_ar || bankAccount.account_title
+                    : bankAccount.account_title}
+                </dd>
+              </div>
+              <div className="flex flex-wrap gap-x-2">
+                <dt className="font-bold text-sky-900">IBAN:</dt>
+                <dd className="break-all select-all">{bankAccount.iban}</dd>
+              </div>
+              {bankAccount.account_number ? (
+                <div className="flex flex-wrap gap-x-2">
+                  <dt className="font-bold text-sky-900">{isAr ? 'رقم الحساب:' : 'Account:'}</dt>
+                  <dd className="break-all select-all">{bankAccount.account_number}</dd>
+                </div>
+              ) : null}
+              <div className="flex flex-wrap gap-x-2">
+                <dt className="font-bold text-sky-900">{isAr ? 'المبلغ:' : 'Amount:'}</dt>
+                <dd>
+                  {totalAmount} {isAr ? 'ر.س' : 'SAR'}
+                </dd>
+              </div>
+              {orderId ? (
+                <div className="flex flex-wrap gap-x-2">
+                  <dt className="font-bold text-sky-900">{isAr ? 'مرجع الطلب:' : 'Order ref:'}</dt>
+                  <dd className="break-all select-all">
+                    {bankAccount.payment_reference_prefix
+                      ? `${bankAccount.payment_reference_prefix}-${orderId}`
+                      : orderId}
+                  </dd>
+                </div>
+              ) : (
+                <p className="text-[11px] text-amber-900 font-bold pt-1">
+                  {isAr
+                    ? 'أكمل الطلب أولاً ليظهر رقم المرجع في الإيصال.'
+                    : 'Complete the order first to get the payment reference on your receipt.'}
+                </p>
+              )}
+            </dl>
+          ) : (
+            <p className="text-amber-900 font-bold">
+              {isAr ? 'لا يوجد حساب بنكي مفعّل لهذا المتجر بعد.' : 'No active bank account for this store yet.'}
+            </p>
+          )}
+          <p className="text-[11px] text-sky-900 font-semibold border-t border-sky-200 pt-2">
+            {isAr
+              ? 'تنبيه: لن يُعتبر الطلب مدفوعاً حتى يؤكد المتجر استلام التحويل — لا تغادر دون إرسال الإيصال.'
+              : 'Alert: Order is not paid until the store confirms your transfer — send the receipt.'}
+          </p>
+        </div>
+      )}
+
       {/* COD Notice */}
-      {selectedMethod === 'cod' && (
+      {methodEnabled(selectedMethod) && selectedMethod === 'cod' && (
         <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-4 text-xs text-amber-900 space-y-1 animate-in fade-in duration-200">
           <p className="font-extrabold flex items-center gap-1.5">
             <AlertCircle className="w-4 h-4 text-amber-700" />
@@ -680,25 +723,48 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
 
       {/* Verification Feedback Banner */}
       {verificationFeedback && (
-        <div className={`p-3.5 rounded-2xl border text-xs flex items-center justify-between gap-3 animate-in fade-in duration-200 ${
-          verificationFeedback.success
-            ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-            : 'bg-red-50 border-red-300 text-red-900'
-        }`}>
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <div>
+        <div
+          className={`p-3.5 rounded-2xl border text-xs flex items-start justify-between gap-3 animate-in fade-in duration-200 ${
+            verificationFeedback.tone === 'paid'
+              ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+              : verificationFeedback.tone === 'pending'
+                ? 'bg-amber-50 border-amber-400 text-amber-950'
+                : 'bg-red-50 border-red-400 text-red-950'
+          }`}
+          role="alert"
+        >
+          <div className="flex items-start gap-2 min-w-0">
+            {verificationFeedback.tone === 'paid' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+            ) : verificationFeedback.tone === 'pending' ? (
+              <Clock className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+            )}
+            <div className="min-w-0">
               <p className="font-extrabold">{verificationFeedback.message}</p>
               {verificationFeedback.reference && (
-                <p className="text-[10px] font-mono opacity-80">
+                <p className="text-[10px] font-mono opacity-80 break-all">
                   {isAr ? 'المرجع:' : 'Ref:'} {verificationFeedback.reference}
                 </p>
               )}
             </div>
           </div>
-          <span className="text-[10px] font-extrabold bg-emerald-200/60 text-emerald-900 px-2 py-0.5 rounded-full">
-            {isAr ? 'معتمد من ساما' : 'SAMA Verified'}
-          </span>
+          {verificationFeedback.tone === 'paid' && (
+            <span className="text-[10px] font-extrabold bg-emerald-200/60 text-emerald-900 px-2 py-0.5 rounded-full shrink-0">
+              {isAr ? 'مدفوع' : 'Paid'}
+            </span>
+          )}
+          {verificationFeedback.tone === 'pending' && (
+            <span className="text-[10px] font-extrabold bg-amber-200 text-amber-950 px-2 py-0.5 rounded-full shrink-0">
+              {isAr ? 'بانتظار الدفع' : 'Not paid yet'}
+            </span>
+          )}
+          {verificationFeedback.tone === 'failed' && (
+            <span className="text-[10px] font-extrabold bg-red-200 text-red-950 px-2 py-0.5 rounded-full shrink-0">
+              {isAr ? 'مرفوض' : 'Declined'}
+            </span>
+          )}
         </div>
       )}
 
@@ -727,7 +793,9 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
               </div>
               <div className="flex justify-between items-center py-1 border-t border-neutral-100">
                 <span className="text-neutral-500">{isAr ? 'البطاقة المسجلة في المحفظة:' : 'Wallet Card:'}</span>
-                <span className="font-mono font-bold text-neutral-900">Mada Alinma Bank •••• 9920</span>
+                <span className="font-mono font-bold text-neutral-900">
+                  {isAr ? 'بطاقة المحفظة (بوابة حقيقية)' : 'Wallet card (live gateway)'}
+                </span>
               </div>
               <div className="flex justify-between items-center py-1 border-t border-neutral-100">
                 <span className="text-neutral-500">{isAr ? 'المبلغ الإجمالي:' : 'Total:'}</span>
@@ -755,7 +823,11 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
                   className="w-full py-3.5 bg-black hover:bg-neutral-800 text-white rounded-2xl font-bold text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer"
                 >
                   <Smartphone className="w-4 h-4" />
-                  <span>{isAr ? 'تأكيد الدفع بواسطة بصمة الوجه بصمة الوجه' : 'Double Click to Pay with Face ID'}</span>
+                  <span>
+                    {isAr
+                      ? 'تأكيد ومتابعة التحقق من البوابة'
+                      : 'Confirm and verify with payment gateway'}
+                  </span>
                 </button>
                 <button
                   type="button"

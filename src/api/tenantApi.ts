@@ -2293,6 +2293,62 @@ export async function deleteCoupon(storeId: string, id: string): Promise<void> {
 }
 
 /** Guest storefront coupon check — no Sanctum; scoped by store_id. */
+/** Guest storefront gift card balance — no Sanctum; scoped by store_id. */
+export async function validateStorefrontGiftCard(
+  storeId: string,
+  code: string,
+): Promise<{
+  valid: boolean;
+  balance: number;
+  currency: string;
+  status?: string;
+  message?: string;
+}> {
+  const clean = (code || '').trim().toUpperCase();
+  if (!clean) {
+    return { valid: false, balance: 0, currency: 'SAR', message: 'Gift card code required.' };
+  }
+  try {
+    const res = await apiFetch<{
+      data?: { code?: string; balance?: number; currency?: string; status?: string };
+      message?: string;
+    }>('/storefront/gift-cards/balance', {
+      method: 'POST',
+      storeId,
+      skipAuth: true,
+      body: { store_id: storeId, code: clean },
+    });
+    const row = res.data;
+    const balance = Number(row?.balance ?? 0);
+    const status = String(row?.status || 'active').toLowerCase();
+    if (!row || status !== 'active' || balance <= 0) {
+      return {
+        valid: false,
+        balance: 0,
+        currency: row?.currency || 'SAR',
+        message: res.message || 'Gift card is inactive or has no balance.',
+      };
+    }
+    return {
+      valid: true,
+      balance,
+      currency: row.currency || 'SAR',
+      status: row.status,
+    };
+  } catch (err: unknown) {
+    const message =
+      err && typeof err === 'object' && 'message' in err
+        ? String((err as { message?: string }).message || '')
+        : '';
+    return {
+      valid: false,
+      balance: 0,
+      currency: 'SAR',
+      message: message || 'Gift card not found.',
+    };
+  }
+}
+
 export async function validateStorefrontCoupon(
   storeId: string,
   code: string,
@@ -3725,16 +3781,79 @@ export async function refundPaymentTransaction(
   });
 }
 
-export async function fetchPaymentTransactions(storeId: string, params?: Record<string, string>): Promise<any> {
+export async function fetchPaymentTransactions(
+  storeId: string,
+  params?: Record<string, string>,
+): Promise<{ data: any[]; meta?: { total?: number; page?: number; per_page?: number } }> {
   const q = params ? '?' + new URLSearchParams(params).toString() : '';
-  return apiFetch(`/payments/transactions${q}`, { storeId });
+  const res = await apiFetch<{ data?: any[]; meta?: { total?: number; page?: number; per_page?: number } }>(
+    `/payments/transactions${q}`,
+    { storeId },
+  );
+  const raw = Array.isArray(res?.data) ? res.data : [];
+  const data = raw.map((item: any) => {
+    const order = item.order || {};
+    return {
+      id: String(item.id),
+      storeId: String(item.store_id || storeId),
+      orderId: item.order_id ? String(item.order_id) : order.id ? String(order.id) : undefined,
+      orderNumber: order.order_number ? String(order.order_number) : undefined,
+      gatewayProvider: String(item.gateway_provider || ''),
+      paymentMethod: String(item.payment_method || ''),
+      transactionReference: String(item.transaction_reference || item.id || ''),
+      gatewayTransactionId: item.gateway_transaction_id ? String(item.gateway_transaction_id) : undefined,
+      amount: Number(item.amount || 0),
+      currency: String(item.currency || 'SAR'),
+      feeAmount: Number(item.fee_amount || 0),
+      netAmount: Number(item.net_amount ?? item.amount ?? 0),
+      status: String(item.status || 'pending'),
+      cardBrand: item.card_brand ? String(item.card_brand) : undefined,
+      cardLastFour: item.card_last_four ? String(item.card_last_four) : undefined,
+      payerName: item.payer_name || order.customer_name || undefined,
+      payerEmail: item.payer_email || order.customer_email || undefined,
+      payerPhone: order.customer_phone ? String(order.customer_phone) : undefined,
+      trackingNumber: order.tracking_number ? String(order.tracking_number) : undefined,
+      createdAt: item.created_at || item.createdAt || new Date().toISOString(),
+    };
+  });
+  return { data, meta: res?.meta };
 }
 
 // ── Public Storefront Saudi Payments (Mada, Apple Pay, Tabby, Tamara, COD) ──
 
-export async function fetchStorefrontPaymentMethodsApi(storeId: string): Promise<StorefrontPaymentMethod[]> {
-  const res = await apiFetch<{ success: boolean; methods: StorefrontPaymentMethod[] }>(`/storefront/payments/methods?store_id=${encodeURIComponent(storeId)}`);
-  return res.methods ?? [];
+export type StorefrontBankAccount = {
+  id: string;
+  bank_name: string;
+  bank_name_ar?: string | null;
+  account_title: string;
+  account_title_ar?: string | null;
+  iban: string;
+  account_number?: string | null;
+  payment_reference_prefix?: string | null;
+};
+
+export async function fetchStorefrontPaymentMethodsApi(
+  storeId: string,
+): Promise<{ methods: StorefrontPaymentMethod[]; bankAccount: StorefrontBankAccount | null }> {
+  const res = await apiFetch<{
+    success: boolean;
+    methods: StorefrontPaymentMethod[];
+    bank_account?: StorefrontBankAccount | null;
+  }>(`/storefront/payments/methods?store_id=${encodeURIComponent(storeId)}`);
+  return {
+    methods: res.methods ?? [],
+    bankAccount: res.bank_account ?? null,
+  };
+}
+
+export async function fetchStorefrontBankAccountApi(
+  storeId: string,
+): Promise<StorefrontBankAccount | null> {
+  const res = await apiFetch<{
+    success: boolean;
+    data: StorefrontBankAccount | null;
+  }>(`/storefront/payments/bank-account?store_id=${encodeURIComponent(storeId)}`);
+  return res.data ?? null;
 }
 
 export async function initiateStorefrontPaymentApi(payload: {
@@ -3792,6 +3911,8 @@ export type DashboardHomeAnalytics = {
   }>;
   /** Real page_view attribution only — empty when no storefront events */
   traffic_sources?: DashboardHomeTrafficSource[];
+  /** Real customer DOB age buckets — empty until birthdays exist for this store */
+  visitors_by_age?: Array<{ label: string; percentage: number }>;
 };
 
 export async function fetchDashboardHomeAnalytics(storeId: string): Promise<DashboardHomeAnalytics> {
@@ -3843,6 +3964,106 @@ export async function fetchCampaignAnalyticsReportsApi(
   if (params?.to) query.set('to', params.to);
   const qStr = query.toString();
   return apiFetch(`/analytics/campaigns${qStr ? `?${qStr}` : ''}`, { storeId });
+}
+
+export type MarketingAnalyticsResponse = {
+  store_id: string;
+  source: 'souq_internal';
+  range: { from: string; to: string };
+  kpis: {
+    sessions: number;
+    unique_visitors: number;
+    page_views: number;
+    new_visitors: number;
+    returning_visitors: number;
+    total_orders: number;
+    revenue: number;
+    conversion_rate: number;
+    average_order_value: number;
+    add_to_cart_rate: number;
+    checkout_abandonment_rate: number;
+    product_views: number;
+    add_to_cart: number;
+    checkouts_started: number;
+    purchase_events: number;
+  };
+  traffic_by_source: Array<{ name: string; visits: number; percentage: number }>;
+  traffic_by_medium: Array<{ medium: string; sessions: number }>;
+  campaign_performance: Array<{
+    campaign: string;
+    channel: string;
+    orders: number;
+    revenue: number;
+    conv_rate: number;
+  }>;
+  revenue_by_source: Array<{ source: string; orders: number; revenue: number }>;
+  product_analytics: Array<{ product_id: string; views: number; orders: number; conv_rate: number }>;
+};
+
+export async function fetchMarketingAnalyticsApi(
+  storeId: string,
+  params?: { range?: string; from?: string; to?: string },
+): Promise<MarketingAnalyticsResponse> {
+  const query = new URLSearchParams();
+  if (params?.range) query.set('range', params.range);
+  if (params?.from) query.set('from', params.from);
+  if (params?.to) query.set('to', params.to);
+  const qStr = query.toString();
+  return apiFetch<MarketingAnalyticsResponse>(`/analytics/marketing${qStr ? `?${qStr}` : ''}`, {
+    storeId,
+  });
+}
+
+export type StoreUtmLinkRow = {
+  id: string;
+  name: string;
+  platform_key?: string | null;
+  target_path?: string | null;
+  product_id?: string | null;
+  url: string;
+  source: string;
+  medium: string;
+  campaign: string;
+  term?: string | null;
+  content?: string | null;
+  created_at?: string;
+  clicks: number;
+  conversions: number;
+  revenue: number;
+};
+
+export async function fetchStoreUtmLinksApi(storeId: string): Promise<{ data: StoreUtmLinkRow[] }> {
+  return apiFetch<{ data: StoreUtmLinkRow[] }>('/utm-links', { storeId });
+}
+
+export async function createStoreUtmLinkApi(
+  storeId: string,
+  body: {
+    name: string;
+    platform_key?: string;
+    target_path?: string;
+    product_id?: string;
+    target_url: string;
+    utm_source: string;
+    utm_medium: string;
+    utm_campaign: string;
+    utm_term?: string;
+    utm_content?: string;
+  },
+): Promise<{ success: boolean; id: string }> {
+  return apiFetch<{ success: boolean; id: string }>('/utm-links', {
+    method: 'POST',
+    storeId,
+    body: JSON.stringify(body),
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+export async function deleteStoreUtmLinkApi(storeId: string, id: string): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/utm-links/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    storeId,
+  });
 }
 
 export async function fetchAiInsightsReportsApi(
@@ -4159,11 +4380,16 @@ export async function fetchStoreReviews(
   if (query?.productId) params.set('product_id', query.productId);
   if (query?.approvedOnly !== false) params.set('approved_only', '1');
   const qs = params.toString();
-  const res = await apiFetch<{ data?: StoreReviewRow[] }>(
-    `/stores/${encodeURIComponent(storeId)}/reviews${qs ? `?${qs}` : ''}`,
-    { storeId, skipAuth: true },
-  );
-  return res.data ?? [];
+  try {
+    const res = await apiFetch<{ data?: StoreReviewRow[] }>(
+      `/stores/${encodeURIComponent(storeId)}/reviews${qs ? `?${qs}` : ''}`,
+      { storeId, skipAuth: true },
+    );
+    return res.data ?? [];
+  } catch {
+    // Empty list on API failure — never spam product pages with uncaught review errors.
+    return [];
+  }
 }
 
 export async function fetchStorefrontProduct(

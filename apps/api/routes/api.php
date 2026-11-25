@@ -49,6 +49,7 @@ use App\Http\Controllers\Api\LoyaltyController;
 use App\Http\Controllers\Api\CashbackController;
 use App\Http\Controllers\Api\SpecialOfferController;
 use App\Http\Controllers\Api\MarketingCampaignsController;
+use App\Http\Controllers\Api\UtmTrackingController;
 use App\Http\Controllers\Api\CartInterceptController;
 use App\Http\Controllers\Api\GiftingController;
 use App\Http\Controllers\Api\StorefrontAnalyticsController;
@@ -352,6 +353,10 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     Route::get('/analytics/search-queries', [AnalyticsReportController::class, 'searchQueries']);
     Route::get('/analytics/payments', [AnalyticsReportController::class, 'paymentReports']);
     Route::get('/analytics/shipping', [AnalyticsReportController::class, 'shippingReports']);
+    Route::get('/analytics/marketing', [AnalyticsReportController::class, 'marketingAnalytics']);
+    Route::get('/utm-links', [UtmTrackingController::class, 'index']);
+    Route::post('/utm-links', [UtmTrackingController::class, 'store']);
+    Route::delete('/utm-links/{id}', [UtmTrackingController::class, 'destroy']);
     });
 
 
@@ -594,6 +599,7 @@ Route::post('/storefront/coupons/validate', [CouponController::class, 'storefron
 
 // Public Storefront Saudi Payments (Mada, Apple Pay, Tabby, Tamara, Card, COD)
 Route::get('/storefront/payments/methods', [PaymentGatewayController::class, 'storefrontMethods']);
+Route::get('/storefront/payments/bank-account', [PaymentGatewayController::class, 'storefrontBankAccount']);
 Route::post('/storefront/payments/initiate', [PaymentGatewayController::class, 'storefrontInitiate']);
 Route::post('/storefront/payments/verify', [PaymentGatewayController::class, 'storefrontVerify']);
 

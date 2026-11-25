@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\PaymentGateway;
 use App\Models\PaymentTransaction;
+use App\Models\StoreBankAccount;
+use App\Services\Commerce\OrderCommerceLedgerService;
 use App\Services\Notification\NotificationService;
 use App\Services\Payment\PaymentManager;
 use Illuminate\Http\JsonResponse;
@@ -270,27 +272,50 @@ class PaymentGatewayController extends Controller
         $feeAmount = round(($grossAmount * ($feePct / 100)) + $feeFixed, 2);
         $netAmount = max(0, $grossAmount - $feeAmount);
 
-        // Record real payment transaction in DB
-        $txId = $this->newId('tx');
-        $transaction = PaymentTransaction::create([
-            'id' => $txId,
-            'store_id' => $storeId,
-            'order_id' => $order->id,
-            'gateway_provider' => $gateway->provider,
-            'payment_method' => $validated['payment_method'],
-            'transaction_reference' => $validated['transaction_reference'],
-            'gateway_transaction_id' => $verifyResult['gateway_transaction_id'] ?? $validated['transaction_reference'],
-            'amount' => $grossAmount,
-            'currency' => 'SAR',
-            'fee_amount' => $feeAmount,
-            'net_amount' => $netAmount,
-            'status' => 'paid',
-            'card_brand' => $verifyResult['card_brand'] ?? 'Mada',
-            'card_last_four' => $verifyResult['card_last_four'] ?? '****',
-            'payer_email' => $order->customer_email,
-            'payer_name' => $order->customer_name,
-            'raw_response' => $verifyResult['raw'] ?? [],
-        ]);
+        // Upsert ledger for this order (avoid duplicate rows after order-create ledger)
+        $transaction = PaymentTransaction::query()
+            ->forStore($storeId)
+            ->where('order_id', $order->id)
+            ->orderByDesc('created_at')
+            ->first();
+
+        if ($transaction) {
+            $transaction->gateway_provider = $gateway->provider;
+            $transaction->payment_method = $validated['payment_method'];
+            $transaction->transaction_reference = $validated['transaction_reference'];
+            $transaction->gateway_transaction_id = $verifyResult['gateway_transaction_id'] ?? $validated['transaction_reference'];
+            $transaction->amount = $grossAmount;
+            $transaction->fee_amount = $feeAmount;
+            $transaction->net_amount = $netAmount;
+            $transaction->status = 'paid';
+            $transaction->card_brand = $verifyResult['card_brand'] ?? $transaction->card_brand;
+            $transaction->card_last_four = $verifyResult['card_last_four'] ?? $transaction->card_last_four;
+            $transaction->payer_email = $order->customer_email;
+            $transaction->payer_name = $order->customer_name;
+            $transaction->raw_response = $verifyResult['raw'] ?? [];
+            $transaction->save();
+        } else {
+            $txId = $this->newId('tx');
+            $transaction = PaymentTransaction::create([
+                'id' => $txId,
+                'store_id' => $storeId,
+                'order_id' => $order->id,
+                'gateway_provider' => $gateway->provider,
+                'payment_method' => $validated['payment_method'],
+                'transaction_reference' => $validated['transaction_reference'],
+                'gateway_transaction_id' => $verifyResult['gateway_transaction_id'] ?? $validated['transaction_reference'],
+                'amount' => $grossAmount,
+                'currency' => 'SAR',
+                'fee_amount' => $feeAmount,
+                'net_amount' => $netAmount,
+                'status' => 'paid',
+                'card_brand' => $verifyResult['card_brand'] ?? 'Mada',
+                'card_last_four' => $verifyResult['card_last_four'] ?? null,
+                'payer_email' => $order->customer_email,
+                'payer_name' => $order->customer_name,
+                'raw_response' => $verifyResult['raw'] ?? [],
+            ]);
+        }
 
         // Update Order with server-verified status
         $order->payment_status = 'paid';
@@ -367,7 +392,20 @@ class PaymentGatewayController extends Controller
             return $storeId;
         }
 
-        $query = PaymentTransaction::query()->forStore($storeId)->orderByDesc('created_at');
+        // Backfill ledgers so older orders appear on Payments without inventing data
+        try {
+            app(OrderCommerceLedgerService::class)->syncMissingForStore($storeId, 80);
+        } catch (\Throwable $e) {
+            Log::warning('Payment ledger syncMissing skipped: '.$e->getMessage(), ['store_id' => $storeId]);
+        }
+
+        $perPage = (int) $request->query('per_page', 50);
+        $perPage = max(10, min(100, $perPage));
+
+        $query = PaymentTransaction::query()
+            ->forStore($storeId)
+            ->with(['order:id,store_id,order_number,customer_name,customer_email,customer_phone,tracking_number,payment_status,status'])
+            ->orderByDesc('created_at');
 
         if ($method = $request->query('method')) {
             $query->where('payment_method', $method);
@@ -375,8 +413,30 @@ class PaymentGatewayController extends Controller
         if ($status = $request->query('status')) {
             $query->where('status', $status);
         }
+        if ($search = trim((string) $request->query('search', ''))) {
+            $like = '%'.$search.'%';
+            $query->where(function ($q) use ($like) {
+                $q->where('transaction_reference', 'like', $like)
+                    ->orWhere('gateway_transaction_id', 'like', $like)
+                    ->orWhere('payer_name', 'like', $like)
+                    ->orWhere('payer_email', 'like', $like)
+                    ->orWhere('order_id', 'like', $like)
+                    ->orWhere('payment_method', 'like', $like)
+                    ->orWhereHas('order', function ($oq) use ($like) {
+                        $oq->where('order_number', 'like', $like)
+                            ->orWhere('customer_name', 'like', $like)
+                            ->orWhere('customer_phone', 'like', $like);
+                    });
+            });
+        }
+        if ($from = $request->query('date_from')) {
+            $query->whereDate('created_at', '>=', $from);
+        }
+        if ($to = $request->query('date_to')) {
+            $query->whereDate('created_at', '<=', $to);
+        }
 
-        $transactions = $query->paginate(25);
+        $transactions = $query->paginate($perPage);
 
         return response()->json([
             'data' => $transactions->items(),
@@ -496,8 +556,13 @@ class PaymentGatewayController extends Controller
             ],
         ];
 
+        $bankAccount = $this->defaultBankAccountForStore($storeId);
+
         $methods = [];
         foreach ($catalog as $row) {
+            if (($row['id'] ?? '') === 'bank_transfer' && ! $bankAccount) {
+                continue;
+            }
             if (!$dbGateways->has($row['provider'])) {
                 continue;
             }
@@ -514,12 +579,48 @@ class PaymentGatewayController extends Controller
             $methods[] = array_merge($row, $extra);
         }
 
-        return response()->json([
+        $payload = [
             'success' => true,
             'store_id' => $storeId,
             'currency' => 'SAR',
             'methods' => $methods,
             'gateways_configured' => $dbGateways->count(),
+        ];
+        if ($bankAccount) {
+            $payload['bank_account'] = $this->formatPublicBankAccount($bankAccount);
+        }
+
+        return response()->json($payload);
+    }
+
+    /**
+     * Public Storefront: default bank account for bank transfer (store_id isolated).
+     */
+    public function storefrontBankAccount(Request $request): JsonResponse
+    {
+        $rawStore = $request->header('X-Store-Id')
+            ?: $request->query('store_id')
+            ?: $request->input('store_id');
+        if (! is_string($rawStore) || trim($rawStore) === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'X-Store-Id is required.',
+            ], 400);
+        }
+        $storeId = $this->canonicalStoreId($rawStore);
+        $account = $this->defaultBankAccountForStore($storeId);
+        if (! $account) {
+            return response()->json([
+                'success' => true,
+                'store_id' => $storeId,
+                'data' => null,
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'store_id' => $storeId,
+            'data' => $this->formatPublicBankAccount($account),
         ]);
     }
 
@@ -598,6 +699,19 @@ class PaymentGatewayController extends Controller
 
         $installmentAmount = round($amount / 4, 2);
 
+        $bankPayload = [];
+        if ($method === 'bank_transfer') {
+            $bank = $this->defaultBankAccountForStore($storeId);
+            if (! $bank) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No active bank account configured for this store.',
+                    'checkout_ready' => false,
+                ], 422);
+            }
+            $bankPayload['bank_account'] = $this->formatPublicBankAccount($bank);
+        }
+
         return response()->json([
             'success' => true,
             'store_id' => $storeId,
@@ -608,6 +722,7 @@ class PaymentGatewayController extends Controller
             'publishable_key' => $session['publishable_key'] ?? $gateway->public_key,
             'amount' => $amount,
             'currency' => 'SAR',
+            ...$bankPayload,
             'installments' => ($method === 'tabby' || $method === 'tamara') ? [
                 'count' => 4,
                 'per_month' => $installmentAmount,
@@ -678,26 +793,57 @@ class PaymentGatewayController extends Controller
             $status = 'failed';
         }
 
-        $txId = $this->newId('tx');
-        $transaction = PaymentTransaction::create([
-            'id' => $txId,
-            'store_id' => $storeId,
-            'order_id' => $order?->id,
-            'gateway_provider' => $provider,
-            'payment_method' => $validated['payment_method'],
-            'transaction_reference' => $validated['transaction_reference'],
-            'gateway_transaction_id' => $verifyResult['gateway_transaction_id'] ?? $validated['transaction_reference'],
-            'amount' => (float) $validated['amount'],
-            'currency' => 'SAR',
-            'fee_amount' => (float) ($verifyResult['fee'] ?? 0),
-            'net_amount' => max(0, (float) $validated['amount'] - (float) ($verifyResult['fee'] ?? 0)),
-            'status' => $status === 'paid' ? 'paid' : ($status === 'pending' ? 'pending' : 'failed'),
-            'card_brand' => $verifyResult['card_brand'] ?? ucfirst($validated['payment_method']),
-            'card_last_four' => $verifyResult['card_last_four'] ?? '',
-            'payer_email' => $order?->customer_email,
-            'payer_name' => $order?->customer_name,
-            'raw_response' => $verifyResult['raw'] ?? [],
-        ]);
+        $txStatus = $status === 'paid' ? 'paid' : ($status === 'pending' ? 'pending' : 'failed');
+        $feeAmount = (float) ($verifyResult['fee'] ?? 0);
+        $grossAmount = (float) $validated['amount'];
+        $netAmount = max(0, $grossAmount - $feeAmount);
+
+        $transaction = null;
+        if ($order) {
+            $transaction = PaymentTransaction::query()
+                ->forStore($storeId)
+                ->where('order_id', $order->id)
+                ->orderByDesc('created_at')
+                ->first();
+        }
+
+        if ($transaction) {
+            $transaction->gateway_provider = $provider;
+            $transaction->payment_method = $validated['payment_method'];
+            $transaction->transaction_reference = $validated['transaction_reference'];
+            $transaction->gateway_transaction_id = $verifyResult['gateway_transaction_id'] ?? $validated['transaction_reference'];
+            $transaction->amount = $grossAmount;
+            $transaction->fee_amount = $feeAmount;
+            $transaction->net_amount = $netAmount;
+            $transaction->status = $txStatus;
+            $transaction->card_brand = $verifyResult['card_brand'] ?? $transaction->card_brand;
+            $transaction->card_last_four = $verifyResult['card_last_four'] ?? $transaction->card_last_four;
+            $transaction->payer_email = $order?->customer_email;
+            $transaction->payer_name = $order?->customer_name;
+            $transaction->raw_response = $verifyResult['raw'] ?? [];
+            $transaction->save();
+        } else {
+            $txId = $this->newId('tx');
+            $transaction = PaymentTransaction::create([
+                'id' => $txId,
+                'store_id' => $storeId,
+                'order_id' => $order?->id,
+                'gateway_provider' => $provider,
+                'payment_method' => $validated['payment_method'],
+                'transaction_reference' => $validated['transaction_reference'],
+                'gateway_transaction_id' => $verifyResult['gateway_transaction_id'] ?? $validated['transaction_reference'],
+                'amount' => $grossAmount,
+                'currency' => 'SAR',
+                'fee_amount' => $feeAmount,
+                'net_amount' => $netAmount,
+                'status' => $txStatus,
+                'card_brand' => $verifyResult['card_brand'] ?? ucfirst($validated['payment_method']),
+                'card_last_four' => $verifyResult['card_last_four'] ?? null,
+                'payer_email' => $order?->customer_email,
+                'payer_name' => $order?->customer_name,
+                'raw_response' => $verifyResult['raw'] ?? [],
+            ]);
+        }
 
         if ($order) {
             $order->payment_status = $transaction->status;
@@ -723,18 +869,51 @@ class PaymentGatewayController extends Controller
             }
         }
 
+        $paid = $transaction->status === 'paid';
+        $pending = $transaction->status === 'pending';
+
         return response()->json([
-            'verified' => $transaction->status === 'paid',
+            'verified' => $paid,
             'status' => $transaction->status,
             'transaction_id' => $transaction->id,
             'reference' => $transaction->transaction_reference,
             'order_id' => $order?->id,
             'amount' => $transaction->amount,
             'currency' => 'SAR',
-            'message' => $transaction->status === 'paid'
+            'message' => $paid
                 ? 'Payment verified successfully.'
-                : 'Payment verification failed or is still pending.',
+                : ($pending
+                    ? 'Payment recorded — awaiting merchant confirmation (not paid yet).'
+                    : 'Payment verification failed.'),
         ]);
+    }
+
+    private function defaultBankAccountForStore(string $storeId): ?StoreBankAccount
+    {
+        return StoreBankAccount::query()
+            ->withoutGlobalScope('store')
+            ->where('store_id', $storeId)
+            ->where('is_active', true)
+            ->orderByDesc('is_default')
+            ->orderBy('created_at')
+            ->first();
+    }
+
+  /**
+     * @return array<string, mixed>
+     */
+    private function formatPublicBankAccount(StoreBankAccount $account): array
+    {
+        return [
+            'id' => $account->id,
+            'bank_name' => (string) $account->bank_name,
+            'bank_name_ar' => $account->bank_name_ar,
+            'account_title' => (string) $account->account_title,
+            'account_title_ar' => $account->account_title_ar,
+            'iban' => (string) $account->iban,
+            'account_number' => $account->account_number,
+            'payment_reference_prefix' => $account->payment_reference_prefix,
+        ];
     }
 
     /**
