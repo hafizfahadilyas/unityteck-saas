@@ -976,12 +976,29 @@
   max-width: min(92vw, 280px);
 }
 
-/* Keep selection chrome inside viewport on small screens */
+/*
+ * Selection layer pill — always BELOW the box so it never overlaps the page tools bar
+ * above the artboard (laptop / 80% zoom clash).
+ */
+.canva-studio-light .cs-selection-toolbar,
+.canva-studio-light .cs-selection-pill {
+  top: calc(100% + 0.4rem) !important;
+  bottom: auto !important;
+  left: 50% !important;
+  transform: translateX(-50%);
+  z-index: 36;
+  max-width: min(92%, 16rem);
+  overflow: hidden;
+}
+
+.canva-studio-light .cs-page-toolbar-float {
+  z-index: 42;
+}
+
 @media (max-width: 640px) {
   .canva-studio-light .cs-selection-toolbar,
   .canva-studio-light .cs-selection-pill {
-    top: 0.35rem !important;
-    transform: translateX(-50%);
+    max-width: min(96%, 14rem);
   }
 }
 
@@ -1643,8 +1660,8 @@
   [dir='rtl'] .canva-studio-light .cs-flyout-drawer {
     inset-inline-end: 3.5rem;
   }
-  .canva-studio-light .cs-header {
-    flex-wrap: wrap;
+  /* Header responsive layout lives in the chrome grid block below — keep gap only */
+  .canva-studio-light > .cs-header {
     gap: 0.35rem;
   }
 }
@@ -2017,7 +2034,413 @@
 /* Home template row — equal visual height (Canva-like, no jagged tall cards) */
 .cs-canva-home-card {
   align-self: flex-start;
+  max-width: 100%;
+  overflow: hidden;
 }
 .cs-canva-home .cs-canva-home-card > div:first-child {
   box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
+}
+/* Caption under thumb — no overlap with dims / neighbor cards */
+.cs-canva-home-card p {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.cs-canva-home-nav {
+  /* Keep arrow inside panel so it never clips outside glass */
+  inset-inline-end: 0.25rem;
+}
+/* Absolute thumbs fill card frame — do not force height:auto (breaks equal-height row) */
+.cs-canva-home-card img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  content-visibility: auto;
+}
+.cs-canva-home .cs-canva-home-glass {
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  .cs-canva-home {
+    padding-inline: 0.5rem;
+  }
+  .cs-canva-home > .cs-canva-home-glass {
+    border-radius: 1.25rem !important;
+    padding-inline: 0.85rem !important;
+  }
+  .cs-canva-home-card {
+    max-width: min(68vw, 10.5rem);
+  }
+  .grid .cs-canva-home-card {
+    max-width: 100% !important;
+  }
+  .cs-canva-home-chip {
+    width: 3.75rem;
+  }
+  .cs-canva-home-chip span:first-child {
+    width: 2.75rem !important;
+    height: 2.75rem !important;
+    border-radius: 0.9rem !important;
+  }
+  .cs-canva-home-nav {
+    width: 2rem;
+    height: 2rem;
+  }
+}
+@media (min-width: 641px) and (max-width: 1024px) {
+  .cs-canva-home-card {
+    max-width: min(42vw, 12rem);
+  }
+  .grid .cs-canva-home-card {
+    max-width: 100% !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Responsive chrome — header / edit toolbar / footer (laptop · 80% · tablet)
+ * One-row scroll toolbars; stable footer grid; no messy 2-line wrap overlap.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/* —— Header: 3-zone grid (left | center | right) —— */
+.canva-studio-light > .cs-header {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.2fr) auto minmax(0, 1.4fr);
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  width: 100%;
+  min-width: 0;
+  overflow: visible !important;
+}
+
+.canva-studio-light .cs-header-left,
+.canva-studio-light .cs-header-right {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.canva-studio-light .cs-header-left {
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.canva-studio-light .cs-header-center {
+  justify-self: center;
+}
+
+.canva-studio-light .cs-header-right {
+  justify-self: end;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  max-width: 100%;
+}
+
+.canva-studio-light .cs-header-right::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.canva-studio-light .cs-header-title,
+.canva-studio-light .cs-header-title-input {
+  max-width: min(14rem, 28vw);
+  min-width: 0;
+}
+
+.canva-studio-light .cs-header-share-label {
+  white-space: nowrap;
+}
+
+/* —— Edit panel: scrollable tools + sticky end actions (no messy wrap) —— */
+.canva-studio-light .cs-toolbar {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden !important;
+  box-sizing: border-box;
+}
+
+.canva-studio-light .cs-toolbar-scroll {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  padding-block: 0.15rem;
+}
+
+.canva-studio-light .cs-toolbar-scroll > * {
+  flex-shrink: 0 !important;
+}
+
+.canva-studio-light .cs-toolbar-end {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+  padding-inline-start: 0.25rem;
+  border-inline-start: 1px solid color-mix(in srgb, var(--cs-border) 70%, transparent);
+}
+
+/* Spacing popover opens upward so horizontal toolbar scroll does not clip it */
+.canva-studio-light .cs-toolbar .cs-spacing-popover {
+  top: auto !important;
+  bottom: calc(100% + 0.4rem) !important;
+  margin-top: 0 !important;
+  z-index: 90;
+}
+
+/* —— Footer: stable columns —— */
+.canva-studio-light .cs-footer {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.2fr) auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.canva-studio-light .cs-footer-meta {
+  grid-column: 1;
+  min-width: 0;
+}
+
+.canva-studio-light .cs-footer-actions {
+  grid-column: 2;
+}
+
+.canva-studio-light .cs-footer-zoom {
+  grid-column: 3;
+}
+
+.canva-studio-light .cs-footer-product {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.canva-studio-light .cs-footer-formats {
+  grid-column: 4;
+  justify-self: end;
+  flex-wrap: nowrap;
+}
+
+.canva-studio-light .cs-footer-formats:only-of-type,
+.canva-studio-light .cs-footer:not(:has(.cs-footer-product)) .cs-footer-formats {
+  grid-column: 4;
+}
+
+/* Page tools bar — never wrap; allow horizontal scroll on narrow */
+.canva-studio-light .cs-page-bar {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.canva-studio-light .cs-page-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.canva-studio-light .cs-page-bar-title .cs-page-toolbar-title-input {
+  max-width: min(12rem, 36vw) !important;
+}
+
+.canva-studio-light .cs-workspace {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* —— Laptop / ~80% browser zoom (~1100–1366 CSS px) —— */
+@media (max-width: 1366px) {
+  .canva-studio-light > .cs-header {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.1fr);
+    gap: 0.4rem 0.5rem;
+    padding-inline: 0.65rem !important;
+  }
+
+  .canva-studio-light .cs-header-title,
+  .canva-studio-light .cs-header-title-input {
+    max-width: min(9.5rem, 18vw);
+  }
+
+  .canva-studio-light .cs-header-status {
+    display: none !important;
+  }
+
+  .canva-studio-light .cs-header-share-label {
+    max-width: 7.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .canva-studio-light .cs-toolbar {
+    gap: 0.35rem;
+    padding-inline: 0.5rem !important;
+  }
+
+  .canva-studio-light .cs-toolbar-scroll {
+    gap: 0.3rem;
+  }
+
+  .canva-studio-light .cs-toolbar-end-label {
+    display: none;
+  }
+
+  .canva-studio-light .cs-footer {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 0.4rem 0.5rem;
+  }
+
+  .canva-studio-light .cs-footer-formats {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 0.1rem;
+    scrollbar-width: none;
+  }
+
+  .canva-studio-light .cs-footer-formats::-webkit-scrollbar {
+    display: none;
+  }
+
+  .canva-studio-light .cs-footer-meta span {
+    font-size: 11px;
+  }
+}
+
+/* —— Tablet / small laptop —— */
+@media (max-width: 1024px) {
+  .canva-studio-light > .cs-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'left right'
+      'center center';
+  }
+
+  .canva-studio-light .cs-header-left {
+    grid-area: left;
+  }
+
+  .canva-studio-light .cs-header-center {
+    grid-area: center;
+    justify-self: center;
+  }
+
+  .canva-studio-light .cs-header-right {
+    grid-area: right;
+  }
+
+  .canva-studio-light .cs-header-share-label {
+    display: none;
+  }
+
+  .canva-studio-light .cs-header-title,
+  .canva-studio-light .cs-header-title-input {
+    max-width: min(8rem, 28vw);
+  }
+
+  .canva-studio-light .cs-footer {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'meta actions'
+      'zoom formats';
+  }
+
+  .canva-studio-light .cs-footer-meta {
+    grid-area: meta;
+  }
+
+  .canva-studio-light .cs-footer-actions {
+    grid-area: actions;
+    justify-self: end;
+  }
+
+  .canva-studio-light .cs-footer-zoom {
+    grid-area: zoom;
+    justify-self: start;
+  }
+
+  .canva-studio-light .cs-footer-formats {
+    grid-area: formats;
+    justify-self: end;
+  }
+
+  .canva-studio-light .cs-footer-product {
+    grid-column: 1 / -1;
+  }
+
+  .canva-studio-light .cs-footer-add-label {
+    display: none;
+  }
+
+  .canva-studio-light .cs-page-toolbar-label {
+    font-size: 11px !important;
+  }
+}
+
+/* —— Phones —— */
+@media (max-width: 640px) {
+  .canva-studio-light > .cs-header {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'left'
+      'right'
+      'center';
+    gap: 0.35rem;
+  }
+
+  .canva-studio-light .cs-header-left,
+  .canva-studio-light .cs-header-right {
+    width: 100%;
+    max-width: 100%;
+    justify-content: space-between;
+  }
+
+  .canva-studio-light .cs-header-right {
+    overflow-x: auto;
+    justify-content: flex-start;
+    gap: 0.35rem;
+    padding-bottom: 0.1rem;
+  }
+
+  .canva-studio-light .cs-header-center {
+    justify-self: stretch;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .canva-studio-light .cs-footer {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'actions zoom'
+      'meta meta'
+      'formats formats';
+  }
+
+  .canva-studio-light .cs-footer-formats {
+    justify-content: flex-start;
+    gap: 0.65rem !important;
+  }
+
+  .canva-studio-light .cs-workspace {
+    padding: 0.5rem !important;
+  }
 }
