@@ -40,13 +40,13 @@ const ModernLuxuryFloorMatsSectionComponent: React.FC<ModernLuxuryFloorMatsSecti
   return (
     <section id="floor-mats-section" className="alsaeedi-section-soft alsaeedi-reveal space-y-5 p-3 sm:p-5">
       {/* ========================================================
-          CLEAN LUXURY HEADER (سعودی لگژری ہیڈر - سمپل و پرتعیش)
+          CLEAN LUXURY HEADER
           ======================================================== */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-slate-200/90 pb-3.5">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-3.5">
         <div>
           <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <span className="p-1.5 rounded-xl bg-amber-500/10 text-[#d5a027]">
-              <Sparkles className="w-5 h-5 text-[#d5a027]" />
+            <span className="p-1.5 rounded-xl bg-[#faede4] text-[#915f3c]">
+              <Sparkles className="w-5 h-5 text-[#915f3c]" />
             </span>
             <span>{isAr ? 'أرضيات 5D' : '5D Floor Mats'}</span>
           </h3>
@@ -59,7 +59,7 @@ const ModernLuxuryFloorMatsSectionComponent: React.FC<ModernLuxuryFloorMatsSecti
 
         <button
           onClick={onViewAll}
-          className="text-xs font-bold text-slate-900 hover:text-[#d5a027] transition-colors flex items-center gap-1 cursor-pointer self-start sm:self-auto py-1"
+          className="text-xs font-bold text-slate-900 hover:text-[#915f3c] transition-colors flex items-center gap-1 cursor-pointer self-start sm:self-auto py-1"
         >
           <span>{isAr ? 'عرض كافة الأرضيات' : 'View all mats'}</span>
           {isAr ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
@@ -81,13 +81,13 @@ const ModernLuxuryFloorMatsSectionComponent: React.FC<ModernLuxuryFloorMatsSecti
           return (
             <div 
               key={mat.id}
-              className="group relative alsaeedi-card alsaeedi-anim-lift flex h-full flex-col justify-between overflow-hidden rounded-2xl p-3 sm:rounded-3xl sm:p-4"
+              className="group relative alsaeedi-card alsaeedi-anim-lift flex h-full flex-col justify-between overflow-hidden rounded-2xl p-3 sm:rounded-3xl sm:p-4 bg-white"
             >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-[#d5a027]/8 group-hover:bg-[#d5a027]/14 rounded-full blur-2xl transition-all duration-500 pointer-events-none" />
+              <div className="absolute top-0 right-0 w-32 h-32 bg-[#faede4]/30 group-hover:bg-[#faede4]/50 rounded-full blur-2xl transition-all duration-500 pointer-events-none" />
 
               <div className="relative z-10">
                 <div 
-                  className="relative aspect-square rounded-xl sm:rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 cursor-pointer group shadow-inner"
+                  className="relative aspect-square rounded-xl sm:rounded-2xl overflow-hidden bg-[#faf7f4] cursor-pointer group shadow-2xs"
                   onClick={() => onSelectMat(mat)}
                 >
                   <img 
@@ -98,12 +98,12 @@ const ModernLuxuryFloorMatsSectionComponent: React.FC<ModernLuxuryFloorMatsSecti
                     decoding="async"
                   />
 
-                  <span className="absolute top-2.5 right-2.5 bg-white/95 text-[#d5a027] text-[9px] sm:text-[10px] font-black px-2.5 py-0.5 rounded-full shadow border border-[#d5a027]/40 flex items-center gap-1 backdrop-blur-xs">
-                    <Sparkles className="w-2.5 h-2.5 text-[#d5a027]" />
+                  <span className="absolute top-2.5 right-2.5 bg-white/95 text-[#915f3c] text-[9px] sm:text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs flex items-center gap-1 backdrop-blur-xs">
+                    <Sparkles className="w-2.5 h-2.5 text-[#915f3c]" />
                     <span>5D OEM</span>
                   </span>
 
-                  <span className="absolute top-2.5 left-2.5 bg-emerald-600/90 text-white text-[8px] sm:text-[9px] font-bold px-2 py-0.5 rounded-full shadow border border-emerald-400/30">
+                  <span className="absolute top-2.5 left-2.5 bg-emerald-600/90 text-white text-[8px] sm:text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
                     {isAr ? 'أصلي' : 'OEM'}
                   </span>
 

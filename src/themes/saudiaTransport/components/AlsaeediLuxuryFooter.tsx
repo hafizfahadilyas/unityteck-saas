@@ -299,14 +299,10 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
       {/* ========================================================
           3. MAIN LUXURY FOOTER WRAPPER
           ======================================================== */}
-      <footer className="alsaeedi-footer-shell alsaeedi-reveal text-slate-900 pt-14 pb-28 md:pb-14 border-t-2 border-[#d5a027]/50 relative overflow-hidden select-none">
-        {/* Base wash + diamond grid pattern (readable luxury light footer) */}
+      <footer className="alsaeedi-footer-shell alsaeedi-reveal text-slate-900 pt-14 pb-28 md:pb-14 relative overflow-hidden select-none bg-white">
+        {/* Base wash (pure white) */}
         <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              'linear-gradient(180deg, #eef2f7 0%, #e4ebf4 48%, #dbe3ee 100%)',
-          }}
+          className="pointer-events-none absolute inset-0 bg-white"
           aria-hidden
         />
         <div

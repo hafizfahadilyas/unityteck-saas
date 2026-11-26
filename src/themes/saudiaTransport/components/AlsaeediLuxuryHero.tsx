@@ -79,24 +79,24 @@ function FieldShell({
   return (
     <div className="relative text-start">
       <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
-        <span className="text-amber-700">{icon}</span>
+        <span className="text-[#915f3c]">{icon}</span>
         <span>{label}</span>
       </label>
       <button
         type="button"
         disabled={disabled}
         onClick={onToggle}
-        className={`w-full h-12 rounded-2xl px-3.5 text-xs font-bold flex items-center justify-between gap-2 transition-all shadow-xs ${
+        className={`w-full h-12 rounded-2xl px-3.5 text-xs font-bold flex items-center justify-between gap-2 transition-all ${
           disabled
             ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
             : open
-              ? 'bg-white ring-2 ring-[#d5a027]/30 text-slate-900 shadow-md'
-              : 'bg-slate-50/90 text-slate-900 hover:bg-white hover:shadow-sm'
+              ? 'bg-white ring-2 ring-[#915f3c]/25 text-slate-900 shadow-sm'
+              : 'bg-[#faf7f4] text-slate-900 hover:bg-white hover:shadow-xs'
         }`}
       >
         <span className="truncate text-start flex-1">{display}</span>
         <ChevronDown
-          className={`w-4 h-4 shrink-0 transition-transform ${open ? 'rotate-180 text-amber-700' : 'text-slate-400'}`}
+          className={`w-4 h-4 shrink-0 transition-transform ${open ? 'rotate-180 text-[#915f3c]' : 'text-slate-400'}`}
         />
       </button>
       {open && !disabled && (
@@ -122,11 +122,11 @@ function OptionRow({
       type="button"
       onClick={onClick}
       className={`w-full px-3.5 py-2.5 text-start flex items-center justify-between gap-2 text-xs font-semibold cursor-pointer transition-colors ${
-        active ? 'bg-amber-50 text-slate-900' : 'text-slate-700 hover:bg-slate-50'
+        active ? 'bg-[#faede4] text-[#915f3c]' : 'text-slate-700 hover:bg-[#faf7f4]'
       }`}
     >
       <span className="truncate flex items-center gap-2">{children}</span>
-      {active && <Check className="w-3.5 h-3.5 text-amber-700 shrink-0" />}
+      {active && <Check className="w-3.5 h-3.5 text-[#915f3c] shrink-0" />}
     </button>
   );
 }
@@ -236,35 +236,35 @@ const AlsaeediLuxuryHeroComponent: React.FC<AlsaeediLuxuryHeroProps> = ({
   const toggle = (key: FieldKey) => setOpenDropdown((prev) => (prev === key ? null : key));
 
   return (
-    <section className="relative text-slate-900 pt-7 sm:pt-10 pb-12 sm:pb-16 px-3 sm:px-6 overflow-visible bg-white">
+    <section className="relative text-slate-900 pt-8 sm:pt-12 pb-14 sm:pb-20 px-3 sm:px-6 overflow-visible bg-white">
       {/* Background Car Image Banner */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <img
           src="/images/bleco_hero_car_luxury.jpg"
           alt="Alsaeedi Luxury Automotive Hero"
-          className="w-full h-full object-cover object-center"
+          className="w-full h-full object-cover object-[center_right] sm:object-center"
         />
         {/* Soft elegant wash overlay so the car is clearly visible while text and search form remain crisp and high contrast */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-white/45 to-white" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white/80 via-white/55 to-white" />
       </div>
 
       <div className="relative z-10 mx-auto max-w-7xl space-y-6 text-center sm:space-y-7">
         {/* Headline */}
         <div className="space-y-3 alsaeedi-anim-fadeup px-1">
-          <p className="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-800 bg-amber-50/90 px-3.5 py-1.5 rounded-full shadow-2xs">
-            <Sparkles className="w-3.5 h-3.5 text-amber-700" />
+          <p className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#915f3c] bg-[#faede4] px-3.5 py-1.5 rounded-full shadow-2xs">
+            <Sparkles className="w-3.5 h-3.5 text-[#915f3c]" />
             <span>{isAr ? 'متجر السعيدي — مكة' : 'Al-Saeedi — Makkah'}</span>
           </p>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 leading-[1.2] tracking-tight">
             {isAr ? (
               <>
                 حوّل مقصورة سيارتك إلى{' '}
-                <span className="text-amber-700">فخامة الدرجة الأولى</span>
+                <span className="text-[#915f3c]">فخامة الدرجة الأولى</span>
               </>
             ) : (
               <>
                 Upgrade your cabin to{' '}
-                <span className="text-amber-700">first-class luxury</span>
+                <span className="text-[#915f3c]">first-class luxury</span>
               </>
             )}
           </h1>
@@ -285,9 +285,9 @@ const AlsaeediLuxuryHeroComponent: React.FC<AlsaeediLuxuryHeroProps> = ({
                 key={pill.key}
                 type="button"
                 onClick={() => onPillClick?.(pill.key)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 shadow-2xs text-[11px] font-bold text-slate-700 hover:text-amber-900 transition-all cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/95 shadow-2xs text-[11px] font-bold text-slate-700 hover:text-[#915f3c] transition-all cursor-pointer"
               >
-                <span className="text-amber-700">{pill.icon}</span>
+                <span className="text-[#915f3c]">{pill.icon}</span>
                 <span>{isAr ? pill.ar : pill.en}</span>
               </button>
             ))}
@@ -295,10 +295,10 @@ const AlsaeediLuxuryHeroComponent: React.FC<AlsaeediLuxuryHeroProps> = ({
         </div>
 
         {/* Vehicle finder — wide luxury form */}
-        <div className="alsaeedi-finder-card relative mx-auto w-full max-w-6xl p-4 text-start alsaeedi-anim-scalein sm:p-6 md:p-7">
+        <div className="alsaeedi-finder-card relative mx-auto w-full max-w-6xl p-4 text-start alsaeedi-anim-scalein sm:p-6 md:p-7 bg-white/95 backdrop-blur-xl shadow-lg rounded-3xl">
           <div className="flex items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2.5 min-w-0">
-              <span className="w-9 h-9 rounded-2xl bg-slate-900 text-[#f6c344] inline-flex items-center justify-center shrink-0 shadow-sm">
+              <span className="w-9 h-9 rounded-2xl bg-[#915f3c] text-white inline-flex items-center justify-center shrink-0 shadow-sm">
                 <Car className="w-4 h-4" />
               </span>
               <div className="min-w-0">
@@ -468,9 +468,9 @@ const AlsaeediLuxuryHeroComponent: React.FC<AlsaeediLuxuryHeroProps> = ({
               <label className="mb-1.5 block text-[11px] font-bold text-transparent select-none">.</label>
               <button
                 type="submit"
-                className="w-full h-12 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-[0.98] transition-all"
+                className="w-full h-12 rounded-2xl bg-[#915f3c] hover:bg-[#7e5233] text-white text-xs font-black flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-[0.98] transition-all"
               >
-                <Search className="w-4 h-4 text-[#f6c344]" />
+                <Search className="w-4 h-4 text-white" />
                 <span>{isAr ? 'ابحث' : 'Search'}</span>
               </button>
             </div>
@@ -479,7 +479,7 @@ const AlsaeediLuxuryHeroComponent: React.FC<AlsaeediLuxuryHeroProps> = ({
           {/* Popular chips — clean, no badge clutter */}
           <div className="mt-4 pt-3.5 flex flex-col sm:flex-row sm:items-center gap-2">
             <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 shrink-0">
-              <Flame className="w-3.5 h-3.5 text-amber-600" />
+              <Flame className="w-3.5 h-3.5 text-[#915f3c]" />
               {isAr ? 'الأكثر طلباً:' : 'Popular:'}
             </span>
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full pb-0.5">
@@ -499,8 +499,8 @@ const AlsaeediLuxuryHeroComponent: React.FC<AlsaeediLuxuryHeroProps> = ({
                     }}
                     className={`px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer shrink-0 shadow-2xs ${
                       isSelected
-                        ? 'bg-slate-900 text-white shadow-sm'
-                        : 'bg-white text-slate-700 hover:text-amber-900 hover:bg-slate-50'
+                        ? 'bg-[#915f3c] text-white'
+                        : 'bg-white text-slate-700 hover:bg-[#faede4] hover:text-[#915f3c]'
                     }`}
                   >
                     {isAr ? car.nameAr : car.nameEn}
@@ -511,16 +511,16 @@ const AlsaeediLuxuryHeroComponent: React.FC<AlsaeediLuxuryHeroProps> = ({
           </div>
 
           {hasVehicleSelected && (
-            <div className="mt-3.5 p-3 rounded-2xl bg-emerald-50/90 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fadeIn">
+            <div className="mt-3.5 p-3 rounded-2xl bg-[#faede4] flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fadeIn shadow-2xs">
               <div className="flex items-center gap-2.5 min-w-0">
-                <span className="w-8 h-8 rounded-xl bg-emerald-600 text-white inline-flex items-center justify-center shrink-0">
+                <span className="w-8 h-8 rounded-xl bg-[#915f3c] text-white inline-flex items-center justify-center shrink-0">
                   <CheckCircle2 className="w-4 h-4" />
                 </span>
                 <div className="min-w-0 text-start">
                   <p className="font-black text-slate-900 text-xs truncate">
                     {isAr ? `مطابق: ${fullSelectedTitle}` : `Matched: ${fullSelectedTitle}`}
                   </p>
-                  <p className="text-[11px] text-emerald-800 font-medium truncate">
+                  <p className="text-[11px] text-[#915f3c] font-medium truncate">
                     {isAr ? 'تلابيس وأرضيات متاحة لهذا الموديل' : 'Seat covers & mats available for this model'}
                   </p>
                 </div>
@@ -529,7 +529,7 @@ const AlsaeediLuxuryHeroComponent: React.FC<AlsaeediLuxuryHeroProps> = ({
                 <button
                   type="button"
                   onClick={() => onSubmit()}
-                  className="flex-1 sm:flex-none px-3.5 py-2 rounded-xl bg-white shadow-xs text-slate-900 text-xs font-black cursor-pointer inline-flex items-center justify-center gap-1"
+                  className="flex-1 sm:flex-none px-3.5 py-2 rounded-xl bg-white text-[#915f3c] text-xs font-black cursor-pointer inline-flex items-center justify-center gap-1 shadow-2xs"
                 >
                   <span>{isAr ? 'عرض المنتجات' : 'View products'}</span>
                   {isAr ? <ArrowLeft className="w-3.5 h-3.5" /> : <ArrowRight className="w-3.5 h-3.5" />}
@@ -537,7 +537,7 @@ const AlsaeediLuxuryHeroComponent: React.FC<AlsaeediLuxuryHeroProps> = ({
                 <button
                   type="button"
                   onClick={() => handleQuickWhatsAppConsultation()}
-                  className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black cursor-pointer inline-flex items-center gap-1"
+                  className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black cursor-pointer inline-flex items-center gap-1 shadow-2xs"
                 >
                   <MessageCircle className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">{isAr ? 'واتساب' : 'WhatsApp'}</span>
@@ -556,7 +556,7 @@ const AlsaeediLuxuryHeroComponent: React.FC<AlsaeediLuxuryHeroProps> = ({
               titleEn: '2-year warranty',
               subAr: 'استبدال سهل',
               subEn: 'Easy replace',
-              tone: 'bg-amber-50 text-amber-800',
+              tone: 'bg-[#faede4] text-[#915f3c]',
             },
             {
               icon: <MapPin className="w-4 h-4" />,
@@ -564,7 +564,7 @@ const AlsaeediLuxuryHeroComponent: React.FC<AlsaeediLuxuryHeroProps> = ({
               titleEn: 'Makkah install',
               subAr: 'فريق فني',
               subEn: 'Pro team',
-              tone: 'bg-sky-50 text-sky-800',
+              tone: 'bg-[#faede4] text-[#915f3c]',
             },
             {
               icon: <Truck className="w-4 h-4" />,
@@ -572,7 +572,7 @@ const AlsaeediLuxuryHeroComponent: React.FC<AlsaeediLuxuryHeroProps> = ({
               titleEn: 'KSA shipping',
               subAr: '3–5 أيام',
               subEn: '3–5 days',
-              tone: 'bg-emerald-50 text-emerald-800',
+              tone: 'bg-[#faede4] text-[#915f3c]',
             },
             {
               icon: <CreditCard className="w-4 h-4" />,
@@ -580,12 +580,12 @@ const AlsaeediLuxuryHeroComponent: React.FC<AlsaeediLuxuryHeroProps> = ({
               titleEn: 'Easy pay',
               subAr: 'مدى · تمارا',
               subEn: 'Mada · Tamara',
-              tone: 'bg-slate-100 text-slate-800',
+              tone: 'bg-[#faede4] text-[#915f3c]',
             },
           ].map((item, i) => (
             <div
               key={i}
-              className="alsaeedi-card-chip alsaeedi-reveal flex items-center gap-2.5 p-3"
+              className="alsaeedi-card-chip alsaeedi-reveal flex items-center gap-2.5 p-3 bg-white shadow-2xs rounded-2xl"
             >
               <div className={`w-8 h-8 rounded-xl inline-flex items-center justify-center shrink-0 ${item.tone}`}>
                 {item.icon}

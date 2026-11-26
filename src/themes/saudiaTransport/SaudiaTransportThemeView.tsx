@@ -1232,10 +1232,10 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
             <button
               type="button"
               onClick={toggleLanguage}
-              className="flex cursor-pointer items-center gap-1 rounded-full border border-[#d5a027]/50 bg-white px-2.5 py-1 text-[10px] font-bold text-amber-700 transition-all hover:bg-slate-50 sm:gap-1.5 sm:px-3 sm:text-[11px]"
+              className="flex cursor-pointer items-center gap-1 rounded-full bg-slate-50 px-2.5 py-1 text-[10px] font-bold text-[#915f3c] transition-all hover:bg-[#faede4] sm:gap-1.5 sm:px-3 sm:text-[11px]"
               aria-label={isAr ? 'التبديل إلى الإنجليزية' : 'Switch to Arabic'}
             >
-              <Globe className="h-3.5 w-3.5 text-[#f6c344]" aria-hidden="true" />
+              <Globe className="h-3.5 w-3.5 text-[#915f3c]" aria-hidden="true" />
               <span>{isAr ? 'إنجليزي' : 'العربية'}</span>
             </button>
           </div>
@@ -1243,7 +1243,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
       </div>
 
       {/* 2. MAIN MODERN LUXURY NAVBAR */}
-      <header className="sticky top-0 z-50 bg-gradient-to-b from-[#f8fafc]/95 via-[#f1f5f9]/92 to-[#eef2f7]/90 text-slate-900 shadow-[0_8px_24px_-12px_rgba(15,23,42,0.12)] border-b border-[#d5a027]/25 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 bg-white/95 text-slate-900 shadow-[0_4px_20px_-8px_rgba(15,23,42,0.06)] backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-2.5 flex items-center justify-between gap-2 lg:gap-4">
           {/* Logo & Store Identity (Compact & Responsive) */}
           <div 
@@ -1260,11 +1260,11 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                 <span className="truncate max-w-[145px] sm:max-w-[200px] xl:max-w-[240px]">
                   {storeDisplayName}
                 </span>
-                <span className="text-[8px] sm:text-[9px] bg-gradient-to-r from-[#d5a027] to-[#f6c344] text-slate-900 px-1.5 py-0.5 rounded font-black tracking-wider shadow-xs shrink-0 leading-none">
+                <span className="text-[8px] sm:text-[9px] bg-[#915f3c] text-white px-1.5 py-0.5 rounded font-black tracking-wider shadow-xs shrink-0 leading-none">
                   VIP
                 </span>
               </h1>
-              <p className="text-[9px] sm:text-[10px] text-amber-700/90 font-medium hidden sm:block truncate max-w-[190px] xl:max-w-[240px] leading-tight">
+              <p className="text-[9px] sm:text-[10px] text-[#915f3c] font-medium hidden sm:block truncate max-w-[190px] xl:max-w-[240px] leading-tight">
                 {isAr ? 'تنجيد وتلابيس مقاعد وأرضيات ليزر 5D' : 'Luxury Seat Covers & 5D Laser Mats'}
               </p>
             </div>
@@ -1393,10 +1393,10 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
             <button
               type="button"
               onClick={() => setSearchBarOpen((prev) => !prev)}
-              className={`flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-all sm:h-9 sm:w-9 ${
+              className={`flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full transition-all sm:h-9 sm:w-9 shadow-xs ${
                 searchBarOpen
-                  ? 'border-slate-900 bg-slate-900 text-[#f6c344]'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  ? 'bg-[#915f3c] text-white'
+                  : 'bg-slate-50 text-slate-700 hover:bg-[#faede4] hover:text-[#915f3c]'
               }`}
               title={isAr ? 'بحث عن سيارة أو موديل' : 'Search car model'}
               aria-label={isAr ? 'بحث' : 'Search'}
@@ -1407,7 +1407,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
             <button
               type="button"
               onClick={() => setIsAccountModalOpen(true)}
-              className="hidden h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition-all hover:bg-slate-50 sm:flex sm:h-9 sm:w-9"
+              className="hidden h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-slate-50 text-slate-700 transition-all hover:bg-[#faede4] hover:text-[#915f3c] sm:flex sm:h-9 sm:w-9 shadow-xs"
               title={isAr ? 'حسابي والطلبات' : 'My Account & Orders'}
               aria-label={isAr ? 'حسابي' : 'My Account'}
             >
@@ -1417,7 +1417,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
             <button
               type="button"
               onClick={() => openWhatsAppOrder()}
-              className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-emerald-600 text-white transition-all hover:bg-emerald-500 sm:h-9 sm:w-9"
+              className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-emerald-600 text-white transition-all hover:bg-emerald-500 sm:h-9 sm:w-9 shadow-xs"
               title={isAr ? 'تواصل عبر واتساب' : 'WhatsApp Order'}
               aria-label={isAr ? 'واتساب' : 'WhatsApp'}
             >
@@ -1427,14 +1427,14 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
             <button
               type="button"
               onClick={() => setCartDrawerOpen(true)}
-              className="relative flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full border border-slate-900 bg-slate-900 px-2.5 text-xs font-bold text-white transition-all hover:bg-slate-800 sm:h-9 sm:px-3.5"
+              className="relative flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full bg-[#915f3c] px-2.5 text-xs font-bold text-white transition-all hover:bg-[#7e5233] sm:h-9 sm:px-3.5 shadow-sm"
               title={isAr ? 'سلة المشتريات' : 'Shopping Cart'}
               aria-label={isAr ? 'السلة' : 'Cart'}
             >
-              <ShoppingCart className="h-4 w-4 shrink-0 text-[#f6c344]" />
+              <ShoppingCart className="h-4 w-4 shrink-0 text-white" />
               <span className="hidden sm:inline">{isAr ? 'السلة' : 'Cart'}</span>
               {cartCount > 0 && (
-                <span className="absolute -top-1.5 -end-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#d5a027] px-1 text-[10px] font-black text-slate-900">
+                <span className="absolute -top-1.5 -end-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#faede4] px-1 text-[10px] font-black text-[#915f3c] shadow-xs">
                   {cartCount}
                 </span>
               )}
@@ -1443,7 +1443,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
-              className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-amber-700 transition-all hover:bg-slate-200 lg:hidden sm:h-9 sm:w-9"
+              className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-slate-100 text-[#915f3c] transition-all hover:bg-[#faede4] lg:hidden sm:h-9 sm:w-9 shadow-xs"
               aria-label={isAr ? 'فتح القائمة' : 'Open Menu'}
             >
               <Menu className="h-4 w-4" />
@@ -1453,7 +1453,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
 
         {/* Collapsible Search Dropdown Bar */}
         {searchBarOpen && (
-          <div className="border-t border-[#d5a027]/25 bg-white/95 backdrop-blur-xl px-3 sm:px-6 py-2.5 animate-fadeIn">
+          <div className="bg-white/95 backdrop-blur-xl px-3 sm:px-6 py-2.5 animate-fadeIn shadow-md">
             <div className="max-w-2xl mx-auto flex items-center gap-2">
               <div className="relative flex-1">
                 <input 
@@ -1468,10 +1468,10 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                   }}
                   autoFocus
                   placeholder={isAr ? "ابحث باسم السيارة أو الموديل (مثال: كامري، لاندكروزر، إلنترا)..." : "Search car make or model (e.g., Camry, Land Cruiser, Sonata)..."}
-                  style={{ backgroundColor: 'rgba(255,255,255,0.08)', color: '#ffffff' }}
-                  className="w-full !bg-slate-50 !text-slate-900 placeholder-slate-400 text-xs rounded-full pl-9 pr-9 py-2 focus:outline-none focus:ring-2 focus:ring-[#d5a027] transition-all border border-[#d5a027]/40"
+                  style={{ backgroundColor: '#f8fafc', color: '#1e293b' }}
+                  className="w-full !bg-slate-50 !text-slate-900 placeholder-slate-400 text-xs rounded-full pl-9 pr-9 py-2 focus:outline-none focus:ring-2 focus:ring-[#915f3c] transition-all"
                 />
-                <Search className={`w-3.5 h-3.5 text-[#f6c344] absolute ${isAr ? 'right-3.5' : 'left-3.5'} top-1/2 -translate-y-1/2 pointer-events-none`} />
+                <Search className={`w-3.5 h-3.5 text-[#915f3c] absolute ${isAr ? 'right-3.5' : 'left-3.5'} top-1/2 -translate-y-1/2 pointer-events-none`} />
                 {searchQuery && (
                   <button
                     type="button"
@@ -1832,15 +1832,15 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-radial from-slate-300/25 to-transparent rounded-full blur-xl pointer-events-none" />
 
               {/* Section Header */}
-              <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-4 pb-4 border-b border-slate-100">
+              <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-4 pb-4">
                 <div className="space-y-1.5">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-black bg-gradient-to-r from-slate-50 to-amber-50/80 border border-[#d5a027]/30 text-slate-800">
-                    <Sparkles className="w-3.5 h-3.5 text-[#d5a027] alsaeedi-anim-pulse" />
+                  <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-black bg-[#faede4] text-[#915f3c] shadow-2xs">
+                    <Sparkles className="w-3.5 h-3.5 text-[#915f3c] alsaeedi-anim-pulse" />
                     <span>{isAr ? 'اختر ماركة سيارتك' : 'Choose your car brand'}</span>
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-slate-800 via-slate-700 to-slate-600 text-[#f6c344] flex items-center justify-center shadow-md border border-[#d5a027]/30 shrink-0 alsaeedi-anim-glow">
+                    <div className="w-11 h-11 rounded-2xl bg-[#915f3c] text-white flex items-center justify-center shadow-md shrink-0">
                       <Car className="w-5 h-5 drop-shadow" />
                     </div>
                     <div>
@@ -2016,7 +2016,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               {reviewsLoading || productsLoading ? (
                 <AlsaeediReviewsSkeleton />
               ) : storeReviews.length === 0 ? (
-                <div className="rounded-2xl border border-slate-200 bg-white px-4 py-10 text-center">
+                <div className="rounded-2xl bg-white shadow-2xs px-4 py-10 text-center">
                   <Star className="mx-auto mb-2 h-8 w-8 text-slate-300" aria-hidden="true" />
                   <p className="text-sm font-bold text-slate-700">
                     {isAr ? 'لا توجد تقييمات بعد' : 'No reviews yet'}

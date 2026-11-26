@@ -23,7 +23,7 @@ const CoreTwoCategoriesSectionComponent: React.FC<CoreTwoCategoriesSectionProps>
       {/* Minimal Luxury Header */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-amber-50 to-white text-amber-700 shadow-sm border border-[#d5a027]/30 alsaeedi-anim-float">
+          <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-[#faede4] text-[#915f3c] shadow-xs alsaeedi-anim-float">
             <Sparkles className="w-4 h-4" />
           </span>
           <div>
@@ -33,7 +33,7 @@ const CoreTwoCategoriesSectionComponent: React.FC<CoreTwoCategoriesSectionProps>
           </div>
         </div>
 
-        <span className="text-[11px] font-bold text-[#b07e16] bg-amber-50/90 px-3 py-1 rounded-full border border-amber-200/80">
+        <span className="text-[11px] font-bold text-[#915f3c] bg-[#faede4] px-3.5 py-1 rounded-full shadow-2xs">
           {isAr ? 'تلابيس · أرضيات' : 'Seats · Mats'}
         </span>
       </div>
@@ -46,8 +46,8 @@ const CoreTwoCategoriesSectionComponent: React.FC<CoreTwoCategoriesSectionProps>
           onClick={() => onSelectCategory('cat-clothing')}
           className={`group relative h-[280px] sm:h-[320px] md:h-[360px] overflow-hidden rounded-3xl cursor-pointer alsaeedi-anim-lift shadow-md ${
             activeCategoryId === 'cat-clothing' 
-              ? 'ring-4 ring-[#d5a027]' 
-              : 'ring-1 ring-slate-900/10 hover:ring-[#d5a027]/60'
+              ? 'ring-4 ring-[#915f3c]' 
+              : 'hover:shadow-xl'
           }`}
         >
           {/* Full-Bleed Luxury Image */}
@@ -117,8 +117,8 @@ const CoreTwoCategoriesSectionComponent: React.FC<CoreTwoCategoriesSectionProps>
           onClick={() => onSelectCategory('cat-floors')}
           className={`group relative h-[280px] sm:h-[320px] md:h-[360px] overflow-hidden rounded-3xl cursor-pointer alsaeedi-anim-lift shadow-md ${
             activeCategoryId === 'cat-floors' 
-              ? 'ring-4 ring-[#d5a027]' 
-              : 'ring-1 ring-slate-900/10 hover:ring-[#d5a027]/60'
+              ? 'ring-4 ring-[#915f3c]' 
+              : 'hover:shadow-xl'
           }`}
         >
           {/* Full-Bleed Luxury Image */}

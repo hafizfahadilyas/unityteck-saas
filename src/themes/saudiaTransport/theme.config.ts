@@ -18,12 +18,12 @@ export const saudiaTransportThemeConfig: ThemeManifest = {
   previewImage: '/src/assets/images/saudi_hero_banner_1.jpg',
   tags: ['automotive', 'upholstery', 'seat-covers', 'tanjeed', 'car-mats', 'transport', 'saudi'],
   defaultColors: {
-    primary: '#1e293b',
-    secondary: '#b45309',
-    accent: '#d5a027',
+    primary: '#1c1917',
+    secondary: '#915f3c',
+    accent: '#c48957',
     surface: '#ffffff',
-    background: '#f4f6f8',
-    text: '#0f172a',
+    background: '#ffffff',
+    text: '#1c1917',
   },
   homeStyles: [
     {

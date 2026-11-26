@@ -10,22 +10,28 @@
 @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 :root {
-  --color-brand: #1e293b;
-  --color-brand-deep: #0f172a;
-  --color-brand-darker: #020617;
-  --color-brand-mid: #475569;
-  --color-gold: #d5a027;
-  --color-gold-light: #f6c344;
-  --color-gold-champagne: #f4d068;
-  --color-gold-dark: #b07e16;
+  --color-brand: #1c1917;
+  --color-brand-deep: #141210;
+  --color-brand-darker: #0c0a09;
+  --color-brand-mid: #57534e;
+  --color-gold: #915f3c; /* warm pillar bronze from car image */
+  --color-gold-light: #c48957;
+  --color-gold-champagne: #faede4;
+  --color-gold-dark: #7e5233;
   --color-bg-page: #ffffff;
   --color-bg-card: #ffffff;
   --color-border: transparent;
-  --color-text-main: #0f172a;
-  --color-text-muted: #64748b;
-  --color-silver: #c0c7d1;
+  --color-text-main: #1c1917;
+  --color-text-muted: #78716c;
+  --color-silver: #e7e5e4;
   --color-silver-soft: #ffffff;
   --alsaeedi-card-shadow: 0 4px 20px -4px rgba(15, 23, 42, 0.06), 0 2px 6px -2px rgba(15, 23, 42, 0.03);
+}
+
+/* Universal border elimination across car store */
+.alsaeedi-theme-container,
+.alsaeedi-theme-container * {
+  border-color: transparent !important;
 }
 
 .alsaeedi-theme-container {
@@ -34,39 +40,6 @@
   color: var(--color-text-main);
   position: relative;
   overflow-x: hidden;
-}
-
-/* =========================================================================
-   Zero Borders Everywhere (Pure Minimal Luxury Aesthetic)
-   ========================================================================= */
-.alsaeedi-theme-container,
-.alsaeedi-theme-container *,
-.alsaeedi-theme-container *::before,
-.alsaeedi-theme-container *::after {
-  border-color: transparent !important;
-}
-
-.alsaeedi-theme-container [class*="border"],
-.alsaeedi-theme-container hr,
-.alsaeedi-theme-container [class*="divide-"] > *,
-.alsaeedi-top-announce,
-.alsaeedi-section,
-.alsaeedi-section-soft,
-.alsaeedi-product-card,
-.alsaeedi-card,
-.alsaeedi-seat-card,
-.alsaeedi-finder-card,
-.alsaeedi-brand-card,
-.alsaeedi-brand-emblem,
-.alsaeedi-card-panel,
-.alsaeedi-card-chip,
-.alsaeedi-card-gold,
-.alsaeedi-vehicle-filter,
-.alsaeedi-footer-shell,
-.btn-bashayer-purple,
-.btn-bashayer-gold {
-  border: none !important;
-  border-width: 0 !important;
 }
 
 .alsaeedi-theme-container[dir="rtl"] {
@@ -80,11 +53,12 @@
 /* 1. Slim Announcement Micro-Bar — pure white */
 .alsaeedi-top-announce {
   background: #ffffff !important;
-  color: #334155;
+  color: #57534e;
   padding: 7px 16px;
   font-size: 11px;
   font-weight: 600;
   border: none !important;
+  border-bottom: none !important;
   position: relative;
   z-index: 40;
 }
@@ -147,11 +121,12 @@
 
 /* 3. Luxury Buttons */
 .btn-bashayer-gold {
-  background: linear-gradient(135deg, #d5a027 0%, #f6c344 50%, #e5a93b 100%);
-  color: #0f172a;
+  background: linear-gradient(135deg, #915f3c 0%, #b87a48 50%, #915f3c 100%) !important;
+  color: #ffffff !important;
   font-weight: 900;
   border-radius: 9999px;
-  box-shadow: 0 4px 16px rgba(213, 160, 39, 0.38);
+  border: none !important;
+  box-shadow: 0 4px 16px rgba(145, 95, 60, 0.28) !important;
   transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
   position: relative;
   overflow: hidden;
@@ -159,34 +134,34 @@
 
 .btn-bashayer-gold:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(213, 160, 39, 0.55);
+  box-shadow: 0 8px 24px rgba(145, 95, 60, 0.45) !important;
   filter: brightness(1.06);
 }
 
 .btn-bashayer-purple {
-  background: linear-gradient(135deg, #334155 0%, #1e293b 100%);
-  color: #ffffff;
+  background: #1c1917 !important;
+  color: #ffffff !important;
   font-weight: 800;
   border-radius: 9999px;
   border: none !important;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.18);
+  box-shadow: 0 4px 16px rgba(28, 25, 23, 0.18) !important;
   transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
 
 .btn-bashayer-purple:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.28);
+  box-shadow: 0 8px 24px rgba(28, 25, 23, 0.28) !important;
   filter: brightness(1.06);
 }
 
-/* 4. Luxury Product Cards — pure white luxury (zero border) */
+/* 4. Luxury Product Cards — pure white luxury surface, borderless */
 .alsaeedi-product-card,
 .alsaeedi-card {
   background: #ffffff !important;
   border-radius: 20px;
   border: none !important;
   box-shadow: 0 4px 20px -4px rgba(15, 23, 42, 0.06), 0 2px 6px -2px rgba(15, 23, 42, 0.03) !important;
-  color: #0f172a;
+  color: #1c1917;
   transition: transform 0.28s ease, box-shadow 0.28s ease;
   overflow: hidden;
   display: flex;
@@ -196,31 +171,30 @@
 .alsaeedi-product-card:hover,
 .alsaeedi-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 18px 36px -10px rgba(15, 23, 42, 0.12) !important;
   border: none !important;
+  box-shadow: 0 18px 34px -12px rgba(15, 23, 42, 0.12) !important;
 }
 
 .alsaeedi-card-panel {
   background: #ffffff !important;
   border: none !important;
   border-radius: 1.15rem;
-  box-shadow: 0 4px 18px -4px rgba(15, 23, 42, 0.05) !important;
-  color: #0f172a;
+  box-shadow: 0 4px 20px -4px rgba(15, 23, 42, 0.06) !important;
+  color: #1c1917;
 }
 
 .alsaeedi-card-chip {
   background: #ffffff !important;
   border: none !important;
   border-radius: 1rem;
-  box-shadow: 0 4px 14px -4px rgba(15, 23, 42, 0.05) !important;
-  color: #0f172a;
+  box-shadow: 0 2px 10px -2px rgba(15, 23, 42, 0.05) !important;
+  color: #1c1917;
 }
 
 .alsaeedi-card-gold {
-  background: #ffffff !important;
+  background: #faede4 !important;
   border: none !important;
-  color: #0f172a;
-  box-shadow: 0 4px 18px -4px rgba(15, 23, 42, 0.05) !important;
+  color: #1c1917;
 }
 
 .alsaeedi-product-card .img-zoom {
@@ -237,7 +211,7 @@
   border-radius: 24px;
   padding: 20px;
   border: none !important;
-  box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.08) !important;
+  box-shadow: 0 12px 36px -12px rgba(15, 23, 42, 0.08) !important;
   position: relative;
   z-index: 20;
 }
@@ -254,35 +228,25 @@
   border-radius: 20px;
   border: none !important;
   transition: transform 0.25s ease, box-shadow 0.25s ease;
-  box-shadow: 0 4px 14px -3px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 4px 16px -4px rgba(15, 23, 42, 0.05) !important;
   position: relative;
   overflow: hidden;
 }
 
 .alsaeedi-brand-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 20px;
-  background: rgba(213, 160, 39, 0.06);
-  opacity: 0;
-  transition: opacity 0.25s ease;
-  pointer-events: none;
+  display: none !important;
 }
 
 .alsaeedi-brand-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 14px 28px -4px rgba(15, 23, 42, 0.1);
-}
-
-.alsaeedi-brand-card:hover::before {
-  opacity: 1;
+  border: none !important;
+  box-shadow: 0 14px 28px -4px rgba(15, 23, 42, 0.1) !important;
 }
 
 .alsaeedi-brand-card.active {
   border: none !important;
-  background: #ffffff !important;
-  box-shadow: 0 10px 24px -4px rgba(15, 23, 42, 0.12) !important;
+  background: #faede4 !important;
+  box-shadow: 0 0 0 2px #915f3c, 0 12px 26px -4px rgba(145, 95, 60, 0.18) !important;
   transform: translateY(-2px);
 }
 
@@ -290,23 +254,23 @@
   width: 58px;
   height: 58px;
   border-radius: 9999px;
-  background: #f8fafc !important;
+  background: #ffffff !important;
   border: none !important;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06) !important;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   position: relative;
 }
 
 .alsaeedi-brand-card:hover .alsaeedi-brand-emblem {
   transform: scale(1.08);
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 0 14px rgba(145, 95, 60, 0.25) !important;
 }
 
 .alsaeedi-brand-card.active .alsaeedi-brand-emblem {
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
+  box-shadow: 0 0 0 3px rgba(145, 95, 60, 0.25), 0 6px 14px rgba(15, 23, 42, 0.1) !important;
   background: #ffffff !important;
 }
 
@@ -316,7 +280,6 @@
   height: 18px;
   border-radius: 9999px;
   border: none !important;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15) !important;
   transition: transform 0.2s ease;
   cursor: pointer;
 }
@@ -326,22 +289,21 @@
 }
 
 .color-swatch-dot.active {
-  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #d5a027 !important;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #915f3c;
   transform: scale(1.15);
 }
 
-/* 8. Hero — pure clean container */
+/* 8. Hero — pure white base */
 .alsaeedi-hero-gradient,
 .alsaeedi-hero-gradient.alsaeedi-glow-radial {
-  background-color: transparent !important;
-  background-image: none !important;
+  background: #ffffff !important;
 }
 
 .alsaeedi-hero-pattern-veil {
   display: none !important;
 }
 
-/* Seat product cards — equal action row + pure white luxury surface */
+/* Seat product cards — pure white luxury surface */
 .alsaeedi-seat-card {
   min-height: 100%;
   background: #ffffff !important;
@@ -358,12 +320,12 @@
 
 /* Modern vehicle finder card */
 .alsaeedi-finder-card {
-  background: rgba(255, 255, 255, 0.95) !important;
+  background: rgba(255, 255, 255, 0.96) !important;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: none !important;
   border-radius: 1.35rem;
-  box-shadow: 0 12px 36px -12px rgba(15, 23, 42, 0.1) !important;
+  box-shadow: 0 12px 36px -12px rgba(15, 23, 42, 0.08) !important;
 }
 
 @media (min-width: 640px) {
@@ -373,7 +335,7 @@
 }
 
 .alsaeedi-glow-radial {
-  background-image: radial-gradient(circle at 50% 0%, rgba(213, 160, 39, 0.12) 0%, rgba(192, 199, 209, 0.08) 45%, transparent 70%);
+  background-image: none !important;
 }
 
 /* 9. Mobile Sticky Bottom Navigation — pure white */
@@ -390,7 +352,7 @@
   border-top: none !important;
   padding-bottom: max(6px, env(safe-area-inset-bottom));
   box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.05);
-  color: #0f172a;
+  color: #1c1917;
 }
 
 .alsaeedi-mobile-bottom-nav > * {
@@ -538,7 +500,7 @@
   /* clip-x only — never hide brand/booking rows on mobile */
   overflow-x: clip;
   overflow-y: visible;
-  color: #0f172a;
+  color: #1c1917;
 }
 
 @media (max-width: 640px) {
@@ -560,7 +522,7 @@
   border: none !important;
   border-radius: 1.5rem;
   box-shadow: 0 4px 24px -6px rgba(15, 23, 42, 0.05) !important;
-  color: #0f172a;
+  color: #1c1917;
 }
 
 .alsaeedi-main-stack {

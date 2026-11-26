@@ -186,10 +186,10 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
   return (
     <section id="featured-seats-section" className="alsaeedi-section-soft alsaeedi-reveal space-y-5 pt-2 p-3 sm:p-5 overflow-x-clip overflow-y-visible">
       {/* Header */}
-      <div className="flex flex-col gap-3 border-b border-slate-200/90 pb-3.5 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-3 pb-3.5 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <h3 className="flex items-center gap-2.5 text-xl font-black tracking-tight text-slate-900 sm:text-2xl">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#d5a027]/35 bg-gradient-to-br from-amber-50 to-white text-[#d5a027] shadow-sm">
+            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#faede4] text-[#915f3c] shadow-xs">
               <Palette className="h-[18px] w-[18px]" aria-hidden="true" />
             </span>
             <span className="truncate">{isAr ? 'تلابيس المقاعد' : 'Seat Covers'}</span>
@@ -203,7 +203,7 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
         <button
           type="button"
           onClick={onViewAll}
-          className="inline-flex shrink-0 items-center gap-1 self-start py-1 text-xs font-bold text-slate-900 transition-colors hover:text-[#d5a027] cursor-pointer sm:self-auto"
+          className="inline-flex shrink-0 items-center gap-1 self-start py-1 text-xs font-bold text-slate-900 transition-colors hover:text-[#915f3c] cursor-pointer sm:self-auto"
         >
           <span>{isAr ? 'عرض الكل' : 'View all'}</span>
           {isAr ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
@@ -211,10 +211,10 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
       </div>
 
       {/* Filters — stacked on mobile so chips never collide with labels */}
-      <div className="space-y-3.5 alsaeedi-card-panel p-3 sm:p-4">
+      <div className="space-y-3.5 alsaeedi-card-panel p-3 sm:p-4 bg-white shadow-xs rounded-2xl">
         <div className="space-y-2">
           <span className="inline-flex items-center gap-1.5 px-0.5 text-[11px] font-black text-slate-700">
-            <Car className="h-3.5 w-3.5 shrink-0 text-slate-800" aria-hidden="true" />
+            <Car className="h-3.5 w-3.5 shrink-0 text-[#915f3c]" aria-hidden="true" />
             <span>{isAr ? 'اختر سيارتك' : 'Vehicle'}</span>
           </span>
           <div className="alsaeedi-chip-scroll -mx-0.5 flex items-center gap-2 overflow-x-auto px-0.5 pb-0.5">
@@ -226,14 +226,14 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveBrandTab(tab.id)}
-                  className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2 text-[11px] font-bold transition-all cursor-pointer sm:text-xs ${
+                  className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-[11px] font-bold transition-all cursor-pointer sm:text-xs shadow-2xs ${
                     isActive
-                      ? 'border-[#d5a027]/70 bg-gradient-to-r from-slate-900 to-slate-800 text-white shadow-md shadow-slate-900/15'
-                      : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-[#d5a027]/45 hover:bg-amber-50/70'
+                      ? 'bg-[#915f3c] text-white shadow-sm'
+                      : 'bg-[#faf7f4] text-slate-700 hover:bg-[#faede4] hover:text-[#915f3c]'
                   }`}
                 >
                   <Icon
-                    className={`h-3.5 w-3.5 shrink-0 ${isActive ? 'text-[#f6c344]' : 'text-slate-500'}`}
+                    className={`h-3.5 w-3.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-500'}`}
                     aria-hidden="true"
                   />
                   <span className="sm:hidden">{isAr ? tab.shortAr : tab.shortEn}</span>
@@ -244,9 +244,9 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
           </div>
         </div>
 
-        <div className="space-y-2 border-t border-slate-100 pt-3">
+        <div className="space-y-2 pt-2">
           <span className="inline-flex items-center gap-1.5 px-0.5 text-[11px] font-black text-slate-700">
-            <Layers className="h-3.5 w-3.5 shrink-0 text-[#d5a027]" aria-hidden="true" />
+            <Layers className="h-3.5 w-3.5 shrink-0 text-[#915f3c]" aria-hidden="true" />
             <span>{isAr ? 'نوع الخامة' : 'Material'}</span>
           </span>
           <div className="alsaeedi-chip-scroll -mx-0.5 flex items-center gap-2 overflow-x-auto px-0.5 pb-0.5">
@@ -257,10 +257,10 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
                   key={mat.id}
                   type="button"
                   onClick={() => setActiveMaterialTab(mat.id)}
-                  className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-xl border px-3 py-2 text-[11px] font-bold transition-all cursor-pointer sm:text-xs ${
+                  className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-xl px-3 py-2 text-[11px] font-bold transition-all cursor-pointer sm:text-xs shadow-2xs ${
                     isActive
-                      ? 'border-amber-300 bg-amber-100 font-black text-amber-950'
-                      : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                      ? 'bg-[#faede4] font-black text-[#915f3c]'
+                      : 'bg-[#faf7f4] text-slate-600 hover:bg-slate-100'
                   }`}
                 >
                   <span className="sm:hidden">{isAr ? mat.shortAr : mat.shortEn}</span>

@@ -275,7 +275,7 @@ export const AlsaeediServicesBooking: React.FC<Props> = ({ isAr, storeId }) => {
   return (
     <section id="services-booking" className="alsaeedi-section alsaeedi-reveal space-y-6 p-4 sm:p-6 lg:p-7">
       <div className="text-center space-y-2 max-w-2xl mx-auto relative z-10">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-[#d5a027]/40 text-amber-800 text-[11px] font-black">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#faede4] text-[#915f3c] text-[11px] font-black shadow-2xs">
           <Wrench className="w-3.5 h-3.5" />
           <span>{isAr ? 'خدمات الورشة' : 'Workshop Services'}</span>
         </div>
@@ -307,10 +307,10 @@ export const AlsaeediServicesBooking: React.FC<Props> = ({ isAr, storeId }) => {
                 setServiceKey(svc.key);
                 setExtras((prev) => prev.filter((k) => k !== svc.key));
               }}
-              className={`cursor-pointer overflow-hidden rounded-2xl border text-start transition-all ${
+              className={`cursor-pointer overflow-hidden rounded-2xl text-start transition-all ${
                 active
-                  ? 'alsaeedi-card-gold border-[#d5a027] shadow-md ring-2 ring-[#d5a027]/25'
-                  : 'alsaeedi-card hover:border-[#d5a027]/40'
+                  ? 'alsaeedi-card-gold shadow-md ring-2 ring-[#915f3c]/25'
+                  : 'alsaeedi-card'
               }`}
             >
               {img ? (
@@ -388,7 +388,7 @@ export const AlsaeediServicesBooking: React.FC<Props> = ({ isAr, storeId }) => {
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoComplete="name"
-              className="w-full h-11 rounded-xl border border-slate-300 px-3 text-sm font-semibold text-slate-900 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#d5a027]/40"
+              className="w-full h-11 rounded-xl px-3 text-sm font-semibold text-slate-900 bg-[#faf7f4] focus:outline-none focus:ring-2 focus:ring-[#915f3c]/40 shadow-2xs"
               required
             />
           </label>
@@ -401,7 +401,7 @@ export const AlsaeediServicesBooking: React.FC<Props> = ({ isAr, storeId }) => {
               inputMode="tel"
               placeholder="05xxxxxxxx"
               autoComplete="tel"
-              className="w-full h-11 rounded-xl border border-slate-300 px-3 text-sm font-semibold text-slate-900 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#d5a027]/40"
+              className="w-full h-11 rounded-xl px-3 text-sm font-semibold text-slate-900 bg-[#faf7f4] focus:outline-none focus:ring-2 focus:ring-[#915f3c]/40 shadow-2xs"
               required
             />
           </label>
@@ -413,7 +413,7 @@ export const AlsaeediServicesBooking: React.FC<Props> = ({ isAr, storeId }) => {
               onChange={(e) => setEmail(e.target.value)}
               dir="ltr"
               autoComplete="email"
-              className="w-full h-11 rounded-xl border border-slate-300 px-3 text-sm font-semibold text-slate-900 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#d5a027]/40"
+              className="w-full h-11 rounded-xl px-3 text-sm font-semibold text-slate-900 bg-[#faf7f4] focus:outline-none focus:ring-2 focus:ring-[#915f3c]/40 shadow-2xs"
             />
           </label>
         </div>
@@ -431,7 +431,7 @@ export const AlsaeediServicesBooking: React.FC<Props> = ({ isAr, storeId }) => {
                 setModel('');
                 setYear('');
               }}
-              className="w-full h-11 rounded-xl border border-slate-300 px-3 text-sm font-semibold bg-slate-50"
+              className="w-full h-11 rounded-xl px-3 text-sm font-semibold bg-[#faf7f4] shadow-2xs"
             >
               {CAR_BRANDS.map((b) => (
                 <option key={b.id} value={b.id}>
@@ -448,7 +448,7 @@ export const AlsaeediServicesBooking: React.FC<Props> = ({ isAr, storeId }) => {
                 setModel(e.target.value);
                 setYear('');
               }}
-              className="w-full h-11 rounded-xl border border-slate-300 px-3 text-sm font-semibold bg-slate-50"
+              className="w-full h-11 rounded-xl px-3 text-sm font-semibold bg-[#faf7f4] shadow-2xs"
               required
             >
               <option value="">{isAr ? 'اختر الموديل' : 'Select model'}</option>
