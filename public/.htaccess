@@ -32,8 +32,11 @@ DirectoryIndex storefront-shell.php index.html
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
 
   # Immutable caching for hashed assets
-  <FilesMatch "\.(js|css|woff2?|png|jpe?g|webp|svg)$">
+  <FilesMatch "\.(js|mjs|css|woff2?|png|jpe?g|webp|svg)$">
     Header set Cache-Control "public, max-age=31536000, immutable"
+    # Tenant hosts (e.g. souq-default.mieraf-ksa.com) load Vite modules cross-origin
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
   </FilesMatch>
 
   # HTML must not be aggressively cached so deploys show immediately
@@ -43,12 +46,16 @@ DirectoryIndex storefront-shell.php index.html
     Header set Expires "0"
   </FilesMatch>
 
-  # Admin / Master shell is PHP — never LiteSpeed / CDN cache (mobile was stuck on old SPA)
-  <FilesMatch "^(storefront-shell|sitemap|robots)\.php$">
+  # Admin / Master / storefront shell is PHP — never LiteSpeed / CDN cache
+  # (laptop often kept old SPA while mobile showed new — HTML must always revalidate)
+  <FilesMatch "^(storefront-shell|sitemap|robots|llms)\.php$">
     Header set Cache-Control "no-cache, no-store, must-revalidate, max-age=0"
     Header set Pragma "no-cache"
     Header set Expires "0"
     Header set X-LiteSpeed-Cache-Control "no-cache"
+    Header set CDN-Cache-Control "no-store"
+    Header set Cloudflare-CDN-Cache-Control "no-store"
+    Header set Surrogate-Control "no-store"
   </FilesMatch>
 </IfModule>
 
@@ -88,8 +95,31 @@ DirectoryIndex storefront-shell.php index.html
   RewriteRule ^master/(.*)$ /storefront-shell.php [L,QSA]
   RewriteRule ^store/?$ /storefront-shell.php [L,QSA]
   RewriteRule ^store/(.*)$ /storefront-shell.php [L,QSA]
+  # Short onboarding share links → SPA
+  RewriteRule ^join/?$ /storefront-shell.php [L,QSA]
+  RewriteRule ^join/(.*)$ /storefront-shell.php [L,QSA]
+  RewriteRule ^j/(.*)$ /storefront-shell.php [L,QSA]
+  RewriteRule ^onboard/(.*)$ /storefront-shell.php [L,QSA]
+
+  # Route souq.mieraf-ksa.com host to /souq directory
+  RewriteCond %{HTTP_HOST} ^souq\.mieraf-ksa\.com$ [NC]
+  RewriteCond %{REQUEST_URI} !^/souq(?:/|$)
+  RewriteRule ^(.*)$ /souq/$1 [L]
+
+  # Support souq static export /_next assets
+  RewriteRule ^_next/(.*)$ /souq/_next/$1 [L]
+
+  # Fallback for stale cached index bundle references (e.g., after new deployments)
+  RewriteCond %{REQUEST_URI} ^/assets/index-[^/]+\.js$ [NC]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^assets/index-[^/]+\.js$ /assets/index-C0fhbuso.js [L]
+
+  RewriteCond %{REQUEST_URI} ^/assets/index-[^/]+\.css$ [NC]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^assets/index-[^/]+\.css$ /assets/index-D5CcHLaK.css [L]
 
   # Prevent serving HTML for missing static assets (return 404 instead of index.html fallback)
+  RewriteCond %{REQUEST_URI} !^/assets/index-
   RewriteCond %{REQUEST_URI} \.(?:js|mjs|css|png|jpe?g|gif|webp|svg|woff2?|ttf|eot|ico|json|map)$ [NC]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteRule ^ - [R=404,L]

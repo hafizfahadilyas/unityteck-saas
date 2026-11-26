@@ -14,15 +14,15 @@ alwaysApply: true
 - **NO REBUILD**: Fix broken data paths only — preserve Master/Store pixel UI.
 
 ## 2. 100% Pixel-Perfect UI/UX Alignment
-- Reference mockups and design docs in `C:\Users\fahad\Downloads\مجلد جديد (8)\مجلد جديد (8)` are the **absolute visual truth**:
-  - `Home/`
-  - `Products/`
-  - `Orders/`
-  - `Customers/`
-  - `Shipping/`
-  - `Reports/`
-  - `Marketing Tools/`
-  - `Messaging Channels/`
+- Reference mockups and design docs in `designs/Store_Dashboard_UIUX/` are the **absolute visual truth**:
+ - `Home/`
+ - `Products/`
+ - `Orders/`
+ - `Customers/`
+ - `Shipping/`
+ - `Reports/`
+ - `Marketing Tools/`
+ - `Messaging Channels/`
 - Every component must match the layout, typography, colors, padding, borders, responsive behavior, and visual hierarchy 1:1.
 - No invented layouts, missing cards, or substituted UI elements.
 

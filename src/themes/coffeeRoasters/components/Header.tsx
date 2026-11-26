@@ -254,7 +254,8 @@ export const Header: React.FC = () => {
     };
 
     (products || []).forEach((prod) => {
-      const catKey = `${prod.category || ''} ${(prod as { categoryAr?: string }).categoryAr || ''} ${prod.name || ''} ${prod.nameAr || ''}`.toLowerCase();
+      const catId = String(prod.category || '').toLowerCase().trim();
+      const catKey = `${catId} ${(prod as { categoryAr?: string }).categoryAr || ''} ${prod.name || ''} ${prod.nameAr || ''}`.toLowerCase();
       const rawImg =
         prod.colors?.[0]?.image ||
         prod.images?.[0] ||
@@ -275,23 +276,32 @@ export const Header: React.FC = () => {
         isNew: Boolean(prod.badge || (prod.originalPrice && prod.originalPrice > prod.basePrice)),
       };
 
+      // Dashboard category id wins — never dump almari/cabinets into Machines mega.
+      const isCabinet =
+        catId === 'cabinets' ||
+        catId.includes('cabinet') ||
+        /cabinet|corner|station|oak|almari|دولاب|دواليب|أركان|ركن/.test(catKey);
+      const isMill =
+        !isCabinet &&
+        (catId.includes('mill') || /mill|grind|مطح/.test(catKey));
+      const isAccessory =
+        !isCabinet &&
+        !isMill &&
+        (catId.includes('accessor') || /access|cup|tool|portafilter|مستلزم|أكواب|كوب|فلتر/.test(catKey));
       const isMachine =
-        /machine|espresso|barista|مكائن|إسبريسو|اسبريسو|قهوة/.test(catKey) &&
-        !/mill|grind|مطح|cabinet|دواليب|ركن|cup|كوب|access|مستلزم/.test(catKey);
-      const isMill = /mill|grind|مطح/.test(catKey);
-      const isCabinet = /cabinet|corner|station|oak|دواليب|أركان|ركن/.test(catKey);
-      const isAccessory = /access|cup|tool|portafilter|مستلزم|أكواب|كوب|فلتر/.test(catKey);
+        !isCabinet &&
+        !isMill &&
+        !isAccessory &&
+        (catId.includes('machine') ||
+          (/machine|espresso|barista|مكائن|إسبريسو|اسبريسو/.test(catKey) &&
+            !/قهوة/.test(catKey)));
 
-      if (isMachine || (!isMill && !isCabinet && !isAccessory)) {
-        catalog.machines.latest.push(item);
-        if (prod.basePrice > 1000 || /pro|h7a|commercial|تجار|58/.test(catKey)) {
-          catalog.machines.pro.push(item);
-          catalog.machines.commercial.push(item);
-        } else {
-          catalog.machines.compact.push(item);
-        }
-      }
-      if (isMill) {
+      if (isCabinet) {
+        catalog.cabinets.latest.push(item);
+        catalog.cabinets.luxury.push(item);
+        catalog.cabinets.cabinets.push(item);
+        catalog.cabinets.corners.push(item);
+      } else if (isMill) {
         catalog.mills.latest.push(item);
         catalog.mills.electric.push(item);
         if (/conical|مخروط/.test(catKey)) catalog.mills.conical.push(item);
@@ -300,18 +310,19 @@ export const Header: React.FC = () => {
           catalog.mills.conical.push(item);
           catalog.mills.flat.push(item);
         }
-      }
-      if (isCabinet) {
-        catalog.cabinets.latest.push(item);
-        catalog.cabinets.luxury.push(item);
-        catalog.cabinets.cabinets.push(item);
-        catalog.cabinets.corners.push(item);
-      }
-      if (isAccessory) {
+      } else if (isAccessory) {
         catalog.accessories.latest.push(item);
         if (/cup|كوب/.test(catKey)) catalog.accessories.cups.push(item);
         else if (/filter|فلتر|porta/.test(catKey)) catalog.accessories.boltfilters.push(item);
         else catalog.accessories.tools.push(item);
+      } else if (isMachine) {
+        catalog.machines.latest.push(item);
+        if (prod.basePrice > 1000 || /pro|h7a|commercial|تجار|58/.test(catKey)) {
+          catalog.machines.pro.push(item);
+          catalog.machines.commercial.push(item);
+        } else {
+          catalog.machines.compact.push(item);
+        }
       }
 
       if (prod.originalPrice && prod.originalPrice > prod.basePrice) {
@@ -511,7 +522,20 @@ export const Header: React.FC = () => {
   const hiddenNavKeys = new Set(
     (headerSettings?.navigation?.hiddenNavKeys || []).map((k) => String(k).toLowerCase()),
   );
-  const showNavKey = (key: string) => !hiddenNavKeys.has(key.toLowerCase());
+  /** Hide product mega tabs with zero live products — frontend nav = dashboard catalog. */
+  const catalogNavHasProducts = (key: string): boolean => {
+    const bucket = dynamicMegaCatalog[key as keyof typeof dynamicMegaCatalog];
+    if (!bucket) return true;
+    return Object.values(bucket).some((rows) => Array.isArray(rows) && rows.length > 0);
+  };
+  const showNavKey = (key: string) => {
+    const k = key.toLowerCase();
+    if (hiddenNavKeys.has(k)) return false;
+    if (['machines', 'mills', 'cabinets', 'accessories', 'offers'].includes(k)) {
+      return catalogNavHasProducts(k);
+    }
+    return true;
+  };
   const navLabelOverrides = headerSettings?.navigation?.navLabelOverrides || {};
   /** Locked coffee nav rename — empty override keeps HiBrew default. */
   const lockedNavLabel = (key: string, fallbackEn: string, fallbackAr: string) => {
@@ -590,8 +614,12 @@ export const Header: React.FC = () => {
     scheduleMenuClose(160);
   };
 
+  // Prefer first mega key that actually has live products (dashboard sync).
+  const defaultMegaKey: MegaMenuKey = (['cabinets', 'machines', 'mills', 'accessories', 'offers'] as const).find(
+    (k) => showNavKey(k),
+  ) || 'cabinets';
   // Get active products for current mega menu and sub-filter (store catalog only)
-  const currentMenu = renderedMegaMenu || activeMegaMenu || 'machines';
+  const currentMenu = renderedMegaMenu || activeMegaMenu || defaultMegaKey;
   const megaOverrides = headerSettings?.navigation?.menuProductOverrides || {};
   const applyMegaOverride = (item: MegaProductItem): MegaProductItem => {
     const ov = megaOverrides[item.id];
@@ -604,7 +632,7 @@ export const Header: React.FC = () => {
     };
   };
   const getActiveProducts = (): MegaProductItem[] => {
-    const menuToUse = renderedMegaMenu || activeMegaMenu || 'machines';
+    const menuToUse = renderedMegaMenu || activeMegaMenu || defaultMegaKey;
     if (!menuToUse || menuToUse === 'explore') return [];
     const cat = dynamicMegaCatalog[menuToUse];
     if (!cat) return [];
@@ -1703,7 +1731,7 @@ export const Header: React.FC = () => {
                   className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-neutral-100 text-neutral-500 text-xs font-semibold cursor-pointer"
                 >
                   <Search className="w-4 h-4 text-neutral-600 shrink-0" />
-                  <span>{language === 'AR' ? 'ابحث عن آلة، مطحنة، أو بورتافلتر...' : 'Search machines, mills, boltfilters...'}</span>
+                  <span>{language === 'AR' ? 'ابحث عن دولاب قهوة أو ركن...' : 'Search coffee cabinets or stations...'}</span>
                 </div>
 
                 {/* Main Drilldown Navigation Items */}
@@ -2088,7 +2116,7 @@ export const Header: React.FC = () => {
 
                 {/* Product Grid in Mobile Drilldown */}
                 <div className="grid grid-cols-2 gap-3">
-                  {(dynamicMegaCatalog[mobileSubNavKey || 'machines']?.[mobileSubFilter] || dynamicMegaCatalog[mobileSubNavKey || 'machines']?.latest || []).map(prod => (
+                  {(dynamicMegaCatalog[mobileSubNavKey || defaultMegaKey]?.[mobileSubFilter] || dynamicMegaCatalog[mobileSubNavKey || defaultMegaKey]?.latest || []).map(prod => (
                     <div
                       key={prod.name}
                       onClick={() => {

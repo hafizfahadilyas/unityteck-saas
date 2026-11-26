@@ -202,8 +202,10 @@ class PaymentGatewayController extends Controller
         }
 
         $gateway = PaymentGateway::query()->forStore($storeId)->where('id', $id)->firstOrFail();
+        $started = microtime(true);
         $service = PaymentManager::resolve($gateway->provider);
         $result = $service->testConnection($gateway);
+        $durationMs = (int) round((microtime(true) - $started) * 1000);
 
         $gateway->last_tested_at = now();
         if ($result['success']) {
@@ -213,9 +215,17 @@ class PaymentGatewayController extends Controller
         }
         $gateway->save();
 
+        try {
+            (new \App\Services\Integration\IntegrationHealthService())
+                ->recordFromExistingTest($storeId, 'payment', (string) $gateway->provider, $result, $durationMs);
+        } catch (\Throwable $e) {
+            Log::warning('Integration health record failed: '.$e->getMessage());
+        }
+
         return response()->json([
             'test_result' => $result,
             'gateway_status' => $gateway->status,
+            'api_response_time_ms' => $durationMs,
         ]);
     }
 

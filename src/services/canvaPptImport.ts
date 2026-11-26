@@ -9,6 +9,7 @@
  */
 
 import type { ImportedStudioDesign, ImportedStudioLayer } from './canvaPsdImport';
+import { optimizeHomeThumb } from './canvaStudioPreview';
 
 const MAX_PPTX_BYTES = 45 * 1024 * 1024;
 const MAX_LAYERS = 120;
@@ -720,7 +721,7 @@ export async function importPptxFile(file: File): Promise<ImportedStudioDesign> 
     throw new Error('PPTX_NO_LAYERS');
   }
 
-  const preview = ctx.layers.find((l) => l.imageUrl)?.imageUrl;
+  const rawPreview = ctx.layers.find((l) => l.imageUrl)?.imageUrl;
 
   return {
     width: docW,
@@ -728,7 +729,7 @@ export async function importPptxFile(file: File): Promise<ImportedStudioDesign> 
     name: file.name.replace(/\.[^.]+$/, '') || 'Imported PowerPoint',
     source: 'pptx',
     layers: ctx.layers,
-    previewDataUrl: preview,
+    previewDataUrl: await optimizeHomeThumb(rawPreview),
     categoryHint: guessCategoryFromSize(docW, docH),
   };
 }

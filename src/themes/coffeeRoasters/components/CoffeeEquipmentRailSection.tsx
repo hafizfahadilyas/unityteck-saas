@@ -557,10 +557,12 @@ export const CoffeeEquipmentRailSection: React.FC<{
             {/* Carousel Swipeable Track with Smooth Hardware-Accelerated CSS Snap */}
             <div
               ref={mobileCarouselRef}
-              className="flex items-stretch gap-3.5 sm:gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar py-2 px-1 -mx-1 select-none touch-pan-x overscroll-x-contain"
+              className="flex items-stretch gap-3.5 sm:gap-4 overflow-x-auto snap-x snap-proximity no-scrollbar py-2 px-1 -mx-1 select-none touch-pan-x overscroll-x-contain"
               style={{
                 WebkitOverflowScrolling: 'touch',
-                scrollSnapType: 'x mandatory',
+                touchAction: 'pan-x pinch-zoom',
+                scrollBehavior: 'auto',
+                scrollSnapType: 'x proximity',
               }}
             >
               {/* Slide 1: Featured Flagship Card */}
@@ -738,8 +740,8 @@ export const CoffeeEquipmentRailSection: React.FC<{
                   </h4>
                   <p className="text-xs text-neutral-300 leading-relaxed max-w-[240px]">
                     {language === 'AR'
-                      ? 'تصفح جميع مكائن ومطاحن ومستلزمات هايبرو الرسمية مع الضمان المعتمد.'
-                      : 'Discover all HiBrew machines, grinders, and premium barista equipment.'}
+                      ? 'تصفح جميع دواليب وأركان القهوة من كتالوج المتجر — نفس المنتجات في لوحة التحكم.'
+                      : 'Browse all coffee cabinets and stations from your store catalog — same as the dashboard.'}
                   </p>
                 </div>
                 <div className="w-full pb-4">

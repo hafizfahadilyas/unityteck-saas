@@ -8,6 +8,7 @@
  */
 
 import { DEFAULT_HEADER_SETTINGS } from '../themes/settings/headerCustomSettings';
+import { buildSouqDefaultHomeBlocks } from '../themes/souqCommon/defaultHomeBlocks';
 import { isApiEnabled } from '../api/client';
 import { fetchBuilderLayoutApi, saveBuilderLayoutApi } from '../api/tenantApi';
 
@@ -82,17 +83,38 @@ function withDefaultSettings(blocks: ThemeBlockElement[]): ThemeBlockElement[] {
  * Exactly matches https://giftshop-sa.com/ (18 active sections on homepage).
  */
 export function createCanonicalBlocks(themeId: string, store?: any): ThemeBlockElement[] {
+  const tid = String(themeId || '').toLowerCase();
   const isCoffee = (themeId && themeId.includes('coffee')) || store?.id === 'store-coffee';
   const isCar =
     (themeId && (themeId.includes('saudia') || themeId.includes('transport'))) ||
     store?.id === 'store-bleco';
+  const isSouqCommon =
+    tid.includes('souq-common') ||
+    tid.includes('souqcommon') ||
+    tid.includes('commerce-starter') ||
+    store?.id === 'store-souq-default' ||
+    (store?.id &&
+      store.id !== 'store-1' &&
+      store.id !== 'store-coffee' &&
+      store.id !== 'store-bleco' &&
+      !isCoffee &&
+      !isCar);
 
   const storeNameAr =
-    store?.nameAr || store?.name || (isCar ? 'مؤسسة بلاكو للتجارة' : isCoffee ? 'متجر القهوة المختصة' : 'هدايا مكة');
+    store?.nameAr ||
+    store?.name ||
+    (isCar ? 'مؤسسة بلاكو للتجارة' : isCoffee ? 'متجر القهوة المختصة' : isSouqCommon ? 'متجر سوق' : 'هدايا مكة');
   const storeNameEn =
-    store?.nameEn || store?.name || (isCar ? 'Blacko Trading' : isCoffee ? 'Specialty Coffee Roasters' : 'Hadaya Makkah');
-  const brandBg = isCar ? '#020617' : isCoffee ? '#21130d' : store?.accentColor || '#102a1c';
-  const brandAccent = isCar ? '#f59e0b' : isCoffee ? '#c88a58' : '#e6ca98';
+    store?.nameEn ||
+    store?.name ||
+    (isCar ? 'Blacko Trading' : isCoffee ? 'Specialty Coffee Roasters' : isSouqCommon ? 'Souq Store' : 'Hadaya Makkah');
+  const brandBg = isCar ? '#020617' : isCoffee ? '#21130d' : isSouqCommon ? '#ffffff' : store?.accentColor || '#102a1c';
+  const brandAccent = isCar ? '#f59e0b' : isCoffee ? '#c88a58' : isSouqCommon ? store?.accentColor || '#0f766e' : '#e6ca98';
+
+  // SOUQ COMMON (docs/36–38) — complete easiest-style home; not flagship flora
+  if (isSouqCommon) {
+    return withDefaultSettings(buildSouqDefaultHomeBlocks(storeNameEn, storeNameAr, brandAccent));
+  }
 
   // CAR / TRANSPORT THEME
   if (isCar) {
@@ -572,6 +594,58 @@ export function getLiveOrStoredBlocks(
 
     const isCoffeeLayout =
       (themeId && themeId.includes('coffee')) || store?.id === 'store-coffee';
+
+    const themeKey = String(themeId || '').toLowerCase();
+    const isSouqLayout =
+      themeKey.includes('souq-common') ||
+      themeKey.includes('commerce-starter') ||
+      store?.id === 'store-souq-default';
+
+    // Souq common: never keep flora flower sections under common theme key
+    if (isSouqLayout) {
+      const hasFlowerLeak = candidateBlocks.some(
+        (b) =>
+          COFFEE_FORBIDDEN_FLORA_TYPES.includes(b.type) ||
+          COFFEE_FORBIDDEN_FLORA_TYPES.includes(b.id) ||
+          /floral|bouquet|roses|flora|ورد|باقات|chocolate_roses|luxury_gifts/i.test(
+            `${b.type || ''} ${b.id || ''} ${b.titleEn || ''} ${b.titleAr || ''}`,
+          ),
+      );
+      const requiredSouqTypes = [
+        'hero_slider',
+        'store_features_bar',
+        'featured_products',
+        'newsletter',
+        'metrics_section',
+      ];
+      const typesPresent = new Set(candidateBlocks.map((b) => String(b.type || '')));
+      const incompleteDefault =
+        store?.id === 'store-souq-default' &&
+        requiredSouqTypes.some((t) => !typesPresent.has(t));
+
+      if (
+        hasFlowerLeak ||
+        incompleteDefault ||
+        candidateBlocks.some((b) => String(b.templateStyle || '').includes('flora'))
+      ) {
+        try {
+          const resetPayload = {
+            themeId,
+            blocks: canonical,
+            updatedAt: new Date().toISOString(),
+            healedFrom: incompleteDefault ? 'souq-incomplete-default' : 'souq-flora-leak',
+          };
+          if (options?.forBuilderDraft) {
+            localStorage.setItem(draftKey, JSON.stringify(resetPayload));
+          } else {
+            localStorage.setItem(pubKey, JSON.stringify(resetPayload));
+          }
+        } catch {
+          /* ignore */
+        }
+        return withDefaultSettings(canonical);
+      }
+    }
 
     // Coffee: if draft/publish still carries flower Flora blocks → reset to HiBrew Word canonical
     if (isCoffeeLayout) {

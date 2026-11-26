@@ -504,50 +504,70 @@ export const PortalLogin: React.FC<PortalLoginProps> = ({
       </div>
 
       <header
-        className="portal-auth-glass-header relative z-20 shrink-0 px-4 sm:px-8 py-3.5 flex items-center justify-between gap-4"
+        className="portal-auth-glass-header relative z-20 shrink-0 px-3 sm:px-8 py-3 sm:py-3.5"
         style={{ color: 'var(--text)' }}
       >
-        <div className="flex items-center gap-3 min-w-0">
-          <div
-            className="portal-auth-brand-mark w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
-            style={{ color: 'var(--active-fg, #ffffff)' }}
-          >
-            {isMaster ? <Layers className="w-5 h-5" /> : <Store className="w-5 h-5" />}
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <p className="text-[10px] font-black uppercase tracking-wider leading-none" style={{ color: 'var(--muted)' }}>
-                {isMaster
-                  ? isAr
-                    ? 'منصة سوق للمؤسسات'
-                    : 'SOUQ PLATFORM'
-                  : isAr
-                    ? 'منصة التجارة الإلكترونية السحابية للمتاجر السعودية'
-                    : 'SAUDI COMMERCE CLOUD'}
-              </p>
-              <span
-                className="portal-auth-chip inline-flex items-center gap-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-md"
-                style={{ color: 'var(--accent)' }}
-              >
-                <span>{isAr ? 'تحقق بالبريد' : 'Email verification'}</span>
-              </span>
+        {/* One clean row on phone — no icon/text overlap */}
+        <div className="flex items-center justify-between gap-2 sm:gap-4 w-full min-w-0">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div
+              className="portal-auth-brand-mark w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0"
+              style={{ color: 'var(--active-fg, #ffffff)' }}
+              aria-hidden
+            >
+              {isMaster ? <Layers className="w-4 h-4 sm:w-5 sm:h-5" /> : <Store className="w-4 h-4 sm:w-5 sm:h-5" />}
             </div>
-            <p className="text-sm font-extrabold truncate leading-tight mt-1" style={{ color: 'var(--text)' }}>
-              {portalInfo.title}
-            </p>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 min-w-0">
+                <p
+                  className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider leading-snug line-clamp-2 sm:truncate min-w-0"
+                  style={{ color: 'var(--muted)' }}
+                >
+                  {isMaster
+                    ? isAr
+                      ? 'منصة سوق للمؤسسات'
+                      : 'SOUQ PLATFORM'
+                    : isAr
+                      ? 'منصة التجارة الإلكترونية السحابية للمتاجر السعودية'
+                      : 'SAUDI COMMERCE CLOUD'}
+                </p>
+                <span
+                  className="portal-auth-chip hidden sm:inline-flex items-center gap-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-md shrink-0"
+                  style={{ color: 'var(--accent)' }}
+                >
+                  {isAr ? 'تحقق بالبريد' : 'Email verification'}
+                </span>
+              </div>
+              <p className="text-[13px] sm:text-sm font-extrabold truncate leading-tight mt-0.5" style={{ color: 'var(--text)' }}>
+                {portalInfo.title}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <div
+              className="portal-auth-badge-pill flex items-center justify-center gap-1.5 w-9 h-9 sm:w-auto sm:h-auto sm:px-3.5 sm:py-1.5 rounded-full text-xs font-bold"
+              style={{ background: 'var(--active-bg)', color: 'var(--active-fg)' }}
+              title={portalInfo.badge}
+            >
+              {isMaster ? (
+                <ShieldCheck className="w-4 h-4" aria-hidden />
+              ) : (
+                <Shield className="w-4 h-4" aria-hidden />
+              )}
+              <span className="hidden sm:inline">{portalInfo.badge}</span>
+            </div>
+            <PrefsSwitcher showCurrency={!isMaster} compact />
           </div>
         </div>
 
-        <div
-          className="portal-auth-badge-pill flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold shrink-0"
-          style={{ background: 'var(--active-bg)', color: 'var(--active-fg)' }}
-        >
-          {isMaster ? <ShieldCheck className="w-4 h-4" style={{ color: 'var(--portal-400)' }} /> : <Shield className="w-4 h-4" style={{ color: 'var(--portal-400)' }} />}
-          <span className="hidden sm:inline">{portalInfo.badge}</span>
-        </div>
-
-        <div className="shrink-0 flex items-center gap-2">
-          <PrefsSwitcher showCurrency={!isMaster} />
+        <div className="mt-2 flex sm:hidden">
+          <span
+            className="portal-auth-chip inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-md"
+            style={{ color: 'var(--accent)' }}
+          >
+            {isAr ? 'تحقق بالبريد' : 'Email verification'}
+          </span>
         </div>
       </header>
 

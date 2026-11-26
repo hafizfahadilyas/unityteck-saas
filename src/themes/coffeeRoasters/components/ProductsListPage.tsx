@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
 import { Product } from '../types';
+import { SkeletonProductGrid } from '../../../components/common/skeleton';
 import { HeroSlider3D } from './HeroSlider3D';
 import { ExclusivePerksBar } from './ExclusivePerksBar';
 import { ShopTripleSlidersSection } from './ShopTripleSlidersSection';
@@ -48,7 +49,7 @@ import {
 
 export const ProductsListPage: React.FC = () => {
   const { navigateTo, addToCart, triggerFlyToCart, language, products: contextProducts } = useCart();
-  const { activeStore, currentProducts, loadMoreCatalog } = useTenant();
+  const { activeStore, currentProducts, loadMoreCatalog, apiReady } = useTenant();
   const [loadingMore, setLoadingMore] = useState(false);
 
   const isAr = language === 'AR';
@@ -82,12 +83,12 @@ export const ProductsListPage: React.FC = () => {
     (isAr ? 'الكتالوج المعتمد' : 'Official Catalog');
   const catalogTitle =
     bi(langKey, shopSettings?.titleEn, shopSettings?.titleAr) ||
-    (isAr ? 'استكشف جميع المنتجات والمعدات' : 'Explore All Coffee Gear & Products');
+    (isAr ? 'استكشف جميع دواليب وأركان القهوة' : 'Explore Coffee Cabinets & Stations');
   const catalogDesc =
     bi(langKey, shopSettings?.descriptionEn, shopSettings?.descriptionAr) ||
     (isAr
-      ? 'تصفح تشكيلة مكائن الإسبريسو، المطاحن، دواليب القهوة، ومستلزمات الباريستا مع أسعار شاملة للضريبة.'
-      : 'Browse our collection of espresso machines, mills, stations, and accessories with VAT-inclusive pricing.');
+      ? 'تصفح تشكيلة دواليب وأركان القهوة من كتالوج متجرك — نفس المنتجات الظاهرة في لوحة التحكم.'
+      : 'Browse the coffee cabinets and stations from your store catalog — the same products as the dashboard.');
 
   // Master product source: priority to context products (which already merges database/API products)
   const masterProducts: Product[] = useMemo(() => {
@@ -209,18 +210,25 @@ export const ProductsListPage: React.FC = () => {
     if (selectedCat !== 'all') {
       result = result.filter(p => String(p.category || '').toLowerCase() === String(selectedCat).toLowerCase());
     } else if (catHint) {
-      const hints: Record<string, string[]> = {
-        machines: ['machine', 'espresso', 'barista', 'مكائن', 'إسبريسو', 'اسبريسو'],
-        mills: ['mill', 'grinder', 'مطاحن', 'مطحنة'],
-        cabinets: ['cabinet', 'station', 'oak', 'دواليب', 'أركان', 'ركن'],
-        accessories: ['accessory', 'cup', 'مستلزمات', 'أكواب', 'كوب'],
-        offers: ['offer', 'sale', 'عروض', 'خصم'],
-      };
-      const keys = hints[catHint] || [catHint];
-      result = result.filter((p) => {
-        const blob = `${p.category || ''} ${p.categoryAr || ''} ${p.name || ''} ${p.nameAr || ''}`.toLowerCase();
-        return keys.some((k) => blob.includes(k.toLowerCase()));
-      });
+      const hint = String(catHint).toLowerCase();
+      // Prefer exact dashboard category id (e.g. cabinets) before fuzzy name matching.
+      const exact = result.filter((p) => String(p.category || '').toLowerCase() === hint);
+      if (exact.length > 0) {
+        result = exact;
+      } else {
+        const hints: Record<string, string[]> = {
+          machines: ['machine', 'espresso', 'barista', 'مكائن', 'إسبريسو', 'اسبريسو'],
+          mills: ['mill', 'grinder', 'مطاحن', 'مطحنة'],
+          cabinets: ['cabinet', 'station', 'oak', 'almari', 'دواليب', 'أركان', 'ركن', 'دولاب'],
+          accessories: ['accessory', 'cup', 'مستلزمات', 'أكواب', 'كوب'],
+          offers: ['offer', 'sale', 'عروض', 'خصم'],
+        };
+        const keys = hints[hint] || [hint];
+        result = result.filter((p) => {
+          const blob = `${p.category || ''} ${p.categoryAr || ''} ${p.name || ''} ${p.nameAr || ''}`.toLowerCase();
+          return keys.some((k) => blob.includes(k.toLowerCase()));
+        });
+      }
     }
 
     // Search Query Filter
@@ -427,11 +435,11 @@ export const ProductsListPage: React.FC = () => {
       color: 'text-amber-800',
       bgColor: 'bg-amber-800/10',
       borderColor: 'border-amber-800/20',
-      tag: isAr ? 'دعم باريستا' : 'Barista Care',
-      title: isAr ? 'استشارات باريستا ومتابعة ما بعد البيع' : 'Certified Barista Guidance & Support',
+      tag: isAr ? 'دعم التصميم' : 'Design Care',
+      title: isAr ? 'استشارات تصميم الركن ومتابعة ما بعد البيع' : 'Corner Design Guidance & After-Sales Support',
       description: isAr
-        ? 'فريق خبراء باريستا لتقديم النصائح حول معايرة الطحنة، نسب الاستخلاص، وبرمجة المكائن لمذاق متوازن لا يُنسى.'
-        : 'Dedicated certified baristas ready to help you calibrate your grind size, extraction ratio, and settings.'
+        ? 'فريق خبراء لتصميم ركن القهوة وتقديم النصائح حول مقاسات الدواليب، التشطيبات، والتوزيع داخل المساحة.'
+        : 'Experts ready to help size cabinets, finishes, and layout for your coffee corner.'
     }
   ];
 
@@ -804,8 +812,12 @@ export const ProductsListPage: React.FC = () => {
         </div>
         )}
 
-        {/* 5. Genuine Empty State (Rule 1 Compliance) */}
-        {filteredProducts.length === 0 && (
+        {/* 5. Skeleton Loading or Genuine Empty State (Rule 1 Compliance) */}
+        {!apiReady && (!currentProducts || currentProducts.length === 0) ? (
+          <div className="my-8">
+            <SkeletonProductGrid count={8} columns={3} />
+          </div>
+        ) : filteredProducts.length === 0 ? (
           <div className="bg-white rounded-3xl p-8 sm:p-14 text-center border border-neutral-200/80 shadow-xs max-w-xl mx-auto my-8 space-y-5">
             <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-700 border border-amber-200/60 flex items-center justify-center mx-auto shadow-inner">
               <PackageOpen className="w-8 h-8" />
@@ -837,7 +849,7 @@ export const ProductsListPage: React.FC = () => {
               </button>
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* 6. Mobile Carousel View (Active on mobile screens when carousel is toggled) */}
         {mobileViewMode === 'carousel' && filteredProducts.length > 0 && (
@@ -874,8 +886,8 @@ export const ProductsListPage: React.FC = () => {
             {/* Mobile Carousel Track */}
             <div
               ref={carouselRef}
-              className="flex items-stretch gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar py-2 px-1 -mx-1"
-              style={{ WebkitOverflowScrolling: 'touch', scrollSnapType: 'x mandatory' }}
+              className="flex items-stretch gap-4 overflow-x-auto snap-x snap-proximity no-scrollbar touch-pan-x overscroll-x-contain py-2 px-1 -mx-1"
+              style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x pinch-zoom', scrollBehavior: 'auto', scrollSnapType: 'x proximity' }}
             >
               {visibleProducts.map((product, pIdx) => {
                 const topImg = (product as any).image || product.colors?.[0]?.image || product.images?.[0] || '/images/coffee_hero_flagship_machine_1791218907782.jpg';
@@ -1208,6 +1220,12 @@ export const ProductsListPage: React.FC = () => {
                   ? 'عرض المزيد'
                   : 'Load more'}
             </button>
+          </div>
+        )}
+
+        {loadingMore && (
+          <div className="my-6 w-full" aria-busy="true" role="status">
+            <SkeletonProductGrid count={3} columns={3} />
           </div>
         )}
 

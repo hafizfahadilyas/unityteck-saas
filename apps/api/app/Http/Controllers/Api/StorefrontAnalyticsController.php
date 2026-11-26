@@ -7,6 +7,7 @@ use App\Models\Store;
 use App\Models\StorefrontAnalyticsEvent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class StorefrontAnalyticsController extends Controller
@@ -36,6 +37,7 @@ class StorefrontAnalyticsController extends Controller
             'campaign' => ['nullable', 'string', 'max:191'],
             'customer_id' => ['nullable', 'string', 'max:64'],
             'session_key' => ['nullable', 'string', 'max:64'],
+            'visitor_key' => ['nullable', 'string', 'max:64'],
             'meta' => ['nullable', 'array'],
         ]);
 
@@ -73,7 +75,7 @@ class StorefrontAnalyticsController extends Controller
         // Visits truth = storefront_analytics_events only (zero-mock).
         // Do NOT increment stores.visitors_count — that column is not dashboard truth.
 
-        $row = StorefrontAnalyticsEvent::query()->create([
+        $payload = [
             'id' => 'evt-'.(string) Str::uuid(),
             'store_id' => $storeId,
             'event_name' => $eventName,
@@ -84,7 +86,12 @@ class StorefrontAnalyticsController extends Controller
             'customer_id' => $validated['customer_id'] ?? null,
             'session_key' => $validated['session_key'] ?? null,
             'meta' => $meta,
-        ]);
+        ];
+        if (Schema::hasColumn('storefront_analytics_events', 'visitor_key')) {
+            $payload['visitor_key'] = $validated['visitor_key'] ?? null;
+        }
+
+        $row = StorefrontAnalyticsEvent::query()->create($payload);
 
         return response()->json(['success' => true, 'id' => $row->id], 201);
     }

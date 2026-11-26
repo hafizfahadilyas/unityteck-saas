@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useAdminInnerLayer } from '../../hooks/useAdminInnerLayer';
 import { useTenant } from '../../context/TenantContext';
+import { SkeletonTableRow } from '../common/skeleton';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { Customer, CustomerStatus, CustomerSource } from '../../types';
 import {
@@ -139,6 +140,7 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
   const {
     activeStore,
     currentCustomers,
+    apiReady,
     addCustomer,
     updateCustomer,
     deleteCustomer,
@@ -1140,7 +1142,11 @@ export const StoreCustomers: React.FC<StoreCustomersProps> = ({ onNavigateTab })
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-200">
-              {pageCustomers.length === 0 ? (
+              {!apiReady && pageCustomers.length === 0 ? (
+                Array.from({ length: 6 }).map((_, rIdx) => (
+                  <SkeletonTableRow key={`customers-skel-${rIdx}`} columns={11} />
+                ))
+              ) : pageCustomers.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="py-12 text-center text-slate-400">
                     {isAr ? 'لا يوجد عملاء مطابقون للتصفية.' : 'No customers found matching filters.'}

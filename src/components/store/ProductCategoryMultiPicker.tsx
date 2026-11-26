@@ -380,7 +380,7 @@ export const ProductCategoryMultiPicker: React.FC<Props> = ({
                   className="w-full px-3 py-2 rounded-xl border text-xs focus:outline-none cursor-pointer"
                   style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                 >
-                  <option value="">{isAr ? 'بدون أب (تصنيف رئيسي)' : 'No parent (root category)'}</option>
+                  <option value="">{isAr ? 'غير تابعة لأي تصنيف' : 'Not belonging to any category'}</option>
                   {parentOptions.map((p) => (
                     <option key={p.id} value={p.id}>{`${'— '.repeat(p.depth)}${p.label}`}</option>
                   ))}

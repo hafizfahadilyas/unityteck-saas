@@ -10,6 +10,7 @@ use App\Models\StoreTheme;
 use App\Models\ThemeCatalog;
 use App\Models\ThemeGlobalStyle;
 use App\Models\ThemePage;
+use App\Services\Theme\ThemeEntitlementService;
 use App\Support\DefaultTheme;
 use App\Support\ThemeCache;
 use App\Support\ThemePageSeo;
@@ -18,6 +19,7 @@ use App\Support\ThemeVisitorGate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class StoreThemeController extends Controller
@@ -25,12 +27,38 @@ class StoreThemeController extends Controller
     use ResolvesStoreId;
 
     /**
-     * List all themes in catalog.
+     * List themes in catalog — price-first, unlock via plan / purchase / master grant (CT-3).
      */
     public function catalog(Request $request): JsonResponse
     {
-        $themes = ThemeCatalog::query()->orderBy('is_default', 'desc')->get();
+        $query = ThemeCatalog::query()->orderBy('is_default', 'desc');
+        if (Schema::hasColumn('themes_catalog', 'is_active')) {
+            $query->where(function ($q) {
+                $q->where('is_active', true)->orWhereNull('is_active');
+            });
+        }
+        $themes = $query->get();
 
+        $storeId = $request->attributes->get('store_id')
+            ?? $request->header('X-Store-Id')
+            ?? $request->query('store_id');
+
+        if (is_string($storeId) && trim($storeId) !== '') {
+            $canonical = $this->canonicalStoreId($storeId);
+            $store = Store::query()->find($canonical);
+            if ($store) {
+                $svc = app(ThemeEntitlementService::class);
+
+                return response()->json([
+                    'success' => true,
+                    'data' => $svc->annotateCatalog($store, $themes),
+                    'store_id' => $store->id,
+                    'plan_code' => \App\Support\Plans::effectiveCode($store),
+                ]);
+            }
+        }
+
+        // No store context — raw catalog (Master / preview)
         return response()->json([
             'success' => true,
             'data' => $themes,
@@ -100,20 +128,44 @@ class StoreThemeController extends Controller
         $storeTheme = StoreTheme::withoutGlobalScope('store')
             ->firstOrNew(['store_id' => $id]);
 
+        $oldThemeId = $storeTheme->exists ? $storeTheme->theme_id : null;
+        $newThemeId = $data['theme_id'] ?? $oldThemeId ?? DefaultTheme::CATALOG_ID;
+
+        // CT-3/CT-5: activating a theme requires entitlement (also on first create)
+        if (isset($data['theme_id']) && $newThemeId && (string) $newThemeId !== (string) ($oldThemeId ?? '')) {
+            $store = Store::query()->find($id);
+            if ($store && Schema::hasTable('store_theme_entitlements')) {
+                $svc = app(ThemeEntitlementService::class);
+                if (! $svc->isUnlocked($store, (string) $newThemeId)) {
+                    $themeRow = ThemeCatalog::query()->find($newThemeId);
+                    $price = $themeRow?->price_sar;
+
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Theme locked for this store. Upgrade plan or purchase to unlock.',
+                        'message_ar' => 'هذا القالب مقفل لهذا المتجر. قم بترقية الباقة أو شراء القالب لفتحه.',
+                        'theme_id' => $newThemeId,
+                        'price_sar' => $price !== null ? (int) $price : null,
+                        'currency' => 'SAR',
+                        'lock_reason' => ($price && (int) $price > 0) ? 'purchase_required' : 'upgrade_plan',
+                        'store_id' => $id,
+                    ], 403);
+                }
+            }
+        }
+
         if (! $storeTheme->exists) {
             $storeTheme->id = $this->newId('sth');
             $storeTheme->store_id = $id;
-            $storeTheme->theme_id = $data['theme_id'] ?? DefaultTheme::CATALOG_ID;
+            $storeTheme->theme_id = $newThemeId;
         }
-
-        $oldThemeId = $storeTheme->theme_id;
-        $newThemeId = $data['theme_id'] ?? $oldThemeId;
 
         $existing = is_array($storeTheme->settings) ? $storeTheme->settings : [];
         if (! isset($existing['by_theme']) || ! is_array($existing['by_theme'])) {
             $existing['by_theme'] = [];
         }
 
+        // Theme switch = settings archive only. Never delete products/orders/customers/categories.
         // Preserve current settings for oldThemeId before switching
         if ($oldThemeId && ! empty($existing)) {
             $currentRoot = $existing;
@@ -614,14 +666,7 @@ class StoreThemeController extends Controller
         $origin = ThemePageSeo::originForStore((string) ($store->domain ?? ''), $request->getSchemeAndHttpHost());
         $seo = SeoConfig::query()->forStore((string) $store->id)->first();
         $custom = is_string($seo?->robots_txt) ? trim((string) $seo->robots_txt) : '';
-        if ($custom !== '') {
-            $body = $custom;
-            if (! str_contains(strtolower($body), 'sitemap:')) {
-                $body = rtrim($body)."\nSitemap: ".rtrim($origin, '/')."/sitemap.xml\n";
-            }
-        } else {
-            $body = "User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /master\nDisallow: /cart\nDisallow: /checkout\nSitemap: ".rtrim($origin, '/')."/sitemap.xml\n";
-        }
+        $body = \App\Support\RobotsTxtGuard::sanitize($custom, (string) $origin);
 
         return response($body, 200)->header('Content-Type', 'text/plain; charset=utf-8');
     }

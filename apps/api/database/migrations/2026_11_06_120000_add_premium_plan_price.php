@@ -10,7 +10,7 @@ return new class extends Migration
     public function up(): void
     {
         if (Schema::hasTable('stores') && Schema::getConnection()->getDriverName() === 'mysql') {
-            DB::statement("ALTER TABLE stores MODIFY COLUMN plan ENUM('free','paid','pro','premium','custom') NOT NULL DEFAULT 'free'");
+            DB::statement("ALTER TABLE stores MODIFY COLUMN plan ENUM('free','paid','starter','pro','premium','custom') NOT NULL DEFAULT 'free'");
         }
 
         if (Schema::hasTable('plans') && ! Schema::hasColumn('plans', 'price_sar')) {

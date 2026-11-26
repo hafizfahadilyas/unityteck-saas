@@ -106,13 +106,14 @@ export const SharedCanvaEditorPage: React.FC<Props> = ({ editorKind, onNavigateT
               ? 'product_card'
               : 'banner');
         await saveStudioDesign(activeStore.id, {
+          id: payload.id || undefined,
           editor_type: editorType,
           category: payload.category,
           title: payload.title || 'Design',
           width: payload.width,
           height: payload.height,
           design_json: payload.designJson,
-          source: 'studio',
+          source: payload.source || 'studio',
         });
       } catch {
         /* local media + template still count */
@@ -133,6 +134,29 @@ export const SharedCanvaEditorPage: React.FC<Props> = ({ editorKind, onNavigateT
       setHomeLaunch({ key, premadeId: target.template.id });
     } else if (target.kind === 'mine') {
       setHomeLaunch({ key, myTemplate: target.template });
+    } else if (target.kind === 'import') {
+      setHomeLaunch({
+        key,
+        openImport: true,
+        importFile: target.file,
+        blank: {
+          width: 1080,
+          height: 1080,
+          blankId: 'blank-square',
+          label: isAr ? 'استيراد قالب' : 'Import template',
+        },
+      });
+    } else if (target.kind === 'fonts') {
+      setHomeLaunch({
+        key,
+        openFonts: true,
+        blank: {
+          width: 1080,
+          height: 1080,
+          blankId: 'blank-square',
+          label: isAr ? 'الخطوط' : 'Fonts',
+        },
+      });
     } else {
       setHomeLaunch({
         key,

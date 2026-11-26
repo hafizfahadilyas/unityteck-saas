@@ -33,22 +33,22 @@ class TabbyGatewayService implements PaymentGatewayInterface
                     'success' => true,
                     'message' => 'Tabby Saudi BNPL connected successfully.',
                     'details' => ['environment' => $gateway->is_sandbox ? 'Sandbox / Test' : 'Production'],
+                    'health_status' => $gateway->is_sandbox ? 'sandbox_verified' : 'connected',
                 ];
             }
-        } catch (\Throwable $e) {}
 
-        if (str_starts_with($key, 'sk_test_') || str_starts_with($key, 'sk_live_') || str_starts_with($key, 'pk_')) {
             return [
-                'success' => true,
-                'message' => 'Tabby API Key validated.',
-                'details' => ['environment' => $gateway->is_sandbox ? 'Sandbox / Test' : 'Production'],
+                'success' => false,
+                'message' => 'Tabby API rejected credentials (HTTP '.$resp->status().').',
+                'health_status' => 'authentication_failed',
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'Tabby connection failed: '.$e->getMessage(),
+                'health_status' => 'connection_failed',
             ];
         }
-
-        return [
-            'success' => false,
-            'message' => 'Tabby authorization failed. Please check secret key.',
-        ];
     }
 
     public function createPaymentSession(PaymentGateway $gateway, Order $order, array $params = []): array
@@ -109,38 +109,62 @@ class TabbyGatewayService implements PaymentGatewayInterface
                         'raw' => $p,
                     ];
                 }
-            } catch (\Throwable $e) {}
+            } catch (\Throwable $e) {
+                return [
+                    'success' => false,
+                    'status' => 'pending',
+                    'gateway_transaction_id' => $gatewayId,
+                    'amount' => (float) ($payload['amount'] ?? 0),
+                    'fee' => 0,
+                    'message' => 'Tabby verify request failed: '.$e->getMessage(),
+                    'raw' => ['error' => $e->getMessage()],
+                ];
+            }
         }
 
-        // Sandbox / offline verification fallback
-        $status = ($payload['status'] ?? '') === 'failed' ? 'failed' : 'paid';
+        // Never invent Paid without Tabby API evidence
         return [
-            'success' => true,
-            'status' => $status,
+            'success' => false,
+            'status' => 'pending',
             'gateway_transaction_id' => $gatewayId,
             'amount' => (float) ($payload['amount'] ?? 0),
-            'fee' => round(((float) ($payload['amount'] ?? 0)) * 0.05, 2),
-            'source_type' => 'tabby_installments',
-            'card_brand' => 'Tabby',
-            'card_last_four' => 'BNPL',
-            'raw' => ['simulated' => true, 'provider' => 'tabby'],
+            'fee' => 0,
+            'message' => 'Tabby verification requires a live API response. Payment left pending.',
+            'raw' => ['awaiting_gateway_evidence' => true, 'provider' => 'tabby'],
         ];
     }
 
     public function refund(PaymentGateway $gateway, PaymentTransaction $transaction, float $amount, string $reason = ''): array
     {
         return [
-            'success' => true,
-            'refund_id' => 'tab_ref_' . rand(10000, 99999),
+            'success' => false,
             'amount' => $amount,
-            'status' => 'refunded',
-            'message' => 'Tabby installment plan adjusted / refunded successfully.',
+            'status' => 'failed',
+            'message' => 'Tabby refund requires a live Tabby refund API call (not stubbed as success).',
+            'requires_real_api' => true,
         ];
     }
 
     public function handleWebhook(PaymentGateway $gateway, Request $request): array
     {
         $payload = $request->all();
+        $secret = trim((string) ($gateway->webhook_secret ?? ''));
+        if ($secret !== '') {
+            $signature = (string) ($request->header('X-Tabby-Signature')
+                ?? $request->header('X-Webhook-Signature')
+                ?? '');
+            $computed = hash_hmac('sha256', $request->getContent() ?: json_encode($payload), $secret);
+            if ($signature === '' || (!hash_equals($computed, $signature) && !hash_equals($secret, $signature))) {
+                return [
+                    'success' => false,
+                    'event' => 'signature_invalid',
+                    'status' => 'pending',
+                    'message' => 'Tabby webhook signature verification failed.',
+                    'signature_ok' => false,
+                ];
+            }
+        }
+
         $event = $payload['event'] ?? $payload['type'] ?? '';
         $paymentData = $payload['data'] ?? $payload['payment'] ?? $payload;
 
@@ -149,13 +173,15 @@ class TabbyGatewayService implements PaymentGatewayInterface
             'payment.authorized', 'payment.closed' => 'paid',
             'payment.refunded' => 'refunded',
             'payment.rejected', 'payment.expired' => 'failed',
-            default => 'paid',
+            default => 'pending',
         };
 
         return [
             'success' => true,
+            'event' => $event ?: 'tabby.webhook',
             'transaction_id' => $txId,
             'status' => $status,
+            'signature_ok' => $secret !== '',
             'raw' => $payload,
         ];
     }

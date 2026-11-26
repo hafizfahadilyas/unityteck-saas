@@ -14,8 +14,6 @@ import {
 import { usePrefs } from '../../i18n/PrefsContext';
 import {
   BRAND_FONTS,
-  BRAND_FONTS_AR,
-  BRAND_FONTS_EN,
   BRAND_FONT_WEIGHTS,
   BRAND_FONT_WEIGHT_ORDER,
   BRAND_ICON_RADIUS,
@@ -38,6 +36,50 @@ import {
 import { useToast } from './ToastProvider';
 import { fetchPlatformSettings, updatePlatformSettings } from '../../api/tenantApi';
 import { isApiEnabled } from '../../api/client';
+import { StoreFontSelect } from '../store/fonts/StoreFontSelect';
+import {
+  STORE_ARABIC_FONT_COUNT,
+  STORE_ENGLISH_FONT_COUNT,
+  ensureStoreGoogleFontLoaded,
+  googleFontsCssUrl,
+} from '../../data/storeGoogleFontsCatalog';
+
+/** Map catalog family name → BrandFontArId when curated id exists. */
+const AR_FAMILY_TO_BRAND_ID: Record<string, BrandFontArId> = {
+  'SF Arabic': 'sf-arabic',
+  Cairo: 'cairo',
+  Tajawal: 'tajawal',
+  'Noto Sans Arabic': 'noto',
+  'IBM Plex Sans Arabic': 'ibm-plex-ar',
+  Almarai: 'almarai',
+  'Readex Pro': 'readex-pro',
+  'Noto Kufi Arabic': 'noto-kufi',
+  Amiri: 'amiri',
+  'Markazi Text': 'markazi',
+  Changa: 'changa',
+  'El Messiri': 'el-messiri',
+  Alexandria: 'alexandria',
+  'Reem Kufi': 'reem-kufi',
+  'Noto Naskh Arabic': 'noto-naskh',
+};
+
+const EN_FAMILY_TO_BRAND_ID: Record<string, BrandFontEnId> = {
+  'Plus Jakarta Sans': 'jakarta',
+  Inter: 'inter',
+  'DM Sans': 'dm-sans',
+  Manrope: 'manrope',
+  Outfit: 'outfit',
+  Poppins: 'poppins',
+  Urbanist: 'urbanist',
+  Roboto: 'roboto',
+  'Open Sans': 'open-sans',
+  Lato: 'lato',
+  Montserrat: 'montserrat',
+  'Nunito Sans': 'nunito-sans',
+  'Source Sans 3': 'source-sans-3',
+  'Work Sans': 'work-sans',
+  Rubik: 'rubik',
+};
 
 /**
  * Shared Master + Store branding:
@@ -380,6 +422,74 @@ export const BrandingPanel: React.FC<{
     preloadFontFace(id);
     setFont(id);
     toast(isAr ? 'تم تحديث الخط الإنجليزي' : 'English font updated', 'success');
+  };
+
+  const arabicCatalogValue =
+    (brand.fontAr || brand.font) === 'custom-ar'
+      ? String(brand.customFontFamilyAr || customFontName || '').trim()
+      : BRAND_FONTS[(brand.fontAr || 'sf-arabic') as BrandFontArId]?.label || 'SF Arabic';
+
+  const englishCatalogValue =
+    BRAND_FONTS[(brand.fontEn || 'jakarta') as BrandFontEnId]?.label || 'Plus Jakarta Sans';
+
+  const selectArabicFamilyFromCatalog = (family: string) => {
+    const clean = family.trim();
+    if (!clean) return;
+    const known = AR_FAMILY_TO_BRAND_ID[clean];
+    if (known) {
+      selectArabicFont(known);
+      return;
+    }
+    ensureStoreGoogleFontLoaded(clean);
+    const url = googleFontsCssUrl(clean);
+    ensureBrandFontStylesheet(url, 'unityteck-custom-font-ar');
+    setCustomFontName(clean);
+    setCustomFontUrl(url);
+    const weight = brand.fontWeight || 'regular';
+    setBrand({
+      font: 'custom-ar',
+      fontAr: 'custom-ar',
+      customFontFamilyAr: clean,
+      customFontUrlAr: url,
+      fontWeight: weight,
+    });
+    applyStoreArabicTypography(
+      {
+        fontAr: 'custom-ar',
+        fontWeight: weight,
+        customFontFamilyAr: clean,
+        customFontUrlAr: url,
+      },
+      locale === 'ar' ? 'ar' : 'en',
+    );
+    pushStoreTypography({
+      fontAr: 'custom-ar',
+      fontWeight: weight,
+      customFontFamilyAr: clean,
+      customFontUrlAr: url,
+    });
+    toast(isAr ? 'تم تحديث الخط العربي' : 'Arabic font updated', 'success');
+  };
+
+  const selectEnglishFamilyFromCatalog = (family: string) => {
+    const clean = family.trim();
+    if (!clean) return;
+    const known = EN_FAMILY_TO_BRAND_ID[clean];
+    if (known) {
+      selectEnglishFont(known);
+      return;
+    }
+    // Unmapped EN faces still load + apply via Jakarta id stack override is not available;
+    // load face and keep nearest curated id so Holst stays typed.
+    ensureStoreGoogleFontLoaded(clean);
+    ensureBrandFontStylesheet(googleFontsCssUrl(clean), `unityteck-font-en-${clean.replace(/\s+/g, '-')}`);
+    selectEnglishFont('jakarta');
+    toast(
+      isAr
+        ? `تم تحميل ${clean} — للوحة التحكم استخدم خطاً من القائمة المعتمدة أو المخصّص العربي للمتجر`
+        : `${clean} loaded — dashboard EN uses curated Holst faces; storefront theme has the full list`,
+      'info',
+    );
   };
 
   const selectFontWeight = (wKey: BrandFontWeight) => {
@@ -1012,56 +1122,42 @@ export const BrandingPanel: React.FC<{
           </p>
         </div>
 
-        {/* EN + AR dropdowns */}
+        {/* EN + AR dropdowns — full shared catalog (same every store) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold" style={{ color: 'var(--text)' }}>
-              {isAr ? 'الإنجليزية (١٥)' : 'English (15)'}
+              {isAr
+                ? `الإنجليزية (${STORE_ENGLISH_FONT_COUNT})`
+                : `English (${STORE_ENGLISH_FONT_COUNT})`}
             </label>
-            <select
-              value={
-                BRAND_FONTS_EN.some((f) => f.id === (brand.fontEn || brand.font))
-                  ? String(brand.fontEn || brand.font)
-                  : 'jakarta'
-              }
-              onChange={(e) => selectEnglishFont(e.target.value as BrandFontEnId)}
-              className="w-full px-3 py-2.5 text-xs rounded-xl border cursor-pointer"
+            <StoreFontSelect
+              isAr={isAr}
+              value={englishCatalogValue}
+              onChange={selectEnglishFamilyFromCatalog}
+              categories={['Latin']}
+              aria-label={isAr ? 'اختر الخط الإنجليزي' : 'Select English font'}
               style={{
-                borderColor: 'var(--border)',
-                background: 'var(--bg)',
-                color: 'var(--text)',
                 borderRadius: 'var(--radius-ctrl)',
                 fontFamily:
                   BRAND_FONTS[(brand.fontEn || 'jakarta') as BrandFontEnId]?.stack ||
                   'var(--font-ui)',
                 fontWeight: weightMeta.sample,
               }}
-              dir="ltr"
-              aria-label={isAr ? 'اختر الخط الإنجليزي' : 'Select English font'}
-            >
-              {BRAND_FONTS_EN.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {isAr ? f.labelAr : f.label}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold" style={{ color: 'var(--text)' }}>
-              {isAr ? 'العربية (١٥)' : 'Arabic (15)'}
+              {isAr
+                ? `العربية (${STORE_ARABIC_FONT_COUNT})`
+                : `Arabic (${STORE_ARABIC_FONT_COUNT})`}
             </label>
-            <select
-              value={
-                BRAND_FONTS_AR.some((f) => f.id === (brand.fontAr || brand.font))
-                  ? String(brand.fontAr || brand.font)
-                  : 'sf-arabic'
-              }
-              onChange={(e) => selectArabicFont(e.target.value as BrandFontArId)}
-              className="w-full px-3 py-2.5 text-xs rounded-xl border cursor-pointer"
+            <StoreFontSelect
+              isAr={isAr}
+              value={arabicCatalogValue}
+              onChange={selectArabicFamilyFromCatalog}
+              categories={['Arabic']}
+              aria-label={isAr ? 'اختر الخط العربي' : 'Select Arabic font'}
               style={{
-                borderColor: 'var(--border)',
-                background: 'var(--bg)',
-                color: 'var(--text)',
                 borderRadius: 'var(--radius-ctrl)',
                 fontFamily: resolveArFontStack(
                   brand,
@@ -1069,15 +1165,7 @@ export const BrandingPanel: React.FC<{
                 ),
                 fontWeight: weightMeta.sample,
               }}
-              dir={isAr ? 'rtl' : 'ltr'}
-              aria-label={isAr ? 'اختر الخط العربي' : 'Select Arabic font'}
-            >
-              {BRAND_FONTS_AR.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {isAr ? f.labelAr : f.label}
-                </option>
-              ))}
-            </select>
+            />
           </div>
         </div>
 

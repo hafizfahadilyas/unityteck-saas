@@ -4,8 +4,15 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\OnboardingInvite;
+use App\Models\Plan;
 use App\Models\Store;
+use App\Models\StoreTheme;
+use App\Models\Subscription;
+use App\Services\Store\ProvisionNewStoreService;
 use App\Support\Audit;
+use App\Support\DefaultTheme;
+use App\Support\HostingerCloud;
+use App\Support\Plans;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -43,7 +50,7 @@ class OnboardingInviteController extends Controller
         }
 
         $data = $request->validate([
-            'plan' => ['nullable', Rule::in(['free', 'paid', 'pro', 'custom'])],
+            'plan' => ['nullable', Rule::in(['free', 'paid', 'starter', 'pro', 'premium', 'custom'])],
             'label' => ['nullable', 'string', 'max:191'],
             'days_valid' => ['nullable', 'integer', 'min:1', 'max:90'],
             'locale' => ['nullable', Rule::in(['en', 'ar'])],
@@ -60,9 +67,9 @@ class OnboardingInviteController extends Controller
 
         $invite = OnboardingInvite::query()->create([
             'id' => 'inv-'.Str::lower((string) Str::ulid()),
-            'token' => bin2hex(random_bytes(24)),
+            'token' => $this->allocateInviteToken(),
             'store_id' => $storeId,
-            'plan' => $data['plan'] ?? 'pro',
+            'plan' => $data['plan'] ?? 'premium',
             'label' => trim((string) ($data['label'] ?? 'Merchant invite')),
             'locale' => $locale,
             'text_dir' => $textDir,
@@ -115,11 +122,23 @@ class OnboardingInviteController extends Controller
         ]);
     }
 
-    /** Public: mark invite used when store is provisioned with reserved store_id. */
+    /**
+     * Public: redeem invite + provision reserved store with Souq common default themes.
+     * Register wizard sends merchant fields → creates store + ProvisionNewStoreService
+     * (theme-souq-common-retail + plan entitlements).
+     */
     public function redeem(Request $request, string $token): JsonResponse
     {
         $data = $request->validate([
             'store_id' => ['required', 'string', 'max:64'],
+            'name' => ['nullable', 'string', 'max:191'],
+            'slug' => ['nullable', 'string', 'max:191'],
+            'owner_name' => ['nullable', 'string', 'max:191'],
+            'email' => ['nullable', 'email', 'max:191'],
+            'category' => ['nullable', 'string', 'max:191'],
+            'phone' => ['nullable', 'string', 'max:32'],
+            'city' => ['nullable', 'string', 'max:100'],
+            'seed_starter_catalog' => ['nullable', 'boolean'],
         ]);
 
         $invite = OnboardingInvite::query()->where('token', $token)->first();
@@ -134,7 +153,15 @@ class OnboardingInviteController extends Controller
 
         if ($invite->isUsed()) {
             if ($invite->redeemed_store_id === $storeId) {
-                return response()->json(['ok' => true, 'invite' => $this->serializeInvite($invite)]);
+                $existing = Store::query()->find($storeId);
+
+                return response()->json([
+                    'ok' => true,
+                    'invite' => $this->serializeInvite($invite),
+                    'store' => $existing,
+                    'default_theme_id' => DefaultTheme::CATALOG_ID,
+                    'provisioned' => false,
+                ]);
             }
 
             return response()->json(['ok' => false, 'reason' => 'used'], 410);
@@ -142,6 +169,63 @@ class OnboardingInviteController extends Controller
 
         if ($invite->isExpired()) {
             return response()->json(['ok' => false, 'reason' => 'expired'], 410);
+        }
+
+        $seedCatalog = array_key_exists('seed_starter_catalog', $data)
+            ? (bool) $data['seed_starter_catalog']
+            : true;
+
+        $provision = null;
+        $store = Store::query()->find($storeId);
+        $provisioned = false;
+
+        if (! $store) {
+            $name = trim((string) ($data['name'] ?? ''));
+            if ($name === '') {
+                $name = trim((string) ($invite->label ?: 'New Merchant Store'));
+            }
+            $slugBase = trim((string) ($data['slug'] ?? ''));
+            if ($slugBase === '') {
+                $slugBase = Str::slug($name) ?: 'store';
+            }
+            $slug = $this->uniqueSlug($slugBase);
+
+            $payload = HostingerCloud::applyHostingDefaults([
+                'id' => $storeId,
+                'name' => $name,
+                'slug' => $slug,
+                'status' => 'active',
+                'plan' => $invite->plan ?: 'premium',
+                'master_granted_pro' => in_array($invite->plan, ['pro', 'premium', 'custom'], true),
+                'currency' => $invite->currency ?: 'SAR',
+                'locale' => $invite->locale ?: 'en',
+                'text_direction' => $invite->text_dir ?: (($invite->locale === 'ar') ? 'rtl' : 'ltr'),
+                'timezone' => $invite->timezone ?: 'Asia/Riyadh',
+                'phone' => $data['phone'] ?? null,
+                'email' => $data['email'] ?? null,
+                'owner_name' => $data['owner_name'] ?? null,
+                'city' => $data['city'] ?? 'Riyadh',
+                'country' => 'SA',
+                'category' => $data['category'] ?? 'General',
+                'logo' => 'store',
+                'accent_color' => DefaultTheme::PREVIEW_COLOR,
+                'subscription_status' => 'active',
+            ], $storeId);
+
+            $store = Store::query()->create($payload);
+            $this->ensureSubscription($store);
+            $provision = app(ProvisionNewStoreService::class)->bootstrap($store, $seedCatalog);
+            $store = $store->fresh();
+            $provisioned = true;
+        } else {
+            $hasTheme = StoreTheme::withoutGlobalScope('store')
+                ->where('store_id', $storeId)
+                ->exists();
+            if (! $hasTheme) {
+                $provision = app(ProvisionNewStoreService::class)->bootstrap($store, $seedCatalog);
+                $store = $store->fresh();
+                $provisioned = true;
+            }
         }
 
         $invite->used_at = now();
@@ -154,10 +238,68 @@ class OnboardingInviteController extends Controller
             'onboarding_invite.redeemed',
             'onboarding_invite',
             $invite->id,
-            ['store_id' => $storeId],
+            [
+                'store_id' => $storeId,
+                'provisioned' => $provisioned,
+                'default_theme_id' => DefaultTheme::CATALOG_ID,
+            ],
         );
 
-        return response()->json(['ok' => true, 'invite' => $this->serializeInvite($invite)]);
+        return response()->json([
+            'ok' => true,
+            'invite' => $this->serializeInvite($invite),
+            'store' => $store,
+            'default_theme_id' => DefaultTheme::CATALOG_ID,
+            'provisioned' => $provisioned,
+            'provision' => $provision,
+            'hosting' => HostingerCloud::domainPolicy($storeId),
+        ]);
+    }
+
+    private function uniqueSlug(string $base): string
+    {
+        $slug = Str::slug($base) ?: 'store';
+        $candidate = $slug;
+        $i = 0;
+        while (Store::query()->where('slug', $candidate)->exists()) {
+            $i++;
+            $candidate = $slug.'-'.$i;
+            if ($i > 50) {
+                $candidate = $slug.'-'.Str::lower(Str::random(4));
+                break;
+            }
+        }
+
+        return $candidate;
+    }
+
+    private function ensureSubscription(Store $store): void
+    {
+        $planId = Plans::catalog()[Plans::normalizeCode($store->plan)]['id'] ?? 'plan-premium';
+        if (! Plan::query()->where('id', $planId)->exists()) {
+            return;
+        }
+
+        $existingSub = Subscription::withoutGlobalScope('store')->where('store_id', $store->id)->first();
+        if ($existingSub) {
+            $existingSub->fill([
+                'plan_id' => $planId,
+                'status' => 'active',
+                'billing_interval' => 'monthly',
+            ])->save();
+
+            return;
+        }
+
+        Subscription::withoutGlobalScope('store')->create([
+            'id' => 'sub-'.Str::lower(Str::random(10)),
+            'store_id' => $store->id,
+            'plan_id' => $planId,
+            'status' => 'active',
+            'billing_interval' => 'monthly',
+            'starts_at' => now(),
+            'ends_at' => now()->addMonth(),
+        ]);
     }
 
     private function requireMaster(Request $request): ?JsonResponse
@@ -184,6 +326,24 @@ class OnboardingInviteController extends Controller
         }
 
         return 'store-'.Str::lower(Str::random(10));
+    }
+
+    /** Short share code for /join/{token} (no ambiguous 0/O/1/l). */
+    private function allocateInviteToken(int $length = 8): string
+    {
+        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+        $max = strlen($alphabet) - 1;
+        for ($attempt = 0; $attempt < 16; $attempt++) {
+            $token = '';
+            for ($i = 0; $i < $length; $i++) {
+                $token .= $alphabet[random_int(0, $max)];
+            }
+            if (! OnboardingInvite::query()->where('token', $token)->exists()) {
+                return $token;
+            }
+        }
+
+        return Str::lower(Str::random(10));
     }
 
     /**

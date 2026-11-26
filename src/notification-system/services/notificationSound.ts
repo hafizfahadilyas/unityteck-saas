@@ -9,10 +9,14 @@ type AlertKind = 'order' | 'customer' | 'alert';
 
 let audioCtx: AudioContext | null = null;
 let unlockBound = false;
+/** True only after a real user gesture — never create AudioContext before this */
+let audioUnlocked = false;
 let lastPlayAt = 0;
 
-function getAudioContext(): AudioContext | null {
+function getAudioContext(createIfMissing: boolean): AudioContext | null {
   if (typeof window === 'undefined') return null;
+  if (!createIfMissing && !audioCtx) return null;
+  if (!createIfMissing && !audioUnlocked) return null;
   try {
     const AC =
       window.AudioContext ||
@@ -50,11 +54,12 @@ export function setNotificationSoundMuted(muted: boolean): void {
 
 /** Call from any click/touch so iOS/Android allow later autoplay of chimes. */
 export function unlockNotificationAudio(): void {
-  const ctx = getAudioContext();
+  audioUnlocked = true;
+  const ctx = getAudioContext(true);
   if (!ctx) return;
   try {
     if (ctx.state === 'suspended') {
-      void ctx.resume();
+      void ctx.resume().catch(() => undefined);
     }
     // Tiny silent buffer — required unlock path on Safari / Chrome Android
     const buffer = ctx.createBuffer(1, 1, 22050);
@@ -63,7 +68,7 @@ export function unlockNotificationAudio(): void {
     source.connect(ctx.destination);
     source.start(0);
   } catch {
-    /* ignore */
+    /* ignore autoplay policy until next gesture */
   }
 }
 
@@ -115,6 +120,13 @@ function tone(
 function vibrateFor(kind: AlertKind): void {
   try {
     if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
+    // Chrome intervention check: do not call vibrate before user has interacted with the page
+    if (
+      'userActivation' in navigator &&
+      !(navigator as { userActivation?: { hasBeenActive?: boolean } }).userActivation?.hasBeenActive
+    ) {
+      return;
+    }
     if (kind === 'order') navigator.vibrate([90, 50, 120]);
     else if (kind === 'customer') navigator.vibrate([70, 40, 70]);
     else navigator.vibrate([60, 40, 60]);
@@ -135,8 +147,13 @@ export function playNotificationSound(kind: AlertKind = 'alert'): void {
   if (now - lastPlayAt < 900) return;
   lastPlayAt = now;
 
-  unlockNotificationAudio();
-  const ctx = getAudioContext();
+  // No AudioContext before user gesture — avoids Chrome "was not allowed to start" spam
+  if (!audioUnlocked) {
+    vibrateFor(kind);
+    return;
+  }
+
+  const ctx = getAudioContext(true);
   if (!ctx) {
     vibrateFor(kind);
     return;
@@ -144,7 +161,17 @@ export function playNotificationSound(kind: AlertKind = 'alert'): void {
 
   try {
     if (ctx.state === 'suspended') {
-      void ctx.resume().then(() => playNotificationSound(kind));
+      void ctx
+        .resume()
+        .then(() => {
+          if (audioUnlocked && ctx.state === 'running') {
+            // Replay once unlocked — lastPlayAt already set; bump window slightly
+            lastPlayAt = 0;
+            playNotificationSound(kind);
+          }
+        })
+        .catch(() => undefined);
+      vibrateFor(kind);
       return;
     }
 

@@ -543,7 +543,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
       >
         {/* ── TOP HEADER — Holst global CTA (same BrandingPanel / unity-btn-primary) ── */}
         <div
-          className="unity-modal-header px-6 py-4.5 border-b flex items-center justify-between sticky top-0 z-30"
+          className="unity-modal-header px-4 sm:px-6 py-3.5 sm:py-4.5 border-b flex items-start justify-between gap-2 shrink-0"
           style={{
             background: 'var(--portal-cta)',
             backgroundColor: 'var(--portal-600)',
@@ -551,20 +551,20 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
             color: '#fff',
           }}
         >
-          <div>
-            <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
               <span
-                className="w-8 h-8 rounded-xl text-white flex items-center justify-center font-black shadow-sm"
+                className="w-8 h-8 rounded-xl text-white flex items-center justify-center font-black shadow-sm shrink-0"
                 style={{ background: 'rgba(255,255,255,0.2)' }}
               >
                 <Store className="w-4 h-4" />
               </span>
-              <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
+              <h2 className="text-base sm:text-xl font-black text-white tracking-tight">
                 {commerceTerm('createNewOrder', isAr)}
               </h2>
               {(storeName || activeStore?.name) && (
                 <span
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-2xs"
+                  className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold border shadow-2xs max-w-full"
                   style={{
                     background: 'rgba(255,255,255,0.14)',
                     borderColor: 'rgba(255,255,255,0.28)',
@@ -572,10 +572,10 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                   }}
                 >
                   <span
-                    className="w-2 h-2 rounded-full animate-pulse"
+                    className="w-2 h-2 rounded-full animate-pulse shrink-0"
                     style={{ background: '#ffffff' }}
                   />
-                  <span>
+                  <span className="truncate max-w-[10rem] sm:max-w-[16rem]">
                     {activeStore
                       ? getStoreDisplayName(activeStore, locale)
                       : storeName}
@@ -583,7 +583,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                 </span>
               )}
             </div>
-            <p className="text-xs font-semibold mt-1 text-white/80">
+            <p className="text-[11px] sm:text-xs font-semibold mt-1 text-white/80 leading-snug">
               {isAr
                 ? 'ابحث وأضف منتجات حقيقية من كتالوج المتجر وحدد بيانات العميل والتوصيل'
                 : 'Search and add real products from store catalog, set customer info, and finalize manual order'}
@@ -593,7 +593,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-2.5 rounded-2xl transition-colors cursor-pointer text-white/70 hover:text-white hover:bg-white/10"
+              className="p-2 sm:p-2.5 rounded-2xl transition-colors cursor-pointer text-white/70 hover:text-white hover:bg-white/10"
               aria-label={isAr ? 'إغلاق' : 'Close'}
             >
               <X className="w-5 h-5" />
@@ -602,7 +602,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
         </div>
 
         {/* ── SCROLLABLE BODY ── */}
-        <form onSubmit={handleSubmit} className="overflow-y-auto px-5 sm:px-7 py-6 space-y-7 flex-1 custom-scrollbar">
+        <form onSubmit={handleSubmit} className="overflow-y-auto overflow-x-hidden px-4 sm:px-7 py-5 sm:py-6 space-y-6 sm:space-y-7 flex-1 min-h-0 custom-scrollbar">
           {/* ════ SECTION 1: CUSTOMER INFORMATION ════ */}
           <section className="space-y-4">
             <div className="flex items-center justify-between">
@@ -715,7 +715,11 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                 </div>
                 {items.length > 0 && (
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-teal-600 text-white shadow-2xs">
-                    {items.reduce((acc, i) => acc + i.quantity, 0)} {isAr ? 'عنصر' : 'items'}
+                    {(() => {
+                      const n = items.reduce((acc, i) => acc + i.quantity, 0);
+                      if (isAr) return `${n} عنصر`;
+                      return `${n} ${n === 1 ? 'item' : 'items'}`;
+                    })()}
                   </span>
                 )}
               </div>
@@ -737,7 +741,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
             </div>
 
             {/* ── REAL PRODUCT SEARCH & SUGGESTIONS BAR ── */}
-            <div ref={searchContainerRef} className="relative z-20">
+            <div ref={searchContainerRef} className={`relative ${isSearchFocused ? 'z-40' : 'z-20'}`}>
               <div className="relative flex items-center rounded-2xl border-2 border-teal-500/40 dark:border-teal-500/30 bg-white dark:bg-slate-850 shadow-sm focus-within:border-teal-600 focus-within:ring-4 focus-within:ring-teal-500/15 transition-all">
                 <div className="ps-3.5 pe-2 text-teal-600 dark:text-teal-400 flex items-center pointer-events-none">
                   <Search className="w-4 h-4" />
@@ -815,9 +819,9 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
 
               {/* ── AUTO-SUGGESTIONS DROPDOWN PANEL ── */}
               {isSearchFocused && (
-                <div className="absolute start-0 end-0 top-full mt-2 bg-white dark:bg-slate-850 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-750 max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 z-50 animate-in fade-in zoom-in-98 duration-150">
-                  <div className="px-4 py-2 bg-slate-50/90 dark:bg-slate-800/90 flex items-center justify-between text-[11px] font-bold text-slate-500 dark:text-slate-400 sticky top-0 z-10 backdrop-blur-xs">
-                    <span>
+                <div className="absolute start-0 end-0 top-full mt-2 bg-white dark:bg-slate-850 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-750 max-h-[min(20rem,45vh)] overflow-y-auto overscroll-contain divide-y divide-slate-100 dark:divide-slate-800 z-50 animate-in fade-in zoom-in-98 duration-150">
+                  <div className="px-3 sm:px-4 py-2 bg-slate-50/90 dark:bg-slate-800/90 flex items-center justify-between gap-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 sticky top-0 z-10 backdrop-blur-xs">
+                    <span className="min-w-0 truncate">
                       {searchQuery
                         ? isAr
                           ? `نتائج البحث عن "${searchQuery}" (${filteredProducts.length})`
@@ -829,7 +833,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setIsSearchFocused(false)}
-                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-semibold cursor-pointer"
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-semibold cursor-pointer shrink-0"
                     >
                       {isAr ? 'إغلاق' : 'Close'}
                     </button>
@@ -887,13 +891,13 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                         <div
                           key={product.id}
                           onClick={() => handleSelectProduct(product)}
-                          className={`p-3 sm:px-4 sm:py-3 flex items-center justify-between gap-3 hover:bg-teal-50/60 dark:hover:bg-slate-800 cursor-pointer transition-colors group ${
+                          className={`p-3 sm:px-4 sm:py-3 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 hover:bg-teal-50/60 dark:hover:bg-slate-800 cursor-pointer transition-colors group ${
                             qtyInOrder > 0 ? 'bg-teal-50/30 dark:bg-teal-950/20' : ''
                           }`}
                         >
                           {/* Thumbnail + Info */}
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs group-hover:scale-105 transition-transform">
+                          <div className="flex items-start gap-3 min-w-0 flex-1">
+                            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs group-hover:scale-105 transition-transform">
                               {product.image ? (
                                 <img
                                   src={product.image}
@@ -906,34 +910,38 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                               )}
                             </div>
 
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap min-w-0">
+                                <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate max-w-full group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
                                   {getProductDisplayName(product, locale)}
                                 </h4>
                                 {(product.category || product.categoryEn || product.categoryAr) && (
-                                  <span className="px-1.5 py-0.2 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0">
                                     {getProductDisplayCategory(product, locale)}
                                   </span>
                                 )}
                               </div>
 
-                              <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-400">
-                                <span>
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[11px] text-slate-400">
+                                <span className="min-w-0 truncate">
                                   {isAr ? 'رمز المنتج' : 'SKU'}:{' '}
-                                  <span className="font-mono">{product.sku || product.id}</span>
+                                  <span className="font-mono" dir="ltr">
+                                    {product.sku || product.id}
+                                  </span>
                                 </span>
-                                <span>•</span>
+                                <span className="opacity-50" aria-hidden>
+                                  •
+                                </span>
                                 {isOutOfStock ? (
-                                  <span className="text-rose-500 font-sans font-bold">
+                                  <span className="text-rose-500 font-sans font-bold shrink-0">
                                     {isAr ? 'نفذت الكمية' : 'Out of Stock'}
                                   </span>
                                 ) : isLowStock ? (
-                                  <span className="text-amber-500 font-sans font-bold">
-                                    {isAr ? `متبقي${stockCount}فقط` : `${stockCount} left`}
+                                  <span className="text-amber-500 font-sans font-bold shrink-0">
+                                    {isAr ? `متبقي ${stockCount} فقط` : `${stockCount} left`}
                                   </span>
                                 ) : (
-                                  <span className="text-emerald-600 dark:text-emerald-400 font-sans font-bold">
+                                  <span className="text-emerald-600 dark:text-emerald-400 font-sans font-bold shrink-0">
                                     {isAr ? `متوفر (${stockCount})` : `In Stock (${stockCount})`}
                                   </span>
                                 )}
@@ -941,15 +949,17 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                             </div>
                           </div>
 
-                          {/* Price & Action Button */}
-                          <div className="flex items-center gap-3 shrink-0">
-                            <div className="text-end">
-                              <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">
-                                <span className="text-[10px] text-slate-400 me-1 font-bold">{currencyLabel}</span>
-                                <span>{Number(product.price).toFixed(2)}</span>
+                          {/* Price & Action Button — stack-safe on narrow phones */}
+                          <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 w-full sm:w-auto shrink-0 ps-[3.25rem] sm:ps-0">
+                            <div className="text-start sm:text-end min-w-0">
+                              <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-white tabular-nums whitespace-nowrap">
+                                <span className="text-[10px] text-slate-400 me-1 font-bold" dir="ltr">
+                                  {currencyLabel}
+                                </span>
+                                <span dir="ltr">{Number(product.price).toFixed(2)}</span>
                               </div>
                               {product.originalPrice && product.originalPrice > product.price && (
-                                <span className="text-[10px] text-slate-400 line-through font-mono">
+                                <span className="text-[10px] text-slate-400 line-through font-mono whitespace-nowrap" dir="ltr">
                                   {currencyLabel} {product.originalPrice.toFixed(2)}
                                 </span>
                               )}
@@ -957,7 +967,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
 
                             {qtyInOrder > 0 ? (
                               <div
-                                className="flex items-center gap-1"
+                                className="flex items-center gap-1 shrink-0"
                                 onClick={(e) => e.stopPropagation()}
                                 onKeyDown={(e) => e.stopPropagation()}
                               >
@@ -973,7 +983,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                                 >
                                   <Minus className="w-3.5 h-3.5" />
                                 </button>
-                                <span className="min-w-[2rem] text-center text-xs font-black tabular-nums text-teal-700 dark:text-teal-300">
+                                <span className="min-w-[1.75rem] text-center text-xs font-black tabular-nums text-teal-700 dark:text-teal-300">
                                   {qtyInOrder}
                                 </span>
                                 <button
@@ -1008,7 +1018,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                                   e.stopPropagation();
                                   handleSelectProduct(product);
                                 }}
-                                className="px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 hover:bg-teal-600 hover:text-white"
+                                className="px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 hover:bg-teal-600 hover:text-white shrink-0"
                               >
                                 <Plus className="w-3.5 h-3.5" />
                                 <span>{isAr ? 'إضافة' : 'Add'}</span>
@@ -1129,11 +1139,11 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
 
             {/* ── PRODUCTS TABLE / ORDER ITEMS ── */}
             <div className="border border-slate-200/90 dark:border-slate-800 rounded-2xl overflow-hidden bg-white dark:bg-slate-850 shadow-xs">
-              <div className={`grid grid-cols-12 gap-2 px-4 py-3 bg-slate-50/90 dark:bg-slate-800/80 border-b border-slate-200/90 dark:border-slate-750 text-[11px] font-bold text-slate-500 dark:text-slate-400 ${isAr ? '' : 'uppercase tracking-wider'}`}>
-                <div className="col-span-6 sm:col-span-5">{isAr ? 'المنتج' : 'Product'}</div>
-                <div className="col-span-3 sm:col-span-3 text-center sm:text-start">{isAr ? 'سعر الوحدة' : 'Unit Price'}</div>
-                <div className="col-span-3 sm:col-span-2 text-center">{isAr ? 'الكمية' : 'Quantity'}</div>
-                <div className="hidden sm:block sm:col-span-2 text-end">{isAr ? 'المجموع' : 'Total'}</div>
+              <div className={`hidden sm:grid grid-cols-12 gap-2 px-4 py-3 bg-slate-50/90 dark:bg-slate-800/80 border-b border-slate-200/90 dark:border-slate-750 text-[11px] font-bold text-slate-500 dark:text-slate-400 ${isAr ? '' : 'uppercase tracking-wider'}`}>
+                <div className="col-span-5">{isAr ? 'المنتج' : 'Product'}</div>
+                <div className="col-span-3">{isAr ? 'سعر الوحدة' : 'Unit Price'}</div>
+                <div className="col-span-2 text-center">{isAr ? 'الكمية' : 'Quantity'}</div>
+                <div className="col-span-2 text-end">{isAr ? 'المجموع' : 'Total'}</div>
               </div>
 
               {items.length === 0 ? (
@@ -1155,19 +1165,19 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                   {items.map((item) => (
                     <div
                       key={item.id}
-                      className="grid grid-cols-12 gap-2 px-4 py-3.5 items-center hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+                      className="flex flex-col gap-2.5 px-3 py-3 sm:grid sm:grid-cols-12 sm:gap-2 sm:px-4 sm:py-3.5 sm:items-center hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
                     >
                       {/* Product Thumbnail & Details */}
-                      <div className="col-span-6 sm:col-span-5 flex items-center gap-3">
+                      <div className="sm:col-span-5 flex items-center gap-2.5 sm:gap-3 min-w-0">
                         <button
                           type="button"
                           onClick={() => removeItem(item.id)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer shrink-0"
                           title={isAr ? 'حذف المنتج' : 'Remove item'}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
-                        <div className="w-11 h-11 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
+                        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
                           {item.image ? (
                             <img
                               src={item.image}
@@ -1179,61 +1189,69 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
                             <Package className="w-5 h-5 text-slate-400" />
                           )}
                         </div>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
                             {item.name}
                           </p>
-                          <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                          <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">
                             {isAr ? 'رمز المنتج' : 'SKU'}:{' '}
-                            <span className="font-mono">{item.sku}</span>
+                            <span className="font-mono" dir="ltr">
+                              {item.sku}
+                            </span>
+                          </p>
+                          <p className="sm:hidden text-[11px] font-black text-slate-900 dark:text-white tabular-nums mt-0.5" dir="ltr">
+                            {currencyLabel} {item.total.toFixed(2)}
                           </p>
                         </div>
                       </div>
 
-                      {/* Unit Price (Editable for discounts or special deals) */}
-                      <div className="col-span-3 sm:col-span-3">
-                        <div className="inline-flex items-center px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 shadow-2xs focus-within:ring-2 focus-within:ring-teal-500/20">
-                          <span className="text-[10px] text-slate-400 me-1 font-bold">{currencyLabel}</span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={item.price}
-                            onChange={(e) => updateItemPrice(item.id, parseFloat(e.target.value) || 0)}
-                            className="w-16 bg-transparent focus:outline-none font-bold tabular-nums"
-                          />
+                      {/* Unit Price + Qty — side by side on mobile */}
+                      <div className="flex items-center justify-between gap-2 sm:contents ps-9 sm:ps-0">
+                        <div className="sm:col-span-3">
+                          <div className="inline-flex items-center px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 shadow-2xs focus-within:ring-2 focus-within:ring-teal-500/20">
+                            <span className="text-[10px] text-slate-400 me-1 font-bold" dir="ltr">
+                              {currencyLabel}
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={item.price}
+                              onChange={(e) => updateItemPrice(item.id, parseFloat(e.target.value) || 0)}
+                              className="w-14 sm:w-16 bg-transparent focus:outline-none font-bold tabular-nums"
+                              dir="ltr"
+                            />
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Quantity Controller */}
-                      <div className="col-span-3 sm:col-span-2 flex items-center justify-center">
-                        <div className="inline-flex items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xs p-0.5">
-                          <button
-                            type="button"
-                            onClick={() => updateQuantity(item.id, -1)}
-                            disabled={item.quantity <= 1}
-                            className="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-                          >
-                            <Minus className="w-3.5 h-3.5" />
-                          </button>
-                          <span className="w-8 text-center text-xs font-black text-slate-900 dark:text-white tabular-nums">
-                            {item.quantity}
+                        <div className="sm:col-span-2 flex items-center justify-center">
+                          <div className="inline-flex items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xs p-0.5">
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.id, -1)}
+                              disabled={item.quantity <= 1}
+                              className="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                            >
+                              <Minus className="w-3.5 h-3.5" />
+                            </button>
+                            <span className="w-8 text-center text-xs font-black text-slate-900 dark:text-white tabular-nums">
+                              {item.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(item.id, 1)}
+                              className="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg cursor-pointer transition-colors"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="hidden sm:block sm:col-span-2 text-end">
+                          <span className="text-xs font-black text-slate-900 dark:text-white tabular-nums" dir="ltr">
+                            {currencyLabel} {item.total.toFixed(2)}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => updateQuantity(item.id, 1)}
-                            className="p-1 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg cursor-pointer transition-colors"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
                         </div>
-                      </div>
-
-                      {/* Row Total */}
-                      <div className="hidden sm:block sm:col-span-2 text-end">
-                        <span className="text-xs font-black text-slate-900 dark:text-white tabular-nums">
-                          {currencyLabel} {item.total.toFixed(2)}
-                        </span>
                       </div>
                     </div>
                   ))}
@@ -1816,7 +1834,7 @@ export const CreateStoreOrderModal: React.FC<CreateStoreOrderModalProps> = ({
         ) : null}
 
         {/* ── STICKY FOOTER ACTIONS ── */}
-        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 sticky bottom-0 z-30">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 shrink-0">
           <button
             type="button"
             onClick={onClose}

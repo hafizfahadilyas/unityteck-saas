@@ -19,6 +19,7 @@ import { PromoBannersPair } from './components/PromoBannersPair';
 import { FaqSection } from './components/FaqSection';
 import { OfferVideoBanner } from './components/OfferVideoBanner';
 import { MagazineSection } from './components/MagazineSection';
+import { NewsletterSection } from './components/NewsletterSection';
 import { Footer } from './components/Footer';
 import { CartDrawer } from './components/CartDrawer';
 import { MobileBottomNav } from './components/MobileBottomNav';
@@ -43,6 +44,8 @@ import { MECCA_LOGO } from '../../data/hadayaMeccaData';
 import { getLiveOrStoredBlocks, ThemeBlockElement } from '../../services/liveThemeSyncService';
 import { captureTrafficSource } from '../../utils/trafficSource';
 import { trackStorefrontEvent } from '../../utils/storefrontAnalytics';
+import { getDefaultStoreTheme } from '../../auth/defaultTheme';
+import { isSouqCommonTenant } from '../souqCommon/isSouqCommonTenant';
 
 interface MeccaGiftsThemeViewProps {
   initialPage?: string;
@@ -66,13 +69,17 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
     handleCartInterceptClose,
   } = useApp();
   const { locale } = usePrefs();
-  const { activeStore } = useTenant();
+  const { activeStore, storeActiveTheme, currentProducts } = useTenant();
   const [isAdminBypass, setIsAdminBypass] = useState(false);
+  const activeThemeId =
+    (activeStore?.id && storeActiveTheme?.[activeStore.id]) ||
+    getDefaultStoreTheme(activeStore?.id);
+  const isSouq = isSouqCommonTenant(activeStore, activeThemeId);
   const [blocksTick, setBlocksTick] = useState(0);
 
   useEffect(() => {
     if (isAdmin || !activeStore?.id) return;
-    captureTrafficSource();
+    captureTrafficSource(activeStore.id);
     trackStorefrontEvent(activeStore.id, 'page_view', {
       path: typeof window !== 'undefined' ? `${window.location.pathname}#${currentPage || 'home'}` : `/${currentPage || 'home'}`,
     });
@@ -92,10 +99,12 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
   }, []);
 
   const activeBlocks = useMemo(() => {
-    return getLiveOrStoredBlocks(activeStore.id, 'theme-flora-luxe', activeStore).filter(
+    // Common tenants must NOT load flora blocks — use active / default theme id
+    const themeId = isSouq ? activeThemeId || 'theme-souq-common-retail' : 'theme-flora-luxe';
+    return getLiveOrStoredBlocks(activeStore.id, themeId, activeStore).filter(
       (b) => b.visible !== false && b.type !== 'header' && b.type !== 'footer'
     );
-  }, [activeStore.id, activeStore, blocksTick]);
+  }, [activeStore.id, activeStore, blocksTick, isSouq, activeThemeId]);
 
   const themeSettings = useMemo(() => {
     return readAllThemeSettings(activeStore.id, activeStore);
@@ -233,9 +242,39 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
       case 'featured_collections':
       case 'metrics_section':
         return <FeaturedCollectionsSection key={b.id} />;
+      case 'featured_products':
+      case 'promotions': {
+        const pool =
+          (currentProducts && currentProducts.length > 0
+            ? currentProducts
+            : products) || [];
+        return (
+          <ProductSectionSlider
+            key={b.id}
+            title={
+              locale === 'ar'
+                ? b.settings?.titleAr || (b.type === 'promotions' ? 'عروض' : 'منتجات مميزة')
+                : b.settings?.titleEn || (b.type === 'promotions' ? 'Promotions' : 'Featured Products')
+            }
+            titleEn={b.settings?.titleEn || (b.type === 'promotions' ? 'Promotions' : 'Featured Products')}
+            subtitle={
+              locale === 'ar'
+                ? b.settings?.subtitleAr || 'منتجات متجرك من الكتالوج الحقيقي'
+                : b.settings?.subtitleEn || 'Products from your live catalog'
+            }
+            subtitleEn={b.settings?.subtitleEn || 'Products from your live catalog'}
+            products={pool.slice(0, b.settings?.limit || 8)}
+            categoryFilter=""
+            limit={b.settings?.limit || 8}
+            layout={b.settings?.layout || 'grid'}
+          />
+        );
+      }
       case 'reviews':
       case 'testimonials':
         return <TestimonialsSection key={b.id} />;
+      case 'newsletter':
+        return <NewsletterSection key={b.id} />;
       case 'faq':
         return <FaqSection key={b.id} />;
       case 'offer_video_banner':
@@ -250,7 +289,13 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#FAF9F5] text-[#202521] font-sans relative selection:bg-[#102a1c]/20 overflow-x-hidden w-full max-w-[100vw]">
+    <div
+      className={`min-h-screen flex flex-col font-sans relative overflow-x-hidden w-full max-w-[100vw] ${
+        isSouq
+          ? 'bg-white text-[#111827] selection:bg-[#0f766e]/20'
+          : 'bg-[#FAF9F5] text-[#202521] selection:bg-[#102a1c]/20'
+      }`}
+    >
       {/* Branded Luxury Storefront Preloader */}
       <ThemePreloader
         enabled={themeSettings.colors?.enableLoadingScreen ?? false}

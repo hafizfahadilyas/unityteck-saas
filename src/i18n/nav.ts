@@ -9,6 +9,8 @@ export const MASTER_NAV_KEYS: Record<string, DictKey> = {
   plans: 'navPlansSubscriptions',
   'services-points': 'navServicesPoints',
   integrations: 'navIntegrations',
+  'ai-management': 'navAiManagement',
+  'openai-ai': 'navOpenAiManagement',
   support: 'navSupportCenter',
   reports: 'navReports',
   security: 'navSecurityPermissions',
@@ -69,6 +71,11 @@ export const STORE_NAV_KEYS: Record<string, DictKey> = {
   'mobile-app': 'navMobileApp',
   payments: 'navPayments',
   settings: 'navStoreSettings',
+  email: 'navCommEmail',
+  sms: 'navCommSms',
+  'live-chat': 'navCommLiveChat',
+  'in-app-notifications': 'navCommInApp',
+  'ai-conversations': 'navCommAiConversations',
 };
 
 /**

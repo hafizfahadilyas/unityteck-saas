@@ -66,6 +66,14 @@ export const PRESET_SIMULATED_DOMAINS: SimulatedDomain[] = [
     labelEn: 'Cloud Subdomain for Flowers & Gifts',
     type: 'subdomain',
   },
+  {
+    domain: 'souq-default.mieraf-ksa.com',
+    expectedStoreId: 'store-souq-default',
+    expectedThemeId: 'theme-souq-common-retail',
+    labelAr: 'متجر سوق الافتراضي — نطاق مركزي',
+    labelEn: 'Souq default store — central subdomain',
+    type: 'subdomain',
+  },
 ];
 
 /**
@@ -129,6 +137,36 @@ export function buildLiveStoreDomains(
 /**
  * Normalizes incoming hostname by stripping port, protocol, path, and www.
  */
+export const CENTRAL_HOST = 'mieraf-ksa.com';
+
+/** Reserved labels under central host — not merchant storefronts. */
+const CENTRAL_RESERVED_SUBS = new Set([
+  'www',
+  'souq',
+  'api',
+  'app',
+  'admin',
+  'master',
+  'mail',
+  'smtp',
+  'ftp',
+  'cpanel',
+  'webmail',
+  'demo',
+]);
+
+/**
+ * `{slug}.mieraf-ksa.com` → slug (null for apex / reserved / unrelated hosts).
+ */
+export function centralSubdomainSlug(hostname: string): string | null {
+  const clean = normalizeHostname(hostname);
+  if (!clean || clean === CENTRAL_HOST) return null;
+  if (!clean.endsWith(`.${CENTRAL_HOST}`)) return null;
+  const sub = clean.slice(0, -(CENTRAL_HOST.length + 1));
+  if (!sub || sub.includes('.') || CENTRAL_RESERVED_SUBS.has(sub)) return null;
+  return sub;
+}
+
 export function normalizeHostname(raw: string): string {
   if (!raw) return '';
   let clean = raw.trim();
@@ -173,7 +211,10 @@ export function resolveStoreActiveTheme(store: Store): string {
   ) {
     return 'theme-flora-luxe';
   }
-  return 'theme-flora-luxe';
+  if (store.id === 'store-souq-default' || store.slug === 'souq-default') {
+    return 'theme-souq-common-retail';
+  }
+  return 'theme-souq-common-retail';
 }
 
 /**
@@ -194,7 +235,7 @@ export function resolveDomainLocal(
     };
   }
 
-  if (clean === 'mieraf-ksa.com') {
+  if (clean === CENTRAL_HOST) {
     const coffee = stores.find((s) => s.id === 'store-coffee');
     if (coffee) {
       return {
@@ -207,6 +248,44 @@ export function resolveDomainLocal(
         activeThemeId: resolveStoreActiveTheme(coffee),
         sslStatus: coffee.ssl_status || 'pending',
         store: coffee,
+      };
+    }
+  }
+
+  // Central merchant subdomain before generic domain table (souq-default.mieraf-ksa.com)
+  const centralSlug = centralSubdomainSlug(clean);
+  if (centralSlug) {
+    const bySlug =
+      stores.find(
+        (s) =>
+          s.slug === centralSlug ||
+          s.id === centralSlug ||
+          s.id === `store-${centralSlug}` ||
+          (centralSlug === 'souq-default' && s.id === 'store-souq-default'),
+      ) || null;
+    if (bySlug) {
+      return {
+        resolved: true,
+        storeId: bySlug.id,
+        storeSlug: bySlug.slug,
+        storeName: bySlug.name,
+        domain: clean,
+        domainType: 'subdomain',
+        activeThemeId: resolveStoreActiveTheme(bySlug),
+        sslStatus: bySlug.ssl_status || 'pending',
+        store: bySlug,
+      };
+    }
+    if (centralSlug === 'souq-default') {
+      return {
+        resolved: true,
+        storeId: 'store-souq-default',
+        storeSlug: 'souq-default',
+        storeName: 'متجر سوق الافتراضي',
+        domain: clean,
+        domainType: 'subdomain',
+        activeThemeId: 'theme-souq-common-retail',
+        sslStatus: 'pending',
       };
     }
   }
@@ -295,6 +374,7 @@ export function resolveDomainLocal(
         flowers: 'store-1',
         gifts: 'store-1',
         giftshop: 'store-1',
+        'souq-default': 'store-souq-default',
       };
 
       const targetId = aliasMap[sub];

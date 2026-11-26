@@ -88,15 +88,47 @@ function souq_seo_file_bodies(string $host): array
     ];
 }
 
+/**
+ * Drop leaked multi-tenant / foreign-host robots (bashayer, saudi-stores, Allow:/src/).
+ */
+function souq_robots_is_poison(string $body, string $ownHost): bool
+{
+    $lower = strtolower($body);
+    if (str_contains($lower, 'allow: /src')) {
+        return true;
+    }
+    foreach (['bashayer-logistics', 'saudi-stores.com', 'store-coffee.saudi', 'store-bleco.saudi', 'store-flowers.saudi'] as $bad) {
+        if (str_contains($lower, $bad)) {
+            return true;
+        }
+    }
+    if (preg_match_all('/sitemap:\s*(\S+)/i', $body, $m)) {
+        foreach ($m[1] as $url) {
+            $h = strtolower((string) parse_url(trim($url), PHP_URL_HOST));
+            if ($h === '') {
+                continue;
+            }
+            if (str_starts_with($h, 'www.')) {
+                $h = substr($h, 4);
+            }
+            if ($ownHost !== '' && $h !== $ownHost) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 function souq_write_robots(): void
 {
     $host = souq_seo_normalize_host($_SERVER['HTTP_HOST'] ?? 'localhost');
     $files = souq_seo_file_bodies($host);
-    $origin = $files['origin'];
+    $origin = rtrim((string) $files['origin'], '/');
     header('Content-Type: text/plain; charset=utf-8');
     header('Cache-Control: no-cache, no-store, must-revalidate');
     $custom = trim((string) ($files['robots'] ?? ''));
-    if ($custom !== '') {
+    if ($custom !== '' && !souq_robots_is_poison($custom, $host)) {
         echo $custom;
         if (!str_contains(strtolower($custom), 'sitemap:')) {
             echo "\nSitemap: {$origin}/sitemap.xml\n";

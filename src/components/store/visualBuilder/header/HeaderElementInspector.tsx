@@ -5,6 +5,8 @@ import {
   HeaderAnnouncementMessage,
   HeaderNavLink,
 } from '../../../../themes/settings/headerCustomSettings';
+import { StoreFontSelect } from '../../fonts/StoreFontSelect';
+import { ensureStoreGoogleFontLoaded } from '../../../../data/storeGoogleFontsCatalog';
 import {
   ANNOUNCEMENT_TEMPLATES,
   LOGO_TEMPLATES,
@@ -91,15 +93,6 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
     { id: 'Tag', label: isAr ? 'عرض' : 'Tag', Icon: Tag },
     { id: 'ShieldCheck', label: isAr ? 'أمان' : 'Shield', Icon: ShieldCheck },
     { id: 'Bell', label: isAr ? 'تنبيه' : 'Bell', Icon: Bell },
-  ];
-
-  const FONT_OPTIONS = [
-    { id: 'Tajawal', label: 'Tajawal (تجوال - عصري)' },
-    { id: 'Cairo', label: 'Cairo (كايرو - رسمي)' },
-    { id: 'Amiri', label: 'Amiri (أميري - أندلسي فاخر)' },
-    { id: 'serif', label: 'Serif (كلاسيكي مائل)' },
-    { id: 'sans', label: 'Sans (عصري خفيف)' },
-    { id: 'Playfair Display', label: 'Playfair Display (فاخر إنجليزي)' },
   ];
 
   const QUICK_PALETTE = [
@@ -1557,25 +1550,20 @@ export const HeaderElementInspector: React.FC<HeaderElementInspectorProps> = ({
                   </div>
                 </div>
 
-                {/* Font Family & Size */}
+                {/* Font Family & Size — global AR/EN catalog */}
                 <div className="pt-2 border-t border-slate-200 space-y-2">
                   <div>
                     <label className="block text-[10px] font-bold text-slate-600 mb-1">
                       {isAr ? 'نوع الخط' : 'Font Family'}
                     </label>
-                    <select
-                      value={settings.logo.fontFamily}
-                      onChange={(e) =>
-                        updateSub('logo', (prev) => ({ ...prev, fontFamily: e.target.value }))
-                      }
-                      className="w-full px-2.5 py-1.5 text-xs font-bold border border-slate-200 rounded-lg bg-white"
-                    >
-                      {FONT_OPTIONS.map((f) => (
-                        <option key={f.id} value={f.id}>
-                          {f.label}
-                        </option>
-                      ))}
-                    </select>
+                    <StoreFontSelect
+                      isAr={isAr}
+                      value={settings.logo.fontFamily || 'Tajawal'}
+                      onChange={(fontFamily) => {
+                        ensureStoreGoogleFontLoaded(fontFamily);
+                        updateSub('logo', (prev) => ({ ...prev, fontFamily }));
+                      }}
+                    />
                   </div>
 
                   <div>

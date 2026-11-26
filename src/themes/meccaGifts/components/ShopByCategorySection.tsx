@@ -2,6 +2,8 @@ import React, { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useTenant } from '../../../context/TenantContext';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { isSouqCommonTenant } from '../../souqCommon/isSouqCommonTenant';
+import { getDefaultStoreTheme } from '../../../auth/defaultTheme';
 
 const FLOWER_SHOP_CATEGORIES = [
   {
@@ -83,9 +85,13 @@ const COFFEE_SHOP_CATEGORIES = [
 
 export const ShopByCategorySection: React.FC = () => {
   const { language, navigateToCategory, setCurrentPage, setSelectedCategory, builderDevice } = useApp();
-  const { activeStore, currentProducts } = useTenant();
+  const { activeStore, currentProducts, storeActiveTheme } = useTenant();
   const isAr = language === 'ar';
+  const themeId =
+    (activeStore?.id && storeActiveTheme?.[activeStore.id]) ||
+    getDefaultStoreTheme(activeStore?.id);
   const isCoffee = activeStore?.id === 'store-coffee' || (activeStore?.category && activeStore.category.includes('قهوة'));
+  const isSouq = !isCoffee && isSouqCommonTenant(activeStore, themeId);
 
   const categories = useMemo(() => {
     if (isCoffee) return COFFEE_SHOP_CATEGORIES;
@@ -95,22 +101,40 @@ export const ShopByCategorySection: React.FC = () => {
       const map = new Map<string, any>();
       currentProducts.forEach((p, idx) => {
         const cat = p.category || 'General';
+        const catAr = (p as any).categoryAr || cat;
         if (!map.has(cat)) {
           map.set(cat, {
             id: `cat-dyn-shop-${idx}`,
             title: (p as any).categoryEn || cat,
-            titleAr: cat,
-            sub: 'Exclusive Collection',
-            subAr: 'تشكيلة حصرية',
-            image: p.image || 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?auto=format&fit=crop&w=800&q=80',
+            titleAr: catAr,
+            sub: isSouq ? 'Shop collection' : 'Exclusive Collection',
+            subAr: isSouq ? 'تسوق التشكيلة' : 'تشكيلة حصرية',
+            image: p.image || '/images/saudi_hero_banner_2.jpg',
             categoryKey: cat,
           });
         }
       });
-      if (map.size >= 2) return Array.from(map.values()).slice(0, 4);
+      if (map.size >= 1) return Array.from(map.values()).slice(0, 4);
     }
+    // Souq / new merchants: never fall back to flora demo categories
+    if (isSouq) return [];
     return FLOWER_SHOP_CATEGORIES;
-  }, [isCoffee, activeStore?.id, currentProducts]);
+  }, [isCoffee, isSouq, activeStore?.id, currentProducts]);
+
+  if (isSouq && categories.length === 0) {
+    return (
+      <section className="py-10 sm:py-14 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="mb-6 pb-3 border-b border-[#e5e7eb]">
+          <h2 className="text-xl sm:text-2xl font-bold text-[#111827]">
+            {isAr ? 'تسوق حسب التصنيف' : 'Shop by Category'}
+          </h2>
+        </div>
+        <p className="text-sm text-[#6b7280] text-center py-8">
+          {isAr ? 'لا توجد تصنيفات بعد' : 'No categories yet'}
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section className="py-10 sm:py-14 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">

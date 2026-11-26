@@ -3,15 +3,8 @@ import { useCart } from '../context/CartContext';
 import { useTenant } from '../../../context/TenantContext';
 import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
 import { PRODUCTS } from '../data/products';
+import { coffeeAlmariPngUrl, coffeeIsolatedCardImage } from '../utils/coffeeIsolatedImage';
 import { ChevronRight, ShoppingBag } from 'lucide-react';
-
-// Authentic, high-resolution coffee photography assets
-import saudiCafeMachine from '../assets/images/saudi_cafe_machine_1791363309148.jpg';
-import baristaCremaMacro from '../assets/images/barista_crema_macro_1791363328316.jpg';
-import baristaMilkSteaming from '../assets/images/barista_milk_steaming_1791363367164.jpg';
-import baristaTampingShot from '../assets/images/barista_tamping_shot_1791363346824.jpg';
-import espressoWoodPitcher from '../assets/images/espresso_wood_pitcher_1791363392554.jpg';
-import saudiCoffeeCollage from '../assets/images/saudi_coffee_collage_1791363410810.jpg';
 
 export const SallaIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
   <svg
@@ -85,7 +78,7 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
   isReversed = false,
 }) => {
   const { navigateTo, language, addToCart, triggerFlyToCart, products } = useCart();
-  // Prefer live store catalog; seed PRODUCTS only as image/metadata match for the same id — never PRODUCTS[0].
+  // Prefer live store catalog; seed PRODUCTS only as image/metadata match for the same id   never PRODUCTS[0].
   const product =
     products.find((p) => p.id === id) || PRODUCTS.find((p) => p.id === id) || undefined;
   const rowRef = useRef<HTMLDivElement | null>(null);
@@ -163,7 +156,7 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
   return (
     <div
       ref={rowRef}
-      className={`w-full max-w-full rounded-3xl sm:rounded-4xl overflow-hidden ${bgGradientClass} ${borderClass} p-4 sm:p-8 lg:p-12 transition-all duration-700 ease-out select-none shadow-xs ${
+      className={`w-full max-w-full rounded-3xl sm:rounded-4xl overflow-hidden ${bgGradientClass} ${borderClass} p-4 sm:p-8 lg:p-12 transition-all duration-700 ease-out select-none shadow-none ${
         isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-90'
       }`}
     >
@@ -187,10 +180,12 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
             )}
           </h2>
 
-          {/* 2. Refined Honor-Style Price */}
+          {/* 2. Refined Honor-Style Price   SAR (U+20C1), never broken placeholder glyph */}
           <div className="mt-4 sm:mt-7 flex items-baseline gap-1.5 flex-wrap">
             <span className="text-sm sm:text-base font-bold text-neutral-950">
-              {language === 'AR' ? `${price.toLocaleString()}.00 ⃁` : `⃁ ${price.toLocaleString()}.00`}
+              {language === 'AR'
+                ? `${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} \u20C1`
+                : `\u20C1 ${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
             </span>
           </div>
 
@@ -201,7 +196,7 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
               onClick={() => navigateTo('product-buy', id)}
               className="px-5 sm:px-7 py-2 sm:py-2.5 bg-black hover:bg-neutral-800 text-white font-medium text-xs sm:text-sm rounded-full transition-all duration-200 active:scale-95 cursor-pointer shadow-none inline-flex items-center justify-center"
             >
-              <span>{language === 'AR' ? 'شراء' : 'Buy'}</span>
+              <span>{language === 'AR' ? '\u0634\u0631\u0627\u0621' : 'Buy'}</span>
             </button>
 
             <button
@@ -209,7 +204,7 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
               onClick={() => navigateTo('product-detail', id)}
               className="group/learn text-xs sm:text-sm font-normal text-neutral-900 hover:text-black transition-colors cursor-pointer inline-flex items-center gap-1 active:scale-95 text-center"
             >
-              <span>{language === 'AR' ? 'تعرف على المزيد' : 'Learn More'}</span>
+              <span>{language === 'AR' ? '\u062A\u0639\u0631\u0641 \u0639\u0644\u0649 \u0627\u0644\u0645\u0632\u064A\u062F' : 'Learn More'}</span>
               <ChevronRight
                 className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 transition-transform duration-200 ${
                   language === 'AR' ? 'rotate-180 group-hover/learn:-translate-x-0.5' : 'group-hover/learn:translate-x-0.5'
@@ -230,10 +225,10 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
                     addToCart(product, undefined, undefined, undefined, undefined, false);
                   }}
                   className="group/addcart px-4 sm:px-5 py-2 sm:py-2.5 rounded-full border border-black bg-transparent hover:bg-black/5 text-black font-medium text-xs sm:text-sm transition-all duration-200 active:scale-95 cursor-pointer inline-flex items-center gap-2 shadow-none"
-                  title={language === 'AR' ? 'أضف للسلة' : 'Add to Cart'}
+                  title={language === 'AR' ? '\u0623\u0636\u0641 \u0644\u0644\u0633\u0644\u0629' : 'Add to Cart'}
                 >
                   <ShoppingBag className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 transition-transform duration-200 group-hover/addcart:scale-110" />
-                  <span>{language === 'AR' ? 'أضف للسلة' : 'Add to Cart'}</span>
+                  <span>{language === 'AR' ? '\u0623\u0636\u0641 \u0644\u0644\u0633\u0644\u0629' : 'Add to Cart'}</span>
                 </button>
               );
             })() : null}
@@ -245,37 +240,46 @@ const KeyProductRow: React.FC<KeyProductBannerProps> = ({
           className={`lg:col-span-7 flex justify-center cursor-pointer w-full max-w-full overflow-hidden ${isReversed ? 'lg:order-1' : 'lg:order-2'}`}
           onClick={() => navigateTo('product-detail', id)}
         >
-          <div className="relative w-full h-[240px] sm:h-[340px] md:h-[400px] lg:h-[450px] flex items-stretch justify-center gap-2.5 sm:gap-4 p-0.5 sm:p-1 perspective-[1400px] overflow-hidden">
-            {/* Left Full-Height Image — absolute fill so builder CSS cannot leave white slabs */}
+          <div className="relative w-full h-[260px] sm:h-[360px] md:h-[420px] lg:h-[460px] flex items-stretch justify-center gap-2.5 sm:gap-4 p-0.5 sm:p-1 perspective-[1400px] overflow-hidden">
+            {/* Left full-height image   absolute fill so builder CSS cannot leave white slabs */}
             <div
-              className="relative w-1/2 h-full min-h-0 overflow-hidden rounded-2xl sm:rounded-3xl bg-neutral-100 shadow-xs border-0 border-transparent will-change-transform transform-gpu"
+              data-fsb-frame-wrap="1"
+              className="relative w-1/2 h-full min-h-0 overflow-hidden rounded-2xl sm:rounded-3xl bg-transparent shadow-none border-0 border-transparent will-change-transform transform-gpu"
               style={{
                 transform: `translateX(${leftSlideX}px) translateY(${leftSlideY}px) rotateY(${leftRotateY}deg) rotateX(${leftRotateX}deg) scale(${scaleEffect})`,
               }}
             >
-              <img
-                src={imgLeft}
-                alt={imgLeftAlt}
-                className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-700 hover:scale-105"
-                referrerPolicy="no-referrer"
-                loading="lazy" decoding="async"
-              />
+              {imgLeft ? (
+                <img
+                  data-fsb-frame="1"
+                  src={imgLeft}
+                  alt={imgLeftAlt}
+                  className="absolute inset-0 w-full h-full object-contain object-center transition-transform duration-700 hover:scale-105 shadow-none"
+                  referrerPolicy="no-referrer"
+                  loading="lazy"
+                  decoding="async"
+                />
+              ) : null}
             </div>
 
-            {/* Right Full-Height Image */}
             <div
-              className="relative w-1/2 h-full min-h-0 overflow-hidden rounded-2xl sm:rounded-3xl bg-neutral-100 shadow-xs border-0 border-transparent will-change-transform transform-gpu"
+              data-fsb-frame-wrap="1"
+              className="relative w-1/2 h-full min-h-0 overflow-hidden rounded-2xl sm:rounded-3xl bg-transparent shadow-none border-0 border-transparent will-change-transform transform-gpu"
               style={{
                 transform: `translateX(${rightSlideX}px) translateY(${rightSlideY}px) rotateY(${rightRotateY}deg) rotateX(${rightRotateX}deg) scale(${scaleEffect})`,
               }}
             >
-              <img
-                src={imgRight}
-                alt={imgRightAlt}
-                className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-700 hover:scale-105"
-                referrerPolicy="no-referrer"
-                loading="lazy" decoding="async"
-              />
+              {imgRight ? (
+                <img
+                  data-fsb-frame="1"
+                  src={imgRight}
+                  alt={imgRightAlt}
+                  className="absolute inset-0 w-full h-full object-contain object-center transition-transform duration-700 hover:scale-105 shadow-none"
+                  referrerPolicy="no-referrer"
+                  loading="lazy"
+                  decoding="async"
+                />
+              ) : null}
             </div>
           </div>
         </div>
@@ -309,7 +313,7 @@ export const FlagshipThreeJsSection: React.FC = () => {
     }
   }, [activeStore, version]);
 
-  // Word C-FSB — featuredSectionBanners (NOT C-BAN `banners`)
+  // Word C-FSB   featuredSectionBanners (NOT C-BAN `banners`)
   const fsb = themeSettings?.featuredSectionBanners;
   const configuredBanners = (fsb?.enabled !== false ? fsb?.banners : []) || [];
   const activeBanners = configuredBanners.filter((b) => b.enabled !== false);
@@ -317,11 +321,15 @@ export const FlagshipThreeJsSection: React.FC = () => {
   const b1 = activeBanners[1];
   const b2 = activeBanners[2];
 
-  const resolveImage = (img: string | undefined, fallback: string) => {
-    if (!img) return fallback;
+  const resolveImage = (img: string | undefined, fallback: string, productId?: string) => {
+    const isolated = coffeeIsolatedCardImage(productId, img || fallback);
+    if (isolated) return coffeeAlmariPngUrl(isolated);
+    if (!img) return coffeeAlmariPngUrl(fallback) || fallback;
     const lower = img.toLowerCase();
-    if (lower.startsWith('http') || lower.startsWith('data:') || lower.startsWith('/')) return img;
-    return fallback;
+    if (lower.startsWith('http') || lower.startsWith('data:') || lower.startsWith('/')) {
+      return coffeeAlmariPngUrl(img);
+    }
+    return coffeeAlmariPngUrl(fallback) || fallback;
   };
 
   const parsePrice = (raw?: string, fallback = 0) => {
@@ -331,11 +339,11 @@ export const FlagshipThreeJsSection: React.FC = () => {
 
   const sectionTitle =
     language === 'AR'
-      ? fsb?.titleAr || 'إصدارات الفئة الرائدة المتميزة'
+      ? fsb?.titleAr || '\u0645\u0646\u062A\u062C\u0627\u062A \u0647\u0627\u064A \u0628\u0631\u0648 \u0627\u0644\u0631\u0626\u064A\u0633\u064A\u0629'
       : fsb?.titleEn || 'Featured HiBrew Flagships';
   const sectionSub =
     language === 'AR'
-      ? fsb?.subtitleAr || 'تصاميم استثنائية وهندسة دقيقة تمنحك استخلاصاً تجارياً فائق الجودة.'
+      ? fsb?.subtitleAr || '\u0647\u0646\u062F\u0633\u0629 \u0645\u062A\u0642\u062F\u0645\u0629 \u0648\u062A\u0635\u0627\u0645\u064A\u0645 \u0645\u062E\u0635\u0635\u0629 \u0644\u062A\u062C\u0631\u0628\u0629 \u0642\u0647\u0648\u0629 \u0627\u0633\u062A\u062B\u0646\u0627\u0626\u064A\u0629.'
       : fsb?.subtitleEn || 'Cutting-edge engineering and bespoke aesthetics for the ultimate coffee experience.';
 
   if (fsb?.enabled === false) return null;
@@ -344,7 +352,7 @@ export const FlagshipThreeJsSection: React.FC = () => {
     <section className="w-full max-w-[1360px] mx-auto px-4 lg:px-8 py-8 sm:py-16 space-y-8 sm:space-y-10 select-none overflow-hidden">
       <div className="text-center max-w-3xl mx-auto space-y-3">
         <span className="inline-block text-xs font-bold text-neutral-600 uppercase tracking-widest bg-neutral-100 px-4 py-1.5 rounded-full">
-          {language === 'AR' ? 'الابتكار والتميز' : 'Flagship Innovations'}
+          {language === 'AR' ? '\u0627\u0628\u062A\u0643\u0627\u0631\u0627\u062A \u0631\u0627\u0626\u062F\u0629' : 'Flagship Innovations'}
         </span>
         <h2 className={`text-2xl sm:text-4xl font-extrabold text-neutral-900 text-center ${
           language === 'AR' ? 'leading-[1.38] tracking-normal' : 'leading-tight tracking-[-0.01em]'
@@ -362,16 +370,16 @@ export const FlagshipThreeJsSection: React.FC = () => {
       {/* ROW 1: Saudi Cafe Dual-Boiler Flagship & Macro Crema                       */}
       {/* ========================================================================= */}
       <KeyProductRow
-        id={b0?.productId || "hb-h10a-dualboiler"}
-        title={b0?.titleEn || "HiBrew Dual-Boiler 20-Bar Barista Pro"}
-        titleAr={b0?.titleAr || "ماكينة إسبريسو هاي برو الاحترافية 20 بار دبل بويلر"}
-        price={b0?.showPrice !== false ? parsePrice(b0?.price, 1899) : 1899}
-        originalPrice={2299}
-        imgLeft={resolveImage(b0?.images?.[0], saudiCafeMachine)}
-        imgRight={resolveImage(b0?.images?.[1], baristaCremaMacro)}
+        id={b0?.productId || "hb-almari-fluted-oak"}
+        title={b0?.titleEn || "Riyadh Fluted Oak Coffee Almari"}
+        titleAr={b0?.titleAr || '\u062E\u0632\u0627\u0646\u0629 \u0642\u0647\u0648\u0629 \u0628\u0644\u0648\u0637 \u0645\u0636\u0644\u0639 \u0627\u0644\u0631\u064A\u0627\u0636'}
+        price={b0?.showPrice !== false ? parsePrice(b0?.price, 2890) : 2890}
+        originalPrice={3290}
+        imgLeft={resolveImage(b0?.images?.[0], '/images/ksa_almari_fluted_oak.png', b0?.productId || 'hb-almari-fluted-oak')}
+        imgRight={resolveImage(b0?.images?.[1], '/images/ksa_almari_najdi_heritage.png', 'hb-almari-najdi-heritage')}
         imgLeftAlt="Commercial Dual-Boiler Machine on Cafe Counter"
         imgRightAlt="Macro Golden Crema Bottomless Extraction"
-        bgGradientClass="bg-gradient-to-br from-[#F4ECE1] to-[#EADFCF]"
+        bgGradientClass="bg-gradient-to-br from-[#D6CEC4] to-[#C4B8AA]"
         borderClass="border-0 border-transparent"
         isReversed={false}
       />
@@ -380,16 +388,16 @@ export const FlagshipThreeJsSection: React.FC = () => {
       {/* ROW 2: Barista Milk Steaming & Precision Titanium Grinder G5             */}
       {/* ========================================================================= */}
       <KeyProductRow
-        id={b1?.productId || "hb-mill-g5-pro"}
-        title={b1?.titleEn || "HiBrew Conical Burr Coffee Mill G5"}
-        titleAr={b1?.titleAr || "مطحنة القهوة الكهربائية بتروس تيتانيوم G5"}
-        price={b1?.showPrice !== false ? parsePrice(b1?.price, 489) : 489}
-        originalPrice={650}
-        imgLeft={resolveImage(b1?.images?.[0], baristaMilkSteaming)}
-        imgRight={resolveImage(b1?.images?.[1], baristaTampingShot)}
-        imgLeftAlt="Barista Steaming Milk with Pitcher"
+        id={b1?.productId || "hb-almari-white-marble"}
+        title={b1?.titleEn || "Jeddah Black Gold Coffee Almari"}
+        titleAr={b1?.titleAr || '\u062F\u0648\u0644\u0627\u0628 \u0642\u0647\u0648\u0629 \u0623\u0633\u0648\u062F \u0648\u0630\u0647\u0628\u064A \u0644\u062C\u062F\u0629'}
+        price={b1?.showPrice !== false ? parsePrice(b1?.price, 2490) : 2490}
+        originalPrice={2790}
+        imgLeft={resolveImage(b1?.images?.[0], '/images/hb_jeddah_blackgold_cut_1125.png', b1?.productId || 'hb-almari-white-marble')}
+        imgRight={resolveImage(b1?.images?.[1], '/images/ksa_almari_makkah_corner.png', 'hb-almari-makkah-corner')}
+        imgLeftAlt="Jeddah black gold coffee almari cabinet"
         imgRightAlt="Barista Tamping Ground Espresso into Portafilter"
-        bgGradientClass="bg-gradient-to-br from-[#F8E2D8] to-[#EFCFC2]"
+        bgGradientClass="bg-gradient-to-br from-[#DCC4B8] to-[#C9A899]"
         borderClass="border-0 border-transparent"
         isReversed={false}
       />
@@ -398,16 +406,16 @@ export const FlagshipThreeJsSection: React.FC = () => {
       {/* ROW 3: 58mm Naked Walnut Boltfilter & Artisan Collection                 */}
       {/* ========================================================================= */}
       <KeyProductRow
-        id={b2?.productId || "hb-boltfilter-58-naked"}
-        title={b2?.titleEn || "58mm Naked Walnut Boltfilter"}
-        titleAr={b2?.titleAr || "بورتافلتر مكشوف مقاس 58 ملم خشب الجوز"}
-        price={b2?.showPrice !== false ? parsePrice(b2?.price, 159) : 159}
-        originalPrice={220}
-        imgLeft={resolveImage(b2?.images?.[0], espressoWoodPitcher)}
-        imgRight={resolveImage(b2?.images?.[1], saudiCoffeeCollage)}
+        id={b2?.productId || "hb-almari-dual-door-villa"}
+        title={b2?.titleEn || "KSA Dual-Door Villa Coffee Almari"}
+        titleAr={b2?.titleAr || '\u062E\u0632\u0627\u0646\u0629 \u0642\u0647\u0648\u0629 \u0641\u064A\u0644\u0627 \u0628\u0628\u0627\u0628\u064A\u0646 \u0627\u0644\u0633\u0639\u0648\u062F\u064A\u0629'}
+        price={b2?.showPrice !== false ? parsePrice(b2?.price, 3490) : 3490}
+        originalPrice={3990}
+        imgLeft={resolveImage(b2?.images?.[0], '/images/ksa_almari_dual_door_villa.png', b2?.productId || 'hb-almari-dual-door-villa')}
+        imgRight={resolveImage(b2?.images?.[1], '/images/ksa_almari_fluted_oak.png', 'hb-almari-fluted-oak')}
         imgLeftAlt="Glass Espresso Mini Pitcher with Wooden Handle"
         imgRightAlt="Luxury Saudi Coffee Master Collection"
-        bgGradientClass="bg-gradient-to-br from-[#E6ECE5] to-[#D5E0D4]"
+        bgGradientClass="bg-gradient-to-br from-[#D2DAD0] to-[#BCC8BC]"
         borderClass="border-0 border-transparent"
         isReversed={false}
       />

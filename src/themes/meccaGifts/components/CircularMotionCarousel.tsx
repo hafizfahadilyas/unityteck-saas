@@ -139,11 +139,22 @@ export const CircularMotionCarousel: React.FC<CircularMotionCarouselProps> = ({
       </div>
 
       {/* Motion Carousel Stage (ZERO SCROLLBARS, Smooth Motion) */}
-      <div ref={containerRef} className="relative overflow-hidden w-full py-2">
+      <div
+        ref={containerRef}
+        className="relative overflow-hidden w-full py-2 touch-pan-x"
+        style={{ touchAction: 'pan-y pinch-zoom' }}
+        onTouchStart={() => setIsPaused(true)}
+        onTouchEnd={() => window.setTimeout(() => setIsPaused(false), 1800)}
+        onPointerDown={() => setIsPaused(true)}
+        onPointerUp={() => window.setTimeout(() => setIsPaused(false), 1800)}
+      >
         <motion.div
           className="flex items-center gap-3 sm:gap-6 md:gap-8 cursor-grab active:cursor-grabbing"
           drag="x"
           dragConstraints={{ left: -100 * (total - itemsPerView), right: 0 }}
+          dragElastic={0.12}
+          dragMomentum={false}
+          style={{ touchAction: 'pan-x' }}
           animate={{
             x: isAr
               ? `${currentIndex * (100 / itemsPerView)}%`

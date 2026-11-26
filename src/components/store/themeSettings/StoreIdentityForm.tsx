@@ -4,7 +4,9 @@ import { useTenant } from '../../../context/TenantContext';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useToast } from '../../common/ToastProvider';
 import {
+  bustMediaUrl,
   defaultStoreIdentity,
+  hydrateStoreIdentityFromApi,
   readStoreIdentity,
   splitStoreName,
   writeStoreIdentity,
@@ -12,6 +14,7 @@ import {
 } from '../../../themes/settings/storeIdentity';
 import { MediaUploadField } from '../../common/MediaUploadField';
 import { COFFEE_STORE_WORKSPACE_PATH } from '../../../data/coffeeStoreData';
+import { persistAllThemeSettingsNow } from '../../../themes/settings/themeSettingsStore';
 
 /**
  * Theme Settings · 01 Store Identity — Holst form, same-to-same Phase 5.1 start.
@@ -29,8 +32,16 @@ export const StoreIdentityForm: React.FC = () => {
   const [savedFlash, setSavedFlash] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     const loaded = readStoreIdentity(activeStore.id, activeStore);
     setForm({ ...loaded, ...splitStoreName(loaded) });
+    void hydrateStoreIdentityFromApi(activeStore.id, activeStore).then((remote) => {
+      if (cancelled) return;
+      setForm({ ...remote, ...splitStoreName(remote) });
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [activeStore.id, activeStore.name, activeStore.logo, activeStore.ownerEmail]);
 
   const patch = <K extends keyof StoreIdentitySettings>(key: K, value: StoreIdentitySettings[K]) => {
@@ -41,30 +52,56 @@ export const StoreIdentityForm: React.FC = () => {
     e.preventDefault();
     setSaving(true);
     try {
+      const enName = (form.storeNameEn || '').trim();
+      const arName = (form.storeNameAr || '').trim();
       const saved: StoreIdentitySettings = {
         ...form,
-        storeNameEn: form.storeNameEn || '',
-        storeNameAr: form.storeNameAr || '',
-        storeName: (form.storeNameEn || '').trim() || form.storeName,
+        storeNameEn: enName,
+        storeNameAr: arName,
+        storeName: enName || arName || form.storeName,
+        logoUrl: bustMediaUrl(form.logoUrl) || form.logoUrl || '',
+        faviconUrl: bustMediaUrl(form.faviconUrl) || form.faviconUrl || '',
       };
-      writeStoreIdentity(activeStore.id, saved);
-      const { readAllThemeSettings, writeAllThemeSettings } = await import(
-        '../../../themes/settings/themeSettingsStore'
-      );
+      const { readAllThemeSettings } = await import('../../../themes/settings/themeSettingsStore');
       const full = readAllThemeSettings(activeStore.id, activeStore);
       full.identity = saved as typeof full.identity;
-      writeAllThemeSettings(activeStore.id, full);
+      if (full.customHeader) {
+        full.customHeader = {
+          ...full.customHeader,
+          logo: {
+            ...(full.customHeader.logo || {}),
+            ...(enName ? { titleEn: enName } : {}),
+            ...(arName ? { titleAr: arName } : {}),
+            ...(saved.logoUrl ? { imageUrl: saved.logoUrl } : {}),
+            applyTitle: true,
+          },
+        };
+      }
+      await persistAllThemeSettingsNow(activeStore.id, full);
+      window.dispatchEvent(
+        new CustomEvent('unityteck-store-updated', {
+          detail: {
+            storeId: activeStore.id,
+            name: enName || arName,
+            nameEn: enName,
+            nameAr: arName,
+            logo: saved.logoUrl,
+            favicon: saved.faviconUrl || '',
+          },
+        }),
+      );
+      setForm(saved);
       setSavedFlash(true);
       toast(
         locale === 'ar'
-          ? 'تم حفظ هوية المتجر في قاعدة البيانات'
-          : 'Store identity saved to the database',
+          ? 'تم حفظ هوية هذا المتجر في قاعدة البيانات'
+          : 'This store’s identity was saved to the database',
         'success',
       );
       window.setTimeout(() => setSavedFlash(false), 2500);
     } catch {
       toast(
-        locale === 'ar' ? 'فشل حفظ هوية المتجر' : 'Failed to save store identity',
+        locale === 'ar' ? 'فشل حفظ هوية المتجر على الخادم' : 'Failed to save store identity to the server',
         'error',
       );
     } finally {
@@ -74,7 +111,7 @@ export const StoreIdentityForm: React.FC = () => {
 
   const onReset = () => {
     const d = defaultStoreIdentity(activeStore);
-    setForm(d);
+    setForm({ ...d, ...splitStoreName(d) });
     writeStoreIdentity(activeStore.id, d);
     toast(locale === 'ar' ? 'تمت إعادة الضبط' : 'Reset to defaults', 'info');
   };
@@ -156,18 +193,40 @@ export const StoreIdentityForm: React.FC = () => {
 
       <div className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          {locale === 'ar'
-            ? field('اسم المتجر', 'storeNameAr', { dir: 'rtl' })
-            : field('Store name', 'storeNameEn', { dir: 'ltr' })}
-          {locale === 'ar'
-            ? field('الوصف', 'taglineAr', { dir: 'rtl' })
-            : field('Tagline', 'taglineEn', { dir: 'ltr' })}
+          {field(
+            locale === 'ar' ? 'اسم المتجر بالإنجليزية' : 'Store name (English)',
+            'storeNameEn',
+            { dir: 'ltr' },
+          )}
+          {field(
+            locale === 'ar' ? 'اسم المتجر بالعربية' : 'Store name (Arabic)',
+            'storeNameAr',
+            { dir: 'rtl' },
+          )}
+          {field(
+            locale === 'ar' ? 'الوصف بالإنجليزية' : 'Tagline (English)',
+            'taglineEn',
+            { dir: 'ltr' },
+          )}
+          {field(
+            locale === 'ar' ? 'الوصف بالعربية' : 'Tagline (Arabic)',
+            'taglineAr',
+            { dir: 'rtl' },
+          )}
         </div>
         <MediaUploadField
           label={locale === 'ar' ? 'شعار المتجر' : 'Store logo'}
           value={form.logoUrl}
           onChange={(url) => setForm((prev) => ({ ...prev, logoUrl: url }))}
           recommendedSize="200 × 200 px"
+          aspectRatio="square"
+          initialFolder="branding"
+        />
+        <MediaUploadField
+          label={locale === 'ar' ? 'أيقونة المتصفح' : 'Favicon'}
+          value={form.faviconUrl || ''}
+          onChange={(url) => setForm((prev) => ({ ...prev, faviconUrl: url }))}
+          recommendedSize="64 × 64 px SVG/PNG"
           aspectRatio="square"
           initialFolder="branding"
         />

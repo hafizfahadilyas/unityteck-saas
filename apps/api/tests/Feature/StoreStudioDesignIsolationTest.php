@@ -48,10 +48,15 @@ class StoreStudioDesignIsolationTest extends TestCase
         Sanctum::actingAs($user);
 
         $this->withHeader('X-Store-Id', 'store-a')
-            ->getJson('/api/studio-designs')
+            ->getJson('/api/studio-designs?per_page=10&page=1')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', 'dsd-a');
+            ->assertJsonPath('data.0.id', 'dsd-a')
+            ->assertJsonPath('data.0.design_json.layers', [])
+            ->assertJsonPath('meta.per_page', 10)
+            ->assertJsonPath('meta.page', 1)
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('meta.has_more', false);
     }
 
     private function insertStore(string $id, string $slug): void

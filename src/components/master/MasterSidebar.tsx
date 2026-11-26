@@ -21,6 +21,9 @@ import {
   ShieldCheck,
   Bell,
   BookOpen,
+  Bot,
+  Sparkles,
+  ChevronDown,
 } from 'lucide-react';
 import { SouqEMakkahLogo, SouqEMakkahMark } from '../common/SouqEMakkahLogo';
 
@@ -48,6 +51,27 @@ export const MasterSidebar: React.FC<MasterSidebarProps> = ({
   const navTitle = (id: string) => labelForNav(locale, MASTER_NAV_KEYS, id);
   const { canTab } = usePermissions();
   const [collapsed, setCollapsed] = useState(false);
+  const [aiExpanded, setAiExpanded] = useState(true);
+
+  const aiSubMenu = useMemo(
+    () => [
+      { id: 'ai-providers', labelEn: 'AI Providers', labelAr: 'مزودو الذكاء الاصطناعي' },
+      { id: 'gemini-settings', labelEn: 'Gemini API Settings', labelAr: 'إعدادات Gemini API' },
+      { id: 'ai-studio', labelEn: 'AI Image Studio', labelAr: 'استوديو الصور بالذكاء الاصطناعي' },
+      { id: 'ai-usage', labelEn: 'AI Usage & Credits', labelAr: 'الاستخدام والرصيد' },
+      { id: 'merchant-ai-limits', labelEn: 'Merchant AI Limits', labelAr: 'حدود التجار' },
+      { id: 'ai-history', labelEn: 'AI Generation History', labelAr: 'سجل التوليد' },
+    ],
+    []
+  );
+
+  const isAiActive = useMemo(() => {
+    return (
+      currentTab === 'ai-management' ||
+      currentTab === 'openai-ai' ||
+      aiSubMenu.some((sub) => sub.id === currentTab)
+    );
+  }, [currentTab, aiSubMenu]);
 
   const selectTab = (tab: string) => {
     onSelectTab(tab);
@@ -67,6 +91,7 @@ export const MasterSidebar: React.FC<MasterSidebarProps> = ({
       { id: 'plans', icon: Crown, showChevron: false },
       { id: 'services-points', icon: Coins, showChevron: false },
       { id: 'integrations', icon: Layers, showChevron: true },
+      { id: 'ai-management', icon: Sparkles, showChevron: true, isAiSection: true },
       { id: 'support', icon: Headphones, showChevron: true },
       { id: 'blog', icon: BookOpen, showChevron: false },
       { id: 'reports', icon: FileText, showChevron: true },
@@ -149,53 +174,99 @@ export const MasterSidebar: React.FC<MasterSidebarProps> = ({
         >
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = currentTab === item.id;
+            const isAiSection = (item as any).isAiSection;
+            const isActive = isAiSection ? isAiActive : currentTab === item.id;
 
             return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => selectTab(item.id)}
-                aria-current={isActive ? 'page' : undefined}
-                title={collapsed ? navTitle(item.id) : undefined}
-                className={`w-full flex items-center gap-2.5 transition-all cursor-pointer ${
-                  collapsed ? 'justify-center px-0' : 'justify-between'
-                } ${isActive ? 'unity-nav-active' : 'unity-nav-idle'}`}
-                style={{ borderRadius: 'var(--radius-ctrl)' }}
-              >
-                <div className={`flex items-center gap-2.5 min-w-0 ${collapsed ? 'justify-center' : ''}`}>
-                  <Icon
-                    className="shrink-0"
-                    style={{
-                      width: 'var(--sidebar-nav-icon-size, 1.125rem)',
-                      height: 'var(--sidebar-nav-icon-size, 1.125rem)',
-                      color: isActive ? 'var(--active-fg)' : 'var(--sidebar-idle-icon, var(--portal-400))',
-                    }}
-                    strokeWidth={isActive ? 2.25 : 2}
-                  />
-                  {!collapsed && (
-                    <span className="truncate" lang={locale}>{navTitle(item.id)}</span>
-                  )}
-                </div>
-                {!collapsed && item.count !== undefined ? (
-                  <span
-                    className="text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0 tabular-nums"
-                    style={{
-                      background: isActive
-                        ? 'color-mix(in srgb, #000 22%, transparent)'
-                        : 'var(--portal-800)',
-                      color: isActive ? 'var(--active-fg)' : 'var(--portal-200)',
-                    }}
-                  >
-                    {item.count}
-                  </span>
-                ) : !collapsed && (item as { showChevron?: boolean }).showChevron ? (
-                  <ChevronRight
-                    className={`w-3.5 h-3.5 shrink-0 opacity-35 rtl:rotate-180 ${isActive ? 'opacity-80' : ''}`}
-                    aria-hidden
-                  />
-                ) : null}
-              </button>
+              <React.Fragment key={item.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isAiSection) {
+                      if (collapsed) {
+                        setCollapsed(false);
+                        setAiExpanded(true);
+                        selectTab('gemini-settings');
+                      } else {
+                        setAiExpanded((v) => !v);
+                        if (!isAiActive) {
+                          selectTab('gemini-settings');
+                        }
+                      }
+                    } else {
+                      selectTab(item.id);
+                    }
+                  }}
+                  aria-current={isActive ? 'page' : undefined}
+                  title={collapsed ? navTitle(item.id) : undefined}
+                  className={`w-full flex items-center gap-2.5 transition-all cursor-pointer ${
+                    collapsed ? 'justify-center px-0' : 'justify-between'
+                  } ${isActive ? 'unity-nav-active' : 'unity-nav-idle'}`}
+                  style={{ borderRadius: 'var(--radius-ctrl)' }}
+                >
+                  <div className={`flex items-center gap-2.5 min-w-0 ${collapsed ? 'justify-center' : ''}`}>
+                    <Icon
+                      className="shrink-0"
+                      style={{
+                        width: 'var(--sidebar-nav-icon-size, 1.125rem)',
+                        height: 'var(--sidebar-nav-icon-size, 1.125rem)',
+                        color: isActive ? 'var(--active-fg)' : 'var(--sidebar-idle-icon, var(--portal-400))',
+                      }}
+                      strokeWidth={isActive ? 2.25 : 2}
+                    />
+                    {!collapsed && (
+                      <span className="truncate" lang={locale}>{navTitle(item.id)}</span>
+                    )}
+                  </div>
+                  {!collapsed && item.count !== undefined ? (
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0 tabular-nums"
+                      style={{
+                        background: isActive
+                          ? 'color-mix(in srgb, #000 22%, transparent)'
+                          : 'var(--portal-800)',
+                        color: isActive ? 'var(--active-fg)' : 'var(--portal-200)',
+                      }}
+                    >
+                      {item.count}
+                    </span>
+                  ) : !collapsed && isAiSection ? (
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 shrink-0 opacity-60 transition-transform duration-200 ${
+                        aiExpanded ? '' : '-rotate-90 rtl:rotate-90'
+                      }`}
+                      aria-hidden
+                    />
+                  ) : !collapsed && (item as { showChevron?: boolean }).showChevron ? (
+                    <ChevronRight
+                      className={`w-3.5 h-3.5 shrink-0 opacity-35 rtl:rotate-180 ${isActive ? 'opacity-80' : ''}`}
+                      aria-hidden
+                    />
+                  ) : null}
+                </button>
+
+                {isAiSection && aiExpanded && !collapsed && (
+                  <div className="ps-4 pe-1 py-1 space-y-0.5 border-s-2 border-purple-500/40 ms-5 my-0.5 animate-in fade-in duration-150">
+                    {aiSubMenu.map((sub) => {
+                      const isSubActive = currentTab === sub.id;
+                      return (
+                        <button
+                          key={sub.id}
+                          type="button"
+                          onClick={() => selectTab(sub.id)}
+                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-start cursor-pointer ${
+                            isSubActive
+                              ? 'bg-purple-600/25 text-purple-200 font-bold border border-purple-500/40 shadow-sm'
+                              : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/40'
+                          }`}
+                        >
+                          <span className="truncate">{isAr ? sub.labelAr : sub.labelEn}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </React.Fragment>
             );
           })}
         </nav>

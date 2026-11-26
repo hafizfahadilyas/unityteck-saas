@@ -1,0 +1,23 @@
+---
+description: Shoppers never get merchant dashboard; guest checkout allowed
+alwaysApply: true
+---
+
+# Customer · No Merchant Dashboard (LOCKED)
+
+## Absolute
+
+- **Storefront customers** (Google / email OTP profile login) **never** receive `/admin`, `/master`, or merchant dashboard access.
+- Customer auth = **storefront profile + orders + invoices + tracking + loyalty** only (`/account`, theme profile page).
+- **Guest checkout is allowed** — sign-in is optional for placing an order; tracking after purchase may prompt login.
+- Public checkout **must not** link to admin URLs, shipping setup links, or merchant panels.
+
+## UI
+
+- Empty shipping / payment states → customer-friendly copy + contact store — **no** “open admin” links.
+- Clerk / Google on storefront → `establishStorefrontSession`; **never** auto-navigate to `/admin`.
+- Merchant Clerk session stays on `/admin` / `/store/login` only.
+
+## Data
+
+- Shipping, coupons, gift cards, loyalty, tracking, notifications = **live API** per `store_id` — zero mock/hardcoded commerce rows.

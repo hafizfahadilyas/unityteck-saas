@@ -418,7 +418,7 @@ export const BLECO_CATEGORIES: CategoryItem[] = [
     nameEn: 'Car Air Fresheners',
     description: 'فواحات إلكترونية وزيوت عطرية فرنسية تدوم طويلاً',
     icon: 'Wind',
-    image: 'https://cdn.salla.sa/form-builder/IVTOvvJou4NZ9Q3cEmXACGOBbO8BoyoEsFVAOCcF.png',
+    image: '/images/categories/car-air-fresheners.jpg',
     productCount: 16,
   },
   {
@@ -428,7 +428,7 @@ export const BLECO_CATEGORIES: CategoryItem[] = [
     nameEn: 'Car Care & Detailing',
     description: 'شامبوهات نانو وملمعات جلد وطبلون وكفرات احترافية',
     icon: 'Sparkles',
-    image: 'https://cdn.salla.sa/form-builder/0xGu1lj6oQ9nIXWfxRFbittuB7rSuKTCmXoE6Z7q.png',
+    image: '/images/categories/car-care-bleco.jpg',
     productCount: 18,
   },
   {
@@ -438,7 +438,7 @@ export const BLECO_CATEGORIES: CategoryItem[] = [
     nameEn: 'Accessories & Styling',
     description: 'ستائر تظليل ليزر، شماسات، قواعد جوال، ومبردات متنقلة',
     icon: 'Compass',
-    image: 'https://cdn.salla.sa/form-builder/372cyi5v5BTgsLSjPKuqdfKVNWAXPPyz8ewDjjL1.png',
+    image: '/images/categories/car-accessories.jpg',
     productCount: 22,
   },
   {
@@ -448,7 +448,7 @@ export const BLECO_CATEGORIES: CategoryItem[] = [
     nameEn: 'Upholstery Supplies',
     description: 'مبارم وكلبسات ومشدات تثبيت مراتب أصلية',
     icon: 'Wrench',
-    image: 'https://cdn.salla.sa/form-builder/mNJjSTAsIGTtdLFZPSFU11iZvndiKha2mxuG9HJp.png',
+    image: '/images/categories/upholstery-tools.jpg',
     productCount: 12,
   },
 ];
@@ -3296,6 +3296,84 @@ export const BLECO_BLOG_POSTS: BlecoBlogPost[] = [
       },
     ],
     relatedProductIds: ['prod-mat-luxury', 'prod-seat-camry-2025-leather'],
+  },
+];
+
+// ============================================================================
+// AUTOMOTIVE WORKSHOP SERVICES (appointment booking)
+// ============================================================================
+export interface BlecoServiceItem {
+  key: string;
+  nameAr: string;
+  nameEn: string;
+  descAr: string;
+  descEn: string;
+  durationMin: number;
+  fromPrice: number;
+  /** Optional service card image (store media / CDN / local) */
+  image?: string;
+}
+
+export const BLECO_SERVICES: BlecoServiceItem[] = [
+  {
+    key: 'interior_upholstery',
+    nameAr: 'تنجيد وتجديد المقصورة الداخلية',
+    nameEn: 'Car Interior Upholstery & Renovation',
+    descAr: 'تنجيد كامل للمقاعد والأسقف والجوانب بخامات فاخرة مطابقة للوكالة.',
+    descEn: 'Full cabin upholstery with OEM-fit luxury materials.',
+    durationMin: 180,
+    fromPrice: 450,
+    image: '/images/categories/vip-luxury-seat-covers.jpg',
+  },
+  {
+    key: 'dashboard_renovation',
+    nameAr: 'تجديد لوحة القيادة',
+    nameEn: 'Dashboard Renovation',
+    descAr: 'ترميم وتغليف لوحة القيادة بلمسة احترافية مقاومة للحرارة.',
+    descEn: 'Professional dashboard wrap and restoration for KSA heat.',
+    durationMin: 120,
+    fromPrice: 350,
+    image: '/images/categories/car-accessories.jpg',
+  },
+  {
+    key: 'window_tinting',
+    nameAr: 'تظليل النوافذ والعزل الحراري',
+    nameEn: 'Window Tinting & Heat Insulation',
+    descAr: 'أفلام عزل حراري معتمدة تقلل حرارة الشمس وتحمي المقصورة.',
+    descEn: 'Certified heat-control films for cabin comfort and UV defense.',
+    durationMin: 90,
+    fromPrice: 280,
+    image: '/images/categories/car-care-bleco.jpg',
+  },
+  {
+    key: 'ppf',
+    nameAr: 'فيلم حماية الطلاء',
+    nameEn: 'Paint Protection Film (PPF)',
+    descAr: 'حماية شفافة للطلاء من الخدوش والحصى مع ضمان التركيب.',
+    descEn: 'Clear paint protection with professional installation warranty.',
+    durationMin: 240,
+    fromPrice: 900,
+    image: '/images/categories/car-care-bleco.jpg',
+  },
+  {
+    key: 'polishing_detailing',
+    nameAr: 'تلميع وتفصيل السيارة',
+    nameEn: 'Car Polishing & Detailing',
+    descAr: 'تلميع خارجي وتنظيف داخلي عميق لإعادة بريق السيارة.',
+    descEn: 'Exterior polish and deep interior detailing.',
+    durationMin: 150,
+    fromPrice: 220,
+    image: '/images/categories/upholstery-tools.jpg',
+  },
+  {
+    key: 'steering_gear_upholstery',
+    nameAr: 'تنجيد المقود وقبضة ناقل الحركة',
+    nameEn: 'Steering Wheel & Gear Knob Upholstery',
+    descAr: 'تنجيد دقيق للمقود والقبضة بخامات متينة ومريحة للمس.',
+    descEn: 'Precision steering and gear-knob wrap with durable grips.',
+    durationMin: 60,
+    fromPrice: 150,
+    image: '/images/categories/vip-luxury-seat-covers.jpg',
   },
 ];
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
+import { Skeleton } from '../common/skeleton';
 import { Store as StoreType } from '../../types';
 import {
   Store,
@@ -2198,9 +2199,16 @@ export const MasterStores: React.FC<MasterStoresProps> = ({ onOpenCreateStore })
 
             <div className="p-5 overflow-y-auto flex-1 space-y-3">
               {quotasLoading ? (
-                <div className="py-12 text-center text-xs flex flex-col items-center gap-2" style={{ color: 'var(--muted)' }}>
-                  <RefreshCw className="w-5 h-5 animate-spin" style={{ color: 'var(--accent)' }} />
-                  <span>{isAr ? 'جاري تحميل بيانات حصص المتاجر…' : 'Loading store quota records…'}</span>
+                <div className="space-y-3" aria-busy="true" role="status">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="p-3.5 rounded-xl border flex items-center justify-between gap-4" style={{ borderColor: 'var(--border)' }}>
+                      <div className="space-y-1.5 flex-1">
+                        <Skeleton variant="rounded" height="14px" width="40%" />
+                        <Skeleton variant="rounded" height="10px" width="60%" />
+                      </div>
+                      <Skeleton variant="rounded" height="32px" width="90px" className="rounded-lg" />
+                    </div>
+                  ))}
                 </div>
               ) : storeQuotas.length === 0 ? (
                 <div className="py-12 text-center text-xs" style={{ color: 'var(--muted)' }}>

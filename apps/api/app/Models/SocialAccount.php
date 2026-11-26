@@ -16,6 +16,8 @@ class SocialAccount extends Model
         'store_id',
         'platform',
         'account_name',
+        'handle',
+        'followers_count',
         'page_id',
         'ig_user_id',
         'access_token',

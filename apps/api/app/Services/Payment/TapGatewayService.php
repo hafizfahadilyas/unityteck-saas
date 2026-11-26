@@ -6,67 +6,78 @@ use App\Models\Order;
 use App\Models\PaymentGateway;
 use App\Models\PaymentTransaction;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
+/**
+ * Tap — incomplete backend (no live Tap Charges HTTP in Phase 1).
+ * Never invent Connected / Paid from secret key presence alone.
+ */
 class TapGatewayService implements PaymentGatewayInterface
 {
     public function testConnection(PaymentGateway $gateway): array
     {
         $key = $gateway->secret_key ?? $gateway->api_key;
         if (empty($key)) {
-            return ['success' => false, 'message' => 'Tap Secret Key is required (sk_test_... or sk_live_...).'];
+            return [
+                'success' => false,
+                'message' => 'Tap Secret Key is missing.',
+                'integration_mode' => 'stub',
+                'health_status' => 'credentials_missing',
+            ];
         }
-        return ['success' => true, 'message' => 'Tap Payments API credentials authorized.'];
+
+        return [
+            'success' => false,
+            'message' => 'Tap backend is incomplete. Live Tap Charges API is not wired — do not mark Connected.',
+            'integration_mode' => 'stub',
+            'health_status' => 'incomplete_backend',
+            'requires_real_api' => true,
+        ];
     }
 
     public function createPaymentSession(PaymentGateway $gateway, Order $order, array $params = []): array
     {
-        $ref = 'TAP-' . strtoupper(Str::random(10));
         return [
-            'success' => true,
-            'transaction_reference' => $ref,
-            'amount' => $order->total_amount,
-            'currency' => 'SAR',
-            'checkout_url' => "https://checkout.tap.company/pay/{$ref}",
+            'success' => false,
+            'message' => 'Tap checkout requires a real Tap Charges API integration (not implemented).',
+            'integration_mode' => 'stub',
+            'requires_real_api' => true,
         ];
     }
 
     public function verifyPayment(PaymentGateway $gateway, string $transactionRef, array $payload = []): array
     {
         return [
-            'success' => true,
-            'status' => 'paid',
-            'gateway_transaction_id' => 'chg_' . rand(10000000, 99999999),
+            'success' => false,
+            'status' => 'failed',
+            'gateway_transaction_id' => $transactionRef,
             'amount' => (float) ($payload['amount'] ?? 0),
-            'fee' => round(((float) ($payload['amount'] ?? 0)) * 0.018 + 1.0, 2),
-            'source_type' => 'mada',
-            'card_brand' => 'Mada',
-            'card_last_four' => '4481',
-            'raw' => ['provider' => 'tap', 'charge_status' => 'CAPTURED'],
+            'fee' => 0,
+            'message' => 'Tap verify unavailable — incomplete backend. Never mark Paid without Tap API evidence.',
+            'integration_mode' => 'stub',
+            'requires_real_api' => true,
+            'raw' => ['requires_real_api' => true],
         ];
     }
 
     public function refund(PaymentGateway $gateway, PaymentTransaction $transaction, float $amount, string $reason = ''): array
     {
         return [
-            'success' => true,
-            'refund_id' => 're_' . rand(100000, 999999),
+            'success' => false,
             'amount' => $amount,
-            'status' => 'refunded',
-            'message' => 'Tap Payments refund completed.',
+            'status' => 'failed',
+            'message' => 'Tap refund requires a real Tap Charges API integration.',
+            'requires_real_api' => true,
         ];
     }
 
     public function handleWebhook(PaymentGateway $gateway, Request $request): array
     {
-        $payload = $request->all();
         return [
-            'success' => true,
-            'event' => 'charge.captured',
-            'status' => 'paid',
-            'transaction_id' => $payload['id'] ?? null,
-            'amount' => $payload['amount'] ?? 0,
-            'fee' => 1.5,
+            'success' => false,
+            'event' => 'tap.stub',
+            'status' => 'pending',
+            'message' => 'Tap webhook processing requires a real Tap Charges API integration.',
+            'requires_real_api' => true,
         ];
     }
 }

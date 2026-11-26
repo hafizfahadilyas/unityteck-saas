@@ -984,12 +984,27 @@ function souq_request_host(): string
 
 function souq_host_store(string $host): string
 {
-    return match ($host) {
+    $mapped = match ($host) {
         'mieraf-ksa.com' => 'store-coffee',
         'giftshop-sa.com' => 'store-1',
         'tanjeedmakkah.com' => 'store-bleco',
         default => '',
     };
+    if ($mapped !== '') {
+        return $mapped;
+    }
+    if (str_ends_with($host, '.mieraf-ksa.com') && $host !== 'www.mieraf-ksa.com') {
+        $sub = substr($host, 0, -strlen('.mieraf-ksa.com'));
+        $reserved = ['www', 'souq', 'api', 'app', 'admin', 'master', 'mail', 'smtp', 'ftp', 'cpanel', 'webmail'];
+        if ($sub === 'souq-default') {
+            return 'store-souq-default';
+        }
+        if ($sub !== '' && !in_array($sub, $reserved, true)) {
+            return '';
+        }
+    }
+
+    return '';
 }
 
 function souq_ensure_store_extras_table(PDO $pdo): void

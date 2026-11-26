@@ -32,6 +32,8 @@ export interface GeneratedStoreSEO {
     gtmId?: string;
     gscTag?: string;
     googleAdsId?: string;
+    tiktokPixelId?: string;
+    snapchatPixelId?: string;
   };
   schema: Record<string, unknown>;
 }
@@ -66,6 +68,8 @@ export function generateStoreSEO(options: {
   const gtmId = seoConfig?.gtmContainerId || (store as any).gtm_id || undefined;
   const gscTag = seoConfig?.searchConsoleVerificationTag || (store as any).gsc_verification || undefined;
   const googleAdsId = seoConfig?.googleAdsConversionId;
+  const tiktokPixelId = seoConfig?.tiktokPixelId || (store as any).tiktok_pixel_id || undefined;
+  const snapchatPixelId = seoConfig?.snapchatPixelId || (store as any).snapchat_pixel_id || undefined;
 
   // 1. Dynamic Meta Title (Tailored to active product, category, page, and store)
   let title = '';
@@ -363,6 +367,8 @@ export function generateStoreSEO(options: {
       gtmId,
       gscTag,
       googleAdsId,
+      tiktokPixelId,
+      snapchatPixelId,
     },
     schema,
   };
@@ -451,6 +457,8 @@ export function applySEOToDOM(seo: GeneratedStoreSEO): void {
     'https://fonts.gstatic.com',
     'https://www.googletagmanager.com',
     'https://www.google-analytics.com',
+    'https://analytics.tiktok.com',
+    'https://sc-static.net',
   ];
   preconnectUrls.forEach((url) => {
     if (!document.querySelector(`link[rel="preconnect"][href="${url}"]`)) {
@@ -518,5 +526,40 @@ export function applySEOToDOM(seo: GeneratedStoreSEO): void {
       });
     `;
     document.head.appendChild(gtagConfigScript);
+  }
+
+  // TikTok Pixel (ttq.js)
+  if (seo.tracking.tiktokPixelId && !document.getElementById('tiktok-pixel-tag')) {
+    const ttPixelId = seo.tracking.tiktokPixelId;
+    const ttScript = document.createElement('script');
+    ttScript.id = 'tiktok-pixel-tag';
+    ttScript.async = true;
+    ttScript.innerHTML = `
+      !function (w, d, t) {
+        w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=o||{};var c=document.createElement("script");c.type="text/javascript",c.async=!0,c.src=r+"?sdkid="+e+"&lib="+t;var a=document.getElementsByTagName("script")[0];a.parentNode.insertBefore(c,a)};
+        ttq.load('${ttPixelId}');
+        ttq.page();
+      }(window, document, 'ttq');
+    `;
+    document.head.appendChild(ttScript);
+  }
+
+  // Snapchat Pixel (scevent.min.js)
+  if (seo.tracking.snapchatPixelId && !document.getElementById('snapchat-pixel-tag')) {
+    const snapId = seo.tracking.snapchatPixelId;
+    const snapScript = document.createElement('script');
+    snapScript.id = 'snapchat-pixel-tag';
+    snapScript.async = true;
+    snapScript.innerHTML = `
+      (function(e,t,n){if(e.snaptr)return;var a=e.snaptr=function()
+      {a.handleRequest?a.handleRequest.apply(a,arguments):a.queue.push(arguments)};
+      a.queue=[];var s='script';var r=t.createElement(s);r.async=!0;
+      r.src=n;var u=t.getElementsByTagName(s)[0];
+      u.parentNode.insertBefore(r,u);})(window,document,
+      'https://sc-static.net/scevent.min.js');
+      snaptr('init', '${snapId}');
+      snaptr('track', 'PAGE_VIEW');
+    `;
+    document.head.appendChild(snapScript);
   }
 }

@@ -106,17 +106,8 @@ const TemplatePreviewCard: React.FC<{
 
   const canvasApprox = resolveCanvasApproxColor(template.backdropId, template.customSolidColor || '#ffffff');
 
-  // Prefer badge → headline → price/CTA — skip subtitle + shapes to stop overlap in thumbs
-  const previewLayers = (() => {
-    const typed = template.elements.filter(
-      (e) => e.type !== 'shape' && e.type !== 'icon' && e.type !== 'image' && e.type !== 'sticker',
-    );
-    const badges = typed.filter((e) => e.type === 'badge');
-    const headlines = typed.filter((e) => e.type === 'headline' || e.type === 'custom_text');
-    const prices = typed.filter((e) => e.type === 'price');
-    const pick = [...badges.slice(0, 1), ...headlines.slice(0, 1), ...prices.slice(0, 1)].slice(0, 3);
-    return pick.length > 0 ? pick : typed.slice(0, 2);
-  })();
+  // Clean preview: show top badge pill if present, NO text overlay covering the product image
+  const badgeLayer = template.elements.find((e) => e.type === 'badge');
 
   return (
     <div className="w-full flex items-center justify-center rounded-lg bg-slate-100/60 dark:bg-white/5 p-1.5 min-h-[7.5rem]">
@@ -129,7 +120,7 @@ const TemplatePreviewCard: React.FC<{
         background: template.previewGradient,
       }}
     >
-      {/* Product / subject — capped scale, mid zone only (never covers text band) */}
+      {/* Product / subject — capped scale, mid zone only */}
       {!isBlank && !isLogo && template.productPosPct.scale > 0 && previewImg && (
         <div
           className="absolute z-10 flex items-center justify-center pointer-events-none"
@@ -153,9 +144,9 @@ const TemplatePreviewCard: React.FC<{
         </div>
       )}
 
-      {/* Text / badge — max 3, truncated, contrast-fixed */}
-      {previewLayers.map((layer, i) => {
-        const raw = resolveCanvaLayerLabel(layer, {
+      {/* Clean badge pill only (no headline/price overlap over image) */}
+      {badgeLayer && (() => {
+        const raw = resolveCanvaLayerLabel(badgeLayer, {
           isAr,
           storeName,
           productName,
@@ -163,62 +154,26 @@ const TemplatePreviewCard: React.FC<{
           categoryName,
         });
         if (!raw) return null;
-        const label = truncatePreviewLabel(raw.split('\n')[0], layer.type === 'headline' ? 28 : 18);
-        const isBadge = layer.type === 'badge' || layer.type === 'price';
-        const align = layer.textAlign || 'center';
+        const label = truncatePreviewLabel(raw.split('\n')[0], 18);
         const readable = ensureReadableTextStyle(
-          layer.fontColor,
-          layer.bgColor,
+          badgeLayer.fontColor,
+          badgeLayer.bgColor,
           canvasApprox,
           { preferPill: true, minRatio: 4.5 },
         );
-        const fs =
-          layer.type === 'headline'
-            ? 'text-[8px] sm:text-[9px] font-black leading-tight tracking-tight'
-            : 'text-[7px] sm:text-[8px] font-bold leading-tight tracking-tight';
-        // Safe bands: badges near top, headlines near bottom — avoid mid collision with product
-        const safeTop =
-          layer.type === 'badge'
-            ? Math.min(layer.yPct || 0.1, 0.18)
-            : layer.type === 'price'
-              ? Math.max(layer.yPct || 0.9, 0.86)
-              : Math.max(layer.yPct || 0.78, isLandscape ? 0.42 : 0.72);
-        const safeLeft = isLandscape && align === 'left' ? Math.min(layer.xPct || 0.08, 0.12) : layer.xPct || 0.5;
-        const xform =
-          align === 'left'
-            ? 'translate(0, -50%)'
-            : align === 'right'
-              ? 'translate(-100%, -50%)'
-              : 'translate(-50%, -50%)';
-        const hasFill = Boolean(readable.bgColor && readable.bgColor !== 'transparent');
         return (
           <div
-            key={`tx-${i}`}
-            className={`absolute z-20 px-1.5 py-0.5 truncate ${fs} ${
-              isLandscape && align === 'left' ? 'max-w-[46%]' : 'max-w-[72%]'
-            }`}
+            className="absolute top-1 start-1 z-20 px-1.5 py-0.5 rounded text-[8px] font-black truncate max-w-[80%] shadow-sm"
             style={{
-              left: `${safeLeft * 100}%`,
-              top: `${safeTop * 100}%`,
-              transform: xform,
               color: readable.fontColor,
-              background: hasFill
-                ? readable.bgColor
-                : isBadge
-                  ? 'rgba(15,23,42,0.92)'
-                  : 'transparent',
-              borderRadius: layer.borderRadius ? Math.min(layer.borderRadius, 12) : 8,
-              textAlign: align,
-              whiteSpace: 'nowrap',
-              boxShadow: 'none',
-              textShadow: 'none',
+              background: readable.bgColor || '#0f172a',
             }}
             title={raw}
           >
             {label}
           </div>
         );
-      })}
+      })()}
 
       {isBlank && (
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-1 text-slate-600 pointer-events-none">

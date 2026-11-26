@@ -24,7 +24,7 @@ import {
   Printer,
   Download,
   Eye,
-  MoreHorizontal,
+  MoreVertical,
   CreditCard,
   Truck,
   RotateCcw,
@@ -138,6 +138,23 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
       document.removeEventListener('keydown', onKeyDown);
     };
   }, [typeMenuOpen]);
+
+  useEffect(() => {
+    if (!activeActionMenuId) return;
+    const onPointerDown = () => setActiveActionMenuId(null);
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setActiveActionMenuId(null);
+    };
+    const timer = window.setTimeout(() => {
+      document.addEventListener('mousedown', onPointerDown);
+      document.addEventListener('keydown', onKeyDown);
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [activeActionMenuId]);
 
   const selectedTypeTab = DOCUMENT_TYPE_TABS.find((tab) => tab.id === selectedType) || DOCUMENT_TYPE_TABS[0];
   const selectedTypeLabel = isAr ? selectedTypeTab.labelAr : selectedTypeTab.labelEn;
@@ -382,68 +399,84 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
         </div>
       </div>
 
-      {/* KPI Overview Statistics Cards */}
+      {/* KPI Overview Statistics Cards — labels wrap so they stay visible on mobile */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Total Invoiced */}
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 shadow-xs relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{isAr ? 'إجمالي المبيعات المفوترة' : 'Total Invoiced'}</span>
+        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 shadow-xs relative min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <span className="text-xs font-bold text-slate-600 dark:text-slate-300 leading-snug break-words min-w-0 flex-1">
+              {isAr ? 'إجمالي المبيعات المفوترة' : 'Total Invoiced'}
+            </span>
             <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
               style={portalAccentBadgeStyle}
             >
               <Coins className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white font-mono">{money(stats.totalInvoiced)}</span>
+          <div className="mt-2 flex items-baseline gap-1 min-w-0">
+            <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white font-mono break-all">{money(stats.totalInvoiced)}</span>
           </div>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{stats.documentsCount} {isAr ? 'مستند مسجل' : 'documents issued'}</p>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
+            {stats.documentsCount} {isAr ? 'مستند مسجل' : 'documents issued'}
+          </p>
         </div>
 
         {/* Collected / Paid */}
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 shadow-xs relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{isAr ? 'المدفوعات المحصلة' : 'Collected Revenue'}</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 shadow-xs relative min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <span className="text-xs font-bold text-slate-600 dark:text-slate-300 leading-snug break-words min-w-0 flex-1">
+              {isAr ? 'المدفوعات المحصلة' : 'Collected Revenue'}
+            </span>
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono">{money(stats.totalPaid)}</span>
+          <div className="mt-2 flex items-baseline gap-1 min-w-0">
+            <span className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono break-all">{money(stats.totalPaid)}</span>
           </div>
-          <p className="text-[11px] text-emerald-600 dark:text-emerald-500/80 mt-1">{isAr ? 'مدفوعات مؤكدة بنكياً' : 'Verified settlements'}</p>
+          <p className="text-[11px] text-emerald-600 dark:text-emerald-500/80 mt-1 leading-snug">
+            {isAr ? 'مدفوعات مؤكدة بنكياً' : 'Verified settlements'}
+          </p>
         </div>
 
         {/* Tax Liability */}
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 shadow-xs relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{isAr ? 'ضريبة القيمة المضافة (15%)' : 'Value Added Tax (15%)'}</span>
-            <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 shadow-xs relative min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <span className="text-xs font-bold text-slate-600 dark:text-slate-300 leading-snug break-words min-w-0 flex-1">
+              {isAr ? 'ضريبة القيمة المضافة (15%)' : 'Value Added Tax (15%)'}
+            </span>
+            <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
               <ShieldCheck className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-xl sm:text-2xl font-black text-amber-600 dark:text-amber-400 font-mono">{money(stats.totalTax)}</span>
+          <div className="mt-2 flex items-baseline gap-1 min-w-0">
+            <span className="text-xl sm:text-2xl font-black text-amber-600 dark:text-amber-400 font-mono break-all">{money(stats.totalTax)}</span>
           </div>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{isAr ? 'إقرارات ضريبية مطابقة' : 'Compliant tax schedule'}</p>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
+            {isAr ? 'إقرارات ضريبية مطابقة' : 'Compliant tax schedule'}
+          </p>
         </div>
 
         {/* Active Quotations / Estimates */}
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 shadow-xs relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{isAr ? 'عروض الأسعار النشطة' : 'Active Quotes'}</span>
+        <div className="p-4 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 shadow-xs relative min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <span className="text-xs font-bold text-slate-600 dark:text-slate-300 leading-snug break-words min-w-0 flex-1">
+              {isAr ? 'عروض الأسعار النشطة' : 'Active Quotes'}
+            </span>
             <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
               style={portalAccentBadgeStyle}
             >
               <Sparkles className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-xl sm:text-2xl font-black font-mono" style={{ color: 'var(--accent)' }}>{money(stats.activeQuotesValue)}</span>
+          <div className="mt-2 flex items-baseline gap-1 min-w-0">
+            <span className="text-xl sm:text-2xl font-black font-mono break-all" style={{ color: 'var(--accent)' }}>{money(stats.activeQuotesValue)}</span>
           </div>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{stats.activeQuotesCount} {isAr ? 'عروض تسعير مرسلة' : 'proposals pending'}</p>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
+            {stats.activeQuotesCount} {isAr ? 'عروض تسعير مرسلة' : 'proposals pending'}
+          </p>
         </div>
       </div>
 
@@ -517,31 +550,43 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
             />
           </div>
 
-          {/* Status Filter */}
-          <select
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-            className="w-full sm:w-44 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-medium focus:outline-hidden focus:bg-white dark:focus:bg-slate-800"
-          >
-            <option value="all">{isAr ? 'جميع الحالات' : 'All Statuses'}</option>
-            <option value="paid">{isAr ? 'مسددة / مدفوعة' : 'Paid / Settled'}</option>
-            <option value="unpaid">{isAr ? 'غير مسددة / رصيد معلق' : 'Unpaid / Balance Due'}</option>
-            <option value="cancelled">{isAr ? 'ملغاة' : 'Cancelled'}</option>
-            <option value="refunded">{isAr ? 'مسترجعة' : 'Refunded'}</option>
-            <option value="converted">{isAr ? 'محولة لطلب' : 'Converted to Order'}</option>
-          </select>
+          {/* Status Filter — labeled so mobile never shows a blank bar */}
+          <label className="flex flex-col gap-1 w-full sm:w-44 shrink-0">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 sm:sr-only">
+              {isAr ? 'الحالة' : 'Status'}
+            </span>
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              aria-label={isAr ? 'الحالة' : 'Status'}
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white font-medium focus:outline-hidden focus:bg-white dark:focus:bg-slate-800 appearance-auto"
+            >
+              <option value="all">{isAr ? 'جميع الحالات' : 'All Statuses'}</option>
+              <option value="paid">{isAr ? 'مسددة / مدفوعة' : 'Paid / Settled'}</option>
+              <option value="unpaid">{isAr ? 'غير مسددة / رصيد معلق' : 'Unpaid / Balance Due'}</option>
+              <option value="cancelled">{isAr ? 'ملغاة' : 'Cancelled'}</option>
+              <option value="refunded">{isAr ? 'مسترجعة' : 'Refunded'}</option>
+              <option value="converted">{isAr ? 'محولة لطلب' : 'Converted to Order'}</option>
+            </select>
+          </label>
 
           {/* Date Range Filter */}
-          <select
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value as any)}
-            className="w-full sm:w-36 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-medium focus:outline-hidden focus:bg-white dark:focus:bg-slate-800"
-          >
-            <option value="all">{isAr ? 'كل الفترات' : 'All Dates'}</option>
-            <option value="today">{isAr ? 'اليوم' : 'Today'}</option>
-            <option value="7days">{isAr ? 'آخر 7 أيام' : 'Last 7 Days'}</option>
-            <option value="month">{isAr ? 'آخر شهر' : 'Last 30 Days'}</option>
-          </select>
+          <label className="flex flex-col gap-1 w-full sm:w-36 shrink-0">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 sm:sr-only">
+              {isAr ? 'الفترة' : 'Date'}
+            </span>
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value as any)}
+              aria-label={isAr ? 'الفترة' : 'Date'}
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-xs text-slate-900 dark:text-white font-medium focus:outline-hidden focus:bg-white dark:focus:bg-slate-800 appearance-auto"
+            >
+              <option value="all">{isAr ? 'كل الفترات' : 'All Dates'}</option>
+              <option value="today">{isAr ? 'اليوم' : 'Today'}</option>
+              <option value="7days">{isAr ? 'آخر 7 أيام' : 'Last 7 Days'}</option>
+              <option value="month">{isAr ? 'آخر شهر' : 'Last 30 Days'}</option>
+            </select>
+          </label>
         </div>
       </div>
 
@@ -678,55 +723,80 @@ export const StoreInvoices: React.FC<StoreInvoicesProps> = ({ onNavigateTab }) =
                         )}
                       </td>
 
-                      {/* Actions */}
-                      <td className="py-3.5 px-4 text-end">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* 1-Click Quotation Convert Button */}
-                          {isQuotation && doc.status !== 'converted' && (
-                            <button
-                              type="button"
-                              onClick={() => handleConvertQuotation(doc.id)}
-                              className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white dark:bg-emerald-600/20 dark:text-emerald-400 dark:border-emerald-500/30 dark:hover:bg-emerald-600 dark:hover:text-white border border-emerald-200 transition-all text-[11px] font-bold flex items-center gap-1 cursor-pointer"
-                              title={isAr ? 'تحويل إلى طلب فوري' : 'Convert to live order'}
-                            >
-                              <Sparkles className="w-3 h-3" />
-                              <span>{isAr ? 'تحويل لطلب' : 'Convert'}</span>
-                            </button>
-                          )}
-
-                          {/* Preview Button */}
+                      {/* Actions — single ⋮ menu with visible labels */}
+                      <td className="py-3.5 px-3 sm:px-4 text-end relative w-12">
+                        <div className="relative inline-flex items-center justify-end">
                           <button
                             type="button"
-                            onClick={() => handleOpenPreview(doc)}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                            title={isAr ? 'معاينة المستند' : 'Preview Document'}
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-
-                          {/* Print Button */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPreviewDoc(doc);
-                              setIsPreviewOpen(true);
-                              setTimeout(() => window.print(), 200);
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveActionMenuId(activeActionMenuId === doc.id ? null : doc.id);
                             }}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                            title={isAr ? 'طباعة سريعة' : 'Quick Print'}
+                            className="min-h-9 min-w-9 p-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition-colors cursor-pointer touch-manipulation flex items-center justify-center"
+                            title={isAr ? 'إجراءات المستند' : 'Document actions'}
+                            aria-label={isAr ? 'إجراءات المستند' : 'Document actions'}
+                            aria-expanded={activeActionMenuId === doc.id}
+                            aria-haspopup="menu"
                           >
-                            <Printer className="w-4 h-4" />
+                            <MoreVertical className="w-4 h-4" />
                           </button>
 
-                          {/* Audit History Drawer */}
-                          <button
-                            type="button"
-                            onClick={() => handleOpenAudit(doc)}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                            title={isAr ? 'سجل التدقيق' : 'Audit Trail'}
-                          >
-                            <History className="w-4 h-4" />
-                          </button>
+                          {activeActionMenuId === doc.id && (
+                            <div
+                              role="menu"
+                              className="absolute end-0 top-full mt-1 z-50 w-48 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1 shadow-lg text-xs font-semibold"
+                            >
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => handleOpenPreview(doc)}
+                                className="w-full text-start px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                              >
+                                <Eye className="w-3.5 h-3.5 shrink-0" />
+                                <span>{isAr ? 'معاينة المستند' : 'Preview Document'}</span>
+                              </button>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => {
+                                  setActiveActionMenuId(null);
+                                  setPreviewDoc(doc);
+                                  setIsPreviewOpen(true);
+                                  setTimeout(() => window.print(), 200);
+                                }}
+                                className="w-full text-start px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                              >
+                                <Printer className="w-3.5 h-3.5 shrink-0" />
+                                <span>{isAr ? 'طباعة سريعة' : 'Quick Print'}</span>
+                              </button>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => handleOpenAudit(doc)}
+                                className="w-full text-start px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                              >
+                                <History className="w-3.5 h-3.5 shrink-0" />
+                                <span>{isAr ? 'سجل التدقيق' : 'Audit Trail'}</span>
+                              </button>
+                              {isQuotation && doc.status !== 'converted' && (
+                                <>
+                                  <div className="h-px my-1 bg-slate-100 dark:bg-slate-800" />
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      setActiveActionMenuId(null);
+                                      void handleConvertQuotation(doc.id);
+                                    }}
+                                    className="w-full text-start px-3 py-2 rounded-lg text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center gap-2 cursor-pointer"
+                                  >
+                                    <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                                    <span>{isAr ? 'تحويل إلى طلب' : 'Convert to Order'}</span>
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>

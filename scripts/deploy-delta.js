@@ -62,7 +62,9 @@ const flowers = account('flowers', {
   host: process.env.FTP_FLOWERS_HOST || process.env.FTP_HOST,
   user: process.env.FTP_FLOWERS_USER || process.env.FTP_USER,
   password: process.env.FTP_FLOWERS_PASSWORD || process.env.FTP_PASSWORD,
-  dir: process.env.FTP_FLOWERS_DIR || process.env.FTP_REMOTE_DIR || '/public_html',
+  // Flowers FTP is usually already chrooted to public_html — use `/` so files land on web root
+  // (using `/public_html` again creates a nested folder and SEO files never go live).
+  dir: process.env.FTP_FLOWERS_DIR || process.env.FTP_REMOTE_DIR || '/',
   url: process.env.FTP_FLOWERS_URL || process.env.FTP_TARGET_URL || 'https://giftshop-sa.com/',
 });
 
@@ -75,14 +77,32 @@ function fileHash(fullPath) {
 }
 
 function collectFiles(dir, root, out) {
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name === 'coffee-theme-refs' || entry.name === 'robots.txt') continue;
+  let entries = [];
+  try {
+    if (!fs.existsSync(dir)) return;
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch (err) {
+    console.warn(`  skip unreadable dir during collect: ${path.relative(root, dir)} (${err.message})`);
+    return;
+  }
+  for (const entry of entries) {
+    if (entry.name === 'coffee-theme-refs' || entry.name === 'pptx-studio-pack' || entry.name === 'robots.txt') continue;
     if (entry.name.endsWith('.sqlite') || entry.name.endsWith('.sqlite-journal')) continue;
     const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) collectFiles(full, root, out);
-    else {
-      const rel = path.relative(root, full).split(path.sep).join('/');
+    if (entry.isDirectory()) {
+      if (!fs.existsSync(full)) continue;
+      collectFiles(full, root, out);
+      continue;
+    }
+    const rel = path.relative(root, full).split(path.sep).join('/');
+    try {
+      if (!fs.existsSync(full)) {
+        console.warn(`  skip vanished during collect: ${rel}`);
+        continue;
+      }
       out.push({ full, rel, size: fs.statSync(full).size, hash: fileHash(full) });
+    } catch (err) {
+      console.warn(`  skip unreadable during collect: ${rel} (${err.message})`);
     }
   }
 }
@@ -127,6 +147,9 @@ async function openClient(target, tries = 4) {
     client.ftp.verbose = false;
     try {
       try {
+        if (target.name === 'flowers') {
+          throw new Error('flowers_plain_ftp');
+        }
         await client.access({ ...base, secure: true, secureOptions: { rejectUnauthorized: false } });
       } catch {
         try {
@@ -234,6 +257,19 @@ async function uploadTarget(target) {
 
   try {
     await resetCwd();
+    // Never leave a static robots.txt — it bypasses robots.php and can poison SEO for weeks via cache.
+    try {
+      const remoteRobots = `${remoteRoot}/robots.txt`.replace(/\/{2,}/g, '/');
+      await client.remove(remoteRobots);
+      console.log('  removed static robots.txt (robots.php is source of truth)');
+    } catch {
+      try {
+        await client.remove('robots.txt');
+        console.log('  removed static robots.txt from cwd');
+      } catch {
+        /* none */
+      }
+    }
     for (const file of queue) {
       const remotePath = `${remoteRoot}/${file.rel}`.replace(/\/{2,}/g, '/');
       const parent = path.posix.dirname(remotePath);
@@ -241,11 +277,29 @@ async function uploadTarget(target) {
       while (attempts < 5) {
         try {
           if (!fs.existsSync(file.full)) {
-            if (isCriticalRel(file.rel)) {
-              throw new Error(`Critical dist file missing during upload: ${file.rel}`);
+            // Mid-upload AV/clean races: regenerate SPA .htaccess / public PHP from public/
+            if (file.rel === '.htaccess') {
+              writeCleanHtaccess(file.full);
+            } else if (
+              file.rel === 'storefront-shell.php' ||
+              file.rel === 'sitemap.php' ||
+              file.rel === 'robots.php' ||
+              file.rel === 'llms.php' ||
+              file.rel === 'seo-files.php'
+            ) {
+              const src = path.join(rootDir, 'public', file.rel);
+              if (fs.existsSync(src)) {
+                fs.mkdirSync(path.dirname(file.full), { recursive: true });
+                fs.copyFileSync(src, file.full);
+              }
             }
-            console.warn(`  skip missing local file: ${file.rel}`);
-            break;
+            if (!fs.existsSync(file.full)) {
+              if (isCriticalRel(file.rel)) {
+                throw new Error(`Critical dist file missing during upload: ${file.rel}`);
+              }
+              console.warn(`  skip missing local file: ${file.rel}`);
+              break;
+            }
           }
           if (!readyDirs.has(parent)) {
             await client.ensureDir(parent);
@@ -259,6 +313,7 @@ async function uploadTarget(target) {
           sent += 1;
           if (sent % 20 === 0 || sent === queue.length) {
             console.log(`  ${sent}/${queue.length}`);
+            saveManifest(target.name, nextManifest);
           }
           break;
         } catch (err) {
@@ -323,6 +378,26 @@ function bundleApiIntoDist() {
   const htaccessDist = path.join(distDir, '.htaccess');
   writeCleanHtaccess(htaccessDist);
 
+  // Preserve legacy compatibility hashes & sync fallback rules with latest built hash
+  const distAssets = path.join(distDir, 'assets');
+  if (fs.existsSync(distAssets)) {
+    const files = fs.readdirSync(distAssets);
+    const mainJs = files.find((f) => /^index-[A-Za-z0-9_-]+\.js$/.test(f) && f !== 'index-DFJOKphv.js');
+    const mainCss = files.find((f) => /^index-[A-Za-z0-9_-]+\.css$/.test(f) && f !== 'index-JfJHEEIZ.css');
+    if (mainJs) {
+      fs.copyFileSync(path.join(distAssets, mainJs), path.join(distAssets, 'index-DFJOKphv.js'));
+    }
+    if (mainCss) {
+      fs.copyFileSync(path.join(distAssets, mainCss), path.join(distAssets, 'index-JfJHEEIZ.css'));
+    }
+    if (mainJs && mainCss && fs.existsSync(htaccessDist)) {
+      let ht = fs.readFileSync(htaccessDist, 'utf8');
+      ht = ht.replace(/RewriteRule \^assets\/index-\[\^\/\]\+\\\.js\$ \/assets\/index-[^.]+\.js/g, `RewriteRule ^assets/index-[^/]+\\.js$ /assets/${mainJs}`);
+      ht = ht.replace(/RewriteRule \^assets\/index-\[\^\/\]\+\\\.css\$ \/assets\/index-[^.]+\.css/g, `RewriteRule ^assets/index-[^/]+\\.css$ /assets/${mainCss}`);
+      fs.writeFileSync(htaccessDist, ht);
+    }
+  }
+
   const publicApiDir = path.join(rootDir, 'public', 'api');
   const distApiDir = path.join(distDir, 'api');
   if (fs.existsSync(publicApiDir)) {
@@ -339,9 +414,20 @@ function bundleApiIntoDist() {
       if (fs.existsSync(src)) fs.copyFileSync(src, path.join(distApiDir, name));
     }
   }
-  for (const php of ['sitemap.php', 'robots.php', 'storefront-shell.php']) {
+  for (const php of ['sitemap.php', 'robots.php', 'llms.php', 'storefront-shell.php', 'seo-files.php']) {
     const src = path.join(rootDir, 'public', php);
     if (fs.existsSync(src)) fs.copyFileSync(src, path.join(distDir, php));
+  }
+  const includesSrc = path.join(rootDir, 'public', 'includes');
+  const includesDest = path.join(distDir, 'includes');
+  if (fs.existsSync(includesSrc)) {
+    fs.mkdirSync(includesDest, { recursive: true });
+    for (const name of fs.readdirSync(includesSrc)) {
+      const from = path.join(includesSrc, name);
+      if (fs.statSync(from).isFile()) {
+        fs.copyFileSync(from, path.join(includesDest, name));
+      }
+    }
   }
 }
 

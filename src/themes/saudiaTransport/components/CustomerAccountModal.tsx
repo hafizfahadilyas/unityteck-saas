@@ -361,12 +361,12 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
       <div 
-        className="relative w-full max-w-2xl bg-[#120224] text-white rounded-3xl border border-[#d5a027]/40 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="relative w-full max-w-2xl bg-slate-50 text-white rounded-3xl border border-[#d5a027]/40 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
         dir={isAr ? 'rtl' : 'ltr'}
       >
         {/* Header Bar */}
-        <div className="px-5 py-4 bg-gradient-to-r from-[#16032e] via-[#210545] to-[#16032e] border-b border-[#d5a027]/30 flex items-center justify-between shrink-0">
+        <div className="px-5 py-4 bg-gradient-to-r from-slate-50 via-slate-100 to-slate-100 border-b border-[#d5a027]/30 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-[#d5a027]/20 border border-[#d5a027]/40 flex items-center justify-center text-[#f6c344] shadow-inner">
               <User className="w-5 h-5" />
@@ -389,7 +389,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer border border-white/10"
+            className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-colors cursor-pointer border border-white/10"
             aria-label={isAr ? 'إغلاق' : 'Close'}
           >
             <X className="w-4 h-4" />
@@ -573,7 +573,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                     onClick={() => setActiveTab('orders')}
                     className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
                       activeTab === 'orders'
-                        ? 'bg-[#d5a027] text-[#120224] shadow-md'
+                        ? 'bg-[#d5a027] text-slate-900 shadow-md'
                         : 'text-slate-300 hover:text-white hover:bg-white/5'
                     }`}
                   >
@@ -589,7 +589,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                     onClick={() => setActiveTab('garage')}
                     className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
                       activeTab === 'garage'
-                        ? 'bg-[#d5a027] text-[#120224] shadow-md'
+                        ? 'bg-[#d5a027] text-slate-900 shadow-md'
                         : 'text-slate-300 hover:text-white hover:bg-white/5'
                     }`}
                   >
@@ -602,7 +602,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                     onClick={() => setActiveTab('addresses')}
                     className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
                       activeTab === 'addresses'
-                        ? 'bg-[#d5a027] text-[#120224] shadow-md'
+                        ? 'bg-[#d5a027] text-slate-900 shadow-md'
                         : 'text-slate-300 hover:text-white hover:bg-white/5'
                     }`}
                   >
@@ -615,7 +615,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                     onClick={() => setActiveTab('loyalty')}
                     className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
                       activeTab === 'loyalty'
-                        ? 'bg-[#d5a027] text-[#120224] shadow-md'
+                        ? 'bg-[#d5a027] text-slate-900 shadow-md'
                         : 'text-slate-300 hover:text-white hover:bg-white/5'
                     }`}
                   >
@@ -640,7 +640,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                   {customerOrders.length === 0 ? (
                     <div className="text-center py-10 px-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
                       <Package className="w-10 h-10 mx-auto text-slate-500" />
-                      <h4 className="text-sm font-black text-white">
+                      <h4 className="text-sm font-black text-slate-900">
                         {isAr ? 'لا توجد طلبات مسجلة بهذا الرقم حالياً' : 'No orders found for this account'}
                       </h4>
                       <p className="text-xs text-slate-400 max-w-sm mx-auto">
@@ -656,7 +656,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                       return (
                         <div 
                           key={order.id}
-                          className="p-4 rounded-2xl bg-[#16032e]/90 border border-[#d5a027]/25 hover:border-[#d5a027]/50 transition-all space-y-3"
+                          className="p-4 rounded-2xl bg-slate-900/80 border border-[#d5a027]/25 hover:border-[#d5a027]/50 transition-all space-y-3"
                         >
                           <div className="flex items-center justify-between flex-wrap gap-2">
                             <div className="flex items-center gap-2">
@@ -730,7 +730,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                       <Car className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-black text-white">
+                      <h4 className="text-sm font-black text-slate-900">
                         {isAr ? 'مرآب سيارتك الخاص' : 'Your Garage Vehicle'}
                       </h4>
                       <p className="text-xs text-slate-400">
@@ -757,7 +757,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                         className="w-full h-10 px-3 rounded-xl bg-white/10 border border-white/20 text-white text-xs outline-none focus:border-[#d5a027]"
                       >
                         {CAR_BRANDS.map(b => (
-                          <option key={b.id} value={b.name} className="bg-[#120224] text-white">
+                          <option key={b.id} value={b.name} className="bg-slate-50 text-white">
                             {isAr ? b.nameAr : b.name}
                           </option>
                         ))}
@@ -775,7 +775,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                         className="w-full h-10 px-3 rounded-xl bg-white/10 border border-white/20 text-white text-xs outline-none focus:border-[#d5a027]"
                       >
                         {(CAR_MODELS_MAP[editBrand] || []).map((m: CarModelDef) => (
-                          <option key={m.modelEn} value={m.modelEn} className="bg-[#120224] text-white">
+                          <option key={m.modelEn} value={m.modelEn} className="bg-slate-50 text-white">
                             {isAr ? m.modelAr : m.modelEn}
                           </option>
                         ))}
@@ -793,7 +793,7 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                         className="w-full h-10 px-3 rounded-xl bg-white/10 border border-white/20 text-white text-xs outline-none focus:border-[#d5a027]"
                       >
                         {Array.from({ length: 15 }, (_, i) => 2026 - i).map(yr => (
-                          <option key={yr} value={String(yr)} className="bg-[#120224] text-white">
+                          <option key={yr} value={String(yr)} className="bg-slate-50 text-white">
                             {yr}
                           </option>
                         ))}
@@ -954,7 +954,8 @@ export const CustomerAccountModal: React.FC<CustomerAccountModalProps> = ({
                     customerName={customer?.name}
                     customerEmail={customer?.email}
                     customerPhone={customer?.phone}
-                    className="bg-[#190432] border-[#d5a027]/30 text-white"
+                    language={isAr ? 'AR' : 'EN'}
+                    className="bg-slate-50 border-[#d5a027]/30 text-white"
                   />
                 </div>
               )}

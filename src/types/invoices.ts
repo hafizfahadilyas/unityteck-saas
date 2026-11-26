@@ -253,7 +253,8 @@ export interface InvoiceTemplateConfig {
   primaryColor: string;
   secondaryColor: string;
   accentColor: string;
-  fontFamily: 'Plus Jakarta Sans' | 'IBM Plex Sans Arabic' | 'Tajawal' | 'Cairo' | 'Inter' | 'Almarai' | 'System';
+  /** Any store catalog family name, or System (= dashboard chrome). */
+  fontFamily: string;
   fontSize: 'compact' | 'normal' | 'spacious';
   logoUrl?: string;
   showLogo: boolean;

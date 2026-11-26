@@ -13,32 +13,36 @@
     </script>
 
     <script>
-      // Auto-recover from stale chunks on new deployments
-      window.addEventListener('vite:preloadError', function (event) {
-        var key = 'vite_preload_retry';
-        var now = Date.now();
-        var last = Number(sessionStorage.getItem(key) || 0);
-        if (now - last > 8000) {
-          sessionStorage.setItem(key, String(now));
-          window.location.reload();
-        }
-      });
-      window.addEventListener('error', function (event) {
-        var msg = (event && event.message) ? String(event.message) : '';
-        if (
-          msg.indexOf('Failed to fetch dynamically imported module') !== -1 ||
-          msg.indexOf('error loading dynamically imported module') !== -1 ||
-          msg.indexOf('Importing a module script failed') !== -1
-        ) {
-          var key = 'chunk_fetch_retry';
-          var now = Date.now();
-          var last = Number(sessionStorage.getItem(key) || 0);
-          if (now - last > 8000) {
-            sessionStorage.setItem(key, String(now));
+      // Stale Vite chunk after deploy — ONE hard reload max per tab (never every 8s loop).
+      (function () {
+        var ONCE_KEY = 'unityteck_chunk_reload_once';
+        function reloadOnceForStaleChunk() {
+          try {
+            // Page already painted (e.g. coffee buy) — never yank the customer into a refresh loop.
+            if (document.querySelector('[data-coffee-product-buy],[data-theme-id],.hibrew-theme-root,.unity-theme-container')) {
+              return;
+            }
+            if (sessionStorage.getItem(ONCE_KEY) === '1') return;
+            sessionStorage.setItem(ONCE_KEY, '1');
             window.location.reload();
+          } catch (e) {
+            /* sessionStorage blocked → skip reload to avoid infinite refresh */
           }
         }
-      });
+        window.addEventListener('vite:preloadError', function () {
+          reloadOnceForStaleChunk();
+        });
+        window.addEventListener('error', function (event) {
+          var msg = (event && event.message) ? String(event.message) : '';
+          if (
+            msg.indexOf('Failed to fetch dynamically imported module') !== -1 ||
+            msg.indexOf('error loading dynamically imported module') !== -1 ||
+            msg.indexOf('Importing a module script failed') !== -1
+          ) {
+            reloadOnceForStaleChunk();
+          }
+        });
+      })();
     </script>
 
     <script>

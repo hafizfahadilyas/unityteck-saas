@@ -1,0 +1,15 @@
+---
+description: Always inform the user what is being done and provide estimated time in Roman Urdu
+alwaysApply: true
+---
+
+# Real-Time Work Updates & Time Estimation (Always Active)
+
+- **Har kaam shuru karte waqt aur doraan-e-kaam user ko update rakhna lazmi hai:**
+  1. **Kya kar rahe hain:** Har step waziha batayein ke abhi kon sa file, code change, build, deploy ya verification ho rahi hai.
+  2. **Kitna time lagega (Estimated Duration):** Har task ka andaza batayein (maslan "Ismein taqreeban 1-2 minute lagein ge", "30 seconds mein compile ho jayega").
+  3. **Khamosh kaam banned hai:** Koi bhi bara step baghair bataye aur baghair time estimate diye start nahi karna.
+- **Language:** Communication hamesha aasan aur waziha Roman Urdu mein hogi.
+- **Turn End Status:** Har turn ke aakhir mein summary lazmi ho:
+  - **Ho gaya:** Jo kaam mukammal hua
+  - **Baqi:** Jo kaam baqi reh gaya ho ya agla step ho

@@ -36,6 +36,8 @@ class DatabaseSeeder extends Seeder
         $this->seedStoreOne();
         $this->seedStoreCoffee();
         $this->seedStoreBleco();
+        // Platform template for ALL new merchants (Premium 500 + common themes) — docs/38
+        app(\App\Services\Store\ProvisionNewStoreService::class)->ensureTemplateStore();
     }
 
     protected function seedPlans(): void
@@ -60,6 +62,16 @@ class DatabaseSeeder extends Seeder
                 'storage_mb' => 5120,
                 'team_seats' => 5,
                 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'media_studio'],
+            ],
+            [
+                'id' => 'plan-starter',
+                'code' => 'starter',
+                'name' => 'Starter',
+                'price_sar' => 100,
+                'product_limit' => 250,
+                'storage_mb' => 2048,
+                'team_seats' => 2,
+                'features' => ['catalog', 'orders', 'basic_seo', 'seo', 'coupons', 'shipping', 'themes_basic', 'media_studio', 'whatsapp'],
             ],
             [
                 'id' => 'plan-pro',

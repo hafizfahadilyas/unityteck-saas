@@ -6,65 +6,78 @@ use App\Models\Order;
 use App\Models\PaymentGateway;
 use App\Models\PaymentTransaction;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
+/**
+ * HyperPay — incomplete backend (no live OPP/HyperPay HTTP in Phase 1).
+ * Never invent Connected / Paid from bearer token presence alone.
+ */
 class HyperPayGatewayService implements PaymentGatewayInterface
 {
     public function testConnection(PaymentGateway $gateway): array
     {
         $token = $gateway->secret_key ?? $gateway->api_key;
         if (empty($token)) {
-            return ['success' => false, 'message' => 'HyperPay Authorization Bearer token is required.'];
+            return [
+                'success' => false,
+                'message' => 'HyperPay Authorization Bearer token is missing.',
+                'integration_mode' => 'stub',
+                'health_status' => 'credentials_missing',
+            ];
         }
-        return ['success' => true, 'message' => 'HyperPay Gateway connection authenticated.'];
+
+        return [
+            'success' => false,
+            'message' => 'HyperPay backend is incomplete. Live OPP API is not wired — do not mark Connected.',
+            'integration_mode' => 'stub',
+            'health_status' => 'incomplete_backend',
+            'requires_real_api' => true,
+        ];
     }
 
     public function createPaymentSession(PaymentGateway $gateway, Order $order, array $params = []): array
     {
-        $checkoutId = strtoupper(Str::random(32)) . '.test01';
         return [
-            'success' => true,
-            'transaction_reference' => 'HP-' . strtoupper(Str::random(8)),
-            'checkout_id' => $checkoutId,
-            'amount' => $order->total_amount,
-            'currency' => 'SAR',
+            'success' => false,
+            'message' => 'HyperPay checkout requires a real OPP API integration (not implemented).',
+            'integration_mode' => 'stub',
+            'requires_real_api' => true,
         ];
     }
 
     public function verifyPayment(PaymentGateway $gateway, string $transactionRef, array $payload = []): array
     {
         return [
-            'success' => true,
-            'status' => 'paid',
-            'gateway_transaction_id' => 'hp_' . rand(10000000, 99999999),
+            'success' => false,
+            'status' => 'failed',
+            'gateway_transaction_id' => $transactionRef,
             'amount' => (float) ($payload['amount'] ?? 0),
-            'fee' => round(((float) ($payload['amount'] ?? 0)) * 0.016 + 1.0, 2),
-            'source_type' => 'mada',
-            'card_brand' => 'Mada',
-            'card_last_four' => '9901',
-            'raw' => ['result' => ['code' => '000.100.110', 'description' => 'Request successfully processed']],
+            'fee' => 0,
+            'message' => 'HyperPay verify unavailable — incomplete backend. Never mark Paid without OPP API evidence.',
+            'integration_mode' => 'stub',
+            'requires_real_api' => true,
+            'raw' => ['requires_real_api' => true],
         ];
     }
 
     public function refund(PaymentGateway $gateway, PaymentTransaction $transaction, float $amount, string $reason = ''): array
     {
         return [
-            'success' => true,
-            'refund_id' => 'hpref_' . rand(100000, 999999),
+            'success' => false,
             'amount' => $amount,
-            'status' => 'refunded',
-            'message' => 'HyperPay refund completed.',
+            'status' => 'failed',
+            'message' => 'HyperPay refund requires a real OPP API integration.',
+            'requires_real_api' => true,
         ];
     }
 
     public function handleWebhook(PaymentGateway $gateway, Request $request): array
     {
         return [
-            'success' => true,
-            'event' => 'payment.captured',
-            'status' => 'paid',
-            'transaction_id' => $request->input('id'),
-            'amount' => (float) $request->input('amount', 0),
+            'success' => false,
+            'event' => 'hyperpay.stub',
+            'status' => 'pending',
+            'message' => 'HyperPay webhook processing requires a real OPP API integration.',
+            'requires_real_api' => true,
         ];
     }
 }

@@ -8,16 +8,24 @@ declare(strict_types=1);
 function souq_load_root_env(): array
 {
     static $vars = null;
-    if (is_array($vars)) {
-        return $vars;
-    }
-    $vars = [];
+    static $mtimeSig = null;
     $candidates = [
         __DIR__ . '/.env',
         dirname(__DIR__) . '/.env',
         dirname(__DIR__, 2) . '/.env',
         dirname(__DIR__, 2) . '/apps/api/.env',
     ];
+    // Lifetime: reload when any .env mtime changes (password rotate must not stick forever).
+    $sigParts = [];
+    foreach ($candidates as $path) {
+        $sigParts[] = is_readable($path) ? ((string) @filemtime($path) . ':' . $path) : '0';
+    }
+    $sig = implode('|', $sigParts);
+    if (is_array($vars) && $mtimeSig === $sig) {
+        return $vars;
+    }
+    $mtimeSig = $sig;
+    $vars = [];
     foreach ($candidates as $path) {
         if (!is_readable($path)) {
             continue;
@@ -99,6 +107,107 @@ function souq_table_has_column(PDO $pdo, string $table, string $column, bool $bu
         $cache[$key] = false;
     }
     return $cache[$key];
+}
+
+/** Ensure customers.gender + customers.dob exist (MySQL Laravel + SQLite gateway). */
+function souq_ensure_customer_profile_columns(PDO $pdo): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    $add = static function (PDO $pdo, string $column, string $mysqlDdl, string $sqliteDdl): void {
+        if (souq_table_has_column($pdo, 'customers', $column)) {
+            return;
+        }
+        try {
+            $pdo->exec(souq_driver_is_mysql($pdo) ? $mysqlDdl : $sqliteDdl);
+            souq_table_has_column($pdo, 'customers', $column, true);
+        } catch (Throwable) {
+            /* race / already exists */
+        }
+    };
+    $add($pdo, 'gender', 'ALTER TABLE `customers` ADD COLUMN `gender` VARCHAR(16) NULL', 'ALTER TABLE customers ADD COLUMN gender TEXT');
+    $add($pdo, 'dob', 'ALTER TABLE `customers` ADD COLUMN `dob` DATE NULL', 'ALTER TABLE customers ADD COLUMN dob TEXT');
+}
+
+/**
+ * Age buckets from real customer DOB only (zero-mock). Empty when no birthdays.
+ * @return list<array{label: string, percentage: int}>
+ */
+function souq_visitors_by_age(PDO $pdo, string $storeId): array
+{
+    souq_ensure_customer_profile_columns($pdo);
+    if (!souq_table_has_column($pdo, 'customers', 'dob')) {
+        return [];
+    }
+    $buckets = [
+        ['label' => '<18', 'min' => 0, 'max' => 17],
+        ['label' => '18-24', 'min' => 18, 'max' => 24],
+        ['label' => '25-34', 'min' => 25, 'max' => 34],
+        ['label' => '35-44', 'min' => 35, 'max' => 44],
+        ['label' => '45-54', 'min' => 45, 'max' => 54],
+        ['label' => '55+', 'min' => 55, 'max' => 200],
+    ];
+    $counts = array_fill(0, count($buckets), 0);
+    $withDob = 0;
+    $now = new DateTimeImmutable('now');
+    try {
+        $st = $pdo->prepare("SELECT dob FROM customers WHERE store_id = ? AND dob IS NOT NULL AND TRIM(CAST(dob AS CHAR)) != ''");
+        $st->execute([$storeId]);
+        while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+            $raw = trim((string)($row['dob'] ?? ''));
+            if ($raw === '') {
+                continue;
+            }
+            try {
+                $born = new DateTimeImmutable(substr($raw, 0, 10));
+            } catch (Throwable) {
+                continue;
+            }
+            $age = (int)$born->diff($now)->y;
+            if ($age < 0 || $age > 120) {
+                continue;
+            }
+            $withDob++;
+            foreach ($buckets as $i => $b) {
+                if ($age >= $b['min'] && $age <= $b['max']) {
+                    $counts[$i]++;
+                    break;
+                }
+            }
+        }
+    } catch (Throwable) {
+        return [];
+    }
+    if ($withDob === 0) {
+        return [];
+    }
+    $floors = [];
+    $fracs = [];
+    foreach ($counts as $i => $n) {
+        $exact = ($n / $withDob) * 100.0;
+        $floors[$i] = (int)floor($exact);
+        $fracs[$i] = $exact - $floors[$i];
+    }
+    $remaining = 100 - array_sum($floors);
+    arsort($fracs);
+    foreach (array_keys($fracs) as $i) {
+        if ($remaining <= 0) {
+            break;
+        }
+        $floors[$i]++;
+        $remaining--;
+    }
+    $out = [];
+    foreach ($buckets as $i => $b) {
+        $pct = (int)($floors[$i] ?? 0);
+        if ($pct > 0) {
+            $out[] = ['label' => $b['label'], 'percentage' => $pct];
+        }
+    }
+    return $out;
 }
 
 /** Ensure order note columns exist (customer + internal) on live MySQL/SQLite. */
@@ -370,15 +479,15 @@ function souq_store_plan_code(PDO $pdo, string $storeId): string
     return in_array($plan, ['free', 'paid', 'pro', 'premium', 'custom'], true) ? $plan : 'free';
 }
 
-/** @return array{images:int,videos:int} */
+/** @return array{images:int,videos:int,images_daily:int,videos_daily:int} */
 function souq_ai_limits(string $plan): array
 {
     return match ($plan) {
-        'paid' => ['images' => 25, 'videos' => 0],
-        'pro' => ['images' => 60, 'videos' => 8],
-        'premium' => ['images' => 200, 'videos' => 30],
-        'custom' => ['images' => 500, 'videos' => 50],
-        default => ['images' => 8, 'videos' => 0],
+        'paid' => ['images' => 25, 'videos' => 0, 'images_daily' => 2, 'videos_daily' => 0],
+        'pro' => ['images' => 60, 'videos' => 8, 'images_daily' => 5, 'videos_daily' => 1],
+        'premium' => ['images' => 200, 'videos' => 30, 'images_daily' => 10, 'videos_daily' => 2],
+        'custom' => ['images' => 500, 'videos' => 50, 'images_daily' => 20, 'videos_daily' => 3],
+        default => ['images' => 8, 'videos' => 0, 'images_daily' => 1, 'videos_daily' => 0],
     };
 }
 
@@ -392,22 +501,101 @@ function souq_ai_period_key(): string
     }
 }
 
-function souq_ai_quota_snapshot(PDO $pdo, string $storeId): array
+function souq_ai_day_key(): string
 {
-    $plan = souq_store_plan_code($pdo, $storeId);
-    $limits = souq_ai_limits($plan);
-    $period = souq_ai_period_key();
-    $imagesUsed = 0;
-    $videosUsed = 0;
+    try {
+        $tz = new DateTimeZone('Asia/Riyadh');
+        return (new DateTimeImmutable('now', $tz))->format('Y-m-d');
+    } catch (Throwable) {
+        return date('Y-m-d');
+    }
+}
+
+function souq_ai_usage_for_period(PDO $pdo, string $storeId, string $period): array
+{
     try {
         $st = $pdo->prepare('SELECT images_used, videos_used FROM ai_generation_usage WHERE store_id = ? AND period_key = ?');
         $st->execute([$storeId, $period]);
         $row = $st->fetch() ?: ['images_used' => 0, 'videos_used' => 0];
-        $imagesUsed = (int)$row['images_used'];
-        $videosUsed = (int)$row['videos_used'];
+
+        return [
+            'images_used' => (int) ($row['images_used'] ?? 0),
+            'videos_used' => (int) ($row['videos_used'] ?? 0),
+        ];
     } catch (Throwable) {
-        /* Table missing on some MySQL hosts — treat as zero usage, do not 500. */
+        return ['images_used' => 0, 'videos_used' => 0];
     }
+}
+
+function souq_ai_bump_usage(PDO $pdo, string $storeId, string $period, string $kind): void
+{
+    $st = $pdo->prepare('SELECT images_used, videos_used FROM ai_generation_usage WHERE store_id = ? AND period_key = ?');
+    $st->execute([$storeId, $period]);
+    $row = $st->fetch();
+    $images = (int) ($row['images_used'] ?? 0);
+    $videos = (int) ($row['videos_used'] ?? 0);
+    if ($kind === 'video') {
+        $videos++;
+    } else {
+        $images++;
+    }
+    if ($row) {
+        $pdo->prepare('UPDATE ai_generation_usage SET images_used = ?, videos_used = ?, updated_at = ? WHERE store_id = ? AND period_key = ?')
+            ->execute([$images, $videos, date('c'), $storeId, $period]);
+    } else {
+        $pdo->prepare('INSERT INTO ai_generation_usage (store_id, period_key, images_used, videos_used, updated_at) VALUES (?,?,?,?,?)')
+            ->execute([$storeId, $period, $images, $videos, date('c')]);
+    }
+}
+
+function souq_ai_apply_master_image_overrides(PDO $pdo, string $storeId, array $limits): array
+{
+    try {
+        if (!function_exists('souq_openai_image_cfg')) {
+            if (is_file(__DIR__ . '/openai_management.php')) {
+                require_once __DIR__ . '/openai_management.php';
+            }
+        }
+        if (function_exists('souq_openai_ensure_tables')) {
+            souq_openai_ensure_tables($pdo);
+        }
+        if (!function_exists('souq_openai_image_cfg')) {
+            return $limits;
+        }
+        $img = souq_openai_image_cfg($pdo, $storeId);
+        $month = (int) ($img['monthly_image_quota'] ?? 0);
+        if ($month > (int) $limits['images']) {
+            $limits['images'] = $month;
+        }
+        $day = (int) ($img['daily_image_quota'] ?? 0);
+        if ($day > (int) $limits['images_daily']) {
+            $limits['images_daily'] = $day;
+        } elseif ($month > 0) {
+            $limits['images_daily'] = max((int) $limits['images_daily'], (int) ceil($month / 12));
+        }
+    } catch (Throwable) {
+        /* keep plan defaults */
+    }
+
+    return $limits;
+}
+
+function souq_ai_quota_snapshot(PDO $pdo, string $storeId): array
+{
+    $plan = souq_store_plan_code($pdo, $storeId);
+    $limits = souq_ai_apply_master_image_overrides($pdo, $storeId, souq_ai_limits($plan));
+    $period = souq_ai_period_key();
+    $day = souq_ai_day_key();
+    $monthUsage = souq_ai_usage_for_period($pdo, $storeId, $period);
+    $dayUsage = souq_ai_usage_for_period($pdo, $storeId, $day);
+    $imagesUsed = $monthUsage['images_used'];
+    $videosUsed = $monthUsage['videos_used'];
+    $imagesUsedToday = $dayUsage['images_used'];
+    $videosUsedToday = $dayUsage['videos_used'];
+    $imagesRemainingMonth = max(0, $limits['images'] - $imagesUsed);
+    $imagesRemainingDay = max(0, $limits['images_daily'] - $imagesUsedToday);
+    $videosRemainingMonth = max(0, $limits['videos'] - $videosUsed);
+    $videosRemainingDay = max(0, $limits['videos_daily'] - $videosUsedToday);
     $env = souq_load_root_env();
     $key = trim((string)($env['GEMINI_API_KEY'] ?? ''));
     $imageReady = $key !== '' && $key !== 'MY_GEMINI_API_KEY';
@@ -416,13 +604,20 @@ function souq_ai_quota_snapshot(PDO $pdo, string $storeId): array
     return [
         'store_id' => $storeId,
         'period_key' => $period,
+        'day_key' => $day,
         'plan_code' => $plan,
         'images_limit' => $limits['images'],
         'images_used' => $imagesUsed,
-        'images_remaining' => max(0, $limits['images'] - $imagesUsed),
+        'images_remaining' => min($imagesRemainingMonth, $imagesRemainingDay),
+        'images_daily_limit' => $limits['images_daily'],
+        'images_used_today' => $imagesUsedToday,
+        'images_remaining_today' => $imagesRemainingDay,
         'videos_limit' => $limits['videos'],
         'videos_used' => $videosUsed,
-        'videos_remaining' => max(0, $limits['videos'] - $videosUsed),
+        'videos_remaining' => min($videosRemainingMonth, $videosRemainingDay),
+        'videos_daily_limit' => $limits['videos_daily'],
+        'videos_used_today' => $videosUsedToday,
+        'videos_remaining_today' => $videosRemainingDay,
         'image_provider_ready' => $imageReady,
         'video_provider_ready' => $videoReady,
         'models' => souq_ai_model_catalog(),
@@ -436,43 +631,38 @@ function souq_ai_consume(PDO $pdo, string $storeId, string $kind): array
 {
     $snap = souq_ai_quota_snapshot($pdo, $storeId);
     if ($kind === 'video') {
-        if ($snap['videos_remaining'] <= 0) {
+        if (($snap['videos_remaining_today'] ?? 0) <= 0) {
+            return ['ok' => false, 'code' => 'video_daily_quota_exhausted', 'snapshot' => $snap];
+        }
+        if (($snap['videos_limit'] - $snap['videos_used']) <= 0) {
             return ['ok' => false, 'code' => 'video_quota_exhausted', 'snapshot' => $snap];
         }
-    } elseif ($snap['images_remaining'] <= 0) {
-        return ['ok' => false, 'code' => 'image_quota_exhausted', 'snapshot' => $snap];
+    } else {
+        if (($snap['images_remaining_today'] ?? 0) <= 0) {
+            return ['ok' => false, 'code' => 'image_daily_quota_exhausted', 'snapshot' => $snap];
+        }
+        if (($snap['images_limit'] - $snap['images_used']) <= 0) {
+            return ['ok' => false, 'code' => 'image_quota_exhausted', 'snapshot' => $snap];
+        }
     }
 
     $period = $snap['period_key'];
-    $st = $pdo->prepare('SELECT images_used, videos_used FROM ai_generation_usage WHERE store_id = ? AND period_key = ?');
-    $st->execute([$storeId, $period]);
-    $row = $st->fetch();
-    $images = (int)($row['images_used'] ?? 0);
-    $videos = (int)($row['videos_used'] ?? 0);
-    if ($kind === 'video') {
-        $videos++;
-    } else {
-        $images++;
-    }
-    if ($row) {
-        $pdo->prepare('UPDATE ai_generation_usage SET images_used = ?, videos_used = ?, updated_at = ? WHERE store_id = ? AND period_key = ?')
-            ->execute([$images, $videos, date('c'), $storeId, $period]);
-    } else {
-        $pdo->prepare('INSERT INTO ai_generation_usage (store_id, period_key, images_used, videos_used, updated_at) VALUES (?,?,?,?,?)')
-            ->execute([$storeId, $period, $images, $videos, date('c')]);
-    }
+    $day = $snap['day_key'] ?? souq_ai_day_key();
+    souq_ai_bump_usage($pdo, $storeId, $period, $kind);
+    souq_ai_bump_usage($pdo, $storeId, $day, $kind);
 
     return ['ok' => true, 'snapshot' => souq_ai_quota_snapshot($pdo, $storeId)];
 }
 
 function souq_ai_refund_image(PDO $pdo, string $storeId): void
 {
-    $period = souq_ai_period_key();
-    $st = $pdo->prepare('SELECT images_used FROM ai_generation_usage WHERE store_id = ? AND period_key = ?');
-    $st->execute([$storeId, $period]);
-    $used = max(0, (int)($st->fetchColumn() ?: 0) - 1);
-    $pdo->prepare('UPDATE ai_generation_usage SET images_used = ?, updated_at = ? WHERE store_id = ? AND period_key = ?')
-        ->execute([$used, date('c'), $storeId, $period]);
+    foreach ([souq_ai_period_key(), souq_ai_day_key()] as $period) {
+        $st = $pdo->prepare('SELECT images_used FROM ai_generation_usage WHERE store_id = ? AND period_key = ?');
+        $st->execute([$storeId, $period]);
+        $used = max(0, (int) ($st->fetchColumn() ?: 0) - 1);
+        $pdo->prepare('UPDATE ai_generation_usage SET images_used = ?, updated_at = ? WHERE store_id = ? AND period_key = ?')
+            ->execute([$used, date('c'), $storeId, $period]);
+    }
 }
 
 function souq_ai_image_models(): array
@@ -1616,9 +1806,10 @@ function souq_plans_catalog(): array
 {
     return [
         ['code' => 'free', 'id' => 'plan-free', 'name' => 'Free', 'name_ar' => 'مجاني', 'price_sar' => 0, 'currency' => 'SAR', 'product_limit' => 50, 'order_limit' => 100, 'storage_mb' => 512, 'team_seats' => 1, 'features' => ['catalog', 'orders', 'basic_seo', 'themes_basic', 'media_studio', 'whatsapp']],
-        ['code' => 'paid', 'id' => 'plan-paid', 'name' => 'Paid', 'name_ar' => 'مدفوع', 'price_sar' => null, 'currency' => 'SAR', 'product_limit' => 500, 'order_limit' => 2000, 'storage_mb' => 5120, 'team_seats' => 5, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'media_studio', 'whatsapp', 'ai'], 'help_chat_ai_monthly' => 100],
-        ['code' => 'pro', 'id' => 'plan-pro', 'name' => 'Pro', 'name_ar' => 'احترافي', 'price_sar' => 300, 'currency' => 'SAR', 'product_limit' => 5000, 'order_limit' => null, 'storage_mb' => 51200, 'team_seats' => 20, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'themes', 'media_studio', 'custom_domain', 'whatsapp', 'social', 'ai'], 'help_chat_ai_monthly' => 300],
-        ['code' => 'premium', 'id' => 'plan-premium', 'name' => 'Premium', 'name_ar' => 'مميز', 'price_sar' => 500, 'currency' => 'SAR', 'product_limit' => null, 'order_limit' => null, 'storage_mb' => 102400, 'team_seats' => 50, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'themes', 'media_studio', 'custom_domain', 'whatsapp', 'social', 'backups', 'zatca', 'ai', 'api_access', 'advanced_seo', 'advanced_analytics'], 'help_chat_ai_monthly' => 500],
+        ['code' => 'paid', 'id' => 'plan-paid', 'name' => 'Paid', 'name_ar' => 'مدفوع', 'price_sar' => null, 'currency' => 'SAR', 'product_limit' => 500, 'order_limit' => 2000, 'storage_mb' => 5120, 'team_seats' => 5, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'media_studio', 'whatsapp'], 'help_chat_ai_monthly' => 100],
+        ['code' => 'starter', 'id' => 'plan-starter', 'name' => 'Starter', 'name_ar' => 'أساسي', 'price_sar' => 100, 'currency' => 'SAR', 'product_limit' => 250, 'order_limit' => 500, 'storage_mb' => 2048, 'team_seats' => 2, 'features' => ['catalog', 'orders', 'basic_seo', 'seo', 'coupons', 'shipping', 'themes_basic', 'media_studio', 'whatsapp']],
+        ['code' => 'pro', 'id' => 'plan-pro', 'name' => 'Pro', 'name_ar' => 'احترافي', 'price_sar' => 300, 'currency' => 'SAR', 'product_limit' => 5000, 'order_limit' => null, 'storage_mb' => 51200, 'team_seats' => 20, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'themes', 'media_studio', 'custom_domain', 'whatsapp', 'social', 'openai_mgmt'], 'help_chat_ai_monthly' => 300],
+        ['code' => 'premium', 'id' => 'plan-premium', 'name' => 'Premium', 'name_ar' => 'مميز', 'price_sar' => 500, 'currency' => 'SAR', 'product_limit' => null, 'order_limit' => null, 'storage_mb' => 102400, 'team_seats' => 50, 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'themes', 'media_studio', 'custom_domain', 'whatsapp', 'social', 'openai_mgmt', 'backups', 'zatca', 'ai', 'api_access', 'advanced_seo', 'advanced_analytics'], 'help_chat_ai_monthly' => 500],
         ['code' => 'custom', 'id' => 'plan-custom', 'name' => 'Custom', 'name_ar' => 'مخصص', 'price_sar' => null, 'currency' => 'SAR', 'product_limit' => null, 'order_limit' => null, 'storage_mb' => null, 'team_seats' => null, 'features' => ['all']],
     ];
 }
@@ -1851,6 +2042,176 @@ function souq_allocate_reserved_store_id(PDO $pdo): string
     return 'store-' . bin2hex(random_bytes(8));
 }
 
+/** Short invite code for /join/{code} share links (no ambiguous 0/O/1/l). */
+function souq_allocate_invite_token(PDO $pdo, int $length = 8): string
+{
+    $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+    $max = strlen($alphabet) - 1;
+    for ($attempt = 0; $attempt < 16; $attempt++) {
+        $token = '';
+        for ($i = 0; $i < $length; $i++) {
+            $token .= $alphabet[random_int(0, $max)];
+        }
+        if (!souq_table_exists($pdo, 'onboarding_invites')) {
+            return $token;
+        }
+        $st = $pdo->prepare('SELECT 1 FROM onboarding_invites WHERE token = ? LIMIT 1');
+        $st->execute([$token]);
+        if (!$st->fetchColumn()) {
+            return $token;
+        }
+    }
+
+    return bin2hex(random_bytes(6));
+}
+
+/**
+ * Lean onboard provision for PHP gateway (docs/36–38).
+ * Installs theme-souq-common-retail + plan entitlements when store is missing / has no theme.
+ *
+ * @param array<string,mixed> $invite
+ * @param array<string,mixed> $input
+ * @return array{store:?array<string,mixed>,provisioned:bool,default_theme_id:string}
+ */
+function souq_provision_onboard_store(PDO $pdo, array $invite, string $storeId, array $input): array
+{
+    $defaultTheme = 'theme-souq-common-retail';
+    $existing = souq_store_row($pdo, $storeId);
+    $provisioned = false;
+
+    if (!$existing) {
+        $name = trim((string) ($input['name'] ?? ''));
+        if ($name === '') {
+            $name = trim((string) ($invite['label'] ?? 'New Merchant Store'));
+        }
+        $slugBase = trim((string) ($input['slug'] ?? ''));
+        if ($slugBase === '') {
+            $slugBase = strtolower(preg_replace('/[^a-z0-9]+/i', '-', $name) ?: 'store');
+            $slugBase = trim($slugBase, '-');
+        }
+        $slug = $slugBase !== '' ? $slugBase : 'store';
+        $try = $slug;
+        for ($i = 0; $i < 40; $i++) {
+            $st = $pdo->prepare('SELECT 1 FROM stores WHERE slug = ? LIMIT 1');
+            $st->execute([$try]);
+            if (!$st->fetchColumn()) {
+                $slug = $try;
+                break;
+            }
+            $try = $slugBase . '-' . ($i + 1);
+        }
+
+        $plan = (string) ($invite['plan'] ?? 'premium');
+        $locale = (string) ($invite['locale'] ?? 'en');
+        $textDir = (string) ($invite['text_dir'] ?? ($locale === 'ar' ? 'rtl' : 'ltr'));
+        $currency = (string) ($invite['currency'] ?? 'SAR');
+        $timezone = (string) ($invite['timezone'] ?? 'Asia/Riyadh');
+        $demoDomain = $slug . '.mieraf-ksa.com';
+        $now = date('Y-m-d H:i:s');
+        $owner = trim((string) ($input['owner_name'] ?? ''));
+        $email = trim((string) ($input['email'] ?? ''));
+        $category = trim((string) ($input['category'] ?? 'General'));
+        $phone = trim((string) ($input['phone'] ?? ''));
+        $city = trim((string) ($input['city'] ?? 'Riyadh'));
+        $grantedPro = in_array($plan, ['pro', 'premium', 'custom'], true) ? 1 : 0;
+
+        $cols = ['id', 'name', 'slug', 'status', 'plan', 'currency', 'hosting_mode', 'db_isolation', 'accent_color', 'created_at', 'updated_at'];
+        $vals = [$storeId, $name, $slug, 'active', $plan, $currency, 'shared', 'shared_store_id', '#0f766e', $now, $now];
+        $optional = [
+            'locale' => $locale,
+            'text_direction' => $textDir,
+            'timezone' => $timezone,
+            'phone' => $phone !== '' ? $phone : null,
+            'email' => $email !== '' ? $email : null,
+            'owner_name' => $owner !== '' ? $owner : null,
+            'city' => $city !== '' ? $city : 'Riyadh',
+            'country' => 'SA',
+            'category' => $category !== '' ? $category : 'General',
+            'logo' => 'store',
+            'master_granted_pro' => $grantedPro,
+            'subscription_status' => 'active',
+            'demo_domain' => $demoDomain,
+        ];
+        foreach ($optional as $col => $val) {
+            if (function_exists('souq_table_has_column') && !souq_table_has_column($pdo, 'stores', $col)) {
+                continue;
+            }
+            $cols[] = $col;
+            $vals[] = $val;
+        }
+        $placeholders = implode(',', array_fill(0, count($cols), '?'));
+        $sql = 'INSERT INTO stores (' . implode(',', $cols) . ') VALUES (' . $placeholders . ')';
+        $pdo->prepare($sql)->execute($vals);
+        $existing = souq_store_row($pdo, $storeId);
+        $provisioned = true;
+    }
+
+    if (souq_table_exists($pdo, 'store_themes')) {
+        $st = $pdo->prepare('SELECT id FROM store_themes WHERE store_id = ? LIMIT 1');
+        $st->execute([$storeId]);
+        $themeRow = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$themeRow) {
+            $settings = json_encode([
+                'mode' => 'full',
+                'homepage_style' => 'Modern Bento',
+                'branding' => ['primaryColor' => '#0f766e', 'store_name' => $existing['name'] ?? 'Store'],
+                'theme_published_at' => date('c'),
+            ], JSON_UNESCAPED_UNICODE);
+            $themeId = 'stheme-' . bin2hex(random_bytes(5));
+            $now = date('Y-m-d H:i:s');
+            $pdo->prepare(
+                'INSERT INTO store_themes (id, store_id, theme_id, homepage_style, settings, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)'
+            )->execute([$themeId, $storeId, $defaultTheme, 'Modern Bento', $settings, $now, $now]);
+            $provisioned = true;
+        }
+    }
+
+    $plan = strtolower((string) (($existing['plan'] ?? null) ?: ($invite['plan'] ?? 'premium')));
+    if (souq_table_exists($pdo, 'store_theme_entitlements')) {
+        $defs = function_exists('souq_mp_common_themes')
+            ? souq_mp_common_themes()
+            : [
+                ['id' => 'theme-souq-common-retail', 'included_in_tiers' => ['starter', 'pro', 'premium', 'custom', 'free', 'paid']],
+                ['id' => 'theme-souq-common-catalog', 'included_in_tiers' => ['pro', 'premium', 'custom']],
+                ['id' => 'theme-souq-common-services', 'included_in_tiers' => ['pro', 'premium', 'custom']],
+                ['id' => 'theme-souq-common-boutique', 'included_in_tiers' => ['premium', 'custom']],
+            ];
+        foreach ($defs as $def) {
+            $tiers = $def['included_in_tiers'] ?? [];
+            if ($plan !== 'custom' && !in_array($plan, $tiers, true)) {
+                continue;
+            }
+            $themePackId = (string) ($def['id'] ?? '');
+            if ($themePackId === '') {
+                continue;
+            }
+            $chk = $pdo->prepare('SELECT 1 FROM store_theme_entitlements WHERE store_id = ? AND theme_id = ? LIMIT 1');
+            $chk->execute([$storeId, $themePackId]);
+            if ($chk->fetchColumn()) {
+                continue;
+            }
+            $id = 'ste-' . bin2hex(random_bytes(8));
+            $now = date('Y-m-d H:i:s');
+            try {
+                $pdo->prepare(
+                    'INSERT INTO store_theme_entitlements (id, store_id, theme_id, source, price_sar, granted_by, created_at, updated_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+                )->execute([$id, $storeId, $themePackId, 'subscription', 0, 'provision', $now, $now]);
+                $provisioned = true;
+            } catch (Throwable $e) {
+                // ignore duplicate races
+            }
+        }
+    }
+
+    return [
+        'store' => $existing ? souq_store_payload($existing) : null,
+        'provisioned' => $provisioned,
+        'default_theme_id' => $defaultTheme,
+    ];
+}
+
 /** Master-only routes require a Bearer token (lite|… or Sanctum). Public invite validate/redeem stay open. */
 function souq_require_master_bearer(): bool
 {
@@ -1951,7 +2312,14 @@ function souq_phase1_master_dispatch(PDO $pdo, string $uri, string $method, stri
         }
         if (!empty($invite['used_at'])) {
             if ((string) ($invite['redeemed_store_id'] ?? '') === $redeemStoreId) {
-                echo json_encode(['ok' => true, 'invite' => souq_map_onboarding_invite($invite)], JSON_UNESCAPED_UNICODE);
+                $prov = souq_provision_onboard_store($pdo, $invite, $redeemStoreId, $input);
+                echo json_encode([
+                    'ok' => true,
+                    'invite' => souq_map_onboarding_invite($invite),
+                    'store' => $prov['store'],
+                    'default_theme_id' => $prov['default_theme_id'],
+                    'provisioned' => false,
+                ], JSON_UNESCAPED_UNICODE);
                 return true;
             }
             http_response_code(410);
@@ -1963,13 +2331,26 @@ function souq_phase1_master_dispatch(PDO $pdo, string $uri, string $method, stri
             echo json_encode(['ok' => false, 'reason' => 'expired']);
             return true;
         }
+
+        $prov = souq_provision_onboard_store($pdo, $invite, $redeemStoreId, $input);
+
         $now = date('Y-m-d H:i:s');
         $pdo->prepare('UPDATE onboarding_invites SET used_at = ?, redeemed_store_id = ? WHERE id = ?')
             ->execute([$now, $redeemStoreId, $invite['id']]);
         $invite['used_at'] = $now;
         $invite['redeemed_store_id'] = $redeemStoreId;
-        souq_audit_write($pdo, $redeemStoreId, 'onboarding_invite.redeemed', 'onboarding_invite', (string) $invite['id'], ['store_id' => $redeemStoreId]);
-        echo json_encode(['ok' => true, 'invite' => souq_map_onboarding_invite($invite)], JSON_UNESCAPED_UNICODE);
+        souq_audit_write($pdo, $redeemStoreId, 'onboarding_invite.redeemed', 'onboarding_invite', (string) $invite['id'], [
+            'store_id' => $redeemStoreId,
+            'provisioned' => $prov['provisioned'],
+            'default_theme_id' => $prov['default_theme_id'],
+        ]);
+        echo json_encode([
+            'ok' => true,
+            'invite' => souq_map_onboarding_invite($invite),
+            'store' => $prov['store'],
+            'default_theme_id' => $prov['default_theme_id'],
+            'provisioned' => $prov['provisioned'],
+        ], JSON_UNESCAPED_UNICODE);
         return true;
     }
 
@@ -2007,9 +2388,9 @@ function souq_phase1_master_dispatch(PDO $pdo, string $uri, string $method, stri
         if (!souq_require_master_bearer()) {
             return true;
         }
-        $plan = strtolower(trim((string) ($input['plan'] ?? 'pro')));
-        if (!in_array($plan, ['free', 'paid', 'pro', 'custom'], true)) {
-            $plan = 'pro';
+        $plan = strtolower(trim((string) ($input['plan'] ?? 'premium')));
+        if (!in_array($plan, ['free', 'paid', 'starter', 'pro', 'premium', 'custom'], true)) {
+            $plan = 'premium';
         }
         $label = trim((string) ($input['label'] ?? 'Merchant invite'));
         $days = max(1, min(90, (int) ($input['days_valid'] ?? 7)));
@@ -2026,7 +2407,7 @@ function souq_phase1_master_dispatch(PDO $pdo, string $uri, string $method, stri
             $reservedId = souq_allocate_reserved_store_id($pdo);
         }
         $id = 'inv-' . bin2hex(random_bytes(8));
-        $token = bin2hex(random_bytes(24));
+        $token = souq_allocate_invite_token($pdo, 8);
         $expires = date('Y-m-d H:i:s', time() + ($days * 86400));
         $created = date('Y-m-d H:i:s');
         $pdo->prepare(
@@ -2401,6 +2782,537 @@ function souq_phase1_master_dispatch(PDO $pdo, string $uri, string $method, stri
     return false;
 }
 
+/** @return list<string> */
+function souq_appointment_slot_times(): array
+{
+    return [
+        '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+        '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
+        '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
+        '18:00', '18:30', '19:00', '19:30', '20:00',
+    ];
+}
+
+/** @return list<array<string, mixed>> */
+function souq_appointment_catalog(string $storeId): array
+{
+    $sid = strtolower($storeId);
+    if (
+        !in_array($storeId, ['store-bleco', 'bleco', 'store-car'], true)
+        && !str_contains($sid, 'bleco')
+        && !str_contains($sid, 'alsaeedi')
+    ) {
+        return [];
+    }
+
+    return [
+        [
+            'key' => 'interior_upholstery',
+            'name_en' => 'Car Interior Upholstery & Renovation',
+            'name_ar' => 'تنجيد وتجديد المقصورة الداخلية',
+            'duration_min' => 180,
+            'from_price' => 450,
+            'image' => '/images/categories/vip-luxury-seat-covers.jpg',
+        ],
+        [
+            'key' => 'dashboard_renovation',
+            'name_en' => 'Dashboard Renovation',
+            'name_ar' => 'تجديد لوحة القيادة',
+            'duration_min' => 120,
+            'from_price' => 350,
+            'image' => '/images/categories/car-accessories.jpg',
+        ],
+        [
+            'key' => 'window_tinting',
+            'name_en' => 'Window Tinting & Heat Insulation',
+            'name_ar' => 'تظليل النوافذ والعزل الحراري',
+            'duration_min' => 90,
+            'from_price' => 280,
+            'image' => '/images/categories/car-care-bleco.jpg',
+        ],
+        [
+            'key' => 'ppf',
+            'name_en' => 'Paint Protection Film (PPF)',
+            'name_ar' => 'فيلم حماية الطلاء',
+            'duration_min' => 240,
+            'from_price' => 900,
+            'image' => '/images/categories/car-care-bleco.jpg',
+        ],
+        [
+            'key' => 'polishing_detailing',
+            'name_en' => 'Car Polishing & Detailing',
+            'name_ar' => 'تلميع وتفصيل السيارة',
+            'duration_min' => 150,
+            'from_price' => 220,
+            'image' => '/images/categories/upholstery-tools.jpg',
+        ],
+        [
+            'key' => 'steering_gear_upholstery',
+            'name_en' => 'Steering Wheel & Gear Knob Upholstery',
+            'name_ar' => 'تنجيد المقود وقبضة ناقل الحركة',
+            'duration_min' => 60,
+            'from_price' => 150,
+            'image' => '/images/categories/vip-luxury-seat-covers.jpg',
+        ],
+    ];
+}
+
+function souq_ensure_store_appointments_table(PDO $pdo): bool
+{
+    static $ready = false;
+    if ($ready) {
+        return true;
+    }
+    try {
+        if (function_exists('souq_gateway_table_exists') && souq_gateway_table_exists($pdo, 'store_appointments')) {
+            $ready = true;
+
+            return true;
+        }
+        $driver = (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        if ($driver === 'mysql') {
+            $pdo->exec(
+                'CREATE TABLE IF NOT EXISTS `store_appointments` (
+                    `id` VARCHAR(64) NOT NULL,
+                    `store_id` VARCHAR(64) NOT NULL,
+                    `customer_name` VARCHAR(160) NOT NULL,
+                    `customer_phone` VARCHAR(32) NOT NULL,
+                    `customer_email` VARCHAR(191) NULL,
+                    `service_key` VARCHAR(64) NOT NULL,
+                    `service_name_en` VARCHAR(191) NULL,
+                    `service_name_ar` VARCHAR(191) NULL,
+                    `additional_services` JSON NULL,
+                    `vehicle_make` VARCHAR(120) NULL,
+                    `vehicle_model` VARCHAR(120) NULL,
+                    `vehicle_year` VARCHAR(16) NULL,
+                    `appointment_date` DATE NOT NULL,
+                    `appointment_time` VARCHAR(16) NOT NULL,
+                    `photo_urls` JSON NULL,
+                    `notes` TEXT NULL,
+                    `status` VARCHAR(32) NOT NULL DEFAULT \'pending\',
+                    `staff_name` VARCHAR(120) NULL,
+                    `staff_id` VARCHAR(64) NULL,
+                    `admin_note` TEXT NULL,
+                    `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`id`),
+                    KEY `sa_store_slot_idx` (`store_id`, `appointment_date`, `appointment_time`),
+                    KEY `sa_store_status_idx` (`store_id`, `status`, `created_at`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+            );
+        } else {
+            $pdo->exec(
+                'CREATE TABLE IF NOT EXISTS store_appointments (
+                    id TEXT PRIMARY KEY,
+                    store_id TEXT NOT NULL,
+                    customer_name TEXT NOT NULL,
+                    customer_phone TEXT NOT NULL,
+                    customer_email TEXT,
+                    service_key TEXT NOT NULL,
+                    service_name_en TEXT,
+                    service_name_ar TEXT,
+                    additional_services TEXT,
+                    vehicle_make TEXT,
+                    vehicle_model TEXT,
+                    vehicle_year TEXT,
+                    appointment_date TEXT NOT NULL,
+                    appointment_time TEXT NOT NULL,
+                    photo_urls TEXT,
+                    notes TEXT,
+                    status TEXT NOT NULL DEFAULT \'pending\',
+                    staff_name TEXT,
+                    staff_id TEXT,
+                    admin_note TEXT,
+                    created_at TEXT,
+                    updated_at TEXT
+                )'
+            );
+        }
+        $ready = true;
+
+        return true;
+    } catch (Throwable $e) {
+        return function_exists('souq_gateway_table_exists') && souq_gateway_table_exists($pdo, 'store_appointments');
+    }
+}
+
+/** @param array<string, mixed> $row */
+function souq_appointment_serialize(array $row): array
+{
+    $extra = $row['additional_services'] ?? [];
+    if (is_string($extra)) {
+        $decoded = json_decode($extra, true);
+        $extra = is_array($decoded) ? $decoded : [];
+    }
+    $photos = $row['photo_urls'] ?? [];
+    if (is_string($photos)) {
+        $decoded = json_decode($photos, true);
+        $photos = is_array($decoded) ? $decoded : [];
+    }
+    $date = (string) ($row['appointment_date'] ?? '');
+    if (strlen($date) > 10) {
+        $date = substr($date, 0, 10);
+    }
+    $time = substr((string) ($row['appointment_time'] ?? ''), 0, 5);
+
+    return [
+        'id' => (string) ($row['id'] ?? ''),
+        'store_id' => (string) ($row['store_id'] ?? ''),
+        'customer_name' => (string) ($row['customer_name'] ?? ''),
+        'customer_phone' => (string) ($row['customer_phone'] ?? ''),
+        'customer_email' => $row['customer_email'] ?? null,
+        'service_key' => (string) ($row['service_key'] ?? ''),
+        'service_name_en' => $row['service_name_en'] ?? null,
+        'service_name_ar' => $row['service_name_ar'] ?? null,
+        'additional_services' => array_values($extra),
+        'vehicle_make' => $row['vehicle_make'] ?? null,
+        'vehicle_model' => $row['vehicle_model'] ?? null,
+        'vehicle_year' => $row['vehicle_year'] ?? null,
+        'appointment_date' => $date,
+        'appointment_time' => $time,
+        'photo_urls' => array_values($photos),
+        'notes' => $row['notes'] ?? null,
+        'status' => (string) ($row['status'] ?? 'pending'),
+        'staff_name' => $row['staff_name'] ?? null,
+        'staff_id' => $row['staff_id'] ?? null,
+        'admin_note' => $row['admin_note'] ?? null,
+        'created_at' => $row['created_at'] ?? null,
+        'updated_at' => $row['updated_at'] ?? null,
+    ];
+}
+
+/**
+ * @return bool true if request handled
+ */
+function souq_appointments_dispatch(PDO $pdo, string $uri, string $method, string $storeId, array $input): bool
+{
+    $sid = trim((string) ($storeId !== '' ? $storeId : ($input['store_id'] ?? $_GET['store_id'] ?? $_GET['storeId'] ?? '')));
+    $slots = souq_appointment_slot_times();
+
+    if ($uri === '/storefront/appointments/services' && $method === 'GET') {
+        if ($sid === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.', 'data' => []]);
+
+            return true;
+        }
+        echo json_encode([
+            'success' => true,
+            'store_id' => $sid,
+            'data' => souq_appointment_catalog($sid),
+            'slot_times' => $slots,
+        ], JSON_UNESCAPED_UNICODE);
+
+        return true;
+    }
+
+    if ($uri === '/storefront/appointments/slots' && $method === 'GET') {
+        if ($sid === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+
+            return true;
+        }
+        $date = trim((string) ($_GET['date'] ?? $input['date'] ?? ''));
+        if ($date === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            http_response_code(422);
+            echo json_encode(['message' => 'Valid date (YYYY-MM-DD) is required.']);
+
+            return true;
+        }
+        $booked = [];
+        if (souq_ensure_store_appointments_table($pdo)) {
+            try {
+                $st = $pdo->prepare(
+                    "SELECT appointment_time FROM store_appointments
+                     WHERE store_id = ? AND appointment_date = ? AND status IN ('pending','approved')"
+                );
+                $st->execute([$sid, $date]);
+                foreach ($st->fetchAll(PDO::FETCH_COLUMN) ?: [] as $t) {
+                    $booked[] = substr((string) $t, 0, 5);
+                }
+                $booked = array_values(array_unique($booked));
+            } catch (Throwable $e) {
+                $booked = [];
+            }
+        }
+        $available = array_values(array_filter($slots, static fn ($s) => !in_array($s, $booked, true)));
+        echo json_encode([
+            'success' => true,
+            'store_id' => $sid,
+            'date' => $date,
+            'booked' => $booked,
+            'available' => $available,
+        ], JSON_UNESCAPED_UNICODE);
+
+        return true;
+    }
+
+    if ($uri === '/storefront/appointments' && $method === 'POST') {
+        if ($sid === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+
+            return true;
+        }
+        if (!souq_ensure_store_appointments_table($pdo)) {
+            http_response_code(503);
+            echo json_encode(['message' => 'Appointments table is not ready.']);
+
+            return true;
+        }
+        $name = trim((string) ($input['customer_name'] ?? ''));
+        $phone = trim((string) ($input['customer_phone'] ?? ''));
+        $serviceKey = trim((string) ($input['service_key'] ?? ''));
+        $date = substr(trim((string) ($input['appointment_date'] ?? '')), 0, 10);
+        $time = substr(trim((string) ($input['appointment_time'] ?? '')), 0, 5);
+        $catalog = souq_appointment_catalog($sid);
+        $service = null;
+        foreach ($catalog as $row) {
+            if (($row['key'] ?? '') === $serviceKey) {
+                $service = $row;
+                break;
+            }
+        }
+        if ($name === '' || $phone === '' || !$service || $date === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) || !in_array($time, $slots, true)) {
+            http_response_code(422);
+            echo json_encode(['message' => 'Invalid appointment payload.']);
+
+            return true;
+        }
+        $today = date('Y-m-d');
+        if ($date < $today) {
+            http_response_code(422);
+            echo json_encode(['message' => 'Appointment date must be today or later.']);
+
+            return true;
+        }
+        $extrasIn = is_array($input['additional_services'] ?? null) ? $input['additional_services'] : [];
+        $extras = [];
+        foreach ($extrasIn as $ek) {
+            $ek = trim((string) $ek);
+            if ($ek === '' || $ek === $serviceKey) {
+                continue;
+            }
+            foreach ($catalog as $row) {
+                if (($row['key'] ?? '') === $ek) {
+                    $extras[] = $ek;
+                    break;
+                }
+            }
+        }
+        $extras = array_values(array_unique($extras));
+        try {
+            $pdo->beginTransaction();
+            $clash = $pdo->prepare(
+                "SELECT id FROM store_appointments
+                 WHERE store_id = ? AND appointment_date = ? AND appointment_time = ?
+                   AND status IN ('pending','approved') LIMIT 1"
+            );
+            $clash->execute([$sid, $date, $time]);
+            if ($clash->fetchColumn()) {
+                $pdo->rollBack();
+                http_response_code(409);
+                echo json_encode(['message' => 'This time slot is already booked. Please choose another time.']);
+
+                return true;
+            }
+            $id = 'apt-' . bin2hex(random_bytes(6));
+            $now = date('Y-m-d H:i:s');
+            $ins = $pdo->prepare(
+                'INSERT INTO store_appointments (
+                    id, store_id, customer_name, customer_phone, customer_email,
+                    service_key, service_name_en, service_name_ar, additional_services,
+                    vehicle_make, vehicle_model, vehicle_year,
+                    appointment_date, appointment_time, photo_urls, notes, status,
+                    created_at, updated_at
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+            );
+            $ins->execute([
+                $id,
+                $sid,
+                $name,
+                $phone,
+                trim((string) ($input['customer_email'] ?? '')) ?: null,
+                $serviceKey,
+                $service['name_en'] ?? null,
+                $service['name_ar'] ?? null,
+                json_encode($extras, JSON_UNESCAPED_UNICODE),
+                trim((string) ($input['vehicle_make'] ?? '')) ?: null,
+                trim((string) ($input['vehicle_model'] ?? '')) ?: null,
+                trim((string) ($input['vehicle_year'] ?? '')) ?: null,
+                $date,
+                $time,
+                json_encode(array_values(is_array($input['photo_urls'] ?? null) ? $input['photo_urls'] : []), JSON_UNESCAPED_UNICODE),
+                trim((string) ($input['notes'] ?? '')) ?: null,
+                'pending',
+                $now,
+                $now,
+            ]);
+            $pdo->commit();
+            $row = [
+                'id' => $id,
+                'store_id' => $sid,
+                'customer_name' => $name,
+                'customer_phone' => $phone,
+                'customer_email' => trim((string) ($input['customer_email'] ?? '')) ?: null,
+                'service_key' => $serviceKey,
+                'service_name_en' => $service['name_en'] ?? null,
+                'service_name_ar' => $service['name_ar'] ?? null,
+                'additional_services' => $extras,
+                'vehicle_make' => trim((string) ($input['vehicle_make'] ?? '')) ?: null,
+                'vehicle_model' => trim((string) ($input['vehicle_model'] ?? '')) ?: null,
+                'vehicle_year' => trim((string) ($input['vehicle_year'] ?? '')) ?: null,
+                'appointment_date' => $date,
+                'appointment_time' => $time,
+                'photo_urls' => [],
+                'notes' => trim((string) ($input['notes'] ?? '')) ?: null,
+                'status' => 'pending',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+            $waPhone = '966597757086';
+            $msg = sprintf(
+                'Appointment %s | %s | %s %s | %s %s %s | %s',
+                $id,
+                (string) ($service['name_en'] ?? $serviceKey),
+                $date,
+                $time,
+                (string) ($row['vehicle_make'] ?? ''),
+                (string) ($row['vehicle_model'] ?? ''),
+                (string) ($row['vehicle_year'] ?? ''),
+                $name
+            );
+            http_response_code(201);
+            echo json_encode([
+                'success' => true,
+                'store_id' => $sid,
+                'data' => souq_appointment_serialize($row),
+                'whatsapp' => 'https://wa.me/' . $waPhone . '?text=' . rawurlencode($msg),
+            ], JSON_UNESCAPED_UNICODE);
+
+            return true;
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            http_response_code(500);
+            echo json_encode(['message' => 'Could not save appointment.', 'error' => $e->getMessage()]);
+
+            return true;
+        }
+    }
+
+    if ($uri === '/appointments' && $method === 'GET') {
+        if ($sid === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.', 'data' => []]);
+
+            return true;
+        }
+        if (!souq_ensure_store_appointments_table($pdo)) {
+            echo json_encode(['success' => true, 'store_id' => $sid, 'data' => []]);
+
+            return true;
+        }
+        try {
+            $status = trim((string) ($_GET['status'] ?? ''));
+            $sql = 'SELECT * FROM store_appointments WHERE store_id = ?';
+            $params = [$sid];
+            if ($status !== '' && in_array($status, ['pending', 'approved', 'rejected', 'completed', 'cancelled'], true)) {
+                $sql .= ' AND status = ?';
+                $params[] = $status;
+            }
+            $sql .= ' ORDER BY appointment_date DESC, appointment_time DESC LIMIT 200';
+            $st = $pdo->prepare($sql);
+            $st->execute($params);
+            $rows = array_map('souq_appointment_serialize', $st->fetchAll(PDO::FETCH_ASSOC) ?: []);
+            echo json_encode(['success' => true, 'store_id' => $sid, 'data' => $rows], JSON_UNESCAPED_UNICODE);
+
+            return true;
+        } catch (Throwable $e) {
+            echo json_encode(['success' => true, 'store_id' => $sid, 'data' => [], 'error' => $e->getMessage()]);
+
+            return true;
+        }
+    }
+
+    if (preg_match('#^/appointments/([^/]+)$#', $uri, $m) && in_array($method, ['PATCH', 'PUT'], true)) {
+        if ($sid === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+
+            return true;
+        }
+        if (!souq_ensure_store_appointments_table($pdo)) {
+            http_response_code(503);
+            echo json_encode(['message' => 'Appointments unavailable.']);
+
+            return true;
+        }
+        $aptId = $m[1];
+        try {
+            $st = $pdo->prepare('SELECT * FROM store_appointments WHERE store_id = ? AND id = ? LIMIT 1');
+            $st->execute([$sid, $aptId]);
+            $row = $st->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                http_response_code(404);
+                echo json_encode(['message' => 'Appointment not found.']);
+
+                return true;
+            }
+            $allowed = ['status', 'staff_name', 'staff_id', 'admin_note', 'appointment_date', 'appointment_time'];
+            $sets = [];
+            $params = [];
+            foreach ($allowed as $field) {
+                if (!array_key_exists($field, $input)) {
+                    continue;
+                }
+                $val = $input[$field];
+                if ($field === 'status' && !in_array((string) $val, ['pending', 'approved', 'rejected', 'completed', 'cancelled'], true)) {
+                    continue;
+                }
+                if ($field === 'appointment_time') {
+                    $val = substr((string) $val, 0, 5);
+                    if (!in_array($val, $slots, true)) {
+                        continue;
+                    }
+                }
+                if ($field === 'appointment_date') {
+                    $val = substr((string) $val, 0, 10);
+                    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $val)) {
+                        continue;
+                    }
+                }
+                $sets[] = "`$field` = ?";
+                $params[] = $val;
+                $row[$field] = $val;
+            }
+            if ($sets) {
+                $sets[] = '`updated_at` = ?';
+                $params[] = date('Y-m-d H:i:s');
+                $params[] = $sid;
+                $params[] = $aptId;
+                $pdo->prepare('UPDATE store_appointments SET ' . implode(', ', $sets) . ' WHERE store_id = ? AND id = ?')->execute($params);
+            }
+            echo json_encode([
+                'success' => true,
+                'store_id' => $sid,
+                'data' => souq_appointment_serialize($row),
+            ], JSON_UNESCAPED_UNICODE);
+
+            return true;
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['message' => 'Could not update appointment.', 'error' => $e->getMessage()]);
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
 /**
  * @return bool true if request handled
  */
@@ -2474,6 +3386,30 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
         return true;
     }
 
+    // ── OpenAI AI Management (Master · isolated from Gemini) ──
+    if (!function_exists('souq_openai_dispatch')) {
+        require_once __DIR__ . '/openai_management.php';
+    }
+    if (souq_openai_dispatch($pdo, $uri, $method, $storeId, $input)) {
+        return true;
+    }
+
+    // ── Integration Health Center (Master payments/shipping + bank proofs) ──
+    if (!function_exists('souq_integration_health_dispatch')) {
+        require_once __DIR__ . '/integration_health.php';
+    }
+    if (souq_integration_health_dispatch($pdo, $uri, $method, $storeId, $input)) {
+        return true;
+    }
+
+    // ── Souq marketplace (plans / themes / add-ons · CT-5/6/7) ──
+    if (!function_exists('souq_marketplace_dispatch')) {
+        require_once __DIR__ . '/souq_marketplace.php';
+    }
+    if (souq_marketplace_dispatch($pdo, $uri, $method, $storeId, $input)) {
+        return true;
+    }
+
     if ($uri === '/design-templates/entitlements' && $method === 'GET') {
         if ($storeId === '') {
             http_response_code(422);
@@ -2497,6 +3433,330 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
             'canva_categories' => ['product', 'category', 'banner', 'social'],
             'free_default' => 5,
         ]]);
+        return true;
+    }
+
+    // Design Studio · store_studio_designs (PPTX master packs · store_id isolated)
+    // CRITICAL: never SELECT design_json on list — multi‑MB PPTX blobs hang home "Loading…".
+    if ($uri === '/studio-designs' && $method === 'GET') {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        try {
+            $perPage = isset($_GET['per_page']) ? (int) $_GET['per_page'] : 10;
+            if ($perPage < 1) {
+                $perPage = 10;
+            }
+            if ($perPage > 50) {
+                $perPage = 50;
+            }
+            $page = isset($_GET['page']) ? (int) $_GET['page'] : 1;
+            if ($page < 1) {
+                $page = 1;
+            }
+            $offset = ($page - 1) * $perPage;
+
+            $cntSt = $pdo->prepare('SELECT COUNT(*) FROM store_studio_designs WHERE store_id = ?');
+            $cntSt->execute([$storeId]);
+            $total = (int) $cntSt->fetchColumn();
+
+            $st = $pdo->prepare(
+                'SELECT id, store_id, editor_type, category, title, width, height, preview_media_id, source, created_at, updated_at
+                 FROM store_studio_designs
+                 WHERE store_id = ?
+                 ORDER BY updated_at DESC
+                 LIMIT ' . (int) $perPage . ' OFFSET ' . (int) $offset
+            );
+            $st->execute([$storeId]);
+            $out = [];
+            while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+                $source = (string) ($row['source'] ?? 'studio');
+                $id = (string) $row['id'];
+                $fromPptx = ($source === 'pptx' || $source === 'master' || strpos($id, 'dsd-pptx-') === 0);
+                $lean = [
+                    'fromPptxPack' => $fromPptx,
+                    'packKey' => null,
+                    'masterDistributed' => $source === 'master',
+                    'masterLibrary' => false,
+                    'category' => $row['category'] ?? 'social',
+                    'source' => $source,
+                    'width' => (int) ($row['width'] ?? 1080),
+                    'height' => (int) ($row['height'] ?? 1080),
+                    'layerCount' => 0,
+                    'layers' => [],
+                    'needsLayersFetch' => true,
+                    'previewDataUrl' => null,
+                ];
+                $out[] = [
+                    'id' => $id,
+                    'store_id' => (string) $row['store_id'],
+                    'editor_type' => (string) ($row['editor_type'] ?? 'banner'),
+                    'category' => (string) ($row['category'] ?? 'social'),
+                    'title' => (string) ($row['title'] ?? ''),
+                    'width' => (int) ($row['width'] ?? 1080),
+                    'height' => (int) ($row['height'] ?? 1080),
+                    'design_json' => $lean,
+                    'preview_media_id' => $row['preview_media_id'] ?? null,
+                    'source' => $source,
+                    'created_at' => $row['created_at'] ?? null,
+                    'updated_at' => $row['updated_at'] ?? null,
+                ];
+            }
+            echo json_encode([
+                'data' => $out,
+                'meta' => [
+                    'page' => $page,
+                    'per_page' => $perPage,
+                    'total' => $total,
+                    'has_more' => ($page * $perPage) < $total,
+                ],
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['message' => 'studio_designs_list_failed', 'error' => $e->getMessage()]);
+        }
+        return true;
+    }
+
+    if (preg_match('#^/studio-designs/([^/]+)$#', $uri, $mStudio) && $method === 'GET') {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        $designId = (string) $mStudio[1];
+        try {
+            $st = $pdo->prepare(
+                'SELECT id, store_id, editor_type, category, title, width, height, design_json, preview_media_id, source, created_at, updated_at
+                 FROM store_studio_designs
+                 WHERE store_id = ? AND id = ?
+                 LIMIT 1'
+            );
+            $st->execute([$storeId, $designId]);
+            $row = $st->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                http_response_code(404);
+                echo json_encode(['message' => 'Design not found.']);
+                return true;
+            }
+            $dj = json_decode((string) ($row['design_json'] ?? '{}'), true);
+            if (!is_array($dj)) {
+                $dj = [];
+            }
+            echo json_encode([
+                'data' => [
+                    'id' => (string) $row['id'],
+                    'store_id' => (string) $row['store_id'],
+                    'editor_type' => (string) ($row['editor_type'] ?? 'banner'),
+                    'category' => (string) ($row['category'] ?? 'social'),
+                    'title' => (string) ($row['title'] ?? ''),
+                    'width' => (int) ($row['width'] ?? 1080),
+                    'height' => (int) ($row['height'] ?? 1080),
+                    'design_json' => $dj,
+                    'preview_media_id' => $row['preview_media_id'] ?? null,
+                    'source' => (string) ($row['source'] ?? 'studio'),
+                    'created_at' => $row['created_at'] ?? null,
+                    'updated_at' => $row['updated_at'] ?? null,
+                ],
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['message' => 'studio_designs_show_failed', 'error' => $e->getMessage()]);
+        }
+        return true;
+    }
+
+    if ($uri === '/studio-designs' && $method === 'POST') {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        try {
+            $editorType = isset($input['editor_type']) ? (string) $input['editor_type'] : 'banner';
+            $category = isset($input['category']) ? (string) $input['category'] : 'social';
+            $title = isset($input['title']) && trim((string)$input['title']) !== '' ? trim((string)$input['title']) : 'Design';
+            $width = isset($input['width']) ? (int) $input['width'] : 1080;
+            $height = isset($input['height']) ? (int) $input['height'] : 1080;
+            $designJson = isset($input['design_json']) ? $input['design_json'] : [];
+            $previewMediaId = isset($input['preview_media_id']) ? (string) $input['preview_media_id'] : null;
+            $source = isset($input['source']) ? (string) $input['source'] : 'studio';
+            $customId = isset($input['id']) && trim((string)$input['id']) !== '' ? trim((string)$input['id']) : null;
+            $designId = $customId ?: ('dsd-' . substr(bin2hex(random_bytes(8)), 0, 14));
+
+            $now = date('Y-m-d H:i:s');
+            // If ID already exists for this store, perform update instead of failing unique key
+            $stCheck = $pdo->prepare('SELECT id FROM store_studio_designs WHERE store_id = ? AND id = ? LIMIT 1');
+            $stCheck->execute([$storeId, $designId]);
+            if ($stCheck->fetch()) {
+                $stUp = $pdo->prepare('UPDATE store_studio_designs SET editor_type = ?, category = ?, title = ?, width = ?, height = ?, design_json = ?, preview_media_id = ?, source = ?, updated_at = ? WHERE store_id = ? AND id = ?');
+                $stUp->execute([
+                    $editorType,
+                    $category,
+                    $title,
+                    $width,
+                    $height,
+                    json_encode($designJson, JSON_UNESCAPED_UNICODE),
+                    $previewMediaId,
+                    $source,
+                    $now,
+                    $storeId,
+                    $designId,
+                ]);
+            } else {
+                $st = $pdo->prepare('INSERT INTO store_studio_designs (id, store_id, editor_type, category, title, width, height, design_json, preview_media_id, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+                $st->execute([
+                    $designId,
+                    $storeId,
+                    $editorType,
+                    $category,
+                    $title,
+                    $width,
+                    $height,
+                    json_encode($designJson, JSON_UNESCAPED_UNICODE),
+                    $previewMediaId,
+                    $source,
+                    $now,
+                    $now,
+                ]);
+            }
+
+            http_response_code(201);
+            echo json_encode([
+                'data' => [
+                    'id' => $designId,
+                    'store_id' => $storeId,
+                    'editor_type' => $editorType,
+                    'category' => $category,
+                    'title' => $title,
+                    'width' => $width,
+                    'height' => $height,
+                    'preview_media_id' => $previewMediaId,
+                    'source' => $source,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ],
+                'message' => 'Design saved.',
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['message' => 'studio_designs_store_failed', 'error' => $e->getMessage()]);
+        }
+        return true;
+    }
+
+    if (preg_match('#^/studio-designs/([^/]+)$#', $uri, $mStudio) && ($method === 'PUT' || $method === 'PATCH')) {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        $designId = (string) $mStudio[1];
+        try {
+            $stFind = $pdo->prepare('SELECT id, store_id, editor_type, category, title, width, height, preview_media_id, source FROM store_studio_designs WHERE store_id = ? AND id = ? LIMIT 1');
+            $stFind->execute([$storeId, $designId]);
+            $existing = $stFind->fetch(PDO::FETCH_ASSOC);
+
+            $now = date('Y-m-d H:i:s');
+            if (!$existing) {
+                // Upsert: design didn't exist yet, insert with this id
+                $editorType = isset($input['editor_type']) ? (string) $input['editor_type'] : 'banner';
+                $category = isset($input['category']) ? (string) $input['category'] : 'social';
+                $title = isset($input['title']) && trim((string)$input['title']) !== '' ? trim((string)$input['title']) : 'Design';
+                $width = isset($input['width']) ? (int) $input['width'] : 1080;
+                $height = isset($input['height']) ? (int) $input['height'] : 1080;
+                $designJson = isset($input['design_json']) ? $input['design_json'] : [];
+                $previewMediaId = isset($input['preview_media_id']) ? (string) $input['preview_media_id'] : null;
+                $source = isset($input['source']) ? (string) $input['source'] : 'studio';
+
+                $stIns = $pdo->prepare('INSERT INTO store_studio_designs (id, store_id, editor_type, category, title, width, height, design_json, preview_media_id, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+                $stIns->execute([
+                    $designId,
+                    $storeId,
+                    $editorType,
+                    $category,
+                    $title,
+                    $width,
+                    $height,
+                    json_encode($designJson, JSON_UNESCAPED_UNICODE),
+                    $previewMediaId,
+                    $source,
+                    $now,
+                    $now,
+                ]);
+            } else {
+                $fields = [];
+                $params = [];
+                if (isset($input['title'])) {
+                    $fields[] = 'title = ?';
+                    $params[] = (string) $input['title'];
+                }
+                if (isset($input['width'])) {
+                    $fields[] = 'width = ?';
+                    $params[] = (int) $input['width'];
+                }
+                if (isset($input['height'])) {
+                    $fields[] = 'height = ?';
+                    $params[] = (int) $input['height'];
+                }
+                if (isset($input['category'])) {
+                    $fields[] = 'category = ?';
+                    $params[] = (string) $input['category'];
+                }
+                if (isset($input['editor_type'])) {
+                    $fields[] = 'editor_type = ?';
+                    $params[] = (string) $input['editor_type'];
+                }
+                if (isset($input['preview_media_id'])) {
+                    $fields[] = 'preview_media_id = ?';
+                    $params[] = (string) $input['preview_media_id'];
+                }
+                if (isset($input['design_json'])) {
+                    $fields[] = 'design_json = ?';
+                    $params[] = json_encode($input['design_json'], JSON_UNESCAPED_UNICODE);
+                }
+                $fields[] = 'updated_at = ?';
+                $params[] = $now;
+
+                $params[] = $storeId;
+                $params[] = $designId;
+
+                $stUp = $pdo->prepare('UPDATE store_studio_designs SET ' . implode(', ', $fields) . ' WHERE store_id = ? AND id = ?');
+                $stUp->execute($params);
+            }
+
+            echo json_encode([
+                'data' => [
+                    'id' => $designId,
+                    'store_id' => $storeId,
+                    'updated_at' => $now,
+                ],
+                'message' => 'Design updated.',
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['message' => 'studio_designs_update_failed', 'error' => $e->getMessage()]);
+        }
+        return true;
+    }
+
+    if (preg_match('#^/studio-designs/([^/]+)$#', $uri, $mStudio) && $method === 'DELETE') {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        $designId = (string) $mStudio[1];
+        try {
+            $stDel = $pdo->prepare('DELETE FROM store_studio_designs WHERE store_id = ? AND id = ?');
+            $stDel->execute([$storeId, $designId]);
+            echo json_encode(['message' => 'Design deleted.']);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['message' => 'studio_designs_delete_failed', 'error' => $e->getMessage()]);
+        }
         return true;
     }
 
@@ -2755,6 +4015,32 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
             echo json_encode(['message' => 'store_id is required.']);
             return true;
         }
+        if (!function_exists('souq_openai_ensure_tables')) {
+            require_once __DIR__ . '/openai_management.php';
+        }
+        souq_openai_ensure_tables($pdo);
+        $metaEnh = souq_openai_store_plan($pdo, $storeId);
+        $imgEnh = souq_openai_image_cfg($pdo, $storeId);
+        if (empty($metaEnh['pro_eligible'])) {
+            http_response_code(402);
+            echo json_encode([
+                'message' => 'Pro plan required for AI Tools. Master Admin controls Pro and payment unlock.',
+                'code' => 'pro_required',
+                'payment_required' => true,
+                'module' => 'images',
+            ], JSON_UNESCAPED_UNICODE);
+            return true;
+        }
+        if (!souq_openai_usage_unlocked($imgEnh)) {
+            http_response_code(402);
+            echo json_encode([
+                'message' => 'Payment required before using this AI module. Master unlocks after payment.',
+                'code' => 'payment_required',
+                'payment_required' => true,
+                'module' => 'images',
+            ], JSON_UNESCAPED_UNICODE);
+            return true;
+        }
         $prompt = trim((string)($input['prompt'] ?? ''));
         if (mb_strlen($prompt) < 4) {
             http_response_code(422);
@@ -2809,10 +4095,200 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
         return true;
     }
 
+    if ($uri === '/ai-suite/status' && $method === 'GET') {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        if (!function_exists('souq_openai_ensure_tables')) {
+            require_once __DIR__ . '/openai_management.php';
+        }
+        souq_openai_ensure_tables($pdo);
+        $meta = souq_openai_store_plan($pdo, $storeId);
+        $img = souq_openai_image_cfg($pdo, $storeId);
+        $txt = souq_openai_text_cfg($pdo, $storeId);
+        $auto = souq_openai_auto_cfg($pdo, $storeId);
+        $gemini = souq_ai_quota_snapshot($pdo, $storeId);
+        $mod = static function (string $module, array $cfg, bool $pro, array $extra = []) {
+            $unlocked = souq_openai_usage_unlocked($cfg);
+            return array_merge([
+                'module' => $module,
+                'pro_eligible' => $pro,
+                'enabled' => !empty($cfg['enabled']) || $unlocked,
+                'unlocked' => $unlocked,
+                'payment_status' => (string) ($cfg['payment_status'] ?? 'unpaid'),
+                'usage_unlocked_until' => $cfg['usage_unlocked_until'] ?? null,
+                'payment_required_for_usage' => !empty($cfg['payment_required_for_usage']),
+                'intelligence_level' => (string) ($cfg['intelligence_level'] ?? $cfg['default_quality'] ?? 'medium'),
+            ], $extra);
+        };
+        $imgMod = $mod('images', $img, !empty($meta['pro_eligible']), [
+            'enabled' => !empty($img['enabled']) || souq_openai_usage_unlocked($img),
+            'quality' => (string) ($img['default_quality'] ?? 'medium'),
+            'monthly_image_quota' => (int) ($img['monthly_image_quota'] ?? 50),
+            'gemini_quota' => $gemini,
+        ]);
+        $txtMod = $mod('text', $txt, !empty($meta['pro_eligible']), [
+            'daily_token_limit' => (int) ($txt['daily_token_limit'] ?? 0),
+            'monthly_token_limit' => (int) ($txt['monthly_token_limit'] ?? 0),
+        ]);
+        $autoMod = $mod('automation', $auto, !empty($meta['pro_eligible']), [
+            'daily_question_quota' => (int) ($auto['daily_question_quota'] ?? 0),
+            'monthly_question_quota' => (int) ($auto['monthly_question_quota'] ?? 0),
+        ]);
+        // Phase 2 engine catalog (parity with Laravel SouqAiModules) — honest BLOCKED rows.
+        $engineSeed = [
+            ['id' => 'store_advisor', 'gate' => 'text', 'status' => 'available', 'name_en' => 'AI Store Advisor', 'name_ar' => 'مستشار المتجر بالذكاء الاصطناعي', 'description_en' => 'Advice for THIS store only. Never invent metrics.', 'description_ar' => 'نصائح لهذا المتجر فقط. لا تخترع أرقاماً.', 'provider' => 'openai'],
+            ['id' => 'developer_diagnostics', 'gate' => 'none', 'status' => 'blocked', 'name_en' => 'AI Developer Diagnostics', 'name_ar' => 'تشخيص المطوّر بالذكاء الاصطناعي', 'description_en' => 'Master-only code diagnostics. Merchants cannot edit platform source.', 'description_ar' => 'تشخيص الكود للماستر فقط. التاجر لا يعدّل مصدر المنصة.', 'provider' => 'none'],
+            ['id' => 'customer_support', 'gate' => 'text', 'status' => 'available', 'name_en' => 'AI Customer Support', 'name_ar' => 'دعم العملاء بالذكاء الاصطناعي', 'description_en' => 'Draft bilingual support replies. No fake order status.', 'description_ar' => 'مسودات ردود دعم ثنائية اللغة. بلا حالة طلب وهمية.', 'provider' => 'openai'],
+            ['id' => 'seo_assistant', 'gate' => 'text', 'status' => 'available', 'name_en' => 'AI SEO Assistant', 'name_ar' => 'مساعد تحسين محركات البحث', 'description_en' => 'Titles, meta, alt text. No fake rankings.', 'description_ar' => 'عناوين ووصف وبديل صور. بلا ترتيب وهمي.', 'provider' => 'openai'],
+            ['id' => 'marketing_assistant', 'gate' => 'text', 'status' => 'available', 'name_en' => 'AI Marketing Assistant', 'name_ar' => 'مساعد التسويق بالذكاء الاصطناعي', 'description_en' => 'Campaign copy and captions. No fake engagement.', 'description_ar' => 'نصوص حملات وتعليقات. بلا تفاعل وهمي.', 'provider' => 'openai'],
+            ['id' => 'product_description', 'gate' => 'text', 'status' => 'available', 'name_en' => 'AI Product Description Generator', 'name_ar' => 'مولّد وصف المنتج', 'description_en' => 'Product titles and descriptions EN/AR.', 'description_ar' => 'عناوين ووصف المنتجات عربي/إنجليزي.', 'provider' => 'openai'],
+            ['id' => 'translation', 'gate' => 'text', 'status' => 'available', 'name_en' => 'AI Translation', 'name_ar' => 'الترجمة بالذكاء الاصطناعي', 'description_en' => 'Translate merchant copy AR ↔ EN. Keep meaning.', 'description_ar' => 'ترجمة نصوص التاجر عربي ↔ إنجليزي مع الحفاظ على المعنى.', 'provider' => 'openai'],
+            ['id' => 'image_generator', 'gate' => 'images', 'status' => 'available', 'name_en' => 'AI Image Generator', 'name_ar' => 'مولّد الصور بالذكاء الاصطناعي', 'description_en' => 'Uses Images tab (/ai-media + OpenAI images). Not a fake stub.', 'description_ar' => 'عبر تبويب الصور (/ai-media وصور OpenAI). ليس وهمياً.', 'provider' => 'openai_gemini'],
+            ['id' => 'video_generator', 'gate' => 'none', 'status' => 'blocked', 'name_en' => 'AI Video Generator', 'name_ar' => 'مولّد الفيديو بالذكاء الاصطناعي', 'description_en' => 'Adapter not wired. Catalog price-first only until provider is connected.', 'description_ar' => 'المحوّل غير مربوط. السعر أولاً في الكتالوج حتى يتصل المزوّد.', 'provider' => 'none'],
+            ['id' => 'analytics_assistant', 'gate' => 'automation', 'status' => 'available', 'name_en' => 'AI Analytics Assistant', 'name_ar' => 'مساعد التحليلات بالذكاء الاصطناعي', 'description_en' => 'Store-scoped analytics Q&A. Never invent KPIs.', 'description_ar' => 'أسئلة تحليلات لهذا المتجر فقط. بلا مؤشرات وهمية.', 'provider' => 'openai'],
+        ];
+        $engineModules = [];
+        foreach ($engineSeed as $row) {
+            $gateKey = (string) ($row['gate'] ?? 'none');
+            $gateRow = $gateKey === 'images' ? $imgMod : ($gateKey === 'automation' ? $autoMod : ($gateKey === 'text' ? $txtMod : null));
+            $engineModules[] = [
+                'id' => $row['id'],
+                'name_en' => $row['name_en'],
+                'name_ar' => $row['name_ar'],
+                'description_en' => $row['description_en'],
+                'description_ar' => $row['description_ar'],
+                'status' => $row['status'],
+                'gate' => $gateKey,
+                'provider' => $row['provider'],
+                'unlocked' => $gateRow ? !empty($gateRow['unlocked']) : false,
+                'pro_eligible' => $gateRow ? !empty($gateRow['pro_eligible']) : !empty($meta['pro_eligible']),
+                'payment_status' => $gateRow['payment_status'] ?? 'n/a',
+            ];
+        }
+        echo json_encode(['data' => [
+            'store_id' => $storeId,
+            'pro_eligible' => !empty($meta['pro_eligible']),
+            'plan_code' => (string) ($meta['plan'] ?? 'free'),
+            'openai_key_configured' => souq_openai_key_status()['configured'] ?? false,
+            'gemini_ready' => !empty($gemini['image_provider_ready']),
+            'modules' => [
+                'images' => $imgMod,
+                'text' => $txtMod,
+                'automation' => $autoMod,
+            ],
+            'engine_modules' => $engineModules,
+            'payment_packages' => [
+                ['id' => 'ai_low', 'level' => 'low', 'label_en' => 'AI Low', 'label_ar' => 'ذكاء منخفض', 'price_sar' => 99, 'includes_en' => 'Basic prompts · smaller image quota · low reasoning', 'includes_ar' => 'موجهات أساسية · حصة صور أصغر · استدلال منخفض'],
+                ['id' => 'ai_medium', 'level' => 'medium', 'label_en' => 'AI Medium', 'label_ar' => 'ذكاء متوسط', 'price_sar' => 249, 'includes_en' => 'Balanced text + images · medium reasoning · brand tools', 'includes_ar' => 'نص وصور متوازن · استدلال متوسط · أدوات العلامة'],
+                ['id' => 'ai_high', 'level' => 'high', 'label_en' => 'AI High', 'label_ar' => 'ذكاء مرتفع', 'price_sar' => 499, 'includes_en' => 'Highest quality · larger quotas · automation Q&A · high reasoning', 'includes_ar' => 'أعلى جودة · حصص أكبر · أسئلة الأتمتة · استدلال مرتفع'],
+            ],
+            'addons' => [
+                ['id' => 'addon-ai-agent', 'category' => 'ai', 'name_en' => 'AI Calling / Sales Agent', 'name_ar' => 'وكيل المبيعات والمكالمات بالذكاء الاصطناعي', 'price_sar' => 99, 'billing' => 'monthly', 'currency' => 'SAR', 'unlocked' => false, 'description_en' => 'Sales agent + outreach assist.', 'description_ar' => 'وكيل مبيعات ومساعدة تواصل.', 'master_must_approve' => true],
+                ['id' => 'addon-ai-images', 'category' => 'ai', 'name_en' => 'AI Image Studio', 'name_ar' => 'استوديو الصور بالذكاء الاصطناعي', 'price_sar' => 149, 'billing' => 'monthly', 'currency' => 'SAR', 'unlocked' => false, 'description_en' => 'Product photoshoot and creatives.', 'description_ar' => 'تصوير المنتجات والإبداعات.', 'master_must_approve' => true],
+                ['id' => 'addon-ai-video', 'category' => 'ai', 'name_en' => 'AI Video Studio', 'name_ar' => 'استوديو الفيديو بالذكاء الاصطناعي', 'price_sar' => 199, 'billing' => 'monthly', 'currency' => 'SAR', 'unlocked' => false, 'description_en' => 'Short promo videos.', 'description_ar' => 'فيديوهات ترويجية قصيرة.', 'master_must_approve' => true],
+                ['id' => 'addon-ai-calling', 'category' => 'ai', 'name_en' => 'AI Voice / Calling Extra', 'name_ar' => 'المكالمات الصوتية الإضافية', 'price_sar' => 199, 'billing' => 'monthly', 'currency' => 'SAR', 'unlocked' => false, 'description_en' => 'Voice minutes pack — Master unlock after payment.', 'description_ar' => 'حزمة دقائق صوتية — يفتحها الماستر بعد الدفع.', 'master_must_approve' => true],
+                ['id' => 'addon-ai-credits-pack', 'category' => 'credits', 'name_en' => 'AI Credits Pack (100)', 'name_ar' => 'حزمة رصيد الذكاء الاصطناعي (١٠٠)', 'price_sar' => 50, 'billing' => 'one_time', 'currency' => 'SAR', 'unlocked' => false, 'description_en' => 'Extra AI credits.', 'description_ar' => 'رصيد إضافي.', 'master_must_approve' => true],
+            ],
+            'levels' => ['low' => ['label' => 'Low'], 'medium' => ['label' => 'Medium'], 'high' => ['label' => 'High']],
+            'master_owned' => true,
+            'note_en' => 'Master Admin owns Pro, limits, and payment unlock. Raising limits requires a new payment unlock.',
+            'note_ar' => 'الماستر يملك الخطة الاحترافية والحدود وفتح الدفع. رفع الحدود يتطلب فتح دفع جديد.',
+        ]], JSON_UNESCAPED_UNICODE);
+        return true;
+    }
+
+    if ($uri === '/ai-suite/modules' && $method === 'GET') {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        if (!function_exists('souq_openai_ensure_tables')) {
+            require_once __DIR__ . '/openai_management.php';
+        }
+        souq_openai_ensure_tables($pdo);
+        $metaM = souq_openai_store_plan($pdo, $storeId);
+        $imgM = souq_openai_image_cfg($pdo, $storeId);
+        $txtM = souq_openai_text_cfg($pdo, $storeId);
+        $autoM = souq_openai_auto_cfg($pdo, $storeId);
+        $proM = !empty($metaM['pro_eligible']);
+        $unlockedFor = static function (array $cfg) use ($proM): array {
+            $unlocked = souq_openai_usage_unlocked($cfg);
+            return [
+                'unlocked' => $unlocked,
+                'pro_eligible' => $proM,
+                'payment_status' => (string) ($cfg['payment_status'] ?? 'unpaid'),
+            ];
+        };
+        $gImg = $unlockedFor($imgM);
+        $gTxt = $unlockedFor($txtM);
+        $gAuto = $unlockedFor($autoM);
+        $seed = [
+            ['id' => 'store_advisor', 'gate' => 'text', 'status' => 'available', 'name_en' => 'AI Store Advisor', 'name_ar' => 'مستشار المتجر بالذكاء الاصطناعي', 'description_en' => 'Advice for THIS store only.', 'description_ar' => 'نصائح لهذا المتجر فقط.', 'provider' => 'openai'],
+            ['id' => 'developer_diagnostics', 'gate' => 'none', 'status' => 'blocked', 'name_en' => 'AI Developer Diagnostics', 'name_ar' => 'تشخيص المطوّر بالذكاء الاصطناعي', 'description_en' => 'Master-only. Merchants cannot edit source.', 'description_ar' => 'للماستر فقط. التاجر لا يعدّل المصدر.', 'provider' => 'none'],
+            ['id' => 'customer_support', 'gate' => 'text', 'status' => 'available', 'name_en' => 'AI Customer Support', 'name_ar' => 'دعم العملاء بالذكاء الاصطناعي', 'description_en' => 'Support reply drafts.', 'description_ar' => 'مسودات ردود الدعم.', 'provider' => 'openai'],
+            ['id' => 'seo_assistant', 'gate' => 'text', 'status' => 'available', 'name_en' => 'AI SEO Assistant', 'name_ar' => 'مساعد تحسين محركات البحث', 'description_en' => 'SEO copy assist.', 'description_ar' => 'مساعدة نصوص تحسين البحث.', 'provider' => 'openai'],
+            ['id' => 'marketing_assistant', 'gate' => 'text', 'status' => 'available', 'name_en' => 'AI Marketing Assistant', 'name_ar' => 'مساعد التسويق بالذكاء الاصطناعي', 'description_en' => 'Marketing copy.', 'description_ar' => 'نصوص التسويق.', 'provider' => 'openai'],
+            ['id' => 'product_description', 'gate' => 'text', 'status' => 'available', 'name_en' => 'AI Product Description Generator', 'name_ar' => 'مولّد وصف المنتج', 'description_en' => 'Product descriptions.', 'description_ar' => 'وصف المنتجات.', 'provider' => 'openai'],
+            ['id' => 'translation', 'gate' => 'text', 'status' => 'available', 'name_en' => 'AI Translation', 'name_ar' => 'الترجمة بالذكاء الاصطناعي', 'description_en' => 'AR ↔ EN translation.', 'description_ar' => 'ترجمة عربي ↔ إنجليزي.', 'provider' => 'openai'],
+            ['id' => 'image_generator', 'gate' => 'images', 'status' => 'available', 'name_en' => 'AI Image Generator', 'name_ar' => 'مولّد الصور بالذكاء الاصطناعي', 'description_en' => 'Use Images tab.', 'description_ar' => 'استخدم تبويب الصور.', 'provider' => 'openai_gemini'],
+            ['id' => 'video_generator', 'gate' => 'none', 'status' => 'blocked', 'name_en' => 'AI Video Generator', 'name_ar' => 'مولّد الفيديو بالذكاء الاصطناعي', 'description_en' => 'Adapter not wired.', 'description_ar' => 'المحوّل غير مربوط.', 'provider' => 'none'],
+            ['id' => 'analytics_assistant', 'gate' => 'automation', 'status' => 'available', 'name_en' => 'AI Analytics Assistant', 'name_ar' => 'مساعد التحليلات بالذكاء الاصطناعي', 'description_en' => 'Store analytics Q&A.', 'description_ar' => 'أسئلة تحليلات المتجر.', 'provider' => 'openai'],
+        ];
+        $out = [];
+        foreach ($seed as $row) {
+            $g = $row['gate'] === 'images' ? $gImg : ($row['gate'] === 'automation' ? $gAuto : ($row['gate'] === 'text' ? $gTxt : null));
+            $out[] = [
+                'id' => $row['id'],
+                'name_en' => $row['name_en'],
+                'name_ar' => $row['name_ar'],
+                'description_en' => $row['description_en'],
+                'description_ar' => $row['description_ar'],
+                'status' => $row['status'],
+                'gate' => $row['gate'],
+                'provider' => $row['provider'],
+                'unlocked' => $g ? !empty($g['unlocked']) : false,
+                'pro_eligible' => $g ? !empty($g['pro_eligible']) : $proM,
+                'payment_status' => $g['payment_status'] ?? 'n/a',
+            ];
+        }
+        echo json_encode(['data' => $out, 'store_id' => $storeId, 'count' => count($out)], JSON_UNESCAPED_UNICODE);
+        return true;
+    }
+
     if ($uri === '/ai-media/generate' && $method === 'POST') {
         if ($storeId === '') {
             http_response_code(422);
             echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        if (!function_exists('souq_openai_ensure_tables')) {
+            require_once __DIR__ . '/openai_management.php';
+        }
+        souq_openai_ensure_tables($pdo);
+        $metaImg = souq_openai_store_plan($pdo, $storeId);
+        $imgCfg = souq_openai_image_cfg($pdo, $storeId);
+        if (empty($metaImg['pro_eligible'])) {
+            http_response_code(402);
+            echo json_encode([
+                'message' => 'Pro plan required for AI Tools. Master Admin controls Pro and payment unlock.',
+                'code' => 'pro_required',
+                'payment_required' => true,
+                'module' => 'images',
+            ], JSON_UNESCAPED_UNICODE);
+            return true;
+        }
+        if (!souq_openai_usage_unlocked($imgCfg)) {
+            http_response_code(402);
+            echo json_encode([
+                'message' => 'Payment required before using this AI module. Master unlocks after payment.',
+                'code' => 'payment_required',
+                'payment_required' => true,
+                'module' => 'images',
+            ], JSON_UNESCAPED_UNICODE);
             return true;
         }
         $kind = (($input['kind'] ?? 'image') === 'video') ? 'video' : 'image';
@@ -2971,6 +4447,155 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
             'store_id' => $storeId,
         ], JSON_UNESCAPED_UNICODE);
         http_response_code(201);
+        return true;
+    }
+
+    // Media folders (custom folders per store_id) — Hostinger shim (Laravel route parity)
+    if ($uri === '/media-folders') {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        try {
+            $pdo->exec(
+                "CREATE TABLE IF NOT EXISTS media_folders (
+                    id VARCHAR(64) PRIMARY KEY,
+                    store_id VARCHAR(64) NOT NULL,
+                    name VARCHAR(191) NOT NULL,
+                    slug VARCHAR(64) NOT NULL,
+                    parent_id VARCHAR(64) NULL,
+                    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY media_folders_store_slug (store_id, slug),
+                    KEY media_folders_store_parent (store_id, parent_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+            );
+        } catch (Throwable $e) {
+            // SQLite / already exists / engine mismatch — continue; SELECT will 500 with clear message
+        }
+
+        if ($method === 'GET') {
+            try {
+                $st = $pdo->prepare(
+                    'SELECT id, store_id, name, slug, parent_id, created_at
+                     FROM media_folders WHERE store_id = ? ORDER BY name ASC'
+                );
+                $st->execute([$storeId]);
+                $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+                echo json_encode(['data' => $rows, 'store_id' => $storeId], JSON_UNESCAPED_UNICODE);
+            } catch (Throwable $e) {
+                // Table missing on SQLite flowers host — empty is OK (system folders still work client-side)
+                echo json_encode(['data' => [], 'store_id' => $storeId]);
+            }
+            return true;
+        }
+
+        if ($method === 'POST') {
+            $name = trim((string) ($input['name'] ?? ''));
+            if ($name === '') {
+                http_response_code(422);
+                echo json_encode(['message' => 'name is required.']);
+                return true;
+            }
+            $slugRaw = trim((string) ($input['slug'] ?? $name));
+            $slug = strtolower(preg_replace('/[^a-zA-Z0-9\x{0600}-\x{06FF}]+/u', '-', $slugRaw) ?: 'folder');
+            $slug = trim($slug, '-') ?: 'folder';
+            $parentId = isset($input['parent_id']) && $input['parent_id'] !== '' ? (string) $input['parent_id'] : null;
+            $id = 'mfld-' . substr(md5(uniqid($storeId, true)), 0, 12);
+            $now = date('c');
+            try {
+                // unique slug per store
+                $check = $pdo->prepare('SELECT id FROM media_folders WHERE store_id = ? AND slug = ? LIMIT 1');
+                $base = $slug;
+                $n = 1;
+                while (true) {
+                    $check->execute([$storeId, $slug]);
+                    if (!$check->fetch()) break;
+                    $n++;
+                    $slug = $base . '-' . $n;
+                    if ($n > 50) break;
+                }
+                $pdo->prepare(
+                    'INSERT INTO media_folders (id, store_id, name, slug, parent_id, created_at) VALUES (?,?,?,?,?,?)'
+                )->execute([$id, $storeId, $name, $slug, $parentId, $now]);
+                http_response_code(201);
+                echo json_encode([
+                    'data' => [
+                        'id' => $id,
+                        'store_id' => $storeId,
+                        'name' => $name,
+                        'slug' => $slug,
+                        'parent_id' => $parentId,
+                        'created_at' => $now,
+                    ],
+                ], JSON_UNESCAPED_UNICODE);
+            } catch (Throwable $e) {
+                http_response_code(500);
+                echo json_encode(['message' => 'media_folders_create_failed', 'error' => $e->getMessage()]);
+            }
+            return true;
+        }
+    }
+
+    if (preg_match('#^/media-folders/([^/]+)$#', $uri, $mf) && in_array($method, ['PATCH', 'PUT', 'DELETE'], true)) {
+        if ($storeId === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.']);
+            return true;
+        }
+        $folderId = (string) $mf[1];
+        try {
+            $st = $pdo->prepare('SELECT * FROM media_folders WHERE id = ? AND store_id = ? LIMIT 1');
+            $st->execute([$folderId, $storeId]);
+            $folder = $st->fetch(PDO::FETCH_ASSOC);
+            if (!$folder) {
+                http_response_code(404);
+                echo json_encode(['message' => 'Folder not found']);
+                return true;
+            }
+            if ($method === 'DELETE') {
+                $move = !isset($_GET['move_assets']) || filter_var($_GET['move_assets'], FILTER_VALIDATE_BOOLEAN);
+                if ($move) {
+                    try {
+                        $pdo->prepare('UPDATE media SET folder = ? WHERE store_id = ? AND folder = ?')
+                            ->execute(['general', $storeId, $folder['slug']]);
+                    } catch (Throwable $e) {
+                        /* media update optional */
+                    }
+                }
+                $pdo->prepare('DELETE FROM media_folders WHERE id = ? AND store_id = ?')->execute([$folderId, $storeId]);
+                echo json_encode(['success' => true]);
+                return true;
+            }
+            $name = isset($input['name']) ? trim((string) $input['name']) : (string) $folder['name'];
+            $slug = isset($input['slug']) ? trim((string) $input['slug']) : (string) $folder['slug'];
+            $parentId = array_key_exists('parent_id', $input)
+                ? ($input['parent_id'] !== null && $input['parent_id'] !== '' ? (string) $input['parent_id'] : null)
+                : ($folder['parent_id'] ?? null);
+            if ($slug !== (string) $folder['slug']) {
+                try {
+                    $pdo->prepare('UPDATE media SET folder = ? WHERE store_id = ? AND folder = ?')
+                        ->execute([$slug, $storeId, $folder['slug']]);
+                } catch (Throwable $e) {
+                    /* optional */
+                }
+            }
+            $pdo->prepare('UPDATE media_folders SET name = ?, slug = ?, parent_id = ? WHERE id = ? AND store_id = ?')
+                ->execute([$name, $slug, $parentId, $folderId, $storeId]);
+            echo json_encode([
+                'data' => [
+                    'id' => $folderId,
+                    'store_id' => $storeId,
+                    'name' => $name,
+                    'slug' => $slug,
+                    'parent_id' => $parentId,
+                    'created_at' => $folder['created_at'] ?? null,
+                ],
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['message' => 'media_folders_mutate_failed', 'error' => $e->getMessage()]);
+        }
         return true;
     }
 
@@ -3961,6 +5586,71 @@ function souq_gateway_bank_wallet_activity_dispatch(PDO $pdo, string $uri, strin
             echo json_encode(['message' => 'Customer activities request failed.', 'error' => $e->getMessage(), 'data' => []]);
             return true;
         }
+    }
+
+    // Public storefront tracking alias (Laravel route parity) — never 404 in console.
+    if ($uri === '/storefront/customer-activities' && in_array($method, ['POST', 'PUT'], true)) {
+        $sid = trim((string) ($storeId !== '' ? $storeId : ($input['store_id'] ?? $_GET['store_id'] ?? '')));
+        if ($sid === '') {
+            http_response_code(422);
+            echo json_encode(['message' => 'store_id is required.', 'data' => null]);
+
+            return true;
+        }
+        try {
+            if (!souq_gateway_table_exists($pdo, 'customer_activities')) {
+                http_response_code(201);
+                echo json_encode(['success' => true, 'data' => null, 'store_id' => $sid, 'skipped' => true]);
+
+                return true;
+            }
+            $activityType = (string) ($input['activity_type'] ?? $input['type'] ?? 'page_view');
+            $id = 'ca-'.bin2hex(random_bytes(6));
+            $now = date('Y-m-d H:i:s');
+            $meta = isset($input['meta']) && is_array($input['meta']) ? json_encode($input['meta'], JSON_UNESCAPED_UNICODE) : null;
+            $cols = ['id', 'store_id', 'activity_type', 'occurred_at', 'created_at', 'updated_at'];
+            $vals = [$id, $sid, $activityType, $now, $now, $now];
+            foreach ([
+                'customer_id' => (string) ($input['customer_id'] ?? ''),
+                'customer_name' => (string) ($input['customer_name'] ?? ''),
+                'product_id' => (string) ($input['product_id'] ?? ''),
+                'product_name' => (string) ($input['product_name'] ?? ''),
+                'order_id' => (string) ($input['order_id'] ?? ''),
+            ] as $col => $val) {
+                if ($val === '' || !function_exists('souq_table_has_column') || !souq_table_has_column($pdo, 'customer_activities', $col)) {
+                    continue;
+                }
+                $cols[] = $col;
+                $vals[] = $val;
+            }
+            if ($meta !== null && function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'customer_activities', 'meta')) {
+                $cols[] = 'meta';
+                $vals[] = $meta;
+            }
+            $ph = implode(',', array_fill(0, count($cols), '?'));
+            $pdo->prepare('INSERT INTO customer_activities (`'.implode('`,`', $cols)."`) VALUES ($ph)")->execute($vals);
+            http_response_code(201);
+            echo json_encode(['success' => true, 'data' => ['id' => $id], 'store_id' => $sid]);
+
+            return true;
+        } catch (Throwable $e) {
+            http_response_code(201);
+            echo json_encode(['success' => true, 'data' => null, 'store_id' => $sid, 'skipped' => true]);
+
+            return true;
+        }
+    }
+
+    if ($uri === '/storefront/customer-activities' && $method === 'GET') {
+        http_response_code(200);
+        echo json_encode(['data' => [], 'meta' => ['total' => 0, 'page' => 1, 'per_page' => 40]]);
+
+        return true;
+    }
+
+    // ── Al-Saeedi / automotive appointments (store_id isolated · Hostinger gateway) ──
+    if (function_exists('souq_appointments_dispatch') && souq_appointments_dispatch($pdo, $uri, $method, $storeId, $input)) {
+        return true;
     }
 
     // GET /customer-activities — real rows when table exists (replaces empty stub noise)

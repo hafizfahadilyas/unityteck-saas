@@ -19,32 +19,32 @@ const CoreTwoCategoriesSectionComponent: React.FC<CoreTwoCategoriesSectionProps>
   activeCategoryId,
 }) => {
   return (
-    <section id="core-categories-section" className="space-y-5">
+    <section id="core-categories-section" className="space-y-5 alsaeedi-reveal">
       {/* Minimal Luxury Header */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-[#16032e] text-[#f6c344] shadow-sm">
+          <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-amber-50 to-white text-amber-700 shadow-sm border border-[#d5a027]/30 alsaeedi-anim-float">
             <Sparkles className="w-4 h-4" />
           </span>
           <div>
             <h3 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight">
-              {isAr ? 'ترقية المقصورة الملكية' : 'Luxury Cabin Upgrades'}
+              {isAr ? 'قسمان رئيسيان' : 'Two Main Categories'}
             </h3>
           </div>
         </div>
 
         <span className="text-[11px] font-bold text-[#b07e16] bg-amber-50/90 px-3 py-1 rounded-full border border-amber-200/80">
-          {isAr ? 'تفصيل ليزر 100%' : '100% Laser Fit'}
+          {isAr ? 'تلابيس · أرضيات' : 'Seats · Mats'}
         </span>
       </div>
 
       {/* 2 Modern Visual-First Luxury Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 alsaeedi-stagger">
 
         {/* CARD 1: VIP BESPOKE SEAT COVERS */}
         <div 
           onClick={() => onSelectCategory('cat-clothing')}
-          className={`group relative h-[320px] sm:h-[360px] overflow-hidden rounded-3xl cursor-pointer transition-all duration-500 shadow-md hover:shadow-2xl ${
+          className={`group relative h-[280px] sm:h-[320px] md:h-[360px] overflow-hidden rounded-3xl cursor-pointer alsaeedi-anim-lift shadow-md ${
             activeCategoryId === 'cat-clothing' 
               ? 'ring-4 ring-[#d5a027]' 
               : 'ring-1 ring-slate-900/10 hover:ring-[#d5a027]/60'
@@ -67,7 +67,7 @@ const CoreTwoCategoriesSectionComponent: React.FC<CoreTwoCategoriesSectionProps>
             <span className="bg-black/45 backdrop-blur-md text-amber-300 text-[11px] font-bold px-3 py-1 rounded-full border border-white/15">
               {isAr ? 'جلد نابا ألماني' : 'German Nappa'}
             </span>
-            <span className="bg-[#f6c344] text-[#16032e] text-[11px] font-black px-3 py-1 rounded-full shadow-lg flex items-center gap-1">
+            <span className="bg-[#f6c344] text-slate-900 text-[11px] font-black px-3 py-1 rounded-full shadow-lg flex items-center gap-1">
               <Award className="w-3.5 h-3.5" />
               <span>{isAr ? 'الأكثر مبيعاً' : 'Best Seller'}</span>
             </span>
@@ -100,7 +100,7 @@ const CoreTwoCategoriesSectionComponent: React.FC<CoreTwoCategoriesSectionProps>
                 <span className="text-xs font-bold text-white/80">{'⃁'}</span>
               </div>
 
-              <div className="px-4 py-2 bg-white text-[#16032e] group-hover:bg-[#f6c344] font-black text-xs rounded-xl flex items-center gap-1.5 shadow-lg transition-all duration-300">
+              <div className="px-4 py-2 bg-white text-slate-900 group-hover:bg-[#f6c344] font-black text-xs rounded-xl flex items-center gap-1.5 shadow-lg transition-all duration-300">
                 <span>{isAr ? 'تصفح الآن' : 'Shop Covers'}</span>
                 {isAr ? (
                   <ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
@@ -115,7 +115,7 @@ const CoreTwoCategoriesSectionComponent: React.FC<CoreTwoCategoriesSectionProps>
         {/* CARD 2: 5D LASER & DIAMOND ARMOR MATS */}
         <div 
           onClick={() => onSelectCategory('cat-floors')}
-          className={`group relative h-[320px] sm:h-[360px] overflow-hidden rounded-3xl cursor-pointer transition-all duration-500 shadow-md hover:shadow-2xl ${
+          className={`group relative h-[280px] sm:h-[320px] md:h-[360px] overflow-hidden rounded-3xl cursor-pointer alsaeedi-anim-lift shadow-md ${
             activeCategoryId === 'cat-floors' 
               ? 'ring-4 ring-[#d5a027]' 
               : 'ring-1 ring-slate-900/10 hover:ring-[#d5a027]/60'
@@ -171,7 +171,7 @@ const CoreTwoCategoriesSectionComponent: React.FC<CoreTwoCategoriesSectionProps>
                 <span className="text-xs font-bold text-white/80">{'⃁'}</span>
               </div>
 
-              <div className="px-4 py-2 bg-[#f6c344] text-[#16032e] group-hover:bg-white font-black text-xs rounded-xl flex items-center gap-1.5 shadow-lg transition-all duration-300">
+              <div className="px-4 py-2 bg-[#f6c344] text-slate-900 group-hover:bg-white font-black text-xs rounded-xl flex items-center gap-1.5 shadow-lg transition-all duration-300">
                 <span>{isAr ? 'تصفح الأرضيات' : 'Explore Mats'}</span>
                 {isAr ? (
                   <ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />

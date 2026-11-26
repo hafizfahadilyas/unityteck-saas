@@ -27,6 +27,7 @@ import {
   fetchStorefrontPaymentMethodsApi,
   initiateStorefrontPaymentApi,
   verifyStorefrontPaymentApi,
+  uploadStorefrontBankTransferProof,
   type StorefrontBankAccount,
 } from '../../../api/tenantApi';
 import type { StorefrontPaymentMethod, PaymentVerifyResponse } from '../../../types';
@@ -77,6 +78,8 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
   const [bankAccount, setBankAccount] = useState<StorefrontBankAccount | null>(null);
   const [methodsLoading, setMethodsLoading] = useState(true);
   const [methodsError, setMethodsError] = useState<string | null>(null);
+  const [proofBusy, setProofBusy] = useState(false);
+  const [proofMsg, setProofMsg] = useState<string | null>(null);
 
   // Apple Pay modal state
   const [showApplePayModal, setShowApplePayModal] = useState(false);
@@ -700,9 +703,58 @@ export const PaymentGatewaySelector: React.FC<PaymentGatewaySelectorProps> = ({
           )}
           <p className="text-[11px] text-sky-900 font-semibold border-t border-sky-200 pt-2">
             {isAr
-              ? 'تنبيه: لن يُعتبر الطلب مدفوعاً حتى يؤكد المتجر استلام التحويل — لا تغادر دون إرسال الإيصال.'
-              : 'Alert: Order is not paid until the store confirms your transfer — send the receipt.'}
+              ? 'تنبيه: لن يُعتبر الطلب مدفوعاً حتى يؤكد المتجر استلام التحويل — ارفع إثبات التحويل أدناه.'
+              : 'Alert: Order stays unpaid until the store approves your transfer — upload proof below.'}
           </p>
+          {orderId ? (
+            <div className="space-y-2 border-t border-sky-200 pt-3">
+              <label className="block text-[11px] font-bold text-sky-950">
+                {isAr ? 'رفع إثبات التحويل (صورة أو PDF)' : 'Upload transfer proof (image or PDF)'}
+              </label>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                disabled={proofBusy}
+                className="block w-full text-[11px] text-sky-950 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-sky-700 file:text-white file:font-bold"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file || !orderId) return;
+                  setProofBusy(true);
+                  setProofMsg(null);
+                  try {
+                    const res = await uploadStorefrontBankTransferProof({
+                      store_id: storeId,
+                      order_id: orderId,
+                      proof: file,
+                    });
+                    setProofMsg(
+                      res.message ||
+                        (isAr
+                          ? 'تم رفع الإثبات — بانتظار موافقة المتجر. الطلب ما زال قيد التحقق.'
+                          : 'Proof uploaded — awaiting store approval. Order remains pending.'),
+                    );
+                  } catch (err) {
+                    setProofMsg(
+                      err instanceof Error
+                        ? err.message
+                        : isAr
+                          ? 'تعذر رفع إثبات التحويل'
+                          : 'Failed to upload transfer proof',
+                    );
+                  } finally {
+                    setProofBusy(false);
+                    e.target.value = '';
+                  }
+                }}
+              />
+              {proofBusy ? (
+                <p className="text-[11px] font-bold text-sky-800">
+                  {isAr ? 'جارٍ الرفع…' : 'Uploading…'}
+                </p>
+              ) : null}
+              {proofMsg ? <p className="text-[11px] font-semibold text-sky-950">{proofMsg}</p> : null}
+            </div>
+          ) : null}
         </div>
       )}
 

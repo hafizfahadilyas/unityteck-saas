@@ -14,6 +14,12 @@ use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\MediaFolderController;
 use App\Http\Controllers\Api\AiMediaController;
+use App\Http\Controllers\Api\StoreAiStudioController;
+use App\Http\Controllers\Api\MasterGeminiController;
+use App\Http\Controllers\Api\StoreAiSuiteController;
+use App\Http\Controllers\Api\MasterOpenAiController;
+use App\Http\Controllers\Api\MasterAiDeveloperController;
+use App\Http\Controllers\Api\StoreAiDevRequestController;
 use App\Http\Controllers\Api\CategoryFieldController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PlanController;
@@ -34,9 +40,12 @@ use App\Http\Controllers\Api\CanvaConnectController;
 use App\Http\Controllers\Api\ShippingMethodController;
 use App\Http\Controllers\Api\CourierController;
 use App\Http\Controllers\Api\PaymentGatewayController;
+use App\Http\Controllers\Api\BankTransferProofController;
+use App\Http\Controllers\Api\IntegrationHealthController;
 use App\Http\Controllers\Api\WebhooksController;
 use App\Http\Controllers\Api\AnalyticsReportController;
 use App\Http\Controllers\Api\StoreThemeController;
+use App\Http\Controllers\Api\SouqMarketplaceController;
 use App\Http\Controllers\Api\ThemePageController;
 use App\Http\Controllers\Api\StoreSettingsController;
 use App\Http\Controllers\Api\StoreReviewsController;
@@ -54,6 +63,7 @@ use App\Http\Controllers\Api\CartInterceptController;
 use App\Http\Controllers\Api\GiftingController;
 use App\Http\Controllers\Api\StorefrontAnalyticsController;
 use App\Http\Controllers\Api\StorefrontSeoBootstrapController;
+use App\Http\Controllers\Api\StoreAppointmentController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', [HealthController::class, 'show']);
@@ -167,6 +177,8 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     Route::middleware('role.can:orders.read')->get('/orders-cod-summary', [OrderController::class, 'codSummary']);
     Route::middleware('role.can:orders.read')->get('/orders-returns', [OrderController::class, 'returnsIndex']);
     Route::middleware('role.can:orders.read')->get('/orders/{id}', [OrderController::class, 'show']);
+    Route::middleware('role.can:orders.read')->get('/appointments', [StoreAppointmentController::class, 'index']);
+    Route::middleware('role.can:orders.write')->patch('/appointments/{appointmentId}', [StoreAppointmentController::class, 'update']);
     Route::middleware([
         'role.can:orders.write',
         'plan.feature:orders',
@@ -272,6 +284,25 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     Route::post('/ai-media/enhance-prompt', [AiMediaController::class, 'enhancePrompt'])->middleware('throttle:30,1');
     Route::post('/ai-media/generate', [AiMediaController::class, 'generate'])->middleware('throttle:20,1');
 
+    // Merchant AI Image Studio (Google Gemini, store isolated)
+    Route::get('/ai-studio/quota', [StoreAiStudioController::class, 'quota']);
+    Route::post('/ai-studio/generate', [StoreAiStudioController::class, 'generate'])->middleware('throttle:20,1');
+    Route::get('/ai-studio/history', [StoreAiStudioController::class, 'history']);
+    Route::post('/ai-studio/save-to-media', [StoreAiStudioController::class, 'saveToMedia'])->middleware('throttle:30,1');
+
+    // Store AI Tools suite (Images + Text + Automation + engine modules) — payment gated; Master unlocks
+    Route::get('/ai-suite/status', [StoreAiSuiteController::class, 'status']);
+    Route::get('/ai-suite/modules', [StoreAiSuiteController::class, 'modules']);
+    Route::post('/ai-suite/text', [StoreAiSuiteController::class, 'completeText'])->middleware('throttle:30,1');
+    Route::post('/ai-suite/automation/ask', [StoreAiSuiteController::class, 'askAutomation'])->middleware('throttle:20,1');
+    Route::post('/ai-suite/run', [StoreAiSuiteController::class, 'run'])->middleware('throttle:30,1');
+    Route::post('/ai-suite/payment/submit', [StoreAiSuiteController::class, 'submitPayment'])->middleware('throttle:10,1');
+    Route::get('/ai-suite/payments', [StoreAiSuiteController::class, 'payments']);
+
+    // Phase 3 — merchant opens diagnostics support request only (no source edit / no deploy)
+    Route::get('/ai-suite/dev-requests', [StoreAiDevRequestController::class, 'index']);
+    Route::post('/ai-suite/dev-requests', [StoreAiDevRequestController::class, 'store'])->middleware('throttle:20,1');
+
     Route::get('/media-folders', [MediaFolderController::class, 'index']);
     Route::post('/media-folders', [MediaFolderController::class, 'store']);
     Route::patch('/media-folders/{id}', [MediaFolderController::class, 'update']);
@@ -331,6 +362,9 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     Route::post('/payments/verify', [PaymentGatewayController::class, 'verify']);
     Route::post('/payments/refund/{id}', [PaymentGatewayController::class, 'refund']);
     Route::get('/payments/transactions', [PaymentGatewayController::class, 'transactions']);
+    Route::get('/payments/bank-transfer-proofs', [BankTransferProofController::class, 'index']);
+    Route::post('/payments/bank-transfer-proofs/{id}/approve', [BankTransferProofController::class, 'approve']);
+    Route::post('/payments/bank-transfer-proofs/{id}/reject', [BankTransferProofController::class, 'reject']);
 
     // Home dashboard (visits / weekday chart) — all plans
     Route::get('/analytics/dashboard-home', [AnalyticsReportController::class, 'dashboardHome']);
@@ -362,6 +396,8 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
 
     // Theme & Page Builder Persistence (Phase 2.2)
     Route::get('/themes-catalog', [StoreThemeController::class, 'catalog']);
+    Route::post('/themes/{themeId}/purchase', [SouqMarketplaceController::class, 'purchaseTheme']);
+    Route::get('/marketplace/addons', [SouqMarketplaceController::class, 'storeAddOns']);
     Route::get('/theme-settings', [StoreThemeController::class, 'show']);
     Route::put('/theme-settings', [StoreThemeController::class, 'update']);
     Route::patch('/theme-settings', [StoreThemeController::class, 'update']);
@@ -560,6 +596,12 @@ Route::middleware('store.id')->group(function () {
 
 // Public Dynamic Domain & Subdomain Resolution for Storefront (Phase 6.1)
 Route::get('/storefront/resolve-domain', [DomainController::class, 'resolveDomain']);
+
+// CT-6 / CT-7 — public Souq marketplace (pricing parity with dashboard)
+Route::get('/storefront/marketplace/plans', [SouqMarketplaceController::class, 'publicPlans']);
+Route::get('/storefront/marketplace/themes', [SouqMarketplaceController::class, 'publicThemes']);
+Route::get('/storefront/marketplace/addons', [SouqMarketplaceController::class, 'publicAddOns']);
+Route::get('/storefront/marketplace/bundle', [SouqMarketplaceController::class, 'publicBundle']);
 Route::get('/resolve-domain', [DomainController::class, 'resolveDomain']);
 
 // Public Theme & Page Builder Layout for Storefront
@@ -594,6 +636,13 @@ Route::post('/storefront/shipping/calculate', [ShippingController::class, 'calcu
 Route::post('/storefront/orders', [OrderController::class, 'storefrontStore']);
 Route::post('/storefront/orders/track', [OrderController::class, 'storefrontTrack']);
 Route::post('/storefront/orders/mine', [OrderController::class, 'storefrontMine']);
+
+// Al-Saeedi / automotive appointments (store_id isolated)
+Route::middleware('store.id')->group(function () {
+    Route::get('/storefront/appointments/services', [StoreAppointmentController::class, 'storefrontServices']);
+    Route::get('/storefront/appointments/slots', [StoreAppointmentController::class, 'storefrontSlots']);
+    Route::post('/storefront/appointments', [StoreAppointmentController::class, 'storefrontStore'])->middleware('throttle:20,1');
+});
 Route::post('/storefront/notifications/mine', [NotificationSettingsController::class, 'storefrontCustomerDeliveries']);
 Route::post('/storefront/coupons/validate', [CouponController::class, 'storefrontValidate']);
 
@@ -602,10 +651,22 @@ Route::get('/storefront/payments/methods', [PaymentGatewayController::class, 'st
 Route::get('/storefront/payments/bank-account', [PaymentGatewayController::class, 'storefrontBankAccount']);
 Route::post('/storefront/payments/initiate', [PaymentGatewayController::class, 'storefrontInitiate']);
 Route::post('/storefront/payments/verify', [PaymentGatewayController::class, 'storefrontVerify']);
+Route::post('/storefront/payments/bank-transfer-proofs', [BankTransferProofController::class, 'storefrontUpload'])->middleware('throttle:20,1');
 
 // Master Admin: Multi-Store Google Integration Ledger
 Route::middleware(['auth:sanctum', 'role.can:stores.read'])->group(function () {
     Route::get('/master/google/integrations', [GoogleIntegrationController::class, 'masterStoreIntegrations']);
+});
+
+// Master Admin: Integration Health Center (payments + shipping)
+Route::middleware(['auth:sanctum', 'role.can:stores.read'])->group(function () {
+    Route::get('/master/integrations/health', [IntegrationHealthController::class, 'index']);
+    Route::get('/master/integrations/health/logs', [IntegrationHealthController::class, 'logs']);
+    Route::get('/master/integrations/health/{storeId}', [IntegrationHealthController::class, 'show']);
+});
+Route::middleware(['auth:sanctum', 'role.can:stores.write'])->group(function () {
+    Route::post('/master/integrations/health/test', [IntegrationHealthController::class, 'test'])->middleware('throttle:30,1');
+    Route::post('/master/integrations/health/audit', [IntegrationHealthController::class, 'audit'])->middleware('throttle:10,1');
 });
 
 // Master Admin: Official Canva Connect (testing — separate from Design Studio)
@@ -625,6 +686,61 @@ Route::middleware(['auth:sanctum', 'role.can:stores.read'])->group(function () {
 });
 Route::middleware(['auth:sanctum', 'role.can:stores.write'])->group(function () {
     Route::put('/master/whatsapp/quotas/{storeId}', [WhatsAppController::class, 'updateStoreQuota']);
+});
+
+// Master Admin: Phase 3 AI Developer diagnostics (read-only; auto-deploy always forbidden)
+Route::middleware(['auth:sanctum', 'role.can:stores.read'])->group(function () {
+    Route::get('/master/ai-developer/requests', [MasterAiDeveloperController::class, 'index']);
+    Route::get('/master/ai-developer/requests/{id}', [MasterAiDeveloperController::class, 'show']);
+});
+Route::middleware(['auth:sanctum', 'role.can:stores.write'])->group(function () {
+    Route::post('/master/ai-developer/diagnose', [MasterAiDeveloperController::class, 'diagnose'])->middleware('throttle:20,1');
+    Route::post('/master/ai-developer/requests/{id}/close', [MasterAiDeveloperController::class, 'close'])->middleware('throttle:30,1');
+    Route::post('/master/ai-developer/deploy', [MasterAiDeveloperController::class, 'deployDenied']);
+});
+
+// Master Admin: OpenAI AI Management (isolated from Gemini /ai-media)
+Route::middleware(['auth:sanctum', 'role.can:stores.read'])->group(function () {
+    Route::get('/master/openai/overview', [MasterOpenAiController::class, 'overview']);
+    Route::get('/master/openai/stores', [MasterOpenAiController::class, 'stores']);
+    Route::get('/master/openai/stores/{storeId}', [MasterOpenAiController::class, 'showStore']);
+    Route::get('/master/openai/stores/{storeId}/image', [MasterOpenAiController::class, 'imageShow']);
+    Route::get('/master/openai/stores/{storeId}/automation', [MasterOpenAiController::class, 'automationShow']);
+});
+Route::middleware(['auth:sanctum', 'role.can:stores.write'])->group(function () {
+    Route::put('/master/openai/global', [MasterOpenAiController::class, 'updateGlobal'])->middleware('throttle:30,1');
+    Route::put('/master/openai/pricing', [MasterOpenAiController::class, 'updatePricing'])->middleware('throttle:20,1');
+    Route::put('/master/openai/stores/{storeId}', [MasterOpenAiController::class, 'updateStore'])->middleware('throttle:40,1');
+    Route::post('/master/openai/stores/{storeId}/reset', [MasterOpenAiController::class, 'resetStore'])->middleware('throttle:20,1');
+    Route::post('/master/openai/stores/{storeId}/unlock-payment', [MasterOpenAiController::class, 'unlockPayment'])->middleware('throttle:20,1');
+    Route::post('/master/openai/unlock-suite', [MasterOpenAiController::class, 'unlockSuite'])->middleware('throttle:10,1');
+    Route::post('/master/openai/stores/{storeId}/complete', [MasterOpenAiController::class, 'complete'])->middleware('throttle:20,1');
+    Route::put('/master/openai/stores/{storeId}/image', [MasterOpenAiController::class, 'imageUpdate'])->middleware('throttle:40,1');
+    Route::post('/master/openai/stores/{storeId}/image/unlock-payment', [MasterOpenAiController::class, 'imageUnlock'])->middleware('throttle:20,1');
+    Route::post('/master/openai/stores/{storeId}/image/generate', [MasterOpenAiController::class, 'imageGenerate'])->middleware('throttle:15,1');
+    Route::put('/master/openai/stores/{storeId}/automation', [MasterOpenAiController::class, 'automationUpdate'])->middleware('throttle:40,1');
+    Route::post('/master/openai/stores/{storeId}/automation/unlock-payment', [MasterOpenAiController::class, 'automationUnlock'])->middleware('throttle:20,1');
+    Route::post('/master/openai/stores/{storeId}/automation/ask', [MasterOpenAiController::class, 'automationAsk'])->middleware('throttle:20,1');
+});
+
+// Master Admin: Google Gemini AI Settings & Multi-Provider AI Suite
+Route::middleware(['auth:sanctum', 'role.can:stores.read'])->group(function () {
+    Route::get('/master/gemini/settings', [MasterGeminiController::class, 'settings']);
+    Route::get('/master/gemini/models', [MasterGeminiController::class, 'models']);
+    Route::get('/master/gemini/merchant-limits', [MasterGeminiController::class, 'merchantLimits']);
+    Route::get('/master/gemini/pricing', [MasterGeminiController::class, 'pricing']);
+    Route::get('/master/gemini/analytics', [MasterGeminiController::class, 'analytics']);
+    Route::get('/master/gemini/logs', [MasterGeminiController::class, 'logs']);
+    Route::get('/master/gemini/history', [MasterGeminiController::class, 'history']);
+});
+Route::middleware(['auth:sanctum', 'role.can:stores.write'])->group(function () {
+    Route::post('/master/gemini/settings', [MasterGeminiController::class, 'updateSettings'])->middleware('throttle:30,1');
+    Route::post('/master/gemini/test-connection', [MasterGeminiController::class, 'testConnection'])->middleware('throttle:20,1');
+    Route::post('/master/gemini/api-key', [MasterGeminiController::class, 'updateApiKey'])->middleware('throttle:10,1');
+    Route::post('/master/gemini/models/refresh', [MasterGeminiController::class, 'refreshModels'])->middleware('throttle:15,1');
+    Route::put('/master/gemini/models/{id}', [MasterGeminiController::class, 'updateModel'])->middleware('throttle:30,1');
+    Route::post('/master/gemini/merchant-limits', [MasterGeminiController::class, 'updateMerchantLimits'])->middleware('throttle:30,1');
+    Route::post('/master/gemini/merchant-credits/adjust', [MasterGeminiController::class, 'adjustMerchantCredits'])->middleware('throttle:20,1');
 });
 
 // Storefront cart intercept (public read/track only)

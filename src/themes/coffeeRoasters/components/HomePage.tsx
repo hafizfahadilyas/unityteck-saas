@@ -47,8 +47,9 @@ export const HomePage: React.FC = () => {
 
 
   const heroMode = themeSettings?.heroBanners?.contentMode || 'full';
+  // `both` = image-only full-bleed strip only — never stack the legacy text+coffee-machine hero.
   const showImageOnlyHero = heroMode === 'image_only' || heroMode === 'both';
-  const showFullHero = heroMode === 'full' || heroMode === 'both';
+  const showFullHero = heroMode === 'full';
 
   return (
     <div className="min-h-screen bg-white text-neutral-900 pb-20 selection:bg-neutral-900 selection:text-white w-full max-w-full overflow-x-clip">
@@ -58,6 +59,10 @@ export const HomePage: React.FC = () => {
       ) : null}
       {showFullHero ? (
         <HeroSlider3D variant="home" forceContentMode="full" bannersKey="banners" />
+      ) : null}
+
+      {showImageOnlyHero ? (
+        <div className="w-full max-w-full bg-gradient-to-b from-[#0c0c0c] via-[#1a1a1c] to-[#cfcfd3] h-3 sm:h-4" aria-hidden />
       ) : null}
 
       {/* Commercial Hero (C-COMM) — ≠ Hero Banners / FSB; empty slides hide */}
@@ -75,7 +80,7 @@ export const HomePage: React.FC = () => {
         }}
       />
 
-      {/* Product Slider (C-PSL) — ≠ Product Carousel; empty hides */}
+      {/* Product Slider (C-PSL) — PNG product shots below hero; empty hides */}
       <CoffeeProductSliderSection
         settings={themeSettings?.productSlider}
         catalog={products || []}

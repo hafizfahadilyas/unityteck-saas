@@ -33,22 +33,22 @@ class MoyasarGatewayService implements PaymentGatewayInterface
                     'success' => true,
                     'message' => 'Moyasar Saudi Payment Gateway connected successfully.',
                     'details' => ['environment' => $gateway->is_sandbox ? 'Sandbox / Test' : 'Production'],
+                    'health_status' => $gateway->is_sandbox ? 'sandbox_verified' : 'connected',
                 ];
             }
-        } catch (\Throwable $e) {}
 
-        if (str_starts_with($key, 'sk_test_') || str_starts_with($key, 'sk_live_')) {
             return [
-                'success' => true,
-                'message' => 'Moyasar Secret Key authenticated.',
-                'details' => ['environment' => $gateway->is_sandbox ? 'Sandbox / Test' : 'Production'],
+                'success' => false,
+                'message' => 'Moyasar API rejected credentials (HTTP '.$resp->status().').',
+                'health_status' => 'authentication_failed',
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'Moyasar connection failed: '.$e->getMessage(),
+                'health_status' => 'connection_failed',
             ];
         }
-
-        return [
-            'success' => false,
-            'message' => 'Moyasar authorization failed. Please check secret key format.',
-        ];
     }
 
     public function createPaymentSession(PaymentGateway $gateway, Order $order, array $params = []): array
@@ -105,40 +105,105 @@ class MoyasarGatewayService implements PaymentGatewayInterface
                         'raw' => $p,
                     ];
                 }
-            } catch (\Throwable $e) {}
+            } catch (\Throwable $e) {
+                return [
+                    'success' => false,
+                    'status' => 'pending',
+                    'gateway_transaction_id' => $gatewayId,
+                    'amount' => (float) ($payload['amount'] ?? 0),
+                    'fee' => 0,
+                    'message' => 'Moyasar verify request failed: '.$e->getMessage(),
+                    'raw' => ['error' => $e->getMessage()],
+                ];
+            }
         }
 
-        // Server-side verification fallback for verified mock sessions
+        // Never invent Paid without Moyasar API evidence
         return [
-            'success' => true,
-            'status' => 'paid',
+            'success' => false,
+            'status' => 'pending',
             'gateway_transaction_id' => $gatewayId,
             'amount' => (float) ($payload['amount'] ?? 0),
-            'fee' => round(((float) ($payload['amount'] ?? 0)) * 0.015 + 1.0, 2),
-            'source_type' => $payload['method'] ?? 'mada',
-            'card_brand' => 'Mada (مدى)',
-            'card_last_four' => '5812',
-            'raw' => ['verified' => true, 'provider' => 'moyasar'],
+            'fee' => 0,
+            'message' => 'Moyasar verification requires a live API response. Payment left pending.',
+            'raw' => ['awaiting_gateway_evidence' => true, 'provider' => 'moyasar'],
         ];
     }
 
     public function refund(PaymentGateway $gateway, PaymentTransaction $transaction, float $amount, string $reason = ''): array
     {
-        return [
-            'success' => true,
-            'refund_id' => 'REF-' . rand(100000, 999999),
-            'amount' => $amount,
-            'status' => 'refunded',
-            'message' => 'Refund processed successfully through Moyasar.',
-        ];
+        $key = $gateway->secret_key ?? $gateway->api_key;
+        $paymentId = $transaction->gateway_transaction_id ?: $transaction->transaction_reference;
+        if (empty($key) || empty($paymentId)) {
+            return [
+                'success' => false,
+                'amount' => $amount,
+                'status' => 'failed',
+                'message' => 'Moyasar refund requires secret key and gateway payment id.',
+            ];
+        }
+
+        try {
+            $resp = Http::withBasicAuth($key, '')
+                ->timeout(10)
+                ->post("{$this->baseUrl}/payments/{$paymentId}/refund", [
+                    'amount' => (int) round($amount * 100),
+                ]);
+
+            if ($resp->successful()) {
+                $body = $resp->json();
+
+                return [
+                    'success' => true,
+                    'refund_id' => $body['id'] ?? ('moy_ref_'.$paymentId),
+                    'amount' => $amount,
+                    'status' => 'refunded',
+                    'message' => 'Refund processed through Moyasar.',
+                    'raw' => $body,
+                ];
+            }
+
+            return [
+                'success' => false,
+                'amount' => $amount,
+                'status' => 'failed',
+                'message' => 'Moyasar refund rejected (HTTP '.$resp->status().').',
+                'raw' => $resp->json(),
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'amount' => $amount,
+                'status' => 'failed',
+                'message' => 'Moyasar refund failed: '.$e->getMessage(),
+            ];
+        }
     }
 
     public function handleWebhook(PaymentGateway $gateway, Request $request): array
     {
         $payload = $request->all();
-        $secret = $gateway->webhook_secret;
+        $secret = trim((string) ($gateway->webhook_secret ?? ''));
 
-        // Signature validation if secret configured
+        if ($secret !== '') {
+            $signature = (string) ($request->header('X-Moyasar-Signature')
+                ?? $request->header('X-Webhook-Signature')
+                ?? '');
+            $computed = hash_hmac('sha256', $request->getContent() ?: json_encode($payload), $secret);
+            if ($signature === '' || !hash_equals($computed, $signature)) {
+                // Also accept raw hex compare against secret as Moyasar-style simple token when header is the secret itself
+                if ($signature === '' || !hash_equals($secret, $signature)) {
+                    return [
+                        'success' => false,
+                        'event' => 'signature_invalid',
+                        'status' => 'pending',
+                        'message' => 'Moyasar webhook signature verification failed.',
+                        'signature_ok' => false,
+                    ];
+                }
+            }
+        }
+
         $event = $payload['type'] ?? 'payment.created';
         $paymentData = $payload['data'] ?? [];
 
@@ -157,6 +222,7 @@ class MoyasarGatewayService implements PaymentGatewayInterface
             'amount' => isset($paymentData['amount']) ? $paymentData['amount'] / 100 : 0,
             'fee' => isset($paymentData['fee']) ? $paymentData['fee'] / 100 : 0,
             'reference' => $paymentData['description'] ?? null,
+            'signature_ok' => $secret !== '',
         ];
     }
 }

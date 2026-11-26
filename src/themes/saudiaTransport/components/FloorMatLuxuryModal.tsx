@@ -377,7 +377,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
           dir={isAr ? 'rtl' : 'ltr'}
         >
           {/* Top Luxury Header Bar */}
-          <div className="px-5 py-3.5 bg-gradient-to-r from-[#1c0537] via-[#25074d] to-[#3e0f77] text-white flex items-center justify-between border-b border-[#d5a027]/30 shrink-0">
+          <div className="px-5 py-3.5 bg-gradient-to-r from-slate-100 via-slate-100 to-slate-800 text-white flex items-center justify-between border-b border-[#d5a027]/30 shrink-0">
             {/* Breadcrumb & Store Verification */}
             <div className="flex items-center gap-2 text-xs truncate">
               <span className="text-[#f6c344] font-bold hidden sm:inline">
@@ -422,12 +422,12 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                   <img 
                     src={product.image} 
                     alt={product.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                    className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" 
                   />
 
                   {/* Badges on Image */}
                   <div className="absolute top-3 right-3 flex flex-col gap-1.5 z-10">
-                    <span className="bg-[#3e0f77]/95 text-[#f6c344] text-[11px] font-black px-2.5 py-1 rounded-full shadow-lg border border-[#f6c344]/30 backdrop-blur-xs flex items-center gap-1">
+                    <span className="bg-slate-800/95 text-[#f6c344] text-[11px] font-black px-2.5 py-1 rounded-full shadow-lg border border-[#f6c344]/30 backdrop-blur-xs flex items-center gap-1">
                       <Sparkles className="w-3 h-3 text-[#f6c344]" />
                       <span>{isAr ? 'أصلي 100%' : '100% Original'}</span>
                     </span>
@@ -439,7 +439,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                   {/* Zoom Action Overlay */}
                   <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-4">
                     <span className="bg-white/95 text-slate-900 px-3.5 py-2 rounded-full text-xs font-black flex items-center gap-2 shadow-xl hover:bg-white transition-all">
-                      <Maximize2 className="w-4 h-4 text-[#3e0f77]" />
+                      <Maximize2 className="w-4 h-4 text-slate-800" />
                       <span>{isAr ? 'اضغط علي الصورة لتكبيرها' : 'Click to zoom'}</span>
                     </span>
                   </div>
@@ -455,40 +455,40 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                 </div>
 
                 {/* 5 Anatomical Layers Breakdown Box (طبقات أرضية الدايموند) */}
-                <div className="bg-gradient-to-br from-purple-50/80 via-white to-amber-50/50 p-4 rounded-2xl border border-[#d5a027]/35 shadow-sm space-y-2.5 text-xs">
+                <div className="bg-gradient-to-br from-slate-50 via-white to-amber-50/50 p-4 rounded-2xl border border-[#d5a027]/35 shadow-sm space-y-2.5 text-xs">
                   <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
-                    <span className="font-black text-[#3e0f77] flex items-center gap-1.5">
+                    <span className="font-black text-slate-800 flex items-center gap-1.5">
                       <Layers className="w-4 h-4 text-[#d5a027]" />
                       <span>{isAr ? 'تشريح طبقات أرضيات الدايموند (5 طبقات):' : '5D Diamond Anatomical Layers (5 Layers):'}</span>
                     </span>
-                    <span className="bg-[#3e0f77] text-[#f6c344] font-black text-[10px] px-2 py-0.5 rounded-full">
+                    <span className="bg-slate-800 text-[#f6c344] font-black text-[10px] px-2 py-0.5 rounded-full">
                       12 mm
                     </span>
                   </div>
 
                   <ol className="space-y-1.5 text-[11px] text-slate-700">
                     <li className="flex items-center gap-2">
-                      <span className="w-4 h-4 rounded-full bg-[#3e0f77] text-white flex items-center justify-center text-[9px] font-bold shrink-0">1</span>
+                      <span className="w-4 h-4 rounded-full bg-slate-800 text-white flex items-center justify-center text-[9px] font-bold shrink-0">1</span>
                       <span className="font-semibold text-slate-900">{isAr ? 'الجلد الخارجي:' : 'Outer Leather:'}</span>
                       <span className="text-slate-600">{isAr ? 'جلد صناعي صديق للبيئة مقاوم للخدش والحرارة' : 'Eco-friendly scratch-proof synthetic leather'}</span>
                     </li>
                     <li className="flex items-center gap-2">
-                      <span className="w-4 h-4 rounded-full bg-[#3e0f77] text-white flex items-center justify-center text-[9px] font-bold shrink-0">2</span>
+                      <span className="w-4 h-4 rounded-full bg-slate-800 text-white flex items-center justify-center text-[9px] font-bold shrink-0">2</span>
                       <span className="font-semibold text-slate-900">{isAr ? 'الإسفنج:' : 'High-Density Sponge:'}</span>
                       <span className="text-slate-600">{isAr ? 'إسفنج مرن لراحة القدمين وامتصاص الصدمات' : 'Flexible foam for comfort & shock absorption'}</span>
                     </li>
                     <li className="flex items-center gap-2">
-                      <span className="w-4 h-4 rounded-full bg-[#3e0f77] text-white flex items-center justify-center text-[9px] font-bold shrink-0">3</span>
+                      <span className="w-4 h-4 rounded-full bg-slate-800 text-white flex items-center justify-center text-[9px] font-bold shrink-0">3</span>
                       <span className="font-semibold text-slate-900">{isAr ? 'البلاستيك العازل:' : 'Plastic Barrier:'}</span>
                       <span className="text-slate-600">{isAr ? 'طبقة عازلة للمياه والأتربة بنسبة 100%' : '100% waterproof & dust isolation layer'}</span>
                     </li>
                     <li className="flex items-center gap-2">
-                      <span className="w-4 h-4 rounded-full bg-[#3e0f77] text-white flex items-center justify-center text-[9px] font-bold shrink-0">4</span>
+                      <span className="w-4 h-4 rounded-full bg-slate-800 text-white flex items-center justify-center text-[9px] font-bold shrink-0">4</span>
                       <span className="font-semibold text-slate-900">{isAr ? 'اللباد:' : 'Acoustic Felt:'}</span>
                       <span className="text-slate-600">{isAr ? 'عازل للصوت يقلل ضوضاء الطريق في المقصورة' : 'Sound-absorbing felt reducing road noise'}</span>
                     </li>
                     <li className="flex items-center gap-2">
-                      <span className="w-4 h-4 rounded-full bg-[#3e0f77] text-white flex items-center justify-center text-[9px] font-bold shrink-0">5</span>
+                      <span className="w-4 h-4 rounded-full bg-slate-800 text-white flex items-center justify-center text-[9px] font-bold shrink-0">5</span>
                       <span className="font-semibold text-slate-900">{isAr ? 'القاعدة المانعة للانزلاق:' : 'Anti-Slip Base:'}</span>
                       <span className="text-slate-600">{isAr ? 'بلاستيك محبب يلتصق بالأرضية ولا يتحرك' : 'Textured grip preventing pedal obstruction'}</span>
                     </li>
@@ -498,7 +498,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                 {/* Trust Guarantee Box */}
                 <div className="grid grid-cols-2 gap-2 text-[11px]">
                   <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/70 flex items-center gap-2">
-                    <Truck className="w-4 h-4 text-[#3e0f77] shrink-0" />
+                    <Truck className="w-4 h-4 text-slate-800 shrink-0" />
                     <div>
                       <p className="font-bold text-slate-900">{isAr ? 'توصيل سريع' : 'Fast Delivery'}</p>
                       <p className="text-[10px] text-slate-500">{isAr ? 'خلال 3 - 5 أيام' : '3-5 Business Days'}</p>
@@ -520,7 +520,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                 {/* Title, Rating & Pricing Header */}
                 <div>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="bg-purple-100 text-[#3e0f77] text-[11px] font-extrabold px-2.5 py-0.5 rounded-full">
+                    <span className="bg-slate-100 text-slate-800 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full">
                       {isAr ? 'أرضيات بلاكو الفاخرة' : 'Bleco Luxury Flooring'}
                     </span>
                     {Number(product.reviewsCount || 0) > 0 && product.rating != null ? (
@@ -549,9 +549,9 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                   </p>
 
                   {/* Price Tag with Savings Pill */}
-                  <div className="mt-3.5 p-3.5 bg-gradient-to-r from-purple-50 via-amber-50/40 to-white rounded-2xl border border-[#d5a027]/40 flex flex-wrap items-center justify-between gap-3">
+                  <div className="mt-3.5 p-3.5 bg-gradient-to-r from-slate-50 via-amber-50/40 to-white rounded-2xl border border-[#d5a027]/40 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-baseline gap-2">
-                      <span className="text-2xl sm:text-3xl font-black text-[#3e0f77]">
+                      <span className="text-2xl sm:text-3xl font-black text-slate-800">
                         {unitPrice}
                       </span>
                       <span className="text-xs font-bold text-[#b07e16]">
@@ -577,7 +577,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                       <Sparkles className="w-3.5 h-3.5 text-[#d5a027]" />
                       <span>{isAr ? 'اختر اللون والتطريز' : 'Choose Color & Stitching'}</span>
                     </label>
-                    <span className="text-[11px] font-bold text-[#3e0f77] bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
+                    <span className="text-[11px] font-bold text-slate-800 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200">
                       {isAr ? selectedColor.nameAr : selectedColor.nameEn}
                     </span>
                   </div>
@@ -593,7 +593,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                           onClick={() => setSelectedColor(c)}
                           className={`p-2 rounded-xl border text-start transition-all cursor-pointer flex items-center gap-2.5 ${
                             isSelected 
-                              ? 'border-[#3e0f77] ring-2 ring-[#d5a027] bg-purple-50/70 shadow-xs' 
+                              ? 'border-slate-300 ring-2 ring-[#d5a027] bg-slate-50 shadow-xs' 
                               : 'border-slate-200 bg-white hover:bg-slate-50'
                           }`}
                         >
@@ -645,11 +645,11 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                       }}
                       className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
                         selectedCoverage === 'rows_5'
-                          ? 'border-[#3e0f77] ring-2 ring-[#d5a027] bg-purple-50 shadow-sm'
+                          ? 'border-slate-300 ring-2 ring-[#d5a027] bg-slate-50 shadow-sm'
                           : 'border-slate-200 bg-white hover:bg-slate-50'
                       }`}
                     >
-                      <Car className={`w-4 h-4 ${selectedCoverage === 'rows_5' ? 'text-[#3e0f77]' : 'text-slate-400'}`} />
+                      <Car className={`w-4 h-4 ${selectedCoverage === 'rows_5' ? 'text-slate-800' : 'text-slate-400'}`} />
                       <span className="font-black text-[11px] text-slate-900">{isAr ? '٥ مقاعد (صفين)' : '5 Seats (2 Rows)'}</span>
                       <span className="text-[9px] text-slate-500 font-bold">{isAr ? 'السعر الأساسي' : 'Base Price'}</span>
                     </button>
@@ -663,11 +663,11 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                       }}
                       className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
                         selectedCoverage === 'rows_7'
-                          ? 'border-[#3e0f77] ring-2 ring-[#d5a027] bg-purple-50 shadow-sm'
+                          ? 'border-slate-300 ring-2 ring-[#d5a027] bg-slate-50 shadow-sm'
                           : 'border-slate-200 bg-white hover:bg-slate-50'
                       }`}
                     >
-                      <Layers className={`w-4 h-4 ${selectedCoverage === 'rows_7' ? 'text-[#3e0f77]' : 'text-slate-400'}`} />
+                      <Layers className={`w-4 h-4 ${selectedCoverage === 'rows_7' ? 'text-slate-800' : 'text-slate-400'}`} />
                       <span className="font-black text-[11px] text-slate-900">{isAr ? '٧ مقاعد (3 صفوف)' : '7 Seats (3 Rows)'}</span>
                       <span className="text-[9px] text-amber-700 font-bold">{isAr ? '+60 ⃁' : '+60 ⃁'}</span>
                     </button>
@@ -681,11 +681,11 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                       }}
                       className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
                         selectedCoverage === 'rows_5_with_trunk'
-                          ? 'border-[#3e0f77] ring-2 ring-[#d5a027] bg-purple-50 shadow-sm'
+                          ? 'border-slate-300 ring-2 ring-[#d5a027] bg-slate-50 shadow-sm'
                           : 'border-slate-200 bg-white hover:bg-slate-50'
                       }`}
                     >
-                      <ShieldCheck className={`w-4 h-4 ${selectedCoverage === 'rows_5_with_trunk' ? 'text-[#3e0f77]' : 'text-slate-400'}`} />
+                      <ShieldCheck className={`w-4 h-4 ${selectedCoverage === 'rows_5_with_trunk' ? 'text-slate-800' : 'text-slate-400'}`} />
                       <span className="font-black text-[11px] text-slate-900">{isAr ? '٥ مقاعد + الشنطة' : '5 Seats + Trunk'}</span>
                       <span className="text-[9px] text-emerald-700 font-bold">{isAr ? '+90 ⃁' : '+90 ⃁'}</span>
                     </button>
@@ -699,11 +699,11 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                       }}
                       className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
                         selectedCoverage === 'rows_7_with_trunk'
-                          ? 'border-[#3e0f77] ring-2 ring-[#d5a027] bg-purple-50 shadow-sm'
+                          ? 'border-slate-300 ring-2 ring-[#d5a027] bg-slate-50 shadow-sm'
                           : 'border-slate-200 bg-white hover:bg-slate-50'
                       }`}
                     >
-                      <Sparkles className={`w-4 h-4 ${selectedCoverage === 'rows_7_with_trunk' ? 'text-[#3e0f77]' : 'text-slate-400'}`} />
+                      <Sparkles className={`w-4 h-4 ${selectedCoverage === 'rows_7_with_trunk' ? 'text-slate-800' : 'text-slate-400'}`} />
                       <span className="font-black text-[11px] text-slate-900">{isAr ? '٧ مقاعد + الشنطة' : '7 Seats + Trunk'}</span>
                       <span className="text-[9px] text-amber-700 font-bold">{isAr ? '+150 ⃁' : '+150 ⃁'}</span>
                     </button>
@@ -714,11 +714,11 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                       onClick={() => setSelectedCoverage('trunk_only')}
                       className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
                         selectedCoverage === 'trunk_only'
-                          ? 'border-[#3e0f77] ring-2 ring-[#d5a027] bg-purple-50 shadow-sm'
+                          ? 'border-slate-300 ring-2 ring-[#d5a027] bg-slate-50 shadow-sm'
                           : 'border-slate-200 bg-white hover:bg-slate-50'
                       }`}
                     >
-                      <Layers className={`w-4 h-4 ${selectedCoverage === 'trunk_only' ? 'text-[#3e0f77]' : 'text-slate-400'}`} />
+                      <Layers className={`w-4 h-4 ${selectedCoverage === 'trunk_only' ? 'text-slate-800' : 'text-slate-400'}`} />
                       <span className="font-black text-[11px] text-slate-900">{isAr ? 'دعاسة الشنطة فقط' : 'Trunk Mat Only'}</span>
                       <span className="text-[9px] text-blue-700 font-bold">{isAr ? '150 ⃁' : '150 ⃁'}</span>
                     </button>
@@ -732,11 +732,11 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                       }}
                       className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
                         selectedCoverage === 'rows_2'
-                          ? 'border-[#3e0f77] ring-2 ring-[#d5a027] bg-purple-50 shadow-sm'
+                          ? 'border-slate-300 ring-2 ring-[#d5a027] bg-slate-50 shadow-sm'
                           : 'border-slate-200 bg-white hover:bg-slate-50'
                       }`}
                     >
-                      <Truck className={`w-4 h-4 ${selectedCoverage === 'rows_2' ? 'text-[#3e0f77]' : 'text-slate-400'}`} />
+                      <Truck className={`w-4 h-4 ${selectedCoverage === 'rows_2' ? 'text-slate-800' : 'text-slate-400'}`} />
                       <span className="font-black text-[11px] text-slate-900">{isAr ? 'غمارتين / بيك أب' : 'Pickup / 2 Seats'}</span>
                       <span className="text-[9px] text-slate-500 font-bold">{isAr ? '-70 ⃁' : '-70 ⃁'}</span>
                     </button>
@@ -752,7 +752,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                     <select
                       value={selectedBrand}
                       onChange={(e) => setSelectedBrand(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#3e0f77] focus:ring-1 focus:ring-[#3e0f77] appearance-none cursor-pointer pr-9 rtl:pl-9 rtl:pr-3.5 shadow-xs"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-slate-300 focus:ring-1 focus:ring-slate-400 appearance-none cursor-pointer pr-9 rtl:pl-9 rtl:pr-3.5 shadow-xs"
                     >
                       {CAR_BRANDS.map(b => (
                         <option key={b.id} value={b.id}>
@@ -777,7 +777,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                       <select
                         value={selectedModel}
                         onChange={(e) => setSelectedModel(e.target.value)}
-                        className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#3e0f77] focus:ring-1 focus:ring-[#3e0f77] appearance-none cursor-pointer pr-9 rtl:pl-9 rtl:pr-3.5 shadow-xs"
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-slate-300 focus:ring-1 focus:ring-slate-400 appearance-none cursor-pointer pr-9 rtl:pl-9 rtl:pr-3.5 shadow-xs"
                       >
                         {brandModels.map((m, idx) => (
                           <option key={idx} value={m.modelAr}>
@@ -797,7 +797,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                         placeholder={isAr ? 'اكتب اسم موديل سيارتك بدقة...' : 'Enter your car model...'}
                         value={customModelText}
                         onChange={(e) => setCustomModelText(e.target.value)}
-                        className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-[#3e0f77] mt-1.5"
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-slate-300 mt-1.5"
                       />
                     )}
                   </div>
@@ -811,7 +811,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                       <select
                         value={selectedYear}
                         onChange={(e) => setSelectedYear(e.target.value)}
-                        className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#3e0f77] focus:ring-1 focus:ring-[#3e0f77] appearance-none cursor-pointer pr-9 rtl:pl-9 rtl:pr-3.5 shadow-xs"
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-slate-300 focus:ring-1 focus:ring-slate-400 appearance-none cursor-pointer pr-9 rtl:pl-9 rtl:pr-3.5 shadow-xs"
                       >
                         {['2026', '2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012', '2011', '2010', '2008', '2005'].map(y => (
                           <option key={y} value={y}>{y}</option>
@@ -844,7 +844,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                       onClick={() => setSelectedFuelType('petrol')}
                       className={`p-2 rounded-xl border text-center text-xs font-bold transition-all cursor-pointer ${
                         selectedFuelType === 'petrol'
-                          ? 'border-[#3e0f77] bg-purple-50 text-[#3e0f77] ring-1 ring-[#3e0f77]'
+                          ? 'border-slate-300 bg-slate-50 text-slate-800 ring-1 ring-slate-400'
                           : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                       }`}
                     >
@@ -855,7 +855,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                       onClick={() => setSelectedFuelType('hybrid')}
                       className={`p-2 rounded-xl border text-center text-xs font-bold transition-all cursor-pointer ${
                         selectedFuelType === 'hybrid'
-                          ? 'border-[#3e0f77] bg-purple-50 text-[#3e0f77] ring-1 ring-[#3e0f77]'
+                          ? 'border-slate-300 bg-slate-50 text-slate-800 ring-1 ring-slate-400'
                           : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                       }`}
                     >
@@ -866,7 +866,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                       onClick={() => setSelectedFuelType('electric')}
                       className={`p-2 rounded-xl border text-center text-xs font-bold transition-all cursor-pointer ${
                         selectedFuelType === 'electric'
-                          ? 'border-[#3e0f77] bg-purple-50 text-[#3e0f77] ring-1 ring-[#3e0f77]'
+                          ? 'border-slate-300 bg-slate-50 text-slate-800 ring-1 ring-slate-400'
                           : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                       }`}
                     >
@@ -885,14 +885,14 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                   <div className="space-y-1.5">
                     {/* Metal Heel Pad */}
                     <label className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition-colors ${
-                      includeMetalHeelPad ? 'border-[#3e0f77] bg-purple-50/70' : 'border-slate-200 bg-white hover:bg-slate-50'
+                      includeMetalHeelPad ? 'border-slate-300 bg-slate-50' : 'border-slate-200 bg-white hover:bg-slate-50'
                     }`}>
                       <div className="flex items-center gap-2">
                         <input
                           type="checkbox"
                           checked={includeMetalHeelPad}
                           onChange={(e) => setIncludeMetalHeelPad(e.target.checked)}
-                          className="w-4 h-4 text-[#3e0f77] rounded focus:ring-[#3e0f77] cursor-pointer"
+                          className="w-4 h-4 text-slate-800 rounded focus:ring-slate-400 cursor-pointer"
                         />
                         <div>
                           <span className="text-xs font-bold text-slate-900 block">
@@ -910,14 +910,14 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
 
                     {/* Double Layer Removable Carpet */}
                     <label className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition-colors ${
-                      includeDoubleLayer ? 'border-[#3e0f77] bg-purple-50/70' : 'border-slate-200 bg-white hover:bg-slate-50'
+                      includeDoubleLayer ? 'border-slate-300 bg-slate-50' : 'border-slate-200 bg-white hover:bg-slate-50'
                     }`}>
                       <div className="flex items-center gap-2">
                         <input
                           type="checkbox"
                           checked={includeDoubleLayer}
                           onChange={(e) => setIncludeDoubleLayer(e.target.checked)}
-                          className="w-4 h-4 text-[#3e0f77] rounded focus:ring-[#3e0f77] cursor-pointer"
+                          className="w-4 h-4 text-slate-800 rounded focus:ring-slate-400 cursor-pointer"
                         />
                         <div>
                           <span className="text-xs font-bold text-slate-900 block">
@@ -935,14 +935,14 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
 
                     {/* Car Logo Embroidery */}
                     <label className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition-colors ${
-                      includeLogoEmbroidery ? 'border-[#3e0f77] bg-purple-50/70' : 'border-slate-200 bg-white hover:bg-slate-50'
+                      includeLogoEmbroidery ? 'border-slate-300 bg-slate-50' : 'border-slate-200 bg-white hover:bg-slate-50'
                     }`}>
                       <div className="flex items-center gap-2">
                         <input
                           type="checkbox"
                           checked={includeLogoEmbroidery}
                           onChange={(e) => setIncludeLogoEmbroidery(e.target.checked)}
-                          className="w-4 h-4 text-[#3e0f77] rounded focus:ring-[#3e0f77] cursor-pointer"
+                          className="w-4 h-4 text-slate-800 rounded focus:ring-slate-400 cursor-pointer"
                         />
                         <div>
                           <span className="text-xs font-bold text-slate-900 block">
@@ -983,7 +983,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                       onClick={() => setShowFileInput(!showFileInput)}
                       className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
                         attachedFile || showFileInput 
-                          ? 'border-[#3e0f77] bg-purple-50 text-[#3e0f77]' 
+                          ? 'border-slate-300 bg-slate-50 text-slate-800' 
                           : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
                       }`}
                     >
@@ -996,7 +996,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                       onClick={() => setShowNoteInput(!showNoteInput)}
                       className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
                         customerNote || showNoteInput 
-                          ? 'border-[#3e0f77] bg-purple-50 text-[#3e0f77]' 
+                          ? 'border-slate-300 bg-slate-50 text-slate-800' 
                           : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
                       }`}
                     >
@@ -1007,10 +1007,10 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
 
                   {/* Expandable File Input */}
                   {showFileInput && (
-                    <div className="mt-2 p-3 bg-purple-50/50 rounded-xl border border-purple-200 text-xs">
+                    <div className="mt-2 p-3 bg-slate-50/50 rounded-xl border border-slate-200 text-xs">
                       {!attachedFile ? (
-                        <label className="flex items-center justify-center gap-2 p-2.5 border border-dashed border-purple-300 rounded-lg cursor-pointer bg-white hover:bg-purple-50 text-slate-700 font-bold">
-                          <Upload className="w-4 h-4 text-[#3e0f77]" />
+                        <label className="flex items-center justify-center gap-2 p-2.5 border border-dashed border-[#d5a027]/50 rounded-lg cursor-pointer bg-white hover:bg-slate-50 text-slate-700 font-bold">
+                          <Upload className="w-4 h-4 text-slate-800" />
                           <span>{isAr ? 'اختر صورة من جهازك' : 'Upload car interior photo'}</span>
                           <input type="file" accept="image/*,.pdf" onChange={handleFileUpload} className="hidden" />
                         </label>
@@ -1033,14 +1033,14 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                         value={customerNote}
                         onChange={(e) => setCustomerNote(e.target.value)}
                         placeholder={isAr ? 'اكتب ملاحظتك لمختص التفصيل...' : 'Add special requests or notes...'}
-                        className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#3e0f77] resize-none"
+                        className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:border-slate-300 resize-none"
                       />
                     </div>
                   )}
                 </div>
 
                 {/* FREQUENTLY BOUGHT TOGETHER (اشتري معاً ووفر) */}
-                <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-purple-500/10 border border-[#d5a027]/40 rounded-2xl p-3.5 space-y-2">
+                <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-slate-100/80 border border-[#d5a027]/40 rounded-2xl p-3.5 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-black text-slate-900 text-xs flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-[#d5a027]" />
@@ -1057,7 +1057,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                         <img 
                           src={BLECO_BUNDLE_ADDON.image} 
                           alt={BLECO_BUNDLE_ADDON.nameAr} 
-                          className="w-full h-full object-cover" 
+                          className="w-full h-full object-contain" 
                         />
                       </div>
                       <div className="min-w-0">
@@ -1065,7 +1065,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                           {isAr ? BLECO_BUNDLE_ADDON.nameAr : BLECO_BUNDLE_ADDON.nameEn}
                         </h6>
                         <div className="flex items-center gap-1.5 mt-0.5 text-[11px]">
-                          <span className="font-black text-[#3e0f77]">{BLECO_BUNDLE_ADDON.price} {'⃁'}</span>
+                          <span className="font-black text-slate-800">{BLECO_BUNDLE_ADDON.price} {'⃁'}</span>
                           <span className="text-slate-400 line-through text-[10px]">{BLECO_BUNDLE_ADDON.originalPrice} {'⃁'}</span>
                           <span className="text-[9px] bg-red-100 text-red-700 font-black px-1.5 py-0.2 rounded">
                             25.00%
@@ -1086,7 +1086,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                       {includeBundle ? (
                         <>
                           <Check className="w-3.5 h-3.5 text-white" />
-                          <span>{isAr ? 'تمت الإضافة ✓' : 'Added ✓'}</span>
+                          <span>{isAr ? 'تمت الإضافة' : 'Added'}</span>
                         </>
                       ) : (
                         <>
@@ -1114,7 +1114,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                           onClick={() => setSelectedPattern(pat.id)}
                           className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
                             isCurPat 
-                              ? 'border-[#3e0f77] ring-2 ring-[#d5a027] bg-purple-50 font-black text-[#3e0f77]' 
+                              ? 'border-slate-300 ring-2 ring-[#d5a027] bg-slate-50 font-black text-slate-800' 
                               : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
                           }`}
                         >
@@ -1160,7 +1160,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
 
                   {/* Live Total Price (changes dynamically with seats & qty!) */}
                   <div className="text-right rtl:text-left flex items-baseline gap-1">
-                    <span className="text-2xl sm:text-3xl font-black text-[#3e0f77] tracking-tight">
+                    <span className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight">
                       {totalPrice}
                     </span>
                     <span className="text-sm font-black text-[#b07e16]">
@@ -1175,7 +1175,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                     <button
                       type="button"
                       onClick={handleDirectBuyClick}
-                      className="sm:col-span-4 py-3 px-3 bg-[#3e0f77] hover:bg-[#25074d] text-white font-black text-xs rounded-2xl flex items-center justify-center gap-1.5 cursor-pointer shadow-lg hover:shadow-xl transition-all"
+                      className="sm:col-span-4 py-3 px-3 bg-slate-800 hover:bg-slate-700 text-white font-black text-xs rounded-2xl flex items-center justify-center gap-1.5 cursor-pointer shadow-lg hover:shadow-xl transition-all"
                     >
                       <ShoppingBag className="w-4 h-4 text-[#f6c344]" />
                       <span>{isAr ? 'اشترِ الآن' : 'Buy Now'}</span>
@@ -1187,7 +1187,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                       onClick={handleAddAndNotify}
                       className="sm:col-span-5 py-3 px-3 btn-bashayer-gold font-black text-xs rounded-2xl flex items-center justify-center gap-1.5 cursor-pointer shadow-md hover:shadow-lg transition-all"
                     >
-                      <ShoppingCart className="w-4 h-4 text-[#1c0537]" />
+                      <ShoppingCart className="w-4 h-4 text-slate-900" />
                       <span>{isAr ? 'أضف إلى السلة' : 'Add to Cart'}</span>
                     </button>
 
@@ -1233,7 +1233,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                   onClick={() => setActiveTab('details')}
                   className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
                     activeTab === 'details'
-                      ? 'bg-[#3e0f77] text-white shadow-sm'
+                      ? 'bg-slate-800 text-white shadow-sm'
                       : 'text-slate-600 hover:bg-slate-100'
                   }`}
                 >
@@ -1245,7 +1245,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                   onClick={() => setActiveTab('reviews')}
                   className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
                     activeTab === 'reviews'
-                      ? 'bg-[#3e0f77] text-white shadow-sm'
+                      ? 'bg-slate-800 text-white shadow-sm'
                       : 'text-slate-600 hover:bg-slate-100'
                   }`}
                 >
@@ -1257,7 +1257,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                   onClick={() => setActiveTab('warranty')}
                   className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
                     activeTab === 'warranty'
-                      ? 'bg-[#3e0f77] text-white shadow-sm'
+                      ? 'bg-slate-800 text-white shadow-sm'
                       : 'text-slate-600 hover:bg-slate-100'
                   }`}
                 >
@@ -1268,8 +1268,8 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
               {/* Tab 1: Product Details */}
               {activeTab === 'details' && (
                 <div className="pt-4 space-y-4 text-xs text-slate-700 leading-relaxed animate-fadeIn">
-                  <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100 space-y-2">
-                    <h4 className="font-black text-sm text-[#3e0f77]">
+                  <div className="p-4 bg-slate-50/50 rounded-2xl border border-amber-100 space-y-2">
+                    <h4 className="font-black text-sm text-slate-800">
                       {isAr ? 'مميزات أرضيات بلاكو الفاخرة للسيارات:' : 'Bleco Luxury Car Floor Mats Features:'}
                     </h4>
                     <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 text-[11px]">
@@ -1322,60 +1322,45 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                     </div>
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                       <span className="text-[10px] text-slate-500 block">{isAr ? 'بلد المنشأ' : 'Origin'}</span>
-                      <strong className="text-sm font-black text-[#3e0f77]">منتج وطني فاخر</strong>
+                      <strong className="text-sm font-black text-slate-800">منتج وطني فاخر</strong>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Tab 2: Customer Reviews */}
+              {/* Tab 2: Customer Reviews — live product reviews only (zero fake KPIs) */}
               {activeTab === 'reviews' && (
                 <div className="pt-4 space-y-3 animate-fadeIn">
-                  <div className="p-3 bg-amber-50/70 border border-amber-200/60 rounded-2xl flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="text-2xl font-black text-[#3e0f77]">5.0</div>
-                      <div className="flex text-amber-400">
+                  {Number(product.reviewsCount || 0) > 0 && product.rating != null ? (
+                    <div className="p-3 bg-amber-50/70 border border-amber-200/60 rounded-2xl flex items-center gap-2">
+                      <div className="text-2xl font-black text-slate-800">{Number(product.rating).toFixed(1)}</div>
+                      <div className="flex text-amber-400" aria-hidden>
                         {[...Array(5)].map((_, i) => (
-                          <Star key={i} className="w-4 h-4 fill-amber-400" />
+                          <Star
+                            key={i}
+                            className={`w-4 h-4 ${i < Math.round(Number(product.rating) || 0) ? 'fill-amber-400' : 'text-slate-200'}`}
+                          />
                         ))}
                       </div>
                       <span className="text-xs text-slate-600 font-bold">
-                        {isAr ? 'بناءً على 168 تقييم حقيقي من عملاء المملكة' : 'Based on 168 verified Saudi reviews'}
+                        {isAr
+                          ? `بناءً على ${product.reviewsCount} تقييم`
+                          : `Based on ${product.reviewsCount} reviews`}
                       </span>
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-900">{isAr ? 'عبدالله الحربي — مكة المكرمة' : 'Abdullah Al-Harbi (Makkah)'}</span>
-                        <span className="text-[10px] text-slate-400">منذ يومين</span>
-                      </div>
-                      <div className="flex text-amber-400 gap-0.5">
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} className="w-3 h-3 fill-current text-amber-400" />
-                        ))}
-                      </div>
-                      <p className="text-slate-600 text-[11px]">
-                        {isAr ? 'ما شاء الله تبارك الله، طلبت أرضيات الدايموند لكامري 2024 وجاءت راكبة بالملي بالتمام، الجلد جداً فخم وخياطته متقنة وعزل الصوت ممتاز.' : 'Perfect fit for my Camry 2024, amazing stitching and easy to clean.'}
+                  ) : (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-8 text-center">
+                      <Star className="mx-auto mb-2 h-7 w-7 text-slate-300" aria-hidden />
+                      <p className="text-sm font-bold text-slate-700">
+                        {isAr ? 'لا توجد تقييمات بعد' : 'No reviews yet'}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {isAr
+                          ? 'بانتظار تقييمات العملاء الحقيقية لهذا المنتج.'
+                          : 'Waiting for real customer reviews for this product.'}
                       </p>
                     </div>
-
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-900">{isAr ? 'سلطان القحطاني — الرياض' : 'Sultan Al-Qahtani (Riyadh)'}</span>
-                        <span className="text-[10px] text-slate-400">منذ أسبوع</span>
-                      </div>
-                      <div className="flex text-amber-400 gap-0.5">
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} className="w-3 h-3 fill-current text-amber-400" />
-                        ))}
-                      </div>
-                      <p className="text-slate-600 text-[11px]">
-                        {isAr ? 'التوصيل أسرع مما توقعت وصلني للرياض في 3 أيام، والتركيب سهل جداً ما أخذ مني 5 دقائق بدون فك أي شيء في السيارة. أنصح بها وبقوة.' : 'Delivered to Riyadh in 3 days, took 5 minutes to clip into factory points.'}
-                      </p>
-                    </div>
-                  </div>
+                  )}
                 </div>
               )}
 
@@ -1383,7 +1368,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
               {activeTab === 'warranty' && (
                 <div className="pt-4 space-y-3 text-xs text-slate-700 animate-fadeIn">
                   <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-                    <h4 className="font-black text-sm text-[#3e0f77] flex items-center gap-2">
+                    <h4 className="font-black text-sm text-slate-800 flex items-center gap-2">
                       <Award className="w-4 h-4 text-[#d5a027]" />
                       <span>{isAr ? 'السرعة والكفاءة في التوصيل والضمان الشامل:' : 'Fast Delivery & Golden Guarantee:'}</span>
                     </h4>
@@ -1418,13 +1403,13 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                       onClick={() => {
                         if (onSelectProduct) onSelectProduct(rel);
                       }}
-                      className="p-2 bg-white rounded-2xl border border-slate-200 hover:border-[#3e0f77] shadow-xs hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+                      className="p-2 bg-white rounded-2xl border border-slate-200 hover:border-slate-300 shadow-xs hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
                     >
                       <div className="aspect-square rounded-xl overflow-hidden bg-slate-100 relative mb-1.5">
                         <img 
                           src={rel.image} 
                           alt={rel.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
+                          className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" 
                         />
                         <span className="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">
                           {rel.price} {'⃁'}
@@ -1432,7 +1417,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
                       </div>
 
                       <div>
-                        <h5 className="font-bold text-[11px] text-slate-900 group-hover:text-[#3e0f77] line-clamp-1">
+                        <h5 className="font-bold text-[11px] text-slate-900 group-hover:text-slate-800 line-clamp-1">
                           {isAr ? rel.nameAr : rel.nameEn}
                         </h5>
                         <p className="text-[9px] text-slate-500 line-clamp-1 mt-0.5">
@@ -1442,7 +1427,7 @@ export const FloorMatLuxuryModal: React.FC<FloorMatLuxuryModalProps> = ({
 
                       <button
                         type="button"
-                        className="mt-2 w-full py-1 bg-purple-50 hover:bg-[#3e0f77] hover:text-white text-[#3e0f77] text-[10px] font-bold rounded-lg transition-all"
+                        className="mt-2 w-full py-1 bg-slate-50 hover:bg-slate-800 hover:text-white text-slate-800 text-[10px] font-bold rounded-lg transition-all"
                       >
                         {isAr ? 'معاينة' : 'View'}
                       </button>

@@ -18,6 +18,10 @@ import {
 } from 'lucide-react';
 import { PaymentGatewaySelector, type PaymentMethodId } from '../../../components/storefront/checkout/PaymentGatewaySelector';
 import {
+  CheckoutConfirmDialog,
+  CheckoutResultDialog,
+} from '../../../components/storefront/checkout/CheckoutOrderDialogs';
+import {
   CheckoutLocationPicker,
   type CheckoutGeoPoint,
 } from '../../../components/storefront/checkout/CheckoutLocationPicker';
@@ -79,6 +83,12 @@ export const CheckoutPage: React.FC = () => {
   const [cardMessage, setCardMessage] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>('mada');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [resultDialog, setResultDialog] = useState<{
+    variant: 'success' | 'error';
+    title: string;
+    message: string;
+  } | null>(null);
 
   React.useEffect(() => {
     if (!activeStore?.id) return;
@@ -135,26 +145,56 @@ export const CheckoutPage: React.FC = () => {
     e.preventDefault();
     const normalizedPhone = toSaudi00966(recipientPhone);
     if (!isValidSaudiMobile(normalizedPhone)) {
+      setResultDialog({
+        variant: 'error',
+        title: isAr ? 'تعذر المتابعة' : 'Cannot continue',
+        message: isAr
+          ? 'أدخل رقم جوال سعودي صحيح قبل تأكيد الطلب.'
+          : 'Enter a valid Saudi mobile number before confirming.',
+      });
       return;
     }
+    setConfirmOpen(true);
+  };
+
+  const executePlaceOrder = () => {
+    const normalizedPhone = toSaudi00966(recipientPhone);
+    if (!isValidSaudiMobile(normalizedPhone)) return;
+    setConfirmOpen(false);
     setIsSubmitting(true);
 
     setTimeout(() => {
-      const geoBit = geo ? ` · ${geo.lat.toFixed(5)},${geo.lng.toFixed(5)}` : '';
-      placeOrder({
-        recipientName,
-        recipientPhone: normalizedPhone,
-        city,
-        address: `${district} - ${streetAddress}${geoBit}`,
-        deliveryDate,
-        deliveryTimeSlot,
-        isAnonymousSender,
-        paymentMethod: paymentLabel,
-        cardMessage,
-        discount: totalDiscount
-      });
-      setIsSubmitting(false);
-    }, 800);
+      try {
+        const geoBit = geo ? ` · ${geo.lat.toFixed(5)},${geo.lng.toFixed(5)}` : '';
+        placeOrder({
+          recipientName,
+          recipientPhone: normalizedPhone,
+          city,
+          address: `${district} - ${streetAddress}${geoBit}`,
+          deliveryDate,
+          deliveryTimeSlot,
+          isAnonymousSender,
+          paymentMethod: paymentLabel,
+          cardMessage,
+          discount: totalDiscount,
+        });
+        setResultDialog({
+          variant: 'success',
+          title: isAr ? 'تم استلام الطلب بنجاح' : 'Order placed successfully',
+          message: isAr
+            ? `وسيلة الدفع: ${paymentLabel}\nالمبلغ: ${total} ر.س`
+            : `Payment: ${paymentLabel}\nAmount: ${total} SAR`,
+        });
+      } catch {
+        setResultDialog({
+          variant: 'error',
+          title: isAr ? 'فشل الطلب' : 'Order failed',
+          message: isAr ? 'تعذر حفظ الطلب. حاول مرة أخرى.' : 'Could not save the order. Try again.',
+        });
+      } finally {
+        setIsSubmitting(false);
+      }
+    }, 400);
   };
 
   if (cart.length === 0) {
@@ -523,6 +563,31 @@ export const CheckoutPage: React.FC = () => {
         </div>
 
       </form>
+
+      <CheckoutConfirmDialog
+        open={confirmOpen}
+        locale={isAr ? 'ar' : 'en'}
+        paymentLabel={paymentLabel}
+        totalLabel={`${total} SAR`}
+        busy={isSubmitting}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={executePlaceOrder}
+      />
+      <CheckoutResultDialog
+        open={Boolean(resultDialog)}
+        locale={isAr ? 'ar' : 'en'}
+        variant={resultDialog?.variant || 'success'}
+        title={resultDialog?.title || ''}
+        message={resultDialog?.message || ''}
+        onClose={() => setResultDialog(null)}
+        primaryLabel={
+          resultDialog?.variant === 'success'
+            ? isAr
+              ? 'حسناً'
+              : 'OK'
+            : undefined
+        }
+      />
     </div>
   );
 };

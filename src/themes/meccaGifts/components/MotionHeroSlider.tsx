@@ -3,6 +3,8 @@ import { useApp } from '../context/AppContext';
 import { useTenant } from '../../../context/TenantContext';
 import { ChevronLeft, ChevronRight, ArrowRight, ArrowLeft, Edit3, Image as ImageIcon } from 'lucide-react';
 import { readAllThemeSettings } from '../../settings/themeSettingsStore';
+import { isSouqCommonTenant } from '../../souqCommon/isSouqCommonTenant';
+import { getDefaultStoreTheme } from '../../../auth/defaultTheme';
 
 export interface HeroSlideItem {
   id: string;
@@ -59,6 +61,37 @@ export const DEFAULT_FLOWER_SLIDES: HeroSlideItem[] = [
     primaryLink: '#catalog',
     image: '/images/hadaya_royal_wedding_flowers_1791300194084.jpg',
     category: 'باقات فاخرة',
+  },
+];
+
+/** Generic retail defaults for theme-souq-common-* / new merchants (not flora). */
+export const DEFAULT_SOUQ_SLIDES: HeroSlideItem[] = [
+  {
+    id: 'slide-souq-1',
+    title: 'Welcome to Your Online Store',
+    titleAr: 'مرحباً بكم في متجركم الإلكتروني',
+    subtitle: 'Quality products with fast delivery across Saudi Arabia',
+    subtitleAr: 'منتجات موثوقة وتوصيل سريع لجميع مدن المملكة',
+    primaryBtn: 'Shop Now',
+    primaryBtnAr: 'تسوق الآن',
+    primaryLink: '#catalog',
+    image: '/images/saudi_hero_banner_2.jpg',
+    category: 'Featured',
+  },
+  {
+    id: 'slide-souq-2',
+    title: 'Shop with Confidence in KSA',
+    titleAr: 'تسوق بثقة في المملكة',
+    subtitle: 'Secure payments · Tabby & Tamara · Nationwide shipping',
+    subtitleAr: 'دفع آمن · تابي وتمارا · شحن لكل مناطق المملكة',
+    primaryBtn: 'Browse Catalog',
+    primaryBtnAr: 'تصفح الكتالوج',
+    primaryLink: '#catalog',
+    secondaryBtn: 'Learn More',
+    secondaryBtnAr: 'اعرف المزيد',
+    secondaryLink: '#about',
+    image: '/images/saudi_hero_banner_3.jpg',
+    category: 'General',
   },
 ];
 
@@ -122,9 +155,13 @@ export const MotionHeroSlider: React.FC<MotionHeroSliderProps> = ({
   onSlideChange,
 }) => {
   const { language, setCurrentPage, setSelectedCategory } = useApp();
-  const { activeStore } = useTenant();
+  const { activeStore, storeActiveTheme } = useTenant();
   const isAr = language === 'ar';
+  const themeId =
+    (activeStore?.id && storeActiveTheme?.[activeStore.id]) ||
+    getDefaultStoreTheme(activeStore?.id);
   const isCoffee = activeStore?.id === 'store-coffee' || (activeStore?.category && activeStore.category.includes('قهوة'));
+  const isSouq = !isCoffee && isSouqCommonTenant(activeStore, themeId);
 
   const [localSlide, setLocalSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -165,16 +202,26 @@ export const MotionHeroSlider: React.FC<MotionHeroSliderProps> = ({
             } else if (cleanImg.includes('photo-1525310072745-f49212b5ac6d')) {
               cleanImg = '/images/hadaya_royal_wedding_flowers_1791300194084.jpg';
             }
-            return cleanImg || (isCoffee ? '/hero_coffee_banner_white_1.jpg' : '/images/hadaya_luxury_master_hero_1791217937117.jpg');
+            return (
+              cleanImg ||
+              (isCoffee
+                ? '/hero_coffee_banner_white_1.jpg'
+                : isSouq
+                  ? '/images/saudi_hero_banner_2.jpg'
+                  : '/images/hadaya_luxury_master_hero_1791217937117.jpg')
+            );
           })(),
-          category: isCoffee ? 'حبوب القهوة المختصة' : 'باقات الورود الطبيعية',
+          category: isCoffee ? 'حبوب القهوة المختصة' : isSouq ? 'Featured' : 'باقات الورود الطبيعية',
         }));
       }
     } catch {}
     return null;
-  }, [activeStore.id, activeStore, tick, isAr, isCoffee]);
+  }, [activeStore.id, activeStore, tick, isAr, isCoffee, isSouq]);
 
-  const defaultSlides = useMemo(() => (isCoffee ? DEFAULT_COFFEE_SLIDES : DEFAULT_FLOWER_SLIDES), [isCoffee]);
+  const defaultSlides = useMemo(
+    () => (isCoffee ? DEFAULT_COFFEE_SLIDES : isSouq ? DEFAULT_SOUQ_SLIDES : DEFAULT_FLOWER_SLIDES),
+    [isCoffee, isSouq],
+  );
   const slides = customSlides && customSlides.length > 0 
     ? customSlides 
     : (dynamicThemeSlides && dynamicThemeSlides.length > 0 ? dynamicThemeSlides : defaultSlides);

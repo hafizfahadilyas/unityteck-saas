@@ -1,0 +1,18 @@
+# AI handoff · AGENTS.md (LOCKED)
+
+**User order:** Dusre Cursor account / naye chat mein project dubara explain **mat** karwao. Context **repo ke andar** hai.
+
+## First read
+- Root **`AGENTS.md`** = entry map (hosts, stack, locks, deploy, smoke, docs index).
+- Full transfer steps: **`docs/00-AI-HANDOFF.md`**.
+- All other `.cursor/rules/*.mdc` = hard law — do not weaken for “new account” or missing chat history.
+
+## Transfer reality
+- Code + rules + docs travel with the folder/Git.
+- Chat history does **not** transfer — use AGENTS + rules, not “user will explain again”.
+- Secrets stay in local `.env` (never invent or commit).
+
+## Behavior
+- Inspect → reuse → extend. No UI rebuild.
+- Deploy only when user explicitly asks.
+- Status: **Ho gaya** / **Baqi** (Roman Urdu) when wrapping work.

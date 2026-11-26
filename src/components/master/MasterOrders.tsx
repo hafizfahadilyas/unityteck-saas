@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
+import { SkeletonTableRow } from '../common/skeleton';
 import type { Order, OrderStatus } from '../../types';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { AdminPageShell } from '../common/AdminPageHeader';
@@ -71,7 +72,7 @@ import { MasterStoreScopeFilter } from './MasterStoreScopeFilter';
  * Reference Mockup 05: designs/Master_Admin_UIUX/05_Order_Details/mockup_consistent/05_order_details.png
  */
 export const MasterOrders: React.FC = () => {
-  const { stores, allOrders, updateOrderStatus, updateOrder, deleteOrder, archiveOrder, restoreOrder, permanentDeleteOrder, addOrder, switchToStore } = useTenant();
+  const { stores, allOrders, apiReady, updateOrderStatus, updateOrder, deleteOrder, archiveOrder, restoreOrder, permanentDeleteOrder, addOrder, switchToStore } = useTenant();
   const { t, money, locale, dir, currency } = usePrefs();
   const { toast, confirm } = useToast();
   const session = readAuthSession();
@@ -1847,7 +1848,11 @@ export const MasterOrders: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {pagedOrders.length === 0 ? (
+              {!apiReady && pagedOrders.length === 0 ? (
+                Array.from({ length: 6 }).map((_, rIdx) => (
+                  <SkeletonTableRow key={`m-order-skel-${rIdx}`} columns={11} />
+                ))
+              ) : pagedOrders.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="py-12 text-center text-xs" style={{ color: 'var(--muted)' }}>
                     {t('noOrdersMatchFilter')}

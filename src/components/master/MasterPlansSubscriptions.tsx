@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AdminPageShell, AdminPageHeader } from '../common/AdminPageHeader';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
+import { Skeleton } from '../common/skeleton';
 import {
   fetchMasterSubscriptions,
   fetchPlansCatalog,
@@ -413,9 +414,24 @@ export const MasterPlansSubscriptions: React.FC = () => {
       {tab === 'plans' ? (
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 min-w-0 w-full max-w-full overflow-x-hidden">
           {busy && plans.length === 0 ? (
-            <div className="text-sm col-span-full" style={{ color: 'var(--muted)' }}>
-              {isAr ? 'جاري التحميل…' : 'Loading…'}
-            </div>
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="p-6 rounded-3xl border space-y-5" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+                <div className="flex items-center justify-between">
+                  <Skeleton variant="rounded" height="22px" width="100px" />
+                  <Skeleton variant="rounded" width="36px" height="36px" className="rounded-xl" />
+                </div>
+                <div className="space-y-2">
+                  <Skeleton variant="rounded" height="32px" width="140px" />
+                  <Skeleton variant="rounded" height="12px" width="180px" />
+                </div>
+                <div className="space-y-2.5 pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
+                  <Skeleton variant="rounded" height="13px" width="90%" />
+                  <Skeleton variant="rounded" height="13px" width="85%" />
+                  <Skeleton variant="rounded" height="13px" width="75%" />
+                </div>
+                <Skeleton variant="rounded" height="42px" width="100%" className="rounded-xl" />
+              </div>
+            ))
           ) : plans.length === 0 ? (
             <div className="text-sm col-span-full" style={{ color: 'var(--muted)' }}>
               {isAr ? 'لا توجد باقات' : 'No records found'}

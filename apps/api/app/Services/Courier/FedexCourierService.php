@@ -17,14 +17,42 @@ class FedexCourierService implements CourierInterface
 
     public function testConnection(CourierConnection $connection): array
     {
-        if (empty($connection->api_key)) {
-            return ['success' => false, 'message' => 'FedEx Client ID / API Key is required.'];
+        if (empty($connection->api_key) || empty($connection->api_secret)) {
+            return [
+                'success' => false,
+                'message' => 'FedEx Client ID and Client Secret are required.',
+                'health_status' => 'credentials_missing',
+            ];
         }
 
-        return [
-            'success' => false,
-            'message' => 'FedEx live API test not confirmed. Verify with a real create/track call.',
-        ];
+        try {
+            $tokenResp = Http::asForm()->timeout(8)->post($this->getBaseUrl($connection).'/oauth/token', [
+                'grant_type' => 'client_credentials',
+                'client_id' => $connection->api_key,
+                'client_secret' => $connection->api_secret,
+            ]);
+
+            if ($tokenResp->successful() && !empty($tokenResp->json()['access_token'])) {
+                return [
+                    'success' => true,
+                    'message' => 'FedEx OAuth authenticated successfully (non-destructive).',
+                    'health_status' => $connection->is_sandbox ? 'sandbox_verified' : 'connected',
+                ];
+            }
+
+            return [
+                'success' => false,
+                'message' => 'FedEx OAuth authentication failed (HTTP '.$tokenResp->status().').',
+                'health_status' => 'authentication_failed',
+                'raw' => $tokenResp->json(),
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'FedEx connection failed: '.$e->getMessage(),
+                'health_status' => 'connection_failed',
+            ];
+        }
     }
 
     public function createShipment(CourierConnection $connection, Order $order, array $params = []): array

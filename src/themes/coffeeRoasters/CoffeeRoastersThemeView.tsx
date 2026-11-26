@@ -6,7 +6,7 @@
  * 100% Faithful Port of E:\GOGLE\hibrew-ksa-_-official-coffee-store-متجر-مكائن-ومستلزمات-القهوة
  */
 
-import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { CartProvider, useCart, RouteType } from './context/CartContext';
 import { useTenant } from '../../context/TenantContext';
 import { resolveCoffeeThemeSettings } from '../settings/coffeeThemeDefaults';
@@ -28,18 +28,38 @@ import { captureTrafficSource } from '../../utils/trafficSource';
 import { trackStorefrontEvent } from '../../utils/storefrontAnalytics';
 import { LoyaltyGiftPointsPopup } from '../../components/storefront/LoyaltyGiftPointsPopup';
 import { readSfCustomer } from '../flowersPremium/sfCustomerSession';
+import { lazyWithRetry } from '../../utils/lazyWithRetry';
 
-// Code-split secondary routes for blazing fast initial homepage load
-const ProductsListPage = lazy(() => import('./components/ProductsListPage').then(m => ({ default: m.ProductsListPage })));
-const ProductDetailPage = lazy(() => import('./components/ProductDetailPage').then(m => ({ default: m.ProductDetailPage })));
-const ProductBuyPage = lazy(() => import('./components/ProductBuyPage').then(m => ({ default: m.ProductBuyPage })));
-const CartPage = lazy(() => import('./components/CartPage').then(m => ({ default: m.CartPage })));
-const CheckoutPage = lazy(() => import('./components/CheckoutPage').then(m => ({ default: m.CheckoutPage })));
-const ProfilePage = lazy(() => import('./components/ProfilePage').then(m => ({ default: m.ProfilePage })));
-const ReviewsPage = lazy(() => import('./components/ReviewsPage').then(m => ({ default: m.ReviewsPage })));
-const ThankYouPage = lazy(() => import('./components/ThankYouPage').then(m => ({ default: m.ThankYouPage })));
-const CoffeeStaticPage = lazy(() => import('./components/CoffeeStaticPage').then(m => ({ default: m.CoffeeStaticPage })));
-const CustomOrderPage = lazy(() => import('./components/CustomOrderPage').then(m => ({ default: m.CustomOrderPage })));
+const ProductsListPage = lazyWithRetry(() =>
+  import('./components/ProductsListPage').then((m) => ({ default: m.ProductsListPage })),
+);
+const ProductDetailPage = lazyWithRetry(() =>
+  import('./components/ProductDetailPage').then((m) => ({ default: m.ProductDetailPage })),
+);
+const ProductBuyPage = lazyWithRetry(() =>
+  import('./components/ProductBuyPage').then((m) => ({ default: m.ProductBuyPage })),
+);
+const CartPage = lazyWithRetry(() =>
+  import('./components/CartPage').then((m) => ({ default: m.CartPage })),
+);
+const CheckoutPage = lazyWithRetry(() =>
+  import('./components/CheckoutPage').then((m) => ({ default: m.CheckoutPage })),
+);
+const ProfilePage = lazyWithRetry(() =>
+  import('./components/ProfilePage').then((m) => ({ default: m.ProfilePage })),
+);
+const ReviewsPage = lazyWithRetry(() =>
+  import('./components/ReviewsPage').then((m) => ({ default: m.ReviewsPage })),
+);
+const ThankYouPage = lazyWithRetry(() =>
+  import('./components/ThankYouPage').then((m) => ({ default: m.ThankYouPage })),
+);
+const CoffeeStaticPage = lazyWithRetry(() =>
+  import('./components/CoffeeStaticPage').then((m) => ({ default: m.CoffeeStaticPage })),
+);
+const CustomOrderPage = lazyWithRetry(() =>
+  import('./components/CustomOrderPage').then((m) => ({ default: m.CustomOrderPage })),
+);
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -157,8 +177,8 @@ function CoffeeStorefrontContent({ initialPage, isAdmin = false }: { initialPage
 
   useEffect(() => {
     if (isAdmin) return;
-    captureTrafficSource();
     const storeId = tenant?.activeStore?.id;
+    captureTrafficSource(storeId);
     trackStorefrontEvent(storeId, 'page_view', {
       path: typeof location !== 'undefined' ? location.pathname : `/${currentRoute || 'home'}`,
     });
@@ -374,7 +394,8 @@ function CoffeeStorefrontContent({ initialPage, isAdmin = false }: { initialPage
     }
   }, [language, currentRoute, isAdmin, tenant?.activeStore?.name, tenant?.activeStore?.nameAr, tenant?.activeStore?.nameEn]);
 
-  // Handle route switching from initialPage safely (sync only when initialPage prop changes from parent)
+  // Sync only when parent initialPage prop changes — never re-enter on currentRoute
+  // (that + navigateTo caused buy URL ↔ route thrash / “auto refresh”).
   const initialPageRef = React.useRef<string | undefined>(undefined);
   useEffect(() => {
     if (!initialPage) return;
@@ -415,19 +436,23 @@ function CoffeeStorefrontContent({ initialPage, isAdmin = false }: { initialPage
         ? (p as RouteType)
         : 'home';
 
-    // Never clobber SEO `/product/{id}` or `/products` deep links with a default home initialPage.
-    if (target === 'home' && typeof window !== 'undefined') {
+    // Never clobber SEO short deep links with a default home initialPage.
+    if (typeof window !== 'undefined') {
       const path = String(window.location.pathname || '').replace(/\/$/, '') || '/';
-      if (/(?:^|\/)product\/[^/]+$/i.test(path)) return;
-      if (/^\/products(\/|$)/i.test(path) || /^\/catalog(\/|$)/i.test(path) || /^\/shop(\/|$)/i.test(path)) {
-        return;
+      if (target === 'home') {
+        if (/(?:^|\/)(?:product|buy)\/[^/]+$/i.test(path)) return;
+        if (/^\/products(\/|$)/i.test(path) || /^\/catalog(\/|$)/i.test(path) || /^\/shop(\/|$)/i.test(path)) {
+          return;
+        }
+        if (/\/(cart|checkout|profile|account|crm|orders|thankyou)$/i.test(path)) return;
       }
+      // URL already encodes buy/PDP — do not pushState again (scroll/reset flash).
+      if (target === 'product-buy' && /(?:^|\/)buy\/[^/]+$/i.test(path)) return;
+      if (target === 'product-detail' && /(?:^|\/)product\/[^/]+$/i.test(path)) return;
     }
 
-    if (target !== currentRoute) {
-      navigateTo(target);
-    }
-  }, [initialPage, currentRoute, navigateTo]);
+    navigateTo(target);
+  }, [initialPage, navigateTo]);
 
   // Ensure view is scrolled strictly to top header on any route navigation
   useEffect(() => {

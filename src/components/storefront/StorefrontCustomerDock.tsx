@@ -246,7 +246,7 @@ export const StorefrontCustomerDock: React.FC<{ storeId: string }> = ({ storeId 
         )
       )}
 
-      {/* Customer Profile, Coin Game, Saved Cards & Order Tracking Modal */}
+      {/* Customer Profile, Loyalty Card & Order Tracking Modal */}
       {isOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs"

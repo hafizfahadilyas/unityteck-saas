@@ -71,7 +71,7 @@ export const CUSTOMER_GENDER_OPTIONS: Array<{
 }> = [
   { id: 'Male', nameEn: 'Male', nameAr: 'ذكر' },
   { id: 'Female', nameEn: 'Female', nameAr: 'أنثى' },
-  { id: 'Other', nameEn: 'Other', nameAr: 'أخرى' },
+  { id: 'Other', nameEn: 'Unknown', nameAr: 'غير معروف' },
 ];
 
 export function saudiCityStorageKey(storeId: string): string {

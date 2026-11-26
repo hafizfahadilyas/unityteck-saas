@@ -81,6 +81,7 @@ export const MASTER_TAB_ABILITY: Record<string, string | null> = {
   analytics: 'analytics.read',
   payments: 'settings.read',
   integrations: 'settings.read',
+  'openai-ai': 'stores.read',
   reports: 'analytics.read',
   settings: 'settings.read',
   backup: null,

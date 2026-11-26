@@ -6,68 +6,78 @@ use App\Models\Order;
 use App\Models\PaymentGateway;
 use App\Models\PaymentTransaction;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
+/**
+ * Stripe — incomplete backend (no live Stripe SDK/HTTP in Phase 1).
+ * Never invent Connected / Paid from credential presence alone.
+ */
 class StripeGatewayService implements PaymentGatewayInterface
 {
     public function testConnection(PaymentGateway $gateway): array
     {
         $key = $gateway->secret_key ?? $gateway->api_key;
         if (empty($key)) {
-            return ['success' => false, 'message' => 'Stripe Secret Key is required (sk_test_... or sk_live_...).'];
+            return [
+                'success' => false,
+                'message' => 'Stripe Secret Key is missing.',
+                'integration_mode' => 'stub',
+                'health_status' => 'credentials_missing',
+            ];
         }
-        return ['success' => true, 'message' => 'Stripe credentials authorized.'];
+
+        return [
+            'success' => false,
+            'message' => 'Stripe backend is incomplete. Live Stripe API is not wired — do not mark Connected.',
+            'integration_mode' => 'stub',
+            'health_status' => 'incomplete_backend',
+            'requires_real_api' => true,
+        ];
     }
 
     public function createPaymentSession(PaymentGateway $gateway, Order $order, array $params = []): array
     {
-        $ref = 'pi_' . strtolower(Str::random(24));
         return [
-            'success' => true,
-            'transaction_reference' => $ref,
-            'client_secret' => $ref . '_secret_' . strtolower(Str::random(16)),
-            'amount' => $order->total_amount,
-            'currency' => 'SAR',
+            'success' => false,
+            'message' => 'Stripe payment session requires a real Stripe API integration (not implemented).',
+            'integration_mode' => 'stub',
+            'requires_real_api' => true,
         ];
     }
 
     public function verifyPayment(PaymentGateway $gateway, string $transactionRef, array $payload = []): array
     {
         return [
-            'success' => true,
-            'status' => 'paid',
+            'success' => false,
+            'status' => 'failed',
             'gateway_transaction_id' => $transactionRef,
             'amount' => (float) ($payload['amount'] ?? 0),
-            'fee' => round(((float) ($payload['amount'] ?? 0)) * 0.029 + 1.0, 2),
-            'source_type' => 'card',
-            'card_brand' => 'Visa',
-            'card_last_four' => '4242',
-            'raw' => ['status' => 'succeeded'],
+            'fee' => 0,
+            'message' => 'Stripe verify unavailable — incomplete backend. Never mark Paid without Stripe API evidence.',
+            'integration_mode' => 'stub',
+            'requires_real_api' => true,
+            'raw' => ['requires_real_api' => true],
         ];
     }
 
     public function refund(PaymentGateway $gateway, PaymentTransaction $transaction, float $amount, string $reason = ''): array
     {
         return [
-            'success' => true,
-            'refund_id' => 're_' . rand(100000, 999999),
+            'success' => false,
             'amount' => $amount,
-            'status' => 'refunded',
-            'message' => 'Stripe refund issued.',
+            'status' => 'failed',
+            'message' => 'Stripe refund requires a real Stripe API integration.',
+            'requires_real_api' => true,
         ];
     }
 
     public function handleWebhook(PaymentGateway $gateway, Request $request): array
     {
-        $payload = $request->all();
-        $event = $payload['type'] ?? '';
-        $obj = $payload['data']['object'] ?? [];
         return [
-            'success' => true,
-            'event' => $event,
-            'status' => $event === 'payment_intent.succeeded' ? 'paid' : 'pending',
-            'transaction_id' => $obj['id'] ?? null,
-            'amount' => isset($obj['amount']) ? $obj['amount'] / 100 : 0,
+            'success' => false,
+            'event' => 'stripe.stub',
+            'status' => 'pending',
+            'message' => 'Stripe webhook processing requires a real Stripe API integration.',
+            'requires_real_api' => true,
         ];
     }
 }

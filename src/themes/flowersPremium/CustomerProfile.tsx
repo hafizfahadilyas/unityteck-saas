@@ -86,13 +86,14 @@ export const CustomerProfile: React.FC<Props> = ({
         </p>
       </div>
 
-      {/* Gamified Loyalty Card & Coins Section — this store only */}
+      {/* Loyalty Card & Rewards — daily spin game removed from storefront */}
       <CustomerLoyaltyProfileSection
         storeId={session.storeId}
         customerId={session.customerId}
         customerName={session.name}
         customerEmail={session.email}
         customerPhone={session.phone}
+        language={ar ? 'AR' : 'EN'}
       />
       <LoyaltyGiftPointsPopup storeId={session.storeId} customerId={session.customerId} />
 

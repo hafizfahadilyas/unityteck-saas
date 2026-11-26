@@ -51,17 +51,21 @@ export const ExclusivePerksBar: React.FC = () => {
 
   const storeContact = useMemo(() => {
     if (!activeStore?.id) return null;
+    // Pass store row as fallback so empty identity never blanks live API phone.
     return resolveStoreContact(activeStore.id, activeStore, storeIdentity);
   }, [activeStore, storeIdentity, tick]);
 
   /** Identity / store contact wins; theme mirrors are fallback only. */
   const cleanPhone = useMemo(() => {
+    const fromStoreRow = coffeeWhatsAppDigits(
+      (activeStore as { whatsapp?: string } | null)?.whatsapp || activeStore?.phone || '',
+    );
     return (
       storeContact?.whatsappDigits ||
+      fromStoreRow ||
       coffeeWhatsAppDigits(storeIdentity?.whatsapp || storeIdentity?.phone || '') ||
       coffeeWhatsAppDigits(settings?.customOrder?.whatsappNumber) ||
       coffeeWhatsAppDigits(settings?.heroBanners?.whatsappNumber) ||
-      coffeeWhatsAppDigits((activeStore as { whatsapp?: string } | null)?.whatsapp || activeStore?.phone || '') ||
       ''
     );
   }, [storeContact, storeIdentity, settings, activeStore]);
@@ -70,6 +74,7 @@ export const ExclusivePerksBar: React.FC = () => {
     storeContact?.whatsapp ||
     storeIdentity?.whatsapp ||
     storeIdentity?.phone ||
+    (activeStore as { whatsapp?: string } | null)?.whatsapp ||
     activeStore?.phone ||
     (cleanPhone ? `+${cleanPhone}` : '');
 

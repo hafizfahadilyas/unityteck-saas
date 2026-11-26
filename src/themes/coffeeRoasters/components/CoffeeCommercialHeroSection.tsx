@@ -169,9 +169,12 @@ function SlideBody({
   const imageCol = slide.image ? (
     <div className="w-full min-w-0">
       <img
+        data-comm-product-img="1"
         src={slide.image}
         alt={title || ''}
-        className="w-full h-auto max-h-[420px] object-contain rounded-2xl"
+        className="w-full h-auto max-h-[min(420px,52vh)] object-contain object-center mx-auto bg-transparent"
+        loading="lazy"
+        decoding="async"
       />
     </div>
   ) : (
@@ -232,15 +235,16 @@ export const CoffeeCommercialHeroSection: React.FC<{
   const pad = settings.sectionPaddingY ?? 48;
 
   return (
-    <section
-      data-customize-section="C-COMM"
-      className="w-full"
-      style={{
-        paddingTop: pad,
-        paddingBottom: pad,
-      }}
-    >
-      <div className={`mx-auto px-4 lg:px-8 ${widthCls}`}>
+    <div className="w-full max-w-full bg-[#e6e6e8]">
+      <section
+        data-customize-section="C-COMM"
+        className="w-full"
+        style={{
+          paddingTop: pad,
+          paddingBottom: pad,
+        }}
+      >
+        <div className={`mx-auto px-4 lg:px-8 ${widthCls}`}>
         <div className="relative">
           <SlideBody slide={slide} settings={settings} lang={lang} onBuyNow={onBuyNow} onAddToCart={onAddToCart} />
           {slides.length > 1 && settings.showArrows !== false ? (
@@ -278,7 +282,8 @@ export const CoffeeCommercialHeroSection: React.FC<{
             ))}
           </div>
         ) : null}
-      </div>
-    </section>
+        </div>
+      </section>
+    </div>
   );
 };

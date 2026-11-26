@@ -45,6 +45,8 @@ export interface ModernSegmentedTabsProps<T extends string = string> {
 /**
  * Platform-wide modern toggle / segmented tab control.
  * Use for page sub-nav — never plain underline text links.
+ * Opaque track + explicit active/idle ink so dark-shell wallpaper never
+ * washes Holst CTA labels (white-on-teal / dark-on-frost).
  */
 export function ModernSegmentedTabs<T extends string = string>({
   items,
@@ -64,12 +66,15 @@ export function ModernSegmentedTabs<T extends string = string>({
     <div
       role="tablist"
       aria-label={ariaLabel}
-      className={`p-1.5 rounded-2xl border flex flex-wrap sm:flex-nowrap items-center gap-1.5 overflow-x-auto scrollbar-none font-bold min-w-0 ${
+      data-u-segmented-tabs="true"
+      className={`u-segmented-tabs p-1.5 rounded-2xl border flex flex-wrap sm:flex-nowrap items-center gap-1.5 overflow-x-auto scrollbar-none font-bold min-w-0 ${
         fullWidth ? 'w-full' : 'w-full sm:w-auto'
       } ${text} ${className}`}
       style={{
-        background: 'color-mix(in srgb, var(--surface) 92%, var(--border))',
+        background: '#ffffff',
+        backgroundColor: '#ffffff',
         borderColor: 'var(--border)',
+        color: '#0f172a',
         boxShadow: 'inset 0 1px 0 color-mix(in srgb, #fff 40%, transparent)',
       }}
     >
@@ -82,29 +87,31 @@ export function ModernSegmentedTabs<T extends string = string>({
             type="button"
             role="tab"
             aria-selected={active}
+            data-u-segmented-tab={active ? 'active' : 'idle'}
             disabled={tab.disabled}
             onClick={() => {
               if (!tab.disabled) onChange(tab.id);
             }}
-            className={`${pad} rounded-xl transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed ${
+            className={`u-segmented-tab ${pad} rounded-xl transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed ${
               fullWidth ? 'flex-1' : ''
-            } ${active ? 'text-white scale-[1.02]' : 'opacity-85 hover:opacity-100'}`}
+            } ${active ? 'u-segmented-tab--active scale-[1.02]' : 'u-segmented-tab--idle hover:opacity-100'}`}
             style={
               active
                 ? {
                     background: tone.activeBg,
+                    backgroundColor: 'var(--portal-600, #1d8b94)',
                     boxShadow: `${tone.activeShadow}, inset 0 1px 0 rgba(255,255,255,0.22)`,
-                    color: '#fff',
+                    color: '#ffffff',
                   }
-                : { background: 'transparent', color: 'var(--muted)' }
+                : { background: 'transparent', color: '#334155' }
             }
           >
-            {Icon ? <Icon className="w-3.5 h-3.5 shrink-0" /> : null}
+            {Icon ? <Icon className="w-3.5 h-3.5 shrink-0" aria-hidden /> : null}
             <span className="truncate">{tab.label}</span>
             {tab.count !== undefined && tab.count !== null && tab.count !== '' ? (
               <span
-                className={`text-[10px] px-1.5 py-0.5 rounded-full font-black leading-none ${
-                  active ? tone.badgeActive : tone.badgeIdle
+                className={`u-segmented-tab__count text-[10px] px-1.5 py-0.5 rounded-full font-black leading-none ${
+                  active ? 'bg-white/20' : ''
                 }`}
               >
                 {tab.count}
@@ -112,14 +119,14 @@ export function ModernSegmentedTabs<T extends string = string>({
             ) : null}
             {tab.badge ? (
               <span
-                className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold leading-none ${
-                  active ? 'bg-white/20 text-white' : ''
+                className={`u-segmented-tab__badge text-[9px] px-1.5 py-0.5 rounded-md font-bold leading-none ${
+                  active ? 'bg-white/20' : ''
                 }`}
                 style={
                   active
-                    ? undefined
+                    ? { color: '#ffffff' }
                     : {
-                        background: 'color-mix(in srgb, var(--accent) 12%, var(--surface))',
+                        background: 'color-mix(in srgb, var(--accent) 12%, #ffffff)',
                         color: 'var(--accent)',
                         border: '1px solid color-mix(in srgb, var(--accent) 22%, var(--border))',
                       }

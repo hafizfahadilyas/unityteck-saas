@@ -95,7 +95,6 @@ import {
   type StudioQuotaState,
 } from '../../services/ksaAutomationEngine';
 import {
-  CANVA_FONT_FAMILIES,
   getCanvaTemplate,
   getDefaultBlankTemplate,
   resolveCanvaLayerLabel,
@@ -103,6 +102,8 @@ import {
   type CanvaTemplateCategory,
   type CanvaTemplateElement,
 } from '../../data/ksaCanvaTemplates';
+import { StoreFontSelect } from './fonts/StoreFontSelect';
+import { ensureStoreGoogleFontLoaded } from '../../data/storeGoogleFontsCatalog';
 import {
   CANVA_UPLOAD_CATEGORIES,
   importDesignFile,
@@ -125,7 +126,7 @@ import {
   type CanvaAnimPreset,
 } from '../../services/canvaTimeline';
 import { exportAnimatedGif, exportMotionVideo } from '../../services/canvaMotionExport';
-import { downscaleDataUrlToPng } from '../../services/canvaStudioPreview';
+import { downscaleDataUrlToPng, optimizeHomeThumb } from '../../services/canvaStudioPreview';
 import { snapElementCenter, type SnapGuide } from '../../services/canvaSnapGuides';
 import {
   MAGIC_RESIZE_PRESETS,
@@ -181,6 +182,7 @@ export type CanvaEditorKind = 'banner' | 'logo' | 'product_card';
 
 /** Full design snapshot for Master multi-store distribute (or advanced store save). */
 export type CanvaSavePayload = {
+  id?: string;
   /** Full-quality export (PNG preferred for transparency). */
   dataUrl: string;
   /** Optional downscaled PNG for template grid / last-saved thumbs. */
@@ -200,6 +202,12 @@ export type CanvaHomeLaunch = {
   premadeId?: string;
   myTemplate?: CanvaMyTemplate;
   blank?: { width: number; height: number; blankId?: string; label?: string };
+  /** Open file picker (PPTX / PSD / image) after editor boots */
+  openImport?: boolean;
+  /** Jump to Text tab + font picker after boot */
+  openFonts?: boolean;
+  /** Optional file already chosen on Canva home */
+  importFile?: File;
 };
 
 export interface CanvaImageStudioModalProps {
@@ -755,6 +763,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
   const [savedDesignId, setSavedDesignId] = useState<string | null>(null);
   const [isSavingDesign, setIsSavingDesign] = useState(false);
   const [isImportingDesign, setIsImportingDesign] = useState(false);
+  /** Default font for newly added text (Text tab / home Fonts launch) */
+  const [studioDefaultFont, setStudioDefaultFont] = useState(() => (isAr ? 'Tajawal' : 'Outfit'));
   const [myTemplates, setMyTemplates] = useState<CanvaMyTemplate[]>([]);
   const [lastImported, setLastImported] = useState<ImportedStudioDesign | null>(null);
   const designFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -895,43 +905,64 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     // Saved design from home → layers via applyProject path after import helper is ready
     if (!initialAsset && homeLaunch?.myTemplate) {
       const tpl = homeLaunch.myTemplate;
-      const payload = myTemplateToDesignPayload(tpl);
-      pendingHomeMineRef.current = {
-        width: payload.width,
-        height: payload.height,
-        name: isAr ? tpl.nameAr || tpl.nameEn : tpl.nameEn,
-        source:
-          tpl.source === 'psd' ? 'psd' : tpl.source === 'pptx' ? 'pptx' : 'image',
-        layers: payload.layers,
-        previewDataUrl: payload.previewDataUrl,
-        categoryHint: tpl.category,
-        templateId: tpl.id,
+      const applyMine = (ready: typeof tpl) => {
+        const payload = myTemplateToDesignPayload(ready);
+        pendingHomeMineRef.current = {
+          width: payload.width,
+          height: payload.height,
+          name: isAr ? ready.nameAr || ready.nameEn : ready.nameEn,
+          source:
+            ready.source === 'psd' ? 'psd' : ready.source === 'pptx' ? 'pptx' : 'image',
+          layers: payload.layers,
+          previewDataUrl: payload.previewDataUrl,
+          categoryHint: ready.category,
+          templateId: ready.id,
+        };
+        setCanvasW(payload.width);
+        setCanvasH(payload.height);
+        setElements([]);
+        setSelectedTemplateId(ready.id);
+        setSavedDesignId(ready.id);
+        setLastImported(ready);
+        setDocTitle(isAr ? ready.nameAr || ready.nameEn : ready.nameEn);
+        setUploadCategory(ready.category);
+        skipAutosaveRef.current = false;
+        void Promise.resolve().then(() => {
+          const pending = pendingHomeMineRef.current;
+          if (!pending) return;
+          pendingHomeMineRef.current = null;
+          applyImportedDesignRef.current?.(
+            {
+              width: pending.width,
+              height: pending.height,
+              name: pending.name,
+              source: pending.source,
+              layers: pending.layers,
+              previewDataUrl: pending.previewDataUrl,
+              categoryHint: pending.categoryHint,
+            },
+            { templateId: pending.templateId, keepCategory: true },
+          );
+        });
       };
-      // Minimal blank canvas until microtask applies layers
-      setCanvasW(payload.width);
-      setCanvasH(payload.height);
-      setElements([]);
-      setSelectedTemplateId(tpl.id);
-      setDocTitle(isAr ? tpl.nameAr || tpl.nameEn : tpl.nameEn);
-      setUploadCategory(tpl.category);
-      skipAutosaveRef.current = false;
-      void Promise.resolve().then(() => {
-        const pending = pendingHomeMineRef.current;
-        if (!pending) return;
-        pendingHomeMineRef.current = null;
-        applyImportedDesignRef.current?.(
-          {
-            width: pending.width,
-            height: pending.height,
-            name: pending.name,
-            source: pending.source,
-            layers: pending.layers,
-            previewDataUrl: pending.previewDataUrl,
-            categoryHint: pending.categoryHint,
-          },
-          { templateId: pending.templateId, keepCategory: true },
-        );
-      });
+
+      if (!tpl.layers?.length && activeStore?.id) {
+        setCanvasW(tpl.width || 1080);
+        setCanvasH(tpl.height || 1080);
+        setDocTitle(isAr ? tpl.nameAr || tpl.nameEn : tpl.nameEn);
+        void (async () => {
+          try {
+            const { ensurePptxTemplateLayers } = await import('../../services/canvaPptxPackHydrate');
+            const ready = await ensurePptxTemplateLayers(activeStore.id, tpl);
+            applyMine(ready);
+          } catch {
+            applyMine(tpl);
+          }
+        })();
+        return;
+      }
+
+      applyMine(tpl);
       return;
     }
 
@@ -1297,8 +1328,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
     const W = canvasW;
     const H = canvasH;
-    canvas.width = W;
-    canvas.height = H;
+    if (canvas.width !== W) canvas.width = W;
+    if (canvas.height !== H) canvas.height = H;
 
     ctx.clearRect(0, 0, W, H);
     layoutCacheRef.current = {};
@@ -1857,7 +1888,6 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
       ctx.restore();
     });
-    setLayoutEpoch((n) => n + 1);
   }, [
     canvasW,
     canvasH,
@@ -2267,9 +2297,32 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       setMyTemplates([]);
       return;
     }
+    try {
+      const { hydratePptxStudioPackForStore } = await import('../../services/canvaPptxPackHydrate');
+      // Lean stubs only — top 10 page, never download full ~200MB pack / every design on open
+      if (masterMode) {
+        await hydratePptxStudioPackForStore('master-platform', { page: 1, perPage: 10 });
+      }
+      await hydratePptxStudioPackForStore(activeStore.id, { page: 1, perPage: 10 });
+    } catch {
+      /* pack optional */
+    }
+    if (masterMode) {
+      const masterRows = await listMyCanvaTemplates('master-platform');
+      // Panel filters by activeStore.id — remap display only; IndexedDB stays master-platform
+      setMyTemplates(
+        masterRows.map((r) => ({
+          ...r,
+          storeId: activeStore.id,
+          fromMaster: true,
+          source: 'master' as const,
+        })),
+      );
+      return;
+    }
     const rows = await listMyCanvaTemplates(activeStore.id);
     setMyTemplates(rows);
-  }, [activeStore?.id]);
+  }, [activeStore?.id, masterMode]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -2284,7 +2337,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     }
     try {
       const rawPng = canvasRef.current?.toDataURL('image/png') || lastImported?.previewDataUrl || '';
-      const preview = rawPng ? await downscaleDataUrlToPng(rawPng) : undefined;
+      const preview = rawPng ? await optimizeHomeThumb(rawPng) : undefined;
       const layers: ImportedStudioLayer[] = elements.map((el) => ({
         id: el.id,
         type: el.type,
@@ -2459,8 +2512,9 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       borderRadius: 20,
       isBold: true,
       textAlign: 'center',
-      fontFamily: isAr ? 'Tajawal' : 'Outfit',
+      fontFamily: studioDefaultFont || (isAr ? 'Tajawal' : 'Outfit'),
     };
+    ensureStoreGoogleFontLoaded(newEl.fontFamily || studioDefaultFont);
     setElements((prev) => {
       const next = [...prev, newEl];
       queueMicrotask(() => pushHistorySnapshot(next));
@@ -3735,10 +3789,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
   };
 
   /** Full design import: PPTX / PSD / PNG → replace canvas with editable layers */
-  const handleImportDesignFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
+  const importDesignFromFile = async (file: File) => {
     setIsImportingDesign(true);
     const IMPORT_TIMEOUT_MS = 45000;
     try {
@@ -3791,6 +3842,31 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       setIsImportingDesign(false);
     }
   };
+
+  const handleImportDesignFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    await importDesignFromFile(file);
+  };
+
+  // Home → Import / Fonts intents (per launch key only once)
+  useEffect(() => {
+    if (!isOpen || !homeLaunch?.key) return;
+    if (!homeLaunch.openImport && !homeLaunch.openFonts) return;
+    const t = window.setTimeout(() => {
+      if (homeLaunch.openFonts) {
+        setActiveTab('text');
+      }
+      if (homeLaunch.importFile) {
+        void importDesignFromFile(homeLaunch.importFile);
+      } else if (homeLaunch.openImport) {
+        designFileInputRef.current?.click();
+      }
+    }, 280);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, homeLaunch?.key]);
 
   const layersToProjectPayload = (els: CanvasElement[] = elements): CanvaProjectLayer[] =>
     els.map((el) => ({
@@ -4329,6 +4405,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
       locked: el.locked,
     }));
     return {
+      id: savedDesignId || lastImported?.id || (homeLaunch?.myTemplate?.id ?? undefined),
       dataUrl,
       title: docTitle || (isAr ? 'تصميم' : 'Design'),
       width: canvasW,
@@ -4363,7 +4440,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     const dataUrl = exportCanvasDataUrl('image/png');
     if (!dataUrl) return;
     const run = async () => {
-      const thumb = await downscaleDataUrlToPng(dataUrl);
+      const thumb = (await optimizeHomeThumb(dataUrl)) || (await downscaleDataUrlToPng(dataUrl));
       const fullPayload: CanvaSavePayload = {
         ...buildSavePayload(dataUrl),
         previewDataUrl: thumb,
@@ -4509,9 +4586,9 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
         />
 
         {/* ── TOP CANVA NAVBAR ── */}
-        <div className="cs-header cs-glass px-4 py-2.5 border-b flex items-center justify-between gap-3 shrink-0">
+        <div className="cs-header cs-glass px-3 sm:px-4 py-2 sm:py-2.5 border-b shrink-0">
           {/* Left: Studio Brand & Editable Title */}
-          <div className="flex items-center gap-3">
+          <div className="cs-header-left flex items-center gap-2 sm:gap-3 min-w-0">
             <div
               className="w-9 h-9 rounded-lg text-white flex items-center justify-center font-black text-sm cs-btn-primary"
               style={{ background: 'var(--accent, #1d8b94)' }}
@@ -4579,14 +4656,14 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                 onBlur={() => setIsEditingTitle(false)}
                 onKeyDown={(e) => e.key === 'Enter' && setIsEditingTitle(false)}
                 onChange={(e) => setDocTitle(e.target.value)}
-                className="cs-header-chip px-2.5 py-1.5 rounded-lg text-[13px] font-bold max-w-[220px] cs-accent-border"
+                className="cs-header-chip cs-header-title-input px-2.5 py-1.5 rounded-lg text-[13px] font-bold cs-accent-border"
                 style={{ borderColor: 'var(--accent, #1d8b94)' }}
               />
             ) : (
               <span
                 onClick={() => setIsEditingTitle(true)}
                 title={isAr ? 'انقر لتعديل اسم التصميم' : 'Click to edit title'}
-                className="cs-header-title text-[13px] cursor-pointer px-2 py-1 rounded-md truncate max-w-[240px]"
+                className="cs-header-title text-[13px] cursor-pointer px-2 py-1 rounded-md truncate"
               >
                 {docTitle} ✎
               </span>
@@ -4631,7 +4708,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
           </div>
 
           {/* Center: Undo / Redo / Copy / Paste (live) */}
-          <div className="cs-header-chip flex items-center gap-0.5 p-0.5 rounded-lg">
+          <div className="cs-header-center cs-header-chip flex items-center gap-0.5 p-0.5 rounded-lg shrink-0">
             <button
               type="button"
               onClick={handleUndo}
@@ -4675,12 +4752,12 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
           </div>
 
           {/* Right: Actions & Share/Post Button */}
-          <div className="flex items-center gap-2">
+          <div className="cs-header-right flex items-center gap-1.5 sm:gap-2 min-w-0 justify-end">
             <button
               type="button"
               disabled={isImportingDesign}
               onClick={() => designFileInputRef.current?.click()}
-              className="cs-header-chip px-3 py-1.5 rounded-lg text-[13px] flex items-center gap-1.5"
+              className="cs-header-chip px-2.5 sm:px-3 py-1.5 rounded-lg text-[13px] flex items-center gap-1.5 shrink-0"
               title={
                 isAr
                   ? 'رفع من كانفا: تنزيل PPTX ثم ارفعه هنا — طبقات قابلة للنسخ واللصق'
@@ -4950,11 +5027,14 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
             <button
               type="button"
               onClick={handleOpenSocialModal}
-              className="px-3.5 py-1.5 rounded-lg text-[13px] font-black text-white flex items-center gap-1.5 cursor-pointer cs-btn-primary"
+              className="cs-header-share px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[13px] font-black text-white flex items-center gap-1.5 cursor-pointer cs-btn-primary shrink-0"
               style={{ background: 'var(--accent, #1d8b94)' }}
+              title={isAr ? 'نشر في وسائل التواصل' : 'Post to Social Media'}
             >
-              <Share2 className="w-4 h-4" />
-              <span>{isAr ? 'نشر في وسائل التواصل' : 'Post to Social Media'}</span>
+              <Share2 className="w-4 h-4 shrink-0" />
+              <span className="cs-header-share-label">
+                {isAr ? 'نشر في وسائل التواصل' : 'Post to Social Media'}
+              </span>
             </button>
 
             {!isPage && (
@@ -5142,26 +5222,41 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                     previewProduct={currentProducts[0] || null}
                     myTemplates={myTemplates}
                     onApply={applyCanvaTemplate}
-                    onApplyMyTemplate={(tpl) => {
-                      const payload = myTemplateToDesignPayload(tpl);
+                    onApplyMyTemplate={async (tpl) => {
+                      let ready = tpl;
+                      if (!tpl.layers?.length && activeStore?.id) {
+                        try {
+                          const { getMyCanvaTemplate } = await import('../../services/canvaMyTemplates');
+                          const local = await getMyCanvaTemplate(activeStore.id, tpl.id);
+                          if (local?.layers?.length) {
+                            ready = local;
+                          } else {
+                            const { ensurePptxTemplateLayers } = await import('../../services/canvaPptxPackHydrate');
+                            ready = await ensurePptxTemplateLayers(activeStore.id, tpl);
+                          }
+                        } catch {
+                          /* keep stub */
+                        }
+                      }
+                      const payload = myTemplateToDesignPayload(ready);
                       applyImportedDesign(
                         {
                           width: payload.width,
                           height: payload.height,
-                          name: isAr ? tpl.nameAr || tpl.nameEn : tpl.nameEn,
+                          name: isAr ? ready.nameAr || ready.nameEn : ready.nameEn,
                           source:
-                            tpl.source === 'psd'
+                            ready.source === 'psd'
                               ? 'psd'
-                              : tpl.source === 'pptx'
+                              : ready.source === 'pptx'
                                 ? 'pptx'
                                 : 'image',
                           layers: payload.layers,
                           previewDataUrl: payload.previewDataUrl,
-                          categoryHint: tpl.category,
+                          categoryHint: ready.category,
                         },
-                        { templateId: tpl.id, keepCategory: true },
+                        { templateId: ready.id, keepCategory: true },
                       );
-                      setUploadCategory(tpl.category);
+                      setUploadCategory(ready.category);
                     }}
                     onDeleteMyTemplate={async (tplId) => {
                       await deleteMyCanvaTemplate(activeStore.id, tplId);
@@ -5425,6 +5520,42 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
             {/* 3. TEXT TAB */}
             {activeTab === 'text' && (
               <div className="space-y-4">
+                <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-2">
+                  <span className="cs-section-label">
+                    {isAr ? 'الخطوط' : 'Fonts'}
+                  </span>
+                  <p className="text-[10px] text-slate-500 leading-relaxed">
+                    {isAr
+                      ? 'اختر الخط للنصوص الجديدة، أو حدّد طبقة نص لتغيير خطها.'
+                      : 'Pick a font for new text, or select a text layer to change its font.'}
+                  </p>
+                  <StoreFontSelect
+                    isAr={isAr}
+                    value={
+                      selectedElement &&
+                      selectedElement.type !== 'shape' &&
+                      selectedElement.type !== 'image' &&
+                      selectedElement.type !== 'sticker' &&
+                      selectedElement.type !== 'icon'
+                        ? selectedElement.fontFamily || studioDefaultFont
+                        : studioDefaultFont
+                    }
+                    searchable
+                    onChange={(fontFamily) => {
+                      ensureStoreGoogleFontLoaded(fontFamily);
+                      setStudioDefaultFont(fontFamily);
+                      if (
+                        selectedElement &&
+                        selectedElement.type !== 'shape' &&
+                        selectedElement.type !== 'image' &&
+                        selectedElement.type !== 'sticker' &&
+                        selectedElement.type !== 'icon'
+                      ) {
+                        updateSelectedElement({ fontFamily });
+                      }
+                    }}
+                  />
+                </div>
                 <span className="text-xs font-black uppercase text-slate-400">
                   {isAr ? 'إضافة نصوص جديدة' : 'Add text to design'}
                 </span>
@@ -7186,9 +7317,9 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
           {/* ── CANVAS WORKSPACE & CONTEXTUAL TOOLBAR ── */}
           <div className="cs-workspace flex-1 flex flex-col justify-between p-3 sm:p-4 overflow-hidden min-w-0">
             {/* FLOATING CONTEXTUAL TOOLBAR ABOVE DESIGN */}
-            <div className="cs-toolbar cs-glass mb-2 px-3 py-1.5 rounded-lg border border-slate-200 flex items-center justify-between gap-2 text-xs shrink-0 overflow-x-auto scrollbar-none">
+            <div className="cs-toolbar cs-glass mb-2 px-2 sm:px-3 py-1.5 rounded-lg border border-slate-200 text-xs shrink-0">
               {selectedElement ? (
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="cs-toolbar-scroll flex items-center gap-1.5 sm:gap-2 scrollbar-none">
                   {/* Text edit */}
                   {(selectedElement.type === 'sticker' || selectedElement.type === 'icon') && (
                     <>
@@ -7236,18 +7367,18 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                         className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-900 min-w-[120px] max-w-[200px]"
                         placeholder={isAr ? 'تعديل النص...' : 'Edit text...'}
                       />
-                      <select
-                        value={selectedElement.fontFamily || 'Outfit'}
-                        onChange={(e) => updateSelectedElement({ fontFamily: e.target.value })}
-                        className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-800"
-                        title={isAr ? 'الخط' : 'Font'}
-                      >
-                        {CANVA_FONT_FAMILIES.map((f) => (
-                          <option key={f.id} value={f.id}>
-                            {isAr ? f.labelAr : f.labelEn}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="min-w-[160px] max-w-[220px]" title={isAr ? 'الخط' : 'Font'}>
+                        <StoreFontSelect
+                          isAr={isAr}
+                          value={selectedElement.fontFamily || (isAr ? 'Tajawal' : 'Outfit')}
+                          searchable={false}
+                          onChange={(fontFamily) => {
+                            ensureStoreGoogleFontLoaded(fontFamily);
+                            updateSelectedElement({ fontFamily });
+                          }}
+                          className="!py-1 !rounded-lg !text-xs"
+                        />
+                      </div>
                       <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white">
                         <button
                           type="button"
@@ -7490,7 +7621,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                           {isAr ? 'مسافات' : 'Spacing'}
                         </button>
                         {showSpacingPopover && (
-                          <div className="cs-spacing-popover absolute start-0 top-full mt-1.5 z-50 w-56 rounded-xl border border-slate-200 bg-white p-3 space-y-3">
+                          <div className="cs-spacing-popover absolute start-0 bottom-full mb-1.5 z-50 w-56 rounded-xl border border-slate-200 bg-white p-3 space-y-3 shadow-lg">
                             <div className="flex gap-1 mb-1">
                               <span className="text-[10px] font-black uppercase text-slate-500">
                                 {isAr ? 'المسافات' : 'Spacing'}
@@ -7890,8 +8021,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 text-slate-500 text-xs">
-                  <span>
+                <div className="cs-toolbar-scroll flex items-center gap-2 text-slate-500 text-xs min-w-0">
+                  <span className="truncate">
                     {isAr
                       ? 'انقر على أي عنصر في التصميم للتعديل'
                       : 'Click any element on the design to edit'}
@@ -7899,12 +8030,12 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                 </div>
               )}
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="cs-toolbar-end flex items-center gap-1.5 sm:gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={handleAiRemoveBg}
                   disabled={isProcessingAi}
-                  className="px-2.5 py-1 rounded-lg text-[10px] font-black text-white flex items-center gap-1 cursor-pointer disabled:opacity-60 cs-btn-primary"
+                  className="px-2 sm:px-2.5 py-1 rounded-lg text-[10px] font-black text-white flex items-center gap-1 cursor-pointer disabled:opacity-60 cs-btn-primary"
                   style={{ background: 'var(--accent, #1d8b94)' }}
                   title={
                     isAr
@@ -7912,8 +8043,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                       : 'Local background cutout (not AI)'
                   }
                 >
-                  <Wand2 className="w-3.5 h-3.5" />
-                  <span>
+                  <Wand2 className="w-3.5 h-3.5 shrink-0" />
+                  <span className="cs-toolbar-end-label">
                     {isProcessingAi
                       ? isAr
                         ? 'جارٍ العزل...'
@@ -7941,7 +8072,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                     }
                     toast(isAr ? 'تم التوسيط' : 'Centered', 'info');
                   }}
-                  className="px-2 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-[10px] font-bold text-slate-700"
+                  className="px-2 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-[10px] font-bold text-slate-700 whitespace-nowrap"
                 >
                   {isAr ? 'توسيط' : 'Center'}
                 </button>
@@ -8216,7 +8347,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                             const r = layoutCacheRef.current[id] ?? estimateElementBounds(el);
                             return (
                               <div
-                                key={`sel-multi-${id}-${layoutEpoch}`}
+                                key={`sel-multi-${id}`}
                                 className="cs-selection-box absolute pointer-events-none opacity-70"
                                 style={rectToPercentStyle(r, canvasW, canvasH)}
                               />
@@ -8225,12 +8356,12 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
                         {selectedElement && elementSelectionRect && (
                           <div
-                            key={`sel-el-${selectedElement.id}-${layoutEpoch}`}
+                            key={`sel-el-${selectedElement.id}`}
                             className="cs-selection-box absolute"
                             style={rectToPercentStyle(elementSelectionRect, canvasW, canvasH)}
                           >
                             <div
-                              className="cs-selection-toolbar cs-selection-pill absolute -top-11 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-lg px-2 py-1 whitespace-nowrap text-[11px] text-slate-800"
+                              className="cs-selection-toolbar cs-selection-pill absolute left-1/2 flex items-center gap-1 rounded-lg px-2 py-1 whitespace-nowrap text-[11px] text-slate-800"
                               onClick={(e) => e.stopPropagation()}
                             >
                               <button
@@ -8341,11 +8472,11 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
 
                         {productSelectionRect && (
                           <div
-                            key={`sel-product-${layoutEpoch}`}
+                            key="sel-product"
                             className="cs-selection-box absolute"
                             style={rectToPercentStyle(productSelectionRect, canvasW, canvasH)}
                           >
-                            <div className="cs-selection-toolbar absolute -top-11 left-1/2 -translate-x-1/2 rounded-lg px-2.5 py-1 text-[10px] font-bold text-slate-700 whitespace-nowrap">
+                            <div className="cs-selection-toolbar absolute left-1/2 rounded-lg px-2.5 py-1 text-[10px] font-bold text-slate-700 whitespace-nowrap">
                               {isAr
                                 ? 'صورة المنتج · اسحب الزاوية لتكبير'
                                 : 'Product · drag corner to resize'}
@@ -8381,28 +8512,28 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
               })}
             </div>
 
-            <div className="cs-footer cs-glass pt-2.5 mt-2 border-t border-slate-200 flex items-center justify-between text-xs gap-3 flex-wrap">
-              <div className="flex items-center gap-2 font-bold" style={{ color: 'var(--cs-text, #f8fafc)' }}>
-                <ShieldCheck className="w-4 h-4" style={{ color: 'var(--accent, #1d8b94)' }} />
-                <span>
+            <div className="cs-footer cs-glass pt-2 mt-2 border-t border-slate-200 text-xs">
+              <div className="cs-footer-meta flex items-center gap-2 font-bold min-w-0" style={{ color: 'var(--cs-text, #f8fafc)' }}>
+                <ShieldCheck className="w-4 h-4 shrink-0" style={{ color: 'var(--accent, #1d8b94)' }} />
+                <span className="truncate">
                   {isAr ? 'استوديو التصميم' : 'Design Studio'} • {canvasW}×{canvasH} px
                 </span>
               </div>
-              <div className="relative">
+              <div className="cs-footer-actions relative flex items-center justify-center">
                 <button
                   type="button"
                   onClick={() => {
                     openPositionPanel('layers');
                     setShowAddLayerMenu(true);
                   }}
-                  className="cs-add-layer-btn px-3 py-1.5 rounded-xl text-[12px] font-black flex items-center gap-1.5 cursor-pointer"
+                  className="cs-add-layer-btn px-3 py-1.5 rounded-xl text-[12px] font-black flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                   title={isAr ? 'إضافة طبقة' : 'Add layer'}
                 >
-                  <Plus className="w-4 h-4" />
-                  {isAr ? 'إضافة طبقة' : 'Add layer'}
+                  <Plus className="w-4 h-4 shrink-0" />
+                  <span className="cs-footer-add-label">{isAr ? 'إضافة طبقة' : 'Add layer'}</span>
                 </button>
               </div>
-              <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-1.5 py-0.5">
+              <div className="cs-footer-zoom flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-1.5 py-0.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setViewZoom((z) => Math.max(0.3, Math.round((z - 0.1) * 100) / 100))}
@@ -8431,20 +8562,20 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                 </button>
               </div>
               {productHeroSelected && (
-                <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-0.5">
-                  <span className="text-[10px] text-slate-500">{isAr ? 'حجم المنتج' : 'Product size'}</span>
+                <div className="cs-footer-product flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-0.5 shrink-0">
+                  <span className="text-[10px] text-slate-500 whitespace-nowrap">{isAr ? 'حجم المنتج' : 'Product size'}</span>
                   <input
                     type="range"
                     min={18}
                     max={120}
                     value={productScale}
                     onChange={(e) => setProductScale(Number(e.target.value))}
-                    className="w-24 accent-[var(--cs-accent,#1d8b94)]"
+                    className="w-20 sm:w-24 accent-[var(--cs-accent,#1d8b94)]"
                   />
                   <span className="text-[10px] font-mono text-slate-700 w-8">{productScale}%</span>
                 </div>
               )}
-              <div className="flex items-center gap-3">
+              <div className="cs-footer-formats flex items-center gap-2 sm:gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => handleDownload('png')}
@@ -8452,7 +8583,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                 >
                   PNG
                 </button>
-                <span>•</span>
+                <span aria-hidden>•</span>
                 <button
                   type="button"
                   onClick={() => handleDownload('jpg')}
@@ -8460,7 +8591,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                 >
                   JPG
                 </button>
-                <span>•</span>
+                <span aria-hidden>•</span>
                 <button
                   type="button"
                   onClick={() => handleDownload('webp')}
@@ -8468,7 +8599,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                 >
                   WebP
                 </button>
-                <span>•</span>
+                <span aria-hidden>•</span>
                 <button
                   type="button"
                   disabled={isExportingMotion}
@@ -8477,7 +8608,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                 >
                   GIF
                 </button>
-                <span>•</span>
+                <span aria-hidden>•</span>
                 <button
                   type="button"
                   disabled={isExportingMotion}

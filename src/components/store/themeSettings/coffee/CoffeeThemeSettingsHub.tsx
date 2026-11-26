@@ -10,6 +10,7 @@ import {
   readAllThemeSettings,
   type AllThemeSettings,
 } from '../../../../themes/settings/themeSettingsStore';
+import { buildStorefrontHomeUrl } from '../../../../utils/storefrontLinks';
 
 /**
  * Coffee Word-order widgets — Active/Inactive KPIs + one-click open of each editable section.
@@ -109,11 +110,7 @@ export const CoffeeThemeSettingsHub: React.FC<{
       return;
     }
     const slug = activeStore?.slug || 'coffee';
-    window.open(
-      `/?store=${encodeURIComponent(slug)}&fullscreen=1`,
-      '_blank',
-      'noopener,noreferrer',
-    );
+    window.open(buildStorefrontHomeUrl({ storeSlug: slug }), '_blank', 'noopener,noreferrer');
   };
 
   return (

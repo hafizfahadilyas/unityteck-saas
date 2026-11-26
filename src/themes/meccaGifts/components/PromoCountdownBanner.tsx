@@ -2,12 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useTenant } from '../../../context/TenantContext';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { isSouqCommonTenant } from '../../souqCommon/isSouqCommonTenant';
+import { getDefaultStoreTheme } from '../../../auth/defaultTheme';
 
 export const PromoCountdownBanner: React.FC = () => {
   const { language, setCurrentPage, setSelectedCategory } = useApp();
-  const { activeStore } = useTenant();
+  const { activeStore, storeActiveTheme } = useTenant();
   const isAr = language === 'ar';
+  const themeId =
+    (activeStore?.id && storeActiveTheme?.[activeStore.id]) ||
+    getDefaultStoreTheme(activeStore?.id);
   const isCoffee = activeStore?.id === 'store-coffee' || (activeStore?.category && activeStore.category.includes('قهوة'));
+  const isSouq = !isCoffee && isSouqCommonTenant(activeStore, themeId);
 
   // Live countdown matching [02 Days 14 Hours 36 Minutes]
   const [timeLeft, setTimeLeft] = useState({
@@ -37,27 +43,33 @@ export const PromoCountdownBanner: React.FC = () => {
   }, []);
 
   const handleShopCollection = () => {
-    setSelectedCategory(isCoffee ? 'حبوب القهوة المختصة' : 'باقات الورود الطبيعية');
+    setSelectedCategory(isCoffee ? 'حبوب القهوة المختصة' : isSouq ? '' : 'باقات الورود الطبيعية');
     setCurrentPage('catalog');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const bannerImage = isCoffee
     ? 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=1200&q=80'
-    : '/images/hadaya_promo_banner_1791216140411.jpg';
+    : isSouq
+      ? '/images/saudi_hero_banner_2.jpg'
+      : '/images/hadaya_promo_banner_1791216140411.jpg';
 
   const title = isCoffee
     ? (isAr ? 'محاصيل بن مختارة لخبراء التذوق' : 'Specialty Coffee Roasts for Connoisseurs')
-    : (isAr ? 'زهور طبيعية لكل مناسبة' : 'Fresh Flowers for Every Occasion');
+    : isSouq
+      ? (isAr ? 'عرض لفترة محدودة' : 'Limited-time offer')
+      : (isAr ? 'زهور طبيعية لكل مناسبة' : 'Fresh Flowers for Every Occasion');
 
   const subtitle = isCoffee
     ? (isAr ? 'احصل على خصم 20% على مجموعات التحميص ومحاصيل المزارع النادرة' : 'Get 20% off on rare single-origin beans and roasting bundles')
-    : (isAr ? 'احصل على خصم 20% على باقات مختارة' : 'Get 20% off on selected bouquets');
+    : isSouq
+      ? (isAr ? 'تسوق منتجات المتجر قبل انتهاء العرض' : 'Shop store products before this offer ends')
+      : (isAr ? 'احصل على خصم 20% على باقات مختارة' : 'Get 20% off on selected bouquets');
 
   return (
     <section className="py-8 sm:py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
       {/* Banner Container matching Image 2 Center */}
-      <div className={`relative rounded-3xl overflow-hidden text-white shadow-xl min-h-[300px] sm:min-h-[340px] flex items-center ${isCoffee ? 'bg-[#1e120c]' : 'bg-[#261715]'}`}>
+      <div className={`relative rounded-3xl overflow-hidden text-white shadow-xl min-h-[300px] sm:min-h-[340px] flex items-center ${isCoffee ? 'bg-[#1e120c]' : isSouq ? 'bg-[#0f766e]' : 'bg-[#261715]'}`}>
         
         {/* Photography split background */}
         <div className="absolute inset-0">

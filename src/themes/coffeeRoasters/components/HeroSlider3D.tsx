@@ -9,6 +9,11 @@ import { resolveStoreContact } from '../../settings/storeContact';
 import { resolveCustomMadeWhatsAppHref } from '../customMadeWhatsApp';
 import { learnMoreHref } from '../learnMoreHref';
 import {
+  coffeeHeroWallpaperJpgFallback,
+  coffeeHeroWallpaperUrl,
+  isCoffeeProductCutoutUrl,
+} from '../utils/coffeeHeroWallpaper';
+import {
   ChevronLeft,
   ChevronRight,
   ShoppingBag,
@@ -19,17 +24,6 @@ import {
   Zap,
   Sparkles,
 } from 'lucide-react';
-
-// Crisp, high-resolution original banner images (Full-Bleed Coffee Photography)
-import bannerImg1 from '../assets/images/hero_coffee_banner_white_1.jpg';
-import bannerImg2 from '../assets/images/hero_coffee_banner_white_2.jpg';
-import bannerImg3 from '../assets/images/hero_coffee_banner_white_3.jpg';
-import bannerImg4 from '../assets/images/hero_coffee_corner_cabinet_1791217199146.jpg';
-
-// Transparent PNG cutouts for Shop slider variant
-import machine5thPng from '../assets/images/flagship_coffee_machine_5th.png';
-import machineSilverPng from '../assets/images/product_machine_silver_pro.png';
-import machineDripPng from '../assets/images/product_machine_drip_carafe.png';
 
 interface HeroBannerSlide {
   id: string;
@@ -63,16 +57,62 @@ interface HeroBannerSlide {
   customOrderUrl?: string;
 }
 
+const EMPTY_CATALOG: Array<Record<string, any>> = [];
+
+/** Reject blank / dimension-placeholder URLs (e.g. grey "1400 x 680" slabs). */
+const isUsableBannerImage = (img: string | undefined | null): boolean => {
+  const s = String(img || '').trim();
+  if (!s) return false;
+  if (/1400\s*[x×]\s*680|placeholder|via\.placeholder|placehold\.co|picsum\.photos|dummyimage/i.test(s)) {
+    return false;
+  }
+  return true;
+};
+
+/** Hide legacy stock espresso/grinder hero art — storefront uses merchant almari/cabinet PNGs only. */
+const isLegacyCoffeeMachineHero = (blob: string): boolean => {
+  const lower = String(blob || '').toLowerCase();
+  if (/almari|cabinet|corner|خزانة|دولاب|ركن|mieraf|mieraf-ksa/i.test(lower)) return false;
+  return (
+    /hero_coffee|coffee_machine|espresso.?machine|dual.?boiler|portafilter|macro.?crema|grinder.?mill|flagship_machine|hibrew.?machine|coffeemachine|\.espresso/i.test(
+      lower,
+    ) ||
+    /(?:آلة|مطحنة|إسبريسو).*(?:قهوة|اسبريسو)/i.test(blob) ||
+    /(?:coffee|espresso).*(?:machine|grinder|maker)/i.test(lower)
+  );
+};
+
 /** DF-01 — merchant image only; never invent stock hero photos. */
 const resolveBannerImage = (img: string | undefined): string => {
-  if (!img) return '';
-  const lower = img.toLowerCase();
-  if (lower.startsWith('http') || lower.startsWith('data:') || lower.startsWith('/')) return img;
-  if (lower.includes('white_1') || lower.includes('flagship_machine')) return bannerImg1;
-  if (lower.includes('white_2') || lower.includes('grinder') || lower.includes('mill')) return bannerImg2;
-  if (lower.includes('white_3') || lower.includes('silver_pro') || lower.includes('classic')) return bannerImg3;
-  if (lower.includes('cabinet') || lower.includes('corner') || lower.includes('1791217199146')) return bannerImg4;
-  return img;
+  if (!isUsableBannerImage(img)) return '';
+  const lower = String(img).toLowerCase();
+  if (
+    /hero_coffee_banner|hero_coffee_|white_1\.jpg|white_2\.jpg|white_3\.jpg|flagship_machine/i.test(lower) ||
+    isLegacyCoffeeMachineHero(lower)
+  ) {
+    return '';
+  }
+  if (lower.startsWith('http') || lower.startsWith('data:') || lower.startsWith('/')) return String(img).trim();
+  return String(img).trim();
+};
+
+/** Prefer live catalog product shot when banner URL is empty/broken. */
+const catalogImageForProduct = (
+  productId: string | undefined,
+  catalog: Array<Record<string, any>>,
+): string => {
+  const id = String(productId || '').trim();
+  if (!id) return '';
+  const p = catalog.find((row) => String(row?.id || '') === id);
+  if (!p) return '';
+  const raw =
+    p.images?.[0] ||
+    p.colors?.[0]?.image ||
+    p.image ||
+    p.imageUrl ||
+    p.image_url ||
+    '';
+  return isUsableBannerImage(raw) ? String(raw).trim() : '';
 };
 
 interface SlideSpec {
@@ -98,62 +138,65 @@ interface ShopProductSlide {
   specs: SlideSpec[];
 }
 
-const SHOP_PRODUCT_SLIDES: ShopProductSlide[] = [
-  {
-    id: 'shop-slide-1',
-    productId: 'hb-h10a-dualboiler',
-    titleEn: 'Commercial Barista Station',
-    titleAr: 'محطة باريستا تجارية',
-    subtitleEn: 'Rotary Dual-Boiler 20-Bar',
-    subtitleAr: 'دبل بويلر ٢٠ بار',
-    priceEn: '\u20C1 2,450.00',
-    priceAr: '2,450.00 \u20C1',
-    image: machine5thPng,
-    dimensionsEn: 'W: 38cm · H: 36cm · L: 45cm',
-    dimensionsAr: 'عرض: 38سم · ارتفاع: 36سم · طول: 45سم',
-    specs: [
-      { icon: 'gauge', labelEn: 'Pump', labelAr: 'المضخة', valueEn: 'Rotary 20-Bar', valueAr: 'دورانية ٢٠ بار' },
-      { icon: 'flame', labelEn: 'System', labelAr: 'النظام', valueEn: 'Dual PID Thermal', valueAr: 'حراري دبل PID' },
-      { icon: 'coffee', labelEn: 'Steam', labelAr: 'التبخير', valueEn: 'Cool-Touch Wand', valueAr: 'عصا عازلة' },
-    ],
-  },
-  {
-    id: 'shop-slide-2',
-    productId: 'hb-barista-silver-pro',
-    titleEn: 'Barista Classic Pro',
-    titleAr: 'بارستا كلاسيك برو',
-    subtitleEn: 'Precision Italian Extraction',
-    subtitleAr: 'استخلاص إيطالي دقيق',
-    priceEn: '\u20C1 1,499.00',
-    priceAr: '1,499.00 \u20C1',
-    image: machineSilverPng,
-    dimensionsEn: 'W: 32cm · H: 30cm · L: 38cm',
-    dimensionsAr: 'عرض: 32سم · ارتفاع: 30سم · طول: 38سم',
-    specs: [
-      { icon: 'gauge', labelEn: 'Pressure', labelAr: 'الضغط', valueEn: '20-Bar ULKA', valueAr: 'إيطالية ٢٠ بار' },
-      { icon: 'zap', labelEn: 'Heating', labelAr: 'التسخين', valueEn: 'Rapid Thermoblock', valueAr: 'ثيرموبلوك سريع' },
-      { icon: 'coffee', labelEn: 'Grouphead', labelAr: 'المقبس', valueEn: '58mm Brass', valueAr: '٥٨ مم نحاسي' },
-    ],
-  },
-  {
-    id: 'shop-slide-3',
-    productId: 'hb-thermal-drip-brewer',
-    titleEn: 'Digital Thermal Brewer',
-    titleAr: 'ماكينة تقطير رقمية',
-    subtitleEn: 'Touch LED Carafe',
-    subtitleAr: 'شاشة لمس رقمية',
-    priceEn: '⃁ 299.00',
-    priceAr: '299.00 ⃁',
-    image: machineDripPng,
-    dimensionsEn: 'W: 24cm · H: 35cm · L: 26cm',
-    dimensionsAr: 'عرض: 24سم · ارتفاع: 35سم · طول: 26سم',
-    specs: [
-      { icon: 'coffee', labelEn: 'Capacity', labelAr: 'السعة', valueEn: '1.5L Glass Carafe', valueAr: 'إبريق ١.٥ لتر' },
-      { icon: 'zap', labelEn: 'Controls', labelAr: 'التحكم', valueEn: 'Touch LED Screen', valueAr: 'شاشة لمس LED' },
-      { icon: 'flame', labelEn: 'Warm Plate', labelAr: 'الحرارة', valueEn: '2-Hour Auto Warm', valueAr: 'تسخين ساعتين' },
-    ],
-  },
-];
+function formatSar(amount: number): { en: string; ar: string } {
+  const n = Number(amount) || 0;
+  const body = n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return { en: `\u20C1 ${body}`, ar: `${body} \u20C1` };
+}
+
+/** Shop hero slides from live catalog only (zero-mock). Empty catalog → empty slider. */
+function shopSlidesFromCatalog(catalog: Array<Record<string, any>>): ShopProductSlide[] {
+  return (catalog || [])
+    .filter((p) => p && p.id)
+    .slice(0, 5)
+    .map((p, idx) => {
+      const price = Number(p.price ?? p.basePrice ?? p.discountedPrice ?? 0) || 0;
+      const money = formatSar(price);
+      const image =
+        p.images?.[0] ||
+        p.colors?.[0]?.image ||
+        p.image ||
+        '';
+      const subtitleEn = String(p.tagline || p.subtitle || '').trim();
+      const subtitleAr = String(p.taglineAr || p.subtitleAr || subtitleEn).trim();
+      return {
+        id: `shop-slide-${p.id || idx}`,
+        productId: String(p.id),
+        titleEn: String(p.name || ''),
+        titleAr: String(p.nameAr || p.name || ''),
+        subtitleEn,
+        subtitleAr,
+        priceEn: money.en,
+        priceAr: money.ar,
+        image,
+        dimensionsEn: 'KSA coffee almari',
+        dimensionsAr: 'دولاب قهوة سعودي',
+        specs: [
+          {
+            icon: 'coffee' as const,
+            labelEn: 'Category',
+            labelAr: 'التصنيف',
+            valueEn: String(p.category || 'cabinets'),
+            valueAr: String(p.categoryAr || 'دواليب وأركان القهوة'),
+          },
+          {
+            icon: 'zap' as const,
+            labelEn: 'Origin',
+            labelAr: 'التصميم',
+            valueEn: 'Made for KSA homes',
+            valueAr: 'مصمم لمنازل المملكة',
+          },
+          {
+            icon: 'flame' as const,
+            labelEn: 'Finish',
+            labelAr: 'التشطيب',
+            valueEn: subtitleEn || 'Premium wood',
+            valueAr: subtitleAr || 'خشب فاخر',
+          },
+        ],
+      };
+    });
+}
 
 const splitBannerHeading = (fullText: string, lang: 'EN' | 'AR') => {
   const words = fullText.trim().split(/\s+/);
@@ -188,7 +231,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({
 }) => {
   const { navigateTo, language, addToCart, triggerFlyToCart, products, storeIdentity } = useCart();
   const { activeStore } = useTenant();
-  const catalogProducts = Array.isArray(products) ? products : [];
+  const catalogProducts = Array.isArray(products) ? products : EMPTY_CATALOG;
 
   const [settingsVersion, setSettingsVersion] = useState(0);
 
@@ -248,7 +291,12 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({
         b.enabled !== false &&
         !/floral|bouquet|باقات|زهور|holland|makkah|MKS/i.test(
           `${b.titleEn || ''} ${b.titleAr || ''} ${b.descriptionEn || ''} ${b.image || ''}`,
-        ),
+        ) &&
+        !(forceContentMode === 'image_only' || bannersKey === 'imageOnlyBanners'
+          ? isLegacyCoffeeMachineHero(
+              `${b.titleEn || ''} ${b.titleAr || ''} ${b.image || ''} ${b.mobileImage || ''}`,
+            )
+          : false),
     );
     if (activeHero.length > 0) {
       return activeHero.map((b, idx) => {
@@ -262,16 +310,38 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({
           if (w < 1024) return b.tabletImage || b.image || b.mobileImage;
           return b.image || b.tabletImage || b.mobileImage;
         };
-        const image = resolveBannerImage(pickHeroImage());
+        const productId = b.productId || '';
+        const isMobilePick =
+          typeof window !== 'undefined' ? window.innerWidth < 640 : false;
+        const rawPick = resolveBannerImage(pickHeroImage()) || resolveBannerImage(b.image);
+        // Wallpaper must stay full-bleed scenic — never fall back to square product PNG cutouts.
+        const wallpaper = coffeeHeroWallpaperUrl({
+          url: rawPick,
+          productId,
+          mobile: isMobilePick,
+        });
+        const fromCatalog = catalogImageForProduct(
+          productId,
+          catalogProducts as Array<Record<string, any>>,
+        );
+        const catalogSafe =
+          fromCatalog && !isCoffeeProductCutoutUrl(fromCatalog) ? fromCatalog : '';
+        const image = wallpaper || catalogSafe;
+        const jpgTwin = coffeeHeroWallpaperJpgFallback(image);
         return {
           id: b.id || `hero-${idx}`,
-          productId: b.productId || '',
+          productId,
           titleEn: b.titleEn || '',
           titleAr: b.titleAr || '',
           priceEn: b.showPrice !== false && price ? `${currencySign} ${price}` : '',
           priceAr: b.showPrice !== false && price ? `${price} \u20C1` : '',
           image,
-          fallbackImage: '',
+          fallbackImage:
+            jpgTwin && jpgTwin !== image
+              ? jpgTwin
+              : catalogSafe && catalogSafe !== image
+                ? catalogSafe
+                : '',
           altEn: b.altEn || b.titleEn || '',
           altAr: b.altAr || b.titleAr || '',
           taglineEn: b.descriptionEn || '',
@@ -330,7 +400,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({
       });
     }
     return [];
-  }, [themeSettings, banners, activeStore?.id, bannersKey]);
+  }, [themeSettings, banners, activeStore?.id, bannersKey, catalogProducts, forceContentMode]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(1);
@@ -370,11 +440,22 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({
   const isRTL = language === 'AR';
   const visualDirection = isRTL ? -direction : direction;
 
+  const shopSlides = useMemo(
+    () => shopSlidesFromCatalog(catalogProducts),
+    [catalogProducts],
+  );
+
   // -------------------------------------------------------------
   // VARIANT A: SHOP PAGE SLIDER (3D Cutout Showcase with Specs)
   // -------------------------------------------------------------
   if (variant === 'shop') {
-    const shopSlides = SHOP_PRODUCT_SLIDES;
+    if (shopSlides.length === 0) {
+      return (
+        <section className="w-full max-w-full px-4 py-8 text-center text-sm text-neutral-500 bg-neutral-50 border border-dashed border-neutral-200">
+          {language === 'AR' ? 'لا توجد منتجات للعرض' : 'No products to display'}
+        </section>
+      );
+    }
     const activeShopSlide = shopSlides[currentIndex % shopSlides.length];
 
     const nextShopSlide = () => {
@@ -473,11 +554,14 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({
               onClick={() => navigateTo('product-buy', activeShopSlide.productId)}
               className="lg:col-span-6 relative w-full h-[280px] sm:h-[380px] md:h-[420px] flex items-center justify-center cursor-pointer"
             >
-              <img
-                src={activeShopSlide.image}
-                alt={language === 'AR' ? activeShopSlide.titleAr : activeShopSlide.titleEn}
-                className="max-h-full max-w-full object-contain filter drop-shadow-[0_16px_28px_rgba(0,0,0,0.12)] hover:scale-105 transition-transform duration-500"
-              />
+              {activeShopSlide.image ? (
+                <img
+                  data-hero-frame="1"
+                  src={activeShopSlide.image}
+                  alt={language === 'AR' ? activeShopSlide.titleAr : activeShopSlide.titleEn}
+                  className="absolute inset-0 w-full h-full object-cover object-center shadow-none"
+                />
+              ) : null}
             </div>
           </div>
           <button
@@ -512,15 +596,22 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('preview') === '1';
 
-  // Preload slide images (only first + next in customizer preview to stay light)
+  // Preload active + next slide only (faster first paint on mobile).
   useEffect(() => {
-    const subset = isCustomizerPreview ? slides.slice(0, 2) : slides;
-    subset.forEach((slide) => {
-      if (!slide.image) return;
+    if (!slides.length) return;
+    const pick = isCustomizerPreview
+      ? slides.slice(0, 2)
+      : [
+          slides[currentIndex % slides.length],
+          slides[(currentIndex + 1) % slides.length],
+        ];
+    pick.forEach((slide) => {
+      if (!slide?.image) return;
       const img = new Image();
+      img.decoding = 'async';
       img.src = slide.image;
     });
-  }, [slides, isCustomizerPreview]);
+  }, [slides, isCustomizerPreview, currentIndex]);
 
   // Auto-play timer (paused inside theme customizer iframe)
   useEffect(() => {
@@ -663,7 +754,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({
     themeSettings?.heroBanners,
     rawSlideForStyle,
   );
-  const cardAlpha = Math.min(1, Math.max(0, Number(deviceChrome.cardOpacity ?? 0.8)));
+  const cardAlpha = Math.min(1, Math.max(0, Number(deviceChrome.cardOpacity ?? 0)));
   const cardBgCss = (() => {
     const hex = (deviceChrome.cardBg || '#ffffff').replace('#', '');
     if (hex.length !== 6) return `rgba(255,255,255,${cardAlpha})`;
@@ -690,12 +781,16 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({
       data-customize-section="C-HERO"
       data-hero-content-mode={heroContentMode}
       data-hero-device={viewportDevice}
-      className="relative w-full max-w-full overflow-hidden select-none bg-white text-neutral-900 border-none"
+      className={`relative w-full max-w-full overflow-hidden select-none border-none ${
+        heroContentMode === 'image_only' ? 'bg-[#0c0c0c] text-white' : 'bg-white text-neutral-900'
+      }`}
     >
-      {/* Responsive stage — shorter on phones, full on laptop/desktop */}
+      {/* Responsive stage — aspect from themeFlow.css (taller mobile = full product show) */}
       <div
         data-slider-stage="locked"
-        className="theme-slider-stage relative w-full max-w-full h-[min(72vw,420px)] xs:h-[460px] sm:h-[510px] md:h-[550px] lg:h-[600px] xl:h-[640px] bg-white overflow-hidden"
+        className={`theme-slider-stage relative w-full max-w-full overflow-hidden ${
+          heroContentMode === 'image_only' ? 'min-h-0' : 'min-h-[300px] sm:min-h-[420px]'
+        }`}
       >
         {/* ========================================================================= */}
         {/* 1. SLIDE BACKGROUND IMAGES + OVERLAY                                       */}
@@ -733,7 +828,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({
                 language === 'AR' ? nextSlide() : prevSlide();
               }
             }}
-            className={`absolute inset-0 w-full h-full bg-white touch-pan-y ${isCustomizerPreview ? '' : 'cursor-grab active:cursor-grabbing will-change-transform'}`}
+            className={`absolute inset-0 w-full h-full bg-transparent touch-pan-y ${isCustomizerPreview ? '' : 'cursor-grab active:cursor-grabbing will-change-transform'}`}
           >
             {/* Banner Background Image & Direct Buy Navigation */}
             <div
@@ -741,35 +836,41 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({
                 if (isDraggingRef.current) return;
                 navigateTo('product-buy', activeSlide.productId);
               }}
-              className={`w-full h-full relative overflow-hidden cursor-pointer group shadow-none bg-white ${
-                heroContentMode === 'image_only' ? 'block' : 'flex flex-col sm:block'
-              }`}
+              className="w-full h-full relative overflow-hidden cursor-pointer group shadow-none bg-transparent"
             >
-              <img
-                src={activeSlide.image}
-                alt={language === 'AR' ? (activeSlide.altAr || activeSlide.titleAr) : (activeSlide.altEn || activeSlide.titleEn)}
-                fetchPriority="high"
-                decoding="async"
-                loading="eager"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  if (!target.dataset.fallbackTried) {
-                    target.dataset.fallbackTried = '1';
-                    target.src = activeSlide.fallbackImage;
+              {activeSlide.image ? (
+                <img
+                  data-hero-frame="1"
+                  src={activeSlide.image}
+                  alt={
+                    language === 'AR'
+                      ? (activeSlide.altAr || activeSlide.titleAr || 'خلفية متجر القهوة')
+                      : (activeSlide.altEn || activeSlide.titleEn || 'Coffee store wallpaper')
                   }
-                }}
-                className={
-                  heroContentMode === 'image_only'
-                    ? 'absolute inset-0 z-0 w-full h-full object-cover object-center shadow-none transition-transform duration-700 ease-out group-hover:scale-[1.01]'
-                    : 'order-2 relative z-0 flex-1 min-h-[240px] w-full object-cover object-center sm:absolute sm:inset-0 sm:flex-none sm:min-h-0 sm:h-full sm:object-[75%_center] md:object-[80%_center] lg:object-right shadow-none transition-transform duration-700 ease-out group-hover:scale-[1.01]'
-                }
-              />
-              {/* Device-colored scrim — full mode only (hidden for image-only slider). */}
+                  width={1920}
+                  height={900}
+                  fetchPriority="high"
+                  decoding="async"
+                  loading="eager"
+                  sizes="100vw"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    if (!target.dataset.fallbackTried) {
+                      target.dataset.fallbackTried = '1';
+                      const fb = activeSlide.fallbackImage;
+                      // Wallpaper only — never swap in square product PNG cutouts.
+                      if (fb && !isCoffeeProductCutoutUrl(fb)) target.src = fb;
+                    }
+                  }}
+                  className="absolute inset-0 z-0 w-full h-full object-cover object-center shadow-none"
+                />
+              ) : null}
+              {/* Soft scrim under text only — never a solid white plate over the photo. */}
               {heroContentMode === 'full' ? (
                 <div
-                  className="hidden sm:block absolute inset-y-0 left-0 w-[min(100%,58%)] max-w-[620px] z-[5] pointer-events-none"
+                  className="hidden sm:block absolute inset-y-0 left-0 w-[min(100%,52%)] max-w-[560px] z-[5] pointer-events-none"
                   style={{
-                    background: `linear-gradient(to right, ${scrimFrom} 0%, ${scrimFrom}cc 45%, transparent 100%)`,
+                    background: `linear-gradient(to right, ${scrimFrom}99 0%, ${scrimFrom}55 40%, transparent 100%)`,
                   }}
                   aria-hidden
                 />
@@ -777,7 +878,7 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({
 
               {/* Text, Price and Action Buttons Overlay — full mode only */}
               {heroContentMode === 'full' ? (
-              <div className="order-1 relative pt-8 pb-5 sm:pt-10 sm:pb-8 md:pt-12 md:pb-10 lg:pt-14 sm:absolute sm:inset-0 z-20 flex items-center pointer-events-none">
+              <div className="absolute inset-0 z-20 flex items-end sm:items-center pointer-events-none pt-6 pb-10 sm:pt-10 sm:pb-8 md:pt-12 md:pb-10">
                 <div
                   dir="ltr"
                   className="w-full max-w-[1360px] mx-auto px-5 xs:px-6 sm:px-12 md:px-16 lg:px-20 py-3 sm:py-5 flex justify-start"
@@ -787,8 +888,8 @@ export const HeroSlider3D: React.FC<HeroSlider3DProps> = ({
                     initial={{ opacity: 0, y: 14 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.55, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-                    className="w-full max-w-full sm:max-w-[380px] md:max-w-[430px] lg:max-w-[460px] text-start pointer-events-auto sm:backdrop-blur-[2px] sm:rounded-2xl sm:px-4 sm:py-3 md:px-5 md:py-4 shadow-none border-none p-0"
-                    style={{ background: viewportDevice === 'mobile' ? 'transparent' : cardBgCss, color: textInk }}
+                    className="w-full max-w-full sm:max-w-[380px] md:max-w-[430px] lg:max-w-[460px] text-start pointer-events-auto rounded-none sm:rounded-2xl sm:px-4 sm:py-3 md:px-5 md:py-4 shadow-none border-none p-0"
+                    style={{ background: cardAlpha > 0.05 ? cardBgCss : 'transparent', color: textInk }}
                   >
                     {/* Badge */}
                     {activeSlide.badgeEn && (

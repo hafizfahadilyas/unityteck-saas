@@ -32,7 +32,17 @@ export type StorefrontOrderInput = {
   campaign?: string;
   utmTerm?: string;
   utmContent?: string;
+  firstTouchSource?: string;
+  firstTouchMedium?: string;
+  firstTouchCampaign?: string;
+  firstTouchUtmTerm?: string;
+  firstTouchUtmContent?: string;
+  landingPage?: string;
+  referralHost?: string;
   shippingFee?: number;
+  shippingMethodId?: string | null;
+  courierCode?: string | null;
+  shippingStatus?: string | null;
   deliveryMode?: string;
   customerNotes?: string;
   couponCode?: string;
@@ -55,9 +65,19 @@ export function toStorefrontOrderPayload(data: StorefrontOrderInput): Record<str
     campaign: data.campaign || undefined,
     utm_term: data.utmTerm || undefined,
     utm_content: data.utmContent || undefined,
+    first_touch_source: data.firstTouchSource || undefined,
+    first_touch_medium: data.firstTouchMedium || undefined,
+    first_touch_campaign: data.firstTouchCampaign || undefined,
+    first_touch_utm_term: data.firstTouchUtmTerm || undefined,
+    first_touch_utm_content: data.firstTouchUtmContent || undefined,
+    landing_page: data.landingPage || undefined,
+    referral_host: data.referralHost || undefined,
     delivery_mode: data.deliveryMode || undefined,
     customer_notes: data.customerNotes || undefined,
     coupon_code: data.couponCode || undefined,
+    shipping_method_id: data.shippingMethodId || undefined,
+    courier_code: data.courierCode || undefined,
+    shipping_status: data.shippingStatus || 'pending',
     shipping_cost:
       typeof data.shippingFee === 'number' && Number.isFinite(data.shippingFee)
         ? data.shippingFee

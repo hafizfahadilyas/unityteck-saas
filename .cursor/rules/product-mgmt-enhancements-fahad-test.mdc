@@ -2,7 +2,7 @@
 
 ## Kis ke liye / kahan
 - **Audience:** Store Dashboard Products (Souq / Unityteck) — Master nahi.
-- **Scope:** Shared catalog for all stores (`store_id` isolation). Design refs: `New folder/.../Products/`.
+- **Scope:** Shared catalog for all stores (`store_id` isolation). Design refs: `designs/Store_Dashboard_UIUX/Products/`.
 - **Rule:** Extend existing product / inventory / cart / order — **no duplicate systems**. Zero mock. AR/EN isolated. Pixel UI preserve.
 
 ## Primary files

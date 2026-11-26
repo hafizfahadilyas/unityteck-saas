@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
+import { useAdminInnerLayer } from '../../hooks/useAdminInnerLayer';
 import { getCustomerDisplayName, getLocalizedCity } from '../../utils/storeLocalization';
 import { useToast } from '../common/ToastProvider';
 import { StoreChannelPerformance } from './StoreChannelPerformance';
@@ -84,6 +85,11 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
   }, []);
 
   const [subView, setSubView] = useState<MarketingSubView>(initialView);
+  const closeMarketingInner = useCallback(() => setSubView('hub'), []);
+  const { requestClose: requestCloseMarketingInner } = useAdminInnerLayer(
+    subView !== 'hub',
+    closeMarketingInner,
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [isGuideOpen, setIsGuideOpen] = useState(false);
 
@@ -563,7 +569,7 @@ export const StoreMarketingHub: React.FC<StoreMarketingHubProps> = ({
           {subView !== 'hub' && (
             <button
               type="button"
-              onClick={() => setSubView('hub')}
+              onClick={() => requestCloseMarketingInner()}
               className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
               title={isAr ? 'العودة لمركز أدوات التسويق' : 'Back to Marketing Tools Hub'}
             >

@@ -25,8 +25,7 @@ import {
   SlidersHorizontal,
   RefreshCw,
   Phone,
-  HelpCircle,
-  BookOpen,
+  Calendar,
   FileText,
   Lock,
   Eye,
@@ -41,6 +40,12 @@ import { useTenant } from '../../context/TenantContext';
 import { submitPublicStorefrontOrder } from '../../utils/submitStorefrontOrder';
 import { readTrafficSource } from '../../utils/trafficSource';
 import { trackStorefrontEvent } from '../../utils/storefrontAnalytics';
+import {
+  validateStorefrontCoupon,
+  fetchStoreReviewsApi,
+  calculateShippingRates,
+  type StoreReviewRecord,
+} from '../../api/tenantApi';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { Product, CategoryItem } from '../../types';
 import { 
@@ -50,37 +55,32 @@ import {
   SEAT_COLORS, 
   FLOOR_MAT_COLORS,
   FloorMatColorOption,
-  TOP_10_SEAT_COVERS,
-  HOME_PAGE_PRODUCTS,
-  FEATURED_HOME_SEATS, 
-  FEATURED_FLOOR_MATS, 
-  BLECO_STORE_PRODUCTS, 
   BLECO_CATEGORIES,
-  BLECO_FAQ, 
-  BLECO_BLOG_POSTS,
-  BLECO_TESTIMONIALS, 
   BLECO_STORE_INFO, 
   CarBrandItem, 
   SeatColorOption,
   BlecoBlogPost,
-  BlecoFaqItem,
   getProductColors
 } from '../../data/blecoStoreData';
 import { readAllThemeSettings } from '../settings/themeSettingsStore';
 import { AlsaeediLuxuryFooter } from './components/AlsaeediLuxuryFooter';
+import { AlsaeediServicesBooking } from './components/AlsaeediServicesBooking';
 import { FloorMatLuxuryModal, FloorMatCustomSpecs } from './components/FloorMatLuxuryModal';
 import { SeatCoverLuxuryModal, SeatCoverCustomSpecs } from './components/SeatCoverLuxuryModal';
 import { VehicleMatchAlertModal } from './components/VehicleMatchAlertModal';
 import { CoreTwoCategoriesSection } from './components/CoreTwoCategoriesSection';
-import { AutomotiveBlogSection } from './components/AutomotiveBlogSection';
 import { AutomotiveBlogModal } from './components/AutomotiveBlogModal';
 import { LuxuryVehicleCockpit } from './components/LuxuryVehicleCockpit';
 import { AlsaeediLuxuryHero } from './components/AlsaeediLuxuryHero';
 import { LuxuryToastSystem, ToastItem } from './components/LuxuryToastSystem';
-import { PostCategoryAdvancedFeatures } from './components/PostCategoryAdvancedFeatures';
 import { ModernLuxuryFloorMatsSection } from './components/ModernLuxuryFloorMatsSection';
 import { ModernLuxurySeatCoversSection } from './components/ModernLuxurySeatCoversSection';
 import { CustomerAccountModal } from './components/CustomerAccountModal';
+import {
+  AlsaeediBrandsSkeleton,
+  AlsaeediCatalogSkeleton,
+  AlsaeediReviewsSkeleton,
+} from './components/AlsaeediSkeletons';
 import './saudiaTransport.css';
 
 interface SaudiaTransportThemeViewProps {
@@ -111,7 +111,8 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
   initialPage = 'home',
   isAdmin = false
 }) => {
-  const { activeStore, addOrder, syncOrderFromApi, recordStoreVisit, currentProducts, addToCart: tenantAddToCart } = useTenant();
+  const { activeStore, addOrder, syncOrderFromApi, recordStoreVisit, currentProducts, addToCart: tenantAddToCart, apiReady } = useTenant();
+  const productsLoading = !apiReady;
   const prefs = usePrefs();
   const locale = prefs?.locale;
 
@@ -177,29 +178,87 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
       const storeName = isAr
         ? (activeStore?.nameAr || activeStore?.name || 'متجر السيارات')
         : (activeStore?.nameEn || activeStore?.name || 'Car Store');
-      document.title = viewMode === 'catalog'
-        ? (isAr ? `المنتجات |${storeName}` : `Products | ${storeName}`)
-        : (isAr ? `${storeName}| تنجيد وإكسسوارات` : `${storeName} | Upholstery and accessories`);
+      const title = viewMode === 'catalog'
+        ? (isAr ? `المنتجات | ${storeName}` : `Products | ${storeName}`)
+        : (isAr
+          ? `${storeName} | تنجيد وتلابيس مقاعد وأرضيات 5D`
+          : `${storeName} | Luxury Seat Covers & 5D Mats`);
       const desc = viewMode === 'catalog'
         ? (isAr
-          ? `منتجات${storeName}مع التصفية حسب التصنيف. الأسعار بالريال والتوصيل داخل المملكة.`
-          : `${storeName} products with category filters. Prices in SAR and delivery across Saudi Arabia.`)
+          ? `تصفح منتجات ${storeName} — تلابيس مقاعد وأرضيات ليزر 5D. الأسعار بالريال والتوصيل داخل المملكة.`
+          : `Browse ${storeName} — seat covers and 5D laser mats. Prices in SAR with delivery across Saudi Arabia.`)
         : (isAr
-          ? `${storeName}. تنجيد وإكسسوارات مع التوصيل داخل المملكة.`
-          : `${storeName}. Upholstery and accessories with delivery across Saudi Arabia.`);
-      let meta = document.querySelector('meta[name="description"]');
-      if (!meta) {
-        meta = document.createElement('meta');
-        meta.setAttribute('name', 'description');
-        document.head.appendChild(meta);
+          ? `${storeName} — تنجيد فاخر وتلابيس مقاعد وأرضيات 5D مع ضمان سنتين والتوصيل لجميع مدن المملكة.`
+          : `${storeName} — luxury upholstery, seat covers and 5D mats with 2-year warranty and KSA-wide delivery.`);
+      document.title = title;
+
+      const upsertMeta = (attr: 'name' | 'property', key: string, content: string) => {
+        let el = document.querySelector(`meta[${attr}="${key}"]`);
+        if (!el) {
+          el = document.createElement('meta');
+          el.setAttribute(attr, key);
+          document.head.appendChild(el);
+        }
+        el.setAttribute('content', content);
+      };
+
+      upsertMeta('name', 'description', desc);
+      upsertMeta('name', 'robots', 'index,follow');
+      upsertMeta('property', 'og:title', title);
+      upsertMeta('property', 'og:description', desc);
+      upsertMeta('property', 'og:type', 'website');
+      upsertMeta('property', 'og:locale', isAr ? 'ar_SA' : 'en_US');
+      upsertMeta('name', 'twitter:card', 'summary_large_image');
+      upsertMeta('name', 'twitter:title', title);
+      upsertMeta('name', 'twitter:description', desc);
+
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const path = typeof window !== 'undefined' ? window.location.pathname : '/';
+      const canonicalHref = `${origin}${path}`;
+      let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+      if (!canonical) {
+        canonical = document.createElement('link');
+        canonical.setAttribute('rel', 'canonical');
+        document.head.appendChild(canonical);
       }
-      meta.setAttribute('content', desc);
+      canonical.setAttribute('href', canonicalHref);
+
+      const logo = activeStore?.logo || BLECO_STORE_INFO.logo || '';
+      if (logo) {
+        upsertMeta('property', 'og:image', logo.startsWith('http') ? logo : `${origin}${logo}`);
+      }
+
+      const jsonLdId = 'alsaeedi-jsonld';
+      let script = document.getElementById(jsonLdId) as HTMLScriptElement | null;
+      if (!script) {
+        script = document.createElement('script');
+        script.id = jsonLdId;
+        script.type = 'application/ld+json';
+        document.head.appendChild(script);
+      }
+      script.textContent = JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'AutoPartsStore',
+        name: storeName,
+        description: desc,
+        url: canonicalHref,
+        image: logo || undefined,
+        telephone: themeSettings?.identity?.whatsapp || BLECO_STORE_INFO.whatsapp,
+        address: {
+          '@type': 'PostalAddress',
+          addressLocality: isAr ? 'مكة المكرمة' : 'Makkah',
+          addressCountry: 'SA',
+        },
+        priceRange: 'SAR',
+        areaServed: 'SA',
+      });
+
       if (!isAdmin) {
         document.documentElement.lang = isAr ? 'ar' : 'en';
         document.documentElement.dir = isAr ? 'rtl' : 'ltr';
       }
     } catch {}
-  }, [isAr, viewMode, isAdmin, activeStore?.name, activeStore?.nameAr, activeStore?.nameEn]);
+  }, [isAr, viewMode, isAdmin, activeStore?.name, activeStore?.nameAr, activeStore?.nameEn, activeStore?.logo, themeSettings?.identity?.whatsapp]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [navDropdownOpen, setNavDropdownOpen] = useState(false);
   const [searchBarOpen, setSearchBarOpen] = useState(false);
@@ -264,7 +323,6 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
   const [selectedBlogPost, setSelectedBlogPost] = useState<BlecoBlogPost | null>(null);
 
   // Interactive Accordion State for 9 FAQs
-  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
   // Dynamic Price for Customizer
   const computedDetailPrice = useMemo(() => {
@@ -276,11 +334,14 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
     return Math.max(290, base);
   }, [selectedProduct, detailMaterial, detailCoverage]);
 
-  // Cart State (Persisted in localStorage)
+  // Cart State — store_id isolated persistence
+  const cartStorageKey = `alsaeedi_cart_${storeId}`;
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
-      const saved = localStorage.getItem('alsaeedi_cart');
-      return saved ? JSON.parse(saved) : [];
+      const scoped = localStorage.getItem(`alsaeedi_cart_${activeStore?.id || 'store-bleco'}`);
+      if (scoped) return JSON.parse(scoped);
+      const legacy = localStorage.getItem('alsaeedi_cart');
+      return legacy ? JSON.parse(legacy) : [];
     } catch {
       return [];
     }
@@ -288,12 +349,12 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 
-  // Sync cart to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem('alsaeedi_cart', JSON.stringify(cart));
+      localStorage.setItem(cartStorageKey, JSON.stringify(cart));
+      localStorage.removeItem('alsaeedi_cart');
     } catch {}
-  }, [cart]);
+  }, [cart, cartStorageKey]);
 
   // Handle route switching from initialPage prop (Home, Catalog, Product, Cart, Checkout, Profile)
   const prevInitialPageRef = useRef<string | undefined>(undefined);
@@ -315,7 +376,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
     } else if (p === 'profile' || p === 'crm' || p === 'account' || p === 'login') {
       setIsAccountModalOpen(true);
     } else if (p === 'product' || p === 'product-detail' || p === 'detail') {
-      const firstProd = (currentProducts && currentProducts.length > 0 ? currentProducts[0] : null) || BLECO_STORE_PRODUCTS[0];
+      const firstProd = (currentProducts && currentProducts.length > 0 ? currentProducts[0] : null);
       if (firstProd) {
         setSelectedProduct(firstProd);
       }
@@ -408,15 +469,54 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
     }
   };
 
+  // Live store reviews (API only — empty when none)
+  const [storeReviews, setStoreReviews] = useState<StoreReviewRecord[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    setReviewsLoading(true);
+    fetchStoreReviewsApi(storeId)
+      .then((rows) => {
+        if (!alive) return;
+        const normalized = (Array.isArray(rows) ? rows : []).map((r: any) => ({
+          ...r,
+          author: r.author || r.name || r.nameEn || '',
+          comment: r.comment || r.commentEn || '',
+          commentAr: r.commentAr || r.comment || '',
+          active: r.active ?? r.isActive ?? r.is_active ?? true,
+        }));
+        setStoreReviews(normalized.filter((r) => r.active !== false));
+      })
+      .catch(() => {
+        if (alive) setStoreReviews([]);
+      })
+      .finally(() => {
+        if (alive) setReviewsLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [storeId]);
+
   // Checkout State
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponBusy, setCouponBusy] = useState(false);
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponMessage, setCouponMessage] = useState<string | null>(null);
+  const [shippingFee, setShippingFee] = useState(0);
+  const [shippingBusy, setShippingBusy] = useState(false);
+  const [shippingLabel, setShippingLabel] = useState<string | null>(null);
   const [orderCompleteData, setOrderCompleteData] = useState<{ orderNumber: string; total: number } | null>(null);
   const [checkoutForm, setCheckoutForm] = useState({
     name: '',
     phone: '',
     city: 'مكة المكرمة',
     address: '',
-    paymentMethod: 'cod',
+    paymentMethod: 'cod' as 'cod' | 'mada',
     notes: '',
   });
 
@@ -538,6 +638,55 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
     });
   }, [activeStore?.id, selectedProduct?.id]);
 
+  /* Scroll reveal — observe + re-observe after async sections (booking/catalog) mount */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const root = document.querySelector('.alsaeedi-theme-container');
+    if (!root) return;
+    const selector = '.alsaeedi-reveal, .alsaeedi-reveal-left, .alsaeedi-reveal-scale';
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) {
+      root.querySelectorAll(selector).forEach((el) => el.classList.add('is-visible'));
+      return;
+    }
+    const observed = new WeakSet<Element>();
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            io.unobserve(entry.target);
+          }
+        });
+      },
+      { root: null, rootMargin: '80px 0px 80px 0px', threshold: 0.01 },
+    );
+    const observeNew = () => {
+      root.querySelectorAll(selector).forEach((el) => {
+        if (el.classList.contains('is-visible') || observed.has(el)) return;
+        observed.add(el);
+        io.observe(el);
+      });
+    };
+    observeNew();
+    const mo = new MutationObserver(() => observeNew());
+    mo.observe(root, { childList: true, subtree: true });
+    // Safety: never leave mid-viewport content invisible forever
+    const safety = window.setTimeout(() => {
+      root.querySelectorAll(selector).forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        if (rect.bottom > 0 && rect.top < window.innerHeight + 120) {
+          el.classList.add('is-visible');
+        }
+      });
+    }, 1200);
+    return () => {
+      mo.disconnect();
+      io.disconnect();
+      window.clearTimeout(safety);
+    };
+  }, [viewMode, productsLoading, syncTick]);
+
   // Dynamically computed counts from actual store catalog
   const brandProductCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -550,13 +699,39 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
     return counts;
   }, [storeCatalog]);
 
-  const seatCoversCount = useMemo(() => {
-    return storeCatalog.filter(p => p.type === 'seat-cover').length;
-  }, [storeCatalog]);
+  const isSeatCoverProduct = (p: Product) => {
+    const blob = [p.type, p.id, p.category, p.categoryAr, p.categoryEn, p.name, p.nameAr, p.nameEn]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return (
+      p.type === 'seat-cover' ||
+      blob.includes('seat') ||
+      blob.includes('تلابيس') ||
+      blob.includes('تلبيس') ||
+      blob.includes('مقعد') ||
+      String(p.id || '').startsWith('prod-seat')
+    );
+  };
 
-  const floorMatsCount = useMemo(() => {
-    return storeCatalog.filter(p => p.type === 'floor-mat').length;
-  }, [storeCatalog]);
+  const isFloorMatProduct = (p: Product) => {
+    const blob = [p.type, p.id, p.category, p.categoryAr, p.categoryEn, p.name, p.nameAr, p.nameEn]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return (
+      p.type === 'floor-mat' ||
+      blob.includes('floor') ||
+      blob.includes('mat') ||
+      blob.includes('أرض') ||
+      blob.includes('ارض') ||
+      blob.includes('دعاس') ||
+      String(p.id || '').startsWith('prod-mat')
+    );
+  };
+
+  const seatCoversCount = useMemo(() => storeCatalog.filter(isSeatCoverProduct).length, [storeCatalog]);
+  const floorMatsCount = useMemo(() => storeCatalog.filter(isFloorMatProduct).length, [storeCatalog]);
 
   const fullFilteredProducts = useMemo(() => {
     return storeCatalog.filter(product => {
@@ -757,6 +932,83 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
 
   const cartTotal = useMemo(() => cart.reduce((acc, item) => acc + (item.unitPrice * item.quantity), 0), [cart]);
   const cartCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
+  const checkoutPayable = Math.max(0, cartTotal - couponDiscount) + Math.max(0, shippingFee);
+
+  useEffect(() => {
+    if (!checkoutOpen || !storeId || !checkoutForm.city.trim()) {
+      setShippingFee(0);
+      setShippingLabel(null);
+      return;
+    }
+    let alive = true;
+    setShippingBusy(true);
+    const productIds = cart.map((it) => it.product.id).filter(Boolean);
+    void calculateShippingRates(storeId, {
+      city: checkoutForm.city,
+      order_total: Math.max(0, cartTotal - couponDiscount),
+      product_ids: productIds,
+    })
+      .then((res) => {
+        if (!alive) return;
+        const methods = Array.isArray(res.available_methods) ? res.available_methods : [];
+        const fee =
+          typeof res.calculated_shipping_fee === 'number'
+            ? res.calculated_shipping_fee
+            : Number(methods[0]?.fee ?? methods[0]?.rate ?? 0) || 0;
+        setShippingFee(res.is_free_shipping ? 0 : Math.max(0, fee));
+        const methodName = methods[0]?.name_ar || methods[0]?.name || null;
+        setShippingLabel(
+          res.is_free_shipping
+            ? (isAr ? 'شحن مجاني' : 'Free shipping')
+            : methodName
+              ? String(methodName)
+              : methods.length === 0
+                ? (isAr ? 'لا توجد طريقة شحن لهذه المدينة' : 'No shipping method for this city')
+                : null,
+        );
+      })
+      .catch(() => {
+        if (!alive) return;
+        setShippingFee(0);
+        setShippingLabel(isAr ? 'تعذر حساب الشحن' : 'Could not calculate shipping');
+      })
+      .finally(() => {
+        if (alive) setShippingBusy(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [checkoutOpen, storeId, checkoutForm.city, cartTotal, couponDiscount, cart.length, isAr]);
+
+  const storeWhatsApp = String(
+    themeSettings?.identity?.whatsapp || BLECO_STORE_INFO.whatsapp || '',
+  ).replace(/[^0-9]/g, '');
+
+  const applyCoupon = async () => {
+    const code = couponCode.trim();
+    if (!code) {
+      setCouponDiscount(0);
+      setCouponMessage(isAr ? 'أدخل رمز الكوبون' : 'Enter a coupon code');
+      return;
+    }
+    setCouponBusy(true);
+    setCouponMessage(null);
+    try {
+      const res = await validateStorefrontCoupon(storeId, code, cartTotal);
+      if (res.valid && res.discount > 0) {
+        setCouponDiscount(Number(res.discount) || 0);
+        setCouponMessage(isAr ? 'تم تطبيق الكوبون بنجاح' : 'Coupon applied successfully');
+      } else {
+        setCouponDiscount(0);
+        setCouponMessage(res.message || (isAr ? 'رمز الكوبون غير صالح' : 'Invalid coupon code'));
+      }
+    } catch {
+      setCouponDiscount(0);
+      setCouponMessage(isAr ? 'تعذر التحقق من الكوبون' : 'Could not validate coupon');
+    } finally {
+      setCouponBusy(false);
+    }
+  };
 
   // WhatsApp Order message
   const openWhatsAppOrder = (product?: Product, color?: SeatColorOption | null, price?: number, customMessage?: string) => {
@@ -791,19 +1043,25 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
     window.open(`https://wa.me/${phoneNum.replace(/[^0-9]/g, '')}?text=${text}`, '_blank');
   };
 
-  // Checkout Submission
+  // Checkout Submission — live API order + optional coupon discount
   const handleCheckoutSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!checkoutForm.name || !checkoutForm.phone || !checkoutForm.address) {
-      alert(isAr ? 'يرجى تعبئة جميع الحقول المطلوبة' : 'Please fill all required fields');
+    setCheckoutError(null);
+    if (!checkoutForm.name || !checkoutForm.phone || !checkoutForm.address || !checkoutForm.city) {
+      setCheckoutError(isAr ? 'يرجى تعبئة جميع الحقول المطلوبة' : 'Please fill all required fields');
+      return;
+    }
+    if (cart.length === 0) {
+      setCheckoutError(isAr ? 'السلة فارغة' : 'Cart is empty');
       return;
     }
 
     const storeIdResolved = storeId || activeStore?.id || 'store-bleco';
+    const payable = Math.max(0, cartTotal - couponDiscount) + Math.max(0, shippingFee);
     const itemsPayload = cart.map((it) => {
       const sp = it.specs as any;
       const carDetail = sp
-        ? `[${sp.brandNameAr || sp.brand || ''} ${sp.model || ''} ${sp.year || ''} - ${sp.seatsLabelAr || it.selectedCoverage || ''} - ${it.selectedColor?.nameAr || ''}${sp.includeBundle ? ' + ملمع بلاكو' : ''}]`
+        ? `[${sp.brandNameAr || sp.brand || ''} ${sp.model || ''} ${sp.year || ''} - ${sp.seatsLabelAr || it.selectedCoverage || ''} - ${it.selectedColor?.nameAr || ''}${sp.includeBundle ? ' + ملمع' : ''}]`
         : `(${it.selectedColor?.nameAr || 'بيج'} - ${it.selectedCoverage || ''})`;
       return {
         id: it.product.id,
@@ -817,6 +1075,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
     });
 
     void (async () => {
+      setCheckoutBusy(true);
       try {
         const persisted = await submitPublicStorefrontOrder(
           storeIdResolved,
@@ -825,7 +1084,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
             customerPhone: checkoutForm.phone,
             customerEmail: undefined,
             deliveryLocation: `${checkoutForm.city} - ${checkoutForm.address}`,
-            total: cartTotal,
+            total: payable,
             status: 'pending',
             paymentMethod: checkoutForm.paymentMethod === 'cod' ? 'Cash on Delivery' : 'mada',
             paymentStatus: 'pending',
@@ -834,6 +1093,13 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
             campaign: readTrafficSource().campaign || undefined,
             utmTerm: readTrafficSource().utmTerm || undefined,
             utmContent: readTrafficSource().utmContent || undefined,
+            couponCode: couponCode.trim() || undefined,
+            shippingFee: Math.max(0, shippingFee),
+            customerNotes: [
+              checkoutForm.notes,
+              couponCode.trim() ? `Coupon: ${couponCode.trim()} (-${couponDiscount} SAR)` : '',
+              shippingLabel ? `Shipping: ${shippingLabel}` : '',
+            ].filter(Boolean).join(' | ') || undefined,
             items: cart.map((it) => {
               const sp = it.specs as Record<string, unknown> | undefined;
               const selectedOptions: Record<string, string> = {};
@@ -874,28 +1140,45 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
             toAddOrderPayload: () => ({
               customerName: checkoutForm.name,
               customerPhone: checkoutForm.phone,
-            customerEmail: undefined,
-            deliveryLocation: `${checkoutForm.city} - ${checkoutForm.address}`,
-            itemsCount: cartCount,
-            items: itemsPayload,
-            total: cartTotal,
-            subtotal: cartTotal,
-            status: 'pending',
-            paymentMethod: checkoutForm.paymentMethod === 'cod' ? 'Cash on Delivery' : 'mada',
-            paymentStatus: 'Pending',
-            source: readTrafficSource().source,
-              customerNotes: checkoutForm.notes,
+              customerEmail: undefined,
+              deliveryLocation: `${checkoutForm.city} - ${checkoutForm.address}`,
+              itemsCount: cartCount,
+              items: itemsPayload,
+              total: payable,
+              subtotal: cartTotal,
+              discount: couponDiscount,
+              shipping: shippingFee,
+              status: 'pending',
+              paymentMethod: checkoutForm.paymentMethod === 'cod' ? 'Cash on Delivery' : 'mada',
+              paymentStatus: 'Pending',
+              source: readTrafficSource().source,
+              customerNotes: [
+                checkoutForm.notes,
+                couponCode.trim() ? `Coupon: ${couponCode.trim()} (-${couponDiscount} SAR)` : '',
+                shippingLabel ? `Shipping: ${shippingLabel}` : '',
+              ].filter(Boolean).join(' | '),
               time: new Date().toLocaleTimeString('ar-SA'),
             }),
           },
         );
-        setOrderCompleteData({ orderNumber: persisted.orderNumber, total: cartTotal });
+        setOrderCompleteData({ orderNumber: persisted.orderNumber, total: payable });
+        setCart([]);
+        setCouponCode('');
+        setCouponDiscount(0);
+        setCouponMessage(null);
+        setCheckoutOpen(false);
+        addToast({
+          type: 'success',
+          title: isAr ? 'تم استلام الطلب' : 'Order received',
+          message: isAr
+            ? `رقم الطلب ${persisted.orderNumber}`
+            : `Order ${persisted.orderNumber}`,
+        });
       } catch {
-        alert(isAr ? 'تعذر إتمام الطلب. حاول مرة أخرى.' : 'Could not place order. Please try again.');
-        return;
+        setCheckoutError(isAr ? 'تعذر إتمام الطلب. حاول مرة أخرى.' : 'Could not place order. Please try again.');
+      } finally {
+        setCheckoutBusy(false);
       }
-      setCart([]);
-      setCheckoutOpen(false);
     })();
   };
 
@@ -923,35 +1206,36 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
       />
 
       {/* 1. SLIM TOP MICRO-BAR */}
-      <div className="alsaeedi-top-announce flex items-center justify-between">
-        <div className="max-w-7xl mx-auto w-full flex items-center justify-between px-3 sm:px-4">
-          <div className="flex items-center gap-3 sm:gap-5 text-[11px] sm:text-xs">
-            <span className="flex items-center gap-1.5 text-slate-200">
-              <MapPin className="w-3.5 h-3.5 text-[#f6c344] shrink-0" />
-              <span>{isAr ? 'مكة المكرمة — بطحاء قريش' : 'Makkah Al-Mukarramah'}</span>
+      <div className="alsaeedi-top-announce">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-2 px-3 sm:px-4">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-5 text-[10px] sm:text-xs">
+            <span className="flex min-w-0 items-center gap-1.5 text-slate-600">
+              <MapPin className="h-3.5 w-3.5 shrink-0 text-amber-600" aria-hidden="true" />
+              <span className="truncate">{isAr ? 'مكة المكرمة — بطحاء قريش' : 'Makkah Al-Mukarramah'}</span>
             </span>
-            <span className="hidden md:flex items-center gap-1.5 text-slate-300">
-              <Truck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span className="hidden items-center gap-1.5 text-slate-500 md:flex">
+              <Truck className="h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden="true" />
               <span>{isAr ? 'شحن سريع لجميع مناطق المملكة (3-5 أيام)' : 'Express 3-5 Day Delivery Across KSA'}</span>
             </span>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            <a 
-              href={`https://wa.me/${BLECO_STORE_INFO.whatsapp.replace(/[^0-9]/g, '')}`}
-              target="_blank" 
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+            <a
+              href={storeWhatsApp ? `https://wa.me/${storeWhatsApp}` : undefined}
+              target="_blank"
               rel="noreferrer"
-              className="text-[#f6c344] font-bold text-xs flex items-center gap-1 hover:underline"
+              className="flex items-center gap-1 text-[10px] font-bold text-amber-700 hover:underline sm:text-xs"
             >
-              <WhatsAppGlyph className="w-3.5 h-3.5" />
-              <span dir="ltr">0597757086</span>
+              <WhatsAppGlyph className="h-3.5 w-3.5 shrink-0" />
+              <span className="hidden sm:inline" dir="ltr">{storeWhatsApp || '—'}</span>
             </a>
             <button
+              type="button"
               onClick={toggleLanguage}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-[#f6c344] font-bold text-[11px] border border-[#d5a027]/40 cursor-pointer transition-all"
+              className="flex cursor-pointer items-center gap-1 rounded-full border border-[#d5a027]/50 bg-white px-2.5 py-1 text-[10px] font-bold text-amber-700 transition-all hover:bg-slate-50 sm:gap-1.5 sm:px-3 sm:text-[11px]"
               aria-label={isAr ? 'التبديل إلى الإنجليزية' : 'Switch to Arabic'}
             >
-              <Globe className="w-3.5 h-3.5 text-[#f6c344]" />
+              <Globe className="h-3.5 w-3.5 text-[#f6c344]" aria-hidden="true" />
               <span>{isAr ? 'إنجليزي' : 'العربية'}</span>
             </button>
           </div>
@@ -959,7 +1243,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
       </div>
 
       {/* 2. MAIN MODERN LUXURY NAVBAR */}
-      <header className="sticky top-0 z-50 bg-[#16032e]/95 text-white shadow-xl border-b border-[#d5a027]/30 backdrop-blur-md">
+      <header className="sticky top-0 z-50 bg-gradient-to-b from-[#f8fafc]/95 via-[#f1f5f9]/92 to-[#eef2f7]/90 text-slate-900 shadow-[0_8px_24px_-12px_rgba(15,23,42,0.12)] border-b border-[#d5a027]/25 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-2.5 flex items-center justify-between gap-2 lg:gap-4">
           {/* Logo & Store Identity (Compact & Responsive) */}
           <div 
@@ -972,26 +1256,26 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               className="h-8 sm:h-9 w-auto object-contain filter drop-shadow shrink-0"
             />
             <div className="min-w-0">
-              <h1 className="text-[11px] sm:text-xs xl:text-[13px] font-extrabold text-white leading-snug flex items-center gap-1.5">
+              <h1 className="text-[11px] sm:text-xs xl:text-[13px] font-extrabold text-slate-900 leading-snug flex items-center gap-1.5">
                 <span className="truncate max-w-[145px] sm:max-w-[200px] xl:max-w-[240px]">
                   {storeDisplayName}
                 </span>
-                <span className="text-[8px] sm:text-[9px] bg-gradient-to-r from-[#d5a027] to-[#f6c344] text-[#120224] px-1.5 py-0.5 rounded font-black tracking-wider shadow-xs shrink-0 leading-none">
+                <span className="text-[8px] sm:text-[9px] bg-gradient-to-r from-[#d5a027] to-[#f6c344] text-slate-900 px-1.5 py-0.5 rounded font-black tracking-wider shadow-xs shrink-0 leading-none">
                   VIP
                 </span>
               </h1>
-              <p className="text-[9px] sm:text-[10px] text-[#f6c344]/90 font-medium hidden sm:block truncate max-w-[190px] xl:max-w-[240px] leading-tight">
+              <p className="text-[9px] sm:text-[10px] text-amber-700/90 font-medium hidden sm:block truncate max-w-[190px] xl:max-w-[240px] leading-tight">
                 {isAr ? 'تنجيد وتلابيس مقاعد وأرضيات ليزر 5D' : 'Luxury Seat Covers & 5D Laser Mats'}
               </p>
             </div>
           </div>
 
           {/* Clean Desktop Nav Links + Categories Dropdown */}
-          <nav className="hidden lg:flex items-center justify-center gap-3 xl:gap-5 text-[11px] xl:text-xs font-bold text-slate-200 whitespace-nowrap">
+          <nav className="hidden lg:flex items-center justify-center gap-3 xl:gap-4 text-[11px] xl:text-xs font-semibold text-slate-600 whitespace-nowrap">
             <button 
               type="button"
               onClick={() => { setViewMode('home'); handleResetFilter(); }}
-              className={`hover:text-[#f6c344] transition-colors cursor-pointer py-1 ${viewMode === 'home' ? 'text-[#f6c344]' : ''}`}
+              className={`hover:text-amber-800 transition-colors cursor-pointer py-1 ${viewMode === 'home' ? 'text-amber-800' : ''}`}
             >
               {isAr ? 'الرئيسية' : 'Home'}
             </button>
@@ -1013,17 +1297,17 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
 
               {navDropdownOpen && (
                 <div className={`absolute top-full pt-2 w-64 z-50 animate-fadeIn ${isAr ? 'right-0' : 'left-0'}`}>
-                  <div className="bg-[#16032e]/98 border border-[#d5a027]/40 rounded-2xl shadow-2xl p-2 backdrop-blur-xl space-y-1">
+                  <div className="bg-white/98 border border-[#d5a027]/40 rounded-2xl shadow-2xl p-2 backdrop-blur-xl space-y-1">
                     <a
                       href="#featured-seats-section"
                       onClick={() => { if (viewMode !== 'home') setViewMode('home'); setNavDropdownOpen(false); }}
-                      className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/10 transition-colors group"
+                      className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors group"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-[#d5a027]/15 border border-[#d5a027]/30 flex items-center justify-center text-[#f6c344] shrink-0 group-hover:bg-[#d5a027] group-hover:text-[#120224] transition-colors">
+                      <div className="w-8 h-8 rounded-lg bg-[#d5a027]/15 border border-[#d5a027]/30 flex items-center justify-center text-[#f6c344] shrink-0 group-hover:bg-[#d5a027] group-hover:text-slate-900 transition-colors">
                         <Palette className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
-                        <div className="text-xs font-extrabold text-white group-hover:text-[#f6c344] transition-colors">
+                        <div className="text-xs font-extrabold text-slate-900 group-hover:text-amber-700 transition-colors">
                           {isAr ? 'تلابيس المقاعد الملكية' : 'VIP Seat Covers'}
                         </div>
                         <div className="text-[10px] text-slate-400 truncate">
@@ -1035,13 +1319,13 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                     <a
                       href="#floor-mats-section"
                       onClick={() => { if (viewMode !== 'home') setViewMode('home'); setNavDropdownOpen(false); }}
-                      className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/10 transition-colors group"
+                      className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors group"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-[#d5a027]/15 border border-[#d5a027]/30 flex items-center justify-center text-[#f6c344] shrink-0 group-hover:bg-[#d5a027] group-hover:text-[#120224] transition-colors">
+                      <div className="w-8 h-8 rounded-lg bg-[#d5a027]/15 border border-[#d5a027]/30 flex items-center justify-center text-[#f6c344] shrink-0 group-hover:bg-[#d5a027] group-hover:text-slate-900 transition-colors">
                         <Sparkles className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
-                        <div className="text-xs font-extrabold text-white group-hover:text-[#f6c344] transition-colors">
+                        <div className="text-xs font-extrabold text-slate-900 group-hover:text-amber-700 transition-colors">
                           {isAr ? 'أرضيات ليزر 5D' : '5D Laser Floor Mats'}
                         </div>
                         <div className="text-[10px] text-slate-400 truncate">
@@ -1053,17 +1337,17 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                     <a
                       href="#brands-section"
                       onClick={() => { if (viewMode !== 'home') setViewMode('home'); setNavDropdownOpen(false); }}
-                      className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/10 transition-colors group"
+                      className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition-colors group"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-[#d5a027]/15 border border-[#d5a027]/30 flex items-center justify-center text-[#f6c344] shrink-0 group-hover:bg-[#d5a027] group-hover:text-[#120224] transition-colors">
+                      <div className="w-8 h-8 rounded-lg bg-[#d5a027]/15 border border-[#d5a027]/30 flex items-center justify-center text-[#f6c344] shrink-0 group-hover:bg-[#d5a027] group-hover:text-slate-900 transition-colors">
                         <Car className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
-                        <div className="text-xs font-extrabold text-white group-hover:text-[#f6c344] transition-colors">
+                        <div className="text-xs font-extrabold text-slate-900 group-hover:text-amber-700 transition-colors">
                           {isAr ? 'ماركات السيارات' : 'Car Brands'}
                         </div>
                         <div className="text-[10px] text-slate-400 truncate">
-                          {isAr ? 'أكثر من 400+ موديل سيارة' : '400+ Supported Vehicle Models'}
+                          {isAr ? 'فلترة حسب ماركة سيارتك' : 'Filter by your car brand'}
                         </div>
                       </div>
                     </a>
@@ -1076,7 +1360,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                           setNavDropdownOpen(false);
                           window.scrollTo({ top: 0, behavior: 'smooth' });
                         }}
-                        className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-gradient-to-r from-[#d5a027]/20 to-[#f6c344]/10 hover:from-[#d5a027] hover:to-[#f6c344] text-[#f6c344] hover:text-[#120224] text-[11px] font-black transition-all cursor-pointer"
+                        className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-gradient-to-r from-[#d5a027]/20 to-[#f6c344]/10 hover:from-[#d5a027] hover:to-[#f6c344] text-[#f6c344] hover:text-slate-900 text-[11px] font-black transition-all cursor-pointer"
                       >
                         <span>{isAr ? 'تصفح جميع المنتجات' : 'Browse Full Catalog'}</span>
                         {isAr ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
@@ -1087,106 +1371,89 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               )}
             </div>
 
-            <a href="#featured-seats-section" className="hover:text-[#f6c344] transition-colors py-1">
-              {isAr ? 'تلابيس المقاعد' : 'Seat Covers'}
+            <a href="#featured-seats-section" className="hover:text-amber-800 transition-colors py-1">
+              {isAr ? 'تلابيس' : 'Seats'}
             </a>
-            <a href="#floor-mats-section" className="hover:text-[#f6c344] transition-colors py-1">
-              {isAr ? 'أرضيات 5D' : '5D Mats'}
+            <a href="#floor-mats-section" className="hover:text-amber-800 transition-colors py-1">
+              {isAr ? 'أرضيات' : 'Mats'}
             </a>
-            <a href="#brands-section" className="hover:text-[#f6c344] transition-colors py-1">
-              {isAr ? 'الماركات' : 'Car Brands'}
+            <a href="#services-booking" className="hover:text-amber-800 transition-colors py-1">
+              {isAr ? 'حجز' : 'Book'}
             </a>
-            <a href="#faq-section" className="hover:text-[#f6c344] transition-colors py-1">
-              {isAr ? 'الأسئلة' : 'FAQ'}
+            <a href="#brands-section" className="hover:text-amber-800 transition-colors py-1">
+              {isAr ? 'ماركات' : 'Brands'}
             </a>
-            <button
-              type="button"
-              onClick={() => {
-                if (viewMode !== 'home') setViewMode('home');
-                setTimeout(() => {
-                  const el = document.getElementById('blog-section');
-                  if (el) el.scrollIntoView({ behavior: 'smooth' });
-                }, 80);
-              }}
-              className="hover:text-[#f6c344] transition-colors cursor-pointer py-1"
-            >
-              {isAr ? 'المدونة' : 'Blog'}
-            </button>
-            <a href="#reviews-section" className="hover:text-[#f6c344] transition-colors py-1">
-              {isAr ? 'التقييمات' : 'Reviews'}
+            <a href="#reviews-section" className="hover:text-amber-800 transition-colors py-1">
+              {isAr ? 'آراء' : 'Reviews'}
             </a>
           </nav>
 
-          {/* Right Action Icons: Search Icon, WhatsApp Icon, Cart & Mobile Menu */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Search Toggle Icon Button */}
+          {/* Right Action Icons: Search, Account, WhatsApp, Cart, Mobile Menu */}
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             <button
               type="button"
-              onClick={() => setSearchBarOpen(prev => !prev)}
-              className={`w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer border shrink-0 ${
+              onClick={() => setSearchBarOpen((prev) => !prev)}
+              className={`flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-all sm:h-9 sm:w-9 ${
                 searchBarOpen
-                  ? 'bg-[#d5a027] text-[#120224] border-[#f6c344] shadow-md'
-                  : 'bg-white/10 hover:bg-white/20 text-white hover:text-[#f6c344] border-white/15'
+                  ? 'border-slate-900 bg-slate-900 text-[#f6c344]'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
               }`}
               title={isAr ? 'بحث عن سيارة أو موديل' : 'Search car model'}
               aria-label={isAr ? 'بحث' : 'Search'}
             >
-              {searchBarOpen ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}
+              {searchBarOpen ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
             </button>
 
-            {/* User Account / Profile Circular Icon Button */}
             <button
               type="button"
               onClick={() => setIsAccountModalOpen(true)}
-              className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white hover:text-[#f6c344] border border-white/15 flex items-center justify-center transition-all cursor-pointer shadow-md shrink-0"
+              className="hidden h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition-all hover:bg-slate-50 sm:flex sm:h-9 sm:w-9"
               title={isAr ? 'حسابي والطلبات' : 'My Account & Orders'}
               aria-label={isAr ? 'حسابي' : 'My Account'}
             >
-              <User className="w-4 h-4" />
+              <User className="h-4 w-4" />
             </button>
 
-            {/* WhatsApp Circular Icon Button */}
-            <button 
+            <button
               type="button"
               onClick={() => openWhatsAppOrder()}
-              className="w-9 h-9 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full flex items-center justify-center transition-all shadow-md hover:scale-105 cursor-pointer shrink-0"
+              className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-emerald-600 text-white transition-all hover:bg-emerald-500 sm:h-9 sm:w-9"
               title={isAr ? 'تواصل عبر واتساب' : 'WhatsApp Order'}
               aria-label={isAr ? 'واتساب' : 'WhatsApp'}
             >
-              <WhatsAppGlyph className="w-4 h-4" />
+              <WhatsAppGlyph className="h-4 w-4" />
             </button>
 
-            {/* Cart Button */}
-            <button 
+            <button
               type="button"
               onClick={() => setCartDrawerOpen(true)}
-              className="relative h-9 px-3 btn-bashayer-gold text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow cursor-pointer shrink-0"
+              className="relative flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full border border-slate-900 bg-slate-900 px-2.5 text-xs font-bold text-white transition-all hover:bg-slate-800 sm:h-9 sm:px-3.5"
               title={isAr ? 'سلة المشتريات' : 'Shopping Cart'}
+              aria-label={isAr ? 'السلة' : 'Cart'}
             >
-              <ShoppingCart className="w-4 h-4 shrink-0" />
+              <ShoppingCart className="h-4 w-4 shrink-0 text-[#f6c344]" />
               <span className="hidden sm:inline">{isAr ? 'السلة' : 'Cart'}</span>
               {cartCount > 0 && (
-                <span className="bg-red-600 text-white text-[10px] w-4.5 h-4.5 px-1 rounded-full flex items-center justify-center font-black animate-scaleIn">
+                <span className="absolute -top-1.5 -end-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#d5a027] px-1 text-[10px] font-black text-slate-900">
                   {cartCount}
                 </span>
               )}
             </button>
 
-            {/* Mobile Hamburger Toggle Button */}
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
-              className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-[#f6c344] lg:hidden flex items-center justify-center cursor-pointer transition-all border border-white/15 shrink-0"
+              className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-amber-700 transition-all hover:bg-slate-200 lg:hidden sm:h-9 sm:w-9"
               aria-label={isAr ? 'فتح القائمة' : 'Open Menu'}
             >
-              <Menu className="w-4 h-4" />
+              <Menu className="h-4 w-4" />
             </button>
           </div>
         </div>
 
         {/* Collapsible Search Dropdown Bar */}
         {searchBarOpen && (
-          <div className="border-t border-[#d5a027]/25 bg-[#120224]/98 backdrop-blur-xl px-3 sm:px-6 py-2.5 animate-fadeIn">
+          <div className="border-t border-[#d5a027]/25 bg-white/95 backdrop-blur-xl px-3 sm:px-6 py-2.5 animate-fadeIn">
             <div className="max-w-2xl mx-auto flex items-center gap-2">
               <div className="relative flex-1">
                 <input 
@@ -1202,14 +1469,14 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                   autoFocus
                   placeholder={isAr ? "ابحث باسم السيارة أو الموديل (مثال: كامري، لاندكروزر، إلنترا)..." : "Search car make or model (e.g., Camry, Land Cruiser, Sonata)..."}
                   style={{ backgroundColor: 'rgba(255,255,255,0.08)', color: '#ffffff' }}
-                  className="w-full !bg-white/10 !text-white placeholder-slate-400 text-xs rounded-full pl-9 pr-9 py-2 focus:outline-none focus:ring-2 focus:ring-[#d5a027] transition-all border border-[#d5a027]/40"
+                  className="w-full !bg-slate-50 !text-slate-900 placeholder-slate-400 text-xs rounded-full pl-9 pr-9 py-2 focus:outline-none focus:ring-2 focus:ring-[#d5a027] transition-all border border-[#d5a027]/40"
                 />
                 <Search className={`w-3.5 h-3.5 text-[#f6c344] absolute ${isAr ? 'right-3.5' : 'left-3.5'} top-1/2 -translate-y-1/2 pointer-events-none`} />
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery('')}
-                    className={`absolute ${isAr ? 'left-3' : 'right-3'} top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer`}
+                    className={`absolute ${isAr ? 'left-3' : 'right-3'} top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-900 cursor-pointer`}
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -1238,7 +1505,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
             onClick={() => setMobileMenuOpen(false)}
           />
 
-          <div className={`relative w-[85%] max-w-sm h-full bg-[#16032e] text-white z-10 flex flex-col justify-between shadow-2xl border-l border-r border-[#d5a027]/30 ${
+          <div className={`relative w-[85%] max-w-sm h-full bg-white text-slate-900 z-10 flex flex-col justify-between shadow-2xl border-l border-r border-[#d5a027]/30 ${
             isAr ? 'mr-auto animate-drawer-rtl' : 'ml-auto animate-drawer-ltr'
           }`}>
             <div className="p-5 space-y-5 overflow-y-auto">
@@ -1246,13 +1513,13 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                 <div className="flex items-center gap-2.5">
                   <img src={BLECO_STORE_INFO.logo} alt="Logo" className="h-8 w-auto object-contain" />
                   <div>
-                    <h3 className="text-sm font-black text-white">{storeDisplayName}</h3>
+                    <h3 className="text-sm font-black text-slate-900">{storeDisplayName}</h3>
                     <span className="text-[10px] text-[#f6c344] font-bold">VIP Studio · Makkah</span>
                   </div>
                 </div>
                 <button 
                   onClick={() => setMobileMenuOpen(false)}
-                  className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white cursor-pointer"
+                  className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-slate-900 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1264,13 +1531,13 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                   toggleLanguage();
                   setMobileMenuOpen(false);
                 }}
-                className="w-full flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-[#d5a027]/30 hover:bg-white/10 transition-all cursor-pointer"
+                className="w-full flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-[#d5a027]/30 hover:bg-slate-100 transition-all cursor-pointer"
               >
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
                   <Globe className="w-4 h-4 text-[#f6c344]" />
                   <span>{isAr ? 'اللغة الحالية: العربية' : 'Current Language: English'}</span>
                 </div>
-                <span className="text-[10px] bg-gradient-to-r from-[#d5a027] to-[#f6c344] text-[#120224] px-2.5 py-0.5 rounded-full font-black">
+                <span className="text-[10px] bg-gradient-to-r from-[#d5a027] to-[#f6c344] text-slate-900 px-2.5 py-0.5 rounded-full font-black">
                   {isAr ? 'التبديل إلى الإنجليزية' : 'التحويل للعربية'}
                 </span>
               </button>
@@ -1288,13 +1555,13 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                     } 
                   }}
                   placeholder={isAr ? "ابحث بالماركة أو الموديل..." : "Search car model..."}
-                  className="w-full bg-white/10 text-white placeholder-slate-400 text-xs rounded-xl pl-9 pr-9 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#d5a027] border border-white/15"
+                  className="w-full bg-slate-50 text-slate-900 placeholder-slate-400 text-xs rounded-xl pl-9 pr-9 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#d5a027] border border-white/15"
                 />
                 <Search className={`w-4 h-4 text-slate-400 absolute ${isAr ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 pointer-events-none`} />
               </div>
 
               {/* Navigation Links with Icons */}
-              <nav className="space-y-1 text-xs font-bold text-slate-200">
+              <nav className="space-y-1 text-xs font-bold text-slate-600">
                 <button
                   onClick={() => {
                     setViewMode('home');
@@ -1302,7 +1569,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                     setMobileMenuOpen(false);
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/10 transition-colors cursor-pointer text-left rtl:text-right"
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer text-left rtl:text-right"
                 >
                   <Car className="w-4 h-4 text-[#f6c344]" />
                   <span>{isAr ? 'الصفحة الرئيسية' : 'Home'}</span>
@@ -1314,80 +1581,55 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                     setMobileMenuOpen(false);
                     setIsAccountModalOpen(true);
                   }}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/10 transition-colors cursor-pointer text-left rtl:text-right text-[#f6c344]"
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer text-left rtl:text-right text-[#f6c344]"
                 >
                   <User className="w-4 h-4 text-[#f6c344]" />
                   <span>{isAr ? 'حسابي والطلبات' : 'My Account & Orders'}</span>
                 </button>
 
                 <a
-                  href="#brands-section"
+                  href="#featured-seats-section"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/10 transition-colors"
+                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors"
                 >
-                  <Car className="w-4 h-4 text-[#f6c344]" />
-                  <span>{isAr ? 'ماركات السيارات (400+ موديل)' : 'Car Brands (400+ Models)'}</span>
+                  <Palette className="w-4 h-4 text-[#f6c344]" />
+                  <span>{isAr ? 'تلابيس المقاعد' : 'Seat Covers'}</span>
                 </a>
 
                 <a
                   href="#floor-mats-section"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/10 transition-colors"
+                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors"
                 >
                   <Sparkles className="w-4 h-4 text-[#f6c344]" />
-                  <span>{isAr ? 'أرضيات 5D ليزر دقيقة' : '5D Precision Floor Mats'}</span>
+                  <span>{isAr ? 'أرضيات 5D' : '5D Floor Mats'}</span>
                 </a>
 
                 <a
-                  href="#featured-seats-section"
+                  href="#services-booking"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/10 transition-colors"
+                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors"
                 >
-                  <Palette className="w-4 h-4 text-[#f6c344]" />
-                  <span>{isAr ? 'تلابيس مقاعد ملكية تفصيل' : 'VIP Custom Seat Covers'}</span>
+                  <Calendar className="w-4 h-4 text-[#f6c344]" />
+                  <span>{isAr ? 'حجز موعد خدمة' : 'Book a Service'}</span>
                 </a>
 
                 <a
-                  href="#guarantees-section"
+                  href="#brands-section"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/10 transition-colors"
+                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors"
                 >
-                  <ShieldCheck className="w-4 h-4 text-[#f6c344]" />
-                  <span>{isAr ? 'الضمان الذهبي والشحن' : 'VIP Warranty & Shipping'}</span>
+                  <Car className="w-4 h-4 text-[#f6c344]" />
+                  <span>{isAr ? 'ماركات السيارات' : 'Car Brands'}</span>
                 </a>
-
-                <a
-                  href="#faq-section"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/10 transition-colors"
-                >
-                  <HelpCircle className="w-4 h-4 text-[#f6c344]" />
-                  <span>{isAr ? 'الأسئلة الشائعة' : 'FAQ & Fitting Assurance'}</span>
-                </a>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    if (viewMode !== 'home') setViewMode('home');
-                    setTimeout(() => {
-                      const el = document.getElementById('blog-section');
-                      if (el) el.scrollIntoView({ behavior: 'smooth' });
-                    }, 80);
-                  }}
-                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/10 transition-colors w-full text-start cursor-pointer"
-                >
-                  <BookOpen className="w-4 h-4 text-[#f6c344]" />
-                  <span>{isAr ? 'مدونة عناية السيارات' : 'Car Upholstery Care Blog'}</span>
-                </button>
 
                 <a
                   href="#reviews-section"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/10 transition-colors"
+                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors"
                 >
                   <Star className="w-4 h-4 text-[#f6c344]" />
-                  <span>{isAr ? 'آراء وتجارب العملاء' : 'Customer Reviews (4.9/5)'}</span>
+                  <span>{isAr ? 'آراء العملاء' : 'Customer Reviews'}</span>
                 </a>
               </nav>
             </div>
@@ -1443,14 +1685,18 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               }
             }}
             onOpenFloorMatModal={() => {
-              const defaultMat = FEATURED_FLOOR_MATS[0];
-              if (defaultMat) setSelectedFloorMatModal(defaultMat);
+              const liveMat = (currentProducts || []).find(isFloorMatProduct);
+              if (liveMat) setSelectedFloorMatModal(liveMat);
+              else {
+                const el = document.getElementById('floor-mats-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }
             }}
             onToggleLang={toggleLanguage}
           />
 
           {/* MAIN PAGE BODY */}
-          <main className="max-w-7xl mx-auto px-4 py-12 space-y-16">
+          <main className="max-w-7xl mx-auto px-3 sm:px-4 py-8 sm:py-12 alsaeedi-main-stack flex flex-col">
 
             {/* ========================================================
                 SECTION 1: THE 2 CORE CATEGORIES (أقسامنا الرئيسية: تلابيس المقاعد وأرضيات السيارات)
@@ -1470,252 +1716,41 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
             />
 
             {/* ========================================================
-                ADVANCED UI/UX FEATURES AFTER CATEGORIES
-                (استوديو التخصيص الملكي + مختبر المقاسات الليزرية وأمان الإيرباق)
-                ======================================================== */}
-            <PostCategoryAdvancedFeatures 
-              isAr={isAr}
-              isAdmin={isAdmin}
-              storeId={storeId}
-              onOpenVehicleModal={(make, model) => {
-                if (make) setFormMake(make.toLowerCase());
-                if (model) setFormModel(model);
-                setVehicleMatchModalOpen(true);
-              }}
-              onAddToCart={(prod, col) => addToCart(prod, 1, col)}
-              onWhatsAppOrder={(prod, col, customText) => {
-                if (prod) openWhatsAppOrder(prod, col, undefined, customText);
-                else {
-                  const phoneNum = themeSettings?.identity?.whatsapp || BLECO_STORE_INFO.whatsapp;
-                  const url = `https://wa.me/${phoneNum.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(customText || 'مرحباً، أود تفصيل مقاعد أو أرضيات لسيارتي')}`;
-                  window.open(url, '_blank');
-                }
-              }}
-              onTriggerToast={(toast) => addToast(toast)}
-            />
-
-            {/* ========================================================
-                SECTION 2: BROWSE BY CAR TYPE (تصفح حسب نوع السيارة - VIP LUXURY)
-                ======================================================== */}
-            <section 
-              id="brands-section" 
-              className="relative rounded-3xl bg-white p-4 sm:p-6 lg:p-7 border border-[#ede8f5] shadow-[0_10px_35px_-10px_rgba(62,15,119,0.07)] overflow-hidden space-y-5"
-            >
-              {/* Luxury Top Accent Line */}
-              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-[#d5a027]/70 to-transparent" />
-              
-              {/* Ambient Glows */}
-              <div className="absolute -top-24 -right-24 w-64 h-64 bg-radial from-[#d5a027]/12 to-transparent rounded-full blur-3xl pointer-events-none" />
-              <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-radial from-[#3e0f77]/08 to-transparent rounded-full blur-3xl pointer-events-none" />
-
-              {/* Section Header */}
-              <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-4 pb-4 border-b border-slate-100">
-                <div className="space-y-1.5">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-black bg-gradient-to-r from-purple-50 to-amber-50/80 border border-[#d5a027]/30 text-[#3e0f77]">
-                    <Sparkles className="w-3.5 h-3.5 text-[#d5a027]" />
-                    <span>{isAr ? 'وكالات وماركات معتمدة · تفصيل ومقاسات ليزرية' : 'OFFICIAL OEM BRANDS · LASER-PRECISION FIT'}</span>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#3e0f77] via-[#25074d] to-[#0d011c] text-[#f6c344] flex items-center justify-center shadow-md border border-[#d5a027]/30 shrink-0">
-                      <Car className="w-5 h-5 drop-shadow" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                        <span>{isAr ? 'تصفح حسب ماركة سيارتك' : 'Browse by Car Brand'}</span>
-                      </h3>
-                      <p className="text-xs sm:text-[13px] text-slate-500 font-medium mt-0.5">
-                        {isAr ? 'اضغط على أي ماركة لاكتشاف الموديلات والتلابيس الملكية والفرش المخصص' : 'Click any brand to explore models, bespoke seat covers & laser floor mats'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
-                  {activeBrand ? (
-                    <button 
-                      onClick={() => {
-                        setActiveBrand(null);
-                        setFormMake('all');
-                        setFormModel('all');
-                      }} 
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200/80 transition-all cursor-pointer shadow-xs"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                      <span>{isAr ? 'عرض جميع الماركات' : 'Clear Filter'}</span>
-                    </button>
-                  ) : (
-                    <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-purple-50/70 border border-purple-200/50 text-xs font-bold text-[#3e0f77]">
-                      <Award className="w-3.5 h-3.5 text-[#d5a027]" />
-                      <span>{isAr ? '14 ماركة كبرى · 400+ موديل' : '14 Major Brands · 400+ Models'}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Brands Grid with Luxury Circular Emblem Podium */}
-              <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3 sm:gap-3.5">
-                {CAR_BRANDS.map(brand => {
-                  const isSelected = activeBrand?.id === brand.id;
-                  const modelsCount = CAR_MODELS_MAP[brand.id]?.length || 0;
-                  return (
-                    <div 
-                      key={brand.id}
-                      onClick={() => {
-                        setActiveBrand(isSelected ? null : brand);
-                        setFormMake(isSelected ? 'all' : brand.nameEn.toLowerCase());
-                        if (isSelected) setFormModel('all');
-                      }}
-                      className={`alsaeedi-brand-card p-3 sm:p-3.5 flex flex-col items-center justify-center text-center cursor-pointer group ${
-                        isSelected ? 'active' : ''
-                      }`}
-                    >
-                      {/* Active indicator checkmark */}
-                      {isSelected && (
-                        <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-gradient-to-r from-[#d5a027] to-[#f6c344] text-[#16032e] flex items-center justify-center shadow-xs z-10 animate-fadeIn">
-                          <Check className="w-2.5 h-2.5 stroke-[3]" />
-                        </div>
-                      )}
-
-                      {/* Circular Emblem Shape */}
-                      <div className="alsaeedi-brand-emblem my-1">
-                        <img 
-                          src={brand.logo} 
-                          alt={isAr ? brand.nameAr : brand.nameEn} 
-                          className="h-8 max-w-[46px] w-auto object-contain filter group-hover:scale-110 transition-transform duration-300 drop-shadow-xs"
-                          loading="lazy"
-                          onError={(e) => {
-                            const target = e.currentTarget;
-                            target.style.display = 'none';
-                            const fallback = target.nextElementSibling as HTMLElement;
-                            if (fallback) fallback.style.display = 'flex';
-                          }}
-                        />
-                        <div 
-                          style={{ display: 'none' }}
-                          className="w-9 h-9 rounded-full bg-purple-50 text-[#3e0f77] font-black text-xs items-center justify-center border border-purple-200"
-                        >
-                          {brand.nameEn.slice(0, 2).toUpperCase()}
-                        </div>
-                      </div>
-
-                      {/* Brand Title */}
-                      <span className="text-xs sm:text-[13px] font-black mt-2 text-slate-800 group-hover:text-[#3e0f77] transition-colors line-clamp-1 tracking-tight">
-                        {isAr ? brand.nameAr : brand.nameEn}
-                      </span>
-
-                      {/* Models count tag */}
-                      <span className="text-[10px] font-bold text-slate-400 group-hover:text-[#d5a027] transition-colors mt-0.5">
-                        {modelsCount > 0 ? (isAr ? `${modelsCount}موديل` : `${modelsCount} models`) : (isAr ? 'متعدد' : 'All')}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Models Chips if Brand Selected - Luxury VIP Model Picker */}
-              {activeBrand && (
-                <div className="relative z-10 p-4 sm:p-5 bg-gradient-to-r from-purple-50/90 via-white to-amber-50/40 border-1.5 border-[#d5a027]/40 rounded-2xl shadow-sm space-y-3 animate-fadeIn">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-purple-100/80 pb-2.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-white border border-slate-200 p-1 flex items-center justify-center shadow-2xs">
-                        <img 
-                          src={activeBrand.logo} 
-                          alt={activeBrand.nameEn} 
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                      <div>
-                        <span className="text-xs sm:text-sm font-black text-[#3e0f77]">
-                          {isAr ? `موديلات${activeBrand.nameAr}المتوافقة:` : `${activeBrand.nameEn} Compatible Models:`}
-                        </span>
-                        <p className="text-[11px] text-slate-500">
-                          {isAr ? 'اضغط على الموديل للفلترة السريعة وتفصيل المقاس الدقيق' : 'Click a model for instantaneous custom match'}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setFormModel('all');
-                        handleApplyFilter();
-                      }}
-                      className="text-xs font-bold text-[#3e0f77] hover:text-[#d5a027] transition-colors cursor-pointer"
-                    >
-                      {isAr ? `عرض كل منتجات${activeBrand.nameAr}` : `View all ${activeBrand.nameEn}`}
-                    </button>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
-                    {(CAR_MODELS_MAP[activeBrand.id] || []).map((m, idx) => {
-                      const isModelSel = formModel === m.modelEn;
-                      return (
-                        <button
-                          key={idx}
-                          onClick={() => {
-                            setFormModel(m.modelEn);
-                            handleApplyFilter();
-                          }}
-                          className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer shadow-xs flex items-center gap-1.5 border ${
-                            isModelSel
-                              ? 'bg-gradient-to-r from-[#3e0f77] to-[#25074d] text-white border-[#d5a027] ring-2 ring-[#d5a027]/30 shadow-md'
-                              : 'bg-white hover:bg-purple-50 text-slate-800 border-slate-200 hover:border-[#d5a027]/60'
-                          }`}
-                        >
-                          <span>{isAr ? m.modelAr : m.modelEn}</span>
-                          {isModelSel && <Check className="w-3 h-3 text-[#f6c344]" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </section>
-
-            {/* ========================================================
-                SECTION 3: CAR FLOOR MATS (أرضيات 5D ليزر فائقة الدقة والرفاهية)
-                ======================================================== */}
-            <ModernLuxuryFloorMatsSection
-              isAr={isAr}
-              mats={(currentProducts?.filter((p) =>
-                p.type === 'floor-mat' ||
-                p.category?.includes('دعاسات') ||
-                p.categoryAr?.includes('دعاسات') ||
-                String(p.categoryEn || '').toLowerCase().includes('mat') ||
-                String(p.categoryEn || '').toLowerCase().includes('floor'),
-              ) || []).slice(0, 8)}
-              onSelectMat={(mat) => setSelectedFloorMatModal(mat)}
-              onOpenWhatsApp={(mat, selectedColorName) => {
-                const customMsg = isAr
-                  ? `مرحباً متجر السعيدي، أرغب بالطلب والاستفسار عن أرضيات 5D ليزر:\n*النوع:*${mat.nameAr || mat.name}\n${selectedColorName ?`*اللون المفضل:* ${selectedColorName}\n` : ''}*السعر:* ${mat.price} ⃁\n*المطلوب:* تفصيل ليزري لموديل سيارتي.`
-                  : `Hello Al-Saeedi Car Services, I would like to order 5D Laser Floor Mats:\n*Type:* ${mat.nameEn || mat.name}\n${selectedColorName ? `*Preferred Color:* ${selectedColorName}\n` : ''}*Price:* ${mat.price} SAR\n*Request:* Laser tailored for my vehicle model.`;
-                openWhatsAppOrder(mat, undefined, undefined, customMsg);
-              }}
-              onViewAll={() => {
-                const el = document.getElementById('catalog-view-top');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
-                setViewMode('catalog');
-              }}
-              onAddToCart={addFloorMatToCart}
-            />
-
-            {/* ========================================================
                 SECTION 4: CAR SEAT COVERS (تلابيس مقاعد ملكية تفصيل وكالة ليزري)
                 ======================================================== */}
             {(() => {
-              const seatsFromStore = currentProducts?.filter(p => 
-                p.type === 'seat-cover' || 
-                p.category?.includes('تلابيس') || 
-                p.categoryAr?.includes('تلابيس') ||
-                p.categoryEn?.toLowerCase().includes('seat')
-              );
+              const seatsFromStore = currentProducts?.filter((p) => {
+                const blob = [
+                  p.type,
+                  p.id,
+                  p.category,
+                  p.categoryAr,
+                  p.categoryEn,
+                  p.name,
+                  p.nameAr,
+                  p.nameEn,
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+                  .toLowerCase();
+                return (
+                  p.type === 'seat-cover' ||
+                  blob.includes('seat') ||
+                  blob.includes('تلابيس') ||
+                  blob.includes('تلبيس') ||
+                  blob.includes('مقعد') ||
+                  String(p.id || '').startsWith('prod-seat')
+                );
+              });
               const displaySeats = (seatsFromStore && seatsFromStore.length > 0
                 ? seatsFromStore
-                : []).slice(0, 8);
+                : []).slice(0, 300);
 
               return (
                 <ModernLuxurySeatCoversSection
                   isAr={isAr}
                   seats={displaySeats}
+                  loading={productsLoading}
                   currentProducts={currentProducts}
                   cardSelectedColors={cardSelectedColors}
                   setCardSelectedColors={setCardSelectedColors}
@@ -1740,118 +1775,284 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               );
             })()}
 
-            {/* ========================================================
-                SECTION 5: FREQUENTLY ASKED QUESTIONS (01 TO 09)
+{/* ========================================================
+                SECTION 3: CAR FLOOR MATS (أرضيات 5D ليزر فائقة الدقة والرفاهية)
                 ======================================================== */}
-            <section id="faq-section" className="space-y-6">
-              <div className="text-center space-y-1.5 max-w-2xl mx-auto">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 text-[#16032e] text-xs font-bold">
-                  <HelpCircle className="w-3.5 h-3.5 text-[#16032e]" />
-                  <span>{isAr ? 'إجابات واضحة لجميع استفساراتك' : 'Fitment & Order Assurance'}</span>
+            <ModernLuxuryFloorMatsSection
+              isAr={isAr}
+              loading={productsLoading}
+              mats={(currentProducts?.filter((p) => {
+                const blob = [
+                  p.type,
+                  p.id,
+                  p.category,
+                  p.categoryAr,
+                  p.categoryEn,
+                  p.name,
+                  p.nameAr,
+                  p.nameEn,
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+                  .toLowerCase();
+                return (
+                  p.type === 'floor-mat' ||
+                  blob.includes('floor') ||
+                  blob.includes('mat') ||
+                  blob.includes('أرض') ||
+                  blob.includes('ارض') ||
+                  blob.includes('دعاس') ||
+                  String(p.id || '').startsWith('prod-mat')
+                );
+              }) || []).slice(0, 300)}
+              onSelectMat={(mat) => setSelectedFloorMatModal(mat)}
+              onOpenWhatsApp={(mat, selectedColorName) => {
+                const customMsg = isAr
+                  ? `مرحباً متجر السعيدي، أرغب بالطلب والاستفسار عن أرضيات 5D ليزر:\n*النوع:*${mat.nameAr || mat.name}\n${selectedColorName ?`*اللون المفضل:* ${selectedColorName}\n` : ''}*السعر:* ${mat.price} ⃁\n*المطلوب:* تفصيل ليزري لموديل سيارتي.`
+                  : `Hello Al-Saeedi Car Services, I would like to order 5D Laser Floor Mats:\n*Type:* ${mat.nameEn || mat.name}\n${selectedColorName ? `*Preferred Color:* ${selectedColorName}\n` : ''}*Price:* ${mat.price} SAR\n*Request:* Laser tailored for my vehicle model.`;
+                openWhatsAppOrder(mat, undefined, undefined, customMsg);
+              }}
+              onViewAll={() => {
+                const el = document.getElementById('catalog-view-top');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+                setViewMode('catalog');
+              }}
+              onAddToCart={addFloorMatToCart}
+            />
+
+            {/* ========================================================
+                SECTION: BROWSE BY CAR BRAND (filter helper)
+                ======================================================== */}
+            <section 
+              id="brands-section" 
+              className="alsaeedi-section alsaeedi-anim-fadeup relative p-4 sm:p-6 lg:p-7 space-y-5"
+            >
+              {/* Ambient Glows */}
+              <div className="absolute -top-24 -right-24 w-64 h-64 bg-radial from-[#d5a027]/12 to-transparent rounded-full blur-xl pointer-events-none" />
+              <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-radial from-slate-300/25 to-transparent rounded-full blur-xl pointer-events-none" />
+
+              {/* Section Header */}
+              <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-4 pb-4 border-b border-slate-100">
+                <div className="space-y-1.5">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-black bg-gradient-to-r from-slate-50 to-amber-50/80 border border-[#d5a027]/30 text-slate-800">
+                    <Sparkles className="w-3.5 h-3.5 text-[#d5a027] alsaeedi-anim-pulse" />
+                    <span>{isAr ? 'اختر ماركة سيارتك' : 'Choose your car brand'}</span>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-slate-800 via-slate-700 to-slate-600 text-[#f6c344] flex items-center justify-center shadow-md border border-[#d5a027]/30 shrink-0 alsaeedi-anim-glow">
+                      <Car className="w-5 h-5 drop-shadow" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                        <span>{isAr ? 'تصفح حسب ماركة سيارتك' : 'Browse by Car Brand'}</span>
+                      </h3>
+                      <p className="text-xs sm:text-[13px] text-slate-500 font-medium mt-0.5">
+                        {isAr ? 'اضغط الماركة ثم الموديل لتصفية المنتجات' : 'Tap a brand, then a model to filter products'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                  {isAr ? 'الأسئلة الشائعة وضمان التركيب' : 'Frequently Asked Questions & Fitment Assurance'}
-                </h3>
-                <p className="text-xs text-slate-500">
-                  {isAr 
-                    ? 'تعرف على معايير الأمان، الضمان الذهبي، وخدمات التوصيل والتقسيط في متجر السعيدي' 
-                    : 'Everything you need to know about safety, warranty, installments, and shipping'}
-                </p>
+
+                <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
+                  {activeBrand ? (
+                    <button 
+                      onClick={() => {
+                        setActiveBrand(null);
+                        setFormMake('all');
+                        setFormModel('all');
+                      }} 
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200/80 transition-all cursor-pointer shadow-xs"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>{isAr ? 'عرض جميع الماركات' : 'Clear Filter'}</span>
+                    </button>
+                  ) : (
+                    <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800">
+                      <Award className="w-3.5 h-3.5 text-[#d5a027]" />
+                      <span>{isAr ? `${CAR_BRANDS.length} ماركة` : `${CAR_BRANDS.length} brands`}</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Numbered FAQ Accordion 01 to 09 */}
-              <div className="max-w-4xl mx-auto space-y-3">
-                {BLECO_FAQ.map((faq, idx) => {
-                  const isOpen = openFaqIndex === idx;
-                  const questionText = isAr ? (faq.qAr || faq.question) : (faq.qEn || faq.questionEn);
-                  const answerText = isAr ? (faq.aAr || faq.answer) : (faq.aEn || faq.answerEn);
+              {/* Brands Grid with Luxury Circular Emblem Podium */}
+              {productsLoading ? (
+                <div className="relative z-10">
+                  <AlsaeediBrandsSkeleton />
+                </div>
+              ) : (
+              <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3 sm:gap-3.5 pt-1 pb-2 alsaeedi-stagger">
+                {CAR_BRANDS.map(brand => {
+                  const isSelected = activeBrand?.id === brand.id;
+                  const modelsCount = CAR_MODELS_MAP[brand.id]?.length || 0;
                   return (
                     <div 
-                      key={idx}
-                      className={`rounded-2xl border transition-all overflow-hidden ${
-                        isOpen 
-                          ? 'bg-white border-[#16032e] shadow-md ring-1 ring-[#16032e]/10' 
-                          : 'bg-white/80 border-slate-200 hover:border-slate-300'
+                      key={brand.id}
+                      onClick={() => {
+                        setActiveBrand(isSelected ? null : brand);
+                        setFormMake(isSelected ? 'all' : brand.nameEn.toLowerCase());
+                        if (isSelected) setFormModel('all');
+                      }}
+                      className={`alsaeedi-brand-card p-3 sm:p-3.5 flex flex-col items-center justify-center text-center cursor-pointer group relative isolate ${
+                        isSelected ? 'active' : ''
                       }`}
                     >
-                      <button
-                        type="button"
-                        onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
-                        className="w-full p-4 sm:p-5 flex items-center justify-between gap-4 text-start cursor-pointer"
-                      >
-                        <div className="flex items-center gap-3.5">
-                          <span className={`w-8 h-8 rounded-xl font-mono font-black text-xs flex items-center justify-center shrink-0 transition-colors ${
-                            isOpen ? 'bg-[#16032e] text-white' : 'bg-slate-100 text-slate-600'
-                          }`}>
-                            {faq.number}
-                          </span>
-                          <h4 className="font-bold text-xs sm:text-sm text-slate-900">
-                            {questionText}
-                          </h4>
-                        </div>
-                        <div className={`p-1 rounded-full shrink-0 transition-transform ${isOpen ? 'rotate-180 text-[#16032e]' : 'text-slate-400'}`}>
-                          <ChevronDown className="w-4 h-4" />
-                        </div>
-                      </button>
-
-                      {isOpen && (
-                        <div className="px-5 pb-5 pt-1 text-xs text-slate-600 leading-relaxed border-t border-slate-100/80 animate-fadeIn">
-                          <p>{answerText}</p>
+                      {/* Active indicator checkmark */}
+                      {isSelected && (
+                        <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-gradient-to-r from-[#d5a027] to-[#f6c344] text-slate-900 flex items-center justify-center shadow-xs z-10 animate-fadeIn">
+                          <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
                       )}
+
+                      {/* Circular Emblem Shape */}
+                      <div className="alsaeedi-brand-emblem my-1">
+                        <img 
+                          src={brand.logo} 
+                          alt={isAr ? brand.nameAr : brand.nameEn} 
+                          className="h-8 max-w-[46px] w-auto object-contain filter group-hover:scale-110 transition-transform duration-300 drop-shadow-xs"
+                          loading="lazy"
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            target.style.display = 'none';
+                            const fallback = target.nextElementSibling as HTMLElement;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                        <div 
+                          style={{ display: 'none' }}
+                          className="w-9 h-9 rounded-full bg-slate-50 text-slate-800 font-black text-xs items-center justify-center border border-slate-200"
+                        >
+                          {brand.nameEn.slice(0, 2).toUpperCase()}
+                        </div>
+                      </div>
+
+                      {/* Brand Title */}
+                      <span className="text-xs sm:text-[13px] font-black mt-2 text-slate-800 group-hover:text-slate-800 transition-colors line-clamp-1 tracking-tight">
+                        {isAr ? brand.nameAr : brand.nameEn}
+                      </span>
+
+                      {/* Models count tag */}
+                      <span className="text-[10px] font-bold text-slate-400 group-hover:text-[#d5a027] transition-colors mt-0.5">
+                        {modelsCount > 0 ? (isAr ? `${modelsCount}موديل` : `${modelsCount} models`) : (isAr ? 'متعدد' : 'All')}
+                      </span>
                     </div>
                   );
                 })}
               </div>
+              )}
+
+              {/* Models Chips if Brand Selected - Luxury VIP Model Picker */}
+              {!productsLoading && activeBrand && (
+                <div className="relative z-10 p-4 sm:p-5 alsaeedi-card-gold border border-[#d5a027]/40 rounded-2xl space-y-3 alsaeedi-anim-slide">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-100/90 pb-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full alsaeedi-card-chip p-1 flex items-center justify-center">
+                        <img 
+                          src={activeBrand.logo} 
+                          alt={activeBrand.nameEn} 
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-xs sm:text-sm font-black text-slate-800">
+                          {isAr ? `موديلات${activeBrand.nameAr}المتوافقة:` : `${activeBrand.nameEn} Compatible Models:`}
+                        </span>
+                        <p className="text-[11px] text-slate-500">
+                          {isAr ? 'اضغط على الموديل للفلترة السريعة وتفصيل المقاس الدقيق' : 'Click a model for instantaneous custom match'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setFormModel('all');
+                        handleApplyFilter();
+                      }}
+                      className="text-xs font-bold text-slate-800 hover:text-[#d5a027] transition-colors cursor-pointer"
+                    >
+                      {isAr ? `عرض كل منتجات${activeBrand.nameAr}` : `View all ${activeBrand.nameEn}`}
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {(CAR_MODELS_MAP[activeBrand.id] || []).map((m, idx) => {
+                      const isModelSel = formModel === m.modelEn;
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            setFormModel(m.modelEn);
+                            handleApplyFilter();
+                          }}
+                          className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer shadow-xs flex items-center gap-1.5 border ${
+                            isModelSel
+                              ? 'bg-gradient-to-r from-slate-800 to-slate-700 text-white border-[#d5a027] ring-2 ring-[#d5a027]/30 shadow-md'
+                              : 'alsaeedi-card-chip text-slate-800 hover:border-[#d5a027]/60'
+                          }`}
+                        >
+                          <span>{isAr ? m.modelAr : m.modelEn}</span>
+                          {isModelSel && <Check className="w-3 h-3 text-[#f6c344]" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </section>
 
-            {/* SECTION 7: BLOG */}
-            <AutomotiveBlogSection
-              isAr={isAr}
-              onSelectPost={(post) => setSelectedBlogPost(post)}
-              openWhatsAppOrder={(customMsg) => openWhatsAppOrder(undefined, undefined, undefined, customMsg)}
-            />
+            <AlsaeediServicesBooking isAr={isAr} storeId={storeId} />
 
-            {/* ========================================================
-                SECTION 8: VERIFIED CUSTOMER REVIEWS (6 REAL REVIEWS)
-                ======================================================== */}
-            <section id="reviews-section" className="space-y-6">
+            {/* Customer comments only — no fake KPI scores */}
+            <section id="reviews-section" className="alsaeedi-section-soft alsaeedi-anim-fadeup space-y-5 p-4 sm:p-6">
               <div className="text-center space-y-1">
                 <h3 className="text-xl sm:text-2xl font-black text-slate-900">
-                  {isAr ? 'تجارب عملاء النخبة بالمملكة · تقييم 4.9/5' : 'Verified VIP Customer Reviews across KSA · 4.9/5 Rating'}
+                  {isAr ? 'آراء العملاء' : 'Customer Reviews'}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  {isAr ? 'تقييمات موثقة لعملاء قاموا بتركيب التلابيس والأرضيات بمكة والرياض وجدة والشرقية مع ضمان سنتين' : 'Verified customer ratings across Saudi Arabia with 100% factory match guarantee'}
+                  {isAr ? 'تعليقات مشترين من مدن المملكة' : 'Comments from customers across Saudi Arabia'}
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {BLECO_TESTIMONIALS.map((rev, idx) => (
-                  <div key={idx} className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <img src={rev.avatar} alt="User" className="w-9 h-9 rounded-full object-cover border border-slate-100" />
-                        <div>
-                          <h5 className="font-bold text-xs text-slate-900">{isAr ? rev.name : rev.nameEn}</h5>
-                          <span className="text-[10px] text-slate-400">{isAr ? rev.city : rev.cityEn} · {isAr ? rev.car : rev.carEn}</span>
+              {reviewsLoading || productsLoading ? (
+                <AlsaeediReviewsSkeleton />
+              ) : storeReviews.length === 0 ? (
+                <div className="rounded-2xl border border-slate-200 bg-white px-4 py-10 text-center">
+                  <Star className="mx-auto mb-2 h-8 w-8 text-slate-300" aria-hidden="true" />
+                  <p className="text-sm font-bold text-slate-700">
+                    {isAr ? 'لا توجد تقييمات بعد' : 'No reviews yet'}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {isAr ? 'بانتظار أول تقييمات العملاء الحقيقية لهذا المتجر.' : 'Waiting for real customer reviews for this store.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 alsaeedi-stagger sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+                  {storeReviews.slice(0, 6).map((rev) => {
+                    const stars = Math.max(1, Math.min(5, Number(rev.rating) || 5));
+                    return (
+                      <div key={rev.id} className="alsaeedi-card alsaeedi-anim-lift alsaeedi-reveal-scale space-y-3 p-5">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <h5 className="truncate text-xs font-bold text-slate-900">{rev.author || (isAr ? 'عميل' : 'Customer')}</h5>
+                            {rev.date ? (
+                              <span className="text-[10px] text-slate-400">{rev.date}</span>
+                            ) : null}
+                          </div>
+                          <div className="flex shrink-0 text-amber-400" aria-label={`${stars}/5`}>
+                            {[...Array(5)].map((_, i) => (
+                              <Star key={i} className={`h-3 w-3 ${i < stars ? 'fill-current' : 'text-slate-200'}`} />
+                            ))}
+                          </div>
                         </div>
+                        <p className="text-xs leading-relaxed text-slate-600">
+                          {(isAr ? (rev.commentAr || rev.comment) : (rev.comment || rev.commentAr)) ||
+                            (isAr ? 'لا يوجد تعليق' : 'No comment')}
+                        </p>
                       </div>
-                      <div className="flex text-amber-400">
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} className="w-3 h-3 fill-current" />
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-xs text-slate-600 leading-relaxed italic">
-                      "{isAr ? (rev.comment || (rev as any).text) : (rev.commentEn || (rev as any).textEn)}"
-                    </p>
-                    <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-bold">
-                      <CheckCircle2 className="w-3 h-3" />
-                      <span>{isAr ? 'شراء مؤكد ومطابق للمقاس' : 'Verified Purchase'}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </section>
           </main>
         </>
@@ -1863,7 +2064,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
           <div className="flex items-center justify-between border-b border-slate-200 pb-4">
             <button
               onClick={() => handleResetFilter()}
-              className="text-xs font-bold text-[#3e0f77] flex items-center gap-1.5 hover:underline cursor-pointer"
+              className="text-xs font-bold text-slate-800 flex items-center gap-1.5 hover:underline cursor-pointer"
             >
               {isAr ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
               <span>{isAr ? 'العودة للرئيسية' : 'Back to Home'}</span>
@@ -1875,13 +2076,13 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
           </div>
 
           {/* 2 CORE CATEGORIES SELECTOR TABS (seats cover or mats bs overall) */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <div className="flex items-center gap-2 overflow-x-auto overscroll-x-contain touch-pan-x pb-1 scrollbar-none" style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x pinch-zoom' }}>
             <button
               onClick={() => setActiveCategory(null)}
               className={`px-4 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0 shadow-xs ${
                 activeCategory === null
-                  ? 'bg-[#3e0f77] text-white shadow-md'
-                  : 'bg-white text-slate-700 border border-slate-200 hover:border-[#3e0f77]'
+                  ? 'bg-slate-800 text-white shadow-md'
+                  : 'bg-white text-slate-700 border border-slate-200 hover:border-slate-300'
               }`}
             >
               <span>{isAr ? 'الكل (جميع المنتجات)' : 'All Products'}</span>
@@ -1892,8 +2093,8 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               onClick={() => setActiveCategory(BLECO_CATEGORIES[0])}
               className={`px-4 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0 shadow-xs ${
                 activeCategory?.id === 'cat-clothing'
-                  ? 'bg-[#3e0f77] text-white shadow-md'
-                  : 'bg-white text-slate-700 border border-slate-200 hover:border-[#3e0f77]'
+                  ? 'bg-slate-800 text-white shadow-md'
+                  : 'bg-white text-slate-700 border border-slate-200 hover:border-slate-300'
               }`}
             >
               <Palette className="w-3.5 h-3.5" />
@@ -1905,7 +2106,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               onClick={() => setActiveCategory(BLECO_CATEGORIES[1])}
               className={`px-4 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0 shadow-xs ${
                 activeCategory?.id === 'cat-floors'
-                  ? 'bg-[#d5a027] text-[#1c0537] font-black shadow-md'
+                  ? 'bg-[#d5a027] text-slate-900 font-black shadow-md'
                   : 'bg-white text-slate-700 border border-slate-200 hover:border-[#d5a027]'
               }`}
             >
@@ -1916,20 +2117,20 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
           </div>
 
           {/* SAUDI TRUST & SPECIFICATIONS STRIP (حسب متطلبات السوق السعودي) */}
-          <div className="bg-gradient-to-r from-purple-900 via-[#1c0537] to-[#16032e] text-white p-3 sm:p-3.5 rounded-2xl shadow-sm flex flex-wrap items-center justify-between gap-2.5 text-[11px] font-bold">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>{isAr ? '🇸🇦 مطابق لمقاس الوكالة السعودية 100%' : '🇸🇦 100% Saudi Agency Fit Guaranteed'}</span>
+          <div className="bg-gradient-to-r from-slate-100 via-white to-slate-50 text-slate-800 p-3 sm:p-3.5 rounded-2xl shadow-sm flex flex-wrap items-center justify-between gap-2.5 text-[11px] font-bold">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden="true" />
+              <span className="truncate">{isAr ? 'مطابق لمقاس الوكالة السعودية 100%' : '100% Saudi Agency Fit Guaranteed'}</span>
             </div>
-            <div className="hidden sm:flex items-center gap-1 text-amber-300">
+            <div className="hidden sm:flex items-center gap-1 text-amber-700">
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>{isAr ? 'ضمان ذهبي سنتين ضد التقشير والبهتان' : '2-Year Full Color & Peel Warranty'}</span>
             </div>
-            <div className="flex items-center gap-1 text-emerald-300">
+            <div className="flex items-center gap-1 text-emerald-700">
               <Truck className="w-3.5 h-3.5" />
               <span>{isAr ? 'شحن سريع لجميع مدن المملكة' : 'Fast Delivery across all KSA cities'}</span>
             </div>
-            <div className="hidden md:flex items-center gap-1 text-purple-200">
+            <div className="hidden md:flex items-center gap-1 text-amber-700">
               <CreditCard className="w-3.5 h-3.5" />
               <span>{isAr ? 'تقسيط مريح 4 دفعات (تمارا · تابي)' : '4 Installments with Tamara & Tabby'}</span>
             </div>
@@ -1940,28 +2141,28 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               ======================================================== */}
           <div className="space-y-4">
             {/* 1. Quick Brand Pills with Logos (10 Companies) */}
-            <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2.5">
+            <div className="alsaeedi-card-panel p-3 sm:p-4 space-y-2.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-                  <Car className="w-4 h-4 text-[#3e0f77]" />
+                  <Car className="w-4 h-4 text-slate-800" />
                   <span>{isAr ? 'اختر ماركة سيارتك (10 شركات كبرى):' : 'Select Car Brand (10 Major Companies):'}</span>
                 </span>
                 {formMake !== 'all' && (
                   <button
                     onClick={() => { setFormMake('all'); setFormModel('all'); }}
-                    className="text-[11px] font-bold text-[#3e0f77] hover:underline cursor-pointer"
+                    className="text-[11px] font-bold text-slate-800 hover:underline cursor-pointer"
                   >
                     {isAr ? 'عرض كل الماركات' : 'All Brands'}
                   </button>
                 )}
               </div>
 
-              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none snap-x touch-pan-x -mx-1 px-1">
+              <div className="flex items-center gap-2 overflow-x-auto overscroll-x-contain pb-2 scrollbar-none snap-x snap-proximity touch-pan-x -mx-1 px-1" style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x pinch-zoom', scrollBehavior: 'auto' }}>
                 <button
                   onClick={() => { setFormMake('all'); setFormModel('all'); }}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 snap-start ${
                     formMake === 'all'
-                      ? 'bg-[#3e0f77] text-white shadow-md'
+                      ? 'bg-slate-800 text-white shadow-md'
                       : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                   }`}
                 >
@@ -1981,7 +2182,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                       }}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer flex items-center gap-2 border snap-start ${
                         isSel
-                          ? 'bg-purple-50 border-[#3e0f77] text-[#3e0f77] ring-2 ring-[#3e0f77]/30 shadow-sm'
+                          ? 'bg-slate-50 border-slate-300 text-slate-800 ring-2 ring-slate-400/30 shadow-sm'
                           : 'bg-white border-slate-200 hover:border-slate-300 text-slate-700'
                       }`}
                     >
@@ -1997,7 +2198,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
             </div>
 
             {/* 2. Advance Filters Controls Grid */}
-            <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div className="p-4 alsaeedi-card-panel space-y-4">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 text-xs">
                 {/* Model dropdown */}
                 <div>
@@ -2005,7 +2206,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                   <select 
                     value={formModel} 
                     onChange={e => setFormModel(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 font-bold cursor-pointer text-xs focus:ring-2 focus:ring-[#3e0f77] focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 font-bold cursor-pointer text-xs focus:ring-2 focus:ring-slate-400 focus:outline-none"
                   >
                     <option value="all">{isAr ? 'جميع الموديلات' : 'All Models'}</option>
                     {availableModels.map((m, idx) => (
@@ -2020,7 +2221,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                   <select 
                     value={catalogMaterialFilter} 
                     onChange={e => setCatalogMaterialFilter(e.target.value as any)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 font-bold cursor-pointer text-xs focus:ring-2 focus:ring-[#3e0f77] focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 font-bold cursor-pointer text-xs focus:ring-2 focus:ring-slate-400 focus:outline-none"
                   >
                     <option value="all">{isAr ? 'جميع الخامات' : 'All Materials'}</option>
                     <option value="leather">{isAr ? 'جلد فاخر مطابق للوكالة' : 'Luxury OEM Leather'}</option>
@@ -2034,7 +2235,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                   <select 
                     value={formYear} 
                     onChange={e => setFormYear(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 font-bold cursor-pointer text-xs focus:ring-2 focus:ring-[#3e0f77] focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 font-bold cursor-pointer text-xs focus:ring-2 focus:ring-slate-400 focus:outline-none"
                   >
                     <option value="all">{isAr ? 'جميع السنوات' : 'All Years'}</option>
                     {availableYears.map((yr: string) => (
@@ -2049,7 +2250,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                   <select 
                     value={catalogSort} 
                     onChange={e => setCatalogSort(e.target.value as any)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 font-bold cursor-pointer text-xs focus:ring-2 focus:ring-[#3e0f77] focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-2.5 py-2 font-bold cursor-pointer text-xs focus:ring-2 focus:ring-slate-400 focus:outline-none"
                   >
                     <option value="featured">{isAr ? 'الأكثر طلباً ومبيعاً' : 'Most Popular & Best Sellers'}</option>
                     <option value="price-asc">{isAr ? 'السعر: من الأقل للأعلى' : 'Price: Low to High'}</option>
@@ -2066,7 +2267,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
                       placeholder={isAr ? 'كامري، يوكن، جلد...' : 'Camry, Yukon...'}
-                      className="w-full bg-slate-50 border border-slate-300 rounded-xl pr-8 pl-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#3e0f77]"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl pr-8 pl-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400"
                     />
                     <Search className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5" />
                   </div>
@@ -2077,7 +2278,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                    <Palette className="w-3.5 h-3.5 text-[#3e0f77]" />
+                    <Palette className="w-3.5 h-3.5 text-slate-800" />
                     <span>{isAr ? 'فلترة حسب اللون:' : 'Filter by Color:'}</span>
                   </span>
                   
@@ -2085,7 +2286,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                     onClick={() => setFormColor('all')}
                     className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
                       formColor === 'all'
-                        ? 'bg-[#3e0f77] text-white shadow-xs'
+                        ? 'bg-slate-800 text-white shadow-xs'
                         : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
                     }`}
                   >
@@ -2101,7 +2302,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                           onClick={() => setFormColor(isColActive ? 'all' : c.nameAr)}
                           className={`px-2 py-1 rounded-lg border flex items-center gap-1.5 cursor-pointer transition-all ${
                             isColActive
-                              ? 'border-[#3e0f77] bg-purple-50 ring-2 ring-[#3e0f77]/30 scale-105 shadow-xs'
+                              ? 'border-slate-300 bg-slate-50 ring-2 ring-slate-400/30 scale-105 shadow-xs'
                               : 'border-slate-200 hover:border-slate-300 bg-white'
                           }`}
                           title={isAr ? c.nameAr : c.nameEn}
@@ -2129,37 +2330,37 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                 <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-1.5">
                   <span className="text-[11px] font-bold text-slate-500">{isAr ? 'الفلاتر النشطة:' : 'Active Filters:'}</span>
                   {formMake !== 'all' && (
-                    <span className="px-2 py-0.5 rounded-full bg-purple-100 text-[#3e0f77] text-[10px] font-bold flex items-center gap-1">
+                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 text-[10px] font-bold flex items-center gap-1">
                       <span>{formMake.toUpperCase()}</span>
                       <X className="w-3 h-3 cursor-pointer" onClick={() => setFormMake('all')} />
                     </span>
                   )}
                   {formModel !== 'all' && (
-                    <span className="px-2 py-0.5 rounded-full bg-purple-100 text-[#3e0f77] text-[10px] font-bold flex items-center gap-1">
+                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 text-[10px] font-bold flex items-center gap-1">
                       <span>{formModel}</span>
                       <X className="w-3 h-3 cursor-pointer" onClick={() => setFormModel('all')} />
                     </span>
                   )}
                   {formColor !== 'all' && (
-                    <span className="px-2 py-0.5 rounded-full bg-purple-100 text-[#3e0f77] text-[10px] font-bold flex items-center gap-1">
+                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 text-[10px] font-bold flex items-center gap-1">
                       <span>{formColor}</span>
                       <X className="w-3 h-3 cursor-pointer" onClick={() => setFormColor('all')} />
                     </span>
                   )}
                   {catalogMaterialFilter !== 'all' && (
-                    <span className="px-2 py-0.5 rounded-full bg-purple-100 text-[#3e0f77] text-[10px] font-bold flex items-center gap-1">
+                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 text-[10px] font-bold flex items-center gap-1">
                       <span>{catalogMaterialFilter === 'leather' ? (isAr ? 'جلد فاخر' : 'Leather') : (isAr ? 'قماش أصلي' : 'Fabric')}</span>
                       <X className="w-3 h-3 cursor-pointer" onClick={() => setCatalogMaterialFilter('all')} />
                     </span>
                   )}
                   {formYear !== 'all' && (
-                    <span className="px-2 py-0.5 rounded-full bg-purple-100 text-[#3e0f77] text-[10px] font-bold flex items-center gap-1">
+                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 text-[10px] font-bold flex items-center gap-1">
                       <span>{formYear}</span>
                       <X className="w-3 h-3 cursor-pointer" onClick={() => setFormYear('all')} />
                     </span>
                   )}
                   {searchQuery && (
-                    <span className="px-2 py-0.5 rounded-full bg-purple-100 text-[#3e0f77] text-[10px] font-bold flex items-center gap-1">
+                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 text-[10px] font-bold flex items-center gap-1">
                       <span>"{searchQuery}"</span>
                       <X className="w-3 h-3 cursor-pointer" onClick={() => setSearchQuery('')} />
                     </span>
@@ -2170,6 +2371,9 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
           </div>
 
           {/* Full Grid (2 columns on mobile, 4 columns on desktop) */}
+          {productsLoading ? (
+            <AlsaeediCatalogSkeleton count={8} />
+          ) : (
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4 md:gap-5">
             {fullFilteredProducts.slice(0, catalogPageLimit).map(prod => {
               const liveProd = currentProducts?.find(p => p.id === prod.id) || prod;
@@ -2178,11 +2382,14 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               const activeColor = userColor || prodColors[0];
               const cardImg = (liveProd.type === 'seat-cover') ? (userColor?.image || activeColor?.image || liveProd.image) : liveProd.image;
               const finalPrice = liveProd.discountedPrice || liveProd.price;
-              const originalPrice = liveProd.originalPrice || Math.round(finalPrice * 1.18);
+              const originalPrice =
+                liveProd.originalPrice && liveProd.originalPrice > finalPrice
+                  ? liveProd.originalPrice
+                  : null;
               const monthlyTabby = Math.round(finalPrice / 4);
 
               return (
-                <div key={liveProd.id} className="alsaeedi-product-card group relative flex flex-col justify-between border border-slate-200/90 hover:border-[#d5a027] hover:shadow-xl transition-all duration-300 rounded-xl sm:rounded-2xl md:rounded-3xl bg-white overflow-hidden">
+                <div key={liveProd.id} className="alsaeedi-product-card alsaeedi-reveal-scale group relative flex flex-col justify-between transition-all duration-300 rounded-xl sm:rounded-2xl md:rounded-3xl overflow-hidden">
                   <div 
                     className="relative aspect-square overflow-hidden bg-slate-50 cursor-pointer"
                     onClick={() => { 
@@ -2195,10 +2402,25 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                       }
                     }}
                   >
-                    <img src={cardImg} alt={liveProd.name} className="w-full h-full object-cover img-zoom transition-all duration-500" loading="lazy" />
+                    <img
+                      src={cardImg}
+                      alt={liveProd.name}
+                      className="w-full h-full object-contain object-center img-zoom transition-all duration-500"
+                      loading="lazy"
+                      decoding="async"
+                      onError={(e) => {
+                        const el = e.currentTarget;
+                        if (el.dataset.fallbackApplied === '1') {
+                          el.dataset.broken = '1';
+                          return;
+                        }
+                        el.dataset.fallbackApplied = '1';
+                        el.src = '/images/categories/vip-luxury-seat-covers.jpg';
+                      }}
+                    />
                     
                     {/* Brand Pill */}
-                    <span className="absolute top-2 right-2 sm:top-2.5 sm:right-2.5 bg-[#16032e]/90 text-white text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full border border-white/20 shadow-xs">
+                    <span className="absolute top-2 right-2 sm:top-2.5 sm:right-2.5 bg-slate-900/80 text-white text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full border border-white/20 shadow-xs">
                       {liveProd.brand}
                     </span>
 
@@ -2226,7 +2448,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                             setDetailColor(activeColor); 
                           }
                         }}
-                        className="font-bold text-slate-900 line-clamp-2 hover:text-[#3e0f77] cursor-pointer text-xs sm:text-sm leading-snug"
+                        className="font-bold text-slate-900 line-clamp-2 hover:text-slate-800 cursor-pointer text-xs sm:text-sm leading-snug"
                       >
                         {isAr ? (liveProd.nameAr || liveProd.name) : (liveProd.nameEn || liveProd.name)}
                       </h4>
@@ -2266,7 +2488,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                       <span className="text-amber-900 font-bold truncate">
                         {isAr ? `4 دفعات x${monthlyTabby}⃁` : `4x ${monthlyTabby} ⃁`}
                       </span>
-                      <span className="text-[#3e0f77] font-black shrink-0">{isAr ? 'تابي · تمارا' : 'Tabby'}</span>
+                      <span className="text-slate-800 font-black shrink-0">{isAr ? 'تابي · تمارا' : 'Tabby'}</span>
                     </div>
 
                     {/* Price and CTA */}
@@ -2276,7 +2498,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                           <span className="font-black text-sm sm:text-base text-slate-900">{finalPrice}</span>
                           <span className="text-[10px] font-bold text-[#b07e16] mr-0.5 ml-0.5">{'⃁'}</span>
                         </div>
-                        {originalPrice > finalPrice && (
+                        {originalPrice != null && originalPrice > finalPrice && (
                           <span className="text-[10px] text-slate-400 line-through">
                             {originalPrice} {'⃁'}
                           </span>
@@ -2304,11 +2526,12 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               );
             })}
           </div>
+          )}
 
           {/* SAUDI CONCIERGE EMPTY STATE (إذا لم يتم العثور على موديل محدد) */}
-          {fullFilteredProducts.length === 0 && (
-            <div className="text-center py-12 px-4 bg-white rounded-3xl border border-slate-200 shadow-xs space-y-4 max-w-lg mx-auto my-6">
-              <div className="w-16 h-16 rounded-full bg-purple-50 text-[#3e0f77] flex items-center justify-center mx-auto">
+          {!productsLoading && fullFilteredProducts.length === 0 && (
+            <div className="text-center py-12 px-4 alsaeedi-card rounded-3xl space-y-4 max-w-lg mx-auto my-6">
+              <div className="w-16 h-16 rounded-full bg-slate-50 text-slate-800 flex items-center justify-center mx-auto">
                 <Car className="w-8 h-8" />
               </div>
               <div className="space-y-1.5">
@@ -2343,7 +2566,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
             <div className="pt-6 text-center">
               <button 
                 onClick={() => setCatalogPageLimit(prev => prev + 24)}
-                className="px-6 py-2.5 btn-bashayer-purple text-xs font-black cursor-pointer shadow"
+                className="px-6 py-2.5 alsaeedi-anim-shimmer text-xs font-black cursor-pointer shadow rounded-full"
               >
                 {isAr ? `عرض المزيد (${fullFilteredProducts.length - catalogPageLimit}متبقية)` : `Load More (${fullFilteredProducts.length - catalogPageLimit} left)`}
               </button>
@@ -2412,7 +2635,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
       {cartDrawerOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-end">
           <div className="bg-white w-full max-w-sm h-full flex flex-col justify-between shadow-2xl text-xs">
-            <div className="p-4 bg-[#3e0f77] text-white flex items-center justify-between">
+            <div className="p-4 bg-slate-800 text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ShoppingCart className="w-4 h-4 text-[#f6c344]" />
                 <h4 className="font-black text-sm">{isAr ? `السلة (${cartCount})` : `Cart (${cartCount})`}</h4>
@@ -2431,10 +2654,10 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               ) : (
                 cart.map((item, idx) => (
                   <div key={idx} className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2.5">
-                    <img src={item.selectedColor?.image || item.product.image} alt="cart item" className="w-12 h-12 rounded-lg object-cover" />
+                    <img src={item.selectedColor?.image || item.product.image} alt="cart item" className="w-12 h-12 rounded-lg object-contain" />
                     <div className="flex-1 min-w-0">
                       <h5 className="font-bold text-slate-900 line-clamp-1">{isAr ? item.product.nameAr : item.product.nameEn}</h5>
-                      <span className="text-[10px] text-[#3e0f77] font-bold block">{item.selectedColor?.nameAr || 'مخصص'} · {item.unitPrice * item.quantity} {'⃁'}</span>
+                      <span className="text-[10px] text-slate-800 font-bold block">{item.selectedColor?.nameAr || 'مخصص'} · {item.unitPrice * item.quantity} {'⃁'}</span>
                       {item.specs && (
                         <div className="text-[9px] text-slate-500 space-y-0.5">
                           <span className="block truncate font-semibold text-slate-700">
@@ -2467,7 +2690,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               <div className="p-4 bg-slate-50 border-t border-slate-200 space-y-2.5">
                 <div className="flex items-center justify-between font-black text-sm text-slate-900">
                   <span>{isAr ? 'الإجمالي:' : 'Total:'}</span>
-                  <span className="text-[#3e0f77]">{cartTotal} {'⃁'}</span>
+                  <span className="text-slate-800">{cartTotal} {'⃁'}</span>
                 </div>
                 <button 
                   onClick={() => { setCartDrawerOpen(false); setCheckoutOpen(true); }}
@@ -2487,58 +2710,169 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
       {checkoutOpen && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl overflow-hidden shadow-2xl border border-slate-200 text-xs">
-            <div className="p-4 bg-[#3e0f77] text-white flex items-center justify-between">
+            <div className="p-4 bg-slate-800 text-white flex items-center justify-between">
               <h4 className="font-black text-sm">{isAr ? 'إتمام الطلب' : 'Checkout'}</h4>
               <button onClick={() => setCheckoutOpen(false)} className="p-1 rounded-full bg-white/10 cursor-pointer">
                 <X className="w-4 h-4 text-white" />
               </button>
             </div>
 
-            <form onSubmit={handleCheckoutSubmit} className="p-5 space-y-3">
+            <form onSubmit={handleCheckoutSubmit} className="max-h-[80vh] space-y-3 overflow-y-auto p-5">
               <div>
-                <label className="block text-slate-700 font-bold mb-1">{isAr ? 'الاسم:' : 'Name:'}</label>
-                <input 
-                  type="text" 
+                <label className="mb-1 block font-bold text-slate-700">{isAr ? 'الاسم' : 'Name'}</label>
+                <input
+                  type="text"
                   required
                   value={checkoutForm.name}
-                  onChange={e => setCheckoutForm(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-bold focus:outline-none"
+                  onChange={(e) => setCheckoutForm((prev) => ({ ...prev, name: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 font-bold focus:outline-none focus:ring-2 focus:ring-[#d5a027]/40"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1">{isAr ? 'الجوال (واتساب):' : 'Phone:'}</label>
-                <input 
-                  type="tel" 
+                <label className="mb-1 block font-bold text-slate-700">{isAr ? 'الجوال' : 'Phone'}</label>
+                <input
+                  type="tel"
                   required
                   value={checkoutForm.phone}
-                  onChange={e => setCheckoutForm(prev => ({ ...prev, phone: e.target.value }))}
+                  onChange={(e) => setCheckoutForm((prev) => ({ ...prev, phone: e.target.value }))}
                   placeholder="05XXXXXXXX"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-bold focus:outline-none"
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 font-bold focus:outline-none focus:ring-2 focus:ring-[#d5a027]/40"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1">{isAr ? 'العنوان / الحي والشارع:' : 'Address:'}</label>
-                <input 
-                  type="text" 
+                <label className="mb-1 block font-bold text-slate-700">{isAr ? 'المدينة' : 'City'}</label>
+                <select
+                  required
+                  value={checkoutForm.city}
+                  onChange={(e) => setCheckoutForm((prev) => ({ ...prev, city: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 font-bold focus:outline-none focus:ring-2 focus:ring-[#d5a027]/40"
+                >
+                  {(isAr
+                    ? ['مكة المكرمة', 'جدة', 'الرياض', 'الدمام', 'المدينة المنورة', 'الطائف', 'أبها', 'تبوك']
+                    : ['Makkah', 'Jeddah', 'Riyadh', 'Dammam', 'Madinah', 'Taif', 'Abha', 'Tabuk']
+                  ).map((city) => (
+                    <option key={city} value={city}>{city}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block font-bold text-slate-700">{isAr ? 'العنوان / الحي والشارع' : 'Address'}</label>
+                <input
+                  type="text"
                   required
                   value={checkoutForm.address}
-                  onChange={e => setCheckoutForm(prev => ({ ...prev, address: e.target.value }))}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-bold focus:outline-none"
+                  onChange={(e) => setCheckoutForm((prev) => ({ ...prev, address: e.target.value }))}
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 font-bold focus:outline-none focus:ring-2 focus:ring-[#d5a027]/40"
                 />
               </div>
 
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between font-black text-sm">
-                <span>{isAr ? 'المجموع:' : 'Total:'}</span>
-                <span className="text-[#3e0f77]">{cartTotal} {'⃁'}</span>
+              <div>
+                <label className="mb-1 block font-bold text-slate-700">{isAr ? 'طريقة الدفع' : 'Payment'}</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCheckoutForm((prev) => ({ ...prev, paymentMethod: 'cod' }))}
+                    className={`rounded-xl border px-3 py-2 text-[11px] font-black cursor-pointer ${
+                      checkoutForm.paymentMethod === 'cod'
+                        ? 'border-slate-800 bg-slate-900 text-white'
+                        : 'border-slate-200 bg-white text-slate-700'
+                    }`}
+                  >
+                    {isAr ? 'الدفع عند الاستلام' : 'Cash on Delivery'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCheckoutForm((prev) => ({ ...prev, paymentMethod: 'mada' }))}
+                    className={`rounded-xl border px-3 py-2 text-[11px] font-black cursor-pointer ${
+                      checkoutForm.paymentMethod === 'mada'
+                        ? 'border-[#d5a027] bg-amber-50 text-amber-950'
+                        : 'border-slate-200 bg-white text-slate-700'
+                    }`}
+                  >
+                    {isAr ? 'مدى / تحويل' : 'Mada / Transfer'}
+                  </button>
+                </div>
               </div>
 
-              <button 
+              <div>
+                <label className="mb-1 block font-bold text-slate-700">{isAr ? 'رمز الكوبون' : 'Coupon code'}</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponCode}
+                    onChange={(e) => {
+                      setCouponCode(e.target.value);
+                      setCouponDiscount(0);
+                      setCouponMessage(null);
+                    }}
+                    placeholder={isAr ? 'أدخل الرمز' : 'Enter code'}
+                    className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 font-bold focus:outline-none focus:ring-2 focus:ring-[#d5a027]/40"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void applyCoupon()}
+                    disabled={couponBusy}
+                    aria-busy={couponBusy}
+                    className="shrink-0 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-[11px] font-black text-white cursor-pointer disabled:opacity-60"
+                  >
+                    {couponBusy ? (isAr ? '...' : '...') : isAr ? 'تطبيق' : 'Apply'}
+                  </button>
+                </div>
+                {couponMessage ? (
+                  <p className={`mt-1 text-[10px] font-bold ${couponDiscount > 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                    {couponMessage}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="space-y-1 border-t border-slate-100 pt-2 text-sm font-black">
+                <div className="flex items-center justify-between text-xs text-slate-500">
+                  <span>{isAr ? 'المجموع الفرعي' : 'Subtotal'}</span>
+                  <span>{cartTotal} ⃁</span>
+                </div>
+                {couponDiscount > 0 ? (
+                  <div className="flex items-center justify-between text-xs text-emerald-700">
+                    <span>{isAr ? 'خصم الكوبون' : 'Coupon discount'}</span>
+                    <span>-{couponDiscount} ⃁</span>
+                  </div>
+                ) : null}
+                <div className="flex items-center justify-between text-xs text-slate-600">
+                  <span>{isAr ? 'الشحن' : 'Shipping'}</span>
+                  <span>
+                    {shippingBusy
+                      ? '…'
+                      : shippingFee <= 0
+                        ? (shippingLabel || (isAr ? '—' : '—'))
+                        : `${shippingFee} ⃁`}
+                  </span>
+                </div>
+                {shippingLabel && shippingFee > 0 ? (
+                  <p className="text-[10px] font-medium text-slate-400">{shippingLabel}</p>
+                ) : null}
+                <div className="flex items-center justify-between">
+                  <span>{isAr ? 'الإجمالي' : 'Total'}</span>
+                  <span className="text-slate-900">{checkoutPayable} ⃁</span>
+                </div>
+              </div>
+
+              {checkoutError ? (
+                <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-bold text-rose-700">
+                  {checkoutError}
+                </p>
+              ) : null}
+
+              <button
                 type="submit"
-                className="w-full py-3 btn-bashayer-gold font-black text-xs cursor-pointer shadow"
+                disabled={checkoutBusy}
+                aria-busy={checkoutBusy}
+                className="w-full cursor-pointer py-3 text-xs font-black shadow btn-bashayer-gold disabled:opacity-60"
               >
-                {isAr ? 'تأكيد وإرسال الطلب' : 'Confirm Order'}
+                {checkoutBusy
+                  ? (isAr ? 'جاري الإرسال...' : 'Submitting...')
+                  : (isAr ? 'تأكيد وإرسال الطلب' : 'Confirm Order')}
               </button>
             </form>
           </div>
@@ -2555,7 +2889,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               <CheckCircle2 className="w-8 h-8" />
             </div>
             <h4 className="text-base font-black text-slate-900">{isAr ? 'تم استلام طلبك بنجاح!' : 'Order Received!'}</h4>
-            <p className="text-slate-600 font-mono">{isAr ? 'رقم الطلب:' : 'Order ID:'} <strong className="text-[#3e0f77]">{orderCompleteData.orderNumber}</strong></p>
+            <p className="text-slate-600 font-mono">{isAr ? 'رقم الطلب:' : 'Order ID:'} <strong className="text-slate-800">{orderCompleteData.orderNumber}</strong></p>
             <p className="text-slate-500">{isAr ? 'سيتواصل معك فريق خدمة العملاء لتأكيد المقاس وموعد الشحن.' : 'Our team will contact you to verify fitment and dispatch.'}</p>
             <button 
               onClick={() => setOrderCompleteData(null)}
@@ -2580,6 +2914,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
         color={formColor}
         brandObj={CAR_BRANDS.find(b => b.nameEn.toLowerCase() === formMake.toLowerCase() || b.id === formMake)}
         colorObj={SEAT_COLORS.find(c => c.nameAr === formColor || c.nameEn.toLowerCase() === formColor.toLowerCase())}
+        catalogProducts={storeCatalog}
         onSelectSeatCover={(prod, col) => {
           setSelectedProduct(prod);
           setDetailColor(col || null);
@@ -2622,9 +2957,8 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
           if (el) el.scrollIntoView({ behavior: 'smooth' });
         }}
         onOpenBlog={(post) => setSelectedBlogPost(post)}
-        onOpenFaq={(idx) => {
-          setOpenFaqIndex(typeof idx === 'number' ? idx : 0);
-          const el = document.getElementById('faq-section');
+        onOpenFaq={() => {
+          const el = document.getElementById('services-booking');
           if (el) el.scrollIntoView({ behavior: 'smooth' });
         }}
         onOpenReviews={() => {
@@ -2634,66 +2968,70 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
       />
 
       {/* Mobile Sticky Bottom Navigation Bar */}
-      <nav className="alsaeedi-mobile-bottom-nav lg:hidden flex items-center justify-around py-2 px-2 safe-area-inset-bottom">
+      <nav className="alsaeedi-mobile-bottom-nav lg:hidden flex items-stretch gap-0.5 px-1.5 pt-1.5 safe-area-inset-bottom">
         <button
+          type="button"
           onClick={() => {
             setViewMode('home');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
-          className={`flex flex-col items-center gap-1 p-1 text-[10px] font-bold cursor-pointer transition-colors ${
-            viewMode === 'home' ? 'text-[#f6c344]' : 'text-slate-300 hover:text-white'
+          className={`flex min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-1 text-[9px] font-bold cursor-pointer transition-colors ${
+            viewMode === 'home' ? 'text-amber-600' : 'text-slate-500 hover:text-slate-900'
           }`}
         >
-          <Car className="w-4 h-4" />
+          <Car className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{isAr ? 'الرئيسية' : 'Home'}</span>
         </button>
 
         <a
           href="#floor-mats-section"
-          className="flex flex-col items-center gap-1 p-1 text-[10px] font-bold text-slate-300 hover:text-[#f6c344] transition-colors"
+          className="flex min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-1 text-[9px] font-bold text-slate-500 transition-colors hover:text-amber-600"
         >
-          <Sparkles className="w-4 h-4" />
-          <span>{isAr ? 'أرضيات 5D' : '5D Mats'}</span>
+          <Sparkles className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{isAr ? 'أرضيات' : 'Mats'}</span>
         </a>
 
         <a
           href="#vehicle-filter-bar"
-          className="flex flex-col items-center gap-1 p-1 text-[10px] font-bold text-slate-300 hover:text-[#f6c344] transition-colors"
+          className="flex min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-1 text-[9px] font-bold text-slate-500 transition-colors hover:text-amber-600"
         >
-          <SlidersHorizontal className="w-4 h-4" />
-          <span>{isAr ? 'تطابق سيارتك' : 'Fit Car'}</span>
+          <SlidersHorizontal className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{isAr ? 'سيارتك' : 'Fit'}</span>
         </a>
 
         <button
+          type="button"
           onClick={() => openWhatsAppOrder()}
-          className="flex flex-col items-center gap-1 p-1 text-[10px] font-bold text-emerald-400 hover:text-emerald-300 cursor-pointer"
+          className="flex min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-1 text-[9px] font-bold text-emerald-600 cursor-pointer hover:text-emerald-700"
         >
-          <WhatsAppGlyph className="w-4 h-4" />
-          <span>{isAr ? 'واتساب' : 'WhatsApp'}</span>
+          <WhatsAppGlyph className="h-4 w-4 shrink-0" />
+          <span>{isAr ? 'واتساب' : 'Chat'}</span>
         </button>
 
         <button
+          type="button"
           onClick={() => setCartDrawerOpen(true)}
-          className="relative flex flex-col items-center gap-1 p-1 text-[10px] font-bold text-slate-300 hover:text-[#f6c344] cursor-pointer"
+          className="relative flex min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-1 text-[9px] font-bold text-slate-500 cursor-pointer hover:text-amber-600"
         >
-          <div className="relative">
-            <ShoppingCart className="w-4 h-4" />
+          <span className="relative inline-flex">
+            <ShoppingCart className="h-4 w-4 shrink-0" aria-hidden="true" />
             {cartCount > 0 && (
-              <span className="absolute -top-1.5 -right-2 bg-red-600 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-black">
+              <span className="absolute -top-1.5 -end-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-0.5 text-[8px] font-black text-white">
                 {cartCount}
               </span>
             )}
-          </div>
+          </span>
           <span>{isAr ? 'السلة' : 'Cart'}</span>
         </button>
 
         <button
+          type="button"
           onClick={() => setIsAccountModalOpen(true)}
-          className={`flex flex-col items-center gap-1 p-1 text-[10px] font-bold cursor-pointer transition-colors ${
-            isAccountModalOpen ? 'text-[#f6c344]' : 'text-slate-300 hover:text-white'
+          className={`flex min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-1 text-[9px] font-bold cursor-pointer transition-colors ${
+            isAccountModalOpen ? 'text-amber-600' : 'text-slate-500 hover:text-slate-900'
           }`}
         >
-          <User className="w-4 h-4" />
+          <User className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{isAr ? 'حسابي' : 'Profile'}</span>
         </button>
       </nav>

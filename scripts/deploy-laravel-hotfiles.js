@@ -111,6 +111,18 @@ const files = [
     remote: 'routes/api.php',
   },
   {
+    local: 'apps/api/app/Http/Controllers/Api/StoreAppointmentController.php',
+    remote: 'app/Http/Controllers/Api/StoreAppointmentController.php',
+  },
+  {
+    local: 'apps/api/app/Models/StoreAppointment.php',
+    remote: 'app/Models/StoreAppointment.php',
+  },
+  {
+    local: 'apps/api/database/migrations/2026_11_25_180000_store_appointments.php',
+    remote: 'database/migrations/2026_11_25_180000_store_appointments.php',
+  },
+  {
     local: 'apps/api/app/Http/Controllers/Api/SubscriptionController.php',
     remote: 'app/Http/Controllers/Api/SubscriptionController.php',
   },
@@ -171,6 +183,18 @@ const files = [
     remote: 'config/services.php',
   },
   {
+    local: 'apps/api/app/Http/Controllers/Api/SocialController.php',
+    remote: 'app/Http/Controllers/Api/SocialController.php',
+  },
+  {
+    local: 'apps/api/app/Services/Social/TikTokPublisher.php',
+    remote: 'app/Services/Social/TikTokPublisher.php',
+  },
+  {
+    local: 'apps/api/app/Services/Social/MetaGraphPublisher.php',
+    remote: 'app/Services/Social/MetaGraphPublisher.php',
+  },
+  {
     local: 'apps/api/scripts/ensure-canva-oauth-table.php',
     remote: 'scripts/ensure-canva-oauth-table.php',
   },
@@ -199,8 +223,314 @@ const files = [
     remote: 'app/Http/Controllers/Api/PaymentGatewayController.php',
   },
   {
+    local: 'apps/api/app/Http/Controllers/Api/CourierController.php',
+    remote: 'app/Http/Controllers/Api/CourierController.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/WebhooksController.php',
+    remote: 'app/Http/Controllers/Api/WebhooksController.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/IntegrationHealthController.php',
+    remote: 'app/Http/Controllers/Api/IntegrationHealthController.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/BankTransferProofController.php',
+    remote: 'app/Http/Controllers/Api/BankTransferProofController.php',
+  },
+  {
+    local: 'apps/api/app/Services/Integration/IntegrationHealthService.php',
+    remote: 'app/Services/Integration/IntegrationHealthService.php',
+  },
+  {
+    local: 'apps/api/app/Services/Integration/IntegrationLogService.php',
+    remote: 'app/Services/Integration/IntegrationLogService.php',
+  },
+  {
+    local: 'apps/api/app/Models/IntegrationHealthCheck.php',
+    remote: 'app/Models/IntegrationHealthCheck.php',
+  },
+  {
+    local: 'apps/api/app/Models/IntegrationHealthLog.php',
+    remote: 'app/Models/IntegrationHealthLog.php',
+  },
+  {
+    local: 'apps/api/app/Models/IntegrationWebhookEvent.php',
+    remote: 'app/Models/IntegrationWebhookEvent.php',
+  },
+  {
+    local: 'apps/api/app/Models/BankTransferProof.php',
+    remote: 'app/Models/BankTransferProof.php',
+  },
+  {
     local: 'apps/api/app/Models/StoreBankAccount.php',
     remote: 'app/Models/StoreBankAccount.php',
+  },
+  {
+    local: 'apps/api/database/migrations/2026_11_25_210000_create_integration_health_tables.php',
+    remote: 'database/migrations/2026_11_25_210000_create_integration_health_tables.php',
+  },
+  {
+    local: 'apps/api/scripts/ensure-integration-health-tables.php',
+    remote: 'scripts/ensure-integration-health-tables.php',
+  },
+  {
+    local: 'apps/api/app/Services/Payment/StripeGatewayService.php',
+    remote: 'app/Services/Payment/StripeGatewayService.php',
+  },
+  {
+    local: 'apps/api/app/Services/Payment/PayPalGatewayService.php',
+    remote: 'app/Services/Payment/PayPalGatewayService.php',
+  },
+  {
+    local: 'apps/api/app/Services/Payment/HyperPayGatewayService.php',
+    remote: 'app/Services/Payment/HyperPayGatewayService.php',
+  },
+  {
+    local: 'apps/api/app/Services/Payment/TapGatewayService.php',
+    remote: 'app/Services/Payment/TapGatewayService.php',
+  },
+  {
+    local: 'apps/api/app/Services/Payment/CodPaymentService.php',
+    remote: 'app/Services/Payment/CodPaymentService.php',
+  },
+  {
+    local: 'apps/api/app/Services/Payment/MoyasarGatewayService.php',
+    remote: 'app/Services/Payment/MoyasarGatewayService.php',
+  },
+  {
+    local: 'apps/api/app/Services/Payment/TabbyGatewayService.php',
+    remote: 'app/Services/Payment/TabbyGatewayService.php',
+  },
+  {
+    local: 'apps/api/app/Services/Payment/TamaraGatewayService.php',
+    remote: 'app/Services/Payment/TamaraGatewayService.php',
+  },
+  {
+    local: 'apps/api/app/Services/Courier/SmsaCourierService.php',
+    remote: 'app/Services/Courier/SmsaCourierService.php',
+  },
+  {
+    local: 'apps/api/app/Services/Courier/DhlCourierService.php',
+    remote: 'app/Services/Courier/DhlCourierService.php',
+  },
+  {
+    local: 'apps/api/app/Services/Courier/FedexCourierService.php',
+    remote: 'app/Services/Courier/FedexCourierService.php',
+  },
+  {
+    local: 'apps/api/app/Services/Courier/UpsCourierService.php',
+    remote: 'app/Services/Courier/UpsCourierService.php',
+  },
+  {
+    local: 'database/hostinger/13_integration_health.sql',
+    remote: 'database/hostinger/13_integration_health.sql',
+  },
+  // OpenAI AI Management (isolated from Gemini) — 2026-11-25
+  {
+    local: 'apps/api/app/Http/Controllers/Api/MasterOpenAiController.php',
+    remote: 'app/Http/Controllers/Api/MasterOpenAiController.php',
+  },
+  {
+    local: 'apps/api/app/Support/OpenAiLevels.php',
+    remote: 'app/Support/OpenAiLevels.php',
+  },
+  {
+    local: 'apps/api/app/Support/Plans.php',
+    remote: 'app/Support/Plans.php',
+  },
+  {
+    local: 'apps/api/app/Services/OpenAi/OpenAiConfigService.php',
+    remote: 'app/Services/OpenAi/OpenAiConfigService.php',
+  },
+  {
+    local: 'apps/api/app/Services/OpenAi/OpenAiCostService.php',
+    remote: 'app/Services/OpenAi/OpenAiCostService.php',
+  },
+  {
+    local: 'apps/api/app/Services/OpenAi/OpenAiUsageService.php',
+    remote: 'app/Services/OpenAi/OpenAiUsageService.php',
+  },
+  {
+    local: 'apps/api/app/Services/OpenAi/OpenAiProviderService.php',
+    remote: 'app/Services/OpenAi/OpenAiProviderService.php',
+  },
+  {
+    local: 'apps/api/app/Services/OpenAi/OpenAiImageService.php',
+    remote: 'app/Services/OpenAi/OpenAiImageService.php',
+  },
+  {
+    local: 'apps/api/app/Services/OpenAi/OpenAiAutomationService.php',
+    remote: 'app/Services/OpenAi/OpenAiAutomationService.php',
+  },
+  {
+    local: 'apps/api/app/Models/OpenAiGlobalConfig.php',
+    remote: 'app/Models/OpenAiGlobalConfig.php',
+  },
+  {
+    local: 'apps/api/app/Models/OpenAiModelPricing.php',
+    remote: 'app/Models/OpenAiModelPricing.php',
+  },
+  {
+    local: 'apps/api/app/Models/StoreOpenAiConfig.php',
+    remote: 'app/Models/StoreOpenAiConfig.php',
+  },
+  {
+    local: 'apps/api/app/Models/StoreOpenAiUsageLog.php',
+    remote: 'app/Models/StoreOpenAiUsageLog.php',
+  },
+  {
+    local: 'apps/api/app/Models/StoreOpenAiBudgetPeriod.php',
+    remote: 'app/Models/StoreOpenAiBudgetPeriod.php',
+  },
+  {
+    local: 'apps/api/app/Models/StoreOpenAiConfigHistory.php',
+    remote: 'app/Models/StoreOpenAiConfigHistory.php',
+  },
+  {
+    local: 'apps/api/app/Models/StoreOpenAiAuditLog.php',
+    remote: 'app/Models/StoreOpenAiAuditLog.php',
+  },
+  {
+    local: 'apps/api/app/Models/StoreOpenAiImageConfig.php',
+    remote: 'app/Models/StoreOpenAiImageConfig.php',
+  },
+  {
+    local: 'apps/api/app/Models/StoreOpenAiImageUsage.php',
+    remote: 'app/Models/StoreOpenAiImageUsage.php',
+  },
+  {
+    local: 'apps/api/app/Models/StoreOpenAiImageEvent.php',
+    remote: 'app/Models/StoreOpenAiImageEvent.php',
+  },
+  {
+    local: 'apps/api/app/Models/StoreOpenAiAutomationConfig.php',
+    remote: 'app/Models/StoreOpenAiAutomationConfig.php',
+  },
+  {
+    local: 'apps/api/app/Models/StoreOpenAiAutomationUsage.php',
+    remote: 'app/Models/StoreOpenAiAutomationUsage.php',
+  },
+  {
+    local: 'apps/api/database/migrations/2026_11_25_190000_create_openai_management_tables.php',
+    remote: 'database/migrations/2026_11_25_190000_create_openai_management_tables.php',
+  },
+  {
+    local: 'apps/api/database/migrations/2026_11_25_200000_create_openai_image_and_automation_tables.php',
+    remote: 'database/migrations/2026_11_25_200000_create_openai_image_and_automation_tables.php',
+  },
+  {
+    local: 'apps/api/scripts/ensure-openai-management-tables.php',
+    remote: 'scripts/ensure-openai-management-tables.php',
+  },
+  // Souq CT-2…7 marketplace / billing / common themes
+  {
+    local: 'apps/api/app/Support/Plans.php',
+    remote: 'app/Support/Plans.php',
+  },
+  {
+    local: 'apps/api/app/Support/SouqBilling.php',
+    remote: 'app/Support/SouqBilling.php',
+  },
+  {
+    local: 'apps/api/app/Support/SouqAddOns.php',
+    remote: 'app/Support/SouqAddOns.php',
+  },
+  {
+    local: 'apps/api/app/Support/SouqCommonThemes.php',
+    remote: 'app/Support/SouqCommonThemes.php',
+  },
+  {
+    local: 'apps/api/app/Support/DefaultTheme.php',
+    remote: 'app/Support/DefaultTheme.php',
+  },
+  {
+    local: 'apps/api/app/Support/SouqCommonSettingsDefaults.php',
+    remote: 'app/Support/SouqCommonSettingsDefaults.php',
+  },
+  {
+    local: 'apps/api/app/Support/HostingerCloud.php',
+    remote: 'app/Support/HostingerCloud.php',
+  },
+  {
+    local: 'apps/api/app/Services/Store/ProvisionNewStoreService.php',
+    remote: 'app/Services/Store/ProvisionNewStoreService.php',
+  },
+  {
+    local: 'apps/api/app/Services/Theme/ThemeEntitlementService.php',
+    remote: 'app/Services/Theme/ThemeEntitlementService.php',
+  },
+  {
+    local: 'apps/api/scripts/ensure-souq-default-store.php',
+    remote: 'scripts/ensure-souq-default-store.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/SouqMarketplaceController.php',
+    remote: 'app/Http/Controllers/Api/SouqMarketplaceController.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/StoreThemeController.php',
+    remote: 'app/Http/Controllers/Api/StoreThemeController.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/DomainController.php',
+    remote: 'app/Http/Controllers/Api/DomainController.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/StoreStudioDesignController.php',
+    remote: 'app/Http/Controllers/Api/StoreStudioDesignController.php',
+  },
+  {
+    local: 'apps/api/app/Models/StoreStudioDesign.php',
+    remote: 'app/Models/StoreStudioDesign.php',
+  },
+  {
+    local: 'apps/api/app/Models/ThemeCatalog.php',
+    remote: 'app/Models/ThemeCatalog.php',
+  },
+  {
+    local: 'apps/api/app/Models/StoreThemeEntitlement.php',
+    remote: 'app/Models/StoreThemeEntitlement.php',
+  },
+  {
+    local: 'apps/api/routes/api.php',
+    remote: 'routes/api.php',
+  },
+  {
+    local: 'apps/api/scripts/ensure-theme-entitlements-tables.php',
+    remote: 'scripts/ensure-theme-entitlements-tables.php',
+  },
+  {
+    local: 'database/hostinger/14_starter_theme_entitlements.sql',
+    remote: 'database/hostinger/14_starter_theme_entitlements.sql',
+  },
+  {
+    local: 'database/hostinger/15_souq_common_themes.sql',
+    remote: 'database/hostinger/15_souq_common_themes.sql',
+  },
+  {
+    local: 'apps/api/app/Support/StoreAiSuiteAccess.php',
+    remote: 'app/Support/StoreAiSuiteAccess.php',
+  },
+  {
+    local: 'apps/api/app/Support/SouqAiModules.php',
+    remote: 'app/Support/SouqAiModules.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/StoreAiSuiteController.php',
+    remote: 'app/Http/Controllers/Api/StoreAiSuiteController.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/AiMediaController.php',
+    remote: 'app/Http/Controllers/Api/AiMediaController.php',
+  },
+  {
+    local: 'apps/api/app/Models/StoreAiTrialUsage.php',
+    remote: 'app/Models/StoreAiTrialUsage.php',
+  },
+  {
+    local: 'apps/api/app/Models/StoreAiPayment.php',
+    remote: 'app/Models/StoreAiPayment.php',
   },
 ];
 

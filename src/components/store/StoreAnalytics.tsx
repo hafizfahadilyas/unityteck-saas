@@ -27,6 +27,8 @@ import {
 } from '../../api/tenantApi';
 import { isApiEnabled } from '../../api/client';
 import { normalizeGa4Snapshot, type NormalizedGa4Metrics } from '../../utils/normalizeGa4Snapshot';
+import { StoreMarketingAnalytics } from './StoreMarketingAnalytics';
+import { Skeleton, SkeletonChart } from '../common/skeleton';
 
 interface StoreAnalyticsProps {
   onNavigateTab?: (tab: string) => void;
@@ -293,6 +295,8 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
         </div>
       </div>
 
+      <StoreMarketingAnalytics />
+
       {/* Live GA4 banner */}
       {gaConnected && (
         <div className="p-4 bg-gradient-to-r from-teal-500/10 via-blue-500/10 to-indigo-500/10 dark:from-teal-950/40 dark:via-blue-950/40 dark:to-indigo-950/40 border border-teal-200 dark:border-teal-900 rounded-2xl flex flex-wrap items-center justify-between gap-4">
@@ -335,6 +339,19 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
       )}
 
       {/* KPI strip — traffic only */}
+      {(isLoadingGa || isLoadingHome) && sessions === 0 ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4" aria-busy="true" role="status">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="p-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 space-y-2">
+              <div className="flex justify-between items-center">
+                <Skeleton variant="rounded" height="12px" width="55%" />
+                <Skeleton variant="rounded" width="24px" height="24px" className="rounded-xl" />
+              </div>
+              <Skeleton variant="rounded" height="24px" width="60%" />
+            </div>
+          ))}
+        </div>
+      ) : (
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         {[
           {
@@ -388,6 +405,7 @@ export const StoreAnalytics: React.FC<StoreAnalyticsProps> = ({ onNavigateTab })
           );
         })}
       </div>
+      )}
 
       {waitingTraffic && (
         <div className="p-5 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/40 text-center space-y-2">

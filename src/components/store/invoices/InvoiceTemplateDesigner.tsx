@@ -1,24 +1,13 @@
 import React, { useState } from 'react';
-import type { InvoiceDocument, InvoiceTemplateConfig, InvoiceDocumentType } from '../../../types/invoices';
+import type { InvoiceDocument, InvoiceTemplateConfig } from '../../../types/invoices';
 import { InvoiceTemplateRenderer } from './InvoiceTemplateRenderer';
-import { invoiceService, DEFAULT_TEMPLATE_CONFIG } from '../../../services/invoiceService';
+import { invoiceService } from '../../../services/invoiceService';
 import { usePrefs } from '../../../i18n/PrefsContext';
 import { useTenant } from '../../../context/TenantContext';
 import { useToast } from '../../common/ToastProvider';
-import {
-  Palette,
-  Type,
-  Layout,
-  Sliders,
-  Check,
-  RotateCcw,
-  Sparkles,
-  Eye,
-  Building,
-  CreditCard,
-  QrCode,
-  FileText,
-} from 'lucide-react';
+import { Palette, RotateCcw, Save } from 'lucide-react';
+import { StoreFontSelect } from '../fonts/StoreFontSelect';
+import { ensureStoreGoogleFontLoaded } from '../../../data/storeGoogleFontsCatalog';
 
 interface InvoiceTemplateDesignerProps {
   documents: InvoiceDocument[];
@@ -30,7 +19,7 @@ export const InvoiceTemplateDesigner: React.FC<InvoiceTemplateDesignerProps> = (
   onBack,
 }) => {
   const { activeStore } = useTenant();
-  const { t, locale } = usePrefs();
+  const { locale } = usePrefs();
   const { toast } = useToast();
   const isAr = locale === 'ar';
 
@@ -58,135 +47,238 @@ export const InvoiceTemplateDesigner: React.FC<InvoiceTemplateDesignerProps> = (
     toast(isAr ? 'تمت استعادة القالب الافتراضي' : 'Default template restored', 'info');
   };
 
+  const tabs = [
+    { id: 'branding' as const, labelEn: 'Branding', labelAr: 'الهوية' },
+    { id: 'typography' as const, labelEn: 'Fonts', labelAr: 'الخطوط' },
+    { id: 'columns' as const, labelEn: 'Columns', labelAr: 'الأعمدة' },
+    { id: 'sections' as const, labelEn: 'Sections', labelAr: 'الأقسام' },
+    { id: 'terms' as const, labelEn: 'Terms', labelAr: 'الشروط' },
+  ];
+
+  const saveActions = (
+    <>
+      <button
+        type="button"
+        onClick={handleReset}
+        className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition-colors cursor-pointer min-h-[2.5rem]"
+        style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--surface)' }}
+      >
+        <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+        <span className="whitespace-nowrap">{isAr ? 'استعادة الافتراضي' : 'Reset'}</span>
+      </button>
+      <button
+        type="button"
+        onClick={handleSave}
+        className="unity-btn-primary inline-flex items-center justify-center gap-1.5 px-5 py-2 rounded-xl text-xs font-black shadow-md transition-all active:scale-95 cursor-pointer min-h-[2.5rem]"
+      >
+        <Save className="w-3.5 h-3.5 shrink-0" />
+        <span className="whitespace-nowrap">{isAr ? 'حفظ القالب' : 'Save Design'}</span>
+      </button>
+    </>
+  );
+
   return (
-    <div className="flex flex-col h-full bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white select-none">
-      {/* Designer Top Bar */}
-      <div className="h-16 px-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 shrink-0">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white hover:bg-slate-50 dark:bg-transparent dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 transition-colors cursor-pointer shadow-xs"
-          >
-            ← {isAr ? 'العودة للمستندات' : 'Back to Invoices'}
-          </button>
-          <div className="h-4 w-px bg-slate-200 dark:bg-slate-800" />
-          <div className="flex items-center gap-2">
-            <Palette className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <h2 className="text-sm font-black text-slate-900 dark:text-white">
-              {isAr ? 'مصمم ومخصص قوالب الفواتير' : 'Invoice Template Designer'}
-            </h2>
+    <div
+      className="flex flex-col min-h-[min(100%,calc(100dvh-4.5rem))] w-full min-w-0 select-none"
+      style={{ background: 'var(--bg)', color: 'var(--text)' }}
+      dir={isAr ? 'rtl' : 'ltr'}
+    >
+      {/* Designer Top Bar — stacks cleanly on mobile */}
+      <div
+        className="shrink-0 border-b px-3 sm:px-6 py-3 space-y-3"
+        style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between min-w-0">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={onBack}
+              className="self-start inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer shadow-xs whitespace-nowrap"
+              style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+            >
+              <span aria-hidden="true">{isAr ? '→' : '←'}</span>
+              <span>{isAr ? 'العودة للمستندات' : 'Back to Invoices'}</span>
+            </button>
+            <div className="hidden sm:block h-4 w-px shrink-0" style={{ background: 'var(--border)' }} />
+            <div className="flex items-center gap-2 min-w-0">
+              <span
+                className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                style={{ background: 'color-mix(in srgb, var(--accent) 14%, transparent)', color: 'var(--accent)' }}
+              >
+                <Palette className="w-4 h-4" />
+              </span>
+              <h2 className="text-sm font-black leading-snug break-words min-w-0" style={{ color: 'var(--text)' }}>
+                {isAr ? 'مصمم ومخصص قوالب الفواتير' : 'Invoice Template Designer'}
+              </h2>
+            </div>
+          </div>
+
+          {/* Desktop / tablet actions */}
+          <div className="hidden md:flex items-center gap-3 flex-wrap justify-end">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-xs whitespace-nowrap" style={{ color: 'var(--muted)' }}>
+                {isAr ? 'معاينة بمستند:' : 'Preview with:'}
+              </span>
+              <select
+                value={selectedDocId}
+                onChange={(e) => setSelectedDocId(e.target.value)}
+                className="border text-xs rounded-xl px-3 py-1.5 font-mono min-h-[2.25rem] max-w-[12rem]"
+                style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+              >
+                {documents.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.documentNumber} ({d.documentType})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div
+              className="flex items-center rounded-xl p-0.5 border"
+              style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
+            >
+              <button
+                type="button"
+                onClick={() => setPreviewDirection('rtl')}
+                className={`px-2.5 py-1 text-xs font-bold rounded-lg cursor-pointer whitespace-nowrap ${
+                  previewDirection === 'rtl' ? 'text-white' : ''
+                }`}
+                style={
+                  previewDirection === 'rtl'
+                    ? { background: 'var(--portal-cta)', color: '#fff' }
+                    : { color: 'var(--muted)' }
+                }
+              >
+                {isAr ? 'يميني' : 'RTL'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewDirection('ltr')}
+                className={`px-2.5 py-1 text-xs font-bold rounded-lg cursor-pointer whitespace-nowrap ${
+                  previewDirection === 'ltr' ? 'text-white' : ''
+                }`}
+                style={
+                  previewDirection === 'ltr'
+                    ? { background: 'var(--portal-cta)', color: '#fff' }
+                    : { color: 'var(--muted)' }
+                }
+              >
+                {isAr ? 'يساري' : 'LTR'}
+              </button>
+            </div>
+
+            {saveActions}
           </div>
         </div>
 
-        {/* Live Preview Sample Document Selector & Save Actions */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500 dark:text-slate-400 hidden sm:inline">{isAr ? 'معاينة بمستند:' : 'Preview with:'}</span>
-            <select
-              value={selectedDocId}
-              onChange={(e) => setSelectedDocId(e.target.value)}
-              className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs rounded-xl px-3 py-1.5 text-slate-900 dark:text-white font-mono"
-            >
-              {documents.map((d) => (
+        {/* Mobile preview + direction controls */}
+        <div className="flex md:hidden flex-col gap-2 min-w-0">
+          <label className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+            {isAr ? 'معاينة بمستند' : 'Preview with'}
+          </label>
+          <select
+            value={selectedDocId}
+            onChange={(e) => setSelectedDocId(e.target.value)}
+            className="w-full border text-xs rounded-xl px-3 py-2 font-mono min-h-[2.5rem]"
+            style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
+          >
+            {documents.length === 0 ? (
+              <option value="">{isAr ? 'لا توجد مستندات' : 'No documents'}</option>
+            ) : (
+              documents.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.documentNumber} ({d.documentType})
                 </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-0.5 border border-slate-200 dark:border-slate-700">
+              ))
+            )}
+          </select>
+          <div
+            className="flex items-center rounded-xl p-0.5 border self-start"
+            style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
+          >
             <button
               type="button"
               onClick={() => setPreviewDirection('rtl')}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg cursor-pointer ${
-                previewDirection === 'rtl' ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-400'
-              }`}
+              className="px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer whitespace-nowrap"
+              style={
+                previewDirection === 'rtl'
+                  ? { background: 'var(--portal-cta)', color: '#fff' }
+                  : { color: 'var(--muted)' }
+              }
             >
-              RTL عربي
+              {isAr ? 'يميني' : 'RTL'}
             </button>
             <button
               type="button"
               onClick={() => setPreviewDirection('ltr')}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg cursor-pointer ${
-                previewDirection === 'ltr' ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-400'
-              }`}
+              className="px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer whitespace-nowrap"
+              style={
+                previewDirection === 'ltr'
+                  ? { background: 'var(--portal-cta)', color: '#fff' }
+                  : { color: 'var(--muted)' }
+              }
             >
-              LTR English
+              {isAr ? 'يساري' : 'LTR'}
             </button>
           </div>
-
-          <button
-            type="button"
-            onClick={handleReset}
-            className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-          >
-            {isAr ? 'استعادة الافتراضي' : 'Reset'}
-          </button>
-
-          <button
-            type="button"
-            onClick={handleSave}
-            className="px-5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black shadow-md transition-all active:scale-95 cursor-pointer"
-          >
-            {isAr ? 'حفظ القالب' : 'Save Design'}
-          </button>
         </div>
       </div>
 
-      {/* Main Split Body (Settings Column + Live Preview) */}
-      <div className="flex-1 flex overflow-hidden min-h-0">
-        {/* Settings Navigation & Form Controls */}
-        <div className="w-96 border-e border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 flex flex-col shrink-0 overflow-y-auto">
-          {/* Sub-Tabs */}
-          <div className="flex border-b border-slate-200 dark:border-slate-800 p-2 gap-1 bg-slate-50/80 dark:bg-slate-950/40">
-            {[
-              { id: 'branding', labelEn: 'Branding', labelAr: 'الهوية' },
-              { id: 'typography', labelEn: 'Fonts', labelAr: 'الخطوط' },
-              { id: 'columns', labelEn: 'Columns', labelAr: 'الأعمدة' },
-              { id: 'sections', labelEn: 'Sections', labelAr: 'الأقسام' },
-              { id: 'terms', labelEn: 'Terms', labelAr: 'الشروط' },
-            ].map((tab) => (
+      {/* Main body: settings then preview on mobile; side-by-side on lg+ */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 min-w-0">
+        {/* Settings */}
+        <div
+          className="w-full lg:w-96 lg:border-e flex flex-col shrink-0 overflow-y-auto min-w-0 pb-24 md:pb-0"
+          style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+        >
+          <div
+            className="flex border-b p-2 gap-1 overflow-x-auto [scrollbar-width:thin]"
+            style={{ borderColor: 'var(--border)', background: 'color-mix(in srgb, var(--bg) 80%, transparent)' }}
+          >
+            {tabs.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setDesignerTab(tab.id as any)}
-                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                onClick={() => setDesignerTab(tab.id)}
+                className="shrink-0 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap"
+                style={
                   designerTab === tab.id
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
+                    ? { background: 'var(--portal-cta)', color: '#fff' }
+                    : { color: 'var(--muted)' }
+                }
               >
                 {isAr ? tab.labelAr : tab.labelEn}
               </button>
             ))}
           </div>
 
-          <div className="p-5 space-y-5 text-xs">
-            {/* Branding Settings */}
+          <div className="p-4 sm:p-5 space-y-5 text-xs">
             {designerTab === 'branding' && (
               <div className="space-y-4">
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">{isAr ? 'اللون الرئيسي' : 'Primary Color'}</label>
-                  <div className="flex items-center gap-2">
+                  <label className="block font-bold mb-1" style={{ color: 'var(--text)' }}>
+                    {isAr ? 'اللون الرئيسي' : 'Primary Color'}
+                  </label>
+                  <div className="flex items-center gap-2 min-w-0">
                     <input
                       type="color"
                       value={config.primaryColor}
                       onChange={(e) => setConfig((c) => ({ ...c, primaryColor: e.target.value }))}
-                      className="w-10 h-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-transparent cursor-pointer"
+                      className="w-10 h-10 rounded-lg border shrink-0 cursor-pointer bg-transparent"
+                      style={{ borderColor: 'var(--border)' }}
                     />
                     <input
                       type="text"
                       value={config.primaryColor}
                       onChange={(e) => setConfig((c) => ({ ...c, primaryColor: e.target.value }))}
-                      className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-mono"
+                      className="flex-1 min-w-0 border rounded-lg px-3 py-2 font-mono"
+                      style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block font-bold mb-1" style={{ color: 'var(--text)' }}>
                     {isAr ? 'الاسم التجاري' : 'Business Name'}
                   </label>
                   <input
@@ -199,67 +291,91 @@ export const InvoiceTemplateDesigner: React.FC<InvoiceTemplateDesignerProps> = (
                         ...(isAr ? { businessNameAr: e.target.value } : { businessNameEn: e.target.value }),
                       }))
                     }
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white"
+                    className="w-full border rounded-lg px-3 py-2"
+                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   />
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">{isAr ? 'الرقم الضريبي للمنشأة' : 'VAT Registration Number'}</label>
+                  <label className="block font-bold mb-1" style={{ color: 'var(--text)' }}>
+                    {isAr ? 'الرقم الضريبي للمنشأة' : 'VAT Registration Number'}
+                  </label>
                   <input
                     type="text"
                     value={config.taxNumber}
                     onChange={(e) => setConfig((c) => ({ ...c, taxNumber: e.target.value }))}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-mono"
+                    className="w-full border rounded-lg px-3 py-2 font-mono"
+                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   />
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">{isAr ? 'رقم السجل التجاري' : 'CR Number'}</label>
+                  <label className="block font-bold mb-1" style={{ color: 'var(--text)' }}>
+                    {isAr ? 'رقم السجل التجاري' : 'CR Number'}
+                  </label>
                   <input
                     type="text"
                     value={config.crNumber}
                     onChange={(e) => setConfig((c) => ({ ...c, crNumber: e.target.value }))}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-mono"
+                    className="w-full border rounded-lg px-3 py-2 font-mono"
+                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   />
                 </div>
               </div>
             )}
 
-            {/* Typography */}
             {designerTab === 'typography' && (
               <div className="space-y-4">
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">{isAr ? 'خط الفاتورة' : 'Font Family'}</label>
-                  <select
-                    value={config.fontFamily}
-                    onChange={(e) => setConfig((c) => ({ ...c, fontFamily: e.target.value as any }))}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white font-semibold"
-                  >
-                    <option value="System">{isAr ? 'نفس خط لوحة التحكم' : 'Same as dashboard (Invoice chrome)'}</option>
-                    <option value="Plus Jakarta Sans">Plus Jakarta Sans</option>
-                    <option value="IBM Plex Sans Arabic">IBM Plex Sans Arabic</option>
-                    <option value="Tajawal">Tajawal</option>
-                    <option value="Cairo">Cairo</option>
-                    <option value="Inter">Inter</option>
-                    <option value="Almarai">Almarai</option>
-                  </select>
+                  <label className="block font-bold mb-1" style={{ color: 'var(--text)' }}>
+                    {isAr ? 'خط الفاتورة' : 'Font Family'}
+                  </label>
+                  <StoreFontSelect
+                    isAr={isAr}
+                    value={config.fontFamily === 'System' ? '' : config.fontFamily}
+                    allowEmpty
+                    emptyLabelAr="نفس خط لوحة التحكم"
+                    emptyLabelEn="Same as dashboard (Invoice chrome)"
+                    onChange={(fontFamily) => {
+                      const next = fontFamily || 'System';
+                      if (next !== 'System') ensureStoreGoogleFontLoaded(next);
+                      setConfig((c) => ({ ...c, fontFamily: next }));
+                    }}
+                  />
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">{isAr ? 'حجم الخط والتنسيق' : 'Layout Density'}</label>
+                  <label className="block font-bold mb-1" style={{ color: 'var(--text)' }}>
+                    {isAr ? 'حجم الخط والتنسيق' : 'Layout Density'}
+                  </label>
                   <div className="grid grid-cols-3 gap-2">
-                    {['compact', 'normal', 'spacious'].map((sz) => (
+                    {(['compact', 'normal', 'spacious'] as const).map((sz) => (
                       <button
                         key={sz}
                         type="button"
-                        onClick={() => setConfig((c) => ({ ...c, fontSize: sz as any }))}
-                        className={`py-2 rounded-lg border text-center capitalize font-bold cursor-pointer ${
+                        onClick={() => setConfig((c) => ({ ...c, fontSize: sz }))}
+                        className="py-2 rounded-lg border text-center capitalize font-bold cursor-pointer"
+                        style={
                           config.fontSize === sz
-                            ? 'bg-blue-600 border-blue-500 text-white'
-                            : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
-                        }`}
+                            ? { background: 'var(--portal-cta)', borderColor: 'var(--portal-cta)', color: '#fff' }
+                            : {
+                                background: 'var(--input-bg)',
+                                borderColor: 'var(--border)',
+                                color: 'var(--text)',
+                              }
+                        }
                       >
-                        {sz}
+                        {sz === 'compact'
+                          ? isAr
+                            ? 'مضغوط'
+                            : 'compact'
+                          : sz === 'normal'
+                            ? isAr
+                              ? 'عادي'
+                              : 'normal'
+                            : isAr
+                              ? 'واسع'
+                              : 'spacious'}
                       </button>
                     ))}
                   </div>
@@ -267,16 +383,20 @@ export const InvoiceTemplateDesigner: React.FC<InvoiceTemplateDesignerProps> = (
               </div>
             )}
 
-            {/* Table Columns Visibility */}
             {designerTab === 'columns' && (
               <div className="space-y-3">
-                <span className="text-slate-600 dark:text-slate-400 block mb-2">{isAr ? 'حدد الأعمدة المراد إظهارها في جدول الفاتورة:' : 'Toggle invoice table columns:'}</span>
+                <span className="block mb-2" style={{ color: 'var(--muted)' }}>
+                  {isAr ? 'حدد الأعمدة المراد إظهارها في جدول الفاتورة:' : 'Toggle invoice table columns:'}
+                </span>
                 {Object.entries(config.columns).map(([colKey, isVisible]) => (
                   <label
                     key={colKey}
-                    className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 cursor-pointer"
+                    className="flex items-center justify-between gap-3 p-2.5 rounded-lg border cursor-pointer min-w-0"
+                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)' }}
                   >
-                    <span className="font-semibold uppercase text-slate-700 dark:text-slate-300">{colKey}</span>
+                    <span className="font-semibold uppercase min-w-0 break-words" style={{ color: 'var(--text)' }}>
+                      {colKey}
+                    </span>
                     <input
                       type="checkbox"
                       checked={isVisible}
@@ -286,48 +406,55 @@ export const InvoiceTemplateDesigner: React.FC<InvoiceTemplateDesignerProps> = (
                           columns: { ...c.columns, [colKey]: e.target.checked },
                         }))
                       }
-                      className="w-4 h-4 rounded-sm text-blue-600"
+                      className="w-4 h-4 rounded-sm shrink-0"
+                      style={{ accentColor: 'var(--accent)' }}
                     />
                   </label>
                 ))}
               </div>
             )}
 
-            {/* Sections Visibility */}
             {designerTab === 'sections' && (
               <div className="space-y-3">
-                <span className="text-slate-600 dark:text-slate-400 block mb-2">{isAr ? 'إظهار / إخفاء أقسام المستند:' : 'Toggle document sections:'}</span>
-                {[
-                  { key: 'showLogo', label: isAr ? 'شعار المتجر' : 'Store Logo' },
-                  { key: 'showZatcaQr', label: isAr ? 'رمز الاستجابة السريعة لهيئة الزكاة' : 'ZATCA TLV QR Code' },
-                  { key: 'showPaymentInstructions', label: isAr ? 'تعليمات وبيانات الدفع' : 'Payment Instructions' },
-                  { key: 'showBankDetails', label: isAr ? 'الحساب البنكي والآيبان' : 'Bank & IBAN Details' },
-                  { key: 'showSignatureField', label: isAr ? 'حقل التوقيع والاعتماد' : 'Signature Field' },
-                  { key: 'showNotes', label: isAr ? 'الملاحظات الإضافية' : 'Additional Notes' },
-                  { key: 'showTerms', label: isAr ? 'الشروط والأحكام' : 'Terms & Conditions' },
-                  { key: 'showWatermark', label: isAr ? 'العلامة المائية (للبروفورما والمسودات)' : 'Watermark' },
-                ].map((sec) => (
+                <span className="block mb-2" style={{ color: 'var(--muted)' }}>
+                  {isAr ? 'إظهار / إخفاء أقسام المستند:' : 'Toggle document sections:'}
+                </span>
+                {(
+                  [
+                    { key: 'showLogo', label: isAr ? 'شعار المتجر' : 'Store Logo' },
+                    { key: 'showZatcaQr', label: isAr ? 'رمز الاستجابة السريعة لهيئة الزكاة' : 'ZATCA TLV QR Code' },
+                    { key: 'showPaymentInstructions', label: isAr ? 'تعليمات وبيانات الدفع' : 'Payment Instructions' },
+                    { key: 'showBankDetails', label: isAr ? 'الحساب البنكي والآيبان' : 'Bank & IBAN Details' },
+                    { key: 'showSignatureField', label: isAr ? 'حقل التوقيع والاعتماد' : 'Signature Field' },
+                    { key: 'showNotes', label: isAr ? 'الملاحظات الإضافية' : 'Additional Notes' },
+                    { key: 'showTerms', label: isAr ? 'الشروط والأحكام' : 'Terms & Conditions' },
+                    { key: 'showWatermark', label: isAr ? 'العلامة المائية (للبروفورما والمسودات)' : 'Watermark' },
+                  ] as const
+                ).map((sec) => (
                   <label
                     key={sec.key}
-                    className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 cursor-pointer"
+                    className="flex items-center justify-between gap-3 p-2.5 rounded-lg border cursor-pointer min-w-0"
+                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)' }}
                   >
-                    <span className="font-semibold text-slate-700 dark:text-slate-300">{sec.label}</span>
+                    <span className="font-semibold min-w-0 break-words" style={{ color: 'var(--text)' }}>
+                      {sec.label}
+                    </span>
                     <input
                       type="checkbox"
-                      checked={(config as any)[sec.key]}
+                      checked={Boolean((config as Record<string, unknown>)[sec.key])}
                       onChange={(e) => setConfig((c) => ({ ...c, [sec.key]: e.target.checked }))}
-                      className="w-4 h-4 rounded-sm text-blue-600"
+                      className="w-4 h-4 rounded-sm shrink-0"
+                      style={{ accentColor: 'var(--accent)' }}
                     />
                   </label>
                 ))}
               </div>
             )}
 
-            {/* Terms and Notes */}
             {designerTab === 'terms' && (
               <div className="space-y-4">
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block font-bold mb-1" style={{ color: 'var(--text)' }}>
                     {isAr ? 'الملاحظات الافتراضية' : 'Default Notes'}
                   </label>
                   <textarea
@@ -341,12 +468,13 @@ export const InvoiceTemplateDesigner: React.FC<InvoiceTemplateDesignerProps> = (
                           : { ...c, customNotesEn: e.target.value },
                       )
                     }
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white"
+                    className="w-full border rounded-lg p-2"
+                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   />
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block font-bold mb-1" style={{ color: 'var(--text)' }}>
                     {isAr ? 'الشروط والأحكام' : 'Default Terms'}
                   </label>
                   <textarea
@@ -360,12 +488,13 @@ export const InvoiceTemplateDesigner: React.FC<InvoiceTemplateDesignerProps> = (
                           : { ...c, customTermsEn: e.target.value },
                       )
                     }
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white"
+                    className="w-full border rounded-lg p-2"
+                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   />
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block font-bold mb-1" style={{ color: 'var(--text)' }}>
                     {isAr ? 'بيانات الحساب البنكي' : 'Bank Account Details'}
                   </label>
                   <input
@@ -379,18 +508,30 @@ export const InvoiceTemplateDesigner: React.FC<InvoiceTemplateDesignerProps> = (
                           : { ...c, bankDetailsEn: e.target.value },
                       )
                     }
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-slate-900 dark:text-white font-mono"
+                    className="w-full border rounded-lg p-2 font-mono"
+                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--input-fg)' }}
                   />
                 </div>
               </div>
             )}
+
+            {/* Inline save on tablet when sticky bar hidden but desktop header actions also hidden */}
+            <div className="hidden sm:flex md:hidden items-center gap-2 pt-2">
+              {saveActions}
+            </div>
           </div>
         </div>
 
-        {/* Live Rendering Canvas */}
-        <div className="flex-1 bg-slate-100 dark:bg-slate-950 p-6 sm:p-10 flex justify-center overflow-y-auto">
+        {/* Live preview */}
+        <div
+          className="flex-1 p-4 sm:p-6 lg:p-10 flex justify-center overflow-y-auto min-h-[18rem] min-w-0 pb-24 md:pb-6"
+          style={{ background: 'var(--bg)' }}
+        >
           {selectedDocument ? (
-            <div className="w-full max-w-[800px] bg-white rounded-xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
+            <div
+              className="w-full max-w-[800px] rounded-xl shadow-2xl overflow-hidden border"
+              style={{ background: '#fff', borderColor: 'var(--border)' }}
+            >
               <InvoiceTemplateRenderer
                 document={selectedDocument}
                 config={config}
@@ -398,11 +539,40 @@ export const InvoiceTemplateDesigner: React.FC<InvoiceTemplateDesignerProps> = (
               />
             </div>
           ) : (
-            <div className="flex items-center justify-center text-slate-500">
+            <div className="flex items-center justify-center" style={{ color: 'var(--muted)' }}>
               {isAr ? 'لا توجد مستندات للمعاينة' : 'No document selected'}
             </div>
           )}
         </div>
+      </div>
+
+      {/* Fixed Save bar — always visible on phone */}
+      <div
+        className="md:hidden fixed bottom-0 inset-inline-0 z-30 border-t px-3 py-3 flex items-center gap-2"
+        style={{
+          borderColor: 'var(--border)',
+          background: 'var(--surface)',
+          boxShadow: '0 -8px 24px rgba(0,0,0,0.08)',
+          paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+        }}
+      >
+        <button
+          type="button"
+          onClick={handleReset}
+          className="inline-flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border text-xs font-semibold transition-colors cursor-pointer min-h-[2.75rem]"
+          style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--bg)' }}
+        >
+          <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+          <span className="whitespace-nowrap">{isAr ? 'استعادة' : 'Reset'}</span>
+        </button>
+        <button
+          type="button"
+          onClick={handleSave}
+          className="unity-btn-primary inline-flex flex-[1.4] items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-black shadow-md transition-all active:scale-95 cursor-pointer min-h-[2.75rem]"
+        >
+          <Save className="w-3.5 h-3.5 shrink-0" />
+          <span className="whitespace-nowrap">{isAr ? 'حفظ القالب' : 'Save Design'}</span>
+        </button>
       </div>
     </div>
   );

@@ -40,16 +40,20 @@ import {
 import {
   buildStorefrontHomeUrl,
   isPublicStoreSlugPath,
+  storeIdFromPublicLocation,
   storeSlugFromStorePath,
 } from './utils/storefrontLinks';
 import { useToast } from './components/common/ToastProvider';
 import { applyPortalHead } from './utils/portalHead';
-import { lazyWithRetry } from './utils/lazyWithRetry';
+import { readStoreIdentity, resolveStoreDisplayName } from './themes/settings/storeIdentity';
+import { lazyWithRetry, reloadOnceForStaleChunk } from './utils/lazyWithRetry';
 import { Lock, ShieldAlert } from 'lucide-react';
 import { CORE_STORE_CONTROL_IDS, isStoreControlEnabled } from './services/storeControlService';
+import { getDefaultStoreTheme } from './auth/defaultTheme';
 import { isStoreTabComingSoon } from './config/storeTabVisibility';
 import { adminHomeHref, isAdminChromePath, isStorefrontPath } from './utils/spaNavigationGuard';
 import { useAdminInnerLayer } from './hooks/useAdminInnerLayer';
+import { SkeletonProvider, SkeletonPage } from './components/common/skeleton';
 // HolstChromeBar retired — unified MasterTopBar / StoreTopBar (docs/21)
 
 /** Heavy tabs — code-split so dashboard/themes open fast */
@@ -150,6 +154,16 @@ const MasterIntegrationsHub = lazyWithRetry(() =>
     default: m.MasterIntegrationsHub,
   })),
 );
+const MasterOpenAiManagement = lazyWithRetry(() =>
+  import('./components/master/MasterOpenAiManagement').then((m) => ({
+    default: m.MasterOpenAiManagement,
+  })),
+);
+const MasterGeminiSettings = lazyWithRetry(() =>
+  import('./components/master/MasterGeminiSettings').then((m) => ({
+    default: m.MasterGeminiSettings,
+  })),
+);
 const MasterReportsOps = lazyWithRetry(() =>
   import('./components/master/MasterReportsOps').then((m) => ({
     default: m.MasterReportsOps,
@@ -206,8 +220,11 @@ const StoreMediaLibrary = lazyWithRetry(() =>
 const StoreCanvaStudio = lazyWithRetry(() =>
   import('./components/store/StoreCanvaStudio').then((m) => ({ default: m.StoreCanvaStudio })),
 );
-const StoreAiMediaGenerator = lazyWithRetry(() =>
-  import('./components/store/StoreAiMediaGenerator').then((m) => ({ default: m.StoreAiMediaGenerator })),
+const StoreAiToolsHub = lazyWithRetry(() =>
+  import('./components/store/StoreAiToolsHub').then((m) => ({ default: m.StoreAiToolsHub })),
+);
+const StoreAiStudio = lazyWithRetry(() =>
+  import('./components/store/StoreAiStudio').then((m) => ({ default: m.StoreAiStudio })),
 );
 const StoreCategories = lazyWithRetry(() =>
   import('./components/store/StoreCategories').then((m) => ({ default: m.StoreCategories })),
@@ -215,11 +232,17 @@ const StoreCategories = lazyWithRetry(() =>
 const StoreOrders = lazyWithRetry(() =>
   import('./components/store/StoreOrders').then((m) => ({ default: m.StoreOrders })),
 );
+const StoreAppointments = lazyWithRetry(() =>
+  import('./components/store/StoreAppointments').then((m) => ({ default: m.StoreAppointments })),
+);
 const StoreInvoices = lazyWithRetry(() =>
   import('./components/store/invoices/StoreInvoices').then((m) => ({ default: m.StoreInvoices })),
 );
 const StoreShipping = lazyWithRetry(() =>
   import('./components/store/StoreShipping').then((m) => ({ default: m.StoreShipping })),
+);
+const StorePayments = lazyWithRetry(() =>
+  import('./components/store/StorePayments').then((m) => ({ default: m.StorePayments })),
 );
 const StoreCoupons = lazyWithRetry(() =>
   import('./components/store/StoreCoupons').then((m) => ({ default: m.StoreCoupons })),
@@ -278,11 +301,11 @@ const StoreArticleCommerceTools = lazyWithRetry(() =>
 const StoreAppStore = lazyWithRetry(() =>
   import('./components/store/StoreAppStore').then((m) => ({ default: m.StoreAppStore })),
 );
-const StorePayments = lazyWithRetry(() =>
-  import('./components/store/StorePayments').then((m) => ({ default: m.StorePayments })),
-);
 const StoreHostingDomain = lazyWithRetry(() =>
   import('./components/store/StoreHostingDomain').then((m) => ({ default: m.StoreHostingDomain })),
+);
+const StoreMarketplacePlans = lazyWithRetry(() =>
+  import('./components/store/StoreMarketplacePlans').then((m) => ({ default: m.StoreMarketplacePlans })),
 );
 const StoreBrandsView = lazyWithRetry(() =>
   import('./components/store/StoreBrandsView').then((m) => ({ default: m.StoreBrandsView })),
@@ -364,8 +387,31 @@ function TabFallback() {
 
   const [slow, setSlow] = React.useState(false);
   React.useEffect(() => {
+    // Public storefront (/coffee/buy/…) can stay on Suspense >3.5s while nested
+    // theme chunks load — NEVER auto hard-reload there (caused BAR-BAR refresh).
+    const path = String(window.location.pathname || '').toLowerCase();
+    const isPublicStorefrontSurface =
+      path.startsWith('/coffee') ||
+      path.startsWith('/flowers') ||
+      path.startsWith('/hadaya') ||
+      path.startsWith('/car') ||
+      path.startsWith('/cars') ||
+      path.startsWith('/bleco') ||
+      path.startsWith('/public_html') ||
+      path.startsWith('/buy') ||
+      path.startsWith('/product') ||
+      path.startsWith('/catalog') ||
+      path.startsWith('/products') ||
+      path === '/' ||
+      path === '';
+    const auto = isPublicStorefrontSurface
+      ? 0
+      : window.setTimeout(() => reloadOnceForStaleChunk(), 3500);
     const t = window.setTimeout(() => setSlow(true), 5000);
-    return () => window.clearTimeout(t);
+    return () => {
+      if (auto) window.clearTimeout(auto);
+      window.clearTimeout(t);
+    };
   }, []);
 
   if (isPreviewEmbed) {
@@ -374,20 +420,29 @@ function TabFallback() {
 
   return (
     <div
-      className="flex flex-col items-center justify-center gap-2 min-h-[96px] w-full px-4"
+      className="w-full min-h-[50vh] p-4 sm:p-6 space-y-4"
       aria-busy="true"
       role="status"
     >
-      <div className="w-5 h-5 rounded-full border-2 border-slate-300 border-t-[var(--accent,#10b981)] animate-spin" />
+      <SkeletonPage layout="dashboard" hasHeader={false} />
       {slow ? (
-        <button
-          type="button"
-          className="text-xs font-semibold underline underline-offset-2"
-          style={{ color: 'var(--muted, #64748b)' }}
-          onClick={() => window.location.reload()}
-        >
-          {isAr ? 'التحميل بطيء — إعادة المحاولة' : 'Still loading — tap to retry'}
-        </button>
+        <div className="flex justify-center pt-2">
+          <button
+            type="button"
+            className="text-xs font-semibold underline underline-offset-2 px-3 py-1.5 rounded-lg bg-[var(--surface,#ffffff)] shadow-sm border border-[var(--border,#cbd5e1)]"
+            style={{ color: 'var(--muted, #64748b)' }}
+            onClick={() => {
+              try {
+                sessionStorage.removeItem('chunk_lazy_reload');
+              } catch {
+                /* ignore */
+              }
+              window.location.reload();
+            }}
+          >
+            {isAr ? 'التحميل بطيء — إعادة المحاولة' : 'Still loading — tap to retry'}
+          </button>
+        </div>
       ) : null}
     </div>
   );
@@ -439,12 +494,6 @@ function AdminContent() {
       return undefined;
     }
   });
-
-const getDefaultStoreTheme = (storeId?: string): string => {
-  if (storeId === 'store-coffee' || storeId?.includes('coffee')) return 'theme-coffee-artisan';
-  if (storeId === 'store-bleco' || storeId?.includes('bleco') || storeId?.includes('car')) return 'theme-saudia-transport';
-  return 'theme-flora-luxe';
-};
 
   // Dynamically sync theme ID per store and self-heal any corrupted [object Object] URL or storage
   useEffect(() => {
@@ -699,10 +748,9 @@ const getDefaultStoreTheme = (storeId?: string): string => {
         // Master URLs stay SEO-clean for the portal — no store=flowers leak.
         url.searchParams.delete('store');
         const href = `${url.pathname}${url.search}${url.hash}`;
-        const cur = `${window.location.pathname}${window.location.search}${window.location.hash}`;
         const state = { unityteckSpa: 'master', tab };
-        if (cur === href) window.history.replaceState(state, '', href);
-        else window.history.pushState(state, '', href);
+        // replaceState only — pushState stacked tabs and made Back jump randomly.
+        window.history.replaceState(state, '', href);
       }
     } catch {}
   }, []);
@@ -735,6 +783,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
         'categories',
         'brands',
         'orders',
+        'appointments',
         'invoices',
         'shipping',
         'hosting',
@@ -773,10 +822,10 @@ const getDefaultStoreTheme = (storeId?: string): string => {
         const url = new URL(window.location.href);
         url.searchParams.set('tab', targetTab);
         const href = `${url.pathname}${url.search}${url.hash}`;
-        const cur = `${window.location.pathname}${window.location.search}${window.location.hash}`;
         const state = { unityteckSpa: 'admin', tab: targetTab };
-        if (cur === href) window.history.replaceState(state, '', href);
-        else window.history.pushState(state, '', href);
+        // replaceState only — tab pushState stacked history so Back left the page
+        // (products → shipping → AI) instead of closing the open inner layer.
+        window.history.replaceState(state, '', href);
       }
     } catch {}
   }, [STORE_KNOWN_TABS]);
@@ -890,8 +939,12 @@ const getDefaultStoreTheme = (storeId?: string): string => {
   const isStoreReset = path === '/store/reset-password';
   const isPasswordFlow =
     isMasterForgot || isStoreForgot || isMasterReset || isStoreReset;
+  const isShortOnboard =
+    path.startsWith('/join/') ||
+    path.startsWith('/j/') ||
+    path.startsWith('/onboard/');
   const isStoreRegister =
-    path === '/store/register' || path === '/register';
+    path === '/store/register' || path === '/register' || isShortOnboard;
   const isGate = path === '/gate' || path === '/portal';
   const isClearCache =
     path === '/clear-cache' || path === '/clear' || path === '/cache';
@@ -1127,6 +1180,19 @@ const getDefaultStoreTheme = (storeId?: string): string => {
           : '/store/register',
         { replace: true }
       );
+    } else if (
+      path.startsWith('/join/') ||
+      path.startsWith('/j/') ||
+      path.startsWith('/onboard/')
+    ) {
+      const code = path.split('/').filter(Boolean)[1];
+      if (code) {
+        navigate(`/store/register?invite=${encodeURIComponent(decodeURIComponent(code))}`, {
+          replace: true,
+        });
+      } else {
+        navigate('/store/register', { replace: true });
+      }
     } else if (path === '/login') {
       navigate(`/store/login${search}`, { replace: true });
     }
@@ -1279,11 +1345,12 @@ const getDefaultStoreTheme = (storeId?: string): string => {
   // Never bounce admin/master routes to storefront "/" — that looked like "login redirects to frontend".
   useEffect(() => {
     const p = typeof window !== 'undefined' ? window.location.pathname : path;
+    // /store/{slug} is public storefront preview — not merchant admin chrome
     const onAdminSurface =
       p === '/admin' ||
       p.startsWith('/admin/') ||
       p.startsWith('/master') ||
-      p.startsWith('/store');
+      (p.startsWith('/store') && !isPublicStoreSlugPath(p));
 
     if (session) {
       // HIGH ALERT: customer/web storefront must NEVER land on merchant /admin.
@@ -1371,7 +1438,9 @@ const getDefaultStoreTheme = (storeId?: string): string => {
     if (isMasterLogin && session.portal === 'master') {
       navigate(`/master${search}`);
     } else if ((isStoreLogin || isAdminLogin) && session.portal === 'store') {
-      navigate(`/admin${search}`);
+      if (!isPublicStorefront) {
+        navigate(`/admin${search}`);
+      }
     } else if (isStoreRegister || isPasswordFlow) {
       navigate(session.portal === 'master' ? '/master' : `/admin${search}`);
     }
@@ -1642,13 +1711,23 @@ const getDefaultStoreTheme = (storeId?: string): string => {
       applyPortalHead({ portal: 'master' });
       return;
     }
+    let faviconUrl: string | null = activeStore?.favicon || null;
+    let storeName =
+      (locale === 'ar'
+        ? activeStore?.nameAr || activeStore?.name
+        : activeStore?.nameEn || activeStore?.name) || null;
+    if (activeStore?.id) {
+      const identity = readStoreIdentity(activeStore.id, activeStore);
+      faviconUrl = identity.faviconUrl || faviconUrl;
+      storeName =
+        resolveStoreDisplayName(identity, locale === 'ar', storeName || '') || storeName;
+    }
     applyPortalHead({
       portal: 'store',
-      storeName: activeStore?.name || null,
-      // Store custom favicon URL lands when branding fields are wired (S1 / SEO)
-      faviconUrl: null,
+      storeName,
+      faviconUrl,
     });
-  }, [session, mode, activeStore?.name, locale]);
+  }, [session, mode, activeStore?.id, activeStore?.name, activeStore?.nameAr, activeStore?.nameEn, activeStore?.favicon, locale]);
 
   const handleLogout = useCallback(async () => {
     const wasMaster = session?.portal === 'master';
@@ -1844,54 +1923,16 @@ const getDefaultStoreTheme = (storeId?: string): string => {
         ? new URLSearchParams(window.location.search)
         : new URLSearchParams();
     const pathStoreSlug = storeSlugFromStorePath(path) || '';
-    const urlStoreSlug = (
-      searchParams.get('store') ||
-      searchParams.get('storeId') ||
-      searchParams.get('demo') ||
-      pathStoreSlug ||
-      ''
-    )
-      .toLowerCase()
-      .trim();
     const urlTheme = searchParams.get('theme') || '';
     const urlPage = searchParams.get('page') || searchParams.get('preview_page') || '';
 
+    // Explicit /store/{slug} or ?store= MUST win over apex host (mieraf → coffee).
+    const explicitStoreId = storeIdFromPublicLocation(path, searchParams);
     const storefrontStoreId =
-      urlStoreSlug === 'coffee' ||
-      urlStoreSlug === 'store-coffee' ||
-      urlStoreSlug === 'coffee-store' ||
-      urlStoreSlug.includes('coffee') ||
-      urlStoreSlug.includes('hibrew') ||
-      urlStoreSlug.includes('roaster') ||
-      path.startsWith('/coffee') ||
-      path === '/public_html' ||
-      path.startsWith('/public_html')
-        ? 'store-coffee'
-        : urlStoreSlug === 'car' ||
-          urlStoreSlug === 'cars' ||
-          urlStoreSlug === 'bleco' ||
-          urlStoreSlug === 'store-bleco' ||
-          urlStoreSlug.includes('car') ||
-          urlStoreSlug.includes('bleco') ||
-          urlStoreSlug.includes('transport') ||
-          path.startsWith('/car') ||
-          path.startsWith('/cars') ||
-          path.startsWith('/bleco')
-        ? 'store-bleco'
-        : urlStoreSlug === 'flowers' ||
-          urlStoreSlug === 'hadaya' ||
-          urlStoreSlug === 'gifts' ||
-          urlStoreSlug === 'store-1' ||
-          urlStoreSlug.includes('flower') ||
-          urlStoreSlug.includes('gift') ||
-          urlStoreSlug.includes('hadaya') ||
-          path.startsWith('/flowers') ||
-          path.startsWith('/hadaya')
-        ? 'store-1'
-        : // Custom-domain SEO paths (`/product/...`) — prefer resolved domain / active tenant.
-          (resolvedDomain?.resolved && resolvedDomain.storeId
-            ? String(resolvedDomain.storeId)
-            : activeStore?.id || urlStoreSlug || '');
+      explicitStoreId ||
+      (resolvedDomain?.resolved && resolvedDomain.storeId
+        ? String(resolvedDomain.storeId)
+        : activeStore?.id || pathStoreSlug || '');
 
     const googleReturn =
       isClerkConfigured() &&
@@ -1974,6 +2015,17 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                   {masterTab === 'plans' && <MasterPlansSubscriptions />}
                   {masterTab === 'services-points' && <MasterServicesPoints />}
                   {masterTab === 'integrations' && <MasterIntegrationsHub />}
+                  {masterTab === 'openai-ai' && <MasterOpenAiManagement />}
+                  {(masterTab === 'ai-management' || masterTab === 'gemini-settings') && (
+                    <MasterGeminiSettings initialTab="general" />
+                  )}
+                  {masterTab === 'ai-providers' && <MasterGeminiSettings initialTab="general" />}
+                  {masterTab === 'ai-studio' && <MasterGeminiSettings initialTab="image_settings" />}
+                  {masterTab === 'ai-usage' && <MasterGeminiSettings initialTab="pricing" />}
+                  {masterTab === 'merchant-ai-limits' && (
+                    <MasterGeminiSettings initialTab="merchant_limits" />
+                  )}
+                  {masterTab === 'ai-history' && <MasterGeminiSettings initialTab="logs" />}
                   {masterTab === 'reports' && <MasterReportsOps />}
                   {masterTab === 'support' && <MasterSupportCenter />}
                   {masterTab === 'blog' && <MasterPlatformBlog />}
@@ -2010,6 +2062,7 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                     'plans',
                     'services-points',
                     'integrations',
+                    'openai-ai',
                     'reports',
                     'support',
                     'blog',
@@ -2135,13 +2188,17 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                     storeTab === 'canva-product-card') && (
                     <StoreCanvaStudio onNavigateTab={setStoreTab} />
                   )}
-                  {storeTab === 'ai-media' && <StoreAiMediaGenerator onNavigateTab={setStoreTab} />}
+                  {storeTab === 'ai-media' && <StoreAiToolsHub onNavigateTab={setStoreTab} />}
+                  {storeTab === 'ai-studio' && <StoreAiStudio />}
                   {storeTab === 'categories' && <StoreCategories />}
                   {storeTab === 'brands' && <StoreBrandsView onBackToProducts={() => setStoreTab('products')} />}
                   {storeTab === 'orders' && <StoreOrders />}
+                  {storeTab === 'appointments' && <StoreAppointments />}
                   {storeTab === 'invoices' && <StoreInvoices onNavigateTab={(tab) => setStoreTab(tab)} />}
                   {storeTab === 'shipping' && <StoreShipping />}
+                  {storeTab === 'payments' && <StorePayments />}
                   {storeTab === 'hosting' && <StoreHostingDomain />}
+                  {storeTab === 'marketplace' && <StoreMarketplacePlans />}
                   {storeTab === 'coupons' && <StoreCoupons onNavigateTab={setStoreTab} />}
                   {storeTab === 'abandoned-carts' && (
                     <StoreAbandonedCarts onNavigateTab={setStoreTab} />
@@ -2231,7 +2288,6 @@ const getDefaultStoreTheme = (storeId?: string): string => {
                       }}
                     />
                   )}
-                  {storeTab === 'payments' && <StorePayments />}
                   {storeTab === 'settings' && <StoreSettings />}
                     </>
                   )}
@@ -2295,11 +2351,13 @@ export default function App() {
     return <SocialOAuthDialogView />;
   }
   return (
-    <TenantProvider>
-      <ToastProvider>
-        <PrefsBridge />
-      </ToastProvider>
-    </TenantProvider>
+    <SkeletonProvider>
+      <TenantProvider>
+        <ToastProvider>
+          <PrefsBridge />
+        </ToastProvider>
+      </TenantProvider>
+    </SkeletonProvider>
   );
 }
 

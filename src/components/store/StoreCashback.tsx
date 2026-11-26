@@ -231,7 +231,7 @@ export const StoreCashback: React.FC<StoreCashbackProps> = ({ onNavigateTab }) =
               disabled={isSaving}
               aria-busy={isSaving}
               onClick={() => void handleSaveCampaign('active')}
-              className="px-5 py-2 bg-[#0EA5A4] hover:bg-[#0c8f8e] text-white rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+              className="unity-btn-primary px-5 py-2 rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
               <span>{isAr ? 'إطلاق الحملة' : 'Create Campaign'}</span>
@@ -588,9 +588,9 @@ export const StoreCashback: React.FC<StoreCashbackProps> = ({ onNavigateTab }) =
             resetForm();
             setViewMode('create');
           }}
-          className="px-4 py-2 bg-[#0EA5A4] hover:bg-[#0c8f8e] text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all self-start sm:self-auto cursor-pointer"
+          className="unity-btn-primary px-4 py-2 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all self-start sm:self-auto cursor-pointer"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-4 h-4 shrink-0" aria-hidden />
           <span>{isAr ? 'إنشاء حملة كاش باك' : 'Create Cashback Campaign'}</span>
         </button>
       </div>
@@ -617,7 +617,7 @@ export const StoreCashback: React.FC<StoreCashbackProps> = ({ onNavigateTab }) =
                 resetForm();
                 setViewMode('create');
               }}
-              className="mt-4 px-4 py-2 bg-[#0EA5A4] hover:bg-[#0c8f8e] text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
+              className="unity-btn-primary mt-4 px-4 py-2 rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
             >
               {isAr ? 'إنشاء أول حملة كاش باك' : 'Create First Campaign'}
             </button>

@@ -50,13 +50,20 @@ export interface AiMediaModelOption {
 export interface AiMediaQuota {
   store_id: string;
   period_key: string;
+  day_key?: string;
   plan_code: string;
   images_limit: number;
   images_used: number;
   images_remaining: number;
+  images_daily_limit?: number;
+  images_used_today?: number;
+  images_remaining_today?: number;
   videos_limit: number;
   videos_used: number;
   videos_remaining: number;
+  videos_daily_limit?: number;
+  videos_used_today?: number;
+  videos_remaining_today?: number;
   image_provider_ready: boolean;
   video_provider_ready: boolean;
   models?: AiMediaModelOption[];

@@ -11,8 +11,29 @@ export const STORE_TABS_COMING_SOON = new Set<string>([
   'hosting',
   // Native store mobile app — sidebar placeholder until launch
   'mobile-app',
-  // Unlocked for all stores: Design Studio (Canva), AI Media, WhatsApp/SMS marketing
+  // Communication Tools channels (WhatsApp stays live; these show Coming Soon)
+  'email',
+  'sms',
+  'live-chat',
+  'in-app-notifications',
+  'ai-conversations',
+  // Unlocked for all stores: Design Studio (Canva), AI Media, WhatsApp
 ]);
+
+/**
+ * Communication Tools channel tabs (Coming Soon except WhatsApp).
+ * AI Conversations is NOT listed here — all AI tools live under AI Tools (`ai-media`).
+ */
+export const STORE_COMM_CHANNEL_SOON_TABS = [
+  'email',
+  'sms',
+  'live-chat',
+  'in-app-notifications',
+] as const;
+
+export function isStoreCommChannelSoonTab(tabId: string): boolean {
+  return (STORE_COMM_CHANNEL_SOON_TABS as readonly string[]).includes(tabId);
+}
 
 /** @deprecated use isStoreTabComingSoon — kept so existing imports keep working */
 export const STORE_TABS_HIDDEN_UNTIL_READY = STORE_TABS_COMING_SOON;

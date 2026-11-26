@@ -17,7 +17,8 @@ type DateCalendarFieldProps = {
 };
 
 /**
- * Native date input that always opens the calendar picker on click / icon tap.
+ * Single calendar control: Lucide icon only.
+ * Native browser date-indicator is hidden — it duplicated the icon and stacked showPicker() opens.
  */
 export const DateCalendarField: React.FC<DateCalendarFieldProps> = ({
   value,
@@ -33,15 +34,22 @@ export const DateCalendarField: React.FC<DateCalendarFieldProps> = ({
   showIcon = true,
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const openingRef = useRef(false);
 
   const openCalendar = () => {
     const el = inputRef.current;
-    if (!el || disabled) return;
+    if (!el || disabled || openingRef.current) return;
+    openingRef.current = true;
     try {
-      // Chromium / modern browsers
+      // Chromium / modern browsers — one open only
       (el as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
     } catch {
       el.focus();
+    } finally {
+      // Allow a later intentional open after the picker cycle
+      window.setTimeout(() => {
+        openingRef.current = false;
+      }, 400);
     }
   };
 
@@ -52,13 +60,18 @@ export const DateCalendarField: React.FC<DateCalendarFieldProps> = ({
           type="button"
           tabIndex={-1}
           disabled={disabled}
-          onClick={openCalendar}
-          className={`absolute top-1/2 -translate-y-1/2 z-[1] p-0.5 text-slate-400 hover:text-[var(--accent)] disabled:opacity-50 ${
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openCalendar();
+          }}
+          className={`absolute top-1/2 -translate-y-1/2 z-[2] p-0.5 disabled:opacity-50 ${
             isAr ? 'right-2.5' : 'left-2.5'
           }`}
+          style={{ color: 'var(--muted, #64748b)' }}
           aria-label={isAr ? 'فتح التقويم' : 'Open calendar'}
         >
-          <Calendar className="w-3.5 h-3.5" />
+          <Calendar className="w-3.5 h-3.5" stroke="currentColor" />
         </button>
       ) : null}
       <input
@@ -72,10 +85,14 @@ export const DateCalendarField: React.FC<DateCalendarFieldProps> = ({
         min={min}
         max={max || new Date().toISOString().slice(0, 10)}
         onChange={(e) => onChange(e.target.value)}
-        onClick={openCalendar}
-        className={`${className} min-h-[2.25rem] max-w-full ${
+        onClick={() => {
+          // Native indicator is CSS-hidden; one guarded showPicker only
+          openCalendar();
+        }}
+        className={`u-date-calendar-input ${className} min-h-[2.25rem] max-w-full ${
           showIcon ? (isAr ? 'pr-9 pl-3' : 'pl-9 pr-3') : 'px-3'
         }`.trim()}
+        style={{ color: 'var(--text, #0f172a)' }}
       />
     </div>
   );

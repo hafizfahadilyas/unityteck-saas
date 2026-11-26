@@ -206,6 +206,22 @@ export function customFieldsExtra(
   }, 0);
 }
 
+export function missingRequiredFieldIds(
+  fields: ProductCustomField[] | undefined,
+  values: FieldValueMap,
+  rules: ProductConditionalRuleDefinition[] | undefined,
+  selected: Record<string, string>,
+): string[] {
+  if (!fields?.length) return [];
+  const ids: string[] = [];
+  for (const field of fields) {
+    if (!field.required || !customFieldIsFillable(field.type)) continue;
+    if (!isCustomFieldVisible(field, values, rules, selected)) continue;
+    if (!hasAnswer(values[field.id])) ids.push(field.id);
+  }
+  return ids;
+}
+
 export function missingRequiredField(
   fields: ProductCustomField[] | undefined,
   values: FieldValueMap,
@@ -218,7 +234,8 @@ export function missingRequiredField(
     if (!field.required || !customFieldIsFillable(field.type)) continue;
     if (!isCustomFieldVisible(field, values, rules, selected)) continue;
     if (!hasAnswer(values[field.id])) {
-      return isAr ? `الحقل «${field.name}» مطلوب` : `${field.name} is required`;
+      const label = (isAr && field.nameAr ? field.nameAr : field.name) || field.name;
+      return isAr ? `الحقل «${label}» مطلوب` : `${label} is required`;
     }
   }
   return null;

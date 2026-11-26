@@ -38,6 +38,8 @@ export function isStorefrontPath(pathname?: string): boolean {
     p.startsWith('/public_html/') ||
     p === '/product' ||
     p.startsWith('/product/') ||
+    p === '/buy' ||
+    p.startsWith('/buy/') ||
     p === '/category' ||
     p.startsWith('/category/') ||
     p === '/catalog' ||
@@ -60,10 +62,10 @@ export function stripStorefrontPageParams(url: URL): void {
   url.searchParams.delete('preview_page');
 }
 
-/** Drop redundant `?product=` when pathname already has `/product/{id}`. */
+/** Drop redundant `?product=` when pathname already has `/product/{id}` or `/buy/{id}`. */
 export function dedupeProductQueryFromPath(url: URL): void {
   const path = String(url.pathname || '').replace(/\/$/, '') || '/';
-  const m = path.match(/(?:^|\/)product\/([^/]+)$/i);
+  const m = path.match(/(?:^|\/)(?:product|buy)\/([^/]+)$/i);
   if (!m) return;
   let pathId = '';
   try {

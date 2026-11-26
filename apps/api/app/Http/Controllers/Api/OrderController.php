@@ -11,9 +11,11 @@ use App\Models\OrderItem;
 use App\Models\OrderReturn;
 use App\Models\Product;
 use App\Models\ProductVariation;
+use App\Models\ShippingMethod;
 use App\Models\Store;
 use App\Models\StoreBankAccount;
 use App\Services\Cashback\CashbackService;
+use App\Services\Commerce\OrderCommerceLedgerService;
 use App\Services\Loyalty\LoyaltyPointsService;
 use App\Services\Notification\NotificationService;
 use Illuminate\Http\JsonResponse;
@@ -444,6 +446,13 @@ class OrderController extends Controller
             'campaign' => ['nullable', 'string', 'max:191'],
             'utm_term' => ['nullable', 'string', 'max:128'],
             'utm_content' => ['nullable', 'string', 'max:128'],
+            'first_touch_source' => ['nullable', 'string', 'max:64'],
+            'first_touch_medium' => ['nullable', 'string', 'max:128'],
+            'first_touch_campaign' => ['nullable', 'string', 'max:191'],
+            'first_touch_utm_term' => ['nullable', 'string', 'max:128'],
+            'first_touch_utm_content' => ['nullable', 'string', 'max:128'],
+            'landing_page' => ['nullable', 'string', 'max:512'],
+            'referral_host' => ['nullable', 'string', 'max:191'],
             'delivery_location' => ['nullable', 'string', 'max:255'],
             'status' => ['nullable', 'string', 'max:64'],
             'payment_method' => ['nullable', 'string', 'max:64'],
@@ -456,6 +465,10 @@ class OrderController extends Controller
             'remaining_balance' => ['nullable', 'numeric', 'min:0'],
             'shipping_cost' => ['nullable', 'numeric', 'min:0'],
             'shipping_fee' => ['nullable', 'numeric', 'min:0'],
+            'shipping_method_id' => ['nullable', 'string', 'max:64'],
+            'shipping_status' => ['nullable', 'string', 'max:64'],
+            'courier_code' => ['nullable', 'string', 'max:64'],
+            'tracking_number' => ['nullable', 'string', 'max:128'],
             'estimated_delivery_at' => ['nullable', 'date'],
             'customer_notes' => ['nullable', 'string', 'max:2000'],
             'coupon_code' => ['nullable', 'string', 'max:64'],
@@ -763,11 +776,50 @@ class OrderController extends Controller
             if (Schema::hasColumn('orders', 'shipping_cost')) {
                 $orderPayload['shipping_cost'] = $shippingCost;
             }
+            if (Schema::hasColumn('orders', 'shipping_method_id') && ! empty($validated['shipping_method_id'])) {
+                $methodId = trim((string) $validated['shipping_method_id']);
+                $methodOk = ShippingMethod::query()
+                    ->withoutGlobalScope('store')
+                    ->forStore($storeId)
+                    ->where('id', $methodId)
+                    ->first();
+                if ($methodOk) {
+                    $orderPayload['shipping_method_id'] = $methodId;
+                    if (Schema::hasColumn('orders', 'courier_code') && empty($validated['courier_code']) && $methodOk->courier_code) {
+                        $orderPayload['courier_code'] = $methodOk->courier_code;
+                    }
+                }
+            }
+            if (Schema::hasColumn('orders', 'shipping_status')) {
+                $orderPayload['shipping_status'] = ! empty($validated['shipping_status'])
+                    ? trim((string) $validated['shipping_status'])
+                    : 'pending';
+            }
+            if (Schema::hasColumn('orders', 'courier_code') && ! empty($validated['courier_code']) && empty($orderPayload['courier_code'])) {
+                $orderPayload['courier_code'] = trim((string) $validated['courier_code']);
+            }
+            if (Schema::hasColumn('orders', 'tracking_number') && ! empty($validated['tracking_number'])) {
+                $orderPayload['tracking_number'] = trim((string) $validated['tracking_number']);
+            }
             if (Schema::hasColumn('orders', 'customer_notes') && ! empty($validated['customer_notes'])) {
                 $orderPayload['customer_notes'] = trim((string) $validated['customer_notes']);
             }
             if (Schema::hasColumn('orders', 'coupon_code') && ! empty($validated['coupon_code'])) {
                 $orderPayload['coupon_code'] = strtoupper(trim((string) $validated['coupon_code']));
+            }
+            foreach ([
+                'first_touch_source',
+                'first_touch_medium',
+                'first_touch_campaign',
+                'first_touch_utm_term',
+                'first_touch_utm_content',
+                'landing_page',
+                'referral_host',
+            ] as $attrCol) {
+                if (Schema::hasColumn('orders', $attrCol) && array_key_exists($attrCol, $validated)) {
+                    $val = trim((string) ($validated[$attrCol] ?? ''));
+                    $orderPayload[$attrCol] = $val !== '' ? $val : null;
+                }
             }
 
             $order = Order::query()->create($orderPayload);
@@ -917,6 +969,18 @@ class OrderController extends Controller
                 ]);
             } catch (\Throwable $e) {
                 Log::warning('Customer activity log skipped: '.$e->getMessage());
+            }
+
+            // Payment + shipping ledgers so Payments / Shipping admin pages fill on first order
+            try {
+                $ledger = app(OrderCommerceLedgerService::class);
+                $ledger->ensurePaymentLedger($order);
+                $ledger->ensurePendingShipment($order);
+            } catch (\Throwable $e) {
+                Log::warning('Order commerce ledger skipped: '.$e->getMessage(), [
+                    'store_id' => $storeId,
+                    'order_id' => $orderId,
+                ]);
             }
 
             // Auto WhatsApp/SMS/Email: order + payment pending reminder OR paid+invoice (customer + admin)
@@ -1220,6 +1284,18 @@ class OrderController extends Controller
 
         $newPay = strtolower((string) ($fresh->payment_status ?? ''));
         $oldPay = strtolower($prevPaymentStatus);
+
+        // Keep Payments + Shipping pages in sync with order payment / tracking changes
+        try {
+            $ledger = app(OrderCommerceLedgerService::class);
+            $ledger->ensurePaymentLedger($fresh);
+            $ledger->ensurePendingShipment($fresh);
+        } catch (\Throwable $e) {
+            Log::warning('Order commerce ledger sync on update failed: '.$e->getMessage(), [
+                'store_id' => $storeId,
+                'order_id' => $fresh->id,
+            ]);
+        }
 
         // One-time saved-card bonus when card payment becomes paid (Mada / Visa / Mastercard / Apple Pay)
         if (

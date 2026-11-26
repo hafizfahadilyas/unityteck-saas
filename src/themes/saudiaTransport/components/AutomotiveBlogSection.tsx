@@ -81,8 +81,8 @@ const AutomotiveBlogSectionComponent: React.FC<AutomotiveBlogSectionProps> = ({
       {/* ========================================================
           1. SECTION HEADER WITH AUTOMOTIVE BADGE & TRUST METRICS
           ======================================================== */}
-      <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#1a0638] via-[#2a0a55] to-[#12042a] border border-[#f6c344]/25 p-6 sm:p-9 space-y-6 shadow-2xl shadow-[#3e0f77]/20">
-        <div className="absolute -top-20 -left-20 w-72 h-72 rounded-full bg-[#f6c344]/10 blur-3xl pointer-events-none" />
+      <div className="alsaeedi-section alsaeedi-anim-fadeup relative p-6 sm:p-9 space-y-6">
+        <div className="absolute -top-20 -left-20 w-72 h-72 rounded-full bg-[#f6c344]/10 blur-xl pointer-events-none" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#f6c344]/70 to-transparent" />
 
         <div className="relative flex flex-col items-center text-center gap-2">
@@ -92,7 +92,7 @@ const AutomotiveBlogSectionComponent: React.FC<AutomotiveBlogSectionProps> = ({
             <span className="w-8 h-px bg-[#f6c344]/60" />
           </span>
 
-          <h2 className="text-2xl sm:text-4xl font-light text-white tracking-tight">
+          <h2 className="text-2xl sm:text-4xl font-light text-slate-900 tracking-tight">
             {isAr ? (
               <>مدونة <span className="font-semibold text-[#f6c344]">العناية بالسيارات</span></>
             ) : (
@@ -116,8 +116,8 @@ const AutomotiveBlogSectionComponent: React.FC<AutomotiveBlogSectionProps> = ({
                   onClick={() => setSelectedCategory(cat.key)}
                   className={`px-4 py-2 rounded-full font-semibold whitespace-nowrap transition-all cursor-pointer border ${
                     active
-                      ? 'bg-gradient-to-r from-[#f6c344] to-[#e0a82e] text-[#2a0a55] border-transparent shadow-lg shadow-[#f6c344]/25'
-                      : 'bg-white/5 text-white/75 border-white/15 hover:border-[#f6c344]/50 hover:text-[#f6c344]'
+                      ? 'bg-gradient-to-r from-[#d5a027] to-[#f6c344] text-slate-900 border-transparent shadow-md shadow-[#d5a027]/25'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-[#d5a027]/50 hover:text-amber-700'
                   }`}
                 >
                   {isAr ? cat.labelAr : cat.labelEn}
@@ -134,13 +134,13 @@ const AutomotiveBlogSectionComponent: React.FC<AutomotiveBlogSectionProps> = ({
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder={isAr ? 'ابحث...' : 'Search...'}
-              className="w-full text-xs text-white placeholder:text-white/40 bg-white/5 rounded-full border border-white/15 py-2.5 rtl:pr-9 rtl:pl-8 ltr:pl-9 ltr:pr-8 focus:outline-hidden focus:border-[#f6c344]/70 focus:ring-1 focus:ring-[#f6c344]/50 transition-all"
+              className="w-full text-xs text-slate-900 placeholder:text-slate-400 bg-white rounded-full border border-slate-200 py-2.5 rtl:pr-9 rtl:pl-8 ltr:pl-9 ltr:pr-8 focus:outline-hidden focus:border-[#f6c344]/70 focus:ring-1 focus:ring-[#f6c344]/50 transition-all"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute left-2.5 rtl:left-2.5 ltr:right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-white/50 hover:text-white rounded-full"
+                className="absolute left-2.5 rtl:left-2.5 ltr:right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-800 rounded-full"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -155,7 +155,7 @@ const AutomotiveBlogSectionComponent: React.FC<AutomotiveBlogSectionProps> = ({
       {featuredPost && (
         <div
           onClick={() => onSelectPost(featuredPost)}
-          className="bg-white rounded-3xl border border-slate-200/90 shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden group grid grid-cols-1 lg:grid-cols-12 gap-0"
+          className="alsaeedi-anim-lift bg-white rounded-3xl border border-slate-200/90 shadow-md cursor-pointer overflow-hidden group grid grid-cols-1 lg:grid-cols-12 gap-0"
         >
           {/* Left / Top: High-Res 16:9 Image */}
           <div className="lg:col-span-7 aspect-[16/10] sm:aspect-[16/9] lg:aspect-auto overflow-hidden bg-slate-900 relative">
@@ -168,7 +168,7 @@ const AutomotiveBlogSectionComponent: React.FC<AutomotiveBlogSectionProps> = ({
 
             {/* Floating Badges */}
             <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
-              <span className="bg-[#3e0f77] text-[#f6c344] text-[11px] font-black px-3 py-1 rounded-full shadow-md backdrop-blur-md">
+              <span className="bg-slate-800 text-[#f6c344] text-[11px] font-black px-3 py-1 rounded-full shadow-md backdrop-blur-md">
                 {isAr ? featuredPost.categoryAr : featuredPost.categoryEn}
               </span>
 
@@ -208,13 +208,13 @@ const AutomotiveBlogSectionComponent: React.FC<AutomotiveBlogSectionProps> = ({
                 <span className="hidden sm:inline">{featuredPost.date}</span>
                 <span>·</span>
                 <span className="inline-flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
+                  <Clock className="w-3 h-3 text-[#d5a027]" />
                   <span>{isAr ? featuredPost.readTimeAr : featuredPost.readTimeEn}</span>
                 </span>
               </div>
 
               {/* Title */}
-              <h3 className="font-black text-lg sm:text-xl text-slate-900 group-hover:text-[#3e0f77] transition-colors leading-snug">
+              <h3 className="font-black text-lg sm:text-xl text-slate-900 group-hover:text-slate-800 transition-colors leading-snug">
                 {isAr ? featuredPost.titleAr : featuredPost.titleEn}
               </h3>
 
@@ -238,7 +238,7 @@ const AutomotiveBlogSectionComponent: React.FC<AutomotiveBlogSectionProps> = ({
 
             {/* Bottom Actions */}
             <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-              <div className="inline-flex items-center gap-1.5 text-xs font-black text-[#3e0f77] group-hover:underline">
+              <div className="inline-flex items-center gap-1.5 text-xs font-black text-slate-800 group-hover:underline">
                 <span>{isAr ? 'اقرأ الدليل الشامل' : 'Read Full Guide'}</span>
                 {isAr ? (
                   <ChevronLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
@@ -272,12 +272,12 @@ const AutomotiveBlogSectionComponent: React.FC<AutomotiveBlogSectionProps> = ({
           4. STANDARD ARTICLES GRID (RESPONSIVE 3 COLUMNS)
           ======================================================== */}
       {standardPosts.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 alsaeedi-stagger">
           {standardPosts.map(post => (
             <article
               key={post.id}
               onClick={() => onSelectPost(post)}
-              className="group relative aspect-[4/5] rounded-[28px] overflow-hidden bg-[#12042a] cursor-pointer ring-1 ring-white/10 hover:ring-[#f6c344]/60 shadow-xl hover:shadow-2xl hover:shadow-[#3e0f77]/40 hover:-translate-y-1.5 transition-all duration-500"
+              className="group relative aspect-[4/5] rounded-[28px] overflow-hidden bg-slate-100 cursor-pointer ring-1 ring-slate-200 hover:ring-[#d5a027]/60 shadow-lg alsaeedi-anim-lift"
             >
               <img
                 src={post.image}
@@ -285,7 +285,7 @@ const AutomotiveBlogSectionComponent: React.FC<AutomotiveBlogSectionProps> = ({
                 className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-[1200ms] ease-out"
               />
               {/* Luxury gradient veil */}
-              <div className="absolute inset-0 bg-gradient-to-t from-[#12042a] via-[#12042a]/55 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/85 via-slate-900/40 to-transparent" />
               <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-transparent" />
 
               {/* Top row: category + like */}
@@ -298,8 +298,8 @@ const AutomotiveBlogSectionComponent: React.FC<AutomotiveBlogSectionProps> = ({
                   type="button"
                   onClick={e => toggleLike(e, post.id)}
                   aria-label={isAr ? 'إعجاب' : 'Like'}
-                  className={`w-9 h-9 rounded-full bg-black/35 backdrop-blur-md border border-white/15 flex items-center justify-center transition-colors cursor-pointer ${
-                    likedPostIds[post.id] ? 'text-rose-400' : 'text-white/80 hover:text-rose-400'
+                  className={`w-9 h-9 rounded-full bg-black/35 backdrop-blur-md border border-slate-200 flex items-center justify-center transition-colors cursor-pointer ${
+                    likedPostIds[post.id] ? 'text-rose-500' : 'text-white/90 hover:text-rose-400'
                   }`}
                 >
                   <Heart className={`w-4 h-4 ${likedPostIds[post.id] ? 'fill-rose-400' : ''}`} />
@@ -308,7 +308,7 @@ const AutomotiveBlogSectionComponent: React.FC<AutomotiveBlogSectionProps> = ({
 
               {/* Bottom: title + meta + CTA */}
               <div className="absolute bottom-0 inset-x-0 p-6 space-y-4">
-                <div className="flex items-center gap-3 text-[11px] text-white/70">
+                <div className="flex items-center gap-3 text-[11px] text-white/85">
                   <span className="inline-flex items-center gap-1.5">
                     <Clock className="w-3.5 h-3.5 text-[#f6c344]" />
                     {isAr ? post.readTimeAr : post.readTimeEn}
@@ -324,11 +324,11 @@ const AutomotiveBlogSectionComponent: React.FC<AutomotiveBlogSectionProps> = ({
                   {isAr ? post.titleAr : post.titleEn}
                 </h4>
 
-                <div className="flex items-center justify-between pt-4 border-t border-white/15">
+                <div className="flex items-center justify-between pt-4 border-t border-slate-200">
                   <span className="text-[11px] font-semibold tracking-[0.2em] uppercase text-[#f6c344]">
                     {isAr ? 'اقرأ المزيد' : 'Read More'}
                   </span>
-                  <span className="w-10 h-10 rounded-full bg-[#f6c344] text-[#2a0a55] flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-lg shadow-[#f6c344]/30">
+                  <span className="w-10 h-10 rounded-full bg-[#d5a027] text-slate-900 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-lg shadow-[#f6c344]/30">
                     {isAr ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
                   </span>
                 </div>
@@ -340,7 +340,7 @@ const AutomotiveBlogSectionComponent: React.FC<AutomotiveBlogSectionProps> = ({
       ) : (
         /* Empty State */
         <div className="p-12 text-center bg-white rounded-3xl border border-dashed border-slate-300 space-y-3">
-          <BookOpen className="w-10 h-10 text-slate-300 mx-auto" />
+          <BookOpen className="w-10 h-10 text-slate-500 mx-auto" />
           <h4 className="font-bold text-sm text-slate-700">
             {isAr ? 'لا توجد مقالات مطابقة لبحثك' : 'No articles match your search'}
           </h4>
@@ -353,7 +353,7 @@ const AutomotiveBlogSectionComponent: React.FC<AutomotiveBlogSectionProps> = ({
               setSearchQuery('');
               setSelectedCategory('all');
             }}
-            className="px-4 py-2 bg-[#3e0f77] text-white rounded-full text-xs font-bold cursor-pointer"
+            className="px-4 py-2 bg-slate-800 text-slate-900 rounded-full text-xs font-bold cursor-pointer"
           >
             {isAr ? 'عرض جميع المقالات' : 'Reset Filters'}
           </button>
@@ -363,13 +363,13 @@ const AutomotiveBlogSectionComponent: React.FC<AutomotiveBlogSectionProps> = ({
       {/* ========================================================
           5. CONSULTATION BANNER (MINIMAL LUXURY)
           ======================================================== */}
-      <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[#1a0638] via-[#2a0a55] to-[#12042a] border border-[#f6c344]/25 px-6 sm:px-10 py-7 flex flex-col sm:flex-row items-center justify-between gap-5 shadow-2xl shadow-[#3e0f77]/20">
-        <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-[#f6c344]/10 blur-3xl pointer-events-none" />
+      <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-white via-slate-50 to-slate-100 border border-[#d5a027]/35 px-6 sm:px-10 py-7 flex flex-col sm:flex-row items-center justify-between gap-5 shadow-xl shadow-slate-200/60">
+        <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-[#f6c344]/10 blur-xl pointer-events-none" />
         <div className="relative text-center sm:text-start space-y-1">
           <span className="text-[10px] tracking-[0.3em] uppercase font-semibold text-[#f6c344]">
             {isAr ? 'استشارة خاصة' : 'Private Consultation'}
           </span>
-          <h3 className="text-lg sm:text-2xl font-light text-white tracking-tight">
+          <h3 className="text-lg sm:text-2xl font-light text-slate-900 tracking-tight">
             {isAr ? 'صمّم داخلية سيارتك بذوق راقٍ' : 'Tailor your cabin to perfection'}
           </h3>
         </div>
@@ -385,7 +385,7 @@ const AutomotiveBlogSectionComponent: React.FC<AutomotiveBlogSectionProps> = ({
               );
             }
           }}
-          className="relative shrink-0 px-7 py-3 rounded-full bg-gradient-to-r from-[#f6c344] to-[#e0a82e] text-[#2a0a55] font-bold text-sm flex items-center gap-2 shadow-lg shadow-[#f6c344]/20 hover:shadow-[#f6c344]/40 hover:scale-[1.03] transition-all cursor-pointer"
+          className="relative shrink-0 px-7 py-3 rounded-full bg-gradient-to-r from-[#d5a027] to-[#f6c344] text-slate-900 font-bold text-sm flex items-center gap-2 shadow-lg shadow-[#f6c344]/20 hover:shadow-[#f6c344]/40 hover:scale-[1.03] transition-all cursor-pointer"
         >
           <WhatsAppIcon className="w-4 h-4" />
           <span>{isAr ? 'تواصل معنا' : 'Chat with us'}</span>

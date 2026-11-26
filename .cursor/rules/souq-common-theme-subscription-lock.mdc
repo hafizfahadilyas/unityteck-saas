@@ -1,0 +1,63 @@
+---
+description: Souq common themes by SAR subscription · marketplace · AI add-ons price-first · 50-store KSA scale
+alwaysApply: true
+---
+
+# Souq Common Theme · Subscription · Marketplace (LOCKED)
+
+**Brand:** منصة سوق / Souq Platform · **Market:** KSA · **Scale target:** **50 active Saudi stores** (then 100+).  
+**Full spec:** `docs/36-souq-common-theme-subscription-marketplace.md`
+
+## Flagship vs common (do not confuse)
+
+| Class | Stores | Policy |
+|-------|--------|--------|
+| **Flagship locked** | Flowers (`store-1`), Coffee (`store-coffee`), Car/Bleco (`store-bleco`) | Keep pilot look + tenant rules (`coffee-frontend-ui-lock.mdc`). **No** force-migrate to common pack. |
+| **Common Souq themes** | **Every new store after pilots** | On active subscription → show **included** themes for that SAR tier only. Extra themes = **purchase** (catalog + `store_id` entitlement). |
+
+**Ban:** New generic tenants defaulting to Flora/coffee/car via `resolveStoreTheme` URL heuristics. Default = **`theme-souq-common-*`** from API entitlement, not flagship fallback.
+
+## Subscription tiers (SAR / month)
+
+| Tier | SAR | Included common themes | Core unlock |
+|------|-----|------------------------|-------------|
+| Starter | **100** | 1 common layout (rotate pick) | Catalog, orders, basic SEO, `themes_basic`, WhatsApp chrome |
+| Pro | **300** | All **Starter + Pro** common pack | Page builder, full customize panels, social (real connect), `openai_mgmt` preview |
+| Premium | **500** | Full common marketplace **included** | Backups, ZATCA, advanced analytics · **Hostinger+domain free for first 20 stores** |
+
+**Also:** 1 / 6 (−15%) / 12 (−25%) month billing · AI add-ons price-first · Master unlock + low/med/high limits · inactivity 30/60/90d terminate · hosting buy from Souq.  
+Server: `Plans.php` + `SouqBilling` + `SouqAddOns` + `store_theme_entitlements`. UI hide ≠ security.
+
+## One common settings model
+
+- **Single** shared settings schema + panel map for **all** `theme-souq-common-*` themes (merchant doc = same structure as pilots; see `docs/31`, user’s theme settings doc).
+- **Customize Themes** + **Page Builder** → save per `store_id` → **publish = instant** storefront (cache bust `?v=` / ISR tag).
+- **Theme buy / switch:** Products, categories, orders, shipping, payments **unchanged**. Only `active_theme_id` + theme JSON/layout swap. Never wipe catalog on theme change.
+
+## Marketplace UX (Souq site + merchant dashboard)
+
+- **Price first, unlock after pay** — every module (AI agent, image AI, fix/doctor, voice/calling, WhatsApp automation, social scheduler, credits).
+- Merchant **and** public Souq marketing frontend show **same** SAR prices + feature matrix (AR/EN, no mock “Connected”).
+- **Master-only:** hidden/platform fees, bundles, grants, trial overrides — never editable from store portal.
+
+## AI & automation (all tiers see catalog)
+
+List all add-ons with SAR; **greyed + pricing** until `plan.feature:*` or purchased add-on row exists. Align with `StoreAiSuiteAccess`, `openai_mgmt`, `saudi-canva-social-real.mdc` — **real APIs only**.
+
+## Build order (agents)
+
+1. Entitlements API + theme catalog filter by plan/purchase  
+2. Common theme pack(s) in `src/themes/souqCommon/` + registry (no flagship default for unknown `store_id`)  
+3. Souq public pricing / themes pages ↔ dashboard **Plans & Add-ons** parity  
+4. Master: theme publish, included_tiers, optional_sku_price, hidden_fees  
+
+## Bans
+
+- Fake included themes or Instant-unlock without payment row  
+- Cross-tenant theme entitlements  
+- Rebuilding flagship storefronts to match common pack  
+- English in AR chrome on pricing/marketplace (`no-language-mix.mdc`)
+
+## Status
+
+Theme/marketplace slice → end **Ho gaya** / **Baqi** + live probe when touching commerce paths.

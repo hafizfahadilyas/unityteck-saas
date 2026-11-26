@@ -14,7 +14,7 @@ export type UserRole =
   | 'store_manager'
   | 'store_staff';
 
-export type PlanType = 'free' | 'paid' | 'pro' | 'premium' | 'custom';
+export type PlanType = 'free' | 'paid' | 'starter' | 'pro' | 'premium' | 'custom';
 
 export interface StoreLanguagesConfig {
   english: boolean;
@@ -871,6 +871,10 @@ export interface StoreSEOConfig {
   ga4MeasurementId: string; // e.g. G-XXXXXXXX
   gtmContainerId: string; // e.g. GTM-XXXXXXX
   googleAdsConversionId?: string; // e.g. AW-XXXXXXXX
+  tiktokPixelId?: string; // e.g. CXXXXXXXXXXXX
+  tiktokAccessToken?: string; // TikTok Conversions API (CAPI) token
+  snapchatPixelId?: string; // e.g. xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  snapchatApiToken?: string; // Snapchat Conversions API token
   searchConsoleConnected: boolean;
   searchConsoleVerificationTag: string; // e.g. google-site-verification=...
   indexingApiEnabled: boolean;
@@ -1051,6 +1055,7 @@ export interface PaymentTransactionItem {
   id: string;
   storeId: string;
   orderId?: string;
+  orderNumber?: string;
   gatewayProvider: string;
   paymentMethod: string;
   transactionReference: string;
@@ -1064,6 +1069,8 @@ export interface PaymentTransactionItem {
   cardLastFour?: string;
   payerName?: string;
   payerEmail?: string;
+  payerPhone?: string;
+  trackingNumber?: string;
   createdAt: string;
 }
 

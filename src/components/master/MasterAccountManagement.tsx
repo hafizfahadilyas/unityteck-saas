@@ -94,7 +94,7 @@ type EditDraft = {
   reason: string;
 };
 
-const PLAN_OPTIONS: PlanType[] = ['free', 'paid', 'pro', 'premium', 'custom'];
+const PLAN_OPTIONS: PlanType[] = ['free', 'paid', 'starter', 'pro', 'premium', 'custom'];
 
 const planLabel = (plan: string, isAr: boolean): string => {
   const key = String(plan || 'free').toLowerCase();
@@ -104,6 +104,8 @@ const planLabel = (plan: string, isAr: boolean): string => {
       return 'مجاني';
     case 'paid':
       return 'مدفوع';
+    case 'starter':
+      return 'أساسي';
     case 'pro':
       return 'احترافي';
     case 'premium':

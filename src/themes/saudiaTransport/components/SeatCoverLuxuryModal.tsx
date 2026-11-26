@@ -358,7 +358,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
       <div className="bg-white w-full max-w-5xl rounded-3xl overflow-hidden shadow-2xl border border-[#d5a027]/40 my-auto flex flex-col max-h-[94vh] animate-scaleIn">
         
         {/* Luxury Top Header Bar */}
-        <div className="bg-gradient-to-r from-[#17032d] via-[#2d0954] to-[#3e0f77] text-white p-4 sm:p-5 flex items-center justify-between border-b border-[#d5a027]/40 shrink-0">
+        <div className="bg-gradient-to-r from-[#17032d] via-[#2d0954] to-slate-800 text-white p-4 sm:p-5 flex items-center justify-between border-b border-[#d5a027]/40 shrink-0">
           <div className="flex items-center gap-3 min-w-0 pr-2">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#d5a027] to-[#f6c344] p-0.5 shrink-0 shadow-md">
               <div className="w-full h-full bg-[#1b0433] rounded-[14px] flex items-center justify-center">
@@ -407,7 +407,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
               <img 
                 src={currentImage} 
                 alt={product.name} 
-                className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
+                className="w-full h-full object-contain transition-all duration-300 group-hover:scale-105"
               />
 
               {/* Lightbox expand button */}
@@ -442,7 +442,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-[11px] text-slate-500 font-bold px-1">
                   <span>{isAr ? 'ألبوم صور التفصيل والخياطة:' : 'Product Gallery Photos:'}</span>
-                  <span className="text-[#3e0f77]">{product.galleryUrls.length} {isAr ? 'صور' : 'photos'}</span>
+                  <span className="text-slate-800">{product.galleryUrls.length} {isAr ? 'صور' : 'photos'}</span>
                 </div>
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {product.galleryUrls.map((imgUrl, idx) => {
@@ -455,7 +455,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                           isCur ? 'border-[#d5a027] ring-2 ring-[#d5a027]/40 scale-105 shadow-md' : 'border-slate-200 opacity-70 hover:opacity-100'
                         }`}
                       >
-                        <img src={imgUrl} alt={`gallery-${idx}`} className="w-full h-full object-cover" />
+                        <img src={imgUrl} alt={`gallery-${idx}`} className="w-full h-full object-contain" />
                       </button>
                     );
                   })}
@@ -471,7 +471,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                   <span>{isAr ? 'مواصفات الجودة المعتمدة ساسو:' : 'SASO Certified Specifications:'}</span>
                 </h5>
                 <span className="text-[10px] font-bold text-amber-900 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300">
-                  {isAr ? 'منتج وطني 🇸🇦' : 'Saudi National'}
+                  {isAr ? 'منتج وطني سعودي' : 'Saudi National'}
                 </span>
               </div>
 
@@ -519,7 +519,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                   <Sparkles className="w-4 h-4 text-[#d5a027]" />
                   <span>{isAr ? 'إختر اللون (تطريز فخم نخب أول):' : 'Choose Color & Stitching:'}</span>
                 </label>
-                <span className="text-[11px] font-bold text-[#3e0f77] bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">
+                <span className="text-[11px] font-bold text-slate-800 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
                   {isAr ? selectedColor.nameAr : selectedColor.nameEn}
                 </span>
               </div>
@@ -535,7 +535,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                       onClick={() => handleColorChange(c)}
                       className={`p-2.5 rounded-xl border flex items-center gap-2 transition-all cursor-pointer text-start ${
                         isSelected 
-                          ? 'border-[#3e0f77] ring-2 ring-[#d5a027] bg-purple-50/70 shadow-sm scale-[1.02]' 
+                          ? 'border-slate-300 ring-2 ring-[#d5a027] bg-slate-50 shadow-sm scale-[1.02]' 
                           : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/80'
                       }`}
                     >
@@ -563,7 +563,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                           {isAr ? c.nameAr : c.nameEn}
                         </span>
                         <span className="text-[9px] text-slate-500 block truncate">
-                          {isSelected ? (isAr ? '✓ محدد حالياً' : 'Selected') : (isAr ? 'تطريز وكالة' : 'OEM Match')}
+                          {isSelected ? (isAr ? 'محدد حالياً' : 'Selected') : (isAr ? 'تطريز وكالة' : 'OEM Match')}
                         </span>
                       </div>
                     </button>
@@ -592,11 +592,11 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                   onClick={() => setSelectedSeats('2_seats')}
                   className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
                     selectedSeats === '2_seats'
-                      ? 'border-[#3e0f77] ring-2 ring-[#d5a027] bg-purple-50 shadow-md scale-[1.02]'
+                      ? 'border-slate-300 ring-2 ring-[#d5a027] bg-slate-50 shadow-md scale-[1.02]'
                       : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50'
                   }`}
                 >
-                  <div className={`w-10 h-7 rounded-lg flex items-center justify-center ${selectedSeats === '2_seats' ? 'text-[#3e0f77]' : 'text-slate-400'}`}>
+                  <div className={`w-10 h-7 rounded-lg flex items-center justify-center ${selectedSeats === '2_seats' ? 'text-slate-800' : 'text-slate-400'}`}>
                     <Truck className="w-7 h-7" />
                   </div>
                   <span className="font-black text-xs text-slate-900">{isAr ? 'مقعدين' : '2 Seats'}</span>
@@ -611,11 +611,11 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                   onClick={() => setSelectedSeats('5_seats')}
                   className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
                     selectedSeats === '5_seats'
-                      ? 'border-[#3e0f77] ring-2 ring-[#d5a027] bg-purple-50 shadow-md scale-[1.02]'
+                      ? 'border-slate-300 ring-2 ring-[#d5a027] bg-slate-50 shadow-md scale-[1.02]'
                       : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50'
                   }`}
                 >
-                  <div className={`w-10 h-7 rounded-lg flex items-center justify-center ${selectedSeats === '5_seats' ? 'text-[#3e0f77]' : 'text-slate-400'}`}>
+                  <div className={`w-10 h-7 rounded-lg flex items-center justify-center ${selectedSeats === '5_seats' ? 'text-slate-800' : 'text-slate-400'}`}>
                     <Car className="w-7 h-7" />
                   </div>
                   <span className="font-black text-xs text-slate-900">{isAr ? '٥ مقاعد' : '5 Seats'}</span>
@@ -630,11 +630,11 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                   onClick={() => setSelectedSeats('7_seats')}
                   className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
                     selectedSeats === '7_seats'
-                      ? 'border-[#3e0f77] ring-2 ring-[#d5a027] bg-purple-50 shadow-md scale-[1.02]'
+                      ? 'border-slate-300 ring-2 ring-[#d5a027] bg-slate-50 shadow-md scale-[1.02]'
                       : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50'
                   }`}
                 >
-                  <div className={`w-10 h-7 rounded-lg flex items-center justify-center ${selectedSeats === '7_seats' ? 'text-[#3e0f77]' : 'text-slate-400'}`}>
+                  <div className={`w-10 h-7 rounded-lg flex items-center justify-center ${selectedSeats === '7_seats' ? 'text-slate-800' : 'text-slate-400'}`}>
                     <Layers className="w-7 h-7" />
                   </div>
                   <span className="font-black text-xs text-slate-900">{isAr ? '٧ مقاعد' : '7 Seats'}</span>
@@ -665,7 +665,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                         const models = CAR_MODELS_MAP[newMake] || [];
                         if (models.length > 0) setSelectedModel(models[0].modelAr);
                       }}
-                      className="w-full p-2.5 bg-white rounded-xl border border-slate-300 font-bold text-xs focus:ring-2 focus:ring-[#3e0f77] focus:outline-none cursor-pointer appearance-none shadow-xs"
+                      className="w-full p-2.5 bg-white rounded-xl border border-slate-300 font-bold text-xs focus:ring-2 focus:ring-slate-400 focus:outline-none cursor-pointer appearance-none shadow-xs"
                     >
                       {CAR_BRANDS.map(b => (
                         <option key={b.id} value={b.id}>{isAr ? b.nameAr : b.nameEn}</option>
@@ -682,7 +682,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                     <select 
                       value={selectedModel} 
                       onChange={e => setSelectedModel(e.target.value)}
-                      className="w-full p-2.5 bg-white rounded-xl border border-slate-300 font-bold text-xs focus:ring-2 focus:ring-[#3e0f77] focus:outline-none cursor-pointer appearance-none shadow-xs"
+                      className="w-full p-2.5 bg-white rounded-xl border border-slate-300 font-bold text-xs focus:ring-2 focus:ring-slate-400 focus:outline-none cursor-pointer appearance-none shadow-xs"
                     >
                       {brandModels.map((m, idx) => (
                         <option key={idx} value={m.modelAr}>{isAr ? m.modelAr : m.modelEn}</option>
@@ -700,7 +700,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                     <select 
                       value={selectedYear} 
                       onChange={e => setSelectedYear(e.target.value)}
-                      className="w-full p-2.5 bg-white rounded-xl border border-slate-300 font-bold text-xs focus:ring-2 focus:ring-[#3e0f77] focus:outline-none cursor-pointer appearance-none shadow-xs"
+                      className="w-full p-2.5 bg-white rounded-xl border border-slate-300 font-bold text-xs focus:ring-2 focus:ring-slate-400 focus:outline-none cursor-pointer appearance-none shadow-xs"
                     >
                       {['2026', '2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012'].map(yr => (
                         <option key={yr} value={yr}>{yr}</option>
@@ -724,7 +724,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                   onClick={() => setSelectedMaterial('leather')}
                   className={`p-2.5 rounded-xl border text-start transition-all cursor-pointer ${
                     selectedMaterial === 'leather'
-                      ? 'border-[#3e0f77] ring-2 ring-[#3e0f77]/30 bg-purple-50'
+                      ? 'border-slate-300 ring-2 ring-slate-400/30 bg-slate-50'
                       : 'border-slate-200 hover:border-slate-300 bg-white'
                   }`}
                 >
@@ -742,7 +742,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                   onClick={() => setSelectedMaterial('fabric')}
                   className={`p-2.5 rounded-xl border text-start transition-all cursor-pointer ${
                     selectedMaterial === 'fabric'
-                      ? 'border-[#3e0f77] ring-2 ring-[#3e0f77]/30 bg-purple-50'
+                      ? 'border-slate-300 ring-2 ring-slate-400/30 bg-slate-50'
                       : 'border-slate-200 hover:border-slate-300 bg-white'
                   }`}
                 >
@@ -760,12 +760,15 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                   onClick={() => setSelectedMaterial('diamond')}
                   className={`p-2.5 rounded-xl border text-start transition-all cursor-pointer ${
                     selectedMaterial === 'diamond'
-                      ? 'border-[#3e0f77] ring-2 ring-[#3e0f77]/30 bg-purple-50'
+                      ? 'border-slate-300 ring-2 ring-slate-400/30 bg-slate-50'
                       : 'border-slate-200 hover:border-slate-300 bg-white'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-0.5">
-                    <span className="font-bold text-slate-900 text-xs">{isAr ? '💎 جلد دايموند كبار العملاء' : '💎 VIP Diamond'}</span>
+                    <span className="font-bold text-slate-900 text-xs inline-flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-[#d5a027] shrink-0" aria-hidden="true" />
+                      {isAr ? 'جلد دايموند كبار العملاء' : 'VIP Diamond'}
+                    </span>
                     <span className="text-[9px] text-[#d5a027] font-bold">(+120 {'⃁'})</span>
                   </div>
                   <p className="text-[10px] text-slate-500 leading-tight">
@@ -776,7 +779,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
             </div>
 
             {/* 5. اشتري معاً ووفر (FREQUENTLY BOUGHT TOGETHER BUNDLE) */}
-            <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-purple-500/10 border border-[#d5a027]/40 rounded-2xl p-3.5 space-y-2">
+            <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-slate-100/80 border border-[#d5a027]/40 rounded-2xl p-3.5 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="font-black text-slate-900 text-xs flex items-center gap-1.5">
                   <Percent className="w-3.5 h-3.5 text-[#d5a027]" />
@@ -793,7 +796,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                     <img 
                       src={BLECO_BUNDLE_ADDON.image} 
                       alt={BLECO_BUNDLE_ADDON.nameAr} 
-                      className="w-full h-full object-cover" 
+                      className="w-full h-full object-contain" 
                     />
                   </div>
                   <div className="min-w-0">
@@ -801,7 +804,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                       {isAr ? BLECO_BUNDLE_ADDON.nameAr : BLECO_BUNDLE_ADDON.nameEn}
                     </h6>
                     <div className="flex items-center gap-1.5 mt-0.5 text-[11px]">
-                      <span className="font-black text-[#3e0f77]">{BLECO_BUNDLE_ADDON.price} {'⃁'}</span>
+                      <span className="font-black text-slate-800">{BLECO_BUNDLE_ADDON.price} {'⃁'}</span>
                       <span className="text-slate-400 line-through text-[10px]">{BLECO_BUNDLE_ADDON.originalPrice} {'⃁'}</span>
                       <span className="text-[9px] bg-red-100 text-red-700 font-black px-1.5 py-0.2 rounded">
                         25.00%
@@ -822,7 +825,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                   {includeBundle ? (
                     <>
                       <Check className="w-3.5 h-3.5 text-white" />
-                      <span>{isAr ? 'تمت الإضافة ✓' : 'Added ✓'}</span>
+                      <span>{isAr ? 'تمت الإضافة' : 'Added'}</span>
                     </>
                   ) : (
                     <>
@@ -863,7 +866,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                   value={customerNote}
                   onChange={e => setCustomerNote(e.target.value)}
                   placeholder={isAr ? 'ملاحظة خاصة لسيارتك (مثال: فتحة تكاية، تدفئة مقاعد...)' : 'Special notes (e.g., heated seats, armrest...)'}
-                  className="w-full p-2.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs focus:ring-2 focus:ring-[#3e0f77] focus:outline-none placeholder:text-slate-400"
+                  className="w-full p-2.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs focus:ring-2 focus:ring-slate-400 focus:outline-none placeholder:text-slate-400"
                 />
               </div>
             </div>
@@ -884,7 +887,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                       onClick={() => setSelectedPattern(pat.id)}
                       className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
                         isCurPat 
-                          ? 'border-[#3e0f77] ring-2 ring-[#d5a027] bg-purple-50 font-black text-[#3e0f77]' 
+                          ? 'border-slate-300 ring-2 ring-[#d5a027] bg-slate-50 font-black text-slate-800' 
                           : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
                       }`}
                     >
@@ -899,12 +902,12 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
             </div>
 
             {/* 8. السعر الإجمالي والدفع بالتقسيط */}
-            <div className="bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-purple-500/10 border border-[#d5a027]/40 rounded-2xl p-4 space-y-2">
+            <div className="bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-slate-100/80 border border-[#d5a027]/40 rounded-2xl p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-[10px] text-slate-500 font-bold">{isAr ? 'السعر الإجمالي بالمواصفات المختارة:' : 'Total Configured Price:'}</div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-black text-[#3e0f77]">{totalPrice}</span>
+                    <span className="text-2xl font-black text-slate-800">{totalPrice}</span>
                     <span className="text-xs font-black text-[#d5a027]">{'\u20C1'}</span>
                     <span className="text-[11px] text-slate-400 line-through">({originalPrice * quantity} {'⃁'})</span>
                   </div>
@@ -951,7 +954,7 @@ export const SeatCoverLuxuryModal: React.FC<SeatCoverLuxuryModalProps> = ({
                   {addedSuccess ? (
                     <>
                       <CheckCircle className="w-5 h-5 text-white animate-bounce" />
-                      <span>{isAr ? '✓ تمت الإضافة بنجاح إلى السلة!' : '✓ Added to Cart Successfully!'}</span>
+                      <span>{isAr ? 'تمت الإضافة بنجاح إلى السلة' : 'Added to Cart Successfully'}</span>
                     </>
                   ) : (
                     <>

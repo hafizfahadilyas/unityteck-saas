@@ -7,7 +7,7 @@
 - **GENUINE EMPTY STATES**: Real empty states (`No records found`, `0`, genuine loaders) must be shown if data is not yet in the database. Never fabricate fake numbers (e.g. 1,248 abandoned carts, SAR 85,400) when actual database count is 0.
 
 ## 2. 100% Pixel-Perfect UI/UX Matching
-- Reference folder: `C:\Users\fahad\Downloads\مجلد جديد (8)\مجلد جديد (8)`
+- Reference folder: `designs/Store_Dashboard_UIUX/`
 - Must match layout, spacing, typography, colors, borders, cards, and design hierarchy 100% same-to-same with the provided images and docx specifications.
 - Clean Lucide SVG icons only (Zero cartoon emojis policy).
 
@@ -38,3 +38,10 @@
 ## 8. User Communication Language Preference (LOCKED)
 - **Always respond and guide the user in Roman Urdu** (short, clear, and direct).
 - Never reply in pure Arabic for conversation/guidance. (Arabic UI text within code/i18n is unaffected).
+
+
+## 9. Real-Time Work Updates & Time Estimation Policy (LOCKED)
+- **Always keep the user informed**: Whenever executing work, explicitly state what is being done step-by-step.
+- **Provide time estimates**: Tell the user approximately how long each task/step will take (e.g. "Ismein taqreeban 1-2 minute lagein ge", "30 seconds mein complete hoga").
+- **Never work silently**: Keep the user updated on what is in progress, what has completed, and what is next.
+- **Status summaries**: End updates with **Ho gaya** and **Baqi** in Roman Urdu.

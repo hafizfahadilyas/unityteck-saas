@@ -3,6 +3,7 @@
 @import "./styles/portal-tokens.css";
 @import "./styles/visual-builder-holst.css";
 @import "./styles/saudi-riyal.css";
+@import "./styles/skeleton.css";
 
 /* Tailwind font-sans → same Holst brand face (Settings → BrandingPanel) */
 @theme {
@@ -698,14 +699,18 @@ html[dir='rtl'] button span,
   display: block !important;
 }
 
-/* Coffee hero stage height inside builder frames */
+/* Coffee hero stage height inside builder frames — cover fill, no letterbox */
 .builder-device-mobile .hibrew-theme-root .theme-slider-stage {
-  height: 420px !important;
-  min-height: 420px !important;
+  height: auto !important;
+  min-height: 280px !important;
+  max-height: 560px !important;
+  aspect-ratio: 4 / 5 !important;
 }
 .builder-device-tablet .hibrew-theme-root .theme-slider-stage {
-  height: 520px !important;
-  min-height: 520px !important;
+  height: auto !important;
+  min-height: 360px !important;
+  max-height: 560px !important;
+  aspect-ratio: 16 / 10 !important;
 }
 
 /* Compact vertical padding — reduce blank gaps between coffee sections in canvas */

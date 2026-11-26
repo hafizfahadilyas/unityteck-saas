@@ -401,7 +401,8 @@ final class GeminiAiMediaService
                 .':generateContent?key='.rawurlencode($apiKey);
 
             try {
-                $response = Http::timeout(35)
+                $response = Http::withoutVerifying()
+                    ->timeout(35)
                     ->withOptions(['curl' => self::geminiCurlOpts()])
                     ->acceptJson()
                     ->asJson()
@@ -510,6 +511,10 @@ final class GeminiAiMediaService
         if (defined('CURL_IPRESOLVE_V4')) {
             $opts[CURLOPT_IPRESOLVE] = CURL_IPRESOLVE_V4;
         }
+        if (DIRECTORY_SEPARATOR === '\\' || config('app.env') !== 'production') {
+            $opts[CURLOPT_SSL_VERIFYPEER] = false;
+            $opts[CURLOPT_SSL_VERIFYHOST] = false;
+        }
 
         return $opts;
     }
@@ -521,7 +526,8 @@ final class GeminiAiMediaService
     private function postGenerate(string $url, array $body, string $model): array
     {
         try {
-            $response = Http::timeout(120)
+            $response = Http::withoutVerifying()
+                ->timeout(120)
                 ->withOptions(['curl' => self::geminiCurlOpts()])
                 ->acceptJson()
                 ->asJson()

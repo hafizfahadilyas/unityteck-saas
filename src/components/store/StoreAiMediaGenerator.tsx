@@ -57,6 +57,9 @@ import {
 
 export interface StoreAiMediaGeneratorProps {
   onNavigateTab?: (tab: string) => void;
+  /** Return false to abort (e.g. payment gate). */
+  onBeforeGenerate?: () => boolean;
+  onPaymentRequired?: () => void;
 }
 
 type PromptMode = 'manual' | 'auto';
@@ -138,9 +141,17 @@ function friendlyAiCode(code: string | null | undefined, isAr: boolean): string 
       en: 'Monthly image quota exhausted for this store.',
       ar: 'انتهت الحصة الشهرية للصور لهذا المتجر.',
     },
+    image_daily_quota_exhausted: {
+      en: 'Daily image limit reached. Try tomorrow or ask Master to increment.',
+      ar: 'انتهى الحد اليومي للصور. حاول غداً أو اطلب من الماستر الزيادة.',
+    },
     video_quota_exhausted: {
       en: 'Monthly video quota exhausted for this store.',
       ar: 'انتهت الحصة الشهرية للفيديو لهذا المتجر.',
+    },
+    video_daily_quota_exhausted: {
+      en: 'Daily video limit reached.',
+      ar: 'انتهى الحد اليومي للفيديو.',
     },
     decode_error: {
       en: 'Could not decode the generated image. Please retry.',
@@ -153,6 +164,14 @@ function friendlyAiCode(code: string | null | undefined, isAr: boolean): string 
     provider_quota_exceeded: {
       en: 'Google AI free-tier image quota is 0 for this API key. Enable billing in Google AI Studio (or wait for daily reset), then retry.',
       ar: 'حصة الطبقة المجانية لتوليد الصور على مفتاح واجهة البرمجة = صفر. فعّل الفوترة في استوديو جوجل للذكاء الاصطناعي (أو انتظر إعادة التعيين اليومية) ثم أعد المحاولة.',
+    },
+    payment_required: {
+      en: 'Payment required before AI image generation. Master Admin unlocks after payment.',
+      ar: 'يلزم الدفع قبل توليد الصور. الماستر يفتح الاستخدام بعد الدفع.',
+    },
+    pro_required: {
+      en: 'Pro plan required for AI Tools. Master Admin controls Pro and payment unlock.',
+      ar: 'يلزم خطة احترافية لأدوات الذكاء. الماستر يتحكم بالخطة وفتح الدفع.',
     },
   };
   const hit = map[code];
@@ -170,6 +189,8 @@ function readFileAsDataUrl(file: File): Promise<string> {
 
 export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
   onNavigateTab,
+  onBeforeGenerate,
+  onPaymentRequired,
 }) => {
   const { activeStore } = useTenant();
   const { locale } = usePrefs();
@@ -333,6 +354,35 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
     return isAr ? 'بانتظار المراجع' : 'Waiting for references';
   }, [styleRefs.length, isAr]);
 
+  const promptTrimmed = prompt.trim();
+  const runBlockReason = useMemo(() => {
+    if (kind === 'video') {
+      return isAr
+        ? 'توليد الفيديو غير متصل بعد — حالياً الصور فقط.'
+        : 'Video is not connected yet — images only for now.';
+    }
+    if (!providerReady) {
+      return isAr
+        ? 'مزود جيميني غير متصل. ضع مفتاح واجهة البرمجة على الخادم (GEMINI_API_KEY).'
+        : 'Gemini provider not connected. Set GEMINI_API_KEY on the API server.';
+    }
+    if (remaining <= 0) {
+      return isAr ? 'انتهت الحصة الشهرية لهذا المتجر.' : 'Monthly quota exhausted for this store.';
+    }
+    if (promptTrimmed.length < 8) {
+      return isAr
+        ? 'اكتب وصفاً أوضح (٨ أحرف على الأقل) ثم اضغط تشغيل.'
+        : 'Write a clearer prompt (at least 8 characters), then press Run.';
+    }
+    return null;
+  }, [kind, providerReady, remaining, promptTrimmed.length, isAr]);
+
+  const accentBtnStyle: React.CSSProperties = {
+    background: 'var(--portal-cta)',
+    color: '#fff',
+    boxShadow: '0 8px 20px -10px color-mix(in srgb, var(--portal-cta) 55%, transparent)',
+  };
+
   if (!activeStore) {
     return (
       <div className="p-8 text-sm" style={{ color: 'var(--muted)' }}>
@@ -372,6 +422,7 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
   };
 
   const handleEnhanceOnly = async () => {
+    if (onBeforeGenerate && !onBeforeGenerate()) return;
     const trimmed = prompt.trim();
     if (trimmed.length < 4) {
       toast(
@@ -416,6 +467,7 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
         (isAr ? 'فشل تحسين الموجه.' : 'Prompt enhance failed.');
       setErrorCode(String(code || 'enhance_failed'));
       setErrorDetail(msg);
+      if (code === 'payment_required' || code === 'pro_required') onPaymentRequired?.();
       toast(msg, 'error');
     } finally {
       setEnhancing(false);
@@ -423,6 +475,7 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
   };
 
   const handleGenerate = async () => {
+    if (onBeforeGenerate && !onBeforeGenerate()) return;
     const trimmed = prompt.trim();
     if (trimmed.length < 8) {
       toast(
@@ -555,6 +608,9 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
         (isAr ? 'فشل التوليد.' : 'Generation failed.');
       setErrorCode(String(code));
       setErrorDetail(msg);
+      if (String(code) === 'payment_required' || String(code) === 'pro_required') {
+        onPaymentRequired?.();
+      }
       toast(msg, 'error');
     } finally {
       setGenerating(false);
@@ -643,9 +699,9 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
       className="relative w-11 h-6 rounded-full transition-colors shrink-0 cursor-pointer"
       style={{
         background: checked
-          ? 'linear-gradient(135deg, #0f766e, #14b8a6)'
+          ? 'var(--portal-cta)'
           : 'color-mix(in srgb, var(--muted) 35%, var(--border))',
-        boxShadow: checked ? '0 0 0 3px color-mix(in srgb, #14b8a6 18%, transparent)' : undefined,
+        boxShadow: checked ? '0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent)' : undefined,
       }}
     >
       <span
@@ -662,39 +718,59 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="w-9 h-9 rounded-xl unity-icon-box text-white flex items-center justify-center shadow-xs">
-              <Wand2 className="w-4 h-4" />
+            <span
+              className="w-10 h-10 rounded-2xl text-white flex items-center justify-center shadow-xs"
+              style={{ background: 'var(--portal-cta)' }}
+            >
+              <Wand2 className="w-5 h-5" />
             </span>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight">
-              {isAr ? 'استوديو الصور بالذكاء الاصطناعي' : 'AI Images Playground'}
-            </h1>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight" style={{ color: 'var(--text)' }}>
+                {isAr ? 'استوديو الصور بالذكاء الاصطناعي' : 'AI Images Playground'}
+              </h1>
+              <p className="text-[11px] font-semibold mt-0.5" style={{ color: 'var(--muted)' }}>
+                {isAr
+                  ? 'جيميني · واجهة /ai-media/generate · عزل حسب المتجر'
+                  : 'Gemini · /ai-media/generate · per-store isolation'}
+              </p>
+            </div>
           </div>
-          <p className="text-xs max-w-xl" style={{ color: 'var(--muted)' }}>
+          <p className="text-xs max-w-2xl" style={{ color: 'var(--muted)' }}>
             {isAr
-              ? 'اكتب وصفاً وشغّل التوليد مع قفل العلامة وإعدادات التشغيل.'
-              : 'Write a prompt and run generation with Brand Lock and run settings.'}
+              ? 'اكتب وصفاً واضغط تشغيل. قفل العلامة وإعدادات التشغيل على اليمين. لا صور وهمية.'
+              : 'Write a prompt and press Run. Brand Lock and run settings are on the right. No fake images.'}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="px-2.5 py-1 rounded-full border text-[10px] font-bold" style={{ borderColor: 'var(--border)' }}>
-            {isAr ? 'صور' : 'Images'}: {quota ? `${quota.images_used}/${quota.images_limit}` : '—'}
+          <span
+            className="px-2.5 py-1 rounded-full border text-[10px] font-bold"
+            style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+          >
+            {isAr ? 'صور اليوم' : 'Images today'}:{' '}
+            {quota
+              ? `${quota.images_used_today ?? 0}/${quota.images_daily_limit ?? '—'} · ${isAr ? 'شهر' : 'mo'} ${quota.images_used}/${quota.images_limit}`
+              : '—'}
           </span>
-          <span className="px-2.5 py-1 rounded-full border text-[10px] font-bold" style={{ borderColor: 'var(--border)' }}>
+          <span
+            className="px-2.5 py-1 rounded-full border text-[10px] font-bold"
+            style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+          >
             {isAr ? 'فيديو' : 'Videos'}: {quota ? `${quota.videos_used}/${quota.videos_limit}` : '—'}
           </span>
           <span
             className="px-2.5 py-1 rounded-full text-[10px] font-black"
             style={{
               background: providerReady
-                ? 'color-mix(in srgb, #34d399 22%, transparent)'
+                ? 'color-mix(in srgb, var(--accent) 18%, transparent)'
                 : 'color-mix(in srgb, #f59e0b 22%, transparent)',
-              color: providerReady ? '#059669' : '#b45309',
+              color: providerReady ? 'var(--accent)' : '#b45309',
+              border: `1px solid ${providerReady ? 'color-mix(in srgb, var(--accent) 35%, var(--border))' : 'color-mix(in srgb, #f59e0b 40%, var(--border))'}`,
             }}
           >
             {providerReady
               ? isAr
-                ? 'المزود متصل'
-                : 'Provider ready'
+                ? 'جيميني متصل'
+                : 'Gemini ready'
               : isAr
                 ? 'غير متصل'
                 : 'Not connected'}
@@ -704,11 +780,72 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
             onClick={() => void loadAll()}
             disabled={loadingQuota}
             className="px-3 py-1.5 rounded-xl border text-[11px] font-bold flex items-center gap-1.5"
-            style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+            style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--surface)' }}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loadingQuota ? 'animate-spin' : ''}`} />
             {isAr ? 'تحديث' : 'Refresh'}
           </button>
+        </div>
+      </div>
+
+      {/* Where other AI lives */}
+      <div
+        className="rounded-2xl border p-3 sm:p-3.5"
+        style={{
+          borderColor: 'var(--border)',
+          background: 'color-mix(in srgb, var(--accent) 6%, var(--surface))',
+        }}
+      >
+        <div className="text-[11px] font-black mb-2" style={{ color: 'var(--text)' }}>
+          {isAr ? 'خريطة ميزات الذكاء الاصطناعي' : 'AI features map'}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <span
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-black text-white"
+            style={accentBtnStyle}
+          >
+            <ImageIcon className="w-3.5 h-3.5" />
+            {isAr ? 'هذه الصفحة · صور جيميني' : 'This page · Gemini images'}
+          </span>
+          <button
+            type="button"
+            onClick={() => onNavigateTab?.('media')}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-bold"
+            style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+          >
+            <FolderPlus className="w-3.5 h-3.5" />
+            {isAr ? 'مكتبة الوسائط' : 'Media Library'}
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigateTab?.('canva')}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-bold"
+            style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+          >
+            <Palette className="w-3.5 h-3.5" />
+            {isAr ? 'استوديو التصاميم' : 'Canva Studio'}
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigateTab?.('social')}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-bold"
+            style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
+          >
+            <Send className="w-3.5 h-3.5" />
+            {isAr ? 'النشر الاجتماعي' : 'Social publish'}
+          </button>
+          <span
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-bold"
+            style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--muted)' }}
+            title={
+              isAr
+                ? 'النص والصور والأتمتة من أوبن إي آي — فقط في لوحة الماستر'
+                : 'OpenAI text, images & automation — Master Admin only'
+            }
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            {isAr ? 'أوبن إي آي · الماستر فقط' : 'OpenAI · Master only'}
+          </span>
         </div>
       </div>
 
@@ -730,12 +867,12 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
             onClick={() => setKind(tab.id)}
             className="min-w-[110px] px-4 py-2 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all"
             style={{
-              background:
-                kind === tab.id
-                  ? 'linear-gradient(135deg, #059669, #0d9488)'
-                  : 'transparent',
+              background: kind === tab.id ? 'var(--portal-cta)' : 'transparent',
               color: kind === tab.id ? '#fff' : 'var(--text)',
-              boxShadow: kind === tab.id ? '0 6px 16px -8px rgba(13,148,136,0.55)' : undefined,
+              boxShadow:
+                kind === tab.id
+                  ? '0 6px 16px -8px color-mix(in srgb, var(--portal-cta) 55%, transparent)'
+                  : undefined,
             }}
           >
             <tab.Icon className="w-4 h-4" />
@@ -775,8 +912,15 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
             style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
           >
             <div className="flex items-center justify-between gap-2 mb-3">
-              <span className="text-xs font-black">{isAr ? 'النتيجة' : 'Result'}</span>
-              {result?.media.model ? (
+              <span className="text-xs font-black" style={{ color: 'var(--text)' }}>
+                {isAr ? 'النتيجة' : 'Result'}
+              </span>
+              {generating ? (
+                <span className="text-[10px] font-black flex items-center gap-1.5" style={{ color: 'var(--accent)' }}>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  {isAr ? 'جارٍ التوليد عبر جيميني…' : 'Generating via Gemini…'}
+                </span>
+              ) : result?.media.model ? (
                 <span className="text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
                   {result.media.model}
                 </span>
@@ -784,7 +928,24 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
             </div>
 
             <div className="flex-1 flex items-center justify-center min-h-[220px]">
-              {result && previewUrl ? (
+              {generating ? (
+                <div
+                  className={`rounded-xl border w-full mx-auto flex flex-col items-center justify-center gap-3 ${aspectPreviewClass}`}
+                  style={{
+                    borderColor: 'color-mix(in srgb, var(--accent) 35%, var(--border))',
+                    background: 'color-mix(in srgb, var(--accent) 6%, var(--bg))',
+                    minHeight: 220,
+                    color: 'var(--text)',
+                  }}
+                >
+                  <Loader2 className="w-10 h-10 animate-spin" style={{ color: 'var(--accent)' }} />
+                  <p className="text-[11px] font-bold text-center px-4">
+                    {isAr
+                      ? 'جاري إنشاء الصورة الحقيقية… قد يستغرق حتى دقيقة.'
+                      : 'Creating a real image… this can take up to a minute.'}
+                  </p>
+                </div>
+              ) : result && previewUrl ? (
                 <div
                   className={`rounded-xl overflow-hidden border bg-black/5 w-full mx-auto flex items-center justify-center ${aspectPreviewClass}`}
                   style={{ borderColor: 'var(--border)' }}
@@ -806,9 +967,39 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
                       ? 'النتيجة تظهر هنا بعد التشغيل — بلا صور وهمية.'
                       : 'Result appears here after you run — no fake images.'}
                   </p>
+                  {runBlockReason ? (
+                    <p className="text-[10px] font-bold text-center px-4 max-w-sm" style={{ color: '#b45309' }}>
+                      {runBlockReason}
+                    </p>
+                  ) : (
+                    <p className="text-[10px] font-bold text-center px-4" style={{ color: 'var(--accent)' }}>
+                      {isAr ? 'جاهز — اكتب وصفاً ثم اضغط تشغيل.' : 'Ready — write a prompt, then press Run.'}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
+
+            {(errorCode || errorDetail) && !generating ? (
+              <div
+                className="mt-3 rounded-xl border px-3 py-2.5 text-xs flex gap-2 items-start"
+                style={{
+                  borderColor: 'color-mix(in srgb, #ef4444 35%, var(--border))',
+                  background: 'color-mix(in srgb, #ef4444 8%, transparent)',
+                  color: 'var(--text)',
+                }}
+              >
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />
+                <div className="min-w-0">
+                  <div className="font-bold">{errorDetail || friendlyAiCode(errorCode, isAr)}</div>
+                  {errorCode ? (
+                    <div className="mt-1 text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
+                      {isAr ? 'رمز الحالة:' : 'Status code:'} {errorCode}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
 
             {result && previewUrl ? (
               <div className="mt-3 flex flex-wrap gap-2 items-center">
@@ -839,7 +1030,7 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
                   type="button"
                   onClick={() => setPostOpen(true)}
                   className="px-3 py-2 rounded-xl text-[11px] font-black text-white flex items-center gap-1.5"
-                  style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}
+                  style={accentBtnStyle}
                 >
                   <Send className="w-3.5 h-3.5" />
                   {isAr ? 'نشر على وسائل التواصل' : 'Post to social'}
@@ -909,17 +1100,21 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => void handleGenerate()}
-                disabled={
-                  generating ||
-                  enhancing ||
-                  remaining <= 0 ||
-                  kind === 'video' ||
-                  !providerReady
-                }
+                onClick={() => {
+                  if (runBlockReason) {
+                    toast(runBlockReason, 'error');
+                    return;
+                  }
+                  void handleGenerate();
+                }}
+                disabled={generating || enhancing}
+                title={runBlockReason || undefined}
                 aria-busy={generating}
                 className="px-4 h-11 rounded-xl text-[11px] font-black text-white flex items-center gap-1.5 shrink-0 disabled:opacity-50"
-                style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}
+                style={{
+                  ...accentBtnStyle,
+                  opacity: runBlockReason && !generating ? 0.72 : undefined,
+                }}
               >
                 {generating ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -939,6 +1134,11 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
                       : 'Run'}
               </button>
             </div>
+            {runBlockReason && !generating ? (
+              <p className="text-[10px] font-semibold px-1" style={{ color: '#b45309' }}>
+                {runBlockReason}
+              </p>
+            ) : null}
 
             {productDataUrl ? (
               <div className="flex items-center gap-2 flex-wrap">
@@ -982,8 +1182,8 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
               <div
                 className="rounded-xl border px-3 py-2 text-[10px] leading-relaxed"
                 style={{
-                  borderColor: 'color-mix(in srgb, #0d9488 35%, var(--border))',
-                  background: 'color-mix(in srgb, #0d9488 6%, transparent)',
+                  borderColor: 'color-mix(in srgb, var(--accent) 35%, var(--border))',
+                  background: 'color-mix(in srgb, var(--accent) 6%, transparent)',
                   color: 'var(--muted)',
                 }}
               >
@@ -1070,17 +1270,17 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
                       className="rounded-lg border px-1 py-2 flex flex-col items-center gap-1 transition-all"
                       style={{
                         borderColor: active
-                          ? 'color-mix(in srgb, #0d9488 55%, var(--border))'
+                          ? 'color-mix(in srgb, var(--accent) 55%, var(--border))'
                           : 'var(--border)',
                         background: active
-                          ? 'color-mix(in srgb, #0d9488 14%, var(--bg))'
+                          ? 'color-mix(in srgb, var(--accent) 14%, var(--bg))'
                           : 'var(--bg)',
                       }}
                     >
                       <span
                         className={`${aspectBoxClass(a.id)} rounded-[2px] border-2`}
                         style={{
-                          borderColor: active ? '#0d9488' : 'var(--muted)',
+                          borderColor: active ? 'var(--accent)' : 'var(--muted)',
                           opacity: active ? 1 : 0.5,
                         }}
                       />
@@ -1115,9 +1315,7 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
                       onClick={() => setImageSize(s.id)}
                       className="px-2 py-2 rounded-xl text-[11px] font-black transition-all disabled:opacity-35 disabled:cursor-not-allowed"
                       style={{
-                        background: active
-                          ? 'linear-gradient(135deg, #0f766e, #0d9488)'
-                          : 'transparent',
+                        background: active ? 'var(--portal-cta)' : 'transparent',
                         color: active ? '#fff' : 'var(--text)',
                       }}
                       title={disabled ? (isAr ? 'يتطلب نموذج برو' : 'Requires Pro model') : undefined}
@@ -1151,15 +1349,19 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
               className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5"
               style={{
                 borderColor: brandLock
-                  ? 'color-mix(in srgb, #0d9488 45%, var(--border))'
+                  ? 'color-mix(in srgb, var(--accent) 45%, var(--border))'
                   : 'var(--border)',
                 background: brandLock
-                  ? 'color-mix(in srgb, #0d9488 8%, var(--bg))'
+                  ? 'color-mix(in srgb, var(--accent) 8%, var(--bg))'
                   : 'var(--bg)',
               }}
             >
               <div className="flex items-center gap-2 min-w-0">
-                {brandLock ? <Lock className="w-3.5 h-3.5 shrink-0" /> : <Unlock className="w-3.5 h-3.5 shrink-0" />}
+                {brandLock ? (
+                  <Lock className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--accent)' }} />
+                ) : (
+                  <Unlock className="w-3.5 h-3.5 shrink-0" />
+                )}
                 <div className="min-w-0">
                   <div className="text-[11px] font-black">{isAr ? 'قفل العلامة التجارية' : 'Brand Lock'}</div>
                   <div className="text-[9px] font-semibold" style={{ color: 'var(--muted)' }}>
@@ -1492,27 +1694,6 @@ export const StoreAiMediaGenerator: React.FC<StoreAiMediaGeneratorProps> = ({
           e.target.value = '';
         }}
       />
-
-      {(errorCode || errorDetail) && (
-        <div
-          className="rounded-xl border px-4 py-3 text-xs flex gap-2 items-start"
-          style={{
-            borderColor: 'color-mix(in srgb, #ef4444 35%, var(--border))',
-            background: 'color-mix(in srgb, #ef4444 8%, transparent)',
-            color: 'var(--text)',
-          }}
-        >
-          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />
-          <div>
-            <div className="font-bold">{errorDetail || friendlyAiCode(errorCode, isAr)}</div>
-            {errorCode ? (
-              <div className="mt-1 text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
-                {isAr ? 'رمز الحالة:' : 'Status code:'} {errorCode}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      )}
 
       {postOpen && previewUrl ? (
         <CanvaSocialPostModal

@@ -20,6 +20,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+.tmp*
+tsc-*.txt
 
 # Environment & Secrets (NEVER COMMIT CREDENTIALS)
 .env
@@ -34,6 +36,7 @@ public/seo-db.local.php
 backups/
 *.sql.gz
 *.sql.tar.gz
+designs/
 
 # Editor & OS files
 .DS_Store
@@ -49,6 +52,10 @@ ehthumbs.db
 *.sln
 *.sw?
 
+# Large PPTX → Design Studio packs (regenerate via scripts/import-pptx-pack-to-studio.ts)
+/data/pptx-studio-pack/
+/public/pptx-studio-pack/
+
 # Temporary files & Caches
 .eslintcache
 .stylelintcache
@@ -60,3 +67,34 @@ _chrome_profile*/
 _vite_*.log
 _vite_pid.txt
 _diag_*.mjs
+
+# Root agent/deploy junk (never re-commit) — leading / = repo root only
+/_organize_*.ps1
+/_cleanup_*.log
+/_cleanup_*.txt
+# Old dists and extract archives
+/dist-old*/
+/dist_old*/
+*.zip
+*.docx
+docs/_incoming/
+docs/coffee-store-theme-extract/
+/*.txt
+!requirements.txt
+/designs/
+/_*.log
+/_*.html
+/_*.js
+/_*.mjs
+/_*.cjs
+/_*.json
+/_*.php
+/tmp_*
+/build-*.txt
+/deploy-*.txt
+/tsc_*.txt
+/all_emojis_found.txt
+/theme_coffee_live.json
+/extract_docs.php
+/New folder/
+/_newfolder_changes_backup/

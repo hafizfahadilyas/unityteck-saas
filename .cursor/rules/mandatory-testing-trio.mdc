@@ -24,6 +24,11 @@ alwaysApply: true
 - Check Performance + Accessibility + Best Practices + SEO (public pages).
 - No fake score decoration — real report only. Regressions → fix or call out clearly.
 
+## Deploy gate (user order)
+- **Deploy se pehle** run: `npm run gate:predeploy` (shipping probe + `smoke:live` + `vite build`).
+- Gitleaks missing locally → scan changed paths for keys/tokens; install Gitleaks when possible.
+- **No deploy** if gate fails; fix bugs first, then `deploy:fast*` / `deploy:api`.
+
 ## When to run
 - After meaningful UI, API, auth, SEO, or deploy-path changes.
 - Before claiming **Ho gaya** on Master or any store.

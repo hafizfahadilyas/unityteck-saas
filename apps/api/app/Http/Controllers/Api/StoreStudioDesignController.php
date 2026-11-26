@@ -20,7 +20,25 @@ class StoreStudioDesignController extends Controller
         }
 
         $editorType = $request->query('editor_type');
+        $perPage = min(50, max(1, (int) $request->query('per_page', 10)));
+        $page = max(1, (int) $request->query('page', 1));
+
+        // CRITICAL: never SELECT design_json here — PPTX packs are multi‑MB and hang list/home.
+        // Full layers only via show() / GET /studio-designs/{id}.
         $q = StoreStudioDesign::query()
+            ->select([
+                'id',
+                'store_id',
+                'editor_type',
+                'category',
+                'title',
+                'width',
+                'height',
+                'preview_media_id',
+                'source',
+                'created_at',
+                'updated_at',
+            ])
             ->where('store_id', $storeId)
             ->orderByDesc('updated_at');
 
@@ -28,8 +46,51 @@ class StoreStudioDesignController extends Controller
             $q->where('editor_type', $editorType);
         }
 
+        $total = (clone $q)->count();
+        $rows = $q->forPage($page, $perPage)->get()->map(static function (StoreStudioDesign $row) {
+            $source = (string) ($row->source ?? 'studio');
+            $id = (string) $row->id;
+            $fromPptx = $source === 'pptx'
+                || $source === 'master'
+                || str_starts_with($id, 'dsd-pptx-');
+
+            return [
+                'id' => $row->id,
+                'store_id' => $row->store_id,
+                'editor_type' => $row->editor_type,
+                'category' => $row->category,
+                'title' => $row->title,
+                'width' => $row->width,
+                'height' => $row->height,
+                'design_json' => [
+                    'fromPptxPack' => $fromPptx,
+                    'packKey' => null,
+                    'masterDistributed' => $source === 'master',
+                    'masterLibrary' => false,
+                    'category' => $row->category,
+                    'source' => $source,
+                    'width' => $row->width,
+                    'height' => $row->height,
+                    'layerCount' => 0,
+                    'layers' => [],
+                    'needsLayersFetch' => true,
+                    'previewDataUrl' => null,
+                ],
+                'preview_media_id' => $row->preview_media_id,
+                'source' => $row->source,
+                'created_at' => $row->created_at,
+                'updated_at' => $row->updated_at,
+            ];
+        })->values();
+
         return response()->json([
-            'data' => $q->limit(80)->get(),
+            'data' => $rows,
+            'meta' => [
+                'page' => $page,
+                'per_page' => $perPage,
+                'total' => $total,
+                'has_more' => ($page * $perPage) < $total,
+            ],
         ]);
     }
 

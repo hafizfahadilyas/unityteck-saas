@@ -1076,12 +1076,17 @@ function souq_session_lite_dispatch(PDO $pdo, string $uri, string $method, strin
             $trafficSources = [];
         }
 
+        $visitorsByAge = function_exists('souq_visitors_by_age')
+            ? souq_visitors_by_age($pdo, $storeId)
+            : [];
+
         echo json_encode([
             'store_id' => $storeId,
             'visitors_count' => $visitors,
             'visits_growth' => null,
             'visits_by_weekday' => $weekday,
             'traffic_sources' => $trafficSources,
+            'visitors_by_age' => $visitorsByAge,
         ]);
         return true;
     }

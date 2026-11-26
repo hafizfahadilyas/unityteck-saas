@@ -135,7 +135,14 @@ export function itemDisplayName(
 }
 
 export function itemDisplayImage(item: ProductSliderItem, catalog?: SliderCatalogProduct | null): string {
-  return (item.image || catalogProductImage(catalog) || '').trim();
+  const raw = (item.image || catalogProductImage(catalog) || '').trim();
+  // Legacy white-marble / golden / JPG → current black-gold transparent PNG.
+  // Dynamic import avoided — keep sync remap inline for slider perf.
+  if (/ksa_almari_white_marble|ksa_almari_golden|ksa_almari_black_gold|hb_jeddah_blackgold|almari-white-marble/i.test(raw)) {
+    return '/images/hb_jeddah_blackgold_cut_1125.png';
+  }
+  const m = raw.match(/^(.*\/images\/ksa_almari_[a-z0-9_]+)\.(jpe?g|webp)(\?.*)?$/i);
+  return m ? `${m[1]}.png${m[3] || ''}` : raw;
 }
 
 export function itemDisplayPrice(

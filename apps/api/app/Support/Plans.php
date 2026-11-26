@@ -51,6 +51,21 @@ final class Plans
                 'team_seats' => 5,
                 'features' => ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'media_studio', 'whatsapp'],
             ],
+            // Souq common-theme Starter (docs/36 · 100 SAR / month)
+            'starter' => [
+                'id' => 'plan-starter',
+                'name' => 'Starter',
+                'name_ar' => 'أساسي',
+                'price_sar' => 100,
+                'product_limit' => 250,
+                'order_limit' => 500,
+                'storage_mb' => 2048,
+                'team_seats' => 2,
+                'features' => [
+                    'catalog', 'orders', 'basic_seo', 'seo', 'coupons', 'shipping',
+                    'themes_basic', 'media_studio', 'whatsapp',
+                ],
+            ],
             'pro' => [
                 'id' => 'plan-pro',
                 'name' => 'Pro',
@@ -63,7 +78,7 @@ final class Plans
                 'features' => [
                     'catalog', 'orders', 'seo', 'coupons', 'shipping',
                     'analytics', 'reports', 'themes_basic', 'themes', 'media_studio', 'custom_domain',
-                    'whatsapp', 'social',
+                    'whatsapp', 'social', 'openai_mgmt',
                 ],
             ],
             'premium' => [
@@ -78,7 +93,7 @@ final class Plans
                 'features' => [
                     'catalog', 'orders', 'seo', 'coupons', 'shipping',
                     'analytics', 'reports', 'themes_basic', 'themes', 'media_studio', 'custom_domain',
-                    'whatsapp', 'social',
+                    'whatsapp', 'social', 'openai_mgmt',
                     'backups', 'zatca', 'ai', 'api_access', 'advanced_seo', 'advanced_analytics',
                 ],
             ],
@@ -100,7 +115,7 @@ final class Plans
     {
         $c = strtolower(trim((string) $code));
 
-        return in_array($c, ['free', 'paid', 'pro', 'premium', 'custom'], true) ? $c : 'free';
+        return in_array($c, ['free', 'paid', 'starter', 'pro', 'premium', 'custom'], true) ? $c : 'free';
     }
 
     /**
@@ -109,7 +124,7 @@ final class Plans
     public static function effectiveCode(Store $store): string
     {
         $code = self::normalizeCode($store->plan);
-        if ($store->master_granted_pro && in_array($code, ['free', 'paid'], true)) {
+        if ($store->master_granted_pro && in_array($code, ['free', 'paid', 'starter'], true)) {
             return 'pro';
         }
 

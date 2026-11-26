@@ -69,10 +69,23 @@ export const ProductDetailPage: React.FC = () => {
     return resolveStoreContact(activeStore.id, activeStore).whatsappDigits;
   }, [activeStore]);
 
-  // Read URL query parameter for product identification
-  const urlProductId = typeof window !== 'undefined'
-    ? new URLSearchParams(window.location.search).get('product') || new URLSearchParams(window.location.search).get('id')
-    : null;
+  // Short path `/flowers/product/{id}` or legacy `?product=`
+  const urlProductId =
+    typeof window !== 'undefined'
+      ? (() => {
+          const path = String(window.location.pathname || '').replace(/\/$/, '') || '/';
+          const m = path.match(/(?:^|\/)(?:product|buy)\/([^/]+)$/i);
+          if (m) {
+            try {
+              return decodeURIComponent(m[1]).trim() || null;
+            } catch {
+              return String(m[1] || '').trim() || null;
+            }
+          }
+          const q = new URLSearchParams(window.location.search);
+          return (q.get('product') || q.get('id') || '').trim() || null;
+        })()
+      : null;
 
   // Resolve product strictly from real store products
   const product: Product | null = useMemo(() => {

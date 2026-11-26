@@ -18,10 +18,12 @@ import { AdvancedDataTable, type AdvancedTableColumn } from '../common/AdvancedD
 import { AdvancedFilterBar } from '../common/AdvancedFilterBar';
 import { pipelineAdvancedList, useAdvancedListState } from '../../hooks/useAdvancedListState';
 import { MasterHelpChatInbox } from './MasterHelpChatInbox';
+import { MasterAiDeveloperPanel } from './MasterAiDeveloperPanel';
 
 type CsTab =
   | 'tickets'
   | 'aichat'
+  | 'aidev'
   | 'complaints'
   | 'surveys'
   | 'announcements'
@@ -76,7 +78,7 @@ export const MasterSupportCenter: React.FC = () => {
   }, [isAr, toast]);
 
   const loadCms = useCallback(
-    async (tab: Exclude<CsTab, 'tickets' | 'aichat'>) => {
+    async (tab: Exclude<CsTab, 'tickets' | 'aichat' | 'aidev'>) => {
       setBusy(true);
       try {
         const collection = tab as MasterCsCollection;
@@ -95,7 +97,7 @@ export const MasterSupportCenter: React.FC = () => {
 
   useEffect(() => {
     if (csTab === 'tickets') void loadTickets();
-    else if (csTab !== 'aichat') void loadCms(csTab);
+    else if (csTab !== 'aichat' && csTab !== 'aidev') void loadCms(csTab);
   }, [csTab, loadTickets, loadCms]);
 
   const create = async () => {
@@ -153,7 +155,7 @@ export const MasterSupportCenter: React.FC = () => {
       toast(isAr ? 'العنوان مطلوب' : 'Title required', 'error');
       return;
     }
-    if (csTab === 'tickets' || csTab === 'aichat') return;
+    if (csTab === 'tickets' || csTab === 'aichat' || csTab === 'aidev') return;
     try {
       if (csTab === 'help') {
         await createMasterCsItem('help', {
@@ -179,7 +181,7 @@ export const MasterSupportCenter: React.FC = () => {
   };
 
   const closeCms = async (id: string) => {
-    if (csTab === 'tickets' || csTab === 'aichat' || csTab === 'help') return;
+    if (csTab === 'tickets' || csTab === 'aichat' || csTab === 'aidev' || csTab === 'help') return;
     try {
       await patchMasterCsItem(csTab, id, { status: 'closed' });
       toast(isAr ? 'تم الإغلاق' : 'Closed', 'success');
@@ -462,6 +464,7 @@ export const MasterSupportCenter: React.FC = () => {
         tabs={[
           { id: 'tickets', label: isAr ? 'التذاكر' : 'Tickets' },
           { id: 'aichat', label: isAr ? 'محادثة المساعدة' : 'Help Chat AI' },
+          { id: 'aidev', label: isAr ? 'تشخيص المطوّر' : 'AI Developer' },
           { id: 'complaints', label: isAr ? 'الشكاوى' : 'Complaints' },
           { id: 'surveys', label: isAr ? 'الاستبيانات' : 'Surveys' },
           { id: 'announcements', label: isAr ? 'الإعلانات' : 'Announcements' },
@@ -473,6 +476,10 @@ export const MasterSupportCenter: React.FC = () => {
       {csTab === 'aichat' ? (
         <div className="mt-4">
           <MasterHelpChatInbox />
+        </div>
+      ) : csTab === 'aidev' ? (
+        <div className="mt-4">
+          <MasterAiDeveloperPanel />
         </div>
       ) : csTab === 'tickets' ? (
         <>

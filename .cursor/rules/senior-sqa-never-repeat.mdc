@@ -1,0 +1,27 @@
+---
+description: Senior SQA — never repeat live DB/SEO/i18n/mock mistakes; probe before Ho gaya
+alwaysApply: true
+---
+
+# Senior SQA · Never Repeat (LOCKED)
+
+**Role:** Agent = Senior SQA on every slice. Code-only “done” = **banned**.
+
+## Before claiming Ho gaya
+1. Live probe the **affected host** (`giftshop-sa.com` / `mieraf-ksa.com`): health, resolve-domain, catalog/products, robots, sitemap as relevant.
+2. Flowers health **must** be `active_live_mysql` — never accept `active_live_sqlite` / MySQL Access Denied as OK.
+3. Re-probe after fix. Mismatch KPI vs API (e.g. ordersCount 0 but orders exist) = **open bug**.
+
+## Never ship / never ignore
+- **SEO:** Per-host `robots.txt` + `sitemap.xml` only that store’s origin. No `bashayer-logistics`, `saudi-stores.com`, `Allow: /src/`, or empty product sitemap when catalog has rows.
+- **i18n:** AR chrome = Arabic only; EN = English only. No mixed strings (`Coming Soon` in AR, EN hero on AR home, EN PDP body under AR title).
+- **Zero mock:** No invent ROAS/growth/visits (`orders×N`, hardcoded `6.12x`). No live-path `INITIAL_*` hydrate on API fail.
+- **Isolation:** No `|| 'store-1'` / Flora theme default for other tenants. Store A query must not decorate Store B.
+- **Images:** No live `/src/assets/images/` in API nested fields; normalize to `/images/`. Prefer own CDN/host over fragile external CDNs when fixing.
+- **SSR/SEO pages:** Public home + PDP must expose real text to crawlers — blank home with full `/products` = blocker.
+
+## Fix order when many bugs
+DB/MySQL → robots/sitemap → blank storefront/SSR → i18n mix → fake KPIs/mocks → image paths → then login/dashboard session matrix.
+
+## Status
+End with **Ho gaya** / **Baqi** + what HTTP/health codes were after probe. Deploy only if user explicitly asks.

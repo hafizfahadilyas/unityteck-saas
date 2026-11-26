@@ -17,14 +17,43 @@ class UpsCourierService implements CourierInterface
 
     public function testConnection(CourierConnection $connection): array
     {
-        if (empty($connection->api_key)) {
-            return ['success' => false, 'message' => 'UPS OAuth Client ID / Key is required.'];
+        if (empty($connection->api_key) || empty($connection->api_secret)) {
+            return [
+                'success' => false,
+                'message' => 'UPS OAuth Client ID and Client Secret are required.',
+                'health_status' => 'credentials_missing',
+            ];
         }
 
-        return [
-            'success' => false,
-            'message' => 'UPS live API test not confirmed. Verify with a real create/track call.',
-        ];
+        try {
+            $tokenResp = Http::asForm()
+                ->withBasicAuth((string) $connection->api_key, (string) $connection->api_secret)
+                ->timeout(8)
+                ->post($this->getBaseUrl($connection).'/security/v1/oauth/token', [
+                    'grant_type' => 'client_credentials',
+                ]);
+
+            if ($tokenResp->successful() && !empty($tokenResp->json()['access_token'])) {
+                return [
+                    'success' => true,
+                    'message' => 'UPS OAuth authenticated successfully (non-destructive).',
+                    'health_status' => $connection->is_sandbox ? 'sandbox_verified' : 'connected',
+                ];
+            }
+
+            return [
+                'success' => false,
+                'message' => 'UPS OAuth authentication failed (HTTP '.$tokenResp->status().').',
+                'health_status' => 'authentication_failed',
+                'raw' => $tokenResp->json(),
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'UPS connection failed: '.$e->getMessage(),
+                'health_status' => 'connection_failed',
+            ];
+        }
     }
 
     public function createShipment(CourierConnection $connection, Order $order, array $params = []): array

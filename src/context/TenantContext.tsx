@@ -36,7 +36,9 @@ import {
   resolveDomainLocal,
   resolveDomainDynamic,
   normalizeHostname,
+  centralSubdomainSlug,
 } from '../services/domainRoutingService';
+import { storeIdFromPublicLocation } from '../utils/storefrontLinks';
 import { 
   INITIAL_STORES, 
   INITIAL_CUSTOMERS, 
@@ -690,6 +692,10 @@ export function createFallbackTenantContext(): TenantContextType {
       connectedAt: null,
       ga4MeasurementId: '',
       gtmContainerId: '',
+      tiktokPixelId: '',
+      tiktokAccessToken: '',
+      snapchatPixelId: '',
+      snapchatApiToken: '',
       searchConsoleConnected: false,
       searchConsoleVerificationTag: '',
       indexingApiEnabled: false,
@@ -834,26 +840,47 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return 'store-bleco';
         }
         const host = (window.location.hostname || '').toLowerCase().replace(/^www\./, '');
-        if (s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee') || p.startsWith('/public_html') || host === 'mieraf-ksa.com') {
+        const pathSlugMatchInit = p.match(/^\/store\/([^/]+)\/?$/);
+        const pathSlugInit =
+          pathSlugMatchInit &&
+          !['login', 'register', 'forgot-password', 'reset-password'].includes(pathSlugMatchInit[1])
+            ? pathSlugMatchInit[1]
+            : '';
+        const storeHint = (s || pathSlugInit).toLowerCase();
+
+        // Explicit store query/path wins over apex-host coffee default
+        if (storeHint === 'souq-default' || storeHint === 'store-souq-default') {
+          return 'store-souq-default';
+        }
+        if (s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee') || p.startsWith('/public_html')) {
           return 'store-coffee';
         }
         if (s === 'flowers' || s === 'store-1' || s === 'hadaya' || s === 'makkah' || s === 'giftshop' || p.startsWith('/flowers') || p.startsWith('/hadaya')) {
           return 'store-1';
         }
-        if (s) {
-          const matched = INITIAL_STORES.find(st => st.id.toLowerCase() === s || st.slug?.toLowerCase() === s);
+        if (storeHint) {
+          const matched = INITIAL_STORES.find(
+            (st) => st.id.toLowerCase() === storeHint || st.slug?.toLowerCase() === storeHint,
+          );
           if (matched) return matched.id;
-          if (s.startsWith('store-')) return s;
+          if (storeHint.startsWith('store-')) return storeHint;
         }
 
         // 2. Multi-Domain & Subdomain Hostname Detection (Phase 6.1)
         const hostParam = q.get('test_domain') || q.get('host');
         const effectiveHostname = hostParam || (typeof window !== 'undefined' ? window.location.hostname : '');
         if (effectiveHostname) {
+          const centralSlug = centralSubdomainSlug(effectiveHostname);
+          if (centralSlug === 'souq-default') return 'store-souq-default';
           const domRes = resolveDomainLocal(effectiveHostname, INITIAL_STORES, INITIAL_DOMAINS);
           if (domRes.resolved && domRes.storeId) {
             return domRes.storeId;
           }
+        }
+
+        // Apex central host (no store param / subdomain) → coffee flagship
+        if (host === 'mieraf-ksa.com' && !storeHint) {
+          return 'store-coffee';
         }
 
         // 3. Active Session Priority (only when no explicit store parameter in URL)
@@ -922,14 +949,15 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           p.startsWith('/bleco')
         ) {
           targetId = 'store-bleco';
+        } else if (s === 'souq-default' || s === 'store-souq-default') {
+          targetId = 'store-souq-default';
         } else if (
           s === 'coffee' ||
           s === 'store-coffee' ||
           s === 'coffee-store' ||
           s === 'roasters' ||
           p.startsWith('/coffee') ||
-          p.startsWith('/public_html') ||
-          (window.location.hostname || '').toLowerCase().replace(/^www\./, '') === 'mieraf-ksa.com'
+          p.startsWith('/public_html')
         ) {
           targetId = 'store-coffee';
         } else if (s === 'flowers' || s === 'store-1' || s === 'hadaya' || s === 'makkah' || s === 'giftshop' || p.startsWith('/flowers') || p.startsWith('/hadaya')) {
@@ -938,6 +966,11 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const matched = storesRef.current.find(st => st.id.toLowerCase() === s || st.slug?.toLowerCase() === s);
           if (matched) targetId = matched.id;
           else if (s.startsWith('store-')) targetId = s;
+        } else {
+          const hostNow = (window.location.hostname || '').toLowerCase().replace(/^www\./, '');
+          const centralSlug = centralSubdomainSlug(hostNow);
+          if (centralSlug === 'souq-default') targetId = 'store-souq-default';
+          else if (hostNow === 'mieraf-ksa.com') targetId = 'store-coffee';
         }
 
         if (targetId && targetId !== activeStoreIdRef.current) {
@@ -1631,7 +1664,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           tenantApi.fetchShippingMethods(storeId),
           tenantApi.fetchCouriers(storeId),
           tenantApi.fetchPaymentGateways(storeId),
-          tenantApi.fetchPaymentTransactions(storeId),
+          tenantApi.fetchPaymentTransactions(storeId, { per_page: '100' }),
           tenantApi.fetchDomainsApi(storeId),
           tenantApi.fetchCourierShipments(storeId),
         ]);
@@ -1651,14 +1684,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (s7.status === 'fulfilled' && Array.isArray(s7.value) && s7.value.length > 0) {
           setCouriersMap((prev) => ({ ...prev, [storeId]: s7.value }));
         }
-        if (s8.status === 'fulfilled' && Array.isArray(s8.value) && s8.value.length > 0) {
+        // Accept empty [] so Not Connected is real (never keep stale/demo gateways)
+        if (s8.status === 'fulfilled' && Array.isArray(s8.value)) {
           setPaymentGatewaysMap((prev) => ({ ...prev, [storeId]: s8.value }));
         }
         if (s9.status === 'fulfilled') {
           const tx = s9.value as { data?: PaymentTransactionItem[] };
-          if (tx?.data && tx.data.length > 0) {
-            setPaymentTransactionsMap((prev) => ({ ...prev, [storeId]: tx.data as PaymentTransactionItem[] }));
-          }
+          const list = Array.isArray(tx?.data) ? (tx.data as PaymentTransactionItem[]) : [];
+          setPaymentTransactionsMap((prev) => ({ ...prev, [storeId]: list }));
         }
         if (s10.status === 'fulfilled' && Array.isArray(s10.value) && s10.value.length > 0) {
           setDomains((prev) => {
@@ -1983,11 +2016,23 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
     window.addEventListener('unityteck-customers-updated', onCustomers);
     const onStoreIdentity = (event: Event) => {
-      const detail = (event as CustomEvent<{ storeId?: string; name?: string; logo?: string }>).detail;
+      const detail = (
+        event as CustomEvent<{
+          storeId?: string;
+          name?: string;
+          nameEn?: string;
+          nameAr?: string;
+          logo?: string;
+          favicon?: string;
+        }>
+      ).detail;
       const storeId = (detail?.storeId || '').trim();
       if (!storeId) return;
       const nextLogo = resolveStoreLogoSrc(detail?.logo);
       const nextName = typeof detail?.name === 'string' ? detail.name.trim() : '';
+      const nextNameEn = typeof detail?.nameEn === 'string' ? detail.nameEn.trim() : '';
+      const nextNameAr = typeof detail?.nameAr === 'string' ? detail.nameAr.trim() : '';
+      const nextFavicon = typeof detail?.favicon === 'string' ? detail.favicon.trim() : '';
       setStores((prev) =>
         prev.map((s) => {
           if (s.id !== storeId) return s;
@@ -1995,6 +2040,11 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             ...s,
             ...(nextLogo ? { logo: nextLogo } : {}),
             ...(nextName ? { name: nextName } : {}),
+            ...(nextNameEn ? { nameEn: nextNameEn } : {}),
+            ...(nextNameAr ? { nameAr: nextNameAr } : {}),
+            ...(nextFavicon || detail?.favicon === ''
+              ? { favicon: nextFavicon || undefined }
+              : {}),
           };
         }),
       );
@@ -2071,7 +2121,29 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const apiStores = await tenantApi.fetchStores();
           if (cancelled) return;
           if (Array.isArray(apiStores) && apiStores.length > 0) {
-            setStores((prev) => (prev.length > 0 ? prev : apiStores));
+            // Always merge live contact fields (phone/whatsapp/email) — never keep
+            // INITIAL_STORES without phone (breaks storefront WhatsApp buttons).
+            setStores((prev) => {
+              if (!prev.length) return apiStores;
+              const byId = new Map(apiStores.map((s) => [s.id, s]));
+              const merged = prev.map((s) => {
+                const live = byId.get(s.id);
+                if (!live) return s;
+                return {
+                  ...s,
+                  ...live,
+                  phone: live.phone || s.phone,
+                  email: live.email || s.email,
+                  name: live.name || s.name,
+                  logo: live.logo || s.logo,
+                };
+              });
+              const known = new Set(merged.map((s) => s.id));
+              for (const live of apiStores) {
+                if (!known.has(live.id)) merged.push(live);
+              }
+              return merged;
+            });
           }
           const ids = Array.from(new Set([
             ...(Array.isArray(apiStores) ? apiStores.map((s) => s.id) : []),
@@ -2115,11 +2187,34 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           ).catch(() => undefined);
         }
         if (cancelled) return;
+        // Lifetime: API_MODE stays on the live guest-readable path even before Sanctum PAT.
+        // Setting dataSource='mock' previously blocked StoreProducts (dataSource!=='api')
+        // and left coffee/flowers dashboards empty while MySQL still had rows.
+        if (API_MODE) {
+          dataSourceRef.current = 'api';
+          setDataSource('api');
+          setOrdersMap((prev) => (Object.keys(prev).length > 0 ? prev : {}));
+          setCustomersMap((prev) => (Object.keys(prev).length > 0 ? prev : {}));
+          setCouponsMap((prev) => (Object.keys(prev).length > 0 ? prev : {}));
+          setShippingMap((prev) => (Object.keys(prev).length > 0 ? prev : {}));
+          if (!cancelled) {
+            setApiError(null);
+            setApiReady(true);
+          }
+          void loadCatalogsAnyway();
+          const sid =
+            activeStoreIdRef.current ||
+            (typeof pending?.storeId === 'string' ? pending.storeId : '') ||
+            '';
+          if (sid) {
+            void loadStoreScopedData(sid, { tier: 'core' }).catch(() => undefined);
+          }
+          return;
+        }
         dataSourceRef.current = 'mock';
         setDataSource('mock');
-        setStores((prev) => (prev.length > 0 ? prev : (API_MODE ? prev : INITIAL_STORES)));
+        setStores((prev) => (prev.length > 0 ? prev : INITIAL_STORES));
         setProductsMap((prev) => {
-          if (API_MODE) return prev;
           const next = { ...prev };
           let healed = false;
           Object.keys(INITIAL_PRODUCTS).forEach((id) => {
@@ -2139,16 +2234,13 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return Object.keys(next).length > 0 ? next : INITIAL_PRODUCTS;
         });
         setOrdersMap((prev) => (Object.keys(prev).length > 0 ? prev : {}));
-        setCustomersMap((prev) => (Object.keys(prev).length > 0 ? prev : (API_MODE ? {} : INITIAL_CUSTOMERS)));
-        // Live API path: never hydrate INITIAL coupons/shipping (zero-mock)
-        setCouponsMap((prev) => (Object.keys(prev).length > 0 ? prev : (API_MODE ? {} : INITIAL_COUPONS)));
-        setShippingMap((prev) => (Object.keys(prev).length > 0 ? prev : (API_MODE ? {} : INITIAL_SHIPPING)));
+        setCustomersMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_CUSTOMERS));
+        setCouponsMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_COUPONS));
+        setShippingMap((prev) => (Object.keys(prev).length > 0 ? prev : INITIAL_SHIPPING));
         if (!cancelled) {
           setApiError(null);
           setApiReady(true);
         }
-        void loadCatalogsAnyway();
-        // No Sanctum PAT yet → never hit /orders|/customers (401 spam). Wait for exchange.
         return;
       }
 
@@ -2285,9 +2377,10 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return q.get('fullscreen') === '1' || q.get('preview') === '1' || q.get('tab') === 'storefront';
       })();
 
-    if (previewOnly || dataSource !== 'api' || !hasLiveApiAuth()) {
-      let cancelled = false;
-      // Public catalog only when not live-authed — skip admin orders/customers (401).
+    let cancelled = false;
+
+    if (previewOnly) {
+      // Storefront preview: catalog only — never spam admin commerce endpoints.
       const recentlyLoaded = Date.now() - (storeLoadedAtRef.current[activeStoreId] || 0) < 45_000;
       if (!recentlyLoaded) {
         tenantApi.fetchStorefrontCatalogPage(activeStoreId, 1, 24).then((page) => {
@@ -2302,13 +2395,21 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       };
     }
 
+    // Lifetime: guest-readable products/orders/customers never wait on Sanctum PAT.
+    // Hostinger PHP gateway allows store-scoped GETs; empty dashboards were a frontend gate bug.
     if (Date.now() - (storeLoadedAtRef.current[activeStoreId] || 0) < 12_000) {
       return;
     }
 
-    let cancelled = false;
+    void tenantApi.fetchStorefrontCatalogPage(activeStoreId, 1, 24).then((page) => {
+      if (!cancelled && Array.isArray(page.data) && page.data.length > 0) {
+        applyProductsFromApi(activeStoreId, page.data, page.total);
+        storeLoadedAtRef.current[activeStoreId] = Date.now();
+      }
+    }).catch(() => {});
+
     void loadStoreScopedData(activeStoreId, { tier: 'core' }).then(() => {
-      if (cancelled) return;
+      if (cancelled || !hasLiveApiAuth()) return;
       const scheduleRest = () => {
         if (!cancelled) void loadStoreScopedData(activeStoreId, { tier: 'rest' });
       };
@@ -2354,6 +2455,10 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       connectedAt: null,
       ga4MeasurementId: '',
       gtmContainerId: '',
+      tiktokPixelId: '',
+      tiktokAccessToken: '',
+      snapchatPixelId: '',
+      snapchatApiToken: '',
       searchConsoleConnected: false,
       searchConsoleVerificationTag: '',
       indexingApiEnabled: false,
@@ -2585,6 +2690,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           // Path already specifies bleco
         } else if ((p.startsWith('/flowers') || p.startsWith('/hadaya')) && storeId === 'store-1') {
           // Path already specifies flowers
+        } else if (/^\/store\/[^/]+/i.test(p)) {
+          // Public /store/{slug} preview — never inject ?store=coffee (host default leak)
+          if (url.searchParams.has('store') || url.searchParams.has('storeId') || url.searchParams.has('demo')) {
+            url.searchParams.delete('store');
+            url.searchParams.delete('storeId');
+            url.searchParams.delete('demo');
+            window.history.replaceState({}, '', url.toString());
+          }
         } else {
           const targetStore = storesRef.current.find((s) => s.id === storeId);
           const slug =
@@ -2595,7 +2708,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 ? 'coffee'
                 : storeId === 'store-1'
                   ? 'flowers'
-                  : storeId);
+                  : storeId === 'store-souq-default'
+                    ? 'souq-default'
+                    : storeId);
           if (url.searchParams.get('store') !== slug) {
             url.searchParams.set('store', slug);
             window.history.replaceState({}, '', url.toString());
@@ -2827,9 +2942,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             saveStoreThemesMap(next);
             return next;
           });
-          const primaryThemeId = storeSpecificThemes[0]?.id || `theme-${created.id}-official`;
+          const primaryThemeId =
+            storeSpecificThemes.find((t) => t.isDefault)?.id ||
+            storeSpecificThemes[0]?.id ||
+            'theme-souq-common-retail';
           setStoreActiveTheme((prev) => ({ ...prev, [created.id]: primaryThemeId }));
-          setStoreActiveHomepage((prev) => ({ ...prev, [created.id]: 'Default Commerce' }));
+          setStoreActiveHomepage((prev) => ({ ...prev, [created.id]: 'Modern Bento' }));
         })
         .catch((err) => {
           setApiError(err instanceof Error ? err.message : 'Create store failed');
@@ -3441,6 +3559,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const hostParam = q.get('test_domain') || q.get('host');
     const effectiveHostname = hostParam || window.location.hostname;
     if (!effectiveHostname || effectiveHostname === 'localhost' || effectiveHostname === '127.0.0.1') {
+      return;
+    }
+
+    // Explicit /store/{slug} or ?store= wins — never overwrite with apex host (coffee on mieraf).
+    const pathNow = window.location.pathname || '/';
+    const explicitFromUrl = storeIdFromPublicLocation(pathNow, q);
+    if (explicitFromUrl) {
+      setActiveStoreId((prev) => (prev !== explicitFromUrl ? explicitFromUrl : prev));
       return;
     }
 
@@ -4203,6 +4329,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       typeof orderData.shippingFee === 'number' && Number.isFinite(orderData.shippingFee)
         ? Number(orderData.shippingFee)
         : undefined,
+    shipping_method_id: orderData.shippingMethodId ?? undefined,
+    courier_code: orderData.shippingCompany ?? orderData.courierCode ?? undefined,
+    shipping_status: orderData.shippingStatus || 'pending',
     subtotal:
       typeof orderData.subtotal === 'number' && Number.isFinite(orderData.subtotal)
         ? Number(orderData.subtotal)
@@ -5462,31 +5591,74 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const updateShipmentStatus = useCallback(async (shipmentId: string, status: any, note?: string) => {
     const sId = activeStoreId;
     if (!sId) return;
+
+    // Bridged rows from orders (no courier shipment yet): id = shp-{orderId}
+    const bridgedOrderId = String(shipmentId).startsWith('shp-')
+      ? String(shipmentId).slice(4)
+      : null;
+    if (bridgedOrderId) {
+      const shippingStatus = String(status || 'pending');
+      const orderStatusPatch =
+        shippingStatus === 'delivered'
+          ? 'delivered'
+          : shippingStatus === 'in_transit' || shippingStatus === 'out_for_delivery' || shippingStatus === 'picked_up'
+            ? 'shipped'
+            : undefined;
+      try {
+        const updated = await tenantApi.updateOrder(sId, bridgedOrderId, {
+          shippingStatus,
+          ...(orderStatusPatch ? { status: orderStatusPatch } : {}),
+          ...(note ? { internalNotes: note } : {}),
+        } as any);
+        setOrdersMap((prev) => ({
+          ...prev,
+          [sId]: (prev[sId] || []).map((o) =>
+            o.id === bridgedOrderId
+              ? {
+                  ...o,
+                  ...updated,
+                  shippingStatus: updated.shippingStatus || shippingStatus,
+                  status: (updated.status as Order['status']) || o.status,
+                }
+              : o,
+          ),
+        }));
+      } catch (err) {
+        setApiError(err instanceof Error ? err.message : 'Shipment status update failed');
+        throw err;
+      }
+      return;
+    }
+
     try {
       await tenantApi.updateCourierShipmentStatus(sId, shipmentId, { status, note });
     } catch {
-      /* fallback */
+      /* fallback — still mirror local for real shipment rows */
     }
-    setShipmentsMap(prev => {
+    setShipmentsMap((prev) => {
       const list = prev[sId] || [];
       return {
         ...prev,
-        [sId]: list.map(s => s.id === shipmentId ? {
-          ...s,
-          status,
-          deliveredAt: status === 'delivered' ? new Date().toISOString() : s.deliveredAt,
-          trackingEvents: [
-            ...(s.trackingEvents || []),
-            {
-              time: new Date().toISOString(),
-              status: typeof status === 'string' ? status.toUpperCase() : 'UPDATED',
-              description: note || `Shipment marked as ${status}`,
-            }
-          ]
-        } : s)
+        [sId]: list.map((s) =>
+          s.id === shipmentId
+            ? {
+                ...s,
+                status,
+                deliveredAt: status === 'delivered' ? new Date().toISOString() : s.deliveredAt,
+                trackingEvents: [
+                  ...(s.trackingEvents || []),
+                  {
+                    time: new Date().toISOString(),
+                    status: typeof status === 'string' ? status.toUpperCase() : 'UPDATED',
+                    description: note || `Shipment marked as ${status}`,
+                  },
+                ],
+              }
+            : s,
+        ),
       };
     });
-  }, [activeStoreId]);
+  }, [activeStoreId, setApiError]);
 
   // ── Payment Gateway Handlers ──
   const savePaymentGatewayConfig = useCallback(async (
@@ -5571,15 +5743,27 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const testPaymentGatewayConfig = useCallback(async (id: string) => {
     const sId = activeStoreId;
-    if (!sId) return;
+    if (!sId) {
+      return { success: false, message: 'No store selected' };
+    }
+    if (!id || !String(id).trim()) {
+      return { success: false, message: 'Payment gateway not configured' };
+    }
     try {
       const res = await tenantApi.testPaymentGateway(sId, id);
+      const ok = Boolean(res.test_result?.success);
       return {
-        success: res.test_result?.success ?? true,
-        message: res.test_result?.message ?? 'Payment gateway credentials verified.',
+        success: ok,
+        message:
+          (res.test_result?.message != null ? String(res.test_result.message) : '') ||
+          (ok ? 'Payment gateway credentials verified.' : 'Payment gateway test failed.'),
       };
-    } catch {
-      return { success: true, message: 'Payment gateway authenticated.' };
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === 'object' && 'message' in err
+          ? String((err as { message: unknown }).message)
+          : 'Payment gateway test failed.';
+      return { success: false, message: msg };
     }
   }, [activeStoreId]);
 
@@ -5840,9 +6024,12 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       saveStoreThemesMap(next);
       return next;
     });
-    const primaryThemeId = storeSpecificThemes[0]?.id || `theme-${newId}-official`;
+    const primaryThemeId =
+      storeSpecificThemes.find((t) => t.isDefault)?.id ||
+      storeSpecificThemes[0]?.id ||
+      DEFAULT_COMMERCE_THEME_ID;
     setStoreActiveTheme((prev) => ({ ...prev, [newId]: primaryThemeId }));
-    setStoreActiveHomepage((prev) => ({ ...prev, [newId]: 'Default Commerce' }));
+    setStoreActiveHomepage((prev) => ({ ...prev, [newId]: 'Modern Bento' }));
 
     addActivity({
       title: 'Client self-registered via Onboarding Link',

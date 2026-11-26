@@ -28,6 +28,8 @@ type Props = {
   cities: CheckoutCityOption[];
   /** When true, city is free-text instead of select */
   allowCustomCity?: boolean;
+  /** Hide street/building row (city + district only checkout) */
+  compactAddress?: boolean;
 };
 
 /**
@@ -45,6 +47,7 @@ export const CheckoutLocationPicker: React.FC<Props> = ({
   onGeoChange,
   cities,
   allowCustomCity = true,
+  compactAddress = false,
 }) => {
   const [mode, setMode] = useState<LocationMode>('map');
   const [customCity, setCustomCity] = useState(false);
@@ -156,11 +159,13 @@ export const CheckoutLocationPicker: React.FC<Props> = ({
           <label className="block font-semibold text-neutral-700 mb-1 flex flex-wrap items-center gap-1">
             <MapPin className="w-3.5 h-3.5 shrink-0" />
             {isAr ? 'المدينة' : 'City'}
-            {!fieldsRequired ? (
+            {fieldsRequired ? (
+              <span className="text-rose-600" aria-hidden="true">*</span>
+            ) : (
               <span className="font-medium text-neutral-400">
                 ({isAr ? 'اختياري مع الدبوس' : 'optional with pin'})
               </span>
-            ) : null}
+            )}
           </label>
           {allowCustomCity && customCity ? (
             <input
@@ -202,11 +207,13 @@ export const CheckoutLocationPicker: React.FC<Props> = ({
         <div className="min-w-0">
           <label className="block font-semibold text-neutral-700 mb-1">
             {isAr ? 'الحي' : 'District'}
-            {!fieldsRequired ? (
+            {fieldsRequired ? (
+              <span className="text-rose-600 ms-0.5" aria-hidden="true">*</span>
+            ) : (
               <span className="ms-1 font-medium text-neutral-400">
                 ({isAr ? 'اختياري' : 'optional'})
               </span>
-            ) : null}
+            )}
           </label>
           <input
             type="text"
@@ -217,23 +224,22 @@ export const CheckoutLocationPicker: React.FC<Props> = ({
           />
         </div>
 
-        <div className="sm:col-span-2 min-w-0">
-          <label className="block font-semibold text-neutral-700 mb-1">
-            {isAr ? 'الشارع ورقم المبنى' : 'Street & Building Details'}
-            {!fieldsRequired ? (
+        {!compactAddress ? (
+          <div className="sm:col-span-2 min-w-0">
+            <label className="block font-semibold text-neutral-700 mb-1">
+              {isAr ? 'الشارع ورقم المبنى' : 'Street & Building Details'}
               <span className="ms-1 font-medium text-neutral-400">
                 ({isAr ? 'اختياري' : 'optional'})
               </span>
-            ) : null}
-          </label>
-          <input
-            type="text"
-            required={fieldsRequired}
-            value={street}
-            onChange={(e) => onStreetChange(e.target.value)}
-            className="w-full min-w-0 bg-white rounded-xl p-3 text-neutral-900 border border-neutral-200/90 focus:border-neutral-900 focus:outline-hidden"
-          />
-        </div>
+            </label>
+            <input
+              type="text"
+              value={street}
+              onChange={(e) => onStreetChange(e.target.value)}
+              className="w-full min-w-0 bg-white rounded-xl p-3 text-neutral-900 border border-neutral-200/90 focus:border-neutral-900 focus:outline-hidden"
+            />
+          </div>
+        ) : null}
       </div>
     </div>
   );

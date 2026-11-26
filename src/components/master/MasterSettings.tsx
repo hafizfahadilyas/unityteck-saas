@@ -33,6 +33,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { BrandingPanel } from '../common/BrandingPanel';
+import { SkeletonSettingsCard } from '../common/skeleton';
 import { DbSyncSettingsCard } from '../common/DbSyncSettingsCard';
 import { bumpCacheTag, platformTag } from '../../api/cacheTags';
 import { useToast } from '../common/ToastProvider';
@@ -1019,14 +1020,17 @@ export const MasterSettings: React.FC<MasterSettingsProps> = ({ onNavigateTab })
 
       {/* ── TAB 3: Branding Panel (Top 15 Colors / Fonts / Weights) ── */}
       {activeTab === 'appearance' && (
-        <BrandingPanel
-          persistPlatform
-          title={
-            isAr
-              ? 'هوية المنصة العامة · أهم 15 لونًا · أهم 15 خطًا · أوزان الخط'
-              : 'Global Platform Branding · Top 15 Colors · Top 15 Fonts · Weights'
-          }
-        />
+        <div className="space-y-6">
+          <BrandingPanel
+            persistPlatform
+            title={
+              isAr
+                ? 'هوية المنصة العامة · أهم 15 لونًا · أهم 15 خطًا · أوزان الخط'
+                : 'Global Platform Branding · Top 15 Colors · Top 15 Fonts · Weights'
+            }
+          />
+          <SkeletonSettingsCard />
+        </div>
       )}
 
       {/* ── TAB 4: WhatsApp & Social ── */}

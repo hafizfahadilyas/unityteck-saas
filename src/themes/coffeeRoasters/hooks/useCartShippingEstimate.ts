@@ -57,10 +57,11 @@ export function useCartShippingEstimate(opts: {
     const ids = idsKey ? idsKey.split(',').filter(Boolean) : [];
 
     void calculateShippingRates(storeId, {
-      // Unlocks zone match; server falls back to first active zone when no city hit.
-      city: 'الرياض',
+      // Coffee warehouse origin = Makkah (default city for estimates).
+      city: 'مكة',
       order_total: cartTotal,
       product_ids: ids.length ? ids : undefined,
+      distance_km: 0,
     })
       .then((res) => {
         if (cancelled) return;

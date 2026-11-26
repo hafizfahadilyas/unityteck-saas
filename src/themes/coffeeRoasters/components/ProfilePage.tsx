@@ -784,7 +784,6 @@ function ProfilePageBody({ clerk }: { clerk: ClerkCustomerBridge | null }) {
               customerEmail={user.email || sfCustomer.email}
               customerPhone={user.phone || sfCustomer.phone}
               language={language === 'AR' || language === 'ar' ? 'AR' : 'EN'}
-              hideDailyGame
             />
           ) : (
             <div className="rounded-2xl border border-neutral-100 bg-[#F8F9FA] p-5">

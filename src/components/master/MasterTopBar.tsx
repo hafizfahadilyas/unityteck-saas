@@ -383,7 +383,9 @@ export const MasterTopBar: React.FC<MasterTopBarProps> = ({
             aria-hidden
             title={`${displayName} · ${roleLabel}`}
           >
-            {initials}
+            <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>
+              {initials}
+            </span>
           </div>
           <div className="hidden 2xl:block text-start leading-tight min-w-0 max-w-[9rem]">
             <span className="text-xs font-bold block truncate" style={{ color: 'var(--text)' }}>

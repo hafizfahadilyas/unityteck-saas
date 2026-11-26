@@ -6,66 +6,78 @@ use App\Models\Order;
 use App\Models\PaymentGateway;
 use App\Models\PaymentTransaction;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
+/**
+ * PayPal — incomplete backend (no live PayPal REST HTTP in Phase 1).
+ * Never invent Connected / Paid from Client ID presence alone.
+ */
 class PayPalGatewayService implements PaymentGatewayInterface
 {
     public function testConnection(PaymentGateway $gateway): array
     {
         $id = $gateway->public_key ?? $gateway->api_key;
         if (empty($id)) {
-            return ['success' => false, 'message' => 'PayPal Client ID is required.'];
+            return [
+                'success' => false,
+                'message' => 'PayPal Client ID is missing.',
+                'integration_mode' => 'stub',
+                'health_status' => 'credentials_missing',
+            ];
         }
-        return ['success' => true, 'message' => 'PayPal REST API credentials authorized.'];
+
+        return [
+            'success' => false,
+            'message' => 'PayPal backend is incomplete. Live PayPal REST API is not wired — do not mark Connected.',
+            'integration_mode' => 'stub',
+            'health_status' => 'incomplete_backend',
+            'requires_real_api' => true,
+        ];
     }
 
     public function createPaymentSession(PaymentGateway $gateway, Order $order, array $params = []): array
     {
-        $orderId = 'PAYPAL-' . strtoupper(Str::random(12));
         return [
-            'success' => true,
-            'transaction_reference' => $orderId,
-            'amount' => $order->total_amount,
-            'currency' => 'SAR',
-            'checkout_url' => "https://www.sandbox.paypal.com/checkoutnow?token={$orderId}",
+            'success' => false,
+            'message' => 'PayPal checkout requires a real PayPal REST API integration (not implemented).',
+            'integration_mode' => 'stub',
+            'requires_real_api' => true,
         ];
     }
 
     public function verifyPayment(PaymentGateway $gateway, string $transactionRef, array $payload = []): array
     {
         return [
-            'success' => true,
-            'status' => 'paid',
+            'success' => false,
+            'status' => 'failed',
             'gateway_transaction_id' => $transactionRef,
             'amount' => (float) ($payload['amount'] ?? 0),
-            'fee' => round(((float) ($payload['amount'] ?? 0)) * 0.034 + 1.5, 2),
-            'source_type' => 'paypal',
-            'card_brand' => 'PayPal Account',
-            'card_last_four' => '',
-            'raw' => ['status' => 'COMPLETED'],
+            'fee' => 0,
+            'message' => 'PayPal verify unavailable — incomplete backend. Never mark Paid without PayPal API evidence.',
+            'integration_mode' => 'stub',
+            'requires_real_api' => true,
+            'raw' => ['requires_real_api' => true],
         ];
     }
 
     public function refund(PaymentGateway $gateway, PaymentTransaction $transaction, float $amount, string $reason = ''): array
     {
         return [
-            'success' => true,
-            'refund_id' => 'pp_ref_' . rand(100000, 999999),
+            'success' => false,
             'amount' => $amount,
-            'status' => 'refunded',
-            'message' => 'PayPal refund issued.',
+            'status' => 'failed',
+            'message' => 'PayPal refund requires a real PayPal REST API integration.',
+            'requires_real_api' => true,
         ];
     }
 
     public function handleWebhook(PaymentGateway $gateway, Request $request): array
     {
-        $payload = $request->all();
         return [
-            'success' => true,
-            'event' => $payload['event_type'] ?? 'PAYMENT.CAPTURE.COMPLETED',
-            'status' => 'paid',
-            'transaction_id' => $payload['resource']['id'] ?? null,
-            'amount' => (float) ($payload['resource']['amount']['value'] ?? 0),
+            'success' => false,
+            'event' => 'paypal.stub',
+            'status' => 'pending',
+            'message' => 'PayPal webhook processing requires a real PayPal REST API integration.',
+            'requires_real_api' => true,
         ];
     }
 }

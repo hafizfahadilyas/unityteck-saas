@@ -1,20 +1,39 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Unityteck · Multi-Store E-Commerce SaaS (KSA)
 
-# Run and deploy your AI Studio app
+Saudi multi-tenant store platform: Master Admin + Store Dashboard + Laravel API + storefront themes.
 
-This contains everything you need to run your app locally.
+## AI / other Cursor account (handoff)
 
-View your app in AI Studio: https://ai.studio/apps/ff5d230e-3dd5-4dc1-bd14-30ed0446b9f2
+Chat history transfer **nahi** hoti. Project ke andar pehle se sab locked hai:
 
-## Run Locally
+1. **[`AGENTS.md`](AGENTS.md)** — naye AI / dusre Cursor account ki **pehli file**
+2. **[`.cursor/rules/`](.cursor/rules/)** — always-on locks (deploy, i18n, zero-mock, coffee, Master…)
+3. **[`docs/00-AI-HANDOFF.md`](docs/00-AI-HANDOFF.md)** — Roman Urdu transfer steps + copy-paste first prompt
 
-**Prerequisites:**  Node.js
+Same folder Open karo **ya** Git clone → rules auto-load. Local `.env` manually copy (secrets git mein nahi).
 
+## Structure
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+| Path | Purpose |
+|------|---------|
+| `src/` | Admin SPA (Vite/React) — Master + Store portals |
+| `apps/api/` | Laravel API + MySQL (`store_id` isolation) |
+| `public/` | Static public assets for Hostinger |
+| `scripts/` | Deploy / smoke / ops scripts |
+| `database/` | Hostinger SQL helpers |
+| `designs/` | Pixel UI reference packs (do not delete) |
+| `docs/` | Plans, execution trackers, feature requirements |
+| `tests/` | Automated / smoke tests |
+| `backups/` | Local backup snapshots (gitignored) |
+
+Feature requirement specs live in `docs/requirements/`.
+
+## Local run
+
+1. `npm install`
+2. Copy `.env.example` → `.env` (never commit secrets)
+3. `npm run dev`
+
+## Deploy
+
+Only when explicitly asked — see `.cursor/rules/no-deploy-without-ask.mdc` and `ultra-fast-delta-deploy.mdc`.

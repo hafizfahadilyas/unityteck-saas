@@ -110,4 +110,27 @@ return [
         'video_model' => env('GEMINI_VIDEO_MODEL', 'veo-2.0-generate-001'),
     ],
 
+    /*
+    | OpenAI AI Management — SEPARATE from Gemini. Key stays on API only.
+    | Never expose to Vite / Store Owner responses.
+    */
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+        'text_model' => env('OPENAI_TEXT_MODEL', 'gpt-5.4-mini'),
+        'image_model' => env('OPENAI_IMAGE_MODEL', 'gpt-image-2.6-flare'),
+        'default_image_quality' => env('OPENAI_IMAGE_QUALITY', 'medium'),
+    ],
+
+    /*
+    | TikTok for Developers / TikTok Open API & Business Marketing API
+    | High-security: Client Key (App ID) and Client Secret strictly loaded via .env.
+    | Client Secret is kept on the backend API only and NEVER exposed to frontend SPA.
+    */
+    'tiktok' => [
+        'client_key' => env('TIKTOK_CLIENT_KEY', env('VITE_TIKTOK_CLIENT_KEY', 'aw4ju2w2locimgvj')),
+        'app_id' => env('TIKTOK_CLIENT_KEY', env('TIKTOK_APP_ID', 'aw4ju2w2locimgvj')),
+        'client_secret' => env('TIKTOK_CLIENT_SECRET'),
+        'redirect_uri' => env('TIKTOK_REDIRECT_URI', 'https://mieraf-ksa.com/api/tiktok/callback'),
+    ],
+
 ];

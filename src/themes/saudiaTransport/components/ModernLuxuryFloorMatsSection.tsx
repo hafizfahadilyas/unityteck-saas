@@ -7,10 +7,13 @@ import {
   SlidersHorizontal
 } from 'lucide-react';
 import { Product } from '../../../types';
+import { AlsaeediProductGridSkeleton } from './AlsaeediSkeletons';
+import { AlsaeediInfiniteCarousel } from './AlsaeediInfiniteCarousel';
 
 interface ModernLuxuryFloorMatsSectionProps {
   isAr?: boolean;
   mats: Product[];
+  loading?: boolean;
   onSelectMat: (mat: Product) => void;
   onOpenWhatsApp: (mat: Product, selectedColorName?: string) => void;
   onViewAll: () => void;
@@ -29,12 +32,13 @@ function WhatsAppIcon({ className = 'w-4 h-4' }: { className?: string }) {
 const ModernLuxuryFloorMatsSectionComponent: React.FC<ModernLuxuryFloorMatsSectionProps> = ({
   isAr = true,
   mats,
+  loading = false,
   onSelectMat,
   onOpenWhatsApp,
   onViewAll,
 }) => {
   return (
-    <section id="floor-mats-section" className="space-y-5">
+    <section id="floor-mats-section" className="alsaeedi-section-soft alsaeedi-reveal space-y-5 p-3 sm:p-5">
       {/* ========================================================
           CLEAN LUXURY HEADER (سعودی لگژری ہیڈر - سمپل و پرتعیش)
           ======================================================== */}
@@ -44,18 +48,18 @@ const ModernLuxuryFloorMatsSectionComponent: React.FC<ModernLuxuryFloorMatsSecti
             <span className="p-1.5 rounded-xl bg-amber-500/10 text-[#d5a027]">
               <Sparkles className="w-5 h-5 text-[#d5a027]" />
             </span>
-            <span>{isAr ? 'أرضيات 5D ليزر — حماية مطلقة وفخامة تدوم' : '5D Laser-Cut Precision Mats — Unbreakable Cabin Defense'}</span>
+            <span>{isAr ? 'أرضيات 5D' : '5D Floor Mats'}</span>
           </h3>
           <p className="text-xs text-slate-500 mt-1">
-            {isAr 
-              ? 'عازلة 100% للسوائل والأتربة، جلد صناعي صديق للبيئة مع ضمان سنتين كاملتين وتفصيل ليزري بالمللي.'
-              : '100% all-weather waterproof armor engineered for extreme Saudi heat with 2-year warranty.'}
+            {isAr
+              ? 'عازلة للسوائل · تفصيل ليزري · ضمان سنتين.'
+              : 'Waterproof · laser-cut fit · 2-year warranty.'}
           </p>
         </div>
 
         <button
           onClick={onViewAll}
-          className="text-xs font-bold text-[#16032e] hover:text-[#d5a027] transition-colors flex items-center gap-1 cursor-pointer self-start sm:self-auto py-1"
+          className="text-xs font-bold text-slate-900 hover:text-[#d5a027] transition-colors flex items-center gap-1 cursor-pointer self-start sm:self-auto py-1"
         >
           <span>{isAr ? 'عرض كافة الأرضيات' : 'View all mats'}</span>
           {isAr ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
@@ -65,43 +69,45 @@ const ModernLuxuryFloorMatsSectionComponent: React.FC<ModernLuxuryFloorMatsSecti
       {/* ========================================================
           DARK LUXURY ROYAL CARDS (HIGH-CONTRAST 100% READABLE TEXT)
           ======================================================== */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-        {mats.slice(0, 4).map((mat) => {
+      {loading ? (
+        <AlsaeediProductGridSkeleton count={4} />
+      ) : mats.length === 0 ? (
+        <div className="text-center py-10 alsaeedi-card rounded-2xl text-xs text-slate-600 font-bold">
+          {isAr ? 'لا توجد أرضيات حالياً' : 'No floor mats yet'}
+        </div>
+      ) : (
+      <AlsaeediInfiniteCarousel isAr={isAr} autoMs={4800} className="alsaeedi-stagger px-1">
+        {mats.slice(0, 300).map((mat) => {
           return (
             <div 
               key={mat.id}
-              className="group relative bg-gradient-to-b from-[#180432] via-[#120224] to-[#0c0119] rounded-2xl sm:rounded-3xl p-3 sm:p-4 border border-[#3e0f77]/70 shadow-[0_4px_20px_-4px_rgba(22,3,46,0.25)] hover:shadow-[0_20px_45px_-10px_rgba(213,160,39,0.3)] hover:border-[#d5a027] transition-all duration-300 flex flex-col justify-between overflow-hidden"
+              className="group relative alsaeedi-card alsaeedi-anim-lift flex h-full flex-col justify-between overflow-hidden rounded-2xl p-3 sm:rounded-3xl sm:p-4"
             >
-              {/* Ambient Golden Glow on Hover */}
-              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/5 group-hover:bg-[#d5a027]/15 rounded-full blur-2xl transition-all duration-500 pointer-events-none" />
+              <div className="absolute top-0 right-0 w-32 h-32 bg-[#d5a027]/8 group-hover:bg-[#d5a027]/14 rounded-full blur-2xl transition-all duration-500 pointer-events-none" />
 
-              {/* IMAGE SHOWCASE (Clean with single sleek 5D OEM badge) */}
               <div className="relative z-10">
                 <div 
-                  className="relative aspect-square rounded-xl sm:rounded-2xl overflow-hidden bg-slate-900 border border-white/10 cursor-pointer group shadow-inner"
+                  className="relative aspect-square rounded-xl sm:rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 cursor-pointer group shadow-inner"
                   onClick={() => onSelectMat(mat)}
                 >
                   <img 
                     src={mat.image} 
                     alt={mat.name} 
-                    className="w-full h-full object-cover group-hover:scale-106 transition-transform duration-500 ease-out" 
+                    className="w-full h-full object-contain group-hover:scale-106 transition-transform duration-500 ease-out" 
                     loading="lazy"
                     decoding="async"
                   />
 
-                  {/* Clean 5D OEM Badge */}
-                  <span className="absolute top-2.5 right-2.5 bg-[#16032e]/95 text-[#f6c344] text-[9px] sm:text-[10px] font-black px-2.5 py-0.5 rounded-full shadow border border-[#f6c344]/40 flex items-center gap-1 backdrop-blur-xs">
-                    <Sparkles className="w-2.5 h-2.5 text-[#f6c344]" />
+                  <span className="absolute top-2.5 right-2.5 bg-white/95 text-[#d5a027] text-[9px] sm:text-[10px] font-black px-2.5 py-0.5 rounded-full shadow border border-[#d5a027]/40 flex items-center gap-1 backdrop-blur-xs">
+                    <Sparkles className="w-2.5 h-2.5 text-[#d5a027]" />
                     <span>5D OEM</span>
                   </span>
 
-                  {/* Clean OEM Tag */}
                   <span className="absolute top-2.5 left-2.5 bg-emerald-600/90 text-white text-[8px] sm:text-[9px] font-bold px-2 py-0.5 rounded-full shadow border border-emerald-400/30">
                     {isAr ? 'أصلي' : 'OEM'}
                   </span>
 
-                  {/* Hover Overlay: Customize Icon */}
-                  <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex items-center justify-center p-3">
+                  <div className="absolute inset-0 bg-slate-950/35 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex items-center justify-center p-3">
                     <span className="bg-[#f6c344] text-slate-950 px-3.5 py-1.5 rounded-full text-xs font-black flex items-center gap-1.5 shadow-lg">
                       <SlidersHorizontal className="w-3.5 h-3.5 text-slate-950" />
                       <span>{isAr ? 'تخصيص' : 'Customize'}</span>
@@ -109,65 +115,65 @@ const ModernLuxuryFloorMatsSectionComponent: React.FC<ModernLuxuryFloorMatsSecti
                   </div>
                 </div>
 
-                {/* CARD TITLE & HIGH-CONTRAST SUBTITLES */}
                 <div className="mt-3 space-y-1.5">
                   <h4 
                     onClick={() => onSelectMat(mat)}
-                    className="font-black text-xs sm:text-sm text-white group-hover:text-[#f6c344] transition-colors cursor-pointer line-clamp-1"
+                    className="font-black text-xs sm:text-sm text-slate-900 group-hover:text-[#d5a027] transition-colors cursor-pointer line-clamp-1"
                     title={isAr ? mat.nameAr : mat.nameEn}
                   >
                     {isAr ? mat.nameAr : mat.nameEn}
                   </h4>
-                  <p className="text-[10px] sm:text-[11px] text-emerald-400 font-bold flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3 text-emerald-400 shrink-0" />
+                  <p className="text-[10px] sm:text-[11px] text-emerald-700 font-bold flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3 text-emerald-600 shrink-0" />
                     <span className="line-clamp-1">
                       {isAr ? 'جلد بيئي صديق للبيئة' : 'Eco-friendly synthetic leather'}
                     </span>
                   </p>
-                  <p className="text-[10px] text-slate-300 font-medium hidden sm:block">
+                  <p className="text-[10px] text-slate-500 font-medium hidden sm:block">
                     {isAr ? '12 خيار تطريز · 5 طبقات عزل' : '12 Stitching colors · 5 Layers'}
                   </p>
                 </div>
               </div>
 
-              {/* CARD PRICING & ACTION BUTTONS */}
-              <div className="relative z-10 pt-2.5 sm:pt-3 mt-2 border-t border-white/10 flex items-center justify-between gap-1.5">
-                {/* Price Display */}
-                <div>
+              <div className="relative z-10 mt-2 flex items-center justify-between gap-1.5 border-t border-slate-100 pt-2.5 sm:pt-3">
+                <div className="min-w-0">
                   <div className="flex items-baseline">
-                    <span className="font-black text-sm sm:text-base text-white">{mat.price}</span>
-                    <span className="text-[10px] sm:text-[11px] font-black text-[#f6c344] mr-1 ml-1">{'⃁'}</span>
+                    <span className="text-sm font-black text-slate-900 sm:text-base">{mat.price}</span>
+                    <span className="mx-1 text-[10px] font-black text-[#d5a027] sm:text-[11px]">{'⃁'}</span>
                   </div>
                   {mat.originalPrice && mat.originalPrice > mat.price && (
-                    <span className="text-[10px] text-slate-400 line-through block font-medium">
+                    <span className="block text-[10px] font-medium text-slate-400 line-through">
                       {mat.originalPrice} {'⃁'}
                     </span>
                   )}
                 </div>
 
-                {/* Buttons (Golden Customize + WhatsApp) */}
-                <div className="flex items-center gap-1 sm:gap-1.5">
+                <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
                   <button
+                    type="button"
                     onClick={() => onSelectMat(mat)}
-                    className="px-2.5 sm:px-3.5 py-1.5 btn-bashayer-gold text-[11px] sm:text-xs font-black flex items-center gap-1 cursor-pointer shadow-md hover:shadow-lg transition-transform active:scale-95"
+                    className="inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-1.5 text-[10px] font-black shadow-md transition-transform active:scale-95 btn-bashayer-gold sm:px-3.5 sm:text-xs"
                   >
-                    <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                    <span>{isAr ? 'تخصيص' : 'Customize'}</span>
+                    <Sparkles className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
+                    <span className="whitespace-nowrap">{isAr ? 'تخصيص' : 'Customize'}</span>
                   </button>
 
                   <button
+                    type="button"
                     onClick={() => onOpenWhatsApp(mat)}
-                    className="p-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg sm:rounded-xl cursor-pointer shadow-xs transition-colors"
+                    className="cursor-pointer rounded-lg bg-emerald-600 p-1.5 text-white shadow-xs transition-colors hover:bg-emerald-500 sm:rounded-xl"
                     title={isAr ? 'طلب واستفسار عبر واتساب' : 'WhatsApp'}
+                    aria-label={isAr ? 'واتساب' : 'WhatsApp'}
                   >
-                    <WhatsAppIcon className="w-3.5 h-3.5" />
+                    <WhatsAppIcon className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
             </div>
           );
         })}
-      </div>
+      </AlsaeediInfiniteCarousel>
+      )}
     </section>
   );
 };

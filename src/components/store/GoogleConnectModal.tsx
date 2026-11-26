@@ -563,15 +563,21 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
       aria-label={isAr ? 'ربط خدمات جوجل الرسمية' : 'Connect Google Services'}
     >
       <div className="relative w-[min(48rem,calc(100vw-1.25rem))] bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[min(92vh,92dvh)]">
-        {/* Modal Header — light ink locked (glass remap must not paint dark-on-dark) */}
+        {/* Modal Header — Holst portal CTA (no solid blue/navy) */}
         <div
           data-on-dark-panel="true"
-          className="p-4 sm:p-6 bg-gradient-to-r from-slate-900 via-slate-800 to-teal-950 text-white flex items-start sm:items-center justify-between gap-2 border-b border-slate-700/60 shrink-0"
-          style={{ color: '#f8fafc', ['--text' as string]: '#f8fafc', ['--muted' as string]: '#cbd5e1' }}
+          className="p-4 sm:p-6 text-white flex items-start sm:items-center justify-between gap-2 border-b shrink-0"
+          style={{
+            background: 'var(--portal-cta)',
+            borderColor: 'color-mix(in srgb, #fff 18%, transparent)',
+            color: '#ffffff',
+            ['--text' as string]: '#ffffff',
+            ['--muted' as string]: 'rgba(255,255,255,0.85)',
+          }}
         >
           <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
-            <span className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white flex items-center justify-center shadow-md shrink-0">
-              <svg className="w-5 h-5 sm:w-6 sm:h-6" viewBox="0 0 24 24">
+            <span className="u-logo-tile w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center shadow-md shrink-0">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6" viewBox="0 0 24 24" aria-hidden>
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
@@ -580,14 +586,14 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
             </span>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-sm sm:text-lg font-black tracking-tight text-white" style={{ color: '#ffffff' }}>
+                <h2 className="text-sm sm:text-lg font-black tracking-tight text-white">
                   {isAr ? 'ربط خدمات جوجل الرسمية' : 'Connect Google Services'}
                 </h2>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono shrink-0">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/15 text-white border border-white/25 font-mono shrink-0">
                   {isAr ? 'الإصدار ٢' : 'Site Kit 2.0'}
                 </span>
               </div>
-              <p className="text-[11px] sm:text-xs text-slate-300 mt-0.5 leading-snug" style={{ color: '#cbd5e1' }}>
+              <p className="text-[11px] sm:text-xs text-white/85 mt-0.5 leading-snug">
                 {isAr
                   ? 'ربط مباشر وموثّق لوحدة تحكم البحث وتحليلات ٤ ومدير العلامات ومؤشرات الأداء الأساسية'
                   : 'Official connection for Search Console, GA4, Tag Manager, and Core Web Vitals.'}
@@ -597,8 +603,7 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
 
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
-            style={{ color: '#ffffff' }}
+            className="w-9 h-9 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
             aria-label={isAr ? 'إغلاق' : 'Close'}
           >
             <X className="w-5 h-5" />

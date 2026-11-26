@@ -5,6 +5,7 @@ import { useToast } from '../common/ToastProvider';
 import { fetchHealth } from '../../api/tenantApi';
 import { RefreshCw, Server, Cloud, HardDrive } from 'lucide-react';
 import { MasterLuxePanel, MasterMetaLine, masterGhostBtnClass } from './MasterUiKit';
+import { MasterIntegrationHealthCenter } from './MasterIntegrationHealthCenter';
 
 type ProbeId = 'hostinger' | 'vercel' | 'r2';
 
@@ -236,6 +237,8 @@ export const MasterIntegrationsHub: React.FC = () => {
           );
         })}
       </div>
+
+      <MasterIntegrationHealthCenter />
     </AdminPageShell>
   );
 };

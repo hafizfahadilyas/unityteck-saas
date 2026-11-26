@@ -105,11 +105,16 @@ export const StoreShipping: React.FC = () => {
   const isAr = locale === 'ar';
   const { toast } = useToast();
 
-  // Default to live data (shipments) — hub still reachable via back button
+  // Default to live data (shipments). History inner-layer only after hub → section
+  // (avoids auto pushState on mount that made Back jump to a random tab).
   const [activeTab, setActiveTab] = useState<ShippingTab | null>('shipments');
-  const closeShippingInner = useCallback(() => setActiveTab(null), []);
+  const [openedFromHub, setOpenedFromHub] = useState(false);
+  const closeShippingInner = useCallback(() => {
+    setActiveTab(null);
+    setOpenedFromHub(false);
+  }, []);
   const { requestClose: requestCloseShippingInner } = useAdminInnerLayer(
-    activeTab !== null,
+    openedFromHub && activeTab !== null,
     closeShippingInner,
   );
   const [dateRange, setDateRange] = useState(() => {
@@ -136,6 +141,7 @@ export const StoreShipping: React.FC = () => {
         'drivers',
       ];
       if (allowed.includes(view as ShippingTab)) {
+        setOpenedFromHub(true);
         setActiveTab(view as ShippingTab);
       }
     };
@@ -706,7 +712,10 @@ export const StoreShipping: React.FC = () => {
               icon={tab.icon}
               title={tab.label}
               description={tab.desc}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setOpenedFromHub(true);
+                setActiveTab(tab.id);
+              }}
               flipIconRtl={'flipIconRtl' in tab && Boolean(tab.flipIconRtl)}
               isAr={isAr}
             />
@@ -716,7 +725,10 @@ export const StoreShipping: React.FC = () => {
         <div className="flex items-center gap-2.5 flex-wrap">
           <button
             type="button"
-            onClick={() => requestCloseShippingInner()}
+            onClick={() => {
+              if (openedFromHub) requestCloseShippingInner();
+              else closeShippingInner();
+            }}
             className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-xs font-bold cursor-pointer shadow-xs transition-colors hover:opacity-95"
             style={{
               background: 'var(--surface)',

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\SeoConfig;
+use App\Support\RobotsTxtGuard;
 use App\Support\SeoBilingual;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -73,6 +74,20 @@ class SeoController extends Controller
 
         if (isset($data['extra']) && is_array($data['extra'])) {
             $data['extra'] = array_merge(is_array($seo->extra) ? $seo->extra : [], $data['extra']);
+        }
+
+        if (array_key_exists('robots_txt', $data)) {
+            $origin = rtrim((string) ($data['canonical_url'] ?? $seo->canonical_url ?? ''), '/');
+            if ($origin === '' && is_string($data['sitemap_url'] ?? null)) {
+                $origin = (string) preg_replace('#/sitemap\.xml$#i', '', (string) $data['sitemap_url']);
+            }
+            if ($origin === '') {
+                $origin = 'https://mieraf-ksa.com';
+            }
+            $data['robots_txt'] = RobotsTxtGuard::sanitize(
+                is_string($data['robots_txt'] ?? null) ? (string) $data['robots_txt'] : '',
+                $origin,
+            );
         }
 
         $seo->fill($data)->save();

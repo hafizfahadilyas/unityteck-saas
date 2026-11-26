@@ -300,8 +300,8 @@ export const CanvaSocialPostModal: React.FC<CanvaSocialPostModalProps> = ({
               </h3>
               <p className="text-xs text-slate-400 font-medium">
                 {isAr
-                  ? 'النشر والجدولة المباشرة لإنستغرام وفيسبوك. مشاركة واتساب متاحة. إكس وتيك توك قريباً'
-                  : 'Live publish & schedule: Instagram and Facebook. WhatsApp share available. X & TikTok Coming Soon'}
+                  ? 'النشر والجدولة المباشرة لإنستغرام، فيسبوك وتيك توك. مشاركة واتساب متاحة. إكس وسناب شات قريباً'
+                  : 'Live publish & schedule: Instagram, Facebook and TikTok. WhatsApp share available. X & Snapchat Coming Soon'}
               </p>
             </div>
           </div>
@@ -357,9 +357,9 @@ export const CanvaSocialPostModal: React.FC<CanvaSocialPostModalProps> = ({
           {[
             { id: 'instagram' as const, label: isAr ? 'إنستغرام' : 'Instagram', icon: InstagramIcon, live: true },
             { id: 'facebook' as const, label: isAr ? 'فيسبوك' : 'Facebook', icon: FacebookIcon, live: true },
-            { id: 'x' as const, label: isAr ? 'إكس' : 'X', icon: XIcon, live: false },
-            { id: 'tiktok' as const, label: isAr ? 'تيك توك' : 'TikTok', icon: TikTokIcon, live: false },
+            { id: 'tiktok' as const, label: isAr ? 'تيك توك' : 'TikTok', icon: TikTokIcon, live: true },
             { id: 'whatsapp' as const, label: isAr ? 'واتساب' : 'WhatsApp', icon: WhatsAppIcon, live: true },
+            { id: 'x' as const, label: isAr ? 'إكس' : 'X', icon: XIcon, live: false },
           ].map((item) => {
             const acc = accounts.find((a) => a.platform === item.id && a.is_connected);
             const active = platform === item.id;

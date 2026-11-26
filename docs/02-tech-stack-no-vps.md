@@ -8,7 +8,7 @@
 | Subscription site + API + MySQL | This Hostinger Cloud account |
 | Coffee domain | `mieraf-ksa.com` on the central Hostinger (`store-coffee`, login `mieraf.sa8@gmail.com`) |
 | Car and every other store | Custom domain on this same central Hostinger. One upload updates them together. |
-| Flowers hosting | Separate Hostinger account. Its own upload. Data stays `store-1`. |
+| Flowers hosting | **Migrating → central.** `store-1` data already in central MySQL `u393490678_ksa`. Domain `giftshop-sa.com` still on alag Hostinger until DNS/addon cutover — see `docs/33-flowers-to-central-hostinger-migration.md`. |
 | Flowers store | Flowers catalog only (`store-1`) |
 | Plans | Pro **300 SAR / month**, Premium **500 SAR / month** |
 

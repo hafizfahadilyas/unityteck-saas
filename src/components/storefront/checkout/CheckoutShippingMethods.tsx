@@ -1,6 +1,7 @@
 import React from 'react';
 import { CheckCircle2, Clock, Truck } from 'lucide-react';
 import { shippingMethodLogoSrc } from '../../../utils/shippingMethodLogos';
+import { Skeleton } from '../../common/skeleton';
 
 export type CheckoutShippingMethodOption = {
   id: string;
@@ -37,31 +38,40 @@ export const CheckoutShippingMethods: React.FC<Props> = ({
 }) => {
   if (loading) {
     return (
-      <p className="text-xs text-neutral-500">
-        {isAr ? 'جارٍ تحميل خيارات الشحن…' : 'Loading shipping options…'}
-      </p>
+      <div className="space-y-2.5" aria-busy="true" role="status">
+        <div className="flex items-center gap-2 mb-2">
+          <Skeleton variant="rounded" width="16px" height="16px" />
+          <Skeleton variant="rounded" height="14px" width="100px" />
+        </div>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="w-full rounded-2xl border border-neutral-200 bg-white p-3.5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 flex-1">
+              <Skeleton variant="rounded" width="36px" height="36px" className="rounded-xl shrink-0" />
+              <div className="space-y-1.5 flex-1">
+                <Skeleton variant="rounded" height="14px" width="45%" />
+                <Skeleton variant="rounded" height="10px" width="30%" />
+              </div>
+            </div>
+            <Skeleton variant="rounded" height="18px" width="55px" className="rounded-lg" />
+          </div>
+        ))}
+      </div>
     );
   }
 
   if (!methods.length) {
-    const adminHref = typeof window !== 'undefined'
-      ? `${window.location.origin}/admin?tab=shipping&view=methods`
-      : '/admin?tab=shipping&view=methods';
     return (
-      <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-3 space-y-2">
+      <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-3 space-y-1.5">
         <p className="text-xs text-amber-900 font-semibold">
           {isAr
-            ? 'لا توجد طرق شحن مفعّلة لهذا المتجر حالياً'
-            : 'No shipping methods are active for this store yet'}
+            ? 'لا تتوفر طرق توصيل لهذا العنوان حالياً'
+            : 'No delivery options are available for this address right now'}
         </p>
-        <a
-          href={adminHref}
-          className="inline-flex text-[11px] font-extrabold text-emerald-800 underline underline-offset-2"
-        >
+        <p className="text-[11px] text-amber-800 leading-relaxed">
           {isAr
-            ? 'افتح إعدادات الشحن في لوحة التحكم للتحقق'
-            : 'Open Shipping settings in admin to verify'}
-        </a>
+            ? 'تأكد من المدينة والحي أو ثبّت الموقع على الخريطة. إن استمرت المشكلة تواصل مع المتجر عبر واتساب أو البريد.'
+            : 'Check city and district or set your pin on the map. If this persists, contact the store via WhatsApp or email.'}
+        </p>
       </div>
     );
   }
@@ -110,7 +120,18 @@ export const CheckoutShippingMethods: React.FC<Props> = ({
                     )}
                     {logo ? (
                       <span className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-white border border-neutral-200 flex items-center justify-center p-1 shrink-0">
-                        <img src={logo} alt="" className="max-w-full max-h-full object-contain" loading="lazy" />
+                        <img
+                          src={logo}
+                          alt=""
+                          className="max-w-full max-h-full object-contain"
+                          loading="lazy"
+                          onError={(e) => {
+                            const el = e.currentTarget;
+                            el.style.display = 'none';
+                            const wrap = el.parentElement;
+                            if (wrap) wrap.style.display = 'none';
+                          }}
+                        />
                       </span>
                     ) : null}
                     <span className="text-xs sm:text-sm font-bold text-neutral-900 break-words min-w-0">{title}</span>

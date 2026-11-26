@@ -22,6 +22,7 @@ import {
   Zap,
 } from 'lucide-react';
 import type { Product, ProductVariation, ShippingRate } from '../../types';
+import { Skeleton } from '../../components/common/skeleton';
 import { whatsappOrderHref } from './WhatsAppChatFab';
 import { effectiveProductPricing } from '../../utils/productSaleSchedule';
 import { isVariantPurchasable, variationOptionsLabel } from '../../utils/productVariants';
@@ -902,9 +903,20 @@ export const SingleProductView: React.FC<Props> = ({
         {activeTab === 'reviews' && (
           <div className="space-y-4">
             {reviewsLoading ? (
-              <p className="text-sm text-slate-500 py-4 text-center">
-                {isAr ? 'جاري التحميل…' : 'Loading…'}
-              </p>
+              <div className="space-y-3 py-2" aria-busy="true" role="status">
+                {Array.from({ length: 2 }).map((_, i) => (
+                  <div key={i} className="p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Skeleton variant="circular" width="28px" height="28px" />
+                        <Skeleton variant="rounded" height="13px" width="80px" />
+                      </div>
+                      <Skeleton variant="rounded" height="12px" width="60px" />
+                    </div>
+                    <Skeleton variant="rounded" height="12px" width="90%" />
+                  </div>
+                ))}
+              </div>
             ) : null}
             {avgRating != null ? (
               <div className="flex items-center gap-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30">

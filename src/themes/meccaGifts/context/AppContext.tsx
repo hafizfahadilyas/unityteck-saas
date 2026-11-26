@@ -12,6 +12,7 @@ import {
 import { useActiveSpecialOfferDiscount } from '../../../hooks/useActiveSpecialOfferDiscount';
 import { trackStorefrontEvent } from '../../../utils/storefrontAnalytics';
 import { readTrafficSource } from '../../../utils/trafficSource';
+import { joinStorefrontPath, storefrontMountPath } from '../../../utils/storefrontLinks';
 
 interface UserInfo {
   name: string;
@@ -235,16 +236,34 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (resolvedTab && resolvedTab !== 'storefront') return resolvedTab;
 
         const path = window.location.pathname.replace(/\/$/, '') || '/';
-        if (path === '/cart') return 'cart';
-        if (path === '/checkout') return 'checkout';
-        if (path === '/crm' || path === '/profile' || path === '/account' || path === '/orders') return 'crm';
-        if (path === '/catalog' || path === '/shop' || path === '/products') return 'catalog';
-        if (path === '/product') return 'product';
-        if (path === '/thankyou') return 'thankyou';
+        if (/(?:^|\/)(?:product|buy)\/[^/]+$/i.test(path) || path.endsWith('/product')) return 'product';
+        if (/\/cart$/i.test(path)) return 'cart';
+        if (/\/checkout$/i.test(path)) return 'checkout';
+        if (/\/(crm|profile|account|orders)$/i.test(path)) return 'crm';
+        if (/\/(catalog|shop|products)(\/|$)/i.test(path)) return 'catalog';
+        if (/\/thankyou$/i.test(path)) return 'thankyou';
       }
     } catch {}
     return 'home';
   });
+
+  const flowersStorefrontBasePath = (): string => {
+    if (typeof window === 'undefined') return '/flowers';
+    const path = window.location.pathname.replace(/\/$/, '') || '/';
+    if (/^\/flowers(\/|$)/i.test(path) || /^\/hadaya(\/|$)/i.test(path)) {
+      return path.startsWith('/hadaya') ? '/hadaya' : '/flowers';
+    }
+    try {
+      const store =
+        new URLSearchParams(window.location.search).get('store') ||
+        activeStore?.slug ||
+        activeStore?.id ||
+        'flowers';
+      return storefrontMountPath(store) || '/flowers';
+    } catch {
+      return '/flowers';
+    }
+  };
 
   const setCurrentPage = (page: string) => {
     const valid = resolveValidPage(page) || 'home';
@@ -252,12 +271,55 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       if (typeof window !== 'undefined') {
         const url = new URL(window.location.href);
+        const base = flowersStorefrontBasePath();
+        const pid =
+          (selectedProduct?.id ||
+            url.searchParams.get('product') ||
+            url.searchParams.get('productId') ||
+            '').trim();
         if (valid === 'home') {
+          url.pathname = base;
           url.searchParams.delete('page');
+          url.searchParams.delete('product');
+          url.searchParams.delete('productId');
+          url.searchParams.delete('fullscreen');
+          if (base !== '/') {
+            url.searchParams.delete('store');
+          }
+        } else if (valid === 'product' && pid) {
+          url.pathname = joinStorefrontPath(base, 'product', pid);
+          url.searchParams.delete('page');
+          url.searchParams.delete('product');
+          url.searchParams.delete('productId');
+          url.searchParams.delete('fullscreen');
+          if (base !== '/') url.searchParams.delete('store');
+        } else if (valid === 'catalog') {
+          url.pathname = joinStorefrontPath(base, 'products');
+          url.searchParams.delete('page');
+          url.searchParams.delete('product');
+          url.searchParams.delete('fullscreen');
+          if (base !== '/') url.searchParams.delete('store');
+        } else if (valid === 'cart' || valid === 'checkout' || valid === 'thankyou') {
+          url.pathname = joinStorefrontPath(base, valid);
+          url.searchParams.delete('page');
+          url.searchParams.delete('product');
+          url.searchParams.delete('fullscreen');
+          if (base !== '/') url.searchParams.delete('store');
+        } else if (valid === 'crm') {
+          url.pathname = joinStorefrontPath(base, 'profile');
+          url.searchParams.delete('page');
+          url.searchParams.delete('fullscreen');
+          if (base !== '/') url.searchParams.delete('store');
         } else {
+          url.pathname = base;
           url.searchParams.set('page', valid);
+          url.searchParams.delete('fullscreen');
         }
-        window.history.pushState({ unityteckSpa: 'storefront', page: valid }, '', url.toString());
+        window.history.pushState(
+          { unityteckSpa: 'storefront', page: valid },
+          '',
+          `${url.pathname}${url.search}${url.hash}`,
+        );
       }
     } catch {}
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -969,7 +1031,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const navigateToProduct = (product: Product) => {
     setSelectedProduct(product);
-    setCurrentPage('product');
+    setCurrentPageState('product');
+    try {
+      if (typeof window !== 'undefined' && product?.id) {
+        const url = new URL(window.location.href);
+        const base = flowersStorefrontBasePath();
+        url.pathname = joinStorefrontPath(base, 'product', product.id);
+        url.searchParams.delete('page');
+        url.searchParams.delete('product');
+        url.searchParams.delete('productId');
+        url.searchParams.delete('fullscreen');
+        if (base !== '/') url.searchParams.delete('store');
+        window.history.pushState(
+          { unityteckSpa: 'storefront', page: 'product', product: product.id },
+          '',
+          `${url.pathname}${url.search}${url.hash}`,
+        );
+      }
+    } catch {}
     if (activeStore?.id && product?.id) {
       trackStorefrontEvent(activeStore.id, 'product_view', {
         path: typeof location !== 'undefined' ? location.pathname : '/product',
@@ -1316,26 +1395,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setLastOrder(newOrder);
 
     if (tenantAddOrder && activeStore?.id) {
-      let orderSource = 'Direct / Storefront';
-      let attributionDetails: any = null;
-      try {
-        const stored =
-          sessionStorage.getItem('selia_traffic_attribution') ||
-          localStorage.getItem('selia_traffic_attribution');
-        if (stored) {
-          attributionDetails = JSON.parse(stored);
-          if (attributionDetails.source) {
-            const src = attributionDetails.source.toLowerCase();
-            if (src.includes('google')) orderSource = `Google Ads (${attributionDetails.medium || 'cpc'})`;
-            else if (src.includes('tiktok')) orderSource = `TikTok Ads (${attributionDetails.medium || 'reels'})`;
-            else if (src.includes('snapchat')) orderSource = `Snapchat (${attributionDetails.medium || 'stories'})`;
-            else if (src.includes('instagram')) orderSource = `Instagram (${attributionDetails.medium || 'bio'})`;
-            else if (src.includes('whatsapp')) orderSource = `WhatsApp (${attributionDetails.medium || 'direct'})`;
-            else if (src.includes('qr_stand')) orderSource = `Hotel QR Stand`;
-            else orderSource = `${attributionDetails.source} (${attributionDetails.campaign || 'Campaign'})`;
-          }
-        }
-      } catch {}
+      // Prefer live UTM capture (unityteck_traffic_attribution) — never stale selia_* keys
+      const traffic = readTrafficSource();
+      const orderSource = traffic.source || 'Direct';
+      const attributionDetails = {
+        source: traffic.source,
+        details: traffic.details,
+        medium: traffic.medium,
+        campaign: traffic.campaign,
+        utmTerm: traffic.utmTerm,
+        utmContent: traffic.utmContent,
+      };
 
       const lineItems = newOrder.items.map((i) => {
         const unit = i.unitPrice != null && Number.isFinite(Number(i.unitPrice))
@@ -1369,7 +1439,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         };
       });
 
-      const traffic = readTrafficSource();
       const storefrontPayload = {
         customerName: newOrder.recipientName,
         customerPhone: newOrder.recipientPhone,
@@ -1379,12 +1448,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         status: 'pending',
         paymentMethod: newOrder.paymentMethod,
         paymentStatus: 'pending',
-        source: orderSource || traffic.source,
-        medium: traffic.medium || attributionDetails?.medium || undefined,
-        campaign: traffic.campaign || attributionDetails?.campaign || undefined,
-        utmTerm: traffic.utmTerm || attributionDetails?.utmTerm || undefined,
-        utmContent: traffic.utmContent || attributionDetails?.utmContent || undefined,
-        sourceDetails: attributionDetails ? JSON.stringify(attributionDetails) : orderSource,
+        source: orderSource,
+        medium: traffic.medium || undefined,
+        campaign: traffic.campaign || undefined,
+        utmTerm: traffic.utmTerm || undefined,
+        utmContent: traffic.utmContent || undefined,
+        sourceDetails: traffic.details || orderSource,
         shippingFee: shipping,
         items: lineItems.map((i) => ({
           id: i.id,

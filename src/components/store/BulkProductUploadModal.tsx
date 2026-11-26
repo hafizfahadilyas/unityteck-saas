@@ -34,11 +34,24 @@ interface BulkProductUploadModalProps {
   storeId: string;
 }
 
-type DemoVertical = 'coffee' | 'flowers' | 'general';
+type DemoVertical = 'coffee' | 'flowers' | 'cars' | 'general';
 
 function resolveDemoVertical(store: { id?: string; name?: string }): DemoVertical {
   if (isCoffeeStore(store)) return 'coffee';
   if (isFlowerStore(store)) return 'flowers';
+  const id = String(store.id || '').toLowerCase();
+  const name = String(store.name || '').toLowerCase();
+  if (
+    id === 'store-bleco' ||
+    id.includes('bleco') ||
+    id.includes('alsaeedi') ||
+    id.includes('car') ||
+    name.includes('سعيدي') ||
+    name.includes('saeedi') ||
+    name.includes('bleco')
+  ) {
+    return 'cars';
+  }
   return 'general';
 }
 
@@ -493,6 +506,81 @@ for (let i = 11; i <= 50; i++) {
   });
 }
 
+/** Al-Saeedi / automotive demo catalog (seat covers + floor mats). */
+const SAMPLE_50_CAR_ITEMS: ParsedProductRow[] = [
+  {
+    name: 'VIP German Nappa Leather Seat Cover Set',
+    nameAr: 'طقم تلبيس مقاعد جلد نابا ألماني VIP',
+    category: 'VIP Seat Covers',
+    sku: 'SAE-SEAT-001',
+    price: 890,
+    discountedPrice: 790,
+    stock: 40,
+    offersAllowed: true,
+    productType: 'Physical',
+    description: 'OEM laser-fit German Nappa leather seat covers with 2-year VIP warranty.',
+    image: 'https://images.unsplash.com/photo-1489824904134-891ab64532f1?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    name: 'Japanese Cooling Fabric Seat Cover',
+    nameAr: 'تلبيس مقاعد قماش تبريد ياباني',
+    category: 'VIP Seat Covers',
+    sku: 'SAE-SEAT-002',
+    price: 620,
+    discountedPrice: 549,
+    stock: 55,
+    offersAllowed: true,
+    productType: 'Physical',
+    description: 'Breathable Japanese cooling fabric for Saudi climate.',
+    image: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    name: 'Laser Precision Floor Mat Set',
+    nameAr: 'طقم أرضيات ليزر دقيقة',
+    category: 'Laser Floor Mats',
+    sku: 'SAE-MAT-001',
+    price: 420,
+    discountedPrice: 379,
+    stock: 70,
+    offersAllowed: true,
+    productType: 'Physical',
+    description: '5-layer waterproof laser-cut mats for exact OEM fitment.',
+    image: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=600&q=80',
+  },
+  {
+    name: 'Diamond 5D Floor Mat Set',
+    nameAr: 'طقم أرضيات دايموند 5D',
+    category: 'Diamond 5D Floor Mats',
+    sku: 'SAE-MAT-002',
+    price: 480,
+    discountedPrice: 429,
+    stock: 65,
+    offersAllowed: true,
+    productType: 'Physical',
+    description: 'Diamond 5D patterned mats with all-weather defense.',
+    image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=600&q=80',
+  },
+];
+
+for (let i = 5; i <= 50; i++) {
+  const cats = ['VIP Seat Covers', 'Laser Floor Mats', 'Diamond 5D Floor Mats', 'Steering Accessories'];
+  const cat = cats[i % cats.length];
+  const price = 280 + i * 17;
+  SAMPLE_50_CAR_ITEMS.push({
+    name: `Al-Saeedi Automotive SKU Edition ${String(i).padStart(2, '0')} (${cat})`,
+    nameAr: `إصدار السعيدي للسيارات ${String(i).padStart(2, '0')} (${cat})`,
+    category: cat,
+    sku: `SAE-${String(i).padStart(3, '0')}`,
+    price,
+    discountedPrice: price - 40,
+    stock: 12 + (i % 35),
+    offersAllowed: i % 3 !== 0,
+    productType: 'Physical',
+    description: 'Al-Saeedi VIP automotive accessory — replace with real catalog rows.',
+    image: SAMPLE_50_CAR_ITEMS[i % 4].image,
+  });
+}
+
 /** Neutral demo catalog for non-coffee / non-flower stores. */
 const SAMPLE_50_GENERIC_ITEMS: ParsedProductRow[] = [
   {
@@ -530,6 +618,7 @@ for (let i = 2; i <= 50; i++) {
 function demoCatalogForVertical(vertical: DemoVertical): ParsedProductRow[] {
   if (vertical === 'coffee') return SAMPLE_50_COFFEE_ITEMS;
   if (vertical === 'flowers') return SAMPLE_50_FLOWER_ITEMS;
+  if (vertical === 'cars') return SAMPLE_50_CAR_ITEMS;
   return SAMPLE_50_GENERIC_ITEMS;
 }
 
@@ -577,6 +666,28 @@ function demoCopy(vertical: DemoVertical, locale: string) {
       templateFile: 'flowers_products_demo_template.csv',
       defaultCategory: 'Luxury Hand Bouquets',
       defaultDescription: 'Premium fresh flower arrangement.',
+    };
+  }
+  if (vertical === 'cars') {
+    return {
+      step2Title: isAr ? 'تحميل 50 منتج سيارات جاهزة' : 'Download 50 Automotive Ready CSV',
+      step2Desc: isAr
+        ? 'ملف يحتوي على تلابيس مقاعد وأرضيات ليزر ودايموند بأسعار وصور ورمز المنتج'
+        : 'Pre-filled Al-Saeedi seat covers and floor mats CSV for import testing.',
+      loadTitle: isAr ? 'معاينة ورفع 50 منتج سيارات فوراً' : '1-Click Load 50 Automotive Catalog',
+      loadDesc: isAr
+        ? 'تعبئة 50 منتج تلبيس وأرضيات مباشرة في جدول المعاينة'
+        : 'Instantly populate 50 automotive catalog rows into the preview table.',
+      downloadToast: isAr
+        ? 'تم تحميل كتالوج 50 منتج سيارات جاهز للاستيراد'
+        : 'Downloaded complete 50-product automotive catalog ready for import!',
+      loadToast: isAr
+        ? 'تم تجهيز 50 منتج سيارات للمعاينة والرفع بنجاح'
+        : 'Loaded 50 automotive products into preview! Click Confirm to import.',
+      filePrefix: '50_alsaeedi_products',
+      templateFile: 'alsaeedi_products_demo_template.csv',
+      defaultCategory: 'VIP Seat Covers',
+      defaultDescription: 'Al-Saeedi VIP automotive product.',
     };
   }
   return {

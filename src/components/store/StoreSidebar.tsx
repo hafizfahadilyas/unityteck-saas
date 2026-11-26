@@ -5,7 +5,10 @@ import { labelForNav, STORE_NAV_KEYS } from '../../i18n/nav';
 import { SaudiSidebarFooter } from '../common/SaudiSidebarFooter';
 import { usePermissions } from '../../hooks/usePermissions';
 import { planAllowsStoreTab } from '../../auth/plans';
-import { isStoreTabComingSoon } from '../../config/storeTabVisibility';
+import {
+  isStoreCommChannelSoonTab,
+  isStoreTabComingSoon,
+} from '../../config/storeTabVisibility';
 import { resolveSubscription } from '../../auth/subscriptions';
 import { getStoreDisplayName } from '../../utils/storeLocalization';
 import { CORE_STORE_CONTROL_IDS, isStoreControlEnabled } from '../../services/storeControlService';
@@ -16,19 +19,15 @@ import {
   Users,
   Megaphone,
   Truck,
-  CreditCard,
   Settings,
   ArrowLeft,
   Palette,
-  Search,
   Store,
   ChevronRight,
   ChevronDown,
   PanelLeftClose,
   PanelLeftOpen,
-  BarChart3,
   FileText,
-  Bell,
   Files,
   BookOpen,
   Sparkles,
@@ -37,9 +36,8 @@ import {
   Share2,
   Smartphone,
   X,
+  Mail,
 } from 'lucide-react';
-import { useNotifications } from '../../notification-system';
-import { WhatsAppBrandIcon } from '../common/BrandIcons';
 import { SouqEMakkahLogo, SouqEMakkahMark } from '../common/SouqEMakkahLogo';
 import { bindStoreChrome, currentChromeRevision, loadStoreChrome, readChromeCache } from '../../i18n/storeChrome';
 import { resolveStoreLogoSrc, withLogoCacheBust } from '../../utils/storeLogo';
@@ -60,12 +58,10 @@ const STORE_IOS_ICON_TINT: Record<string, string> = {
   customers: '#34C759',
   payments: '#AF52DE',
   shipping: '#5AC8FA',
-  notifications: '#FF3B30',
   marketing: '#FF9F0A',
-  whatsapp: '#25D366',
+  whatsapp: '#007AFF',
   social: '#007AFF',
   reports: '#5856D6',
-  'smart-automation': '#30B0C7',
   canva: '#FF375F',
   'ai-media': '#BF5AF2',
   themes: '#FF2D55',
@@ -97,7 +93,6 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
     logoEpoch || undefined,
   );
   const { canTab } = usePermissions();
-  const { unreadCounts } = useNotifications();
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -158,8 +153,8 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
     };
   }, []);
 
-  /** Deep-link into Store Settings (Appearance / Search Console under Settings). */
-  const openSettingsView = (view: 'appearance' | 'search_console' | 'tag_manager') => {
+  /** Deep-link into Store Settings (Appearance / Search Console / Payments under Settings). */
+  const openSettingsView = (view: 'appearance' | 'search_console' | 'tag_manager' | 'payments') => {
     try {
       sessionStorage.setItem('unityteck-settings-view', view);
     } catch {
@@ -185,10 +180,9 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
   };
 
   const isProductsFamily = ['products', 'categories', 'brands', 'media'].includes(currentTab);
-  const isOrdersFamily = ['orders', 'invoices'].includes(currentTab);
+  const isOrdersFamily = ['orders', 'invoices', 'payments'].includes(currentTab);
   /** Themes hub + Theme Store (former App Store) stay under one sidebar family */
   const isThemesFamily = currentTab === 'themes' || currentTab === 'appstore';
-  const isSmartAutomationFamily = ['analytics'].includes(currentTab);
 
   const readThemeSub = (): 'installed' | 'settings' | 'store' => {
     if (currentTab === 'appstore') return 'store';
@@ -258,7 +252,8 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
     'commerce-tools',
   ].includes(currentTab);
 
-  const SMART_AUTOMATION_CHILDREN = ['analytics'] as const;
+  const isCommToolsFamily =
+    currentTab === 'whatsapp' || isStoreCommChannelSoonTab(currentTab);
 
   const canShowStoreTab = (tabId: string) => {
     if (CORE_STORE_CONTROL_IDS.has(tabId)) return true;
@@ -272,10 +267,8 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
     orders: isOrdersFamily,
     themes: isThemesFamily,
     marketing: isMarketingFamily,
-    'smart-automation': isSmartAutomationFamily,
-    whatsapp: currentTab === 'whatsapp' && !isStoreTabComingSoon('whatsapp'),
     shipping: currentTab === 'shipping',
-    settings: currentTab === 'settings' || currentTab === 'hosting',
+    settings: currentTab === 'settings' || currentTab === 'hosting' || currentTab === 'marketplace',
   });
 
   useEffect(() => {
@@ -291,22 +284,22 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
     if (isMarketingFamily) {
       setOpenSubmenus((prev) => ({ ...prev, marketing: true }));
     }
-    if (isSmartAutomationFamily) {
-      setOpenSubmenus((prev) => ({ ...prev, 'smart-automation': true }));
-    }
-    if (currentTab === 'whatsapp' && !isStoreTabComingSoon('whatsapp')) {
-      setOpenSubmenus((prev) => ({ ...prev, whatsapp: true }));
-    }
     if (currentTab === 'shipping') {
       setOpenSubmenus((prev) => ({ ...prev, shipping: true }));
     }
-    if (currentTab === 'settings' || currentTab === 'hosting') {
+    if (currentTab === 'settings' || currentTab === 'hosting' || currentTab === 'marketplace') {
       setOpenSubmenus((prev) => ({ ...prev, settings: true }));
     }
-  }, [isProductsFamily, isOrdersFamily, isThemesFamily, isMarketingFamily, isSmartAutomationFamily, currentTab]);
+  }, [
+    isProductsFamily,
+    isOrdersFamily,
+    isThemesFamily,
+    isMarketingFamily,
+    currentTab,
+  ]);
 
   const navItems = useMemo(() => {
-    // Order locked to Souq store sidebar map (1–17). Need Help stays in footer (18).
+    // AI Partner + Smart Automation folded into single AI Tools page (ai-media).
     // invoices → Orders submenu · seo/blog/commerce-tools → Marketing · hosting → Settings
     const all: Array<{ id: string; icon: React.ElementType; badge?: number }> = [
       { id: 'dashboard', icon: LayoutDashboard },
@@ -314,14 +307,11 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
       { id: 'products', icon: Package },
       { id: 'orders', icon: ShoppingCart },
       { id: 'customers', icon: Users },
-      { id: 'payments', icon: CreditCard },
       { id: 'shipping', icon: Truck },
-      { id: 'notifications', icon: Bell, badge: unreadCounts.total },
       { id: 'marketing', icon: Megaphone },
-      { id: 'whatsapp', icon: WhatsAppBrandIcon },
+      { id: 'whatsapp', icon: Mail },
       { id: 'social', icon: Share2 },
       { id: 'reports', icon: FileText },
-      { id: 'smart-automation', icon: BarChart3 },
       { id: 'canva', icon: Paintbrush },
       { id: 'ai-media', icon: Sparkles },
       { id: 'themes', icon: Palette },
@@ -330,18 +320,15 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
       { id: 'settings', icon: Settings },
     ];
     // Coming-soon tabs stay visible as disabled fixed buttons (no click / no dropdown).
-    // Core tabs (dashboard / settings / notifications) always stay in the sidebar —
+    // Core tabs (dashboard / settings) always stay in the sidebar —
     // never drop them for role ability, plan gate, or Master store-control toggles.
     return all.filter((item) => {
-      if (item.id === 'smart-automation') {
-        return SMART_AUTOMATION_CHILDREN.some((childId) => canShowStoreTab(childId));
-      }
       if (item.id === 'themes') {
         return canShowStoreTab('themes') || canShowStoreTab('appstore');
       }
       return canShowStoreTab(item.id);
     });
-  }, [canTab, activeStore, unreadCounts.total, controlsEpoch]);
+  }, [canTab, activeStore, controlsEpoch]);
 
   const sub = resolveSubscription(activeStore.id);
 
@@ -557,22 +544,15 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
           const isOrders = item.id === 'orders';
           const isThemes = item.id === 'themes';
           const isMarketing = item.id === 'marketing';
-          const isSmartAutomation = item.id === 'smart-automation';
           const isWhatsApp = item.id === 'whatsapp';
           const isShipping = item.id === 'shipping';
           const isSettings = item.id === 'settings';
+          const isAiHub = item.id === 'ai-media';
           const comingSoon = isStoreTabComingSoon(item.id);
           // Coming Soon = fixed disabled button (no click, no dropdown).
           const hasSubmenu =
             !comingSoon &&
-            (isProducts ||
-              isOrders ||
-              isThemes ||
-              isMarketing ||
-              isSmartAutomation ||
-              isWhatsApp ||
-              isShipping ||
-              isSettings);
+            (isProducts || isOrders || isThemes || isMarketing || isShipping || isSettings);
           const isActive = comingSoon
             ? false
             : isProducts
@@ -583,11 +563,13 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                   ? isThemesFamily
                   : isMarketing
                     ? isMarketingFamily
-                    : isSmartAutomation
-                      ? isSmartAutomationFamily
+                    : isWhatsApp
+                      ? isCommToolsFamily
                       : isSettings
-                        ? currentTab === 'settings' || currentTab === 'hosting'
-                        : currentTab === item.id;
+                        ? currentTab === 'settings' || currentTab === 'hosting' || currentTab === 'marketplace'
+                        : isAiHub
+                          ? currentTab === 'ai-media' || currentTab === 'analytics'
+                          : currentTab === item.id;
           const isSubmenuOpen = !comingSoon && Boolean(openSubmenus[item.id]);
 
           return (
@@ -599,18 +581,6 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                 onClick={() => {
                   if (comingSoon) return;
                   if (hasSubmenu) {
-                    if (isSmartAutomation) {
-                      if (isActive) {
-                        setOpenSubmenus((prev) => ({ ...prev, [item.id]: !prev[item.id] }));
-                      } else {
-                        const firstChild =
-                          SMART_AUTOMATION_CHILDREN.find((childId) => canShowStoreTab(childId)) ||
-                          'analytics';
-                        selectTab(firstChild);
-                        setOpenSubmenus((prev) => ({ ...prev, [item.id]: true }));
-                      }
-                      return;
-                    }
                     if (isThemes) {
                       // Always open Installed Themes page + keep submenu visible
                       openThemesInstalled();
@@ -625,6 +595,19 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                     }
                   } else {
                     selectTab(item.id);
+                    // Communication Tools: always land on in-page hub cards (no sidebar dropdown)
+                    if (isWhatsApp) {
+                      try {
+                        sessionStorage.removeItem('unityteck-whatsapp-view');
+                      } catch {
+                        /* storage may be unavailable */
+                      }
+                      window.setTimeout(() => {
+                        window.dispatchEvent(
+                          new CustomEvent('unityteck-whatsapp-view', { detail: 'hub' }),
+                        );
+                      }, 40);
+                    }
                   }
                 }}
                 aria-current={isActive ? 'page' : undefined}
@@ -769,6 +752,18 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                         color: 'bg-orange-400',
                       },
                       {
+                        id: 'payments',
+                        labelAr: 'المدفوعات والمعاملات',
+                        labelEn: 'Payments & Transactions',
+                        color: 'bg-emerald-400',
+                      },
+                      {
+                        id: 'appointments',
+                        labelAr: 'مواعيد الورشة',
+                        labelEn: 'Workshop Appointments',
+                        color: 'bg-amber-400',
+                      },
+                      {
                         id: 'invoices',
                         labelAr: 'الفواتير والمستندات',
                         labelEn: 'Invoices & Documents',
@@ -776,7 +771,18 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                       },
                     ] as const
                   )
-                    .filter((sub) => canShowStoreTab(sub.id))
+                    .filter((sub) => {
+                      if (sub.id === 'appointments') {
+                        const sid = String(activeStore?.id || '').toLowerCase();
+                        return (
+                          sid === 'store-bleco' ||
+                          sid.includes('bleco') ||
+                          sid.includes('alsaeedi') ||
+                          sid.includes('car')
+                        );
+                      }
+                      return canShowStoreTab(sub.id);
+                    })
                     .map((sub) => {
                       const isSubActive = currentTab === sub.id;
                       return (
@@ -788,41 +794,6 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                             isSubActive
                               ? 'font-bold text-white bg-white/15 shadow-xs'
                               : 'font-semibold text-slate-200 hover:text-white hover:bg-white/10'
-                          }`}
-                        >
-                          <span className={`w-1.5 h-1.5 rounded-full ${sub.color} shrink-0`} />
-                          <span className="truncate">{isAr ? sub.labelAr : sub.labelEn}</span>
-                        </button>
-                      );
-                    })}
-                </div>
-              )}
-
-              {/* Submenu for Smart Automation — Analytics */}
-              {isSmartAutomation && !collapsed && isSubmenuOpen && isActive && (
-                <div className="store-subnav ps-7 pe-1 space-y-0.5 py-1">
-                  {(
-                    [
-                      {
-                        id: 'analytics',
-                        labelAr: 'التحليلات',
-                        labelEn: 'Analytics',
-                        color: 'bg-sky-400',
-                      },
-                    ] as const
-                  )
-                    .filter((sub) => canShowStoreTab(sub.id))
-                    .map((sub) => {
-                      const isSubActive = currentTab === sub.id;
-                      return (
-                        <button
-                          key={sub.id}
-                          type="button"
-                          onClick={() => selectTab(sub.id)}
-                          className={`w-full text-start py-1.5 px-2 rounded-lg text-[12px] transition-colors flex items-center gap-2 cursor-pointer ${
-                            isSubActive
-                              ? 'font-bold text-white bg-white/15 shadow-xs'
-                              : 'font-semibold text-slate-100 hover:text-white hover:bg-white/10'
                           }`}
                         >
                           <span className={`w-1.5 h-1.5 rounded-full ${sub.color} shrink-0`} />
@@ -948,6 +919,14 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                   </button>
                   <button
                     type="button"
+                    onClick={() => openSettingsView('payments')}
+                    className="w-full text-start py-1 px-2 rounded-lg text-[11px] font-semibold text-slate-200 hover:text-white hover:bg-white/15 transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#AF52DE' }} />
+                    <span>{isAr ? 'المدفوعات' : 'Payments'}</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => openSettingsView('appearance')}
                     className="w-full text-start py-1 px-2 rounded-lg text-[11px] font-semibold text-slate-200 hover:text-white hover:bg-white/15 transition-colors flex items-center gap-2 cursor-pointer"
                   >
@@ -969,6 +948,18 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />
                     <span>{isAr ? 'مدير العلامات وتحليلات الزوار' : 'Tag Manager & Analytics'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => selectTab('marketplace')}
+                    className={`w-full text-start py-1 px-2 rounded-lg text-[11px] transition-colors flex items-center gap-2 cursor-pointer ${
+                      currentTab === 'marketplace'
+                        ? 'font-bold text-white bg-white/15 shadow-xs'
+                        : 'font-semibold text-slate-200 hover:text-white hover:bg-white/15'
+                    }`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                    <span>{isAr ? 'الباقات والإضافات' : 'Plans & Add-ons'}</span>
                   </button>
                   {canShowStoreTab('hosting') ? (
                     <button
@@ -1034,40 +1025,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                 </div>
               )}
 
-              {/* Submenu for WhatsApp — never for Coming Soon */}
-              {isWhatsApp && !comingSoon && !collapsed && isSubmenuOpen && isActive && (
-                <div className="store-subnav ps-7 pe-1 space-y-0.5 py-1">
-                  {[
-                    { id: 'center', labelAr: 'مركز الرسائل', labelEn: 'Message Center' },
-                    { id: 'compose', labelAr: 'إنشاء رسالة', labelEn: 'Compose Message' },
-                    { id: 'templates', labelAr: 'القوالب', labelEn: 'Templates' },
-                    { id: 'automations', labelAr: 'الأتمتة', labelEn: 'Automations' },
-                    { id: 'campaigns', labelAr: 'الحملات', labelEn: 'Campaigns' },
-                    { id: 'contacts', labelAr: 'جهات الاتصال والشرائح', labelEn: 'Contacts & Segments' },
-                    { id: 'settings', labelAr: 'الإعدادات', labelEn: 'Settings' },
-                  ].map((sub) => (
-                    <button
-                      key={sub.id}
-                      type="button"
-                      onClick={() => {
-                        try {
-                          sessionStorage.setItem('unityteck-whatsapp-view', sub.id);
-                        } catch {
-                          /* storage may be unavailable */
-                        }
-                        selectTab('whatsapp');
-                        window.setTimeout(() => {
-                          window.dispatchEvent(new CustomEvent('unityteck-whatsapp-view', { detail: sub.id }));
-                        }, 60);
-                      }}
-                      className="w-full text-start py-1 px-2 rounded-lg text-[11px] font-semibold text-slate-200 hover:text-white hover:bg-white/15 transition-colors flex items-center gap-2 cursor-pointer"
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-                      <span className="truncate">{isAr ? sub.labelAr : sub.labelEn}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+              {/* Communication Tools: no sidebar dropdown — hub cards live inside the page (like Social Publishing) */}
 
               {/* Submenu for Shipping & Logistics */}
               {isShipping && !collapsed && isSubmenuOpen && isActive && (

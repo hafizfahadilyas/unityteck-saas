@@ -39,7 +39,7 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({ isOpen, onCl
   const [category, setCategory] = useState('Jewelry');
   const [owner, setOwner] = useState('');
   const [ownerEmail, setOwnerEmail] = useState('');
-  const [plan, setPlan] = useState<PlanType>('pro');
+  const [plan, setPlan] = useState<PlanType>('premium');
   const [masterGrantedPro, setMasterGrantedPro] = useState(false);
   const [dbIsolation, setDbIsolation] = useState<'shared_store_id' | 'dedicated_mysql'>('shared_store_id');
   const [logoEmoji, setLogoEmoji] = useState('flower');
@@ -193,13 +193,18 @@ export const CreateStoreModal: React.FC<CreateStoreModalProps> = ({ isOpen, onCl
                 onChange={(e) => setPlan(e.target.value as PlanType)}
                 className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-900 bg-white"
               >
-                <option value="pro">
-                  {isAr ? `الباقة الاحترافية (${money(300)}/ شهرياً)` : `Pro (${money(300)} / month)`}
-                </option>
                 <option value="premium">
-                  {isAr ? `الباقة المميزة (${money(500)}/ شهرياً)` : `Premium (${money(500)} / month)`}
+                  {isAr
+                    ? `المميزة (${money(500)}/شهرياً) — كل القوالب المشتركة + احترافي`
+                    : `Premium (${money(500)} / month) — all common themes + Pro`}
                 </option>
-                <option value="free">{isAr ? 'الباقة المجانية' : 'Free'}</option>
+                <option value="pro">
+                  {isAr ? `الاحترافية (${money(300)}/شهرياً)` : `Pro (${money(300)} / month)`}
+                </option>
+                <option value="starter">
+                  {isAr ? `الأساسية (${money(100)}/شهرياً)` : `Starter (${money(100)} / month)`}
+                </option>
+                <option value="free">{isAr ? 'المجانية' : 'Free'}</option>
               </select>
             </div>
           </div>

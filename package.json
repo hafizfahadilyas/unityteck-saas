@@ -25,7 +25,9 @@
     "restore": "node scripts/restore-database.js",
     "restore:confirm": "node scripts/restore-database.js --confirm",
     "smoke:live": "node scripts/smoke-live-stores.mjs",
-    "smoke:master": "node scripts/smoke-master-phase1.mjs"
+    "gate:predeploy": "node scripts/pre-deploy-gate.mjs",
+    "smoke:master": "node scripts/smoke-master-phase1.mjs",
+    "verify:flowers-central": "node scripts/verify-flowers-central-migration.js"
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.61.11",
@@ -53,6 +55,7 @@
     "autoprefixer": "^10.4.21",
     "basic-ftp": "^6.2.2",
     "esbuild": "^0.28.2",
+    "mysql2": "^3.24.6",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2"

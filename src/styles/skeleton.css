@@ -1,0 +1,145 @@
+/**
+ * Souq Platform — Global Skeleton Loading System
+ * High-performance, GPU-accelerated CSS Shimmer & Pulse
+ * Light/Dark Mode, RTL/LTR, and Reduced Motion Support
+ */
+
+:root {
+  --souq-skeleton-bg: color-mix(in srgb, var(--border, #cbd5e1) 45%, var(--surface, #ffffff));
+  --souq-skeleton-shimmer: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.65) 50%,
+    transparent 100%
+  );
+  --souq-skeleton-shimmer-rtl: linear-gradient(
+    270deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.65) 50%,
+    transparent 100%
+  );
+  --souq-skeleton-radius: 12px;
+  --souq-skeleton-speed: 1.6s;
+}
+
+[data-theme="dark"],
+.dark {
+  --souq-skeleton-bg: color-mix(in srgb, var(--surface, #0f172a) 60%, rgba(255, 255, 255, 0.08));
+  --souq-skeleton-shimmer: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.09) 50%,
+    transparent 100%
+  );
+  --souq-skeleton-shimmer-rtl: linear-gradient(
+    270deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.09) 50%,
+    transparent 100%
+  );
+}
+
+@keyframes souq-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes souq-shimmer-rtl {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes souq-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.42;
+  }
+}
+
+/* Base Skeleton block */
+.souq-skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--souq-skeleton-bg);
+  border-radius: var(--souq-skeleton-radius);
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Shimmer animation pseudo-element (LTR default) */
+.souq-skeleton.souq-skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  transform: translateX(-100%);
+  background-image: var(--souq-skeleton-shimmer);
+  animation: souq-shimmer var(--souq-skeleton-speed) infinite ease-in-out;
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* RTL Shimmer animation */
+[dir="rtl"] .souq-skeleton.souq-skeleton-shimmer::after,
+html[dir="rtl"] .souq-skeleton.souq-skeleton-shimmer::after,
+html[lang="ar"] .souq-skeleton.souq-skeleton-shimmer::after {
+  transform: translateX(100%);
+  background-image: var(--souq-skeleton-shimmer-rtl);
+  animation-name: souq-shimmer-rtl;
+}
+
+/* Pulse animation variant */
+.souq-skeleton.souq-skeleton-pulse {
+  animation: souq-pulse calc(var(--souq-skeleton-speed) * 1.1) infinite ease-in-out;
+}
+.souq-skeleton.souq-skeleton-pulse::after {
+  display: none !important;
+}
+
+/* Static (no animation) variant */
+.souq-skeleton.souq-skeleton-none::after {
+  display: none !important;
+}
+.souq-skeleton.souq-skeleton-none {
+  animation: none !important;
+}
+
+/* Accessibility: User prefers reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .souq-skeleton::after {
+    display: none !important;
+    animation: none !important;
+  }
+  .souq-skeleton {
+    animation: none !important;
+    opacity: 0.85;
+  }
+}
+
+/* Speed modifiers */
+.souq-skeleton-speed-slow {
+  --souq-skeleton-speed: 2.2s;
+}
+.souq-skeleton-speed-fast {
+  --souq-skeleton-speed: 1.1s;
+}
+
+/* Universal Skeleton Card Container */
+.souq-skeleton-card {
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 1.25rem;
+  box-shadow: var(--card-shadow, 0 1px 3px rgba(0,0,0,0.05));
+}

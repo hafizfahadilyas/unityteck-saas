@@ -490,6 +490,10 @@ class AiMediaController extends Controller
             $mediaPayload['url'] = $mediaRow->url;
         }
 
+        if ($gate['is_trial'] ?? false) {
+            StoreAiSuiteAccess::recordTrialUse($store);
+        }
+
         return response()->json([
             'data' => [
                 'kind' => 'image',

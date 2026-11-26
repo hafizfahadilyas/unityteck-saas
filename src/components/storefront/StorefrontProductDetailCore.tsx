@@ -9,6 +9,7 @@ import { effectiveProductPricing } from '../../utils/productSaleSchedule';
 import type { StoreReviewRow } from '../../api/tenantApi';
 import { Star, ChevronDown, ShieldCheck } from 'lucide-react';
 import { pickLocaleText } from '../../utils/localeLabel';
+import { Skeleton } from '../common/skeleton';
 
 export interface StorefrontProductDetailCoreProps {
   product: Product;
@@ -230,7 +231,20 @@ export const StorefrontProductDetailCore: React.FC<StorefrontProductDetailCorePr
         <section className="space-y-3 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
           <h3 className="text-lg font-extrabold">{isAr ? 'تقييمات العملاء' : 'Customer reviews'}</h3>
           {reviewsLoading ? (
-            <p className="text-sm opacity-70">{isAr ? 'جاري التحميل...' : 'Loading…'}</p>
+            <div className="space-y-3 py-2" aria-busy="true" role="status">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <div key={i} className="p-3.5 rounded-xl border space-y-2" style={{ borderColor: 'var(--border)' }}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Skeleton variant="circular" width="24px" height="24px" />
+                      <Skeleton variant="rounded" height="13px" width="80px" />
+                    </div>
+                    <Skeleton variant="rounded" height="12px" width="50px" />
+                  </div>
+                  <Skeleton variant="rounded" height="12px" width="85%" />
+                </div>
+              ))}
+            </div>
           ) : (
             <ul className="space-y-3">
               {reviews.map((rev) => (

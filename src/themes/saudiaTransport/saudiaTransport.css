@@ -1,37 +1,72 @@
 /* =========================================================================
    Al-Saeedi VIP Automotive Store Theme (متجر السعيدي — تنجيد مكة الفاخر)
-   Style: Modern Luxury Automotive VIP Aesthetic
-   - Royal Midnight Purple: #16032e / #240646 / #3e0f77 / #0d011c
-   - Radiant Champagne Gold: #d5a027 / #f6c344 / #e8b948 / #ffd700
-   - Crisp Background: #f8f7fc / #ffffff
-   - Pure White & Glass Cards with Metallic Gold Accents
+   Style: White · Light · Silver luxury (gold accents)
+   - Silver / slate chrome: #f8fafc / #e2e8f0 / #94a3b8 / #1e293b
+   - Radiant Champagne Gold: #d5a027 / #f6c344 / #e8b948
+   - Page: white → soft silver gradient
    - Typography: Tajawal (Arabic) / Inter (English)
    ========================================================================= */
 
 @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 :root {
-  --color-brand: #3e0f77;
-  --color-brand-deep: #16032e;
-  --color-brand-darker: #0d011c;
-  --color-brand-mid: #25074d;
+  --color-brand: #1e293b;
+  --color-brand-deep: #0f172a;
+  --color-brand-darker: #020617;
+  --color-brand-mid: #475569;
   --color-gold: #d5a027;
   --color-gold-light: #f6c344;
   --color-gold-champagne: #f4d068;
   --color-gold-dark: #b07e16;
-  --color-bg-page: #f8f7fc;
+  --color-bg-page: #ffffff;
   --color-bg-card: #ffffff;
-  --color-border: #ede8f5;
+  --color-border: transparent;
   --color-text-main: #0f172a;
   --color-text-muted: #64748b;
+  --color-silver: #c0c7d1;
+  --color-silver-soft: #ffffff;
+  --alsaeedi-card-shadow: 0 4px 20px -4px rgba(15, 23, 42, 0.06), 0 2px 6px -2px rgba(15, 23, 42, 0.03);
 }
 
 .alsaeedi-theme-container {
   min-height: 100vh;
-  background-color: var(--color-bg-page);
+  background: #ffffff !important;
   color: var(--color-text-main);
   position: relative;
   overflow-x: hidden;
+}
+
+/* =========================================================================
+   Zero Borders Everywhere (Pure Minimal Luxury Aesthetic)
+   ========================================================================= */
+.alsaeedi-theme-container,
+.alsaeedi-theme-container *,
+.alsaeedi-theme-container *::before,
+.alsaeedi-theme-container *::after {
+  border-color: transparent !important;
+}
+
+.alsaeedi-theme-container [class*="border"],
+.alsaeedi-theme-container hr,
+.alsaeedi-theme-container [class*="divide-"] > *,
+.alsaeedi-top-announce,
+.alsaeedi-section,
+.alsaeedi-section-soft,
+.alsaeedi-product-card,
+.alsaeedi-card,
+.alsaeedi-seat-card,
+.alsaeedi-finder-card,
+.alsaeedi-brand-card,
+.alsaeedi-brand-emblem,
+.alsaeedi-card-panel,
+.alsaeedi-card-chip,
+.alsaeedi-card-gold,
+.alsaeedi-vehicle-filter,
+.alsaeedi-footer-shell,
+.btn-bashayer-purple,
+.btn-bashayer-gold {
+  border: none !important;
+  border-width: 0 !important;
 }
 
 .alsaeedi-theme-container[dir="rtl"] {
@@ -42,14 +77,14 @@
   font-family: 'SaudiRiyalSign', 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-/* 1. Slim Announcement Micro-Bar */
+/* 1. Slim Announcement Micro-Bar — pure white */
 .alsaeedi-top-announce {
-  background: #120224;
-  color: #f8fafc;
-  padding: 6px 16px;
+  background: #ffffff !important;
+  color: #334155;
+  padding: 7px 16px;
   font-size: 11px;
   font-weight: 600;
-  border-bottom: 1px solid rgba(213, 160, 39, 0.3);
+  border: none !important;
   position: relative;
   z-index: 40;
 }
@@ -57,7 +92,7 @@
 /* 2. Floating WhatsApp Action Button */
 .alsaeedi-whatsapp-floating {
   position: fixed;
-  bottom: 84px; /* offset for mobile bottom nav bar */
+  bottom: 84px;
   z-index: 49;
   display: flex;
   align-items: center;
@@ -69,8 +104,9 @@
   font-weight: 800;
   font-size: 12px;
   box-shadow: 0 10px 25px -4px rgba(37, 211, 102, 0.45);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
   text-decoration: none;
+  will-change: transform;
 }
 
 @media (min-width: 1024px) {
@@ -112,11 +148,11 @@
 /* 3. Luxury Buttons */
 .btn-bashayer-gold {
   background: linear-gradient(135deg, #d5a027 0%, #f6c344 50%, #e5a93b 100%);
-  color: #120224;
+  color: #0f172a;
   font-weight: 900;
   border-radius: 9999px;
   box-shadow: 0 4px 16px rgba(213, 160, 39, 0.38);
-  transition: all 0.25s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
   position: relative;
   overflow: hidden;
 }
@@ -128,42 +164,67 @@
 }
 
 .btn-bashayer-purple {
-  background: linear-gradient(135deg, #3e0f77 0%, #240646 100%);
+  background: linear-gradient(135deg, #334155 0%, #1e293b 100%);
   color: #ffffff;
   font-weight: 800;
   border-radius: 9999px;
-  border: 1px solid rgba(213, 160, 39, 0.4);
-  box-shadow: 0 4px 16px rgba(62, 15, 119, 0.35);
-  transition: all 0.25s ease;
+  border: none !important;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.18);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
 
 .btn-bashayer-purple:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(62, 15, 119, 0.5);
-  border-color: rgba(246, 195, 68, 0.7);
-  filter: brightness(1.08);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.28);
+  filter: brightness(1.06);
 }
 
-/* 4. Luxury Product Cards */
-.alsaeedi-product-card {
-  background: #ffffff;
+/* 4. Luxury Product Cards — pure white luxury (zero border) */
+.alsaeedi-product-card,
+.alsaeedi-card {
+  background: #ffffff !important;
   border-radius: 20px;
-  border: 1px solid #ede8f5;
-  box-shadow: 0 4px 14px -3px rgba(62, 15, 119, 0.05);
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  border: none !important;
+  box-shadow: 0 4px 20px -4px rgba(15, 23, 42, 0.06), 0 2px 6px -2px rgba(15, 23, 42, 0.03) !important;
+  color: #0f172a;
+  transition: transform 0.28s ease, box-shadow 0.28s ease;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
-.alsaeedi-product-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 16px 32px -6px rgba(62, 15, 119, 0.16);
-  border-color: rgba(213, 160, 39, 0.6);
+.alsaeedi-product-card:hover,
+.alsaeedi-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 18px 36px -10px rgba(15, 23, 42, 0.12) !important;
+  border: none !important;
+}
+
+.alsaeedi-card-panel {
+  background: #ffffff !important;
+  border: none !important;
+  border-radius: 1.15rem;
+  box-shadow: 0 4px 18px -4px rgba(15, 23, 42, 0.05) !important;
+  color: #0f172a;
+}
+
+.alsaeedi-card-chip {
+  background: #ffffff !important;
+  border: none !important;
+  border-radius: 1rem;
+  box-shadow: 0 4px 14px -4px rgba(15, 23, 42, 0.05) !important;
+  color: #0f172a;
+}
+
+.alsaeedi-card-gold {
+  background: #ffffff !important;
+  border: none !important;
+  color: #0f172a;
+  box-shadow: 0 4px 18px -4px rgba(15, 23, 42, 0.05) !important;
 }
 
 .alsaeedi-product-card .img-zoom {
-  transition: transform 0.5s ease;
+  transition: transform 0.4s ease;
 }
 
 .alsaeedi-product-card:hover .img-zoom {
@@ -172,11 +233,11 @@
 
 /* 5. Luxury Vehicle Matcher Filter Cockpit Widget */
 .alsaeedi-vehicle-filter {
-  background: rgba(255, 255, 255, 0.98);
+  background: #ffffff !important;
   border-radius: 24px;
   padding: 20px;
-  border: 1px solid rgba(213, 160, 39, 0.4);
-  box-shadow: 0 24px 50px -12px rgba(18, 2, 36, 0.35), 0 0 0 1px rgba(213, 160, 39, 0.15);
+  border: none !important;
+  box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.08) !important;
   position: relative;
   z-index: 20;
 }
@@ -189,11 +250,11 @@
 
 /* 6. Brand Logo Cards & Luxury Circular Emblem */
 .alsaeedi-brand-card {
-  background: #ffffff;
+  background: #ffffff !important;
   border-radius: 20px;
-  border: 1.5px solid #ede8f5;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 4px 14px -3px rgba(62, 15, 119, 0.05);
+  border: none !important;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  box-shadow: 0 4px 14px -3px rgba(15, 23, 42, 0.05);
   position: relative;
   overflow: hidden;
 }
@@ -203,16 +264,15 @@
   position: absolute;
   inset: 0;
   border-radius: 20px;
-  background: linear-gradient(145deg, rgba(213, 160, 39, 0.12) 0%, rgba(62, 15, 119, 0.03) 60%, transparent 100%);
+  background: rgba(213, 160, 39, 0.06);
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.25s ease;
   pointer-events: none;
 }
 
 .alsaeedi-brand-card:hover {
   transform: translateY(-4px);
-  border-color: rgba(213, 160, 39, 0.85);
-  box-shadow: 0 14px 28px -4px rgba(62, 15, 119, 0.14), 0 0 16px rgba(213, 160, 39, 0.22);
+  box-shadow: 0 14px 28px -4px rgba(15, 23, 42, 0.1);
 }
 
 .alsaeedi-brand-card:hover::before {
@@ -220,37 +280,34 @@
 }
 
 .alsaeedi-brand-card.active {
-  border-color: #d5a027;
-  background: linear-gradient(180deg, #fdfaff 0%, #ffffff 100%);
-  box-shadow: 0 0 0 2px #d5a027, 0 12px 26px -4px rgba(62, 15, 119, 0.18);
+  border: none !important;
+  background: #ffffff !important;
+  box-shadow: 0 10px 24px -4px rgba(15, 23, 42, 0.12) !important;
   transform: translateY(-2px);
 }
 
-/* Luxury Circular Emblem Podium */
 .alsaeedi-brand-emblem {
   width: 58px;
   height: 58px;
   border-radius: 9999px;
-  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #faf8fd 60%, #f1ebf9 100%);
-  border: 1.5px solid #ede8f5;
+  background: #f8fafc !important;
+  border: none !important;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.95), 0 4px 10px rgba(62, 15, 119, 0.05);
-  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
   position: relative;
 }
 
 .alsaeedi-brand-card:hover .alsaeedi-brand-emblem {
-  border-color: #d5a027;
   transform: scale(1.08);
-  box-shadow: 0 0 18px rgba(213, 160, 39, 0.32), inset 0 1px 3px rgba(255, 255, 255, 1);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
 }
 
 .alsaeedi-brand-card.active .alsaeedi-brand-emblem {
-  border-color: #d5a027;
-  box-shadow: 0 0 0 3px rgba(213, 160, 39, 0.25), 0 6px 14px rgba(62, 15, 119, 0.15);
-  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
+  background: #ffffff !important;
 }
 
 /* 7. Color Swatch Dots */
@@ -258,8 +315,9 @@
   width: 18px;
   height: 18px;
   border-radius: 9999px;
-  border: 1.5px solid rgba(0, 0, 0, 0.18);
-  transition: all 0.2s ease;
+  border: none !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15) !important;
+  transition: transform 0.2s ease;
   cursor: pointer;
 }
 
@@ -268,36 +326,86 @@
 }
 
 .color-swatch-dot.active {
-  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #d5a027;
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #d5a027 !important;
   transform: scale(1.15);
 }
 
-/* 8. Hero & Luxury Ambient Styles */
+/* 8. Hero — pure clean container */
 .alsaeedi-hero-gradient,
 .alsaeedi-hero-gradient.alsaeedi-glow-radial {
-  background-color: #16032e !important;
-  background-image: 
-    radial-gradient(circle at 50% 0%, rgba(213, 160, 39, 0.26) 0%, rgba(213, 160, 39, 0.05) 45%, transparent 70%),
-    radial-gradient(120% 120% at 50% 0%, #2d0755 0%, #180333 55%, #0e011f 100%) !important;
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+.alsaeedi-hero-pattern-veil {
+  display: none !important;
+}
+
+/* Seat product cards — equal action row + pure white luxury surface */
+.alsaeedi-seat-card {
+  min-height: 100%;
+  background: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 4px 20px -4px rgba(15, 23, 42, 0.06), 0 2px 6px -2px rgba(15, 23, 42, 0.03) !important;
+  transition: transform 0.28s ease, box-shadow 0.28s ease;
+}
+
+.alsaeedi-seat-card:hover {
+  transform: translateY(-5px);
+  border: none !important;
+  box-shadow: 0 18px 34px -12px rgba(15, 23, 42, 0.12) !important;
+}
+
+/* Modern vehicle finder card */
+.alsaeedi-finder-card {
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: none !important;
+  border-radius: 1.35rem;
+  box-shadow: 0 12px 36px -12px rgba(15, 23, 42, 0.1) !important;
+}
+
+@media (min-width: 640px) {
+  .alsaeedi-finder-card {
+    border-radius: 1.5rem;
+  }
 }
 
 .alsaeedi-glow-radial {
-  background-image: radial-gradient(circle at 50% 0%, rgba(213, 160, 39, 0.2) 0%, rgba(213, 160, 39, 0.03) 45%, transparent 70%);
+  background-image: radial-gradient(circle at 50% 0%, rgba(213, 160, 39, 0.12) 0%, rgba(192, 199, 209, 0.08) 45%, transparent 70%);
 }
 
-/* 9. Mobile Sticky Bottom Navigation */
+/* 9. Mobile Sticky Bottom Navigation — pure white */
 .alsaeedi-mobile-bottom-nav {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
   z-index: 50;
-  background: rgba(18, 2, 36, 0.95);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid rgba(213, 160, 39, 0.35);
+  background: rgba(255, 255, 255, 0.98) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: none !important;
+  border-top: none !important;
   padding-bottom: max(6px, env(safe-area-inset-bottom));
-  box-shadow: 0 -10px 25px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.05);
+  color: #0f172a;
+}
+
+.alsaeedi-mobile-bottom-nav > * {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.alsaeedi-mobile-bottom-nav span {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.15;
 }
 
 /* 10. Drawer Slide-in Animations */
@@ -319,7 +427,6 @@
   animation: slideDrawerInLTR 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Animations */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
@@ -329,29 +436,387 @@
   animation: fadeIn 0.3s ease-out forwards;
 }
 
-.no-scrollbar::-webkit-scrollbar {
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar,
+.alsaeedi-chip-scroll::-webkit-scrollbar {
   display: none;
 }
-.no-scrollbar {
+.no-scrollbar,
+.scrollbar-none,
+.alsaeedi-chip-scroll {
   -ms-overflow-style: none;
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pinch-zoom;
+  scroll-behavior: auto;
 }
 
-/* Hardware-Accelerated Toast Progress */
+/* Filter / brand chip rows — proximity snap (mandatory fights finger on Android) */
+.alsaeedi-chip-scroll {
+  scroll-snap-type: x proximity;
+}
+.alsaeedi-chip-scroll > * {
+  scroll-snap-align: start;
+}
+
 @keyframes toastCountdown {
   from { transform: scaleX(1); }
   to { transform: scaleX(0); }
 }
 
-/* Ultra-Fast 60fps Performance Optimizations (Skip offscreen layout/paint) */
+/* Soft paint hint only — avoid content-visibility size containment (clips tall brand/booking sections on mobile) */
 #faq-section,
 #blog-section,
-#reviews-section {
+#reviews-section,
+#featured-seats-section,
+#floor-mats-section,
+#core-categories-section {
   content-visibility: auto;
-  contain-intrinsic-size: 1px 600px;
+  contain-intrinsic-size: auto 720px;
+}
+
+#brands-section,
+#services-booking {
+  content-visibility: visible;
+  contain: none;
 }
 
 .alsaeedi-theme-container img {
   transform: translateZ(0);
   backface-visibility: hidden;
+}
+
+/* Product / card media: never stretch (fill warps H/W). Photos = cover, cutouts = contain. */
+.alsaeedi-theme-container .alsaeedi-card img,
+.alsaeedi-theme-container .alsaeedi-card-panel img,
+.alsaeedi-theme-container .alsaeedi-section img:not([class*='object-contain']):not([class*='object-cover']),
+.alsaeedi-theme-container .alsaeedi-section-soft img:not([class*='object-contain']):not([class*='object-cover']),
+.alsaeedi-theme-container [class*='aspect-'] > img:not([class*='object-contain']),
+.alsaeedi-theme-container .img-zoom {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* Seat / catalog cutouts: keep true aspect inside fixed card frame */
+.alsaeedi-theme-container .alsaeedi-product-card img,
+.alsaeedi-theme-container .alsaeedi-seat-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+
+/* Brand logos stay proportional inside circular emblem */
+.alsaeedi-theme-container .alsaeedi-brand-emblem img {
+  width: auto;
+  height: 2rem;
+  max-width: 46px;
+  object-fit: contain;
+}
+
+.alsaeedi-theme-container img[data-broken='1'] {
+  opacity: 0;
+}
+
+/* Lighter chrome helpers for remapped light surfaces */
+.alsaeedi-theme-container header.sticky {
+  box-shadow: 0 4px 18px -6px rgba(15, 23, 42, 0.08);
+}
+
+/* =========================================================================
+   Modern Luxury Section Shell + Soft Gradient Shades
+   ========================================================================= */
+.alsaeedi-section {
+  position: relative;
+  border-radius: 1.5rem;
+  background: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 4px 24px -6px rgba(15, 23, 42, 0.05) !important;
+  /* clip-x only — never hide brand/booking rows on mobile */
+  overflow-x: clip;
+  overflow-y: visible;
+  color: #0f172a;
+}
+
+@media (max-width: 640px) {
+  #brands-section.alsaeedi-section,
+  #services-booking.alsaeedi-section {
+    overflow: visible;
+  }
+  #brands-section .alsaeedi-brand-card {
+    overflow: visible;
+  }
+}
+
+.alsaeedi-section::before {
+  display: none !important;
+}
+
+.alsaeedi-section-soft {
+  background: #ffffff !important;
+  border: none !important;
+  border-radius: 1.5rem;
+  box-shadow: 0 4px 24px -6px rgba(15, 23, 42, 0.05) !important;
+  color: #0f172a;
+}
+
+.alsaeedi-main-stack {
+  gap: 2.75rem;
+}
+
+.alsaeedi-main-stack > .alsaeedi-section:nth-child(even),
+.alsaeedi-main-stack > .alsaeedi-section-soft:nth-child(even) {
+  background: #ffffff !important;
+}
+
+@media (min-width: 768px) {
+  .alsaeedi-main-stack {
+    gap: 3.5rem;
+  }
+}
+
+/* Scroll reveal — modern motion while scrolling */
+.alsaeedi-reveal {
+  opacity: 0;
+  transform: translate3d(0, 24px, 0);
+  transition:
+    opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+/* Booking / product cards must paint even if nested reveal classes linger */
+#services-booking .alsaeedi-card,
+#services-booking .alsaeedi-card-panel,
+#services-booking .alsaeedi-card-gold,
+#featured-seats-section .alsaeedi-seat-card,
+#floor-mats-section .alsaeedi-card,
+.alsaeedi-theme-container .alsaeedi-product-card {
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+.alsaeedi-reveal.is-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+  filter: blur(0);
+}
+
+.alsaeedi-reveal-left {
+  opacity: 0;
+  transform: translate3d(-28px, 12px, 0);
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.alsaeedi-reveal-left.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+.alsaeedi-reveal-scale {
+  opacity: 0;
+  transform: scale(0.92);
+  transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1), transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.alsaeedi-reveal-scale.is-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.alsaeedi-theme-container[dir="rtl"] .alsaeedi-reveal-left {
+  transform: translate3d(28px, 12px, 0);
+}
+
+.alsaeedi-theme-container[dir="rtl"] .alsaeedi-reveal-left.is-visible {
+  transform: none;
+}
+
+/* Nested cards: wait for parent section, then stagger — avoid double-hide */
+.alsaeedi-reveal:not(.is-visible) .alsaeedi-reveal-scale,
+.alsaeedi-reveal:not(.is-visible) .alsaeedi-reveal,
+.alsaeedi-reveal:not(.is-visible) .alsaeedi-stagger > * {
+  opacity: 1;
+  transform: none;
+  filter: none;
+  animation: none;
+}
+
+.alsaeedi-reveal.is-visible .alsaeedi-stagger > * {
+  animation: alsaeediFadeUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.alsaeedi-chip-scroll {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.alsaeedi-chip-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* =========================================================================
+   10 Intentional Luxury Animations (CSS-only, GPU-friendly)
+   1 fadeUp · 2 scaleIn · 3 softPulse · 4 goldShimmer · 5 floatY
+   6 cardLift · 7 goldGlow · 8 slideSoft · 9 stagger · 10 drawer/toast
+   ========================================================================= */
+
+@keyframes alsaeediFadeUp {
+  from { opacity: 0; transform: translate3d(0, 18px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes alsaeediScaleIn {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes alsaeediSoftPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.04); opacity: 0.88; }
+}
+
+@keyframes alsaeediGoldShimmer {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+@keyframes alsaeediFloatY {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -6px, 0); }
+}
+
+@keyframes alsaeediGoldGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(213, 160, 39, 0.2); }
+  50% { box-shadow: 0 0 0 8px rgba(213, 160, 39, 0); }
+}
+
+@keyframes alsaeediSlideSoft {
+  from { opacity: 0; transform: translate3d(-12px, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes alsaeediSlideSoftRtl {
+  from { opacity: 0; transform: translate3d(12px, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes animate-scaleIn {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-scaleIn {
+  animation: animate-scaleIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* 1 */ .alsaeedi-anim-fadeup { animation: alsaeediFadeUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; }
+/* 2 */ .alsaeedi-anim-scalein { animation: alsaeediScaleIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+/* 3 */ .alsaeedi-anim-pulse { animation: alsaeediSoftPulse 2.4s ease-in-out infinite; }
+/* 4 */ .alsaeedi-anim-shimmer {
+  background: linear-gradient(110deg, #d5a027 0%, #f6c344 35%, #fff6d6 50%, #f6c344 65%, #d5a027 100%);
+  background-size: 220% 100%;
+  animation: alsaeediGoldShimmer 2.8s linear infinite;
+  color: #0f172a;
+}
+/* 5 */ .alsaeedi-anim-float { animation: alsaeediFloatY 3.2s ease-in-out infinite; }
+/* 6 */ .alsaeedi-anim-lift {
+  transition: transform 0.28s ease, box-shadow 0.28s ease, border-color 0.28s ease;
+  will-change: transform;
+}
+.alsaeedi-anim-lift:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 18px 34px -14px rgba(15, 23, 42, 0.16), 0 0 0 1px rgba(213, 160, 39, 0.35);
+  border-color: rgba(213, 160, 39, 0.55);
+}
+/* 7 */ .alsaeedi-anim-glow { animation: alsaeediGoldGlow 2.6s ease-out infinite; }
+/* 8 */ .alsaeedi-anim-slide { animation: alsaeediSlideSoft 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.alsaeedi-theme-container[dir="rtl"] .alsaeedi-anim-slide {
+  animation-name: alsaeediSlideSoftRtl;
+}
+/* 9 stagger delays */
+.alsaeedi-stagger > *:nth-child(1) { animation-delay: 0.04s; }
+.alsaeedi-stagger > *:nth-child(2) { animation-delay: 0.1s; }
+.alsaeedi-stagger > *:nth-child(3) { animation-delay: 0.16s; }
+.alsaeedi-stagger > *:nth-child(4) { animation-delay: 0.22s; }
+.alsaeedi-stagger > *:nth-child(5) { animation-delay: 0.28s; }
+.alsaeedi-stagger > *:nth-child(6) { animation-delay: 0.34s; }
+.alsaeedi-stagger > *:nth-child(7) { animation-delay: 0.4s; }
+.alsaeedi-stagger > *:nth-child(8) { animation-delay: 0.46s; }
+.alsaeedi-stagger > *:nth-child(n+9) { animation-delay: 0.5s; }
+.alsaeedi-stagger > * { animation: alsaeediFadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+/* 10 drawer + toastCountdown already defined above */
+
+
+@media (prefers-reduced-motion: reduce) {
+  .alsaeedi-anim-fadeup,
+  .alsaeedi-anim-scalein,
+  .alsaeedi-anim-pulse,
+  .alsaeedi-anim-shimmer,
+  .alsaeedi-anim-float,
+  .alsaeedi-anim-glow,
+  .alsaeedi-anim-slide,
+  .alsaeedi-stagger > *,
+  .animate-fadeIn,
+  .animate-scaleIn,
+  .animate-drawer-rtl,
+  .animate-drawer-ltr {
+    animation: none !important;
+  }
+  .alsaeedi-anim-lift:hover,
+  .alsaeedi-seat-card:hover,
+  .alsaeedi-card:hover,
+  .alsaeedi-product-card:hover {
+    transform: none;
+  }
+  .alsaeedi-reveal,
+  .alsaeedi-reveal-left,
+  .alsaeedi-reveal-scale {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    transition: none !important;
+  }
+}
+
+/* Responsive luxury cards */
+@media (max-width: 640px) {
+  .alsaeedi-section {
+    border-radius: 1.15rem;
+  }
+}
+
+/* =========================================================================
+   Loading skeletons (GPU-friendly shimmer)
+   ========================================================================= */
+@keyframes alsaeediSkeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.alsaeedi-skeleton {
+  background: linear-gradient(
+    90deg,
+    #e8eef4 0%,
+    #f8fafc 40%,
+    #e2e8f0 80%,
+    #e8eef4 100%
+  );
+  background-size: 200% 100%;
+  animation: alsaeediSkeletonShimmer 1.35s ease-in-out infinite;
+  border-radius: 0.5rem;
+}
+
+.alsaeedi-skeleton-card {
+  box-shadow: 0 4px 14px -6px rgba(15, 23, 42, 0.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alsaeedi-skeleton {
+    animation: none;
+    background: #e8eef4;
+  }
 }

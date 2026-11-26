@@ -23,6 +23,7 @@ export type PlanFeature =
   | 'custom_domain'
   | 'whatsapp'
   | 'social'
+  | 'openai_mgmt'
   | 'api_access'
   | 'advanced_seo'
   | 'advanced_analytics'
@@ -64,6 +65,25 @@ const CATALOG: Record<
     // Help-chat AI quota: 100 / month (server: souq_help_chat_ai_entitlement)
     features: ['catalog', 'orders', 'seo', 'coupons', 'shipping', 'analytics', 'reports', 'themes_basic', 'media_studio', 'whatsapp', 'ai'],
   },
+  starter: {
+    name: 'Starter',
+    priceSar: 100,
+    productLimit: 250,
+    orderLimit: 500,
+    storageMb: 2048,
+    teamSeats: 2,
+    features: [
+      'catalog',
+      'orders',
+      'basic_seo',
+      'seo',
+      'coupons',
+      'shipping',
+      'themes_basic',
+      'media_studio',
+      'whatsapp',
+    ],
+  },
   pro: {
     name: 'Pro',
     priceSar: 300,
@@ -87,6 +107,7 @@ const CATALOG: Record<
       'whatsapp',
       'social',
       'ai',
+      'openai_mgmt',
     ],
   },
   premium: {
@@ -110,6 +131,7 @@ const CATALOG: Record<
       'custom_domain',
       'whatsapp',
       'social',
+      'openai_mgmt',
       'backups',
       'zatca',
       'ai',
@@ -143,7 +165,8 @@ export const STORE_TAB_PLAN_FEATURE: Record<string, PlanFeature | null> = {
   'canva-banner': 'media_studio',
   'canva-logo': 'media_studio',
   'canva-product-card': 'media_studio',
-  'ai-media': 'media_studio',
+  /** Always visible — price popup + Master unlock gate usage (not plan hide). */
+  'ai-media': null,
   brands: 'catalog',
   customers: null,
   marketing: null,
@@ -175,13 +198,22 @@ export const STORE_TAB_PLAN_FEATURE: Record<string, PlanFeature | null> = {
 
 export function normalizePlanCode(plan?: string | null): PlanType {
   const p = String(plan || 'free').toLowerCase();
-  if (p === 'paid' || p === 'pro' || p === 'premium' || p === 'custom' || p === 'free') return p;
+  if (
+    p === 'paid' ||
+    p === 'starter' ||
+    p === 'pro' ||
+    p === 'premium' ||
+    p === 'custom' ||
+    p === 'free'
+  ) {
+    return p;
+  }
   return 'free';
 }
 
 export function effectivePlanCode(store: Pick<Store, 'plan' | 'masterGrantedPro'>): PlanType {
   const billed = normalizePlanCode(store.plan);
-  if (store.masterGrantedPro && (billed === 'free' || billed === 'paid')) {
+  if (store.masterGrantedPro && (billed === 'free' || billed === 'paid' || billed === 'starter')) {
     return 'pro';
   }
   return billed;

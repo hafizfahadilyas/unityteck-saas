@@ -64,8 +64,8 @@ export const CartPage: React.FC = () => {
         </h2>
         <p className="text-sm text-neutral-500 max-w-sm mb-6">
           {language === 'AR'
-            ? 'لم تضف أي معدات قهوة بعد. استكشف أحدث مكائن ومطاحن وأركان القهوة الفاخرة.'
-            : "Looks like you haven't added any items yet. Explore our 20-bar espresso machines, titanium mills, and barista gear."}
+            ? 'لم تضف أي منتجات بعد. استكشف دواليب وأركان القهوة من كتالوج المتجر.'
+            : "Looks like you haven't added any items yet. Explore coffee cabinets and stations from the store catalog."}
         </p>
         <button
           onClick={() => navigateTo('products')}

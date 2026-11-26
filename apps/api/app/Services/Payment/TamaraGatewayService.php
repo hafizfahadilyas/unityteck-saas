@@ -74,24 +74,18 @@ class TamaraGatewayService implements PaymentGatewayInterface
                 ];
             }
         } catch (\Throwable $e) {
-            // Network / DNS — still allow connect if keys look like real Tamara tokens
-        }
-
-        // Accept real-looking merchant tokens when live profile ping is unreachable from host
-        if (strlen($key) >= 32 && strlen($public) >= 8) {
             return [
-                'success' => true,
-                'message' => 'Tamara keys saved. Live profile ping unavailable from host; credentials format OK.',
-                'details' => [
-                    'environment' => $gateway->is_sandbox ? 'Sandbox' : 'Production',
-                    'note' => 'format_validated',
-                ],
+                'success' => false,
+                'message' => 'Tamara connection failed: '.$e->getMessage(),
+                'health_status' => 'connection_failed',
             ];
         }
 
+        // Never mark Connected from key length / format alone
         return [
             'success' => false,
-            'message' => 'Tamara authorization failed. Please check merchant key and public key.',
+            'message' => 'Tamara live profile ping failed. Credentials not verified — do not mark Connected.',
+            'health_status' => 'authentication_failed',
         ];
     }
 

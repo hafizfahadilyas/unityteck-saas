@@ -104,9 +104,12 @@
 }
 .hibrew-theme-root.coffee-builder-preview img.object-cover,
 .hibrew-theme-root.coffee-builder-preview img.h-full,
-.hibrew-theme-root.coffee-builder-preview .theme-slider-stage img {
+.hibrew-theme-root.coffee-builder-preview .theme-slider-stage img,
+.hibrew-theme-root .theme-slider-stage img[data-hero-frame='1'] {
+  width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
 }
 /*
  * Header must stay overflow:visible so the absolute mega-menu dropdown can

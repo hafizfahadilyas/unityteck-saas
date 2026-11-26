@@ -15,6 +15,7 @@ import { usePrefs } from '../../i18n/PrefsContext';
 import { AdminPageShell } from '../common/AdminPageHeader';
 import { GlobalModal } from '../common/GlobalModal';
 import { productCategoryPickerOptions } from '../../utils/categoryHierarchy';
+import { SkeletonProductGrid, SkeletonTable } from '../common/skeleton';
 import {
   Package,
   Plus,
@@ -128,7 +129,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
   const [apiLastPage, setApiLastPage] = useState(1);
   const [catalogNonce, setCatalogNonce] = useState(0);
   const [apiCounts, setApiCounts] = useState<{ total: number; active: number; out_of_stock: number; draft: number } | null>(null);
-  const planGate = canAddProduct(activeStore, dataSource === 'api' ? apiTotal : currentProducts.length);
+  const planGate = canAddProduct(activeStore, isApiEnabled() ? apiTotal : currentProducts.length);
   const planInfo = planInfoForStore(activeStore);
   const sub = resolveSubscription(activeStore.id);
 
@@ -242,24 +243,11 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
       setCreateSaveSuccess(null);
       setPage(1);
       setCatalogNonce((n) => n + 1);
-      // Prefer history.back so the inner-layer entry is popped (clean Back stack).
-      try {
-        if (
-          typeof window !== 'undefined' &&
-          window.history.state &&
-          typeof window.history.state === 'object' &&
-          (window.history.state as { adminInner?: boolean }).adminInner
-        ) {
-          window.history.back();
-          return;
-        }
-      } catch {
-        /* fall through */
-      }
-      closeProductsInner();
+      // Soft close via requestClose — never history.back (jumped to random tabs).
+      requestCloseProductsInner();
     }, 1700);
     return () => window.clearTimeout(timer);
-  }, [createSaveSuccess, closeProductsInner]);
+  }, [createSaveSuccess, requestCloseProductsInner]);
 
   const reloadCatalog = () => {
     if (!activeStore?.id) return;
@@ -270,14 +258,15 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
   /** Side-edit open → hide secondary cols so the list pane stays readable. */
   const tableCompact = Boolean(isSideDrawerOpen && editingProductId);
 
+  const liveCatalog = isApiEnabled();
   const emptyCatalogMessage = catalogBusy
     ? isAr
       ? 'جاري تحميل المنتجات…'
       : 'Loading products…'
-    : currentProducts.length === 0
+    : currentProducts.length === 0 && (!liveCatalog || apiRows.length === 0)
       ? apiError
         ? apiError
-        : dataSource !== 'api'
+        : !liveCatalog
           ? isAr
             ? 'الكتالوج غير متصل بواجهة البرمجة حالياً — سجّل الدخول من جديد لتحميل المنتجات الحقيقية.'
             : 'Catalog is not connected to the live API — sign in again to load real products.'
@@ -299,7 +288,9 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
   });
 
   useEffect(() => {
-    if (dataSource !== 'api' || !activeStore?.id) return;
+    // Lifetime: guest-readable /products must load whenever API mode is on —
+    // never wait for dataSource==='api' / Sanctum PAT (that left coffee/flowers empty).
+    if (!isApiEnabled() || !activeStore?.id) return;
     let cancelled = false;
     const reqId = (catalogReqSeqRef.current += 1);
     setCatalogBusy(true);
@@ -380,7 +371,6 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
       window.clearTimeout(timer);
     };
   }, [
-    dataSource,
     activeStore?.id,
     page,
     pageSize,
@@ -432,7 +422,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
   );
 
   const refreshRecycleBin = useCallback(async () => {
-    if (!activeStore?.id || dataSource !== 'api' || !isApiEnabled()) return;
+    if (!activeStore?.id || !isApiEnabled()) return;
     try {
       const page = await fetchProductsPage(activeStore.id, {
         status: 'archived',
@@ -510,7 +500,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
 
   // ── 4 KPI Summary Cards matching Mockup 06 (Store Scoped) ──
   const kpi = useMemo(() => {
-    if (dataSource === 'api' && apiCounts) {
+    if (liveCatalog && apiCounts) {
       return {
         total: apiCounts.total,
         active: apiCounts.active,
@@ -718,16 +708,16 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
   }, [filteredProducts]);
 
   // True page windows: Show 50 → rows 1–50 on page 1, 51–100 on page 2, etc.
-  const totalCount = dataSource === 'api' ? apiTotal : sortedProducts.length;
+  const totalCount = liveCatalog ? apiTotal : sortedProducts.length;
   // Never trust a stale/wrong last_page when total + pageSize already imply fewer pages
   const pageCountFromTotal = Math.max(1, Math.ceil((totalCount || 0) / pageSize) || 1);
   const pageCount =
-    dataSource === 'api'
+    liveCatalog
       ? Math.max(1, Math.min(Math.max(1, apiLastPage), pageCountFromTotal))
       : pageCountFromTotal;
   const safePage = Math.min(pageCount, Math.max(1, page));
   const pagedProducts = useMemo(() => {
-    if (dataSource === 'api') {
+    if (liveCatalog) {
       if (apiRows.length > 0) return apiRows;
       if (safePage <= 1 && currentProducts.length > 0 && !search.trim() && filterCriteria.search.trim() === '') {
         return currentProducts
@@ -739,7 +729,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
     const start = (safePage - 1) * pageSize;
     return sortedProducts.slice(start, start + pageSize);
   }, [
-    dataSource,
+    liveCatalog,
     apiRows,
     sortedProducts,
     safePage,
@@ -1018,7 +1008,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
   const handleRestoreTrashItem = async (item: TrashRow) => {
     setRecycleBusy(true);
     try {
-      if (dataSource === 'api' && isApiEnabled()) {
+      if (isApiEnabled()) {
         await restoreProductApi(activeStore.id, item.id);
         await revalidateResource(activeStore.id, 'products');
         setCatalogNonce((n) => n + 1);
@@ -1047,7 +1037,7 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
     if (!ok) return;
     setRecycleBusy(true);
     try {
-      if (dataSource === 'api' && isApiEnabled()) {
+      if (isApiEnabled()) {
         await forceDeleteProductApi(activeStore.id, item.id);
       }
       setDeletedProducts((prev) => prev.filter((p) => p.id !== item.id));
@@ -1764,7 +1754,9 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
             {viewMode === 'grid' ? (
               /* ── 1. GRID VIEW (Mockup 06 & Screenshot 2 Exact) ── */
               <div className="p-4 sm:p-5 pb-8 flex-1">
-                {pagedProducts.length === 0 ? (
+                {catalogBusy && pagedProducts.length === 0 ? (
+                  <SkeletonProductGrid count={8} columns={gridCols as any} />
+                ) : pagedProducts.length === 0 ? (
                   <div className="py-16 text-center text-xs space-y-3" style={{ color: 'var(--muted)' }}>
                     <p>{emptyCatalogMessage}</p>
                     {(search.trim() ||
@@ -2153,7 +2145,11 @@ export const StoreProducts: React.FC<StoreProductsProps> = ({ onNavigateTab }) =
                     </tr>
                   </thead>
                   <tbody>
-                    {pagedProducts.length === 0 ? (
+                    {catalogBusy && pagedProducts.length === 0 ? (
+                      Array.from({ length: 8 }).map((_, rIdx) => (
+                        <SkeletonTableRow key={`prod-skel-${rIdx}`} columns={10} />
+                      ))
+                    ) : pagedProducts.length === 0 ? (
                       <tr>
                         <td colSpan={24} className="py-12 text-center text-xs" style={{ color: 'var(--muted)' }}>
                           <div className="space-y-3">

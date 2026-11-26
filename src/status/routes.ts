@@ -89,6 +89,8 @@ export function isKnownAppPath(path: string): boolean {
     clean === '/product' ||
     clean === '/thankyou' ||
     clean.startsWith('/product/') ||
+    clean === '/buy' ||
+    clean.startsWith('/buy/') ||
     clean.startsWith('/category/') ||
     clean === '/master' ||
     clean === '/master/login' ||
@@ -104,6 +106,9 @@ export function isKnownAppPath(path: string): boolean {
     clean === '/store/reset-password' ||
     clean === '/store/register' ||
     clean === '/register' ||
+    clean.startsWith('/join/') ||
+    clean.startsWith('/j/') ||
+    clean.startsWith('/onboard/') ||
     clean === '/login' ||
     clean === '/gate' ||
     clean === '/portal' ||

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
+import { SkeletonTableRow } from '../common/skeleton';
 import type { Product, Store } from '../../types';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { AdminPageShell } from '../common/AdminPageHeader';
@@ -57,7 +58,7 @@ import { MasterStoreScopeFilter } from './MasterStoreScopeFilter';
  * Reference 07: designs/Master_Admin_UIUX/07_Product_Edit/mockup_consistent/07_product_edit.png
  */
 export const MasterProducts: React.FC = () => {
-  const { allProducts, stores, addProduct, updateProduct, deleteProduct, togglePublishProduct } = useTenant();
+  const { allProducts, stores, apiReady, addProduct, updateProduct, deleteProduct, togglePublishProduct } = useTenant();
   const { t, money, locale, dir } = usePrefs();
   const { toast, confirm } = useToast();
   const isAr = locale === 'ar';
@@ -522,7 +523,11 @@ export const MasterProducts: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {pagedProducts.length === 0 ? (
+              {!apiReady && pagedProducts.length === 0 ? (
+                Array.from({ length: 6 }).map((_, rIdx) => (
+                  <SkeletonTableRow key={`m-prod-skel-${rIdx}`} columns={9} />
+                ))
+              ) : pagedProducts.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-12 text-center text-xs" style={{ color: 'var(--muted)' }}>
                     {isAr ? 'لا توجد منتجات مطابقة لخيارات البحث.' : 'No products found matching your criteria.'}

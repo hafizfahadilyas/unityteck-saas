@@ -7,7 +7,7 @@ import {
   getDescendantIds,
   parentPickerOptions,
 } from '../../utils/categoryHierarchy';
-import { FolderTree, Plus, Pencil, Trash2, X, Flower2, Layers, CheckCircle2, Tag } from 'lucide-react';
+import { FolderTree, Plus, Pencil, Trash2, X, Flower2, Layers, CheckCircle2, Tag, MoreVertical } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useToast } from '../common/ToastProvider';
@@ -557,7 +557,25 @@ export const StoreCategories: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [activeActionMenuId, setActiveActionMenuId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!activeActionMenuId) return;
+    const onPointerDown = () => setActiveActionMenuId(null);
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setActiveActionMenuId(null);
+    };
+    const timer = window.setTimeout(() => {
+      document.addEventListener('mousedown', onPointerDown);
+      document.addEventListener('keydown', onKeyDown);
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [activeActionMenuId]);
   type FieldDraft = {
     id?: string;
     nameEn: string;
@@ -1002,12 +1020,12 @@ export const StoreCategories: React.FC = () => {
       key: 'name',
       header: isAr ? 'التصنيف' : 'Category',
       sortable: true,
-      className: 'px-4',
+      className: 'px-3 sm:px-4 min-w-[11rem]',
       render: (c) => {
         const depth = getCategoryDepth(rows, c.id);
         const isSub = Boolean(c.parentId);
         return (
-        <div className="flex items-center gap-3" style={{ paddingInlineStart: depth * 16 }}>
+        <div className="flex items-center gap-2 sm:gap-3 min-w-[10rem]" style={{ paddingInlineStart: Math.min(depth, 2) * 12 }}>
           {c.imageUrl ? (
             <img
               src={c.imageUrl}
@@ -1027,13 +1045,13 @@ export const StoreCategories: React.FC = () => {
               <Flower2 className="w-5 h-5" />
             </span>
           )}
-          <div className="min-w-0">
-            <span className="font-bold block truncate" style={{ color: 'var(--text)' }}>
+          <div className="min-w-0 flex-1">
+            <span className="font-bold block whitespace-normal break-words leading-snug" style={{ color: 'var(--text)' }}>
               {pickLocaleName(isAr, c.name, c.nameAr) || c.slug || '—'}
             </span>
             {isSub ? (
               <span className="text-[10px] font-semibold" style={{ color: 'var(--muted)' }}>
-                {isAr ? 'تصنيف فرعي' : 'Subcategory'}
+                {isAr ? 'تابعة لتصنيف رئيسي' : 'Subcategory'}
               </span>
             ) : null}
           </div>
@@ -1096,37 +1114,73 @@ export const StoreCategories: React.FC = () => {
       key: 'actions',
       header: isAr ? 'الإجراءات' : 'Action',
       align: 'right',
-      className: 'px-4',
+      className: 'px-2 sm:px-4 w-12',
       render: (c) => (
-        <div className="inline-flex items-center gap-1 justify-end">
+        <div className="relative inline-flex items-center justify-end">
           <button
             type="button"
-            onClick={() => openAddSubcategory(c)}
-            className="p-1.5 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-900/30 rounded-lg"
-            title={isAr ? 'إضافة تصنيف فرعي' : 'Add subcategory'}
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveActionMenuId(activeActionMenuId === c.id ? null : c.id);
+            }}
+            className="min-h-9 min-w-9 p-2 rounded-lg border hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer touch-manipulation flex items-center justify-center"
+            style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}
+            title={isAr ? 'إجراءات التصنيف' : 'Category actions'}
+            aria-label={isAr ? 'إجراءات التصنيف' : 'Category actions'}
+            aria-expanded={activeActionMenuId === c.id}
+            aria-haspopup="menu"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <MoreVertical className="w-4 h-4" />
           </button>
-          <button
-            type="button"
-            onClick={() => openEdit(c)}
-            className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
-            title={isAr ? 'تعديل' : 'Edit'}
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleDelete(c.id)}
-            className={`p-1.5 rounded-lg ${
-              confirmDeleteId === c.id
-                ? 'text-white bg-rose-600'
-                : 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30'
-            }`}
-            title={isAr ? 'حذف' : 'Delete'}
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
+          {activeActionMenuId === c.id && (
+            <div
+              role="menu"
+              className="absolute end-0 top-full mt-1 z-50 w-48 rounded-xl border p-1 shadow-lg text-xs font-semibold"
+              style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setActiveActionMenuId(null);
+                  openAddSubcategory(c);
+                }}
+                className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5 shrink-0 text-teal-600" />
+                <span>{isAr ? 'إضافة تصنيف فرعي' : 'Add subcategory'}</span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setActiveActionMenuId(null);
+                  openEdit(c);
+                }}
+                className="w-full text-start px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+              >
+                <Pencil className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--accent)' }} />
+                <span>{isAr ? 'تعديل التصنيف' : 'Edit category'}</span>
+              </button>
+              <div className="h-px my-1" style={{ background: 'var(--border)' }} />
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setActiveActionMenuId(null);
+                  void handleDelete(c.id);
+                }}
+                className={`w-full text-start px-3 py-2 rounded-lg flex items-center gap-2 cursor-pointer ${
+                  confirmDeleteId === c.id
+                    ? 'text-white bg-rose-600'
+                    : 'text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40'
+                }`}
+              >
+                <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                <span>{isAr ? 'حذف التصنيف' : 'Delete category'}</span>
+              </button>
+            </div>
+          )}
         </div>
       ),
     },
@@ -1206,7 +1260,7 @@ export const StoreCategories: React.FC = () => {
             {rows.filter(r => !r.parentId).length}
           </div>
           <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
-            {isAr ? 'تصنيفات رئيسية بدون أب' : 'Primary storefront navigation'}
+            {isAr ? 'غير تابعة لأي تصنيف' : 'Not belonging to any category'}
           </span>
         </div>
 
@@ -1223,7 +1277,7 @@ export const StoreCategories: React.FC = () => {
             {rows.filter(r => !!r.parentId).length}
           </div>
           <span className="text-[11px] text-purple-800 dark:text-purple-300 font-bold">
-            {isAr ? 'مرتبطة بتصنيف أب' : 'Nested child collections'}
+            {isAr ? 'تابعة لتصنيف رئيسي' : 'Belonging to a main category'}
           </span>
         </div>
 

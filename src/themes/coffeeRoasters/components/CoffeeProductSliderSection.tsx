@@ -67,11 +67,12 @@ export const CoffeeProductSliderSection: React.FC<{
   const go = (dir: -1 | 1) => setPage((p) => (p + dir + pages) % pages);
 
   return (
-    <section
-      data-customize-section="C-PSL"
-      className="w-full max-w-[1360px] mx-auto px-4 lg:px-8"
-      style={{ paddingTop: padY, paddingBottom: padY }}
-    >
+    <div className="w-full max-w-full bg-[#cfcfd3]">
+      <section
+        data-customize-section="C-PSL"
+        className="w-full max-w-[1360px] mx-auto px-4 lg:px-8"
+        style={{ paddingTop: padY, paddingBottom: padY }}
+      >
       <div className="flex items-end justify-between gap-3 mb-5">
         <div className="min-w-0 space-y-1">
           {settings?.showTitle !== false && (settings?.titleEn || settings?.titleAr) ? (
@@ -107,8 +108,8 @@ export const CoffeeProductSliderSection: React.FC<{
 
       <div
         ref={trackRef}
-        className="flex overflow-x-auto scroll-smooth snap-x snap-mandatory no-scrollbar"
-        style={{ gap }}
+        className="flex overflow-x-auto overscroll-x-contain snap-x snap-proximity no-scrollbar touch-pan-x"
+        style={{ gap, WebkitOverflowScrolling: 'touch', touchAction: 'pan-x pinch-zoom', scrollBehavior: 'auto' }}
       >
         {cards.map(({ item, catalog: hit }) => {
           const name = itemDisplayName(item, lang, hit);
@@ -122,7 +123,7 @@ export const CoffeeProductSliderSection: React.FC<{
           return (
             <article
               key={item.id}
-              className="snap-start shrink-0 rounded-2xl border border-neutral-100 bg-[#F8F9FA] flex flex-col"
+              className="snap-start shrink-0 rounded-2xl border border-neutral-300/80 bg-[#e8e8ec] flex flex-col shadow-sm"
               style={{
                 width: `calc((100% - ${(perView - 1) * gap}px) / ${perView})`,
                 minWidth: `calc((100% - ${(perView - 1) * gap}px) / ${perView})`,
@@ -131,11 +132,18 @@ export const CoffeeProductSliderSection: React.FC<{
             >
               <button
                 type="button"
-                className="aspect-[4/3] rounded-xl overflow-hidden bg-white border border-neutral-100 mb-3"
+                className="aspect-[4/3] rounded-xl overflow-hidden bg-transparent border border-neutral-200/80 mb-3"
                 onClick={() => pid && onOpenProduct?.(pid)}
               >
                 {image ? (
-                  <img src={image} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                  <img
+                    data-psl-product-img="1"
+                    src={image}
+                    alt=""
+                    className="w-full h-full object-contain object-center"
+                    loading="lazy"
+                    decoding="async"
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-[11px] text-neutral-400">
                     {isAr ? 'لا صورة' : 'No image'}
@@ -197,6 +205,7 @@ export const CoffeeProductSliderSection: React.FC<{
           ))}
         </div>
       ) : null}
-    </section>
+      </section>
+    </div>
   );
 };

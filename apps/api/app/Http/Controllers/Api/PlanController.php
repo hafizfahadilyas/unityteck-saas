@@ -7,6 +7,8 @@ use App\Models\Plan;
 use App\Models\Store;
 use App\Support\HostingerCloud;
 use App\Support\Plans;
+use App\Support\SouqAddOns;
+use App\Support\SouqBilling;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -37,8 +39,30 @@ class PlanController extends Controller
             ];
         }
 
+        // Enrich with 1/6/12 billing periods (Souq commercial model)
+        $byCode = [];
+        foreach (SouqBilling::plansWithPeriods() as $enriched) {
+            $byCode[$enriched['code']] = $enriched;
+        }
+        $out = array_map(static function (array $row) use ($byCode) {
+            $extra = $byCode[$row['code']] ?? null;
+            if ($extra) {
+                $row['billing_periods'] = $extra['billing_periods'] ?? [];
+                $row['includes_free_hosting_domain'] = $extra['includes_free_hosting_domain'] ?? false;
+                $row['free_hosting_note_en'] = $extra['free_hosting_note_en'] ?? null;
+                $row['free_hosting_note_ar'] = $extra['free_hosting_note_ar'] ?? null;
+            }
+
+            return $row;
+        }, $out);
+
         return response()->json([
             'data' => $out,
+            'billing_periods' => SouqBilling::billingPeriods(),
+            'hosting' => SouqBilling::hostingCatalog(),
+            'addons' => SouqAddOns::publicMatrix(),
+            'inactivity' => SouqBilling::marketingBundle()['inactivity'],
+            'free_hosting_slots_remaining' => SouqBilling::freeHostingSlotsRemaining(),
             'platform' => [
                 'name_en' => config('souq.name_en'),
                 'name_ar' => config('souq.name_ar'),

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Coins,
   Award,
   Sparkles,
   CreditCard,
@@ -8,10 +7,6 @@ import {
   CheckCircle2,
   Copy,
   Check,
-  ShieldCheck,
-  RotateCcw,
-  Gift,
-  ArrowRight,
 } from 'lucide-react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
@@ -22,10 +17,7 @@ import {
   saveCustomerGamifiedProfile,
   type CustomerGamifiedProfile,
 } from '../../services/ksaAutomationEngine';
-import {
-  loyaltyDailySpinApi,
-  loyaltyLocationPushBonusApi,
-} from '../../api/tenantApi';
+import { loyaltyLocationPushBonusApi } from '../../api/tenantApi';
 import { emitLoyaltyGift } from './LoyaltyGiftPointsPopup';
 
 export interface CustomerLoyaltyProfileSectionProps {
@@ -37,7 +29,10 @@ export interface CustomerLoyaltyProfileSectionProps {
   className?: string;
   /** Storefront Cart language — do not rely on admin prefs.locale alone. */
   language?: 'EN' | 'AR' | 'en' | 'ar';
-  /** Hide daily spin / orange game (profile request). */
+  /**
+   * @deprecated Daily coin / spin game is removed from storefront permanently.
+   * Prop kept so older call sites still type-check; ignored.
+   */
   hideDailyGame?: boolean;
 }
 
@@ -49,10 +44,9 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
   customerPhone,
   className = '',
   language,
-  hideDailyGame = true,
 }) => {
   const { activeStore, allStoreCustomers } = useTenant();
-  const { locale, money } = usePrefs();
+  const { locale } = usePrefs();
   const { toast } = useToast();
   const langNorm = String(language || '').toLowerCase();
   const isAr =
@@ -97,15 +91,8 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
   const [loyaltySettings, setLoyaltySettings] = useState(() =>
     getStoreLoyaltyGameSettings(effectiveStoreId),
   );
-  const [activeTab, setActiveTab] = useState<'spin' | 'cards' | 'tiers'>(
-    hideDailyGame ? 'cards' : 'spin',
-  );
-  const [isSpinning, setIsSpinning] = useState(false);
+  const [activeTab, setActiveTab] = useState<'cards' | 'tiers'>('cards');
   const [copiedCard, setCopiedCard] = useState(false);
-
-  useEffect(() => {
-    if (hideDailyGame && activeTab === 'spin') setActiveTab('cards');
-  }, [hideDailyGame, activeTab]);
 
   useEffect(() => {
     if (!hasCustomer) {
@@ -239,52 +226,6 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
     }
   };
 
-  // Daily Spin & Win → real loyalty_point_transactions (server cooldown)
-  const handleSpinGame = async () => {
-    setIsSpinning(true);
-    try {
-      const result = await loyaltyDailySpinApi(effectiveStoreId, effectiveCustomerId);
-      const won = Number(result?.points || 0);
-      const updated = saveCustomerGamifiedProfile(effectiveStoreId, {
-        ...profile,
-        coinsBalance: profile.coinsBalance + won,
-        totalCoinsEarned: profile.totalCoinsEarned + won,
-        lastGameSpinAt: Date.now(),
-      });
-      setProfile(updated);
-      if (won > 0) {
-        emitLoyaltyGift({
-          points: won,
-          reason: isAr ? 'لعبة العملات اليومية' : 'Daily coin game',
-          balanceAfter: updated.coinsBalance,
-        });
-      }
-      toast(
-        isAr
-          ? `مبروك! ربحت +${won} نقطة ولاء في دفتر هذا المتجر!`
-          : `Congratulations! You won +${won} loyalty points on this store’s ledger!`,
-        'success',
-      );
-    } catch (err: any) {
-      const msg = String(err?.message || err?.body?.message || '');
-      if (msg.includes('cooldown') || err?.status === 429) {
-        toast(
-          isAr
-            ? 'لقد حصلت على عملات اليوم بالفعل! السحبة التالية بعد انتهاء المؤقت.'
-            : 'You already claimed today! Next spin after the cooldown ends.',
-          'info',
-        );
-      } else {
-        toast(
-          isAr ? 'تعذر تنفيذ اللعبة. حاول مرة أخرى.' : 'Spin failed. Please try again.',
-          'error',
-        );
-      }
-    } finally {
-      setIsSpinning(false);
-    }
-  };
-
   return (
     <div
       className={`rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm p-5 sm:p-7 space-y-6 ${className}`}
@@ -412,25 +353,8 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
         </div>
       )}
 
-      {/* Sub Tabs Selector — daily orange game removed from customer profile */}
-      <div
-        className={`grid gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs font-bold ${
-          hideDailyGame ? 'grid-cols-2' : 'grid-cols-3'
-        }`}
-      >
-        {!hideDailyGame ? (
-          <button
-            type="button"
-            onClick={() => setActiveTab('spin')}
-            className={`py-2 px-3 rounded-xl cursor-pointer transition-all ${
-              activeTab === 'spin'
-                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            {isAr ? 'لعبة العملات اليومية' : 'Daily Coin Game'}
-          </button>
-        ) : null}
+      {/* Sub Tabs — loyalty card / tiers only (daily spin game removed from storefront) */}
+      <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs font-bold">
         <button
           type="button"
           onClick={() => setActiveTab('cards')}
@@ -455,43 +379,7 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
         </button>
       </div>
 
-      {/* TAB 1: DAILY SPIN (hidden when hideDailyGame) */}
-      {!hideDailyGame && activeTab === 'spin' ? (
-        <div className="p-6 rounded-3xl bg-gradient-to-br from-amber-500/10 via-emerald-500/10 to-teal-500/10 border border-amber-500/25 space-y-4 text-center">
-          <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center mx-auto shadow-md">
-            <Coins className={`w-7 h-7 text-white ${isSpinning ? 'animate-spin' : ''}`} />
-          </div>
-          <div className="space-y-1">
-            <h4 className="font-black text-base text-slate-900 dark:text-white">
-              {isAr ? 'عجلة الحظ والعملات اليومية' : 'Daily Spin & Win Wheel'}
-            </h4>
-            <p className="text-xs text-slate-500 max-w-md mx-auto">
-              {isAr
-                ? `العب يومياً لربح ما بين ${loyaltySettings.minSpinCoins} إلى ${loyaltySettings.maxSpinCoins} عملة تُضاف فوراً لرصيدك للتسوق بها في متجرنا!`
-                : `Play every 24 hours to win between ${loyaltySettings.minSpinCoins} and ${loyaltySettings.maxSpinCoins} Coins to use as instant discount at checkout!`}
-            </p>
-          </div>
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={handleSpinGame}
-              disabled={isSpinning}
-              className="w-full sm:w-auto px-8 py-3.5 rounded-full text-xs font-black text-white shadow-md cursor-pointer transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg, #d97706, #ea580c)' }}
-            >
-              {isSpinning
-                ? isAr
-                  ? 'جاري السحب...'
-                  : 'Spinning...'
-                : isAr
-                  ? 'العب الآن واربح عملات التسوق (مؤقت 24 ساعة)'
-                  : 'Play Daily Spin & Win Coins (24h Timer)'}
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      {/* TAB 2: SAVED CARDS & BONUS REWARDS */}
+      {/* TAB: SAVED CARDS & BONUS REWARDS */}
       {activeTab === 'cards' && (
         <div className="space-y-3">
           <div className="text-xs font-bold text-slate-500">
@@ -562,7 +450,7 @@ export const CustomerLoyaltyProfileSection: React.FC<CustomerLoyaltyProfileSecti
             <ul className="space-y-1.5 text-[11px] text-slate-600 dark:text-slate-400">
               <li className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
-                <span>{isAr ? 'سحب العملات اليومي' : 'Daily Coin Spin'}</span>
+                <span>{isAr ? 'جمع نقاط مع كل طلب مكتمل' : 'Earn points on every completed order'}</span>
               </li>
               <li className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />

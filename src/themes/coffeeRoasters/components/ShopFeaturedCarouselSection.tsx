@@ -269,7 +269,8 @@ export const ShopFeaturedCarouselSection: React.FC<ShopFeaturedCarouselSectionPr
           {/* Horizontal Scrollable Carousel Container */}
           <div
             ref={carouselRef}
-            className="w-full flex items-stretch gap-3 sm:gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory py-2 px-1 no-scrollbar"
+            className="w-full flex items-stretch gap-3 sm:gap-4 overflow-x-auto overscroll-x-contain snap-x snap-proximity touch-pan-x py-2 px-1 no-scrollbar"
+            style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x pinch-zoom', scrollBehavior: 'auto' }}
           >
             {carouselProducts.map((prod) => (
               <ProductCarouselCard

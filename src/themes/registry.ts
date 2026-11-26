@@ -2,6 +2,12 @@ import type { ThemeManifest } from './types';
 import { coffeeRoastersThemeConfig } from './coffeeRoasters/theme.config';
 import { saudiaTransportThemeConfig } from './saudiaTransport/theme.config';
 import { meccaGiftsThemeConfig } from './meccaGifts/theme.config';
+import {
+  souqCommonBoutiqueThemeConfig,
+  souqCommonCatalogThemeConfig,
+  souqCommonRetailThemeConfig,
+  souqCommonServicesThemeConfig,
+} from './souqCommon/theme.config';
 
 /**
  * Primary registry mapping canonical theme IDs and aliases to their manifests.
@@ -19,10 +25,41 @@ export function registerTheme(manifest: ThemeManifest, aliases: string[] = []): 
   }
 }
 
-// Initial Registration of Built-in Flagship Themes
-registerTheme(coffeeRoastersThemeConfig, ['coffee', 'hibrew', 'roasters', 'theme-coffee-artisan', 'coffeeRoasters', 'theme-coffee']);
-registerTheme(saudiaTransportThemeConfig, ['transport', 'car', 'bleco', 'saeedi', 'theme-saudia-transport']);
-registerTheme(meccaGiftsThemeConfig, ['gifts', 'flowers', 'theme-flora-luxe', 'flora-luxe', 'theme-makkah-royal']);
+// Common Souq pack (post-pilot default) — docs/36 CT-4
+registerTheme(souqCommonRetailThemeConfig, [
+  'souq-common',
+  'souq-retail',
+  'theme-commerce-starter',
+  'commerce-starter',
+]);
+registerTheme(souqCommonCatalogThemeConfig, ['souq-catalog']);
+registerTheme(souqCommonServicesThemeConfig, ['souq-services']);
+registerTheme(souqCommonBoutiqueThemeConfig, ['souq-boutique']);
+
+// Flagship pilots — do not force-migrate
+registerTheme(coffeeRoastersThemeConfig, [
+  'coffee',
+  'hibrew',
+  'roasters',
+  'theme-coffee-artisan',
+  'coffeeRoasters',
+  'theme-coffee',
+]);
+registerTheme(saudiaTransportThemeConfig, [
+  'transport',
+  'car',
+  'bleco',
+  'saeedi',
+  'theme-saudia-transport',
+]);
+registerTheme(meccaGiftsThemeConfig, [
+  'gifts',
+  'flowers',
+  'theme-flora-luxe',
+  'flora-luxe',
+  'theme-makkah-royal',
+  'theme-gifts',
+]);
 
 /**
  * Retrieve a theme manifest by ID, slug, or alias.
@@ -41,84 +78,131 @@ export function getAllThemes(): ThemeManifest[] {
 }
 
 /**
- * Intelligently resolve the appropriate theme for a store based on:
- * 1. Explicit storeActiveTheme assignment
- * 2. Store ID matching (e.g. store-coffee, store-bleco, store-1)
- * 3. Store industry category
- * 4. Fallback to default flagship theme
+ * Resolve theme for a store:
+ * 1. Explicit activeThemeId
+ * 2. Flagship store IDs (coffee / bleco / flowers)
+ * 3. Default → Souq common retail (NOT flora) for new tenants
  */
 export function resolveStoreTheme(
   storeId?: string,
   activeThemeId?: string,
   storeCategory?: string,
 ): ThemeManifest {
-  // 1. Resolve store context from ID, URL query, or URL pathname
   let sId = (storeId || '').toLowerCase().trim();
   if ((!sId || sId === 'store' || sId === 'undefined') && typeof window !== 'undefined') {
     const params = new URLSearchParams(window.location.search);
-    sId = (params.get('store') || params.get('demo') || params.get('tenant') || params.get('storeId') || '').toLowerCase().trim();
+    sId = (
+      params.get('store') ||
+      params.get('demo') ||
+      params.get('tenant') ||
+      params.get('storeId') ||
+      ''
+    )
+      .toLowerCase()
+      .trim();
     if (!sId) {
       const p = window.location.pathname.toLowerCase();
       if (p.startsWith('/coffee')) sId = 'store-coffee';
       else if (p.startsWith('/car') || p.startsWith('/bleco') || p.startsWith('/transport')) sId = 'store-bleco';
       else if (p.startsWith('/flowers') || p.startsWith('/hadaya') || p.startsWith('/gifts')) sId = 'store-1';
+      else if (p === '/store/souq-default' || p.startsWith('/store/souq-default/')) sId = 'store-souq-default';
     }
   }
 
-  const isCoffee = sId === 'store-coffee' || sId === 'coffee' || sId.includes('coffee') || sId.includes('hibrew') || sId.includes('roasters') || (storeCategory || '').toLowerCase().includes('coffee') || (storeCategory || '').toLowerCase().includes('قهوة');
-  const isCar = sId === 'store-bleco' || sId === 'bleco' || sId === 'car' || sId === 'cars' || sId.includes('car') || sId.includes('transport') || sId.includes('bleco') || sId.includes('saeedi') || (storeCategory || '').toLowerCase().includes('سيار') || (storeCategory || '').toLowerCase().includes('تنجيد');
+  const isCoffee =
+    sId === 'store-coffee' ||
+    sId === 'coffee' ||
+    sId.includes('coffee') ||
+    sId.includes('hibrew') ||
+    sId.includes('roasters') ||
+    (storeCategory || '').toLowerCase().includes('coffee') ||
+    (storeCategory || '').toLowerCase().includes('قهوة');
+  const isCar =
+    sId === 'store-bleco' ||
+    sId === 'bleco' ||
+    sId === 'car' ||
+    sId === 'cars' ||
+    sId.includes('car') ||
+    sId.includes('transport') ||
+    sId.includes('bleco') ||
+    sId.includes('saeedi') ||
+    (storeCategory || '').toLowerCase().includes('سيار') ||
+    (storeCategory || '').toLowerCase().includes('تنجيد');
+  const isFlowers =
+    sId === 'store-1' ||
+    sId === 'flowers' ||
+    sId === 'hadaya' ||
+    sId.includes('flower') ||
+    (sId.includes('gift') && !sId.includes('souq')) ||
+    sId.includes('makkah');
 
-  // 2. Explicit theme assignment (with strict store isolation guard)
+  // Explicit assignment
   if (activeThemeId) {
     const cleanTid = activeThemeId.trim();
-    const isFlowerTheme = cleanTid === 'theme-flora-luxe' || cleanTid === 'flora-luxe' || cleanTid === 'theme-makkah-royal' || cleanTid === 'gifts' || cleanTid === 'flowers';
-    const isTransportTheme = cleanTid === 'theme-saudia-transport' || cleanTid === 'transport' || cleanTid === 'car' || cleanTid === 'bleco';
-    const isCoffeeTheme = cleanTid === 'theme-coffee' || cleanTid === 'theme-coffee-artisan' || cleanTid === 'coffee' || cleanTid === 'hibrew' || cleanTid === 'roasters' || cleanTid === 'coffeeRoasters';
+    const found = getThemeManifest(cleanTid);
+    if (found) {
+      const isFlowerTheme =
+        cleanTid === 'theme-flora-luxe' ||
+        cleanTid === 'flora-luxe' ||
+        cleanTid === 'theme-makkah-royal' ||
+        cleanTid === 'theme-gifts' ||
+        cleanTid === 'gifts' ||
+        cleanTid === 'flowers';
+      const isTransportTheme =
+        cleanTid === 'theme-saudia-transport' ||
+        cleanTid === 'transport' ||
+        cleanTid === 'car' ||
+        cleanTid === 'bleco';
+      const isCoffeeTheme =
+        cleanTid === 'theme-coffee' ||
+        cleanTid === 'theme-coffee-artisan' ||
+        cleanTid === 'coffee' ||
+        cleanTid === 'hibrew' ||
+        cleanTid === 'roasters' ||
+        cleanTid === 'coffeeRoasters';
 
-    if (isCoffee && isCoffeeTheme) {
-      const found = getThemeManifest(cleanTid);
-      if (found) return found;
-    } else if (isCar && isTransportTheme) {
-      const found = getThemeManifest(cleanTid);
-      if (found) return found;
-    } else if (!isCoffee && !isCar) {
-      const found = getThemeManifest(cleanTid);
-      if (found) return found;
+      if (isCoffee && isCoffeeTheme) return found;
+      if (isCar && isTransportTheme) return found;
+      if (isFlowers && isFlowerTheme) return found;
+      // Common / other themes allowed for any non-conflicting flagship mismatch
+      if (!isCoffeeTheme && !isTransportTheme && !isFlowerTheme) return found;
+      if (!isCoffee && !isCar && !isFlowers) return found;
     }
   }
 
-  // 3. Known store ID convention
-  if (isCoffee) {
-    return coffeeRoastersThemeConfig;
-  }
-  if (isCar) {
-    return saudiaTransportThemeConfig;
-  }
-  if (sId === 'store-1' || sId === 'flowers' || sId === 'hadaya' || sId.includes('flower') || sId.includes('gift') || sId.includes('makkah')) {
-    return meccaGiftsThemeConfig;
-  }
+  if (isCoffee) return coffeeRoastersThemeConfig;
+  if (isCar) return saudiaTransportThemeConfig;
+  if (isFlowers) return meccaGiftsThemeConfig;
 
-  // 4. Category matching (Arabic + English)
   const cat = (storeCategory || '').toLowerCase();
-  if (cat.includes('coffee') || cat.includes('cafe') || cat.includes('roaster') || cat.includes('espresso') || cat.includes('قهوة') || cat.includes('باريستا') || cat.includes('مطاحن')) {
+  if (
+    cat.includes('coffee') ||
+    cat.includes('cafe') ||
+    cat.includes('roaster') ||
+    cat.includes('قهوة')
+  ) {
     return coffeeRoastersThemeConfig;
   }
-  if (cat.includes('car') || cat.includes('auto') || cat.includes('transport') || cat.includes('upholstery') || cat.includes('سيار') || cat.includes('مقاعد') || cat.includes('تلابيس') || cat.includes('تنجيد')) {
+  if (
+    cat.includes('car') ||
+    cat.includes('transport') ||
+    cat.includes('سيار') ||
+    cat.includes('تنجيد')
+  ) {
     return saudiaTransportThemeConfig;
   }
-  if (cat.includes('flower') || cat.includes('gift') || cat.includes('souvenir') || cat.includes('perfume') || cat.includes('زهور') || cat.includes('ورد') || cat.includes('هدايا')) {
-    return meccaGiftsThemeConfig;
-  }
 
-  // 4. Default fallback: check URL path or search one last time
   if (typeof window !== 'undefined') {
     const s = window.location.search.toLowerCase();
     const p = window.location.pathname.toLowerCase();
     if (s.includes('coffee') || p.includes('coffee')) return coffeeRoastersThemeConfig;
-    if (s.includes('car') || s.includes('bleco') || p.includes('car') || p.includes('bleco')) return saudiaTransportThemeConfig;
+    if (s.includes('car') || s.includes('bleco') || p.includes('car') || p.includes('bleco')) {
+      return saudiaTransportThemeConfig;
+    }
   }
 
-  return meccaGiftsThemeConfig;
+  // NEW tenants → common retail (never flora/coffee/car by URL heuristic alone)
+  return souqCommonRetailThemeConfig;
 }
 
 export const THEME_REGISTRY = {
@@ -128,18 +212,29 @@ export const THEME_REGISTRY = {
   register: registerTheme,
 };
 
-// Eagerly prefetch active theme component during initial bootstrap for sub-second smooth render
 if (typeof window !== 'undefined') {
   try {
     const s = window.location.search.toLowerCase();
     const p = window.location.pathname.toLowerCase();
     if (s.includes('coffee') || p.includes('coffee')) {
       void import('./coffeeRoasters/CoffeeRoastersThemeView');
-    } else if (s.includes('car') || s.includes('bleco') || s.includes('transport') || p.includes('car') || p.includes('bleco')) {
+    } else if (
+      s.includes('car') ||
+      s.includes('bleco') ||
+      s.includes('transport') ||
+      p.includes('car') ||
+      p.includes('bleco')
+    ) {
       void import('./saudiaTransport/SaudiaTransportThemeView');
-    } else {
+    } else if (
+      s.includes('flower') ||
+      s.includes('gift') ||
+      p.includes('flower') ||
+      p.includes('/hadaya')
+    ) {
       void import('./meccaGifts/MeccaGiftsThemeView');
+    } else {
+      void import('./meccaGifts/MeccaGiftsThemeView'); // souq common shell
     }
   } catch {}
 }
-

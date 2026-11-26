@@ -1,6 +1,7 @@
 import React from 'react';
 import { Search, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
+import { SkeletonTableRow } from './skeleton/SkeletonTableRow';
 
 export type AdvancedTableColumn<T> = {
   key: string;
@@ -191,15 +192,14 @@ export function AdvancedDataTable<T>({
           </thead>
           <tbody>
             {loading ? (
-              <tr>
-                <td
-                  colSpan={columns.length}
-                  className="py-12 text-center"
-                  style={{ color: 'var(--muted)' }}
-                >
-                  {isAr ? 'جارٍ التحميل…' : 'Loading…'}
-                </td>
-              </tr>
+              Array.from({ length: Math.min(Math.max(rows.length, 5), pageSize || 10) }).map((_, rIdx) => (
+                <SkeletonTableRow
+                  key={`skeleton-row-${rIdx}`}
+                  columns={columns.length}
+                  alignments={columns.map((c) => c.align ?? 'left')}
+                  className={dense ? 'py-2' : ''}
+                />
+              ))
             ) : error ? (
               <tr>
                 <td

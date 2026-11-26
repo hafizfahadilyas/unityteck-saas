@@ -41,15 +41,15 @@ const FLOW_STEPS = [
     n: '3',
     t: 'Own dashboard + plan',
     tAr: 'لوحة تحكم خاصة + باقة',
-    d: 'Free/Paid/Pro gates; empty store until real catalog',
-    dAr: 'صلاحيات مجانية/مدفوعة/احترافية؛ متجر فارغ حتى الكتالوج الحقيقي',
+    d: 'Plan gates · Souq common retail theme + starter catalog',
+    dAr: 'صلاحيات الباقة · قالب سوق المشترك (تجزئة) + كتالوج ابتدائي',
   },
   {
     n: '4',
     t: 'Brand + Master grants',
     tAr: 'الهوية + صلاحيات المدير',
-    d: 'Basic for all · advanced per Master allow',
-    dAr: 'الأساسي للجميع · المتقدم حسب موافقة المدير',
+    d: 'Included themes by plan · extras via marketplace / Master',
+    dAr: 'القوالب المدرجة حسب الباقة · الإضافية من السوق أو المدير',
   },
 ];
 
@@ -78,7 +78,7 @@ export const MasterOnboarding: React.FC = () => {
   const [phone, setPhone] = useState('+966 5');
   const [crNumber, setCrNumber] = useState('');
   const [inviteLabel, setInviteLabel] = useState('New merchant');
-  const [invitePlan, setInvitePlan] = useState<PlanType>('pro');
+  const [invitePlan, setInvitePlan] = useState<PlanType>('premium');
   const [inviteLocale, setInviteLocale] = useState<'en' | 'ar'>('en');
   const [inviteDir, setInviteDir] = useState<'ltr' | 'rtl'>('ltr');
   const [inviteCurrency, setInviteCurrency] = useState<'SAR' | 'USD' | 'AED' | 'EUR'>('SAR');
@@ -116,8 +116,12 @@ export const MasterOnboarding: React.FC = () => {
         return isAr ? 'مجانية' : 'Free';
       case 'paid':
         return isAr ? 'مدفوعة' : 'Paid';
+      case 'starter':
+        return isAr ? 'أساسية (١٠٠ ر.س)' : 'Starter (100 SAR)';
       case 'pro':
         return isAr ? 'احترافية' : 'Pro';
+      case 'premium':
+        return isAr ? 'مميزة' : 'Premium';
       case 'custom':
         return isAr ? 'مخصصة' : 'Custom';
       default:
@@ -224,8 +228,8 @@ export const MasterOnboarding: React.FC = () => {
         </div>
         <p className="text-xs text-slate-500 mt-0.5 max-w-3xl leading-relaxed">
           {isAr
-            ? 'يشارك المدير رابط دعوة الحساب فقط. ينشئ العميل حسابه بنفسه ← ويحصل على لوحة تحكم متجره الخاصة (ميزات مجانية/مدفوعة/احترافية). يتم تهيئة المتجر بكتالوج تجريبي ومُنتقي القوالب، ثم يتبع كل شيء هوية ذلك المتجر. الميزات الأساسية للجميع؛ والمتقدمة حسب ما يسمح به المدير لكل متجر.'
-            : "Master only shares an account invite link. Client creates their own account → gets their own store dashboard (Free/Paid/Pro features). Dummy catalog + theme picker seed the store; then everything follows that store's branding. Basic features for all; advanced only what Master allows per store."}
+            ? 'يشارك المدير رابط دعوة الحساب فقط. ينشئ العميل حسابه بنفسه ← ويحصل على لوحة تحكم متجره. عند التفعيل يُثبَّت تلقائياً قالب سوق المشترك (تجزئة) حسب الباقة مع صلاحيات القوالب والكتالوج الابتدائي؛ ثم يتبع كل شيء هوية ذلك المتجر.'
+            : 'Master only shares an account invite link. Client creates their own account → gets their own store dashboard. On redeem, the store is auto-provisioned with Souq common retail (default theme) plus plan entitlements and a starter catalog; then everything follows that store’s branding.'}
         </p>
       </div>
 
@@ -265,6 +269,11 @@ export const MasterOnboarding: React.FC = () => {
                 ? 'أنشئ رابط دعوة معزولاً لتسجيل تاجر جديد. لا تظهر أي بيانات لمتاجر أخرى في النموذج.'
                 : 'Generate an isolated invitation link for onboarding a new merchant. No other store data is exposed on the form.'}
             </p>
+            <p className="text-[11px] text-emerald-200/90 mt-1.5 max-w-2xl leading-relaxed">
+              {isAr
+                ? 'بعد إنشاء المتجر يُفعَّل تلقائياً كود ترحيب للعملاء الجدد: WELCOME10 (خصم ١٠٪، حد أدنى ٥٠ ر.س) — معزول لكل متجر.'
+                : 'After the store is created, a new-customer welcome coupon is seeded: WELCOME10 (10% off, min 50 SAR) — isolated per store_id.'}
+            </p>
           </div>
         </div>
 
@@ -293,8 +302,10 @@ export const MasterOnboarding: React.FC = () => {
               style={darkInputStyle}
             >
               <option value="free">{isAr ? 'الباقة المجانية' : 'Free Tier'}</option>
-              <option value="paid">{isAr ? 'المدفوعة المبتدئة' : 'Paid Starter'}</option>
-              <option value="pro">{isAr ? 'التاجر الاحترافي' : 'Pro Merchant'}</option>
+              <option value="paid">{isAr ? 'المدفوعة القديمة' : 'Legacy Paid'}</option>
+              <option value="starter">{isAr ? 'أساسي — ١٠٠ ر.س / شهر' : 'Starter — 100 SAR / mo'}</option>
+              <option value="pro">{isAr ? 'احترافي — ٣٠٠ ر.س / شهر' : 'Pro — 300 SAR / mo'}</option>
+              <option value="premium">{isAr ? 'مميز — ٥٠٠ ر.س / شهر' : 'Premium — 500 SAR / mo'}</option>
               <option value="custom">{isAr ? 'مؤسسية مخصصة' : 'Enterprise Custom'}</option>
             </select>
           </div>
@@ -387,8 +398,8 @@ export const MasterOnboarding: React.FC = () => {
             <code className="text-xs text-teal-100 font-mono truncate select-all" dir={shareUrl ? 'ltr' : undefined}>
               {shareUrl ||
                 (isAr
-                  ? 'أنشئ رابطاً لنسخ عنوان آمن بصيغة /store/register?invite=…'
-                  : 'Generate a link to copy a secure /store/register?invite=… URL')}
+                  ? 'أنشئ رابطاً قصيراً آمناً بصيغة /join/رمز'
+                  : 'Generate a short secure link like /join/Ab3xK9m2')}
             </code>
           </div>
           <button
@@ -586,8 +597,10 @@ export const MasterOnboarding: React.FC = () => {
                   onChange={(e) => setPlan(e.target.value as PlanType)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none bg-white"
                 >
-                  <option value="pro">{isAr ? 'التاجر الاحترافي' : 'Pro Merchant'}</option>
-                  <option value="paid">{isAr ? 'مدفوعة' : 'Paid'}</option>
+                  <option value="starter">{isAr ? 'أساسي — ١٠٠ ر.س / شهر' : 'Starter — 100 SAR / mo'}</option>
+                  <option value="pro">{isAr ? 'احترافي — ٣٠٠ ر.س / شهر' : 'Pro — 300 SAR / mo'}</option>
+                  <option value="premium">{isAr ? 'مميز — ٥٠٠ ر.س / شهر' : 'Premium — 500 SAR / mo'}</option>
+                  <option value="paid">{isAr ? 'مدفوعة (قديمة)' : 'Legacy Paid'}</option>
                   <option value="free">{isAr ? 'الباقة المجانية' : 'Free Tier'}</option>
                   <option value="custom">{isAr ? 'مخصصة' : 'Custom'}</option>
                 </select>

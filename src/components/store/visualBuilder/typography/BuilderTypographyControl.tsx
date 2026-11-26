@@ -6,11 +6,14 @@ import {
   Type,
   Plus,
   RotateCcw,
-  Check,
-  Globe,
-  Sliders,
-  ExternalLink,
 } from 'lucide-react';
+import {
+  POPULAR_GOOGLE_FONTS,
+  STORE_ARABIC_FONT_COUNT,
+  STORE_ENGLISH_FONT_COUNT,
+  ensureStoreGoogleFontLoaded,
+} from '../../../../data/storeGoogleFontsCatalog';
+import { StoreFontSelect } from '../../fonts/StoreFontSelect';
 
 export interface TypographySettings {
   fontFamily: string;
@@ -31,46 +34,8 @@ interface TypographyControlProps {
   title?: string;
 }
 
-export const POPULAR_GOOGLE_FONTS = [
-  // Arabic Fonts (dropdown — all listed here appear under Arabic)
-  { name: 'Cairo', category: 'Arabic', labelAr: 'القاهرة - عصري' },
-  { name: 'Tajawal', category: 'Arabic', labelAr: 'تجوال - أنيق' },
-  { name: 'Almarai', category: 'Arabic', labelAr: 'المراعي - رسمي' },
-  { name: 'Readex Pro', category: 'Arabic', labelAr: 'ريدكس برو - تقني' },
-  { name: 'Alexandria', category: 'Arabic', labelAr: 'الإسكندرية - هندسي' },
-  { name: 'Amiri', category: 'Arabic', labelAr: 'أميري - كلاسيكي' },
-  { name: 'Changa', category: 'Arabic', labelAr: 'شانغا - عناوين عريضة' },
-  { name: 'IBM Plex Sans Arabic', category: 'Arabic', labelAr: 'آي بي إم بليكس' },
-  { name: 'Noto Sans Arabic', category: 'Arabic', labelAr: 'نوتو سانس عربي' },
-  { name: 'Noto Naskh Arabic', category: 'Arabic', labelAr: 'نوتو نسخ عربي' },
-  { name: 'Rubik', category: 'Arabic', labelAr: 'روبيك - ناعم' },
-  { name: 'El Messiri', category: 'Arabic', labelAr: 'المسيري - راقي' },
-  { name: 'Marhey', category: 'Arabic', labelAr: 'مرحي - جذاب' },
-  { name: 'Reem Kufi', category: 'Arabic', labelAr: 'ريم كوفي' },
-  { name: 'Lateef', category: 'Arabic', labelAr: 'لطيف - قراءة' },
-  { name: 'Scheherazade New', category: 'Arabic', labelAr: 'شهرزاد جديد' },
-  { name: 'Markazi Text', category: 'Arabic', labelAr: 'مركزي تكست' },
-  { name: 'Mada', category: 'Arabic', labelAr: 'مدى' },
-  { name: 'Harmattan', category: 'Arabic', labelAr: 'هارماتان' },
-  { name: 'Katibeh', category: 'Arabic', labelAr: 'كتيبة' },
-  { name: 'Aref Ruqaa', category: 'Arabic', labelAr: 'عارف رقعة' },
-  { name: 'Lalezar', category: 'Arabic', labelAr: 'لاله‌زار - عريض' },
-  { name: 'Lemonada', category: 'Arabic', labelAr: 'ليمونادا' },
-  { name: 'Baloo Bhaijaan 2', category: 'Arabic', labelAr: 'بالو بايجان' },
-  { name: 'Mirza', category: 'Arabic', labelAr: 'ميرزا' },
-  { name: 'Rakkas', category: 'Arabic', labelAr: 'رقاص' },
-  { name: 'Kufam', category: 'Arabic', labelAr: 'كوفام' },
-
-  // English & Modern Fonts
-  { name: 'Inter', category: 'Latin', labelAr: 'إنتر' },
-  { name: 'Roboto', category: 'Latin', labelAr: 'روبوتو' },
-  { name: 'Poppins', category: 'Latin', labelAr: 'بوبينز' },
-  { name: 'Montserrat', category: 'Latin', labelAr: 'مونتسيرات' },
-  { name: 'Plus Jakarta Sans', category: 'Latin', labelAr: 'جاكرتا' },
-  { name: 'Outfit', category: 'Latin', labelAr: 'أوتفت' },
-  { name: 'Playfair Display', category: 'Latin', labelAr: 'بلاي فير' },
-  { name: 'Cinzel', category: 'Latin', labelAr: 'سينزل' },
-];
+/** @deprecated Prefer importing from `src/data/storeGoogleFontsCatalog` — kept for existing imports. */
+export { POPULAR_GOOGLE_FONTS };
 
 export const BuilderTypographyControl: React.FC<TypographyControlProps> = ({
   isAr,
@@ -82,19 +47,8 @@ export const BuilderTypographyControl: React.FC<TypographyControlProps> = ({
   const [showCustomImport, setShowCustomImport] = useState(false);
   const [customImportText, setCustomImportText] = useState(value.customFontUrl || '');
 
-  // Dynamically load Google Font into document head when selected
   useEffect(() => {
-    if (value.fontFamily) {
-      const fontNameClean = value.fontFamily.replace(/\s+/g, '+');
-      const linkId = `google-font-${fontNameClean}`;
-      if (!document.getElementById(linkId)) {
-        const link = document.createElement('link');
-        link.id = linkId;
-        link.rel = 'stylesheet';
-        link.href = `https://fonts.googleapis.com/css2?family=${fontNameClean}:wght@300;400;500;600;700;800;900&display=swap`;
-        document.head.appendChild(link);
-      }
-    }
+    if (value.fontFamily) ensureStoreGoogleFontLoaded(value.fontFamily);
   }, [value.fontFamily]);
 
   const currentSize =
@@ -117,28 +71,41 @@ export const BuilderTypographyControl: React.FC<TypographyControlProps> = ({
   const handleApplyCustomFont = () => {
     if (!customImportText.trim()) return;
     const fontName = customImportText.trim();
-    // Load link
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = customImportText.startsWith('http')
-      ? customImportText
-      : `https://fonts.googleapis.com/css2?family=${fontName.replace(/\s+/g, '+')}&display=swap`;
-    document.head.appendChild(link);
-
-    onChange({
-      ...value,
-      fontFamily: fontName,
-      customFontUrl: customImportText,
-    });
+    if (customImportText.startsWith('http')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = customImportText;
+      document.head.appendChild(link);
+      onChange({
+        ...value,
+        customFontUrl: customImportText,
+      });
+    } else {
+      ensureStoreGoogleFontLoaded(fontName);
+      onChange({
+        ...value,
+        fontFamily: fontName,
+        customFontUrl: customImportText,
+      });
+    }
     setShowCustomImport(false);
   };
 
   return (
-    <div className="border border-slate-200 rounded-2xl p-4 bg-white shadow-2xs space-y-4 text-xs">
-      {/* Header (Like Image 4: Typography title with reset & import icons) */}
-      <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-        <div className="flex items-center gap-2 font-black text-slate-800">
-          <Type className="w-4 h-4 text-indigo-600" />
+    <div
+      className="border rounded-2xl p-4 shadow-2xs space-y-4 text-xs"
+      style={{
+        borderColor: 'var(--border)',
+        background: 'var(--surface)',
+        color: 'var(--text)',
+      }}
+    >
+      <div
+        className="flex items-center justify-between border-b pb-2.5"
+        style={{ borderColor: 'var(--border)' }}
+      >
+        <div className="flex items-center gap-2 font-black" style={{ color: 'var(--text)' }}>
+          <Type className="w-4 h-4" style={{ color: 'var(--accent)' }} />
           <span>{title || (isAr ? 'الخط والطباعة' : 'Typography Control')}</span>
         </div>
 
@@ -146,8 +113,9 @@ export const BuilderTypographyControl: React.FC<TypographyControlProps> = ({
           <button
             type="button"
             onClick={() => setShowCustomImport(!showCustomImport)}
-            className="p-1 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer"
-            title={isAr ? 'استيراد خط مخصص من جوجل' : 'Import Custom Google Font'}
+            className="p-1 rounded-lg transition-colors cursor-pointer"
+            style={{ color: 'var(--muted)' }}
+            title={isAr ? 'استيراد خط مخصص' : 'Import custom font'}
           >
             <Plus className="w-3.5 h-3.5" />
           </button>
@@ -165,7 +133,8 @@ export const BuilderTypographyControl: React.FC<TypographyControlProps> = ({
                 letterSpacing: 0,
               })
             }
-            className="p-1 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-indigo-600 transition-colors cursor-pointer"
+            className="p-1 rounded-lg transition-colors cursor-pointer"
+            style={{ color: 'var(--muted)' }}
             title={isAr ? 'إعادة تعيين' : 'Reset'}
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -173,24 +142,35 @@ export const BuilderTypographyControl: React.FC<TypographyControlProps> = ({
         </div>
       </div>
 
-      {/* Custom Font Import Box */}
       {showCustomImport && (
-        <div className="p-3 rounded-xl bg-indigo-50/70 border border-indigo-200 space-y-2">
-          <span className="text-[11px] font-bold text-indigo-900 block">
-            {isAr ? 'استيراد خط جوجل مخصص بالاسم أو الرابط:' : 'Custom Google Font Name or URL:'}
+        <div
+          className="p-3 rounded-xl border space-y-2"
+          style={{
+            background: 'color-mix(in srgb, var(--accent) 8%, var(--surface))',
+            borderColor: 'color-mix(in srgb, var(--accent) 35%, var(--border))',
+          }}
+        >
+          <span className="text-[11px] font-bold block" style={{ color: 'var(--text)' }}>
+            {isAr ? 'استيراد خط بالاسم أو الرابط:' : 'Custom font name or URL:'}
           </span>
           <div className="flex gap-2">
             <input
               type="text"
               value={customImportText}
               onChange={(e) => setCustomImportText(e.target.value)}
-              placeholder="e.g. Readex Pro or https://..."
-              className="flex-1 px-2.5 py-1.5 rounded-lg border border-indigo-200 bg-white text-xs"
+              placeholder={isAr ? 'مثال: Readex Pro أو https://…' : 'e.g. Readex Pro or https://…'}
+              className="flex-1 px-2.5 py-1.5 rounded-lg border text-xs"
+              style={{
+                borderColor: 'var(--border)',
+                background: 'var(--input-bg, var(--surface))',
+                color: 'var(--input-fg, var(--text))',
+              }}
+              dir="ltr"
             />
             <button
               type="button"
               onClick={handleApplyCustomFont}
-              className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 cursor-pointer"
+              className="unity-btn-primary px-3 py-1.5 rounded-lg text-white font-bold text-xs cursor-pointer"
             >
               {isAr ? 'تطبيق' : 'Import'}
             </button>
@@ -198,80 +178,51 @@ export const BuilderTypographyControl: React.FC<TypographyControlProps> = ({
         </div>
       )}
 
-      {/* Font Family Selector */}
       <div className="space-y-1.5">
-        <label className="text-[11px] font-bold text-slate-600 block">
-          {isAr ? 'عائلة الخط:' : 'Font Family:'}
+        <label className="text-[11px] font-bold block" style={{ color: 'var(--muted)' }}>
+          {isAr
+            ? `عائلة الخط (عربي ${STORE_ARABIC_FONT_COUNT} · إنجليزي ${STORE_ENGLISH_FONT_COUNT})`
+            : `Font family (${STORE_ARABIC_FONT_COUNT} Arabic · ${STORE_ENGLISH_FONT_COUNT} English)`}
         </label>
-        <select
+        <StoreFontSelect
+          isAr={isAr}
           value={value.fontFamily}
-          onChange={(e) => onChange({ ...value, fontFamily: e.target.value })}
-          className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer"
-          style={{ fontFamily: value.fontFamily }}
-        >
-          <optgroup label={isAr ? 'الخطوط العربية الفاخرة' : 'Arabic Google Fonts'}>
-            {POPULAR_GOOGLE_FONTS.filter((f) => f.category === 'Arabic').map((f) => (
-              <option key={f.name} value={f.name}>
-                {isAr ? f.labelAr : f.name}
-              </option>
-            ))}
-          </optgroup>
-          <optgroup label={isAr ? 'الخطوط الإنجليزية والعالمية' : 'English / Latin Fonts'}>
-            {POPULAR_GOOGLE_FONTS.filter((f) => f.category === 'Latin').map((f) => (
-              <option key={f.name} value={f.name}>
-                {f.name}
-              </option>
-            ))}
-          </optgroup>
-        </select>
+          onChange={(fontFamily) => onChange({ ...value, fontFamily })}
+        />
       </div>
 
-      {/* Responsive Size Control with Device Switcher (Exact Elementor Image 4) */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold text-slate-600">
+            <span className="text-[11px] font-bold" style={{ color: 'var(--muted)' }}>
               {isAr ? 'حجم الخط:' : 'Size:'}
             </span>
-
-            {/* Device tabs toggle popup (Like Image 4 purple circle) */}
-            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 gap-0.5">
-              <button
-                type="button"
-                onClick={() => setDeviceTab('desktop')}
-                className={`p-1 rounded transition-colors cursor-pointer ${
-                  deviceTab === 'desktop'
-                    ? 'bg-white text-indigo-600 shadow-2xs font-bold'
-                    : 'text-slate-400 hover:text-slate-700'
-                }`}
-                title="Desktop Size"
-              >
-                <Monitor className="w-3 h-3" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setDeviceTab('tablet')}
-                className={`p-1 rounded transition-colors cursor-pointer ${
-                  deviceTab === 'tablet'
-                    ? 'bg-white text-indigo-600 shadow-2xs font-bold'
-                    : 'text-slate-400 hover:text-slate-700'
-                }`}
-                title="Tablet Size"
-              >
-                <Tablet className="w-3 h-3" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setDeviceTab('mobile')}
-                className={`p-1 rounded transition-colors cursor-pointer ${
-                  deviceTab === 'mobile'
-                    ? 'bg-white text-indigo-600 shadow-2xs font-bold'
-                    : 'text-slate-400 hover:text-slate-700'
-                }`}
-                title="Mobile Size"
-              >
-                <Smartphone className="w-3 h-3" />
-              </button>
+            <div
+              className="flex items-center p-0.5 rounded-lg border gap-0.5"
+              style={{ background: 'var(--hover-bg, var(--bg))', borderColor: 'var(--border)' }}
+            >
+              {(
+                [
+                  ['desktop', Monitor, isAr ? 'حاسوب' : 'Desktop'],
+                  ['tablet', Tablet, isAr ? 'لوحي' : 'Tablet'],
+                  ['mobile', Smartphone, isAr ? 'جوال' : 'Mobile'],
+                ] as const
+              ).map(([key, Icon, titleTip]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setDeviceTab(key)}
+                  className="p-1 rounded transition-colors cursor-pointer"
+                  style={{
+                    background: deviceTab === key ? 'var(--surface)' : 'transparent',
+                    color: deviceTab === key ? 'var(--accent)' : 'var(--muted)',
+                    boxShadow: deviceTab === key ? 'var(--card-shadow)' : undefined,
+                  }}
+                  title={titleTip}
+                >
+                  <Icon className="w-3 h-3" />
+                </button>
+              ))}
             </div>
           </div>
 
@@ -282,32 +233,42 @@ export const BuilderTypographyControl: React.FC<TypographyControlProps> = ({
               max={80}
               value={currentSize}
               onChange={(e) => handleSizeChange(Number(e.target.value))}
-              className="w-14 px-2 py-1 rounded-lg border border-slate-200 text-center text-xs font-bold"
+              className="w-14 px-2 py-1 rounded-lg border text-center text-xs font-bold"
+              style={{
+                borderColor: 'var(--border)',
+                background: 'var(--input-bg, var(--surface))',
+                color: 'var(--input-fg, var(--text))',
+              }}
             />
-            <span className="text-slate-400 text-[10px]">px</span>
+            <span className="text-[10px]" style={{ color: 'var(--muted)' }}>
+              px
+            </span>
           </div>
         </div>
 
-        {/* Range Slider */}
         <input
           type="range"
           min={10}
           max={80}
           value={currentSize}
           onChange={(e) => handleSizeChange(Number(e.target.value))}
-          className="w-full accent-indigo-600 cursor-pointer"
+          className="w-full cursor-pointer accent-[var(--accent)]"
         />
       </div>
 
-      {/* Font Weight */}
       <div className="space-y-1.5">
-        <label className="text-[11px] font-bold text-slate-600 block">
+        <label className="text-[11px] font-bold block" style={{ color: 'var(--muted)' }}>
           {isAr ? 'سماكة الخط:' : 'Weight:'}
         </label>
         <select
           value={value.weight}
           onChange={(e) => onChange({ ...value, weight: e.target.value })}
-          className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 cursor-pointer"
+          className="w-full px-3 py-2 rounded-xl border text-xs font-bold cursor-pointer"
+          style={{
+            borderColor: 'var(--border)',
+            background: 'var(--input-bg, var(--surface))',
+            color: 'var(--input-fg, var(--text))',
+          }}
         >
           <option value="400">{isAr ? 'عادي' : 'Regular 400'}</option>
           <option value="500">{isAr ? 'متوسط' : 'Medium 500'}</option>
@@ -318,19 +279,20 @@ export const BuilderTypographyControl: React.FC<TypographyControlProps> = ({
         </select>
       </div>
 
-      {/* Font Preview Sample Box */}
       <div
-        className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-center transition-all truncate"
+        className="p-3 rounded-xl border text-center transition-all truncate"
         style={{
+          background: 'var(--hover-bg, var(--bg))',
+          borderColor: 'var(--border)',
           fontFamily: value.fontFamily,
           fontWeight: value.weight,
         }}
       >
-        <span className="text-slate-800 font-bold block text-sm">
+        <span className="font-bold block text-sm" style={{ color: 'var(--text)' }}>
           {isAr ? 'اسم متجرك · وصف مختصر لنشاطك' : 'Your Store Name · Short business tagline'}
         </span>
-        <span className="text-[10px] text-slate-400">
-          Font: {value.fontFamily} · {value.weight}
+        <span className="text-[10px]" style={{ color: 'var(--muted)' }}>
+          {value.fontFamily} · {value.weight}
         </span>
       </div>
     </div>

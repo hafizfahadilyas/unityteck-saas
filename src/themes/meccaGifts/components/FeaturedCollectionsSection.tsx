@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { useTenant } from '../../../context/TenantContext';
+import { isSouqCommonTenant } from '../../souqCommon/isSouqCommonTenant';
+import { getDefaultStoreTheme } from '../../../auth/defaultTheme';
 
 export interface FeaturedCollectionsSectionProps {
   settings?: Record<string, any>;
@@ -12,10 +14,14 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
   isBuilderMode = false,
 }) => {
   const { language, builderDevice } = useApp();
-  const { activeStore } = useTenant();
+  const { activeStore, storeActiveTheme } = useTenant();
   const isAr = language === 'ar';
   const s = settings || {};
+  const themeId =
+    (activeStore?.id && storeActiveTheme?.[activeStore.id]) ||
+    getDefaultStoreTheme(activeStore?.id);
   const isCoffee = activeStore?.id === 'store-coffee' || (activeStore?.category && activeStore.category.includes('قهوة'));
+  const isSouq = !isCoffee && isSouqCommonTenant(activeStore, themeId);
 
   const [hasAnimated, setHasAnimated] = useState(false);
   const [counts, setCounts] = useState({
@@ -64,6 +70,44 @@ export const FeaturedCollectionsSection: React.FC<FeaturedCollectionsSectionProp
 
     return () => observer.disconnect();
   }, [hasAnimated]);
+
+  // Souq common: real store counts only (zero-mock) — classic_cards easiest style
+  if (isSouq) {
+    const products = Number(activeStore?.productsCount ?? activeStore?.products_count ?? 0) || 0;
+    const orders = Number(activeStore?.ordersCount ?? activeStore?.orders_count ?? 0) || 0;
+    const customers = Number(activeStore?.customersCount ?? activeStore?.customers_count ?? 0) || 0;
+    const visitors = Number(activeStore?.visitorsCount ?? activeStore?.visitors_count ?? 0) || 0;
+    const souqItems = [
+      { id: 'stat-1', value: String(products), label: 'Products', labelAr: 'منتجات' },
+      { id: 'stat-2', value: String(orders), label: 'Orders', labelAr: 'طلبات' },
+      { id: 'stat-3', value: String(customers), label: 'Customers', labelAr: 'عملاء' },
+      { id: 'stat-4', value: String(visitors), label: 'Visitors', labelAr: 'زوار' },
+    ];
+    const heading =
+      (isAr ? s.titleAr : s.titleEn) ||
+      (isAr ? 'نظرة على المتجر' : 'Store at a glance');
+
+    return (
+      <section className="py-10 sm:py-14 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="mb-6 text-center sm:text-start">
+          <h2 className="text-xl sm:text-2xl font-bold text-[#111827]">{heading}</h2>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {souqItems.map((item) => (
+            <div
+              key={item.id}
+              className="rounded-2xl border border-[#e5e7eb] bg-white p-5 text-center shadow-xs"
+            >
+              <span className="text-2xl sm:text-3xl font-extrabold text-[#0f766e] tabular-nums">{item.value}</span>
+              <p className="text-xs sm:text-sm text-[#6b7280] mt-1 font-medium">
+                {isAr ? item.labelAr : item.label}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   const items = isCoffee
     ? [

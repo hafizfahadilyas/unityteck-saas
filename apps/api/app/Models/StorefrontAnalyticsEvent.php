@@ -27,6 +27,7 @@ class StorefrontAnalyticsEvent extends Model
         'campaign',
         'customer_id',
         'session_key',
+        'visitor_key',
         'meta',
     ];
 

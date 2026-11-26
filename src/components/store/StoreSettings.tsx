@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
+import { useAdminInnerLayer } from '../../hooks/useAdminInnerLayer';
 import {
   Settings,
   ShieldCheck,
@@ -49,15 +50,20 @@ import { ThresholdSettings } from '../../notification-system/components/Threshol
 import { NotificationSettings } from './settings/NotificationSettings';
 import { ConnectedWorkspaceBanner } from '../common/ConnectedWorkspaceBanner';
 
-import { readAllThemeSettings, writeAllThemeSettings } from '../../themes/settings/themeSettingsStore';
 import {
   bustMediaUrl,
+  hydrateStoreIdentityFromApi,
   readStoreIdentity,
   resolveStoreDisplayName,
   splitStoreName,
   writeStoreIdentity,
   type StoreIdentitySettings,
 } from '../../themes/settings/storeIdentity';
+import {
+  persistAllThemeSettingsNow,
+  readAllThemeSettings,
+  writeAllThemeSettings,
+} from '../../themes/settings/themeSettingsStore';
 import { StoreChromeFields } from './settings/StoreChromeFields';
 import {
   bindStoreChrome,
@@ -74,6 +80,7 @@ import {
 } from '../../i18n/storeChrome';
 import { deleteChromeImage } from '../../i18n/storeChromeImageStore';
 import { applyPortalHead } from '../../utils/portalHead';
+import { StorePayments } from './StorePayments';
 
 type SettingsTab =
   | 'general'
@@ -84,7 +91,8 @@ type SettingsTab =
   | 'subscription'
   | 'thresholds'
   | 'notifications'
-  | 'search_console';
+  | 'search_console'
+  | 'payments';
 
 export const StoreSettings: React.FC = () => {
   const { activeStore, updateStorePlan, softRefreshTenantData, currentSEOConfig } = useTenant();
@@ -98,18 +106,12 @@ export const StoreSettings: React.FC = () => {
   const [settingsFocus, setSettingsFocus] = useState<'search_console' | 'tag_manager'>('search_console');
 
   const hydrateStoreTypography = (next: StoreChromeBrand) => {
-    if (!next.fontAr && !next.fontWeight && !next.customFontFamilyAr && !next.customFontUrlAr) {
-      return;
-    }
+    // Always apply this store_id’s fonts — empty clears previous tenant’s Prefs brand leak
     setBrand({
-      ...(next.fontAr
-        ? { fontAr: next.fontAr, font: next.fontAr }
-        : {}),
+      ...(next.fontAr ? { fontAr: next.fontAr, font: next.fontAr } : {}),
       ...(next.fontWeight ? { fontWeight: next.fontWeight } : {}),
-      ...(next.customFontFamilyAr !== undefined
-        ? { customFontFamilyAr: next.customFontFamilyAr }
-        : {}),
-      ...(next.customFontUrlAr !== undefined ? { customFontUrlAr: next.customFontUrlAr } : {}),
+      customFontFamilyAr: next.customFontFamilyAr || '',
+      customFontUrlAr: next.customFontUrlAr || '',
     });
   };
 
@@ -223,12 +225,21 @@ export const StoreSettings: React.FC = () => {
 
   // null = settings hub (big buttons); set = open that section
   const [activeTab, setActiveTab] = useState<SettingsTab | null>(null);
+  const closeSettingsInner = useCallback(() => setActiveTab(null), []);
+  const { requestClose: requestCloseSettingsInner } = useAdminInnerLayer(
+    activeTab !== null,
+    closeSettingsInner,
+  );
 
-  /** Sidebar deep-link: Appearance / Search Console / Tag Manager under Settings */
+  /** Sidebar deep-link: Appearance / Search Console / Tag Manager / Payments under Settings */
   useEffect(() => {
     const applyView = (view: string | null | undefined) => {
       if (view === 'appearance') {
         setActiveTab('appearance');
+        return;
+      }
+      if (view === 'payments') {
+        setActiveTab('payments');
         return;
       }
       if (view === 'search_console' || view === 'tag_manager') {
@@ -319,29 +330,10 @@ export const StoreSettings: React.FC = () => {
     String((activeStore as { workspacePath?: string }).workspacePath || '').trim(),
   );
 
-  // Keep form in sync when switching stores (isolation — never keep previous tenant values)
-  useEffect(() => {
-    const next = readStoreIdentity(activeStore.id, activeStore);
-    const names = splitStoreName(next);
-    setStoreNameEn(names.storeNameEn);
-    setStoreNameAr(names.storeNameAr);
-    setTaglineEn(next.taglineEn || '');
-    setTaglineAr(next.taglineAr || '');
-    setStoreEmail(next.email || '');
-    setStorePhone(next.phone || '');
-    setLogoUrl(next.logoUrl || activeStore.logo || '');
-    setFaviconUrl(next.faviconUrl || activeStore.favicon || '');
-    setWhatsappNumber(next.whatsapp || '');
-    setCustomDomain(
-      activeStore.custom_domain || activeStore.domain || `${activeStore.slug}.saudi-stores.com`,
-    );
-    setWorkspacePath(String((activeStore as { workspacePath?: string }).workspacePath || '').trim());
-  }, [activeStore.id]);
-
   // Regional Settings State
   const [timezone, setTimezone] = useState('Asia/Riyadh');
 
-  // Social & WhatsApp Settings State
+  // Social & WhatsApp — empty until this store_id provides real URLs (no invent from slug)
   const [whatsappEnabled, setWhatsappEnabled] = useState(true);
   const [whatsappNumber, setWhatsappNumber] = useState(storeIdentity.whatsapp || '');
   const [whatsappGreeting, setWhatsappGreeting] = useState(
@@ -350,85 +342,141 @@ export const StoreSettings: React.FC = () => {
       : 'Hello, I would like to inquire about your store products!'
   );
   const [socialLinks, setSocialLinks] = useState({
-    instagram: { enabled: true, url: storeIdentity.instagram || ('https://instagram.com/' + activeStore.slug) },
-    twitter: { enabled: true, url: 'https://x.com/' + activeStore.slug },
-    tiktok: { enabled: true, url: 'https://tiktok.com/@' + activeStore.slug },
-    facebook: { enabled: false, url: 'https://facebook.com/' + activeStore.slug },
-    youtube: { enabled: false, url: 'https://youtube.com/@' + activeStore.slug },
+    instagram: { enabled: Boolean(storeIdentity.instagram), url: storeIdentity.instagram || '' },
+    twitter: { enabled: false, url: '' },
+    tiktok: { enabled: false, url: '' },
+    facebook: { enabled: false, url: '' },
+    youtube: { enabled: false, url: '' },
   });
+  const [generalSaving, setGeneralSaving] = useState(false);
+
+  const applyIdentityToForm = (next: StoreIdentitySettings) => {
+    const names = splitStoreName(next);
+    setStoreNameEn(names.storeNameEn);
+    setStoreNameAr(names.storeNameAr);
+    setTaglineEn(next.taglineEn || '');
+    setTaglineAr(next.taglineAr || '');
+    setStoreEmail(next.email || '');
+    setStorePhone(next.phone || '');
+    setLogoUrl(next.logoUrl || '');
+    setFaviconUrl(next.faviconUrl || '');
+    setWhatsappNumber(next.whatsapp || '');
+    setSocialLinks((prev) => ({
+      ...prev,
+      instagram: {
+        enabled: Boolean(String(next.instagram || '').trim()),
+        url: String(next.instagram || '').trim(),
+      },
+    }));
+  };
+
+  // Keep form in sync when switching stores — local paint then Hostinger hydrate (isolated)
+  useEffect(() => {
+    let cancelled = false;
+    const local = readStoreIdentity(activeStore.id, activeStore);
+    applyIdentityToForm(local);
+    setCustomDomain(
+      activeStore.custom_domain || activeStore.domain || `${activeStore.slug}.saudi-stores.com`,
+    );
+    setWorkspacePath(String((activeStore as { workspacePath?: string }).workspacePath || '').trim());
+    void hydrateStoreIdentityFromApi(activeStore.id, activeStore).then((remote) => {
+      if (cancelled) return;
+      applyIdentityToForm(remote);
+      applyPortalHead({
+        portal: 'store',
+        storeName: resolveStoreDisplayName(remote, isAr, activeStore.name),
+        faviconUrl: remote.faviconUrl || null,
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeStore.id]);
 
   // Purge cache state
   const [purging, setPurging] = useState(false);
 
-  const handleSaveGeneral = (e: React.FormEvent) => {
+  const handleSaveGeneral = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (generalSaving) return;
+    setGeneralSaving(true);
     const enName = storeNameEn.trim();
     const arName = storeNameAr.trim();
     const logoForSave = bustMediaUrl(logoUrl);
     const faviconForSave = bustMediaUrl(faviconUrl);
+    const baseIdentity = readStoreIdentity(activeStore.id, activeStore);
     const identityWithBust: StoreIdentitySettings = {
-      ...storeIdentity,
+      ...baseIdentity,
       storeNameEn: enName,
       storeNameAr: arName,
       // Primary name keeps EN when set; otherwise AR — never wipe the other language
-      storeName: enName || arName || storeIdentity.storeName,
+      storeName: enName || arName || baseIdentity.storeName,
       taglineEn,
       taglineAr,
-      logoUrl: logoForSave || logoUrl || storeIdentity.logoUrl,
+      logoUrl: logoForSave || logoUrl || '',
       faviconUrl: faviconForSave || faviconUrl || '',
       email: storeEmail,
       phone: storePhone,
       whatsapp: whatsappNumber,
-      instagram: socialLinks.instagram?.url || storeIdentity.instagram,
+      instagram: socialLinks.instagram?.url || '',
       updatedAt: new Date().toISOString(),
     };
-    writeStoreIdentity(activeStore.id, identityWithBust);
-    const currThemeSettings = readAllThemeSettings(activeStore.id, activeStore);
-    const nextHeader = currThemeSettings.customHeader
-      ? {
-          ...currThemeSettings.customHeader,
-          logo: {
-            ...(currThemeSettings.customHeader.logo || {}),
-            ...(enName ? { titleEn: enName } : {}),
-            ...(arName ? { titleAr: arName } : {}),
-            ...(identityWithBust.logoUrl ? { imageUrl: identityWithBust.logoUrl } : {}),
-            applyTitle: true,
+    try {
+      const currThemeSettings = readAllThemeSettings(activeStore.id, activeStore);
+      const nextHeader = currThemeSettings.customHeader
+        ? {
+            ...currThemeSettings.customHeader,
+            logo: {
+              ...(currThemeSettings.customHeader.logo || {}),
+              ...(enName ? { titleEn: enName } : {}),
+              ...(arName ? { titleAr: arName } : {}),
+              ...(identityWithBust.logoUrl ? { imageUrl: identityWithBust.logoUrl } : {}),
+              applyTitle: true,
+            },
+          }
+        : currThemeSettings.customHeader;
+      await persistAllThemeSettingsNow(activeStore.id, {
+        ...currThemeSettings,
+        identity: identityWithBust,
+        ...(nextHeader ? { customHeader: nextHeader } : {}),
+      });
+      if (logoForSave && logoForSave !== logoUrl) setLogoUrl(logoForSave);
+      if (faviconForSave && faviconForSave !== faviconUrl) setFaviconUrl(faviconForSave);
+      bumpStore(activeStore.id, 'settings');
+      bumpStore(activeStore.id, 'theme');
+      window.dispatchEvent(
+        new CustomEvent('unityteck-store-updated', {
+          detail: {
+            storeId: activeStore.id,
+            name: enName || arName,
+            nameEn: enName,
+            nameAr: arName,
+            logo: identityWithBust.logoUrl,
+            favicon: identityWithBust.faviconUrl || '',
           },
-        }
-      : currThemeSettings.customHeader;
-    writeAllThemeSettings(activeStore.id, {
-      ...currThemeSettings,
-      identity: identityWithBust,
-      ...(nextHeader ? { customHeader: nextHeader } : {}),
-    });
-    if (logoForSave && logoForSave !== logoUrl) setLogoUrl(logoForSave);
-    if (faviconForSave && faviconForSave !== faviconUrl) setFaviconUrl(faviconForSave);
-    bumpStore(activeStore.id, 'settings');
-    bumpStore(activeStore.id, 'theme');
-    window.dispatchEvent(
-      new CustomEvent('unityteck-store-updated', {
-        detail: {
-          storeId: activeStore.id,
-          name: enName || arName,
-          nameEn: enName,
-          nameAr: arName,
-          logo: identityWithBust.logoUrl,
-          favicon: identityWithBust.faviconUrl || '',
-        },
-      }),
-    );
-    // Live tab icon + title without waiting for remount
-    applyPortalHead({
-      portal: 'store',
-      storeName: resolveStoreDisplayName(identityWithBust, isAr, enName || arName),
-      faviconUrl: identityWithBust.faviconUrl || null,
-    });
-    toast(
-      isAr
-        ? 'تم حفظ الإعدادات وتحديث المتجر فوراً!'
-        : 'Store settings saved & synchronized instantly!',
-      'success'
-    );
+        }),
+      );
+      applyPortalHead({
+        portal: 'store',
+        storeName: resolveStoreDisplayName(identityWithBust, isAr, enName || arName),
+        faviconUrl: identityWithBust.faviconUrl || null,
+      });
+      toast(
+        isAr
+          ? 'تم حفظ إعدادات هذا المتجر في قاعدة البيانات'
+          : 'This store’s settings were saved to the database',
+        'success',
+      );
+    } catch {
+      toast(
+        isAr
+          ? 'تعذر الحفظ على الخادم. راجع الاتصال وحاول مرة أخرى.'
+          : 'Could not save to the server. Check connection and try again.',
+        'error',
+      );
+    } finally {
+      setGeneralSaving(false);
+    }
   };
 
   const handlePurgeCache = async () => {
@@ -579,9 +627,7 @@ export const StoreSettings: React.FC = () => {
                   ? 'بوابات الدفع، التحويل البنكي، والمعاملات الحية لهذا المتجر'
                   : 'Gateways, bank transfer IBAN, and live transactions for this store'
               }
-              onClick={() => {
-                window.dispatchEvent(new CustomEvent('unityteck-open-store-tab', { detail: 'payments' }));
-              }}
+              onClick={() => setActiveTab('payments')}
               isAr={isAr}
             />
             <PortalHubCard
@@ -621,7 +667,7 @@ export const StoreSettings: React.FC = () => {
         <div className="flex items-center gap-2.5 flex-wrap">
           <button
             type="button"
-            onClick={() => setActiveTab(null)}
+            onClick={() => requestCloseSettingsInner()}
             className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-xs font-bold cursor-pointer shadow-xs transition-colors hover:opacity-95"
             style={{
               background: 'var(--surface)',
@@ -632,7 +678,30 @@ export const StoreSettings: React.FC = () => {
             <ArrowLeft className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} aria-hidden />
             {isAr ? 'كل الإعدادات' : 'All settings'}
           </button>
-          {activeTabMeta ? (
+          {activeTab === 'payments' ? (
+            <div className="flex items-center gap-2 min-w-0">
+              <span
+                className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center"
+                style={{
+                  background: 'var(--portal-cta)',
+                  color: '#fff',
+                }}
+                aria-hidden
+              >
+                <CreditCard className="w-4 h-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-extrabold truncate" style={{ color: 'var(--text)' }}>
+                  {isAr ? 'المدفوعات والحساب البنكي' : 'Payments & bank account'}
+                </p>
+                <p className="text-[11px] truncate" style={{ color: 'var(--muted)' }}>
+                  {isAr
+                    ? 'بوابات الدفع، التحويل البنكي، والمعاملات الحية لهذا المتجر'
+                    : 'Gateways, bank transfer IBAN, and live transactions for this store'}
+                </p>
+              </div>
+            </div>
+          ) : activeTabMeta ? (
             <div className="flex items-center gap-2 min-w-0">
               <span
                 className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center"
@@ -656,6 +725,8 @@ export const StoreSettings: React.FC = () => {
           ) : null}
         </div>
       )}
+
+      {activeTab === 'payments' && <StorePayments />}
 
       {/* ── TAB 1: General & Identity ── */}
       {activeTab === 'general' && (
@@ -1002,10 +1073,18 @@ export const StoreSettings: React.FC = () => {
               <div className="pt-3 flex justify-end">
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl text-xs font-bold text-white shadow-xs cursor-pointer hover:opacity-90 active:scale-[0.98]"
+                  disabled={generalSaving}
+                  aria-busy={generalSaving || undefined}
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold text-white shadow-xs cursor-pointer hover:opacity-90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ background: 'var(--portal-cta)' }}
                 >
-                  {isAr ? 'حفظ التغييرات' : 'Save Changes'}
+                  {generalSaving
+                    ? isAr
+                      ? 'جاري الحفظ...'
+                      : 'Saving...'
+                    : isAr
+                      ? 'حفظ التغييرات'
+                      : 'Save Changes'}
                 </button>
               </div>
             </div>

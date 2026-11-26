@@ -21,14 +21,57 @@ class SmsaCourierService implements CourierInterface
             return [
                 'success' => false,
                 'message' => 'SMSA PassKey is required.',
+                'health_status' => 'credentials_missing',
             ];
         }
 
-        // Zero-mock: do not invent Connected from key length alone
-        return [
-            'success' => false,
-            'message' => 'SMSA live API test not confirmed. Save credentials and verify with a real create/track call.',
-        ];
+        try {
+            // Non-destructive track probe with a known-invalid AWB — auth/key acceptance vs invent Connected
+            $response = Http::timeout(8)->get($this->getBaseUrl($connection).'/api/getTracking', [
+                'passkey' => $connection->api_key,
+                'awbNo' => '0000000000',
+            ]);
+
+            $status = $response->status();
+            $body = strtolower(trim((string) $response->body()));
+
+            // 200 with empty/no-data or known "not found" proves PassKey reached SMSA
+            if ($response->successful() || $status === 400) {
+                if (str_contains($body, 'invalid pass') || str_contains($body, 'unauthorized') || $status === 401) {
+                    return [
+                        'success' => false,
+                        'message' => 'SMSA PassKey rejected by API.',
+                        'health_status' => 'authentication_failed',
+                    ];
+                }
+
+                return [
+                    'success' => true,
+                    'message' => 'SMSA PassKey accepted by tracking API (non-destructive probe).',
+                    'health_status' => $connection->is_sandbox ? 'sandbox_verified' : 'connected',
+                ];
+            }
+
+            if (in_array($status, [401, 403], true)) {
+                return [
+                    'success' => false,
+                    'message' => 'SMSA authentication failed (HTTP '.$status.').',
+                    'health_status' => 'authentication_failed',
+                ];
+            }
+
+            return [
+                'success' => false,
+                'message' => 'SMSA connection probe failed (HTTP '.$status.').',
+                'health_status' => 'connection_failed',
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'SMSA connection failed: '.$e->getMessage(),
+                'health_status' => 'connection_failed',
+            ];
+        }
     }
 
     public function createShipment(CourierConnection $connection, Order $order, array $params = []): array

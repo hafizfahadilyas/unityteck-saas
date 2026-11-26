@@ -131,15 +131,17 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
       };
     });
 
-    // 2. Bridge orders that already have a REAL tracking/AWB only — never invent numbers (zero-mock)
+    // 2. Bridge orders missing a shipment row — show customer/shipping details; never invent AWB
     const shipmentOrderIds = new Set(list.map((s) => s.orderId));
     (currentOrders || []).forEach((ord) => {
       if (!shipmentOrderIds.has(ord.id) && ord.status !== 'cancelled') {
         const anyOrd = ord as any;
         const trk = String(ord.trackingNumber || anyOrd.awbNumber || ord.shippingLabelNumber || '').trim();
-        if (!trk) return; // Waiting for courier connect + real AWB
-        const provider = String(anyOrd.courierCode || ord.shippingCompany || 'unknown').toLowerCase() || 'unknown';
-        const awb = String(anyOrd.awbNumber || ord.shippingLabelNumber || trk).trim();
+        const provider = String(
+          anyOrd.courierCode || ord.shippingCompany || anyOrd.deliveryMode || 'pending',
+        )
+          .toLowerCase() || 'pending';
+        const awb = String(anyOrd.awbNumber || ord.shippingLabelNumber || '').trim();
         const rawShippingStatus = (ord.shippingStatus || '').toLowerCase();
         const normStatus: ShipmentItem['status'] =
           ord.status === 'delivered' || rawShippingStatus === 'delivered'
@@ -150,6 +152,8 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
             ? 'out_for_delivery'
             : ord.status === 'processing'
             ? 'picked_up'
+            : trk
+            ? 'created'
             : 'pending';
 
         const orderCity =
@@ -181,21 +185,14 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
           },
           createdAt: ord.createdAt || new Date().toISOString(),
           customerName: getCustomerDisplayName(ord.customerName || anyOrd.customer?.name, locale),
-          customerPhone: ord.customerPhone || anyOrd.customer?.phone || '+966 500 000 000',
+          customerPhone: ord.customerPhone || anyOrd.customer?.phone || '',
           city: orderCity,
           orderNumber: ord.orderNumber || (ord.id.startsWith('#') ? ord.id : `#${ord.id.slice(-8)}`),
           orderDate: ord.createdAt || new Date().toISOString(),
           orderTotal: orderTotal,
-          paymentMethod: ord.paymentMethod || 'Prepaid',
+          paymentMethod: ord.paymentMethod || (locale === 'ar' ? 'غير محدد' : 'Unspecified'),
           itemsCount: ord.items?.length || ord.itemsCount || 1,
-          trackingEvents: [
-            {
-              time: ord.createdAt || new Date().toISOString(),
-              status: 'Created',
-              description: isAr ? 'تم إنشاء الشحنة واستلام تفاصيل الطلب' : 'Shipment created and order details confirmed',
-              location: orderCity,
-            },
-          ],
+          trackingEvents: [],
         } as any);
       }
     });
@@ -259,7 +256,7 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const matchOrder = item.orderNumber.toLowerCase().includes(q);
-        const matchTrk = item.trackingNumber.toLowerCase().includes(q);
+        const matchTrk = (item.trackingNumber || '').toLowerCase().includes(q);
         const matchCust = item.customerName.toLowerCase().includes(q);
         const matchCity = item.city.toLowerCase().includes(q);
         if (!matchOrder && !matchTrk && !matchCust && !matchCity) return false;
@@ -568,10 +565,7 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
               {stats.total}
             </div>
             <div className="flex items-center gap-1.5 mt-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
-              <span>▲ 12.3%</span>
-              <span className="text-slate-400 dark:text-slate-500 font-normal">
-                vs {Math.max(1, stats.total - 12)}
-              </span>
+              <span>{stats.pending > 0 ? (isAr ? `${stats.pending} قيد التجهيز` : `${stats.pending} pending`) : (isAr ? 'بيانات لحظية 100%' : '100% Real-time')}</span>
             </div>
           </div>
         </div>
@@ -596,7 +590,7 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
               </span>
             </div>
             <div className="flex items-center gap-1.5 mt-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
-              <span>▲ 8.1%</span>
+              <span>{stats.delivered > 0 ? (isAr ? `${stats.delivered} تم تسليمها` : `${stats.delivered} delivered`) : (isAr ? 'لا يوجد تسليم بعد' : '0 delivered')}</span>
             </div>
           </div>
         </div>
@@ -620,8 +614,8 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
                 {stats.inTransitPct}%
               </span>
             </div>
-            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-rose-600 dark:text-rose-400 font-semibold">
-              <span>▼ 2.4%</span>
+            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-blue-600 dark:text-blue-400 font-semibold">
+              <span>{stats.inTransit > 0 ? (isAr ? `${stats.inTransit} مع المندوب` : `${stats.inTransit} in transit`) : (isAr ? 'لا توجد شحنات في الطريق' : '0 in transit')}</span>
             </div>
           </div>
         </div>
@@ -645,8 +639,8 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
                 {stats.failedPct}%
               </span>
             </div>
-            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-rose-600 dark:text-rose-400 font-semibold">
-              <span>▲ 0.8%</span>
+            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
+              <span>{stats.failed > 0 ? (isAr ? `${stats.failed} شحنة متعثرة` : `${stats.failed} failed`) : (isAr ? 'صفر تعثر' : '0 failed')}</span>
             </div>
           </div>
         </div>
@@ -670,8 +664,8 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
                 {stats.returnedPct}%
               </span>
             </div>
-            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-rose-600 dark:text-rose-400 font-semibold">
-              <span>▲ 0.3%</span>
+            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
+              <span>{stats.returned > 0 ? (isAr ? `${stats.returned} شحنة مرتجعة` : `${stats.returned} returned`) : (isAr ? 'صفر مرتجع' : '0 returned')}</span>
             </div>
           </div>
         </div>
@@ -931,20 +925,26 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
                       </td>
 
                       <td className="py-3.5 px-3.5 font-mono text-slate-700 dark:text-slate-300">
-                        <div className="flex items-center gap-1.5">
-                          <span>{row.trackingNumber}</span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleCopy(row.trackingNumber);
-                            }}
-                            className="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                            title={isAr ? 'نسخ' : 'Copy'}
-                          >
-                            <Copy className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                        {row.trackingNumber ? (
+                          <div className="flex items-center gap-1.5">
+                            <span>{row.trackingNumber}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopy(row.trackingNumber);
+                              }}
+                              className="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                              title={isAr ? 'نسخ' : 'Copy'}
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 font-sans text-xs">
+                            {isAr ? 'بانتظار رقم التتبع' : 'Waiting for tracking'}
+                          </span>
+                        )}
                       </td>
 
                       <td className="py-3.5 px-3.5 font-medium text-slate-900 dark:text-white">
@@ -1142,14 +1142,22 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">{isAr ? 'رقم التتبع' : 'Tracking Number'}</span>
                   <div className="flex items-center gap-1.5 font-mono font-bold text-slate-800 dark:text-slate-200">
-                    <span>{activeShipment.trackingNumber}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleCopy(activeShipment.trackingNumber)}
-                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                    >
-                      <Copy className="w-3 h-3" />
-                    </button>
+                    {activeShipment.trackingNumber ? (
+                      <>
+                        <span>{activeShipment.trackingNumber}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(activeShipment.trackingNumber)}
+                          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </button>
+                      </>
+                    ) : (
+                      <span className="font-sans font-medium text-slate-400">
+                        {isAr ? 'بانتظار رقم التتبع' : 'Waiting for tracking'}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -1259,7 +1267,8 @@ export const ShipmentsTrackingView: React.FC<ShipmentsTrackingViewProps> = ({ on
                   {isAr ? 'الجدول الزمني للتتبع' : 'Tracking Timeline'}
                 </h3>
                 <span className="text-[11px] font-semibold text-slate-400">
-                  {activeShipment.trackingNumber}
+                  {activeShipment.trackingNumber ||
+                    (isAr ? 'بانتظار رقم التتبع' : 'Waiting for tracking')}
                 </span>
               </div>
 

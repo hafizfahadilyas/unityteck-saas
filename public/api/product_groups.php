@@ -224,16 +224,16 @@ function souq_seed_hibrew_cf_group(PDO $pdo, string $storeId): array
             [
                 'id' => "{$p}-single-img", 'name' => 'Care Package', 'nameAr' => 'باقة العناية', 'type' => 'Single Choice Image', 'required' => false, 'hidden' => false, 'extraPrice' => 0,
                 'options' => [
-                    ['label' => 'Care Pro 1 Year', 'labelAr' => 'عناية برو لسنة', 'imageUrl' => '/images/hibrew_scale_isolated.jpg', 'price' => 99, 'compareAtPrice' => 199],
-                    ['label' => 'Care Pro 2 Years', 'labelAr' => 'عناية برو لسنتين', 'imageUrl' => '/images/hibrew_barista_kit_isolated.jpg', 'price' => 179, 'compareAtPrice' => 299],
+                    ['label' => 'Care Pro 1 Year', 'labelAr' => 'عناية برو لسنة', 'imageUrl' => '/images/ksa_almari_makkah_corner.png', 'price' => 99, 'compareAtPrice' => 199],
+                    ['label' => 'Care Pro 2 Years', 'labelAr' => 'عناية برو لسنتين', 'imageUrl' => '/images/ksa_almari_dual_door_villa.png', 'price' => 179, 'compareAtPrice' => 299],
                 ],
             ],
             [
-                'id' => "{$p}-single-color", 'name' => 'Machine color', 'nameAr' => 'لون الماكينة', 'type' => 'Single Choice Color', 'required' => false, 'hidden' => false, 'extraPrice' => 0,
+                'id' => "{$p}-single-color", 'name' => 'Finish color', 'nameAr' => 'لون التشطيب', 'type' => 'Single Choice Color', 'required' => false, 'hidden' => false, 'extraPrice' => 0,
                 'options' => [
-                    ['label' => 'Silver', 'labelAr' => 'فضي', 'color' => '#C0C0C0', 'price' => 0],
-                    ['label' => 'Black', 'labelAr' => 'أسود', 'color' => '#111111', 'price' => 49],
-                    ['label' => 'Copper', 'labelAr' => 'نحاسي', 'color' => '#B87333', 'price' => 79],
+                    ['label' => 'Gold', 'labelAr' => 'ذهبي', 'color' => '#D4AF37', 'price' => 0],
+                    ['label' => 'White Marble', 'labelAr' => 'رخام أبيض', 'color' => '#F5F5F0', 'price' => 49],
+                    ['label' => 'Oak', 'labelAr' => 'بلوط', 'color' => '#B87333', 'price' => 79],
                 ],
             ],
             [
@@ -244,11 +244,11 @@ function souq_seed_hibrew_cf_group(PDO $pdo, string $storeId): array
                 ],
             ],
             [
-                'id' => "{$p}-multi-img", 'name' => 'Barista Add-on Offers', 'nameAr' => 'عروض إضافات الباريستا', 'type' => 'Multiple Choice Image', 'required' => false, 'hidden' => false, 'extraPrice' => 0,
+                'id' => "{$p}-multi-img", 'name' => 'Furniture Add-on Offers', 'nameAr' => 'عروض إضافات الأثاث', 'type' => 'Multiple Choice Image', 'required' => false, 'hidden' => false, 'extraPrice' => 0,
                 'options' => [
-                    ['label' => 'Precision Tamper', 'labelAr' => 'تامبر دقيق', 'imageUrl' => '/images/hibrew_barista_kit_isolated.jpg', 'price' => 99, 'compareAtPrice' => 199],
-                    ['label' => 'Digital Scale', 'labelAr' => 'ميزان رقمي', 'imageUrl' => '/images/hibrew_scale_isolated.jpg', 'price' => 79, 'compareAtPrice' => 149],
-                    ['label' => 'Milk Pitcher', 'labelAr' => 'إبريق الحليب', 'imageUrl' => '/images/espresso_wood_pitcher_1791363392554.jpg', 'price' => 49, 'compareAtPrice' => 99],
+                    ['label' => 'Side Table Set', 'labelAr' => 'طقم طاولة جانبية', 'imageUrl' => '/images/ksa_almari_makkah_corner.png', 'price' => 99, 'compareAtPrice' => 199],
+                    ['label' => 'Coffee Table', 'labelAr' => 'طاولة قهوة', 'imageUrl' => '/images/ksa_almari_fluted_oak.png', 'price' => 79, 'compareAtPrice' => 149],
+                    ['label' => 'Najdi Accent', 'labelAr' => 'لمسة نجدية', 'imageUrl' => '/images/ksa_almari_najdi_heritage.png', 'price' => 49, 'compareAtPrice' => 99],
                 ],
             ],
             [
@@ -277,17 +277,80 @@ function souq_seed_hibrew_cf_group(PDO $pdo, string $storeId): array
             ['id' => "{$p}-divider", 'name' => 'Divider', 'nameAr' => 'فاصل', 'type' => 'Divider', 'required' => false, 'hidden' => false, 'extraPrice' => 0, 'options' => []],
             [
                 'id' => "{$p}-content", 'name' => 'Why this model', 'nameAr' => 'لماذا هذا الموديل', 'type' => 'Content', 'required' => false, 'hidden' => false, 'extraPrice' => 0, 'options' => [],
-                'contentEn' => "This {$childKey} edition includes full custom fields demo for HiBrew KSA.",
-                'contentAr' => "هذا الموديل ({$childKey}) يعرض كل أنواع الحقول المخصصة في هايبرو السعودية.",
-                'imageUrl' => '/images/hibrew_h7a_flagship_machine.png',
+                'contentEn' => "This {$childKey} furniture edition includes full custom fields demo for KSA homes.",
+                'contentAr' => "هذا الموديل ({$childKey}) يعرض كل أنواع الحقول المخصصة لأثاث المنازل السعودية.",
+                'imageUrl' => '/images/ksa_almari_black_gold.png',
+            ],
+            // Learn More page (section above Custom Fields) — ids must start with learn-more- / catalog-spec-
+            [
+                'id' => "learn-more-{$stamp}-{$childKey}-craft",
+                'name' => 'Saudi craftsmanship',
+                'nameAr' => 'حرفية سعودية',
+                'type' => 'Content',
+                'required' => false,
+                'hidden' => false,
+                'extraPrice' => 0,
+                'options' => [],
+                'contentEn' => "Discover the {$childKey} almari build — premium materials for Saudi living rooms and coffee corners.",
+                'contentAr' => "اكتشف بناء الخزانة ({$childKey}) — خامات فاخرة لصالات المعيشة وركن القهوة في السعودية.",
+                'imageUrl' => '/images/ksa_almari_black_gold.png',
+            ],
+            [
+                'id' => "learn-more-{$stamp}-{$childKey}-ksa",
+                'name' => 'Made for KSA homes',
+                'nameAr' => 'مصمم لمنازل السعودية',
+                'type' => 'Content',
+                'required' => false,
+                'hidden' => false,
+                'extraPrice' => 0,
+                'options' => [],
+                'contentEn' => 'Makka warehouse stock, assembly support, and nationwide delivery across the Kingdom.',
+                'contentAr' => 'مخزون مستودع مكة، مع دعم التركيب والتوصيل في أنحاء المملكة.',
+                'imageUrl' => '/images/ksa_almari_makkah_corner.png',
+            ],
+            [
+                'id' => "catalog-spec-{$stamp}-{$childKey}-power",
+                'name' => 'Material',
+                'nameAr' => 'الخامة',
+                'type' => 'Content',
+                'required' => false,
+                'hidden' => false,
+                'extraPrice' => 0,
+                'options' => [],
+                'contentEn' => 'Marble / wood / gold finish',
+                'contentAr' => 'رخام / خشب / تشطيب ذهبي',
+            ],
+            [
+                'id' => "catalog-spec-{$stamp}-{$childKey}-warranty",
+                'name' => 'Warranty',
+                'nameAr' => 'الضمان',
+                'type' => 'Content',
+                'required' => false,
+                'hidden' => false,
+                'extraPrice' => 0,
+                'options' => [],
+                'contentEn' => '2-year furniture warranty',
+                'contentAr' => 'ضمان الأثاث لمدة سنتين',
+            ],
+            [
+                'id' => "catalog-spec-{$stamp}-{$childKey}-origin",
+                'name' => 'Origin',
+                'nameAr' => 'المنشأ',
+                'type' => 'Content',
+                'required' => false,
+                'hidden' => false,
+                'extraPrice' => 0,
+                'options' => [],
+                'contentEn' => 'KSA furniture — Makkah warehouse',
+                'contentAr' => 'أثاث السعودية — مستودع مكة',
             ],
         ];
     };
 
     $childrenMeta = [
-        ['id' => $childIds[0], 'key' => 'silver', 'name' => 'HiBrew Silver Pro (Group Child)', 'nameAr' => 'هايبرو سيلفر برو', 'sku' => 'GRP-CF-SILVER', 'price' => 1999, 'original' => 2299, 'stock' => 12, 'image' => '/images/group_demo_child_silver.jpg'],
-        ['id' => $childIds[1], 'key' => 'grinder', 'name' => 'HiBrew Precision Grinder (Group Child)', 'nameAr' => 'طاحونة هايبرو الدقيقة', 'sku' => 'GRP-CF-GRINDER', 'price' => 749, 'original' => 899, 'stock' => 18, 'image' => '/images/hibrew_scale_isolated.jpg'],
-        ['id' => $childIds[2], 'key' => 'black', 'name' => 'HiBrew Compact Black (Group Child)', 'nameAr' => 'هايبرو كومباكت أسود', 'sku' => 'GRP-CF-BLACK', 'price' => 399, 'original' => 549, 'stock' => 20, 'image' => '/images/hibrew_h7a_flagship_machine.png'],
+        ['id' => $childIds[0], 'key' => 'almari', 'name' => 'Gold Full Almari (Group Child)', 'nameAr' => 'دولاب ذهبي كامل', 'sku' => 'GRP-CF-ALMARI', 'price' => 1999, 'original' => 2299, 'stock' => 12, 'image' => '/images/ksa_almari_black_gold.png'],
+        ['id' => $childIds[1], 'key' => 'sidetable', 'name' => 'Makkah Side Table Almari (Group Child)', 'nameAr' => 'خزانة طاولة جانبية مكة', 'sku' => 'GRP-CF-SIDETABLE', 'price' => 749, 'original' => 899, 'stock' => 18, 'image' => '/images/ksa_almari_makkah_corner.png'],
+        ['id' => $childIds[2], 'key' => 'coffeetable', 'name' => 'Villa Coffee Table Almari (Group Child)', 'nameAr' => 'خزانة طاولة قهوة فيلا', 'sku' => 'GRP-CF-COFFEETABLE', 'price' => 399, 'original' => 549, 'stock' => 20, 'image' => '/images/ksa_almari_dual_door_villa.png'],
     ];
 
     $removed = [];
@@ -298,7 +361,7 @@ function souq_seed_hibrew_cf_group(PDO $pdo, string $storeId): array
                id IN ('prod-grp-live-yvdusf','prod-c1-yvdusf','prod-c2-yvdusf','prod-c3-yvdusf',?,?,?,?)
                OR id LIKE 'prod-c1-yvdusf%' OR id LIKE 'prod-c2-yvdusf%' OR id LIKE 'prod-c3-yvdusf%'
                OR id LIKE 'prod-grp-demo%' OR sku LIKE 'GRP-CHILD-%' OR sku LIKE 'GRP-DEMO%'
-               OR sku IN ('GRP-CF-PARENT','GRP-CF-SILVER','GRP-CF-GRINDER','GRP-CF-BLACK','GRP-DEMO-01','GRP-DEMO')
+               OR sku IN ('GRP-CF-PARENT','GRP-CF-SILVER','GRP-CF-GRINDER','GRP-CF-BLACK','GRP-CF-ALMARI','GRP-CF-SIDETABLE','GRP-CF-COFFEETABLE','GRP-DEMO-01','GRP-DEMO')
              )"
         );
         $st->execute([$storeId, $parentId, $childIds[0], $childIds[1], $childIds[2]]);
@@ -399,10 +462,10 @@ function souq_seed_hibrew_cf_group(PDO $pdo, string $storeId): array
         $parentPayload = [
             'id' => $parentId,
             'store_id' => $storeId,
-            'name' => 'HiBrew Custom Fields Group',
-            'name_ar' => 'مجموعة حقول هايبرو المخصصة',
-            'slug' => 'hibrew-custom-fields-group-'.$stamp,
-            'description' => 'Grouped parent — switch children; all custom field types show on buy.',
+            'name' => 'Gold Almari Furniture Group',
+            'name_ar' => 'مجموعة دواليب ذهبية',
+            'slug' => 'gold-almari-furniture-group-'.$stamp,
+            'description' => 'Grouped parent — Gold Full Almari, Side Table, Coffee Table; all custom field types show on buy.',
             'price' => 0,
             'original_price' => 0,
             'sku' => 'GRP-CF-PARENT',
@@ -410,9 +473,9 @@ function souq_seed_hibrew_cf_group(PDO $pdo, string $storeId): array
             'product_type' => 'grouped',
             'status' => 'published',
             'is_active' => 1,
-            'image_url' => '/images/hibrew_h7a_flagship_machine.png',
-            'gallery_urls' => ['/images/hibrew_h7a_flagship_machine.png'],
-            'category' => 'machines',
+            'image_url' => '/images/ksa_almari_black_gold.png',
+            'gallery_urls' => ['/images/ksa_almari_black_gold.png'],
+            'category' => 'furniture',
             'custom_fields' => [],
             'data' => [
                 'product_type' => 'grouped',
@@ -431,25 +494,27 @@ function souq_seed_hibrew_cf_group(PDO $pdo, string $storeId): array
                 'store_id' => $storeId,
                 'name' => $c['name'],
                 'name_ar' => $c['nameAr'],
-                'slug' => 'hibrew-'.$c['key'].'-'.$stamp,
-                'description' => 'Independent child '.$c['key'].' with full custom fields suite.',
-                'price' => $c['price'],
-                'original_price' => $c['original'],
-                'sku' => $c['sku'],
-                'stock' => $c['stock'],
+                'slug' => 'ksa-'.$c['key'].'-'.$stamp,
+            'description' => 'Independent child '.$c['key'].' — purchase Custom Fields + Learn More content for this SKU only.',
+            'price' => $c['price'],
+            'original_price' => $c['original'],
+            'sku' => $c['sku'],
+            'stock' => $c['stock'],
+            'product_type' => 'Physical Product',
+            'status' => 'published',
+            'is_active' => 1,
+            'image_url' => $c['image'],
+            'gallery_urls' => [$c['image']],
+            'category' => 'furniture',
+            'custom_fields' => $fields,
+            'data' => [
                 'product_type' => 'Physical Product',
-                'status' => 'published',
-                'is_active' => 1,
-                'image_url' => $c['image'],
-                'gallery_urls' => [$c['image']],
-                'category' => 'machines',
+                'customFields' => $fields,
                 'custom_fields' => $fields,
-                'data' => [
-                    'product_type' => 'Physical Product',
-                    'customFields' => $fields,
-                    'custom_fields' => $fields,
-                ],
-            ]);
+                // Per-product only — not shared across other catalog SKUs.
+                'purchase_fields_scope' => 'this_product_only',
+            ],
+        ]);
             $pdo->prepare(
                 'INSERT INTO product_group_members
                  (id, store_id, parent_product_id, child_product_id, sort_order, selector_image_url, created_at, updated_at)
@@ -481,8 +546,8 @@ function souq_seed_hibrew_cf_group(PDO $pdo, string $storeId): array
         'parent_id' => $parentId,
         'child_ids' => $childIds,
         'removed' => $removed,
-        'field_count' => count($buildFields('silver')),
-        'slug' => 'hibrew-custom-fields-group-'.$stamp,
+        'field_count' => count($buildFields('almari')),
+        'slug' => 'gold-almari-furniture-group-'.$stamp,
     ];
 }
 

@@ -6,6 +6,11 @@
  * Dynamic binds: store | product | price | category fill from live tenant data.
  */
 
+import {
+  STORE_ARABIC_FONTS,
+  STORE_ENGLISH_FONTS,
+} from './storeGoogleFontsCatalog';
+
 export type CanvaTemplateCategory = 'banner' | 'social' | 'ads' | 'logo' | 'product' | 'category';
 export type CanvaTemplateTier = 'free' | 'pro';
 /** Store vertical for premade packs. blank = start empty. */
@@ -64,18 +69,18 @@ export interface CanvaDesignTemplate {
   elements: CanvaTemplateElement[];
 }
 
+/** Full store font catalog for Canva text layers (Arabic + English). */
 export const CANVA_FONT_FAMILIES = [
-  { id: 'Tajawal', labelEn: 'Tajawal (Arabic)', labelAr: 'تجوال (عربي)' },
-  { id: 'Cairo', labelEn: 'Cairo (Arabic)', labelAr: 'القاهرة (عربي)' },
-  { id: 'Almarai', labelEn: 'Almarai (Arabic)', labelAr: 'المراعي (عربي عصري)' },
-  { id: 'Amiri', labelEn: 'Amiri (Arabic Calligraphy)', labelAr: 'أميري (خط ملكي)' },
-  { id: 'Readex Pro', labelEn: 'Readex Pro', labelAr: 'ريدكس برو' },
-  { id: 'Alexandria', labelEn: 'Alexandria', labelAr: 'الإسكندرية' },
-  { id: 'Outfit', labelEn: 'Outfit Clean', labelAr: 'أوتفت حديث' },
-  { id: 'Poppins', labelEn: 'Poppins', labelAr: 'بوبينز' },
-  { id: 'Plus Jakarta Sans', labelEn: 'Plus Jakarta Sans', labelAr: 'جاكرتا فاخر' },
-  { id: 'Montserrat', labelEn: 'Montserrat Modern', labelAr: 'مونتسيرات' },
-  { id: 'Staatliches', labelEn: 'Staatliches Display', labelAr: 'ستاتليش عريض' },
+  ...STORE_ARABIC_FONTS.map((f) => ({
+    id: f.name,
+    labelEn: `${f.name} (Arabic)`,
+    labelAr: f.labelAr,
+  })),
+  ...STORE_ENGLISH_FONTS.map((f) => ({
+    id: f.name,
+    labelEn: f.name,
+    labelAr: f.labelAr,
+  })),
 ] as const;
 
 export const CANVA_TEMPLATE_CATEGORIES: Array<{

@@ -21,14 +21,76 @@ export interface StoreStudioDesignRow {
   updated_at?: string;
 }
 
+export interface StudioDesignsListMeta {
+  page: number;
+  per_page: number;
+  total: number;
+  has_more: boolean;
+}
+
+export interface StudioDesignsListResult {
+  data: StoreStudioDesignRow[];
+  meta: StudioDesignsListMeta;
+}
+
 export async function listStudioDesigns(
   storeId: string,
   editorType?: StudioEditorType,
+  opts?: { page?: number; perPage?: number },
 ): Promise<StoreStudioDesignRow[]> {
-  if (!isApiEnabled()) return [];
-  const qs = editorType ? `?editor_type=${encodeURIComponent(editorType)}` : '';
-  const res = await apiFetch<{ data: StoreStudioDesignRow[] }>(`/studio-designs${qs}`, { storeId });
-  return Array.isArray(res.data) ? res.data : [];
+  const result = await listStudioDesignsPaged(storeId, editorType, opts);
+  return result.data;
+}
+
+/** Paginated lean list — never pulls full design_json layers. */
+export async function listStudioDesignsPaged(
+  storeId: string,
+  editorType?: StudioEditorType,
+  opts?: { page?: number; perPage?: number },
+): Promise<StudioDesignsListResult> {
+  const emptyMeta: StudioDesignsListMeta = {
+    page: 1,
+    per_page: opts?.perPage ?? 10,
+    total: 0,
+    has_more: false,
+  };
+  if (!isApiEnabled()) return { data: [], meta: emptyMeta };
+  const page = Math.max(1, opts?.page ?? 1);
+  const perPage = Math.min(50, Math.max(1, opts?.perPage ?? 10));
+  const qs = new URLSearchParams();
+  qs.set('page', String(page));
+  qs.set('per_page', String(perPage));
+  if (editorType) qs.set('editor_type', editorType);
+  const res = await apiFetch<{ data: StoreStudioDesignRow[]; meta?: Partial<StudioDesignsListMeta> }>(
+    `/studio-designs?${qs.toString()}`,
+    { storeId },
+  );
+  const data = Array.isArray(res.data) ? res.data : [];
+  const meta: StudioDesignsListMeta = {
+    page: Number(res.meta?.page ?? page),
+    per_page: Number(res.meta?.per_page ?? perPage),
+    total: Number(res.meta?.total ?? data.length),
+    has_more: Boolean(
+      res.meta?.has_more ?? (Number(res.meta?.total ?? 0) > page * perPage),
+    ),
+  };
+  return { data, meta };
+}
+
+/** Full design row (layers included) — Hostinger list may omit layers for size. */
+export async function getStudioDesign(
+  storeId: string,
+  id: string,
+): Promise<StoreStudioDesignRow | null> {
+  if (!isApiEnabled() || !storeId || !id) return null;
+  try {
+    const res = await apiFetch<{ data: StoreStudioDesignRow }>(`/studio-designs/${encodeURIComponent(id)}`, {
+      storeId,
+    });
+    return res.data ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function saveStudioDesign(

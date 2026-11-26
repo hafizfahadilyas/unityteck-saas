@@ -5590,21 +5590,22 @@ html[data-theme="dark"][data-portal="store"] [data-floating-popover="true"] .dar
 
 @media (max-width: 640px) {
   .portal-auth-shell .portal-auth-glass-header {
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    /* Stronger frost on phone — wallpaper must read through */
-    background: rgba(255, 255, 255, 0.42) !important;
-    backdrop-filter: blur(18px) saturate(1.45) !important;
-    -webkit-backdrop-filter: blur(18px) saturate(1.45) !important;
+    flex-wrap: nowrap;
+    gap: 0;
+    /* Dense frost — text/icons stay readable over wallpaper */
+    background: rgba(255, 255, 255, 0.82) !important;
+    backdrop-filter: blur(22px) saturate(1.4) !important;
+    -webkit-backdrop-filter: blur(22px) saturate(1.4) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.75) !important;
   }
   .portal-auth-shell .portal-auth-glass-card {
-    background: rgba(255, 255, 255, 0.55) !important;
-    backdrop-filter: blur(22px) saturate(1.5) !important;
-    -webkit-backdrop-filter: blur(22px) saturate(1.5) !important;
-    border: 1px solid rgba(255, 255, 255, 0.65) !important;
+    background: rgba(255, 255, 255, 0.9) !important;
+    backdrop-filter: blur(24px) saturate(1.45) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(1.45) !important;
+    border: 1px solid rgba(255, 255, 255, 0.78) !important;
     box-shadow:
-      0 12px 40px rgba(15, 23, 42, 0.14),
-      inset 0 1px 0 rgba(255, 255, 255, 0.65) !important;
+      0 12px 40px rgba(15, 23, 42, 0.16),
+      inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
   }
   .portal-auth-shell .portal-auth-full-bg-img {
     object-position: 30% center;
@@ -5612,11 +5613,73 @@ html[data-theme="dark"][data-portal="store"] [data-floating-popover="true"] .dar
   /* Softer veil — less black wash over login photo */
   .portal-auth-shell .portal-auth-full-bg-veil {
     background:
-      linear-gradient(180deg, rgba(15, 23, 42, 0.12) 0%, rgba(15, 23, 42, 0.04) 45%, rgba(15, 23, 42, 0.22) 100%);
+      linear-gradient(180deg, rgba(15, 23, 42, 0.1) 0%, rgba(15, 23, 42, 0.03) 45%, rgba(15, 23, 42, 0.18) 100%);
+  }
+  /*
+   * Mobile: invert dark navy header icons → white tile + dark glyph.
+   * Fixes unreadable dark blobs over photo / glass (store + master).
+   */
+  .portal-auth-shell .portal-auth-brand-mark,
+  .portal-auth-shell .portal-auth-badge-pill,
+  .portal-auth-shell[data-portal='store'] .portal-auth-brand-mark,
+  .portal-auth-shell[data-portal='store'] .portal-auth-badge-pill,
+  .portal-auth-shell[data-portal='master'] .portal-auth-brand-mark,
+  .portal-auth-shell[data-portal='master'] .portal-auth-badge-pill {
+    background: #ffffff !important;
+    background-image: none !important;
+    color: #0f172a !important;
+    border: 1px solid rgba(15, 23, 42, 0.12) !important;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.16) !important;
+  }
+  .portal-auth-shell .portal-auth-brand-mark svg,
+  .portal-auth-shell .portal-auth-badge-pill svg,
+  .portal-auth-shell[data-portal='store'] .portal-auth-brand-mark svg,
+  .portal-auth-shell[data-portal='store'] .portal-auth-badge-pill svg {
+    color: #0f172a !important;
+    stroke: #0f172a !important;
+  }
+  /* Card mail mark stays solid navy CTA for contrast on white card */
+  .portal-auth-shell .portal-auth-glass-card .portal-auth-brand-mark,
+  .portal-auth-shell[data-portal='store'] .portal-auth-glass-card .portal-auth-brand-mark {
+    background: #0f172a !important;
+    background-image: none !important;
+    color: #ffffff !important;
+    border-color: transparent !important;
+  }
+  .portal-auth-shell .portal-auth-glass-card .portal-auth-brand-mark svg {
+    color: #ffffff !important;
+    stroke: #ffffff !important;
+  }
+  .portal-auth-shell .portal-auth-glass-header button {
+    background: rgba(255, 255, 255, 0.95) !important;
+    color: #0f172a !important;
+    border-color: rgba(15, 23, 42, 0.12) !important;
   }
   .portal-auth-shell .unity-btn-primary {
-    background: var(--portal-cta, linear-gradient(90deg, #1d8b94, #4fb8b4)) !important;
-    background-image: var(--portal-cta, linear-gradient(90deg, #1d8b94, #4fb8b4)) !important;
+    background: var(--portal-cta, #0f172a) !important;
+    background-image: var(--portal-cta, #0f172a) !important;
+  }
+}
+
+/* Dashboard mobile: keep sidebar / topbar glyphs readable (white tile, dark stroke) */
+@media (max-width: 1023.98px) {
+  [data-portal='store'] .store-ios-icon,
+  [data-portal='master'] .store-ios-icon {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.18) !important;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+  }
+  [data-portal='store'] .store-ios-icon svg,
+  [data-portal='master'] .store-ios-icon svg {
+    color: #0f172a !important;
+    stroke: #0f172a !important;
+  }
+  [data-chrome='store-topbar'] button svg,
+  [data-chrome='master-topbar'] button svg {
+    color: var(--text, #0f172a) !important;
+    stroke: var(--text, #0f172a) !important;
+    opacity: 1 !important;
   }
 }
 

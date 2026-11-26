@@ -25,10 +25,15 @@ function souq_seo_load_db_config(): ?array
         }
     }
 
+    $requestHost = souq_seo_normalize_host($_SERVER['HTTP_HOST'] ?? '');
+    $isFlowersHost = $requestHost === 'giftshop-sa.com'
+        || str_ends_with($requestHost, '.giftshop-sa.com');
+
     $envPaths = [
+        dirname(__DIR__) . '/.env',
+        dirname(__DIR__) . '/api/.env',
         dirname(__DIR__, 2) . '/apps/api/.env',
         dirname(__DIR__) . '/../apps/api/.env',
-        dirname(__DIR__) . '/.env',
     ];
     foreach ($envPaths as $envPath) {
         if (!is_file($envPath)) {
@@ -45,6 +50,25 @@ function souq_seo_load_db_config(): ?array
             $vars[$k] = $v;
         }
         if (($vars['DB_CONNECTION'] ?? '') === 'sqlite') {
+            continue;
+        }
+        // Flowers host: FLOWERS_DB_* only — never central mieraf DB_* (wrong tenant).
+        if ($isFlowersHost) {
+            $fHost = trim((string) ($vars['FLOWERS_DB_HOST'] ?? ''));
+            $fRemote = trim((string) ($vars['FLOWERS_DB_REMOTE_HOST'] ?? 'srv1422.hstgr.io'));
+            $fName = trim((string) ($vars['FLOWERS_DB_DATABASE'] ?? 'u920689430_giftshop'));
+            $fUser = trim((string) ($vars['FLOWERS_DB_USERNAME'] ?? 'u920689430_giftshop'));
+            $fPass = (string) ($vars['FLOWERS_DB_PASSWORD'] ?? '');
+            if ($fPass !== '' && $fName !== '') {
+                return [
+                    'host' => $fHost !== '' ? $fHost : 'localhost',
+                    'remote_host' => $fRemote,
+                    'port' => (int) ($vars['FLOWERS_DB_PORT'] ?? 3306),
+                    'database' => $fName,
+                    'username' => $fUser,
+                    'password' => $fPass,
+                ];
+            }
             continue;
         }
         if (!empty($vars['DB_HOST']) && !empty($vars['DB_DATABASE'])) {
@@ -72,22 +96,39 @@ function souq_seo_pdo(): ?PDO
         $pdo = null;
         return null;
     }
-    try {
-        $dsn = sprintf(
-            'mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4',
-            $cfg['host'],
-            $cfg['port'] ?? 3306,
-            $cfg['database']
-        );
-        $pdo = new PDO($dsn, (string) ($cfg['username'] ?? ''), (string) ($cfg['password'] ?? ''), [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ]);
-        return $pdo;
-    } catch (Throwable $e) {
-        $pdo = null;
-        return null;
+    $hosts = [];
+    $primary = trim((string) ($cfg['host'] ?? ''));
+    if ($primary !== '') {
+        $hosts[] = $primary;
     }
+    $hosts[] = 'localhost';
+    $hosts[] = '127.0.0.1';
+    $remote = trim((string) ($cfg['remote_host'] ?? ''));
+    if ($remote !== '') {
+        $hosts[] = $remote;
+    }
+    $port = (int) ($cfg['port'] ?? 3306);
+    $user = (string) ($cfg['username'] ?? '');
+    $pass = (string) ($cfg['password'] ?? '');
+    $dbName = (string) ($cfg['database'] ?? '');
+    foreach (array_values(array_unique($hosts)) as $tryHost) {
+        try {
+            $dsn = sprintf(
+                'mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4',
+                $tryHost,
+                $port,
+                $dbName
+            );
+            $pdo = new PDO($dsn, $user, $pass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            ]);
+            return $pdo;
+        } catch (Throwable $e) {
+            $pdo = null;
+        }
+    }
+    return null;
 }
 
 function souq_seo_api_bootstrap(string $host): ?array
@@ -140,6 +181,11 @@ function souq_seo_store_hint_from_request(?string $path = null, ?array $query = 
         || str_starts_with($path, '/coffee');
     if ($isCoffee) {
         return 'store-coffee';
+    }
+
+    if (in_array($s, ['souq-default', 'store-souq-default'], true)
+        || str_starts_with($path, '/store/souq-default')) {
+        return 'store-souq-default';
     }
 
     return null;
@@ -335,6 +381,27 @@ function souq_seo_resolve(string $host, ?string $path = null, ?array $query = nu
                 );
                 $st3->execute([(string) $sid]);
                 $store = $st3->fetch() ?: null;
+            }
+        }
+
+        // {slug}.mieraf-ksa.com → store by slug / demo_domain (before coffee apex default)
+        if (!$store && str_ends_with($host, '.mieraf-ksa.com') && $host !== 'www.mieraf-ksa.com') {
+            $sub = substr($host, 0, -strlen('.mieraf-ksa.com'));
+            $reserved = ['www', 'souq', 'api', 'app', 'admin', 'master', 'mail', 'smtp', 'ftp', 'cpanel', 'webmail'];
+            if ($sub !== '' && !in_array($sub, $reserved, true)) {
+                $stSub = $pdo->prepare(
+                    'SELECT id, name, locale, text_direction, logo, custom_domain, domain, demo_domain
+                     FROM stores WHERE slug = ? OR id = ? OR id = ? OR demo_domain = ? LIMIT 1'
+                );
+                $stSub->execute([$sub, $sub, 'store-'.$sub, $host]);
+                $store = $stSub->fetch() ?: null;
+                if (!$store && $sub === 'souq-default') {
+                    $stDef = $pdo->prepare(
+                        'SELECT id, name, locale, text_direction, logo, custom_domain, domain, demo_domain FROM stores WHERE id = ? LIMIT 1'
+                    );
+                    $stDef->execute(['store-souq-default']);
+                    $store = $stDef->fetch() ?: null;
+                }
             }
         }
 

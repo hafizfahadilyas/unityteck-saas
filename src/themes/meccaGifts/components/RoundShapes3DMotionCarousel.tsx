@@ -167,6 +167,7 @@ export const RoundShapes3DMotionCarousel: React.FC<RoundShapes3DMotionCarouselPr
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
     touchMoved.current = false;
+    setIsHovered(true);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -188,7 +189,8 @@ export const RoundShapes3DMotionCarousel: React.FC<RoundShapes3DMotionCarouselPr
     touchStartX.current = null;
     setTimeout(() => {
       touchMoved.current = false;
-    }, 50);
+      setIsHovered(false);
+    }, 1800);
   };
 
   const transition = {
@@ -302,7 +304,7 @@ export const RoundShapes3DMotionCarousel: React.FC<RoundShapes3DMotionCarouselPr
             step(-1);
           }}
           aria-label={isAr ? "السابق" : "Previous"}
-          className="absolute left-1 sm:left-3 md:left-5 top-1/2 -translate-y-1/2 z-40 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#102a1c] hover:bg-[#1a402c] text-[#f3e5ab] hover:text-white border-2 border-[#d4af37] shadow-[0_6px_25px_rgba(0,0,0,0.45)] flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 cursor-pointer pointer-events-auto backdrop-blur-md group"
+          className="absolute left-1 sm:left-3 md:left-5 top-1/2 -translate-y-1/2 z-40 hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#102a1c] hover:bg-[#1a402c] text-[#f3e5ab] hover:text-white border-2 border-[#d4af37] shadow-[0_6px_25px_rgba(0,0,0,0.45)] items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 cursor-pointer pointer-events-auto backdrop-blur-md group"
         >
           <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6 group-hover:-translate-x-0.5 transition-transform" />
         </button>
@@ -320,7 +322,7 @@ export const RoundShapes3DMotionCarousel: React.FC<RoundShapes3DMotionCarouselPr
             step(1);
           }}
           aria-label={isAr ? "التالي" : "Next"}
-          className="absolute right-1 sm:right-3 md:right-5 top-1/2 -translate-y-1/2 z-40 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#102a1c] hover:bg-[#1a402c] text-[#f3e5ab] hover:text-white border-2 border-[#d4af37] shadow-[0_6px_25px_rgba(0,0,0,0.45)] flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 cursor-pointer pointer-events-auto backdrop-blur-md group"
+          className="absolute right-1 sm:right-3 md:right-5 top-1/2 -translate-y-1/2 z-40 hidden sm:flex w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#102a1c] hover:bg-[#1a402c] text-[#f3e5ab] hover:text-white border-2 border-[#d4af37] shadow-[0_6px_25px_rgba(0,0,0,0.45)] items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 cursor-pointer pointer-events-auto backdrop-blur-md group"
         >
           <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 group-hover:translate-x-0.5 transition-transform" />
         </button>

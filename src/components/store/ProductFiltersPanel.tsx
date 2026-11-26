@@ -15,6 +15,7 @@ import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
 import { GlobalModal } from '../common/GlobalModal';
 import { listAvailableProductChannels } from '../../config/productChannels';
+import { listAvailableProductTypes } from '../../config/productTypes';
 import { getProductDisplayCategory } from '../../utils/storeLocalization';
 
 export interface ProductFilterCriteria {
@@ -61,21 +62,6 @@ const DEFAULT_PRESETS: SavedFilterPreset[] = [
       status: 'Active',
     },
     badgeColor: 'emerald',
-    isDefault: true,
-  },
-  {
-    id: 'preset-luxury',
-    name: 'Luxury Flowers',
-    nameAr: 'زهور فاخرة',
-    criteria: {
-      channel: 'All',
-      brand: 'All',
-      search: '',
-      productType: 'All',
-      category: 'Luxury Flowers',
-      status: 'All',
-    },
-    badgeColor: 'purple',
     isDefault: true,
   },
   {
@@ -131,7 +117,15 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
       const saved = localStorage.getItem(`unityteck_product_filters_${storeId}`);
       if (saved) {
         const parsed = JSON.parse(saved);
-        return Array.isArray(parsed) ? parsed : [];
+        if (!Array.isArray(parsed)) return [];
+        // Drop retired flowers/roses presets (hardcoded default + any matching custom saves)
+        return parsed.filter((p: SavedFilterPreset) => {
+          const name = `${p?.name || ''} ${p?.nameAr || ''} ${p?.criteria?.category || ''}`.toLowerCase();
+          if (p?.id === 'preset-luxury') return false;
+          if (name.includes('luxury flowers') || name.includes('زهور فاخرة')) return false;
+          if (/\b(roses?|flowers?)\b/.test(name) || name.includes('ورود') || name.includes('زهور')) return false;
+          return true;
+        });
       }
     } catch {
       // ignore error
@@ -163,6 +157,14 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
       // ignore
     }
   }, [savedPresets, storeId]);
+
+  // Drop inactive product types (Bundle / Variable) if still selected from older UI
+  useEffect(() => {
+    const activeValues = new Set(listAvailableProductTypes().map((t) => t.value));
+    if (criteria.productType !== 'All' && !activeValues.has(criteria.productType)) {
+      onCriteriaChange((prev) => ({ ...prev, productType: 'All' }));
+    }
+  }, [criteria.productType, onCriteriaChange]);
 
   const handleApplyPreset = (preset: SavedFilterPreset) => {
     setActivePresetId(preset.id);
@@ -412,11 +414,11 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
                 className="w-full appearance-none pl-9 pr-3.5 py-2.5 text-xs bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 transition-colors cursor-pointer text-right rtl:text-right"
               >
                 <option value="All">{isAr ? 'جميع أنواع المنتجات' : 'All Product Types'}</option>
-                <option value="Physical Product">{isAr ? 'منتج جاهز (مادي)' : 'Physical Product'}</option>
-                <option value="Custom Service">{isAr ? 'خدمة مخصصة (تنسيق)' : 'Custom Service'}</option>
-                <option value="Digital Product">{isAr ? 'منتج رقمي (قسيمة)' : 'Digital Product'}</option>
-                <option value="Product Bundle">{isAr ? 'باقة مجمعة' : 'Product Bundle'}</option>
-                <option value="Variable Product">{isAr ? 'منتج متعدد الخيارات' : 'Variable Product'}</option>
+                {listAvailableProductTypes().map((pt) => (
+                  <option key={pt.id} value={pt.value}>
+                    {isAr ? pt.labelAr : pt.labelEn}
+                  </option>
+                ))}
               </select>
               <ChevronDown className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
@@ -498,43 +500,30 @@ export const ProductFiltersPanel: React.FC<ProductFiltersPanelProps> = ({
               {isAr ? DEFAULT_PRESETS[0].nameAr : DEFAULT_PRESETS[0].name}
             </button>
 
-            {/* Default Preset: Luxury Flowers */}
+            {/* Default Preset: Out of Stock */}
             <button
               type="button"
               onClick={() => handleApplyPreset(DEFAULT_PRESETS[1])}
               className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
                 activePresetId === DEFAULT_PRESETS[1].id
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'bg-purple-50 text-purple-700 border border-purple-200/90 hover:bg-purple-100 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800'
+                  ? 'bg-rose-600 text-white shadow-xs'
+                  : 'bg-rose-50 text-rose-700 border border-rose-200/90 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
               }`}
             >
               {isAr ? DEFAULT_PRESETS[1].nameAr : DEFAULT_PRESETS[1].name}
             </button>
 
-            {/* Default Preset: Out of Stock */}
+            {/* Default Preset: Low Stock */}
             <button
               type="button"
               onClick={() => handleApplyPreset(DEFAULT_PRESETS[2])}
               className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
                 activePresetId === DEFAULT_PRESETS[2].id
-                  ? 'bg-rose-600 text-white shadow-xs'
-                  : 'bg-rose-50 text-rose-700 border border-rose-200/90 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800'
-              }`}
-            >
-              {isAr ? DEFAULT_PRESETS[2].nameAr : DEFAULT_PRESETS[2].name}
-            </button>
-
-            {/* Default Preset: Low Stock */}
-            <button
-              type="button"
-              onClick={() => handleApplyPreset(DEFAULT_PRESETS[3])}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
-                activePresetId === DEFAULT_PRESETS[3].id
                   ? 'bg-sky-600 text-white shadow-xs'
                   : 'bg-sky-50 text-sky-700 border border-sky-200/90 hover:bg-sky-100 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800'
               }`}
             >
-              {isAr ? DEFAULT_PRESETS[3].nameAr : DEFAULT_PRESETS[3].name}
+              {isAr ? DEFAULT_PRESETS[2].nameAr : DEFAULT_PRESETS[2].name}
             </button>
 
             {/* User Custom Saved Presets */}

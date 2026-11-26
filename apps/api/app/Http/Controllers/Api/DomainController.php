@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Domain;
 use App\Models\Store;
 use App\Models\StoreSetting;
+use App\Models\StoreTheme;
 use App\Support\HostingerCloud;
 use App\Support\Plans;
 use Illuminate\Http\JsonResponse;
@@ -89,6 +90,7 @@ class DomainController extends Controller
                             'coffee', 'roasters', 'hibrew', 'specialtycoffee' => 'store-coffee',
                             'car', 'cars', 'bleco', 'tanjeed', 'transport', 'saudia', 'alsaeedi' => 'store-bleco',
                             'makkah', 'hadaya', 'gifts', 'giftshop', 'flowers', 'ward' => 'store-1',
+                            'souq-default' => 'store-souq-default',
                             default => null,
                         };
 
@@ -346,10 +348,24 @@ class DomainController extends Controller
      */
     private function resolveActiveTheme(Store $store): string
     {
-        // Check StoreSetting table
+        // store_themes is source of truth for active pack
+        $themeRow = StoreTheme::withoutGlobalScope('store')
+            ->where('store_id', $store->id)
+            ->value('theme_id');
+        if (is_string($themeRow) && $themeRow !== '') {
+            return $themeRow;
+        }
+
         $setting = StoreSetting::query()->where('store_id', $store->id)->first();
-        if ($setting && !empty($setting->active_theme_id)) {
-            return $setting->active_theme_id;
+        if ($setting) {
+            $bag = is_array($setting->settings) ? $setting->settings : [];
+            $fromJson = (string) ($bag['active_theme_id'] ?? $bag['theme_id'] ?? '');
+            if ($fromJson !== '') {
+                return $fromJson;
+            }
+            if (! empty($setting->active_theme_id)) {
+                return (string) $setting->active_theme_id;
+            }
         }
 
         if ($store->id === 'store-coffee') {
@@ -362,6 +378,6 @@ class DomainController extends Controller
             return 'theme-flora-luxe';
         }
 
-        return 'theme-commerce-starter';
+        return 'theme-souq-common-retail';
     }
 }

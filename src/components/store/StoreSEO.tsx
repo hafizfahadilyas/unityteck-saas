@@ -3,6 +3,7 @@ import { useTenant } from '../../context/TenantContext';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
 import { Sparkline } from '../common/Sparkline';
+import { Skeleton } from '../common/skeleton';
 import { 
   Search, 
   Globe, 
@@ -104,6 +105,8 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
   const [editGtmId, setEditGtmId] = useState(currentSEOConfig.gtmContainerId || '');
   const [editGscTag, setEditGscTag] = useState(currentSEOConfig.searchConsoleVerificationTag || '');
   const [editGoogleAdsId, setEditGoogleAdsId] = useState(currentSEOConfig.googleAdsConversionId || '');
+  const [editTiktokPixelId, setEditTiktokPixelId] = useState(currentSEOConfig.tiktokPixelId || '');
+  const [editSnapchatPixelId, setEditSnapchatPixelId] = useState(currentSEOConfig.snapchatPixelId || '');
   const [customClientId, setCustomClientId] = useState(getStoredGoogleClientId());
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [oauthError, setOauthError] = useState<string | null>(null);
@@ -117,6 +120,8 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
     setEditGtmId(resolvedGtm);
     setEditGscTag(resolvedGsc);
     setEditGoogleAdsId(currentSEOConfig.googleAdsConversionId || '');
+    setEditTiktokPixelId(currentSEOConfig.tiktokPixelId || '');
+    setEditSnapchatPixelId(currentSEOConfig.snapchatPixelId || '');
     setGa4Id(resolvedGa4);
     setGtmId(resolvedGtm);
     setGscTag(resolvedGsc);
@@ -573,7 +578,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
   };
 
   return (
-    <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 dark:text-slate-100 w-full min-w-0" dir={dir}>
+    <div className="u-page u-seo-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto w-full min-w-0" style={{ color: 'var(--text)' }} dir={dir}>
       <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--muted)' }}>
         <button
           type="button"
@@ -588,38 +593,36 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
           {isAr ? 'تحسين محركات البحث' : 'SEO Optimization'}
         </span>
       </div>
-      {/* ── Top Header Banner with Official Google Identity ── */}
+      {/* ── Top Header Banner — global glass (no solid blue) ── */}
       <div
-        data-on-dark-panel="true"
-        className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 text-white p-4 sm:p-7 rounded-3xl shadow-sm border min-w-0"
-        style={{
-          background: 'linear-gradient(135deg, #0f172a 0%, #032320 50%, #021a18 100%)',
-          borderColor: 'rgba(255,255,255,0.08)',
-          color: '#f8fafc',
-          ['--text' as string]: '#f8fafc',
-          ['--muted' as string]: '#cbd5e1',
-        }}
+        className="u-card u-panel flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 sm:p-7 min-w-0"
+        style={{ color: 'var(--text)' }}
       >
-        <div className="space-y-2">
+        <div className="space-y-2 min-w-0">
           <div className="flex items-center gap-2.5 flex-wrap">
-            <span className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/30 shadow-inner">
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-              </svg>
+            <span className="u-icon-brand p-2.5 rounded-2xl shadow-inner shrink-0">
+              <Globe className="w-5 h-5" aria-hidden />
             </span>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2 flex-wrap">
+            <h1
+              className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2 flex-wrap"
+              style={{ color: 'var(--text)' }}
+            >
               {isAr ? 'تحسين محركات البحث' : 'SEO Optimization'}
-              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              <span
+                className="text-xs font-bold px-2.5 py-0.5 rounded-full border"
+                style={{
+                  background: 'color-mix(in srgb, #10b981 16%, transparent)',
+                  color: '#047857',
+                  borderColor: 'color-mix(in srgb, #10b981 40%, transparent)',
+                }}
+              >
                 {isAr ? 'تسجيل دخول حقيقي' : 'Real sign-in'}
               </span>
             </h1>
           </div>
-          <p className="text-sm text-slate-200 max-w-3xl leading-relaxed font-medium">
+          <p className="text-sm max-w-3xl leading-relaxed font-medium" style={{ color: 'var(--muted)' }}>
             {isAr
-              ? 'مرة واحدةً فقط: سجّل الدخول بجيميل هذا المتجر. بعد «تم» تُفعَّل التحليلات ووحدة البحث ومدير العلامات والفهرسة تلقائياً. الأرقام تظهر عندما ترسلها جوجل فقط.'
+              ? 'مرة واحدةً فقط: سجّل الدخول ببريد جوجل لهذا المتجر. بعد «تم» تُفعَّل التحليلات ووحدة البحث ومدير العلامات والفهرسة تلقائياً. الأرقام تظهر عندما ترسلها جوجل فقط.'
               : 'Once only: sign in with this store’s Gmail. After Done, Analytics, Search Console, Tag Manager, and Indexing auto-link. Numbers appear only when Google sends them.'}
           </p>
         </div>
@@ -627,37 +630,41 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
         {/* Google Real Connection Status */}
         <div className="flex items-center gap-3 shrink-0">
           {currentSEOConfig.googleConnected ? (
-            <div className="bg-slate-900/90 border border-emerald-500/40 p-3 rounded-2xl flex items-center gap-3.5 backdrop-blur-sm">
-              <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center shadow-xs shrink-0">
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
+            <div
+              className="store-glass-card p-3 rounded-2xl flex items-center gap-3.5 border"
+              style={{ borderColor: 'color-mix(in srgb, #10b981 35%, var(--glass-border, var(--border)))' }}
+            >
+              <div className="u-logo-tile w-9 h-9 rounded-full flex items-center justify-center shadow-xs shrink-0">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden>
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                   <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                 </svg>
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-white truncate max-w-[200px]">
+                  <span className="text-xs font-bold truncate max-w-[200px]" style={{ color: 'var(--text)' }}>
                     {currentSEOConfig.googleAccountEmail}
                   </span>
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                 </div>
-                <div className="text-[10px] text-emerald-300">
+                <div className="text-[10px] font-semibold text-emerald-700">
                   {isAr ? 'تم — متصل · الأدوات تلقائية' : 'Done — connected · tools auto'}
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsGuideOpen(true)}
-                className="text-xs font-bold text-slate-200 hover:text-white px-2 py-1 rounded-lg hover:bg-white/10 transition-all cursor-pointer"
+                className="text-xs font-bold px-2 py-1 rounded-lg transition-all cursor-pointer"
+                style={{ color: 'var(--accent)' }}
               >
                 {isAr ? 'الدليل' : 'Guide'}
               </button>
               <button
                 type="button"
                 onClick={handleDisconnect}
-                className="text-xs font-bold text-rose-300 hover:text-rose-100 px-2 py-1 rounded-lg hover:bg-rose-500/20 transition-all cursor-pointer"
+                className="text-xs font-bold text-rose-600 hover:text-rose-700 px-2 py-1 rounded-lg hover:bg-rose-500/10 transition-all cursor-pointer"
                 title={isAr ? 'فصل الحساب' : 'Disconnect account'}
               >
                 {isAr ? 'فصل الحساب' : 'Disconnect'}
@@ -668,21 +675,23 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
               <button
                 onClick={() => setShowConnectModal(true)}
                 disabled={isAuthenticating}
-                className="flex-1 sm:flex-none px-4 sm:px-5 py-3 bg-white hover:bg-slate-100 text-slate-900 rounded-2xl text-xs font-black flex items-center justify-center gap-2.5 shadow-lg transition-all cursor-pointer transform active:scale-95 disabled:opacity-60 min-w-0"
+                className="unity-btn-primary flex-1 sm:flex-none px-4 sm:px-5 py-3 rounded-2xl text-xs font-black flex items-center justify-center gap-2.5 shadow-sm transition-all cursor-pointer transform active:scale-95 disabled:opacity-60 min-w-0"
               >
                 {isAuthenticating ? (
                   <>
-                    <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
+                    <RefreshCw className="w-4 h-4 animate-spin" />
                     <span>{isAr ? 'جاري الربط...' : 'Connecting...'}</span>
                   </>
                 ) : (
                   <>
-                    <svg className="w-4 h-4" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                    </svg>
+                    <span className="u-logo-tile w-5 h-5 rounded-md inline-flex items-center justify-center shrink-0">
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" aria-hidden>
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                      </svg>
+                    </span>
                     <span>{isAr ? 'ربط حساب جوجل' : 'Connect Google account'}</span>
                   </>
                 )}
@@ -690,7 +699,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
 
               <button
                 onClick={() => setShowConfigModal(true)}
-                className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-2xl border border-slate-700 cursor-pointer transition-all"
+                className="u-icon-brand p-3 rounded-2xl cursor-pointer transition-all"
                 title={isAr ? 'إعداد معرّف عميل جوجل' : 'Set the Google client id'}
               >
                 <Sliders className="w-4 h-4" />
@@ -699,9 +708,10 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
               <button
                 type="button"
                 onClick={() => setIsGuideOpen(true)}
-                className="px-4 py-2.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-2xl border border-slate-700 font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs transition-all"
+                className="px-4 py-2.5 rounded-2xl border font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs transition-all store-glass-card"
+                style={{ color: 'var(--text)', borderColor: 'var(--glass-border, var(--border))' }}
               >
-                <HelpCircle className="w-4 h-4 text-blue-400" />
+                <HelpCircle className="w-4 h-4" style={{ color: 'var(--accent)' }} />
                 <span>{isAr ? 'الدليل' : 'Guide'}</span>
               </button>
             </div>
@@ -743,11 +753,13 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
                 id: 'utm' as const,
                 icon: Link2,
                 title: isAr ? 'تتبع الحملات' : 'Campaign tracking',
-                desc: isAr ? 'روابط التتبع للحملات التسويقية.' : 'UTM links for marketing campaigns.',
+                desc: isAr
+                  ? 'روابط تتبع واتساب وفيسبوك وإنستغرام وغيرها.'
+                  : 'Tracked links for WhatsApp, Facebook, Instagram, and more.',
               },
               {
                 id: 'meta' as const,
-                icon: Globe,
+                icon: Layers,
                 title: isAr ? 'وسوم الصفحة وملفات الفهرسة' : 'Page tags and index files',
                 desc: isAr
                   ? 'وسوم الصفحات وخريطة الموقع وملف الروبوتات وملف نماذج اللغة.'
@@ -798,7 +810,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
       {/* ================= TAB 0: SITE KIT CENTRALIZED CONNECTION HUB ================= */}
       {activeSubTab === 'hub' && (
         <div className="space-y-6">
-          <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs leading-relaxed">
+          <div className="u-card u-panel p-4 text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>
             {seoSetupStep(activeStore) === 'need_email' && (isAr
               ? 'بريد دخول هذا المتجر غير محفوظ. بعد حفظه يربط المالك حسابه بنفسه.'
               : 'This store has no login email yet. After it is saved, the owner connects their own account.')}
@@ -812,13 +824,13 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
           {/* Services Matrix (4 Google Services: GA4, GSC, GTM, Indexing) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* 1. Google Analytics 4 */}
-            <div className="p-5 rounded-3xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-3 transition-all">
+            <div className="u-card u-panel p-5 space-y-3 transition-all">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 font-bold text-xs flex items-center justify-center border border-amber-200 dark:border-amber-800">
+                  <div className="u-icon-brand w-8 h-8 rounded-xl font-bold text-xs flex items-center justify-center">
                     GA4
                   </div>
-                  <span className="font-bold text-xs text-slate-900 dark:text-white">{isAr ? 'تحليلات جوجل' : 'Google Analytics 4'}</span>
+                  <span className="font-bold text-xs" style={{ color: 'var(--text)' }}>{isAr ? 'تحليلات جوجل' : 'Google Analytics 4'}</span>
                 </div>
                 {currentSEOConfig.googleConnected ? (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
@@ -841,7 +853,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
                 <button
                   type="button"
                   onClick={() => setShowTrackingConfigModal(true)}
-                  className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-bold text-[11px] cursor-pointer"
+                  className="u-accent-text font-bold text-[11px] cursor-pointer"
                 >
                   {isAr ? 'إعداد' : 'Configure'}
                 </button>
@@ -849,13 +861,13 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
             </div>
 
             {/* 2. Google Search Console */}
-            <div className="p-5 rounded-3xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-3 transition-all">
+            <div className="u-card u-panel p-5 space-y-3 transition-all">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-bold text-xs flex items-center justify-center border border-blue-200 dark:border-blue-800">
+                  <div className="u-icon-brand w-8 h-8 rounded-xl font-bold text-xs flex items-center justify-center">
                     GSC
                   </div>
-                  <span className="font-bold text-xs text-slate-900 dark:text-white">{isAr ? 'بحث جوجل' : 'Search Console'}</span>
+                  <span className="font-bold text-xs" style={{ color: 'var(--text)' }}>{isAr ? 'بحث جوجل' : 'Search Console'}</span>
                 </div>
                 {currentSEOConfig.googleConnected ? (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
@@ -887,7 +899,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
                     }
                     window.dispatchEvent(new CustomEvent('unityteck-open-store-tab', { detail: 'settings' }));
                   }}
-                  className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-bold text-[11px] cursor-pointer"
+                  className="u-accent-text font-bold text-[11px] cursor-pointer"
                 >
                   {isAr ? 'فتح الإعدادات' : 'Open Settings'}
                 </button>
@@ -895,13 +907,13 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
             </div>
 
             {/* 3. Google Tag Manager */}
-            <div className="p-5 rounded-3xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-3 transition-all">
+            <div className="u-card u-panel p-5 space-y-3 transition-all">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 font-bold text-xs flex items-center justify-center border border-teal-200 dark:border-teal-800">
+                  <div className="u-icon-brand w-8 h-8 rounded-xl font-bold text-xs flex items-center justify-center">
                     GTM
                   </div>
-                  <span className="font-bold text-xs text-slate-900 dark:text-white">{isAr ? 'مدير العلامات' : 'Tag Manager'}</span>
+                  <span className="font-bold text-xs" style={{ color: 'var(--text)' }}>{isAr ? 'مدير العلامات' : 'Tag Manager'}</span>
                 </div>
                 {currentSEOConfig.googleConnected ? (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
@@ -924,7 +936,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
                 <button
                   type="button"
                   onClick={() => setShowTrackingConfigModal(true)}
-                  className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-bold text-[11px] cursor-pointer"
+                  className="u-accent-text font-bold text-[11px] cursor-pointer"
                 >
                   {isAr ? 'إدارة' : 'Manage'}
                 </button>
@@ -932,13 +944,13 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
             </div>
 
             {/* 4. Instant Google Indexing */}
-            <div className="p-5 rounded-3xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-3 transition-all">
+            <div className="u-card u-panel p-5 space-y-3 transition-all">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold text-xs flex items-center justify-center border border-indigo-200 dark:border-indigo-800">
+                  <div className="u-icon-brand w-8 h-8 rounded-xl font-bold text-xs flex items-center justify-center">
                     API
                   </div>
-                  <span className="font-bold text-xs text-slate-900 dark:text-white">{isAr ? 'فهرسة جوجل' : 'Indexing API'}</span>
+                  <span className="font-bold text-xs" style={{ color: 'var(--text)' }}>{isAr ? 'فهرسة جوجل' : 'Indexing API'}</span>
                 </div>
                 {currentSEOConfig.googleConnected ? (
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
@@ -970,9 +982,91 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
                     }
                     window.dispatchEvent(new CustomEvent('unityteck-open-store-tab', { detail: 'settings' }));
                   }}
-                  className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-bold text-[11px] cursor-pointer"
+                  className="u-accent-text font-bold text-[11px] cursor-pointer"
                 >
                   {isAr ? 'فتح الإعدادات' : 'Open Settings'}
+                </button>
+              </div>
+            </div>
+
+            {/* 5. TikTok Pixel & Events API */}
+            <div className="u-card u-panel p-5 space-y-3 transition-all">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-slate-900 text-cyan-400 font-bold text-xs flex items-center justify-center border border-slate-700">
+                    TTQ
+                  </div>
+                  <span className="font-bold text-xs" style={{ color: 'var(--text)' }}>
+                    {isAr ? 'بكسل تيك توك' : 'TikTok Pixel'}
+                  </span>
+                </div>
+                {currentSEOConfig.tiktokPixelId ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                    <span>{isAr ? 'متصل' : 'Active'}</span>
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                    {isAr ? 'غير مفعّل' : 'Not set'}
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                {isAr
+                  ? 'يتتبع تحويلات حملات تيك توك الديناميكية وإضافات السلة والشراء مباشرة.'
+                  : 'Tracks TikTok dynamic ad conversions, cart additions, and purchases.'}
+              </p>
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                <span className="font-mono text-[11px] text-slate-600 dark:text-slate-400 truncate max-w-[130px]">
+                  {currentSEOConfig.tiktokPixelId || '—'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowTrackingConfigModal(true)}
+                  className="u-accent-text font-bold text-[11px] cursor-pointer"
+                >
+                  {isAr ? 'إعداد' : 'Configure'}
+                </button>
+              </div>
+            </div>
+
+            {/* 6. Snapchat Pixel & Conversions API */}
+            <div className="u-card u-panel p-5 space-y-3 transition-all">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center border border-amber-500">
+                    SNAP
+                  </div>
+                  <span className="font-bold text-xs" style={{ color: 'var(--text)' }}>
+                    {isAr ? 'بكسل سناب شات' : 'Snapchat Pixel'}
+                  </span>
+                </div>
+                {currentSEOConfig.snapchatPixelId ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                    <span>{isAr ? 'متصل' : 'Active'}</span>
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                    {isAr ? 'غير مفعّل' : 'Not set'}
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                {isAr
+                  ? 'يتتبع تحويلات إعلانات سناب شات وحملات السحب للأعلى (Swipe-up) للمتجر.'
+                  : 'Tracks Snapchat swipe-up ad conversions and purchase events.'}
+              </p>
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                <span className="font-mono text-[11px] text-slate-600 dark:text-slate-400 truncate max-w-[130px]">
+                  {currentSEOConfig.snapchatPixelId || '—'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowTrackingConfigModal(true)}
+                  className="u-accent-text font-bold text-[11px] cursor-pointer"
+                >
+                  {isAr ? 'إعداد' : 'Configure'}
                 </button>
               </div>
             </div>
@@ -984,7 +1078,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
       {/* ================= TAB: CORE WEB VITALS & PAGESPEED ================= */}
       {activeSubTab === 'pagespeed' && (
         <div className="space-y-6">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+          <div className="u-card u-panel flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 sm:p-6">
             <div className="space-y-1">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Gauge className="w-4 h-4 text-emerald-600" />
@@ -1053,7 +1147,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
           </div>
 
           {!pageSpeedData && !isLoadingPageSpeed ? (
-            <div className="p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 text-center space-y-3">
+            <div className="p-8 u-card u-panel text-center space-y-3">
               <Gauge className="w-10 h-10 text-emerald-600 mx-auto" />
               <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">
                 {pageSpeedError
@@ -1076,21 +1170,34 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
               </button>
             </div>
           ) : isLoadingPageSpeed ? (
-            <div className="p-12 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 text-center space-y-3">
-              <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin mx-auto" />
-              <h4 className="font-bold text-sm text-slate-900 dark:text-white">
-                {isAr ? 'جاري فحص المتجر عبر جوجل...' : 'Auditing the store through Google...'}
-              </h4>
-              <p className="text-xs text-slate-500">
-                {isAr
-                  ? 'يتم قياس أكبر محتوى ظاهر وتغيّر التخطيط وأول محتوى ظاهر وسرعة التحميل...'
-                  : 'Measuring LCP, CLS, FCP, blocking time, and SEO audits...'}
-              </p>
+            <div className="space-y-4" aria-busy="true" role="status">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="p-4 sm:p-5 u-card u-panel flex items-center gap-3.5">
+                    <Skeleton variant="circular" width="56px" height="56px" className="shrink-0" />
+                    <div className="space-y-1.5 flex-1">
+                      <Skeleton variant="rounded" height="14px" width="60%" />
+                      <Skeleton variant="rounded" height="11px" width="40%" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="p-6 u-card u-panel space-y-3">
+                <Skeleton variant="rounded" height="16px" width="30%" />
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pt-2">
+                  {Array.from({ length: 6 }).map((_, j) => (
+                    <div key={j} className="p-3 border rounded-xl space-y-1.5" style={{ borderColor: 'var(--border)' }}>
+                      <Skeleton variant="rounded" height="12px" width="50%" />
+                      <Skeleton variant="rounded" height="20px" width="70%" />
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           ) : pageSpeedData ? (
             <>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-                <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex items-center gap-3.5">
+                <div className="p-4 sm:p-5 u-card u-panel flex items-center gap-3.5">
                   <div className={`w-14 h-14 rounded-full border-4 flex items-center justify-center font-black text-lg shrink-0 ${psiScoreTone(pageSpeedData.performanceScore)}`}>
                     {pageSpeedData.isLive ? pageSpeedData.performanceScore : '—'}
                   </div>
@@ -1101,7 +1208,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
                   </div>
                 </div>
 
-                <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex items-center gap-3.5">
+                <div className="p-4 sm:p-5 u-card u-panel flex items-center gap-3.5">
                   <div className={`w-14 h-14 rounded-full border-4 flex items-center justify-center font-black text-lg shrink-0 ${psiScoreTone(pageSpeedData.accessibilityScore)}`}>
                     {pageSpeedData.isLive ? pageSpeedData.accessibilityScore : '—'}
                   </div>
@@ -1112,7 +1219,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
                   </div>
                 </div>
 
-                <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex items-center gap-3.5">
+                <div className="p-4 sm:p-5 u-card u-panel flex items-center gap-3.5">
                   <div className={`w-14 h-14 rounded-full border-4 flex items-center justify-center font-black text-lg shrink-0 ${psiScoreTone(pageSpeedData.bestPracticesScore)}`}>
                     {pageSpeedData.isLive ? pageSpeedData.bestPracticesScore : '—'}
                   </div>
@@ -1123,7 +1230,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
                   </div>
                 </div>
 
-                <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs flex items-center gap-3.5">
+                <div className="p-4 sm:p-5 u-card u-panel flex items-center gap-3.5">
                   <div className={`w-14 h-14 rounded-full border-4 flex items-center justify-center font-black text-lg shrink-0 ${psiScoreTone(pageSpeedData.seoScore)}`}>
                     {pageSpeedData.isLive ? pageSpeedData.seoScore : '—'}
                   </div>
@@ -1144,7 +1251,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
                   { key: 'si', label: isAr ? 'مؤشر السرعة' : 'Speed Index', value: pageSpeedData.speedIndex, tip: isAr ? 'الهدف أقل من ٣٫٤ ث' : 'Target < 3.4s' },
                   { key: 'inp', label: isAr ? 'الاستجابة للتفاعل' : 'INP', value: pageSpeedData.inp, tip: isAr ? 'الهدف أقل من ٢٠٠ ملث' : 'Target < 200ms' },
                 ].map((m) => (
-                  <div key={m.key} className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-1">
+                  <div key={m.key} className="u-card u-panel p-3.5 space-y-1">
                     <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block">{m.label}</span>
                     <div className="text-lg font-black text-slate-900 dark:text-white tabular-nums">{m.value || '—'}</div>
                     <span className="text-[9px] font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 rounded block w-fit">{m.tip}</span>
@@ -1152,7 +1259,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
                 ))}
               </div>
 
-              <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-5">
+              <div className="u-card u-panel p-6 shadow-2xs space-y-5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
                   <div>
                     <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -1200,9 +1307,10 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
                     onClick={() => setActiveIssueCategory('accessibility')}
                     className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                       activeIssueCategory === 'accessibility'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300'
+                        ? 'unity-btn-primary text-white'
+                        : 'store-glass-card'
                     }`}
+                    style={activeIssueCategory === 'accessibility' ? undefined : { color: 'var(--text)' }}
                   >
                     {isAr ? 'إمكانية الوصول' : 'Accessibility'} ({pageSpeedData.issues.filter((i) => i.category === 'accessibility').length})
                   </button>
@@ -1246,7 +1354,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
                                   ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
                                   : issue.category === 'seo'
                                   ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
-                                  : 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300'
+                                  : 'u-icon-brand'
                               }`}>
                                 {issue.category === 'performance'
                                   ? (isAr ? 'أداء' : 'performance')
@@ -1291,8 +1399,10 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
         <div className="space-y-6">
           {!currentSEOConfig.googleConnected ? (
             /* Unconnected State Banner */
-            <div className="p-6 rounded-3xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 text-center space-y-3">
-              <Search className="w-10 h-10 text-blue-600 mx-auto" />
+            <div className="u-card u-panel p-6 text-center space-y-3">
+              <span className="u-icon-brand w-12 h-12 rounded-2xl inline-flex items-center justify-center mx-auto">
+                <Search className="w-6 h-6" aria-hidden />
+              </span>
               <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
                 {isAr ? 'بحث جوجل غير متصل' : 'Google Search Console is not connected'}
               </h3>
@@ -1304,7 +1414,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
               <button
                 type="button"
                 onClick={() => setShowConnectModal(true)}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-black shadow-md inline-flex items-center gap-2 cursor-pointer transition-all transform active:scale-95"
+                className="unity-btn-primary px-6 py-3 rounded-2xl text-xs font-black shadow-md inline-flex items-center gap-2 cursor-pointer transition-all transform active:scale-95"
               >
                 <Zap className="w-4 h-4" />
                 <span>{isAr ? 'ربط حساب جوجل الآن' : 'Connect Google account'}</span>
@@ -1313,7 +1423,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
           ) : (
             /* Connected KPI Metrics from Real Google Search Console */
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-5 bg-blue-50/70 hover:bg-blue-50/90 dark:bg-blue-950/30 rounded-2xl border border-blue-200/80 dark:border-blue-900/40 shadow-2xs space-y-2 transition-all">
+              <div className="u-card u-panel p-5 space-y-2 transition-all">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-blue-200">
                   <span>{isAr ? 'نقرات بحث جوجل' : 'Google search clicks'}</span>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
@@ -1475,7 +1585,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
           </div>
 
           {/* Instant Google Indexing API Form (Secondary / Custom URL fallback) */}
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
+          <div className="u-card u-panel p-6 shadow-2xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -1507,7 +1617,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
               <button
                 type="submit"
                 disabled={isSubmittingIndex}
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer shrink-0 disabled:opacity-50"
+                className="unity-btn-primary px-5 py-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer shrink-0 disabled:opacity-50"
               >
                 {isSubmittingIndex ? (
                   <>
@@ -1593,7 +1703,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
           </div>
 
           {/* Top Google Search Queries Table */}
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
+          <div className="u-card u-panel p-6 shadow-2xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">
@@ -1617,7 +1727,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
                 <button
                   type="button"
                   onClick={() => setShowConnectModal(true)}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                  className="unity-btn-primary px-4 py-2 text-xs font-bold rounded-xl transition-colors cursor-pointer"
                 >
                   {isAr ? 'ربط حساب جوجل' : 'Connect Google account'}
                 </button>
@@ -1647,7 +1757,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
                             <span className="text-slate-400 font-mono text-[10px]">#{idx + 1}</span>
                             <span>{q.query}</span>
                           </td>
-                          <td className="py-3 px-3 text-right font-mono font-bold text-blue-600 dark:text-blue-400 tabular-nums">
+                          <td className="py-3 px-3 text-right font-mono font-bold tabular-nums" style={{ color: 'var(--accent)' }}>
                             {q.clicks.toLocaleString()}
                           </td>
                           <td className="py-3 px-3 text-right font-mono tabular-nums text-slate-600 dark:text-slate-400">
@@ -1657,7 +1767,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
                             {ctr}%
                           </td>
                           <td className="py-3 px-4 text-center">
-                            <span className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                            <span className="u-icon-brand px-2.5 py-1 rounded-lg text-xs font-mono font-bold">
                               #{q.position}
                             </span>
                           </td>
@@ -1676,7 +1786,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
       {activeSubTab === 'google_tags' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* GA4 Setup */}
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
+          <div className="u-card u-panel p-6 shadow-2xs space-y-4">
             <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
               <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
                 GA4
@@ -1728,9 +1838,9 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
           </div>
 
           {/* Google Tag Manager Setup */}
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
+          <div className="u-card u-panel p-6 shadow-2xs space-y-4">
             <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="w-10 h-10 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
+              <div className="u-icon-brand w-10 h-10 rounded-2xl flex items-center justify-center font-bold">
                 GTM
               </div>
               <div>
@@ -1788,7 +1898,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
 
               <button
                 onClick={handleSaveMeta}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer mt-2"
+                className="unity-btn-primary w-full py-2.5 rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer mt-2"
               >
                 {isAr ? 'حفظ إعدادات علامات جوجل' : 'Save Google Tag Settings'}
               </button>
@@ -1811,7 +1921,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
       {/* ================= TAB 3: META TAGS & SITEMAP ================= */}
       {activeSubTab === 'meta' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
+          <div className="lg:col-span-2 u-card u-panel p-6 shadow-2xs space-y-4">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-3">
               {isAr ? 'بيانات تحسين محركات البحث لواجهة المتجر' : 'Storefront SEO Metadata'}
             </h3>
@@ -1917,7 +2027,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
                       <span className="text-[10px] text-slate-400 dark:text-slate-500">1200x630 px (WhatsApp / Twitter / Meta)</span>
                     </div>
                   </div>
-                  <div className="px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-bold text-xs flex items-center gap-1.5 shrink-0">
+                  <div className="u-icon-brand px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 shrink-0">
                     <Upload className="w-3.5 h-3.5" />
                     <span>Upload</span>
                   </div>
@@ -1926,14 +2036,14 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
 
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                className="unity-btn-primary px-5 py-2.5 rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
               >
                 {isAr ? 'تحديث بيانات تحسين البحث' : 'Update SEO Metadata'}
               </button>
             </form>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
+          <div className="u-card u-panel p-6 shadow-2xs space-y-4">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-3">
               {isAr ? 'خريطة الموقع التلقائية' : 'Automated Sitemap.xml'}
             </h3>
@@ -1960,7 +2070,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
           </div>
 
           <div className="lg:col-span-3 grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
+            <div className="u-card u-panel p-6 shadow-2xs space-y-4">
               <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">
@@ -2024,7 +2134,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-4">
+            <div className="u-card u-panel p-6 shadow-2xs space-y-4">
               <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">
@@ -2117,7 +2227,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
 
       {/* ================= TAB: BROKEN LINKS, BACKLINKS, H1/H2, ALT TAGS & AUTO-INDEXING FIXER ================= */}
       {activeSubTab === 'deep_audit' && (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-6">
+        <div className="u-card u-panel p-6 shadow-2xs space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
             <div>
               <h3 className="text-base font-black text-slate-900 dark:text-white">
@@ -2174,7 +2284,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
                     >
                       {item.type.replace(/_/g, ' ')}
                     </span>
-                    <span className="text-xs font-mono text-blue-600 dark:text-blue-400">{item.urlOrTarget}</span>
+                    <span className="text-xs font-mono" style={{ color: 'var(--accent)' }}>{item.urlOrTarget}</span>
                   </div>
                   <div className="text-xs font-bold text-slate-900 dark:text-white">
                     {isAr ? item.issueAr : item.issueEn}
@@ -2204,7 +2314,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
 
       {/* ================= TAB 4: SERP & RICH PREVIEW ================= */}
       {activeSubTab === 'simulator' && (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-6">
+        <div className="u-card u-panel p-6 shadow-2xs space-y-6">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
             <div>
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
@@ -2266,10 +2376,10 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
           dir={isAr ? 'rtl' : 'ltr'}
           aria-label={isAr ? 'إعداد معرفات التتبع الحقيقية' : 'Set real tracking ids'}
         >
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in zoom-in-95">
+          <div className="u-card u-panel max-w-lg w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                <div className="u-icon-brand w-9 h-9 rounded-2xl flex items-center justify-center">
                   <Sliders className="w-5 h-5" />
                 </div>
                 <div>
@@ -2349,6 +2459,40 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-white text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
+
+              {/* TikTok Pixel ID */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {isAr ? 'معرف بكسل تيك توك (TikTok Pixel ID)' : 'TikTok Pixel ID (e.g. CXXXXXXXXXX)'}
+                </label>
+                <input
+                  type="text"
+                  value={editTiktokPixelId}
+                  onChange={(e) => setEditTiktokPixelId(e.target.value.trim())}
+                  placeholder="CXXXXXXXXXXXXXXXXX"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-white text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 block mt-0.5">
+                  {isAr ? 'يتم حقنه تلقائياً في واجهة المتجر وتتبع أحداث الشراء' : 'Injected automatically on storefront for AddToCart & Purchase events'}
+                </span>
+              </div>
+
+              {/* Snapchat Pixel ID */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {isAr ? 'معرف بكسل سناب شات (Snapchat Pixel ID)' : 'Snapchat Pixel ID (UUID format)'}
+                </label>
+                <input
+                  type="text"
+                  value={editSnapchatPixelId}
+                  onChange={(e) => setEditSnapchatPixelId(e.target.value.trim())}
+                  placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-white text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 block mt-0.5">
+                  {isAr ? 'يتتبع حملات السحب للأعلى (Swipe Up) والمبيعات' : 'Tracks Swipe-up ad conversions and checkout completions'}
+                </span>
+              </div>
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
@@ -2367,16 +2511,18 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
                     gtmContainerId: editGtmId,
                     searchConsoleVerificationTag: editGscTag,
                     googleAdsConversionId: editGoogleAdsId,
+                    tiktokPixelId: editTiktokPixelId,
+                    snapchatPixelId: editSnapchatPixelId,
                   });
                   setShowTrackingConfigModal(false);
                   toast(
                     isAr
-                      ? 'تم حفظ معرفات هذا المتجر. الأرقام تظهر حسب المدد المكتوبة في الدليل.'
-                      : 'Ids saved for this store. Numbers appear on the timetable in the guide.',
+                      ? 'تم حفظ وتفعيل معرفات التتبع (جوجل، تيك توك، وسناب شات) لهذا المتجر بنجاح.'
+                      : 'Tracking IDs (Google, TikTok, and Snapchat) saved and activated successfully.',
                     'success'
                   );
                 }}
-                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-sm cursor-pointer flex items-center gap-1.5 transition-all"
+                className="unity-btn-primary px-5 py-2 rounded-xl font-black text-xs shadow-sm cursor-pointer flex items-center gap-1.5 transition-all"
               >
                 <Check className="w-4 h-4" />
                 <span>{isAr ? 'حفظ وتفعيل المعرفات' : 'Save & Verify Live Stream'}</span>

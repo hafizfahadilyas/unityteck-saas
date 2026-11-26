@@ -211,12 +211,7 @@ class ShippingController extends Controller
         // Find best matching zone for this store
         $zones = ShippingZone::query()->forStore($storeId)->where('is_active', true)->get();
 
-        $matchedZone = $zones->first(function ($z) use ($city) {
-            if (strcasecmp($z->name, $city) === 0) return true;
-            if (is_array($z->city_names) && in_array($city, $z->city_names)) return true;
-            if ($z->region && stripos($city, $z->region) !== false) return true;
-            return false;
-        }) ?? $zones->first();
+        $matchedZone = $zones->first(fn ($z) => $this->cityMatchesZone($city, $z)) ?? $zones->first();
 
         // Calculate rate based on zone configuration
         $rate = 0.0;
@@ -240,7 +235,9 @@ class ShippingController extends Controller
                 $rateMode = (string) ($matchedZone->rate_mode ?? 'fixed');
 
                 if ($rateMode === 'per_km' && $perKm > 0) {
-                    $rate = $base + ($distanceKm * $perKm);
+                    // Makkah local band: base (10) → capped +10 SAR by distance (→ 20).
+                    $rate = $base + (max(0.0, $distanceKm) * $perKm);
+                    $rate = min($base + 10.0, max($base, $rate));
                 } elseif (($rateMode === 'per_kg' || $perKg > 0) && $weightKg > $minW) {
                     $excess = max(0, $weightKg - $minW);
                     $rate = $base + ($excess * $perKg);
@@ -341,17 +338,24 @@ class ShippingController extends Controller
         $methods = ShippingMethod::query()->forStore($storeId)->where('is_active', true)->get();
         $hasFulfillmentMode = Schema::hasColumn('shipping_methods', 'fulfillment_mode');
 
-        $availableMethods = $methods
-            ->when($fulfillmentMode && $hasFulfillmentMode, function ($col) use ($fulfillmentMode) {
-                return $col->filter(function ($m) use ($fulfillmentMode) {
-                    $mode = $m->fulfillment_mode ?: 'courier';
+        $inferredFulfillment = $fulfillmentMode
+            ?? ($fulfillmentHint === 'own_delivery' ? 'own_delivery' : null);
 
-                    return $mode === $fulfillmentMode
-                        || ($fulfillmentMode === 'own_delivery' && $mode === 'own_delivery')
-                        || ($fulfillmentMode === 'courier' && $mode === 'courier');
-                })->values();
-            })
-            ->map(function ($m) use ($orderTotal, $weightKg, $distanceKm, $hasFulfillmentMode) {
+        $methodsPool = $methods;
+        if ($inferredFulfillment && $hasFulfillmentMode) {
+            $filtered = $methods->filter(function ($m) use ($inferredFulfillment) {
+                $mode = $m->fulfillment_mode ?: 'courier';
+
+                return $mode === $inferredFulfillment
+                    || ($inferredFulfillment === 'own_delivery' && $mode === 'own_delivery')
+                    || ($inferredFulfillment === 'courier' && $mode === 'courier');
+            })->values();
+            if ($filtered->isNotEmpty()) {
+                $methodsPool = $filtered;
+            }
+        }
+
+        $availableMethods = $methodsPool->map(function ($m) use ($orderTotal, $weightKg, $distanceKm, $hasFulfillmentMode, $storeId) {
                 $fee = (float) $m->base_rate;
                 $isMethodFree = false;
 
@@ -360,9 +364,13 @@ class ShippingController extends Controller
                     $isMethodFree = true;
                 } elseif ($m->type === 'weight_based' && (float) $m->per_kg_rate > 0) {
                     $fee = (float) $m->base_rate + ($weightKg * (float) $m->per_kg_rate);
-                } elseif ((float) ($m->per_km_rate ?? 0) > 0 && $distanceKm > 0) {
-                    $fee = (float) $m->base_rate + ($distanceKm * (float) $m->per_km_rate);
+                } elseif ((float) ($m->per_km_rate ?? 0) > 0) {
+                    // Distance band: merchant base_rate + per_km (soft-capped +10 SAR above base).
+                    $base = (float) $m->base_rate;
+                    $fee = $base + (max(0.0, $distanceKm) * (float) $m->per_km_rate);
+                    $fee = min($base + 10.0, max($base, $fee));
                 }
+                // else: keep merchant base_rate already set on $fee — no hardcoded store overrides
 
                 $paymentOptions = is_array($m->payment_options) ? $m->payment_options : [];
                 if ($paymentOptions === []) {
@@ -400,7 +408,23 @@ class ShippingController extends Controller
                 }
 
                 return $row;
-            });
+            })->values();
+
+        if ($availableMethods->isEmpty() && $matchedZone) {
+            $availableMethods = collect([[
+                'id' => 'zone:'.$matchedZone->id,
+                'name' => $matchedZone->name ?: 'Delivery',
+                'name_ar' => $matchedZone->name_ar ?? $matchedZone->name ?? 'توصيل',
+                'type' => 'zone_rate',
+                'fee' => round($rate, 2),
+                'is_free' => $isFree,
+                'estimated_delivery' => $estimatedDelivery,
+                'courier_code' => null,
+                'logo_url' => null,
+                'fulfillment_mode' => $fulfillmentHint === 'own_delivery' ? 'own_delivery' : 'courier',
+                'is_cod_allowed' => $codAvailable,
+            ]]);
+        }
 
         $payload = [
             'store_id' => $storeId,
@@ -424,5 +448,55 @@ class ShippingController extends Controller
         }
 
         return response()->json($payload);
+    }
+
+    private function normalizeCityKey(string $value): string
+    {
+        $v = mb_strtolower(trim($value));
+        $canonical = [
+            'الرياض' => 'riyadh',
+            'riyadh' => 'riyadh',
+            'جدة' => 'jeddah',
+            'jeddah' => 'jeddah',
+            'jiddah' => 'jeddah',
+            'مكة' => 'makkah',
+            'مكة المكرمة' => 'makkah',
+            'makkah' => 'makkah',
+            'mecca' => 'makkah',
+            'الدمام' => 'dammam',
+            'dammam' => 'dammam',
+            'المدينة' => 'madinah',
+            'المدينة المنورة' => 'madinah',
+            'madinah' => 'madinah',
+            'medina' => 'madinah',
+        ];
+
+        return $canonical[$v] ?? preg_replace('/\s+/u', ' ', $v) ?? $v;
+    }
+
+    private function cityMatchesZone(string $city, ShippingZone $zone): bool
+    {
+        $needle = $this->normalizeCityKey($city);
+        if ($needle === '') {
+            return false;
+        }
+        $zoneNames = array_filter([
+            $zone->name,
+            $zone->name_ar ?? null,
+            ...(is_array($zone->city_names) ? $zone->city_names : []),
+        ]);
+        foreach ($zoneNames as $name) {
+            if ($this->normalizeCityKey((string) $name) === $needle) {
+                return true;
+            }
+            if (mb_stripos((string) $name, $city) !== false || mb_stripos($city, (string) $name) !== false) {
+                return true;
+            }
+        }
+        if ($zone->region && mb_stripos($city, (string) $zone->region) !== false) {
+            return true;
+        }
+
+        return false;
     }
 }

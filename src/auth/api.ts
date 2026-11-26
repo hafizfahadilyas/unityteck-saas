@@ -448,7 +448,9 @@ function readDemoClients(): DemoClient[] {
 }
 
 function writeDemoClients(clients: DemoClient[]): void {
-  localStorage.setItem(DEMO_CLIENTS_KEY, JSON.stringify(clients));
+  // Strip passwords before any write — never keep credentials in browser storage.
+  const safe = clients.map((c) => ({ ...c, password: '' }));
+  localStorage.setItem(DEMO_CLIENTS_KEY, JSON.stringify(safe));
 }
 
 function readPasswordOverrides(): Record<string, string> {
@@ -892,17 +894,23 @@ export async function registerStoreClient(
     throw new Error('This email is already registered. Please sign in.');
   }
 
+  // Never persist plaintext passwords in localStorage (leak ban). OTP is the login gate.
   const client: DemoClient = {
     email,
-    password: input.password,
+    password: '',
     name: input.name.trim(),
     storeId: input.storeId,
     storeName: input.businessName.trim(),
   };
-  writeDemoClients([...existing, client]);
+  writeDemoClients(
+    [...existing, client].map((c) => ({
+      ...c,
+      password: '',
+    })),
+  );
 
   const session: AuthSession = {
-    token: `mock-store-${client.storeId}`,
+    token: `lite|store|${client.storeId}|${Date.now()}`,
     portal: 'store',
     user: {
       id: `user-${client.storeId}`,
@@ -1023,7 +1031,8 @@ function mockReset(
   const clients = readDemoClients();
   const idx = clients.findIndex((c) => c.email.toLowerCase() === normalized);
   if (idx >= 0) {
-    clients[idx] = { ...clients[idx], password };
+    // Keep client profile only — password override lives in DEMO_PW_KEY, never in clients list.
+    clients[idx] = { ...clients[idx], password: '' };
     writeDemoClients(clients);
   }
 }

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, Eye, Monitor, Save, Smartphone, Tablet } from 'lucide-react';
 import { useTenant } from '../../../../context/TenantContext';
+import { buildStorefrontHomeUrl } from '../../../../utils/storefrontLinks';
 
 export type PreviewDevice = 'desktop' | 'tablet' | 'mobile';
 
@@ -133,7 +134,7 @@ export const CoffeeWordSettingsShell: React.FC<{
 
   const previewStore = () => {
     const slug = activeStore?.slug || 'coffee';
-    window.open(`/?store=${encodeURIComponent(slug)}&fullscreen=1`, '_blank', 'noopener,noreferrer');
+    window.open(buildStorefrontHomeUrl({ storeSlug: slug }), '_blank', 'noopener,noreferrer');
   };
 
   return (

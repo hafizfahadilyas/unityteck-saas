@@ -5,22 +5,23 @@ namespace App\Support;
 use App\Models\Store;
 use App\Models\StoreTheme;
 use App\Models\ThemeCatalog;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Schema;
 
 /**
- * Every new store gets one default dummy e-commerce theme.
- * Free / Paid → basic pack; Pro / Custom (or Master Pro grant) → full pack.
- * Merchants can later rebrand via Theme Settings (Phase 5).
+ * Every new store gets Souq common retail + docs/37 shared settings.
+ * Starter → basic pack; Pro / Premium / Custom → full pack + builder.
+ * Prefer ProvisionNewStoreService::bootstrap for full install (entitlements, catalog, domain).
  */
 final class DefaultTheme
 {
-    public const CATALOG_ID = 'theme-commerce-starter';
+    /** CT-4: new stores default to Souq common retail (not flagship flora). */
+    public const CATALOG_ID = 'theme-souq-common-retail';
 
-    public const NAME = 'Commerce Starter';
+    public const NAME = 'Souq Common Retail';
 
     public const CATEGORY = 'General';
 
-    public const PREVIEW_COLOR = '#1d8b94';
+    public const PREVIEW_COLOR = '#0f766e';
 
     /**
      * @return array{mode: string, homepage_style: string, homepage_styles: list<string>, sections: list<string>, customizable: list<string>, branding: array<string, mixed>}
@@ -28,6 +29,7 @@ final class DefaultTheme
     public static function settingsForPlan(string $effectivePlanCode, ?Store $store = null): array
     {
         $full = in_array(Plans::normalizeCode($effectivePlanCode), ['pro', 'premium', 'custom'], true);
+        // starter / free / paid → basic pack (1 common theme entitlement path)
         $accent = $store?->accent_color ?: self::PREVIEW_COLOR;
 
         if ($full) {
@@ -43,8 +45,13 @@ final class DefaultTheme
                 ],
                 'sections' => [
                     'hero',
-                    'featured_products',
+                    'features',
                     'categories',
+                    'featured_products',
+                    'shop_by_category',
+                    'special_offer',
+                    'promotions',
+                    'metrics',
                     'testimonials',
                     'newsletter',
                     'footer',
@@ -83,16 +90,48 @@ final class DefaultTheme
 
     public static function ensureCatalogRow(): ThemeCatalog
     {
-        return ThemeCatalog::query()->updateOrCreate(
+        SouqCommonThemes::ensureCatalogRows();
+
+        $attrs = [
+            'name' => self::NAME,
+            'category' => self::CATEGORY,
+            'preview_color' => self::PREVIEW_COLOR,
+            'tier' => 'basic',
+            'is_default' => true,
+        ];
+        // Marketplace columns (CT-3) — safe when migration not yet applied
+        if (\Illuminate\Support\Facades\Schema::hasColumn('themes_catalog', 'name_ar')) {
+            $attrs['name_ar'] = 'سوق المشترك — تجزئة';
+        }
+        if (\Illuminate\Support\Facades\Schema::hasColumn('themes_catalog', 'price_sar')) {
+            $attrs['price_sar'] = 0;
+        }
+        if (\Illuminate\Support\Facades\Schema::hasColumn('themes_catalog', 'included_in_tiers')) {
+            $attrs['included_in_tiers'] = ['starter', 'pro', 'premium', 'custom', 'free', 'paid'];
+        }
+        if (\Illuminate\Support\Facades\Schema::hasColumn('themes_catalog', 'is_active')) {
+            $attrs['is_active'] = true;
+        }
+
+        $row = ThemeCatalog::query()->updateOrCreate(
             ['id' => self::CATALOG_ID],
-            [
-                'name' => self::NAME,
-                'category' => self::CATEGORY,
-                'preview_color' => self::PREVIEW_COLOR,
-                'tier' => 'basic',
-                'is_default' => true,
-            ]
+            $attrs
         );
+
+        // Legacy ID kept for existing store_themes FK rows (tests + Hostinger)
+        $legacy = array_merge($attrs, [
+            'name' => 'Commerce Starter (Legacy)',
+            'is_default' => false,
+        ]);
+        if (Schema::hasColumn('themes_catalog', 'name_ar')) {
+            $legacy['name_ar'] = 'بداية التجارة (قديم)';
+        }
+        ThemeCatalog::query()->updateOrCreate(
+            ['id' => 'theme-commerce-starter'],
+            $legacy
+        );
+
+        return $row;
     }
 
     /**
@@ -107,25 +146,7 @@ final class DefaultTheme
             return $existing;
         }
 
-        $effective = Plans::effectiveCode($store);
-        $settings = self::settingsForPlan($effective, $store);
-
-        if ($existing) {
-            $existing->fill([
-                'theme_id' => self::CATALOG_ID,
-                'homepage_style' => $settings['homepage_style'],
-                'settings' => $settings,
-            ])->save();
-
-            return $existing->fresh();
-        }
-
-        return StoreTheme::query()->create([
-            'id' => 'stheme-'.Str::lower(Str::random(10)),
-            'store_id' => $store->id,
-            'theme_id' => self::CATALOG_ID,
-            'homepage_style' => $settings['homepage_style'],
-            'settings' => $settings,
-        ]);
+        // Full docs/37 + builder install (shared with ProvisionNewStoreService)
+        return app(\App\Services\Store\ProvisionNewStoreService::class)->installDefaultTheme($store);
     }
 }

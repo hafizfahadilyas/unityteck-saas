@@ -1,14 +1,43 @@
 /**
- * Fast downscaled PNG previews for Design Studio saves (IndexedDB + template grid).
- * Keeps full-res export separate so thumbs stay sharp but small.
+ * Fast downscaled previews for Design Studio saves (IndexedDB + Canva home grid).
+ * Full-res export stays separate — thumbs stay sharp but small (JPEG preferred).
  */
 
-const DEFAULT_MAX_SIDE = 280;
+const DEFAULT_MAX_SIDE = 240;
+const HOME_MAX_SIDE = 200;
+/** Skip work if payload already small enough (chars ≈ bytes for data URLs) */
+const SKIP_IF_SHORTER_THAN = 48_000;
 
+export type ThumbFormat = 'image/jpeg' | 'image/png' | 'image/webp';
+
+function isDataUrl(s: string): boolean {
+  return typeof s === 'string' && s.startsWith('data:image/');
+}
+
+/**
+ * Downscale any image data-URL / http(s) URL to a compact thumb.
+ * Defaults to JPEG @ 0.72 — much smaller than PNG for photo-heavy PPTX packs.
+ */
 export function downscaleDataUrlToPng(dataUrl: string, maxSide = DEFAULT_MAX_SIDE): Promise<string> {
-  if (!dataUrl || typeof document === 'undefined') {
-    return Promise.resolve(dataUrl);
+  return optimizeCanvaThumb(dataUrl, { maxSide, format: 'image/png', quality: 0.92 });
+}
+
+export function optimizeCanvaThumb(
+  src: string,
+  opts?: { maxSide?: number; format?: ThumbFormat; quality?: number; forHome?: boolean },
+): Promise<string> {
+  const maxSide = opts?.maxSide ?? (opts?.forHome ? HOME_MAX_SIDE : DEFAULT_MAX_SIDE);
+  const format: ThumbFormat = opts?.format ?? 'image/jpeg';
+  const quality = opts?.quality ?? (format === 'image/png' ? 0.92 : 0.72);
+
+  if (!src || typeof document === 'undefined') {
+    return Promise.resolve(src);
   }
+  // Already a tiny data URL — keep
+  if (isDataUrl(src) && src.length < SKIP_IF_SHORTER_THAN && !opts?.forHome) {
+    return Promise.resolve(src);
+  }
+
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -16,7 +45,7 @@ export function downscaleDataUrlToPng(dataUrl: string, maxSide = DEFAULT_MAX_SID
       const w = img.naturalWidth || img.width;
       const h = img.naturalHeight || img.height;
       if (!w || !h) {
-        resolve(dataUrl);
+        resolve(src);
         return;
       }
       const scale = Math.min(1, maxSide / Math.max(w, h));
@@ -27,19 +56,39 @@ export function downscaleDataUrlToPng(dataUrl: string, maxSide = DEFAULT_MAX_SID
       canvas.height = th;
       const ctx = canvas.getContext('2d');
       if (!ctx) {
-        resolve(dataUrl);
+        resolve(src);
         return;
+      }
+      // JPEG has no alpha — fill white under transparent PPTX cuts
+      if (format === 'image/jpeg') {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, tw, th);
       }
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, tw, th);
       try {
-        resolve(canvas.toDataURL('image/png'));
+        const out =
+          format === 'image/png'
+            ? canvas.toDataURL('image/png')
+            : canvas.toDataURL(format, quality);
+        // If encode somehow grew (rare), keep original only when original was already data URL small
+        if (isDataUrl(src) && out.length > src.length * 1.15 && src.length < 200_000) {
+          resolve(src);
+          return;
+        }
+        resolve(out);
       } catch {
-        resolve(dataUrl);
+        resolve(src);
       }
     };
-    img.onerror = () => resolve(dataUrl);
-    img.src = dataUrl;
+    img.onerror = () => resolve(src);
+    img.src = src;
   });
+}
+
+/** Home carousel / Continue grid — aggressive compact thumb */
+export function optimizeHomeThumb(src: string | undefined): Promise<string | undefined> {
+  if (!src) return Promise.resolve(undefined);
+  return optimizeCanvaThumb(src, { forHome: true, maxSide: HOME_MAX_SIDE, format: 'image/jpeg', quality: 0.68 });
 }

@@ -104,11 +104,13 @@ export function resolveApiBaseForStore(storeId?: string, override?: string): str
     base.endsWith('/api') ||
     /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/api$/i.test(base);
 
-  // Local Vite /api defaults to giftshop proxy — coffee/bleco rows live on mieraf MySQL.
+  // Route to the Hostinger API that owns this store_id.
+  // Bleco/coffee live on mieraf MySQL — tanjeedmakkah.com /api is not that DB (often down).
+  // Flowers live on giftshop — never read them from central by mistake.
   if (relativeOrLocal) {
     if (import.meta.env.DEV && wantsMieraf) return live;
-    if (wantsMieraf && onGiftshop) return live;
-    if (wantsGiftshop && onMieraf) return live;
+    if (wantsMieraf && !onMieraf) return live;
+    if (wantsGiftshop && !onGiftshop) return live;
   }
   return base;
 }
@@ -229,6 +231,7 @@ export async function apiFetch<T>(
     (path.startsWith('/products') ||
       path.startsWith('/categories') ||
       path.startsWith('/orders') ||
+      path.startsWith('/appointments') ||
       path.startsWith('/customers') ||
       path.startsWith('/coupons') ||
       path.startsWith('/seo') ||
@@ -243,6 +246,7 @@ export async function apiFetch<T>(
       path.startsWith('/couriers/shipments') ||
       path.startsWith('/customer-activities') ||
       path.startsWith('/delivery-drivers') ||
+      path.startsWith('/studio-designs') ||
       path.startsWith('/google/'));
   if (!isPublicEndpoint && !guestReadable && !liveSanctum) {
     throw new Error(toUserFriendlyError('No active backend API session (mock/guest mode).'));

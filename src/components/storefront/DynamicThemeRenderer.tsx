@@ -8,11 +8,15 @@ import { captureTrafficSource } from '../../utils/trafficSource';
 import { trackStorefrontEvent } from '../../utils/storefrontAnalytics';
 import { RefreshCw } from 'lucide-react';
 import { readAllThemeSettings } from '../../themes/settings/themeSettingsStore';
+import { readStoreIdentity } from '../../themes/settings/storeIdentity';
 import {
   applyStoreCustomCodeLive,
   normalizeStoreCustomCode,
 } from '../../themes/settings/storeScopedCustomCode';
+import { applyDocumentFavicon } from '../../utils/portalHead';
 import { DashboardLoader } from '../common/DashboardLoader';
+import { SkeletonPage } from '../common/skeleton';
+import { storeIdFromPublicLocation, storeSlugFromStorePath } from '../../utils/storefrontLinks';
 
 export interface DynamicThemeRendererProps {
   storeId?: string;
@@ -86,8 +90,8 @@ class ThemeErrorBoundary extends React.Component<ThemeErrorBoundaryProps, ThemeE
 /** Thin route paint — never block first paint with full brand splash unless merchant enabled it. */
 function LightThemeFallback() {
   return (
-    <div className="w-full min-h-[28vh] bg-white flex items-start justify-center pt-16" aria-busy="true" role="status">
-      <div className="w-8 h-8 rounded-full border-2 border-neutral-200 border-t-neutral-700 animate-spin" />
+    <div className="w-full min-h-[50vh] p-4 sm:p-6 bg-white dark:bg-slate-950" aria-busy="true" role="status">
+      <SkeletonPage layout="storefront" hasHeader={false} />
     </div>
   );
 }
@@ -104,18 +108,27 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
   const { locale } = usePrefs();
 
   const pathname = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '';
-  const urlStoreParam = typeof window !== 'undefined'
-    ? (new URLSearchParams(window.location.search).get('store') ||
-       new URLSearchParams(window.location.search).get('demo') ||
-       new URLSearchParams(window.location.search).get('storeId') ||
-       new URLSearchParams(window.location.search).get('tenant') || '').toLowerCase().trim()
-    : '';
+  const searchParams =
+    typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  const pathSlug = storeSlugFromStorePath(pathname) || '';
+  // Path /store/{slug} wins over stale ?store=coffee from apex host default
+  const urlStoreParam = (
+    pathSlug ||
+    searchParams.get('store') ||
+    searchParams.get('demo') ||
+    searchParams.get('storeId') ||
+    searchParams.get('tenant') ||
+    ''
+  )
+    .toLowerCase()
+    .trim();
 
   const matchedStore = urlStoreParam
     ? stores?.find(
         (st: any) =>
           st.id?.toLowerCase() === urlStoreParam ||
           st.slug?.toLowerCase() === urlStoreParam ||
+          st.id?.toLowerCase() === `store-${urlStoreParam}` ||
           String(st.domain || '').toLowerCase().includes(urlStoreParam),
       )
     : null;
@@ -129,8 +142,11 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
     return hit?.id || '';
   };
 
+  const fromPublicLocation = storeIdFromPublicLocation(pathname, searchParams);
+
   const nicheHintStoreId =
-    pathname.startsWith('/coffee') ||
+    fromPublicLocation ||
+    (pathname.startsWith('/coffee') ||
     urlStoreParam.includes('coffee') ||
     urlStoreParam.includes('hibrew') ||
     urlStoreParam.includes('roaster')
@@ -151,7 +167,7 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
             urlStoreParam.includes('makkah') ||
             urlStoreParam.includes('hadaya')
           ? findStoreIdByHints(['flower', 'gift', 'hadaya', 'makkah', 'flora', 'store-1'])
-          : '';
+          : '');
 
   const explicitUrlStoreId = matchedStore?.id || nicheHintStoreId || '';
 
@@ -215,8 +231,9 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
 
   // Resolve initial page key mapping per theme conventions
   const resolvedInitialPage = useMemo(() => {
-    // SEO custom-domain paths: `/product/{id}` must open PDP — never fall through to home.
+    // SEO / short paths: `/product/{id}`, `/buy/{id}` must open PDP — never fall through to home.
     const pathIsProduct = /(?:^|\/)product\/[^/]+\/?$/i.test(pathname);
+    const pathIsBuy = /(?:^|\/)buy\/[^/]+\/?$/i.test(pathname);
     const pathIsCatalog =
       pathname === '/catalog' ||
       pathname.startsWith('/catalog/') ||
@@ -225,11 +242,18 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
       pathname === '/shop' ||
       pathname.startsWith('/shop/') ||
       pathname.startsWith('/category/');
+    const pathIsCart = /\/cart\/?$/i.test(pathname);
+    const pathIsCheckout = /\/checkout\/?$/i.test(pathname);
+    const pathIsProfile = /\/(profile|account|crm|orders)\/?$/i.test(pathname);
     const raw = (
       initialPage ||
       urlPageParam ||
+      (pathIsBuy ? 'product-buy' : '') ||
       (pathIsProduct ? 'product-detail' : '') ||
       (pathIsCatalog ? 'products' : '') ||
+      (pathIsCart ? 'cart' : '') ||
+      (pathIsCheckout ? 'checkout' : '') ||
+      (pathIsProfile ? 'profile' : '') ||
       fallbackPage ||
       'home'
     )
@@ -242,8 +266,15 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
       return 'catalog';
     }
     if (raw === 'product' || raw === 'product-detail' || raw === 'detail' || raw === 'buy' || raw === 'product-buy') {
-      if (mid === 'theme-coffee-artisan' || mid === 'theme-coffee') {
-        return raw === 'buy' || raw === 'product-buy' ? 'product-buy' : 'product-detail';
+      // Path /coffee/buy|product already decided — never degrade buy → generic "product"
+      // (that remounted coffee routes and felt like auto-refresh).
+      if (pathIsBuy || raw === 'buy' || raw === 'product-buy') {
+        if (mid === 'theme-coffee-artisan' || mid === 'theme-coffee' || pathname.startsWith('/coffee')) {
+          return 'product-buy';
+        }
+      }
+      if (mid === 'theme-coffee-artisan' || mid === 'theme-coffee' || pathname.startsWith('/coffee')) {
+        return 'product-detail';
       }
       return 'product';
     }
@@ -268,7 +299,7 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
   // Golden Rule: Automatic Store-wise Public SEO computation with strict Tenant Isolation & Bilingual Switching
   useEffect(() => {
     if (isAdmin || isPreviewEmbed || !effectiveStoreId) return;
-    captureTrafficSource();
+    captureTrafficSource(effectiveStoreId);
     const currentStoreObj = stores?.find((s: any) => s.id === effectiveStoreId) || activeStore;
     const storeProducts = (allProducts && allProducts[effectiveStoreId]) || currentProducts || [];
     const seoData = generateStoreSEO({
@@ -280,10 +311,17 @@ export const DynamicThemeRenderer: React.FC<DynamicThemeRendererProps> = ({
       page: resolvedInitialPage,
     });
     applySEOToDOM(seoData);
+    // Per-store favicon only — do not overwrite SEO document.title with admin chrome
+    try {
+      const identity = readStoreIdentity(effectiveStoreId, currentStoreObj || { name: '' });
+      applyDocumentFavicon(identity.faviconUrl || currentStoreObj?.favicon || null);
+    } catch {
+      /* empty stays platform default */
+    }
     trackStorefrontEvent(effectiveStoreId, 'page_view', {
       path: typeof location !== 'undefined' ? location.pathname : `/${resolvedInitialPage || ''}`,
     });
-  }, [effectiveStoreId, activeStore, stores, currentSEOConfig, allProducts, currentProducts, locale, category, resolvedInitialPage, isAdmin, isPreviewEmbed]);
+  }, [effectiveStoreId, activeStore, stores, currentSEOConfig, allProducts, currentProducts, locale, category, resolvedInitialPage, isAdmin, isPreviewEmbed, syncTick]);
 
   // Live inject store-scoped custom CSS + font (theme-settings / MySQL — not cross-tenant)
   useEffect(() => {

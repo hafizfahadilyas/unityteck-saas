@@ -48,19 +48,25 @@ function getFaviconMime(href: string): string {
   return 'image/x-icon';
 }
 
-function setFavicon(href: string): void {
-  const mime = getFaviconMime(href);
+/** Apply browser tab / shortcut / apple icons (admin + public storefront). */
+export function applyDocumentFavicon(href: string | null | undefined): void {
+  const next = String(href || '').trim() || MASTER_FAVICON;
+  const mime = getFaviconMime(next);
 
   const icon = ensureIconLink('icon');
   icon.setAttribute('type', mime);
-  icon.setAttribute('href', href);
+  icon.setAttribute('href', next);
 
   const shortcut = ensureIconLink('shortcut icon');
   shortcut.setAttribute('type', mime);
-  shortcut.setAttribute('href', href);
+  shortcut.setAttribute('href', next);
 
   const apple = ensureIconLink('apple-touch-icon');
-  apple.setAttribute('href', href);
+  apple.setAttribute('href', next);
+}
+
+function setFavicon(href: string): void {
+  applyDocumentFavicon(href);
 }
 
 export type PortalHeadInput =

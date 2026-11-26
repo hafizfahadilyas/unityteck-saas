@@ -30,7 +30,7 @@ export const SearchModal: React.FC = () => {
             autoFocus
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder={language === 'AR' ? 'ابحث عن ماكينة قهوة، مطحنة، دولاب، أو مستلزمات...' : 'Search coffee machines, mills, cabinets, accessories...'}
+            placeholder={language === 'AR' ? 'ابحث عن دولاب قهوة، ركن، أو منتج من الكتالوج...' : 'Search coffee cabinets, stations, or catalog products...'}
             className="flex-1 text-sm bg-transparent text-neutral-900 placeholder:text-neutral-400 focus:outline-hidden"
           />
           <button

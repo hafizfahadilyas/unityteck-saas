@@ -1422,7 +1422,91 @@ class AnalyticsReportController extends Controller
             'visits_growth' => $visitsGrowth,
             'visits_by_weekday' => $visitsByWeekday,
             'traffic_sources' => $trafficSources,
+            'visitors_by_age' => $this->visitorsByAgeFromCustomerDob($storeId),
         ]);
+    }
+
+    /**
+     * Real customer DOB → age buckets (zero-mock). Empty until birthdays exist for this store_id.
+     *
+     * @return list<array{label: string, percentage: int}>
+     */
+    private function visitorsByAgeFromCustomerDob(string $storeId): array
+    {
+        if (! Schema::hasTable('customers') || ! Schema::hasColumn('customers', 'dob')) {
+            return [];
+        }
+
+        $buckets = [
+            ['label' => '<18', 'min' => 0, 'max' => 17],
+            ['label' => '18-24', 'min' => 18, 'max' => 24],
+            ['label' => '25-34', 'min' => 25, 'max' => 34],
+            ['label' => '35-44', 'min' => 35, 'max' => 44],
+            ['label' => '45-54', 'min' => 45, 'max' => 54],
+            ['label' => '55+', 'min' => 55, 'max' => 200],
+        ];
+        $counts = array_fill(0, count($buckets), 0);
+        $withDob = 0;
+        $now = Carbon::now();
+
+        $rows = Customer::query()
+            ->forStore($storeId)
+            ->whereNotNull('dob')
+            ->get(['dob']);
+
+        foreach ($rows as $customer) {
+            $dob = $customer->dob;
+            if ($dob === null) {
+                continue;
+            }
+            try {
+                $born = $dob instanceof Carbon ? $dob->copy()->startOfDay() : Carbon::parse((string) $dob)->startOfDay();
+            } catch (\Throwable) {
+                continue;
+            }
+            $age = (int) $born->diff($now)->y;
+            if ($age < 0 || $age > 120) {
+                continue;
+            }
+            $withDob++;
+            foreach ($buckets as $i => $b) {
+                if ($age >= $b['min'] && $age <= $b['max']) {
+                    $counts[$i]++;
+                    break;
+                }
+            }
+        }
+
+        if ($withDob === 0) {
+            return [];
+        }
+
+        $floors = [];
+        $fracs = [];
+        foreach ($counts as $i => $n) {
+            $exact = ($n / $withDob) * 100.0;
+            $floors[$i] = (int) floor($exact);
+            $fracs[$i] = $exact - $floors[$i];
+        }
+        $remaining = 100 - array_sum($floors);
+        arsort($fracs);
+        foreach (array_keys($fracs) as $i) {
+            if ($remaining <= 0) {
+                break;
+            }
+            $floors[$i]++;
+            $remaining--;
+        }
+
+        $out = [];
+        foreach ($buckets as $i => $b) {
+            $pct = (int) ($floors[$i] ?? 0);
+            if ($pct > 0) {
+                $out[] = ['label' => $b['label'], 'percentage' => $pct];
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -1574,19 +1658,20 @@ class AnalyticsReportController extends Controller
     {
         $key = strtolower(trim($source));
         $catalog = [
-            'direct' => ['name' => 'Direct', 'name_ar' => 'مباشر', 'color' => '#0d9488', 'icon_type' => 'direct'],
-            'whatsapp' => ['name' => 'WhatsApp', 'name_ar' => 'واتساب', 'color' => '#22c55e', 'icon_type' => 'whatsapp'],
-            'instagram' => ['name' => 'Instagram', 'name_ar' => 'إنستغرام', 'color' => '#ec4899', 'icon_type' => 'instagram'],
-            'tiktok' => ['name' => 'TikTok', 'name_ar' => 'تيك توك', 'color' => '#0f172a', 'icon_type' => 'tiktok'],
-            'snapchat' => ['name' => 'Snapchat', 'name_ar' => 'سناب شات', 'color' => '#eab308', 'icon_type' => 'snapchat'],
-            'facebook' => ['name' => 'Facebook', 'name_ar' => 'فيسبوك', 'color' => '#2563eb', 'icon_type' => 'facebook'],
-            'google ads' => ['name' => 'Google Ads', 'name_ar' => 'إعلانات جوجل', 'color' => '#ea4335', 'icon_type' => 'google'],
-            'organic search' => ['name' => 'Organic Search', 'name_ar' => 'بحث عضوي', 'color' => '#4285f4', 'icon_type' => 'google'],
-            'referral' => ['name' => 'Referral', 'name_ar' => 'إحالة', 'color' => '#64748b', 'icon_type' => 'other'],
-            'email' => ['name' => 'Email', 'name_ar' => 'البريد الإلكتروني', 'color' => '#ea580c', 'icon_type' => 'email'],
-            'youtube' => ['name' => 'YouTube', 'name_ar' => 'يوتيوب', 'color' => '#dc2626', 'icon_type' => 'youtube'],
-            'x' => ['name' => 'X', 'name_ar' => 'إكس', 'color' => '#0f172a', 'icon_type' => 'x'],
-            'twitter' => ['name' => 'X', 'name_ar' => 'إكس', 'color' => '#0f172a', 'icon_type' => 'x'],
+            // Palette aligned with Visits by Day (purple / cyan / mint)
+            'direct' => ['name' => 'Direct', 'name_ar' => 'مباشر', 'color' => '#7b2cbf', 'icon_type' => 'direct'],
+            'whatsapp' => ['name' => 'WhatsApp', 'name_ar' => 'واتساب', 'color' => '#48cae4', 'icon_type' => 'whatsapp'],
+            'instagram' => ['name' => 'Instagram', 'name_ar' => 'إنستغرام', 'color' => '#9d4edd', 'icon_type' => 'instagram'],
+            'tiktok' => ['name' => 'TikTok', 'name_ar' => 'تيك توك', 'color' => '#0077b6', 'icon_type' => 'tiktok'],
+            'snapchat' => ['name' => 'Snapchat', 'name_ar' => 'سناب شات', 'color' => '#80ed99', 'icon_type' => 'snapchat'],
+            'facebook' => ['name' => 'Facebook', 'name_ar' => 'فيسبوك', 'color' => '#a0c4ff', 'icon_type' => 'facebook'],
+            'google ads' => ['name' => 'Google Ads', 'name_ar' => 'إعلانات جوجل', 'color' => '#90e0ef', 'icon_type' => 'google'],
+            'organic search' => ['name' => 'Organic Search', 'name_ar' => 'بحث عضوي', 'color' => '#48cae4', 'icon_type' => 'google'],
+            'referral' => ['name' => 'Referral', 'name_ar' => 'إحالة', 'color' => '#9d4edd', 'icon_type' => 'other'],
+            'email' => ['name' => 'Email', 'name_ar' => 'البريد الإلكتروني', 'color' => '#7b2cbf', 'icon_type' => 'email'],
+            'youtube' => ['name' => 'YouTube', 'name_ar' => 'يوتيوب', 'color' => '#0077b6', 'icon_type' => 'youtube'],
+            'x' => ['name' => 'X', 'name_ar' => 'إكس', 'color' => '#a0c4ff', 'icon_type' => 'x'],
+            'twitter' => ['name' => 'X', 'name_ar' => 'إكس', 'color' => '#a0c4ff', 'icon_type' => 'x'],
         ];
 
         if (isset($catalog[$key])) {
@@ -1605,6 +1690,238 @@ class AnalyticsReportController extends Controller
             'color' => '#64748b',
             'icon_type' => 'other',
         ];
+    }
+
+    /**
+     * Souq internal marketing analytics (storefront events + order attribution). Distinct from GA4.
+     */
+    public function marketingAnalytics(Request $request): JsonResponse
+    {
+        $storeId = $this->requireStoreId($request);
+        if ($storeId instanceof JsonResponse) {
+            return $storeId;
+        }
+
+        [$startDate, $endDate] = $this->resolveAnalyticsDateRange($request);
+
+        $sessions = $this->countUniquePageViewSessions($storeId, $startDate, $endDate);
+        $eventCounts = $this->storefrontEventCounts($storeId, $startDate, $endDate);
+        $pageViews = (int) ($eventCounts['page_view'] ?? 0);
+        $productViews = (int) ($eventCounts['product_view'] ?? 0);
+        $addToCart = (int) ($eventCounts['add_to_cart'] ?? 0);
+        $beginCheckout = (int) ($eventCounts['begin_checkout'] ?? 0);
+        $purchases = (int) ($eventCounts['purchase'] ?? 0);
+
+        $uniqueVisitors = 0;
+        $returningVisitors = 0;
+        $newVisitors = 0;
+        if (Schema::hasTable('storefront_analytics_events') && Schema::hasColumn('storefront_analytics_events', 'visitor_key')) {
+            $visitorRows = StorefrontAnalyticsEvent::query()
+                ->forStore($storeId)
+                ->publicStorefront()
+                ->where('event_name', 'page_view')
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->whereNotNull('visitor_key')
+                ->where('visitor_key', '!=', '')
+                ->select('visitor_key', DB::raw('COUNT(DISTINCT session_key) as sess_cnt'))
+                ->groupBy('visitor_key')
+                ->get();
+            $uniqueVisitors = $visitorRows->count();
+            foreach ($visitorRows as $v) {
+                if ((int) ($v->sess_cnt ?? 0) > 1) {
+                    $returningVisitors++;
+                } else {
+                    $newVisitors++;
+                }
+            }
+        }
+        if ($uniqueVisitors <= 0) {
+            $uniqueVisitors = $sessions;
+            $newVisitors = $sessions;
+        }
+
+        $ordersQuery = Order::query()
+            ->forStore($storeId)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->where('status', '!=', 'cancelled');
+        $totalOrders = (clone $ordersQuery)->count();
+        $totalRevenue = (float) ((clone $ordersQuery)->sum('total_amount') ?? 0);
+        $aov = $totalOrders > 0 ? round($totalRevenue / $totalOrders, 2) : 0.0;
+        $convRate = $sessions > 0 ? round(($totalOrders / $sessions) * 100, 2) : 0.0;
+        $cartRate = $sessions > 0 ? round(($addToCart / $sessions) * 100, 2) : 0.0;
+        $checkoutAbandon = $beginCheckout > 0
+            ? round((max(0, $beginCheckout - $totalOrders) / $beginCheckout) * 100, 2)
+            : 0.0;
+
+        $trafficBySource = $this->trafficSourcesFromEvents($storeId, $startDate, $endDate);
+
+        $trafficByMedium = [];
+        if (Schema::hasTable('storefront_analytics_events')) {
+            $mediumRows = StorefrontAnalyticsEvent::query()
+                ->forStore($storeId)
+                ->publicStorefront()
+                ->where('event_name', 'page_view')
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->select(
+                    DB::raw("COALESCE(NULLIF(TRIM(medium), ''), 'none') as med"),
+                    DB::raw("COUNT(DISTINCT CASE WHEN session_key IS NOT NULL AND session_key != '' THEN session_key END) as sessions")
+                )
+                ->groupBy('med')
+                ->orderByDesc('sessions')
+                ->limit(30)
+                ->get();
+            $trafficByMedium = $mediumRows->map(fn ($r) => [
+                'medium' => (string) $r->med,
+                'sessions' => (int) $r->sessions,
+            ])->values()->all();
+        }
+
+        $campaignRows = Order::query()
+            ->forStore($storeId)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->where('status', '!=', 'cancelled')
+            ->whereNotNull('campaign')
+            ->where('campaign', '!=', '')
+            ->select(
+                'campaign',
+                DB::raw("COALESCE(NULLIF(source, ''), 'Unknown') as channel"),
+                DB::raw('COUNT(*) as orders'),
+                DB::raw('SUM(total_amount) as revenue')
+            )
+            ->groupBy('campaign', 'channel')
+            ->orderByDesc('revenue')
+            ->limit(50)
+            ->get()
+            ->map(fn ($r) => [
+                'campaign' => (string) $r->campaign,
+                'channel' => (string) $r->channel,
+                'orders' => (int) $r->orders,
+                'revenue' => (float) $r->revenue,
+                'conv_rate' => $sessions > 0 ? round(((int) $r->orders / $sessions) * 100, 2) : 0.0,
+            ]);
+
+        $revenueBySource = Order::query()
+            ->forStore($storeId)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->where('status', '!=', 'cancelled')
+            ->select(
+                DB::raw("COALESCE(NULLIF(source, ''), 'Direct') as src"),
+                DB::raw('COUNT(*) as orders'),
+                DB::raw('SUM(total_amount) as revenue')
+            )
+            ->groupBy('src')
+            ->orderByDesc('revenue')
+            ->get()
+            ->map(fn ($r) => [
+                'source' => (string) $r->src,
+                'orders' => (int) $r->orders,
+                'revenue' => (float) $r->revenue,
+            ]);
+
+        $productVisitors = [];
+        if (Schema::hasTable('storefront_analytics_events')) {
+            $prodRows = StorefrontAnalyticsEvent::query()
+                ->forStore($storeId)
+                ->publicStorefront()
+                ->where('event_name', 'product_view')
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->select(
+                    DB::raw("COALESCE(JSON_UNQUOTE(JSON_EXTRACT(meta, '$.product_id')), JSON_UNQUOTE(JSON_EXTRACT(meta, '$.productId')), 'unknown') as pid"),
+                    DB::raw('COUNT(*) as views')
+                )
+                ->groupBy('pid')
+                ->orderByDesc('views')
+                ->limit(25)
+                ->get();
+            $productVisitors = $prodRows->map(function ($r) use ($storeId, $startDate, $endDate, $totalOrders) {
+                $pid = (string) $r->pid;
+                $views = (int) $r->views;
+                $orders = 0;
+                if ($pid !== 'unknown' && Schema::hasTable('order_items')) {
+                    $orders = (int) OrderItem::query()
+                        ->forStore($storeId)
+                        ->where('product_id', $pid)
+                        ->whereHas('order', function ($q) use ($startDate, $endDate) {
+                            $q->whereBetween('created_at', [$startDate, $endDate])
+                                ->where('status', '!=', 'cancelled');
+                        })
+                        ->distinct('order_id')
+                        ->count('order_id');
+                }
+
+                return [
+                    'product_id' => $pid,
+                    'views' => $views,
+                    'orders' => $orders,
+                    'conv_rate' => $views > 0 ? round(($orders / $views) * 100, 2) : 0.0,
+                ];
+            })->values()->all();
+        }
+
+        return response()->json([
+            'store_id' => $storeId,
+            'source' => 'souq_internal',
+            'range' => [
+                'from' => $startDate->toIso8601String(),
+                'to' => $endDate->toIso8601String(),
+            ],
+            'kpis' => [
+                'sessions' => $sessions,
+                'unique_visitors' => $uniqueVisitors,
+                'page_views' => $pageViews,
+                'new_visitors' => $newVisitors,
+                'returning_visitors' => $returningVisitors,
+                'total_orders' => $totalOrders,
+                'revenue' => $totalRevenue,
+                'conversion_rate' => $convRate,
+                'average_order_value' => $aov,
+                'add_to_cart_rate' => $cartRate,
+                'checkout_abandonment_rate' => $checkoutAbandon,
+                'product_views' => $productViews,
+                'add_to_cart' => $addToCart,
+                'checkouts_started' => $beginCheckout,
+                'purchase_events' => $purchases,
+            ],
+            'traffic_by_source' => $trafficBySource,
+            'traffic_by_medium' => $trafficByMedium,
+            'campaign_performance' => $campaignRows,
+            'revenue_by_source' => $revenueBySource,
+            'product_analytics' => $productVisitors,
+        ]);
+    }
+
+    /**
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function resolveAnalyticsDateRange(Request $request): array
+    {
+        $now = Carbon::now();
+        $range = strtolower(trim((string) $request->query('range', '30d')));
+        $from = $request->query('from');
+        $to = $request->query('to');
+
+        if ($from && $to) {
+            try {
+                return [Carbon::parse((string) $from)->startOfDay(), Carbon::parse((string) $to)->endOfDay()];
+            } catch (\Throwable) {
+                // fall through
+            }
+        }
+
+        $start = match ($range) {
+            'today' => (clone $now)->startOfDay(),
+            'yesterday' => (clone $now)->subDay()->startOfDay(),
+            '1d' => (clone $now)->subDay()->startOfDay(),
+            '7d' => (clone $now)->subDays(7)->startOfDay(),
+            '90d' => (clone $now)->subDays(90)->startOfDay(),
+            'year' => (clone $now)->startOfYear(),
+            default => (clone $now)->subDays(30)->startOfDay(),
+        };
+        $end = $range === 'yesterday' || $range === '1d'
+            ? (clone $now)->subDay()->endOfDay()
+            : $now;
+
+        return [$start, $end];
     }
 
     /**

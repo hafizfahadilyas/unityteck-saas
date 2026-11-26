@@ -367,13 +367,13 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
     if (p) {
       text += `*المنتج:* ${p.nameAr || p.name}%0a*الكود:* ${p.sku}%0a`;
       if (c && p.type === 'seat-cover') text += `*اللون:* ${c.nameAr} (${c.nameEn})%0a`;
-      text += `*السعر:* ${finalPrice} ر.س%0a`;
+      text += `*السعر:* ${finalPrice} ⃁%0a`;
     } else if (cart.length > 0) {
       text += `*سلة المشتريات:*%0a`;
       cart.forEach((it, i) => {
         text += `${i + 1}. ${it.product.nameAr || it.product.name} (${it.selectedColor?.nameAr || 'بيج'}) x ${it.quantity}%0a`;
       });
-      text += `*الإجمالي:* ${cartTotal} ر.س%0a`;
+      text += `*الإجمالي:* ${cartTotal} ⃁%0a`;
     } else {
       text += isAr ? `أريد تفصيل تلبيسة أو أرضيات لسيارتي` : `I want custom tailored seat covers or floor mats`;
     }
@@ -837,10 +837,10 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                     <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
                       <div>
                         <span className="font-black text-base text-slate-900">{mat.price}</span>
-                        <span className="text-[11px] font-bold text-[#b07e16] mr-1 ml-1">{isAr ? 'ر.س' : 'SAR'}</span>
+                        <span className="text-[11px] font-bold text-[#b07e16] mr-1 ml-1">{isAr ? '⃁' : 'SAR'}</span>
                         {mat.originalPrice && mat.originalPrice > mat.price && (
                           <span className="text-[10px] text-slate-400 line-through block">
-                            {mat.originalPrice} {isAr ? 'ر.س' : 'SAR'}
+                            {mat.originalPrice} {isAr ? '⃁' : 'SAR'}
                           </span>
                         )}
                       </div>
@@ -975,7 +975,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                               {product.discountedPrice || product.price}
                             </span>
                             <span className="text-[11px] font-bold text-[#b07e16] mr-1 ml-1">
-                              {isAr ? 'ر.س' : 'SAR'}
+                              {isAr ? '⃁' : 'SAR'}
                             </span>
                           </div>
 
@@ -1365,7 +1365,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                     </div>
 
                     <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                      <span className="font-black text-sm text-slate-900">{prod.price} {isAr ? 'ر.س' : 'SAR'}</span>
+                      <span className="font-black text-sm text-slate-900">{prod.price} {isAr ? '⃁' : 'SAR'}</span>
                       <button 
                         onClick={() => {
                           if (prod.type === 'floor-mat') {
@@ -1435,7 +1435,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               <div className="p-3 bg-purple-50/70 rounded-2xl border border-[#d5a027]/30 flex items-center justify-between">
                 <div>
                   <span className="text-slate-500 block text-[10px]">{isAr ? 'سعر الطقم الكامل:' : 'Full Set Price:'}</span>
-                  <span className="text-xl font-black text-[#3e0f77]">{selectedFloorMatPreview.price} {isAr ? 'ر.س' : 'SAR'}</span>
+                  <span className="text-xl font-black text-[#3e0f77]">{selectedFloorMatPreview.price} {isAr ? '⃁' : 'SAR'}</span>
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -1563,7 +1563,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                 <div className="space-y-3">
                   <div className="p-3 bg-purple-50/60 rounded-xl flex items-center justify-between">
                     <span className="text-slate-600 font-bold">{isAr ? 'السعر الإجمالي:' : 'Total Price:'}</span>
-                    <span className="text-xl font-black text-[#3e0f77]">{computedDetailPrice * detailQuantity} {isAr ? 'ر.س' : 'SAR'}</span>
+                    <span className="text-xl font-black text-[#3e0f77]">{computedDetailPrice * detailQuantity} {isAr ? '⃁' : 'SAR'}</span>
                   </div>
 
                   {selectedProduct.type === 'seat-cover' && (
@@ -1636,7 +1636,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                             detailCoverage === 'front_only' ? 'border-[#3e0f77] bg-purple-50 font-bold text-[#3e0f77]' : 'border-slate-200'
                           }`}
                         >
-                          {isAr ? 'مقاعد أمامية فقط (-110 ر.س)' : 'Front Only (-110 SAR)'}
+                          {isAr ? 'مقاعد أمامية فقط (-110 ⃁)' : 'Front Only (-110 SAR)'}
                         </button>
                       </div>
                     </div>
@@ -1703,7 +1703,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                     <img src={item.selectedColor?.image || item.product.image} alt="cart item" className="w-12 h-12 rounded-lg object-cover" />
                     <div className="flex-1 min-w-0">
                       <h5 className="font-bold text-slate-900 line-clamp-1">{isAr ? item.product.nameAr : item.product.nameEn}</h5>
-                      <span className="text-[10px] text-[#3e0f77]">{item.selectedColor?.nameAr || 'بيج'} · {item.unitPrice * item.quantity} {isAr ? 'ر.س' : 'SAR'}</span>
+                      <span className="text-[10px] text-[#3e0f77]">{item.selectedColor?.nameAr || 'بيج'} · {item.unitPrice * item.quantity} {isAr ? '⃁' : 'SAR'}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <button onClick={() => updateQuantity(idx, item.quantity - 1)} className="p-1 rounded bg-white border border-slate-200 cursor-pointer">
@@ -1723,7 +1723,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               <div className="p-4 bg-slate-50 border-t border-slate-200 space-y-2.5">
                 <div className="flex items-center justify-between font-black text-sm text-slate-900">
                   <span>{isAr ? 'الإجمالي:' : 'Total:'}</span>
-                  <span className="text-[#3e0f77]">{cartTotal} {isAr ? 'ر.س' : 'SAR'}</span>
+                  <span className="text-[#3e0f77]">{cartTotal} {isAr ? '⃁' : 'SAR'}</span>
                 </div>
                 <button 
                   onClick={() => { setCartDrawerOpen(false); setCheckoutOpen(true); }}
@@ -1787,7 +1787,7 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
 
               <div className="pt-2 border-t border-slate-100 flex items-center justify-between font-black text-sm">
                 <span>{isAr ? 'المجموع:' : 'Total:'}</span>
-                <span className="text-[#3e0f77]">{cartTotal} {isAr ? 'ر.س' : 'SAR'}</span>
+                <span className="text-[#3e0f77]">{cartTotal} {isAr ? '⃁' : 'SAR'}</span>
               </div>
 
               <button 

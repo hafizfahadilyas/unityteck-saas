@@ -1,11 +1,45 @@
 import React from 'react';
-import { Sparkles, ArrowLeft, Lock, Bell, MessageCircle, Smartphone } from 'lucide-react';
+import {
+  Sparkles,
+  ArrowLeft,
+  Lock,
+  Bell,
+  MessageCircle,
+  Smartphone,
+  Mail,
+  MessageSquareText,
+  MessagesSquare,
+  Bot,
+} from 'lucide-react';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { labelForNav, STORE_NAV_KEYS } from '../../i18n/nav';
 
 interface StoreTabComingSoonProps {
   tabId: string;
   onNavigateTab?: (tab: string) => void;
+}
+
+function iconForTab(tabId: string) {
+  switch (tabId) {
+    case 'whatsapp':
+      return MessageCircle;
+    case 'notifications':
+      return Bell;
+    case 'mobile-app':
+      return Smartphone;
+    case 'email':
+      return Mail;
+    case 'sms':
+      return MessageSquareText;
+    case 'live-chat':
+      return MessagesSquare;
+    case 'in-app-notifications':
+      return Bell;
+    case 'ai-conversations':
+      return Bot;
+    default:
+      return Sparkles;
+  }
 }
 
 export const StoreTabComingSoon: React.FC<StoreTabComingSoonProps> = ({
@@ -15,15 +49,7 @@ export const StoreTabComingSoon: React.FC<StoreTabComingSoonProps> = ({
   const { locale } = usePrefs();
   const isAr = locale === 'ar';
   const title = labelForNav(locale, STORE_NAV_KEYS, tabId);
-
-  const Icon =
-    tabId === 'whatsapp'
-      ? MessageCircle
-      : tabId === 'notifications'
-        ? Bell
-        : tabId === 'mobile-app'
-          ? Smartphone
-          : Sparkles;
+  const Icon = iconForTab(tabId);
 
   return (
     <div
@@ -38,13 +64,32 @@ export const StoreTabComingSoon: React.FC<StoreTabComingSoonProps> = ({
           borderColor: 'var(--border)',
         }}
       >
-        <div className="h-1.5 w-full bg-gradient-to-r from-teal-500 via-amber-500 to-indigo-500" />
+        <div
+          className="h-1.5 w-full"
+          style={{
+            background: 'linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--portal-cta) 80%, #f59e0b), var(--portal-cta))',
+          }}
+        />
         <div className="p-8 sm:p-10 space-y-5">
-          <div className="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center border bg-amber-500/10 border-amber-500/25 text-amber-600 dark:text-amber-400">
+          <div
+            className="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center border"
+            style={{
+              background: 'color-mix(in srgb, #f59e0b 12%, transparent)',
+              borderColor: 'color-mix(in srgb, #f59e0b 28%, transparent)',
+              color: '#b45309',
+            }}
+          >
             <Icon className="w-8 h-8" aria-hidden />
           </div>
 
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wide bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+          <div
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wide border"
+            style={{
+              background: 'color-mix(in srgb, #f59e0b 14%, transparent)',
+              color: '#b45309',
+              borderColor: 'color-mix(in srgb, #f59e0b 32%, transparent)',
+            }}
+          >
             <Sparkles className="w-3.5 h-3.5" />
             <span>{isAr ? 'قريباً' : 'Coming Soon'}</span>
           </div>
@@ -58,7 +103,12 @@ export const StoreTabComingSoon: React.FC<StoreTabComingSoonProps> = ({
           </p>
 
           <div
-            className="flex items-start gap-2.5 text-start text-xs p-3.5 rounded-2xl border bg-teal-50 dark:bg-teal-950/30 border-teal-200 dark:border-teal-800/40 text-teal-800 dark:text-teal-300"
+            className="flex items-start gap-2.5 text-start text-xs p-3.5 rounded-2xl border"
+            style={{
+              background: 'color-mix(in srgb, var(--accent) 10%, transparent)',
+              borderColor: 'color-mix(in srgb, var(--accent) 28%, transparent)',
+              color: 'var(--accent)',
+            }}
           >
             <Lock className="w-4 h-4 shrink-0 mt-0.5" aria-hidden />
             <p className="leading-snug">
@@ -72,8 +122,8 @@ export const StoreTabComingSoon: React.FC<StoreTabComingSoonProps> = ({
             <button
               type="button"
               onClick={() => onNavigateTab('dashboard')}
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold cursor-pointer border hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold cursor-pointer border transition-colors hover:opacity-90"
+              style={{ borderColor: 'var(--border)', color: 'var(--text)', background: 'var(--surface)' }}
             >
               <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-180" />
               <span>{isAr ? 'العودة إلى لوحة التحكم' : 'Back to dashboard'}</span>

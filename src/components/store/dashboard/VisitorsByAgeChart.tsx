@@ -14,6 +14,7 @@ interface VisitorsByAgeChartProps {
 export const VisitorsByAgeChart: React.FC<VisitorsByAgeChartProps> = React.memo(({ data = [] }) => {
   const { locale } = usePrefs();
   const isAr = locale === 'ar';
+  const gradId = React.useId().replace(/:/g, '');
 
   const points = data;
 
@@ -21,6 +22,11 @@ export const VisitorsByAgeChart: React.FC<VisitorsByAgeChartProps> = React.memo(
     if (!points || points.length === 0) return 25;
     const maxVal = Math.max(...points.map((p) => p.percentage), 10);
     return Math.ceil(maxVal / 5) * 5 || 25;
+  }, [points]);
+
+  const peakPct = useMemo(() => {
+    if (!points.length) return 0;
+    return Math.max(...points.map((p) => p.percentage));
   }, [points]);
 
   const yTicks = useMemo(() => {
@@ -31,13 +37,14 @@ export const VisitorsByAgeChart: React.FC<VisitorsByAgeChartProps> = React.memo(
   const chartHeight = 150;
   const chartWidth = 460;
   const barWidth = 26;
+  const peakGrad = `agePeakGrad-${gradId}`;
+  const normGrad = `ageNormGrad-${gradId}`;
 
   return (
     <div
       className="u-card p-4 sm:p-5 rounded-[1.25rem] shadow-xs flex flex-col justify-between h-full min-h-[260px]"
       style={{ fontFamily: 'var(--font-ui)' }}
     >
-      {/* ── Card Header ── */}
       <div className="flex items-center gap-2 mb-3">
         <div className="u-icon-brand w-8 h-8 rounded-xl flex items-center justify-center">
           <Users className="w-4 h-4" strokeWidth={1.75} />
@@ -52,7 +59,6 @@ export const VisitorsByAgeChart: React.FC<VisitorsByAgeChartProps> = React.memo(
         </div>
       </div>
 
-      {/* ── Responsive Bar Chart or Clean Empty State ── */}
       {points.length === 0 ? (
         <div className="py-12 px-4 text-center flex flex-col items-center justify-center">
           <div className="u-icon-brand w-10 h-10 rounded-2xl flex items-center justify-center mb-2.5">
@@ -62,7 +68,9 @@ export const VisitorsByAgeChart: React.FC<VisitorsByAgeChartProps> = React.memo(
             {isAr ? 'لا توجد بيانات ديموغرافية بعد' : 'No demographic data available'}
           </p>
           <p className="text-xs mt-1 max-w-[240px]" style={{ color: 'var(--muted)' }}>
-            {isAr ? 'ستتوفر إحصائيات الأعمار عند ربط تحليلات جوجل أو تسجيل العملاء' : 'Demographic insights will appear when customers register with birthday or Google Analytics is connected'}
+            {isAr
+              ? 'أضف تاريخ الميلاد من صفحة العملاء، ثم تظهر الفئات العمرية هنا'
+              : 'Add a date of birth on the Customers page — age groups appear here'}
           </p>
         </div>
       ) : (
@@ -71,7 +79,17 @@ export const VisitorsByAgeChart: React.FC<VisitorsByAgeChartProps> = React.memo(
             viewBox={`0 0 ${chartWidth} ${chartHeight + 35}`}
             className="w-full h-auto overflow-visible"
           >
-            {/* Y Axis Grid Lines & Ticks */}
+            <defs>
+              <linearGradient id={peakGrad} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#7b2cbf" />
+                <stop offset="100%" stopColor="#9d4edd" />
+              </linearGradient>
+              <linearGradient id={normGrad} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#48cae4" />
+                <stop offset="100%" stopColor="#a0c4ff" />
+              </linearGradient>
+            </defs>
+
             {yTicks.map((tick) => {
               const y = chartHeight - (tick / maxY) * chartHeight + 10;
               return (
@@ -99,16 +117,15 @@ export const VisitorsByAgeChart: React.FC<VisitorsByAgeChartProps> = React.memo(
               );
             })}
 
-            {/* Bars */}
             {points.map((pt, idx) => {
               const colWidth = (chartWidth - 55) / points.length;
               const x = 38 + idx * colWidth + (colWidth - barWidth) / 2;
               const barHeight = (pt.percentage / maxY) * chartHeight;
               const y = chartHeight - barHeight + 10;
+              const highlighted = peakPct > 0 && pt.percentage === peakPct;
 
               return (
                 <g key={idx} className="cursor-pointer group">
-                  {/* Top Percentage Label - crisp high-contrast */}
                   <text
                     x={x + barWidth / 2}
                     y={y - 6}
@@ -116,23 +133,25 @@ export const VisitorsByAgeChart: React.FC<VisitorsByAgeChartProps> = React.memo(
                     fontSize="11"
                     fontWeight="800"
                     fill="currentColor"
-                    className="u-accent-text font-black"
+                    className={
+                      highlighted
+                        ? 'text-purple-700 dark:text-purple-300 font-black'
+                        : 'text-slate-900 dark:text-slate-100 font-extrabold'
+                    }
                   >
                     {pt.percentage}%
                   </text>
 
-                  {/* Gradient Bar */}
                   <rect
                     x={x}
                     y={y}
                     width={barWidth}
                     height={Math.max(2, barHeight)}
-                    rx={4}
-                    fill="url(#ageBarGradient)"
+                    rx={5}
+                    fill={highlighted ? `url(#${peakGrad})` : `url(#${normGrad})`}
                     className="transition-all duration-150 group-hover:brightness-105"
                   />
 
-                  {/* Bottom Age Label */}
                   <text
                     x={x + barWidth / 2}
                     y={chartHeight + 25}
@@ -140,21 +159,17 @@ export const VisitorsByAgeChart: React.FC<VisitorsByAgeChartProps> = React.memo(
                     fontSize="10.5"
                     fontWeight="700"
                     fill="currentColor"
-                    className="text-slate-800 dark:text-slate-200 font-bold"
+                    className={
+                      highlighted
+                        ? 'text-purple-700 dark:text-purple-300 font-black'
+                        : 'text-slate-800 dark:text-slate-200 font-bold'
+                    }
                   >
                     {pt.label}
                   </text>
                 </g>
               );
             })}
-
-            {/* Teal Gradient Definition */}
-            <defs>
-              <linearGradient id="ageBarGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#48cae4" />
-                <stop offset="100%" stopColor="#0077b6" />
-              </linearGradient>
-            </defs>
           </svg>
         </div>
       )}

@@ -1,0 +1,18 @@
+---
+description: One input per field; customer types any language in the same control
+globs: src/components/storefront/**,src/themes/**/components/Checkout*.tsx,src/themes/**/pages/Checkout*.tsx
+alwaysApply: false
+---
+
+# Checkout · Single Input · Any Language (LOCKED)
+
+## Rule
+
+- **One control per data field** on storefront checkout / cart / profile address (name, city, district, notes, coupon, gift card).
+- Customer may type **Arabic, English, or mixed** in the **same** field — **no** duplicate `name_en` + `name_ar` inputs on public forms.
+- Chrome labels follow locale (`isAr`); **merchant-entered** catalog text stays as saved.
+- Bilingual merchant fields (`*_en` / `*_ar`) are **dashboard-only** or display-by-locale — not twin inputs on checkout.
+
+## Light / dark
+
+- Storefront checkout panels: **readable contrast** — `text-neutral-900` on light surfaces; icons/buttons never same color as background (no dark-on-dark).

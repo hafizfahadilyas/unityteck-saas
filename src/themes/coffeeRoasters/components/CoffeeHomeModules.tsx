@@ -1,4 +1,5 @@
 import React from 'react';
+import { ArrowUpRight } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { bi } from '../../settings/coffeeModularSettings';
 import type { AllThemeSettings } from '../../settings/themeSettingsStore';
@@ -12,9 +13,38 @@ import {
   normalizeProductSource,
   resolveProductsBySource,
 } from './coffeeProductSourceLogic';
+import { coffeeHeroWallpaperUrl, isCoffeeProductCutoutUrl } from '../utils/coffeeHeroWallpaper';
 
 function productImage(p: { image?: string; images?: string[]; colors?: { image?: string }[] }): string {
   return p.image || p.colors?.[0]?.image || p.images?.[0] || '';
+}
+
+function bannerProductHint(blob: string): string {
+  const s = String(blob || '').toLowerCase();
+  if (/oak|بلوط|fluted/.test(s)) return 'hb-almari-fluted-oak';
+  if (/marble|رخام|white/.test(s)) return 'hb-almari-white-marble';
+  if (/villa|فلل|dual/.test(s)) return 'hb-almari-dual-door-villa';
+  if (/najdi|نجدي/.test(s)) return 'hb-almari-najdi-heritage';
+  if (/makkah|مكة|corner|ركن/.test(s)) return 'hb-almari-makkah-corner';
+  return '';
+}
+
+/** Prefer scenic wallpaper for C-IMG tiles — square cutouts leave empty cover gaps. */
+function bannerCoverImage(raw: string, titleBlob = ''): string {
+  const url = String(raw || '').trim();
+  if (!url) return '';
+  const productId = bannerProductHint(titleBlob);
+  if (isCoffeeProductCutoutUrl(url) || /ksa_almari_/i.test(url)) {
+    return coffeeHeroWallpaperUrl({ url, productId, mobile: false }) || url;
+  }
+  if (/\.(jpe?g)(\?.*)?$/i.test(url) && /coffee_wallpaper_/i.test(url)) {
+    return url.replace(/\.(jpe?g)(\?.*)?$/i, '.webp$2');
+  }
+  // Already a wallpaper / scenic hero — prefer webp twin when path matches.
+  if (/coffee_(wallpaper|hero_almari)/i.test(url)) {
+    return coffeeHeroWallpaperUrl({ url, productId, mobile: false }) || url;
+  }
+  return url;
 }
 
 export type CoffeeHomeModuleKey =
@@ -104,48 +134,97 @@ export const CoffeeHomeModules: React.FC<{
     <>
       {show('imageBanners') && imageItems.length === 0 && emptyHint('لافتات الصور فارغة — اضبطها من تخصيص الثيم', 'Image banners empty — configure in Customize Themes')}
       {show('imageBanners') && imageItems.length > 0 && (
-        <section data-customize-section="C-IMG" className="w-full max-w-[1360px] mx-auto px-4 lg:px-8 py-8">
+        <section data-customize-section="C-IMG" className="w-full max-w-[1360px] mx-auto px-4 lg:px-8 py-8 sm:py-10">
           <div
             className={
               images.layout === 'stack'
-                ? 'flex flex-col gap-4'
+                ? 'flex flex-col gap-3 sm:gap-4'
                 : images.layout === 'row'
-                  ? 'flex overflow-x-auto gap-4'
-                  : `grid gap-4 ${images.columnsMobile === 2 ? 'grid-cols-2' : 'grid-cols-1'} ${
+                  ? 'flex overflow-x-auto gap-3 sm:gap-4 snap-x snap-mandatory no-scrollbar'
+                  : `grid gap-3 sm:gap-4 ${images.columnsMobile === 2 ? 'grid-cols-2' : 'grid-cols-1'} ${
                       (images.columnsDesktop || 3) >= 4
-                        ? 'md:grid-cols-4'
+                        ? 'sm:grid-cols-2 lg:grid-cols-4'
                         : (images.columnsDesktop || 3) === 2
-                          ? 'md:grid-cols-2'
+                          ? 'sm:grid-cols-2'
                           : (images.columnsDesktop || 3) === 1
-                            ? 'md:grid-cols-1'
-                            : 'md:grid-cols-3'
+                            ? 'sm:grid-cols-1'
+                            : 'sm:grid-cols-2 lg:grid-cols-3'
                     }`
             }
           >
             {imageItems.map((it) => {
               const overlay = it.overlay || 'gradient';
+              const title = bi(lang, it.titleEn, it.titleAr);
+              const subtitle = bi(lang, it.subtitleEn, it.subtitleAr);
+              const cta = bi(lang, it.buttonEn, it.buttonAr);
+              const alt = bi(lang, it.altEn || it.titleEn, it.altAr || it.titleAr) || title;
+              const coverSrc = bannerCoverImage(
+                it.image,
+                `${it.id} ${it.titleEn || ''} ${it.titleAr || ''}`,
+              );
               return (
-              <button
-                key={it.id}
-                type="button"
-                onClick={() => navigateTo(it.link === 'custom-order' ? 'custom-order' : 'products')}
-                className={`relative overflow-hidden rounded-3xl min-h-[220px] text-start text-white ${images.layout === 'row' ? 'min-w-[260px] shrink-0' : ''}`}
-              >
-                <img src={it.image} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                {overlay === 'none' ? null : overlay === 'dark' ? (
-                  <div className="absolute inset-0 bg-black/50" />
-                ) : (
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-black/10" />
-                )}
-                <div className="relative z-10 p-5 h-full flex flex-col justify-end">
-                  <h3 className="font-bold text-lg">{bi(lang, it.titleEn, it.titleAr)}</h3>
-                  <p className="text-xs text-white/80">{bi(lang, it.subtitleEn, it.subtitleAr)}</p>
-                  {(it.buttonEn || it.buttonAr) && (
-                    <span className="mt-2 text-xs font-bold underline">{bi(lang, it.buttonEn, it.buttonAr)}</span>
+                <button
+                  key={it.id}
+                  type="button"
+                  onClick={() => navigateTo(it.link === 'custom-order' ? 'custom-order' : 'products')}
+                  className={`group relative isolate overflow-hidden rounded-[1.35rem] sm:rounded-[1.75rem] text-start text-white shadow-[0_18px_40px_-28px_rgba(0,0,0,0.55)] ring-1 ring-black/5 transition-[transform,box-shadow] duration-300 hover:-translate-y-0.5 hover:shadow-[0_28px_50px_-28px_rgba(0,0,0,0.6)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-900 ${
+                    images.layout === 'row'
+                      ? 'min-w-[min(86vw,320px)] snap-start shrink-0 aspect-[4/5] sm:aspect-[3/4]'
+                      : 'aspect-[4/5] sm:aspect-[3/4] lg:aspect-[4/5] min-h-[240px]'
+                  }`}
+                >
+                  <img
+                    src={coverSrc}
+                    alt={alt}
+                    width={800}
+                    height={1000}
+                    loading="lazy"
+                    decoding="async"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    className="absolute inset-0 z-0 h-full w-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+                  />
+                  {overlay === 'none' ? null : overlay === 'dark' ? (
+                    <div className="absolute inset-0 z-[1] bg-black/55" aria-hidden />
+                  ) : (
+                    <>
+                      <div
+                        className="absolute inset-0 z-[1] bg-gradient-to-t from-black/80 via-black/35 to-black/5"
+                        aria-hidden
+                      />
+                      <div
+                        className="absolute inset-x-0 bottom-0 z-[1] h-2/5 bg-gradient-to-t from-black/70 to-transparent"
+                        aria-hidden
+                      />
+                    </>
                   )}
-                </div>
-              </button>
-            );})}
+                  <div className="relative z-10 flex h-full flex-col justify-end gap-1.5 p-5 sm:p-6">
+                    {title ? (
+                      <h3
+                        className={`text-lg sm:text-xl font-extrabold tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.45)] ${
+                          lang === 'ar' ? 'leading-[1.35]' : 'leading-tight'
+                        }`}
+                      >
+                        {title}
+                      </h3>
+                    ) : null}
+                    {subtitle ? (
+                      <p className="text-[12px] sm:text-[13px] font-medium text-white/90 line-clamp-2 max-w-[28ch]">
+                        {subtitle}
+                      </p>
+                    ) : null}
+                    {cta ? (
+                      <span className="mt-2.5 inline-flex w-fit items-center gap-1.5 rounded-full bg-white/95 px-3.5 py-1.5 text-[11px] sm:text-xs font-bold text-neutral-900 shadow-sm backdrop-blur-sm transition-colors group-hover:bg-white">
+                        {cta}
+                        <ArrowUpRight
+                          className={`w-3.5 h-3.5 shrink-0 opacity-80 ${lang === 'ar' ? '-scale-x-100' : ''}`}
+                          aria-hidden
+                        />
+                      </span>
+                    ) : null}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </section>
       )}
@@ -192,8 +271,13 @@ export const CoffeeHomeModules: React.FC<{
             <p className="text-sm text-neutral-500 text-center mt-1 mb-5">{bi(lang, carousel.subtitleEn, carousel.subtitleAr)}</p>
           )}
           <div
-            className={`flex overflow-x-auto py-2 ${carousel.enableTouchSwipe === false ? '' : 'no-scrollbar'}`}
-            style={{ gap: carousel.itemSpacing ?? 16 }}
+            className={`flex overflow-x-auto overscroll-x-contain touch-pan-x py-2 ${carousel.enableTouchSwipe === false ? '' : 'no-scrollbar'}`}
+            style={{
+              gap: carousel.itemSpacing ?? 16,
+              WebkitOverflowScrolling: 'touch',
+              touchAction: carousel.enableTouchSwipe === false ? undefined : 'pan-x pinch-zoom',
+              scrollBehavior: 'auto',
+            }}
           >
             {carouselCards.map(({ item, catalog }) => {
               const pid = item.productId || catalog?.id || '';
@@ -227,7 +311,10 @@ export const CoffeeHomeModules: React.FC<{
                   <div className="font-bold text-sm mt-2">{name}</div>
                   {price != null ? (
                     <div className="text-xs mt-1">
-                      {language === 'AR' ? `${Number(price).toLocaleString()}⃁` : `⃁ ${Number(price).toLocaleString()}`}
+                      <span dir="ltr" className="inline-block font-tabular-nums">
+                        {Number(price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{' '}
+                        {language === 'AR' ? 'ر.س' : 'SAR'}
+                      </span>
                     </div>
                   ) : null}
                 </button>
@@ -237,36 +324,35 @@ export const CoffeeHomeModules: React.FC<{
         </section>
       )}
 
-      {/* C-BAN stacked promo strip removed from HiBrew home — do not render */}
+      {/* C-BAN + espresso “Build Your Coffee Corner” strip retired — cabinets grid only */}
 
-      {show('productCarouselBanner') && !(combo?.enabled && (combo.bannerImage || comboProducts.length > 0)) && emptyHint('كاروسيل مع بانر فارغ — اضبطه من تخصيص الثيم', 'Carousel + banner empty — configure in Customize Themes')}
-      {show('productCarouselBanner') && combo?.enabled && (combo.bannerImage || comboProducts.length > 0) && (
-        <section data-customize-section="C-PCB" className="w-full max-w-[1360px] mx-auto px-4 lg:px-8 py-8 grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
-          {combo.bannerImage ? (
-            <button type="button" onClick={() => navigateTo('products')} className="relative min-h-[280px] rounded-3xl overflow-hidden text-start text-white">
-              <img src={combo.bannerImage} alt="" className="absolute inset-0 w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-black/40" />
-              <div className="relative z-10 p-6">
-                <h3 className="text-2xl font-bold">{bi(lang, combo.titleEn, combo.titleAr)}</h3>
-                <p className="text-sm mt-1">{bi(lang, combo.subtitleEn, combo.subtitleAr)}</p>
-                <span className="inline-block mt-3 text-xs font-bold underline">{bi(lang, combo.buttonEn, combo.buttonAr)}</span>
-              </div>
-            </button>
-          ) : null}
-          {comboProducts.length > 0 && (
-            <div className="grid grid-cols-2 gap-3">
-              {comboProducts.map((p) => (
-                <button key={p.id} type="button" onClick={() => navigateTo('product-detail', p.id)} className="rounded-2xl bg-[#F8F9FA] p-3 text-center">
-                  {productImage(p) ? <img src={productImage(p)} alt="" className="h-24 w-full object-contain" /> : null}
-                  <div className="text-xs font-bold mt-1">
-                    {language === 'AR' ? (p.nameAr || '').trim() : (p.name || '').trim()}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+      {show('productCarouselBanner') && combo?.enabled && comboProducts.length === 0 && only
+        ? emptyHint('كاروسيل مع بانر فارغ — اضبطه من تخصيص الثيم', 'Carousel + banner empty — configure in Customize Themes')
+        : null}
+      {show('productCarouselBanner') && combo?.enabled && comboProducts.length > 0 ? (
+        <section
+          data-customize-section="C-PCB"
+          className="w-full max-w-[1360px] mx-auto px-4 lg:px-8 py-8"
+        >
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {comboProducts.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => navigateTo('product-detail', p.id)}
+                className="rounded-2xl bg-[#F8F9FA] p-3 text-center hover:bg-neutral-100 transition-colors"
+              >
+                {productImage(p) ? (
+                  <img src={productImage(p)} alt="" className="h-24 w-full object-contain" />
+                ) : null}
+                <div className="text-xs font-bold mt-1">
+                  {language === 'AR' ? (p.nameAr || '').trim() : (p.name || '').trim()}
+                </div>
+              </button>
+            ))}
+          </div>
         </section>
-      )}
+      ) : null}
     </>
   );
 };

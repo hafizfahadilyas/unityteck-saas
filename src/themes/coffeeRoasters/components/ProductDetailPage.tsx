@@ -21,6 +21,7 @@ import { ProductPartShowcase } from '../types';
 import { effectiveProductPricing } from '../../../utils/productSaleSchedule';
 import { resolveCoffeeThemeSettings } from '../../settings/coffeeThemeDefaults';
 import { resolveProductDetailChrome } from '../productDetailChrome';
+import { Skeleton, SkeletonImage, SkeletonText } from '../../../components/common/skeleton';
 
 interface PartShowcaseBannerProps {
   part: ProductPartShowcase;
@@ -199,8 +200,67 @@ export const ProductDetailPage: React.FC = () => {
 
   if (!product) {
     return (
-      <div className="min-h-[50vh] flex items-center justify-center bg-white text-neutral-600 text-sm">
-        {language === 'AR' ? 'جاري تحميل المنتج' : 'Loading product'}
+      <div className="min-h-screen bg-white text-neutral-900 py-10 px-4 sm:px-8 max-w-7xl mx-auto space-y-8" aria-busy="true" role="status">
+        {/* Breadcrumb skeleton */}
+        <div className="flex items-center gap-2">
+          <Skeleton variant="rounded" height="14px" width="60px" />
+          <span className="text-neutral-300">/</span>
+          <Skeleton variant="rounded" height="14px" width="90px" />
+          <span className="text-neutral-300">/</span>
+          <Skeleton variant="rounded" height="14px" width="140px" />
+        </div>
+
+        {/* Product Details Main Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
+          {/* Gallery image + thumbnails */}
+          <div className="space-y-4">
+            <SkeletonImage aspectRatio="square" rounded="3xl" height="480px" />
+            <div className="flex items-center gap-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} variant="rounded" width="80px" height="80px" className="rounded-2xl shrink-0" />
+              ))}
+            </div>
+          </div>
+
+          {/* Product Purchase info */}
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <Skeleton variant="rounded" height="14px" width="120px" className="rounded-full" />
+              <Skeleton variant="rounded" height="32px" width="85%" />
+              <Skeleton variant="rounded" height="24px" width="60%" />
+            </div>
+
+            {/* Price block */}
+            <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200/60 flex items-center gap-4">
+              <Skeleton variant="rounded" height="36px" width="120px" />
+              <Skeleton variant="rounded" height="20px" width="80px" className="opacity-50" />
+            </div>
+
+            {/* Variations / Colors */}
+            <div className="space-y-3">
+              <Skeleton variant="rounded" height="14px" width="100px" />
+              <div className="flex items-center gap-2.5">
+                <Skeleton variant="rounded" height="38px" width="90px" className="rounded-xl" />
+                <Skeleton variant="rounded" height="38px" width="90px" className="rounded-xl" />
+                <Skeleton variant="rounded" height="38px" width="90px" className="rounded-xl" />
+              </div>
+            </div>
+
+            {/* Quantity + Buttons */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center gap-3">
+                <Skeleton variant="rounded" height="48px" width="120px" className="rounded-2xl" />
+                <Skeleton variant="rounded" height="48px" width="100%" className="rounded-2xl flex-1" />
+              </div>
+              <Skeleton variant="rounded" height="48px" width="100%" className="rounded-2xl" />
+            </div>
+
+            {/* Description lines */}
+            <div className="pt-4 border-t border-neutral-100">
+              <SkeletonText lines={4} size="base" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

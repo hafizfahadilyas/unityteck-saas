@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CourierConnection;
 use App\Models\Order;
 use App\Models\Shipment;
+use App\Services\Commerce\OrderCommerceLedgerService;
 use App\Services\Courier\CourierManager;
 use App\Services\Notification\NotificationService;
 use Illuminate\Http\JsonResponse;
@@ -147,8 +148,10 @@ class CourierController extends Controller
         }
 
         $connection = CourierConnection::query()->forStore($storeId)->where('id', $id)->firstOrFail();
+        $started = microtime(true);
         $service = CourierManager::resolve($connection->provider);
         $result = $service->testConnection($connection);
+        $durationMs = (int) round((microtime(true) - $started) * 1000);
 
         $connection->last_tested_at = now();
         if ($result['success']) {
@@ -159,9 +162,17 @@ class CourierController extends Controller
         }
         $connection->save();
 
+        try {
+            (new \App\Services\Integration\IntegrationHealthService())
+                ->recordFromExistingTest($storeId, 'shipping', (string) $connection->provider, $result, $durationMs);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Integration health record failed: '.$e->getMessage());
+        }
+
         return response()->json([
             'test_result' => $result,
             'connection_status' => $connection->status,
+            'api_response_time_ms' => $durationMs,
         ]);
     }
 
@@ -228,29 +239,53 @@ class CourierController extends Controller
         $awb = $awb !== '' ? $awb : $tracking;
         $tracking = $tracking !== '' ? $tracking : $awb;
 
-        $shipmentId = $this->newId('shp');
-        $shipment = Shipment::create([
-            'id' => $shipmentId,
-            'store_id' => $storeId,
-            'order_id' => $order->id,
-            'courier_id' => $connection->id,
-            'provider' => $connection->provider,
-            'awb_number' => $awb,
-            'tracking_number' => $tracking,
-            'label_url' => $result['label_url'] ?? null,
-            'status' => 'created',
-            'shipping_cost' => $result['cost'] ?? 0,
-            'cod_amount' => $order->payment_method === 'COD' ? $order->total_amount : 0,
-            'pickup_requested_at' => now(),
-            'destination_address' => ['location' => $order->delivery_location],
-            'tracking_events' => [
-                [
-                    'time' => now()->toIso8601String(),
-                    'status' => 'Created',
-                    'description' => "Shipment created with {$connection->provider} (AWB: {$awb})",
-                ],
+        $events = [
+            [
+                'time' => now()->toIso8601String(),
+                'status' => 'Created',
+                'description' => "Shipment created with {$connection->provider} (AWB: {$awb})",
             ],
-        ]);
+        ];
+
+        // Upgrade pending ledger row for this order instead of duplicating
+        $shipment = Shipment::query()
+            ->forStore($storeId)
+            ->where('order_id', $order->id)
+            ->orderByDesc('created_at')
+            ->first();
+
+        if ($shipment) {
+            $shipment->courier_id = $connection->id;
+            $shipment->provider = $connection->provider;
+            $shipment->awb_number = $awb;
+            $shipment->tracking_number = $tracking;
+            $shipment->label_url = $result['label_url'] ?? null;
+            $shipment->status = 'created';
+            $shipment->shipping_cost = $result['cost'] ?? 0;
+            $shipment->cod_amount = $order->payment_method === 'COD' ? $order->total_amount : 0;
+            $shipment->pickup_requested_at = now();
+            $shipment->destination_address = ['location' => $order->delivery_location];
+            $prevEvents = is_array($shipment->tracking_events) ? $shipment->tracking_events : [];
+            $shipment->tracking_events = array_values(array_merge($prevEvents, $events));
+            $shipment->save();
+        } else {
+            $shipment = Shipment::create([
+                'id' => $this->newId('shp'),
+                'store_id' => $storeId,
+                'order_id' => $order->id,
+                'courier_id' => $connection->id,
+                'provider' => $connection->provider,
+                'awb_number' => $awb,
+                'tracking_number' => $tracking,
+                'label_url' => $result['label_url'] ?? null,
+                'status' => 'created',
+                'shipping_cost' => $result['cost'] ?? 0,
+                'cod_amount' => $order->payment_method === 'COD' ? $order->total_amount : 0,
+                'pickup_requested_at' => now(),
+                'destination_address' => ['location' => $order->delivery_location],
+                'tracking_events' => $events,
+            ]);
+        }
 
         // Update order with real courier operational tracking
         $order->courier_code = $connection->provider;
@@ -323,6 +358,12 @@ class CourierController extends Controller
         $storeId = $this->requireStoreId($request);
         if ($storeId instanceof JsonResponse) {
             return $storeId;
+        }
+
+        try {
+            app(OrderCommerceLedgerService::class)->syncMissingForStore($storeId, 80);
+        } catch (\Throwable $e) {
+            Log::warning('Shipment ledger syncMissing skipped: '.$e->getMessage(), ['store_id' => $storeId]);
         }
 
         $query = Shipment::query()

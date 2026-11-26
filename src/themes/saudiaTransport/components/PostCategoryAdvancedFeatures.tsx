@@ -550,17 +550,22 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
 
     const msg = isAr 
       ? `مرحباً متجر السعيدي لخدمات السيارات، أرغب بحجز تفصيل ليزري لمقصورة سيارتي حسب التخصيص التالي:
-🚗 نوع وموديل السيارة:${selectedCar.nameAr}📦 البكج المطلوب:${studioType === 'combo' ? 'البكج الملكي الشامل (تلابيس مقاعد + أرضيات 5D ليزر)': studioType === 'mats' ? 'طقم أرضيات 5D ليزرية': 'تلابيس مقاعد VIP تفصيل كامل'}🧵 خامة وتطريز الجلد:${activeGrade.nameAr}🎨 اللون المختار:${selectedColor.nameAr}✨ الإضافات المختارة:${addonsList.length > 0 ? addonsList.join(' + '): 'بدون إضافات'}💰 السعر الإجمالي شامل الضريبة:${studioTotalPrice}⃁ (وفرت${studioTotalSavings}⃁)
-📍 مكان التركيب: فرع مكة المكرمة (بطحاء قريش) مع ضمان سنتين ذهبي.
+• نوع وموديل السيارة: ${selectedCar.nameAr}
+• البكج المطلوب: ${studioType === 'combo' ? 'البكج الملكي الشامل (تلابيس مقاعد + أرضيات 5D ليزر)' : studioType === 'mats' ? 'طقم أرضيات 5D ليزرية' : 'تلابيس مقاعد كبار العملاء تفصيل كامل'}
+• خامة وتطريز الجلد: ${activeGrade.nameAr}
+• اللون المختار: ${selectedColor.nameAr}
+• الإضافات المختارة: ${addonsList.length > 0 ? addonsList.join(' + ') : 'بدون إضافات'}
+• السعر الإجمالي شامل الضريبة: ${studioTotalPrice} ⃁ (وفرت ${studioTotalSavings} ⃁)
+• مكان التركيب: فرع مكة المكرمة (بطحاء قريش) مع ضمان سنتين ذهبي.
 أرجو تأكيد موعد التفصيل والتركيب.`
       : `Hello Al-Saeedi Car Services, I want to book bespoke interior tailoring:
-🚗 Vehicle: ${selectedCar.nameEn}
-📦 Package: ${studioType === 'combo' ? 'Full VIP Combo (Seat Covers + 5D Mats)' : studioType === 'mats' ? '5D Laser Floor Mats' : 'VIP Bespoke Seat Covers'}
-🧵 Leather Grade: ${activeGrade.nameEn}
-🎨 Color: ${selectedColor.nameEn}
-✨ Extras: ${addonsList.length > 0 ? addonsList.join(', ') : 'None'}
-💰 Total Price: ${studioTotalPrice} ⃁ (Saved ${studioTotalSavings} ⃁)
-📍 Installation: Free Makkah fitting with 2-year warranty.`;
+• Vehicle: ${selectedCar.nameEn}
+• Package: ${studioType === 'combo' ? 'Full VIP Combo (Seat Covers + 5D Mats)' : studioType === 'mats' ? '5D Laser Floor Mats' : 'VIP Bespoke Seat Covers'}
+• Leather Grade: ${activeGrade.nameEn}
+• Color: ${selectedColor.nameEn}
+• Extras: ${addonsList.length > 0 ? addonsList.join(', ') : 'None'}
+• Total Price: ${studioTotalPrice} ⃁ (Saved ${studioTotalSavings} ⃁)
+• Installation: Free Makkah fitting with 2-year warranty.`;
 
     onWhatsAppOrder(baseProduct, selectedColor, msg);
   };
@@ -597,22 +602,22 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
           FEATURE 1: VIP 3D REAL-TIME CABIN CUSTOMIZATION STUDIO
           (استوديو التخصيص الملكي التفاعلي لمقصورة سيارتك)
           ======================================================== */}
-      <section className="relative rounded-3xl bg-gradient-to-br from-[#16032e] via-[#210643] to-[#0e011f] text-white p-4 sm:p-7 lg:p-9 border-2 border-[#d5a027]/40 shadow-[0_30px_70px_-15px_rgba(22,3,46,0.6)] overflow-hidden">
+      <section className="alsaeedi-section alsaeedi-anim-fadeup relative text-slate-900 p-4 sm:p-7 lg:p-9 border-2 border-[#d5a027]/40">
         {/* Ambient Glow Orbs */}
-        <div className="absolute top-0 right-0 w-80 h-80 bg-[#d5a027]/12 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-purple-600/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 right-0 w-80 h-80 bg-[#d5a027]/12 rounded-full blur-xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-slate-300/30 rounded-full blur-xl pointer-events-none" />
 
         {/* Section Header */}
-        <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-white/15 pb-5">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 pb-5">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-gradient-to-r from-amber-400/20 to-amber-500/10 border border-[#d5a027]/50 text-amber-300 text-xs font-black shadow-xs">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-gradient-to-r from-amber-400/20 to-amber-500/10 border border-[#d5a027]/50 text-amber-700 text-xs font-black shadow-xs">
               <Sparkles className="w-3.5 h-3.5 text-[#f6c344]" />
               <span>{isAr ? 'استوديو التخصيص التفاعلي المتكامل للمقصورة' : 'Interactive VIP Cabin Customizer Studio'}</span>
             </div>
-            <h3 className="text-xl sm:text-3xl font-black text-white tracking-tight leading-snug">
+            <h3 className="text-xl sm:text-3xl font-black text-slate-900 tracking-tight leading-snug">
               {isAr ? adminSettings.titleAr : adminSettings.titleEn}
             </h3>
-            <p className="text-xs sm:text-sm text-slate-300 max-w-2xl font-medium">
+            <p className="text-xs sm:text-sm text-slate-500 max-w-2xl font-medium">
               {isAr ? adminSettings.subtitleAr : adminSettings.subtitleEn}
             </p>
           </div>
@@ -633,7 +638,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
             <button
               type="button"
               onClick={() => onOpenVehicleModal(selectedCar.brand, selectedCar.nameEn)}
-              className="self-start md:self-auto px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-[#d5a027]/40 text-amber-300 text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer shadow-md hover:border-[#f6c344] shrink-0"
+              className="self-start md:self-auto px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-[#d5a027]/40 text-amber-700 text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer shadow-md hover:border-[#f6c344] shrink-0"
             >
               <Car className="w-4 h-4 text-[#f6c344]" />
               <span>{isAr ? 'فحص مطابقة سيارتك الفوري' : 'Quick Fitment Checker'}</span>
@@ -650,11 +655,11 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
             {/* Step 1: Vehicle Selector (Popular Saudi Cars) */}
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-[#d5a027] text-[#16032e] text-[10px] flex items-center justify-center font-black">1</span>
+                <label className="text-xs font-black text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-[#d5a027] text-slate-900 text-[10px] flex items-center justify-center font-black">1</span>
                   <span>{isAr ? 'اختر موديل سيارتك:' : 'Select Your Vehicle Model:'}</span>
                 </label>
-                <span className="text-[11px] font-bold text-amber-300/90 flex items-center gap-1">
+                <span className="text-[11px] font-bold text-amber-700 flex items-center gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                   <span>{isAr ? 'قالب ليزري معتمد' : 'OEM Fit Guaranteed'}</span>
                 </span>
@@ -671,8 +676,8 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                       onClick={() => setSelectedCar(car)}
                       className={`px-3 py-2 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 text-xs font-bold ${
                         isCarActive
-                          ? 'bg-gradient-to-b from-[#d5a027]/30 to-purple-900/50 border-[#f6c344] text-white shadow-md ring-2 ring-[#f6c344]/30'
-                          : 'bg-white/5 border-white/10 hover:bg-white/10 text-slate-300'
+                          ? 'bg-gradient-to-b from-amber-50 to-white border-[#d5a027] text-slate-900 shadow-md ring-2 ring-[#d5a027]/30'
+                          : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-500'
                       }`}
                     >
                       <span className="truncate w-full">{isAr ? car.nameAr : car.nameEn}</span>
@@ -684,8 +689,8 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
 
             {/* Step 2: Upgrade Package Selector */}
             <div className="space-y-2.5">
-              <label className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                <span className="w-5 h-5 rounded-full bg-[#d5a027] text-[#16032e] text-[10px] flex items-center justify-center font-black">2</span>
+              <label className="text-xs font-black text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-[#d5a027] text-slate-900 text-[10px] flex items-center justify-center font-black">2</span>
                 <span>{isAr ? 'اختر نوع البكج المطلوب للمقصورة:' : 'Select Cabin Package:'}</span>
               </label>
 
@@ -696,13 +701,13 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                   onClick={() => setStudioType('seats')}
                   className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
                     studioType === 'seats'
-                      ? 'bg-gradient-to-b from-[#d5a027]/25 to-purple-900/40 border-[#f6c344] shadow-[0_0_20px_rgba(213,160,39,0.3)] ring-2 ring-[#f6c344]/30'
-                      : 'bg-white/5 border-white/10 hover:bg-white/10 text-slate-300'
+                      ? 'bg-gradient-to-b from-amber-50 to-white border-[#d5a027] shadow-md ring-2 ring-[#d5a027]/25'
+                      : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-500'
                   }`}
                 >
                   <Palette className="w-5 h-5 text-[#f6c344]" />
-                  <span className="text-xs font-black text-white">{isAr ? 'تلابيس مقاعد كبار العملاء' : 'Bespoke Covers'}</span>
-                  <span className="text-[11px] text-amber-200/90 font-bold">{adminSettings.seatsPrice} {'⃁'}</span>
+                  <span className="text-xs font-black text-slate-900">{isAr ? 'تلابيس مقاعد كبار العملاء' : 'Bespoke Covers'}</span>
+                  <span className="text-[11px] text-amber-700 font-bold">{adminSettings.seatsPrice} {'⃁'}</span>
                   <span className="text-[9px] text-slate-400 line-through">{adminSettings.seatsOldPrice} {'⃁'}</span>
                 </button>
 
@@ -712,13 +717,13 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                   onClick={() => setStudioType('mats')}
                   className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
                     studioType === 'mats'
-                      ? 'bg-gradient-to-b from-[#d5a027]/25 to-purple-900/40 border-[#f6c344] shadow-[0_0_20px_rgba(213,160,39,0.3)] ring-2 ring-[#f6c344]/30'
-                      : 'bg-white/5 border-white/10 hover:bg-white/10 text-slate-300'
+                      ? 'bg-gradient-to-b from-amber-50 to-white border-[#d5a027] shadow-md ring-2 ring-[#d5a027]/25'
+                      : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-500'
                   }`}
                 >
                   <Layers className="w-5 h-5 text-emerald-400" />
-                  <span className="text-xs font-black text-white">{isAr ? 'أرضيات 5D ليزر' : '5D Laser Mats'}</span>
-                  <span className="text-[11px] text-amber-200/90 font-bold">{adminSettings.matsPrice} {'⃁'}</span>
+                  <span className="text-xs font-black text-slate-900">{isAr ? 'أرضيات 5D ليزر' : '5D Laser Mats'}</span>
+                  <span className="text-[11px] text-amber-700 font-bold">{adminSettings.matsPrice} {'⃁'}</span>
                   <span className="text-[9px] text-slate-400 line-through">{adminSettings.matsOldPrice} {'⃁'}</span>
                 </button>
 
@@ -728,15 +733,15 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                   onClick={() => setStudioType('combo')}
                   className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 relative overflow-hidden ${
                     studioType === 'combo'
-                      ? 'bg-gradient-to-b from-amber-500/30 to-purple-900/50 border-[#f6c344] shadow-[0_0_25px_rgba(213,160,39,0.4)] ring-2 ring-[#f6c344]'
-                      : 'bg-white/5 border-white/10 hover:bg-white/10 text-slate-300'
+                      ? 'bg-gradient-to-b from-amber-100 to-white border-[#d5a027] shadow-md ring-2 ring-[#d5a027]/40'
+                      : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-500'
                   }`}
                 >
-                  <span className="absolute top-1 right-1 bg-amber-400 text-[#120224] text-[8px] font-black px-1.5 py-0.2 rounded-full uppercase">
+                  <span className="absolute top-1 right-1 bg-amber-400 text-slate-900 text-[8px] font-black px-1.5 py-0.2 rounded-full uppercase">
                     {isAr ? 'وفر 150+' : 'Save 150+'}
                   </span>
-                  <Award className="w-5 h-5 text-amber-300" />
-                  <span className="text-xs font-black text-white">{isAr ? 'البكج الشامل' : 'Full Combo'}</span>
+                  <Award className="w-5 h-5 text-amber-700" />
+                  <span className="text-xs font-black text-slate-900">{isAr ? 'البكج الشامل' : 'Full Combo'}</span>
                   <span className="text-[11px] text-[#f6c344] font-black">{adminSettings.comboPrice} {'⃁'}</span>
                   <span className="text-[9px] text-slate-400 line-through">{adminSettings.comboOldPrice} {'⃁'}</span>
                 </button>
@@ -746,11 +751,11 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
             {/* Step 3: Material Grade Selector */}
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-[#d5a027] text-[#16032e] text-[10px] flex items-center justify-center font-black">3</span>
+                <label className="text-xs font-black text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-[#d5a027] text-slate-900 text-[10px] flex items-center justify-center font-black">3</span>
                   <span>{isAr ? 'اختر خامة الجلد والتطريز الفاخر:' : 'Select Leather Grade & Stitching:'}</span>
                 </label>
-                <span className="text-xs font-bold text-amber-300">
+                <span className="text-xs font-bold text-amber-700">
                   {isAr ? activeGrade.nameAr : activeGrade.nameEn}
                 </span>
               </div>
@@ -773,8 +778,8 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                       onClick={() => setSelectedMaterial(grade.id as any)}
                       className={`p-3 rounded-xl border text-start transition-all cursor-pointer flex items-center justify-between gap-2.5 ${
                         isSelected
-                          ? 'bg-white/15 border-[#f6c344] shadow-md text-white ring-1 ring-[#f6c344]/40'
-                          : 'bg-white/5 border-white/10 hover:bg-white/10 text-slate-300'
+                          ? 'bg-amber-50 border-[#d5a027] shadow-md text-slate-900 ring-1 ring-[#d5a027]/40'
+                          : 'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-500'
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
@@ -783,9 +788,9 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                           style={{ backgroundColor: grade.colorHex }}
                         />
                         <div className="min-w-0">
-                          <div className="text-xs font-black text-white flex items-center gap-1.5">
+                          <div className="text-xs font-black text-slate-900 flex items-center gap-1.5">
                             <span className="truncate">{isAr ? grade.nameAr : grade.nameEn}</span>
-                            <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-white/10 text-amber-300 font-bold shrink-0">
+                            <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-slate-100 text-amber-700 font-bold shrink-0">
                               {isAr ? grade.badgeAr : grade.badgeEn}
                             </span>
                           </div>
@@ -796,7 +801,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                       </div>
 
                       <div className="text-end shrink-0">
-                        <span className={`text-xs font-black ${priceAddon === 0 ? 'text-emerald-400' : 'text-amber-300'}`}>
+                        <span className={`text-xs font-black ${priceAddon === 0 ? 'text-emerald-400' : 'text-amber-700'}`}>
                           {priceAddon === 0 ? (isAr ? 'مشمول' : 'Included') : `+${priceAddon} ${'⃁'}`}
                         </span>
                       </div>
@@ -809,11 +814,11 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
             {/* Step 4: Color Palette Swatches */}
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-5 h-5 rounded-full bg-[#d5a027] text-[#16032e] text-[10px] flex items-center justify-center font-black">4</span>
+                <label className="text-xs font-black text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-[#d5a027] text-slate-900 text-[10px] flex items-center justify-center font-black">4</span>
                   <span>{isAr ? 'اختر لون الوكالة المتناسق:' : 'Select OEM Interior Color:'}</span>
                 </label>
-                <span className="text-xs font-extrabold text-[#f6c344] bg-white/10 px-2.5 py-0.5 rounded-full border border-white/10">
+                <span className="text-xs font-extrabold text-[#f6c344] bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
                   {isAr ? selectedColor.nameAr : selectedColor.nameEn}
                 </span>
               </div>
@@ -828,15 +833,15 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                       onClick={() => setSelectedColor(c)}
                       className={`group relative flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all cursor-pointer ${
                         isSelected
-                          ? 'bg-white/20 border-[#f6c344] shadow-lg ring-2 ring-[#f6c344]/40'
-                          : 'bg-white/5 border-white/10 hover:bg-white/10'
+                          ? 'bg-amber-50 border-[#d5a027] shadow-md ring-2 ring-[#d5a027]/30'
+                          : 'bg-slate-50 border-slate-200 hover:bg-slate-50'
                       }`}
                     >
                       <span 
                         className="w-4 h-4 rounded-full border border-black/30 shadow-xs shrink-0" 
                         style={{ backgroundColor: c.hex }} 
                       />
-                      <span className="text-xs font-bold text-white">
+                      <span className="text-xs font-bold text-slate-800">
                         {isAr ? c.nameAr : c.nameEn}
                       </span>
                       {isSelected && <Check className="w-3.5 h-3.5 text-[#f6c344]" />}
@@ -847,9 +852,9 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
             </div>
 
             {/* Step 5: Custom Addons & VIP Touches */}
-            <div className="space-y-2.5 pt-1 border-t border-white/10">
-              <label className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                <span className="w-5 h-5 rounded-full bg-[#d5a027] text-[#16032e] text-[10px] flex items-center justify-center font-black">5</span>
+            <div className="space-y-2.5 pt-1 border-t border-slate-200">
+              <label className="text-xs font-black text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-[#d5a027] text-slate-900 text-[10px] flex items-center justify-center font-black">5</span>
                 <span>{isAr ? 'تخصيص الإضافات واللمسات الملكية:' : 'VIP Custom Extras & Add-ons:'}</span>
               </label>
 
@@ -860,12 +865,12 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                   onClick={() => setAddonLogo(!addonLogo)}
                   className={`p-2.5 rounded-xl border text-start transition-all cursor-pointer flex items-center justify-between gap-2 ${
                     addonLogo 
-                      ? 'bg-amber-400/15 border-[#f6c344] text-white shadow-xs' 
-                      : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+                      ? 'bg-amber-50 border-[#d5a027] text-slate-900 shadow-xs' 
+                      : 'bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-50'
                   }`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className={`w-4 h-4 rounded flex items-center justify-center border ${addonLogo ? 'bg-[#f6c344] border-[#f6c344] text-[#16032e]' : 'border-white/20'}`}>
+                    <div className={`w-4 h-4 rounded flex items-center justify-center border ${addonLogo ? 'bg-[#f6c344] border-[#f6c344] text-slate-900' : 'border-slate-300'}`}>
                       {addonLogo && <Check className="w-3 h-3 stroke-[3]" />}
                     </div>
                     <span className="text-xs font-bold truncate">
@@ -883,19 +888,19 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                   onClick={() => setAddonSteering(!addonSteering)}
                   className={`p-2.5 rounded-xl border text-start transition-all cursor-pointer flex items-center justify-between gap-2 ${
                     addonSteering 
-                      ? 'bg-amber-400/15 border-[#f6c344] text-white shadow-xs' 
-                      : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+                      ? 'bg-amber-50 border-[#d5a027] text-slate-900 shadow-xs' 
+                      : 'bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-50'
                   }`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className={`w-4 h-4 rounded flex items-center justify-center border ${addonSteering ? 'bg-[#f6c344] border-[#f6c344] text-[#16032e]' : 'border-white/20'}`}>
+                    <div className={`w-4 h-4 rounded flex items-center justify-center border ${addonSteering ? 'bg-[#f6c344] border-[#f6c344] text-slate-900' : 'border-slate-300'}`}>
                       {addonSteering && <Check className="w-3 h-3 stroke-[3]" />}
                     </div>
                     <span className="text-xs font-bold truncate">
                       {isAr ? 'تلبيسة دركسون' : 'Steering Cover'}
                     </span>
                   </div>
-                  <span className="text-[10px] font-black text-amber-300 shrink-0">
+                  <span className="text-[10px] font-black text-amber-700 shrink-0">
                     +{adminSettings.steeringAddon} {'⃁'}
                   </span>
                 </button>
@@ -906,19 +911,19 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                   onClick={() => setAddonCushions(!addonCushions)}
                   className={`p-2.5 rounded-xl border text-start transition-all cursor-pointer flex items-center justify-between gap-2 ${
                     addonCushions 
-                      ? 'bg-amber-400/15 border-[#f6c344] text-white shadow-xs' 
-                      : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+                      ? 'bg-amber-50 border-[#d5a027] text-slate-900 shadow-xs' 
+                      : 'bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-50'
                   }`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className={`w-4 h-4 rounded flex items-center justify-center border ${addonCushions ? 'bg-[#f6c344] border-[#f6c344] text-[#16032e]' : 'border-white/20'}`}>
+                    <div className={`w-4 h-4 rounded flex items-center justify-center border ${addonCushions ? 'bg-[#f6c344] border-[#f6c344] text-slate-900' : 'border-slate-300'}`}>
                       {addonCushions && <Check className="w-3 h-3 stroke-[3]" />}
                     </div>
                     <span className="text-xs font-bold truncate">
                       {isAr ? 'مخدات ميموري 2x' : 'Memory Pillows 2x'}
                     </span>
                   </div>
-                  <span className="text-[10px] font-black text-amber-300 shrink-0">
+                  <span className="text-[10px] font-black text-amber-700 shrink-0">
                     +{adminSettings.cushionsAddon} {'⃁'}
                   </span>
                 </button>
@@ -942,7 +947,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                 
                 {/* Floating Preview Badges */}
                 <div className="absolute top-3 inset-x-3 flex items-center justify-between pointer-events-none">
-                  <span className="bg-[#16032e]/90 text-[#f6c344] text-[10px] font-black px-2.5 py-1 rounded-full border border-[#f6c344]/40 backdrop-blur-md shadow">
+                  <span className="bg-slate-900/80 text-[#f6c344] text-[10px] font-black px-2.5 py-1 rounded-full border border-[#f6c344]/40 backdrop-blur-md shadow">
                     {isAr ? 'تفصيل ليزري 0.1 مم' : '0.1mm Laser Fit'}
                   </span>
                   <span className="bg-emerald-500/90 text-slate-950 text-[10px] font-black px-2.5 py-1 rounded-full shadow flex items-center gap-1">
@@ -953,14 +958,14 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
 
                 {/* For Combo Package: Quick Preview Switcher Tabs */}
                 {studioType === 'combo' && (
-                  <div className="absolute top-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5 p-1 rounded-xl bg-black/60 backdrop-blur-md border border-white/20 z-20">
+                  <div className="absolute top-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5 p-1 rounded-xl bg-white/95 backdrop-blur-md border border-slate-200 shadow-md z-20">
                     <button
                       type="button"
                       onClick={() => setPreviewTab('seats')}
                       className={`px-2.5 py-0.5 rounded-lg text-[10px] font-black transition-all cursor-pointer flex items-center gap-1 ${
                         previewTab === 'seats'
-                          ? 'bg-[#d5a027] text-[#16032e] shadow-xs'
-                          : 'text-slate-300 hover:text-white'
+                          ? 'bg-[#d5a027] text-slate-900 shadow-xs'
+                          : 'text-slate-500 hover:text-slate-900'
                       }`}
                     >
                       <Eye className="w-3 h-3" />
@@ -971,8 +976,8 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                       onClick={() => setPreviewTab('mats')}
                       className={`px-2.5 py-0.5 rounded-lg text-[10px] font-black transition-all cursor-pointer flex items-center gap-1 ${
                         previewTab === 'mats'
-                          ? 'bg-[#d5a027] text-[#16032e] shadow-xs'
-                          : 'text-slate-300 hover:text-white'
+                          ? 'bg-[#d5a027] text-slate-900 shadow-xs'
+                          : 'text-slate-500 hover:text-slate-900'
                       }`}
                     >
                       <Layers className="w-3 h-3" />
@@ -982,41 +987,41 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                 )}
 
                 {/* Bottom Car & Customization Indicator */}
-                <div className="absolute bottom-2 inset-x-3 flex items-center justify-between text-xs text-slate-200">
+                <div className="absolute bottom-2 inset-x-3 flex items-center justify-between text-xs text-slate-600">
                   <div className="min-w-0 pr-2">
                     <div className="font-black text-amber-200 truncate">
                       {isAr ? selectedCar.nameAr : selectedCar.nameEn}
                     </div>
-                    <div className="text-[10px] text-slate-300 truncate">
+                    <div className="text-[10px] text-slate-500 truncate">
                       {studioType === 'combo' ? (isAr ? 'البكج الشامل (مقاعد + أرضيات 5D)' : 'Full VIP Combo') : (studioType === 'mats' ? (isAr ? 'أرضيات 5D ليزر' : '5D Laser Mats') : (isAr ? 'تلابيس مقاعد كبار العملاء' : 'VIP Seat Covers'))}
                     </div>
                   </div>
-                  <span className="text-[11px] font-extrabold text-[#f6c344] bg-black/60 px-2 py-0.5 rounded-md border border-white/10 shrink-0">
+                  <span className="text-[11px] font-extrabold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-slate-200 shrink-0">
                     {isAr ? selectedColor.nameAr : selectedColor.nameEn}
                   </span>
                 </div>
               </div>
 
               {/* Price & Action Area */}
-              <div className="p-4 sm:p-5 bg-gradient-to-b from-slate-900 to-[#140226] border-t border-white/10 space-y-4">
+              <div className="p-4 sm:p-5 bg-gradient-to-b from-white to-slate-50 border-t border-slate-200 space-y-4">
                 
                 {/* Dynamic Configuration Summary Badges */}
                 <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-                  <span className="bg-white/10 text-amber-200 px-2 py-0.5 rounded-md border border-white/10 font-bold">
+                  <span className="bg-amber-50 text-amber-800 px-2 py-0.5 rounded-md border border-amber-200 font-bold">
                     {isAr ? activeGrade.nameAr : activeGrade.nameEn}
                   </span>
                   {addonLogo && (
-                    <span className="bg-emerald-500/15 text-emerald-300 px-2 py-0.5 rounded-md border border-emerald-500/30 font-bold">
+                    <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-md border border-emerald-200 font-bold">
                       {isAr ? 'تطريز ليزري مجاناً' : 'Free Logo'}
                     </span>
                   )}
                   {addonSteering && (
-                    <span className="bg-amber-400/15 text-amber-300 px-2 py-0.5 rounded-md border border-amber-400/30 font-bold">
+                    <span className="bg-amber-50 text-amber-800 px-2 py-0.5 rounded-md border border-amber-300 font-bold">
                       {isAr ? 'تلبيسة دركسون' : 'Steering Cover'}
                     </span>
                   )}
                   {addonCushions && (
-                    <span className="bg-purple-400/15 text-purple-300 px-2 py-0.5 rounded-md border border-purple-400/30 font-bold">
+                    <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-300 font-bold">
                       {isAr ? 'مخدات رقبة 2x' : '2x Pillows'}
                     </span>
                   )}
@@ -1024,19 +1029,19 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-[11px] text-slate-400 font-semibold">{isAr ? 'السعر الإجمالي بعد التخصيص:' : 'Total Price with Tax:'}</div>
+                    <div className="text-[11px] text-slate-500 font-semibold">{isAr ? 'السعر الإجمالي بعد التخصيص:' : 'Total Price with Tax:'}</div>
                     <div className="flex items-baseline gap-2 mt-0.5">
-                      <span className="text-2xl sm:text-3xl font-black text-[#f6c344]">{studioTotalPrice}</span>
-                      <span className="text-xs font-bold text-amber-200">{'⃁'}</span>
-                      <span className="text-xs line-through text-slate-500 ml-1">{studioOldTotalPrice} {'⃁'}</span>
+                      <span className="text-2xl sm:text-3xl font-black text-amber-600">{studioTotalPrice}</span>
+                      <span className="text-xs font-bold text-amber-700">{'⃁'}</span>
+                      <span className="text-xs line-through text-slate-400 ml-1">{studioOldTotalPrice} {'⃁'}</span>
                     </div>
                   </div>
 
                   <div className="text-end">
-                    <span className="inline-block bg-amber-400 text-[#120224] text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
+                    <span className="inline-block bg-amber-400 text-slate-900 text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
                       {isAr ? `وفرت${studioTotalSavings}⃁` : `Save ${studioTotalSavings} ⃁`}
                     </span>
-                    <div className="text-[10px] text-slate-400 mt-1">{isAr ? adminSettings.installationNoteAr : adminSettings.installationNoteEn}</div>
+                    <div className="text-[10px] text-slate-500 mt-1">{isAr ? adminSettings.installationNoteAr : adminSettings.installationNoteEn}</div>
                   </div>
                 </div>
 
@@ -1045,9 +1050,9 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                   <button
                     type="button"
                     onClick={handleCustomizerAddToCart}
-                    className="py-2.5 px-3 bg-gradient-to-r from-[#d5a027] via-[#f6c344] to-[#e5a93b] text-[#120224] text-xs font-black rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-lg hover:brightness-105 active:scale-95 transition-all"
+                    className="py-2.5 px-3 bg-gradient-to-r from-[#d5a027] via-[#f6c344] to-[#e5a93b] text-slate-900 text-xs font-black rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-lg hover:brightness-105 active:scale-95 transition-all"
                   >
-                    <ShoppingCart className="w-4 h-4 text-[#120224]" />
+                    <ShoppingCart className="w-4 h-4 text-slate-900" />
                     <span>{isAr ? 'أضف للسلة' : 'Add to Cart'}</span>
                   </button>
 
@@ -1073,16 +1078,16 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
             ======================================================== */}
         {isAdminModalOpen && (
           <div className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto" dir={isAr ? 'rtl' : 'ltr'}>
-            <div className="relative w-full max-w-2xl bg-gradient-to-b from-[#1c0438] via-[#120224] to-[#090112] border-2 border-[#d5a027] rounded-3xl shadow-[0_25px_70px_rgba(0,0,0,0.85)] overflow-hidden text-white flex flex-col max-h-[92vh]">
+            <div className="relative w-full max-w-2xl bg-white border-2 border-[#d5a027] rounded-3xl shadow-[0_25px_50px_rgba(15,23,42,0.18)] overflow-hidden text-slate-900 flex flex-col max-h-[92vh]">
               
               {/* Modal Header */}
-              <div className="p-4 sm:p-5 bg-gradient-to-r from-purple-950 via-[#1e043a] to-slate-950 border-b border-white/10 flex items-center justify-between">
+              <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-50 via-white to-slate-100 border-b border-slate-200 flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 rounded-xl bg-amber-400/20 text-[#f6c344] border border-[#d5a027]/40 flex items-center justify-center shadow-inner">
                     <Settings className="w-5 h-5 animate-spin-slow" />
                   </div>
                   <div>
-                    <h4 className="text-sm sm:text-base font-black text-white">
+                    <h4 className="text-sm sm:text-base font-black text-slate-900">
                       {isAr ? 'لوحة تحكم وتعديل استوديو التخصيص' : 'VIP Customizer Studio Admin Controls'}
                     </h4>
                     <p className="text-[11px] text-amber-200/80 font-medium">
@@ -1094,21 +1099,21 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                 <button
                   type="button"
                   onClick={() => setIsAdminModalOpen(false)}
-                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-colors cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
               {/* Navigation Tabs */}
-              <div className="flex items-center border-b border-white/10 bg-black/30 p-2 gap-1.5 overflow-x-auto text-xs font-bold">
+              <div className="flex items-center border-b border-slate-200 bg-slate-50 p-2 gap-1.5 overflow-x-auto text-xs font-bold">
                 <button
                   type="button"
                   onClick={() => setAdminActiveTab('packages')}
                   className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                     adminActiveTab === 'packages'
-                      ? 'bg-gradient-to-r from-[#d5a027] to-[#f6c344] text-[#120224] font-black shadow-sm'
-                      : 'text-slate-300 hover:bg-white/5'
+                      ? 'bg-gradient-to-r from-[#d5a027] to-[#f6c344] text-slate-900 font-black shadow-sm'
+                      : 'text-slate-500 hover:bg-slate-50'
                   }`}
                 >
                   <DollarSign className="w-3.5 h-3.5" />
@@ -1120,8 +1125,8 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                   onClick={() => setAdminActiveTab('materials')}
                   className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                     adminActiveTab === 'materials'
-                      ? 'bg-gradient-to-r from-[#d5a027] to-[#f6c344] text-[#120224] font-black shadow-sm'
-                      : 'text-slate-300 hover:bg-white/5'
+                      ? 'bg-gradient-to-r from-[#d5a027] to-[#f6c344] text-slate-900 font-black shadow-sm'
+                      : 'text-slate-500 hover:bg-slate-50'
                   }`}
                 >
                   <Palette className="w-3.5 h-3.5" />
@@ -1133,8 +1138,8 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                   onClick={() => setAdminActiveTab('texts')}
                   className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                     adminActiveTab === 'texts'
-                      ? 'bg-gradient-to-r from-[#d5a027] to-[#f6c344] text-[#120224] font-black shadow-sm'
-                      : 'text-slate-300 hover:bg-white/5'
+                      ? 'bg-gradient-to-r from-[#d5a027] to-[#f6c344] text-slate-900 font-black shadow-sm'
+                      : 'text-slate-500 hover:bg-slate-50'
                   }`}
                 >
                   <Edit3 className="w-3.5 h-3.5" />
@@ -1146,8 +1151,8 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                   onClick={() => setAdminActiveTab('media')}
                   className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                     adminActiveTab === 'media'
-                      ? 'bg-gradient-to-r from-[#d5a027] to-[#f6c344] text-[#120224] font-black shadow-sm'
-                      : 'text-slate-300 hover:bg-white/5'
+                      ? 'bg-gradient-to-r from-[#d5a027] to-[#f6c344] text-slate-900 font-black shadow-sm'
+                      : 'text-slate-500 hover:bg-slate-50'
                   }`}
                 >
                   <ImageIcon className="w-3.5 h-3.5" />
@@ -1161,21 +1166,21 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                 {/* TAB 1: PACKAGES & BASE PRICING */}
                 {adminActiveTab === 'packages' && (
                   <div className="space-y-4">
-                    <div className="text-xs text-amber-300 font-bold bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
-                      {isAr ? '💡 حدد السعر الحالي (بعد العرض) والسعر القديم (المشطوب) لكل بكج:' : '💡 Set active offer price and old crossed-out price for each package:'}
+                    <div className="text-xs text-amber-700 font-bold bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
+                      {isAr ? 'حدد السعر الحالي (بعد العرض) والسعر القديم (المشطوب) لكل بكج:' : 'Set active offer price and old crossed-out price for each package:'}
                     </div>
 
                     {/* Seats */}
-                    <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
                       <div className="text-xs font-black text-[#f6c344]">{isAr ? '1. بكج تلابيس المقاعد كبار العملاء' : '1. Bespoke Seat Covers'}</div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'سعر البيع (⃁):' : 'Offer Price (⃁):'}</label>
+                          <label className="text-[11px] text-slate-500 block mb-1">{isAr ? 'سعر البيع (⃁):' : 'Offer Price (⃁):'}</label>
                           <input 
                             type="number"
                             value={editForm.seatsPrice}
                             onChange={e => setEditForm({ ...editForm, seatsPrice: Number(e.target.value) || 0 })}
-                            className="w-full h-10 px-3 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold focus:border-[#f6c344] focus:outline-none"
+                            className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:border-[#f6c344] focus:outline-none"
                           />
                         </div>
                         <div>
@@ -1184,23 +1189,23 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                             type="number"
                             value={editForm.seatsOldPrice}
                             onChange={e => setEditForm({ ...editForm, seatsOldPrice: Number(e.target.value) || 0 })}
-                            className="w-full h-10 px-3 rounded-xl bg-slate-900 border border-white/15 text-slate-400 text-xs font-bold focus:border-[#f6c344] focus:outline-none"
+                            className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:border-[#f6c344] focus:outline-none"
                           />
                         </div>
                       </div>
                     </div>
 
                     {/* Mats */}
-                    <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
                       <div className="text-xs font-black text-emerald-400">{isAr ? '2. بكج أرضيات 5D ليزر' : '2. 5D Laser Armor Mats'}</div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'سعر البيع (⃁):' : 'Offer Price (⃁):'}</label>
+                          <label className="text-[11px] text-slate-500 block mb-1">{isAr ? 'سعر البيع (⃁):' : 'Offer Price (⃁):'}</label>
                           <input 
                             type="number"
                             value={editForm.matsPrice}
                             onChange={e => setEditForm({ ...editForm, matsPrice: Number(e.target.value) || 0 })}
-                            className="w-full h-10 px-3 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold focus:border-[#f6c344] focus:outline-none"
+                            className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:border-[#f6c344] focus:outline-none"
                           />
                         </div>
                         <div>
@@ -1209,23 +1214,23 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                             type="number"
                             value={editForm.matsOldPrice}
                             onChange={e => setEditForm({ ...editForm, matsOldPrice: Number(e.target.value) || 0 })}
-                            className="w-full h-10 px-3 rounded-xl bg-slate-900 border border-white/15 text-slate-400 text-xs font-bold focus:border-[#f6c344] focus:outline-none"
+                            className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:border-[#f6c344] focus:outline-none"
                           />
                         </div>
                       </div>
                     </div>
 
                     {/* Combo */}
-                    <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2">
-                      <div className="text-xs font-black text-amber-300">{isAr ? '3. البكج الشامل (مقاعد + أرضيات)' : '3. Full VIP Combo'}</div>
+                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                      <div className="text-xs font-black text-amber-700">{isAr ? '3. البكج الشامل (مقاعد + أرضيات)' : '3. Full VIP Combo'}</div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'سعر البيع (⃁):' : 'Offer Price (⃁):'}</label>
+                          <label className="text-[11px] text-slate-500 block mb-1">{isAr ? 'سعر البيع (⃁):' : 'Offer Price (⃁):'}</label>
                           <input 
                             type="number"
                             value={editForm.comboPrice}
                             onChange={e => setEditForm({ ...editForm, comboPrice: Number(e.target.value) || 0 })}
-                            className="w-full h-10 px-3 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold focus:border-[#f6c344] focus:outline-none"
+                            className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:border-[#f6c344] focus:outline-none"
                           />
                         </div>
                         <div>
@@ -1234,7 +1239,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                             type="number"
                             value={editForm.comboOldPrice}
                             onChange={e => setEditForm({ ...editForm, comboOldPrice: Number(e.target.value) || 0 })}
-                            className="w-full h-10 px-3 rounded-xl bg-slate-900 border border-white/15 text-slate-400 text-xs font-bold focus:border-[#f6c344] focus:outline-none"
+                            className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:border-[#f6c344] focus:outline-none"
                           />
                         </div>
                       </div>
@@ -1245,68 +1250,68 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                 {/* TAB 2: LEATHER MATERIALS & ADDONS */}
                 {adminActiveTab === 'materials' && (
                   <div className="space-y-4">
-                    <div className="text-xs text-amber-300 font-bold bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
-                      {isAr ? '💡 حدد تكلفة الإضافة الإضافية لكل نوع جلد أو ملحق:' : '💡 Set additional addon price for each leather grade or accessory:'}
+                    <div className="text-xs text-amber-700 font-bold bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
+                      {isAr ? 'حدد تكلفة الإضافة الإضافية لكل نوع جلد أو ملحق:' : 'Set additional addon price for each leather grade or accessory:'}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'جلد نابا ألماني (افتراضي):' : 'German Nappa Addon:'}</label>
+                        <label className="text-[11px] text-slate-500 block mb-1">{isAr ? 'جلد نابا ألماني (افتراضي):' : 'German Nappa Addon:'}</label>
                         <input 
                           type="number"
                           value={editForm.nappaAddon}
                           onChange={e => setEditForm({ ...editForm, nappaAddon: Number(e.target.value) || 0 })}
-                          className="w-full h-10 px-3 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold focus:border-[#f6c344] focus:outline-none"
+                          className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:border-[#f6c344] focus:outline-none"
                         />
                       </div>
 
                       <div>
-                        <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'تطريز دايموند 5D:' : '5D Diamond Quilted Addon:'}</label>
+                        <label className="text-[11px] text-slate-500 block mb-1">{isAr ? 'تطريز دايموند 5D:' : '5D Diamond Quilted Addon:'}</label>
                         <input 
                           type="number"
                           value={editForm.diamondAddon}
                           onChange={e => setEditForm({ ...editForm, diamondAddon: Number(e.target.value) || 0 })}
-                          className="w-full h-10 px-3 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold focus:border-[#f6c344] focus:outline-none"
+                          className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:border-[#f6c344] focus:outline-none"
                         />
                       </div>
 
                       <div>
-                        <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'قماش ياباني بارد 55°C:' : 'Cooling Fabric Addon:'}</label>
+                        <label className="text-[11px] text-slate-500 block mb-1">{isAr ? 'قماش ياباني بارد 55°C:' : 'Cooling Fabric Addon:'}</label>
                         <input 
                           type="number"
                           value={editForm.coolingAddon}
                           onChange={e => setEditForm({ ...editForm, coolingAddon: Number(e.target.value) || 0 })}
-                          className="w-full h-10 px-3 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold focus:border-[#f6c344] focus:outline-none"
+                          className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:border-[#f6c344] focus:outline-none"
                         />
                       </div>
 
                       <div>
-                        <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'شامواه كانتارا رويال:' : 'Alcantara Suede Addon:'}</label>
+                        <label className="text-[11px] text-slate-500 block mb-1">{isAr ? 'شامواه كانتارا رويال:' : 'Alcantara Suede Addon:'}</label>
                         <input 
                           type="number"
                           value={editForm.alcantaraAddon}
                           onChange={e => setEditForm({ ...editForm, alcantaraAddon: Number(e.target.value) || 0 })}
-                          className="w-full h-10 px-3 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold focus:border-[#f6c344] focus:outline-none"
+                          className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:border-[#f6c344] focus:outline-none"
                         />
                       </div>
 
                       <div>
-                        <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'تلبيسة دركسون متناسقة:' : 'Steering Cover Addon:'}</label>
+                        <label className="text-[11px] text-slate-500 block mb-1">{isAr ? 'تلبيسة دركسون متناسقة:' : 'Steering Cover Addon:'}</label>
                         <input 
                           type="number"
                           value={editForm.steeringAddon}
                           onChange={e => setEditForm({ ...editForm, steeringAddon: Number(e.target.value) || 0 })}
-                          className="w-full h-10 px-3 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold focus:border-[#f6c344] focus:outline-none"
+                          className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:border-[#f6c344] focus:outline-none"
                         />
                       </div>
 
                       <div>
-                        <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'مخدات رقبة ميموري فوم 2x:' : 'Memory Foam Pillows 2x Addon:'}</label>
+                        <label className="text-[11px] text-slate-500 block mb-1">{isAr ? 'مخدات رقبة ميموري فوم 2x:' : 'Memory Foam Pillows 2x Addon:'}</label>
                         <input 
                           type="number"
                           value={editForm.cushionsAddon}
                           onChange={e => setEditForm({ ...editForm, cushionsAddon: Number(e.target.value) || 0 })}
-                          className="w-full h-10 px-3 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold focus:border-[#f6c344] focus:outline-none"
+                          className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:border-[#f6c344] focus:outline-none"
                         />
                       </div>
                     </div>
@@ -1317,53 +1322,53 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                 {adminActiveTab === 'texts' && (
                   <div className="space-y-3.5">
                     <div>
-                      <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'عنوان القسم الرئيسي (عربي):' : 'Studio Title (Arabic):'}</label>
+                      <label className="text-[11px] text-slate-500 block mb-1">{isAr ? 'عنوان القسم الرئيسي (عربي):' : 'Studio Title (Arabic):'}</label>
                       <input 
                         type="text"
                         value={editForm.titleAr}
                         onChange={e => setEditForm({ ...editForm, titleAr: e.target.value })}
-                        className="w-full h-10 px-3 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold focus:border-[#f6c344] focus:outline-none"
+                        className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:border-[#f6c344] focus:outline-none"
                       />
                     </div>
 
                     <div>
-                      <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'الوصف الفرعي (عربي):' : 'Subtitle (Arabic):'}</label>
+                      <label className="text-[11px] text-slate-500 block mb-1">{isAr ? 'الوصف الفرعي (عربي):' : 'Subtitle (Arabic):'}</label>
                       <textarea 
                         rows={2}
                         value={editForm.subtitleAr}
                         onChange={e => setEditForm({ ...editForm, subtitleAr: e.target.value })}
-                        className="w-full p-2.5 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-medium focus:border-[#f6c344] focus:outline-none"
+                        className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-medium focus:border-[#f6c344] focus:outline-none"
                       />
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
-                        <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'نص الضمان (عربي):' : 'Warranty Badge:'}</label>
+                        <label className="text-[11px] text-slate-500 block mb-1">{isAr ? 'نص الضمان (عربي):' : 'Warranty Badge:'}</label>
                         <input 
                           type="text"
                           value={editForm.warrantyBadgeAr}
                           onChange={e => setEditForm({ ...editForm, warrantyBadgeAr: e.target.value })}
-                          className="w-full h-10 px-3 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold focus:border-[#f6c344] focus:outline-none"
+                          className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:border-[#f6c344] focus:outline-none"
                         />
                       </div>
 
                       <div>
-                        <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'مدة التجهيز (عربي):' : 'Turnaround Badge:'}</label>
+                        <label className="text-[11px] text-slate-500 block mb-1">{isAr ? 'مدة التجهيز (عربي):' : 'Turnaround Badge:'}</label>
                         <input 
                           type="text"
                           value={editForm.turnaroundBadgeAr}
                           onChange={e => setEditForm({ ...editForm, turnaroundBadgeAr: e.target.value })}
-                          className="w-full h-10 px-3 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold focus:border-[#f6c344] focus:outline-none"
+                          className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:border-[#f6c344] focus:outline-none"
                         />
                       </div>
 
                       <div>
-                        <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'مكان التركيب (عربي):' : 'Installation Note:'}</label>
+                        <label className="text-[11px] text-slate-500 block mb-1">{isAr ? 'مكان التركيب (عربي):' : 'Installation Note:'}</label>
                         <input 
                           type="text"
                           value={editForm.installationNoteAr}
                           onChange={e => setEditForm({ ...editForm, installationNoteAr: e.target.value })}
-                          className="w-full h-10 px-3 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold focus:border-[#f6c344] focus:outline-none"
+                          className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:border-[#f6c344] focus:outline-none"
                         />
                       </div>
                     </div>
@@ -1373,29 +1378,29 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                 {/* TAB 4: MEDIA OVERRIDES */}
                 {adminActiveTab === 'media' && (
                   <div className="space-y-4">
-                    <div className="text-xs text-amber-300 font-bold bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
-                      {isAr ? '💡 يمكنك استبدال صورة المقاعد أو الأرضيات الافتراضية برابط صورة مخصصة:' : '💡 You can optionally override default seat or floor mat images with custom URLs:'}
+                    <div className="text-xs text-amber-700 font-bold bg-amber-500/10 p-2.5 rounded-xl border border-amber-500/20">
+                      {isAr ? 'يمكنك استبدال صورة المقاعد أو الأرضيات الافتراضية برابط صورة مخصصة:' : 'You can optionally override default seat or floor mat images with custom URLs:'}
                     </div>
 
                     <div>
-                      <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'رابط صورة المقاعد المخصصة:' : 'Custom Seats Image URL:'}</label>
+                      <label className="text-[11px] text-slate-500 block mb-1">{isAr ? 'رابط صورة المقاعد المخصصة:' : 'Custom Seats Image URL:'}</label>
                       <input 
                         type="text"
                         placeholder="e.g. /images/seat-covers/camry-beige.jpg or https://..."
                         value={editForm.customSeatsImage || ''}
                         onChange={e => setEditForm({ ...editForm, customSeatsImage: e.target.value })}
-                        className="w-full h-10 px-3 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold focus:border-[#f6c344] focus:outline-none"
+                        className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:border-[#f6c344] focus:outline-none"
                       />
                     </div>
 
                     <div>
-                      <label className="text-[11px] text-slate-300 block mb-1">{isAr ? 'رابط صورة الأرضيات المخصصة:' : 'Custom Mats Image URL:'}</label>
+                      <label className="text-[11px] text-slate-500 block mb-1">{isAr ? 'رابط صورة الأرضيات المخصصة:' : 'Custom Mats Image URL:'}</label>
                       <input 
                         type="text"
                         placeholder="e.g. /images/floor-mats/triangle-floors.jpg or https://..."
                         value={editForm.customMatsImage || ''}
                         onChange={e => setEditForm({ ...editForm, customMatsImage: e.target.value })}
-                        className="w-full h-10 px-3 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold focus:border-[#f6c344] focus:outline-none"
+                        className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs font-bold focus:border-[#f6c344] focus:outline-none"
                       />
                     </div>
                   </div>
@@ -1404,11 +1409,11 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
               </div>
 
               {/* Modal Footer / Actions */}
-              <div className="p-4 sm:p-5 bg-black/40 border-t border-white/10 flex items-center justify-between gap-3 flex-wrap">
+              <div className="p-4 sm:p-5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 flex-wrap">
                 <button
                   type="button"
                   onClick={handleResetAdminSettings}
-                  className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-rose-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                  className="px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-rose-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   <span>{isAr ? 'استعادة الافتراضي' : 'Reset Defaults'}</span>
@@ -1418,7 +1423,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
                   <button
                     type="button"
                     onClick={() => setIsAdminModalOpen(false)}
-                    className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-slate-300 text-xs font-bold transition-all cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-amber-50 text-slate-500 text-xs font-bold transition-all cursor-pointer"
                   >
                     {isAr ? 'إلغاء' : 'Cancel'}
                   </button>
@@ -1470,10 +1475,10 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
           
           {/* Card 1: 3D Laser Scanner */}
           <div className="p-5 rounded-2xl bg-white border border-slate-200 hover:border-[#d5a027] hover:shadow-xl transition-all duration-300 space-y-3 group">
-            <div className="w-12 h-12 rounded-2xl bg-amber-50 text-[#b07e16] border border-amber-200 flex items-center justify-center group-hover:scale-110 group-hover:bg-[#16032e] group-hover:text-[#f6c344] transition-all">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 text-[#b07e16] border border-amber-200 flex items-center justify-center group-hover:scale-110 group-hover:bg-white group-hover:text-[#f6c344] transition-all">
               <Sparkles className="w-6 h-6" />
             </div>
-            <h4 className="text-sm font-black text-slate-900 group-hover:text-[#16032e]">
+            <h4 className="text-sm font-black text-slate-900 group-hover:text-slate-900">
               {isAr ? 'ماسح ليزري بدقة 0.1 مم' : '3D Laser Precision (0.1mm)'}
             </h4>
             <p className="text-xs text-slate-500 leading-relaxed font-medium">
@@ -1488,7 +1493,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
 
           {/* Card 2: Airbag Safety */}
           <div className="p-5 rounded-2xl bg-white border border-slate-200 hover:border-emerald-500 hover:shadow-xl transition-all duration-300 space-y-3 group">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition-all">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-slate-900 transition-all">
               <ShieldCheck className="w-6 h-6" />
             </div>
             <h4 className="text-sm font-black text-slate-900 group-hover:text-emerald-700">
@@ -1506,10 +1511,10 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
 
           {/* Card 3: Extreme Heat Defense */}
           <div className="p-5 rounded-2xl bg-white border border-slate-200 hover:border-amber-500 hover:shadow-xl transition-all duration-300 space-y-3 group">
-            <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center group-hover:scale-110 group-hover:bg-[#16032e] group-hover:text-[#f6c344] transition-all">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center group-hover:scale-110 group-hover:bg-white group-hover:text-[#f6c344] transition-all">
               <Flame className="w-6 h-6 text-amber-500" />
             </div>
-            <h4 className="text-sm font-black text-slate-900 group-hover:text-[#16032e]">
+            <h4 className="text-sm font-black text-slate-900 group-hover:text-slate-900">
               {isAr ? 'عزل حراري صيفي 55°C' : '55°C Saudi Heat Defense'}
             </h4>
             <p className="text-xs text-slate-500 leading-relaxed font-medium">
@@ -1524,7 +1529,7 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
 
           {/* Card 4: Free Fitting */}
           <div className="p-5 rounded-2xl bg-white border border-slate-200 hover:border-blue-500 hover:shadow-xl transition-all duration-300 space-y-3 group">
-            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white transition-all">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-slate-900 transition-all">
               <MapPin className="w-6 h-6" />
             </div>
             <h4 className="text-sm font-black text-slate-900 group-hover:text-blue-700">
@@ -1548,10 +1553,10 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
           FEATURE 3: INSTANT COMPATIBILITY QUICK-TEST ALERT BAR
           (فاحص التوافق السريع الفوري مع تنبيه مطابق ليزري)
           ======================================================== */}
-      <section className="relative rounded-2xl bg-gradient-to-r from-purple-50 via-amber-50/50 to-purple-50 border-2 border-[#d5a027]/40 p-5 sm:p-6 shadow-sm">
+      <section className="relative rounded-2xl bg-gradient-to-r from-slate-50 via-amber-50/60 to-white border-2 border-[#d5a027]/40 p-5 sm:p-6 shadow-sm alsaeedi-anim-fadeup">
         <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3.5 text-center sm:text-start">
-            <div className="w-12 h-12 rounded-2xl bg-[#16032e] text-[#f6c344] flex items-center justify-center shrink-0 shadow-sm">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-50 to-white text-[#d5a027] flex items-center justify-center shrink-0 shadow-sm border border-[#d5a027]/30 alsaeedi-anim-glow">
               <Search className="w-6 h-6" />
             </div>
             <div>
@@ -1566,18 +1571,17 @@ const PostCategoryAdvancedFeaturesComponent: React.FC<PostCategoryAdvancedFeatur
             </div>
           </div>
 
-          {/* Quick Check Input Form */}
           <form onSubmit={handleQuickCheck} className="flex items-center gap-2 w-full lg:w-auto min-w-[280px] sm:min-w-[340px]">
             <input 
               type="text" 
               value={quickCheckQuery}
               onChange={e => setQuickCheckQuery(e.target.value)}
               placeholder={isAr ? "مثال: كامري 2024، تاهو، سوناتا..." : "e.g. Camry 2024, Tahoe, Sonata..."}
-              className="flex-1 h-11 bg-white border border-slate-300 focus:border-[#3e0f77] focus:ring-2 focus:ring-[#d5a027]/40 rounded-xl px-3.5 text-xs font-bold text-slate-900 placeholder-slate-400 focus:outline-none shadow-xs"
+              className="flex-1 h-11 bg-white border border-slate-300 focus:border-[#d5a027] focus:ring-2 focus:ring-[#d5a027]/40 rounded-xl px-3.5 text-xs font-bold text-slate-900 placeholder-slate-400 focus:outline-none shadow-xs"
             />
             <button
               type="submit"
-              className="h-11 px-4 bg-[#16032e] hover:bg-[#270650] text-[#f6c344] text-xs font-black rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md transition-all shrink-0 border border-[#f6c344]/30"
+              className="h-11 px-4 alsaeedi-anim-shimmer text-slate-900 text-xs font-black rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md transition-all shrink-0 border border-[#f6c344]/50"
             >
               <CheckCircle2 className="w-4 h-4 text-emerald-400" />
               <span>{isAr ? 'فحص سريع' : 'Check Now'}</span>

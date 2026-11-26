@@ -35,6 +35,9 @@ function PayLogo({
         loading="lazy"
         decoding="async"
         draggable={false}
+        onError={(e) => {
+          e.currentTarget.style.visibility = 'hidden';
+        }}
       />
     </span>
   );

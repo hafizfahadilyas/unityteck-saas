@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\SocialAccount;
 use App\Models\SocialPost;
 use App\Services\Social\MetaGraphPublisher;
+use App\Services\Social\TikTokPublisher;
+use App\Services\Social\SnapchatPublisher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -17,7 +19,16 @@ class SocialController extends Controller
 
     private const PLATFORMS = ['instagram', 'facebook', 'tiktok', 'snapchat', 'x'];
 
-    private const LIVE_PLATFORMS = ['instagram', 'facebook'];
+    private const LIVE_PLATFORMS = ['instagram', 'facebook', 'tiktok', 'snapchat'];
+
+    private function getPublisher(string $platform): MetaGraphPublisher|TikTokPublisher|SnapchatPublisher
+    {
+        return match ($platform) {
+            'tiktok' => new TikTokPublisher,
+            'snapchat' => new SnapchatPublisher,
+            default => new MetaGraphPublisher,
+        };
+    }
 
     public function accounts(Request $request): JsonResponse
     {
@@ -45,6 +56,8 @@ class SocialController extends Controller
                 'supported' => $live,
                 'is_connected' => $live ? (bool) ($row?->is_connected) : false,
                 'account_name' => $row?->account_name,
+                'handle' => $row?->handle,
+                'followers_count' => ($live && $row && $row->is_connected) ? ($row->followers_count ?? '0') : '0',
                 'page_id' => $row?->page_id,
                 'ig_user_id' => $row?->ig_user_id,
                 'has_token' => $row?->access_token ? true : false,
@@ -69,10 +82,12 @@ class SocialController extends Controller
 
         $data = $request->validate([
             'platform' => ['required', Rule::in(self::LIVE_PLATFORMS)],
-            'access_token' => ['required', 'string', 'min:20'],
+            'access_token' => ['required', 'string', 'min:10'],
             'page_id' => ['nullable', 'string', 'max:64'],
             'ig_user_id' => ['nullable', 'string', 'max:64'],
             'account_name' => ['nullable', 'string', 'max:191'],
+            'handle' => ['nullable', 'string', 'max:191'],
+            'followers_count' => ['nullable', 'string', 'max:32'],
             'token_expires_at' => ['nullable', 'date'],
             'test' => ['nullable', 'boolean'],
         ]);
@@ -98,6 +113,8 @@ class SocialController extends Controller
             'page_id' => $data['page_id'] ?? $account->page_id,
             'ig_user_id' => $data['ig_user_id'] ?? $account->ig_user_id,
             'account_name' => $data['account_name'] ?? $account->account_name,
+            'handle' => $data['handle'] ?? $account->handle,
+            'followers_count' => $data['followers_count'] ?? ($account->followers_count ?? '0'),
             'token_expires_at' => $data['token_expires_at'] ?? null,
             'is_connected' => false,
             'last_error' => null,
@@ -106,7 +123,7 @@ class SocialController extends Controller
 
         $shouldTest = $request->boolean('test', true);
         if ($shouldTest) {
-            $publisher = new MetaGraphPublisher;
+            $publisher = $this->getPublisher($data['platform']);
             $result = $publisher->testAccount($account);
             $account->last_tested_at = now();
             if ($result['ok']) {
@@ -148,7 +165,7 @@ class SocialController extends Controller
 
         // Need raw token for test — temporarily unhide
         $account->makeVisible(['access_token']);
-        $publisher = new MetaGraphPublisher;
+        $publisher = $this->getPublisher($platform);
         $result = $publisher->testAccount($account);
         $account->last_tested_at = now();
         if ($result['ok']) {
@@ -294,7 +311,7 @@ class SocialController extends Controller
 
         if ($publishNow) {
             $account->makeVisible(['access_token']);
-            $publisher = new MetaGraphPublisher;
+            $publisher = $this->getPublisher($data['platform']);
             $result = $publisher->publish($post, $account);
             if ($result['ok']) {
                 $post->status = 'published';
@@ -351,6 +368,8 @@ class SocialController extends Controller
             'platform' => $account->platform,
             'is_connected' => (bool) $account->is_connected,
             'account_name' => $account->account_name,
+            'handle' => $account->handle,
+            'followers_count' => $account->is_connected ? ($account->followers_count ?? '0') : '0',
             'page_id' => $account->page_id,
             'ig_user_id' => $account->ig_user_id,
             'has_token' => (bool) $account->getRawOriginal('access_token') || (bool) $account->access_token,

@@ -6,7 +6,13 @@ import {
   normalizeStoreCustomCode,
   type StoreCustomCodeSettings,
 } from '../../../themes/settings/storeScopedCustomCode';
-import { POPULAR_GOOGLE_FONTS } from './typography/BuilderTypographyControl';
+import {
+  POPULAR_GOOGLE_FONTS,
+  STORE_ARABIC_FONT_COUNT,
+  STORE_ENGLISH_FONT_COUNT,
+  ensureStoreGoogleFontLoaded,
+} from '../../../data/storeGoogleFontsCatalog';
+import { StoreFontSelect } from '../fonts/StoreFontSelect';
 
 interface BuilderSiteCodePanelProps {
   storeId: string;
@@ -99,6 +105,7 @@ export const BuilderSiteCodePanel: React.FC<BuilderSiteCodePanelProps> = ({
 
   const applyFontFamily = (name: string) => {
     const clean = name.trim();
+    if (clean) ensureStoreGoogleFontLoaded(clean);
     patch({ customFontFamily: clean, customFontUrl: '' });
     setFontDraft('');
     flashApplied();
@@ -131,14 +138,6 @@ export const BuilderSiteCodePanel: React.FC<BuilderSiteCodePanelProps> = ({
 
   const activeFont = draft.customFontFamily || '';
   const activeWeight = draft.customFontWeight || '';
-  const arabicFonts = useMemo(
-    () => POPULAR_GOOGLE_FONTS.filter((f) => f.category === 'Arabic'),
-    [],
-  );
-  const latinFonts = useMemo(
-    () => POPULAR_GOOGLE_FONTS.filter((f) => f.category === 'Latin'),
-    [],
-  );
 
   return (
     <div
@@ -178,7 +177,11 @@ export const BuilderSiteCodePanel: React.FC<BuilderSiteCodePanelProps> = ({
             >
               <Type className="w-3.5 h-3.5" />
             </span>
-            <span>{isAr ? 'خط المتجر' : 'Store font'}</span>
+            <span>
+              {isAr
+                ? `خط المتجر (عربي ${STORE_ARABIC_FONT_COUNT} · إنجليزي ${STORE_ENGLISH_FONT_COUNT})`
+                : `Store font (${STORE_ARABIC_FONT_COUNT} AR · ${STORE_ENGLISH_FONT_COUNT} EN)`}
+            </span>
           </div>
           {appliedFlash ? (
             <span
@@ -194,7 +197,7 @@ export const BuilderSiteCodePanel: React.FC<BuilderSiteCodePanelProps> = ({
           ) : null}
         </div>
 
-        {/* Compact preview + full Arabic/Latin dropdown */}
+        {/* Compact preview + full Arabic/English dropdown (global catalog) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div
             className="rounded-xl border px-2.5 py-2 min-w-0"
@@ -213,29 +216,13 @@ export const BuilderSiteCodePanel: React.FC<BuilderSiteCodePanelProps> = ({
               {activeWeight ? ` · ${activeWeight}` : ''}
             </p>
           </div>
-          <select
+          <StoreFontSelect
+            isAr={isAr}
             value={activeFont}
-            onChange={(e) => applyFontFamily(e.target.value)}
-            className="w-full px-2.5 py-2 rounded-xl border text-[11px] font-bold cursor-pointer min-h-[44px]"
-            style={{ ...glassInput, fontFamily: previewFamily }}
-            aria-label={isAr ? 'كل الخطوط العربية والإنجليزية' : 'All Arabic & Latin fonts'}
-          >
-            <option value="">{isAr ? 'افتراضي المتجر' : 'Store default'}</option>
-            <optgroup label={isAr ? `عربية (${arabicFonts.length})` : `Arabic (${arabicFonts.length})`}>
-              {arabicFonts.map((f) => (
-                <option key={f.name} value={f.name}>
-                  {isAr ? f.labelAr : f.name}
-                </option>
-              ))}
-            </optgroup>
-            <optgroup label={isAr ? `إنجليزية (${latinFonts.length})` : `Latin (${latinFonts.length})`}>
-              {latinFonts.map((f) => (
-                <option key={f.name} value={f.name}>
-                  {f.name}
-                </option>
-              ))}
-            </optgroup>
-          </select>
+            onChange={applyFontFamily}
+            allowEmpty
+            style={glassInput}
+          />
         </div>
 
         {/* Weight: Light / Regular / Bold / Black */}

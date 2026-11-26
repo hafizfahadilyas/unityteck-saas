@@ -140,6 +140,10 @@ export type CustomizerThemeFamily = 'coffee' | 'flowers' | 'transport' | 'defaul
 
 export function resolveCustomizerThemeFamily(themeId: string | undefined | null): CustomizerThemeFamily {
   const tid = (themeId || '').toLowerCase();
+  // Common Souq pack — shared settings schema (docs/37), not flagship coffee/flora
+  if (tid.includes('souq-common') || tid.includes('souqcommon') || tid.includes('commerce-starter')) {
+    return 'default';
+  }
   if (tid.includes('coffee') || tid.includes('hibrew') || tid.includes('roaster')) return 'coffee';
   if (tid.includes('transport') || tid.includes('car') || tid.includes('bleco') || tid.includes('saudia')) {
     return 'transport';

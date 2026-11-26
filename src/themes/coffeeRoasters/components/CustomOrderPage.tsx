@@ -506,8 +506,8 @@ export const CustomOrderPage: React.FC = () => {
   const waPrefix = bi(language, customOrder?.whatsappMessageEn, customOrder?.whatsappMessageAr);
 
   const dynamicStoreName = isAr
-    ? storeIdentity?.storeName || activeStore?.nameAr || activeStore?.name || 'متجر القهوة'
-    : storeIdentity?.storeName || activeStore?.nameEn || activeStore?.name || 'Coffee Store';
+    ? storeIdentity?.storeNameAr || storeIdentity?.storeName || activeStore?.nameAr || activeStore?.name || 'متجر القهوة'
+    : storeIdentity?.storeNameEn || storeIdentity?.storeName || activeStore?.nameEn || activeStore?.name || 'Coffee Store';
 
   // Mode Selection: 'direct' (Automatic price & Add to Cart) vs 'quotation' (Quotation Request / RFQ)
   const [orderMode, setOrderMode] = useState<'direct' | 'quotation'>('direct');

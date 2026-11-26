@@ -174,13 +174,37 @@ export async function checkOnboardingInviteTokenApi(
   }
 }
 
+export type InviteRedeemResult = InvitePublicCheck & {
+  store?: Record<string, unknown> | null;
+  default_theme_id?: string;
+  provisioned?: boolean;
+  provision?: Record<string, unknown> | null;
+};
+
 export async function redeemOnboardingInviteApi(
   token: string,
   storeId: string,
-): Promise<InvitePublicCheck> {
-  return apiFetch<InvitePublicCheck>(
+  provision?: {
+    name?: string;
+    slug?: string;
+    owner_name?: string;
+    email?: string;
+    category?: string;
+    phone?: string;
+    city?: string;
+    seed_starter_catalog?: boolean;
+  },
+): Promise<InviteRedeemResult> {
+  return apiFetch<InviteRedeemResult>(
     `/onboarding/invites/${encodeURIComponent(token)}/redeem`,
-    { method: 'POST', skipAuth: true, body: { store_id: storeId } },
+    {
+      method: 'POST',
+      skipAuth: true,
+      body: {
+        store_id: storeId,
+        ...(provision || {}),
+      },
+    },
   );
 }
 
@@ -3750,6 +3774,144 @@ export async function testPaymentGateway(storeId: string, id: string): Promise<{
   });
 }
 
+/** Master Integration Health Center — aggregate payment + shipping health (store_id isolated rows). */
+export type IntegrationHealthRow = {
+  store_id: string;
+  store_name?: string;
+  category: 'payment' | 'shipping';
+  provider: string;
+  provider_name: string;
+  overall_status: string;
+  connection_status: string;
+  auth_status: string;
+  api_health_status: string;
+  sandbox_status: string;
+  production_verification_status: string;
+  webhook_status: string;
+  last_successful_test?: string | null;
+  last_failed_test?: string | null;
+  api_response_time_ms?: number | null;
+  last_error_message?: string | null;
+  integration_version?: string;
+  supported_features?: Record<string, unknown>;
+  is_sandbox?: boolean;
+  has_credentials?: boolean;
+  webhook_url?: string;
+};
+
+export async function fetchMasterIntegrationHealth(storeId?: string): Promise<{
+  data: IntegrationHealthRow[];
+  meta?: Record<string, unknown>;
+}> {
+  const q = storeId ? `?store_id=${encodeURIComponent(storeId)}` : '';
+  return apiFetch(`/master/integrations/health${q}`, { portal: 'master' });
+}
+
+export async function runMasterIntegrationHealthTest(payload: {
+  store_id: string;
+  category: 'payment' | 'shipping';
+  provider: string;
+  test_type: string;
+  allow_live?: boolean;
+}): Promise<Record<string, unknown>> {
+  return apiFetch('/master/integrations/health/test', {
+    method: 'POST',
+    portal: 'master',
+    body: payload,
+  });
+}
+
+export async function runMasterIntegrationHealthAudit(storeId: string): Promise<Record<string, unknown>> {
+  return apiFetch('/master/integrations/health/audit', {
+    method: 'POST',
+    portal: 'master',
+    body: { store_id: storeId },
+  });
+}
+
+export async function fetchMasterIntegrationHealthLogs(params?: {
+  store_id?: string;
+  provider?: string;
+  category?: 'payment' | 'shipping';
+  success?: boolean;
+  per_page?: number;
+}): Promise<{ data: Array<Record<string, unknown>>; meta?: Record<string, unknown> }> {
+  const qs = new URLSearchParams();
+  if (params?.store_id) qs.set('store_id', params.store_id);
+  if (params?.provider) qs.set('provider', params.provider);
+  if (params?.category) qs.set('category', params.category);
+  if (typeof params?.success === 'boolean') qs.set('success', params.success ? '1' : '0');
+  if (params?.per_page) qs.set('per_page', String(params.per_page));
+  const q = qs.toString() ? `?${qs.toString()}` : '';
+  return apiFetch(`/master/integrations/health/logs${q}`, { portal: 'master' });
+}
+
+export type BankTransferProofRow = {
+  id: string;
+  store_id: string;
+  order_id?: string | null;
+  transaction_id?: string | null;
+  media_url?: string | null;
+  status: string;
+  reviewed_by?: string | null;
+  notes?: string | null;
+  reviewed_at?: string | null;
+  audit_trail?: Array<Record<string, unknown>>;
+  created_at?: string | null;
+};
+
+export async function fetchBankTransferProofs(
+  storeId: string,
+  status?: string,
+): Promise<{ data: BankTransferProofRow[] }> {
+  const q = status ? `?status=${encodeURIComponent(status)}` : '';
+  return apiFetch(`/payments/bank-transfer-proofs${q}`, { storeId });
+}
+
+export async function approveBankTransferProof(
+  storeId: string,
+  id: string,
+  notes?: string,
+): Promise<{ data: BankTransferProofRow; message?: string }> {
+  return apiFetch(`/payments/bank-transfer-proofs/${id}/approve`, {
+    method: 'POST',
+    storeId,
+    body: { notes },
+  });
+}
+
+export async function rejectBankTransferProof(
+  storeId: string,
+  id: string,
+  notes?: string,
+): Promise<{ data: BankTransferProofRow; message?: string }> {
+  return apiFetch(`/payments/bank-transfer-proofs/${id}/reject`, {
+    method: 'POST',
+    storeId,
+    body: { notes },
+  });
+}
+
+export async function uploadStorefrontBankTransferProof(payload: {
+  store_id: string;
+  order_id: string;
+  transaction_id?: string;
+  proof: File;
+  notes?: string;
+}): Promise<{ data: BankTransferProofRow; payment_status: string; message?: string }> {
+  const fd = new FormData();
+  fd.append('store_id', payload.store_id);
+  fd.append('order_id', payload.order_id);
+  if (payload.transaction_id) fd.append('transaction_id', payload.transaction_id);
+  if (payload.notes) fd.append('notes', payload.notes);
+  fd.append('proof', payload.proof);
+  return apiFetch('/storefront/payments/bank-transfer-proofs', {
+    method: 'POST',
+    body: fd,
+    skipAuth: true,
+  });
+}
+
 export async function verifyPaymentServerSide(
   storeId: string,
   payload: {
@@ -5683,5 +5845,58 @@ export async function fetchStorefrontActiveSpecialOfferApi(
   );
   if (!res?.data) return null;
   return mapApiSpecialOfferRow(res.data, storeId);
+}
+
+/** Al-Saeedi workshop appointments — store_id isolated. */
+export type StoreAppointmentRow = {
+  id: string;
+  store_id: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_email?: string | null;
+  service_key: string;
+  service_name_en?: string | null;
+  service_name_ar?: string | null;
+  additional_services?: string[];
+  vehicle_make?: string | null;
+  vehicle_model?: string | null;
+  vehicle_year?: string | null;
+  appointment_date: string;
+  appointment_time: string;
+  notes?: string | null;
+  status: string;
+  staff_name?: string | null;
+  admin_note?: string | null;
+};
+
+export async function fetchStoreAppointmentsApi(
+  storeId: string,
+  status?: string,
+): Promise<StoreAppointmentRow[]> {
+  const q = status ? `?status=${encodeURIComponent(status)}` : '';
+  const res = await apiFetch<{ success?: boolean; data?: StoreAppointmentRow[] }>(
+    `/appointments${q}`,
+    { storeId },
+  );
+  return Array.isArray(res.data) ? res.data : [];
+}
+
+export async function updateStoreAppointmentApi(
+  storeId: string,
+  appointmentId: string,
+  patch: Partial<{
+    status: string;
+    staff_name: string;
+    staff_id: string;
+    admin_note: string;
+    appointment_date: string;
+    appointment_time: string;
+  }>,
+): Promise<StoreAppointmentRow> {
+  const res = await apiFetch<{ success?: boolean; data: StoreAppointmentRow }>(
+    `/appointments/${encodeURIComponent(appointmentId)}`,
+    { method: 'PATCH', storeId, body: patch },
+  );
+  return res.data;
 }
 

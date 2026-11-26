@@ -21,7 +21,10 @@ import {
   type DashboardHomeAnalytics,
 } from '../../api/tenantApi';
 import type { DayVisitPoint } from './dashboard/VisitsByDayChart';
+import type { AgePoint } from './dashboard/VisitorsByAgeChart';
+import { DASHBOARD_CHART_COLORS } from './dashboard/chartPalette';
 import { lazyWithRetry } from '../../utils/lazyWithRetry';
+import { SkeletonChart, SkeletonCard, SkeletonTable } from '../common/skeleton';
 
 const CreateStoreOrderModal = lazyWithRetry(() =>
   import('./CreateStoreOrderModal').then((m) => ({ default: m.CreateStoreOrderModal })),
@@ -220,6 +223,61 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
     return homeAnalytics?.visits_by_weekday?.length ? homeAnalytics.visits_by_weekday : [];
   }, [homeAnalytics?.visits_by_weekday]);
 
+  /** Real customer DOB → age buckets (zero-mock; empty until birthdays exist). */
+  const visitorsByAgePoints = useMemo<AgePoint[]>(() => {
+    const fromApi = homeAnalytics?.visitors_by_age;
+    if (Array.isArray(fromApi) && fromApi.length > 0) {
+      return fromApi
+        .map((p) => ({
+          label: String(p.label || ''),
+          percentage: Math.max(0, Math.round(Number(p.percentage) || 0)),
+        }))
+        .filter((p) => p.label && p.percentage > 0);
+    }
+    const buckets: Array<{ label: string; min: number; max: number }> = [
+      { label: '<18', min: 0, max: 17 },
+      { label: '18-24', min: 18, max: 24 },
+      { label: '25-34', min: 25, max: 34 },
+      { label: '35-44', min: 35, max: 44 },
+      { label: '45-54', min: 45, max: 54 },
+      { label: '55+', min: 55, max: 200 },
+    ];
+    const counts = buckets.map(() => 0);
+    let withDob = 0;
+    const now = new Date();
+    for (const c of currentCustomers || []) {
+      const raw = (c as { dob?: string }).dob;
+      if (!raw) continue;
+      const born = new Date(raw);
+      if (Number.isNaN(born.getTime())) continue;
+      let age = now.getFullYear() - born.getFullYear();
+      const md = now.getMonth() - born.getMonth();
+      if (md < 0 || (md === 0 && now.getDate() < born.getDate())) age -= 1;
+      if (age < 0 || age > 120) continue;
+      withDob += 1;
+      const idx = buckets.findIndex((b) => age >= b.min && age <= b.max);
+      if (idx >= 0) counts[idx] += 1;
+    }
+    if (withDob === 0) return [];
+    // Largest-remainder percentages so buckets sum to 100
+    const floors = counts.map((n) => {
+      const exact = (n / withDob) * 100;
+      return { floor: Math.floor(exact), frac: exact - Math.floor(exact), n };
+    });
+    let remaining = 100 - floors.reduce((s, f) => s + f.floor, 0);
+    floors
+      .map((f, i) => ({ i, frac: f.frac }))
+      .sort((a, b) => b.frac - a.frac)
+      .forEach(({ i }) => {
+        if (remaining <= 0) return;
+        floors[i].floor += 1;
+        remaining -= 1;
+      });
+    return buckets
+      .map((b, i) => ({ label: b.label, percentage: floors[i].floor }))
+      .filter((p) => p.percentage > 0);
+  }, [currentCustomers, homeAnalytics?.visitors_by_age]);
+
   const visitsGrowth = useMemo(() => {
     if (!homeAnalytics || homeAnalytics.visits_growth === undefined) return null;
     return homeAnalytics.visits_growth;
@@ -235,7 +293,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
     ]);
     const mapped = rows
       .filter((r) => (Number(r.visits) || 0) > 0)
-      .map((r) => {
+      .map((r, i) => {
         const icon = String(r.icon_type || 'other').toLowerCase();
         return {
           id: r.id || `src_${r.name}`,
@@ -243,7 +301,8 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
           nameAr: r.name_ar || r.name || 'مباشر',
           visits: Math.max(0, Number(r.visits) || 0),
           percentage: Math.max(0, Number(r.percentage) || 0),
-          color: r.color || '#64748b',
+          // Unify donut with Visits by Day purple/cyan palette
+          color: DASHBOARD_CHART_COLORS[i % DASHBOARD_CHART_COLORS.length],
           iconType: (allowed.has(icon) ? icon : 'other') as import('./dashboard/TrafficSourcesCard').TrafficChannel['iconType'],
         };
       });
@@ -375,10 +434,10 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
           {/* Row 2: Visitors by Age + Visits by Day (deferred) */}
           {showBelowFold && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-5 items-stretch min-w-0">
-              <Suspense fallback={<div className="u-card min-h-[220px] rounded-[1.25rem] animate-pulse" />}>
-                <VisitorsByAgeChart data={[]} />
+              <Suspense fallback={<SkeletonChart type="bar" height="220px" hasHeader={true} hasLegend={false} />}>
+                <VisitorsByAgeChart data={visitorsByAgePoints} />
               </Suspense>
-              <Suspense fallback={<div className="u-card min-h-[220px] rounded-[1.25rem] animate-pulse" />}>
+              <Suspense fallback={<SkeletonChart type="area" height="220px" hasHeader={true} hasLegend={false} />}>
                 <VisitsByDayChart data={visitsByDayPoints} />
               </Suspense>
             </div>
@@ -403,7 +462,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
       {showBelowFold && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch min-w-0">
           <div className="min-w-0 h-full">
-            <Suspense fallback={<div className="u-card min-h-[260px] rounded-[1.25rem] animate-pulse" />}>
+            <Suspense fallback={<SkeletonCard hasHeader={true} lines={4} />}>
               <TopProductsCard
                 products={currentProducts}
                 salesByProductId={salesByProductId}
@@ -413,7 +472,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
             </Suspense>
           </div>
           <div className="min-w-0 h-full">
-            <Suspense fallback={<div className="u-card min-h-[260px] rounded-[1.25rem] animate-pulse" />}>
+            <Suspense fallback={<SkeletonCard hasHeader={true} lines={4} />}>
               <TrafficSourcesCard
                 totalVisits={visitorsCount}
                 growthPercentage={typeof visitsGrowth === 'number' ? visitsGrowth : 0}
@@ -428,7 +487,7 @@ export const StoreDashboard: React.FC<StoreDashboardProps> = ({
       {/* ── Embedded Orders Table (lazy + capped rows) ── */}
       {showBelowFold && (
         <div className="pt-2">
-          <Suspense fallback={<div className="u-card min-h-[200px] rounded-[1.25rem] animate-pulse" />}>
+          <Suspense fallback={<SkeletonTable rows={4} columns={5} hasToolbar={false} hasPagination={false} />}>
             <DashboardOrdersTable
               orders={tableOrders}
               onNavigateTab={goTab}

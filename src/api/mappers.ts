@@ -47,7 +47,14 @@ function dateSlice(v: unknown): string {
 
 function mapPlan(plan: unknown): PlanType {
   const p = String(plan || 'free').toLowerCase();
-  if (p === 'paid' || p === 'pro' || p === 'premium' || p === 'custom' || p === 'free') {
+  if (
+    p === 'paid' ||
+    p === 'starter' ||
+    p === 'pro' ||
+    p === 'premium' ||
+    p === 'custom' ||
+    p === 'free'
+  ) {
     return p;
   }
   return 'free';
@@ -753,6 +760,7 @@ export function orderPatchToApi(patch: Record<string, unknown>): Record<string, 
   }
   assign('trackingNumber', 'tracking_number');
   assign('shippingStatus', 'shipping_status');
+  assign('shippingMethodId', 'shipping_method_id');
   if (src.shippingCompany !== undefined) out.courier_code = src.shippingCompany;
   else if (src.shipping_company !== undefined) out.courier_code = src.shipping_company;
   else if (src.courier_code !== undefined) out.courier_code = src.courier_code;

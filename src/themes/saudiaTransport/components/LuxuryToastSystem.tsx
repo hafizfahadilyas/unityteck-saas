@@ -93,7 +93,7 @@ const ToastCard: React.FC<{ toast: ToastItem; onDismiss: () => void; isAr: boole
           icon: <Car className="w-5 h-5 text-[#f6c344]" />,
           border: 'border-[#d5a027]/70 shadow-[0_12px_32px_rgba(213,160,39,0.35)]',
           badgeBg: 'bg-amber-400/20 text-[#f6c344] border border-[#d5a027]/40',
-          glow: 'from-[#2a064e] via-[#1a0330] to-[#0d0119]',
+          glow: 'from-white via-slate-50 to-slate-100',
           progressColor: 'bg-gradient-to-r from-[#d5a027] to-[#f6c344]',
         };
       case 'warranty':
@@ -108,8 +108,8 @@ const ToastCard: React.FC<{ toast: ToastItem; onDismiss: () => void; isAr: boole
         return {
           icon: <ShoppingCart className="w-5 h-5 text-[#f6c344]" />,
           border: 'border-[#d5a027]/60 shadow-[0_12px_32px_rgba(213,160,39,0.25)]',
-          badgeBg: 'bg-purple-500/20 text-[#f6c344] border border-[#d5a027]/40',
-          glow: 'from-[#2b0849] via-[#1a042e] to-[#0c0216]',
+          badgeBg: 'bg-slate-500/20 text-[#f6c344] border border-[#d5a027]/40',
+          glow: 'from-white via-slate-50 to-slate-100',
           progressColor: 'bg-gradient-to-r from-[#d5a027] to-[#f6c344]',
         };
       case 'warning':
@@ -126,7 +126,7 @@ const ToastCard: React.FC<{ toast: ToastItem; onDismiss: () => void; isAr: boole
           icon: <CheckCircle2 className="w-5 h-5 text-[#f6c344]" />,
           border: 'border-[#d5a027]/50 shadow-[0_12px_32px_rgba(213,160,39,0.22)]',
           badgeBg: 'bg-amber-400/20 text-[#f6c344] border border-[#d5a027]/30',
-          glow: 'from-[#1c0438] via-[#140228] to-[#090112]',
+          glow: 'from-white via-slate-50 to-slate-100',
           progressColor: 'bg-gradient-to-r from-[#d5a027] to-[#f6c344]',
         };
     }
@@ -139,7 +139,7 @@ const ToastCard: React.FC<{ toast: ToastItem; onDismiss: () => void; isAr: boole
 
   return (
     <div 
-      className={`pointer-events-auto relative overflow-hidden rounded-2xl bg-gradient-to-br ${toastStyle.glow} text-white p-3.5 sm:p-4 border backdrop-blur-xl transition-all duration-300 transform translate-y-0 scale-100 ${toastStyle.border}`}
+      className={`pointer-events-auto relative overflow-hidden rounded-2xl bg-gradient-to-br ${toastStyle.glow} text-slate-900 p-3.5 sm:p-4 border backdrop-blur-xl bg-white transition-all duration-300 transform translate-y-0 scale-100 ${toastStyle.border}`}
       style={{
         boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.15)'
       }}
@@ -164,7 +164,7 @@ const ToastCard: React.FC<{ toast: ToastItem; onDismiss: () => void; isAr: boole
         {/* Content Body */}
         <div className="flex-1 min-w-0 pr-1">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <h5 className="text-xs sm:text-sm font-black text-white tracking-tight leading-tight">
+            <h5 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight leading-tight">
               {titleText}
             </h5>
             {toast.metadata?.carName && (
@@ -186,7 +186,7 @@ const ToastCard: React.FC<{ toast: ToastItem; onDismiss: () => void; isAr: boole
                   toast.onAction?.();
                   onDismiss();
                 }}
-                className="px-3 py-1 bg-gradient-to-r from-[#d5a027] to-[#f6c344] text-[#120224] text-[11px] font-black rounded-lg shadow-sm hover:brightness-110 active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
+                className="px-3 py-1 bg-gradient-to-r from-[#d5a027] to-[#f6c344] text-slate-900 text-[11px] font-black rounded-lg shadow-sm hover:brightness-110 active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
               >
                 <span>{actionText}</span>
                 {isAr ? <ChevronLeft className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}

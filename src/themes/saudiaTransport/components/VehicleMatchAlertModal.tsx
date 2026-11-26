@@ -21,9 +21,6 @@ import {
   SeatColorOption, 
   CAR_BRANDS,
   SEAT_COLORS, 
-  FEATURED_FLOOR_MATS, 
-  FEATURED_HOME_SEATS, 
-  BLECO_STORE_INFO 
 } from '../../../data/blecoStoreData';
 
 interface VehicleMatchAlertModalProps {
@@ -36,6 +33,8 @@ interface VehicleMatchAlertModalProps {
   color: string;
   brandObj?: CarBrandItem;
   colorObj?: SeatColorOption;
+  /** Live store catalog — never fall back to mock featured packs */
+  catalogProducts?: Product[];
   onSelectSeatCover: (product: Product, color: SeatColorOption) => void;
   onSelectFloorMat: (product: Product) => void;
   onViewInCatalog: () => void;
@@ -62,6 +61,7 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
   color,
   brandObj,
   colorObj,
+  catalogProducts = [],
   onSelectSeatCover,
   onSelectFloorMat,
   onViewInCatalog,
@@ -96,9 +96,47 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
 
   const fullCarTitle = `${brandDisplayName} ${modelDisplayName} ${yearDisplayName}`.trim();
 
-  // Representative matching products
-  const matchingSeatCover = FEATURED_HOME_SEATS[0];
-  const matchingFloorMat = FEATURED_FLOOR_MATS[0];
+  const makeNeedle = (make || '').toLowerCase();
+  const modelNeedle = (model || '').toLowerCase();
+  const matchesVehicle = (p: Product) => {
+    const blob = [
+      p.brand,
+      p.name,
+      p.nameAr,
+      p.nameEn,
+      ...(p.tags || []),
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    if (make !== 'all' && makeNeedle && !blob.includes(makeNeedle) && !(resolvedBrand?.nameAr && blob.includes(resolvedBrand.nameAr))) {
+      return false;
+    }
+    if (model !== 'all' && modelNeedle && !blob.includes(modelNeedle) && !(modelDisplayName && blob.includes(modelDisplayName.toLowerCase()))) {
+      return false;
+    }
+    return true;
+  };
+
+  const liveSeats = catalogProducts.filter(
+    (p) =>
+      (p.type === 'seat-cover' ||
+        (p as { categoryId?: string }).categoryId === 'cat-clothing' ||
+        `${p.name || ''} ${p.nameAr || ''}`.includes('تلبيس') ||
+        `${p.name || ''}`.toLowerCase().includes('seat')) &&
+      matchesVehicle(p),
+  );
+  const liveMats = catalogProducts.filter(
+    (p) =>
+      (p.type === 'floor-mat' ||
+        (p as { categoryId?: string }).categoryId === 'cat-floors' ||
+        `${p.name || ''} ${p.nameAr || ''}`.includes('أرضي') ||
+        `${p.name || ''}`.toLowerCase().includes('mat')) &&
+      matchesVehicle(p),
+  );
+
+  const matchingSeatCover = liveSeats[0] || catalogProducts.find((p) => p.type === 'seat-cover') || null;
+  const matchingFloorMat = liveMats[0] || catalogProducts.find((p) => p.type === 'floor-mat') || null;
 
   // WhatsApp Combo text
   const comboMessage = isAr 
@@ -114,7 +152,7 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
           dir={isAr ? 'rtl' : 'ltr'}
         >
           {/* Header */}
-          <div className="bg-gradient-to-r from-[#1c0537] via-[#2a0852] to-[#3e0f77] text-white p-5 flex items-center justify-between border-b border-[#d5a027]/40">
+          <div className="bg-gradient-to-r from-slate-100 via-[#2a0852] to-slate-800 text-white p-5 flex items-center justify-between border-b border-[#d5a027]/40">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-400 shrink-0">
                 <AlertCircle className="w-6 h-6" />
@@ -152,7 +190,7 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
                     if (onSelectBrandQuickly) onSelectBrandQuickly(brand.nameEn.toLowerCase());
                     onClose();
                   }}
-                  className="p-3 rounded-2xl border border-slate-200 hover:border-[#3e0f77] hover:bg-purple-50/50 flex flex-col items-center justify-center gap-1.5 transition-all group cursor-pointer"
+                  className="p-3 rounded-2xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50/50 flex flex-col items-center justify-center gap-1.5 transition-all group cursor-pointer"
                 >
                   <img src={brand.logo} alt={brand.nameAr} className="h-8 w-auto object-contain group-hover:scale-110 transition-transform" />
                   <span className="font-bold text-xs text-slate-800">{isAr ? brand.nameAr : brand.nameEn}</span>
@@ -185,14 +223,14 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
         dir={isAr ? 'rtl' : 'ltr'}
       >
         {/* 1. Header with Verification Glow */}
-        <div className="bg-gradient-to-r from-[#1c0537] via-[#2a0852] to-[#3e0f77] text-white p-4 sm:p-5 flex items-center justify-between border-b border-[#d5a027]/40">
+        <div className="bg-gradient-to-r from-slate-100 via-[#2a0852] to-slate-800 text-white p-4 sm:p-5 flex items-center justify-between border-b border-[#d5a027]/40">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-[#d5a027]/20 border border-[#d5a027]/50 flex items-center justify-center text-[#f6c344] shrink-0 shadow-inner">
               <ShieldCheck className="w-6 h-6 animate-pulse" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="bg-[#d5a027] text-[#1c0537] text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                <span className="bg-[#d5a027] text-slate-900 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
                   {isAr ? 'مطابقة 100%' : '100% Verified'}
                 </span>
                 <span className="text-emerald-400 text-xs font-bold flex items-center gap-1">
@@ -217,14 +255,14 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
         <div className="p-4 sm:p-6 space-y-5 max-h-[78vh] overflow-y-auto">
 
           {/* Vehicle Identity & Color Specs Card */}
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50 via-amber-50/40 to-purple-50 border border-[#d5a027]/40 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-50 via-amber-50/50 to-white border border-[#d5a027]/40 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3 text-center sm:text-start">
               {resolvedBrand?.logo ? (
                 <div className="w-14 h-14 rounded-2xl bg-white p-2 border border-slate-200 flex items-center justify-center shrink-0 shadow-xs">
                   <img src={resolvedBrand.logo} alt={brandDisplayName} className="h-full w-auto object-contain" />
                 </div>
               ) : (
-                <div className="w-14 h-14 rounded-2xl bg-[#3e0f77] text-[#f6c344] flex items-center justify-center shrink-0">
+                <div className="w-14 h-14 rounded-2xl bg-slate-800 text-[#f6c344] flex items-center justify-center shrink-0">
                   <Car className="w-7 h-7" />
                 </div>
               )}
@@ -256,7 +294,7 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
                 <span>{isAr ? 'شحن سريع بالمملكة' : 'Fast Delivery'}</span>
               </span>
               <span className="flex items-center gap-1 bg-white/90 px-2.5 py-1 rounded-lg border border-slate-200">
-                <Sparkles className="w-3.5 h-3.5 text-[#3e0f77] shrink-0" />
+                <Sparkles className="w-3.5 h-3.5 text-slate-800 shrink-0" />
                 <span>{isAr ? 'تفصيل ليزري 100%' : 'Laser Precision'}</span>
               </span>
               <span className="flex items-center gap-1 bg-white/90 px-2.5 py-1 rounded-lg border border-slate-200">
@@ -273,154 +311,204 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
                 <Sparkles className="w-4 h-4 text-[#d5a027]" />
                 <span>{isAr ? 'اختر القسم المطلوب لسيارتك (الفئتان الرئيسيتان):' : 'Choose tailored category for your car:'}</span>
               </h5>
-              <span className="text-[11px] text-[#3e0f77] font-bold">
+              <span className="text-[11px] text-slate-800 font-bold">
                 {isAr ? 'تلابيس مقاعد أو أرضيات' : 'Seats Cover or Mats'}
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-              {/* CATEGORY 1: SEAT COVERS (تلابيس المقاعد) */}
-              <div className="p-4 rounded-2xl border-2 border-[#3e0f77]/30 hover:border-[#3e0f77] bg-white shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-3 group">
-                <div className="space-y-2.5">
-                  <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
-                    <img 
-                      src={resolvedColor.image || matchingSeatCover.image} 
-                      alt="تلابيس مقاعد" 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
-                    />
-                    <span className="absolute top-2 right-2 bg-[#3e0f77] text-[#f6c344] text-[9px] font-black px-2 py-0.5 rounded-full">
-                      {isAr ? 'القسم 1: تلابيس مقاعد' : 'Cat 1: Seat Covers'}
-                    </span>
-                  </div>
-
-                  <div>
-                    <h6 className="font-black text-xs sm:text-sm text-slate-900 group-hover:text-[#3e0f77] transition-colors">
-                      {isAr ? `تلبيسة مقاعد كاملة لـ${brandDisplayName}${modelDisplayName}` : `Full Seat Covers for ${brandDisplayName} ${modelDisplayName}`}
-                    </h6>
-                    <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                      {isAr 
-                        ? `تفصيل ليزري بالمليمتر، جلد ألماني نابا مع ميموري فوم عازل للحرارة بلون${colorDisplayName}.` 
-                        : `Laser tailored German leather with heat insulation foam in ${colorDisplayName}.`}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="pt-2.5 border-t border-slate-100 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-base font-black text-slate-900">490</span>
-                      <span className="text-[11px] font-bold text-[#b07e16] mx-1">{'⃁'}</span>
-                      <span className="text-[10px] text-slate-400 line-through">590 {'⃁'}</span>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {/* Seat covers — live catalog only */}
+              {matchingSeatCover ? (
+                <div className="group flex flex-col justify-between space-y-3 rounded-2xl border-2 border-slate-300/30 bg-white p-4 shadow-sm transition-all hover:border-slate-300 hover:shadow-md">
+                  <div className="space-y-2.5">
+                    <div className="relative aspect-video overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                      <img
+                        src={resolvedColor.image || matchingSeatCover.image}
+                        alt={matchingSeatCover.nameAr || matchingSeatCover.name}
+                        className="h-full w-full object-contain transition-transform group-hover:scale-105"
+                        loading="lazy"
+                      />
+                      <span className="absolute top-2 end-2 rounded-full bg-slate-800 px-2 py-0.5 text-[9px] font-black text-[#f6c344]">
+                        {isAr ? 'تلابيس مقاعد' : 'Seat Covers'}
+                      </span>
                     </div>
-                    <span className="text-[10px] bg-red-100 text-red-700 font-bold px-1.5 py-0.2 rounded">
-                      {isAr ? 'خصم 17%' : '17% OFF'}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <button
-                      onClick={() => {
-                        onSelectSeatCover(matchingSeatCover, resolvedColor);
-                        onClose();
-                      }}
-                      className="w-full py-2 bg-purple-50 hover:bg-[#3e0f77] hover:text-white text-[#3e0f77] font-bold text-[11px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1"
-                    >
-                      <Palette className="w-3.5 h-3.5" />
-                      <span>{isAr ? 'تخصيص وسلة' : 'Customize'}</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        const msg = isAr 
-                          ? `مرحباً متجر السعيدي، أرغب بطلب تلبيسة مقاعد لسيارة${fullCarTitle}باللون${colorDisplayName}بسعر 490 ⃁.`
-                          : `Hello Al-Saeedi, I want to order custom seat covers for ${fullCarTitle} in ${colorDisplayName}.`;
-                        onWhatsAppOrder(matchingSeatCover, resolvedColor, msg);
-                        onClose();
-                      }}
-                      className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 shadow-xs"
-                    >
-                      <WhatsAppIcon className="w-3.5 h-3.5" />
-                      <span>{isAr ? 'طلب واتساب' : 'WhatsApp'}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* CATEGORY 2: FLOOR MATS (أرضيات ودعاسات 5D) */}
-              <div className="p-4 rounded-2xl border-2 border-[#d5a027]/40 hover:border-[#d5a027] bg-white shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-3 group">
-                <div className="space-y-2.5">
-                  <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
-                    <img 
-                      src={matchingFloorMat.image} 
-                      alt="أرضيات ودعاسات 5D" 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
-                    />
-                    <span className="absolute top-2 right-2 bg-[#d5a027] text-[#1c0537] text-[9px] font-black px-2 py-0.5 rounded-full">
-                      {isAr ? 'القسم 2: أرضيات 5D' : 'Cat 2: Floor Mats'}
-                    </span>
-                  </div>
-
-                  <div>
-                    <h6 className="font-black text-xs sm:text-sm text-slate-900 group-hover:text-[#3e0f77] transition-colors">
-                      {isAr ? `أرضيات ودعاسات 5D ليزر لـ${brandDisplayName}${modelDisplayName}` : `5D Floor Mats for ${brandDisplayName} ${modelDisplayName}`}
-                    </h6>
-                    <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                      {isAr 
-                        ? `تغطية شاملة للأرضيات، عازل 100% للماء والأتربة، خامات جلد صناعي صديق للبيئة سهل التنظيف.` 
-                        : `Full interior coverage, 100% waterproof and mud-resistant, easy to wash.`}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="pt-2.5 border-t border-slate-100 space-y-2">
-                  <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-base font-black text-slate-900">290</span>
-                      <span className="text-[11px] font-bold text-[#b07e16] mx-1">{'⃁'}</span>
-                      <span className="text-[10px] text-slate-400 line-through">350 {'⃁'}</span>
+                      <h6 className="text-xs font-black text-slate-900 sm:text-sm">
+                        {isAr
+                          ? matchingSeatCover.nameAr || matchingSeatCover.name
+                          : matchingSeatCover.nameEn || matchingSeatCover.name}
+                      </h6>
+                      <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                        {isAr
+                          ? `تفصيل ليزري لـ ${fullCarTitle} · لون ${colorDisplayName}`
+                          : `Laser fit for ${fullCarTitle} · ${colorDisplayName}`}
+                      </p>
                     </div>
-                    <span className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-1.5 py-0.2 rounded">
-                      {isAr ? 'الأكثر طلباً' : 'Top Seller'}
-                    </span>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <button
-                      onClick={() => {
-                        onSelectFloorMat(matchingFloorMat);
-                        onClose();
-                      }}
-                      className="w-full py-2 bg-amber-50 hover:bg-[#d5a027] hover:text-[#1c0537] text-[#b07e16] font-bold text-[11px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1"
-                    >
-                      <Palette className="w-3.5 h-3.5" />
-                      <span>{isAr ? 'تخصيص الأرضية' : 'Customize Mat'}</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        const msg = isAr 
-                          ? `مرحباً متجر السعيدي، أرغب بطلب طقم أرضيات ودعاسات 5D ليزر لسيارة${fullCarTitle}بسعر 290 ⃁.`
-                          : `Hello Al-Saeedi, I want to order 5D laser floor mats for ${fullCarTitle}.`;
-                        onWhatsAppOrder(matchingFloorMat, undefined, msg);
-                        onClose();
-                      }}
-                      className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 shadow-xs"
-                    >
-                      <WhatsAppIcon className="w-3.5 h-3.5" />
-                      <span>{isAr ? 'طلب واتساب' : 'WhatsApp'}</span>
-                    </button>
+                  <div className="space-y-2 border-t border-slate-100 pt-2.5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-base font-black text-slate-900">
+                          {matchingSeatCover.discountedPrice || matchingSeatCover.price}
+                        </span>
+                        <span className="mx-1 text-[11px] font-bold text-[#b07e16]">⃁</span>
+                        {matchingSeatCover.originalPrice &&
+                        matchingSeatCover.originalPrice > (matchingSeatCover.discountedPrice || matchingSeatCover.price) ? (
+                          <span className="text-[10px] text-slate-400 line-through">
+                            {matchingSeatCover.originalPrice} ⃁
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onSelectSeatCover(matchingSeatCover, resolvedColor);
+                          onClose();
+                        }}
+                        className="flex w-full cursor-pointer items-center justify-center gap-1 rounded-xl bg-slate-50 py-2 text-[11px] font-bold text-slate-800 transition-all hover:bg-slate-800 hover:text-white"
+                      >
+                        <Palette className="h-3.5 w-3.5" />
+                        <span>{isAr ? 'تخصيص' : 'Customize'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const price = matchingSeatCover.discountedPrice || matchingSeatCover.price;
+                          const msg = isAr
+                            ? `مرحباً متجر السعيدي، أرغب بطلب تلبيسة مقاعد لسيارة ${fullCarTitle} باللون ${colorDisplayName} بسعر ${price} ⃁.`
+                            : `Hello Al-Saeedi, I want seat covers for ${fullCarTitle} in ${colorDisplayName} at ${price} SAR.`;
+                          onWhatsAppOrder(matchingSeatCover, resolvedColor, msg);
+                          onClose();
+                        }}
+                        className="flex w-full cursor-pointer items-center justify-center gap-1 rounded-xl bg-emerald-600 py-2 text-[11px] font-bold text-white shadow-xs transition-all hover:bg-emerald-500"
+                      >
+                        <WhatsAppIcon className="h-3.5 w-3.5" />
+                        <span>{isAr ? 'واتساب' : 'WhatsApp'}</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+                  <Car className="h-8 w-8 text-slate-300" />
+                  <p className="text-xs font-bold text-slate-700">
+                    {isAr ? 'لا توجد تلابيس مطابقة حالياً' : 'No matching seat covers yet'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onViewInCatalog();
+                      onClose();
+                    }}
+                    className="cursor-pointer text-[11px] font-black text-amber-800 underline"
+                  >
+                    {isAr ? 'تصفح الكتالوج' : 'Browse catalog'}
+                  </button>
+                </div>
+              )}
 
+              {/* Floor mats — live catalog only */}
+              {matchingFloorMat ? (
+                <div className="group flex flex-col justify-between space-y-3 rounded-2xl border-2 border-[#d5a027]/40 bg-white p-4 shadow-sm transition-all hover:border-[#d5a027] hover:shadow-md">
+                  <div className="space-y-2.5">
+                    <div className="relative aspect-video overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                      <img
+                        src={matchingFloorMat.image}
+                        alt={matchingFloorMat.nameAr || matchingFloorMat.name}
+                        className="h-full w-full object-contain transition-transform group-hover:scale-105"
+                        loading="lazy"
+                      />
+                      <span className="absolute top-2 end-2 rounded-full bg-[#d5a027] px-2 py-0.5 text-[9px] font-black text-slate-900">
+                        {isAr ? 'أرضيات 5D' : '5D Mats'}
+                      </span>
+                    </div>
+                    <div>
+                      <h6 className="text-xs font-black text-slate-900 sm:text-sm">
+                        {isAr
+                          ? matchingFloorMat.nameAr || matchingFloorMat.name
+                          : matchingFloorMat.nameEn || matchingFloorMat.name}
+                      </h6>
+                      <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                        {isAr
+                          ? `عازل للماء · تفصيل ليزري لـ ${fullCarTitle}`
+                          : `Waterproof laser fit for ${fullCarTitle}`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-2 border-t border-slate-100 pt-2.5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-base font-black text-slate-900">
+                          {matchingFloorMat.discountedPrice || matchingFloorMat.price}
+                        </span>
+                        <span className="mx-1 text-[11px] font-bold text-[#b07e16]">⃁</span>
+                        {matchingFloorMat.originalPrice &&
+                        matchingFloorMat.originalPrice > (matchingFloorMat.discountedPrice || matchingFloorMat.price) ? (
+                          <span className="text-[10px] text-slate-400 line-through">
+                            {matchingFloorMat.originalPrice} ⃁
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onSelectFloorMat(matchingFloorMat);
+                          onClose();
+                        }}
+                        className="flex w-full cursor-pointer items-center justify-center gap-1 rounded-xl bg-amber-50 py-2 text-[11px] font-bold text-[#b07e16] transition-all hover:bg-[#d5a027] hover:text-slate-900"
+                      >
+                        <Palette className="h-3.5 w-3.5" />
+                        <span>{isAr ? 'تخصيص' : 'Customize'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const price = matchingFloorMat.discountedPrice || matchingFloorMat.price;
+                          const msg = isAr
+                            ? `مرحباً متجر السعيدي، أرغب بطلب أرضيات 5D لسيارة ${fullCarTitle} بسعر ${price} ⃁.`
+                            : `Hello Al-Saeedi, I want 5D mats for ${fullCarTitle} at ${price} SAR.`;
+                          onWhatsAppOrder(matchingFloorMat, undefined, msg);
+                          onClose();
+                        }}
+                        className="flex w-full cursor-pointer items-center justify-center gap-1 rounded-xl bg-emerald-600 py-2 text-[11px] font-bold text-white shadow-xs transition-all hover:bg-emerald-500"
+                      >
+                        <WhatsAppIcon className="h-3.5 w-3.5" />
+                        <span>{isAr ? 'واتساب' : 'WhatsApp'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-amber-200 bg-amber-50/50 p-6 text-center">
+                  <Sparkles className="h-8 w-8 text-amber-300" />
+                  <p className="text-xs font-bold text-slate-700">
+                    {isAr ? 'لا توجد أرضيات مطابقة حالياً' : 'No matching floor mats yet'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onViewInCatalog();
+                      onClose();
+                    }}
+                    className="cursor-pointer text-[11px] font-black text-amber-800 underline"
+                  >
+                    {isAr ? 'تصفح الكتالوج' : 'Browse catalog'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
           {/* 4. VIP COMBO PACKAGE BANNER */}
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-[#1c0537] via-[#2a0852] to-[#1c0537] text-white border-2 border-[#d5a027]/70 shadow-lg space-y-3">
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-100 via-[#2a0852] to-white text-white border-2 border-[#d5a027]/70 shadow-lg space-y-3">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-start">
               <div>
-                <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#d5a027] text-[#1c0537] font-black text-[10px] mb-1">
-                  <Star className="w-3 h-3 fill-[#1c0537]" />
+                <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#d5a027] text-slate-900 font-black text-[10px] mb-1">
+                  <Star className="w-3 h-3 fill-[#d5a027]" />
                   <span>{isAr ? 'عرض البكج الشامل (وفر 100 ⃁)' : 'VIP Combo: Save 100 ⃁'}</span>
                 </div>
                 <h5 className="font-black text-sm text-[#f6c344]">
@@ -444,9 +532,9 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
                 onWhatsAppOrder(undefined, resolvedColor, comboMessage);
                 onClose();
               }}
-              className="w-full py-2.5 bg-gradient-to-r from-[#d5a027] to-[#f6c344] hover:from-[#c28e1b] hover:to-[#e5b333] text-[#1c0537] font-black text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md"
+              className="w-full py-2.5 bg-gradient-to-r from-[#d5a027] to-[#f6c344] hover:from-[#c28e1b] hover:to-[#e5b333] text-slate-900 font-black text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md"
             >
-              <WhatsAppIcon className="w-4 h-4 text-[#1c0537]" />
+              <WhatsAppIcon className="w-4 h-4 text-slate-900" />
               <span>{isAr ? 'حجز البكج الشامل فوراً عبر واتساب (وفر 100 ⃁)' : 'Book VIP Combo via WhatsApp (Save 100 ⃁)'}</span>
             </button>
           </div>
@@ -458,7 +546,7 @@ export const VehicleMatchAlertModal: React.FC<VehicleMatchAlertModalProps> = ({
                 onViewInCatalog();
                 onClose();
               }}
-              className="w-full sm:w-auto px-5 py-2.5 bg-[#3e0f77] hover:bg-[#2e0b59] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+              className="w-full sm:w-auto px-5 py-2.5 bg-slate-800 hover:bg-[#2e0b59] text-white font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
             >
               <span>{isAr ? 'تصفح جميع نتائج سيارتك في الكتالوج' : 'View all results in catalog'}</span>
               {isAr ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}

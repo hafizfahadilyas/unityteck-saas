@@ -25,6 +25,9 @@ class SocialPost extends Model
         'external_post_id',
         'error_message',
         'published_at',
+        'likes_count',
+        'comments_count',
+        'reach_count',
     ];
 
     protected function casts(): array

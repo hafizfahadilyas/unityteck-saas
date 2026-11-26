@@ -418,9 +418,15 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
       dir={isAr ? 'rtl' : 'ltr'}
       aria-label={isAr ? `تفاصيل الطلب #${order.orderNumber}` : `Order Details #${order.orderNumber}`}
     >
-      <div className="w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[min(92vh,92dvh)]">
+      <div
+        className="w-full max-w-4xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[min(92vh,92dvh)]"
+        style={{ background: 'var(--surface, #fff)', color: 'var(--text)' }}
+      >
         {/* Top Header */}
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-slate-900/80">
+        <div
+          className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0"
+          style={{ background: 'var(--surface, #fff)' }}
+        >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold">
               <Package className="w-5 h-5" />
@@ -478,18 +484,21 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
         </div>
 
         {/* Modal Scrollable Body */}
-        <div className="p-6 overflow-y-auto space-y-6 text-sm">
+        <div className="p-4 sm:p-6 overflow-y-auto overflow-x-hidden space-y-4 sm:space-y-6 text-sm flex-1 min-h-0">
           {/* 1. Lifecycle Progression Pipeline Stepper */}
           {order.status !== 'cancelled' && order.status !== 'returned' ? (
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60">
-              <div className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-3 flex items-center justify-between">
-                <span>{isAr ? 'مراحل الطلب ومسار التجهيز' : 'Order Fulfillment Progression Pipeline'}</span>
-                <span className="text-[11px] font-black text-teal-600 dark:text-teal-400 uppercase">
+            <div
+              className="p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-700/60 relative z-0"
+              style={{ background: 'color-mix(in srgb, var(--surface) 92%, var(--muted) 8%)' }}
+            >
+              <div className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-3 flex items-center justify-between gap-2">
+                <span className="min-w-0">{isAr ? 'مراحل الطلب ومسار التجهيز' : 'Order Fulfillment Progression Pipeline'}</span>
+                <span className="text-[11px] font-black text-teal-600 dark:text-teal-400 uppercase shrink-0">
                   {order.status}
                 </span>
               </div>
 
-              <div className="grid grid-cols-5 gap-2 relative">
+              <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
                 {lifecycleSteps.map((step, idx) => {
                   const isDone = currentStepIndex >= idx;
                   const isCurrent = currentStepIndex === idx;
@@ -498,9 +507,9 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
                     <div
                       key={step.key}
                       onClick={() => handleStepTransition(step.key)}
-                      className={`p-2.5 rounded-xl text-center cursor-pointer transition-all border ${
+                      className={`p-1.5 sm:p-2.5 rounded-xl text-center cursor-pointer transition-colors border ${
                         isCurrent
-                          ? 'bg-teal-600 text-white border-teal-600 shadow-sm scale-[1.02]'
+                          ? 'bg-teal-600 text-white border-teal-600 shadow-sm'
                           : isDone
                           ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
                           : 'bg-white dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-400'
@@ -563,8 +572,11 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
             </div>
           )}
 
-          {/* 2. Quick Action Toolbar */}
-          <div className="flex items-center justify-between flex-wrap gap-2.5 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+          {/* 2. Quick Action Toolbar — solid surface so it never bleeds through pipeline */}
+          <div
+            className="flex items-center justify-between flex-wrap gap-2.5 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 relative z-0"
+            style={{ background: 'var(--surface, #fff)' }}
+          >
             <div className="flex items-center gap-2 flex-wrap">
               {/* Mark Processing */}
               {order.status === 'pending' && (
@@ -1145,7 +1157,10 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex items-center justify-between">
+        <div
+          className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0"
+          style={{ background: 'var(--surface, #fff)' }}
+        >
           <div className="text-xs text-slate-500">
             {isAr ? 'معرف الطلب:' : 'Order ID:'} <span className="font-mono text-slate-700 dark:text-slate-300">{order.id}</span>
           </div>

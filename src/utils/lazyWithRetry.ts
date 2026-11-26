@@ -1,6 +1,8 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 
 const RELOAD_KEY = 'chunk_lazy_reload';
+/** Align with index.html — one reload max per tab, never periodic. */
+const RELOAD_ONCE_KEY = 'unityteck_chunk_reload_once';
 
 export function isChunkLoadError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err ?? '');
@@ -12,11 +14,22 @@ export function isChunkLoadError(err: unknown): boolean {
 /** One hard reload after stale deploy / missing hashed chunk — never loop. */
 export function reloadOnceForStaleChunk(): void {
   try {
+    // Storefront already mounted — do not hard-refresh (buy/PDP auto-refresh bug).
+    if (
+      typeof document !== 'undefined' &&
+      document.querySelector(
+        '[data-coffee-product-buy],[data-theme-id],.hibrew-theme-root,.unity-theme-container',
+      )
+    ) {
+      return;
+    }
+    if (sessionStorage.getItem(RELOAD_ONCE_KEY) === '1') return;
     const now = Date.now();
     const last = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
-    // 60s gate — avoids refresh loops that also wipe in-flight locale UX
+    // Legacy key kept for manual retry button; once-flag stops BAR-BAR loops.
     if (now - last > 60_000) {
       sessionStorage.setItem(RELOAD_KEY, String(now));
+      sessionStorage.setItem(RELOAD_ONCE_KEY, '1');
       window.location.reload();
     }
   } catch {

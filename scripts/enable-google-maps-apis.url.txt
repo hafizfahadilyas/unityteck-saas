@@ -1,0 +1,27 @@
+# Open these AFTER Google Cloud login (same Google account that owns the Maps key).
+# Click ENABLE on each page. Billing must be on for Maps.
+
+1) Maps JavaScript API
+https://console.cloud.google.com/apis/library/maps-backend.googleapis.com
+
+2) Places API (for address search / Autocomplete — Saudi only in app)
+https://console.cloud.google.com/apis/library/places-backend.googleapis.com
+
+3) Places API (New) — if Google asks for New instead of legacy
+https://console.cloud.google.com/apis/library/places.googleapis.com
+
+4) Geocoding API (reverse pin → Saudi address)
+https://console.cloud.google.com/apis/library/geocoding-backend.googleapis.com
+
+5) API key restrictions (HTTP referrers)
+https://console.cloud.google.com/apis/credentials
+Add:
+  http://localhost:3010/*
+  http://127.0.0.1:3010/*
+  https://mieraf-ksa.com/*
+  https://*.mieraf-ksa.com/*
+  https://giftshop-sa.com/*
+  https://*.giftshop-sa.com/*
+
+App key is already in local .env as VITE_GOOGLE_MAPS_API_KEY (gitignored).
+Vite restarts pick it up; Hostinger build bakes it from .env via vite.config.ts.

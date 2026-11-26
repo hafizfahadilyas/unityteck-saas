@@ -66,10 +66,10 @@ export const CONTROL_DEFINITIONS: ControlItemDefinition[] = [
   {
     id: 'ai-media',
     category: 'store_admin_pages',
-    nameEn: 'AI Image & Video Generator',
-    nameAr: 'مولّد الصور والفيديو بالذكاء الاصطناعي',
-    descriptionEn: 'Prompt-based AI image and video generation with per-store monthly limits; save to Media Library or post.',
-    descriptionAr: 'توليد صور وفيديو بالوصف مع حدود شهرية لكل متجر؛ الحفظ في مكتبة الوسائط أو النشر.',
+    nameEn: 'AI Tools',
+    nameAr: 'أدوات الذكاء الاصطناعي',
+    descriptionEn: 'Common AI page for every store — large feature buttons, price-first payment popup, Master unlock.',
+    descriptionAr: 'صفحة ذكاء مشتركة لكل متجر — أزرار كبيرة ونافذة سعر أولاً وفتح من الماستر.',
     iconName: 'Sparkles',
     defaultEnabled: true,
     impactLevel: 'standard',
@@ -838,7 +838,7 @@ const GLOBAL_STORAGE_KEY = 'unityteck_global_store_controls';
  * "Disable all" and Master toggles cannot hide these (settings was disappearing
  * after bulk-off or stale localStorage).
  */
-export const CORE_STORE_CONTROL_IDS = new Set(['dashboard', 'settings', 'notifications']);
+export const CORE_STORE_CONTROL_IDS = new Set(['dashboard', 'settings', 'notifications', 'payments']);
 const CORE_FORCE_ON_REV_KEY = 'unityteck_core_controls_force_on_rev';
 const CURRENT_CORE_FORCE_ON_REV = 1;
 /**

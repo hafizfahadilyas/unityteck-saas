@@ -1907,3 +1907,28 @@ export function writeAllThemeSettings(
     }
   }
 }
+
+/**
+ * Local write + immediate Hostinger PUT (await). Use from Settings Save so toast is honest.
+ * Cancels any pending debounce for this store_id.
+ */
+export async function persistAllThemeSettingsNow(
+  storeId: string,
+  settings: AllThemeSettings,
+  explicitThemeId?: string,
+): Promise<void> {
+  const targetThemeId = explicitThemeId || resolveStoreActiveThemeId(storeId);
+  writeAllThemeSettings(storeId, settings, targetThemeId, { syncApi: false });
+  const prev = themeSettingsApiSyncTimers.get(storeId);
+  if (prev) clearTimeout(prev);
+  themeSettingsApiSyncTimers.delete(storeId);
+  if (typeof window === 'undefined' || !storeId) return;
+  const { isApiEnabled } = await import('../../api/client');
+  if (!isApiEnabled()) return;
+  const { updateThemeSettingsApi } = await import('../../api/tenantApi');
+  const { updatedAt: _u, ...payload } = settings as AllThemeSettings & { updatedAt?: string };
+  await updateThemeSettingsApi(storeId, {
+    theme_id: targetThemeId,
+    settings: payload as Record<string, unknown>,
+  });
+}

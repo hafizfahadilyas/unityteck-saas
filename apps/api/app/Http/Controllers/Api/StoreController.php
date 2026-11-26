@@ -8,8 +8,8 @@ use App\Models\Store;
 use App\Models\StoreUser;
 use App\Models\Subscription;
 use App\Models\User;
+use App\Services\Store\ProvisionNewStoreService;
 use App\Support\Audit;
-use App\Support\DefaultTheme;
 use App\Support\HostingerCloud;
 use App\Support\Plans;
 use Illuminate\Http\JsonResponse;
@@ -73,7 +73,7 @@ class StoreController extends Controller
             'slug' => ['required', 'string', 'max:191', 'unique:stores,slug'],
             'domain' => ['nullable', 'string', 'max:191'],
             'status' => ['nullable', Rule::in(['active', 'inactive', 'pending', 'suspended'])],
-            'plan' => ['nullable', Rule::in(['free', 'paid', 'pro', 'premium', 'custom'])],
+            'plan' => ['nullable', Rule::in(['free', 'paid', 'starter', 'pro', 'premium', 'custom'])],
             'master_granted_pro' => ['nullable', 'boolean'],
             'canva_templates_per_category' => ['nullable', 'integer', 'min:1', 'max:100'],
             'currency' => ['nullable', 'string', 'max:10'],
@@ -88,16 +88,23 @@ class StoreController extends Controller
             'hosting_mode' => ['nullable', Rule::in(['shared', 'dedicated', 'client'])],
             'db_isolation' => ['nullable', Rule::in(['shared_store_id', 'dedicated_mysql'])],
             'zatca_vat_number' => ['nullable', 'string', 'max:32'],
+            'seed_starter_catalog' => ['nullable', 'boolean'],
         ]);
+
+        $seedCatalog = array_key_exists('seed_starter_catalog', $data)
+            ? (bool) $data['seed_starter_catalog']
+            : true;
+        unset($data['seed_starter_catalog']);
 
         $data['id'] = $data['id'] ?? 'store-'.Str::lower(Str::random(8));
         $data['status'] = $data['status'] ?? 'pending';
-        $data['plan'] = $data['plan'] ?? 'pro';
+        // docs/38 — new merchants default Premium 500 (Pro features + full common themes)
+        $data['plan'] = $data['plan'] ?? 'premium';
         $data['currency'] = $data['currency'] ?? 'SAR';
-        // New stores join the central Hostinger. Flowers stays on its own account.
-        $data['hosting_mode'] = 'shared';
-        $data['db_isolation'] = 'shared_store_id';
+        // LOCKED: new stores → central Hostinger. Flowers (store-1) stays dedicated/separate.
+        $data = HostingerCloud::applyHostingDefaults($data, (string) $data['id']);
         $data['master_granted_pro'] = (bool) ($data['master_granted_pro'] ?? false);
+        $data['accent_color'] = $data['accent_color'] ?? '#0f766e';
 
         $probe = new Store($data);
         if (! empty($data['domain']) && ! Plans::hasFeature($probe, 'custom_domain')) {
@@ -106,9 +113,7 @@ class StoreController extends Controller
 
         $store = Store::query()->create($data);
 
-        DefaultTheme::assignToStore($store);
-
-        $planId = Plans::catalog()[Plans::normalizeCode($store->plan)]['id'] ?? 'plan-pro';
+        $planId = Plans::catalog()[Plans::normalizeCode($store->plan)]['id'] ?? 'plan-premium';
         if (Plan::query()->where('id', $planId)->exists()) {
             $existingSub = Subscription::withoutGlobalScope('store')->where('store_id', $store->id)->first();
             if ($existingSub) {
@@ -130,9 +135,12 @@ class StoreController extends Controller
             }
         }
 
+        $provision = app(ProvisionNewStoreService::class)->bootstrap($store, $seedCatalog);
+
         return response()->json([
             'data' => $store->fresh(),
             'hosting' => HostingerCloud::domainPolicy($store->id),
+            'provision' => $provision,
         ], 201);
     }
 
@@ -149,7 +157,7 @@ class StoreController extends Controller
             'custom_domain' => ['nullable', 'string', 'max:191'],
             'demo_domain' => ['nullable', 'string', 'max:191'],
             'status' => ['sometimes', Rule::in(['active', 'inactive', 'pending', 'suspended', 'maintenance'])],
-            'plan' => ['sometimes', Rule::in(['free', 'paid', 'pro', 'premium', 'custom'])],
+            'plan' => ['sometimes', Rule::in(['free', 'paid', 'starter', 'pro', 'premium', 'custom'])],
             'master_granted_pro' => ['sometimes', 'boolean'],
             'canva_templates_per_category' => ['nullable', 'integer', 'min:1', 'max:100'],
             'currency' => ['sometimes', 'string', 'max:10'],
@@ -212,6 +220,8 @@ class StoreController extends Controller
             'email' => $store->email,
         ];
         $previousEmail = Str::lower(trim((string) $store->email));
+        // Hosting split is policy-locked (flowers dedicated; everyone else central shared).
+        $data = HostingerCloud::applyHostingDefaults($data, $store->id);
         $store->fill($data)->save();
 
         if ($statusChanging || $loginChanging || array_key_exists('email', $data)) {

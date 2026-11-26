@@ -1,0 +1,26 @@
+# Isolated site: souq-default.mieraf-ksa.com
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  RewriteCond %{HTTPS} off
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L,QSA]
+
+  # Images / fonts still OK via redirect (not module CORS)
+  RewriteRule ^images/(.*)$ https://mieraf-ksa.com/images/$1 [R=302,L,NE,QSA]
+  RewriteRule ^fonts/(.*)$ https://mieraf-ksa.com/fonts/$1 [R=302,L,NE,QSA]
+  RewriteRule ^favicon\.ico$ https://mieraf-ksa.com/favicon.ico [R=302,L]
+
+  # Do NOT redirect /assets — index.php rewrites HTML to absolute mieraf URLs
+
+  RewriteRule ^api/commerce\.php$ api/commerce.php [L,QSA]
+  RewriteRule ^api/(.*)$ api/index.php [QSA,L]
+  RewriteRule ^api$ api/index.php [QSA,L]
+
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . index.php [L,QSA]
+</IfModule>

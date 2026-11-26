@@ -183,7 +183,7 @@ export const BellDropdown: React.FC<BellDropdownProps> = ({
       {isOpen && (
         <div
           role="menu"
-          className="absolute end-0 top-full mt-2 w-[min(100vw-1.25rem,22rem)] sm:w-[24rem] max-w-[calc(100vw-1.25rem)] rounded-2xl border shadow-2xl z-[80] text-xs overflow-hidden backdrop-blur-md animate-in fade-in zoom-in-95 duration-150"
+          className="fixed inset-x-3 top-[max(3.75rem,calc(env(safe-area-inset-top,0px)+3.25rem))] z-[80] w-auto max-h-[min(70dvh,28rem)] rounded-2xl border shadow-2xl text-xs overflow-hidden backdrop-blur-md animate-in fade-in zoom-in-95 duration-150 sm:absolute sm:inset-x-auto sm:end-0 sm:top-full sm:mt-2 sm:w-[24rem] sm:max-w-[calc(100vw-1.25rem)] sm:max-h-none"
           style={{
             background: 'var(--surface)',
             borderColor: 'var(--border)',

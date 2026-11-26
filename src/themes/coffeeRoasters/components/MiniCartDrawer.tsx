@@ -130,7 +130,7 @@ export const MiniCartDrawer: React.FC = () => {
                   }}
                   className="px-6 py-2.5 bg-black hover:bg-neutral-800 text-white font-bold text-xs rounded-full transition-transform active:scale-95 cursor-pointer"
                 >
-                  {language === 'AR' ? 'تصفح المكائن والمستلزمات' : 'Explore Equipment'}
+                  {language === 'AR' ? 'تصفح دواليب القهوة' : 'Explore Cabinets'}
                 </button>
               </div>
             ) : (

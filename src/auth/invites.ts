@@ -11,10 +11,18 @@ import {
   redeemOnboardingInviteApi,
 } from '../api/tenantApi';
 
+export type OnboardingInvitePlan =
+  | 'free'
+  | 'paid'
+  | 'starter'
+  | 'pro'
+  | 'premium'
+  | 'custom';
+
 export type OnboardingInvite = {
   token: string;
   storeId: string;
-  plan: 'free' | 'paid' | 'pro' | 'custom';
+  plan: OnboardingInvitePlan;
   label: string;
   locale: 'en' | 'ar';
   textDir: 'ltr' | 'rtl';
@@ -24,6 +32,17 @@ export type OnboardingInvite = {
   expiresAt: string;
   usedAt?: string | null;
   redeemedStoreId?: string | null;
+};
+
+export type OnboardProvisionPayload = {
+  name?: string;
+  slug?: string;
+  owner_name?: string;
+  email?: string;
+  category?: string;
+  phone?: string;
+  city?: string;
+  seed_starter_catalog?: boolean;
 };
 
 export const ONBOARD_TIMEZONES = [
@@ -45,7 +64,7 @@ function mapRow(row: Record<string, unknown>): OnboardingInvite {
   return {
     token: String(row.token ?? ''),
     storeId: String(row.storeId ?? row.store_id ?? ''),
-    plan: (row.plan as OnboardingInvite['plan']) ?? 'pro',
+    plan: (row.plan as OnboardingInvite['plan']) ?? 'premium',
     label: String(row.label ?? ''),
     locale: row.locale === 'ar' ? 'ar' : 'en',
     textDir: row.textDir === 'rtl' || row.text_dir === 'rtl' ? 'rtl' : 'ltr',
@@ -111,24 +130,48 @@ export async function checkInviteToken(
 export async function redeemInviteToken(
   token: string,
   storeId: string,
-): Promise<InviteCheck> {
+  provision?: OnboardProvisionPayload,
+): Promise<InviteCheck & { defaultThemeId?: string; provisioned?: boolean }> {
   if (!isApiEnabled()) {
     return { ok: false, reason: 'invalid' };
   }
-  const res = await redeemOnboardingInviteApi(token, storeId);
+  const res = await redeemOnboardingInviteApi(token, storeId, provision);
   if (!res.ok) {
     const reason = res.reason === 'expired' || res.reason === 'used' ? res.reason : 'invalid';
     return { ok: false, reason };
   }
-  return { ok: true, invite: mapRow(res.invite) };
+  return {
+    ok: true,
+    invite: mapRow(res.invite),
+    defaultThemeId:
+      typeof res.default_theme_id === 'string'
+        ? res.default_theme_id
+        : 'theme-souq-common-retail',
+    provisioned: Boolean(res.provisioned),
+  };
 }
 
+/** Short public share URL — https://host/join/Ab3xK9m2 */
 export function buildRegisterUrl(token: string): string {
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const origin =
+    typeof window !== 'undefined' ? window.location.origin : 'https://mieraf-ksa.com';
+  const code = String(token || '').trim();
+  if (!code) return `${origin}/store/register`;
+  return `${origin}/join/${encodeURIComponent(code)}`;
+}
+
+/** Legacy long query URL (still valid). */
+export function buildRegisterUrlLegacy(token: string): string {
+  const origin =
+    typeof window !== 'undefined' ? window.location.origin : 'https://mieraf-ksa.com';
   return `${origin}/store/register?invite=${encodeURIComponent(token)}`;
 }
 
 export function readInviteFromLocation(): string | null {
   if (typeof window === 'undefined') return null;
-  return new URLSearchParams(window.location.search).get('invite');
+  const q = new URLSearchParams(window.location.search).get('invite');
+  if (q && q.trim()) return q.trim();
+  const path = window.location.pathname.replace(/\/+$/, '');
+  const m = path.match(/^\/(?:join|j|onboard)\/([^/]+)$/i);
+  return m?.[1] ? decodeURIComponent(m[1]) : null;
 }

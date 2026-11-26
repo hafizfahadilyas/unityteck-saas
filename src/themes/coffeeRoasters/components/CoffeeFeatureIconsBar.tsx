@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Award,
   Clock,
@@ -30,6 +30,57 @@ import {
 } from './coffeeFeatureIconsLogic';
 
 export { featureItemsForDevice, safeFeatureImage } from './coffeeFeatureIconsLogic';
+
+/** Image tile with Lucide fallback when PNG/CDN URL 404s. */
+function FeatureMediaTile({
+  image,
+  Icon,
+  size,
+  color,
+  iconBg,
+  shape,
+}: {
+  image: string;
+  Icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  size: number;
+  color: string;
+  iconBg: string;
+  shape: EnhancedFeatureItem['iconShape'];
+}) {
+  const [broken, setBroken] = useState(false);
+  const showImg = Boolean(image) && !broken;
+  const glyph = Math.round(size * 0.46);
+  return (
+    <div
+      className="shrink-0 overflow-hidden flex items-center justify-center shadow-sm leading-none"
+      style={{
+        width: size,
+        height: size,
+        minWidth: size,
+        minHeight: size,
+        background: showImg ? '#FFFFFF' : iconBg,
+        borderRadius: shapeRadius(shape),
+        color,
+      }}
+    >
+      {showImg ? (
+        <img
+          src={image}
+          alt=""
+          className="block w-[70%] h-[70%] object-contain"
+          loading="lazy"
+          decoding="async"
+          onError={() => setBroken(true)}
+        />
+      ) : (
+        <Icon
+          className="block shrink-0"
+          style={{ width: glyph, height: glyph, strokeWidth: 1.75 }}
+        />
+      )}
+    </div>
+  );
+}
 
 export const FEATURE_ICON_LIBRARY: { name: string; Icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }> }[] = [
   { name: 'Truck', Icon: Truck },
@@ -161,7 +212,7 @@ export const CoffeeFeatureIconsBar: React.FC<{
         `}</style>
       ) : null}
       {(title || subtitle) && (
-        <div className="text-center mb-3 space-y-0.5" style={{ textAlign: 'center' }}>
+        <div className="mb-3 space-y-0.5 px-1" style={{ textAlign }}>
           {title ? <h3 className="text-sm sm:text-base font-bold text-slate-900">{title}</h3> : null}
           {subtitle ? <p className="text-[11px] sm:text-xs text-slate-500">{subtitle}</p> : null}
         </div>
@@ -182,29 +233,21 @@ export const CoffeeFeatureIconsBar: React.FC<{
               : '';
           const inner = (
             <>
-              <div
-                className="shrink-0 overflow-hidden flex items-center justify-center shadow-sm"
-                style={{
-                  width: size,
-                  height: size,
-                  background: image ? 'transparent' : iconBg,
-                  borderRadius: shapeRadius(item.iconShape),
-                  color,
-                }}
-              >
-                {image ? (
-                  <img src={image} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <Icon style={{ width: Math.round(size * 0.46), height: Math.round(size * 0.46) }} />
-                )}
-              </div>
-              <div className="min-w-0" style={{ textAlign }}>
+              <FeatureMediaTile
+                image={image}
+                Icon={Icon}
+                size={size}
+                color={color}
+                iconBg={iconBg}
+                shape={item.iconShape}
+              />
+              <div className="min-w-0 flex-1" style={{ textAlign }}>
                 <div className="font-bold text-[12px] sm:text-[13px] text-slate-900 leading-snug">{label}</div>
                 {description ? <div className="text-[10px] sm:text-[11px] text-slate-500 leading-snug mt-0.5">{description}</div> : null}
               </div>
             </>
           );
-          const rowClass = `flex items-center gap-2.5 min-w-0 ${hide}`;
+          const rowClass = `flex items-center gap-3 min-w-0 ${hide}`;
           const rowStyle: React.CSSProperties = { justifyContent: justify };
           if (variant === 'frame' || kind === 'none') {
             return (

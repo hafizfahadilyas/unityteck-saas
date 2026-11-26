@@ -30,6 +30,10 @@ import {
   storefrontHomeHref,
   trapSpaHomeIfEscaped,
 } from '../../../utils/spaNavigationGuard';
+import {
+  joinStorefrontPath,
+  storefrontMountPath,
+} from '../../../utils/storefrontLinks';
 
 /** Minimal theme product from API row (deep-link / group child). */
 import { cleanImageUrl } from '../../../utils/imageFallback';
@@ -198,11 +202,11 @@ function mergeListPricing(dp: any) {
   };
 }
 
-/** SEO / custom-domain paths: `/product/{id}` (also under `/coffee` or `/public_html`). */
+/** SEO / short paths: `/product/{id}`, `/buy/{id}` (also under `/coffee` or `/public_html`). */
 function productIdFromPath(): string | null {
   if (typeof window === 'undefined') return null;
   const path = String(window.location.pathname || '').replace(/\/$/, '') || '/';
-  const m = path.match(/(?:^|\/)product\/([^/]+)$/i);
+  const m = path.match(/(?:^|\/)(?:product|buy)\/([^/]+)$/i);
   if (!m) return null;
   try {
     return decodeURIComponent(m[1]).trim() || null;
@@ -218,21 +222,68 @@ function productIdFromQuery(): string | null {
   return id || productIdFromPath();
 }
 
-/** Storefront root for this host (`/` on custom domain, `/coffee` on shared preview). */
+function pathLooksLikeBuy(): boolean {
+  if (typeof window === 'undefined') return false;
+  const path = String(window.location.pathname || '').replace(/\/$/, '') || '/';
+  return /(?:^|\/)buy\/[^/]+$/i.test(path);
+}
+
+function pathLooksLikeProductDetail(): boolean {
+  if (typeof window === 'undefined') return false;
+  const path = String(window.location.pathname || '').replace(/\/$/, '') || '/';
+  return /(?:^|\/)product\/[^/]+$/i.test(path);
+}
+
+/** Storefront root (`/` custom domain, `/coffee` on shared central host). */
 function coffeeStorefrontBasePath(): string {
   if (typeof window === 'undefined') return '/';
   const path = String(window.location.pathname || '').replace(/\/$/, '') || '/';
   if (/^\/coffee(\/|$)/i.test(path)) return '/coffee';
   if (/^\/public_html(\/|$)/i.test(path)) return '/public_html';
+  try {
+    const store =
+      new URLSearchParams(window.location.search).get('store') ||
+      new URLSearchParams(window.location.search).get('storeId') ||
+      '';
+    const mount = storefrontMountPath(store);
+    if (mount) return mount;
+  } catch {
+    /* ignore */
+  }
   return '/';
+}
+
+/** Strip share-noise query keys when path already encodes store + product. */
+function stripStorefrontShareNoise(url: URL, basePath: string): void {
+  url.searchParams.delete('page');
+  url.searchParams.delete('product');
+  url.searchParams.delete('productId');
+  url.searchParams.delete('pid');
+  url.searchParams.delete('fullscreen');
+  if (basePath !== '/') {
+    url.searchParams.delete('store');
+    url.searchParams.delete('storeId');
+    url.searchParams.delete('demo');
+  }
 }
 
 function routeFromPreviewQuery(): RouteType {
   if (typeof window === 'undefined') return 'home';
+  const path = String(window.location.pathname || '').replace(/\/$/, '') || '/';
+  if (pathLooksLikeBuy()) return 'product-buy';
+  if (pathLooksLikeProductDetail()) return 'product-detail';
+  if (/\/products(\/|$)/i.test(path) || /\/catalog(\/|$)/i.test(path) || /\/shop(\/|$)/i.test(path)) {
+    return 'products';
+  }
+  if (/\/cart$/i.test(path)) return 'cart';
+  if (/\/checkout$/i.test(path)) return 'checkout';
+  if (/\/(profile|account|crm|orders)$/i.test(path)) return 'profile';
+  if (/\/thankyou$/i.test(path)) return 'thankyou';
+
   const params = new URLSearchParams(window.location.search);
   const p = (params.get('page') || '').toLowerCase().trim();
   const hasProduct = !!productIdFromQuery();
-  // Path `/product/{id}` must open PDP even when query has no page=
+  // Path `/product/{id}` already handled; query-only legacy deep links
   if (!p && hasProduct) return 'product-detail';
   if (!p) return 'home';
   if (p === 'catalog' || p === 'products' || p === 'shop') return 'products';
@@ -643,43 +694,47 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (typeof window !== 'undefined' && !inAdminChromeUrl()) {
         const url = new URL(window.location.href);
         const basePath = coffeeStorefrontBasePath();
+        const pid = productId || productIdFromQuery();
         if (targetRoute === 'home') {
           url.pathname = basePath;
-          url.searchParams.delete('page');
+          stripStorefrontShareNoise(url, basePath);
+        } else if (targetRoute === 'product-buy' && pid) {
+          // Short share link: /coffee/buy/{id} — no ?store=&fullscreen=&page=buy
+          url.pathname = joinStorefrontPath(basePath, 'buy', pid);
+          stripStorefrontShareNoise(url, basePath);
+        } else if (targetRoute === 'product-detail' && pid) {
+          url.pathname = joinStorefrontPath(basePath, 'product', pid);
+          stripStorefrontShareNoise(url, basePath);
+        } else if (targetRoute === 'products') {
+          url.pathname = joinStorefrontPath(basePath, 'products');
+          stripStorefrontShareNoise(url, basePath);
+        } else if (targetRoute === 'cart') {
+          url.pathname = joinStorefrontPath(basePath, 'cart');
+          stripStorefrontShareNoise(url, basePath);
+        } else if (targetRoute === 'checkout') {
+          url.pathname = joinStorefrontPath(basePath, 'checkout');
+          stripStorefrontShareNoise(url, basePath);
+        } else if (targetRoute === 'profile') {
+          url.pathname = joinStorefrontPath(basePath, 'profile');
+          stripStorefrontShareNoise(url, basePath);
+        } else if (targetRoute === 'thankyou') {
+          url.pathname = joinStorefrontPath(basePath, 'thankyou');
+          stripStorefrontShareNoise(url, basePath);
+        } else {
+          // Policy / CMS pages still use ?page= under store mount
+          url.pathname = basePath;
+          url.searchParams.set('page', targetRoute);
           url.searchParams.delete('product');
           url.searchParams.delete('productId');
           url.searchParams.delete('pid');
-        } else {
-          url.searchParams.set(
-            'page',
-            targetRoute === 'product-detail'
-              ? 'product'
-              : targetRoute === 'product-buy'
-                ? 'buy'
-                : targetRoute === 'products'
-                  ? 'products'
-                  : targetRoute,
-          );
-          const pid = productId || productIdFromQuery();
-          if ((targetRoute === 'product-detail' || targetRoute === 'product-buy') && pid) {
-            url.searchParams.set('product', pid);
-            // Custom-domain / bare host: keep shareable SEO path `/product/{id}`
-            if (basePath === '/') {
-              url.pathname = `/product/${encodeURIComponent(pid)}`;
-            }
-          } else if (targetRoute === 'products' && basePath === '/') {
-            url.searchParams.delete('product');
-            url.searchParams.delete('productId');
-            url.searchParams.delete('pid');
-            url.pathname = '/products';
-          } else if (targetRoute !== 'product-detail' && targetRoute !== 'product-buy') {
-            url.searchParams.delete('product');
-            url.searchParams.delete('productId');
-            url.searchParams.delete('pid');
-            // Leaving PDP: drop `/product/...` path so home chrome does not stick
-            if (/\/product\//i.test(url.pathname) || /^\/products(\/|$)/i.test(url.pathname)) {
-              url.pathname = targetRoute === 'products' ? '/products' : basePath;
-            }
+          url.searchParams.delete('fullscreen');
+          if (basePath !== '/') {
+            url.searchParams.delete('store');
+            url.searchParams.delete('storeId');
+            url.searchParams.delete('demo');
+          }
+          if (/\/(product|buy)\//i.test(url.pathname) || /\/products(\/|$)/i.test(url.pathname)) {
+            url.pathname = basePath;
           }
         }
         dedupeProductQueryFromPath(url);
@@ -689,6 +744,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch {}
     setCurrentRoute((prev) => {
+      if (prev === targetRoute) return prev;
       setPreviousRoute(prev);
       setRouteHistory((h) => {
         if (h.length > 0 && h[h.length - 1] === targetRoute) return h;
@@ -770,12 +826,24 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => window.removeEventListener('popstate', onPop);
   }, [inAdminChromeUrl]);
 
-  // Canonical product URL — no duplicate ?product= when path already has /product/{id}
+  // Canonical short product/buy URL — rewrite long ?store=&fullscreen=&page=buy links
   useEffect(() => {
     if (typeof window === 'undefined' || inAdminChromeUrl()) return;
     try {
       const url = new URL(window.location.href);
-      dedupeProductQueryFromPath(url);
+      const basePath = coffeeStorefrontBasePath();
+      const route = routeFromPreviewQuery();
+      const pid = productIdFromQuery();
+      if ((route === 'product-buy' || route === 'product-detail') && pid) {
+        url.pathname = joinStorefrontPath(
+          basePath,
+          route === 'product-buy' ? 'buy' : 'product',
+          pid,
+        );
+        stripStorefrontShareNoise(url, basePath);
+      } else {
+        dedupeProductQueryFromPath(url);
+      }
       const href = `${url.pathname}${url.search}${url.hash}`;
       const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
       if (href !== current) {
@@ -1483,7 +1551,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const storeIdentity = useMemo(() => {
       if (!tenant?.activeStore?.id) return readStoreIdentity('', { name: '' });
       return readStoreIdentity(tenant.activeStore.id, tenant.activeStore);
-  }, [tenant?.activeStore?.id, tenant?.activeStore?.name, tenant?.activeStore?.logo, syncTick]);
+  }, [
+    tenant?.activeStore?.id,
+    tenant?.activeStore?.name,
+    tenant?.activeStore?.logo,
+    tenant?.activeStore?.phone,
+    (tenant?.activeStore as { whatsapp?: string } | undefined)?.whatsapp,
+    syncTick,
+  ]);
 
   return (
     <CartContext.Provider

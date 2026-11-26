@@ -1,0 +1,1 @@
+ERR Composer detected issues in your platform: Your Composer dependencies require a PHP version ">= 8.2.0". You are running 8.0.30.

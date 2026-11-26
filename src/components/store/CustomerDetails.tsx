@@ -1045,13 +1045,16 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             </div>
           </div>
 
-          {/* 4 Benefit Metric Stat Cards */}
+          {/* 4 Benefit Metric Stat Cards — Holst icon wells (never white-on-white) */}
           <div className="u-equal-sections grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 shrink-0">
             {/* Loyalty Points */}
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 space-y-3 shadow-sm hover:border-teal-300 transition-all">
               <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-xl bg-teal-500 text-white flex items-center justify-center shadow-sm">
-                  <Crown className="w-5 h-5" />
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm"
+                  style={{ background: 'var(--portal-cta)', color: '#ffffff' }}
+                >
+                  <Crown className="w-5 h-5" stroke="currentColor" />
                 </div>
               </div>
               <div>
@@ -1063,10 +1066,13 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             </div>
 
             {/* Cashback Balance */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 space-y-3 shadow-sm hover:border-emerald-300 transition-all">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 space-y-3 shadow-sm hover:border-teal-300 transition-all">
               <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-sm">
-                  <Coins className="w-5 h-5" />
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm"
+                  style={{ background: 'var(--accent)', color: '#ffffff' }}
+                >
+                  <Coins className="w-5 h-5" stroke="currentColor" />
                 </div>
               </div>
               <div>
@@ -1078,10 +1084,16 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             </div>
 
             {/* Available Coupons */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 space-y-3 shadow-sm hover:border-purple-300 transition-all">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 space-y-3 shadow-sm hover:border-teal-300 transition-all">
               <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-xl bg-purple-500 text-white flex items-center justify-center shadow-sm">
-                  <Tag className="w-5 h-5" />
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm"
+                  style={{
+                    background: 'color-mix(in srgb, var(--portal-cta) 82%, #1e3a5f)',
+                    color: '#ffffff',
+                  }}
+                >
+                  <Tag className="w-5 h-5" stroke="currentColor" />
                 </div>
               </div>
               <div>
@@ -1093,10 +1105,16 @@ export const CustomerDetails: React.FC<CustomerDetailsProps> = ({
             </div>
 
             {/* Expiring Soon */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 space-y-3 shadow-sm hover:border-rose-300 transition-all">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 space-y-3 shadow-sm hover:border-teal-300 transition-all">
               <div className="flex items-center justify-between">
-                <div className="w-10 h-10 rounded-xl bg-rose-500 text-white flex items-center justify-center shadow-sm">
-                  <Clock className="w-5 h-5" />
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm"
+                  style={{
+                    background: 'color-mix(in srgb, var(--accent) 70%, #0f172a)',
+                    color: '#ffffff',
+                  }}
+                >
+                  <Clock className="w-5 h-5" stroke="currentColor" />
                 </div>
               </div>
               <div>

@@ -251,6 +251,26 @@ async function deploy() {
     fs.writeFileSync(htaccessDist, txt);
   }
 
+  // Preserve legacy compatibility hashes & sync fallback rules with latest built hash
+  const distAssets = path.join(distDir, 'assets');
+  if (fs.existsSync(distAssets)) {
+    const files = fs.readdirSync(distAssets);
+    const mainJs = files.find((f) => /^index-[A-Za-z0-9_-]+\.js$/.test(f) && f !== 'index-DFJOKphv.js');
+    const mainCss = files.find((f) => /^index-[A-Za-z0-9_-]+\.css$/.test(f) && f !== 'index-JfJHEEIZ.css');
+    if (mainJs) {
+      fs.copyFileSync(path.join(distAssets, mainJs), path.join(distAssets, 'index-DFJOKphv.js'));
+    }
+    if (mainCss) {
+      fs.copyFileSync(path.join(distAssets, mainCss), path.join(distAssets, 'index-JfJHEEIZ.css'));
+    }
+    if (mainJs && mainCss && fs.existsSync(htaccessDist)) {
+      let ht = fs.readFileSync(htaccessDist, 'utf8');
+      ht = ht.replace(/RewriteRule \^assets\/index-\[\^\/\]\+\\\.js\$ \/assets\/index-[^.]+\.js/g, `RewriteRule ^assets/index-[^/]+\\.js$ /assets/${mainJs}`);
+      ht = ht.replace(/RewriteRule \^assets\/index-\[\^\/\]\+\\\.css\$ \/assets\/index-[^.]+\.css/g, `RewriteRule ^assets/index-[^/]+\\.css$ /assets/${mainCss}`);
+      fs.writeFileSync(htaccessDist, ht);
+    }
+  }
+
   // Live Hostinger gateway (SQLite REST) — keep visits/events/commerce fixes in sync
   const publicApiDir = path.join(rootDir, 'public', 'api');
   const distApiDir = path.join(distDir, 'api');
@@ -264,10 +284,21 @@ async function deploy() {
       }
     }
   }
-  for (const php of ['sitemap.php', 'robots.php', 'storefront-shell.php']) {
+  for (const php of ['sitemap.php', 'robots.php', 'llms.php', 'storefront-shell.php', 'seo-files.php']) {
     const src = path.join(rootDir, 'public', php);
     if (fs.existsSync(src)) {
       fs.copyFileSync(src, path.join(distDir, php));
+    }
+  }
+  const includesSrc = path.join(rootDir, 'public', 'includes');
+  const includesDest = path.join(distDir, 'includes');
+  if (fs.existsSync(includesSrc)) {
+    fs.mkdirSync(includesDest, { recursive: true });
+    for (const name of fs.readdirSync(includesSrc)) {
+      const from = path.join(includesSrc, name);
+      if (fs.statSync(from).isFile()) {
+        fs.copyFileSync(from, path.join(includesDest, name));
+      }
     }
   }
 

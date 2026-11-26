@@ -1,60 +1,126 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
 import { useTenant } from '../../../context/TenantContext';
+import { isSouqCommonTenant } from '../../souqCommon/isSouqCommonTenant';
+import { getDefaultStoreTheme } from '../../../auth/defaultTheme';
 
 export const StoreFeaturesBar: React.FC = () => {
   const { language } = useApp();
-  const { activeStore } = useTenant();
+  const { activeStore, storeActiveTheme } = useTenant();
   const isAr = language === 'ar';
+  const themeId =
+    (activeStore?.id && storeActiveTheme?.[activeStore.id]) ||
+    getDefaultStoreTheme(activeStore?.id);
   const isCoffee = activeStore?.id === 'store-coffee' || (activeStore?.category && activeStore.category.includes('قهوة'));
+  const isSouq = !isCoffee && isSouqCommonTenant(activeStore, themeId);
 
   const flowerFeatures = [
     {
       icon: 'https://cdn.salla.sa/form-builder/YTk7soYWpqATCTQMdhQFNbpVRd6q1BH6aDThO56a.gif',
       title: isAr ? 'جميع المنتجات أصلية' : '100% Authentic Fresh Blooms',
-      desc: isAr ? 'ضمان نضارة وأصالة على جميع الباقات' : 'Freshness & botanical quality guarantee'
+      desc: isAr ? 'ضمان نضارة وأصالة على جميع الباقات' : 'Freshness & botanical quality guarantee',
     },
     {
       icon: 'https://cdn.salla.sa/form-builder/i86cej8qEVFxCgAxcnulZu8ysNWKKs6WWmPNbcdX.gif',
       title: isAr ? 'شحن سريع ومبرد' : 'Express Chilled Delivery',
-      desc: isAr ? 'توصيل فوري داخل مكة وفي نفس اليوم' : 'Same-day express delivery across Mecca'
+      desc: isAr ? 'توصيل فوري داخل مكة وفي نفس اليوم' : 'Same-day express delivery across Mecca',
     },
     {
       icon: 'https://cdn.salla.sa/form-builder/MaDGzkP6DK84Tlix9d7EgX5gw9Kf5088TYHqQKu6.gif',
       title: isAr ? 'تسوق ودفع آمن 100%' : '100% Secure Checkout',
-      desc: isAr ? 'مدى، آبل باي، وبطاقات الائتمان' : 'Mada, Apple Pay & encrypted gateways'
+      desc: isAr ? 'مدى، آبل باي، وبطاقات الائتمان' : 'Mada, Apple Pay & encrypted gateways',
     },
     {
       icon: 'https://cdn.salla.sa/form-builder/lA1WGskWYRFLzIMfJdipVN4zuYxSxFTXc2uQDyJp.gif',
       title: isAr ? 'تقسيط المشتريات مريح' : 'Interest-Free Installments',
-      desc: isAr ? 'على 4 دفعات ميسرة مع تابي وتمارا' : 'Split in 4 easy payments with Tabby & Tamara'
-    }
+      desc: isAr ? 'على 4 دفعات ميسرة مع تابي وتمارا' : 'Split in 4 easy payments with Tabby & Tamara',
+    },
   ];
 
   const coffeeFeatures = [
     {
       icon: 'https://cdn.salla.sa/form-builder/YTk7soYWpqATCTQMdhQFNbpVRd6q1BH6aDThO56a.gif',
       title: isAr ? 'محاصيل مختصة 84+ نقطة' : 'Specialty Grade 84+ SCAA',
-      desc: isAr ? 'تحميص حرفي طازج أسبوعياً' : 'Fresh weekly artisan micro-roasting'
+      desc: isAr ? 'تحميص حرفي طازج أسبوعياً' : 'Fresh weekly artisan micro-roasting',
     },
     {
       icon: 'https://cdn.salla.sa/form-builder/i86cej8qEVFxCgAxcnulZu8ysNWKKs6WWmPNbcdX.gif',
       title: isAr ? 'شحن سريع بصمام الحماية' : 'Degas Valve Packaging',
-      desc: isAr ? 'شحن سريع لجميع مدن المملكة' : 'Express delivery across all KSA cities'
+      desc: isAr ? 'شحن سريع لجميع مدن المملكة' : 'Express delivery across all KSA cities',
     },
     {
       icon: 'https://cdn.salla.sa/form-builder/MaDGzkP6DK84Tlix9d7EgX5gw9Kf5088TYHqQKu6.gif',
       title: isAr ? 'تسوق ودفع آمن 100%' : '100% Secure Checkout',
-      desc: isAr ? 'مدى، آبل باي، وبطاقات الائتمان' : 'Mada, Apple Pay & encrypted gateways'
+      desc: isAr ? 'مدى، آبل باي، وبطاقات الائتمان' : 'Mada, Apple Pay & encrypted gateways',
     },
     {
       icon: 'https://cdn.salla.sa/form-builder/lA1WGskWYRFLzIMfJdipVN4zuYxSxFTXc2uQDyJp.gif',
       title: isAr ? 'تقسيط المشتريات مريح' : 'Interest-Free Installments',
-      desc: isAr ? 'على 4 دفعات ميسرة مع تابي وتمارا' : 'Split in 4 easy payments with Tabby & Tamara'
-    }
+      desc: isAr ? 'على 4 دفعات ميسرة مع تابي وتمارا' : 'Split in 4 easy payments with Tabby & Tamara',
+    },
   ];
 
-  const features = isCoffee ? coffeeFeatures : flowerFeatures;
+  const retailFeatures = [
+    {
+      icon: 'https://cdn.salla.sa/form-builder/YTk7soYWpqATCTQMdhQFNbpVRd6q1BH6aDThO56a.gif',
+      title: isAr ? 'منتجات أصلية وموثوقة' : '100% Authentic Products',
+      desc: isAr ? 'ضمان الجودة على كل طلب' : 'Quality guarantee on every order',
+    },
+    {
+      icon: 'https://cdn.salla.sa/form-builder/i86cej8qEVFxCgAxcnulZu8ysNWKKs6WWmPNbcdX.gif',
+      title: isAr ? 'شحن سريع داخل المملكة' : 'Fast KSA Shipping',
+      desc: isAr ? 'توصيل لجميع مدن ومناطق السعودية' : 'Delivery across all Saudi cities',
+    },
+    {
+      icon: 'https://cdn.salla.sa/form-builder/MaDGzkP6DK84Tlix9d7EgX5gw9Kf5088TYHqQKu6.gif',
+      title: isAr ? 'تسوق ودفع آمن 100%' : '100% Secure Checkout',
+      desc: isAr ? 'مدى، آبل باي، وبطاقات الائتمان' : 'Mada, Apple Pay & encrypted gateways',
+    },
+    {
+      icon: 'https://cdn.salla.sa/form-builder/lA1WGskWYRFLzIMfJdipVN4zuYxSxFTXc2uQDyJp.gif',
+      title: isAr ? 'تقسيط المشتريات مريح' : 'Interest-Free Installments',
+      desc: isAr ? 'على 4 دفعات ميسرة مع تابي وتمارا' : 'Split in 4 easy payments with Tabby & Tamara',
+    },
+  ];
+
+  const features = isCoffee ? coffeeFeatures : isSouq ? retailFeatures : flowerFeatures;
+
+  // Souq default = Classic Cards (easiest of 5–10 feature templates)
+  if (isSouq) {
+    return (
+      <section className="py-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="mb-6 text-center sm:text-start">
+          <h2 className="text-xl sm:text-2xl font-bold text-[#111827]">
+            {isAr ? 'لماذا تتسوق معنا؟' : 'Why shop with us?'}
+          </h2>
+          <p className="text-sm text-[#4b5563] mt-1">
+            {isAr
+              ? 'كل ما تحتاجه لتجربة شراء سلسة وآمنة'
+              : 'Everything you need for a smooth and secure shopping journey'}
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+          {features.map((feat, idx) => (
+            <div
+              key={idx}
+              className="flex flex-col items-center text-center gap-3 rounded-2xl border border-[#e5e7eb] bg-white p-5 sm:p-6 shadow-xs hover:shadow-md transition-shadow"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-[#0f766e]/10 flex items-center justify-center p-2 border border-[#0f766e]/15">
+                <img
+                  src={feat.icon}
+                  alt={feat.title}
+                  className="w-full h-full object-contain"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+              <h4 className="text-sm font-bold text-[#111827] leading-snug">{feat.title}</h4>
+              <p className="text-xs text-[#6b7280] leading-relaxed">{feat.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -72,12 +138,8 @@ export const StoreFeaturesBar: React.FC = () => {
               </div>
 
               <div>
-                <h4 className="text-sm font-bold text-[#f5f1e8] font-serif leading-snug">
-                  {feat.title}
-                </h4>
-                <p className="text-xs text-[#a9bcae] mt-0.5">
-                  {feat.desc}
-                </p>
+                <h4 className="text-sm font-bold text-[#f5f1e8] font-serif leading-snug">{feat.title}</h4>
+                <p className="text-xs text-[#a9bcae] mt-0.5">{feat.desc}</p>
               </div>
             </div>
           ))}

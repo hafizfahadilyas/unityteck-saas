@@ -227,7 +227,8 @@ const SingleProductSlider: React.FC<SliderGroupProps> = ({
       {/* Horizontal Carousel Track */}
       <div
         ref={scrollRef}
-        className="w-full flex items-stretch gap-3 sm:gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory py-1 px-0.5 no-scrollbar"
+        className="w-full flex items-stretch gap-3 sm:gap-4 overflow-x-auto overscroll-x-contain snap-x snap-proximity py-1 px-0.5 no-scrollbar touch-pan-x"
+        style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x pinch-zoom', scrollBehavior: 'auto' }}
       >
         {products.map((prod) => (
           <SliderCard

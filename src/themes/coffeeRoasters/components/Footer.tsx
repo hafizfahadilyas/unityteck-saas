@@ -51,11 +51,12 @@ export const Footer: React.FC = () => {
   }, [themeSettings?.footer]);
 
   const isAr = language === 'AR';
-  const rawStoreName = storeIdentity?.storeName || activeStore?.name || (isAr ? 'هايبرو السعودية' : 'HiBrew KSA');
-  // Strict Bilingual Isolation (Rule 4): Ensure English mode has no Arabic leak
-  const storeDisplayName = isAr
-    ? rawStoreName
-    : rawStoreName.replace(/[\u0600-\u06FF()]/g, '').trim() || 'HiBrew KSA';
+  // Identity bilingual fields win — never show EN name under AR (or reverse)
+  const storeDisplayName = (
+    isAr
+      ? storeIdentity?.storeNameAr || storeIdentity?.storeName || activeStore?.nameAr || activeStore?.name
+      : storeIdentity?.storeNameEn || storeIdentity?.storeName || activeStore?.nameEn || activeStore?.name
+  )?.trim() || (isAr ? 'هايبرو السعودية' : 'HiBrew KSA');
 
   // Identity wins — footer fields are mirrors only (never invent demo contacts)
   const storeDisplayEmail = (

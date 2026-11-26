@@ -18,30 +18,43 @@ class StoreReviewsController extends Controller
 
     public function index(Request $request, string $storeId): JsonResponse
     {
-        $id = $this->requireStoreId($request);
-        if ($id instanceof JsonResponse) {
-            return $id;
-        }
+        try {
+            $id = $this->requireStoreId($request);
+            if ($id instanceof JsonResponse) {
+                return $id;
+            }
 
-        $reviews = $this->readReviews($id);
-        $onlyApproved = $request->boolean('approved_only', ! $request->user());
-        if ($onlyApproved) {
-            $reviews = array_values(array_filter($reviews, static fn ($row) => (bool) ($row['active'] ?? false)));
-        }
-        $productId = trim((string) $request->query('product_id', ''));
-        if ($productId !== '') {
-            $reviews = array_values(array_filter($reviews, static function ($row) use ($productId) {
-                $pid = trim((string) ($row['product_id'] ?? ''));
+            $reviews = $this->readReviews($id);
+            $onlyApproved = $request->boolean('approved_only', ! $request->user());
+            if ($onlyApproved) {
+                $reviews = array_values(array_filter($reviews, static fn ($row) => (bool) ($row['active'] ?? false)));
+            }
+            $productId = trim((string) $request->query('product_id', ''));
+            if ($productId !== '') {
+                $reviews = array_values(array_filter($reviews, static function ($row) use ($productId) {
+                    $pid = trim((string) ($row['product_id'] ?? ''));
 
-                return $pid !== '' && $pid === $productId;
-            }));
-        }
+                    return $pid !== '' && $pid === $productId;
+                }));
+            }
 
-        return response()->json([
-            'success' => true,
-            'data' => $reviews,
-            'store_id' => $id,
-        ]);
+            return response()->json([
+                'success' => true,
+                'data' => $reviews,
+                'store_id' => $id,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Store reviews index failed: '.$e->getMessage(), [
+                'store_id' => $storeId,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => [],
+                'store_id' => $storeId,
+                'message' => 'Reviews unavailable.',
+            ]);
+        }
     }
 
     public function store(Request $request, string $storeId): JsonResponse

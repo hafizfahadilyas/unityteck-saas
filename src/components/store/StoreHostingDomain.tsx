@@ -458,8 +458,8 @@ export const StoreHostingDomain: React.FC = () => {
             </h2>
             <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--muted)' }}>
               {isAr
-                ? 'اربط متجرك بنطاقك المخصص عبر الاستضافة المشتركة مع تحقق من النطاق التلقائي وشهادة الأمان.'
-                : 'Connect your custom domain (e.g. makkaflower.com). Payment is securely processed via our SaaS gateway.'}
+                ? 'اشترِ هوستنجر والنطاق من سوق. الباقة المميزة (٥٠٠ ر.س): مجاناً لأول ٢٠ متجراً بعد موافقة الماستر. الدفع عبر بوابة المنصة.'
+                : 'Buy Hostinger + domain from Souq. Premium (500 SAR): free for the first 20 stores after Master approval. Payment is processed via our SaaS gateway.'}
             </p>
 
             <form onSubmit={handleBuyHostingAndDomain} className="mt-4 space-y-3">

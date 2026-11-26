@@ -1,0 +1,98 @@
+-- Souq Integration Health Center (Phase 1)
+-- Safe to re-run: CREATE TABLE IF NOT EXISTS
+
+CREATE TABLE IF NOT EXISTS `integration_health_checks` (
+  `id` varchar(64) NOT NULL,
+  `store_id` varchar(64) NOT NULL,
+  `category` varchar(32) NOT NULL,
+  `provider` varchar(64) NOT NULL,
+  `connection_status` varchar(64) NOT NULL DEFAULT 'not_configured',
+  `auth_status` varchar(64) NOT NULL DEFAULT 'not_configured',
+  `api_health_status` varchar(64) NOT NULL DEFAULT 'not_configured',
+  `sandbox_status` varchar(64) NOT NULL DEFAULT 'not_configured',
+  `production_verification_status` varchar(64) NOT NULL DEFAULT 'not_tested',
+  `webhook_status` varchar(64) NOT NULL DEFAULT 'not_configured',
+  `last_successful_test_at` timestamp NULL DEFAULT NULL,
+  `last_failed_test_at` timestamp NULL DEFAULT NULL,
+  `api_response_time_ms` int unsigned DEFAULT NULL,
+  `last_error_message` text,
+  `integration_version` varchar(64) DEFAULT NULL,
+  `supported_features` json DEFAULT NULL,
+  `environment` varchar(32) DEFAULT NULL,
+  `overall_status` varchar(64) NOT NULL DEFAULT 'not_configured',
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `ihc_store_cat_provider_uq` (`store_id`,`category`,`provider`),
+  KEY `integration_health_checks_store_id_index` (`store_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `integration_health_logs` (
+  `id` varchar(64) NOT NULL,
+  `store_id` varchar(64) NOT NULL,
+  `category` varchar(32) NOT NULL,
+  `provider` varchar(64) NOT NULL,
+  `test_type` varchar(64) DEFAULT NULL,
+  `environment` varchar(32) DEFAULT NULL,
+  `request_at` timestamp NULL DEFAULT NULL,
+  `response_at` timestamp NULL DEFAULT NULL,
+  `http_status` smallint unsigned DEFAULT NULL,
+  `api_endpoint` varchar(512) DEFAULT NULL,
+  `duration_ms` int unsigned DEFAULT NULL,
+  `error_code` varchar(64) DEFAULT NULL,
+  `error_message_sanitized` text,
+  `transaction_id` varchar(128) DEFAULT NULL,
+  `shipment_id` varchar(128) DEFAULT NULL,
+  `success` tinyint(1) NOT NULL DEFAULT 0,
+  `meta` json DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `integration_health_logs_store_id_index` (`store_id`),
+  KEY `integration_health_logs_category_index` (`category`),
+  KEY `integration_health_logs_provider_index` (`provider`),
+  KEY `ihl_store_provider_created_idx` (`store_id`,`provider`,`created_at`),
+  KEY `integration_health_logs_transaction_id_index` (`transaction_id`),
+  KEY `integration_health_logs_shipment_id_index` (`shipment_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `integration_webhook_events` (
+  `id` varchar(64) NOT NULL,
+  `store_id` varchar(64) NOT NULL,
+  `category` varchar(32) NOT NULL,
+  `provider` varchar(64) NOT NULL,
+  `event_id` varchar(191) NOT NULL,
+  `event_type` varchar(128) DEFAULT NULL,
+  `signature_ok` tinyint(1) DEFAULT NULL,
+  `status` varchar(64) NOT NULL DEFAULT 'received',
+  `transaction_id` varchar(128) DEFAULT NULL,
+  `shipment_id` varchar(128) DEFAULT NULL,
+  `payload_sanitized` json DEFAULT NULL,
+  `processed_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `iwe_store_provider_event_uq` (`store_id`,`provider`,`event_id`),
+  KEY `integration_webhook_events_store_id_index` (`store_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `bank_transfer_proofs` (
+  `id` varchar(64) NOT NULL,
+  `store_id` varchar(64) NOT NULL,
+  `order_id` varchar(64) DEFAULT NULL,
+  `transaction_id` varchar(64) DEFAULT NULL,
+  `media_path` varchar(512) NOT NULL,
+  `media_url` varchar(1024) DEFAULT NULL,
+  `status` varchar(32) NOT NULL DEFAULT 'pending',
+  `reviewed_by` varchar(191) DEFAULT NULL,
+  `notes` text,
+  `reviewed_at` timestamp NULL DEFAULT NULL,
+  `audit_trail` json DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `bank_transfer_proofs_store_id_index` (`store_id`),
+  KEY `bank_transfer_proofs_order_id_index` (`order_id`),
+  KEY `bank_transfer_proofs_transaction_id_index` (`transaction_id`),
+  KEY `btp_store_status_idx` (`store_id`,`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

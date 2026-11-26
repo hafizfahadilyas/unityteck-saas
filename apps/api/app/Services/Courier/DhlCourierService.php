@@ -18,13 +18,62 @@ class DhlCourierService implements CourierInterface
     public function testConnection(CourierConnection $connection): array
     {
         if (empty($connection->api_key)) {
-            return ['success' => false, 'message' => 'DHL Express API Key is required.'];
+            return [
+                'success' => false,
+                'message' => 'DHL Express API Key is required.',
+                'health_status' => 'credentials_missing',
+            ];
         }
 
-        return [
-            'success' => false,
-            'message' => 'DHL live API test not confirmed. Verify with a real create/track call.',
-        ];
+        try {
+            // Non-destructive: GET rates/address validation style ping via landedenabled if available
+            $response = Http::withBasicAuth(
+                (string) ($connection->account_name ?: 'user'),
+                (string) $connection->api_key
+            )->timeout(8)->get($this->getBaseUrl($connection).'/address-validate', [
+                'type' => 'delivery',
+                'countryCode' => 'SA',
+                'postalCode' => '11564',
+                'cityName' => 'Riyadh',
+            ]);
+
+            if ($response->successful() || in_array($response->status(), [200, 400], true)) {
+                // 400 with auth accepted still proves credentials reached DHL (vs 401/403)
+                if (in_array($response->status(), [401, 403], true)) {
+                    return [
+                        'success' => false,
+                        'message' => 'DHL authentication failed (HTTP '.$response->status().').',
+                        'health_status' => 'authentication_failed',
+                    ];
+                }
+
+                return [
+                    'success' => true,
+                    'message' => 'DHL Express credentials accepted (non-destructive address-validate probe).',
+                    'health_status' => $connection->is_sandbox ? 'sandbox_verified' : 'connected',
+                ];
+            }
+
+            if (in_array($response->status(), [401, 403], true)) {
+                return [
+                    'success' => false,
+                    'message' => 'DHL authentication failed (HTTP '.$response->status().').',
+                    'health_status' => 'authentication_failed',
+                ];
+            }
+
+            return [
+                'success' => false,
+                'message' => 'DHL connection probe failed (HTTP '.$response->status().').',
+                'health_status' => 'connection_failed',
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'DHL connection failed: '.$e->getMessage(),
+                'health_status' => 'connection_failed',
+            ];
+        }
     }
 
     public function createShipment(CourierConnection $connection, Order $order, array $params = []): array

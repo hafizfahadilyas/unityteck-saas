@@ -6,6 +6,7 @@ import { usePrefs } from '../../i18n/PrefsContext';
 import { AdminPageShell } from '../common/AdminPageHeader';
 import { FloatingPopover } from '../common/FloatingPopover';
 import { displayOrderNumber } from '../../utils/orderNumber';
+import { Skeleton, SkeletonTableRow } from '../common/skeleton';
 import {
   fetchOrder,
   fetchOrders,
@@ -2950,7 +2951,11 @@ export const StoreOrders: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {pagedOrders.length === 0 ? (
+              {ordersListBusy && pagedOrders.length === 0 ? (
+                Array.from({ length: 6 }).map((_, rIdx) => (
+                  <SkeletonTableRow key={`orders-skeleton-${rIdx}`} columns={10} />
+                ))
+              ) : pagedOrders.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="py-16 text-center">
                     <div className="max-w-sm mx-auto space-y-3">
