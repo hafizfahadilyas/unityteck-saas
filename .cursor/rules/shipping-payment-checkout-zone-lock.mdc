@@ -25,6 +25,7 @@ alwaysApply: true
 - Calculate that lists methods but **ignores** `shipping_zones`
 - Checkout shipping fee from `INITIAL_SHIPPING` / mockData / invent `orders×N`
 - Arabic city `مكة` / `مكة المكرمة` failing to match EN zone names containing Makkah/Mecca (and reverse)
+- Matching city Makkah via province alone (`region = Makkah Region` on a **Jeddah** zone) — name/city_names only
 - Claiming “shipping works” without live probe: health → zones → methods → **calculate with Makkah city** → `matched_zone` + fee
 - Fake Instant pay / Instant courier Connected
 
