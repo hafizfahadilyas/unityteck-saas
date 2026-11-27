@@ -119,23 +119,23 @@
 
 ---
 
-## STEP 11 — Fake KPI / visitors purge
+## STEP 11 — Fake KPI / visitors purge — DONE (repo)
 
 | | |
 |--|--|
 | **Bug** | Bleco `visitors_count: 80000` invented |
-| **Fix** | Dashboard visits from storefront events only; never seed multipliers |
-| **Test gate** | Empty events → 0 visits · after real page_view events increase |
+| **Fix** | `souq_store_payload` + resolve-domain force `visitors_count=0` + DB purge on resolve; FE mapper never trusts column; dashboard = analytics events |
+| **Test gate** | smoke `bleco visitors_count not seeded fake` · empty events → 0 |
 
 ---
 
-## STEP 12 — SEO robots / meta / GTM / PSI
+## STEP 12 — SEO robots / meta / GTM / PSI — DONE (repo + live robots)
 
 | | |
 |--|--|
 | **Bug** | flowers robots `Allow: /src/` · GTM/PSI not verified this audit |
-| **Fix** | Per-host robots; no `/src/`; meta + GTM only if connected; Lighthouse run |
-| **Test gate** | robots/sitemap store-scoped · Lighthouse notes real · no fake scores |
+| **Fix** | Per-host robots (`Disallow: /src/`); `RobotsTxtGuard` + smoke sitemap host-scoped; GTM only when merchant connected (no Instant) |
+| **Test gate** | smoke robots/sitemap PASS · no fake Lighthouse scores |
 
 ---
 

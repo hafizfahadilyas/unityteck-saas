@@ -44,6 +44,8 @@ async function main() {
 
   const blecoPath = await api(CENTRAL, '/storefront/resolve-domain?domain=mieraf-ksa.com&path=/bleco');
   ok('bleco path resolve', blecoPath.json?.store_id === 'store-bleco', blecoPath.json?.store_id);
+  const blecoVisitors = Number(blecoPath.json?.store?.visitors_count ?? -1);
+  ok('bleco visitors_count not seeded fake', blecoVisitors === 0, `visitors_count=${blecoVisitors}`);
 
   const coffeeApex = await api(CENTRAL, '/storefront/resolve-domain?domain=mieraf-ksa.com');
   ok('mieraf apex = coffee', coffeeApex.json?.store_id === 'store-coffee', coffeeApex.json?.store_id);
@@ -97,6 +99,20 @@ async function main() {
   const robotsTxt = await robots.text();
   ok('robots no Allow /src/', !/allow:\s*\/src/i.test(robotsTxt), robotsTxt.slice(0, 120).replace(/\n/g, ' | '));
   ok('robots disallow src or clean', /disallow:\s*\/src/i.test(robotsTxt) || !/allow:\s*\/src/i.test(robotsTxt));
+  ok('robots sitemap giftshop only', /Sitemap:\s*https:\/\/giftshop-sa\.com\/sitemap\.xml/i.test(robotsTxt));
+
+  const robotsCentral = await fetch(`${CENTRAL}/robots.txt`, { signal: AbortSignal.timeout(20000) });
+  const robotsCentralTxt = await robotsCentral.text();
+  ok('central robots no Allow /src/', !/allow:\s*\/src/i.test(robotsCentralTxt));
+  ok('central robots sitemap mieraf only', /Sitemap:\s*https:\/\/mieraf-ksa\.com\/sitemap\.xml/i.test(robotsCentralTxt));
+
+  const smFlowers = await fetch(`${FLOWERS}/sitemap.xml`, { signal: AbortSignal.timeout(20000) });
+  const smFlowersTxt = await smFlowers.text();
+  ok(
+    'flowers sitemap 200 store-scoped',
+    smFlowers.status === 200 && /giftshop-sa\.com/i.test(smFlowersTxt) && !/bashayer/i.test(smFlowersTxt),
+    `HTTP ${smFlowers.status}`,
+  );
 
   const blecoHtml = await fetch(`${CENTRAL}/bleco`, { signal: AbortSignal.timeout(20000) });
   ok('bleco page 200', blecoHtml.status === 200, `HTTP ${blecoHtml.status}`);

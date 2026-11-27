@@ -1052,9 +1052,9 @@ function formatBlogArticle(array $row): array {
     $author = !empty($row['author']) ? json_decode($row['author'], true) : null;
     if (!is_array($author)) {
         $author = [
-            'name' => $row['author'] ?: 'Sarah Ahmed',
-            'avatar' => 'https://cdn.assets.salla.network/prod/stores/themes/default/assets/images/avatar_male.png',
-            'role' => 'Master Florist & Gift Concierge'
+            'name' => is_string($row['author'] ?? null) ? (string)$row['author'] : '',
+            'avatar' => '',
+            'role' => '',
         ];
     }
     $seo = !empty($row['seo']) ? json_decode($row['seo'], true) : [];
@@ -2087,8 +2087,15 @@ if (preg_match('#^/products/([^/]+)/toggle-publish$#', $uri, $matches) && $metho
 }
 
 // ── 6. BLOG ARTICLES & SETTINGS & COMMERCE TOOLS ──
+// MySQL live: store_settings JSON (Laravel BlogController parity). Avoid SQLite-only blog_articles 500s.
+require_once __DIR__ . '/blog_store_settings.php';
+if ($dbDriver === 'mysql' || !souq_table_exists($pdo, 'blog_articles')) {
+    if (souq_blog_dispatch_store_settings($pdo, $uri, $method, $inputData ?? [], (string)($storeId ?? ''))) {
+        exit;
+    }
+}
 
-// Bulk action on blog articles
+// Bulk action on blog articles (SQLite legacy table path)
 if (preg_match('#^/stores/([^/]+)/blog/articles/bulk$#', $uri, $mBulk) && $method === 'POST') {
     $targetStore = $mBulk[1];
     $action = $inputData['action'] ?? '';
@@ -2340,9 +2347,9 @@ if (preg_match('#^/stores/([^/]+)/blog/articles#', $uri, $mList) || $uri === '/b
             'total_comments' => $totalComments,
             'published' => $published,
             'drafts' => $drafts,
-            'weekly_articles_growth' => '+' . min($totalArticles, 4) . ' this week',
-            'weekly_views_growth' => '+14% this week',
-            'weekly_comments_growth' => '+5% this week',
+            'weekly_articles_growth' => '0',
+            'weekly_views_growth' => '0%',
+            'weekly_comments_growth' => '0%',
         ],
         'featured_article' => $featured ?: ($articles[0] ?? null),
         'post_settings' => json_decode($settingsRow['post_settings'] ?? '{}', true) ?: [
@@ -3439,9 +3446,20 @@ if ($uri === '/storefront/resolve-domain' && $method === 'GET') {
     $st = $pdo->prepare('SELECT * FROM stores WHERE id = ?');
     $st->execute([$resolved]);
     $row = $st->fetch() ?: [];
+    // Lifetime purge: invent KPI (e.g. Bleco visitors_count=80000) must not stay in DB.
+    $seededVisitors = (int) ($row['visitors_count'] ?? 0);
+    if ($seededVisitors > 0) {
+        try {
+            $pdo->prepare('UPDATE stores SET visitors_count = 0 WHERE id = ? AND visitors_count > 0')->execute([$resolved]);
+            $row['visitors_count'] = 0;
+        } catch (Throwable $e) {
+            // non-fatal — payload still zeros below
+        }
+    }
     $data = function_exists('souq_store_payload')
         ? souq_store_payload($row)
         : (json_decode((string)($row['data'] ?? ''), true) ?: []);
+    $data['visitors_count'] = 0;
     // store_themes.theme_id is source of truth (Souq common / flagships)
     $themeId = '';
     try {

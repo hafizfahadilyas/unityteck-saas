@@ -13,8 +13,8 @@
 | STEP 4 | Google Ads only with paid signals (`gclid` / cpc / adwords); bare google → Organic Search |
 | STEP 5 | Storefront never sends/trusts client `paid` — always pending until gateway |
 | STEP 6 | Order status change syncs `shipping_status` when merchant omits it |
-| STEP 11 | `visitorsCount` mapper never trusts seeded `stores.visitors_count` (dashboard = analytics events) |
-| STEP 12 | Default robots Disallow `/src/` + `/api/`; poison detector already drops `Allow: /src` |
+| STEP 11 | `visitorsCount` mapper + `souq_store_payload` + resolve-domain force 0; DB purge seeded Bleco 80000 on resolve |
+| STEP 12 | Live robots `Disallow: /src/` · smoke sitemap host-scoped · RobotsTxtGuard · no Instant GTM |
 
 ## Tests
 

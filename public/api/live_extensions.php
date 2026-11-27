@@ -257,7 +257,7 @@ function souq_store_payload(array $row): array
         'id', 'name', 'name_ar', 'name_en', 'slug', 'domain', 'demo_domain', 'custom_domain', 'status', 'plan',
         'currency', 'locale', 'text_direction', 'timezone', 'phone', 'email', 'owner_name',
         'city', 'country', 'category', 'logo', 'accent_color', 'ssl_status',
-        'products_count', 'orders_count', 'revenue', 'visitors_count',
+        'products_count', 'orders_count', 'revenue',
         'hosting_mode', 'db_isolation', 'subscription_status', 'deployment_status',
     ];
     foreach ($copyKeys as $col) {
@@ -265,6 +265,8 @@ function souq_store_payload(array $row): array
             $data[$col] = $row[$col];
         }
     }
+    // Zero-mock: stores.visitors_count is never KPI truth (seeded Bleco 80000 etc.). Dashboard = storefront events only.
+    $data['visitors_count'] = 0;
 
     if (array_key_exists('master_granted_pro', $row) && $row['master_granted_pro'] !== null) {
         $granted = (bool) $row['master_granted_pro'];
@@ -3421,6 +3423,14 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
         return true;
     }
 
+    // ── Autonomous Store Growth Advisor (real DB metrics · store_id isolated) ──
+    if (!function_exists('souq_growth_advisor_dispatch')) {
+        require_once __DIR__ . '/store_growth_advisor_ops.php';
+    }
+    if (souq_growth_advisor_dispatch($pdo, $uri, $method, $storeId, $input)) {
+        return true;
+    }
+
     if ($uri === '/design-templates/entitlements' && $method === 'GET') {
         if ($storeId === '') {
             http_response_code(422);
@@ -3474,11 +3484,19 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
             $total = (int) $cntSt->fetchColumn();
 
             $st = $pdo->prepare(
-                'SELECT id, store_id, editor_type, category, title, width, height, preview_media_id, source, created_at, updated_at
+                "SELECT id, store_id, editor_type, category, title, width, height, preview_media_id, source, created_at, updated_at,
+                        JSON_UNQUOTE(JSON_EXTRACT(design_json, '$.packKey')) AS pack_key,
+                        COALESCE(JSON_LENGTH(JSON_EXTRACT(design_json, '$.layers')), 0) AS layer_count,
+                        CASE
+                          WHEN JSON_UNQUOTE(JSON_EXTRACT(design_json, '$.previewDataUrl')) LIKE '/%'
+                            OR JSON_UNQUOTE(JSON_EXTRACT(design_json, '$.previewDataUrl')) LIKE 'http%'
+                          THEN JSON_UNQUOTE(JSON_EXTRACT(design_json, '$.previewDataUrl'))
+                          ELSE NULL
+                        END AS preview_thumb
                  FROM store_studio_designs
                  WHERE store_id = ?
                  ORDER BY updated_at DESC
-                 LIMIT ' . (int) $perPage . ' OFFSET ' . (int) $offset
+                 LIMIT " . (int) $perPage . ' OFFSET ' . (int) $offset
             );
             $st->execute([$storeId]);
             $out = [];
@@ -3486,19 +3504,26 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
                 $source = (string) ($row['source'] ?? 'studio');
                 $id = (string) $row['id'];
                 $fromPptx = ($source === 'pptx' || $source === 'master' || strpos($id, 'dsd-pptx-') === 0);
+                $packKey = isset($row['pack_key']) && is_string($row['pack_key']) && $row['pack_key'] !== '' && $row['pack_key'] !== 'null'
+                    ? (string) $row['pack_key']
+                    : null;
+                $layerCount = max(0, (int) ($row['layer_count'] ?? 0));
+                $previewThumb = isset($row['preview_thumb']) && is_string($row['preview_thumb']) && $row['preview_thumb'] !== '' && $row['preview_thumb'] !== 'null'
+                    ? (string) $row['preview_thumb']
+                    : null;
                 $lean = [
                     'fromPptxPack' => $fromPptx,
-                    'packKey' => null,
+                    'packKey' => $packKey,
                     'masterDistributed' => $source === 'master',
                     'masterLibrary' => false,
                     'category' => $row['category'] ?? 'social',
                     'source' => $source,
                     'width' => (int) ($row['width'] ?? 1080),
                     'height' => (int) ($row['height'] ?? 1080),
-                    'layerCount' => 0,
+                    'layerCount' => $layerCount,
                     'layers' => [],
                     'needsLayersFetch' => true,
-                    'previewDataUrl' => null,
+                    'previewDataUrl' => $previewThumb,
                 ];
                 $out[] = [
                     'id' => $id,
@@ -3508,6 +3533,9 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
                     'title' => (string) ($row['title'] ?? ''),
                     'width' => (int) ($row['width'] ?? 1080),
                     'height' => (int) ($row['height'] ?? 1080),
+                    'pack_key' => $packKey,
+                    'layer_count' => $layerCount,
+                    'preview_thumb' => $previewThumb,
                     'design_json' => $lean,
                     'preview_media_id' => $row['preview_media_id'] ?? null,
                     'source' => $source,
