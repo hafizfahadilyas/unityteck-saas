@@ -93,7 +93,7 @@
 |--|--|
 | **Do** | `deploy:api` / hotfiles flowers+central · `deploy:fast:flowers` + `deploy:fast:central` · re-run Makkah calculate + payments smoke |
 | **Test gate** | Live `matched_zone` set · fee matches zone · payments OK · health MySQL |
-| **Status** | PARTIAL — API hot deploy LIVE + smoke OK. **UI full delta + browser console testing NOT done** (FTP ECONNRESET). Re-run `deploy:fast:flowers` + `deploy:fast:central` then hard-refresh checkout + DevTools (no red console). |
+| **Status** | DONE — API live + smoke OK · flowers+central checkout UI hot-uploaded (`index` + Mecca/Coffee/Bleco chunks). Predeploy zero-fake/console rule locked. Hard-refresh checkout once; DevTools should stay clean. |
 
 ---
 
