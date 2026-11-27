@@ -356,6 +356,12 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
 
   const sub = resolveSubscription(activeStore.id);
 
+  const isBlecoStore =
+    activeStore?.id === 'store-bleco' ||
+    activeStore?.slug?.includes('bleco') ||
+    activeStore?.slug?.includes('alsaeedi') ||
+    String(activeStore?.id || '').includes('bleco');
+
   return (
     <>
     {mobileOpen ? (
@@ -372,6 +378,13 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
         width: collapsed ? '3.5rem' : '16.5rem',
         fontFamily: 'var(--font-ui)',
         overflow: 'hidden',
+        ...(isBlecoStore
+          ? ({
+              '--sb-color': '#915f3c',
+              '--sb-color-deep': '#7e5233',
+              '--sb-thumb-hover': '#c48957',
+            } as React.CSSProperties)
+          : {}),
       }}
       data-chrome="store-sidebar"
       data-collapsed={collapsed ? 'true' : 'false'}
@@ -801,8 +814,8 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                       },
                       {
                         id: 'appointments',
-                        labelAr: 'مواعيد الورشة',
-                        labelEn: 'Workshop Appointments',
+                        labelAr: 'الحجوزات والاستفسارات',
+                        labelEn: 'Bookings & Inquiries',
                         color: 'bg-amber-400',
                       },
                       {

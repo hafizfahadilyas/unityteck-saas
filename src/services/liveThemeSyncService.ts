@@ -617,6 +617,14 @@ export function getLiveOrStoredBlocks(
         'featured_products',
         'newsletter',
         'metrics_section',
+        'brand_logos',
+        'product_tabs',
+        'curated_showcase',
+        'product_videos',
+        'promo_banners_pair',
+        'magazine_section',
+        'faq',
+        'testimonials',
       ];
       const typesPresent = new Set(candidateBlocks.map((b) => String(b.type || '')));
       const incompleteDefault =

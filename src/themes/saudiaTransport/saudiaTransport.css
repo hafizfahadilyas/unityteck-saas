@@ -406,6 +406,52 @@
   animation: fadeIn 0.3s ease-out forwards;
 }
 
+/* Custom luxury theme scrollbar for all scrollable containers, sidebars, mobile drawers, modals */
+.alsaeedi-theme-container ::-webkit-scrollbar,
+.alsaeedi-drawer-scroll::-webkit-scrollbar,
+.alsaeedi-sidebar-scroll::-webkit-scrollbar,
+.alsaeedi-custom-scroll::-webkit-scrollbar,
+[data-theme="saudiaTransport"] ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.alsaeedi-theme-container ::-webkit-scrollbar-track,
+.alsaeedi-drawer-scroll::-webkit-scrollbar-track,
+.alsaeedi-sidebar-scroll::-webkit-scrollbar-track,
+.alsaeedi-custom-scroll::-webkit-scrollbar-track,
+[data-theme="saudiaTransport"] ::-webkit-scrollbar-track {
+  background: #faede4 !important;
+  border-radius: 9999px;
+}
+
+.alsaeedi-theme-container ::-webkit-scrollbar-thumb,
+.alsaeedi-drawer-scroll::-webkit-scrollbar-thumb,
+.alsaeedi-sidebar-scroll::-webkit-scrollbar-thumb,
+.alsaeedi-custom-scroll::-webkit-scrollbar-thumb,
+[data-theme="saudiaTransport"] ::-webkit-scrollbar-thumb {
+  background: #915f3c !important;
+  border-radius: 9999px;
+}
+
+.alsaeedi-theme-container ::-webkit-scrollbar-thumb:hover,
+.alsaeedi-drawer-scroll::-webkit-scrollbar-thumb:hover,
+.alsaeedi-sidebar-scroll::-webkit-scrollbar-thumb:hover,
+.alsaeedi-custom-scroll::-webkit-scrollbar-thumb:hover,
+[data-theme="saudiaTransport"] ::-webkit-scrollbar-thumb:hover {
+  background: #7e5233 !important;
+}
+
+/* Firefox scrollbar styling */
+.alsaeedi-theme-container,
+.alsaeedi-drawer-scroll,
+.alsaeedi-sidebar-scroll,
+.alsaeedi-custom-scroll,
+[data-theme="saudiaTransport"] {
+  scrollbar-width: thin;
+  scrollbar-color: #915f3c #faede4;
+}
+
 .no-scrollbar::-webkit-scrollbar,
 .scrollbar-none::-webkit-scrollbar,
 .alsaeedi-chip-scroll::-webkit-scrollbar {

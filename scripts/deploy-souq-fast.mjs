@@ -13,16 +13,18 @@ async function main() {
       })
   );
 
-  const client = new ftp.Client(120000);
-  client.ftp.verbose = false;
-
-  console.log('Connecting to Central Hostinger FTP...');
-  await client.access({
+  const ftpConfig = {
     host: env.FTP_CENTRAL_HOST,
     user: env.FTP_CENTRAL_USER,
     password: env.FTP_CENTRAL_PASSWORD,
     secure: false,
-  });
+  };
+
+  const client = new ftp.Client(120000);
+  client.ftp.verbose = false;
+
+  console.log('Connecting to Central Hostinger FTP...');
+  await client.access(ftpConfig);
   console.log('Connected successfully.');
 
   // 1. Upload Critical HTML, Shell, and Bridge

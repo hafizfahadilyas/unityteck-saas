@@ -21,6 +21,10 @@ import { OfferVideoBanner } from './components/OfferVideoBanner';
 import { MagazineSection } from './components/MagazineSection';
 import { NewsletterSection } from './components/NewsletterSection';
 import { Footer } from './components/Footer';
+import { CuratedShowcase } from './components/CuratedShowcase';
+import { SocialReelsSection } from './components/SocialReelsSection';
+import { MarqueeBanner } from './components/MarqueeBanner';
+import { MetricsSection } from './components/MetricsSection';
 import { CartDrawer } from './components/CartDrawer';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { WhatsAppFloatingButton } from './components/WhatsAppFloatingButton';
@@ -174,6 +178,9 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
       case 'hero_slider':
       case 'hero':
         return <MotionHeroSlider key={b.id} />;
+      case 'brand_logos':
+      case 'marquee_banner':
+        return <MarqueeBanner key={b.id} />;
       case 'store_features_bar':
       case 'features':
         return <StoreFeaturesBar key={b.id} />;
@@ -184,6 +191,35 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
       case 'promo_countdown_banner':
       case 'special_offer':
         return <PromoCountdownBanner key={b.id} />;
+      case 'curated_showcase':
+      case 'detailed_products':
+        return <CuratedShowcase key={b.id} />;
+      case 'product_videos':
+      case 'social_reels':
+      case 'video_reels':
+        return <SocialReelsSection key={b.id} />;
+      case 'product_tabs':
+        return (
+          <ProductSectionSlider
+            key={b.id}
+            title={
+              locale === 'ar'
+                ? b.settings?.titleAr || 'أحدث المنتجات والعروض'
+                : b.settings?.titleEn || 'Latest Products & Offers'
+            }
+            titleEn={b.settings?.titleEn || 'Latest Products & Offers'}
+            subtitle={
+              locale === 'ar'
+                ? b.settings?.subtitleAr || 'تشكيلة مختارة تلبي أعلى معايير الجودة'
+                : b.settings?.subtitleEn || 'Handpicked selection of quality products'
+            }
+            subtitleEn={b.settings?.subtitleEn || 'Handpicked selection of quality products'}
+            products={currentProducts || products}
+            categoryFilter={b.settings?.categoryFilter || ''}
+            limit={b.settings?.limit || 8}
+            layout={b.settings?.layout || 'slider'}
+          />
+        );
       case 'discounted_bouquets_3d':
         if (isSouq) return null;
         return <DiscountedBouquets3DGallery key={b.id} products={sectionProducts.discounted} />;
@@ -288,8 +324,9 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
         return <CustomGiftBanner key={b.id} />;
       case 'promo_banners_pair':
         return <PromoBannersPair key={b.id} />;
-      case 'featured_collections':
       case 'metrics_section':
+        return <MetricsSection key={b.id} />;
+      case 'featured_collections':
         return <FeaturedCollectionsSection key={b.id} />;
       case 'featured_products':
       case 'promotions': {

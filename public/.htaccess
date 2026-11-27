@@ -109,7 +109,15 @@ DirectoryIndex storefront-shell.php index.html
   # Support souq static export /_next assets
   RewriteRule ^_next/(.*)$ /souq/_next/$1 [L]
 
-  # Missing stale index bundle requested by cached HTML -> serve auto-refresh fallback script
+  # Missing or stale index JS bundle requested by cached HTML -> rewrite directly to active bundle!
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^assets/index-[A-Za-z0-9_-]+\.js$ /assets/index-latest-bundle.js [L]
+
+  # Missing or stale index CSS requested by cached HTML -> rewrite directly to active CSS bundle!
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^assets/index-[A-Za-z0-9_-]+\.css$ /assets/index-latest-bundle.css [L]
+
+  # Missing stale index bundle fallback script if not caught above
   RewriteCond %{REQUEST_URI} ^/assets/index-[A-Za-z0-9_-]+\.js$ [NC]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteRule ^ /assets/stale-bundle-fallback.js [L]

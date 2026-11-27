@@ -82,6 +82,13 @@ export const saudiaTransportThemeConfig: ThemeManifest = {
       defaultEnabled: true,
     },
     {
+      id: 'services_booking',
+      name: 'Workshop Services & Appointments',
+      nameAr: 'حجز خدمات الورشة والاستفسارات',
+      category: 'features',
+      defaultEnabled: true,
+    },
+    {
       id: 'workshop_features',
       name: 'Installation & Quality Guarantee',
       nameAr: 'ضمان الجودة والتركيب الاحترافي',
@@ -105,6 +112,7 @@ export const saudiaTransportThemeConfig: ThemeManifest = {
   ],
   systemPages: [
     { id: 'home', slug: '', title: 'Home', titleAr: 'الرئيسية', isSystem: true },
+    { id: 'booking', slug: 'booking', title: 'Services & Inquiries', titleAr: 'حجز الخدمات والاستفسارات', isSystem: true },
     { id: 'products', slug: 'products', title: 'Seat Covers & Mats', titleAr: 'التلبيسات والدعاسات', isSystem: true },
     { id: 'product', slug: 'product', title: 'Cover Details', titleAr: 'تفاصيل التلبيسة', isSystem: true },
     { id: 'cart', slug: 'cart', title: 'Cart', titleAr: 'سلة المشتريات', isSystem: true },

@@ -237,23 +237,25 @@ const AlsaeediLuxuryHeroComponent: React.FC<AlsaeediLuxuryHeroProps> = ({
 
   return (
     <section className="relative text-slate-900 pt-8 sm:pt-12 pb-14 sm:pb-20 px-3 sm:px-6 overflow-visible bg-white">
-      {/* Background Car Image Banner — crystal clear, zero white shaded fog */}
+      {/* Background Car Image Banner with balanced luxury contrast */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <img
           src="/images/bleco_hero_car_luxury.jpg"
           alt="Alsaeedi Luxury Automotive Hero"
           className="w-full h-full object-cover object-[center_right] sm:object-center"
         />
+        {/* Soft, crystal-clear readability overlay so the luxury car remains visible while typography is 100% legible */}
+        <div className="absolute inset-0 bg-gradient-to-b from-white/92 via-white/70 to-white/95 sm:from-white/88 sm:via-white/50 sm:to-white pointer-events-none" />
       </div>
 
       <div className="relative z-10 mx-auto max-w-7xl space-y-6 text-center sm:space-y-7">
-        {/* Headline */}
-        <div className="space-y-3 alsaeedi-anim-fadeup px-1">
-          <p className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#915f3c] bg-[#faede4] px-3.5 py-1.5 rounded-full shadow-2xs">
+        {/* Headline — frosted luxury scrim for crystal-clear readability */}
+        <div className="space-y-3.5 alsaeedi-anim-fadeup px-4 py-5 sm:px-8 sm:py-6 rounded-3xl bg-white/85 backdrop-blur-md max-w-3xl mx-auto shadow-sm">
+          <p className="inline-flex items-center gap-1.5 text-[11px] font-black text-[#915f3c] bg-[#faede4] px-3.5 py-1.5 rounded-full shadow-2xs">
             <Sparkles className="w-3.5 h-3.5 text-[#915f3c]" />
             <span>{isAr ? 'متجر السعيدي — مكة' : 'Al-Saeedi — Makkah'}</span>
           </p>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 leading-[1.2] tracking-tight">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-slate-950 leading-[1.2] tracking-tight drop-shadow-2xs">
             {isAr ? (
               <>
                 حوّل مقصورة سيارتك إلى{' '}
@@ -266,7 +268,7 @@ const AlsaeediLuxuryHeroComponent: React.FC<AlsaeediLuxuryHeroProps> = ({
               </>
             )}
           </h1>
-          <p className="text-slate-600 text-sm max-w-lg mx-auto leading-relaxed">
+          <p className="text-slate-700 font-semibold text-sm sm:text-base max-w-lg mx-auto leading-relaxed">
             {isAr
               ? 'تفصيل ليزر مطابق لمقاس الوكالة · ضمان سنتين.'
               : 'OEM laser fit · 2-year warranty.'}
@@ -283,7 +285,7 @@ const AlsaeediLuxuryHeroComponent: React.FC<AlsaeediLuxuryHeroProps> = ({
                 key={pill.key}
                 type="button"
                 onClick={() => onPillClick?.(pill.key)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/95 shadow-2xs text-[11px] font-bold text-slate-700 hover:text-[#915f3c] transition-all cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white shadow-2xs text-[11px] font-black text-slate-800 hover:text-[#915f3c] hover:bg-[#faede4] transition-all cursor-pointer"
               >
                 <span className="text-[#915f3c]">{pill.icon}</span>
                 <span>{isAr ? pill.ar : pill.en}</span>

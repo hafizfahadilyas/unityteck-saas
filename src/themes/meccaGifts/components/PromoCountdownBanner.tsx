@@ -51,7 +51,7 @@ export const PromoCountdownBanner: React.FC = () => {
   const bannerImage = isCoffee
     ? 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=1200&q=80'
     : isSouq
-      ? '/images/saudi_hero_banner_2.jpg'
+      ? 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80'
       : '/images/hadaya_promo_banner_1791216140411.jpg';
 
   const title = isCoffee

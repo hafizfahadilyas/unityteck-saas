@@ -170,20 +170,51 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
     }
   }, [storeId, recordStoreVisit]);
 
-  // View Mode: 'home' vs 'catalog'
-  const [viewMode, setViewMode] = useState<'home' | 'catalog'>('home');
+  // View Mode: 'home' vs 'catalog' vs 'booking'
+  const [viewMode, setViewMode] = useState<'home' | 'catalog' | 'booking'>(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.toLowerCase();
+      const p = window.location.pathname.toLowerCase();
+      if (hash.includes('booking') || hash.includes('services') || p.endsWith('/booking')) {
+        return 'booking';
+      }
+      if (hash.includes('catalog') || p.endsWith('/products') || p.endsWith('/catalog')) {
+        return 'catalog';
+      }
+    }
+    return 'home';
+  });
+
+  useEffect(() => {
+    const handleHash = () => {
+      const h = window.location.hash.toLowerCase();
+      if (h.includes('booking') || h.includes('services')) {
+        setViewMode('booking');
+      } else if (h.includes('catalog')) {
+        setViewMode('catalog');
+      }
+    };
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
 
   useEffect(() => {
     try {
       const storeName = isAr
         ? (activeStore?.nameAr || activeStore?.name || 'متجر السيارات')
         : (activeStore?.nameEn || activeStore?.name || 'Car Store');
-      const title = viewMode === 'catalog'
+      const title = viewMode === 'booking'
+        ? (isAr ? `حجز موعد واستفسار | ${storeName}` : `Book Appointment & Inquiries | ${storeName}`)
+        : viewMode === 'catalog'
         ? (isAr ? `المنتجات | ${storeName}` : `Products | ${storeName}`)
         : (isAr
           ? `${storeName} | تنجيد وتلابيس مقاعد وأرضيات 5D`
           : `${storeName} | Luxury Seat Covers & 5D Mats`);
-      const desc = viewMode === 'catalog'
+      const desc = viewMode === 'booking'
+        ? (isAr
+          ? `احجز موعد خدمة تنجيد أو استفسر عن تفصيل سيارتك لدى ${storeName} بمكة المكرمة.`
+          : `Book automotive upholstery appointment or request custom fitment at ${storeName}.`)
+        : viewMode === 'catalog'
         ? (isAr
           ? `تصفح منتجات ${storeName} — تلابيس مقاعد وأرضيات ليزر 5D. الأسعار بالريال والتوصيل داخل المملكة.`
           : `Browse ${storeName} — seat covers and 5D laser mats. Prices in SAR with delivery across Saudi Arabia.`)
@@ -1377,9 +1408,20 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
             <a href="#floor-mats-section" className="hover:text-amber-800 transition-colors py-1">
               {isAr ? 'أرضيات' : 'Mats'}
             </a>
-            <a href="#services-booking" className="hover:text-amber-800 transition-colors py-1">
-              {isAr ? 'حجز' : 'Book'}
-            </a>
+            <button
+              type="button"
+              onClick={() => {
+                setViewMode('booking');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className={`transition-colors py-1 px-3 rounded-full font-bold cursor-pointer ${
+                viewMode === 'booking'
+                  ? 'bg-[#faede4] text-[#915f3c] shadow-2xs'
+                  : 'text-slate-700 hover:text-[#915f3c] hover:bg-[#faede4]'
+              }`}
+            >
+              {isAr ? 'حجز موعد واستفسار' : 'Book & Inquire'}
+            </button>
             <a href="#brands-section" className="hover:text-amber-800 transition-colors py-1">
               {isAr ? 'ماركات' : 'Brands'}
             </a>
@@ -1605,14 +1647,18 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
                   <span>{isAr ? 'أرضيات 5D' : '5D Floor Mats'}</span>
                 </a>
 
-                <a
-                  href="#services-booking"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors"
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewMode('booking');
+                    setMobileMenuOpen(false);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl bg-[#faede4] text-[#915f3c] font-black hover:bg-[#f5e1d3] transition-colors cursor-pointer text-left rtl:text-right"
                 >
-                  <Calendar className="w-4 h-4 text-[#f6c344]" />
-                  <span>{isAr ? 'حجز موعد خدمة' : 'Book a Service'}</span>
-                </a>
+                  <Calendar className="w-4 h-4 text-[#915f3c]" />
+                  <span>{isAr ? 'حجز موعد واستفسار' : 'Book & Inquire'}</span>
+                </button>
 
                 <a
                   href="#brands-section"
@@ -2572,6 +2618,80 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
               </button>
             </div>
           )}
+        </main>
+      )}
+
+      {/* ========================================================
+          VIEW 3: DEDICATED MODERN WORKSHOP BOOKING & INQUIRIES PAGE
+          (صفحة حجز الخدمات والاستفسارات الفاخرة لمتجر السعيدي)
+          ======================================================== */}
+      {viewMode === 'booking' && (
+        <main id="booking-view-top" className="max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-10 space-y-8 animate-fadeIn">
+          {/* Breadcrumb & Navigation */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <button
+              type="button"
+              onClick={() => {
+                setViewMode('home');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="text-xs font-bold text-slate-800 flex items-center gap-1.5 hover:text-[#915f3c] cursor-pointer"
+            >
+              {isAr ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+              <span>{isAr ? 'العودة للرئيسية' : 'Back to Home'}</span>
+            </button>
+
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#faede4] text-[#915f3c] text-xs font-bold shadow-2xs">
+              <Calendar className="w-3.5 h-3.5" />
+              <span>{isAr ? 'حجز فوري ومباشر مع الورشة' : 'Direct VIP Workshop Booking'}</span>
+            </div>
+          </div>
+
+          {/* Luxury Banner */}
+          <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white p-6 sm:p-10 shadow-lg">
+            <div className="relative z-10 max-w-2xl space-y-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-[#faede4] text-[11px] font-bold">
+                <Sparkles className="w-3.5 h-3.5 text-[#faede4]" />
+                <span>{isAr ? 'مركز السعيدي الفاخر — مكة المكرمة' : 'Al-Saeedi VIP Center — Makkah'}</span>
+              </span>
+              <h1 className="text-2xl sm:text-4xl font-black text-white leading-tight">
+                {isAr ? 'احجز موعد خدمة أو استفسر عن تفصيل سيارتك' : 'Book a Workshop Service or Request Custom Fitment'}
+              </h1>
+              <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
+                {isAr
+                  ? 'خدمات التنجيد الملكي، تجديد الطبلون، عزل النوافذ وحماية PPF. اختر موعدك وسيتواصل معك الفني لتأكيد الحجز ومطابقة المقاس.'
+                  : 'VIP leather upholstery, dashboard restoration, heat insulation & PPF. Select your preferred slot and our master technician will confirm your vehicle fitment.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Live Interactive Booking Form Component */}
+          <AlsaeediServicesBooking isAr={isAr} storeId={storeId} />
+
+          {/* Quick VIP WhatsApp Support Box */}
+          <div className="p-5 sm:p-6 rounded-3xl bg-[#faf7f4] border border-[#faede4] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="w-10 h-10 rounded-2xl bg-emerald-600 text-white inline-flex items-center justify-center shrink-0 shadow-sm">
+                <WhatsAppGlyph className="w-5 h-5" />
+              </span>
+              <div>
+                <h3 className="text-sm font-black text-slate-900">
+                  {isAr ? 'هل تحتاج استشارة سريعة قبل الحجز؟' : 'Need quick consultation before booking?'}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {isAr ? 'تواصل مباشرة مع المشرف الفني عبر واتساب' : 'Chat directly with our master technician on WhatsApp'}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => openWhatsAppOrder()}
+              className="px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black inline-flex items-center justify-center gap-2 cursor-pointer shadow-md"
+            >
+              <WhatsAppGlyph className="w-4 h-4" />
+              <span>{isAr ? 'محادثة فورية عبر واتساب' : 'Direct WhatsApp Chat'}</span>
+            </button>
+          </div>
         </main>
       )}
 

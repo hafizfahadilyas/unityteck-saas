@@ -3836,6 +3836,11 @@ if (preg_match('#^/social/posts(?:/([^/]+)/cancel)?$#', $uri, $mSocPost)) {
     echo json_encode(['data' => $rows, 'store_id' => $resolvedStore]);
     exit;
 }
+require_once __DIR__ . '/master_control_center_ops.php';
+if (souq_master_control_center_dispatch($pdo, $uri, $method, (string)$storeId, is_array($inputData) ? $inputData : [])) {
+    exit;
+}
+
 if (souq_live_extensions_dispatch($pdo, $uri, $method, (string)$storeId, is_array($inputData) ? $inputData : [])) {
     exit;
 }

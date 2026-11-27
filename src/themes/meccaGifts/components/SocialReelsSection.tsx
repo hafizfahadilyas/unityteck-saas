@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '../context/AppContext';
 import { useTenant } from '../../../context/TenantContext';
+import { isSouqCommonTenant } from '../../souqCommon/isSouqCommonTenant';
 import { storeWhatsAppUrl } from '../../settings/storeContact';
 import {
   Sparkles,
@@ -39,6 +40,73 @@ export interface VideoAccordionPanel {
   whatsAppText: string;
   accentColor: string;
 }
+
+export const RETAIL_SHOWCASE_PANELS: VideoAccordionPanel[] = [
+  {
+    id: 'retail-1',
+    num: '01',
+    tag: 'ساعات وإكسسوارات',
+    tagEn: 'Watches & Accessories',
+    title: 'أناقة وتصاميم عصرية متميزة',
+    titleEn: 'Timeless Luxury & Modern Elegance',
+    description: 'تشكيلة ساعات وإكسسوارات راقية تضفي لمسة فخامة على إطلالتك اليومية والرسمية بأعلى معايير الإتقان.',
+    descriptionEn: 'Handpicked timepieces and refined accessories crafted to elevate your daily style with supreme precision.',
+    ctaText: 'تسوق الساعات والإكسسوارات',
+    ctaTextEn: 'Shop Timepieces',
+    videoUrl: 'https://framerusercontent.com/assets/FG8386Hk7nDg3uNeUpuIuxEqQA.mp4',
+    categoryFilter: 'ساعات وإكسسوارات',
+    whatsAppText: 'مرحباً، أود الاستفسار وطلب تشكيلة الساعات والإكسسوارات المعروضة.',
+    accentColor: '#0f766e'
+  },
+  {
+    id: 'retail-2',
+    num: '02',
+    tag: 'إلكترونيات ذكية',
+    tagEn: 'Smart Electronics',
+    title: 'أحدث التقنيات والصوتيات الذكية',
+    titleEn: 'Cutting-Edge Audio & Smart Tech',
+    description: 'سماعات لاسلكية عالية الدقة وأجهزة ذكية مبتكرة لتجربة صوت وتواصل فائقة النقاء تلبي طموحك اليومي.',
+    descriptionEn: 'High-fidelity audio gear and smart devices designed for effortless clarity and modern lifestyle performance.',
+    ctaText: 'استكشف الإلكترونيات',
+    ctaTextEn: 'Explore Electronics',
+    videoUrl: 'https://framerusercontent.com/assets/Ayt3BZEkCuduYMfN1UStV70YO8c.mp4',
+    categoryFilter: 'إلكترونيات وأجهزة',
+    whatsAppText: 'مرحباً، أود الاستفسار وطلب الأجهزة الإلكترونية والسماعات.',
+    accentColor: '#0ea5e9'
+  },
+  {
+    id: 'retail-3',
+    num: '03',
+    tag: 'إطلالات ونظارات',
+    tagEn: 'Eyewear & Lifestyle',
+    title: 'نظارات شمسية ومظهر عصري',
+    titleEn: 'Modern Eyewear & Lifestyle',
+    description: 'تصاميم نظارات شمسية تحمي عينيك بأناقة متفردة وتواكب أحدث خطوط الموضة العالمية.',
+    descriptionEn: 'Contemporary sunglasses blending high-UV defense with sleek, iconic frames suited for every journey.',
+    ctaText: 'تصفح النظارات والإطلالات',
+    ctaTextEn: 'Browse Eyewear',
+    videoUrl: 'https://framerusercontent.com/assets/8X7yVRp00QdsQrj5UMRVxY1rGNc.mp4',
+    categoryFilter: 'ساعات وإكسسوارات',
+    whatsAppText: 'مرحباً، أود الاستفسار وطلب النظارات الشمسية العصرية.',
+    accentColor: '#f59e0b'
+  },
+  {
+    id: 'retail-4',
+    num: '04',
+    tag: 'هدايا ومجموعات',
+    tagEn: 'Executive Gift Sets',
+    title: 'مجموعات إهداء متكاملة وراقية',
+    titleEn: 'Curated Executive Gift Boxes',
+    description: 'بوكسات إهداء فاخرة جاهزة للتسليم تشمل أرقى المنتجات المختارة بعناية لتخليد أروع اللحظات.',
+    descriptionEn: 'Ready-to-deliver luxury gift boxes uniting premium items for lasting impressions and celebrations.',
+    ctaText: 'اختر بوكس الإهداء',
+    ctaTextEn: 'Select Gift Box',
+    videoUrl: 'https://framerusercontent.com/assets/3MHcEOgGVuRCJnzN6PHeSdFEolQ.mp4',
+    categoryFilter: 'هدايا ومجموعات راقية',
+    whatsAppText: 'مرحباً، أود تنسيق واختيار بوكس إهداء فاخر متكامل.',
+    accentColor: '#10b981'
+  }
+];
 
 export const SAUDI_COFFEE_PANELS: VideoAccordionPanel[] = [
   {
@@ -111,6 +179,8 @@ export const SocialReelsSection: React.FC = () => {
   const { language, navigateToCategory } = useApp();
   const { activeStore } = useTenant();
   const isAr = language === 'ar';
+  const isSouq = isSouqCommonTenant(activeStore) || (activeStore?.id && activeStore.id !== 'store-1' && activeStore.id !== 'store-coffee');
+  const panels = isSouq ? RETAIL_SHOWCASE_PANELS : SAUDI_COFFEE_PANELS;
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
@@ -176,21 +246,21 @@ export const SocialReelsSection: React.FC = () => {
     }
 
     autoplayTimerRef.current = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % SAUDI_COFFEE_PANELS.length);
+      setActiveIndex((prev) => (prev + 1) % panels.length);
     }, 7000);
 
     return () => {
       if (autoplayTimerRef.current) clearInterval(autoplayTimerRef.current);
     };
-  }, [isAutoplay, activeIndex]);
+  }, [isAutoplay, activeIndex, panels.length]);
 
   const handleNext = useCallback(() => {
-    setActiveIndex((prev) => (prev + 1) % SAUDI_COFFEE_PANELS.length);
-  }, []);
+    setActiveIndex((prev) => (prev + 1) % panels.length);
+  }, [panels.length]);
 
   const handlePrev = useCallback(() => {
-    setActiveIndex((prev) => (prev - 1 + SAUDI_COFFEE_PANELS.length) % SAUDI_COFFEE_PANELS.length);
-  }, []);
+    setActiveIndex((prev) => (prev - 1 + panels.length) % panels.length);
+  }, [panels.length]);
 
   const togglePlayPause = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -214,7 +284,7 @@ export const SocialReelsSection: React.FC = () => {
     if (url) window.open(url, '_blank');
   };
 
-  const activePanel = SAUDI_COFFEE_PANELS[activeIndex];
+  const activePanel = panels[activeIndex] || panels[0];
 
   return (
     <section
@@ -226,12 +296,14 @@ export const SocialReelsSection: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 pb-3 border-b border-[#ece7de] gap-4">
         <div>
           <h2 className="text-2xl sm:text-3xl font-bold font-serif text-[#102a1c]">
-            {isAr ? 'لحظات استثنائية تنبض بالحياة' : 'Exceptional Celebrations in Motion'}
+            {isAr
+              ? (isSouq ? 'منتجاتنا في تجارب حية' : 'لحظات استثنائية تنبض بالحياة')
+              : (isSouq ? 'Products in Action & Motion' : 'Exceptional Celebrations in Motion')}
           </h2>
           <p className="text-xs sm:text-sm text-[#7a7164] mt-1 font-light">
             {isAr
-              ? 'سينما الضيافة السعودية والقهوة الفاخرة المحوجة بالهيل والزعفران'
-              : 'Four cinematic reels capturing royal Saudi coffee and luxury blooms in motion'}
+              ? (isSouq ? 'استعرض فيديوهات وتفاصيل المنتجات والتنسيقات بأعلى جودة' : 'سينما الضيافة السعودية والقهوة الفاخرة المحوجة بالهيل والزعفران')
+              : (isSouq ? 'Curated lifestyle video reels showcasing quality in every detail' : 'Four cinematic reels capturing royal Saudi coffee and luxury blooms in motion')}
           </p>
         </div>
 
@@ -316,7 +388,7 @@ export const SocialReelsSection: React.FC = () => {
           onMouseEnter={() => isAutoplay && setIsAutoplay(false)}
           onMouseLeave={() => !isAutoplay && setIsAutoplay(true)}
         >
-          {SAUDI_COFFEE_PANELS.map((panel, idx) => {
+          {panels.map((panel, idx) => {
             const isExpanded = activeIndex === idx;
 
             return (
@@ -497,7 +569,7 @@ export const SocialReelsSection: React.FC = () => {
       ) : (
         /* Mobile Vertical Accordion Layout with Smooth Animations */
         <div className="flex flex-col gap-3 w-full">
-          {SAUDI_COFFEE_PANELS.map((panel, idx) => {
+          {panels.map((panel, idx) => {
             const isExpanded = activeIndex === idx;
 
             return (
@@ -640,7 +712,7 @@ export const SocialReelsSection: React.FC = () => {
 
       {/* ── Dot Indicators Below Carousel ────────────────────────────────────── */}
       <div className="flex items-center justify-center gap-2.5 mt-6">
-        {SAUDI_COFFEE_PANELS.map((panel, i) => (
+        {panels.map((panel, i) => (
           <button
             key={panel.id}
             type="button"

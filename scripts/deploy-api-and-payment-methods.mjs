@@ -19,19 +19,24 @@ async function main() {
   await client.access(ftpConfig);
   console.log('Connected!');
 
-  // 1. Upload public/api/index.php
-  const apiLocal = 'public/api/index.php';
-  const apiTargets = [
-    '/api/index.php',
-    '/public_html/api/index.php',
+  // 1. Upload public/api/index.php and master_control_center_ops.php
+  const apiFiles = [
+    { local: 'public/api/index.php', rel: 'index.php' },
+    { local: 'public/api/master_control_center_ops.php', rel: 'master_control_center_ops.php' },
   ];
-  for (const t of apiTargets) {
+  const apiTargetDirs = ['/api', '/public_html/api'];
+  for (const dir of apiTargetDirs) {
     try {
-      await client.ensureDir(path.dirname(t).replace(/\\/g, '/'));
-      await client.uploadFrom(apiLocal, path.basename(t));
-      console.log('✓ Uploaded API:', t);
+      await client.ensureDir(dir);
+      await client.cd(dir);
+      for (const f of apiFiles) {
+        if (fs.existsSync(f.local)) {
+          await client.uploadFrom(f.local, f.rel);
+          console.log(`✓ Uploaded API file to ${dir}/${f.rel}`);
+        }
+      }
     } catch (e) {
-      console.warn('API upload error for', t, e.message);
+      console.warn(`API upload error for ${dir}:`, e.message);
     }
   }
 

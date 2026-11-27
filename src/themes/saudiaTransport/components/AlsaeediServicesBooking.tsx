@@ -266,7 +266,14 @@ export const AlsaeediServicesBooking: React.FC<Props> = ({ isAr, storeId }) => {
       if (res.whatsapp) setWaLink(res.whatsapp);
       setNotes('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : isAr ? 'تعذر إرسال الحجز.' : 'Booking failed.');
+      // Robust fallback to WhatsApp direct booking so customer inquiry is never lost
+      const msg = isAr
+        ? `حجز خدمة: ${activeService?.nameAr || serviceKey} | ${date} ${time} | ${make} ${model} ${year} | ${name} | ${cleanPhone}${notes.trim() ? ` | ملاحظات: ${notes.trim()}` : ''}`
+        : `Service booking: ${activeService?.nameEn || serviceKey} | ${date} ${time} | ${make} ${model} ${year} | ${name} | ${cleanPhone}${notes.trim() ? ` | Notes: ${notes.trim()}` : ''}`;
+      const link = `https://wa.me/${BLECO_STORE_INFO.whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(msg)}`;
+      setWaLink(link);
+      setDoneId('fallback-wa');
+      window.open(link, '_blank');
     } finally {
       setBusy(false);
     }

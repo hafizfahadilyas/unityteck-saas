@@ -29,7 +29,7 @@ const getArg = (key, fallback) => {
   if (found) return found.split('=').slice(1).join('=');
   return fallback;
 };
-const requested = String(getArg('target', 'flowers')).toLowerCase();
+const requested = String(getArg('target', 'all')).toLowerCase();
 const forceFull = args.includes('--full');
 
 function account(name, source) {
@@ -53,7 +53,7 @@ const central = account('central', {
   host: process.env.FTP_CENTRAL_HOST,
   user: process.env.FTP_CENTRAL_USER,
   password: process.env.FTP_CENTRAL_PASSWORD,
-  dir: process.env.FTP_CENTRAL_DIR || '/public_html',
+  dir: process.env.FTP_CENTRAL_DIR || '/',
   url: process.env.FTP_CENTRAL_URL || 'https://mieraf-ksa.com/',
 });
 
@@ -62,12 +62,12 @@ const flowers = account('flowers', {
   host: process.env.FTP_FLOWERS_HOST || process.env.FTP_HOST,
   user: process.env.FTP_FLOWERS_USER || process.env.FTP_USER,
   password: process.env.FTP_FLOWERS_PASSWORD || process.env.FTP_PASSWORD,
-  dir: process.env.FTP_FLOWERS_DIR || process.env.FTP_REMOTE_DIR || '/public_html',
+  dir: process.env.FTP_FLOWERS_DIR || process.env.FTP_REMOTE_DIR || '/',
   url: process.env.FTP_FLOWERS_URL || process.env.FTP_TARGET_URL || 'https://giftshop-sa.com/',
 });
 
-const catalog = { central, flowers };
-const selected = requested === 'all' ? ['central', 'flowers'] : [requested];
+const catalog = { flowers, central };
+const selected = requested === 'all' ? ['flowers', 'central'] : [requested];
 
 function fileHash(fullPath) {
   const buf = fs.readFileSync(fullPath);
@@ -125,14 +125,56 @@ function verifyLiveSite(url) {
   return new Promise((resolve) => {
     if (!url) return resolve(false);
     const getter = url.startsWith('https') ? https : http;
-    const req = getter.get(url, { timeout: 10000 }, (res) => {
-      res.resume();
-      console.log(`Check ${url} → HTTP ${res.statusCode}`);
-      resolve(res.statusCode >= 200 && res.statusCode < 400);
+    const req = getter.get(url, { timeout: 15000, headers: { 'User-Agent': 'deploy-verify/1.0' } }, (res) => {
+      let body = '';
+      res.on('data', (c) => (body += c));
+      res.on('end', async () => {
+        console.log(`Live site check: ${url} → HTTP ${res.statusCode}`);
+        if (res.statusCode < 200 || res.statusCode >= 400) {
+          return resolve(false);
+        }
+        // Extract main bundle and styles from live HTML
+        const scripts = [...body.matchAll(/src=["'](\/assets\/[^"']+)["']/gi)].map((m) => m[1]);
+        const links = [...body.matchAll(/href=["'](\/assets\/[^"']+\.css[^"']*)["']/gi)].map((m) => m[1]);
+        let allOk = true;
+        for (const s of scripts.slice(0, 3)) {
+          const assetUrl = new URL(s, url).href;
+          const ok = await new Promise((resAsset) => {
+            getter.get(assetUrl, { timeout: 10000, headers: { 'User-Agent': 'deploy-verify/1.0' } }, (r) => {
+              r.resume();
+              console.log(`  Live Asset Check: ${assetUrl} → HTTP ${r.statusCode}`);
+              resAsset(r.statusCode === 200);
+            }).on('error', (err) => {
+              console.warn(`  Live Asset Error: ${assetUrl} → ${err.message}`);
+              resAsset(false);
+            });
+          });
+          if (!ok) allOk = false;
+        }
+        for (const l of links.slice(0, 2)) {
+          const assetUrl = new URL(l, url).href;
+          const ok = await new Promise((resAsset) => {
+            getter.get(assetUrl, { timeout: 10000, headers: { 'User-Agent': 'deploy-verify/1.0' } }, (r) => {
+              r.resume();
+              console.log(`  Live CSS Check: ${assetUrl} → HTTP ${r.statusCode}`);
+              resAsset(r.statusCode === 200);
+            }).on('error', (err) => {
+              console.warn(`  Live CSS Error: ${assetUrl} → ${err.message}`);
+              resAsset(false);
+            });
+          });
+          if (!ok) allOk = false;
+        }
+        resolve(allOk);
+      });
     });
-    req.on('error', () => resolve(false));
+    req.on('error', (e) => {
+      console.warn(`Live verify connection error on ${url}:`, e.message);
+      resolve(false);
+    });
     req.on('timeout', () => {
       req.destroy();
+      console.warn(`Live verify timeout on ${url}`);
       resolve(false);
     });
   });
@@ -160,13 +202,19 @@ async function openClient(target, tries = 4) {
   throw lastErr || new Error('FTP connect failed');
 }
 
-function isCriticalRel(rel) {
+function isHtmlEntry(rel) {
+  return rel === 'index.html' || rel === 'storefront-shell.php';
+}
+
+function isEntryBundle(rel) {
   return (
-    rel === 'index.html' ||
     rel === '.htaccess' ||
-    rel === 'storefront-shell.php' ||
-    (rel.startsWith('assets/') && /^assets\/index-[^/]+\.(js|css)$/i.test(rel))
+    (rel.startsWith('assets/') && /^assets\/(index-[^/]+\.(js|css)|stale-bundle-fallback\.js)$/i.test(rel))
   );
+}
+
+function isCriticalRel(rel) {
+  return isHtmlEntry(rel) || isEntryBundle(rel);
 }
 
 async function uploadTarget(target) {
@@ -198,7 +246,9 @@ async function uploadTarget(target) {
     (f) =>
       f.rel === 'index.html' ||
       f.rel === '.htaccess' ||
+      f.rel === 'storefront-shell.php' ||
       f.rel.startsWith('api/') ||
+      isEntryBundle(f.rel) ||
       /\.(php|html)$/.test(f.rel),
   );
   const byRel = new Map();
@@ -226,18 +276,17 @@ async function uploadTarget(target) {
 
   let primaryClient = await openClient(target);
   const initialPwd = await primaryClient.pwd();
-  const docRoot = (initialPwd && initialPwd !== '/')
-    ? initialPwd
-    : (target.dir && target.dir !== '/' ? target.dir : '/public_html');
-  const remoteRoot = docRoot.replace(/\/$/, '') || '/public_html';
-  console.log(`  Target docroot: ${remoteRoot} (initial pwd: ${initialPwd})`);
+  const remoteRoot = (target.dir && target.dir !== '/' && target.dir !== '/public_html')
+    ? target.dir.replace(/\/$/, '')
+    : '';
+  console.log(`  Target docroot: "${remoteRoot || '/'}" (initial pwd: ${initialPwd})`);
 
   const nextManifest = { ...prev };
   let sent = 0;
 
   const resetCwd = async (c) => {
     try {
-      await c.cd(remoteRoot || '/public_html');
+      await c.cd(remoteRoot || '/');
     } catch {
       try {
         await c.cd('/');
@@ -267,16 +316,31 @@ async function uploadTarget(target) {
       }
     }
 
-    // Split queue: non-critical assets first, critical entry files (index.html, shell, .htaccess) LAST!
-    const criticalQueue = queue.filter((f) => isCriticalRel(f.rel));
-    const assetQueue = queue.filter((f) => !isCriticalRel(f.rel));
+    // Split queue into 3 distinct ordered phases:
+    // Phase 1: General assets (vendor chunks, images, sub-components)
+    // Phase 2: Main entry bundles & compatibility aliases & htaccess (index-*.js, index-*.css, fallback scripts, htaccess)
+    // Phase 3: HTML / shell entry files LAST (storefront-shell.php, index.html)
+    const assetQueue = queue.filter((f) => !isHtmlEntry(f.rel) && !isEntryBundle(f.rel));
+    const bundleQueue = queue.filter((f) => isEntryBundle(f.rel));
+    const entryQueue = queue.filter((f) => isHtmlEntry(f.rel)).sort((a, b) => {
+      if (a.rel === 'index.html') return 1;
+      if (b.rel === 'index.html') return -1;
+      return 0;
+    });
 
-    // Upload helper with retries and temp cleanup
+    // Upload helper with automatic remote directory creation, directory caching, and retries
+    let currentRemoteDir = null;
+    const cdRemoteDir = async (clientRef, targetDir) => {
+      const normalized = (targetDir || '/').replace(/\/{2,}/g, '/') || '/';
+      if (currentRemoteDir === normalized) return;
+      await clientRef.ensureDir(normalized);
+      currentRemoteDir = normalized;
+    };
+
     const uploadSingle = async (clientRef, file, remotePath) => {
       let attempts = 0;
       const parent = path.posix.dirname(remotePath);
       const baseName = path.posix.basename(remotePath);
-      const tempPath = `${parent}/.in.${baseName}.`;
       while (attempts < 4) {
         try {
           if (!fs.existsSync(file.full)) {
@@ -300,12 +364,23 @@ async function uploadTarget(target) {
               return;
             }
           }
-          await clientRef.uploadFrom(file.full, remotePath);
+          await cdRemoteDir(clientRef, parent);
+          await clientRef.uploadFrom(file.full, baseName);
           nextManifest[file.rel] = file.hash;
+
+          // Mirror entry files to nested /public_html if it exists so both root and public_html stay in sync
+          if (isHtmlEntry(file.rel) || file.rel === '.htaccess') {
+            try {
+              const mirrorParent = `/public_html${parent === '/' ? '' : parent}`;
+              await cdRemoteDir(clientRef, mirrorParent);
+              await clientRef.uploadFrom(file.full, baseName);
+            } catch {}
+          }
+
           return;
         } catch (err) {
           attempts += 1;
-          try { await clientRef.remove(tempPath); } catch {}
+          currentRemoteDir = null;
           if (attempts >= 4) throw err;
           await new Promise((r) => setTimeout(r, 800 * attempts));
         }
@@ -341,6 +416,9 @@ async function uploadTarget(target) {
               await resetCwd(workerClient);
             }
           }
+          if (!ok) {
+            throw new Error(`Failed to upload asset ${file.rel} after 3 retries`);
+          }
           sent += 1;
           if (sent % 10 === 0 || sent === assetQueue.length) {
             const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -355,18 +433,50 @@ async function uploadTarget(target) {
       }
     };
 
+    // Phase 1: Upload main bundles, fallback aliases, and .htaccess FIRST
+    if (bundleQueue.length > 0) {
+      console.log(`Uploading ${bundleQueue.length} main bundles, fallback aliases, and rules FIRST...`);
+      try { primaryClient.close(); } catch {}
+      primaryClient = await openClient(target);
+      await resetCwd(primaryClient);
+      for (const file of bundleQueue) {
+        const remotePath = `${remoteRoot}/${file.rel}`.replace(/\/{2,}/g, '/');
+        let ok = false;
+        let retries = 0;
+        while (!ok && retries < 4) {
+          try {
+            await uploadSingle(primaryClient, file, remotePath);
+            ok = true;
+          } catch (err) {
+            retries += 1;
+            console.warn(`  [bundle retry ${retries}] ${file.rel}: ${err.message}`);
+            try { primaryClient.close(); } catch {}
+            await new Promise((r) => setTimeout(r, 1000 * retries));
+            primaryClient = await openClient(target);
+            await resetCwd(primaryClient);
+          }
+        }
+        if (!ok) {
+          throw new Error(`Failed to upload bundle file ${file.rel} after 4 retries`);
+        }
+        sent += 1;
+        console.log(`  ✓ Bundle: ${file.rel}`);
+      }
+    }
+
+    // Phase 2: Upload other changed code assets (vendor chunks, sub-components, api)
     if (assetQueue.length > 0) {
       console.log(`Uploading ${assetQueue.length} assets with ${CONCURRENCY} parallel workers...`);
       await Promise.all(Array.from({ length: CONCURRENCY }, (_, i) => runWorker(i)));
     }
 
-    // Now upload critical entry files LAST (index.html, storefront-shell.php, .htaccess)
-    if (criticalQueue.length > 0) {
-      console.log(`Uploading ${criticalQueue.length} critical entry files last...`);
+    // Phase 3: Now upload HTML entry files LAST (storefront-shell.php, index.html)
+    if (entryQueue.length > 0) {
+      console.log(`Uploading ${entryQueue.length} HTML entry files LAST...`);
       try { primaryClient.close(); } catch {}
       primaryClient = await openClient(target);
       await resetCwd(primaryClient);
-      for (const file of criticalQueue) {
+      for (const file of entryQueue) {
         const remotePath = `${remoteRoot}/${file.rel}`.replace(/\/{2,}/g, '/');
         let ok = false;
         let retries = 0;
@@ -376,18 +486,18 @@ async function uploadTarget(target) {
             ok = true;
           } catch (err) {
             retries += 1;
-            console.warn(`  [critical retry ${retries}] ${file.rel}: ${err.message}`);
+            console.warn(`  [entry retry ${retries}] ${file.rel}: ${err.message}`);
             try { primaryClient.close(); } catch {}
-            await new Promise((r) => setTimeout(r, 1500 * retries));
+            await new Promise((r) => setTimeout(r, 1200 * retries));
             primaryClient = await openClient(target);
             await resetCwd(primaryClient);
           }
         }
         if (!ok) {
-          throw new Error(`Failed to upload critical file ${file.rel} after 5 retries`);
+          throw new Error(`Failed to upload entry file ${file.rel} after 5 retries`);
         }
         sent += 1;
-        console.log(`  ✓ Critical: ${file.rel}`);
+        console.log(`  ✓ Entrypoint: ${file.rel}`);
       }
     }
 
@@ -431,34 +541,88 @@ function bundleApiIntoDist() {
   const distAssets = path.join(distDir, 'assets');
   if (fs.existsSync(distAssets)) {
     const files = fs.readdirSync(distAssets);
-    const mainJs = files.find((f) => /^index-[A-Za-z0-9_-]+\.js$/.test(f) && !f.includes('DFJOKphv') && !f.includes('BB2j0HMc') && !f.includes('CS7qLlqF'));
-    const mainCss = files.find((f) => /^index-[A-Za-z0-9_-]+\.css$/.test(f) && !f.includes('JfJHEEIZ'));
+    let mainJs = null;
+    let mainCss = null;
+
+    // Read dist/index.html to get the exact active bundle names
+    const indexHtmlPath = path.join(distDir, 'index.html');
+    if (fs.existsSync(indexHtmlPath)) {
+      const htmlContent = fs.readFileSync(indexHtmlPath, 'utf8');
+      const scriptMatch = htmlContent.match(/src=["']\/assets\/(index-[A-Za-z0-9_-]+\.js)["']/i);
+      const styleMatch = htmlContent.match(/href=["']\/assets\/(index-[A-Za-z0-9_-]+\.css)["']/i);
+      if (scriptMatch) mainJs = scriptMatch[1];
+      if (styleMatch) mainCss = styleMatch[1];
+    }
+
+    if (!mainJs) {
+      mainJs = files.find((f) => /^index-[A-Za-z0-9_-]+\.js$/i.test(f) && !f.includes('DFJOKphv') && !f.includes('BB2j0HMc') && !f.includes('CS7qLlqF') && !f.includes('BjkT0qld'));
+    }
+    if (!mainCss) {
+      mainCss = files.find((f) => /^index-[A-Za-z0-9_-]+\.css$/i.test(f) && !f.includes('JfJHEEIZ') && !f.includes('D5CpQdTr'));
+    }
+
+    console.log(`Active built bundles: JS = ${mainJs || 'none'}, CSS = ${mainCss || 'none'}`);
+
     const legacyAliases = [
+      'index-BjkT0qld.js',
       'index-DFJOKphv.js',
       'index-BB2j0HMc.js',
       'index-CS7qLlqF.js',
       'index-BMQlnFbu.js',
       'index-CUCxWf99.js',
       'index-DPpVF4BR.js',
+      'index-BNYoZdxF.js',
+      'index-BPI9XEng.js',
+      'index-CVuTDEUs.js',
+      'index-latest-bundle.js',
     ];
+
+    const legacyCssAliases = [
+      'index-D5CpQdTr.css',
+      'index-JfJHEEIZ.css',
+      'index-LmsDqE2G.css',
+      'index-s9xwUHhY.css',
+      'index-latest-bundle.css',
+    ];
+
     if (mainJs) {
       for (const alias of legacyAliases) {
         if (alias !== mainJs) {
           try {
             fs.copyFileSync(path.join(distAssets, mainJs), path.join(distAssets, alias));
-          } catch {}
+          } catch (e) {
+            console.warn(`  Failed copying alias ${alias}:`, e.message);
+          }
         }
       }
     }
+
     if (mainCss) {
-      try {
-        fs.copyFileSync(path.join(distAssets, mainCss), path.join(distAssets, 'index-JfJHEEIZ.css'));
-      } catch {}
+      for (const alias of legacyCssAliases) {
+        if (alias !== mainCss) {
+          try {
+            fs.copyFileSync(path.join(distAssets, mainCss), path.join(distAssets, alias));
+          } catch (e) {
+            console.warn(`  Failed copying CSS alias ${alias}:`, e.message);
+          }
+        }
+      }
     }
-    if (mainJs && mainCss && fs.existsSync(htaccessDist)) {
+
+    if (fs.existsSync(htaccessDist)) {
       let ht = fs.readFileSync(htaccessDist, 'utf8');
-      ht = ht.replace(/RewriteRule \^assets\/index-\[\^\/\]\+\\\.js\$ \/assets\/index-[^.]+\.js/g, `RewriteRule ^assets/index-[^/]+\\.js$ /assets/${mainJs}`);
-      ht = ht.replace(/RewriteRule \^assets\/index-\[\^\/\]\+\\\.css\$ \/assets\/index-[^.]+\.css/g, `RewriteRule ^assets/index-[^/]+\\.css$ /assets/${mainCss}`);
+      if (mainJs) {
+        ht = ht.replace(
+          /RewriteRule \^assets\/index-\[\^\/\]\+\\\.js\$ \/assets\/[^\s]+/g,
+          `RewriteRule ^assets/index-[^/]+\\.js$ /assets/${mainJs} [L]`
+        );
+      }
+      if (mainCss) {
+        ht = ht.replace(
+          /RewriteRule \^assets\/index-\[\^\/\]\+\\\.css\$ \/assets\/[^\s]+/g,
+          `RewriteRule ^assets/index-[^/]+\\.css$ /assets/${mainCss} [L]`
+        );
+      }
       fs.writeFileSync(htaccessDist, ht);
     }
   }

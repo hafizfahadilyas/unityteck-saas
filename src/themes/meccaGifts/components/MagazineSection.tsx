@@ -1,16 +1,90 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { useTenant } from '../../../context/TenantContext';
+import { isSouqCommonTenant } from '../../souqCommon/isSouqCommonTenant';
 import { fetchBlogDataApi } from '../../../api/tenantApi';
 import type { BlogArticleItem } from '../../../types/blog';
 import { ArrowLeft, ArrowRight, BookOpen, Clock, X, Sparkles, Share2 } from 'lucide-react';
 import { handleImageError, cleanImageUrl } from '../../../utils/imageFallback';
+
+const DEFAULT_RETAIL_ARTICLES: BlogArticleItem[] = [
+  {
+    id: 'retail-art-1',
+    title: 'دليلك لاختيار الساعة المثالية المناسبة لإطلالتك اليومية',
+    titleEn: 'Choosing the Perfect Watch for Your Everyday Style',
+    titleAr: 'دليلك لاختيار الساعة المثالية المناسبة لإطلالتك اليومية',
+    category: 'أناقة وساعات',
+    categoryEn: 'Watches & Style',
+    categoryAr: 'أناقة وساعات',
+    summary: 'نصائح حصرية تساعدك في اختيار الساعة الملائمة لمظهرك اليومي والرسمي وفق أعلى معايير الجودة والأناقة.',
+    summaryEn: 'Expert tips on selecting the ideal timepiece matching your professional and casual lifestyle.',
+    summaryAr: 'نصائح حصرية تساعدك في اختيار الساعة الملائمة لمظهرك اليومي والرسمي وفق أعلى معايير الجودة والأناقة.',
+    readTime: '3 دقائق قراءة',
+    readTimeEn: '3 min read',
+    thumbnail: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80',
+    content: 'تفاصيل ومواصفات اختيار الساعات الفاخرة التي تدوم طويلاً وتمنحك حضوراً واثقاً في جميع المناسبات.',
+    contentEn: 'A comprehensive guide to picking luxury, durable timepieces that reflect confidence.',
+    published_at: new Date().toISOString(),
+  },
+  {
+    id: 'retail-art-2',
+    title: 'كيف تختار سماعات الرأس اللاسلكية الأنسب لاحتياجاتك اليومية',
+    titleEn: 'How to Pick the Best Wireless Headphones for Daily Use',
+    titleAr: 'كيف تختار سماعات الرأس اللاسلكية الأنسب لاحتياجاتك اليومية',
+    category: 'صوتيات وتكنولوجيا',
+    categoryEn: 'Audio & Tech',
+    categoryAr: 'صوتيات وتكنولوجيا',
+    summary: 'مقارنة شاملة بين ميزات عزل الضوضاء ونقاء الصوت وعمر البطارية في أحدث السماعات العصرية.',
+    summaryEn: 'A complete comparison between active noise cancellation, audio fidelity, and battery endurance.',
+    readTime: '4 دقائق قراءة',
+    readTimeEn: '4 min read',
+    thumbnail: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=80',
+    content: 'دليل تفصيلي لاستكشاف تقنيات الصوت الذكي واختيار السماعة التي تلائم العمل والرياضة.',
+    contentEn: 'Detailed guide for exploring smart audio tech and picking headphones for gym and work.',
+    published_at: new Date().toISOString(),
+  },
+  {
+    id: 'retail-art-3',
+    title: 'أسرار تنسيق النظارات الشمسية والإكسسوارات العصرية',
+    titleEn: 'Styling Secrets: Sunglasses and Modern Lifestyle Accessories',
+    titleAr: 'أسرار تنسيق النظارات الشمسية والإكسسوارات العصرية',
+    category: 'إكسسوارات وموضة',
+    categoryEn: 'Eyewear & Fashion',
+    categoryAr: 'إكسسوارات وموضة',
+    summary: 'طرق احترافية لتنسيق النظارات والمحافظ والإكسسوارات لتمنحك مظهراً متكاملاً وجذاباً.',
+    summaryEn: 'Curated fashion guidelines on styling luxury eyewear with modern wardrobe elements.',
+    readTime: '3 دقائق قراءة',
+    readTimeEn: '3 min read',
+    thumbnail: 'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=800&auto=format&fit=crop&q=80',
+    content: 'تعرف على معايير الحماية من الأشعة فوق البنفسجية وكيفية اختيار الإطار المناسب لشكل وجهك.',
+    contentEn: 'Learn how to pick frame shapes matching your face and ensuring UV protection.',
+    published_at: new Date().toISOString(),
+  },
+  {
+    id: 'retail-art-4',
+    title: 'فن تقديم الهدايا الراقية وتأثيرها في بناء العلاقات',
+    titleEn: 'The Art of Executive Gifting and Lasting Impressions',
+    titleAr: 'فن تقديم الهدايا الراقية وتأثيرها في بناء العلاقات',
+    category: 'هدايا ومناسبات',
+    categoryEn: 'Gifting & Moments',
+    categoryAr: 'هدايا ومناسبات',
+    summary: 'أفكار ملهمة لاختيار مجموعات الهدايا الفاخرة التي تترك انطباعاً دائماً لدى متلقيها في كل مناسبة.',
+    summaryEn: 'Inspiring ideas for choosing executive gift boxes that create memorable milestones.',
+    readTime: '5 دقائق قراءة',
+    readTimeEn: '5 min read',
+    thumbnail: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=800&auto=format&fit=crop&q=80',
+    content: 'كيف تختار هدية تعبر عن التقدير الصادق وتلائم مناسبات التكريم والنجاح والاحتفالات.',
+    contentEn: 'How to pick thoughtful gifts that celebrate success and personal milestones.',
+    published_at: new Date().toISOString(),
+  },
+];
 
 export const MagazineSection: React.FC = () => {
   const { language } = useApp();
   const isAr = language === 'ar';
   const { activeStore } = useTenant();
   const storeId = (activeStore?.id || '').trim();
+  const isSouq = isSouqCommonTenant(activeStore) || (activeStore?.id && activeStore.id !== 'store-1' && activeStore.id !== 'store-coffee');
 
   const [articles, setArticles] = useState<BlogArticleItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,7 +128,9 @@ export const MagazineSection: React.FC = () => {
     };
   }, [loadArticles]);
 
-  if (!loading && articles.length === 0) {
+  const effectiveArticles = articles.length > 0 ? articles : (isSouq ? DEFAULT_RETAIL_ARTICLES : []);
+
+  if (!loading && effectiveArticles.length === 0) {
     return null;
   }
 
@@ -64,23 +140,25 @@ export const MagazineSection: React.FC = () => {
       <div className="flex items-center justify-between mb-8 pb-3 border-b border-[#ece7de]">
         <div>
           <h2 className="text-2xl sm:text-3xl font-bold font-serif text-[#102a1c]">
-            {isAr ? 'أسرار وفنون الإهداء الملكي' : 'The Art of Royal Gifting'}
+            {isAr
+              ? (isSouq ? 'أحدث المقالات ومدونة المتجر' : 'أسرار وفنون الإهداء الملكي')
+              : (isSouq ? 'Store Magazine & Lifestyle Articles' : 'The Art of Royal Gifting')}
           </h2>
           <p className="text-xs sm:text-sm text-[#7a7164] mt-1 font-light">
             {isAr
-              ? 'مقالات وإلهام من خبراء ومنسقي الزهور في مكة المكرمة'
-              : 'Exclusive articles from master florists and gift concierges in Mecca'}
+              ? (isSouq ? 'مقالات ونصائح مختارة من خبرائنا لمساعدتك في اختيار أفضل المنتجات' : 'مقالات وإلهام من خبراء ومنسقي الزهور في مكة المكرمة')
+              : (isSouq ? 'Expert tips and buying guides to help you discover the finest picks' : 'Exclusive articles from master florists and gift concierges in Mecca')}
           </p>
         </div>
 
         <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#102a1c]/10 text-[#102a1c] text-xs font-semibold shrink-0">
           <BookOpen className="w-3.5 h-3.5 text-[#102a1c]" />
-          <span>{isAr ? 'مجلة هدايا مكة' : 'Mecca Journal'}</span>
+          <span>{isAr ? (isSouq ? 'مدونة المتجر' : 'مجلة هدايا مكة') : (isSouq ? 'Store Journal' : 'Mecca Journal')}</span>
         </div>
       </div>
 
       {/* Loading Skeleton */}
-      {loading && articles.length === 0 && (
+      {loading && articles.length === 0 && !isSouq && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-pulse">
           {[1, 2, 3, 4].map((n) => (
             <div key={n} className="bg-white border border-[#e8e4dc] rounded-t-[2.5rem] rounded-b-2xl h-80 p-4 space-y-4">
@@ -94,7 +172,7 @@ export const MagazineSection: React.FC = () => {
 
       {/* 4 Articles Sculptural Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {articles.slice(0, 4).map((article: any) => {
+        {effectiveArticles.slice(0, 4).map((article: any) => {
           const title = isAr ? (article.titleAr || article.title) : (article.titleEn || article.title);
           const category = isAr ? (article.categoryAr || article.category) : (article.categoryEn || article.category);
           const summary = isAr ? (article.summaryAr || article.summary || article.excerpt) : (article.summaryEn || article.summary || article.excerpt);

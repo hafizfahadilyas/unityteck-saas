@@ -13,32 +13,41 @@ async function main() {
       })
   );
 
-  const client = new ftp.Client(60000);
-  client.ftp.verbose = false;
+  const getClient = async () => {
+    const client = new ftp.Client(60000);
+    client.ftp.verbose = false;
+    await client.access({
+      host: env.FTP_CENTRAL_HOST,
+      user: env.FTP_CENTRAL_USER,
+      password: env.FTP_CENTRAL_PASSWORD,
+      secure: false,
+    });
+    return client;
+  };
 
-  console.log('Connecting to FTP...');
-  await client.access({
-    host: env.FTP_CENTRAL_HOST,
-    user: env.FTP_CENTRAL_USER,
-    password: env.FTP_CENTRAL_PASSWORD,
-    secure: false,
-  });
-  console.log('Connected.');
-
-  // Helper to upload to a path if it exists
   const safeUpload = async (localPath, remotePath) => {
     if (!fs.existsSync(localPath)) {
       console.warn('Local file does not exist:', localPath);
       return;
     }
-    const dir = path.posix.dirname(remotePath);
-    try {
-      await client.ensureDir(dir);
-    } catch (e) {
-      // ignore
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      let client;
+      try {
+        client = await getClient();
+        const dir = path.posix.dirname(remotePath);
+        await client.ensureDir(dir);
+        await client.uploadFrom(localPath, remotePath);
+        console.log('✓ Uploaded:', remotePath, '(' + fs.statSync(localPath).size + ' bytes)');
+        client.close();
+        return;
+      } catch (err) {
+        if (client) {
+          try { client.close(); } catch (_) {}
+        }
+        console.warn(`Attempt ${attempt} failed for ${remotePath}: ${err.message}`);
+        await new Promise(r => setTimeout(r, 1500));
+      }
     }
-    await client.uploadFrom(localPath, remotePath);
-    console.log('Uploaded:', remotePath, '(' + fs.statSync(localPath).size + ' bytes)');
   };
 
   // Find current index bundle in dist/
@@ -100,7 +109,6 @@ async function main() {
     }
   }
 
-  client.close();
   console.log('\nAll critical files uploaded successfully!');
 
   // Verify live responses

@@ -126,9 +126,17 @@ export const Footer: React.FC<FooterCustomProps> = ({
     );
   };
 
+  const footerBgClass = isCoffee
+    ? 'bg-[#1e1009] text-stone-300 border-[#382114]'
+    : isAuto
+    ? 'bg-[#090d16] text-slate-300 border-slate-800'
+    : isSouq
+    ? 'bg-[#0f172a] text-slate-300 border-slate-800'
+    : 'bg-[#0b241a] text-[#ded8cb] border-[#183d2c]';
+
   return (
     <footer
-      className="bg-[#0b241a] text-[#ded8cb] pt-14 pb-20 md:pb-10 border-t border-[#183d2c] relative select-none"
+      className={`${footerBgClass} pt-14 pb-20 md:pb-10 border-t relative select-none`}
       style={{
         backgroundColor: s.bgColor || undefined,
         color: s.textColor || undefined,
@@ -415,8 +423,8 @@ export const Footer: React.FC<FooterCustomProps> = ({
                 <span className="text-[11px]">{emailAddress}</span>
               </div>
               <div className="pt-2 text-[10px] space-y-1 text-slate-300 border-t border-white/10 font-mono">
-                <div>{isAr ? `الرقم الضريبي:${vatNumber}` : `VAT: ${vatNumber}`}</div>
-                <div>{isAr ? `السجل التجاري:${crNumber}` : `CR: ${crNumber}`}</div>
+                {vatNumber ? <div>{isAr ? `الرقم الضريبي: ${vatNumber}` : `VAT: ${vatNumber}`}</div> : null}
+                {crNumber ? <div>{isAr ? `السجل التجاري: ${crNumber}` : `CR: ${crNumber}`}</div> : null}
               </div>
             </div>
           </div>

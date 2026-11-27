@@ -1,12 +1,16 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
+import { useTenant } from '../../../context/TenantContext';
+import { isSouqCommonTenant } from '../../souqCommon/isSouqCommonTenant';
 import { PINK_PEONIES_IMAGE, LUXURY_GIFT_SET_IMAGE } from '../data/mockData';
 
 export const CuratedShowcase: React.FC = () => {
   const { language, navigateToCategory, builderDevice } = useApp();
+  const { activeStore } = useTenant();
   const isAr = language === 'ar';
+  const isSouq = isSouqCommonTenant(activeStore) || (activeStore?.id && activeStore.id !== 'store-1' && activeStore.id !== 'store-coffee');
 
-  const items = [
+  const floraItems = [
     {
       id: 'romantic',
       title: 'Romantic',
@@ -41,12 +45,51 @@ export const CuratedShowcase: React.FC = () => {
     }
   ];
 
+  const retailItems = [
+    {
+      id: 'timepieces',
+      title: 'Timepieces',
+      arabicTitle: 'ساعات وإكسسوارات عصرية',
+      category: 'ساعات وإكسسوارات',
+      image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80',
+      tag: isAr ? 'ساعات' : 'Watches'
+    },
+    {
+      id: 'audio',
+      title: 'Smart Audio',
+      arabicTitle: 'سماعات وإلكترونيات ذكية',
+      category: 'إلكترونيات وأجهزة',
+      image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=80',
+      tag: isAr ? 'صوتيات' : 'Audio'
+    },
+    {
+      id: 'eyewear',
+      title: 'Eyewear',
+      arabicTitle: 'نظارات شمسية فاخرة',
+      category: 'ساعات وإكسسوارات',
+      image: 'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=800&auto=format&fit=crop&q=80',
+      tag: isAr ? 'نظارات' : 'Eyewear'
+    },
+    {
+      id: 'giftsets',
+      title: 'Gift Sets',
+      arabicTitle: 'مجموعات وبوكسات إهداء',
+      category: 'هدايا ومجموعات راقية',
+      image: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=800&auto=format&fit=crop&q=80',
+      tag: isAr ? 'أطقم هدايا' : 'Gift Sets'
+    }
+  ];
+
+  const items = isSouq ? retailItems : floraItems;
+
   return (
     <section className="py-12 md:py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
       {/* Title */}
       <div className="text-center mb-10">
         <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#102a1c] font-serif">
-          {isAr ? 'اختيارات صُممت لتُهدى' : 'Curated to be Gifted'}
+          {isAr
+            ? (isSouq ? 'تشكيلات مختارة بعناية' : 'اختيارات صُممت لتُهدى')
+            : (isSouq ? 'Curated Collections' : 'Curated to be Gifted')}
         </h2>
         <div className="w-16 h-0.5 bg-[#d4c19c] mx-auto mt-3" />
       </div>

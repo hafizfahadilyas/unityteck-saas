@@ -222,7 +222,7 @@ export const PromoBannersPair: React.FC<PromoBannersPairProps> = ({
           >
             <div className="absolute inset-0">
               <img
-                src="/images/saudi_hero_banner_2.jpg"
+                src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1200&auto=format&fit=crop&q=80"
                 alt="Featured Products"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter brightness-[0.75]"
                 loading="lazy" decoding="async"
@@ -249,7 +249,7 @@ export const PromoBannersPair: React.FC<PromoBannersPairProps> = ({
           >
             <div className="absolute inset-0">
               <img
-                src="/images/saudi_hero_banner_3.jpg"
+                src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=1200&auto=format&fit=crop&q=80"
                 alt="Special Offers"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter brightness-[0.75]"
                 loading="lazy" decoding="async"

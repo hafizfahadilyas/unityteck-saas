@@ -1,14 +1,53 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { useTenant } from '../../../context/TenantContext';
+import { isSouqCommonTenant } from '../../souqCommon/isSouqCommonTenant';
 import { apiFetch } from '../../../api/client';
 import { ChevronLeft, ChevronRight, Star, Sparkles, CheckCircle2 } from 'lucide-react';
+
+const DEFAULT_RETAIL_TESTIMONIALS = [
+  {
+    id: 'retail-test-1',
+    name: 'عبدالرحمن الشهري',
+    nameEn: 'Abdulrahman Al-Shehri',
+    role: 'الرياض',
+    roleEn: 'Riyadh',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+    rating: 5,
+    comment: 'تجربة تسوق ممتازة جداً، المنتجات وصلت مطابقة تماماً للوصف والتغليف احترافي وسريع. سأكرر الشراء بالتأكيد.',
+    commentEn: 'Outstanding shopping experience! The items arrived perfectly matching the description with pro packaging.',
+  },
+  {
+    id: 'retail-test-2',
+    name: 'سارة القحطاني',
+    nameEn: 'Sara Al-Qahtani',
+    role: 'جدة',
+    roleEn: 'Jeddah',
+    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&auto=format&fit=crop&q=80',
+    rating: 5,
+    comment: 'خدمة العملاء متعاونة للغاية، وجودة الساعة والنظارة فاقت توقعاتي. الدفع عبر تابي كان سريعاً وسلساً.',
+    commentEn: 'Support team was super helpful and quality exceeded expectations. Checkout with Tabby was seamless.',
+  },
+  {
+    id: 'retail-test-3',
+    name: 'محمد الغامدي',
+    nameEn: 'Mohammed Al-Ghamdi',
+    role: 'الدمام',
+    roleEn: 'Dammam',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
+    rating: 5,
+    comment: 'أفضل متجر تعاملت معه من حيث سرعة التوصيل والمصداقية وجودة المنتجات، كل التوفيق لكم.',
+    commentEn: 'Top-tier store regarding fast shipping, authenticity and product excellence. Highly recommended.',
+  },
+];
 
 export const TestimonialsSection: React.FC = () => {
   const { language } = useApp();
   const isAr = language === 'ar';
   const { activeStore } = useTenant();
   const storeId = activeStore?.id || '';
+
+  const isSouq = isSouqCommonTenant(activeStore) || (activeStore?.id && activeStore.id !== 'store-1' && activeStore.id !== 'store-coffee');
 
   const [activeCard, setActiveCard] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -27,6 +66,9 @@ export const TestimonialsSection: React.FC = () => {
 
   const [testimonials, setTestimonials] = useState<TestimonialCard[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const effectiveTestimonials = testimonials.length > 0 ? testimonials : (isSouq ? DEFAULT_RETAIL_TESTIMONIALS : []);
+  const total = effectiveTestimonials.length;
 
   useEffect(() => {
     if (!storeId) {
@@ -65,24 +107,7 @@ export const TestimonialsSection: React.FC = () => {
     };
   }, [storeId]);
 
-  const total = testimonials.length;
-
-  const next = useCallback(() => {
-    setActiveCard((prev) => (prev + 1) % total);
-  }, [total]);
-
-  const prev = useCallback(() => {
-    setActiveCard((prev) => (prev === 0 ? total - 1 : prev - 1));
-  }, [total]);
-
-  // Subtle auto-advance
-  useEffect(() => {
-    if (isPaused) return;
-    const interval = setInterval(next, 7000);
-    return () => clearInterval(interval);
-  }, [isPaused, next]);
-
-  if (!storeId || loading || testimonials.length === 0) {
+  if (!storeId || (loading && !isSouq) || total === 0) {
     return null;
   }
 
@@ -96,18 +121,20 @@ export const TestimonialsSection: React.FC = () => {
       <div className="flex items-center justify-between mb-8 pb-3 border-b border-[#ece7de]">
         <div>
           <h2 className="text-2xl sm:text-3xl font-bold font-serif text-[#102a1c]">
-            {isAr ? 'قصص تستحق أن تُروى' : 'Stories Worth Telling'}
+            {isAr
+              ? (isSouq ? 'ماذا يقول عملاؤنا عنا' : 'قصص تستحق أن تُروى')
+              : (isSouq ? 'What Our Customers Say' : 'Stories Worth Telling')}
           </h2>
           <p className="text-xs sm:text-sm text-[#7a7164] mt-1 font-light">
             {isAr
-              ? 'آراء عملائنا الكرام الذين عاشوا تجربة هدايا مكة الاستثنائية'
-              : 'Reflections from clients who experienced fine floristry with Hadaya Mecca'}
+              ? (isSouq ? 'تجارب حقيقية لعملاء وثقوا بمنتجاتنا وخدماتنا في كافة مدن المملكة' : 'آراء عملائنا الكرام الذين عاشوا تجربة هدايا مكة الاستثنائية')
+              : (isSouq ? 'Authentic feedback from satisfied shoppers across Saudi Arabia' : 'Reflections from clients who experienced fine floristry with Hadaya Mecca')}
           </p>
         </div>
 
         <div className="inline-flex items-center gap-1.5 bg-[#fef8ea] border border-[#e8d5a7] px-3.5 py-1.5 rounded-full text-xs font-semibold text-[#8c672b] shrink-0">
           <Sparkles className="w-3.5 h-3.5 text-[#d4af37]" />
-          <span>{isAr ? 'آراء العملاء' : 'Testimonials'}</span>
+          <span>{isAr ? (isSouq ? 'آراء موثوقة' : 'آراء العملاء') : (isSouq ? 'Verified Reviews' : 'Testimonials')}</span>
         </div>
       </div>
 
@@ -155,7 +182,7 @@ export const TestimonialsSection: React.FC = () => {
             />
 
             {/* Active Front Card */}
-            {testimonials.map((t, index) => {
+            {effectiveTestimonials.map((t, index) => {
               const isActive = index === activeCard;
               if (!isActive) return null;
 
@@ -230,7 +257,7 @@ export const TestimonialsSection: React.FC = () => {
 
         {/* Dots Pagination Indicator */}
         <div className="flex items-center justify-center gap-1.5 mt-6">
-          {testimonials.map((_, idx) => (
+          {effectiveTestimonials.map((_, idx) => (
             <button
               key={idx}
               type="button"

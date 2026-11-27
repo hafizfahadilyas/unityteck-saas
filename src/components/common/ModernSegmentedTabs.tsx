@@ -32,8 +32,10 @@ const ACCENT_STYLES: Record<
 };
 
 export interface ModernSegmentedTabsProps<T extends string = string> {
-  items: ModernSegmentedTabItem<T>[];
-  value: T;
+  items?: ModernSegmentedTabItem<T>[];
+  tabs?: ModernSegmentedTabItem<T>[];
+  value?: T;
+  activeTab?: T;
   onChange: (id: T) => void;
   accent?: ModernSegmentedAccent;
   className?: string;
@@ -50,7 +52,9 @@ export interface ModernSegmentedTabsProps<T extends string = string> {
  */
 export function ModernSegmentedTabs<T extends string = string>({
   items,
+  tabs,
   value,
+  activeTab,
   onChange,
   accent = 'portal',
   className = '',
@@ -58,6 +62,8 @@ export function ModernSegmentedTabs<T extends string = string>({
   fullWidth = false,
   'aria-label': ariaLabel,
 }: ModernSegmentedTabsProps<T>) {
+  const tabList = Array.isArray(items) ? items : Array.isArray(tabs) ? tabs : [];
+  const currentValue = value ?? activeTab;
   const tone = ACCENT_STYLES[accent] ?? ACCENT_STYLES.portal;
   const pad = size === 'sm' ? 'px-3 py-1.5' : 'px-3.5 py-2';
   const text = size === 'sm' ? 'text-[11px]' : 'text-xs';
@@ -78,8 +84,8 @@ export function ModernSegmentedTabs<T extends string = string>({
         boxShadow: 'inset 0 1px 0 color-mix(in srgb, #fff 40%, transparent)',
       }}
     >
-      {items.map((tab) => {
-        const active = value === tab.id;
+      {tabList.map((tab) => {
+        const active = currentValue === tab.id;
         const Icon = tab.icon;
         return (
           <button

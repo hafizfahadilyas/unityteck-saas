@@ -851,7 +851,7 @@ export const PaymentTransactionsTrackingView: React.FC<PaymentTransactionsTracki
       <ModernSegmentedTabs
         accent="blue"
         aria-label={isAr ? 'حالة المعاملات' : 'Transaction status'}
-        tabs={[
+        items={[
           {
             id: 'all',
             label: isAr ? 'كل المعاملات' : 'All Transactions',
@@ -878,7 +878,7 @@ export const PaymentTransactionsTrackingView: React.FC<PaymentTransactionsTracki
             badge: stats.refundedCount,
           },
         ]}
-        activeTab={activeTab}
+        value={activeTab}
         onChange={(id) => {
           setActiveTab(id as typeof activeTab);
           setCurrentPage(1);
