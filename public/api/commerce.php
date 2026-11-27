@@ -162,10 +162,46 @@ function souq_ensure_utm_schema(PDO $pdo): void
     }
 }
 
+/** Gift cards table (MySQL + SQLite) — missing table must never 500 public validate. */
+function souq_ensure_gift_cards_table(PDO $pdo): void
+{
+    try {
+        if (souq_pdo_is_mysql($pdo)) {
+            $pdo->exec(
+                "CREATE TABLE IF NOT EXISTS gift_cards (
+                    id VARCHAR(64) NOT NULL PRIMARY KEY,
+                    store_id VARCHAR(64) NOT NULL,
+                    code VARCHAR(64) NOT NULL,
+                    balance DECIMAL(12,2) NOT NULL DEFAULT 0,
+                    currency VARCHAR(8) NOT NULL DEFAULT 'SAR',
+                    status VARCHAR(32) NOT NULL DEFAULT 'active',
+                    customer_email VARCHAR(191) NULL,
+                    KEY idx_gift_cards_store_code (store_id, code)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+            );
+            return;
+        }
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS gift_cards (
+                id TEXT PRIMARY KEY,
+                store_id TEXT NOT NULL,
+                code TEXT,
+                balance REAL DEFAULT 0,
+                currency TEXT DEFAULT 'SAR',
+                status TEXT DEFAULT 'active',
+                customer_email TEXT
+            )"
+        );
+    } catch (Throwable) {
+        /* ignore */
+    }
+}
+
 function souq_commerce_schema(PDO $pdo): void
 {
     if (souq_pdo_is_mysql($pdo)) {
         souq_ensure_analytics_tables($pdo);
+        souq_ensure_gift_cards_table($pdo);
         return;
     }
     $pdo->exec("
@@ -2561,9 +2597,16 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             echo json_encode(['valid' => false, 'message' => 'Gift card code required.', 'store_id' => $storeId]);
             return true;
         }
-        $st = $pdo->prepare('SELECT * FROM gift_cards WHERE store_id = ? AND UPPER(TRIM(code)) = ? LIMIT 1');
-        $st->execute([$storeId, $code]);
-        $row = $st->fetch();
+        souq_ensure_gift_cards_table($pdo);
+        try {
+            $st = $pdo->prepare('SELECT * FROM gift_cards WHERE store_id = ? AND UPPER(TRIM(code)) = ? LIMIT 1');
+            $st->execute([$storeId, $code]);
+            $row = $st->fetch();
+        } catch (Throwable $e) {
+            http_response_code(404);
+            echo json_encode(['valid' => false, 'message' => 'Gift card not found.', 'store_id' => $storeId]);
+            return true;
+        }
         if (!$row) {
             http_response_code(404);
             echo json_encode(['valid' => false, 'message' => 'Gift card not found.', 'store_id' => $storeId]);

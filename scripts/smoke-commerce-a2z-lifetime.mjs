@@ -95,15 +95,25 @@ async function main() {
     `HTTP ${gift.status} valid=${gift.json?.valid}`,
   );
 
-  const robots = await fetch(`${FLOWERS}/robots.txt`, { signal: AbortSignal.timeout(20000) });
+  const allowSrcRe = /(^|\n)\s*Allow:\s*\/src\/?/i;
+  const bust = `v=${Date.now()}`;
+  // Prefer robots.php (dynamic) — static CDN cache can poison /robots.txt for weeks.
+  const robots = await fetch(`${FLOWERS}/robots.php?${bust}`, {
+    signal: AbortSignal.timeout(20000),
+    headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+  });
   const robotsTxt = await robots.text();
-  ok('robots no Allow /src/', !/allow:\s*\/src/i.test(robotsTxt), robotsTxt.slice(0, 120).replace(/\n/g, ' | '));
-  ok('robots disallow src or clean', /disallow:\s*\/src/i.test(robotsTxt) || !/allow:\s*\/src/i.test(robotsTxt));
+  ok('robots no Allow /src/', !allowSrcRe.test(robotsTxt), robotsTxt.slice(0, 160).replace(/\n/g, ' | '));
+  ok('robots no bashayer/saudi-stores poison', !/bashayer|saudi-stores\.com/i.test(robotsTxt));
+  ok('robots disallow src or clean', /disallow:\s*\/src/i.test(robotsTxt) || !allowSrcRe.test(robotsTxt));
   ok('robots sitemap giftshop only', /Sitemap:\s*https:\/\/giftshop-sa\.com\/sitemap\.xml/i.test(robotsTxt));
 
-  const robotsCentral = await fetch(`${CENTRAL}/robots.txt`, { signal: AbortSignal.timeout(20000) });
+  const robotsCentral = await fetch(`${CENTRAL}/robots.php?${bust}`, {
+    signal: AbortSignal.timeout(20000),
+    headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+  });
   const robotsCentralTxt = await robotsCentral.text();
-  ok('central robots no Allow /src/', !/allow:\s*\/src/i.test(robotsCentralTxt));
+  ok('central robots no Allow /src/', !allowSrcRe.test(robotsCentralTxt));
   ok('central robots sitemap mieraf only', /Sitemap:\s*https:\/\/mieraf-ksa\.com\/sitemap\.xml/i.test(robotsCentralTxt));
 
   const smFlowers = await fetch(`${FLOWERS}/sitemap.xml`, { signal: AbortSignal.timeout(20000) });

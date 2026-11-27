@@ -57,6 +57,14 @@ DirectoryIndex storefront-shell.php index.html
     Header set Cloudflare-CDN-Cache-Control "no-store"
     Header set Surrogate-Control "no-store"
   </FilesMatch>
+
+  # robots.txt must never inherit ExpiresDefault 1-month (poison CDN for weeks)
+  <FilesMatch "^robots\.txt$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate, max-age=0"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+    Header set X-LiteSpeed-Cache-Control "no-cache"
+  </FilesMatch>
 </IfModule>
 
 # Single Page Application (SPA) Routing & HTTPS Enforcement
