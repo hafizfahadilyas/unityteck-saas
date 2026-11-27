@@ -148,9 +148,6 @@ async function openClient(target, tries = 4) {
     client.ftp.verbose = false;
     try {
       try {
-        if (target.name === 'flowers') {
-          throw new Error('flowers_plain_ftp');
-        }
         await client.access({ ...base, secure: true, secureOptions: { rejectUnauthorized: false } });
       } catch {
         try {
@@ -278,24 +275,12 @@ async function uploadTarget(target) {
     const criticalQueue = queue.filter((f) => isCriticalRel(f.rel));
     const assetQueue = queue.filter((f) => !isCriticalRel(f.rel));
 
-    // Pre-create all remote directories upfront with primary client
-    const allParents = new Set(
-      queue.map((f) => path.posix.dirname(`${remoteRoot}/${f.rel}`.replace(/\/{2,}/g, '/'))),
-    );
-    for (const dir of allParents) {
-      if (dir && dir !== '/' && dir !== '.') {
-        try {
-          await primaryClient.ensureDir(dir);
-          await resetCwd(primaryClient);
-        } catch (e) {
-          console.warn(`  pre-ensure dir ${dir}: ${e.message}`);
-        }
-      }
-    }
-
-    // Upload helper with retries
+    // Upload helper with retries and temp cleanup
     const uploadSingle = async (clientRef, file, remotePath) => {
       let attempts = 0;
+      const parent = path.posix.dirname(remotePath);
+      const baseName = path.posix.basename(remotePath);
+      const tempPath = `${parent}/.in.${baseName}.`;
       while (attempts < 4) {
         try {
           if (!fs.existsSync(file.full)) {
@@ -315,9 +300,6 @@ async function uploadTarget(target) {
               }
             }
             if (!fs.existsSync(file.full)) {
-              if (isCriticalRel(file.rel)) {
-                throw new Error(`Critical dist file missing during upload: ${file.rel}`);
-              }
               console.warn(`  skip missing local file: ${file.rel}`);
               return;
             }
@@ -327,14 +309,15 @@ async function uploadTarget(target) {
           return;
         } catch (err) {
           attempts += 1;
+          try { await clientRef.remove(tempPath); } catch {}
           if (attempts >= 4) throw err;
           await new Promise((r) => setTimeout(r, 800 * attempts));
         }
       }
     };
 
-    // Parallel worker pool for asset files
-    const CONCURRENCY = Math.min(4, Math.max(1, assetQueue.length));
+    // Single dedicated connection avoids Hostinger LiteShield data socket drops
+    const CONCURRENCY = 1;
     let cursor = 0;
     const startTime = Date.now();
 
@@ -389,7 +372,24 @@ async function uploadTarget(target) {
       await resetCwd(primaryClient);
       for (const file of criticalQueue) {
         const remotePath = `${remoteRoot}/${file.rel}`.replace(/\/{2,}/g, '/');
-        await uploadSingle(primaryClient, file, remotePath);
+        let ok = false;
+        let retries = 0;
+        while (!ok && retries < 5) {
+          try {
+            await uploadSingle(primaryClient, file, remotePath);
+            ok = true;
+          } catch (err) {
+            retries += 1;
+            console.warn(`  [critical retry ${retries}] ${file.rel}: ${err.message}`);
+            try { primaryClient.close(); } catch {}
+            await new Promise((r) => setTimeout(r, 1500 * retries));
+            primaryClient = await openClient(target);
+            await resetCwd(primaryClient);
+          }
+        }
+        if (!ok) {
+          throw new Error(`Failed to upload critical file ${file.rel} after 5 retries`);
+        }
         sent += 1;
         console.log(`  ✓ Critical: ${file.rel}`);
       }
