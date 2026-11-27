@@ -469,6 +469,17 @@ class ShippingController extends Controller
             'المدينة المنورة' => 'madinah',
             'madinah' => 'madinah',
             'medina' => 'madinah',
+            'العزيزية' => 'aziziyah',
+            'al-aziziyah' => 'aziziyah',
+            'al aziziyah' => 'aziziyah',
+            'aziziyah' => 'aziziyah',
+            'الشوقية' => 'shawqiyyah',
+            'al-shawqiyyah' => 'shawqiyyah',
+            'shawqiyyah' => 'shawqiyyah',
+            'الكعكية' => 'kaakiyyah',
+            'kaakiyyah' => 'kaakiyyah',
+            'الحرم' => 'haram',
+            'haram' => 'haram',
         ];
 
         return $canonical[$v] ?? preg_replace('/\s+/u', ' ', $v) ?? $v;

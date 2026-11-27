@@ -433,6 +433,17 @@ function souq_normalize_city_key(string $value): string
         'المدينة المنورة' => 'madinah',
         'madinah' => 'madinah',
         'medina' => 'madinah',
+        'العزيزية' => 'aziziyah',
+        'al-aziziyah' => 'aziziyah',
+        'al aziziyah' => 'aziziyah',
+        'aziziyah' => 'aziziyah',
+        'الشوقية' => 'shawqiyyah',
+        'al-shawqiyyah' => 'shawqiyyah',
+        'shawqiyyah' => 'shawqiyyah',
+        'الكعكية' => 'kaakiyyah',
+        'kaakiyyah' => 'kaakiyyah',
+        'الحرم' => 'haram',
+        'haram' => 'haram',
     ];
     if (isset($canonical[$v])) {
         return $canonical[$v];
@@ -469,7 +480,12 @@ function souq_city_matches_zone(string $city, array $zone): bool
             continue;
         }
         $key = souq_normalize_city_key($n);
+        $nLower = mb_strtolower($n);
         if ($key !== '' && ($key === $needle || str_contains($key, $needle) || str_contains($needle, $key))) {
+            return true;
+        }
+        // District tokens: city "العزيزية" → aziziyah inside "Makkah - Al-Aziziyah…"
+        if ($needle !== '' && $needle !== 'makkah' && (str_contains($nLower, $needle) || str_contains(souq_normalize_city_key($nLower), $needle))) {
             return true;
         }
         if (mb_stripos($n, $city) !== false || mb_stripos($city, $n) !== false) {
@@ -554,8 +570,17 @@ function souq_match_shipping_zone(string $city, array $zones): ?array
         if ($nameLower !== '' && (mb_strpos($cityLower, $nameLower) !== false || mb_strpos($nameLower, $cityLower) !== false)) {
             $score += 1000;
         }
-        foreach (['aziziyah', 'العزيزية', 'shawqiyyah', 'الشوقية', 'haram', 'الحرم'] as $token) {
-            if (mb_strpos($cityLower, $token) !== false && mb_strpos($nameLower, $token) !== false) {
+        $cityKey = souq_normalize_city_key($city);
+        $nameKey = souq_normalize_city_key($name);
+        if ($cityKey !== '' && $cityKey !== 'makkah' && (str_contains($nameLower, $cityKey) || $nameKey === $cityKey)) {
+            $score += 800;
+        }
+        foreach (['aziziyah', 'العزيزية', 'shawqiyyah', 'الشوقية', 'kaakiyyah', 'haram', 'الحرم'] as $token) {
+            $tok = souq_normalize_city_key($token);
+            if (
+                ($cityKey === $tok || mb_strpos($cityLower, $token) !== false)
+                && (str_contains($nameLower, $token) || str_contains($nameLower, $tok))
+            ) {
                 $score += 500;
             }
         }
