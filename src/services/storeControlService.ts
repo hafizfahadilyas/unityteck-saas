@@ -9,6 +9,8 @@
  * Supports Individual Store overrides as well as Global SaaS Bulk sync.
  */
 
+import { fetchDynamicConfigSync } from '../api/masterCentralControlApi';
+
 export type ControlCategory = 
   | 'store_admin_pages' 
   | 'store_admin_subpages' 
@@ -1266,3 +1268,80 @@ export function importControlsFromJson(storeId: string, jsonString: string): boo
     return false;
   }
 }
+
+/**
+ * Sync store controls directly from authoritative backend API (/api/config/sync).
+ * Evaluates the 4-tier precedence: Store Override -> Merchant Override -> Plan Permission -> Global Default.
+ * Updates in-memory cache, local cache, and triggers 'unityteck-store-controls-changed'
+ * to refresh UI components and sidebars without full page reloads.
+ */
+export async function syncStoreControlsFromBackend(storeId?: string): Promise<Record<string, boolean>> {
+  try {
+    const data = await fetchDynamicConfigSync(storeId);
+    if (!data) return getStoreControls(storeId);
+
+    const merged: Record<string, boolean> = { ...getGlobalControls() };
+
+    // 1. Pages
+    if (data.pages && typeof data.pages === 'object') {
+      for (const [routeKey, page] of Object.entries(data.pages as Record<string, any>)) {
+        if (page && typeof page.is_visible === 'boolean') {
+          merged[routeKey] = page.is_visible;
+        }
+      }
+    }
+
+    // 2. UI Components
+    if (data.components && typeof data.components === 'object') {
+      for (const [compKey, comp] of Object.entries(data.components as Record<string, any>)) {
+        if (comp && typeof comp.is_visible === 'boolean') {
+          merged[compKey] = comp.is_visible;
+        }
+      }
+    }
+
+    // 3. AI Features
+    if (data.features && typeof data.features === 'object') {
+      for (const [featCode, feat] of Object.entries(data.features as Record<string, any>)) {
+        if (feat && typeof feat.is_enabled === 'boolean') {
+          merged[featCode] = feat.is_enabled;
+        }
+      }
+    }
+
+    // Always keep essential core navigation alive
+    for (const coreId of CORE_STORE_CONTROL_IDS) {
+      merged[coreId] = true;
+    }
+
+    if (storeId) {
+      cachedStoreControls.set(storeId, merged);
+      try {
+        localStorage.setItem(`${STORAGE_KEY_PREFIX}${storeId}`, JSON.stringify(merged));
+      } catch {
+        /* storage may be quota-limited */
+      }
+    } else {
+      cachedGlobalControls = merged;
+      try {
+        localStorage.setItem(GLOBAL_STORAGE_KEY, JSON.stringify(merged));
+      } catch {
+        /* storage may be quota-limited */
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('unityteck-store-controls-changed', {
+          detail: { storeId: storeId || 'ALL', controls: merged, fromBackend: true },
+        })
+      );
+    }
+
+    return merged;
+  } catch (err) {
+    console.warn('Backend store controls sync failed, falling back to local cache:', err);
+    return getStoreControls(storeId);
+  }
+}
+

@@ -27,7 +27,14 @@ export type CreateOrderPaymentOption = {
   logoSrc: string;
 };
 
-const BASE = '/payment-methods';
+const BASE =
+  typeof window !== 'undefined' &&
+  (window.location.hostname.includes('mieraf-ksa.com') ||
+   window.location.hostname.includes('souq-default') ||
+   window.location.hostname.includes('tanjeedmakkah.com') ||
+   window.location.hostname.includes('giftshop-sa.com'))
+    ? 'https://mieraf-ksa.com/payment-methods'
+    : '/payment-methods';
 
 /** Map modal payment id → optimized PNG in /public/payment-methods */
 export const PAYMENT_METHOD_LOGO: Record<CreateOrderPaymentMethodId, string> = {

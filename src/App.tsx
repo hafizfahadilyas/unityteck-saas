@@ -44,7 +44,7 @@ import { applyPortalHead } from './utils/portalHead';
 import { readStoreIdentity, resolveStoreDisplayName } from './themes/settings/storeIdentity';
 import { lazyWithRetry, reloadOnceForStaleChunk } from './utils/lazyWithRetry';
 import { Lock, ShieldAlert } from 'lucide-react';
-import { CORE_STORE_CONTROL_IDS, isStoreControlEnabled } from './services/storeControlService';
+import { CORE_STORE_CONTROL_IDS, isStoreControlEnabled, syncStoreControlsFromBackend } from './services/storeControlService';
 import { getDefaultStoreTheme } from './auth/defaultTheme';
 import { isStoreTabComingSoon } from './config/storeTabVisibility';
 import { adminHomeHref, isAdminChromePath, isStorefrontPath } from './utils/spaNavigationGuard';
@@ -69,7 +69,7 @@ const MasterStores = lazyWithRetry(() =>
   import('./components/master/MasterStores').then((m) => ({ default: m.MasterStores })),
 );
 const MasterControlCenter = lazyWithRetry(() =>
-  import('./components/master/MasterControlCenter').then((m) => ({ default: m.MasterControlCenter })),
+  import('./components/master/control-center/SuperAdminControlCenter').then((m) => ({ default: m.SuperAdminControlCenter })),
 );
 const MasterOnboarding = lazyWithRetry(() =>
   import('./components/master/MasterOnboarding').then((m) => ({ default: m.MasterOnboarding })),
@@ -465,6 +465,38 @@ function AdminContent() {
   } = useTenant();
   const { t, theme, dir, locale } = usePrefs();
   const { toast, confirm } = useToast();
+
+  const [controlsEpoch, setControlsEpoch] = useState(0);
+
+  // Re-evaluate page permissions and visibility immediately when master controls change
+  useEffect(() => {
+    const handleControlsChanged = () => setControlsEpoch((v) => v + 1);
+    window.addEventListener('unityteck-store-controls-changed', handleControlsChanged);
+    return () => {
+      window.removeEventListener('unityteck-store-controls-changed', handleControlsChanged);
+    };
+  }, []);
+
+  // Sync Master Admin controls dynamically from backend without full page reload
+  useEffect(() => {
+    if (mode !== 'store' || !activeStore?.id) return;
+
+    void syncStoreControlsFromBackend(activeStore.id);
+
+    const handleFocus = () => {
+      void syncStoreControlsFromBackend(activeStore.id);
+    };
+    window.addEventListener('focus', handleFocus);
+
+    const interval = setInterval(() => {
+      void syncStoreControlsFromBackend(activeStore.id);
+    }, 25000);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(interval);
+    };
+  }, [mode, activeStore?.id]);
 
   const [isVisualBuilderOpen, setIsVisualBuilderOpen] = useState(() => {
     try {

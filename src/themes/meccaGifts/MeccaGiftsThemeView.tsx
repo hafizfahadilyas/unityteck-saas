@@ -185,9 +185,25 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
       case 'special_offer':
         return <PromoCountdownBanner key={b.id} />;
       case 'discounted_bouquets_3d':
+        if (isSouq) return null;
         return <DiscountedBouquets3DGallery key={b.id} products={sectionProducts.discounted} />;
       case 'sec_natural_flowers':
       case 'product_section_natural':
+        if (isSouq) {
+          return (
+            <ProductSectionSlider
+              key={b.id}
+              title={locale === 'ar' ? (b.settings?.titleAr || 'منتجات مختارة ومميزة') : (b.settings?.titleEn || 'Featured Products')}
+              titleEn={b.settings?.titleEn || 'Featured Products'}
+              subtitle={locale === 'ar' ? (b.settings?.subtitleAr || 'تشكيلة تلبي مختلف الاحتياجات بأعلى معايير الجودة') : (b.settings?.subtitleEn || 'Carefully curated items meeting the highest quality standards')}
+              subtitleEn={b.settings?.subtitleEn || 'Carefully curated items meeting the highest quality standards'}
+              products={currentProducts || products}
+              categoryFilter={b.settings?.categoryFilter || ''}
+              limit={b.settings?.limit || 6}
+              layout={b.settings?.layout || 'slider'}
+            />
+          );
+        }
         return (
           <ProductSectionSlider
             key={b.id}
@@ -203,6 +219,21 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
         );
       case 'sec_chocolate_roses':
       case 'product_section_chocolate':
+        if (isSouq) {
+          return (
+            <ProductSectionSlider
+              key={b.id}
+              title={locale === 'ar' ? (b.settings?.titleAr || 'أحدث العروض والمنتجات') : (b.settings?.titleEn || 'Latest Offers & Products')}
+              titleEn={b.settings?.titleEn || 'Latest Offers & Products'}
+              subtitle={locale === 'ar' ? (b.settings?.subtitleAr || 'أفضل المنتجات بأسعار تنافسية وجودة عالية') : (b.settings?.subtitleEn || 'Best products at competitive prices')}
+              subtitleEn={b.settings?.subtitleEn || 'Best products at competitive prices'}
+              products={currentProducts || products}
+              categoryFilter={b.settings?.categoryFilter || ''}
+              limit={b.settings?.limit || 6}
+              layout={b.settings?.layout || 'slider'}
+            />
+          );
+        }
         return (
           <ProductSectionSlider
             key={b.id}
@@ -218,6 +249,21 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
         );
       case 'sec_luxury_gifts':
       case 'product_section_luxury':
+        if (isSouq) {
+          return (
+            <ProductSectionSlider
+              key={b.id}
+              title={locale === 'ar' ? (b.settings?.titleAr || 'الأكثر طلباً ورواجاً') : (b.settings?.titleEn || 'Most Popular Items')}
+              titleEn={b.settings?.titleEn || 'Most Popular Items'}
+              subtitle={locale === 'ar' ? (b.settings?.subtitleAr || 'تشكيلة مختارة من أكثر المنتجات طلباً من عملائنا') : (b.settings?.subtitleEn || 'Top trending products loved by shoppers')}
+              subtitleEn={b.settings?.subtitleEn || 'Top trending products loved by shoppers'}
+              products={currentProducts || products}
+              categoryFilter={b.settings?.categoryFilter || ''}
+              limit={b.settings?.limit || 6}
+              layout={b.settings?.layout || 'slider'}
+            />
+          );
+        }
         return (
           <ProductSectionSlider
             key={b.id}
@@ -232,10 +278,13 @@ const MeccaGiftsInner: React.FC<MeccaGiftsThemeViewProps> = ({ initialPage, isAd
           />
         );
       case 'trending_this_week':
+        if (isSouq) return null;
         return <TrendingThisWeekSection key={b.id} />;
       case 'occasion_why_us':
+        if (isSouq) return null;
         return <OccasionAndWhyUsSection key={b.id} />;
       case 'custom_gift_banner':
+        if (isSouq) return null;
         return <CustomGiftBanner key={b.id} />;
       case 'promo_banners_pair':
         return <PromoBannersPair key={b.id} />;

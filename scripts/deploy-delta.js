@@ -247,19 +247,12 @@ async function uploadTarget(target) {
     }
   };
 
-  const ensuredDirs = new Set();
-  const ensureParentDir = async (clientRef, remoteP) => {
-    const parent = path.posix.dirname(remoteP);
-    if (!ensuredDirs.has(parent) && parent !== '/' && parent !== '') {
-      try {
-        await clientRef.ensureDir(parent);
-        ensuredDirs.add(parent);
-      } catch {}
-    }
-  };
-
   try {
     await resetCwd(primaryClient);
+    try { await primaryClient.ensureDir(`${remoteRoot}/assets`); } catch {}
+    try { await primaryClient.ensureDir(`${remoteRoot}/api`); } catch {}
+    await resetCwd(primaryClient);
+
     // Never leave a static robots.txt — it bypasses robots.php and can poison SEO for weeks via cache.
     try {
       const remoteRobots = `${remoteRoot}/robots.txt`.replace(/\/{2,}/g, '/');
@@ -307,7 +300,6 @@ async function uploadTarget(target) {
               return;
             }
           }
-          await ensureParentDir(clientRef, remotePath);
           await clientRef.uploadFrom(file.full, remotePath);
           nextManifest[file.rel] = file.hash;
           return;
@@ -350,7 +342,7 @@ async function uploadTarget(target) {
             }
           }
           sent += 1;
-          if (sent % 25 === 0 || sent === assetQueue.length) {
+          if (sent % 10 === 0 || sent === assetQueue.length) {
             const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
             console.log(`  Assets: ${sent}/${assetQueue.length} (${elapsed}s)`);
             saveManifest(target.name, nextManifest);
@@ -469,6 +461,12 @@ function bundleApiIntoDist() {
       ht = ht.replace(/RewriteRule \^assets\/index-\[\^\/\]\+\\\.css\$ \/assets\/index-[^.]+\.css/g, `RewriteRule ^assets/index-[^/]+\\.css$ /assets/${mainCss}`);
       fs.writeFileSync(htaccessDist, ht);
     }
+  }
+
+  const staleFallbackSrc = path.join(rootDir, 'public', 'assets', 'stale-bundle-fallback.js');
+  if (fs.existsSync(staleFallbackSrc)) {
+    fs.mkdirSync(distAssets, { recursive: true });
+    fs.copyFileSync(staleFallbackSrc, path.join(distAssets, 'stale-bundle-fallback.js'));
   }
 
   const publicApiDir = path.join(rootDir, 'public', 'api');

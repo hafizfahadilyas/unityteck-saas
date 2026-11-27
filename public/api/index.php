@@ -751,15 +751,16 @@ if (str_starts_with($hostName, 'www.')) {
 }
 $hostStore = match ($hostName) {
     'mieraf-ksa.com' => 'store-coffee',
+    'souq-default.mieraf-ksa.com' => 'store-souq-default',
     'tanjeedmakkah.com' => 'store-bleco',
     'giftshop-sa.com' => 'store-1',
-    default => '',
+    default => (str_contains($hostName, 'souq-default') ? 'store-souq-default' : ''),
 };
 $storeId = $headerStoreId ?: ($queryStoreId ?: $hostStore);
 $GLOBALS['souq_pdo'] = $pdo;
 
-// Match store_id inside path if present (e.g., /stores/{store_id}/...)
-if (preg_match('#^/stores/([^/]+)#', $uri, $mStore)) {
+// Match store_id inside path if present (e.g., /stores/{store_id}/... or /storefront/cart-intercept/{store_id}/...)
+if (preg_match('#^/(?:stores|storefront/cart-intercept)/([^/]+)#', $uri, $mStore)) {
     $storeId = $mStore[1];
 }
 
@@ -1137,7 +1138,18 @@ function formatBanner(array $row): array {
 function resolveLiveStoreId(PDO $pdo, string $key): ?string {
     $key = strtolower(trim($key));
     if ($key === '') {
-        return null;
+        $host = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+        if (str_contains($host, 'souq-default')) {
+            $key = 'store-souq-default';
+        } elseif (str_contains($host, 'giftshop')) {
+            $key = 'store-1';
+        } elseif (str_contains($host, 'tanjeed')) {
+            $key = 'store-bleco';
+        } elseif (str_contains($host, 'mieraf')) {
+            $key = 'store-coffee';
+        } else {
+            return null;
+        }
     }
     // Never SELECT stores.data — Laravel MySQL has real columns, not a JSON blob.
     $stmt = $pdo->query('SELECT * FROM stores');
@@ -1158,6 +1170,9 @@ function resolveLiveStoreId(PDO $pdo, string $key): ?string {
         'bleco' => 'store-bleco',
         'tanjeedmakkah.com' => 'store-bleco',
         'www.tanjeedmakkah.com' => 'store-bleco',
+        'souq-default' => 'store-souq-default',
+        'souq-default.mieraf-ksa.com' => 'store-souq-default',
+        'store-souq-default' => 'store-souq-default',
     ];
     $found = null;
     while ($row = $stmt->fetch()) {
@@ -3431,12 +3446,13 @@ if ($uri === '/storefront/resolve-domain' && $method === 'GET') {
 
 if ($uri === '/settings' && $method === 'GET') {
     $key = trim((string)($_GET['store_id'] ?? $_GET['storeId'] ?? $storeId));
-    $resolved = resolveLiveStoreId($pdo, $key);
-    if ($resolved === null) {
-        http_response_code(404);
-        echo json_encode(['message' => 'Store not found.']);
-        exit;
+    if ($key === '') {
+        $host = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
+        if (str_contains($host, 'souq-default')) {
+            $key = 'store-souq-default';
+        }
     }
+    $resolved = resolveLiveStoreId($pdo, $key) ?? ($key !== '' ? $key : 'store-souq-default');
     $st = $pdo->prepare('SELECT * FROM stores WHERE id = ?');
     $st->execute([$resolved]);
     $row = $st->fetch() ?: [];
@@ -3447,10 +3463,12 @@ if ($uri === '/settings' && $method === 'GET') {
     $section = explode(':', $section)[0];
     if ($section === 'branding' && empty($data['branding'])) {
         $data['branding'] = [
-            'name' => (string)($row['name'] ?? ''),
+            'name' => (string)($row['name'] ?? 'متجر سوق الافتراضي'),
             'logo' => (string)($row['logo'] ?? ''),
-            'accent_color' => (string)($row['accent_color'] ?? ''),
-            'email' => (string)($row['email'] ?? ''),
+            'accent_color' => (string)($row['accent_color'] ?? '#3e0f77'),
+            'primaryColor' => (string)($row['accent_color'] ?? '#3e0f77'),
+            'secondaryColor' => '#d5a027',
+            'email' => (string)($row['email'] ?? 'info@souq-default.mieraf-ksa.com'),
             'phone' => (string)($row['phone'] ?? ''),
         ];
     }
@@ -3460,6 +3478,63 @@ if ($uri === '/settings' && $method === 'GET') {
         'store_id' => $resolved,
         'id' => (string)($_GET['id'] ?? $section),
         'data' => $payload,
+    ]);
+    exit;
+}
+
+// ── Smart Cart Intercept (Storefront & Dashboard endpoints) ──
+if (preg_match('#^/storefront/cart-intercept/([^/]+)/settings$#', $uri, $mCi) && $method === 'GET') {
+    $ciStore = resolveLiveStoreId($pdo, $mCi[1]) ?? $mCi[1];
+    echo json_encode([
+        'success' => true,
+        'data' => [
+            'enabled' => false,
+            'active_modal' => 'disabled',
+            'loyalty_points' => 0,
+            'discount_percent' => 0,
+            'coupon_code' => '',
+            'title_en' => 'Welcome',
+            'title_ar' => 'أهلاً بكم',
+            'subtitle_en' => '',
+            'subtitle_ar' => ''
+        ]
+    ]);
+    exit;
+}
+
+if (preg_match('#^/storefront/cart-intercept/([^/]+)/track$#', $uri) && $method === 'POST') {
+    echo json_encode(['success' => true]);
+    exit;
+}
+
+if (preg_match('#^/stores/([^/]+)/cart-intercept/settings$#', $uri) && ($method === 'GET' || $method === 'PUT')) {
+    echo json_encode([
+        'success' => true,
+        'data' => [
+            'enabled' => false,
+            'active_modal' => 'disabled',
+            'loyalty_points' => 0,
+            'discount_percent' => 0,
+            'coupon_code' => ''
+        ]
+    ]);
+    exit;
+}
+
+if (preg_match('#^/stores/([^/]+)/cart-intercept/tracking$#', $uri) && $method === 'GET') {
+    echo json_encode([
+        'success' => true,
+        'data' => [
+            'logs' => [],
+            'metrics' => [
+                'total_impressions' => 0,
+                'total_converted' => 0,
+                'total_guest_continued' => 0,
+                'total_dismissed' => 0,
+                'conversion_rate' => 0,
+                'by_modal' => []
+            ]
+        ]
     ]);
     exit;
 }

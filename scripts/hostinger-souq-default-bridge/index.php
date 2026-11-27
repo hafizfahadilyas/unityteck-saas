@@ -9,6 +9,10 @@ declare(strict_types=1);
 // Serve API requests directly via central API handler if hit under this subdomain
 $requestUri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
 $requestPath = parse_url($requestUri, PHP_URL_PATH) ?: '/';
+if (str_starts_with($requestPath, '/payment-methods/')) {
+    header('Location: https://mieraf-ksa.com' . $requestUri, true, 302);
+    exit;
+}
 if (str_starts_with($requestPath, '/api')) {
     $apiCandidates = [
         dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'mieraf-ksa.com' . DIRECTORY_SEPARATOR . 'public_html' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php',
@@ -50,7 +54,7 @@ $html = (string) ob_get_clean();
 
 // Point hashed Vite assets at central origin (CORS * enabled there)
 $html = preg_replace(
-    '#\b(href|src)=([\'"])(/assets/[^\'"]+)\2#i',
+    '#\b(href|src)=([\'"])(/(?:assets|payment-methods)/[^\'"]+)\2#i',
     '$1=$2https://mieraf-ksa.com$3$2',
     $html,
 ) ?? $html;
