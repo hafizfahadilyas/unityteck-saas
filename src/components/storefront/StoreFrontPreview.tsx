@@ -688,7 +688,16 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
         if (s.includes('instagram') || s === 'ig') return 'Instagram';
         if (s.includes('whatsapp') || s === 'wa') return 'WhatsApp';
         if (s.includes('facebook') || s === 'fb') return 'Facebook';
-        if (s.includes('google')) return 'Google Ads';
+        const med = (utmAttrs.medium || '').toLowerCase();
+        const paidGoogle =
+          Boolean((utmAttrs as { gclid?: string }).gclid) ||
+          ['cpc', 'ppc', 'paid', 'paidsearch'].includes(med) ||
+          s === 'gads' ||
+          s.includes('adwords') ||
+          s.includes('googleads');
+        if (s.includes('google') || s.includes('adwords') || s === 'gads') {
+          return paidGoogle ? 'Google Ads' : 'Organic Search';
+        }
         if (utmAttrs.source) return utmAttrs.source;
         return null;
       })();
@@ -709,11 +718,13 @@ export const StoreFrontPreview: React.FC<StoreFrontPreviewProps> = ({ isAdmin = 
             customerName: customer.name,
             customerPhone: customer.phone || '+966 50 000 0000',
             customerEmail: customer.email,
+            customerId: customer.customerId,
             total: totalSnapshot,
             deliveryLocation: districtSnapshot,
             status: 'pending',
             paymentMethod,
-            paymentStatus: paymentChoice === 'cod' ? 'pending' : 'paid',
+            // Lifetime: never mark paid until gateway verifies (API also forces pending)
+            paymentStatus: 'pending',
             source: resolvedSource,
             sourceDetails: `Public Storefront Web Checkout · Source: ${resolvedSource} · Makkah Delivery (${districtSnapshot}) · ${customer.email}${utmAttrs.campaign ? ` · Campaign: ${utmAttrs.campaign}` : ''}`,
             items: cart.map((i) => {

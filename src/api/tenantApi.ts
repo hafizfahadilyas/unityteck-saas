@@ -1852,12 +1852,19 @@ export async function createStorefrontOrder(
   storeId: string,
   payload: Record<string, unknown>,
 ): Promise<{ order: Order; customer?: Customer }> {
+  const custId = String(payload.customer_id || '').trim();
+  const custTok = String(payload.customer_token || '').trim();
+  const extraHeaders: Record<string, string> = {};
+  if (custId) extraHeaders['X-Sf-Customer-Id'] = custId;
+  if (custTok) extraHeaders['X-Sf-Customer-Token'] = custTok;
   const res = await apiFetch<{ data: ApiOrderRow; customer?: ApiCustomerRow }>(
     '/storefront/orders',
     {
       method: 'POST',
       storeId,
       body: payload,
+      skipAuth: true,
+      headers: extraHeaders,
     },
   );
   return {
@@ -4753,10 +4760,16 @@ export async function updateStoreSettingsApi(
  * Public dynamic domain and subdomain resolution for storefront.
  * Resolves incoming hostname (e.g. specialtycoffee.sa, car.unityteck.com) to matching store and active theme.
  */
-export async function resolveDomainApi(domain: string): Promise<DomainResolutionResult> {
-  const q = `?domain=${encodeURIComponent(domain)}`;
+export async function resolveDomainApi(
+  domain: string,
+  path?: string | null,
+): Promise<DomainResolutionResult> {
+  const params = new URLSearchParams();
+  params.set('domain', domain);
+  const pathHint = String(path || '').trim();
+  if (pathHint) params.set('path', pathHint.startsWith('/') ? pathHint : `/${pathHint}`);
   try {
-    return await apiFetch<DomainResolutionResult>(`/storefront/resolve-domain${q}`);
+    return await apiFetch<DomainResolutionResult>(`/storefront/resolve-domain?${params.toString()}`);
   } catch (err: any) {
     return {
       resolved: false,

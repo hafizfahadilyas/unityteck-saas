@@ -1168,8 +1168,14 @@ function resolveLiveStoreId(PDO $pdo, string $key): ?string {
         'car' => 'store-bleco',
         'cars' => 'store-bleco',
         'bleco' => 'store-bleco',
+        'alsaeedi' => 'store-bleco',
+        'tanjeed' => 'store-bleco',
         'tanjeedmakkah.com' => 'store-bleco',
         'www.tanjeedmakkah.com' => 'store-bleco',
+        // Temporary path mount on central until custom domain hung
+        'mieraf-ksa.com/bleco' => 'store-bleco',
+        'mieraf-ksa.com/cars' => 'store-bleco',
+        'mieraf-ksa.com/car' => 'store-bleco',
         'souq-default' => 'store-souq-default',
         'souq-default.mieraf-ksa.com' => 'store-souq-default',
         'store-souq-default' => 'store-souq-default',
@@ -3388,13 +3394,39 @@ if ($uri === '/storefront/catalog' && $method === 'GET') {
 }
 
 if ($uri === '/storefront/resolve-domain' && $method === 'GET') {
-    $domain = strtolower(trim((string)($_GET['domain'] ?? '')));
-    $domain = preg_replace('#^https?://#', '', $domain);
-    $domain = explode('/', $domain)[0];
+    $domainRaw = strtolower(trim((string)($_GET['domain'] ?? '')));
+    $domainRaw = preg_replace('#^https?://#', '', $domainRaw);
+    $pathHint = strtolower(trim((string)($_GET['path'] ?? '')));
+    if ($pathHint === '' && str_contains($domainRaw, '/')) {
+        $bits = explode('/', $domainRaw, 2);
+        $pathHint = isset($bits[1]) ? '/'.$bits[1] : '';
+    }
+    $domain = explode('/', $domainRaw)[0];
     if (str_starts_with($domain, 'www.')) {
         $domain = substr($domain, 4);
     }
-    $resolved = $domain !== '' ? resolveLiveStoreId($pdo, $domain) : null;
+    // Shared-host path mounts win over apex (mieraf → coffee). Bleco public = /bleco until custom domain hung.
+    $pathResolved = null;
+    if ($pathHint !== '') {
+        if ($pathHint[0] !== '/') {
+            $pathHint = '/'.$pathHint;
+        }
+        $pathHint = preg_replace('#\?.*$#', '', $pathHint) ?: $pathHint;
+        if (
+            str_starts_with($pathHint, '/bleco')
+            || str_starts_with($pathHint, '/cars')
+            || preg_match('#^/car(/|$)#', $pathHint)
+        ) {
+            $pathResolved = 'store-bleco';
+        } elseif (str_starts_with($pathHint, '/coffee') || str_starts_with($pathHint, '/public_html')) {
+            $pathResolved = 'store-coffee';
+        } elseif (str_starts_with($pathHint, '/flowers') || str_starts_with($pathHint, '/hadaya')) {
+            $pathResolved = 'store-1';
+        } elseif (str_starts_with($pathHint, '/store/souq-default')) {
+            $pathResolved = 'store-souq-default';
+        }
+    }
+    $resolved = $pathResolved ?? ($domain !== '' ? resolveLiveStoreId($pdo, $domain) : null);
     if ($resolved === null) {
         http_response_code(404);
         echo json_encode([
@@ -3410,13 +3442,25 @@ if ($uri === '/storefront/resolve-domain' && $method === 'GET') {
     $data = function_exists('souq_store_payload')
         ? souq_store_payload($row)
         : (json_decode((string)($row['data'] ?? ''), true) ?: []);
-    $themeId = (string)($data['active_theme_id'] ?? $data['themeId'] ?? '');
+    // store_themes.theme_id is source of truth (Souq common / flagships)
+    $themeId = '';
+    try {
+        $th = $pdo->prepare('SELECT theme_id FROM store_themes WHERE store_id = ? LIMIT 1');
+        $th->execute([$resolved]);
+        $themeId = trim((string)($th->fetchColumn() ?: ''));
+    } catch (Throwable $e) {
+        $themeId = '';
+    }
+    if ($themeId === '') {
+        $themeId = (string)($data['active_theme_id'] ?? $data['themeId'] ?? '');
+    }
     if ($themeId === '') {
         $themeId = match ($resolved) {
             'store-coffee' => 'coffee-roasters',
             'store-bleco' => 'saudia-transport',
             'store-1' => 'theme-flora-luxe',
-            default => 'theme-commerce-starter',
+            'store-souq-default' => 'theme-souq-common-retail',
+            default => 'theme-souq-common-retail',
         };
     }
     echo json_encode([
@@ -3425,7 +3469,8 @@ if ($uri === '/storefront/resolve-domain' && $method === 'GET') {
         'store_slug' => (string)($row['slug'] ?? ''),
         'store_name' => (string)($row['name'] ?? ''),
         'domain' => $domain,
-        'domain_type' => 'custom',
+        'domain_type' => $pathResolved ? 'path' : 'custom',
+        'public_path' => $pathResolved === 'store-bleco' ? '/bleco' : ($pathResolved === 'store-coffee' ? '/coffee' : null),
         'active_theme_id' => $themeId,
         'store' => array_merge($data, [
             'id' => $resolved,

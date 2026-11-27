@@ -57,6 +57,8 @@ export type ApiFetchOptions = {
   portal?: 'master' | 'store';
   /** Skip bearer (login endpoints). */
   skipAuth?: boolean;
+  /** Extra request headers (e.g. X-Sf-Customer-Id for storefront login gate). */
+  headers?: Record<string, string>;
   /** Internal: one silent token renew after 401. Never logs the admin out. */
   authRetried?: boolean;
   /** Override default abort timeout (ms). AI image gen needs ~120s. */
@@ -177,12 +179,13 @@ export async function apiFetch<T>(
   path: string,
   options: ApiFetchOptions = {},
 ): Promise<T> {
-  const { method = 'GET', body, storeId, portal, skipAuth, authRetried } = options;
+  const { method = 'GET', body, storeId, portal, skipAuth, authRetried, headers: extraHeaders } = options;
   const methodUp = method.toUpperCase();
   const isGet = methodUp === 'GET';
   const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
   const headers: Record<string, string> = {
     Accept: 'application/json',
+    ...(extraHeaders && typeof extraHeaders === 'object' ? extraHeaders : {}),
   };
   // Do NOT send Expires/Pragma on cross-origin writes — Hostinger gateway CORS
   // allow-list rejects them (preflight → Failed to fetch / "Unable to connect").

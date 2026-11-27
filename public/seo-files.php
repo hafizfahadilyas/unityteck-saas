@@ -141,6 +141,8 @@ function souq_write_robots(): void
     echo "Disallow: /master\n";
     echo "Disallow: /cart\n";
     echo "Disallow: /checkout\n";
+    echo "Disallow: /src/\n";
+    echo "Disallow: /api/\n";
     echo "Sitemap: {$origin}/sitemap.xml\n";
 }
 

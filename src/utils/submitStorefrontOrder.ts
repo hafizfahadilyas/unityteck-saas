@@ -21,6 +21,9 @@ export type StorefrontOrderInput = {
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
+  /** Logged-in storefront customer id (required when guest checkout disabled). */
+  customerId?: string;
+  customerToken?: string;
   total: number;
   deliveryLocation?: string;
   status?: string;
@@ -54,6 +57,8 @@ export function toStorefrontOrderPayload(data: StorefrontOrderInput): Record<str
     customer_name: data.customerName,
     customer_email: data.customerEmail,
     customer_phone: data.customerPhone,
+    customer_id: data.customerId || undefined,
+    customer_token: data.customerToken || undefined,
     total_amount: data.total,
     delivery_location: data.deliveryLocation,
     status: data.status || 'pending',

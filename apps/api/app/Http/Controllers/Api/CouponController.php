@@ -45,10 +45,12 @@ class CouponController extends Controller
         $data = $request->validate([
             'code' => ['required', 'string', 'max:64'],
             'cart_total' => ['nullable', 'numeric', 'min:0'],
+            'total' => ['nullable', 'numeric', 'min:0'],
+            'cartTotal' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $code = strtoupper(trim((string) preg_replace('/\s+/', '', $data['code'])));
-        $cartTotal = (float) ($data['cart_total'] ?? 0);
+        $cartTotal = (float) ($data['cart_total'] ?? $data['total'] ?? $data['cartTotal'] ?? 0);
 
         $coupon = Coupon::query()
             ->withoutGlobalScope('store')

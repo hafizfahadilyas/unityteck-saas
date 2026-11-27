@@ -27,6 +27,7 @@ import { useSaudiCityOptions } from '../../../hooks/useSaudiCityOptions';
 import { SaudiMobileInput } from '../../../components/common/SaudiMobileInput';
 import { isValidSaudiMobile, toSaudi00966 } from '../../../utils/phone';
 import { mapApiLineToCartItem } from '../thankYouOrder';
+import { readSfCustomer } from '../../flowersPremium/sfCustomerSession';
 
 export const CheckoutPage: React.FC = () => {
   const {
@@ -45,6 +46,7 @@ export const CheckoutPage: React.FC = () => {
     applyCoupon,
   } = useCart();
   const { addOrder, activeStore, syncOrderFromApi } = useTenant();
+  const sfCustomer = activeStore?.id ? readSfCustomer(activeStore.id) : null;
   const { cities: saudiCities } = useSaudiCityOptions(activeStore?.id);
   const [orderError, setOrderError] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -303,6 +305,16 @@ export const CheckoutPage: React.FC = () => {
   const handlePlaceOrder = (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeStore?.id) return;
+    // Lifetime: guest checkout OFF — must sign in (Account) before placing order.
+    if (!user?.isLoggedIn || !sfCustomer?.customerId) {
+      showValidationAlert(
+        language === 'AR'
+          ? 'يلزم تسجيل الدخول لإتمام الطلب. افتح حسابي أولاً.'
+          : 'Sign in is required to place an order. Open Account first.',
+      );
+      navigateTo('profile');
+      return;
+    }
     if (!name.trim()) {
       showValidationAlert(
         language === 'AR' ? 'أدخل الاسم الكامل.' : 'Enter your full name.',
@@ -346,6 +358,10 @@ export const CheckoutPage: React.FC = () => {
 
   const executePlaceOrder = () => {
     if (!activeStore?.id) return;
+    if (!user?.isLoggedIn || !sfCustomer?.customerId) {
+      navigateTo('profile');
+      return;
+    }
     const normalizedPhone = toSaudi00966(phone);
     if (!isValidSaudiMobile(normalizedPhone)) return;
     setConfirmOpen(false);
@@ -447,11 +463,12 @@ export const CheckoutPage: React.FC = () => {
         customerName: name,
         customerPhone: normalizedPhone,
         customerEmail: user?.email || guestEmail.trim() || undefined,
+        customerId: sfCustomer.customerId,
         total: orderGrandTotal,
         deliveryLocation: payload.deliveryLocation,
         status: 'pending',
         paymentMethod: paymentLabel,
-        paymentStatus: 'Pending',
+        paymentStatus: 'pending',
         source: traffic.source,
         sourceDetails: traffic.details,
         medium: traffic.medium,
@@ -889,10 +906,10 @@ export const CheckoutPage: React.FC = () => {
               ) : null}
 
               {!user?.isLoggedIn ? (
-                <p className="text-[10px] text-neutral-500 leading-relaxed">
+                <p className="text-[10px] text-amber-800 leading-relaxed font-semibold">
                   {language === 'AR'
-                    ? 'يمكنك إتمام الطلب دون تسجيل. لتتبع الطلبات والفواتير لاحقاً سجّل الدخول من حسابي.'
-                    : 'You can checkout as a guest. Sign in from Account to track orders and invoices later.'}
+                    ? 'يلزم تسجيل الدخول لإتمام الطلب. افتح حسابي ثم عد إلى إتمام الشراء.'
+                    : 'Sign in is required to place an order. Open Account, then return to checkout.'}
                 </p>
               ) : null}
 

@@ -355,7 +355,7 @@ export const CoffeeProductCatalogForm: React.FC<CoffeeFormChromeProps> = ({ onBa
                   <Toggle on={checkout?.showCoupon !== false} onChange={(v) => checkoutHook.setDraft({ ...checkout, showCoupon: v } as CheckoutFieldSettings)} label={isAr ? 'إظهار الكوبون' : 'Show coupon'} />
                   <Toggle on={checkout?.showOrderNote === true} onChange={(v) => checkoutHook.setDraft({ ...checkout, showOrderNote: v } as CheckoutFieldSettings)} label={isAr ? 'إظهار ملاحظة الطلب' : 'Show order note'} />
                   <Toggle on={checkout?.showShipping !== false} onChange={(v) => checkoutHook.setDraft({ ...checkout, showShipping: v } as CheckoutFieldSettings)} label={isAr ? 'إظهار عنوان الشحن' : 'Show shipping address'} />
-                  <Toggle on={checkout?.allowGuest !== false} onChange={(v) => checkoutHook.setDraft({ ...checkout, allowGuest: v } as CheckoutFieldSettings)} label={isAr ? 'السماح بالشراء دون حساب' : 'Allow guest checkout'} />
+                  <Toggle on={checkout?.allowGuest === true} onChange={(v) => checkoutHook.setDraft({ ...checkout, allowGuest: v } as CheckoutFieldSettings)} label={isAr ? 'السماح بالشراء دون حساب' : 'Allow guest checkout'} />
                 </section>
                 <section className={cardCls} style={cardStyle} data-product-catalog-panel="seo">
                   <h3 className="text-sm font-bold">{isAr ? 'قوالب تحسين الظهور' : 'SEO templates'}</h3>

@@ -24,6 +24,12 @@ class DomainController extends Controller
     public function resolveDomain(Request $request): JsonResponse
     {
         $inputDomain = (string) ($request->query('domain') ?? $request->header('X-Forwarded-Host') ?? $request->header('Host') ?? '');
+        $pathHint = (string) ($request->query('path') ?? '');
+        // Support domain=mieraf-ksa.com/bleco (path after host)
+        if ($pathHint === '' && str_contains($inputDomain, '/')) {
+            $parts = explode('/', preg_replace('#^https?://#i', '', $inputDomain), 2);
+            $pathHint = isset($parts[1]) ? '/'.$parts[1] : '';
+        }
         $cleanDomain = $this->normalizeDomain($inputDomain);
 
         if (empty($cleanDomain)) {
@@ -42,8 +48,18 @@ class DomainController extends Controller
         $store = null;
         $domainType = 'custom';
 
+        // Shared-host path mounts win over apex host defaults (mieraf → coffee).
+        // Bleco final custom domain not hung yet → public path = /bleco on central.
+        $pathStoreId = $this->storeIdFromPublicPath($pathHint);
+        if ($pathStoreId) {
+            $store = Store::query()->find($pathStoreId);
+            if ($store) {
+                $domainType = 'path';
+            }
+        }
+
         $coffeeHost = strtolower((string) config('souq.coffee_domain', 'mieraf-ksa.com'));
-        if ($cleanDomain === $coffeeHost || $cleanDomain === 'www.'.$coffeeHost) {
+        if (! $store && ($cleanDomain === $coffeeHost || $cleanDomain === 'www.'.$coffeeHost)) {
             $store = Store::query()->find((string) config('souq.coffee_store_id', 'store-coffee'));
             if ($store) {
                 $domainType = 'primary';
@@ -117,6 +133,14 @@ class DomainController extends Controller
         // Determine active theme ID for the resolved store
         $activeThemeId = $this->resolveActiveTheme($store);
 
+        $publicPath = match ((string) $store->id) {
+            'store-bleco' => '/bleco',
+            'store-coffee' => '/coffee',
+            'store-1' => '/flowers',
+            'store-souq-default' => '/store/souq-default',
+            default => null,
+        };
+
         return response()->json([
             'resolved' => true,
             'store_id' => $store->id,
@@ -124,6 +148,7 @@ class DomainController extends Controller
             'store_name' => $store->name,
             'domain' => $cleanDomain,
             'domain_type' => $domainType,
+            'public_path' => $domainType === 'path' ? $publicPath : ($store->id === 'store-bleco' ? '/bleco' : null),
             'active_theme_id' => $activeThemeId,
             'ssl_status' => $domainRecord?->ssl_status ?? $store->ssl_status ?? 'active',
             'store' => [
@@ -341,6 +366,41 @@ class DomainController extends Controller
         }
 
         return $clean;
+    }
+
+    /**
+     * Shared central host mounts: /bleco|/cars|/car → store-bleco, /coffee → coffee, etc.
+     * Used until Bleco custom domain is hung (tanjeedmakkah.com currently 410).
+     */
+    private function storeIdFromPublicPath(string $rawPath): ?string
+    {
+        $p = strtolower(trim($rawPath));
+        if ($p === '') {
+            return null;
+        }
+        if ($p[0] !== '/') {
+            $p = '/'.$p;
+        }
+        $p = preg_replace('#\?.*$#', '', $p) ?: $p;
+
+        if (
+            str_starts_with($p, '/bleco')
+            || str_starts_with($p, '/cars')
+            || preg_match('#^/car(/|$)#', $p)
+        ) {
+            return 'store-bleco';
+        }
+        if (str_starts_with($p, '/coffee') || str_starts_with($p, '/public_html')) {
+            return 'store-coffee';
+        }
+        if (str_starts_with($p, '/flowers') || str_starts_with($p, '/hadaya')) {
+            return 'store-1';
+        }
+        if (str_starts_with($p, '/store/souq-default')) {
+            return 'store-souq-default';
+        }
+
+        return null;
     }
 
     /**

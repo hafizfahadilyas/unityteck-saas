@@ -127,7 +127,8 @@ export function mapStore(row: ApiStoreRow): Store {
     productsCount: num(row.products_count),
     ordersCount: num(row.orders_count),
     revenue: num(row.revenue),
-    visitorsCount: num(row.visitors_count),
+    // Never trust seeded stores.visitors_count as KPI truth (e.g. fake 80000) — dashboard uses analytics events.
+    visitorsCount: 0,
     lastActivity: 'Synced',
     // Placeholder tokens like "flower"/"store" are not image URLs — keep empty for icon fallback
     logo: resolveStoreLogoSrc(row.logo),
@@ -524,6 +525,7 @@ const ORDER_SOURCES: Order['source'][] = [
   'YouTube',
   'Organic Search',
   'Referral',
+  'AI Assistant',
   'Other',
 ];
 

@@ -9,6 +9,8 @@ export function defaultRobotsTxt(origin: string): string {
     'Disallow: /master',
     'Disallow: /cart',
     'Disallow: /checkout',
+    'Disallow: /src/',
+    'Disallow: /api/',
     `Sitemap: ${base}/sitemap.xml`,
     '',
   ].join('\n');

@@ -27,21 +27,38 @@ const SOURCE_RULES: Array<{ test: (value: string) => boolean; source: string }> 
       v.includes('fb.me'),
     source: 'Facebook',
   },
-  { test: (v) => v.includes('google') || v === 'gads' || v.includes('adwords'), source: 'Google Ads' },
+  // Paid Google Ads signals only — bare "google" is Organic Search (handled below)
+  {
+    test: (v) =>
+      v === 'gads' ||
+      v.includes('adwords') ||
+      v.includes('googleads') ||
+      v === 'google ads' ||
+      v === 'google_ads',
+    source: 'Google Ads',
+  },
+  { test: (v) => v.includes('google') || v.includes('organic') || v === 'search', source: 'Organic Search' },
   { test: (v) => v.includes('telegram'), source: 'Referral' },
   { test: (v) => v.includes('email') || v.includes('newsletter'), source: 'Referral' },
   { test: (v) => v.includes('qr') || v.includes('lobby') || v === 'offline', source: 'Referral' },
 ];
 
 /** Map raw utm_source / referrer host → canonical order/traffic source label. */
-export function matchTrafficSourceLabel(value: string): string | null {
+export function matchTrafficSourceLabel(value: string, medium?: string): string | null {
   const v = value.trim().toLowerCase();
   if (!v) return null;
+  const med = String(medium || '')
+    .trim()
+    .toLowerCase();
+  const paidMed = ['cpc', 'ppc', 'paid', 'paidsearch', 'paidsocial'].includes(med);
+  if ((v.includes('google') || v === 'gads' || v.includes('adwords')) && paidMed) {
+    return 'Google Ads';
+  }
   return SOURCE_RULES.find((rule) => rule.test(v))?.source ?? null;
 }
 
-function matchSource(value: string): string | null {
-  return matchTrafficSourceLabel(value);
+function matchSource(value: string, medium?: string): string | null {
+  return matchTrafficSourceLabel(value, medium);
 }
 
 function emptyAttribution(): TrafficAttribution {
@@ -112,9 +129,11 @@ function buildFromUtm(params: URLSearchParams): TrafficAttribution {
   const utmCampaign = params.get('utm_campaign') || '';
   const utmTerm = params.get('utm_term') || '';
   const utmContent = params.get('utm_content') || '';
-  const fromUtm = matchSource(utmSource);
+  const fromUtm = matchSource(utmSource, utmMedium);
   let source = fromUtm || 'Direct';
+  // gclid = real Google Ads click id; bare utm_source=google without paid medium = Organic Search (already in rules)
   if (!fromUtm && params.get('gclid')) source = 'Google Ads';
+  if (fromUtm === 'Organic Search' && params.get('gclid')) source = 'Google Ads';
   if (!fromUtm && params.get('fbclid')) source = 'Facebook';
   if (!fromUtm && params.get('ttclid')) source = 'TikTok';
   if (!fromUtm && utmSource) source = 'Referral';

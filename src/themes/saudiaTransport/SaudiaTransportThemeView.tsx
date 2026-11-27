@@ -40,6 +40,7 @@ import { useTenant } from '../../context/TenantContext';
 import { submitPublicStorefrontOrder } from '../../utils/submitStorefrontOrder';
 import { readTrafficSource } from '../../utils/trafficSource';
 import { trackStorefrontEvent } from '../../utils/storefrontAnalytics';
+import { readSfCustomer } from '../flowersPremium/sfCustomerSession';
 import {
   validateStorefrontCoupon,
   fetchStoreReviewsApi,
@@ -1093,6 +1094,19 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
   const handleCheckoutSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setCheckoutError(null);
+    const storeIdResolved = storeId || activeStore?.id || 'store-bleco';
+    const sfCustomer = readSfCustomer(storeIdResolved);
+    // Lifetime: login required (no guest order)
+    if (!sfCustomer?.customerId) {
+      setCheckoutError(
+        isAr
+          ? 'يلزم تسجيل الدخول لإتمام الطلب. افتح حسابي أولاً.'
+          : 'Sign in is required to place an order. Open Account first.',
+      );
+      setCheckoutOpen(false);
+      setIsAccountModalOpen(true);
+      return;
+    }
     if (!checkoutForm.name || !checkoutForm.phone || !checkoutForm.address || !checkoutForm.city) {
       setCheckoutError(isAr ? 'يرجى تعبئة جميع الحقول المطلوبة' : 'Please fill all required fields');
       return;
@@ -1102,7 +1116,6 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
       return;
     }
 
-    const storeIdResolved = storeId || activeStore?.id || 'store-bleco';
     const payable = Math.max(0, cartTotal - couponDiscount) + Math.max(0, shippingFee);
     const itemsPayload = cart.map((it) => {
       const sp = it.specs as any;
@@ -1128,7 +1141,8 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
           {
             customerName: checkoutForm.name,
             customerPhone: checkoutForm.phone,
-            customerEmail: undefined,
+            customerEmail: sfCustomer.email || undefined,
+            customerId: sfCustomer.customerId,
             deliveryLocation: `${checkoutForm.city} - ${checkoutForm.address}`,
             total: payable,
             status: 'pending',

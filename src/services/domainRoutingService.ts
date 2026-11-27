@@ -413,11 +413,13 @@ export async function resolveDomainDynamic(
   domains?: DomainRecord[]
 ): Promise<DomainResolutionResult> {
   const clean = normalizeHostname(rawHostname);
+  const pathHint =
+    typeof window !== 'undefined' ? String(window.location?.pathname || '') : '';
 
-  // If running in real API mode, fetch from Laravel API
+  // If running in real API mode, fetch from Laravel API (pass /bleco path so cars ≠ coffee on mieraf)
   if (isApiEnabled() && clean) {
     try {
-      const apiResult = await resolveDomainApi(clean);
+      const apiResult = await resolveDomainApi(clean, pathHint || null);
       if (apiResult && apiResult.resolved) {
         return apiResult;
       }

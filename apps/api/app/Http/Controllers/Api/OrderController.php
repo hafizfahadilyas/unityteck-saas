@@ -14,6 +14,7 @@ use App\Models\ProductVariation;
 use App\Models\ShippingMethod;
 use App\Models\Store;
 use App\Models\StoreBankAccount;
+use App\Models\StoreSetting;
 use App\Services\Cashback\CashbackService;
 use App\Services\Commerce\OrderCommerceLedgerService;
 use App\Services\Loyalty\LoyaltyPointsService;
@@ -191,7 +192,42 @@ class OrderController extends Controller
             return response()->json(['message' => 'Store not found.'], 404);
         }
 
+        // Lifetime: never trust client "paid" on public checkout
         $request->merge(['payment_status' => 'pending']);
+
+        // Guest checkout OFF unless store settings allowGuest=true
+        $allowGuest = false;
+        try {
+            $settingsRow = StoreSetting::query()->where('store_id', $storeId)->first();
+            $bag = is_array($settingsRow?->settings) ? $settingsRow->settings : [];
+            foreach (['checkout', 'checkoutFields'] as $k) {
+                if (is_array($bag[$k] ?? null) && array_key_exists('allowGuest', $bag[$k])) {
+                    $allowGuest = (bool) $bag[$k]['allowGuest'];
+                    break;
+                }
+            }
+            if (! $allowGuest && array_key_exists('allowGuest', $bag)) {
+                $allowGuest = (bool) $bag['allowGuest'];
+            }
+        } catch (\Throwable) {
+            $allowGuest = false;
+        }
+        if (! $allowGuest) {
+            $hintId = trim((string) ($request->header('X-Sf-Customer-Id') ?? $request->input('customer_id', '')));
+            $exists = $hintId !== '' && Customer::query()
+                ->withoutGlobalScope('store')
+                ->where('store_id', $storeId)
+                ->where('id', $hintId)
+                ->exists();
+            if (! $exists) {
+                return response()->json([
+                    'message' => 'Customer login required to place an order.',
+                    'message_ar' => 'يلزم تسجيل دخول العميل لإتمام الطلب.',
+                    'code' => 'login_required',
+                ], 401);
+            }
+        }
+
         return $this->processCreateOrder($request, $storeId);
     }
 
@@ -581,10 +617,22 @@ class OrderController extends Controller
 
             // Sanitize Enum values according to database table CHECK constraints
             $rawSource = trim((string) ($validated['source'] ?? 'Direct'));
+            $mediumHint = strtolower(trim((string) ($validated['medium'] ?? '')));
+            $detailsHint = strtolower(trim((string) ($validated['source_details'] ?? '')));
+            $paidGoogle = str_contains($detailsHint, 'gclid')
+                || in_array($mediumHint, ['cpc', 'ppc', 'paid', 'paidsearch'], true)
+                || str_contains(strtolower($rawSource), 'google ads')
+                || strcasecmp($rawSource, 'gads') === 0;
             $validSources = ['WhatsApp', 'Instagram', 'Google Ads', 'Facebook', 'Snapchat', 'TikTok', 'Direct', 'Organic Search', 'Referral', 'Social Media'];
             if (in_array($rawSource, $validSources, true)) {
-                $source = $rawSource === 'Social Media' ? 'Direct' : $rawSource;
-                $sourceDetails = $validated['source_details'] ?? ($rawSource !== $source ? $rawSource : null);
+                // Never keep "Google Ads" without paid signal — demote to Organic Search
+                if ($rawSource === 'Google Ads' && ! $paidGoogle) {
+                    $source = 'Organic Search';
+                    $sourceDetails = $validated['source_details'] ?? 'google (organic — no paid signal)';
+                } else {
+                    $source = $rawSource === 'Social Media' ? 'Direct' : $rawSource;
+                    $sourceDetails = $validated['source_details'] ?? ($rawSource !== $source ? $rawSource : null);
+                }
             } else {
                 // Keep free-form checkout attribution in source_details; store canonical enum in source
                 $lower = strtolower($rawSource);
@@ -593,7 +641,7 @@ class OrderController extends Controller
                 } elseif (str_contains($lower, 'instagram')) {
                     $source = 'Instagram';
                 } elseif (str_contains($lower, 'google')) {
-                    $source = 'Google Ads';
+                    $source = $paidGoogle ? 'Google Ads' : 'Organic Search';
                 } elseif (str_contains($lower, 'facebook')) {
                     $source = 'Facebook';
                 } elseif (str_contains($lower, 'snapchat')) {
@@ -1099,7 +1147,26 @@ class OrderController extends Controller
             if (array_key_exists('delivery_location', $data)) {
                 $order->delivery_location = $data['delivery_location'];
             }
-            if (isset($data['shipping_status'])) $order->shipping_status = $data['shipping_status'];
+            if (isset($data['shipping_status'])) {
+                $order->shipping_status = $data['shipping_status'];
+            } elseif (array_key_exists('status', $data)) {
+                // Lifetime: order status → shipping_status when merchant did not send shipping_status
+                $shipMap = [
+                    'shipped' => 'shipped',
+                    'out_for_delivery' => 'out_for_delivery',
+                    'delivered' => 'delivered',
+                    'completed' => 'delivered',
+                    'cancelled' => 'cancelled',
+                    'returned' => 'returned',
+                    'processing' => 'processing',
+                    'preparing' => 'processing',
+                    'ready' => 'ready',
+                ];
+                $ns = strtolower((string) $newStatus);
+                if (isset($shipMap[$ns])) {
+                    $order->shipping_status = $shipMap[$ns];
+                }
+            }
             if (isset($data['tracking_number'])) $order->tracking_number = $data['tracking_number'];
             if (isset($data['courier_code'])) $order->courier_code = $data['courier_code'];
             if (isset($data['payment_status'])) $order->payment_status = $data['payment_status'];

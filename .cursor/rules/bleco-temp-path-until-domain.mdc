@@ -1,0 +1,20 @@
+# Bleco / Cars · Temporary public path (LOCKED until domain hung)
+
+**Store:** `store-bleco` · Al-Saeedi Car Services  
+**Temporary public storefront (NOW):** **`https://mieraf-ksa.com/bleco`** (+ `/cars`, `/car` aliases)  
+**Future custom domain:** `tanjeedmakkah.com` (or owner’s final domain) — **not live yet** (`/api/health` → **410**)
+
+## Owner order
+
+1. Jab tak final car domain hang **nahi** hota → **sirf** central path use karo: `mieraf-ksa.com/bleco`.
+2. Baad mein domain hang hone par: DNS + Hostinger + `custom_domain` / domains table update → path mount secondary reh sakta hai.
+3. **Kabhi** `tanjeedmakkah.com` ko healthy mat treat karo jab tak probe `200` + `active_live_mysql` na de.
+4. Resolve: `GET /api/storefront/resolve-domain?domain=mieraf-ksa.com&path=/bleco` → **`store_id=store-bleco`** (path wins over coffee apex).
+5. Client: `storeIdFromPublicLocation` + `storefrontMountPath` already `/bleco` → `store-bleco`.
+
+## Ban
+
+- Force-migrating Bleco off central path before domain is hung
+- Assuming tanjeedmakkah.com API works while 410
+- Resolving bare `mieraf-ksa.com` (no path) as Bleco — apex = coffee
+---
