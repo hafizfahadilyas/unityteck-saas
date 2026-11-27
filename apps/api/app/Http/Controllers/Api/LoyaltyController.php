@@ -534,6 +534,94 @@ class LoyaltyController extends Controller
     }
 
     /**
+     * Public storefront redeem preview / debit (login customer only).
+     * 1 point = 1 SAR. Actual order debit also happens on storefront order create.
+     */
+    public function storefrontRedeem(Request $request, string $storeId): JsonResponse
+    {
+        $data = $request->validate([
+            'customer_id' => ['required', 'string', 'max:64'],
+            'points' => ['required', 'integer', 'min:1', 'max:1000000'],
+            'preview' => ['nullable', 'boolean'],
+        ]);
+        $customerId = (string) $data['customer_id'];
+        $points = (int) $data['points'];
+        $preview = (bool) ($data['preview'] ?? false);
+
+        $customer = Customer::withoutGlobalScope('store')
+            ->where('store_id', $storeId)
+            ->where('id', $customerId)
+            ->first();
+        if (! $customer) {
+            return response()->json(['valid' => false, 'message' => 'Customer not found.'], 404);
+        }
+
+        $have = (int) ($customer->points ?? 0);
+        if (Schema::hasTable('customer_wallets')) {
+            $wallet = \App\Models\CustomerWallet::query()
+                ->where('store_id', $storeId)
+                ->where('customer_id', $customerId)
+                ->first();
+            if ($wallet) {
+                $have = max($have, (int) $wallet->loyalty_points);
+            }
+        }
+        if ($points > $have) {
+            return response()->json([
+                'valid' => false,
+                'message' => 'Insufficient loyalty points.',
+                'balance' => $have,
+                'store_id' => $storeId,
+            ], 422);
+        }
+        if ($preview) {
+            return response()->json([
+                'valid' => true,
+                'preview' => true,
+                'points' => $points,
+                'sar_value' => $points,
+                'balance_after' => $have - $points,
+                'store_id' => $storeId,
+            ]);
+        }
+
+        $customer->points = max(0, $have - $points);
+        $customer->save();
+        if (Schema::hasTable('customer_wallets')) {
+            $wallet = \App\Models\CustomerWallet::query()
+                ->where('store_id', $storeId)
+                ->where('customer_id', $customerId)
+                ->first();
+            if ($wallet) {
+                $wallet->loyalty_points = max(0, (int) $wallet->loyalty_points - $points);
+                $wallet->save();
+            }
+        }
+        if (Schema::hasTable('loyalty_point_transactions')) {
+            LoyaltyPointTransaction::query()->create([
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'store_id' => $storeId,
+                'customer_id' => $customerId,
+                'transaction_type' => 'debit',
+                'points_delta' => -1 * $points,
+                'balance_after' => max(0, $have - $points),
+                'method' => 'checkout_redeem',
+                'reason' => 'Storefront checkout redeem',
+                'created_at' => now(),
+            ]);
+        }
+
+        return response()->json([
+            'valid' => true,
+            'points' => $points,
+            'sar_value' => $points,
+            'balance' => max(0, $have - $points),
+            'store_id' => $storeId,
+            'customer_id' => $customerId,
+        ]);
+    }
+
+    /**
      * Public storefront balance (no merchant session) — store_id + customer_id only.
      */
     public function storefrontBalance(Request $request, string $storeId): JsonResponse

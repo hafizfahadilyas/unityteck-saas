@@ -1532,7 +1532,14 @@ function souq_notify_order_whatsapp(PDO $pdo, string $storeId, array $orderRow, 
         $srow = $store->fetch(PDO::FETCH_ASSOC) ?: [];
         $storeName = (string)($srow['name_ar'] ?? $srow['name'] ?? 'Store');
         $domain = trim((string)($srow['custom_domain'] ?? $srow['domain'] ?? ''));
-        $base = $domain !== '' ? (preg_match('#^https?://#i', $domain) ? rtrim($domain, '/') : ('https://' . $domain)) : '';
+        // Bleco custom domain not hung yet — use central /bleco path
+        if ($storeId === 'store-bleco' && ($domain === '' || str_contains(strtolower($domain), 'tanjeed'))) {
+            $base = 'https://mieraf-ksa.com/bleco';
+        } elseif ($domain !== '') {
+            $base = preg_match('#^https?://#i', $domain) ? rtrim($domain, '/') : ('https://' . $domain);
+        } else {
+            $base = '';
+        }
         $invoiceUrl = $base !== '' ? ($base . '/invoice?order=' . rawurlencode($num)) : '';
         $payUrl = $base !== '' ? ($base . '/checkout?pay_order=' . rawurlencode($num)) : '';
         $trackUrl = $base !== '' ? ($base . '/track-order?order=' . rawurlencode($num)) : '';
@@ -2024,6 +2031,8 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
         }
         $couponCode = strtoupper(trim((string)($input['coupon_code'] ?? '')));
         $discount = 0.0;
+        $giftApplied = 0.0;
+        $pointsAppliedSar = 0.0;
         if ($couponCode !== '') {
             $c = $pdo->prepare('SELECT * FROM coupons WHERE store_id = ? AND UPPER(code) = ? AND is_active = 1 LIMIT 1');
             $c->execute([$storeId, $couponCode]);
@@ -2053,8 +2062,50 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
                 : round($total * ((float)$coupon['discount_value'] / 100), 2);
             $pdo->prepare('UPDATE coupons SET usage_count = usage_count + 1 WHERE id = ? AND store_id = ?')->execute([$coupon['id'], $storeId]);
         }
+        // Lifetime: gift card redeem — deduct balance for this store_id only
+        $giftCode = strtoupper(trim((string)($input['gift_card_code'] ?? $input['gift_code'] ?? '')));
+        if ($giftCode !== '') {
+            try {
+                $gst = $pdo->prepare('SELECT * FROM gift_cards WHERE store_id = ? AND UPPER(TRIM(code)) = ? LIMIT 1');
+                $gst->execute([$storeId, $giftCode]);
+                $gift = $gst->fetch(PDO::FETCH_ASSOC);
+                if (!$gift || strtolower((string)($gift['status'] ?? '')) !== 'active') {
+                    http_response_code(422);
+                    echo json_encode(['message' => 'Gift card is inactive or invalid.', 'message_ar' => 'بطاقة الهدايا غير صالحة.']);
+                    return true;
+                }
+                $bal = max(0, (float)($gift['balance'] ?? 0));
+                $afterCoupon = max(0, $total - $discount);
+                $giftApplied = min($bal, $afterCoupon);
+                if ($giftApplied > 0) {
+                    $pdo->prepare('UPDATE gift_cards SET balance = balance - ? WHERE id = ? AND store_id = ?')
+                        ->execute([$giftApplied, $gift['id'], $storeId]);
+                    $discount += $giftApplied;
+                }
+            } catch (Throwable) {
+                /* gift_cards table optional */
+            }
+        }
+        // Lifetime: loyalty points redeem (1 point = 1 SAR)
+        $pointsRedeem = max(0, (int)($input['loyalty_points_redeem'] ?? $input['points_redeem'] ?? 0));
         $charged = max(0, $total - $discount);
         $customer = souq_upsert_customer($pdo, $storeId, $name, $phone, $email, $city, $source, $charged);
+        if ($pointsRedeem > 0 && function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'customers', 'points')) {
+            $have = (int)($customer['points'] ?? 0);
+            $use = min($pointsRedeem, $have, (int)floor($charged));
+            if ($use > 0) {
+                try {
+                    $pdo->prepare('UPDATE customers SET points = points - ? WHERE id = ? AND store_id = ? AND points >= ?')
+                        ->execute([$use, $customer['id'], $storeId, $use]);
+                    $pointsAppliedSar = (float)$use;
+                    $discount += $pointsAppliedSar;
+                    $charged = max(0, $total - $discount);
+                    $customer['points'] = max(0, $have - $use);
+                } catch (Throwable) {
+                    /* ignore */
+                }
+            }
+        }
         $rate = souq_loyalty_rate($pdo, $storeId);
         if ($rate > 0 && function_exists('souq_table_has_column') && souq_table_has_column($pdo, 'customers', 'points')) {
             $pts = (int)floor($charged * $rate);
@@ -2271,11 +2322,18 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
         }
         $fresh = $pdo->prepare('SELECT * FROM orders WHERE id = ? AND store_id = ?');
         $fresh->execute([$orderId, $storeId]);
+        $orderRow = $fresh->fetch() ?: [];
         $custFresh = $pdo->prepare('SELECT * FROM customers WHERE id = ? AND store_id = ?');
         $custFresh->execute([$customer['id'], $storeId]);
+        // Lifetime: real WhatsApp only when connected — skipped if Not Connected (never fake)
+        if (is_array($orderRow) && $orderRow !== []) {
+            souq_notify_order_whatsapp($pdo, $storeId, $orderRow, 'created');
+        }
         echo json_encode([
-            'data' => souq_order_row($pdo, $fresh->fetch() ?: []),
+            'data' => souq_order_row($pdo, $orderRow),
             'customer' => souq_customer_row($custFresh->fetch() ?: $customer),
+            'gift_card_applied' => $giftApplied > 0 ? $giftApplied : null,
+            'loyalty_points_redeemed' => $pointsAppliedSar > 0 ? (int)$pointsAppliedSar : null,
         ]);
         return true;
         } catch (Throwable $e) {
@@ -2497,21 +2555,37 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
     }
 
     if ($uri === '/storefront/gift-cards/balance' && $method === 'POST') {
-        $code = strtoupper(trim((string)($input['code'] ?? '')));
-        $st = $pdo->prepare('SELECT * FROM gift_cards WHERE store_id = ? AND UPPER(code) = ? LIMIT 1');
+        $code = strtoupper(trim((string) preg_replace('/\s+/', '', (string)($input['code'] ?? ''))));
+        if ($code === '') {
+            http_response_code(422);
+            echo json_encode(['valid' => false, 'message' => 'Gift card code required.', 'store_id' => $storeId]);
+            return true;
+        }
+        $st = $pdo->prepare('SELECT * FROM gift_cards WHERE store_id = ? AND UPPER(TRIM(code)) = ? LIMIT 1');
         $st->execute([$storeId, $code]);
         $row = $st->fetch();
         if (!$row) {
             http_response_code(404);
-            echo json_encode(['message' => 'Gift card not found.']);
+            echo json_encode(['valid' => false, 'message' => 'Gift card not found.', 'store_id' => $storeId]);
             return true;
         }
-        echo json_encode(['data' => [
-            'code' => $row['code'],
-            'balance' => (float)$row['balance'],
-            'currency' => $row['currency'] ?: 'SAR',
-            'status' => $row['status'],
-        ]]);
+        $balance = (float)($row['balance'] ?? 0);
+        $status = (string)($row['status'] ?? 'active');
+        $ok = strtolower($status) === 'active' && $balance > 0;
+        echo json_encode([
+            'valid' => $ok,
+            'store_id' => $storeId,
+            'balance' => $balance,
+            'currency' => ($row['currency'] ?? '') !== '' ? $row['currency'] : 'SAR',
+            'status' => $status,
+            'message' => $ok ? null : 'Gift card is inactive or has no balance.',
+            'data' => [
+                'code' => $row['code'],
+                'balance' => $balance,
+                'currency' => ($row['currency'] ?? '') !== '' ? $row['currency'] : 'SAR',
+                'status' => $status,
+            ],
+        ]);
         return true;
     }
 

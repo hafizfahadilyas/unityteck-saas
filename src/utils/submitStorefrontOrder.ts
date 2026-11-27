@@ -49,6 +49,8 @@ export type StorefrontOrderInput = {
   deliveryMode?: string;
   customerNotes?: string;
   couponCode?: string;
+  giftCardCode?: string;
+  loyaltyPointsRedeem?: number;
   items?: StorefrontOrderLine[];
 };
 
@@ -80,6 +82,8 @@ export function toStorefrontOrderPayload(data: StorefrontOrderInput): Record<str
     delivery_mode: data.deliveryMode || undefined,
     customer_notes: data.customerNotes || undefined,
     coupon_code: data.couponCode || undefined,
+    gift_card_code: data.giftCardCode || undefined,
+    loyalty_points_redeem: data.loyaltyPointsRedeem || undefined,
     shipping_method_id: data.shippingMethodId || undefined,
     courier_code: data.courierCode || undefined,
     shipping_status: data.shippingStatus || 'pending',

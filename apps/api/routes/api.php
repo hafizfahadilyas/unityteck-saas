@@ -683,6 +683,7 @@ Route::post('/storefront/newsletter', [StoreSettingsController::class, 'subscrib
 Route::post('/storefront/contact', [StoreSettingsController::class, 'submitContact']);
 Route::post('/storefront/customers', [StorefrontCustomerController::class, 'upsert']);
 Route::get('/storefront/{storeId}/loyalty/balance', [LoyaltyController::class, 'storefrontBalance']);
+Route::post('/storefront/{storeId}/loyalty/redeem', [LoyaltyController::class, 'storefrontRedeem']);
 Route::post('/storefront/customer-activities', [CustomerActivityController::class, 'storefrontStore']);
 
 // Public Inbound Webhooks for official Payment Gateways and Couriers

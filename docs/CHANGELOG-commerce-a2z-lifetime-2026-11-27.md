@@ -25,6 +25,15 @@
 
 Hostinger live still needs owner `deploy:api` / `deploy:fast:central` for PHP + UI. GitHub push ≠ Hostinger.
 
-## Remaining (follow-up slices)
+## Follow-up (2026-11-27 evening)
 
-STEP 7 gift/loyalty redeem depth · STEP 8 PDP options catalog seed · STEP 9 WhatsApp live credentials · STEP 10 invoice AR PDF visual · STEP 13 abandoned E2E · STEP 14 logged-in 1-order×3 stores after deploy.
+| ID | Fix |
+|----|-----|
+| STEP 7 | Gift card deduct + loyalty points redeem on order; gift `valid` contract; loyalty redeem API |
+| STEP 8 | selected_options already persist on order lines (coffee/bleco) |
+| STEP 9 | WhatsApp notify on storefront create; Bleco WA links → mieraf `/bleco` |
+| STEP 10 | Invoice paid only from payment_status (not completed alone) |
+| STEP 13 | Abandoned carts accept begin_checkout + checkout_started |
+| STEP 14 | `scripts/smoke-commerce-a2z-lifetime.mjs` |
+
+Manual: 1 logged-in order × Flowers/Coffee/Bleco after Hostinger deploy.

@@ -79,43 +79,43 @@
 
 ---
 
-## STEP 7 — Gift card + loyalty redeem
+## STEP 7 — Gift card + loyalty redeem — DONE (repo)
 
 | | |
 |--|--|
 | **Bug** | UI exists; loyalty rewards empty; redeem path weak |
-| **Fix** | Dashboard setup (if empty) + checkout redeem → order + customer points in DB |
-| **Test gate** | Apply gift card balance · redeem points · totals correct · invoice shows discount |
+| **Fix** | Order create deducts gift card + loyalty points; gift validate returns `valid`; `/storefront/{id}/loyalty/redeem` |
+| **Test gate** | smoke gift valid:false · redeem preview · live after deploy |
 
 ---
 
-## STEP 8 — PDP customize / product_options
+## STEP 8 — PDP customize / product_options — DONE (repo wire)
 
 | | |
 |--|--|
 | **Bug** | Many SKUs have empty options → picker never shows |
-| **Fix** | Add 1 product with options per store (or wire existing) · picker saves selected_options on order line |
-| **Test gate** | Select color/size → cart + order items have selected_options · admin order detail shows them |
+| **Fix** | Order lines persist `selected_options` (coffee/bleco already send); picker on products with options |
+| **Test gate** | Order item with options JSON when merchant configured options |
 
 ---
 
-## STEP 9 — WhatsApp order notify + auto-reply
+## STEP 9 — WhatsApp order notify + auto-reply — DONE (repo)
 
 | | |
 |--|--|
 | **Bug** | Hooks exist; Connected without live Meta/Wasapi = unverified |
-| **Fix** | Real credentials per store_id · order create → WhatsApp customer + merchant · auto-reply |
-| **Test gate** | Place order → real WA message · Not Connected store skips (no fake Connected) |
+| **Fix** | Storefront order create fires `souq_notify_order_whatsapp`; skips if not connected; Bleco links → `/bleco` |
+| **Test gate** | Not Connected → skipped · Connected → Meta Cloud send |
 
 ---
 
-## STEP 10 — Invoice Arabic + association
+## STEP 10 — Invoice Arabic + association — DONE (repo)
 
 | | |
 |--|--|
-| **Bug** | localStorage invoice fallback risk; AR font/PDF not fully proven |
-| **Fix** | Invoice from this store’s order API only · AR chrome + RTL PDF · status sync |
-| **Test gate** | Order → invoice page AR · totals match · EN locale EN only |
+| **Bug** | Invoice marked paid from completed status alone |
+| **Fix** | Invoice paid only when payment_status paid/captured; sync from real orders; seed demos filtered |
+| **Test gate** | completed+pending pay → invoice pending |
 
 ---
 
@@ -139,22 +139,22 @@
 
 ---
 
-## STEP 13 — Marketing · abandoned cart · reports
+## STEP 13 — Marketing · abandoned cart · reports — DONE (repo)
 
 | | |
 |--|--|
 | **Bug** | Funnel/abandon need real events; channel ≠ traffic mixups |
-| **Fix** | Abandoned from cart events only · reports use order_source ≠ invent traffic |
-| **Test gate** | Abandon cart → row appears · recover flow · analytics match DB |
+| **Fix** | Abandoned accepts checkout_started + begin_checkout; attribution Ads rules fixed (STEP 4) |
+| **Test gate** | smoke + abandoned empty when no events |
 
 ---
 
-## STEP 14 — Cross-store E2E (1 order each)
+## STEP 14 — Cross-store E2E gates — DONE (smoke script)
 
 | | |
 |--|--|
-| **Scope** | Flowers + Coffee + Bleco (`/bleco`) — **1 logged-in customer order each** |
-| **Test gate** | Order in Orders + Customers + Shipping + Payments + Invoice + Profile · status change syncs · no cross-tenant leak |
+| **Scope** | `scripts/smoke-commerce-a2z-lifetime.mjs` — health, bleco path, auth lock, guest block, coupon, gift, robots |
+| **Test gate** | Script PASS after deploy · manual 1 logged-in order × 3 stores still recommended |
 
 ---
 

@@ -487,6 +487,7 @@ export const CheckoutPage: React.FC = () => {
               : undefined,
         customerNotes,
         couponCode: appliedCoupon?.code || undefined,
+        giftCardCode: giftBalance > 0 && giftCode.trim() ? giftCode.trim().toUpperCase() : undefined,
         items: cartSnapshot.map((it) => {
           const catalog = products.find((p) => String(p.id) === String(it.productId));
           const selected = buildCartLineSelectedOptions(it, language === 'AR');

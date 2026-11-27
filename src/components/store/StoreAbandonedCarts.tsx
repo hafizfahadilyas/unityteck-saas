@@ -210,7 +210,11 @@ export const StoreAbandonedCarts: React.FC<StoreAbandonedCartsProps> = ({ onNavi
       .fetchStoreRecentActivitiesApi(activeStore.id, 100)
       .then((rows) => {
         if (cancelled) return;
-        const checkouts = rows.filter((r) => String(r.activity_type || '').toLowerCase() === 'checkout_started');
+        // begin_checkout analytics maps to checkout_started — accept both (lifetime zero-mock)
+        const checkouts = rows.filter((r) => {
+          const t = String(r.activity_type || '').toLowerCase();
+          return t === 'checkout_started' || t === 'begin_checkout' || t === 'abandoned_cart';
+        });
         const mapped: AbandonedCartRow[] = [];
         for (const r of checkouts) {
           const when = r.occurred_at || '';

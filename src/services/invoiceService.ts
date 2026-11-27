@@ -2411,7 +2411,9 @@ class InvoiceService {
       const taxable = Math.max(0, subtotal - discount);
       const tax = Number(order.tax) || Math.round(taxable * 0.15 * 100) / 100;
       const grandTotal = Number(order.total) || (taxable + shipping + tax);
-      const isPaid = order.paymentStatus === 'Paid' || order.status === 'completed' || order.status === 'delivered';
+      // Lifetime: never mark invoice paid from order status alone — payment_status must be paid
+      const pay = String(order.paymentStatus || '').toLowerCase();
+      const isPaid = pay === 'paid' || pay === 'captured' || pay === 'completed';
       const isCancelled = order.status === 'cancelled';
       const docStatus: InvoiceDocumentStatus = isCancelled ? 'cancelled' : isPaid ? 'paid' : 'pending';
 
