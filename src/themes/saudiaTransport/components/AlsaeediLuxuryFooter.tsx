@@ -90,7 +90,7 @@ function TamaraBadge({ className = "h-5" }: { className?: string }) {
 // Visa & Mastercard Badge
 function CardNetworkBadge({ className = "h-5" }: { className?: string }) {
   return (
-    <div className={`bg-white rounded-md px-2 py-0.5 flex items-center gap-1.5 shadow-sm border border-white/20 ${className}`}>
+    <div className={`bg-white rounded-md px-2 py-0.5 flex items-center gap-1.5 shadow-xs ${className}`}>
       <span className="font-black text-[#1a1f71] text-[11px] italic tracking-tighter">VISA</span>
       <div className="flex -space-x-1 items-center">
         <span className="w-2.5 h-2.5 rounded-full bg-[#EB001B] inline-block"></span>
@@ -107,7 +107,7 @@ function SaudiBusinessCenterBadge({ isAr }: { isAr: boolean }) {
       href="https://sbc.gov.sa"
       target="_blank"
       rel="noreferrer"
-      className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-950/70 to-emerald-900/40 border border-emerald-500/40 hover:border-emerald-400 transition-all shadow-md hover:shadow-emerald-900/30 text-white"
+      className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-950/80 to-emerald-900/60 transition-all shadow-xs hover:shadow-emerald-900/30 text-white"
       title={isAr ? "موثق في المركز السعودي للأعمال" : "Verified by Saudi Business Center"}
     >
       <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
@@ -129,12 +129,12 @@ function SaudiBusinessCenterBadge({ isAr }: { isAr: boolean }) {
 // Official Saudi Commercial Registration (CR) Badge
 function CommercialRegistrationBadge({ isAr }: { isAr: boolean }) {
   return (
-    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-[#d5a027]/40 text-slate-800 shadow-md">
-      <div className="w-6 h-6 rounded-full bg-[#d5a027]/20 flex items-center justify-center text-amber-700">
+    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white text-slate-800 shadow-xs">
+      <div className="w-6 h-6 rounded-full bg-[#faede4] flex items-center justify-center text-[#915f3c]">
         <Award className="w-4 h-4" />
       </div>
       <div className="text-right flex flex-col">
-        <span className="text-[10px] text-amber-700 font-extrabold">
+        <span className="text-[10px] text-[#915f3c] font-extrabold">
           {isAr ? 'سجل تجاري معتمد' : 'Commercial Registration'}
         </span>
         <span className="text-[9px] font-mono text-slate-700 font-extrabold">
@@ -297,103 +297,123 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
       </a>
 
       {/* ========================================================
-          3. MAIN LUXURY FOOTER WRAPPER
+          3. MAIN LUXURY FOOTER WRAPPER — pure clean base, zero white shaded fog
           ======================================================== */}
-      <footer className="alsaeedi-footer-shell alsaeedi-reveal text-slate-900 pt-14 pb-28 md:pb-14 relative overflow-hidden select-none bg-white">
-        {/* Base wash (pure white) */}
-        <div
-          className="pointer-events-none absolute inset-0 bg-white"
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.55]"
-          style={{
-            backgroundImage: [
-              'radial-gradient(circle at 12% 18%, rgba(213,160,39,0.14), transparent 42%)',
-              'radial-gradient(circle at 88% 78%, rgba(18,123,254,0.08), transparent 40%)',
-              'repeating-linear-gradient(45deg, rgba(15,23,42,0.045) 0 1px, transparent 1px 14px)',
-              'repeating-linear-gradient(-45deg, rgba(213,160,39,0.07) 0 1px, transparent 1px 18px)',
-            ].join(', '),
-          }}
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.35]"
-          style={{
-            backgroundImage:
-              'url("data:image/svg+xml,%3Csvg width=\'56\' height=\'56\' viewBox=\'0 0 56 56\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M28 2 L54 28 L28 54 L2 28 Z\' fill=\'none\' stroke=\'%230f172a\' stroke-opacity=\'0.07\' stroke-width=\'1\'/%3E%3Cpath d=\'M28 12 L44 28 L28 44 L12 28 Z\' fill=\'none\' stroke=\'%23d5a027\' stroke-opacity=\'0.16\' stroke-width=\'1\'/%3E%3C/svg%3E")',
-            backgroundSize: '56px 56px',
-          }}
-          aria-hidden
-        />
-
-        {/* Ambient glows */}
-        <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#d5a027]/12 rounded-full blur-xl pointer-events-none" />
-        <div className="absolute bottom-10 left-10 w-80 h-80 bg-slate-400/20 rounded-full blur-xl pointer-events-none" />
-
+      <footer className="alsaeedi-footer-shell alsaeedi-reveal text-slate-900 pt-10 pb-28 md:pb-14 relative overflow-hidden select-none bg-white">
         {/* Inner Container */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12 relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10 relative z-10">
+
+          {/* ----------------------------------------------------
+              FEATURE: LUXURY AUTOMOTIVE FOOTER SHOWCASE BANNER
+              ---------------------------------------------------- */}
+          <div className="relative overflow-hidden rounded-3xl bg-[#faf7f4] shadow-xs">
+            <div className="grid grid-cols-1 lg:grid-cols-12 items-center">
+              <div className="lg:col-span-5 p-6 sm:p-8 space-y-3.5 text-start z-10">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#915f3c] bg-[#faede4] px-3.5 py-1.5 rounded-full shadow-2xs">
+                  <Sparkles className="w-3.5 h-3.5 text-[#915f3c]" />
+                  <span>{isAr ? 'متجر السعيدي — ريادة فخامة التنجيد بمكة' : 'Al-Saeedi VIP Automotive Makkah'}</span>
+                </span>
+                <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-snug">
+                  {isAr ? 'تفصيل ليزر فاخر مطابق لمقاسات الوكالة' : 'Laser-Fit Bespoke Automotive Upholstery'}
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                  {isAr 
+                    ? 'تلابيس مقاعد ملكية وأرضيات دايموند 5D مصممة ومفصلة خصيصاً لأكثر من 400 موديل سيارة في المملكة.' 
+                    : 'Luxury custom-tailored seat covers and 5D diamond floor mats engineered for 400+ vehicle models in Saudi Arabia.'}
+                </p>
+                <div className="pt-2 flex flex-wrap items-center gap-2.5">
+                  <a
+                    href={`https://wa.me/${BLECO_STORE_INFO.whatsapp.replace(/[^0-9]/g, '')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="h-11 px-5 rounded-2xl bg-[#915f3c] hover:bg-[#7e5233] text-white text-xs font-black inline-flex items-center gap-2 shadow-xs transition-all cursor-pointer"
+                  >
+                    <MessageCircle className="w-4 h-4 text-white" />
+                    <span>{isAr ? 'استشارة فورية واتساب' : 'WhatsApp Consultation'}</span>
+                  </a>
+                  <a
+                    href={BLECO_STORE_INFO.mapUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="h-11 px-5 rounded-2xl bg-white hover:bg-[#faede4] text-[#915f3c] text-xs font-black inline-flex items-center gap-2 shadow-2xs transition-all cursor-pointer"
+                  >
+                    <MapPin className="w-4 h-4 text-[#915f3c]" />
+                    <span>{isAr ? 'موقع الفرع بمكة' : 'Makkah Showroom'}</span>
+                  </a>
+                </div>
+              </div>
+              <div className="lg:col-span-7 h-56 sm:h-64 lg:h-80 w-full overflow-hidden relative">
+                <img
+                  src="/images/alsaeedi_footer_luxury_car.jpg"
+                  alt="Al-Saeedi Luxury Automotive Upholstery"
+                  className="w-full h-full object-cover object-center"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </div>
+            </div>
+          </div>
 
           {/* ----------------------------------------------------
               FEATURE PRE-FOOTER: 4 TRUST PILLARS
               ---------------------------------------------------- */}
-          <div id="guarantees-section" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-5 sm:p-6 rounded-3xl alsaeedi-card-panel alsaeedi-reveal alsaeedi-stagger">
+          <div id="guarantees-section" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-5 sm:p-6 rounded-3xl bg-[#faf7f4] alsaeedi-reveal alsaeedi-stagger shadow-xs">
             
             {/* Pillar 1: 3D Laser Precision */}
-            <div className="flex items-start gap-3.5 p-3 rounded-2xl hover:bg-slate-50 transition-all group">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#d5a027]/20 to-[#f6c344]/10 border border-[#d5a027]/40 flex items-center justify-center text-amber-700 group-hover:scale-110 transition-transform shadow-md">
-                <Car className="w-5 h-5" />
+            <div className="flex items-start gap-3.5 p-3 rounded-2xl bg-white transition-all group shadow-2xs">
+              <div className="w-11 h-11 rounded-2xl bg-[#faede4] flex items-center justify-center text-[#915f3c] group-hover:scale-105 transition-transform shadow-2xs">
+                <Car className="w-5 h-5 text-[#915f3c]" />
               </div>
               <div className="space-y-0.5">
-                <h4 className="font-black text-sm text-amber-800">
+                <h4 className="font-extrabold text-sm text-[#915f3c]">
                   {isAr ? 'مسح ليزري ثلاثي الأبعاد 3D' : '3D Laser Precision Fit'}
                 </h4>
-                <p className="text-slate-700 text-xs leading-relaxed font-medium">
+                <p className="text-slate-600 text-xs leading-relaxed font-medium">
                   {isAr ? 'تفصيل دقيق يطابق شاسيه سيارتك بالمليمتر' : 'Engineered to exact OEM factory contours'}
                 </p>
               </div>
             </div>
 
             {/* Pillar 2: 2-Year Golden Warranty */}
-            <div className="flex items-start gap-3.5 p-3 rounded-2xl hover:bg-slate-50 transition-all group">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#d5a027]/20 to-[#f6c344]/10 border border-[#d5a027]/40 flex items-center justify-center text-amber-700 group-hover:scale-110 transition-transform shadow-md">
-                <ShieldCheck className="w-5 h-5" />
+            <div className="flex items-start gap-3.5 p-3 rounded-2xl bg-white transition-all group shadow-2xs">
+              <div className="w-11 h-11 rounded-2xl bg-[#faede4] flex items-center justify-center text-[#915f3c] group-hover:scale-105 transition-transform shadow-2xs">
+                <ShieldCheck className="w-5 h-5 text-[#915f3c]" />
               </div>
               <div className="space-y-0.5">
-                <h4 className="font-black text-sm text-amber-800">
+                <h4 className="font-extrabold text-sm text-[#915f3c]">
                   {isAr ? 'ضمان ذهبي سنتين كاملتين' : '2-Year Golden Warranty'}
                 </h4>
-                <p className="text-slate-700 text-xs leading-relaxed font-medium">
+                <p className="text-slate-600 text-xs leading-relaxed font-medium">
                   {isAr ? 'ضمان شامل للخياطة ومقاومة التقشر والبهتان' : 'Covers stitching, UV resistance & peeling'}
                 </p>
               </div>
             </div>
 
             {/* Pillar 3: Kingdom-Wide Delivery */}
-            <div className="flex items-start gap-3.5 p-3 rounded-2xl hover:bg-slate-50 transition-all group">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#d5a027]/20 to-[#f6c344]/10 border border-[#d5a027]/40 flex items-center justify-center text-amber-700 group-hover:scale-110 transition-transform shadow-md">
-                <Truck className="w-5 h-5" />
+            <div className="flex items-start gap-3.5 p-3 rounded-2xl bg-white transition-all group shadow-2xs">
+              <div className="w-11 h-11 rounded-2xl bg-[#faede4] flex items-center justify-center text-[#915f3c] group-hover:scale-105 transition-transform shadow-2xs">
+                <Truck className="w-5 h-5 text-[#915f3c]" />
               </div>
               <div className="space-y-0.5">
-                <h4 className="font-black text-sm text-amber-800">
+                <h4 className="font-extrabold text-sm text-[#915f3c]">
                   {isAr ? 'شحن سريع لكافة مناطق المملكة' : 'Kingdom-Wide Shipping'}
                 </h4>
-                <p className="text-slate-700 text-xs leading-relaxed font-medium">
+                <p className="text-slate-600 text-xs leading-relaxed font-medium">
                   {isAr ? 'توصيل خلال 24-48 ساعة داخل مكة وجدة' : 'Express door-to-door delivery with tracking'}
                 </p>
               </div>
             </div>
 
             {/* Pillar 4: Flexible Split Payments */}
-            <div className="flex items-start gap-3.5 p-3 rounded-2xl hover:bg-slate-50 transition-all group">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#d5a027]/20 to-[#f6c344]/10 border border-[#d5a027]/40 flex items-center justify-center text-amber-700 group-hover:scale-110 transition-transform shadow-md">
-                <CreditCard className="w-5 h-5" />
+            <div className="flex items-start gap-3.5 p-3 rounded-2xl bg-white transition-all group shadow-2xs">
+              <div className="w-11 h-11 rounded-2xl bg-[#faede4] flex items-center justify-center text-[#915f3c] group-hover:scale-105 transition-transform shadow-2xs">
+                <CreditCard className="w-5 h-5 text-[#915f3c]" />
               </div>
               <div className="space-y-0.5">
-                <h4 className="font-black text-sm text-amber-800">
+                <h4 className="font-extrabold text-sm text-[#915f3c]">
                   {isAr ? 'تقسيط ميسر 0% فوائد' : '0% Interest Installments'}
                 </h4>
-                <p className="text-slate-700 text-xs leading-relaxed font-medium">
+                <p className="text-slate-600 text-xs leading-relaxed font-medium">
                   {isAr ? 'قسّم فاتورتك على 4 دفعات عبر تابي وتمارا' : 'Split into 4 easy monthly payments via Tabby & Tamara'}
                 </p>
               </div>
@@ -404,9 +424,9 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
           {/* ----------------------------------------------------
               SECTION: INTERACTIVE BACK-TO-TOP BAR
               ---------------------------------------------------- */}
-          <div className="flex items-center justify-between border-y border-slate-300/80 py-3 text-xs">
+          <div className="flex items-center justify-between py-2 text-xs">
             <div className="flex items-center gap-2 text-slate-800">
-              <Sparkles className="w-4 h-4 text-amber-700 shrink-0" />
+              <Sparkles className="w-4 h-4 text-[#915f3c] shrink-0" />
               <span className="font-extrabold">
                 {isAr ? 'متجر السعيدي — ريادة فخامة التنجيد وحماية مقاعد وأرضيات السيارات بالمملكة' : 'Al-Saeedi Store — Premier Saudi Luxury Automotive Upholstery'}
               </span>
@@ -414,7 +434,7 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
 
             <button
               onClick={scrollToTop}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white border border-slate-300 hover:bg-[#d5a027] hover:border-[#d5a027] text-slate-900 font-bold text-xs transition-all duration-200 cursor-pointer shadow group"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-[#faede4] hover:bg-[#915f3c] text-[#915f3c] hover:text-white font-black text-xs transition-all duration-200 cursor-pointer shadow-2xs group"
             >
               <span>{isAr ? 'العودة للأعلى' : 'Back to top'}</span>
               <ArrowUp className="w-3.5 h-3.5 group-hover:-translate-y-0.5 transition-transform" />
@@ -432,7 +452,7 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
                 onClick={onNavigateHome}
                 className="cursor-pointer inline-flex items-center gap-3 group"
               >
-                <div className="p-1 rounded-2xl bg-white border border-[#d5a027]/40 group-hover:border-[#f6c344] transition-colors shadow-lg">
+                <div className="p-1 rounded-2xl bg-white shadow-2xs">
                   <img 
                     src={BLECO_STORE_INFO.logo} 
                     alt={storeDisplayName} 
@@ -440,16 +460,16 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
                   />
                 </div>
                 <div>
-                  <h3 className="font-black text-lg text-amber-700 tracking-wide leading-tight group-hover:text-amber-600 transition-colors">
+                  <h3 className="font-black text-lg text-[#915f3c] tracking-wide leading-tight group-hover:text-[#7e5233] transition-colors">
                     {storeDisplayName}
                   </h3>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-700">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
                     {isAr ? 'تنجيد مكة الفاخر — أرضيات دايموند وليزر' : 'Luxury Automotive Seat Covers & 5D Mats'}
                   </span>
                 </div>
               </div>
 
-              <p className="text-slate-700 text-xs leading-relaxed font-medium">
+              <p className="text-slate-600 text-xs leading-relaxed font-medium">
                 {isAr ? BLECO_STORE_INFO.taglineAr : BLECO_STORE_INFO.taglineEn}
               </p>
 
@@ -459,7 +479,7 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
                 <CommercialRegistrationBadge isAr={isAr} />
               </div>
 
-              {/* Social Channels — dark glyphs on white/gold so they stay readable on light footer */}
+              {/* Social Channels */}
               <div className="pt-2 space-y-2">
                 <p className="text-[11px] font-extrabold text-slate-800">
                   {isAr ? 'تابعونا على منصات التواصل الاجتماعي:' : 'Connect with us:'}
@@ -469,7 +489,7 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
                     href={BLECO_STORE_INFO.social.instagram}
                     target="_blank"
                     rel="noreferrer"
-                    className="w-9 h-9 rounded-full bg-white border border-[#d5a027]/55 hover:bg-gradient-to-tr hover:from-amber-500 hover:to-rose-500 text-slate-900 hover:text-white flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-md"
+                    className="w-9 h-9 rounded-2xl bg-[#faede4] hover:bg-[#915f3c] text-[#915f3c] hover:text-white flex items-center justify-center transition-all duration-200 shadow-2xs hover:scale-105"
                     aria-label="Instagram"
                     title="Instagram @makkah8cars"
                   >
@@ -482,7 +502,7 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
                     href={BLECO_STORE_INFO.social.tiktok}
                     target="_blank"
                     rel="noreferrer"
-                    className="w-9 h-9 rounded-full bg-white border border-[#d5a027]/55 hover:bg-black text-slate-900 hover:text-white flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-md"
+                    className="w-9 h-9 rounded-2xl bg-[#faede4] hover:bg-[#915f3c] text-[#915f3c] hover:text-white flex items-center justify-center transition-all duration-200 shadow-2xs hover:scale-105"
                     aria-label="TikTok"
                     title="TikTok @makkah8cars"
                   >
@@ -495,7 +515,7 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
                     href={BLECO_STORE_INFO.social.snapchat}
                     target="_blank"
                     rel="noreferrer"
-                    className="w-9 h-9 rounded-full bg-white border border-[#d5a027]/55 hover:bg-[#FFFC00] text-slate-900 flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-md"
+                    className="w-9 h-9 rounded-2xl bg-[#faede4] hover:bg-[#915f3c] text-[#915f3c] hover:text-white flex items-center justify-center transition-all duration-200 shadow-2xs hover:scale-105"
                     aria-label="Snapchat"
                     title="Snapchat @makkah8cars"
                   >
@@ -508,7 +528,7 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
                     href={`https://wa.me/${BLECO_STORE_INFO.whatsapp.replace(/[^0-9]/g, '')}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="w-9 h-9 rounded-full bg-white border border-[#d5a027]/55 hover:bg-[#25D366] text-slate-900 hover:text-white flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-md"
+                    className="w-9 h-9 rounded-2xl bg-[#faede4] hover:bg-[#915f3c] text-[#915f3c] hover:text-white flex items-center justify-center transition-all duration-200 shadow-2xs hover:scale-105"
                     aria-label={isAr ? 'واتساب مباشر' : 'Direct WhatsApp'}
                     title={isAr ? 'واتساب مباشر' : 'Direct WhatsApp'}
                   >
@@ -519,7 +539,7 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
                     href={BLECO_STORE_INFO.mapUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="w-9 h-9 rounded-full bg-white border border-[#d5a027]/55 hover:bg-[#d5a027] text-slate-900 flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-md"
+                    className="w-9 h-9 rounded-2xl bg-[#faede4] hover:bg-[#915f3c] text-[#915f3c] hover:text-white flex items-center justify-center transition-all duration-200 shadow-2xs hover:scale-105"
                     aria-label={isAr ? 'موقع المعرض على الخريطة' : 'Google Maps Showroom'}
                     title={isAr ? 'موقع المعرض على الخريطة' : 'Google Maps Showroom'}
                   >
@@ -531,8 +551,8 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
 
             {/* Col 2: Quick Links (Col span 2) */}
             <div className="lg:col-span-2 space-y-3">
-              <h4 className="text-xs sm:text-sm font-black text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
-                <Compass className="w-4 h-4 text-[#d5a027]" />
+              <h4 className="text-xs sm:text-sm font-black text-[#915f3c] uppercase tracking-wider flex items-center gap-1.5">
+                <Compass className="w-4 h-4 text-[#915f3c]" />
                 <span>{isAr ? 'روابط المتجر' : 'Quick Links'}</span>
               </h4>
               <ul className="space-y-2 text-xs text-slate-800 font-semibold">
@@ -543,9 +563,9 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
                       onNavigateHome?.();
                       scrollToTop();
                     }}
-                    className="hover:text-amber-800 transition-colors cursor-pointer flex items-center gap-1.5"
+                    className="hover:text-[#915f3c] transition-colors cursor-pointer flex items-center gap-1.5"
                   >
-                    <span className="text-[#d5a027]">•</span>
+                    <span className="text-[#915f3c]">•</span>
                     <span>{isAr ? 'الرئيسية' : 'Home'}</span>
                   </button>
                 </li>
@@ -556,9 +576,9 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
                       onNavigateCatalog?.();
                       scrollToTop();
                     }}
-                    className="hover:text-amber-800 transition-colors cursor-pointer flex items-center gap-1.5"
+                    className="hover:text-[#915f3c] transition-colors cursor-pointer flex items-center gap-1.5"
                   >
-                    <span className="text-[#d5a027]">•</span>
+                    <span className="text-[#915f3c]">•</span>
                     <span>{isAr ? 'كتالوج المنتجات' : 'All Products'}</span>
                   </button>
                 </li>
@@ -566,9 +586,9 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
                   <a
                     href="#floor-mats-section"
                     onClick={() => onNavigateHome?.()}
-                    className="hover:text-amber-800 transition-colors cursor-pointer flex items-center gap-1.5"
+                    className="hover:text-[#915f3c] transition-colors cursor-pointer flex items-center gap-1.5"
                   >
-                    <span className="text-[#d5a027]">•</span>
+                    <span className="text-[#915f3c]">•</span>
                     <span>{isAr ? 'أرضيات 5D والليزر' : 'Floor Mats'}</span>
                   </a>
                 </li>
@@ -576,9 +596,9 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
                   <a
                     href="#featured-seats-section"
                     onClick={() => onNavigateHome?.()}
-                    className="hover:text-amber-800 transition-colors cursor-pointer flex items-center gap-1.5"
+                    className="hover:text-[#915f3c] transition-colors cursor-pointer flex items-center gap-1.5"
                   >
-                    <span className="text-[#d5a027]">•</span>
+                    <span className="text-[#915f3c]">•</span>
                     <span>{isAr ? 'تلابيس المقاعد الفاخرة' : 'Custom Seat Covers'}</span>
                   </a>
                 </li>
@@ -589,9 +609,9 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
                       onNavigateHome?.();
                       onOpenReviews?.();
                     }}
-                    className="hover:text-amber-800 transition-colors cursor-pointer flex items-center gap-1.5"
+                    className="hover:text-[#915f3c] transition-colors cursor-pointer flex items-center gap-1.5"
                   >
-                    <span className="text-[#d5a027]">•</span>
+                    <span className="text-[#915f3c]">•</span>
                     <span>{isAr ? 'آراء وتقييمات العملاء' : 'Customer Reviews'}</span>
                   </a>
                 </li>
@@ -602,9 +622,9 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
                       onNavigateHome?.();
                       onOpenFaq?.();
                     }}
-                    className="hover:text-amber-800 transition-colors cursor-pointer flex items-center gap-1.5"
+                    className="hover:text-[#915f3c] transition-colors cursor-pointer flex items-center gap-1.5"
                   >
-                    <span className="text-[#d5a027]">•</span>
+                    <span className="text-[#915f3c]">•</span>
                     <span>{isAr ? 'حجز موعد / مساعدة' : 'Book / Help'}</span>
                   </a>
                 </li>
@@ -613,8 +633,8 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
 
             {/* Col 3: Categories & Guides (Col span 2) */}
             <div className="lg:col-span-2 space-y-3">
-              <h4 className="text-xs sm:text-sm font-black text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
-                <Layers className="w-4 h-4 text-[#d5a027]" />
+              <h4 className="text-xs sm:text-sm font-black text-[#915f3c] uppercase tracking-wider flex items-center gap-1.5">
+                <Layers className="w-4 h-4 text-[#915f3c]" />
                 <span>{isAr ? 'أقسامنا الرئيسية' : 'Core Categories'}</span>
               </h4>
               <ul className="space-y-2 text-xs text-slate-800 font-semibold">
@@ -628,9 +648,9 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
                         const el = document.getElementById('catalog-view-top');
                         if (el) el.scrollIntoView({ behavior: 'smooth' });
                       }}
-                      className="hover:text-amber-800 transition-colors cursor-pointer text-start flex items-center gap-1.5"
+                      className="hover:text-[#915f3c] transition-colors cursor-pointer text-start flex items-center gap-1.5"
                     >
-                      <span className="text-[#d5a027]">•</span>
+                      <span className="text-[#915f3c]">•</span>
                       <span>{isAr ? cat.nameAr : cat.nameEn}</span>
                     </button>
                   </li>
@@ -643,9 +663,9 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
                         onOpenBlog?.(BLECO_BLOG_POSTS[0]);
                       }
                     }}
-                    className="hover:text-amber-900 transition-colors cursor-pointer text-start flex items-center gap-1.5 text-amber-800 font-extrabold"
+                    className="hover:text-[#7e5233] transition-colors cursor-pointer text-start flex items-center gap-1.5 text-[#915f3c] font-extrabold"
                   >
-                    <Star className="w-3 h-3 text-amber-700 fill-[#f6c344]" />
+                    <Star className="w-3 h-3 text-[#915f3c] fill-[#915f3c]" />
                     <span>{isAr ? 'دليل العناية بالسيارات' : 'Car Care Guide'}</span>
                   </button>
                 </li>
@@ -654,17 +674,17 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
 
             {/* Col 4: Showroom & Working Hours (Col span 2) */}
             <div className="lg:col-span-2 space-y-3">
-              <h4 className="text-xs sm:text-sm font-black text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
-                <MapPin className="w-4 h-4 text-[#d5a027]" />
+              <h4 className="text-xs sm:text-sm font-black text-[#915f3c] uppercase tracking-wider flex items-center gap-1.5">
+                <MapPin className="w-4 h-4 text-[#915f3c]" />
                 <span>{isAr ? 'معرضنا بمكة' : 'Showroom'}</span>
               </h4>
               <div className="space-y-2 text-xs text-slate-800 font-medium">
-                <p className="leading-relaxed text-[11px] text-slate-800">
+                <p className="leading-relaxed text-[11px] text-slate-700">
                   {isAr ? BLECO_STORE_INFO.addressAr : BLECO_STORE_INFO.addressEn}
                 </p>
 
                 {/* Live Working Hours Status */}
-                <div className="p-2.5 rounded-xl bg-white border border-[#d5a027]/35 shadow-sm space-y-1">
+                <div className="p-3 rounded-2xl bg-[#faf7f4] shadow-2xs space-y-1">
                   <div className="flex items-center gap-1.5 text-emerald-700 font-extrabold text-[10px]">
                     <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse inline-block" />
                     <span>{isAr ? 'مفتوح لاستقبالكم' : 'Open for Visits'}</span>
@@ -680,7 +700,7 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
                     href={BLECO_STORE_INFO.mapUrl} 
                     target="_blank" 
                     rel="noreferrer" 
-                    className="text-amber-800 hover:text-slate-950 font-extrabold text-[11px] inline-flex items-center gap-1 transition-colors"
+                    className="text-[#915f3c] hover:text-[#7e5233] font-extrabold text-[11px] inline-flex items-center gap-1 transition-colors"
                   >
                     <ExternalLink className="w-3 h-3" />
                     <span>{isAr ? 'الاتجاهات عبر خرائط جوجل' : 'Open in Google Maps'}</span>
@@ -688,7 +708,7 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
 
                   <a 
                     href={`tel:${BLECO_STORE_INFO.phone}`} 
-                    className="text-slate-800 hover:text-amber-800 font-mono text-[11px] font-bold inline-flex items-center gap-1 transition-colors"
+                    className="text-slate-800 hover:text-[#915f3c] font-mono text-[11px] font-bold inline-flex items-center gap-1 transition-colors"
                   >
                     <Phone className="w-3 h-3 text-emerald-700" />
                     <span>{BLECO_STORE_INFO.phone}</span>
@@ -699,12 +719,12 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
 
             {/* Col 5: VIP Club Newsletter (Col span 2) */}
             <div className="lg:col-span-2 space-y-3">
-              <h4 className="text-xs sm:text-sm font-black text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-[#d5a027]" />
+              <h4 className="text-xs sm:text-sm font-black text-[#915f3c] uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-[#915f3c]" />
                 <span>{isAr ? 'نادي النخبة كبار العملاء' : 'VIP Club'}</span>
               </h4>
               
-              <p className="text-[11px] text-slate-800 leading-relaxed font-medium">
+              <p className="text-[11px] text-slate-700 leading-relaxed font-medium">
                 {isAr 
                   ? 'انضم للنخبة لتصلك أحدث العروض الحصرية وكود خصم 10% فوري.' 
                   : 'Subscribe for exclusive drops and get instant 10% OFF your order.'}
@@ -718,20 +738,20 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
                     value={newsletterEmail}
                     onChange={(e) => setNewsletterEmail(e.target.value)}
                     placeholder={isAr ? 'أدخل بريدك الإلكتروني' : 'Enter your email'}
-                    className="w-full px-3 py-2 text-xs rounded-xl bg-white border border-slate-300 text-slate-900 placeholder:text-slate-500 focus:outline-none focus:border-[#d5a027] focus:ring-2 focus:ring-[#d5a027]/25 transition-colors shadow-sm"
+                    className="w-full px-3.5 py-2.5 text-xs rounded-2xl bg-[#faf7f4] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#915f3c]/25 transition-all shadow-2xs"
                   />
                 </div>
                 <button
                   type="submit"
-                  className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-[#d5a027] to-[#f6c344] text-slate-950 font-black text-xs hover:brightness-110 active:scale-95 transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                  className="w-full h-11 rounded-2xl bg-[#915f3c] hover:bg-[#7e5233] text-white text-xs font-black flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-[0.98] transition-all"
                 >
-                  <Send className="w-3 h-3" />
+                  <Send className="w-3.5 h-3.5 text-white" />
                   <span>{isAr ? 'اشتراك بالعروض' : 'Join VIP Club'}</span>
                 </button>
               </form>
 
               {newsletterSuccess && (
-                <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-600/40 text-emerald-800 text-[10px] font-bold flex items-center gap-1.5 animate-fadeIn">
+                <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-800 text-[10px] font-bold flex items-center gap-1.5 shadow-2xs animate-fadeIn">
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-700" />
                   <span>{isAr ? 'تم انضمامك بنجاح! كود الخصم: VIP10' : 'Joined successfully! Code: VIP10'}</span>
                 </div>
@@ -743,13 +763,13 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
           {/* ----------------------------------------------------
               SECTION: LICENSED SAUDI PAYMENT CHANNELS
               ---------------------------------------------------- */}
-          <div className="pt-8 border-t border-slate-300/80 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="space-y-1 text-center md:text-start">
-              <h5 className="font-black text-xs text-amber-800 flex items-center justify-center md:justify-start gap-1.5">
+              <h5 className="font-black text-xs text-[#915f3c] flex items-center justify-center md:justify-start gap-1.5">
                 <Lock className="w-3.5 h-3.5 text-emerald-700" />
                 <span>{isAr ? 'طرق الدفع الآمنة والمعتمدة بالمملكة' : 'Secure & Certified Payment Methods'}</span>
               </h5>
-              <p className="text-[10px] text-slate-700 font-semibold">
+              <p className="text-[10px] text-slate-600 font-semibold">
                 {isAr ? 'دفع إلكتروني مشفر 256-bit خاضع للبنك المركزي السعودي (ساما)' : '256-bit encrypted checkout compliant with Saudi Central Bank (SAMA)'}
               </p>
             </div>
@@ -761,7 +781,7 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
               <CardNetworkBadge className="h-6" />
               <TabbyBadge className="h-6" />
               <TamaraBadge className="h-6" />
-              <div className="bg-white px-2.5 py-1 rounded-md text-[10px] font-extrabold text-slate-900 border border-slate-300 shadow-sm">
+              <div className="bg-white px-3 py-1.5 rounded-xl text-[10px] font-extrabold text-slate-900 shadow-2xs">
                 {isAr ? 'الدفع عند الاستلام' : 'Cash on Delivery'}
               </div>
             </div>
@@ -770,18 +790,18 @@ const AlsaeediLuxuryFooterComponent: React.FC<AlsaeediLuxuryFooterProps> = ({
           {/* ----------------------------------------------------
               BOTTOM COPYRIGHT & NATIONAL EMBLEM BAR
               ---------------------------------------------------- */}
-          <div className="pt-6 border-t border-slate-300/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-800">
+          <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-700">
             <p className="text-center sm:text-start font-semibold">
               © {new Date().getFullYear()} {storeDisplayName}. {isAr ? 'جميع الحقوق محفوظة.' : 'All rights reserved.'}
             </p>
 
-            <div className="flex items-center gap-2 text-slate-800">
+            <div className="flex items-center gap-2 text-slate-700">
               <span className="text-[10px] font-semibold">
                 {isAr ? 'تنجيد مكة الفاخر للأرضيات والمقاعد' : 'Luxury Automotive Upholstery Makkah'}
               </span>
-              <span className="text-[#d5a027]">•</span>
-              <span className="inline-flex items-center gap-1.5 font-extrabold text-amber-900 text-[10px]">
-                <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
+              <span className="text-[#915f3c]">•</span>
+              <span className="inline-flex items-center gap-1.5 font-extrabold text-[#915f3c] text-[10px]">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#915f3c]" />
                 <span>{isAr ? 'صُنع بكل فخر وإتقان في المملكة العربية السعودية' : 'Crafted with pride & precision in Saudi Arabia'}</span>
               </span>
             </div>

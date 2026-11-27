@@ -46,7 +46,7 @@ const CoreTwoCategoriesSectionComponent: React.FC<CoreTwoCategoriesSectionProps>
           onClick={() => onSelectCategory('cat-clothing')}
           className={`group relative h-[280px] sm:h-[320px] md:h-[360px] overflow-hidden rounded-3xl cursor-pointer alsaeedi-anim-lift shadow-md ${
             activeCategoryId === 'cat-clothing' 
-              ? 'ring-4 ring-[#915f3c]' 
+              ? 'scale-[1.01] shadow-xl' 
               : 'hover:shadow-xl'
           }`}
         >
@@ -64,10 +64,10 @@ const CoreTwoCategoriesSectionComponent: React.FC<CoreTwoCategoriesSectionProps>
 
           {/* Top Floating Badges */}
           <div className="absolute top-4 inset-x-4 z-20 flex items-center justify-between">
-            <span className="bg-black/45 backdrop-blur-md text-amber-300 text-[11px] font-bold px-3 py-1 rounded-full border border-white/15">
+            <span className="bg-black/55 backdrop-blur-md text-[#faede4] text-[11px] font-bold px-3 py-1 rounded-full shadow-2xs">
               {isAr ? 'جلد نابا ألماني' : 'German Nappa'}
             </span>
-            <span className="bg-[#f6c344] text-slate-900 text-[11px] font-black px-3 py-1 rounded-full shadow-lg flex items-center gap-1">
+            <span className="bg-[#915f3c] text-white text-[11px] font-black px-3.5 py-1 rounded-full shadow-xs flex items-center gap-1">
               <Award className="w-3.5 h-3.5" />
               <span>{isAr ? 'الأكثر مبيعاً' : 'Best Seller'}</span>
             </span>
@@ -93,14 +93,14 @@ const CoreTwoCategoriesSectionComponent: React.FC<CoreTwoCategoriesSectionProps>
               </h4>
             </div>
 
-            <div className="pt-3 border-t border-white/15 flex items-center justify-between">
+            <div className="pt-2 flex items-center justify-between">
               <div className="flex items-baseline gap-1.5">
                 <span className="text-[11px] text-white/60">{isAr ? 'من' : 'From'}</span>
-                <span className="text-xl sm:text-2xl font-black text-[#f6c344]">390</span>
+                <span className="text-xl sm:text-2xl font-black text-[#faede4]">390</span>
                 <span className="text-xs font-bold text-white/80">{'⃁'}</span>
               </div>
 
-              <div className="px-4 py-2 bg-white text-slate-900 group-hover:bg-[#f6c344] font-black text-xs rounded-xl flex items-center gap-1.5 shadow-lg transition-all duration-300">
+              <div className="px-4 py-2.5 bg-[#915f3c] hover:bg-[#7e5233] text-white font-black text-xs rounded-2xl flex items-center gap-1.5 shadow-xs transition-all duration-300">
                 <span>{isAr ? 'تصفح الآن' : 'Shop Covers'}</span>
                 {isAr ? (
                   <ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
@@ -117,7 +117,7 @@ const CoreTwoCategoriesSectionComponent: React.FC<CoreTwoCategoriesSectionProps>
           onClick={() => onSelectCategory('cat-floors')}
           className={`group relative h-[280px] sm:h-[320px] md:h-[360px] overflow-hidden rounded-3xl cursor-pointer alsaeedi-anim-lift shadow-md ${
             activeCategoryId === 'cat-floors' 
-              ? 'ring-4 ring-[#915f3c]' 
+              ? 'scale-[1.01] shadow-xl' 
               : 'hover:shadow-xl'
           }`}
         >
@@ -135,10 +135,10 @@ const CoreTwoCategoriesSectionComponent: React.FC<CoreTwoCategoriesSectionProps>
 
           {/* Top Floating Badges */}
           <div className="absolute top-4 inset-x-4 z-20 flex items-center justify-between">
-            <span className="bg-black/45 backdrop-blur-md text-amber-300 text-[11px] font-bold px-3 py-1 rounded-full border border-white/15">
+            <span className="bg-black/55 backdrop-blur-md text-[#faede4] text-[11px] font-bold px-3 py-1 rounded-full shadow-2xs">
               {isAr ? '5 طبقات عزل' : '5-Layer Armor'}
             </span>
-            <span className="bg-emerald-500 text-slate-950 text-[11px] font-black px-3 py-1 rounded-full shadow-lg flex items-center gap-1">
+            <span className="bg-emerald-600 text-white text-[11px] font-black px-3.5 py-1 rounded-full shadow-xs flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>{isAr ? 'حماية 100%' : '100% Waterproof'}</span>
             </span>
@@ -164,14 +164,14 @@ const CoreTwoCategoriesSectionComponent: React.FC<CoreTwoCategoriesSectionProps>
               </h4>
             </div>
 
-            <div className="pt-3 border-t border-white/15 flex items-center justify-between">
+            <div className="pt-2 flex items-center justify-between">
               <div className="flex items-baseline gap-1.5">
                 <span className="text-[11px] text-white/60">{isAr ? 'من' : 'From'}</span>
-                <span className="text-xl sm:text-2xl font-black text-[#f6c344]">290</span>
+                <span className="text-xl sm:text-2xl font-black text-[#faede4]">290</span>
                 <span className="text-xs font-bold text-white/80">{'⃁'}</span>
               </div>
 
-              <div className="px-4 py-2 bg-[#f6c344] text-slate-900 group-hover:bg-white font-black text-xs rounded-xl flex items-center gap-1.5 shadow-lg transition-all duration-300">
+              <div className="px-4 py-2.5 bg-[#915f3c] hover:bg-[#7e5233] text-white font-black text-xs rounded-2xl flex items-center gap-1.5 shadow-xs transition-all duration-300">
                 <span>{isAr ? 'تصفح الأرضيات' : 'Explore Mats'}</span>
                 {isAr ? (
                   <ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />

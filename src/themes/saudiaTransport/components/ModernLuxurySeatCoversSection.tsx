@@ -439,16 +439,16 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
                   </div>
                 </div>
 
-                <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                <div className="mt-3 flex items-center justify-between gap-2 pt-3">
                   <div className="min-w-0">
                     <div className="flex items-baseline gap-1">
                       <span className="text-lg font-black text-slate-900">{finalPrice}</span>
-                      <span className="text-[11px] font-black text-amber-700">⃁</span>
+                      <span className="text-[11px] font-black text-[#915f3c]">⃁</span>
                     </div>
                     {hasDiscount && (
                       <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                         <span className="text-[10px] text-slate-400 line-through">{liveProduct.originalPrice} ⃁</span>
-                        <span className="rounded border border-rose-200 bg-rose-50 px-1 text-[9px] font-bold text-rose-600">
+                        <span className="rounded-md bg-rose-50 px-1.5 py-0.5 text-[9px] font-bold text-rose-600">
                           {isAr ? `خصم ${discountPct}%` : `-${discountPct}%`}
                         </span>
                       </div>
@@ -459,7 +459,7 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
                     <button
                       type="button"
                       onClick={() => onSelectProduct(liveProduct, currentImage, activeColor)}
-                      className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-amber-200 bg-amber-50 text-amber-800 transition hover:bg-amber-100"
+                      className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-2xl bg-[#faede4] text-[#915f3c] transition hover:bg-[#915f3c] hover:text-white shadow-2xs"
                       title={isAr ? 'تخصيص' : 'Customize'}
                       aria-label={isAr ? 'تخصيص' : 'Customize'}
                     >
@@ -473,7 +473,7 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
                           : `Hello Al-Saeedi, seat cover inquiry:\n*Product:* ${liveProduct.nameEn || liveProduct.name}\n*Color:* ${activeColor?.nameEn || ''}\n*Price:* ${finalPrice} SAR`;
                         onOpenWhatsApp(liveProduct, activeColor, finalPrice, customMsg);
                       }}
-                      className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl bg-emerald-600 text-white transition hover:bg-emerald-500"
+                      className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-2xl bg-emerald-600 text-white transition hover:bg-emerald-500 shadow-2xs"
                       title={isAr ? 'واتساب' : 'WhatsApp'}
                       aria-label={isAr ? 'واتساب' : 'WhatsApp'}
                     >
@@ -482,18 +482,18 @@ const ModernLuxurySeatCoversSectionComponent: React.FC<ModernLuxurySeatCoversSec
                     <button
                       type="button"
                       onClick={() => handleAddToCartWithFeedback(liveProduct, activeColor)}
-                      className={`inline-flex h-9 min-w-9 cursor-pointer items-center justify-center gap-1 rounded-xl px-2.5 text-[11px] font-black transition ${
+                      className={`inline-flex h-9 min-w-9 cursor-pointer items-center justify-center gap-1 rounded-2xl px-3 text-[11px] font-black transition shadow-2xs ${
                         addedAnimationId === liveProduct.id
                           ? 'bg-emerald-600 text-white'
-                          : 'bg-slate-900 text-white hover:bg-slate-800'
+                          : 'bg-[#915f3c] text-white hover:bg-[#7e5233]'
                       }`}
                       title={isAr ? 'إضافة للسلة' : 'Add to cart'}
                       aria-label={isAr ? 'إضافة للسلة' : 'Add to cart'}
                     >
                       {addedAnimationId === liveProduct.id ? (
-                        <Check className="h-4 w-4" />
+                        <Check className="h-4 w-4 text-white" />
                       ) : (
-                        <Plus className="h-4 w-4 text-[#f6c344]" />
+                        <Plus className="h-4 w-4 text-white" />
                       )}
                     </button>
                   </div>

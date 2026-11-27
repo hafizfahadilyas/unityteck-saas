@@ -108,8 +108,8 @@ const ModernLuxuryFloorMatsSectionComponent: React.FC<ModernLuxuryFloorMatsSecti
                   </span>
 
                   <div className="absolute inset-0 bg-slate-950/35 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex items-center justify-center p-3">
-                    <span className="bg-[#f6c344] text-slate-950 px-3.5 py-1.5 rounded-full text-xs font-black flex items-center gap-1.5 shadow-lg">
-                      <SlidersHorizontal className="w-3.5 h-3.5 text-slate-950" />
+                    <span className="bg-[#915f3c] text-white px-3.5 py-1.5 rounded-2xl text-xs font-black flex items-center gap-1.5 shadow-lg">
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-white" />
                       <span>{isAr ? 'تخصيص' : 'Customize'}</span>
                     </span>
                   </div>
@@ -118,7 +118,7 @@ const ModernLuxuryFloorMatsSectionComponent: React.FC<ModernLuxuryFloorMatsSecti
                 <div className="mt-3 space-y-1.5">
                   <h4 
                     onClick={() => onSelectMat(mat)}
-                    className="font-black text-xs sm:text-sm text-slate-900 group-hover:text-[#d5a027] transition-colors cursor-pointer line-clamp-1"
+                    className="font-black text-xs sm:text-sm text-slate-900 group-hover:text-[#915f3c] transition-colors cursor-pointer line-clamp-1"
                     title={isAr ? mat.nameAr : mat.nameEn}
                   >
                     {isAr ? mat.nameAr : mat.nameEn}
@@ -135,11 +135,11 @@ const ModernLuxuryFloorMatsSectionComponent: React.FC<ModernLuxuryFloorMatsSecti
                 </div>
               </div>
 
-              <div className="relative z-10 mt-2 flex items-center justify-between gap-1.5 border-t border-slate-100 pt-2.5 sm:pt-3">
+              <div className="relative z-10 mt-2 flex items-center justify-between gap-1.5 pt-2.5 sm:pt-3">
                 <div className="min-w-0">
                   <div className="flex items-baseline">
                     <span className="text-sm font-black text-slate-900 sm:text-base">{mat.price}</span>
-                    <span className="mx-1 text-[10px] font-black text-[#d5a027] sm:text-[11px]">{'⃁'}</span>
+                    <span className="mx-1 text-[10px] font-black text-[#915f3c] sm:text-[11px]">{'⃁'}</span>
                   </div>
                   {mat.originalPrice && mat.originalPrice > mat.price && (
                     <span className="block text-[10px] font-medium text-slate-400 line-through">
@@ -152,9 +152,9 @@ const ModernLuxuryFloorMatsSectionComponent: React.FC<ModernLuxuryFloorMatsSecti
                   <button
                     type="button"
                     onClick={() => onSelectMat(mat)}
-                    className="inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-1.5 text-[10px] font-black shadow-md transition-transform active:scale-95 btn-bashayer-gold sm:px-3.5 sm:text-xs"
+                    className="inline-flex cursor-pointer items-center gap-1 rounded-2xl px-3 py-1.5 text-[10px] font-black shadow-xs transition-transform active:scale-95 bg-[#915f3c] hover:bg-[#7e5233] text-white sm:px-3.5 sm:text-xs"
                   >
-                    <Sparkles className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
+                    <Sparkles className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5 text-white" aria-hidden="true" />
                     <span className="whitespace-nowrap">{isAr ? 'تخصيص' : 'Customize'}</span>
                   </button>
 
