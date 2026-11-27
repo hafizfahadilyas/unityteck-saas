@@ -48,6 +48,7 @@ import {
 } from '../../data/storeGoogleFontsCatalog';
 import {
   resolveDesignTitle,
+  resolveTemplatePreviewUrl,
   detectTemplateLanguage,
   hasArabicChars,
 } from '../../services/canvaTemplateTitles';
@@ -263,7 +264,7 @@ const PremadeThumb: React.FC<{
 });
 PremadeThumb.displayName = 'PremadeThumb';
 
-/** Memoized PowerPoint / Imported Template Card */
+/** Memoized Professional / Imported Template Card */
 const PptxGridCard: React.FC<{
   tpl: CanvaMyTemplate;
   isAr: boolean;
@@ -274,11 +275,12 @@ const PptxGridCard: React.FC<{
 }> = React.memo(({ tpl, isAr, isOpening, isFav, onOpen, onToggleFav }) => {
   const displayTitle = resolveDesignTitle(tpl, isAr);
   const badgeLabel =
-    tpl.source === 'pptx' || String(tpl.id).startsWith('mytpl-pptx-')
-      ? isAr ? 'شرائح' : 'PPTX'
+    tpl.source === 'pptx' || String(tpl.id).startsWith('mytpl-pptx-') || String(tpl.id).startsWith('dsd-pptx-')
+      ? isAr ? 'احترافي' : 'PRO'
       : tpl.source === 'psd'
         ? 'PSD'
-        : isAr ? 'مستورد' : 'Import';
+        : isAr ? 'قالب' : 'Template';
+  const previewSrc = resolveTemplatePreviewUrl(tpl) || tpl.previewDataUrl;
 
   return (
     <button
@@ -289,9 +291,9 @@ const PptxGridCard: React.FC<{
       style={{ contentVisibility: 'auto', containIntrinsicSize: '240px' }}
     >
       <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl ring-1 ring-black/5 bg-slate-100 shadow-sm transition-all group-hover:shadow-md">
-        {tpl.previewDataUrl ? (
+        {previewSrc ? (
           <img
-            src={tpl.previewDataUrl}
+            src={previewSrc}
             alt=""
             className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
             loading="lazy"
@@ -620,6 +622,11 @@ export const CanvaStudioHome: React.FC<Props> = ({
     el.scrollBy({ left: dir * Math.round(el.clientWidth * 0.7), behavior: 'smooth' });
   };
 
+  /** Preload heavy editor on hover so click opens with 0ms latency */
+  const handlePreloadEditor = React.useCallback(() => {
+    void import('./CanvaImageStudioModal');
+  }, []);
+
   const sectionHead = (title: string, onSeeAll?: () => void) => (
     <div className="flex items-center justify-between gap-3 mb-3">
       <h2 className="cs-canva-home-title text-lg sm:text-xl font-black tracking-tight" style={{ color: 'var(--text)' }}>
@@ -674,7 +681,7 @@ export const CanvaStudioHome: React.FC<Props> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-xl sm:text-2xl font-black tracking-tight" style={{ color: 'var(--text)' }}>
-                {isAr ? 'جميع قوالب باوربوينت والاستيراد' : 'All PowerPoint & Imported Templates'}
+                {isAr ? 'جميع القوالب والتصاميم الاحترافية' : 'All Professional Design Templates'}
               </h1>
               <p className="text-xs sm:text-sm mt-1" style={{ color: 'var(--muted)' }}>
                 {isAr
@@ -963,7 +970,7 @@ export const CanvaStudioHome: React.FC<Props> = ({
             type="button"
             onClick={() => homeImportInputRef.current?.click()}
             className="cs-canva-home-chip shrink-0 flex flex-col items-center gap-1.5 w-[4.5rem] cursor-pointer group"
-            title={isAr ? 'استيراد باوربوينت / فوتوشوب / صورة' : 'Import PPTX / PSD / image'}
+            title={isAr ? 'استيراد قالب / فوتوشوب / صورة' : 'Import Template / PSD / Image'}
           >
             <span
               className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform"
@@ -995,7 +1002,7 @@ export const CanvaStudioHome: React.FC<Props> = ({
             type="button"
             onClick={() => setViewMode('all-pptx')}
             className="cs-canva-home-chip shrink-0 flex flex-col items-center gap-1.5 w-[4.5rem] cursor-pointer group"
-            title={isAr ? 'عرض جميع قوالب باوربوينت' : 'View all PowerPoint templates'}
+            title={isAr ? 'عرض جميع القوالب الاحترافية' : 'View all professional templates'}
           >
             <span
               className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform"
@@ -1004,7 +1011,7 @@ export const CanvaStudioHome: React.FC<Props> = ({
               <Presentation className="w-5 h-5" />
             </span>
             <span className="text-[10px] font-bold truncate w-full" style={{ color: 'var(--text)' }}>
-              {isAr ? 'شرائح' : 'Slides'}
+              {isAr ? 'احترافي' : 'PRO'}
             </span>
           </button>
         </div>
@@ -1074,7 +1081,9 @@ export const CanvaStudioHome: React.FC<Props> = ({
                 key={`fy-${tpl.id}`}
                 type="button"
                 onClick={() => openPremade(tpl)}
+                onMouseEnter={handlePreloadEditor}
                 className="cs-canva-home-card snap-start shrink-0 w-[11.5rem] sm:w-[13.5rem] text-start cursor-pointer group flex flex-col min-w-0"
+                style={{ contentVisibility: 'auto', containIntrinsicSize: '216px 270px' }}
               >
                 <PremadeThumb
                   template={tpl}
@@ -1163,7 +1172,9 @@ export const CanvaStudioHome: React.FC<Props> = ({
                     key={`cont-${tpl.id}`}
                     type="button"
                     onClick={() => void openMineTemplate(tpl)}
+                    onMouseEnter={handlePreloadEditor}
                     className="text-start cursor-pointer group min-w-0"
+                    style={{ contentVisibility: 'auto', containIntrinsicSize: '160px 180px' }}
                     disabled={pptxOpeningId === tpl.id}
                   >
                     <div className="relative aspect-square rounded-xl overflow-hidden ring-1 ring-black/5 bg-slate-100">
@@ -1248,7 +1259,7 @@ export const CanvaStudioHome: React.FC<Props> = ({
             className="cs-canva-home-title text-lg sm:text-xl font-black tracking-tight"
             style={{ color: 'var(--text)' }}
           >
-            {isAr ? 'قوالب باوربوينت والاستيراد' : 'PowerPoint & imported templates'}
+            {isAr ? 'قوالب التصميم الاحترافية' : 'Professional Design Templates'}
           </h2>
           <div className="flex items-center gap-2">
             <button
@@ -1272,8 +1283,8 @@ export const CanvaStudioHome: React.FC<Props> = ({
         </div>
         <p className="text-xs mb-3 -mt-1" style={{ color: 'var(--muted)' }}>
           {isAr
-            ? 'قوالب هذا المتجر فقط — انقر للتعديل في المحرر. يمكنك أيضاً استيراد ملف عرض تقديمي أو فوتوشوب.'
-            : 'This store only — click to edit. Or import a PowerPoint / Photoshop file.'}
+            ? 'قوالب هذا المتجر فقط — انقر للتعديل في المحرر. يمكنك أيضاً استيراد ملفات التصميم الخاصة بك.'
+            : 'This store only — click to edit. Or import your own design templates.'}
         </p>
 
         {pptxHydrating && pptxDesigns.length === 0 ? (
@@ -1309,7 +1320,7 @@ export const CanvaStudioHome: React.FC<Props> = ({
               style={{ background: 'var(--accent)' }}
             >
               <Upload className="w-3.5 h-3.5" />
-              {isAr ? 'استيراد باوربوينت الآن' : 'Import PowerPoint now'}
+              {isAr ? 'استيراد قالب الآن' : 'Import template now'}
             </button>
           </div>
         ) : (
@@ -1332,27 +1343,30 @@ export const CanvaStudioHome: React.FC<Props> = ({
                 const title = resolveDesignTitle(tpl, isAr);
                 const badgeLabel =
                   tpl.source === 'pptx' || String(tpl.id).startsWith('mytpl-pptx-')
-                    ? isAr ? 'شرائح' : 'PPTX'
+                    ? isAr ? 'احترافي' : 'PRO'
                     : tpl.source === 'psd'
                       ? 'PSD'
-                      : isAr ? 'مستورد' : 'Import';
+                      : isAr ? 'مستورد' : 'PRO';
+
+                const rowPreviewSrc = resolveTemplatePreviewUrl(tpl) || tpl.previewDataUrl;
 
                 return (
                   <button
                     key={`pptx-${tpl.id}`}
                     type="button"
                     onClick={() => void openMineTemplate(tpl)}
+                    onMouseEnter={handlePreloadEditor}
                     disabled={pptxOpeningId === tpl.id}
                     className="cs-canva-home-card snap-start shrink-0 text-start cursor-pointer group flex flex-col min-w-0 disabled:opacity-60"
-                    style={{ width: cardW }}
+                    style={{ width: cardW, contentVisibility: 'auto', containIntrinsicSize: `${cardW}px 270px` }}
                   >
                     <div
                       className="relative overflow-hidden rounded-xl ring-1 ring-black/5 bg-slate-100 shrink-0"
                       style={{ height: HOME_THUMB_H, width: '100%' }}
                     >
-                      {tpl.previewDataUrl ? (
+                      {rowPreviewSrc ? (
                         <img
-                          src={tpl.previewDataUrl}
+                          src={rowPreviewSrc}
                           alt=""
                           className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                           loading="lazy"
@@ -1458,8 +1472,9 @@ export const CanvaStudioHome: React.FC<Props> = ({
                   key={`mx-${tpl.id}`}
                   type="button"
                   onClick={() => openPremade(tpl)}
+                  onMouseEnter={handlePreloadEditor}
                   className="cs-canva-home-card snap-start shrink-0 text-start cursor-pointer group flex flex-col min-w-0"
-                  style={{ width: cardW }}
+                  style={{ width: cardW, contentVisibility: 'auto', containIntrinsicSize: `${cardW}px 270px` }}
                 >
                   <PremadeThumb
                     template={tpl}

@@ -1,9 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import {
-  CanvaImageStudioModal,
-  type CanvaEditorKind,
-  type CanvaHomeLaunch,
-  type CanvaSavePayload,
+import type {
+  CanvaEditorKind,
+  CanvaHomeLaunch,
+  CanvaSavePayload,
 } from '../CanvaImageStudioModal';
 import { CanvaStudioHome, type CanvaHomeOpenTarget } from '../CanvaStudioHome';
 import { useTenant } from '../../../context/TenantContext';
@@ -12,6 +11,11 @@ import { useToast } from '../../common/ToastProvider';
 import { saveMyCanvaTemplate } from '../../../services/canvaMyTemplates';
 import { saveStudioDesign, type StudioEditorType } from '../../../services/storeStudioDesigns';
 import { isApiEnabled } from '../../../api/client';
+
+// Lazy-load the heavy ~400KB design editor modal so Canva Home renders instantly
+const CanvaImageStudioModal = React.lazy(() =>
+  import('../CanvaImageStudioModal').then((m) => ({ default: m.CanvaImageStudioModal }))
+);
 
 type Props = {
   editorKind?: CanvaEditorKind;
@@ -26,6 +30,19 @@ export const SharedCanvaEditorPage: React.FC<Props> = ({ editorKind, onNavigateT
   const isAr = locale === 'ar';
   const [view, setView] = useState<'home' | 'editor'>('home');
   const [homeLaunch, setHomeLaunch] = useState<CanvaHomeLaunch | null>(null);
+
+  // Background idle prefetch: download editor chunk while user browses templates
+  React.useEffect(() => {
+    let timer: number | undefined;
+    if (typeof window !== 'undefined') {
+      timer = window.setTimeout(() => {
+        void import('../CanvaImageStudioModal');
+      }, 1200);
+    }
+    return () => {
+      if (timer) window.clearTimeout(timer);
+    };
+  }, []);
 
   const previewProduct = useMemo(() => {
     const p = currentProducts?.[0];
@@ -185,37 +202,48 @@ export const SharedCanvaEditorPage: React.FC<Props> = ({ editorKind, onNavigateT
 
   return (
     <div className="w-full min-w-0 max-w-full overflow-hidden">
-      <CanvaImageStudioModal
-        key={homeLaunch?.key || `editor-${editorKind || 'full'}`}
-        isOpen
-        variant="page"
-        editorKind={editorKind}
-        lockCategory={Boolean(editorKind)}
-        homeLaunch={homeLaunch}
-        onClose={() => {
-          if (editorKind) {
-            onNavigateTab?.('canva');
-            return;
-          }
-          setHomeLaunch(null);
-          setView('home');
-        }}
-        initialAsset={null}
-        onOpenSocialHub={() => onNavigateTab?.('social')}
-        onSaveNewAsset={(dataUrl, title, width, height) => {
-          void saveToThisStoreOnly({
-            dataUrl,
-            title,
-            width,
-            height,
-            category: 'banner',
-            layers: [],
-            designJson: {},
-            source: 'studio',
-          });
-        }}
-        onSaveDesignPayload={(payload) => void saveToThisStoreOnly(payload)}
-      />
+      <React.Suspense
+        fallback={
+          <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-slate-500">
+            <div className="w-8 h-8 rounded-full border-3 border-amber-500 border-t-transparent animate-spin" />
+            <p className="text-xs font-bold text-slate-400">
+              {isAr ? 'جاري تجهيز استوديو التصميم…' : 'Preparing Design Studio…'}
+            </p>
+          </div>
+        }
+      >
+        <CanvaImageStudioModal
+          key={homeLaunch?.key || `editor-${editorKind || 'full'}`}
+          isOpen
+          variant="page"
+          editorKind={editorKind}
+          lockCategory={Boolean(editorKind)}
+          homeLaunch={homeLaunch}
+          onClose={() => {
+            if (editorKind) {
+              onNavigateTab?.('canva');
+              return;
+            }
+            setHomeLaunch(null);
+            setView('home');
+          }}
+          initialAsset={null}
+          onOpenSocialHub={() => onNavigateTab?.('social')}
+          onSaveNewAsset={(dataUrl, title, width, height) => {
+            void saveToThisStoreOnly({
+              dataUrl,
+              title,
+              width,
+              height,
+              category: 'banner',
+              layers: [],
+              designJson: {},
+              source: 'studio',
+            });
+          }}
+          onSaveDesignPayload={(payload) => void saveToThisStoreOnly(payload)}
+        />
+      </React.Suspense>
     </div>
   );
 };

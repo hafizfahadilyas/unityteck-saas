@@ -109,6 +109,11 @@ DirectoryIndex storefront-shell.php index.html
   # Support souq static export /_next assets
   RewriteRule ^_next/(.*)$ /souq/_next/$1 [L]
 
+  # Missing stale index bundle requested by cached HTML -> serve auto-refresh fallback script
+  RewriteCond %{REQUEST_URI} ^/assets/index-[A-Za-z0-9_-]+\.js$ [NC]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^ /assets/stale-bundle-fallback.js [L]
+
   # Prevent serving HTML for missing static assets (return 404 so Vite chunk loader can retry/reload)
   RewriteCond %{REQUEST_URI} \.(?:js|mjs|css|png|jpe?g|gif|webp|svg|woff2?|ttf|eot|ico|json|map)$ [NC]
   RewriteCond %{REQUEST_FILENAME} !-f

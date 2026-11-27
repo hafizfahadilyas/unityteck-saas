@@ -65,29 +65,39 @@ export const TrendingThisWeekSection: React.FC<TrendingThisWeekSectionProps> = (
           activeStore.category.toLowerCase().includes('transport'))
     );
 
+  const isSouq = !isCoffee && !isCarStore && activeStore?.id !== 'store-1';
+
   // Industry-specific smart fallbacks
   const defaultTitleAr = isCoffee
     ? 'المحاصيل الأكثر رواجاً هذا الأسبوع'
     : isCarStore
     ? 'إكسسوارات السيارات الأكثر طلباً'
+    : isSouq
+    ? 'المنتجات الأكثر رواجاً هذا الأسبوع'
     : 'الأكثر رواجاً هذا الأسبوع';
 
   const defaultTitleEn = isCoffee
     ? 'Trending Coffee Blends This Week'
     : isCarStore
     ? 'Trending Vehicle Accessories This Week'
+    : isSouq
+    ? 'Trending Products This Week'
     : 'Trending This Week';
 
   const defaultSubAr = isCoffee
     ? 'أفضل محاصيل القهوة المختصة الأكثر طلباً وتقييماً هذا الأسبوع'
     : isCarStore
     ? 'تشكيلة مختارة من أرقى أغطية المقاعد والدعاسات الملكية الأكثر مبيعاً'
+    : isSouq
+    ? 'تشكيلة مختارة من أفضل المنتجات الأكثر طلباً وإعجاباً هذا الأسبوع'
     : 'تشكيلة الورود والهدايا الأكثر طلباً وإعجاباً هذا الأسبوع';
 
   const defaultSubEn = isCoffee
     ? 'Most popular specialty single origins and blends this week'
     : isCarStore
     ? 'Top trending luxury seat covers and floor mats for your vehicle'
+    : isSouq
+    ? 'Curated collection of most popular products this week'
     : 'Most loved floral arrangements and gifts tailored by master florists';
 
   const activeTitleAr = s.titleAr || s.mainTitleAr || titleAr || defaultTitleAr;

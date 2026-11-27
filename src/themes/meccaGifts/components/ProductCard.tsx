@@ -180,7 +180,9 @@ export const ProductCard: React.FC<ProductCardProps> = React.memo(({ product }) 
           {showBadges && (
             <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
               <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-semibold bg-[#eaf4ef] dark:bg-emerald-950/40 text-[#0e4e3e] dark:text-emerald-300 border border-[#d2e8dd]/60 dark:border-emerald-800/30 whitespace-nowrap">
-                {isAr ? 'زهور طبيعية' : 'Fresh Flowers'}
+                {isAr
+                  ? (activeStore?.id === 'store-1' ? 'زهور طبيعية' : (product.categoryAr || product.category || 'منتج أصلي'))
+                  : (activeStore?.id === 'store-1' ? 'Fresh Flowers' : (product.categoryEn || product.category || 'Authentic Product'))}
               </span>
 
               <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-semibold bg-[#eaf4ef] dark:bg-emerald-950/40 text-[#0e4e3e] dark:text-emerald-300 border border-[#d2e8dd]/60 dark:border-emerald-800/30 whitespace-nowrap">

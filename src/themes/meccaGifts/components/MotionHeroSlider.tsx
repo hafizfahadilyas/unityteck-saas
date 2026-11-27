@@ -75,7 +75,7 @@ export const DEFAULT_SOUQ_SLIDES: HeroSlideItem[] = [
     primaryBtn: 'Shop Now',
     primaryBtnAr: 'تسوق الآن',
     primaryLink: '#catalog',
-    image: '/images/saudi_hero_banner_2.jpg',
+    image: 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=1600&q=80',
     category: 'Featured',
   },
   {
@@ -90,7 +90,7 @@ export const DEFAULT_SOUQ_SLIDES: HeroSlideItem[] = [
     secondaryBtn: 'Learn More',
     secondaryBtnAr: 'اعرف المزيد',
     secondaryLink: '#about',
-    image: '/images/saudi_hero_banner_3.jpg',
+    image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1600&q=80',
     category: 'General',
   },
 ];
@@ -264,7 +264,7 @@ export const MotionHeroSlider: React.FC<MotionHeroSliderProps> = ({
     <section
       onMouseEnter={() => !isBuilderMode && setIsPaused(true)}
       onMouseLeave={() => !isBuilderMode && setIsPaused(false)}
-      aria-label="Hero Luxury Floral Slider"
+      aria-label={isSouq ? 'Hero Retail Slider' : isCoffee ? 'Hero Coffee Slider' : 'Hero Luxury Floral Slider'}
       className="relative w-full h-[460px] sm:h-[520px] md:h-[600px] lg:h-[640px] overflow-hidden bg-[#0d2117] text-white select-none group/slider"
     >
       {/* Background Slides */}

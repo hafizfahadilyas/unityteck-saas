@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AiProviderConfiguration;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -33,6 +34,22 @@ final class GeminiAiMediaService
         '16:9',
         '21:9',
     ];
+
+    public static function resolveApiKey(): string
+    {
+        $apiKey = trim((string) config('services.gemini.api_key', ''));
+        if ($apiKey === '' || $apiKey === 'MY_GEMINI_API_KEY') {
+            try {
+                $dbKey = AiProviderConfiguration::query()->where('is_enabled', true)->whereNotNull('api_key')->value('api_key');
+                if (! empty($dbKey)) {
+                    return trim((string) $dbKey);
+                }
+            } catch (\Throwable) {
+                // Ignore DB errors
+            }
+        }
+        return $apiKey;
+    }
 
     /**
      * @return list<array{id: string, label_en: string, label_ar: string, tier: string}>
@@ -122,7 +139,7 @@ final class GeminiAiMediaService
      */
     public function generateImage(string $prompt, array $options = []): array
     {
-        $apiKey = trim((string) config('services.gemini.api_key', ''));
+        $apiKey = self::resolveApiKey();
         if ($apiKey === '' || $apiKey === 'MY_GEMINI_API_KEY') {
             return [
                 'ok' => false,
@@ -366,7 +383,7 @@ final class GeminiAiMediaService
      */
     public function enhancePrompt(string $rawPrompt, string $locale = 'en', ?string $aspect = null, ?string $style = null): array
     {
-        $apiKey = trim((string) config('services.gemini.api_key', ''));
+        $apiKey = self::resolveApiKey();
         if ($apiKey === '' || $apiKey === 'MY_GEMINI_API_KEY') {
             return [
                 'ok' => false,
@@ -481,7 +498,7 @@ final class GeminiAiMediaService
             ];
         }
 
-        $apiKey = trim((string) config('services.gemini.api_key', ''));
+        $apiKey = self::resolveApiKey();
         if ($apiKey === '' || $apiKey === 'MY_GEMINI_API_KEY') {
             return [
                 'ok' => false,
@@ -630,7 +647,7 @@ final class GeminiAiMediaService
      */
     public function suggestProductCopy(array $input): array
     {
-        $apiKey = trim((string) config('services.gemini.api_key', ''));
+        $apiKey = self::resolveApiKey();
         if ($apiKey === '' || $apiKey === 'MY_GEMINI_API_KEY') {
             return [
                 'ok' => false,

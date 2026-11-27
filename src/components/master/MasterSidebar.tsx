@@ -23,7 +23,9 @@ import {
   BookOpen,
   Bot,
   Sparkles,
+  Search,
   ChevronDown,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { SouqEMakkahLogo, SouqEMakkahMark } from '../common/SouqEMakkahLogo';
 
@@ -52,6 +54,36 @@ export const MasterSidebar: React.FC<MasterSidebarProps> = ({
   const { canTab } = usePermissions();
   const [collapsed, setCollapsed] = useState(false);
   const [aiExpanded, setAiExpanded] = useState(true);
+  const [seoExpanded, setSeoExpanded] = useState(true);
+
+  const seoSubMenu = useMemo(
+    () => [
+      { id: 'seo-overview', labelEn: 'SEO Overview', labelAr: 'نظرة عامة على السيو' },
+      { id: 'seo-advisor', labelEn: 'AI SEO Advisor', labelAr: 'المستشار الذكي للسيو' },
+      { id: 'seo-providers', labelEn: 'SEO Providers', labelAr: 'مزودو السيو والذكاء' },
+      { id: 'seo-api-settings', labelEn: 'SEO API Settings', labelAr: 'إعدادات واجهات السيو' },
+      { id: 'merchant-seo', labelEn: 'Merchant SEO Management', labelAr: 'إدارة سيو التجار' },
+      { id: 'product-seo', labelEn: 'Product SEO Management', labelAr: 'إدارة سيو المنتجات' },
+      { id: 'aeo-management', labelEn: 'AEO Management', labelAr: 'إدارة إجابات الذكاء (AEO)' },
+      { id: 'geo-management', labelEn: 'GEO Management', labelAr: 'محركات التوليد (GEO)' },
+      { id: 'technical-seo', labelEn: 'Technical SEO', labelAr: 'السيو التقني والزحف' },
+      { id: 'speed-optimization', labelEn: 'Speed Optimization', labelAr: 'تسريع المتجر والأداء' },
+      { id: 'backlink-management', labelEn: 'Backlink Management', labelAr: 'الروابط الخلفية والسمعة' },
+      { id: 'keyword-research', labelEn: 'Keyword Research', labelAr: 'بحث الكلمات المفتاحية' },
+      { id: 'competitor-analysis', labelEn: 'Competitor Analysis', labelAr: 'تحليل المنافسين' },
+      { id: 'schema-management', labelEn: 'Schema Management', labelAr: 'البيانات المنظمة Schema' },
+      { id: 'sitemap-indexing', labelEn: 'Sitemap & Indexing', labelAr: 'خرائط الموقع والأرشفة' },
+      { id: 'seo-reports', labelEn: 'SEO Reports', labelAr: 'تقارير السيو الشاملة' },
+      { id: 'seo-automation', labelEn: 'SEO Automation', labelAr: 'أتمتة السيو والجدولة' },
+      { id: 'seo-logs', labelEn: 'SEO Logs', labelAr: 'سجلات عمليات السيو' },
+      { id: 'seo-global-settings', labelEn: 'SEO Global Settings', labelAr: 'إعدادات السيو العامة' },
+    ],
+    []
+  );
+
+  const isSeoActive = useMemo(() => {
+    return currentTab === 'seo' || seoSubMenu.some((sub) => sub.id === currentTab);
+  }, [currentTab, seoSubMenu]);
 
   const aiSubMenu = useMemo(
     () => [
@@ -86,12 +118,14 @@ export const MasterSidebar: React.FC<MasterSidebarProps> = ({
     /** SOUQ PLUS Phase 1 — 11 primary sections only (ops via Platform Settings). */
     const phase1 = [
       { id: 'dashboard', icon: LayoutDashboard, showChevron: false },
+      { id: 'control-center', icon: SlidersHorizontal, showChevron: false },
       { id: 'accounts', icon: Users, showChevron: true },
       { id: 'stores', icon: Store, count: stores.length, showChevron: false },
       { id: 'plans', icon: Crown, showChevron: false },
       { id: 'services-points', icon: Coins, showChevron: false },
       { id: 'integrations', icon: Layers, showChevron: true },
       { id: 'ai-management', icon: Sparkles, showChevron: true, isAiSection: true },
+      { id: 'seo', icon: Search, showChevron: true, isSeoSection: true },
       { id: 'support', icon: Headphones, showChevron: true },
       { id: 'blog', icon: BookOpen, showChevron: false },
       { id: 'reports', icon: FileText, showChevron: true },
@@ -175,7 +209,8 @@ export const MasterSidebar: React.FC<MasterSidebarProps> = ({
           {navItems.map((item) => {
             const Icon = item.icon;
             const isAiSection = (item as any).isAiSection;
-            const isActive = isAiSection ? isAiActive : currentTab === item.id;
+            const isSeoSection = (item as any).isSeoSection;
+            const isActive = isAiSection ? isAiActive : isSeoSection ? isSeoActive : currentTab === item.id;
 
             return (
               <React.Fragment key={item.id}>
@@ -191,6 +226,17 @@ export const MasterSidebar: React.FC<MasterSidebarProps> = ({
                         setAiExpanded((v) => !v);
                         if (!isAiActive) {
                           selectTab('gemini-settings');
+                        }
+                      }
+                    } else if (isSeoSection) {
+                      if (collapsed) {
+                        setCollapsed(false);
+                        setSeoExpanded(true);
+                        selectTab('seo-overview');
+                      } else {
+                        setSeoExpanded((v) => !v);
+                        if (!isSeoActive) {
+                          selectTab('seo-overview');
                         }
                       }
                     } else {
@@ -230,10 +276,10 @@ export const MasterSidebar: React.FC<MasterSidebarProps> = ({
                     >
                       {item.count}
                     </span>
-                  ) : !collapsed && isAiSection ? (
+                  ) : !collapsed && (isAiSection || isSeoSection) ? (
                     <ChevronDown
                       className={`w-3.5 h-3.5 shrink-0 opacity-60 transition-transform duration-200 ${
-                        aiExpanded ? '' : '-rotate-90 rtl:rotate-90'
+                        (isAiSection ? aiExpanded : seoExpanded) ? '' : '-rotate-90 rtl:rotate-90'
                       }`}
                       aria-hidden
                     />
@@ -257,6 +303,28 @@ export const MasterSidebar: React.FC<MasterSidebarProps> = ({
                           className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-start cursor-pointer ${
                             isSubActive
                               ? 'bg-purple-600/25 text-purple-200 font-bold border border-purple-500/40 shadow-sm'
+                              : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/40'
+                          }`}
+                        >
+                          <span className="truncate">{isAr ? sub.labelAr : sub.labelEn}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {isSeoSection && seoExpanded && !collapsed && (
+                  <div className="ps-4 pe-1 py-1 space-y-0.5 border-s-2 border-amber-500/40 ms-5 my-0.5 max-h-80 overflow-y-auto animate-in fade-in duration-150">
+                    {seoSubMenu.map((sub) => {
+                      const isSubActive = currentTab === sub.id;
+                      return (
+                        <button
+                          key={sub.id}
+                          type="button"
+                          onClick={() => selectTab(sub.id)}
+                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-start cursor-pointer ${
+                            isSubActive
+                              ? 'bg-amber-600/25 text-amber-200 font-bold border border-amber-500/40 shadow-sm'
                               : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/40'
                           }`}
                         >

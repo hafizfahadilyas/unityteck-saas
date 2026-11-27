@@ -20,6 +20,8 @@ use App\Http\Controllers\Api\StoreAiSuiteController;
 use App\Http\Controllers\Api\MasterOpenAiController;
 use App\Http\Controllers\Api\MasterAiDeveloperController;
 use App\Http\Controllers\Api\StoreAiDevRequestController;
+use App\Http\Controllers\Api\StoreAiAgentController;
+use App\Http\Controllers\Api\StoreGrowthAdvisorController;
 use App\Http\Controllers\Api\CategoryFieldController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PlanController;
@@ -29,6 +31,7 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProductGroupController;
 use App\Http\Controllers\Api\ProductVariationController;
 use App\Http\Controllers\Api\SeoController;
+use App\Http\Controllers\Api\EnterpriseSeoController;
 use App\Http\Controllers\Api\ShippingController;
 use App\Http\Controllers\Api\StoreController;
 use App\Http\Controllers\Api\SubscriptionController;
@@ -64,6 +67,16 @@ use App\Http\Controllers\Api\GiftingController;
 use App\Http\Controllers\Api\StorefrontAnalyticsController;
 use App\Http\Controllers\Api\StorefrontSeoBootstrapController;
 use App\Http\Controllers\Api\StoreAppointmentController;
+use App\Http\Controllers\Api\MasterCentralControlController;
+use App\Http\Controllers\Api\MasterMerchantManagementController;
+use App\Http\Controllers\Api\MasterStorePlanController;
+use App\Http\Controllers\Api\MasterAiSubscriptionController;
+use App\Http\Controllers\Api\MasterAiFeatureRegistryController;
+use App\Http\Controllers\Api\MasterCreditManagementController;
+use App\Http\Controllers\Api\MasterPaymentManagementController;
+use App\Http\Controllers\Api\MasterPageVisibilityController;
+use App\Http\Controllers\Api\MasterUiComponentController;
+use App\Http\Controllers\Api\MasterAuditLogController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', [HealthController::class, 'show']);
@@ -268,6 +281,34 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
         'subscription.writable',
     ])->patch('/seo', [SeoController::class, 'update']);
 
+    // Enterprise Multi-Tenant SEO, AEO, GEO & Technical SEO Suite
+    Route::middleware(['role.can:seo.read'])->group(function () {
+        Route::get('/seo/dashboard', [EnterpriseSeoController::class, 'merchantDashboard']);
+        Route::get('/seo/issues', [EnterpriseSeoController::class, 'listIssues']);
+        Route::get('/seo/implementations', [EnterpriseSeoController::class, 'listImplementations']);
+        Route::get('/seo/speed', [EnterpriseSeoController::class, 'getSpeedReport'])->middleware('throttle:20,1');
+        Route::get('/seo/backlinks', [EnterpriseSeoController::class, 'listBacklinks']);
+        Route::get('/seo/keywords', [EnterpriseSeoController::class, 'listKeywords']);
+        Route::get('/seo/search-console', [EnterpriseSeoController::class, 'getSearchConsolePerformance']);
+        Route::get('/seo/indexnow/key', [EnterpriseSeoController::class, 'getIndexNowKey']);
+        Route::get('/seo/settings', [EnterpriseSeoController::class, 'getSettings']);
+    });
+
+    Route::middleware(['role.can:seo.write', 'subscription.writable'])->group(function () {
+        Route::post('/seo/audit', [EnterpriseSeoController::class, 'triggerAudit'])->middleware('throttle:15,1');
+        Route::post('/seo/issues/{id}/resolve', [EnterpriseSeoController::class, 'resolveIssue'])->middleware('throttle:30,1');
+        Route::post('/seo/issues/{id}/ignore', [EnterpriseSeoController::class, 'ignoreIssue']);
+        Route::post('/seo/products/{productId}/generate', [EnterpriseSeoController::class, 'generateProductSeo'])->middleware('throttle:20,1');
+        Route::post('/seo/products/bulk-generate', [EnterpriseSeoController::class, 'bulkGenerateProductSeo'])->middleware('throttle:10,1');
+        Route::post('/seo/metadata', [EnterpriseSeoController::class, 'saveMetadata'])->middleware('throttle:30,1');
+        Route::post('/seo/implementations/{id}/rollback', [EnterpriseSeoController::class, 'rollbackImplementation'])->middleware('throttle:20,1');
+        Route::post('/seo/aeo/generate', [EnterpriseSeoController::class, 'generateAeo'])->middleware('throttle:20,1');
+        Route::post('/seo/geo/generate', [EnterpriseSeoController::class, 'generateGeo'])->middleware('throttle:20,1');
+        Route::post('/seo/keywords', [EnterpriseSeoController::class, 'storeKeyword']);
+        Route::post('/seo/indexnow/submit', [EnterpriseSeoController::class, 'submitIndexNow'])->middleware('throttle:30,1');
+        Route::patch('/seo/settings', [EnterpriseSeoController::class, 'updateSettings']);
+    });
+
     // Media Library Routes
     Route::get('/media', [MediaController::class, 'index']);
     Route::post('/media', [MediaController::class, 'store']);
@@ -297,11 +338,29 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
     Route::post('/ai-suite/automation/ask', [StoreAiSuiteController::class, 'askAutomation'])->middleware('throttle:20,1');
     Route::post('/ai-suite/run', [StoreAiSuiteController::class, 'run'])->middleware('throttle:30,1');
     Route::post('/ai-suite/payment/submit', [StoreAiSuiteController::class, 'submitPayment'])->middleware('throttle:10,1');
+    Route::post('/ai-suite/payment/online', [StoreAiSuiteController::class, 'onlinePayment'])->middleware('throttle:10,1');
     Route::get('/ai-suite/payments', [StoreAiSuiteController::class, 'payments']);
 
     // Phase 3 — merchant opens diagnostics support request only (no source edit / no deploy)
     Route::get('/ai-suite/dev-requests', [StoreAiDevRequestController::class, 'index']);
     Route::post('/ai-suite/dev-requests', [StoreAiDevRequestController::class, 'store'])->middleware('throttle:20,1');
+
+    // AI Store Setup & Health Audit Agent (Google Gemini Free Tier)
+    Route::get('/ai-agent/audit', [StoreAiAgentController::class, 'audit']);
+    Route::post('/ai-agent/fix', [StoreAiAgentController::class, 'fix'])->middleware('throttle:30,1');
+    Route::post('/ai-agent/skip', [StoreAiAgentController::class, 'skip']);
+    Route::post('/ai-agent/unskip', [StoreAiAgentController::class, 'unskip']);
+
+    // SOUQ Autonomous AI Store Growth Advisor & Optimization Agent
+    Route::get('/growth-advisor/overview', [StoreGrowthAdvisorController::class, 'overview']);
+    Route::post('/growth-advisor/analyze', [StoreGrowthAdvisorController::class, 'analyze'])->middleware('throttle:15,1');
+    Route::get('/growth-advisor/recommendations', [StoreGrowthAdvisorController::class, 'recommendations']);
+    Route::get('/growth-advisor/recommendations/{id}/plan', [StoreGrowthAdvisorController::class, 'plan']);
+    Route::post('/growth-advisor/recommendations/{id}/execute', [StoreGrowthAdvisorController::class, 'execute'])->middleware('throttle:20,1');
+    Route::post('/growth-advisor/recommendations/{id}/skip', [StoreGrowthAdvisorController::class, 'skip']);
+    Route::post('/growth-advisor/actions/{id}/rollback', [StoreGrowthAdvisorController::class, 'rollback'])->middleware('throttle:10,1');
+    Route::put('/growth-advisor/settings', [StoreGrowthAdvisorController::class, 'updateSettings']);
+    Route::get('/growth-advisor/history', [StoreGrowthAdvisorController::class, 'history']);
 
     Route::get('/media-folders', [MediaFolderController::class, 'index']);
     Route::post('/media-folders', [MediaFolderController::class, 'store']);
@@ -481,6 +540,9 @@ Route::middleware(['auth:sanctum', 'store.id'])->group(function () {
         Route::get('/whatsapp/campaigns', [WhatsAppController::class, 'campaigns']);
         Route::post('/whatsapp/campaigns', [WhatsAppController::class, 'createCampaign']);
         Route::delete('/whatsapp/campaigns/{id}', [WhatsAppController::class, 'deleteCampaign']);
+        Route::get('/whatsapp/auto-reply', [WhatsAppController::class, 'getAutoReplySettings']);
+        Route::put('/whatsapp/auto-reply', [WhatsAppController::class, 'updateAutoReplySettings']);
+        Route::post('/whatsapp/auto-reply/test', [WhatsAppController::class, 'testAutoReply'])->middleware('throttle:30,1');
     });
 
     // Affiliate Marketing
@@ -743,9 +805,103 @@ Route::middleware(['auth:sanctum', 'role.can:stores.write'])->group(function () 
     Route::post('/master/gemini/merchant-credits/adjust', [MasterGeminiController::class, 'adjustMerchantCredits'])->middleware('throttle:20,1');
 });
 
+// Master Admin: Enterprise Multi-Store SEO, AEO, GEO & Search Visibility Management
+Route::middleware(['auth:sanctum', 'role.can:stores.read'])->group(function () {
+    Route::get('/master/seo/overview', [EnterpriseSeoController::class, 'masterOverview']);
+    Route::get('/master/seo/stores', [EnterpriseSeoController::class, 'masterStores']);
+});
+Route::middleware(['auth:sanctum', 'role.can:stores.write'])->group(function () {
+    Route::post('/master/seo/stores/{storeId}/audit', [EnterpriseSeoController::class, 'masterAuditStore'])->middleware('throttle:15,1');
+});
+
 // Storefront cart intercept (public read/track only)
 Route::post('/storefront/cart-intercept/{storeId}/track', [CartInterceptController::class, 'trackAction']);
 Route::get('/storefront/cart-intercept/{storeId}/settings', [CartInterceptController::class, 'getSettings']);
 Route::get('/storefront/cart-intercept/{storeId}/customer/{customerId}', [CartInterceptController::class, 'getCustomerProfileRewards']);
 Route::get('/storefront/cashback/active', [CashbackController::class, 'storefrontActive']);
 Route::get('/storefront/special-offers/active', [SpecialOfferController::class, 'storefrontActive']);
+
+// ============================================================================
+// SOUQ MASTER ADMIN CENTRAL CONTROL CENTER - AUTHORITATIVE API SUITE
+// ============================================================================
+
+// Real-time / Dynamic Configuration Sync Endpoint for Merchant Dashboards
+Route::get('/config/sync', [MasterCentralControlController::class, 'syncConfig']);
+
+Route::middleware(['auth:sanctum', 'role.can:stores.read'])->group(function () {
+    // 1. Central Overview & Global Settings
+    Route::get('/master/control-center/overview', [MasterCentralControlController::class, 'overview']);
+    Route::get('/master/control-center/global-settings', [MasterCentralControlController::class, 'getGlobalSettings']);
+
+    // 2. Merchant Management
+    Route::get('/master/merchants', [MasterMerchantManagementController::class, 'index']);
+    Route::get('/master/merchants/{id}', [MasterMerchantManagementController::class, 'showProfile']);
+
+    // 3. Store Plans
+    Route::get('/master/store-plans', [MasterStorePlanController::class, 'index']);
+
+    // 4. AI Subscriptions (6 packages)
+    Route::get('/master/ai-plans', [MasterAiSubscriptionController::class, 'index']);
+
+    // 5. AI Features Registry
+    Route::get('/master/ai-features', [MasterAiFeatureRegistryController::class, 'index']);
+
+    // 6. Credit Wallets & Transactions
+    Route::get('/master/credits/wallets', [MasterCreditManagementController::class, 'index']);
+    Route::get('/master/credits/transactions', [MasterCreditManagementController::class, 'transactions']);
+
+    // 7. Payment Approvals
+    Route::get('/master/payments', [MasterPaymentManagementController::class, 'index']);
+
+    // 8. Page Visibility Registry
+    Route::get('/master/pages', [MasterPageVisibilityController::class, 'index']);
+
+    // 9. UI Components Registry
+    Route::get('/master/components', [MasterUiComponentController::class, 'index']);
+
+    // 10. Central Audit Logs
+    Route::get('/master/audit-logs', [MasterAuditLogController::class, 'index']);
+});
+
+Route::middleware(['auth:sanctum', 'role.can:stores.write'])->group(function () {
+    // Global Settings Modification
+    Route::patch('/master/control-center/global-settings', [MasterCentralControlController::class, 'updateGlobalSetting']);
+
+    // Merchant Profile & Bulk Operations
+    Route::patch('/master/merchants/{id}', [MasterMerchantManagementController::class, 'updateMerchant']);
+    Route::post('/master/merchants/bulk-action', [MasterMerchantManagementController::class, 'bulkAction']);
+
+    // Store Plan Modifications & Assignment
+    Route::patch('/master/store-plans/{id}', [MasterStorePlanController::class, 'update']);
+    Route::post('/master/store-plans/assign', [MasterStorePlanController::class, 'assignStorePlan']);
+
+    // AI Plans Modifications & Assignment
+    Route::patch('/master/ai-plans/{id}', [MasterAiSubscriptionController::class, 'updatePlan']);
+    Route::post('/master/ai-plans/assign', [MasterAiSubscriptionController::class, 'assignSubscription']);
+    Route::post('/master/ai-plans/{id}/toggle-status', [MasterAiSubscriptionController::class, 'toggleSubscriptionStatus']);
+
+    // AI Feature Registry Overrides & Toggles
+    Route::patch('/master/ai-features/{id}', [MasterAiFeatureRegistryController::class, 'updateGlobalFeature']);
+    Route::post('/master/ai-features/override', [MasterAiFeatureRegistryController::class, 'setMerchantOverride']);
+    Route::post('/master/ai-features/bulk-toggle', [MasterAiFeatureRegistryController::class, 'bulkToggleFeature']);
+    Route::post('/master/ai-features/stores/{storeId}/reset', [MasterAiFeatureRegistryController::class, 'resetStoreOverrides']);
+
+    // Credit Management Actions
+    Route::post('/master/credits/adjust', [MasterCreditManagementController::class, 'adjustCredits']);
+    Route::post('/master/credits/bulk-grant', [MasterCreditManagementController::class, 'bulkCreditGrant']);
+
+    // Payment Approval Actions
+    Route::post('/master/payments/{id}/approve', [MasterPaymentManagementController::class, 'approve']);
+    Route::post('/master/payments/{id}/reject', [MasterPaymentManagementController::class, 'reject']);
+
+    // Page Visibility Actions
+    Route::patch('/master/pages/{id}/toggle-global', [MasterPageVisibilityController::class, 'toggleGlobal']);
+    Route::post('/master/pages/override', [MasterPageVisibilityController::class, 'setStoreOverride']);
+    Route::post('/master/pages/stores/{storeId}/reset', [MasterPageVisibilityController::class, 'resetStoreOverrides']);
+
+    // UI Component Actions
+    Route::patch('/master/components/{id}/toggle-global', [MasterUiComponentController::class, 'toggleGlobal']);
+    Route::post('/master/components/override', [MasterUiComponentController::class, 'setStoreOverride']);
+    Route::post('/master/components/stores/{storeId}/reset', [MasterUiComponentController::class, 'resetStoreOverrides']);
+});
+

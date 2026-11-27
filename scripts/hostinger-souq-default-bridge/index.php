@@ -6,6 +6,23 @@
  */
 declare(strict_types=1);
 
+// Serve API requests directly via central API handler if hit under this subdomain
+$requestUri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
+$requestPath = parse_url($requestUri, PHP_URL_PATH) ?: '/';
+if (str_starts_with($requestPath, '/api')) {
+    $apiCandidates = [
+        dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'mieraf-ksa.com' . DIRECTORY_SEPARATOR . 'public_html' . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php',
+        '/home/u393490678/domains/mieraf-ksa.com/public_html/api/index.php',
+        dirname(__DIR__) . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'index.php',
+    ];
+    foreach ($apiCandidates as $apiFile) {
+        if (is_file($apiFile)) {
+            require $apiFile;
+            exit;
+        }
+    }
+}
+
 $candidates = [
     dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'mieraf-ksa.com' . DIRECTORY_SEPARATOR . 'public_html' . DIRECTORY_SEPARATOR . 'storefront-shell.php',
     '/home/u393490678/domains/mieraf-ksa.com/public_html/storefront-shell.php',

@@ -239,3 +239,46 @@ export interface WhatsAppCampaignItem {
   created_at: string;
 }
 
+export interface WhatsAppAutoReplyRule {
+  id: string;
+  keyword: string;
+  reply: string;
+}
+
+export interface WhatsAppAutoReplySettings {
+  is_enabled: boolean;
+  welcome_message_ar: string;
+  welcome_message_en: string;
+  away_message_ar: string;
+  away_message_en: string;
+  working_hours_enabled: boolean;
+  working_hours_start: string;
+  working_hours_end: string;
+  ai_smart_reply_enabled: boolean;
+  rules: WhatsAppAutoReplyRule[];
+  stats?: {
+    total_auto_replies_sent: number;
+    incoming_messages_received: number;
+    ai_smart_replies: number;
+  };
+}
+
+export interface WhatsAppAutoReplyTestPayload {
+  phone_number: string;
+  test_message: string;
+  customer_name?: string;
+}
+
+export interface WhatsAppAutoReplyTestResult {
+  dispatched: boolean;
+  status: string;
+  reply: string;
+  phone: string;
+  matched_keyword?: string;
+  is_real_meta_delivered: boolean;
+  direct_url?: string;
+  message_id?: string;
+  error_message?: string;
+}
+
+

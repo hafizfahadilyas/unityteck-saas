@@ -37,7 +37,15 @@ import {
   Settings2,
   Upload,
   ArrowLeft,
+  ShoppingBag,
+  Bot,
 } from 'lucide-react';
+import { MerchantSeoDashboardView } from './seo/MerchantSeoDashboardView';
+import { ProductSeoGeneratorView } from './seo/ProductSeoGeneratorView';
+import { AeoGeoView } from './seo/AeoGeoView';
+import { BacklinksKeywordsView } from './seo/BacklinksKeywordsView';
+import { IndexNowConsoleView } from './seo/IndexNowConsoleView';
+import { SchemaAutomationView } from './seo/SchemaAutomationView';
 import { PageDocsGuideModal } from '../common/PageDocsGuideModal';
 import { GlobalModal } from '../common/GlobalModal';
 import { PortalHubCard } from '../common/PortalHubCard';
@@ -92,7 +100,21 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
   const { toast } = useToast();
   const isAr = locale === 'ar';
 
-  type SeoSubTab = 'hub' | 'console' | 'google_tags' | 'utm' | 'pagespeed' | 'meta' | 'simulator' | 'deep_audit';
+  type SeoSubTab =
+    | 'ai_dashboard'
+    | 'product_seo'
+    | 'aeo_geo'
+    | 'backlinks_keywords'
+    | 'indexnow_console'
+    | 'schema_automation'
+    | 'hub'
+    | 'console'
+    | 'google_tags'
+    | 'utm'
+    | 'pagespeed'
+    | 'meta'
+    | 'simulator'
+    | 'deep_audit';
   // null = hub buttons only; set = that section's data
   const [activeSubTab, setActiveSubTab] = useState<SeoSubTab | null>(null);
   const [deepAuditItems, setDeepAuditItems] = useState<SeoDeepAuditItem[]>(() =>
@@ -738,9 +760,45 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
           {(
             [
               {
+                id: 'ai_dashboard' as const,
+                icon: Sparkles,
+                title: isAr ? 'لوحة تحكم الذكاء الاصطناعي (AI SEO Dashboard)' : 'AI SEO Dashboard',
+                desc: isAr ? 'فحص النطاق المباشر، درجات الصحة، والتوصيات القابلة للتطبيق بنقرة واحدة.' : 'Live domain audit, health scores, and 1-click actionable AI fixes.',
+              },
+              {
+                id: 'product_seo' as const,
+                icon: ShoppingBag,
+                title: isAr ? 'مُولّد سيو المنتجات بالذكاء (Product SEO)' : 'Product SEO Generator',
+                desc: isAr ? 'توليد عناوين وأوصاف وكلمات مفتاحية ونصوص بديلة لمنتجاتك بالعربية والإنجليزية.' : 'Generate 15-field bilingual SEO attributes, focus keywords & ALT text.',
+              },
+              {
+                id: 'aeo_geo' as const,
+                icon: Bot,
+                title: isAr ? 'إجابات الذكاء ومحركات التوليد (AEO & GEO)' : 'AEO & GEO Optimization',
+                desc: isAr ? 'تحسين الظهور في Google AI Overviews وChatGPT Search وGemini وPerplexity.' : 'Answer engine FAQs and generative AI visibility for your store.',
+              },
+              {
+                id: 'backlinks_keywords' as const,
+                icon: Link2,
+                title: isAr ? 'الروابط الخلفية والكلمات المفتاحية' : 'Backlinks & Keywords',
+                desc: isAr ? 'مراقبة الروابط الحقيقية، إنشاء خطابات شراكة تحريرية، واستهداف الكلمات المحلية.' : 'Monitor backlinks, draft editorial outreach pitches, and track Saudi keywords.',
+              },
+              {
+                id: 'indexnow_console' as const,
+                icon: Zap,
+                title: isAr ? 'الفهرسة الفورية ومحركات البحث (IndexNow & GSC)' : 'Instant Indexing & GSC',
+                desc: isAr ? 'إرسال الروابط فورياً عبر IndexNow ومتابعة نقرات وكلمات Google Search Console.' : 'Instant URL dispatch to Bing/IndexNow and live Search Console metrics.',
+              },
+              {
+                id: 'schema_automation' as const,
+                icon: Layers,
+                title: isAr ? 'البيانات المنظمة والأتمتة والتراجع' : 'Schema, Automation & Rollback',
+                desc: isAr ? 'وسوم JSON-LD، وضع الأتمتة المعتمد، وسجل التراجع الفوري عن التعديلات.' : 'Verified JSON-LD studio, automation rules, and 1-click rollback ledger.',
+              },
+              {
                 id: 'hub' as const,
                 icon: Activity,
-                title: isAr ? 'مركز الربط' : 'Connection hub',
+                title: isAr ? 'مركز ربط خدمات جوجل' : 'Google Connection hub',
                 desc: isAr ? 'ربط خدمات جوجل لهذا المتجر.' : 'Connect Google services for this store.',
               },
               {
@@ -774,7 +832,7 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
               {
                 id: 'deep_audit' as const,
                 icon: Sparkles,
-                title: isAr ? 'الروابط والعناوين والنص البديل' : 'Links, headings, and alt text',
+                title: isAr ? 'الروابط والعناوين القديم' : 'Links, headings, and alt text',
                 desc: isAr ? 'مراجعة الروابط والعناوين والنص البديل.' : 'Audit links, headings, and alt text.',
               },
             ] as const
@@ -2366,6 +2424,59 @@ export const StoreSEO: React.FC<StoreSEOProps> = ({ onNavigateTab }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ================= ENTERPRISE AI SEO MODULES ================= */}
+      {activeSubTab === 'ai_dashboard' && (
+        <MerchantSeoDashboardView
+          storeId={activeStore.id}
+          storeName={activeStore.name}
+          domain={activeStore.custom_domain || `${activeStore.slug || 'store'}.saasdomain.com`}
+        />
+      )}
+
+      {activeSubTab === 'product_seo' && (
+        <ProductSeoGeneratorView
+          storeId={activeStore.id}
+          storeName={activeStore.name}
+          domain={activeStore.custom_domain || `${activeStore.slug || 'store'}.saasdomain.com`}
+          products={currentProducts}
+        />
+      )}
+
+      {activeSubTab === 'aeo_geo' && (
+        <AeoGeoView
+          storeId={activeStore.id}
+          storeName={activeStore.name}
+          domain={activeStore.custom_domain || `${activeStore.slug || 'store'}.saasdomain.com`}
+          products={currentProducts}
+        />
+      )}
+
+      {activeSubTab === 'backlinks_keywords' && (
+        <BacklinksKeywordsView
+          storeId={activeStore.id}
+          storeName={activeStore.name}
+          domain={activeStore.custom_domain || `${activeStore.slug || 'store'}.saasdomain.com`}
+        />
+      )}
+
+      {activeSubTab === 'indexnow_console' && (
+        <IndexNowConsoleView
+          storeId={activeStore.id}
+          storeName={activeStore.name}
+          domain={activeStore.custom_domain || `${activeStore.slug || 'store'}.saasdomain.com`}
+          products={currentProducts}
+        />
+      )}
+
+      {activeSubTab === 'schema_automation' && (
+        <SchemaAutomationView
+          storeId={activeStore.id}
+          storeName={activeStore.name}
+          domain={activeStore.custom_domain || `${activeStore.slug || 'store'}.saasdomain.com`}
+          products={currentProducts}
+        />
       )}
 
       {/* ── Real Tracking IDs Configuration Modal ── */}

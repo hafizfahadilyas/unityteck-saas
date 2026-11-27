@@ -47,7 +47,7 @@ export const TestimonialsSection: React.FC = () => {
             nameEn: String((r as { author?: string }).author || '—'),
             role: String((r as { city?: string }).city || ''),
             roleEn: String((r as { city?: string }).city || ''),
-            avatar: '/images/hadaya_white_roses_bouquet_1791276726730.jpg',
+            avatar: (r as { avatar?: string }).avatar || (storeId === 'store-1' ? '/images/hadaya_white_roses_bouquet_1791276726730.jpg' : '/images/saudi_hero_banner_2.jpg'),
             rating: Number((r as { rating?: number }).rating) || 5,
             comment: String((r as { commentAr?: string }).commentAr || (r as { comment?: string }).comment || ''),
             commentEn: String((r as { comment?: string }).comment || (r as { commentAr?: string }).commentAr || ''),

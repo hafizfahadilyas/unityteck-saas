@@ -9,7 +9,7 @@
  */
 
 import type { ImportedStudioDesign, ImportedStudioLayer } from './canvaPsdImport';
-import { optimizeHomeThumb } from './canvaStudioPreview';
+import { optimizeHomeThumb, renderLayersToCompositeThumb } from './canvaStudioPreview';
 
 const MAX_PPTX_BYTES = 45 * 1024 * 1024;
 const MAX_LAYERS = 120;
@@ -568,9 +568,16 @@ async function pushTextOrShapeLayer(chunk: string, box: BoxPx, ctx: ParseCtx): P
   const text = extractAllText(chunk);
   if (text) {
     const fontSize = extractFontSizePt(chunk);
-    const solidBg = chunk.match(/<a:solidFill>[\s\S]*?<\/a:solidFill>/i)?.[0];
-    // If shape already has a photo fill, keep text transparent so photo shows through
-    const bgColor = addedImage ? undefined : solidBg ? extractColor(solidBg, '') : '';
+    const spPrChunk = chunk.match(/<p:spPr\b[\s\S]*?<\/p:spPr>/i)?.[0] || '';
+    const hasNoFill = /<a:noFill\b/i.test(spPrChunk);
+    const shapeSolidFill = !hasNoFill ? spPrChunk.match(/<a:solidFill>[\s\S]*?<\/a:solidFill>/i)?.[0] : null;
+    const shapeBgColor = shapeSolidFill ? extractColor(shapeSolidFill, '') : '';
+    const txBodyChunk = chunk.match(/<p:txBody\b[\s\S]*?<\/p:txBody>/i)?.[0] || chunk;
+    const fontColor = extractColor(txBodyChunk, '#0f172a');
+    // If shape has an image or no explicit fill, keep background transparent
+    const bgColor = addedImage || hasNoFill || !shapeBgColor || shapeBgColor.toLowerCase() === fontColor.toLowerCase()
+      ? undefined
+      : shapeBgColor;
     ctx.layers.push({
       id: uid('txt'),
       type: fontSize >= 36 ? 'headline' : text.includes('\n') ? 'subtitle' : 'custom_text',
@@ -580,7 +587,7 @@ async function pushTextOrShapeLayer(chunk: string, box: BoxPx, ctx: ParseCtx): P
       width: Math.max(80, box.w),
       height: Math.max(40, box.h),
       fontSize: Math.round(fontSize * 1.33),
-      fontColor: extractColor(chunk, '#0f172a'),
+      fontColor,
       bgColor: bgColor || undefined,
       isBold: isBold(chunk),
       isItalic: isItalic(chunk),
@@ -721,15 +728,24 @@ export async function importPptxFile(file: File): Promise<ImportedStudioDesign> 
     throw new Error('PPTX_NO_LAYERS');
   }
 
-  const rawPreview = ctx.layers.find((l) => l.imageUrl)?.imageUrl;
+  let previewDataUrl: string | undefined;
+  try {
+    previewDataUrl = await renderLayersToCompositeThumb(ctx.layers, docW, docH);
+  } catch {
+    /* fallback to photo layer */
+  }
+  if (!previewDataUrl) {
+    const rawPhoto = ctx.layers.find((l) => l.imageUrl)?.imageUrl;
+    previewDataUrl = await optimizeHomeThumb(rawPhoto);
+  }
 
   return {
     width: docW,
     height: docH,
-    name: file.name.replace(/\.[^.]+$/, '') || 'Imported PowerPoint',
+    name: file.name.replace(/\.[^.]+$/, '') || 'Imported Template',
     source: 'pptx',
     layers: ctx.layers,
-    previewDataUrl: await optimizeHomeThumb(rawPreview),
+    previewDataUrl,
     categoryHint: guessCategoryFromSize(docW, docH),
   };
 }

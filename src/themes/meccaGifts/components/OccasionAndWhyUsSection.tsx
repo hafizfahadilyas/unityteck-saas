@@ -27,6 +27,8 @@ export const OccasionAndWhyUsSection: React.FC<OccasionAndWhyUsSectionProps> = (
           activeStore.category.toLowerCase().includes('transport'))
     );
 
+  const isSouq = !isCoffee && !isCarStore && activeStore?.id !== 'store-1';
+
   const flowerOccasions = [
     {
       id: 'occ-1',
@@ -193,8 +195,91 @@ export const OccasionAndWhyUsSection: React.FC<OccasionAndWhyUsSectionProps> = (
     },
   ];
 
-  const occasions = useMemo(() => (isCoffee ? coffeeOccasions : flowerOccasions), [isCoffee]);
-  const whyChooseUs = useMemo(() => (isCoffee ? coffeeWhyUs : flowerWhyUs), [isCoffee]);
+  const retailOccasions = [
+    {
+      id: 'occ-ret-1',
+      title: 'Featured',
+      titleAr: 'منتجات مميزة',
+      subtitle: 'Handpicked for You',
+      subtitleAr: 'مختارة بعناية',
+      image: '/images/saudi_hero_banner_2.jpg',
+      categoryKey: 'Featured',
+    },
+    {
+      id: 'occ-ret-2',
+      title: 'Special Offers',
+      titleAr: 'عروض وتخفيضات',
+      subtitle: 'Save on Top Picks',
+      subtitleAr: 'توفير على أفضل المنتجات',
+      image: '/images/saudi_hero_banner_3.jpg',
+      categoryKey: 'Offers',
+    },
+    {
+      id: 'occ-ret-3',
+      title: 'Best Sellers',
+      titleAr: 'الأكثر مبيعاً',
+      subtitle: 'Customer Favorites',
+      subtitleAr: 'الخيارات الأكثر طلباً',
+      image: '/images/saudi_hero_banner_2.jpg',
+      categoryKey: 'Best Sellers',
+    },
+    {
+      id: 'occ-ret-4',
+      title: 'New Arrivals',
+      titleAr: 'وصل حديثاً',
+      subtitle: 'Fresh Releases',
+      subtitleAr: 'أحدث ما وصلنا',
+      image: '/images/saudi_hero_banner_3.jpg',
+      categoryKey: 'General',
+    },
+    {
+      id: 'occ-ret-5',
+      title: 'Curated Catalog',
+      titleAr: 'الكتالوج الشامل',
+      subtitle: 'Explore All',
+      subtitleAr: 'استكشف كافة الأقسام',
+      image: '/images/saudi_hero_banner_2.jpg',
+      categoryKey: 'All',
+    },
+  ];
+
+  const retailWhyUs = [
+    {
+      id: 'w-ret-1',
+      icon: Sparkles,
+      title: '100% Authentic Products',
+      titleAr: 'منتجات أصلية 100%',
+      desc: 'Quality & genuineness guaranteed',
+      descAr: 'ضمان الجودة والأصالة على جميع المنتجات',
+    },
+    {
+      id: 'w-ret-2',
+      icon: Truck,
+      title: 'Fast Nationwide Shipping',
+      titleAr: 'شحن سريع وموثوق',
+      desc: 'Express delivery across Saudi Arabia',
+      descAr: 'توصيل سريع وموثوق لكافة مدن المملكة',
+    },
+    {
+      id: 'w-ret-3',
+      icon: ShieldCheck,
+      title: 'Secure Payment Options',
+      titleAr: 'خيارات دفع آمنة',
+      desc: 'Mada, Apple Pay, Tabby, Tamara',
+      descAr: 'مدى، أبل باي، تمارا وتابي 100%',
+    },
+    {
+      id: 'w-ret-4',
+      icon: Headphones,
+      title: 'Dedicated Customer Support',
+      titleAr: 'دعم عملاء مخصص',
+      desc: 'We are here to help',
+      descAr: 'فريق عمل متواجد لخدمتكم دائماً',
+    },
+  ];
+
+  const occasions = useMemo(() => (isCoffee ? coffeeOccasions : isSouq ? retailOccasions : flowerOccasions), [isCoffee, isSouq]);
+  const whyChooseUs = useMemo(() => (isCoffee ? coffeeWhyUs : isSouq ? retailWhyUs : flowerWhyUs), [isCoffee, isSouq]);
 
   return (
     <section className="py-10 sm:py-14 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -205,8 +290,8 @@ export const OccasionAndWhyUsSection: React.FC<OccasionAndWhyUsSectionProps> = (
           <div className="flex items-center justify-between pb-3 border-b border-[#ece7de]">
             <h2 className="text-2xl sm:text-3xl font-bold font-serif text-[#102a1c]">
               {isAr
-                ? s.titleAr || (isCoffee ? 'تسوق حسب طريقة التحضير' : isCarStore ? 'تسوق حسب نوع سيارتك' : 'تسوق حسب المناسبة')
-                : s.titleEn || (isCoffee ? 'Shop By Brew Method' : isCarStore ? 'Shop By Vehicle Type' : 'Shop by Occasion')}
+                ? s.titleAr || (isCoffee ? 'تسوق حسب طريقة التحضير' : isCarStore ? 'تسوق حسب نوع سيارتك' : isSouq ? 'تسوق حسب الأقسام' : 'تسوق حسب المناسبة')
+                : s.titleEn || (isCoffee ? 'Shop By Brew Method' : isCarStore ? 'Shop By Vehicle Type' : isSouq ? 'Shop by Category' : 'Shop by Occasion')}
             </h2>
 
             <button

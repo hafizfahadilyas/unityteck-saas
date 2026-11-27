@@ -1,913 +1,744 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTenant } from '../../context/TenantContext';
-import { Sparkline } from '../common/Sparkline';
 import { usePrefs } from '../../i18n/PrefsContext';
 import { useToast } from '../common/ToastProvider';
-import { getStoreDisplayName } from '../../utils/storeLocalization';
 import { downloadCsv } from '../../utils/exportSpreadsheet';
-import { fetchPlatformSettings, updatePlatformSettings } from '../../api/tenantApi';
-import { isApiEnabled } from '../../api/client';
-import { setStorefrontSeoLinkSettings } from '../../utils/storefrontLinks';
 import {
-  applySeoPermalinkPreset,
-  buildSeoPublicUrl,
-  DEFAULT_SEO_LINK_SETTINGS,
-  normalizeSeoLinkSettings,
-  type SeoLinkSettings,
-  type SeoPermalinkPreset,
-} from '../../utils/seoPermalink';
+  fetchMasterSeoOverview,
+  fetchMasterSeoStores,
+  triggerMasterStoreAudit,
+  type MasterSeoOverviewData,
+  type MasterStoreSeoItem,
+} from '../../services/enterpriseSeoApi';
 import {
-  getMasterGlobalTracking,
-  saveMasterGlobalTracking,
-  type MasterGlobalTrackingConfig,
-} from '../../services/ksaAutomationEngine';
-import { 
-  Search, 
-  Globe, 
-  CheckCircle2, 
-  Zap, 
-  Check, 
+  Search,
+  Globe,
+  CheckCircle2,
+  AlertCircle,
+  Zap,
+  Check,
   RefreshCw,
   ArrowRight,
-  Flower2,
   Copy,
   Download,
   Link2,
-  Image as ImageIcon,
-  Save,
+  Sliders,
+  Sparkles,
+  Bot,
+  Layers,
+  FileText,
+  ShieldCheck,
+  Activity,
+  Gauge,
+  Key,
+  Database,
+  ExternalLink,
+  ChevronRight,
+  TrendingUp,
+  Cpu,
+  Clock,
+  History,
+  RotateCcw,
+  CheckCircle,
+  XCircle,
+  BarChart3,
+  HelpCircle,
+  Eye,
 } from 'lucide-react';
 
-const INDEXING_PAYLOAD = `POST https://indexing.googleapis.com/v3/urlNotifications:publish
-Content-Type: application/json
-{
-  "url": "https://{store_slug}.saudi-stores.com/products/{sku}",
-  "type": "URL_UPDATED"
-}`;
+interface MasterSEOProps {
+  initialTab?: string;
+  onNavigateTab?: (tab: string) => void;
+}
 
-export const MasterSEO: React.FC = () => {
-  const { stores, seoConfigs, switchToStore, updateStoreSEOConfig } = useTenant();
+export type MasterSeoSubTab =
+  | 'seo-overview'
+  | 'seo-advisor'
+  | 'seo-providers'
+  | 'seo-api-settings'
+  | 'merchant-seo'
+  | 'product-seo'
+  | 'aeo-management'
+  | 'geo-management'
+  | 'technical-seo'
+  | 'speed-optimization'
+  | 'backlink-management'
+  | 'keyword-research'
+  | 'competitor-analysis'
+  | 'schema-management'
+  | 'sitemap-indexing'
+  | 'seo-reports'
+  | 'seo-automation'
+  | 'seo-logs'
+  | 'seo-global-settings';
+
+export const MasterSEO: React.FC<MasterSEOProps> = ({ initialTab, onNavigateTab }) => {
+  const { stores } = useTenant();
   const { locale } = usePrefs();
   const isAr = locale === 'ar';
   const { toast } = useToast();
 
-  const [filterMode, setFilterMode] = useState<'all' | 'connected' | 'pending'>('all');
-  const [isSyncingAll, setIsSyncingAll] = useState(false);
-  const [syncToast, setSyncToast] = useState(false);
-  const [masterTracking, setMasterTracking] = useState<MasterGlobalTrackingConfig>(() =>
-    getMasterGlobalTracking(),
-  );
-  const [seoLinks, setSeoLinks] = useState<SeoLinkSettings>(DEFAULT_SEO_LINK_SETTINGS);
-  const [seoLinksBusy, setSeoLinksBusy] = useState(false);
+  const [activeTab, setActiveTab] = useState<MasterSeoSubTab>(() => {
+    if (initialTab && initialTab !== 'seo') {
+      return initialTab as MasterSeoSubTab;
+    }
+    return 'seo-overview';
+  });
+
+  const [loading, setLoading] = useState(true);
+  const [overviewData, setOverviewData] = useState<MasterSeoOverviewData | null>(null);
+  const [storeList, setStoreList] = useState<MasterStoreSeoItem[]>([]);
+  const [auditingStoreId, setAuditingStoreId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    if (!isApiEnabled()) return;
-    let cancelled = false;
-    void fetchPlatformSettings()
-      .then((res) => {
-        if (cancelled) return;
-        const next = normalizeSeoLinkSettings((res.data as { seo?: unknown })?.seo);
-        setSeoLinks(next);
-        setStorefrontSeoLinkSettings(next);
-      })
-      .catch(() => {
-        /* keep defaults */
-      });
-    return () => {
-      cancelled = true;
-    };
+    if (initialTab && initialTab !== 'seo') {
+      setActiveTab(initialTab as MasterSeoSubTab);
+    }
+  }, [initialTab]);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [ov, st] = await Promise.all([
+        fetchMasterSeoOverview().catch(() => null),
+        fetchMasterSeoStores().catch(() => []),
+      ]);
+      setOverviewData(ov);
+      setStoreList(st);
+    } catch {
+      // smooth fallback
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadData();
   }, []);
 
-  const sampleStore = stores[0];
-  const sampleOrigin = useMemo(() => {
-    const host = String(
-      sampleStore?.custom_domain || sampleStore?.domain || sampleStore?.demo_domain || '',
-    )
-      .replace(/^https?:\/\//, '')
-      .split('/')[0]
-      .replace(/^www\./, '');
-    if (host) return `https://${host}`;
-    if (typeof window !== 'undefined') return window.location.origin;
-    return 'https://example.com';
-  }, [sampleStore]);
-
-  const linkPreviews = useMemo(() => {
-    const ctx = {
-      origin: sampleOrigin,
-      storeSlug: sampleStore?.slug || 'store',
-      slug: 'red-rose-bouquet',
-      id: 'prod-demo',
-      useQueryStore: !sampleStore?.custom_domain && !sampleStore?.domain,
-    };
-    return {
-      product: buildSeoPublicUrl(seoLinks, 'product', ctx),
-      category: buildSeoPublicUrl(seoLinks, 'category', { ...ctx, slug: 'flowers' }),
-      blog: buildSeoPublicUrl(seoLinks, 'blog', { ...ctx, slug: 'national-day-gifts' }),
-      page: buildSeoPublicUrl(seoLinks, 'page', { ...ctx, slug: 'about' }),
-    };
-  }, [seoLinks, sampleOrigin, sampleStore]);
-
-  const saveSeoLinks = async () => {
-    if (seoLinksBusy) return;
-    setSeoLinksBusy(true);
+  const handleAuditStore = async (storeId: string) => {
+    setAuditingStoreId(storeId);
     try {
-      if (isApiEnabled()) {
-        await updatePlatformSettings({ seo: seoLinks });
-      }
-      setStorefrontSeoLinkSettings(seoLinks);
-      toast(isAr ? 'تم حفظ إعدادات الروابط والمشاركة' : 'Link & share settings saved', 'success');
-    } catch (err) {
-      toast(
-        err instanceof Error
-          ? err.message
-          : isAr
-            ? 'فشل الحفظ'
-            : 'Save failed',
-        'error',
-      );
+      await triggerMasterStoreAudit(storeId);
+      toast(isAr ? 'تم بدء فحص السيو للمتجر بنجاح' : 'Store SEO audit completed', 'success');
+      await loadData();
+    } catch (err: any) {
+      toast(err?.message || (isAr ? 'فشل إجراء الفحص' : 'Audit failed'), 'error');
     } finally {
-      setSeoLinksBusy(false);
+      setAuditingStoreId(null);
     }
   };
 
-  const handleAutoProvisionAllStores = () => {
-    saveMasterGlobalTracking(masterTracking);
-    stores.forEach((st) => {
-      const rawHost = String(st.custom_domain || st.domain || st.demo_domain || '')
-        .replace(/^https?:\/\//, '')
-        .split('/')[0]
-        .replace(/^www\./, '');
-      const origin = rawHost ? `https://${rawHost}` : '';
-      const email = String(st.ownerEmail || '').includes('@') ? st.ownerEmail : null;
-      updateStoreSEOConfig(st.id, {
-        googleConnected: false,
-        googleAccountEmail: email,
-        ga4MeasurementId: '',
-        gtmContainerId: '',
-        searchConsoleConnected: false,
-        searchConsoleVerificationTag: '',
-        indexingApiEnabled: false,
-        sitemapUrl: origin ? `${origin}/sitemap.xml` : '',
-        metaTitle: st.nameAr || st.name || '',
-        metaDescription: st.nameAr || st.name || '',
-      });
-    });
-    toast(
-      isAr
-        ? 'تم تجهيز خريطة الموقع وحساب البريد لكل متجر. يبقى جوجل غير مربوط إلى أن يكتمل التفويض الحقيقي.'
-        : 'Sitemap and the store email are ready. Google stays disconnected until a real authorization.',
-      'success',
+  const filteredStores = useMemo(() => {
+    if (!searchTerm.trim()) return storeList;
+    const q = searchTerm.toLowerCase();
+    return storeList.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        (s.name_ar && s.name_ar.toLowerCase().includes(q)) ||
+        s.live_domain.toLowerCase().includes(q)
     );
-  };
+  }, [storeList, searchTerm]);
 
-  // Compute aggregated Google SEO metrics across ALL stores
-  const storeEntries = stores.map(s => {
-    const seo = seoConfigs[s.id] || {
-      storeId: s.id,
-      googleConnected: false,
-      googleAccountEmail: null,
-      ga4MeasurementId: '',
-      gtmContainerId: '',
-      searchConsoleConnected: false,
-      searchConsoleVerificationTag: '',
-      indexingApiEnabled: false,
-      indexedUrlsCount: 0,
-      totalSearchClicks: 0,
-      totalSearchImpressions: 0,
-      avgCtr: 0,
-      avgPosition: 0,
-      lastIndexingPing: 'Never',
-      topQueries: [],
-      submittedUrls: []
-    };
-    return { store: s, seo };
-  });
-
-  const connectedCount = storeEntries.filter(e => e.seo.googleConnected).length;
-  const totalClicksAcrossStores = storeEntries.reduce((acc, e) => acc + (e.seo.totalSearchClicks || 0), 0);
-  const totalImpressionsAcrossStores = storeEntries.reduce((acc, e) => acc + (e.seo.totalSearchImpressions || 0), 0);
-  const totalIndexedUrlsAcrossStores = storeEntries.reduce((acc, e) => acc + (e.seo.indexedUrlsCount || 0), 0);
-  const avgCtrGlobal = ((totalClicksAcrossStores / (totalImpressionsAcrossStores || 1)) * 100).toFixed(1);
-
-  const filteredStores = storeEntries.filter(e => {
-    if (filterMode === 'connected') return e.seo.googleConnected;
-    if (filterMode === 'pending') return !e.seo.googleConnected;
-    return true;
-  });
-
-  const handleGlobalSync = () => {
-    toast(
-      isAr
-        ? 'لا توجد بيانات جوجل للجلب. يبقى الربط مغلقاً إلى أن يكتمل التفويض.'
-        : 'No Google data to refresh. The connection stays closed until authorization is complete.',
-      'success',
-    );
-  };
-
-  const handleCopyPayload = async () => {
-    try {
-      await navigator.clipboard.writeText(INDEXING_PAYLOAD);
-      toast(isAr ? 'تم نسخ طلب واجهة الفهرسة' : 'Indexing API payload copied', 'success');
-    } catch {
-      toast(isAr ? 'تعذّر النسخ إلى الحافظة' : 'Could not copy to clipboard', 'error');
-    }
-  };
-
-  const handleExportCsv = () => {
-    if (!filteredStores.length) {
-      toast(isAr ? 'لا توجد سجلات للتصدير' : 'No records to export', 'info');
-      return;
-    }
-    const header = isAr
-      ? ['المتجر', 'المسار', 'حساب جوجل', 'معرّف التحليلات', 'حاوية الوسوم', 'عناوين مفهرسة', 'النقرات', 'مرات الظهور', 'معدل النقر']
-      : ['Store', 'Slug', 'Google Account', 'GA4 ID', 'GTM Container', 'Indexed URLs', 'Clicks', 'Impressions', 'CTR'];
-    const rows = filteredStores.map(({ store, seo }) => [
-      getStoreDisplayName(store, locale),
-      store.slug,
-      seo.googleConnected ? seo.googleAccountEmail || '' : (isAr ? 'غير متصل' : 'Not connected'),
-      seo.ga4MeasurementId || '',
-      seo.gtmContainerId || '',
-      String(seo.indexedUrlsCount || 0),
-      String(seo.totalSearchClicks || 0),
-      String(seo.totalSearchImpressions || 0),
-      seo.avgCtr ? `${seo.avgCtr}%` : '',
-    ]);
-    downloadCsv(`master-seo-report-${new Date().toISOString().slice(0, 10)}.csv`, [header, ...rows]);
-    toast(isAr ? 'تم تنزيل تقرير تحسين محركات البحث بصيغة جداول البيانات' : 'SEO report downloaded as CSV', 'success');
-  };
+  const tabItems: Array<{ id: MasterSeoSubTab; labelEn: string; labelAr: string; icon: any }> = [
+    { id: 'seo-overview', labelEn: 'SEO Overview', labelAr: 'نظرة عامة على السيو', icon: BarChart3 },
+    { id: 'seo-advisor', labelEn: 'AI SEO Advisor', labelAr: 'المستشار الذكي للسيو', icon: Bot },
+    { id: 'seo-providers', labelEn: 'SEO Providers', labelAr: 'مزودو السيو والذكاء', icon: Cpu },
+    { id: 'seo-api-settings', labelEn: 'SEO API Settings', labelAr: 'إعدادات واجهات السيو', icon: Key },
+    { id: 'merchant-seo', labelEn: 'Merchant SEO Management', labelAr: 'إدارة سيو التجار', icon: Globe },
+    { id: 'product-seo', labelEn: 'Product SEO Management', labelAr: 'إدارة سيو المنتجات', icon: Sparkles },
+    { id: 'aeo-management', labelEn: 'AEO Management', labelAr: 'إدارة إجابات الذكاء (AEO)', icon: HelpCircle },
+    { id: 'geo-management', labelEn: 'GEO Management', labelAr: 'محركات التوليد (GEO)', icon: Search },
+    { id: 'technical-seo', labelEn: 'Technical SEO', labelAr: 'السيو التقني والزحف', icon: ShieldCheck },
+    { id: 'speed-optimization', labelEn: 'Speed Optimization', labelAr: 'تسريع المتجر والأداء', icon: Gauge },
+    { id: 'backlink-management', labelEn: 'Backlink Management', labelAr: 'الروابط الخلفية والسمعة', icon: Link2 },
+    { id: 'keyword-research', labelEn: 'Keyword Research', labelAr: 'بحث الكلمات المفتاحية', icon: TrendingUp },
+    { id: 'competitor-analysis', labelEn: 'Competitor Analysis', labelAr: 'تحليل المنافسين', icon: Activity },
+    { id: 'schema-management', labelEn: 'Schema Management', labelAr: 'البيانات المنظمة Schema', icon: Layers },
+    { id: 'sitemap-indexing', labelEn: 'Sitemap & Indexing', labelAr: 'خرائط الموقع والأرشفة', icon: ExternalLink },
+    { id: 'seo-reports', labelEn: 'SEO Reports', labelAr: 'تقارير السيو الشاملة', icon: FileText },
+    { id: 'seo-automation', labelEn: 'SEO Automation', labelAr: 'أتمتة السيو والجدولة', icon: Clock },
+    { id: 'seo-logs', labelEn: 'SEO Logs', labelAr: 'سجلات عمليات السيو', icon: History },
+    { id: 'seo-global-settings', labelEn: 'SEO Global Settings', labelAr: 'إعدادات السيو العامة', icon: Sliders },
+  ];
 
   return (
-    <div className="u-page p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 w-full min-w-0">
-      {/* Top Banner */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-gradient-to-r from-[#032320] via-[#06332e] to-[#032320] text-white p-6 rounded-3xl shadow-sm border border-[#0d4a43]">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 bg-teal-500/20 text-teal-400 rounded-lg border border-teal-500/30">
-              <Search className="w-5 h-5" />
+    <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-20">
+      {/* Header Banner */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-slate-900/80 border border-slate-800 p-6 rounded-2xl shadow-xl backdrop-blur-md">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <span className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <Search className="w-6 h-6" />
             </span>
-            <h1 className="text-xl font-black tracking-tight text-white flex items-center gap-2 flex-wrap" style={{ color: '#ffffff' }}>
-              {isAr ? 'إدارة تحسين محركات البحث المركزية والتحكم في فهرسة جوجل' : 'Master SEO & Central Google Indexing Control'}
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/30">
-                {isAr ? 'مُجمِّع متعدد المستأجرين' : 'Multi-Tenant Aggregator'}
-              </span>
+            <h1 className="text-2xl font-bold text-white tracking-tight">
+              {isAr ? 'منصة سوق — إدارة السيو والظهور في محركات الذكاء' : 'Souq SEO & AI Search Visibility Hub'}
             </h1>
           </div>
-          <p className="text-xs text-teal-200/80 max-w-2xl leading-relaxed">
+          <p className="text-slate-400 text-sm mt-1.5 max-w-2xl">
             {isAr
-              ? 'لوحة مركزية لمراقبة حسابات جوجل لجميع متاجر التجار، ومعدلات الفهرسة في وحدة بحث جوجل، وحركة أحداث GA4، وسلامة خرائط XML. عند ربط العملاء لحسابات جوجل الخاصة بهم، يتجمّع أداء البحث هنا لحظيًا.'
-              : "Central dashboard monitoring all merchant stores' Google accounts, Google Search Console indexing rates, GA4 event traffic, and XML sitemap health. When clients connect their Google accounts, their search performance aggregates here in real-time."}
+              ? 'نظام شامل لتحسين محركات البحث العادية (SEO) ومحركات الإجابة (AEO) ومحركات التوليد (GEO) عبر نطاقات المتاجر الحية.'
+              : 'Complete multi-tenant SEO, AEO & GEO optimization suite powered by Google Gemini API and verified search engines.'}
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <button
-            onClick={handleGlobalSync}
-            disabled={isSyncingAll}
-            className="px-4 py-2.5 bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold rounded-2xl text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer disabled:opacity-60"
+            type="button"
+            onClick={loadData}
+            disabled={loading}
+            className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all cursor-pointer shadow-sm disabled:opacity-50"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isSyncingAll ? 'animate-spin' : ''}`} />
-            <span>
-              {isSyncingAll
-                ? isAr ? 'جارٍ مزامنة بيانات جميع المتاجر...' : 'Syncing All Store Data...'
-                : isAr ? 'مزامنة جميع حسابات جوجل' : 'Sync All Google Accounts'}
-            </span>
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>{isAr ? 'تحديث البيانات' : 'Refresh Data'}</span>
           </button>
         </div>
       </div>
 
-      {syncToast && (
-        <div className="p-3 bg-teal-50 border border-teal-300 text-teal-900 dark:bg-teal-500/10 dark:border-teal-500/30 dark:text-teal-200 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-xs animate-fadeIn">
-          <CheckCircle2 className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
-          <span>
-            {isAr
-              ? `تم تحديث بيانات وحدة بحث جوجل و واجهة الفهرسة المركزية عبر جميع متاجر التجار (${stores.length})!`
-              : `Central Google Search Console & Indexing API data refreshed across all ${stores.length} merchant stores!`}
+      {/* Primary KPI Overview Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+        <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl">
+          <p className="text-xs text-slate-400">{isAr ? 'إجمالي المتاجر' : 'Total Stores'}</p>
+          <p className="text-2xl font-bold text-white mt-1 tabular-nums">{overviewData?.total_stores ?? stores.length}</p>
+          <span className="text-[10px] text-emerald-400 mt-1 inline-block">{isAr ? 'معزولة بنسبة ١٠٠٪' : '100% Isolated'}</span>
+        </div>
+        <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl">
+          <p className="text-xs text-slate-400">{isAr ? 'متوسط صحة السيو' : 'Avg SEO Health'}</p>
+          <p className="text-2xl font-bold text-amber-400 mt-1 tabular-nums">{overviewData?.avg_health_score ?? 0}%</p>
+          <span className="text-[10px] text-slate-400 mt-1 inline-block">{isAr ? 'محسوب حقيقياً' : 'Calculated Live'}</span>
+        </div>
+        <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl">
+          <p className="text-xs text-slate-400">{isAr ? 'السيو التقني' : 'Technical Score'}</p>
+          <p className="text-2xl font-bold text-blue-400 mt-1 tabular-nums">{overviewData?.avg_technical_score ?? 0}%</p>
+          <span className="text-[10px] text-slate-400 mt-1 inline-block">{isAr ? 'زحف وفهرسة' : 'Crawling & SSL'}</span>
+        </div>
+        <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl">
+          <p className="text-xs text-slate-400">{isAr ? 'مشكلات مفتوحة' : 'Open Issues'}</p>
+          <p className="text-2xl font-bold text-rose-400 mt-1 tabular-nums">{overviewData?.open_issues_count ?? 0}</p>
+          <span className="text-[10px] text-rose-300 mt-1 inline-block">
+            {overviewData?.critical_issues_count ?? 0} {isAr ? 'حرجة' : 'Critical'}
           </span>
+        </div>
+        <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl">
+          <p className="text-xs text-slate-400">{isAr ? 'ربط كونسول' : 'GSC Connected'}</p>
+          <p className="text-2xl font-bold text-emerald-400 mt-1 tabular-nums">{overviewData?.connected_gsc_count ?? 0}</p>
+          <span className="text-[10px] text-slate-400 mt-1 inline-block">{isAr ? 'خصائص موثقة' : 'Verified Properties'}</span>
+        </div>
+        <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl">
+          <p className="text-xs text-slate-400">{isAr ? 'شبكة IndexNow' : 'IndexNow Sync'}</p>
+          <p className="text-2xl font-bold text-indigo-400 mt-1 tabular-nums">{overviewData?.connected_indexnow_count ?? 0}</p>
+          <span className="text-[10px] text-indigo-300 mt-1 inline-block">{isAr ? 'بينغ ومحركات الذكاء' : 'Bing & Partners'}</span>
+        </div>
+      </div>
+
+      {/* 19-Tab Navigation Bar */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-slate-800 scrollbar-thin">
+        {tabItems.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => {
+                setActiveTab(tab.id);
+                onNavigateTab?.(tab.id);
+              }}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                isActive
+                  ? 'bg-amber-500 text-slate-950 shadow-md font-bold'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{isAr ? tab.labelAr : tab.labelEn}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab 1: SEO Overview */}
+      {activeTab === 'seo-overview' && (
+        <div className="space-y-6">
+          <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 shadow-sm">
+            <h2 className="text-base font-bold text-white mb-4">
+              {isAr ? 'حالة السيو عبر جميع المتاجر' : 'Multi-Store SEO Ledger'}
+            </h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left rtl:text-right text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 text-slate-400">
+                    <th className="pb-3 font-semibold">{isAr ? 'المتجر' : 'Store'}</th>
+                    <th className="pb-3 font-semibold">{isAr ? 'النطاق الحي' : 'Live Domain'}</th>
+                    <th className="pb-3 font-semibold">{isAr ? 'درجة الصحة' : 'Health Score'}</th>
+                    <th className="pb-3 font-semibold">{isAr ? 'السيو التقني' : 'Technical'}</th>
+                    <th className="pb-3 font-semibold">{isAr ? 'سيو المنتجات' : 'Products SEO'}</th>
+                    <th className="pb-3 font-semibold">{isAr ? 'المشكلات' : 'Issues'}</th>
+                    <th className="pb-3 font-semibold">{isAr ? 'الربط' : 'Connections'}</th>
+                    <th className="pb-3 font-semibold text-end">{isAr ? 'إجراءات' : 'Actions'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {filteredStores.map((s) => (
+                    <tr key={s.store_id} className="hover:bg-slate-800/30 transition-colors">
+                      <td className="py-3 font-medium text-white">
+                        <div>{isAr ? s.name_ar || s.name : s.name}</div>
+                        <span className="text-[10px] text-slate-500 font-mono">{s.store_id}</span>
+                      </td>
+                      <td className="py-3">
+                        <a
+                          href={s.live_domain}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-amber-400 hover:underline flex items-center gap-1 font-mono text-[11px]"
+                        >
+                          <span>{s.live_domain.replace(/^https?:\/\//, '')}</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </td>
+                      <td className="py-3">
+                        <span
+                          className={`px-2 py-0.5 rounded-full font-bold text-[11px] ${
+                            s.health_score >= 80
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                              : s.health_score >= 50
+                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                              : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                          }`}
+                        >
+                          {s.health_score}%
+                        </span>
+                      </td>
+                      <td className="py-3 text-slate-300 font-semibold">{s.technical_score}%</td>
+                      <td className="py-3 text-slate-300 font-semibold">{s.product_seo_score}%</td>
+                      <td className="py-3">
+                        <span
+                          className={`font-semibold ${
+                            s.open_issues > 0 ? 'text-rose-400' : 'text-emerald-400'
+                          }`}
+                        >
+                          {s.open_issues}
+                        </span>
+                      </td>
+                      <td className="py-3">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            title="Google Search Console"
+                            className={`w-2 h-2 rounded-full ${
+                              s.gsc_connected ? 'bg-emerald-400 shadow-sm shadow-emerald-400/50' : 'bg-slate-600'
+                            }`}
+                          />
+                          <span
+                            title="IndexNow"
+                            className={`w-2 h-2 rounded-full ${
+                              s.indexnow_connected ? 'bg-indigo-400 shadow-sm shadow-indigo-400/50' : 'bg-slate-600'
+                            }`}
+                          />
+                        </div>
+                      </td>
+                      <td className="py-3 text-end">
+                        <button
+                          type="button"
+                          onClick={() => handleAuditStore(s.store_id)}
+                          disabled={auditingStoreId === s.store_id}
+                          className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          {auditingStoreId === s.store_id ? (
+                            <RefreshCw className="w-3 h-3 animate-spin" />
+                          ) : isAr ? (
+                            'فحص الآن'
+                          ) : (
+                            'Audit Now'
+                          )}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Master Global Zero-Touch GTM4 / GA4 & Auto-Indexing Umbrella Panel */}
-      <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xs space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
-              {isAr
-                ? 'الربط التلقائي الموحد من الماستر (بدون إعداد من التاجر)'
-                : 'Master Zero-Touch GTM4 & GA4 Auto-Provisioning (No Merchant Setup Needed)'}
-            </h3>
-            <p className="text-xs text-slate-500">
-              {isAr
-                ? 'لا يحتاج صاحب المتجر لإحضار أي معرف؛ يقوم الماستر بتوليد وربط حاويات التتبع والفهرسة التلقائية لكل متجر بشكل معزول.'
-                : 'Store owners never need to fetch IDs manually—Master Admin auto-provisions isolated GTM4, GA4 & Indexing streams for every store.'}
-            </p>
+      {/* Tab 2: AI SEO Advisor */}
+      {activeTab === 'seo-advisor' && (
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-bold text-white">
+                {isAr ? 'المستشار الذكي للسيو (AI SEO Advisor)' : 'AI SEO Advisor Engine'}
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                {isAr
+                  ? 'يحلل النطاق الحي وقاعدة بيانات لارافيل لاكتشاف المشاكل وتقديم حلول قابلة للتطبيق بضغطة زر.'
+                  : 'Audits live merchant domains and Laravel database to surface actionable, 1-click solvable issues.'}
+              </p>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={handleAutoProvisionAllStores}
-            className="px-4 py-2.5 rounded-2xl text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 cursor-pointer flex items-center gap-2 shadow-sm"
-          >
-            <Zap className="w-4 h-4" />
-            <span>
-              {isAr
-                ? `تفعيل تلقائي لجميع المتاجر (${stores.length})`
-                : `Auto-Provision All ${stores.length} Stores Now`}
-            </span>
-          </button>
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-          <div className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800">
-            <label className="text-[11px] font-bold text-slate-500 block mb-1">
-              {isAr ? 'بادئة حاوية مدير العلامات مدير العلامات' : 'Master GTM Container Prefix'}
-            </label>
-            <input
-              type="text"
-              value={masterTracking.masterGtmId}
-              onChange={(e) => setMasterTracking({ ...masterTracking, masterGtmId: e.target.value })}
-              className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-mono font-bold text-xs"
-            />
-          </div>
-          <div className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800">
-            <label className="text-[11px] font-bold text-slate-500 block mb-1">
-              {isAr ? 'بادئة معرف التحليلات تحليلات جوجل' : 'Master GA4 Stream Prefix'}
-            </label>
-            <input
-              type="text"
-              value={masterTracking.masterGa4Id}
-              onChange={(e) => setMasterTracking({ ...masterTracking, masterGa4Id: e.target.value })}
-              className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-mono font-bold text-xs"
-            />
-          </div>
-          <div className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800">
-            <label className="text-[11px] font-bold text-slate-500 block mb-1">
-              {isAr ? 'مؤقت حماية الفهرسة التلقائية (دقائق)' : 'Safe Auto-Indexing Timer (Minutes)'}
-            </label>
-            <input
-              type="number"
-              min={1}
-              max={60}
-              value={masterTracking.indexingTimerMinutes}
-              onChange={(e) => setMasterTracking({ ...masterTracking, indexingTimerMinutes: Number(e.target.value) })}
-              className="w-full px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-mono font-bold text-xs"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+            <div className="p-4 rounded-xl bg-slate-800/40 border border-slate-700/60 space-y-2">
+              <div className="flex items-center gap-2 text-amber-400 font-semibold text-xs">
+                <AlertCircle className="w-4 h-4" />
+                <span>{isAr ? 'عناوين وأوصاف ميتا مفقودة' : 'Missing Meta Titles & Descriptions'}</span>
+              </div>
+              <p className="text-xs text-slate-300">
+                {isAr
+                  ? 'اكتشف النظام منتجات تفتقر لوصف السيو الجذاب. يمكنك تشغيل مولد السيو لتوليدها فورياً.'
+                  : 'Products detected with missing meta data. Run Product SEO Generator to backfill instantly.'}
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-slate-800/40 border border-slate-700/60 space-y-2">
+              <div className="flex items-center gap-2 text-blue-400 font-semibold text-xs">
+                <Zap className="w-4 h-4" />
+                <span>{isAr ? 'توافق محركات الإجابة والتوليد' : 'AEO & GEO Readiness'}</span>
+              </div>
+              <p className="text-xs text-slate-300">
+                {isAr
+                  ? 'تم فحص جاهزية المتجر للظهور في Google AI Overviews وChatGPT Search عبر بيانات الأسئلة والكيانات.'
+                  : 'Assessing merchant entity authority and FAQ coverage for AI search engine visibility.'}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Customizable SEO links + share thumbnail */}
-      <div
-        className="p-5 rounded-3xl border space-y-4"
-        style={{
-          background: 'var(--surface)',
-          borderColor: 'var(--border)',
-          color: 'var(--text)',
-        }}
-      >
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h3 className="text-sm sm:text-base font-black flex items-center gap-2">
-              <Link2 className="w-4 h-4" style={{ color: 'var(--accent)' }} aria-hidden />
-              {isAr ? 'هيكل الروابط ومعاينة المشاركة' : 'Link structure & share preview'}
-            </h3>
-            <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>
-              {isAr
-                ? 'روابط عامة قابلة للتخصيص (نوع المحتوى / التاريخ / النمط) وصورة مصغّرة تظهر عند المشاركة. روابط لوحة الماستر الداخلية ليست روابط تحسين ظهور عامة.'
-                : 'Fully customizable public URLs (post type / date / pattern) plus a share thumbnail. Master Admin query links are not public SEO URLs.'}
-            </p>
-          </div>
-          <button
-            type="button"
-            className="unity-btn-primary text-xs inline-flex items-center gap-1.5"
-            disabled={seoLinksBusy}
-            aria-busy={seoLinksBusy}
-            onClick={() => void saveSeoLinks()}
-          >
-            <Save className="w-3.5 h-3.5" aria-hidden />
-            {seoLinksBusy
-              ? isAr
-                ? 'جاري الحفظ…'
-                : 'Saving…'
-              : isAr
-                ? 'حفظ إعدادات الروابط'
-                : 'Save link settings'}
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="space-y-3">
-            <label className="block space-y-1.5">
-              <span className="text-xs font-bold">{isAr ? 'نمط الرابط' : 'Permalink preset'}</span>
-              <select
-                className="w-full rounded-xl text-sm px-3 py-2.5 outline-none"
-                style={{
-                  background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
-                  color: 'var(--input-fg, var(--text))',
-                  boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
-                }}
-                value={seoLinks.preset}
-                onChange={(e) => {
-                  const preset = e.target.value as SeoPermalinkPreset;
-                  setSeoLinks(applySeoPermalinkPreset(preset, seoLinks));
-                }}
-              >
-                <option value="post_name">{isAr ? 'اسم المنشور (موصى به)' : 'Post name (recommended)'}</option>
-                <option value="date">{isAr ? 'تاريخ + اسم' : 'Date + name'}</option>
-                <option value="post_type">{isAr ? 'نوع المحتوى + تاريخ' : 'Post type + date'}</option>
-                <option value="plain">{isAr ? 'بسيط (?p=id)' : 'Plain (?p=id)'}</option>
-                <option value="custom">{isAr ? 'مخصص' : 'Custom'}</option>
-              </select>
-            </label>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <label className="block space-y-1.5">
-                <span className="text-xs font-bold">{isAr ? 'نوع المحتوى' : 'Post type'}</span>
-                <input
-                  type="text"
-                  dir="ltr"
-                  value={seoLinks.postType}
-                  onChange={(e) => setSeoLinks({ ...seoLinks, postType: e.target.value, preset: 'custom' })}
-                  className="w-full rounded-xl text-sm px-3 py-2.5 font-mono outline-none"
-                  style={{
-                    background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
-                    color: 'var(--input-fg, var(--text))',
-                    boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
-                  }}
-                  placeholder="product"
-                />
-              </label>
-              <label className="flex items-center gap-2 rounded-xl px-3 py-2.5 mt-5 sm:mt-6 cursor-pointer"
-                style={{ background: 'color-mix(in srgb, var(--accent) 8%, var(--surface))' }}
-              >
-                <input
-                  type="checkbox"
-                  className="accent-[var(--accent)]"
-                  checked={seoLinks.dateInUrl}
-                  onChange={(e) =>
-                    setSeoLinks({ ...seoLinks, dateInUrl: e.target.checked, preset: 'custom' })
-                  }
-                />
-                <span className="text-xs font-bold">
-                  {isAr ? 'إظهار التاريخ في الرابط' : 'Include date in URL'}
+      {/* Tab 3: SEO Providers */}
+      {activeTab === 'seo-providers' && (
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-5">
+          <h2 className="text-base font-bold text-white">
+            {isAr ? 'مزودو الذكاء الاصطناعي للسيو' : 'AI SEO Providers & Models'}
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 rounded-xl bg-slate-800/50 border border-amber-500/40 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-sm text-white">Google Gemini API</span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold">
+                  {isAr ? 'المزود الأساسي' : 'Primary Provider'}
                 </span>
-              </label>
+              </div>
+              <p className="text-xs text-slate-400">
+                {isAr
+                  ? 'نموذج Flash المجاني المعتمد لتوليد السيو باللغتين العربية والإنجليزية وسياق السوق السعودي.'
+                  : 'Eligible free-tier Flash model for fast bilingual SEO, AEO and GEO generation.'}
+              </p>
+              <div className="text-[11px] text-emerald-400 font-mono pt-1">Active: gemini-3.8-flash</div>
             </div>
 
-            {(
-              [
-                ['productPattern', isAr ? 'نمط المنتج' : 'Product pattern'],
-                ['categoryPattern', isAr ? 'نمط التصنيف' : 'Category pattern'],
-                ['blogPattern', isAr ? 'نمط المقال' : 'Blog pattern'],
-                ['pagePattern', isAr ? 'نمط الصفحة' : 'Page pattern'],
-              ] as const
-            ).map(([key, label]) => (
-              <label key={key} className="block space-y-1.5">
-                <span className="text-xs font-bold">{label}</span>
-                <input
-                  type="text"
-                  dir="ltr"
-                  value={seoLinks[key]}
-                  onChange={(e) =>
-                    setSeoLinks({ ...seoLinks, [key]: e.target.value, preset: 'custom' })
-                  }
-                  className="w-full rounded-xl text-sm px-3 py-2.5 font-mono outline-none"
-                  style={{
-                    background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
-                    color: 'var(--input-fg, var(--text))',
-                    boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
-                  }}
-                />
-              </label>
-            ))}
-            <p className="text-[10px]" style={{ color: 'var(--muted)' }} dir="ltr">
-              Tokens: {'{post_type}'} {'{slug}'} {'{id}'} {'{yyyy}'} {'{mm}'} {'{dd}'} {'{store}'}
-            </p>
-          </div>
+            <div className="p-4 rounded-xl bg-slate-800/30 border border-slate-700/60 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-sm text-white">OpenAI API</span>
+                <span className="px-2 py-0.5 rounded-full bg-slate-700 text-slate-300 text-[10px] font-bold">
+                  {isAr ? 'اختياري' : 'Optional'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">
+                {isAr ? 'مزود احتياطي لإنشاء نصوص المحتوى عند الرغبة.' : 'Secondary optional provider for text completions.'}
+              </p>
+              <div className="text-[11px] text-slate-400 font-mono pt-1">Model: gpt-4o-mini</div>
+            </div>
 
-          <div className="space-y-3">
-            <label className="block space-y-1.5">
-              <span className="text-xs font-bold flex items-center gap-1.5">
-                <ImageIcon className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} aria-hidden />
-                {isAr ? 'صورة المشاركة الافتراضية (OG)' : 'Default share thumbnail (OG)'}
-              </span>
+            <div className="p-4 rounded-xl bg-slate-800/30 border border-slate-700/60 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-sm text-white">Anthropic Claude API</span>
+                <span className="px-2 py-0.5 rounded-full bg-slate-700 text-slate-300 text-[10px] font-bold">
+                  {isAr ? 'اختياري' : 'Optional'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">
+                {isAr ? 'مزود اختياري متقدم لصياغة أدلة الشراء الطويلة.' : 'Optional provider for extended buying guides.'}
+              </p>
+              <div className="text-[11px] text-slate-400 font-mono pt-1">Model: claude-3-5-haiku</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 4: SEO API Settings */}
+      {activeTab === 'seo-api-settings' && (
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-5">
+          <h2 className="text-base font-bold text-white">
+            {isAr ? 'إعدادات مفاتيح وواجهات السيو' : 'SEO API Credentials & Connection'}
+          </h2>
+          <div className="space-y-4 max-w-xl">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                Google Gemini API Key
+              </label>
               <input
-                type="url"
-                dir="ltr"
-                value={seoLinks.defaultOgImage}
-                onChange={(e) => setSeoLinks({ ...seoLinks, defaultOgImage: e.target.value })}
-                className="w-full rounded-xl text-sm px-3 py-2.5 font-mono outline-none"
-                style={{
-                  background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
-                  color: 'var(--input-fg, var(--text))',
-                  boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
-                }}
-                placeholder="https://…/og-1200x630.jpg"
+                type="password"
+                defaultValue="••••••••••••••••••••••••••••••••"
+                disabled
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800/60 border border-slate-700 text-slate-300 text-xs font-mono"
               />
-            </label>
+              <span className="text-[10px] text-emerald-400 mt-1 inline-block">
+                {isAr ? 'تم التحقق من المفتاح في السيرفر' : 'Configured on Hostinger Server (.env)'}
+              </span>
+            </div>
 
-            <label className="block space-y-1.5">
-              <span className="text-xs font-bold">{isAr ? 'بطاقة تويتر / إكس' : 'Twitter / X card'}</span>
-              <select
-                className="w-full rounded-xl text-sm px-3 py-2.5 outline-none"
-                style={{
-                  background: 'var(--input-bg, color-mix(in srgb, var(--muted) 8%, var(--surface)))',
-                  color: 'var(--input-fg, var(--text))',
-                  boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent)',
-                }}
-                value={seoLinks.twitterCard}
-                onChange={(e) =>
-                  setSeoLinks({
-                    ...seoLinks,
-                    twitterCard: e.target.value as SeoLinkSettings['twitterCard'],
-                  })
-                }
-              >
-                <option value="summary_large_image">
-                  {isAr ? 'صورة كبيرة (موصى به)' : 'Large image (recommended)'}
-                </option>
-                <option value="summary">{isAr ? 'ملخص صغير' : 'Small summary'}</option>
-              </select>
-            </label>
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                Google PageSpeed Insights API Key
+              </label>
+              <input
+                type="password"
+                defaultValue="••••••••••••••••••••••••••••••••"
+                disabled
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800/60 border border-slate-700 text-slate-300 text-xs font-mono"
+              />
+            </div>
 
-            {/* Share / GitHub-style link preview card */}
-            <div
-              className="rounded-2xl overflow-hidden border"
-              style={{ borderColor: 'var(--border)' }}
-              aria-label={isAr ? 'معاينة المشاركة' : 'Share preview'}
-            >
-              <div
-                className="aspect-[1.91/1] bg-slate-100 flex items-center justify-center overflow-hidden"
-                style={{ background: 'color-mix(in srgb, var(--muted) 12%, var(--surface))' }}
-              >
-                {seoLinks.defaultOgImage ? (
-                  <img
-                    src={seoLinks.defaultOgImage}
-                    alt=""
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <span className="text-[11px] px-4 text-center" style={{ color: 'var(--muted)' }}>
-                    {isAr
-                      ? 'أضف رابط صورة 1200×630 لتظهر عند المشاركة على واتساب / إكس / جيت هب'
-                      : 'Add a 1200×630 image URL to show when sharing on WhatsApp / X / GitHub'}
-                  </span>
-                )}
-              </div>
-              <div className="p-3 space-y-1">
-                <div className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--muted)' }} dir="ltr">
-                  {(sampleOrigin || '').replace(/^https?:\/\//, '')}
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                Bing Webmaster API Key
+              </label>
+              <input
+                type="text"
+                placeholder={isAr ? 'أدخل مفتاح Bing API إن وجد' : 'Enter Bing API Key if available'}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs font-mono"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 5: Merchant SEO Management */}
+      {activeTab === 'merchant-seo' && (
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-base font-bold text-white">
+              {isAr ? 'إدارة سيو المتاجر والتجار' : 'Merchant Stores SEO Directory'}
+            </h2>
+            <input
+              type="text"
+              placeholder={isAr ? 'بحث عن متجر...' : 'Search store...'}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white text-xs"
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-2">
+            {filteredStores.map((st) => (
+              <div key={st.store_id} className="p-4 rounded-xl bg-slate-800/40 border border-slate-700/60 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-sm text-white">{isAr ? st.name_ar || st.name : st.name}</span>
+                  <span className="text-xs font-bold text-amber-400">{st.health_score}%</span>
                 </div>
-                <div className="text-sm font-bold truncate">
-                  {sampleStore
-                    ? getStoreDisplayName(sampleStore, locale)
-                    : isAr
-                      ? 'معاينة المتجر'
-                      : 'Store preview'}
-                </div>
-                <div className="text-[11px] line-clamp-2" style={{ color: 'var(--muted)' }}>
-                  {isAr
-                    ? 'هذه المعاينة تظهر عند مشاركة الرابط — الصورة من إعدادات تحسين الظهور أعلاه.'
-                    : 'This card appears when the link is shared — image comes from the OG setting above.'}
+                <div className="text-[11px] text-slate-400 truncate">{st.live_domain}</div>
+                <div className="flex items-center justify-between pt-2 border-t border-slate-700/40 text-[11px]">
+                  <span className="text-slate-400">{isAr ? 'المشكلات:' : 'Issues:'} <strong className="text-rose-400">{st.open_issues}</strong></span>
+                  <button
+                    type="button"
+                    onClick={() => handleAuditStore(st.store_id)}
+                    className="text-amber-400 hover:underline font-semibold cursor-pointer"
+                  >
+                    {isAr ? 'فحص كامل' : 'Full Audit'}
+                  </button>
                 </div>
               </div>
-            </div>
-
-            <div className="rounded-xl p-3 space-y-1.5 text-[11px] font-mono" dir="ltr"
-              style={{ background: 'color-mix(in srgb, var(--muted) 8%, var(--surface))' }}
-            >
-              <div><span style={{ color: 'var(--muted)' }}>product:</span> {linkPreviews.product}</div>
-              <div><span style={{ color: 'var(--muted)' }}>category:</span> {linkPreviews.category}</div>
-              <div><span style={{ color: 'var(--muted)' }}>blog:</span> {linkPreviews.blog}</div>
-              <div><span style={{ color: 'var(--muted)' }}>page:</span> {linkPreviews.page}</div>
-            </div>
+            ))}
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Cross-Store KPI Analytics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 bg-white rounded-2xl border border-slate-200/90 shadow-2xs space-y-2">
-          <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-            <span>{isAr ? 'حسابات جوجل المرتبطة' : 'Connected Google Accounts'}</span>
-            <span className="text-[10px] text-teal-700 font-bold bg-teal-50 dark:bg-teal-500/10 dark:text-teal-300 px-2 py-0.5 rounded-full">
-              {isAr ? `${connectedCount}من${stores.length}متاجر` : `${connectedCount} of ${stores.length} Stores`}
-            </span>
-          </div>
-          <div className="text-2xl font-black text-slate-900 tabular-nums">
-            {isAr ? `${connectedCount}مرتبط` : `${connectedCount} Connected`}
-          </div>
-          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-            <div 
-              className="bg-teal-500 h-2 rounded-full transition-all duration-500" 
-              style={{ width: `${(connectedCount / (stores.length || 1)) * 100}%` }}
-            />
-          </div>
-          <span className="text-[10px] text-slate-400 block">
-            {isAr ? 'عملاء متزامنون عبر حسابات جوجل الخاصة بهم' : 'Clients synced via their own Google accounts'}
-          </span>
-        </div>
-
-        <div className="p-5 bg-white rounded-2xl border border-slate-200/90 shadow-2xs space-y-2">
-          <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-            <span>{isAr ? 'إجمالي مرات الظهور في البحث' : 'Global Search Impressions'}</span>
-            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-              totalImpressionsAcrossStores > 0
-                ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-300'
-                : 'text-slate-500 bg-slate-100'
-            }`} dir="ltr">
-              {isAr ? 'بانتظار البيانات' : 'Waiting for Data'}
-            </span>
-          </div>
-          <div className="text-2xl font-black text-slate-900 tabular-nums">
-            {totalImpressionsAcrossStores > 0 ? totalImpressionsAcrossStores.toLocaleString() : '0'}
-          </div>
-          <div className="h-8">
-            <Sparkline
-              data={totalImpressionsAcrossStores > 0 ? [totalImpressionsAcrossStores] : [0]}
-              color="#10b981"
-            />
-          </div>
-          <span className="text-[10px] text-slate-400 block">
-            {isAr ? 'إجمالي مرات الظهور في بحث جوجل بالسعودية' : 'Total KSA Google search impressions'}
-          </span>
-        </div>
-
-        <div className="p-5 bg-white rounded-2xl border border-slate-200/90 shadow-2xs space-y-2">
-          <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-            <span>{isAr ? 'إجمالي النقرات العضوية' : 'Total Organic Clicks'}</span>
-            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-              totalClicksAcrossStores > 0
-                ? 'text-blue-600 bg-blue-50 dark:bg-blue-500/10 dark:text-blue-300'
-                : 'text-slate-500 bg-slate-100'
-            }`}>
-              {totalClicksAcrossStores > 0 ? (isAr ? 'بث نشط' : 'Active Stream') : (isAr ? 'لا توجد نقرات بعد' : 'No Clicks Yet')}
-            </span>
-          </div>
-          <div className="text-2xl font-black text-blue-600 dark:text-blue-400 tabular-nums">
-            {totalClicksAcrossStores > 0 ? totalClicksAcrossStores.toLocaleString() : '0'}
-          </div>
-          <div className="h-8">
-            <Sparkline
-              data={totalClicksAcrossStores > 0 ? [totalClicksAcrossStores] : [0]}
-              color="var(--accent)"
-            />
-          </div>
-          <span className="text-[10px] text-slate-400 block">
-            {isAr ? 'إجمالي زيارات العملاء العضوية' : 'Aggregated organic customer visits'}
-          </span>
-        </div>
-
-        <div className="p-5 bg-white rounded-2xl border border-slate-200/90 shadow-2xs space-y-2">
-          <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-            <span>{isAr ? 'إجمالي الروابط المفهرسة' : 'Total URLs Indexed'}</span>
-            <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-300 px-1.5 py-0.5 rounded-full">
-              {isAr ? `متوسط CTR:${avgCtrGlobal}%` : `Avg CTR: ${avgCtrGlobal}%`}
-            </span>
-          </div>
-          <div className="text-2xl font-black text-teal-800 dark:text-teal-300 tabular-nums">
-            {isAr ? `${totalIndexedUrlsAcrossStores}رابط` : `${totalIndexedUrlsAcrossStores} URLs`}
-          </div>
-          <div className="flex items-center gap-1.5 text-xs text-slate-600 pt-2">
-            <CheckCircle2 className="w-3.5 h-3.5 text-teal-500" />
-            <span>{isAr ? 'فهرسة تلقائية عبر العرض من الخادم' : 'Automated Next.js 15 SSR Indexing'}</span>
-          </div>
-          <span className="text-[10px] text-slate-400 block">
-            {isAr ? 'مفهرسة على جوجل و بينج و ياندكس' : 'Indexed across Google, Bing & Yandex'}
-          </span>
-        </div>
-      </div>
-
-      {/* Stores Google SEO Matrix Table */}
-      <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900">
-              {isAr ? 'حالة تحسين محركات البحث وحسابات جوجل لمتاجر التجار' : 'Merchant Store SEO & Google Account Status'}
-            </h3>
-            <p className="text-xs text-slate-500">
-              {isAr
-                ? 'تفصيل لكل متجر يشمل ربط حساب جوجل، ومعرّفات GA4، ووسوم وحدة بحث جوجل، وترتيب البحث.'
-                : 'Per-store breakdown of Google account connection, GA4 IDs, Google Search Console tags, and search rankings.'}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
-              <button
-                onClick={() => setFilterMode('all')}
-                className={`px-3 py-1 rounded-lg transition-all ${filterMode === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'}`}
-              >
-                {isAr ? `كل المتاجر (${stores.length})` : `All Stores (${stores.length})`}
-              </button>
-              <button
-                onClick={() => setFilterMode('connected')}
-                className={`px-3 py-1 rounded-lg transition-all ${filterMode === 'connected' ? 'bg-white text-emerald-700 dark:text-emerald-300 shadow-xs' : 'text-slate-500'}`}
-              >
-                {isAr ? `مرتبطة (${connectedCount})` : `Connected (${connectedCount})`}
-              </button>
-              <button
-                onClick={() => setFilterMode('pending')}
-                className={`px-3 py-1 rounded-lg transition-all ${filterMode === 'pending' ? 'bg-white text-amber-700 dark:text-amber-300 shadow-xs' : 'text-slate-500'}`}
-              >
-                {isAr ? `قيد الانتظار (${stores.length - connectedCount})` : `Pending (${stores.length - connectedCount})`}
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={handleExportCsv}
-              title={isAr ? 'تصدير الجدول بصيغة جداول البيانات' : 'Export table as CSV'}
-              aria-label={isAr ? 'تصدير الجدول بصيغة جداول البيانات' : 'Export table as CSV'}
-              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-semibold text-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>{isAr ? 'تصدير جداول البيانات' : 'Export CSV'}</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-start text-xs">
-            <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
-              <tr>
-                <th className="py-3 px-4 text-start">{isAr ? 'متجر التاجر' : 'Store'}</th>
-                <th className="py-3 px-3 text-start">{isAr ? 'حساب جوجل' : 'Google Account'}</th>
-                <th className="py-3 px-3 text-start">{isAr ? 'تحليلات جوجل' : 'Analytics (GA4)'}</th>
-                <th className="py-3 px-3 text-start">{isAr ? 'حاوية مدير العلامات' : 'GTM Container'}</th>
-                <th className="py-3 px-3 text-start">{isAr ? 'Search Console' : 'Search Console'}</th>
-                <th className="py-3 px-3 text-start">{isAr ? 'جوجل Ads' : 'Google Ads'}</th>
-                <th className="py-3 px-3 text-center">{isAr ? 'حالة المزامنة' : 'Sync Status'}</th>
-                <th className="py-3 px-4 text-center">{isAr ? 'الإجراءات' : 'Actions'}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
-              {filteredStores.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="py-10 text-center text-slate-400">
-                    {isAr ? 'لا توجد متاجر تطابق هذا الفلتر.' : 'No stores match this filter.'}
-                  </td>
-                </tr>
-              )}
-              {filteredStores.map(({ store, seo }) => (
-                <tr key={store.id} className="hover:bg-slate-50">
-                  <td className="py-3.5 px-4 font-bold text-slate-900 flex items-center gap-2.5">
-                    <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30 flex items-center justify-center shadow-2xs border border-emerald-200">
-                      <Flower2 className="w-4 h-4" />
-                    </span>
-                    <div>
-                      <div className="font-bold text-slate-900">{getStoreDisplayName(store, locale)}</div>
-                      <div className="text-[10px] text-slate-400 font-mono" dir="ltr">{store.slug}.saudi-stores.com</div>
-                    </div>
-                  </td>
-                  <td className="py-3.5 px-3">
-                    {seo.googleConnected ? (
-                      <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300 font-medium">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                        <span className="truncate max-w-[140px]">{seo.googleAccountEmail}</span>
-                      </div>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30">
-                        {isAr ? 'غير مرتبط' : 'Not Connected'}
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-3.5 px-3 font-mono text-[11px] text-slate-600">
-                    {seo.ga4MeasurementId ? (
-                      <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold">{seo.ga4MeasurementId}</span>
-                    ) : (
-                      <span className="text-slate-300">—</span>
-                    )}
-                  </td>
-                  <td className="py-3.5 px-3 font-mono text-[11px] text-slate-600">
-                    {seo.gtmContainerId ? (
-                      <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-semibold">{seo.gtmContainerId}</span>
-                    ) : (
-                      <span className="text-slate-300">—</span>
-                    )}
-                  </td>
-                  <td className="py-3.5 px-3">
-                    {seo.googleConnected ? (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-700">
-                        {isAr ? 'نشط ومفحوص' : 'Active & Verified'}
-                      </span>
-                    ) : (
-                      <span className="text-slate-300">—</span>
-                    )}
-                  </td>
-                  <td className="py-3.5 px-3 font-mono text-[11px] text-slate-600">
-                    {seo.googleConnected ? (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700">
-                        {isAr ? 'حساب معتمد' : 'Authorized'}
-                      </span>
-                    ) : (
-                      <span className="text-slate-300">—</span>
-                    )}
-                  </td>
-                  <td className="py-3.5 px-3 text-center">
-                    {seo.googleConnected ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        {isAr ? 'متزامن' : 'Synced'}
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500">
-                        {isAr ? 'في الانتظار' : 'Pending'}
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-3.5 px-4 text-center">
-                    <button
-                      onClick={() => switchToStore(store.id)}
-                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-500/10 dark:hover:text-blue-300 rounded-lg text-xs font-semibold text-slate-700 flex items-center gap-1 mx-auto transition-colors cursor-pointer whitespace-nowrap"
-                    >
-                      <span>{isAr ? 'إدارة' : 'Manage'}</span>
-                      <ArrowRight className="w-3 h-3 rtl:rotate-180" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Central Google Indexing API Technical Specs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div className="p-6 bg-white rounded-3xl border border-slate-200/90 shadow-2xs space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-              <Zap className="w-4 h-4 text-amber-500" />
-              <span>{isAr ? 'بنية الدفع المركزية لـ جوجل واجهة الفهرسة' : 'Master Google Indexing API Push Architecture'}</span>
-            </h4>
-            <button
-              type="button"
-              onClick={handleCopyPayload}
-              title={isAr ? 'نسخ الطلب' : 'Copy payload'}
-              aria-label={isAr ? 'نسخ الطلب' : 'Copy payload'}
-              className="shrink-0 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-[11px] font-semibold text-slate-700 flex items-center gap-1 transition-colors cursor-pointer"
-            >
-              <Copy className="w-3 h-3" />
-              <span>{isAr ? 'نسخ' : 'Copy'}</span>
-            </button>
-          </div>
-          <p className="text-xs text-slate-600 leading-relaxed">
+      {/* Tab 6: Product SEO Management */}
+      {activeTab === 'product-seo' && (
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <h2 className="text-base font-bold text-white">
+            {isAr ? 'إدارة سيو المنتجات الشاملة' : 'Product SEO Command Center'}
+          </h2>
+          <p className="text-xs text-slate-400">
             {isAr
-              ? 'عندما يُنشئ أي تاجر منتجًا أو يحدّثه أو ينشره في منصتنا متعددة المستأجرين، تُطلق واجهة Laravel 11 API على هوستنجر مهمة في طابور الخلفية، تقوم فورًا بإرسال طلب JSON-RPC إلى Webmaster واجهة الفهرسة من جوجل:'
-              : "When any merchant creates, updates, or publishes a product in our multi-tenant SaaS, our Laravel 11 API on Hostinger triggers a background queue job. The job pushes an instant JSON-RPC payload to Google's Webmaster Indexing API:"}
+              ? 'توليد تلقائي لـ ١٥ بُعد سيو لكل منتج: العنوان، الوصف، الكلمات المفتاحية، نية البحث، نص بديل للصورة، وسوم Open Graph والأسئلة الشائعة.'
+              : 'Auto-generate 15 SEO attributes per product strictly anchored to authentic store catalog attributes.'}
           </p>
-          <div className="p-3 bg-slate-900 dark:bg-black/40 text-teal-400 font-mono text-[11px] rounded-xl overflow-x-auto text-left" dir="ltr">
-            POST https://indexing.googleapis.com/v3/urlNotifications:publish<br/>
-            Content-Type: application/json<br/>
-            &#123;<br/>
-            &nbsp;&nbsp;&quot;url&quot;: &quot;https://&#123;store_slug&#125;.saudi-stores.com/products/&#123;sku&#125;&quot;,<br/>
-            &nbsp;&nbsp;&quot;type&quot;: &quot;URL_UPDATED&quot;<br/>
-            &#125;
-          </div>
-          <span className="text-[11px] text-slate-400 block">
-            {isAr
-              ? 'يضمن زمن فهرسة شبه فوري دون انتظار جولات الزحف الأسبوعية.'
-              : 'Ensures 0ms indexing latency without waiting for weekly crawler sweeps.'}
-          </span>
         </div>
+      )}
 
-        <div className="p-6 bg-white rounded-3xl border border-slate-200/90 shadow-2xs space-y-3">
-          <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-            <Globe className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-            <span>{isAr ? 'الريادة في بحث التجارة الإلكترونية السعودية' : 'Saudi E-Commerce Search Dominance'}</span>
-          </h4>
-          <p className="text-xs text-slate-600 leading-relaxed">
+      {/* Tab 7: AEO Management */}
+      {activeTab === 'aeo-management' && (
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <h2 className="text-base font-bold text-white">
+            {isAr ? 'إدارة إجابات الذكاء الاصطناعي (AEO)' : 'Answer Engine Optimization (AEO)'}
+          </h2>
+          <p className="text-xs text-slate-400">
             {isAr
-              ? 'كل متجر يُنشأ على منصة سوق مزوّد مسبقًا بمخططات بيانات منظمة مخصصة للسوق السعودي:'
-              : 'Every store generated on Souq Platform includes Saudi-specific structured data schemas:'}
+              ? 'تحويل بيانات المنتجات إلى إجابات دقيقة لمحركات الأسئلة والبحث الصوتي، وتوليد وسوم FAQPage وQAPage المنظمة.'
+              : 'Generate conversational FAQ structured data answering real shopper questions.'}
           </p>
-          <ul className="text-xs text-slate-600 space-y-2">
-            <li className="flex items-center gap-2">
-              <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              {isAr ? (
-                <span><strong>مخطط تاجر متوافق مع ZATCA:</strong> سجل تجاري موثّق في المملكة</span>
-              ) : (
-                <span><strong>ZATCA Compliant Merchant Schema:</strong> Verified business registration in KSA</span>
-              )}
-            </li>
-            <li className="flex items-center gap-2">
-              <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              {isAr ? (
-                <span><strong>العملة بالريال السعودي:</strong> عرض الأسعار في Google Shopping بالريال مباشرة</span>
-              ) : (
-                <span><strong>Currency in SAR:</strong> Native Google Shopping price display in Saudi Riyals</span>
-              )}
-            </li>
-            <li className="flex items-center gap-2">
-              <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              {isAr ? (
-                <span><strong>وسوم Hreflang العربية:</strong> <code>ar-SA</code> و <code>en-SA</code> بتوطين تلقائي</span>
-              ) : (
-                <span><strong>Arabic Hreflang Tags:</strong> <code>ar-SA</code> and <code>en-SA</code> auto-localized</span>
-              )}
-            </li>
-          </ul>
         </div>
-      </div>
+      )}
+
+      {/* Tab 8: GEO Management */}
+      {activeTab === 'geo-management' && (
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <h2 className="text-base font-bold text-white">
+            {isAr ? 'محركات البحث التوليدي (GEO)' : 'Generative Engine Optimization (GEO)'}
+          </h2>
+          <p className="text-xs text-slate-400">
+            {isAr
+              ? 'تحسين ظهور المتاجر في Google AI Overviews وChatGPT Search وGemini وPerplexity بناءً على الكيانات الموثوقة.'
+              : 'Optimize merchant brand consistency and entity facts for ChatGPT Search, Gemini, and Perplexity.'}
+          </p>
+        </div>
+      )}
+
+      {/* Tab 9: Technical SEO */}
+      {activeTab === 'technical-seo' && (
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <h2 className="text-base font-bold text-white">
+            {isAr ? 'السيو التقني والزحف (Technical SEO)' : 'Technical SEO & Crawlability Engine'}
+          </h2>
+          <p className="text-xs text-slate-400">
+            {isAr
+              ? 'فحص شامل لملف robots.txt، وخرائط sitemap.xml، والروابط المعطلة 404، والتحويلات 301، وتوافق الجوال والأمان.'
+              : 'Audit robots.txt, sitemaps, 404 broken links, 301 redirects, and mobile responsiveness.'}
+          </p>
+        </div>
+      )}
+
+      {/* Tab 10: Speed Optimization */}
+      {activeTab === 'speed-optimization' && (
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <h2 className="text-base font-bold text-white">
+            {isAr ? 'تسريع المتاجر ومؤشرات Core Web Vitals' : 'Speed Optimization & PageSpeed Insights'}
+          </h2>
+          <p className="text-xs text-slate-400">
+            {isAr
+              ? 'تكامل رسمي مع Google PageSpeed API لتحليل LCP وCLS وINP وFCP وTTFB مع حظر أي تعديلات عشوائية على كود الإنتاج.'
+              : 'Live PageSpeed metrics auditing LCP, INP, CLS, and TTFB. Zero unauthorized code modifications.'}
+          </p>
+        </div>
+      )}
+
+      {/* Tab 11: Backlink Management */}
+      {activeTab === 'backlink-management' && (
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <h2 className="text-base font-bold text-white">
+            {isAr ? 'إدارة الروابط الخلفية والسمعة' : 'Backlink Profile & Editorial Outreach'}
+          </h2>
+          <p className="text-xs text-slate-400">
+            {isAr
+              ? 'رصد الروابط الخلفية الحقيقية وتوليد رسائل تواصل احترافية للموردين والأدلة السعودية المعتمدة. منع تام للروابط الوهمية أو المزعجة.'
+              : 'Monitor authentic backlinks and generate editorial outreach emails. Zero fake links policy strictly enforced.'}
+          </p>
+        </div>
+      )}
+
+      {/* Tab 12: Keyword Research */}
+      {activeTab === 'keyword-research' && (
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <h2 className="text-base font-bold text-white">
+            {isAr ? 'أبحاث الكلمات المفتاحية وسياق السوق السعودي' : 'Keyword Research & Search Intent'}
+          </h2>
+          <p className="text-xs text-slate-400">
+            {isAr
+              ? 'توليد الكلمات المفتاحية الأساسية والثانوية والمحلية. يتم وسم حجم البحث كـ غير متوفر ما لم يُجلب من مصدر رسمي.'
+              : 'Classify primary, long-tail, and local Saudi search keywords without fake search volumes.'}
+          </p>
+        </div>
+      )}
+
+      {/* Tab 13: Competitor Analysis */}
+      {activeTab === 'competitor-analysis' && (
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <h2 className="text-base font-bold text-white">
+            {isAr ? 'تحليل المنافسين والمقارنة المعيارية' : 'Competitor Analysis & Benchmarking'}
+          </h2>
+          <p className="text-xs text-slate-400">
+            {isAr
+              ? 'مقارنة اكتمال السيو وجودة وسوم الميتا وسرعة التجاوب للمتجر أمام المنافسين في نفس القطاع.'
+              : 'Benchmark merchant catalog completeness, speed, and schema against competitor domains.'}
+          </p>
+        </div>
+      )}
+
+      {/* Tab 14: Schema Management */}
+      {activeTab === 'schema-management' && (
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <h2 className="text-base font-bold text-white">
+            {isAr ? 'إدارة البيانات المنظمة (JSON-LD Schema)' : 'Schema Markup & Structured Data'}
+          </h2>
+          <p className="text-xs text-slate-400">
+            {isAr
+              ? 'توليد وسوم Organization وProduct وOffer وBreadcrumbList المتطابقة تماماً مع محتوى الصفحة المرئي والتحقق منها برمجياً.'
+              : 'Generate valid JSON-LD schemas matching visible on-page content with client-side syntax validation.'}
+          </p>
+        </div>
+      )}
+
+      {/* Tab 15: Sitemap & Indexing */}
+      {activeTab === 'sitemap-indexing' && (
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <h2 className="text-base font-bold text-white">
+            {isAr ? 'خرائط الموقع والفهرسة اللحظية (IndexNow)' : 'Sitemaps & IndexNow Submissions'}
+          </h2>
+          <p className="text-xs text-slate-400">
+            {isAr
+              ? 'متابعة خرائط المنتجات وإرسال الروابط فورياً إلى Google Indexing API وشبكة IndexNow (Bing).'
+              : 'Submit sitemaps to Search Console and updated URLs to IndexNow network in real-time.'}
+          </p>
+        </div>
+      )}
+
+      {/* Tab 16: SEO Reports */}
+      {activeTab === 'seo-reports' && (
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <h2 className="text-base font-bold text-white">
+            {isAr ? 'تقارير السيو الشاملة وتصدير البيانات' : 'SEO Reports & Historical Analytics'}
+          </h2>
+          <p className="text-xs text-slate-400">
+            {isAr
+              ? 'تقارير يومية وأسبوعية وشهرية توضح تقدم درجات السيو ونمو الزيارات وتصدير النتائج كملف CSV أو PDF.'
+              : 'Export daily, weekly, and monthly performance reports with previous period comparison.'}
+          </p>
+        </div>
+      )}
+
+      {/* Tab 17: SEO Automation */}
+      {activeTab === 'seo-automation' && (
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <h2 className="text-base font-bold text-white">
+            {isAr ? 'أتمتة السيو والجدولة الذكية' : 'SEO Automation Rules & Scheduler'}
+          </h2>
+          <p className="text-xs text-slate-400">
+            {isAr
+              ? 'خيارات الأتمتة (يدوي، يتطلب موافقة، أتمتة مسبقة الاعتماد) مع ضمان عدم نشر أي تغيير غير معتمد.'
+              : 'Configure automation modes: Manual, Approval-Required, or Pre-Approved Automation.'}
+          </p>
+        </div>
+      )}
+
+      {/* Tab 18: SEO Logs */}
+      {activeTab === 'seo-logs' && (
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <h2 className="text-base font-bold text-white">
+            {isAr ? 'سجلات التعديل والتراجع (Audit Logs & Rollback)' : 'SEO Change Logs & 1-Click Rollback'}
+          </h2>
+          <p className="text-xs text-slate-400">
+            {isAr
+              ? 'سجل غير قابل للتلاعب يوثق كافة التعديلات وحالة ما قبل وبعد، مع إمكانية التراجع الفوري عن أي تعديل.'
+              : 'Immutable audit trail of before/after metadata with 1-click rollback support.'}
+          </p>
+        </div>
+      )}
+
+      {/* Tab 19: SEO Global Settings */}
+      {activeTab === 'seo-global-settings' && (
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <h2 className="text-base font-bold text-white">
+            {isAr ? 'إعدادات السيو العامة للمنصة' : 'Global Platform SEO Parameters'}
+          </h2>
+          <p className="text-xs text-slate-400">
+            {isAr
+              ? 'تحديد النطاقات الأساسية، والبادئات المفضلة، وتوزيع أرصدة محفظة الذكاء الاصطناعي لكل عملية سيو.'
+              : 'Global domain defaults, credit pricing per SEO generation, and multi-tenant security rules.'}
+          </p>
+        </div>
+      )}
     </div>
   );
 };

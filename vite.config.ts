@@ -180,6 +180,18 @@ export default defineConfig(({mode}) => {
             if (id.includes('node_modules/ag-psd')) {
               return 'vendor-ag-psd';
             }
+            if (id.includes('node_modules/jszip/')) {
+              return 'vendor-jszip';
+            }
+            if (id.includes('node_modules/html2canvas/')) {
+              return 'vendor-html2canvas';
+            }
+            if (id.includes('node_modules/@clerk/')) {
+              return 'vendor-clerk';
+            }
+            if (id.includes('node_modules/date-fns/')) {
+              return 'vendor-date-fns';
+            }
           },
         },
       },

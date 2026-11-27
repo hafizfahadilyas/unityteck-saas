@@ -2282,8 +2282,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     toast(
       design.source === 'pptx'
         ? isAr
-          ? `تم استيراد كانفا / باوربوينت · ${mapped.length} طبقة — انسخ والصق بحرية`
-          : `Canva / PowerPoint imported · ${mapped.length} layers — copy & paste freely`
+          ? `تم استيراد القالب بنجاح · ${mapped.length} طبقة — عدل وصمم بحرية`
+          : `Template imported · ${mapped.length} layers — edit freely`
         : isAr
           ? `تم فتح التصميم · ${mapped.length} طبقة قابلة للتعديل`
           : `Design loaded · ${mapped.length} editable layer(s)`,
@@ -3710,8 +3710,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
     if (!fromOs) {
       toast(
         isAr
-          ? 'لا يوجد شيء للصق. انسخ طبقة هنا، أو انسخ نصاً / صورة من كانفا أو باوربوينت ثم الصق (Ctrl+V).'
-          : 'Nothing to paste. Copy a layer here, or copy text/image from Canva or PowerPoint then Ctrl+V.',
+          ? 'لا يوجد شيء للصق. انسخ طبقة هنا، أو انسخ نصاً / صورة ثم الصق (Ctrl+V).'
+          : 'Nothing to paste. Copy a layer here, or copy text/image then Ctrl+V.',
         'info',
       );
     }
@@ -3816,24 +3816,24 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
               : 'No readable layers in that file.'
             : code === 'PPT_LEGACY'
               ? isAr
-                ? 'صيغة باوربوينت القديمة غير مدعومة. احفظ العرض بالصيغة الحديثة ثم ارفعه.'
-                : 'Legacy PPT is not supported. Save as PPTX in PowerPoint, then upload.'
+                ? 'صيغة الملف القديمة غير مدعومة. يرجى حفظ القالب بصيغة حديثة ثم رفعه.'
+                : 'Legacy format is not supported. Please save in modern format then upload.'
               : code === 'PPTX_TIMEOUT'
                 ? isAr
-                  ? 'استيراد العرض استغرق وقتاً طويلاً. جرّب ملفاً أصغر أو صدّر من كانفا كصورة ثم ارفعها.'
-                  : 'Import timed out. Try a smaller file, or download PNG from Canva and upload that.'
+                  ? 'استيراد القالب استغرق وقتاً طويلاً. جرّب ملفاً أصغر أو صدّر كصورة ثم ارفعها.'
+                  : 'Import timed out. Try a smaller file, or export as image and upload that.'
                 : code === 'UNSUPPORTED_FILE'
                   ? isAr
-                    ? 'الصيغ المدعومة: عرض باوربوينت، ملف فوتوشوب، بي إن جي، جيه بي جيه، ويب.'
-                    : 'Supported: PPTX, PSD, PNG, JPG, WebP.'
+                    ? 'الصيغ المدعومة: ملفات القوالب، فوتوشوب، بي إن جي، جيه بي جيه، ويب.'
+                    : 'Supported: Design templates, PSD, PNG, JPG, WebP.'
                   : code === 'PSD_LOADER_FAIL' || code === 'PPTX_LOADER_FAIL'
                     ? isAr
                       ? 'تعذر تحميل قارئ الملف. أعد تحميل الصفحة.'
                       : 'Could not load the file reader. Refresh the page.'
                     : code === 'PPTX_BAD_ARCHIVE'
                       ? isAr
-                        ? 'ملف باوربوينت تالف أو غير صالح.'
-                        : 'That PowerPoint file is damaged or invalid.'
+                        ? 'ملف القالب تالف أو غير صالح.'
+                        : 'That template file is damaged or invalid.'
                       : isAr
                         ? 'تعذر استيراد التصميم.'
                         : 'Could not import that design.';
@@ -4760,8 +4760,8 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
               className="cs-header-chip px-2.5 sm:px-3 py-1.5 rounded-lg text-[13px] flex items-center gap-1.5 shrink-0"
               title={
                 isAr
-                  ? 'رفع من كانفا: تنزيل PPTX ثم ارفعه هنا — طبقات قابلة للنسخ واللصق'
-                  : 'Import from Canva: Download PPTX, then upload — editable layers + copy/paste'
+                  ? 'رفع من كانفا: تنزيل قالب ثم ارفعه هنا — طبقات قابلة للتعديل والنسخ واللصق'
+                  : 'Import from Canva: Download template, then upload — editable layers + copy/paste'
               }
             >
               <Upload className="w-3.5 h-3.5" />
@@ -4969,7 +4969,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                       className="w-full px-2.5 py-2 rounded-lg text-start text-[13px] font-bold cursor-pointer flex items-center gap-2"
                     >
                       <Upload className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--accent, #1d8b94)' }} />
-                      {isAr ? 'استيراد PPTX / PSD / صورة' : 'Import PPTX / PSD / image'}
+                      {isAr ? 'استيراد قالب / PSD / صورة' : 'Import template / PSD / image'}
                     </button>
                     <button
                       type="button"
@@ -6493,13 +6493,13 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                 <div className="cs-tip-card space-y-2 p-3 rounded-xl">
                   <div className="text-[11px] font-black" style={{ color: 'var(--cs-text)' }}>
                     {isAr
-                      ? 'استيراد من كانفا أو باوربوينت أو فوتوشوب'
-                      : 'Import from Canva / PowerPoint / Photoshop'}
+                      ? 'استيراد من كانفا أو القوالب الجاهزة أو فوتوشوب'
+                      : 'Import from Canva / Templates / Photoshop'}
                   </div>
                   <p className="cs-tip-body text-[10px] leading-relaxed">
                     {isAr
-                      ? 'من كانفا: مشاركة ← تنزيل ← نوع الملف بصيغة العرض الحديثة ← ارفع الملف هنا. كل نص وصورة وشكل يصبح طبقة قابلة للتعديل. انسخ الطبقة والصقها هنا أو الصق النص من كانفا مباشرة. صورة مسطحة = طبقة واحدة.'
-                      : 'From Canva: Share → Download → File type PPTX → upload here. Text, images, and shapes become editable layers. Copy a layer (Ctrl+C) and paste here, or paste text/images copied from Canva (Ctrl+V). Flat PNG/JPG = one layer.'}
+                      ? 'من كانفا: مشاركة ← تنزيل ← نوع الملف (قالب متعدد الطبقات) ← ارفع الملف هنا. كل نص وصورة وشكل يصبح طبقة قابلة للتعديل. انسخ الطبقة والصقها هنا أو الصق النص من كانفا مباشرة. صورة مسطحة = طبقة واحدة.'
+                      : 'From Canva: Share → Download → File type editable template → upload here. Text, images, and shapes become editable layers. Copy a layer (Ctrl+C) and paste here, or paste text/images copied from Canva (Ctrl+V). Flat PNG/JPG = one layer.'}
                   </p>
                   <div className="flex flex-wrap gap-1">
                     {CANVA_UPLOAD_CATEGORIES.map((c) => (
@@ -6536,12 +6536,12 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                           : 'Importing…'
                         : isAr
                           ? 'رفع ملف كانفا أو فوتوشوب أو صورة'
-                          : 'Upload Canva PPTX / PSD / image'}
+                          : 'Upload Canva template / PSD / image'}
                     </span>
                     <span className="cs-upload-sub text-[10px] mt-0.5">
                       {isAr
-                        ? 'عرض كانفا = طبقات كاملة · نسخ ولصق مثل كانفا'
-                        : 'Canva PPTX = full layers · copy/paste like Canva'}
+                        ? 'قالب كانفا = طبقات كاملة · نسخ ولصق مثل كانفا'
+                        : 'Canva template = full layers · copy/paste like Canva'}
                     </span>
                   </button>
                   <button
@@ -6991,7 +6991,7 @@ export const CanvaImageStudioModal: React.FC<CanvaImageStudioModalProps> = ({
                     className="w-full py-2 rounded-lg text-[11px] font-black border border-emerald-300 bg-emerald-50 text-emerald-900 cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
                   >
                     <Upload className="w-3.5 h-3.5" />
-                    {isAr ? 'رفع قالب (باوربوينت / فوتوشوب / صورة)' : 'Upload template (PPTX / PSD / image)'}
+                    {isAr ? 'رفع قالب (قالب جاهز / فوتوشوب / صورة)' : 'Upload template (Design file / PSD / image)'}
                   </button>
                 </div>
 

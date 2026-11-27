@@ -38,15 +38,20 @@
           reloadOnceForStaleChunk();
         });
         window.addEventListener('error', function (event) {
+          if (event && event.target && event.target.tagName === 'SCRIPT' && event.target.src && event.target.src.indexOf('/assets/') !== -1) {
+            reloadOnceForStaleChunk();
+            return;
+          }
           var msg = (event && event.message) ? String(event.message) : '';
           if (
             msg.indexOf('Failed to fetch dynamically imported module') !== -1 ||
             msg.indexOf('error loading dynamically imported module') !== -1 ||
-            msg.indexOf('Importing a module script failed') !== -1
+            msg.indexOf('Importing a module script failed') !== -1 ||
+            msg.indexOf('Failed to load resource') !== -1
           ) {
             reloadOnceForStaleChunk();
           }
-        });
+        }, true);
       })();
     </script>
 

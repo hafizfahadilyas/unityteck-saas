@@ -9,8 +9,10 @@ DirectoryIndex index.php
   RewriteCond %{HTTP:X-Forwarded-Proto} !https
   RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L,QSA]
 
-  # Images / fonts still OK via redirect (not module CORS)
+  # Images / fonts / payment-methods / mockups still OK via redirect (not module CORS)
   RewriteRule ^images/(.*)$ https://mieraf-ksa.com/images/$1 [R=302,L,NE,QSA]
+  RewriteRule ^payment-methods/(.*)$ https://mieraf-ksa.com/payment-methods/$1 [R=302,L,NE,QSA]
+  RewriteRule ^theme-mockups/(.*)$ https://mieraf-ksa.com/theme-mockups/$1 [R=302,L,NE,QSA]
   RewriteRule ^fonts/(.*)$ https://mieraf-ksa.com/fonts/$1 [R=302,L,NE,QSA]
   RewriteRule ^favicon\.ico$ https://mieraf-ksa.com/favicon.ico [R=302,L]
 

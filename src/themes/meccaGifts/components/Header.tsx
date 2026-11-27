@@ -33,6 +33,7 @@ import {
   Globe,
 } from 'lucide-react';
 import { storeWhatsAppUrl } from '../../settings/storeContact';
+import { isSouqCommonTenant } from '../../souqCommon/isSouqCommonTenant';
 import { useStorefrontCategories } from '../../../hooks/useStorefrontCategories';
 import {
   StorefrontAccountMenu,
@@ -126,6 +127,8 @@ export const Header: React.FC<HeaderProps> = ({
     activeStore?.slug?.includes('car') ||
     activeStore?.slug?.includes('transport') ||
     (activeStore?.category && (activeStore.category.includes('سيارات') || activeStore.category.includes('تنجيد')));
+
+  const isSouq = !isCoffee && !isCar && isSouqCommonTenant(activeStore);
 
   const fallbackSettings = getDefaultHeaderSettings(activeStore);
   const isMobileHeader = builderDevice === 'mobile' || builderDevice === 'tablet';
@@ -301,7 +304,34 @@ export const Header: React.FC<HeaderProps> = ({
     },
   ];
 
-  const primaryNavLinks = isCoffee ? coffeeNavLinks : flowerNavLinks;
+  const retailNavLinks = [
+    {
+      id: 'featured',
+      label: isAr ? 'المنتجات المميزة' : 'Featured Products',
+      cat: 'featured',
+      icon: Sparkles,
+    },
+    {
+      id: 'new-arrivals',
+      label: isAr ? 'وصل حديثاً' : 'New Arrivals',
+      cat: 'new-arrivals',
+      icon: Gift,
+    },
+    {
+      id: 'offers',
+      label: isAr ? 'عروض وتخفيضات حصرية' : 'Exclusive Deals & Offers',
+      cat: 'offers',
+      icon: Percent,
+    },
+    {
+      id: 'catalog',
+      label: isAr ? 'تصفح كافة الأقسام والمنتجات' : 'Browse All Catalog',
+      action: () => setCurrentPage('catalog'),
+      icon: BookOpen,
+    },
+  ];
+
+  const primaryNavLinks = isCoffee ? coffeeNavLinks : isSouq ? retailNavLinks : flowerNavLinks;
 
   const CartIconComp = getHeaderIcon(act.cart?.icon || 'ShoppingBag');
 
@@ -1055,7 +1085,9 @@ export const Header: React.FC<HeaderProps> = ({
                   {/* Col 1: Visual Highlights */}
                   <div className="space-y-3">
                     <span className="text-xs font-bold text-[#8c8275] uppercase tracking-wider block">
-                      {isAr ? 'أحدث الباقات والتنسيقات' : 'Featured Floral Edits'}
+                      {isAr
+                        ? (isSouq ? 'أحدث المنتجات والتصنيفات' : isCoffee ? 'أحدث المحاصيل والمعدات' : 'أحدث الباقات والتنسيقات')
+                        : (isSouq ? 'Featured Products' : isCoffee ? 'Featured Roasts & Gear' : 'Featured Floral Edits')}
                     </span>
                     <div className="grid grid-cols-2 gap-2.5">
                       {navCircles.slice(0, 8).map((cat) => (

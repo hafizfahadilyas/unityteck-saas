@@ -33,6 +33,8 @@ import { StoreAiMediaGenerator } from './StoreAiMediaGenerator';
 import { StoreAiStudio } from './StoreAiStudio';
 import { StoreAiPaymentModal } from './StoreAiPaymentModal';
 import { StoreAiQuotaMeter } from './StoreAiQuotaMeter';
+import { StoreAiAgentAudit } from './StoreAiAgentAudit';
+import { StoreGrowthAdvisor } from './StoreGrowthAdvisor';
 import {
   askAiSuiteAutomation,
   createStoreAiDevRequest,
@@ -52,6 +54,7 @@ export interface StoreAiToolsHubProps {
 
 type MainTab =
   | 'overview'
+  | 'agent'
   | 'images'
   | 'support'
   | 'bugfix'
@@ -506,6 +509,14 @@ export const StoreAiToolsHub: React.FC<StoreAiToolsHubProps> = () => {
       accentColor: 'indigo',
     },
     {
+      id: 'agent',
+      labelEn: 'Store Audit Agent',
+      labelAr: 'وكيل تدقيق المتجر',
+      Icon: ShieldCheck,
+      badge: 'Live',
+      accentColor: 'purple',
+    },
+    {
       id: 'images',
       labelEn: 'Creative Studio',
       labelAr: 'استوديو الصور',
@@ -556,50 +567,54 @@ export const StoreAiToolsHub: React.FC<StoreAiToolsHubProps> = () => {
   }, [paymentsList, paymentFilter]);
 
   return (
-    <div className="space-y-6 pb-12" dir={isAr ? 'rtl' : 'ltr'}>
+    <div className="w-full max-w-7xl mx-auto space-y-7 pt-4 sm:pt-6 pb-20 px-3 sm:px-6 lg:px-8 overflow-x-hidden" dir={isAr ? 'rtl' : 'ltr'}>
       {/* Top Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl md:text-2xl font-black tracking-tight" style={{ color: 'var(--text)' }}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight" style={{ color: 'var(--text)' }}>
               {isAr ? 'منظومة وكلاء الذكاء الاصطناعي للمتجر' : 'Store AI Agents Suite'}
             </h1>
             <span
-              className="text-[11px] font-bold px-2.5 py-0.5 rounded-full border shadow-sm"
+              className="text-[11px] font-black px-3 py-1 rounded-full border shadow-sm uppercase tracking-wider"
               style={{
                 borderColor: 'var(--border)',
-                background: 'color-mix(in srgb, var(--accent) 10%, var(--surface))',
+                background: 'color-mix(in srgb, var(--accent) 12%, var(--surface))',
                 color: 'var(--accent)',
               }}
             >
               {suite?.plan_code?.toUpperCase() || 'PRO'}
             </span>
+            <span className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              {isAr ? 'معتمد ومحمي' : 'Enterprise Grade'}
+            </span>
           </div>
-          <p className="text-xs mt-1 font-semibold" style={{ color: 'var(--muted)' }}>
+          <p className="text-xs sm:text-[13px] mt-1.5 font-medium leading-relaxed max-w-3xl" style={{ color: 'var(--muted)' }}>
             {isAr
-              ? 'صفحة متكاملة لجميع أدوات ووكلاء الذكاء (صور، دعم، أخطاء، مكالمات، نمو، سداد) بأزرار متساوية وصفحات وبيانات مستقلة لكل أداة'
-              : 'Unified AI suite · Equal-size buttons · Dedicated data & independent pages · Full live working'}
+              ? 'منصة موحدة وشاملة لوكلاء الذكاء الاصطناعي (استوديو الصور، خدمة العملاء، تشخيص الأخطاء، المكالمات الذكية، استراتيجيات النمو، وإيصالات السداد) ببيانات مستقلة وسرعة فائقة.'
+              : 'Unified Enterprise AI Suite · Studio Photography, Bilingual Customer Support, Code Diagnostics, Interactive Voice Calling, Growth & SEO, and Verified Payments.'}
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
           <button
             type="button"
             onClick={() => void loadAll()}
             disabled={loading}
-            className="px-3.5 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+            className="px-4 py-2.5 rounded-2xl border text-xs font-bold flex items-center gap-2 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-all shadow-sm"
             style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            {isAr ? 'تحديث السعات' : 'Refresh Quota'}
+            <span>{isAr ? 'تحديث السعات' : 'Refresh Quota'}</span>
           </button>
           <button
             type="button"
             onClick={() => openUpgradeModal('text')}
-            className="unity-btn-primary px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
+            className="unity-btn-primary px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 cursor-pointer shadow-lg hover:brightness-110 transition-all"
           >
-            <CreditCard className="w-3.5 h-3.5" />
-            {isAr ? 'ترقية الباقة وإرفاق الإيصال' : 'Upgrade & Upload Slip'}
+            <CreditCard className="w-4 h-4" />
+            <span>{isAr ? 'ترقية الباقة والدفع' : 'Upgrade & Pay'}</span>
           </button>
         </div>
       </div>
@@ -614,10 +629,10 @@ export const StoreAiToolsHub: React.FC<StoreAiToolsHubProps> = () => {
       />
 
       {/* ======================================================== */}
-      {/* EQUAL-SIZE ACTION BUTTONS NAVIGATION GRID */}
+      {/* LUXURY EXECUTIVE NAVIGATION BUTTONS RAIL */}
       {/* ======================================================== */}
       <div className="w-full">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 sm:gap-3.5">
           {navButtons.map((btn) => {
             const active = activeTab === btn.id;
             return (
@@ -625,37 +640,49 @@ export const StoreAiToolsHub: React.FC<StoreAiToolsHubProps> = () => {
                 key={btn.id}
                 type="button"
                 onClick={() => setActiveTab(btn.id)}
-                className={`w-full min-h-[58px] sm:min-h-[64px] flex flex-col items-center justify-center gap-1 p-2 rounded-2xl border text-center transition-all cursor-pointer relative select-none ${
+                className={`w-full min-h-[68px] sm:min-h-[74px] p-2.5 sm:p-3 rounded-2xl sm:rounded-3xl border transition-all duration-200 cursor-pointer flex flex-col items-center justify-between relative select-none ${
                   active
-                    ? 'shadow-md ring-2 ring-accent/30 font-black'
-                    : 'hover:bg-black/5 dark:hover:bg-white/5 font-bold hover:border-accent/40'
+                    ? 'shadow-xl shadow-indigo-500/20 ring-2 ring-indigo-500/50 font-black'
+                    : 'hover:bg-black/5 dark:hover:bg-white/5 font-bold hover:border-slate-500/40 hover:shadow-md'
                 }`}
                 style={{
-                  background: active ? 'var(--portal-cta)' : 'var(--surface)',
+                  background: active ? 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)' : 'var(--surface)',
                   borderColor: active ? 'transparent' : 'var(--border)',
                   color: active ? '#ffffff' : 'var(--text)',
                 }}
               >
-                <div className="flex items-center gap-1.5">
-                  <btn.Icon className={`w-4 h-4 shrink-0 ${active ? 'text-white' : 'text-accent'}`} />
-                  <span className="text-xs tracking-tight line-clamp-1">{isAr ? btn.labelAr : btn.labelEn}</span>
+                <div className="flex items-center justify-center gap-2 w-full px-1 min-w-0">
+                  <div
+                    className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
+                      active ? 'bg-white/20 text-white' : 'bg-indigo-500/10 text-indigo-500'
+                    }`}
+                  >
+                    <btn.Icon className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-xs tracking-tight truncate flex-1 min-w-0 max-w-full text-center">
+                    {isAr ? btn.labelAr : btn.labelEn}
+                  </span>
                 </div>
 
                 {btn.badge ? (
                   <span
-                    className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${
-                      active ? 'bg-white text-emerald-700' : 'bg-emerald-500 text-white animate-pulse'
+                    className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider ${
+                      active
+                        ? 'bg-white text-emerald-700 shadow-sm'
+                        : 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
                     }`}
                   >
                     {btn.badge}
                   </span>
                 ) : (
                   <span
-                    className={`text-[9px] px-1 rounded font-medium ${
-                      active ? 'text-white/80' : 'text-muted-foreground'
+                    className={`text-[9px] px-2 py-0.5 rounded-full font-semibold ${
+                      active
+                        ? 'bg-white/20 text-white'
+                        : 'text-muted-foreground'
                     }`}
                   >
-                    {active ? (isAr ? 'الصفحة الحالية' : 'Active View') : (isAr ? 'فتح' : 'Open')}
+                    {active ? (isAr ? 'الصفحة النشطة' : 'Active View') : (isAr ? 'فتح' : 'Open')}
                   </span>
                 )}
               </button>
@@ -665,56 +692,143 @@ export const StoreAiToolsHub: React.FC<StoreAiToolsHubProps> = () => {
       </div>
 
       {/* ======================================================== */}
-      {/* 1. OVERVIEW & QUICK LAUNCHER TAB (EQUAL SIZE CARDS) */}
+      {/* 1. OVERVIEW & QUICK LAUNCHER TAB (SPACIOUS LUXURY CARDS) */}
       {/* ======================================================== */}
       {activeTab === 'overview' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4.5">
-            {/* Card 1: Creative Images */}
+        <div className="space-y-7">
+          {/* AI Store Setup & Health Audit Agent Featured Luxury Hero */}
+          <div
+            onClick={() => setActiveTab('agent')}
+            className="p-6 sm:p-7 rounded-3xl border transition-all duration-300 hover:shadow-2xl cursor-pointer relative overflow-hidden group select-none shadow-md"
+            style={{
+              background: 'linear-gradient(135deg, rgba(147, 51, 234, 0.12) 0%, rgba(59, 130, 246, 0.06) 50%, rgba(16, 185, 129, 0.05) 100%)',
+              borderColor: 'rgba(147, 51, 234, 0.35)',
+            }}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+              <div className="flex items-start sm:items-center gap-4.5">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-lg shadow-purple-600/30 group-hover:scale-105 transition-transform ring-1 ring-white/20">
+                  <ShieldCheck className="w-7 h-7" />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <h3 className="text-base sm:text-lg font-black text-white tracking-tight">
+                      {isAr ? 'وكيل تدقيق وفحص إعدادات المتجر الشامل' : 'AI Store Setup & Health Audit Agent'}
+                    </h3>
+                    <span className="px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                      {isAr ? 'مجاني بالكامل (Gemini)' : '100% Free Gemini API'}
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                      {isAr ? 'فحص تلقائي' : 'Auto Health Check'}
+                    </span>
+                  </div>
+                  <p className="text-xs sm:text-[13px] text-slate-300 font-medium mt-1.5 leading-relaxed max-w-3xl">
+                    {isAr
+                      ? 'يكتشف أي نقص في بوابات الدفع، الشحن، الضرائب، السياسات، أو السيو ويعرض لك خيارات: الإصلاح اليدوي أو الإصلاح الذكي التلقائي أو التأجيل بنقرة واحدة.'
+                      : 'Comprehensive store audit: scans payment gateways, shipping, VAT, legal terms, and SEO. Offers 1-click auto-fix or manual review.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="px-5 py-2.5 rounded-xl text-xs font-black text-white flex items-center gap-2 shadow-lg bg-gradient-to-r from-purple-600 to-indigo-600 group-hover:brightness-110 transition-all">
+                  <Wand2 className="w-4 h-4" />
+                  <span>{isAr ? 'تشغيل وكيل التدقيق' : 'Launch Setup Agent'}</span>
+                  <ChevronRight className={`w-4 h-4 ${isAr ? 'rotate-180' : ''} group-hover:translate-x-1 rtl:group-hover:-translate-x-1 transition-transform`} />
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 6 Ultra-Luxury Enterprise Feature Cards - Spacious & Responsive */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-7">
+            {/* Card 1: Creative Images Studio */}
             <div
               onClick={() => setActiveTab('images')}
-              className="group p-5 rounded-2xl border transition-all hover:shadow-lg hover:border-accent/50 cursor-pointer relative overflow-hidden flex flex-col justify-between"
-              style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+              className="group p-6 sm:p-7 rounded-3xl border transition-all duration-300 hover:shadow-2xl hover:border-purple-500/60 hover:-translate-y-1 cursor-pointer relative overflow-hidden flex flex-col justify-between min-h-[310px]"
+              style={{
+                borderColor: 'var(--border)',
+                background: 'var(--surface)',
+              }}
             >
               <div>
-                <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-600 dark:bg-purple-950/60 dark:text-purple-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
-                  <ImageIcon className="w-5 h-5" />
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-purple-500/25 group-hover:scale-105 transition-transform ring-1 ring-white/10">
+                    <ImageIcon className="w-6 h-6" />
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/25">
+                    Gemini 4K Studio
+                  </span>
                 </div>
-                <h3 className="text-sm font-black mb-1 group-hover:text-accent transition-colors" style={{ color: 'var(--text)' }}>
+
+                <h3 className="text-base sm:text-lg font-black mb-2 text-white group-hover:text-purple-400 transition-colors">
                   {isAr ? 'استوديو توليد وتصميم الصور بالذكاء' : 'AI Creative Image Studio'}
                 </h3>
-                <p className="text-xs mb-4 font-medium line-clamp-2" style={{ color: 'var(--muted)' }}>
+                <p className="text-xs sm:text-[13px] font-medium leading-relaxed text-slate-300 line-clamp-3 mb-4">
                   {isAr
-                    ? 'توليد صور إعلانية وبوسترات منتجات مطابقة لهوية المتجر بدقة عالية مع خيارات المقاسات.'
-                    : 'High-res product creatives, social banners, and marketing photography tailored to your brand.'}
+                    ? 'توليد صور إعلانية وبوسترات منتجات مطابقة لهوية المتجر بدقة 4K مع مقاسات مخصصة لإنستغرام، سناب شات، وموقع المتجر.'
+                    : 'Generate high-res commercial product photography, social banners, and marketing mockups tailored to your brand.'}
                 </p>
+
+                <div className="space-y-1.5 text-[11px] text-slate-400 font-medium">
+                  <div className="flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                    <span>{isAr ? 'تصوير منتجات احترافي وعزل الخلفيات' : 'Product studio & background staging'}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                    <span>{isAr ? 'تصدير مباشر لمكتبة وسائط المتجر' : 'Direct export to store media library'}</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center justify-between text-xs font-black text-accent pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+
+              <div className="flex items-center justify-between text-xs font-black text-purple-400 pt-4 mt-4 border-t border-slate-800/80 group-hover:text-purple-300">
                 <span>{isAr ? 'فتح استوديو الصور' : 'Open Studio Page'}</span>
                 <ChevronRight className="w-4 h-4 rtl:rotate-180 group-hover:translate-x-1 rtl:group-hover:-translate-x-1 transition-transform" />
               </div>
             </div>
 
-            {/* Card 2: Customer Support */}
+            {/* Card 2: Customer Support Agent */}
             <div
               onClick={() => setActiveTab('support')}
-              className="group p-5 rounded-2xl border transition-all hover:shadow-lg hover:border-accent/50 cursor-pointer relative overflow-hidden flex flex-col justify-between"
-              style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+              className="group p-6 sm:p-7 rounded-3xl border transition-all duration-300 hover:shadow-2xl hover:border-emerald-500/60 hover:-translate-y-1 cursor-pointer relative overflow-hidden flex flex-col justify-between min-h-[310px]"
+              style={{
+                borderColor: 'var(--border)',
+                background: 'var(--surface)',
+              }}
             >
               <div>
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
-                  <Headphones className="w-5 h-5" />
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-lg shadow-emerald-500/25 group-hover:scale-105 transition-transform ring-1 ring-white/10">
+                    <Headphones className="w-6 h-6" />
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
+                    Bilingual Support
+                  </span>
                 </div>
-                <h3 className="text-sm font-black mb-1 group-hover:text-accent transition-colors" style={{ color: 'var(--text)' }}>
+
+                <h3 className="text-base sm:text-lg font-black mb-2 text-white group-hover:text-emerald-400 transition-colors">
                   {isAr ? 'وكيل دعم العملاء والمحادثات المباشرة' : 'AI Customer Support Agent'}
                 </h3>
-                <p className="text-xs mb-4 font-medium line-clamp-2" style={{ color: 'var(--muted)' }}>
+                <p className="text-xs sm:text-[13px] font-medium leading-relaxed text-slate-300 line-clamp-3 mb-4">
                   {isAr
-                    ? 'صياغة ردود فورية واحترافية باللهجة السعودية أو الفصحى لاستفسارات الشحن والتأخير والاسترجاع.'
-                    : 'Draft polite, contextual bilingual replies for orders, refunds, and delivery inquiries in seconds.'}
+                    ? 'صياغة ردود فورية واحترافية باللهجة السعودية الودية أو الفصحى الرسمية لاستفسارات تتبع الشحنات، التأخير، والاسترجاع.'
+                    : 'Draft polite, contextual bilingual replies for customer inquiries, delivery status, and returns in seconds.'}
                 </p>
+
+                <div className="space-y-1.5 text-[11px] text-slate-400 font-medium">
+                  <div className="flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>{isAr ? 'لهجة سعودية ودية، فصحى، وإنجليزي' : 'Friendly Saudi, formal AR & EN tones'}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>{isAr ? 'سجل ردود فوري وميزة نسخ بنقرة' : 'Saved history & 1-click clipboard copy'}</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center justify-between text-xs font-black text-accent pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+
+              <div className="flex items-center justify-between text-xs font-black text-emerald-400 pt-4 mt-4 border-t border-slate-800/80 group-hover:text-emerald-300">
                 <span>{isAr ? 'فتح صفحة الدعم والمحادثات' : 'Open Support Chat Page'}</span>
                 <ChevronRight className="w-4 h-4 rtl:rotate-180 group-hover:translate-x-1 rtl:group-hover:-translate-x-1 transition-transform" />
               </div>
@@ -723,23 +837,44 @@ export const StoreAiToolsHub: React.FC<StoreAiToolsHubProps> = () => {
             {/* Card 3: Bug Fix & Code Diagnostics */}
             <div
               onClick={() => setActiveTab('bugfix')}
-              className="group p-5 rounded-2xl border transition-all hover:shadow-lg hover:border-accent/50 cursor-pointer relative overflow-hidden flex flex-col justify-between"
-              style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+              className="group p-6 sm:p-7 rounded-3xl border transition-all duration-300 hover:shadow-2xl hover:border-amber-500/60 hover:-translate-y-1 cursor-pointer relative overflow-hidden flex flex-col justify-between min-h-[310px]"
+              style={{
+                borderColor: 'var(--border)',
+                background: 'var(--surface)',
+              }}
             >
               <div>
-                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
-                  <Code2 className="w-5 h-5" />
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center shadow-lg shadow-amber-500/25 group-hover:scale-105 transition-transform ring-1 ring-white/10">
+                    <Code2 className="w-6 h-6" />
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/25">
+                    Deep Diagnostics
+                  </span>
                 </div>
-                <h3 className="text-sm font-black mb-1 group-hover:text-accent transition-colors" style={{ color: 'var(--text)' }}>
+
+                <h3 className="text-base sm:text-lg font-black mb-2 text-white group-hover:text-amber-400 transition-colors">
                   {isAr ? 'وكيل فحص وتشخيص وإصلاح أخطاء المتجر' : 'AI Bug Fix & Code Diagnostics'}
                 </h3>
-                <p className="text-xs mb-4 font-medium line-clamp-2" style={{ color: 'var(--muted)' }}>
+                <p className="text-xs sm:text-[13px] font-medium leading-relaxed text-slate-300 line-clamp-3 mb-4">
                   {isAr
-                    ? 'تحليل مشاكل السلات والدفع والقوالب البرمجية وتوفير حلول تقنية فورية مع إمكانية فتح تذكرة دعم.'
-                    : 'Root-cause analysis and code patches for checkout errors, styling glitches, and performance.'}
+                    ? 'تحليل مشاكل السلات، بوابات الدفع، والواجهات البرمجية وتوفير حلول تقنية فورية مع إمكانية تصعيد التذكرة للمطورين.'
+                    : 'Instant root-cause analysis and patches for checkout errors, styling glitches, API bugs, and developer tickets.'}
                 </p>
+
+                <div className="space-y-1.5 text-[11px] text-slate-400 font-medium">
+                  <div className="flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span>{isAr ? 'فحص السجلات وسطور الأخطاء' : 'Error log analysis & stack tracing'}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span>{isAr ? 'فتح تذاكر هندسية مباشرة للماستر' : 'Direct ticket escalation to Master team'}</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center justify-between text-xs font-black text-accent pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+
+              <div className="flex items-center justify-between text-xs font-black text-amber-400 pt-4 mt-4 border-t border-slate-800/80 group-hover:text-amber-300">
                 <span>{isAr ? 'فتح صفحة فحص الأخطاء' : 'Diagnose Store Bug Page'}</span>
                 <ChevronRight className="w-4 h-4 rtl:rotate-180 group-hover:translate-x-1 rtl:group-hover:-translate-x-1 transition-transform" />
               </div>
@@ -748,79 +883,152 @@ export const StoreAiToolsHub: React.FC<StoreAiToolsHubProps> = () => {
             {/* Card 4: Voice Calling Partner */}
             <div
               onClick={() => setActiveTab('calling')}
-              className="group p-5 rounded-2xl border transition-all hover:shadow-lg hover:border-accent/50 cursor-pointer relative overflow-hidden flex flex-col justify-between"
-              style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+              className="group p-6 sm:p-7 rounded-3xl border transition-all duration-300 hover:shadow-2xl hover:border-blue-500/60 hover:-translate-y-1 cursor-pointer relative overflow-hidden flex flex-col justify-between min-h-[310px]"
+              style={{
+                borderColor: 'var(--border)',
+                background: 'var(--surface)',
+              }}
             >
               <div>
-                <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
-                  <PhoneCall className="w-5 h-5" />
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/25 group-hover:scale-105 transition-transform ring-1 ring-white/10">
+                    <PhoneCall className="w-6 h-6" />
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/25">
+                    Live Audio TTS
+                  </span>
                 </div>
-                <h3 className="text-sm font-black mb-1 group-hover:text-accent transition-colors" style={{ color: 'var(--text)' }}>
+
+                <h3 className="text-base sm:text-lg font-black mb-2 text-white group-hover:text-blue-400 transition-colors">
                   {isAr ? 'شريك المكالمات الصوتية الذكي (Voice Agent)' : 'AI Voice Calling Partner'}
                 </h3>
-                <p className="text-xs mb-4 font-medium line-clamp-2" style={{ color: 'var(--muted)' }}>
+                <p className="text-xs sm:text-[13px] font-medium leading-relaxed text-slate-300 line-clamp-3 mb-4">
                   {isAr
-                    ? 'محاكي ومساعد المكالمات الصوتية الواقعي لتأكيد طلبات الدفع عند الاستلام واسترجاع السلات بالصوت.'
-                    : 'Interactive voice calling simulator with real speech audio for order verification and cart recovery.'}
+                    ? 'محاكي ومساعد المكالمات الصوتية الواقعي مع تشغيل صوتي حقيقي لتأكيد طلبات الدفع عند الاستلام واسترجاع السلات المتروكة.'
+                    : 'Interactive voice calling simulator with speech synthesis for order confirmation and abandoned cart recovery.'}
                 </p>
+
+                <div className="space-y-1.5 text-[11px] text-slate-400 font-medium">
+                  <div className="flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                    <span>{isAr ? 'نطق صوتي تفاعلي عبر المتصفح' : 'Live real speech audio in browser'}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                    <span>{isAr ? 'سيناريوهات تأكيد، شحن، واسترجاع' : 'Pre-built confirmation & recovery flows'}</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center justify-between text-xs font-black text-accent pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+
+              <div className="flex items-center justify-between text-xs font-black text-blue-400 pt-4 mt-4 border-t border-slate-800/80 group-hover:text-blue-300">
                 <span>{isAr ? 'فتح محاكي المكالمات الصوتية' : 'Test Voice Call Page'}</span>
                 <ChevronRight className="w-4 h-4 rtl:rotate-180 group-hover:translate-x-1 rtl:group-hover:-translate-x-1 transition-transform" />
               </div>
             </div>
 
-            {/* Card 5: Growth & SEO */}
+            {/* Card 5: Growth, SEO & Copy Assistant */}
             <div
               onClick={() => setActiveTab('growth')}
-              className="group p-5 rounded-2xl border transition-all hover:shadow-lg hover:border-accent/50 cursor-pointer relative overflow-hidden flex flex-col justify-between"
-              style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+              className="group p-6 sm:p-7 rounded-3xl border transition-all duration-300 hover:shadow-2xl hover:border-rose-500/60 hover:-translate-y-1 cursor-pointer relative overflow-hidden flex flex-col justify-between min-h-[310px]"
+              style={{
+                borderColor: 'var(--border)',
+                background: 'var(--surface)',
+              }}
             >
               <div>
-                <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
-                  <Megaphone className="w-5 h-5" />
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 text-white flex items-center justify-center shadow-lg shadow-rose-500/25 group-hover:scale-105 transition-transform ring-1 ring-white/10">
+                    <Megaphone className="w-6 h-6" />
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/25">
+                    SEO & Growth
+                  </span>
                 </div>
-                <h3 className="text-sm font-black mb-1 group-hover:text-accent transition-colors" style={{ color: 'var(--text)' }}>
+
+                <h3 className="text-base sm:text-lg font-black mb-2 text-white group-hover:text-rose-400 transition-colors">
                   {isAr ? 'أدوات النمو، تحسين محركات البحث والنسخ' : 'Growth, SEO & Copy Assistant'}
                 </h3>
-                <p className="text-xs mb-4 font-medium line-clamp-2" style={{ color: 'var(--muted)' }}>
+                <p className="text-xs sm:text-[13px] font-medium leading-relaxed text-slate-300 line-clamp-3 mb-4">
                   {isAr
-                    ? 'توليد وسوم محركات البحث، عناوين المنتجات الجذابة، ونصوص الحملات الإعلانية الموجهة للسوق السعودي.'
-                    : 'Generate SEO meta tags, product titles, ad copy, and store growth strategies.'}
+                    ? 'توليد وسوم محركات البحث، عناوين المنتجات الجذابة، ونصوص الحملات الإعلانية الموجهة لزيادة مبيعات المتجر.'
+                    : 'Generate SEO meta tags, product titles, ad copy, and high-converting marketing strategies tailored to Saudi commerce.'}
                 </p>
+
+                <div className="space-y-1.5 text-[11px] text-slate-400 font-medium">
+                  <div className="flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                    <span>{isAr ? 'تحسين عناوين وكلمات مفتاحية' : 'Meta tags, descriptions & keywords'}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                    <span>{isAr ? 'مكتبة نصوص وإعلانات قابلة للحفظ' : 'Persistent copy library & quick reuse'}</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center justify-between text-xs font-black text-accent pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+
+              <div className="flex items-center justify-between text-xs font-black text-rose-400 pt-4 mt-4 border-t border-slate-800/80 group-hover:text-rose-300">
                 <span>{isAr ? 'استكشاف أدوات النمو والـ SEO' : 'Explore Growth Tools Page'}</span>
                 <ChevronRight className="w-4 h-4 rtl:rotate-180 group-hover:translate-x-1 rtl:group-hover:-translate-x-1 transition-transform" />
               </div>
             </div>
 
-            {/* Card 6: Payment Receipts & Slips */}
+            {/* Card 6: Payment Slips & Subscriptions */}
             <div
               onClick={() => setActiveTab('payments')}
-              className="group p-5 rounded-2xl border transition-all hover:shadow-lg hover:border-accent/50 cursor-pointer relative overflow-hidden flex flex-col justify-between"
-              style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+              className="group p-6 sm:p-7 rounded-3xl border transition-all duration-300 hover:shadow-2xl hover:border-teal-500/60 hover:-translate-y-1 cursor-pointer relative overflow-hidden flex flex-col justify-between min-h-[310px]"
+              style={{
+                borderColor: 'var(--border)',
+                background: 'var(--surface)',
+              }}
             >
               <div>
-                <div className="w-10 h-10 rounded-xl bg-teal-100 text-teal-600 dark:bg-teal-950/60 dark:text-teal-400 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
-                  <CreditCard className="w-5 h-5" />
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white flex items-center justify-center shadow-lg shadow-teal-500/25 group-hover:scale-105 transition-transform ring-1 ring-white/10">
+                    <CreditCard className="w-6 h-6" />
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-teal-500/10 text-teal-400 border border-teal-500/25">
+                    Official Ledger
+                  </span>
                 </div>
-                <h3 className="text-sm font-black mb-1 group-hover:text-accent transition-colors" style={{ color: 'var(--text)' }}>
+
+                <h3 className="text-base sm:text-lg font-black mb-2 text-white group-hover:text-teal-400 transition-colors">
                   {isAr ? 'إيصالات السداد وتاريخ الاشتراكات' : 'Payment Slips & Subscriptions'}
                 </h3>
-                <p className="text-xs mb-4 font-medium line-clamp-2" style={{ color: 'var(--muted)' }}>
+                <p className="text-xs sm:text-[13px] font-medium leading-relaxed text-slate-300 line-clamp-3 mb-4">
                   {isAr
-                    ? 'عرض سجل الإيصالات المحولة (صورة أو PDF)، رقم الحوالة، حالة التأكيد، والسعات الممنوحة للمتجر.'
-                    : 'View submitted bank transfer slips, transaction IDs, approval status, and granted limits.'}
+                    ? 'عرض سجل الإيصالات المحولة (صورة أو PDF)، رقم الحوالة، حالة الاعتماد، والسعات الممنوحة للمتجر مع إمكانية رفع إيصال جديد.'
+                    : 'View submitted bank transfer slips, transaction IDs, approval status, and granted limits with instant slip upload.'}
                 </p>
+
+                <div className="space-y-1.5 text-[11px] text-slate-400 font-medium">
+                  <div className="flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                    <span>{isAr ? 'تأكيد آلي وفوري لإيصالات التحويل' : 'Automated instant payment verification'}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                    <span>{isAr ? 'سجل محاسبي معتمد بالكامل' : 'Full commercial audit trail & invoices'}</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center justify-between text-xs font-black text-accent pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
+
+              <div className="flex items-center justify-between text-xs font-black text-teal-400 pt-4 mt-4 border-t border-slate-800/80 group-hover:text-teal-300">
                 <span>{isAr ? 'عرض الإيصالات والسداد' : 'View Slips & History Page'}</span>
                 <ChevronRight className="w-4 h-4 rtl:rotate-180 group-hover:translate-x-1 rtl:group-hover:-translate-x-1 transition-transform" />
               </div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 0. AI STORE SETUP & HEALTH AUDITOR AGENT PAGE */}
+      {/* ======================================================== */}
+      {activeTab === 'agent' && (
+        <StoreAiAgentAudit
+          onNavigateTab={onNavigateTab}
+          onBackToOverview={() => setActiveTab('overview')}
+        />
       )}
 
       {/* ======================================================== */}
@@ -1574,7 +1782,7 @@ export const StoreAiToolsHub: React.FC<StoreAiToolsHubProps> = () => {
       )}
 
       {/* ======================================================== */}
-      {/* 6. GROWTH, SEO & COPY DEDICATED PAGE */}
+      {/* 6. AUTONOMOUS STORE GROWTH ADVISOR DEDICATED PAGE */}
       {/* ======================================================== */}
       {activeTab === 'growth' && (
         <div className="space-y-6">
@@ -1588,145 +1796,13 @@ export const StoreAiToolsHub: React.FC<StoreAiToolsHubProps> = () => {
               <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
               {isAr ? 'العودة لمركز الوكلاء (All Hub)' : 'Back to All AI Agents Hub'}
             </button>
-            <span className="text-xs font-black text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
-              <Megaphone className="w-4 h-4" />
-              {isAr ? 'صفحة أدوات النمو والـ SEO والنسخ الإعلاني' : 'Growth, SEO & Copy Studio Page'}
+            <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4" />
+              {isAr ? 'مستشار نمو المتجر الذكي والأتمتة المستقلة' : 'Autonomous AI Store Growth Advisor'}
             </span>
           </div>
 
-          <div className="rounded-2xl border p-5 md:p-6 space-y-5" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4" style={{ borderColor: 'var(--border)' }}>
-              <div>
-                <h2 className="text-base font-black" style={{ color: 'var(--text)' }}>
-                  {isAr ? 'أدوات النمو، تحسين محركات البحث والنسخ الإعلاني' : 'Growth, SEO & Copy Assistant'}
-                </h2>
-                <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>
-                  {isAr ? 'أدوات تسويقية متكاملة لصياغة العناوين ووصف المنتجات وترجمة المحتوى' : 'Integrated marketing copy and SEO generators'}
-                </p>
-              </div>
-
-              <select
-                value={growthModule}
-                onChange={(e) => setGrowthModule(e.target.value)}
-                className="p-2.5 rounded-xl border text-xs bg-transparent font-bold cursor-pointer"
-                style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-              >
-                <option value="seo_assistant">{isAr ? 'مساعد تحسين محركات البحث (SEO)' : 'SEO Assistant'}</option>
-                <option value="product_description">{isAr ? 'مولد وصف المنتجات الجذاب' : 'Product Description'}</option>
-                <option value="marketing_assistant">{isAr ? 'نصوص الحملات والإعلانات' : 'Marketing Ad Copy'}</option>
-                <option value="store_advisor">{isAr ? 'مستشار المتجر واستراتيجيات النمو' : 'Store Advisor'}</option>
-                <option value="translation">{isAr ? 'ترجمة محتوى المتجر (عربي / إنجليزي)' : 'Translation'}</option>
-                <option value="analytics_assistant">{isAr ? 'أسئلة وتحليلات المتجر الذكية' : 'Store Analytics Q&A'}</option>
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-xs font-black" style={{ color: 'var(--text)' }}>
-                {isAr ? 'الموضوع أو المنتج المطلوب صياغته:' : 'Prompt or Product to Generate:'}
-              </label>
-              <textarea
-                rows={3}
-                value={growthPrompt}
-                onChange={(e) => setGrowthPrompt(e.target.value)}
-                placeholder={
-                  isAr
-                    ? 'اكتب اسم المنتج، أو الكلمات المفتاحية، أو السؤال المطلوب تحليله…'
-                    : 'Enter product details, keywords, or store question…'
-                }
-                className="w-full p-3 rounded-xl border text-xs bg-transparent"
-                style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-              />
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={handleRunGrowth}
-                  disabled={growthBusy || !growthPrompt.trim()}
-                  className="unity-btn-primary px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 cursor-pointer shadow-sm"
-                >
-                  {growthBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  {isAr ? 'توليد المحتوى التسويقي' : 'Generate Growth Copy'}
-                </button>
-              </div>
-            </div>
-
-            {growthResult && (
-              <div
-                className="p-4 rounded-xl border space-y-3"
-                style={{ borderColor: 'var(--border)', background: 'color-mix(in srgb, var(--portal-cta) 4%, var(--bg))' }}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black flex items-center gap-1.5 text-rose-600">
-                    <CheckCircle2 className="w-4 h-4" />
-                    {isAr ? 'المحتوى المُولّد:' : 'Generated Output:'}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(growthResult, 'active_growth')}
-                    className="px-2.5 py-1 rounded-lg border text-[11px] font-bold flex items-center gap-1 cursor-pointer hover:bg-black/5"
-                    style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-                  >
-                    {copiedId === 'active_growth' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                    {copiedId === 'active_growth' ? (isAr ? 'تم النسخ' : 'Copied') : (isAr ? 'نسخ المحتوى' : 'Copy')}
-                  </button>
-                </div>
-                <p className="text-xs whitespace-pre-wrap leading-relaxed font-medium" style={{ color: 'var(--text)' }}>
-                  {growthResult}
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* DEDICATED DATA: Copy Library */}
-          {copyLibrary.length > 0 && (
-            <div className="rounded-2xl border p-5 space-y-4" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-              <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--border)' }}>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-black" style={{ color: 'var(--text)' }}>
-                    {isAr ? 'مكتبة النسخ والنصوص المحفوظة' : 'Saved Copy & Marketing Library'}
-                  </h3>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 font-bold">
-                    {copyLibrary.length}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setCopyLibrary([])}
-                  className="text-xs text-rose-500 hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  {isAr ? 'مسح المكتبة' : 'Clear'}
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {copyLibrary.map((item) => (
-                  <div
-                    key={item.id}
-                    className="p-3.5 rounded-xl border space-y-2 text-xs"
-                    style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
-                  >
-                    <div className="flex items-center justify-between text-muted-foreground text-[11px]">
-                      <span className="font-bold text-rose-600">{item.module}</span>
-                      <span>{item.createdAt}</span>
-                    </div>
-                    <div className="font-semibold text-text">
-                      <strong className="text-muted-foreground mr-1">{isAr ? 'الطلب:' : 'Prompt:'}</strong> {item.prompt}
-                    </div>
-                    <div className="p-2.5 rounded-lg bg-black/5 dark:bg-white/5 font-medium text-[11px] whitespace-pre-wrap flex justify-between gap-2">
-                      <span className="line-clamp-3">{item.result}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(item.result, item.id)}
-                        className="p-1 rounded hover:bg-black/10 shrink-0 text-muted-foreground"
-                      >
-                        {copiedId === item.id ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <StoreGrowthAdvisor onNavigateTab={onNavigateTab} />
         </div>
       )}
 

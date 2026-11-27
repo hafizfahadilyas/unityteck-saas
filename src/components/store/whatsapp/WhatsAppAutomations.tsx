@@ -319,6 +319,41 @@ export const WhatsAppAutomations: React.FC<Props> = ({ onNavigateSubView }) => {
         </div>
       </div>
 
+      {/* Quick Launch: Real Inbound Auto-Reply & Live Number Testing */}
+      <div
+        className="p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
+        style={{
+          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(5, 150, 105, 0.03) 100%)',
+          borderColor: 'rgba(16, 185, 129, 0.3)',
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="text-xs sm:text-sm font-black" style={{ color: 'var(--text)' }}>
+              {isAr ? 'الرد التلقائي على أرقام العملاء الحقيقية (Real WhatsApp Auto-Reply)' : 'Real Customer Phone Number Auto-Reply (Meta & Gemini)'}
+            </h4>
+            <p className="text-[11px] font-semibold" style={{ color: 'var(--muted)' }}>
+              {isAr
+                ? 'تفعيل الردود الذكية الفورية وتجربتها على رقم جوالك الحقيقي مباشرة.'
+                : 'Configure instant automated replies and test live on any real mobile number.'}
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onNavigateSubView('auto-reply')}
+          className="px-3.5 py-2 rounded-xl text-xs font-bold text-white transition-all shadow-sm shrink-0 flex items-center gap-1.5 self-start sm:self-auto"
+          style={{ background: 'var(--portal-cta)' }}
+        >
+          <Zap className="w-3.5 h-3.5" />
+          {isAr ? 'فتح إعدادات الرد التلقائي' : 'Open Auto-Reply Hub'}
+        </button>
+      </div>
+
       {/* 3. Category Filter Tabs & Search */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2 overflow-x-auto pb-1">

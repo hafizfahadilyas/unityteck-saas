@@ -49,6 +49,8 @@ export const CustomGiftBanner: React.FC<CustomGiftBannerProps> = ({
           activeStore.category.toLowerCase().includes('transport'))
     );
 
+  const isSouq = !isCoffee && !isCarStore && activeStore?.id !== 'store-1';
+
   const handleCustomAction = () => {
     const targetLink = s.buttonUrl || s.ctaLink || buttonUrl;
     if (targetLink && targetLink.startsWith('#')) {
@@ -65,8 +67,8 @@ export const CustomGiftBanner: React.FC<CustomGiftBannerProps> = ({
         ? 'مرحباً، أود تفصيل طقم مقاعد أو دعاسات خاصة لسيارتي بمقاسات وخامات مخصصة.'
         : 'Hello, I would like to order custom-tailored luxury seat covers or floor mats for my car.'
       : isAr
-      ? 'مرحباً، أود تصميم وتنسيق باقة ورد / طقم هدية مخصص وفريد حسب رغبتي.'
-      : 'Hello, I would like to design and order a custom bespoke flower bouquet or gift set.';
+      ? (isSouq ? 'مرحباً، أود الاستفسار عن منتجات المتجر وتفاصيل الطلب المخصص.' : 'مرحباً، أود تصميم وتنسيق باقة ورد / طقم هدية مخصص وفريد حسب رغبتي.')
+      : (isSouq ? 'Hello, I would like to inquire about store products and custom orders.' : 'Hello, I would like to design and order a custom bespoke flower bouquet or gift set.');
 
     if (!activeStore?.id) return;
     const href = storeWhatsAppUrl(activeStore.id, text, activeStore);
@@ -78,6 +80,8 @@ export const CustomGiftBanner: React.FC<CustomGiftBannerProps> = ({
     ? 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=1200&q=80'
     : isCarStore
     ? 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80'
+    : isSouq
+    ? '/images/saudi_hero_banner_2.jpg'
     : '/images/hadaya_white_orchid_penthouse_1791218732789.jpg';
 
   const bgImage =
@@ -92,36 +96,48 @@ export const CustomGiftBanner: React.FC<CustomGiftBannerProps> = ({
     ? 'تبحث عن خلطة قهوة خاصة أو بوكس تحميص فاخر؟'
     : isCarStore
     ? 'تبحث عن تفصيل فاخر ومخصص لسيارتك؟'
+    : isSouq
+    ? 'تبحث عن منتج محدد أو طلبات خاصة؟'
     : 'تبحث عن شيء فريد ومميز؟';
 
   const defaultTitleEn = isCoffee
     ? 'Looking for a custom roast or gift box?'
     : isCarStore
     ? 'Looking for bespoke interior tailoring for your car?'
+    : isSouq
+    ? 'Looking for a specific product or custom inquiry?'
     : 'Looking for something unique?';
 
   const defaultSubtitleAr = isCoffee
     ? 'صمم بوكس القهوة الخاص بك ومحاصيلك المختارة بأيدي خبراء التحميص والباريستا'
     : isCarStore
     ? 'فصل أغطية المقاعد والدعاسات بأفخم الجلود المقاومة بأيدي أمهر الحرفيين'
+    : isSouq
+    ? 'فريقنا متواجد لمساعدتكم في اختيار أفضل المنتجات وتوفير تجربة تسوق مميزة'
     : 'صمم باقتك الخاصة أو طقم هديتك المخصص بأيدي خبراء التنسيق';
 
   const defaultSubtitleEn = isCoffee
     ? 'Curate your custom coffee box and select single origins with master roasters'
     : isCarStore
-    ? 'Custom tailor your vehicle seats and mats with ultra-durable luxury leathers'
+    ? 'Custom tailor your vehicle seats and mats with ultra-durabl luxury leathers'
+    : isSouq
+    ? 'Our dedicated team is here to assist with tailored orders and customer requests'
     : 'Create your own custom bouquet or gift set';
 
   const defaultBtnTextAr = isCoffee
     ? 'طلب بوكس تحميص مخصص'
     : isCarStore
     ? 'طلب تفصيل مخصص'
+    : isSouq
+    ? 'تواصل معنا الآن'
     : 'تنسيق هدية خاصة';
 
   const defaultBtnTextEn = isCoffee
     ? 'Custom Coffee Box'
     : isCarStore
     ? 'Order Bespoke Tailoring'
+    : isSouq
+    ? 'Contact Support'
     : 'Shop Custom Gifts';
 
   const title =

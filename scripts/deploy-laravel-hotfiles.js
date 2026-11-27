@@ -111,6 +111,14 @@ const files = [
     remote: 'routes/api.php',
   },
   {
+    local: 'apps/api/app/Http/Controllers/Api/WhatsAppController.php',
+    remote: 'app/Http/Controllers/Api/WhatsAppController.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/StoreAiAgentController.php',
+    remote: 'app/Http/Controllers/Api/StoreAiAgentController.php',
+  },
+  {
     local: 'apps/api/app/Http/Controllers/Api/StoreAppointmentController.php',
     remote: 'app/Http/Controllers/Api/StoreAppointmentController.php',
   },
@@ -497,6 +505,14 @@ const files = [
     remote: 'routes/api.php',
   },
   {
+    local: 'apps/api/app/Http/Controllers/Api/WhatsAppController.php',
+    remote: 'app/Http/Controllers/Api/WhatsAppController.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/StoreAiAgentController.php',
+    remote: 'app/Http/Controllers/Api/StoreAiAgentController.php',
+  },
+  {
     local: 'apps/api/scripts/ensure-theme-entitlements-tables.php',
     remote: 'scripts/ensure-theme-entitlements-tables.php',
   },
@@ -531,6 +547,130 @@ const files = [
   {
     local: 'apps/api/app/Models/StoreAiPayment.php',
     remote: 'app/Models/StoreAiPayment.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/WhatsAppController.php',
+    remote: 'app/Http/Controllers/Api/WhatsAppController.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/EnterpriseSeoController.php',
+    remote: 'app/Http/Controllers/Api/EnterpriseSeoController.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/StoreAiAgentController.php',
+    remote: 'app/Http/Controllers/Api/StoreAiAgentController.php',
+  },
+  {
+    local: 'apps/api/app/Http/Controllers/Api/StoreGrowthAdvisorController.php',
+    remote: 'app/Http/Controllers/Api/StoreGrowthAdvisorController.php',
+  },
+  {
+    local: 'apps/api/app/Services/GeminiAiMediaService.php',
+    remote: 'app/Services/GeminiAiMediaService.php',
+  },
+  {
+    local: 'apps/api/app/Services/OpenAi/OpenAiProviderService.php',
+    remote: 'app/Services/OpenAi/OpenAiProviderService.php',
+  },
+  {
+    local: 'apps/api/app/Support/AiMediaCredits.php',
+    remote: 'app/Support/AiMediaCredits.php',
+  },
+  {
+    local: 'apps/api/app/Models/SeoAudit.php',
+    remote: 'app/Models/SeoAudit.php',
+  },
+  {
+    local: 'apps/api/app/Models/SeoAuditIssue.php',
+    remote: 'app/Models/SeoAuditIssue.php',
+  },
+  {
+    local: 'apps/api/app/Models/SeoAutomationRule.php',
+    remote: 'app/Models/SeoAutomationRule.php',
+  },
+  {
+    local: 'apps/api/app/Models/SeoBacklink.php',
+    remote: 'app/Models/SeoBacklink.php',
+  },
+  {
+    local: 'apps/api/app/Models/SeoContentHistory.php',
+    remote: 'app/Models/SeoContentHistory.php',
+  },
+  {
+    local: 'apps/api/app/Models/SeoImplementation.php',
+    remote: 'app/Models/SeoImplementation.php',
+  },
+  {
+    local: 'apps/api/app/Models/SeoIntegration.php',
+    remote: 'app/Models/SeoIntegration.php',
+  },
+  {
+    local: 'apps/api/app/Models/SeoKeyword.php',
+    remote: 'app/Models/SeoKeyword.php',
+  },
+  {
+    local: 'apps/api/app/Models/SeoMetadata.php',
+    remote: 'app/Models/SeoMetadata.php',
+  },
+  {
+    local: 'apps/api/app/Models/SeoRecommendation.php',
+    remote: 'app/Models/SeoRecommendation.php',
+  },
+  {
+    local: 'apps/api/app/Models/SeoReport.php',
+    remote: 'app/Models/SeoReport.php',
+  },
+  {
+    local: 'apps/api/app/Models/SeoSearchPerformance.php',
+    remote: 'app/Models/SeoSearchPerformance.php',
+  },
+  {
+    local: 'apps/api/app/Models/SeoSetting.php',
+    remote: 'app/Models/SeoSetting.php',
+  },
+  {
+    local: 'apps/api/app/Models/StoreGrowthAction.php',
+    remote: 'app/Models/StoreGrowthAction.php',
+  },
+  {
+    local: 'apps/api/app/Models/StoreGrowthAdvisorSetting.php',
+    remote: 'app/Models/StoreGrowthAdvisorSetting.php',
+  },
+  {
+    local: 'apps/api/app/Models/StoreGrowthRecommendation.php',
+    remote: 'app/Models/StoreGrowthRecommendation.php',
+  },
+  {
+    local: 'apps/api/app/Services/Growth/StoreDataCollectorService.php',
+    remote: 'app/Services/Growth/StoreDataCollectorService.php',
+  },
+  {
+    local: 'apps/api/app/Services/Growth/StoreGrowthAdvisorService.php',
+    remote: 'app/Services/Growth/StoreGrowthAdvisorService.php',
+  },
+  {
+    local: 'apps/api/app/Services/Growth/StoreGrowthExecutorService.php',
+    remote: 'app/Services/Growth/StoreGrowthExecutorService.php',
+  },
+  {
+    local: 'apps/api/app/Services/Seo/BingIndexNowService.php',
+    remote: 'app/Services/Seo/BingIndexNowService.php',
+  },
+  {
+    local: 'apps/api/app/Services/Seo/SeoAuditService.php',
+    remote: 'app/Services/Seo/SeoAuditService.php',
+  },
+  {
+    local: 'apps/api/app/Services/Seo/SeoGeminiGeneratorService.php',
+    remote: 'app/Services/Seo/SeoGeminiGeneratorService.php',
+  },
+  {
+    local: 'apps/api/app/Services/Seo/SeoImplementationService.php',
+    remote: 'app/Services/Seo/SeoImplementationService.php',
+  },
+  {
+    local: 'database/hostinger/16_enterprise_seo_aeo_geo.sql',
+    remote: 'database/hostinger/16_enterprise_seo_aeo_geo.sql',
   },
 ];
 

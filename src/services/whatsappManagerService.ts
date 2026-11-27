@@ -210,3 +210,30 @@ export async function updateMasterWhatsAppQuotaApi(
   });
 }
 
+export async function fetchWhatsAppAutoReply(storeId: string): Promise<any> {
+  const res = await apiFetch<{ success: boolean; data: any }>('/whatsapp/auto-reply', {
+    storeId,
+  });
+  return res.data;
+}
+
+export async function updateWhatsAppAutoReplyApi(storeId: string, payload: any): Promise<any> {
+  return apiFetch<{ success: boolean; message: string; data: any }>('/whatsapp/auto-reply', {
+    method: 'PUT',
+    storeId,
+    body: payload,
+  });
+}
+
+export async function testWhatsAppAutoReplyApi(
+  storeId: string,
+  payload: { phone_number: string; test_message: string; customer_name?: string },
+): Promise<{ success: boolean; message: string; data: any }> {
+  return apiFetch<{ success: boolean; message: string; data: any }>('/whatsapp/auto-reply/test', {
+    method: 'POST',
+    storeId,
+    body: payload,
+  });
+}
+
+

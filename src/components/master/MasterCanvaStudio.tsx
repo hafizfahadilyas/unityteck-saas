@@ -523,8 +523,8 @@ export const MasterCanvaStudio: React.FC<Props> = ({ onNavigateTab }) => {
               </div>
               <p className="text-[10px] leading-relaxed" style={{ color: 'var(--muted)' }}>
                 {isAr
-                  ? 'الاستيراد (باوربوينت / فوتوشوب / صورة): زر رفع في شريط استوديو التصميم.'
-                  : 'Import (PPTX / PSD / image): use Upload in the Design Studio header.'}
+                  ? 'الاستيراد (قوالب جاهزة / فوتوشوب / صورة): زر رفع في شريط استوديو التصميم.'
+                  : 'Import (Templates / PSD / image): use Upload in the Design Studio header.'}
               </p>
             </div>
           )}

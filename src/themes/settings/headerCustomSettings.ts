@@ -915,7 +915,7 @@ export function getDefaultHeaderSettings(store?: any, themeId?: string): HeaderC
         {
           id: 'gen-msg-1',
           icon: 'Sparkles',
-          textAr: `أهلاً بكم في متجر${storeDisplayNameAr}— منتجات أصلية ومضمونة 100%`,
+          textAr: `أهلاً بكم في ${storeDisplayNameAr.startsWith('متجر') ? storeDisplayNameAr : 'متجر ' + storeDisplayNameAr} — منتجات أصلية ومضمونة 100%`,
           textEn: `Welcome to ${storeDisplayNameEn} — 100% Authentic Guaranteed Products`,
           active: true,
         },

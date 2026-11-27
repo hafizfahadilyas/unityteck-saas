@@ -3410,6 +3410,17 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
         return true;
     }
 
+    // ── Store AI Agent Audit & WhatsApp Auto-Reply (Free Gemini AI 0 SAR Fee) ──
+    if (!function_exists('souq_store_ai_agent_dispatch')) {
+        require_once __DIR__ . '/store_ai_agent_ops.php';
+    }
+    if (souq_whatsapp_autoreply_dispatch($pdo, $uri, $method, $storeId, $input)) {
+        return true;
+    }
+    if (souq_store_ai_agent_dispatch($pdo, $uri, $method, $storeId, $input)) {
+        return true;
+    }
+
     if ($uri === '/design-templates/entitlements' && $method === 'GET') {
         if ($storeId === '') {
             http_response_code(422);
@@ -4180,10 +4191,56 @@ function souq_live_extensions_dispatch(PDO $pdo, string $uri, string $method, st
                 'automation' => $autoMod,
             ],
             'engine_modules' => $engineModules,
+            'bank_transfer_details' => [
+                'bank_name_ar' => 'مصرف الراجحي',
+                'bank_name_en' => 'Al Rajhi Bank',
+                'beneficiary_name_ar' => 'منصة سوق للحلول التقنية (يونيتيك السعودية)',
+                'beneficiary_name_en' => 'Souq Platform E-Commerce (Unityteck KSA)',
+                'iban' => 'SA0380000456608010123456',
+                'account_number' => '456608010123456',
+                'stc_pay_phone' => '+966 50 123 4567',
+                'vat_number' => '310123456700003',
+            ],
             'payment_packages' => [
-                ['id' => 'ai_low', 'level' => 'low', 'label_en' => 'AI Low', 'label_ar' => 'ذكاء منخفض', 'price_sar' => 99, 'includes_en' => 'Basic prompts · smaller image quota · low reasoning', 'includes_ar' => 'موجهات أساسية · حصة صور أصغر · استدلال منخفض'],
-                ['id' => 'ai_medium', 'level' => 'medium', 'label_en' => 'AI Medium', 'label_ar' => 'ذكاء متوسط', 'price_sar' => 249, 'includes_en' => 'Balanced text + images · medium reasoning · brand tools', 'includes_ar' => 'نص وصور متوازن · استدلال متوسط · أدوات العلامة'],
-                ['id' => 'ai_high', 'level' => 'high', 'label_en' => 'AI High', 'label_ar' => 'ذكاء مرتفع', 'price_sar' => 499, 'includes_en' => 'Highest quality · larger quotas · automation Q&A · high reasoning', 'includes_ar' => 'أعلى جودة · حصص أكبر · أسئلة الأتمتة · استدلال مرتفع'],
+                [
+                    'id' => 'ai_low',
+                    'level' => 'low',
+                    'label_en' => 'AI Starter Suite',
+                    'label_ar' => 'باقة الذكاء الأساسية',
+                    'price_sar' => 99,
+                    'includes_en' => '50 Studio Images/mo · 150k Text Tokens · 50 Auto Q&A · 30 Min Voice Calling · Standard GPU',
+                    'includes_ar' => '50 صورة استوديو شهرياً · 150 ألف رمز ذكاء · 50 سؤال أتمتة · 30 دقيقة مكالمات صوتية · سرعة قياسية',
+                    'image_quota' => 50,
+                    'text_tokens' => 150000,
+                    'auto_questions' => 50,
+                    'calling_minutes' => 30,
+                ],
+                [
+                    'id' => 'ai_medium',
+                    'level' => 'medium',
+                    'label_en' => 'AI Growth Pro',
+                    'label_ar' => 'باقة ذكاء النمو المتقدم',
+                    'price_sar' => 249,
+                    'includes_en' => '200 Studio Images/mo · 500k Text Tokens · 200 Auto Q&A · 120 Min Voice Calling · Bug Fix Diagnostics · Dedicated Priority',
+                    'includes_ar' => '200 صورة استوديو شهرياً · 500 ألف رمز ذكاء · 200 سؤال أتمتة · 120 دقيقة مكالمات صوتية · فحص وإصلاح الأخطاء · أولوية فائقة',
+                    'image_quota' => 200,
+                    'text_tokens' => 500000,
+                    'auto_questions' => 200,
+                    'calling_minutes' => 120,
+                ],
+                [
+                    'id' => 'ai_high',
+                    'level' => 'high',
+                    'label_en' => 'AI Enterprise Unlimited',
+                    'label_ar' => 'باقة المؤسسات اللامحدودة',
+                    'price_sar' => 499,
+                    'includes_en' => '1,000 Studio Images/mo · 2,000,000 Text Tokens · 1,000 Auto Q&A · 500 Min Voice Calling · Deep Code Patching · 24/7 SLA',
+                    'includes_ar' => '1,000 صورة استوديو شهرياً · 2 مليون رمز ذكاء · 1,000 سؤال أتمتة · 500 دقيقة مكالمات صوتية · ترقيع الكود المباشر · دعم VIP فوري',
+                    'image_quota' => 1000,
+                    'text_tokens' => 2000000,
+                    'auto_questions' => 1000,
+                    'calling_minutes' => 500,
+                ],
             ],
             'addons' => [
                 ['id' => 'addon-ai-agent', 'category' => 'ai', 'name_en' => 'AI Calling / Sales Agent', 'name_ar' => 'وكيل المبيعات والمكالمات بالذكاء الاصطناعي', 'price_sar' => 99, 'billing' => 'monthly', 'currency' => 'SAR', 'unlocked' => false, 'description_en' => 'Sales agent + outreach assist.', 'description_ar' => 'وكيل مبيعات ومساعدة تواصل.', 'master_must_approve' => true],

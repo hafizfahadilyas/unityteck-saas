@@ -27,6 +27,8 @@ import { WhatsAppContactsSegments } from './WhatsAppContactsSegments';
 import { WhatsAppSettingsLogs } from './WhatsAppSettingsLogs';
 import { WhatsAppAutomations } from './WhatsAppAutomations';
 import { WhatsAppCampaigns } from './WhatsAppCampaigns';
+import { WhatsAppAutoReply } from './WhatsAppAutoReply';
+import { Bot } from 'lucide-react';
 
 /** Equal card grid — same columns for every hub section (no uneven rows). */
 const HUB_GRID =
@@ -37,6 +39,7 @@ export type WhatsAppSubView =
   | 'compose'
   | 'templates'
   | 'automations'
+  | 'auto-reply'
   | 'campaigns'
   | 'contacts'
   | 'settings';
@@ -46,6 +49,7 @@ const WA_VIEWS: WhatsAppSubView[] = [
   'compose',
   'templates',
   'automations',
+  'auto-reply',
   'campaigns',
   'contacts',
   'settings',
@@ -223,6 +227,17 @@ export const StoreWhatsAppManager: React.FC<Props> = ({
                 isAr={isAr}
               />
               <PortalHubCard
+                icon={Bot}
+                title={isAr ? 'الرد التلقائي على الأرقام' : 'Auto Reply & Real Numbers'}
+                description={
+                  isAr
+                    ? 'الرد الآلي على الأرقام الحقيقية ومساعد الذكاء الاصطناعي.'
+                    : 'Real-time auto reply and Gemini AI smart customer care.'
+                }
+                onClick={() => handleNavigate('auto-reply')}
+                isAr={isAr}
+              />
+              <PortalHubCard
                 icon={Megaphone}
                 title={isAr ? 'الحملات' : 'Campaigns'}
                 description={
@@ -357,6 +372,10 @@ export const StoreWhatsAppManager: React.FC<Props> = ({
 
       {currentSubView === 'automations' && (
         <WhatsAppAutomations onNavigateSubView={handleNavigate} />
+      )}
+
+      {currentSubView === 'auto-reply' && (
+        <WhatsAppAutoReply onNavigateSubView={handleNavigate} />
       )}
 
       {currentSubView === 'campaigns' && (

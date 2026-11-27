@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useTenant } from '../../../context/TenantContext';
+import { isSouqCommonTenant } from '../../souqCommon/isSouqCommonTenant';
 import {
   Mail,
   Heart,
@@ -42,24 +43,29 @@ export const Footer: React.FC<FooterCustomProps> = ({
   const isAr = language === 'ar';
   const isCoffee = activeStore?.id === 'store-coffee' || (activeStore?.category && activeStore.category.includes('قهوة'));
   const isAuto = activeStore?.id === 'store-transport' || (activeStore?.category && (activeStore.category.includes('سيار') || activeStore.category.includes('نقل')));
+  const isSouq = !isCoffee && !isAuto && (isSouqCommonTenant(activeStore) || (activeStore?.id && activeStore.id !== 'store-1'));
 
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);
 
   const s = settings || {};
 
-  const storeNameAr = s.storeNameAr || s.brandNameAr || activeStore?.nameAr || activeStore?.name || (isCoffee ? 'محمصة القهوة المختصة' : isAuto ? 'نقليات ومعدات الجزيرة' : 'هدايا مكة');
-  const storeNameEn = s.storeNameEn || s.brandNameEn || activeStore?.nameEn || activeStore?.name || (isCoffee ? 'Specialty Coffee Roasters' : isAuto ? 'Saudia Transport Logistics' : 'Hadaya Flowers & Gifts');
+  const storeNameAr = s.storeNameAr || s.brandNameAr || activeStore?.nameAr || activeStore?.name || (isCoffee ? 'محمصة القهوة المختصة' : isAuto ? 'نقليات ومعدات الجزيرة' : isSouq ? 'متجر سوق الافتراضي' : 'هدايا مكة');
+  const storeNameEn = s.storeNameEn || s.brandNameEn || activeStore?.nameEn || activeStore?.name || (isCoffee ? 'Specialty Coffee Roasters' : isAuto ? 'Saudia Transport Logistics' : isSouq ? 'Souq Default Store' : 'Hadaya Flowers & Gifts');
   
   const defaultDescAr = isCoffee
     ? 'محاصيل بن مختصة طازجة التحميص، أدوات ترشيح V60 ومعدات إسبريسو احترافية لتجربة قهوة لا تُنسى في كل صباح.'
     : isAuto
     ? 'خدمات تأجير ونقل وشحن معتمد بأعلى معايير الأمان والسرعة على مدار الساعة.'
+    : isSouq
+    ? 'منتجات مختارة وموثوقة بجودة عالية وتوصيل سريع لجميع مدن المملكة العربية السعودية مع وسائل دفع آمنة متعددة.'
     : 'زهور طبيعية وهدايا فاخرة لكل مناسبة، صُممت بعناية وأناقة لتصل إلى أحبابك بأعلى معايير الإتقان والتوصيل السريع.';
   const defaultDescEn = isCoffee
     ? 'Single origin specialty coffee, precision pour-over tools, and pro espresso gear crafted for coffee connoisseurs.'
     : isAuto
     ? 'Certified transport, logistics, and heavy fleet solutions with 24/7 round-the-clock reliability.'
+    : isSouq
+    ? 'Selected high quality products with fast nationwide shipping across Saudi Arabia and secure multiple payment options.'
     : 'Premium flowers and gifts for every occasion. Fresh, elegant and delivered with love across the Kingdom.';
 
   const storeDescAr = s.storeDescAr || defaultDescAr;
@@ -74,8 +80,10 @@ export const Footer: React.FC<FooterCustomProps> = ({
       ? ['قهوة مختصة', 'أدوات ترشيح', 'محاصيل بن', 'إكسسوارات']
       : isAuto
       ? ['مركبات VIP', 'نقل بضائع', 'معدات ثقيلة', 'تأجير أساطيل']
+      : isSouq
+      ? ['منتجات مميزة', 'وصل حديثاً', 'عروض خاصة', 'كافة المنتجات']
       : ['زهور طبيعية', 'هدايا وشوكولاتة', 'كيك ومناسبات', 'تشكيلات فاخرة'];
-  }, [products, isCoffee, isAuto]);
+  }, [products, isCoffee, isAuto, isSouq]);
 
   const contact = activeStore?.id
     ? resolveStoreContact(activeStore.id, activeStore)
@@ -161,8 +169,8 @@ export const Footer: React.FC<FooterCustomProps> = ({
                   </h3>
                   <p className="text-[10px] tracking-[0.2em] uppercase text-[#cca65b] font-medium mt-0.5">
                     {isAr
-                      ? (isCoffee ? 'محاصيل بن وأدوات تحضير' : isAuto ? 'خدمات نقل وشحن متكاملة' : (activeStore?.category || 'عطور وهدايا فاخرة'))
-                      : (isCoffee ? 'SPECIALTY COFFEE & ROASTERS' : isAuto ? 'TRANSPORT & LOGISTICS' : 'FLOWERS & LUXURY GIFTS')}
+                      ? (isCoffee ? 'محاصيل بن وأدوات تحضير' : isAuto ? 'خدمات نقل وشحن متكاملة' : isSouq ? (activeStore?.category || 'تجزئة عامة ومنتجات متنوعة') : (activeStore?.category || 'عطور وهدايا فاخرة'))
+                      : (isCoffee ? 'SPECIALTY COFFEE & ROASTERS' : isAuto ? 'TRANSPORT & LOGISTICS' : isSouq ? (activeStore?.categoryEn?.toUpperCase() || 'GENERAL RETAIL') : 'FLOWERS & LUXURY GIFTS')}
                   </p>
                 </>
               )}

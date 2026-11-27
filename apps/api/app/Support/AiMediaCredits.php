@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\AiProviderConfiguration;
 use App\Models\Store;
 use App\Models\StoreAiGenerationUsage;
 use App\Models\StoreOpenAiImageConfig;
@@ -124,6 +125,16 @@ final class AiMediaCredits
         $dayUsage = self::usageRow($store, self::dayKey());
         $plan = Plans::forStore($store);
         $apiKey = trim((string) config('services.gemini.api_key', ''));
+        if ($apiKey === '' || $apiKey === 'MY_GEMINI_API_KEY') {
+            try {
+                $dbKey = AiProviderConfiguration::query()->where('is_enabled', true)->whereNotNull('api_key')->value('api_key');
+                if (! empty($dbKey)) {
+                    $apiKey = trim((string) $dbKey);
+                }
+            } catch (\Throwable) {
+                // Ignore fallback error
+            }
+        }
         $imageReady = $apiKey !== '' && $apiKey !== 'MY_GEMINI_API_KEY';
         $videoReady = $imageReady && (bool) config('services.gemini.video_enabled', false);
 

@@ -214,8 +214,8 @@ export const BestSellersSection: React.FC<BestSellersSectionProps> = ({
               : '';
 
             const waText = isAr
-              ? `السلام عليكم، أود طلب المنتج: *${name}* بسعر${item.price}⃁ من متجر${activeStore?.name || 'الزهور'}`
-              : `Hello, I would like to order: *${name}* for SAR ${item.price} from ${activeStore?.name || 'Flowers Store'}`;
+              ? `السلام عليكم، أود طلب المنتج: *${name}* بسعر ${item.price} ⃁ من متجر ${activeStore?.name || 'المتجر'}`
+              : `Hello, I would like to order: *${name}* for SAR ${item.price} from ${activeStore?.name || 'the Store'}`;
             const waUrl = cleanPhone
               ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(waText)}`
               : '';
@@ -308,7 +308,9 @@ export const BestSellersSection: React.FC<BestSellersSectionProps> = ({
                   {showBadges && (
                     <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
                       <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-semibold bg-[#eaf4ef] dark:bg-emerald-950/40 text-[#0e4e3e] dark:text-emerald-300 border border-[#d2e8dd]/60 dark:border-emerald-800/30 whitespace-nowrap">
-                        {isAr ? 'زهور طبيعية' : 'Fresh Flowers'}
+                        {isAr
+                          ? (activeStore?.id === 'store-1' ? 'زهور طبيعية' : (item.categoryAr || item.category || 'منتج أصلي'))
+                          : (activeStore?.id === 'store-1' ? 'Fresh Flowers' : (item.categoryEn || item.category || 'Authentic Product'))}
                       </span>
 
                       <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] sm:text-[11px] font-semibold bg-[#eaf4ef] dark:bg-emerald-950/40 text-[#0e4e3e] dark:text-emerald-300 border border-[#d2e8dd]/60 dark:border-emerald-800/30 whitespace-nowrap">

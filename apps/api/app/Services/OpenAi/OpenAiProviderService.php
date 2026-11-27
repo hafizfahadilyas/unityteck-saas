@@ -41,7 +41,21 @@ final class OpenAiProviderService
 
         $apiKey = trim((string) config('services.openai.api_key', ''));
         if ($apiKey === '') {
-            return ['ok' => false, 'code' => 'key_missing', 'message' => 'OpenAI API key is not configured on the server.'];
+            try {
+                $dbKey = \App\Models\OpenAiGlobalConfig::query()->where('is_active', true)->whereNotNull('api_key')->value('api_key');
+                if (! empty($dbKey)) {
+                    $apiKey = trim((string) $dbKey);
+                }
+            } catch (\Throwable) {}
+        }
+
+        if ($apiKey === '') {
+            $geminiKey = \App\Services\GeminiAiMediaService::resolveApiKey();
+            if ($geminiKey !== '' && $geminiKey !== 'MY_GEMINI_API_KEY') {
+                return $this->completeWithGemini($store, $input, $geminiKey, $actorUserId);
+            }
+
+            return ['ok' => false, 'code' => 'key_missing', 'message' => 'AI text provider is not configured. Set GEMINI_API_KEY or OPENAI_API_KEY on the server.'];
         }
 
         $level = OpenAiLevels::for($cfg->intelligence_level);
@@ -189,5 +203,66 @@ final class OpenAiProviderService
             'content' => $content,
             'usage' => is_array($json['usage'] ?? null) ? $json['usage'] : [],
         ];
+    }
+
+    protected function completeWithGemini(Store $store, array $input, string $geminiKey, ?string $actorUserId): array
+    {
+        $prompt = trim((string) ($input['prompt'] ?? ''));
+        $system = trim((string) ($input['system'] ?? ''));
+        $fullPrompt = $system !== '' ? "{$system}\n\nUser: {$prompt}" : $prompt;
+
+        $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=' . rawurlencode($geminiKey);
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::withoutVerifying()
+                ->timeout(45)
+                ->acceptJson()
+                ->asJson()
+                ->post($url, [
+                    'contents' => [
+                        ['parts' => [['text' => $fullPrompt]]],
+                    ],
+                    'generationConfig' => [
+                        'temperature' => 0.7,
+                        'maxOutputTokens' => 1500,
+                    ],
+                ]);
+
+            if (! $response->successful()) {
+                $err = $response->json('error.message') ?: $response->body();
+                return ['ok' => false, 'code' => 'provider_error', 'message' => is_string($err) ? $err : 'Gemini AI provider returned an error.'];
+            }
+
+            $parts = $response->json('candidates.0.content.parts') ?? [];
+            $content = '';
+            if (is_array($parts)) {
+                foreach ($parts as $p) {
+                    if (! empty($p['text'])) {
+                        $content .= (string) $p['text'];
+                    }
+                }
+            }
+
+            $inputTokens = (int) ($response->json('usageMetadata.promptTokenCount') ?? 200);
+            $outputTokens = (int) ($response->json('usageMetadata.candidatesTokenCount') ?? 300);
+
+            return [
+                'ok' => true,
+                'content' => trim($content),
+                'model' => 'gemini-3.8-flash',
+                'usage' => [
+                    'prompt_tokens' => $inputTokens,
+                    'completion_tokens' => $outputTokens,
+                    'total_tokens' => $inputTokens + $outputTokens,
+                ],
+                'cost' => [
+                    'actual_usd' => 0.0002,
+                    'input_usd' => 0.0001,
+                    'output_usd' => 0.0001,
+                ],
+            ];
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'code' => 'provider_error', 'message' => 'Gemini AI provider request failed: ' . $e->getMessage()];
+        }
     }
 }

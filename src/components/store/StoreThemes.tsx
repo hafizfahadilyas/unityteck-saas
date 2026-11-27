@@ -50,7 +50,18 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
       activeStore.category?.includes('قهوة') ||
       currentThemeId?.includes('coffee'));
 
-  const storeSlug = isCarStore ? 'car' : isCoffeeStore ? 'coffee' : 'hadaya';
+  const isSouqStore =
+    activeStore.id === 'store-souq-default' ||
+    activeStore.slug === 'souq-default' ||
+    (!isCarStore && !isCoffeeStore && activeStore.id !== 'store-1');
+
+  const storeSlug = isCarStore
+    ? 'car'
+    : isCoffeeStore
+      ? 'coffee'
+      : activeStore.id === 'store-1'
+        ? 'hadaya'
+        : activeStore.slug || 'souq-default';
   const localStorefrontUrl = buildStorefrontHomeUrl({ storeSlug });
 
   const isLocalHost =
@@ -58,7 +69,7 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
   const liveStoreLabel =
-    isCarStore || isCoffeeStore || isLocalHost
+    isCarStore || isCoffeeStore || isLocalHost || isSouqStore
       ? isAr
         ? 'زيارة المتجر'
         : 'Visit Store'
@@ -66,12 +77,17 @@ export const StoreThemes: React.FC<StoreThemesProps> = ({
         activeStore.domain ||
         `${activeStore.slug || 'store'}.unityteck.com`;
 
-  const liveStoreHref =
-    isCarStore || isCoffeeStore || isLocalHost
-      ? localStorefrontUrl
+  const liveStoreHref = isLocalHost
+    ? localStorefrontUrl
+    : activeStore.id === 'store-souq-default' || activeStore.slug === 'souq-default'
+      ? 'https://souq-default.mieraf-ksa.com/?store=souq-default'
       : activeStore.custom_domain
         ? `https://${activeStore.custom_domain}/`
-        : `https://${activeStore.slug || 'store'}.unityteck.com/`;
+        : activeStore.demo_domain
+          ? `https://${activeStore.demo_domain}/`
+          : activeStore.domain
+            ? `https://${activeStore.domain}/`
+            : localStorefrontUrl;
 
   const [isVisualBuilderOpen, setIsVisualBuilderOpen] = useState(() => {
     try {

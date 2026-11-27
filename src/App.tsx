@@ -7,9 +7,6 @@ import React, { Suspense, useCallback, useEffect, useState, useRef } from 'react
 import { TenantProvider, useTenant } from './context/TenantContext';
 import { MasterSidebar } from './components/master/MasterSidebar';
 import { MasterTopBar } from './components/master/MasterTopBar';
-import { MasterDashboard } from './components/master/MasterDashboard';
-import { CreateStoreModal } from './components/master/CreateStoreModal';
-
 import { StoreSidebar } from './components/store/StoreSidebar';
 import { StoreTopBar } from './components/store/StoreTopBar';
 import { SocialOAuthDialogView } from './components/store/SocialOAuthDialogView';
@@ -20,7 +17,6 @@ import { PortalLogin } from './components/auth/PortalLogin';
 import { PortalRegister } from './components/auth/PortalRegister';
 import { PortalPasswordReset } from './components/auth/PortalPasswordReset';
 import { PortalGate } from './components/auth/PortalGate';
-import { StatusPage } from './components/status/StatusPage';
 import { StatusErrorBoundary } from './components/status/StatusErrorBoundary';
 import { ToastProvider } from './components/common/ToastProvider';
 import { ArchitectureBanner } from './components/common/ArchitectureBanner';
@@ -57,6 +53,15 @@ import { SkeletonProvider, SkeletonPage } from './components/common/skeleton';
 // HolstChromeBar retired — unified MasterTopBar / StoreTopBar (docs/21)
 
 /** Heavy tabs — code-split so dashboard/themes open fast */
+const MasterDashboard = lazyWithRetry(() =>
+  import('./components/master/MasterDashboard').then((m) => ({ default: m.MasterDashboard })),
+);
+const CreateStoreModal = lazyWithRetry(() =>
+  import('./components/master/CreateStoreModal').then((m) => ({ default: m.CreateStoreModal })),
+);
+const StatusPage = lazyWithRetry(() =>
+  import('./components/status/StatusPage').then((m) => ({ default: m.StatusPage })),
+);
 const StoreDashboard = lazyWithRetry(() =>
   import('./components/store/StoreDashboard').then((m) => ({ default: m.StoreDashboard })),
 );
@@ -219,6 +224,9 @@ const StoreMediaLibrary = lazyWithRetry(() =>
 );
 const StoreCanvaStudio = lazyWithRetry(() =>
   import('./components/store/StoreCanvaStudio').then((m) => ({ default: m.StoreCanvaStudio })),
+);
+const StoreGrowthAdvisor = lazyWithRetry(() =>
+  import('./components/store/StoreGrowthAdvisor').then((m) => ({ default: m.StoreGrowthAdvisor })),
 );
 const StoreAiToolsHub = lazyWithRetry(() =>
   import('./components/store/StoreAiToolsHub').then((m) => ({ default: m.StoreAiToolsHub })),
@@ -387,29 +395,10 @@ function TabFallback() {
 
   const [slow, setSlow] = React.useState(false);
   React.useEffect(() => {
-    // Public storefront (/coffee/buy/…) can stay on Suspense >3.5s while nested
-    // theme chunks load — NEVER auto hard-reload there (caused BAR-BAR refresh).
-    const path = String(window.location.pathname || '').toLowerCase();
-    const isPublicStorefrontSurface =
-      path.startsWith('/coffee') ||
-      path.startsWith('/flowers') ||
-      path.startsWith('/hadaya') ||
-      path.startsWith('/car') ||
-      path.startsWith('/cars') ||
-      path.startsWith('/bleco') ||
-      path.startsWith('/public_html') ||
-      path.startsWith('/buy') ||
-      path.startsWith('/product') ||
-      path.startsWith('/catalog') ||
-      path.startsWith('/products') ||
-      path === '/' ||
-      path === '';
-    const auto = isPublicStorefrontSurface
-      ? 0
-      : window.setTimeout(() => reloadOnceForStaleChunk(), 3500);
-    const t = window.setTimeout(() => setSlow(true), 5000);
+    // Only show manual retry indicator if tab switch takes abnormally long (>6s)
+    // NEVER call automatic hard-reload here on a timer — chunk loading errors are already handled by lazyWithRetry
+    const t = window.setTimeout(() => setSlow(true), 6000);
     return () => {
-      if (auto) window.clearTimeout(auto);
       window.clearTimeout(t);
     };
   }, []);
@@ -418,13 +407,26 @@ function TabFallback() {
     return <div className="min-h-[40vh] w-full bg-white dark:bg-slate-950" aria-busy="true" />;
   }
 
+  const currentTab =
+    typeof window !== 'undefined'
+      ? (new URLSearchParams(window.location.search).get('tab') || '').toLowerCase()
+      : '';
+  const isCardsTab =
+    currentTab === 'canva' ||
+    currentTab === 'canva-studio' ||
+    currentTab === 'canva-banner' ||
+    currentTab === 'canva-logo' ||
+    currentTab === 'canva-product-card' ||
+    currentTab === 'media' ||
+    currentTab === 'products';
+
   return (
     <div
       className="w-full min-h-[50vh] p-4 sm:p-6 space-y-4"
       aria-busy="true"
       role="status"
     >
-      <SkeletonPage layout="dashboard" hasHeader={false} />
+      <SkeletonPage layout={isCardsTab ? 'cards' : 'dashboard'} hasHeader={false} />
       {slow ? (
         <div className="flex justify-center pt-2">
           <button
@@ -1607,7 +1609,8 @@ function AdminContent() {
       const timer = setTimeout(() => {
         preloadVisualThemeBuilder();
         preloadWordPressThemeCustomizer();
-      }, 120);
+        void import('./components/store/StoreCanvaStudio');
+      }, 300);
       return () => clearTimeout(timer);
     }
   }, [mode, isPublicStorefront]);
@@ -1823,12 +1826,14 @@ function AdminContent() {
         ? new URLSearchParams(window.location.search).get('to') || '/'
         : '/';
     return (
-      <StatusPage
-        kind={activeStatus}
-        onHome={statusHome}
-        onNavigate={navigate}
-        redirectTo={redirectTo}
-      />
+      <Suspense fallback={<TabFallback />}>
+        <StatusPage
+          kind={activeStatus}
+          onHome={statusHome}
+          onNavigate={navigate}
+          redirectTo={redirectTo}
+        />
+      </Suspense>
     );
   }
 
@@ -2049,7 +2054,23 @@ function AdminContent() {
                     <MasterRealCanvaConnect onNavigateTab={setMasterTab} />
                   )}
                   {masterTab === 'marketplace' && <MasterMarketplace />}
-                  {masterTab === 'seo' && <MasterSEO />}
+                  {(masterTab === 'seo' ||
+                    masterTab.startsWith('seo-') ||
+                    [
+                      'merchant-seo',
+                      'product-seo',
+                      'aeo-management',
+                      'geo-management',
+                      'technical-seo',
+                      'speed-optimization',
+                      'backlink-management',
+                      'keyword-research',
+                      'competitor-analysis',
+                      'schema-management',
+                      'sitemap-indexing',
+                    ].includes(masterTab)) && (
+                    <MasterSEO initialTab={masterTab} onNavigateTab={setMasterTab} />
+                  )}
                   {masterTab === 'database' && <MasterDatabase />}
                   {(masterTab === 'backup' || masterTab === 'restore') && <StoreBackupRestoreCenter />}
                   {masterTab === 'orders' && <MasterOrders />}
@@ -2085,6 +2106,25 @@ function AdminContent() {
                     'canva-real',
                     'marketplace',
                     'seo',
+                    'seo-overview',
+                    'seo-advisor',
+                    'seo-providers',
+                    'seo-api-settings',
+                    'merchant-seo',
+                    'product-seo',
+                    'aeo-management',
+                    'geo-management',
+                    'technical-seo',
+                    'speed-optimization',
+                    'backlink-management',
+                    'keyword-research',
+                    'competitor-analysis',
+                    'schema-management',
+                    'sitemap-indexing',
+                    'seo-reports',
+                    'seo-automation',
+                    'seo-logs',
+                    'seo-global-settings',
                     'orders',
                     'products',
                     'settings',
@@ -2097,10 +2137,14 @@ function AdminContent() {
                 </Suspense>
               </main>
             </div>
-            <CreateStoreModal
-              isOpen={isCreateStoreOpen}
-              onClose={() => setIsCreateStoreOpen(false)}
-            />
+            {isCreateStoreOpen && (
+              <Suspense fallback={null}>
+                <CreateStoreModal
+                  isOpen={isCreateStoreOpen}
+                  onClose={() => setIsCreateStoreOpen(false)}
+                />
+              </Suspense>
+            )}
           </>
         ) : (
           <>
@@ -2187,6 +2231,9 @@ function AdminContent() {
                     storeTab === 'canva-logo' ||
                     storeTab === 'canva-product-card') && (
                     <StoreCanvaStudio onNavigateTab={setStoreTab} />
+                  )}
+                  {storeTab === 'growth-advisor' && (
+                    <StoreGrowthAdvisor onNavigateTab={setStoreTab} />
                   )}
                   {storeTab === 'ai-media' && <StoreAiToolsHub onNavigateTab={setStoreTab} />}
                   {storeTab === 'ai-studio' && <StoreAiStudio />}

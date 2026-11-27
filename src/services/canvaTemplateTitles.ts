@@ -223,12 +223,18 @@ export function resolveDesignTitle(
 
   // 5. If Arabic text is present, fallback translate so NO Arabic is output in English mode
   const arabicSource = hasArabicChars(rawAr) ? rawAr : hasArabicChars(rawEn) ? rawEn : hasArabicChars(packKey) ? packKey : '';
+  let candidate = '';
   if (arabicSource) {
-    return fallbackTranslateArabicToEnglish(arabicSource);
+    candidate = fallbackTranslateArabicToEnglish(arabicSource);
+  } else {
+    candidate = cleanRawTitle(rawEn) || 'Modern Store Template';
   }
 
-  // 6. Safe default English title
-  return cleanRawTitle(rawEn) || 'Modern Store Template';
+  // Strict guarantee: strip any remaining Arabic characters in English mode
+  if (hasArabicChars(candidate)) {
+    candidate = candidate.replace(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/g, '').trim();
+  }
+  return candidate || 'Modern Store Template';
 }
 
 /**
@@ -256,4 +262,175 @@ export function detectTemplateLanguage(tpl: {
   }
 
   return 'universal';
+}
+
+/**
+ * Fast lookup map for template preview SVGs (full composite preview with background + text + shapes).
+ * Average size ~1.5KB for ultra-fast, instant loading with zero blurriness.
+ */
+export const PACK_KEY_TO_PREVIEW: Record<string, string> = {
+  'أبيض-ورمادي-وأسود-حديث-منتجات-تجميل-محتوى-انستغرام': '/pptx-studio-pack/previews/tpl_01_monochrome_modern_beauty_cosmetics_post.svg',
+  'أبيض_ورمادي_وأسود_حديث_منتجات_تجميل_محتوى_انستغرام': '/pptx-studio-pack/previews/tpl_01_monochrome_modern_beauty_cosmetics_post.svg',
+  'monochrome modern beauty & cosmetics post': '/pptx-studio-pack/previews/tpl_01_monochrome_modern_beauty_cosmetics_post.svg',
+  'أحمر-وبرتقالي-حديث-بيتزا-منشور-إنستغرام': '/pptx-studio-pack/previews/tpl_02_red_orange_modern_pizza_promo_post.svg',
+  'أحمر_وبرتقالي_حديث_بيتزا_منشور_إنستغرام': '/pptx-studio-pack/previews/tpl_02_red_orange_modern_pizza_promo_post.svg',
+  'red & orange modern pizza promo post': '/pptx-studio-pack/previews/tpl_02_red_orange_modern_pizza_promo_post.svg',
+  'أخضر-حديث-اعلان-وظيفي-منشور-instagram': '/pptx-studio-pack/previews/tpl_03_modern_job_hiring_announcement_post.svg',
+  'أخضر_حديث_اعلان_وظيفي_منشور_instagram': '/pptx-studio-pack/previews/tpl_03_modern_job_hiring_announcement_post.svg',
+  'modern job hiring announcement post': '/pptx-studio-pack/previews/tpl_03_modern_job_hiring_announcement_post.svg',
+  'أخضر-ذهبي-عصري-ملهم-اقتباس-منشور-انستغرام': '/pptx-studio-pack/previews/tpl_04_emerald_gold_inspirational_quote_post.svg',
+  'أخضر_ذهبي_عصري_ملهم_اقتباس_منشور_انستغرام': '/pptx-studio-pack/previews/tpl_04_emerald_gold_inspirational_quote_post.svg',
+  'emerald & gold inspirational quote post': '/pptx-studio-pack/previews/tpl_04_emerald_gold_inspirational_quote_post.svg',
+  'أسود-وأبيض-رمادي-ملهم-اقتباس-ديني-إنستغرام-بوست': '/pptx-studio-pack/previews/tpl_05_minimalist_spiritual_wisdom_post.svg',
+  'أسود_وأبيض_رمادي_ملهم_اقتباس_ديني_إنستغرام_بوست': '/pptx-studio-pack/previews/tpl_05_minimalist_spiritual_wisdom_post.svg',
+  'minimalist spiritual wisdom post': '/pptx-studio-pack/previews/tpl_05_minimalist_spiritual_wisdom_post.svg',
+  'أسود-وأرجواني-وأزرق-غامض-نص-اقتباس-حكمي-منشور-انستغرام': '/pptx-studio-pack/previews/tpl_06_mystic_wisdom_quote_instagram_post.svg',
+  'أسود_وأرجواني_وأزرق_غامض_نص_اقتباس_حكمي_منشور_انستغرام': '/pptx-studio-pack/previews/tpl_06_mystic_wisdom_quote_instagram_post.svg',
+  'mystic wisdom quote instagram post': '/pptx-studio-pack/previews/tpl_06_mystic_wisdom_quote_instagram_post.svg',
+  'أسود-وبرتقالي-حديث-خصم-بيتزا-منشور-إنستغرام': '/pptx-studio-pack/previews/tpl_07_black_orange_pizza_mega_sale_post.svg',
+  'أسود_وبرتقالي_حديث_خصم_بيتزا_منشور_إنستغرام': '/pptx-studio-pack/previews/tpl_07_black_orange_pizza_mega_sale_post.svg',
+  'black & orange pizza mega sale post': '/pptx-studio-pack/previews/tpl_07_black_orange_pizza_mega_sale_post.svg',
+  'أسود-وذهبي-ورمادي-فخم-مجوهرات-instagram-post': '/pptx-studio-pack/previews/tpl_08_luxury_black_gold_fine_jewelry_post.svg',
+  'أسود_وذهبي_ورمادي_فخم_مجوهرات_instagram_post': '/pptx-studio-pack/previews/tpl_08_luxury_black_gold_fine_jewelry_post.svg',
+  'luxury black & gold fine jewelry post': '/pptx-studio-pack/previews/tpl_08_luxury_black_gold_fine_jewelry_post.svg',
+  'بنفسجي-وأزرق-ووردي-عصري-إعلان-عطر-منشور-instagram': '/pptx-studio-pack/previews/tpl_09_vibrant_modern_perfume_campaign_post.svg',
+  'بنفسجي_وأزرق_ووردي_عصري_إعلان_عطر_منشور_instagram': '/pptx-studio-pack/previews/tpl_09_vibrant_modern_perfume_campaign_post.svg',
+  'vibrant modern perfume campaign post': '/pptx-studio-pack/previews/tpl_09_vibrant_modern_perfume_campaign_post.svg',
+  'بنفسجي-ورمادي-عصري-ترويج-عطر-برائحة-اللافندر-إنستغرام-پوست': '/pptx-studio-pack/previews/tpl_10_lavender_fragrance_special_launch_post.svg',
+  'بنفسجي_ورمادي_عصري_ترويج_عطر_برائحة_اللافندر_إنستغرام_پوست': '/pptx-studio-pack/previews/tpl_10_lavender_fragrance_special_launch_post.svg',
+  'lavender fragrance special launch post': '/pptx-studio-pack/previews/tpl_10_lavender_fragrance_special_launch_post.svg',
+  'تصميم-بوست-انستجرام-عن-عروض-شهر-رمضان-بسيط': '/pptx-studio-pack/previews/tpl_11_ramadan_special_deals_minimalist_post.svg',
+  'تصميم_بوست_انستجرام_عن-عروض-شهر-رمضان-بسيط': '/pptx-studio-pack/previews/tpl_11_ramadan_special_deals_minimalist_post.svg',
+  'ramadan special deals minimalist post': '/pptx-studio-pack/previews/tpl_11_ramadan_special_deals_minimalist_post.svg',
+  'تصميم-بوست-انستجرام-عن-عروض-عطور-شهر-رمضان-بسيط-1': '/pptx-studio-pack/previews/tpl_12_ramadan_perfume_offers_post_1.svg',
+  'تصميم_بوست_انستجرام_عن_عروض_عطور_شهر_رمضان_بسيط_1': '/pptx-studio-pack/previews/tpl_12_ramadan_perfume_offers_post_1.svg',
+  'ramadan perfume offers post 1': '/pptx-studio-pack/previews/tpl_12_ramadan_perfume_offers_post_1.svg',
+  'تصميم-بوست-انستجرام-عن-عروض-عطور-شهر-رمضان-بسيط-2': '/pptx-studio-pack/previews/tpl_13_ramadan_perfume_offers_post_2.svg',
+  'تصميم_بوست_انستجرام_عن_عروض_عطور_شهر_رمضان_بسيط_2': '/pptx-studio-pack/previews/tpl_13_ramadan_perfume_offers_post_2.svg',
+  'ramadan perfume offers post 2': '/pptx-studio-pack/previews/tpl_13_ramadan_perfume_offers_post_2.svg',
+  'تصميم-بوست-انستجرام-عن-عروض-عطور-شهر-رمضان-بسيط-3': '/pptx-studio-pack/previews/tpl_14_ramadan_perfume_offers_post_3.svg',
+  'تصميم_بوست_انستجرام_عن_عروض_عطور_شهر_رمضان_بسيط_3': '/pptx-studio-pack/previews/tpl_14_ramadan_perfume_offers_post_3.svg',
+  'ramadan perfume offers post 3': '/pptx-studio-pack/previews/tpl_14_ramadan_perfume_offers_post_3.svg',
+  'تصميم-بوست-انستجرام-عن-عروض-عطور-شهر-رمضان-بسيط-4': '/pptx-studio-pack/previews/tpl_15_ramadan_perfume_offers_post_4.svg',
+  'تصميم_بوست_انستجرام_عن_عروض_عطور_شهر_رمضان_بسيط_4': '/pptx-studio-pack/previews/tpl_15_ramadan_perfume_offers_post_4.svg',
+  'ramadan perfume offers post 4': '/pptx-studio-pack/previews/tpl_15_ramadan_perfume_offers_post_4.svg',
+  'تصميم-بوست-انستجرام-عن-عروض-عطور-شهر-رمضان-بسيط-5': '/pptx-studio-pack/previews/tpl_16_ramadan_perfume_offers_post_5.svg',
+  'تصميم_بوست_انستجرام_عن_عروض_عطور_شهر_رمضان_بسيط_5': '/pptx-studio-pack/previews/tpl_16_ramadan_perfume_offers_post_5.svg',
+  'ramadan perfume offers post 5': '/pptx-studio-pack/previews/tpl_16_ramadan_perfume_offers_post_5.svg',
+  'تصميم-بوست-انستجرام-عن-عروض-عطور-شهر-رمضان-بسيط': '/pptx-studio-pack/previews/tpl_17_ramadan_perfume_deals_minimalist_post.svg',
+  'تصميم_بوست_انستجرام_عن_عروض_عطور_شهر_رمضان_بسيط': '/pptx-studio-pack/previews/tpl_17_ramadan_perfume_deals_minimalist_post.svg',
+  'ramadan perfume deals minimalist post': '/pptx-studio-pack/previews/tpl_17_ramadan_perfume_deals_minimalist_post.svg',
+  'تصميم-بوست-انستجرام-عن-عروض-متجر-ازياء-لشهر-رمضان-بسيط': '/pptx-studio-pack/previews/tpl_18_ramadan_fashion_boutique_sale_post.svg',
+  'تصميم_بوست_انستجرام_عن_عروض_متجر_ازياء_لشهر_رمضان_بسيط': '/pptx-studio-pack/previews/tpl_18_ramadan_fashion_boutique_sale_post.svg',
+  'ramadan fashion boutique sale post': '/pptx-studio-pack/previews/tpl_18_ramadan_fashion_boutique_sale_post.svg',
+  'تصميم-بوست-انستجرام-عن-عروض-نهاية-العام-بسيط-1': '/pptx-studio-pack/previews/tpl_19_year_end_mega_offers_post_1.svg',
+  'تصميم_بوست_انستجرام_عن_عروض_نهاية_العام_بسيط_1': '/pptx-studio-pack/previews/tpl_19_year_end_mega_offers_post_1.svg',
+  'year-end mega offers post 1': '/pptx-studio-pack/previews/tpl_19_year_end_mega_offers_post_1.svg',
+  'تصميم-بوست-انستجرام-عن-عروض-نهاية-العام-بسيط-2': '/pptx-studio-pack/previews/tpl_20_year_end_mega_offers_post_2.svg',
+  'تصميم_بوست_انستجرام_عن_عروض_نهاية_العام_بسيط_2': '/pptx-studio-pack/previews/tpl_20_year_end_mega_offers_post_2.svg',
+  'year-end mega offers post 2': '/pptx-studio-pack/previews/tpl_20_year_end_mega_offers_post_2.svg',
+  'تصميم-بوست-انستجرام-عن-عروض-نهاية-العام-بسيط-3': '/pptx-studio-pack/previews/tpl_21_year_end_mega_offers_post_3.svg',
+  'تصميم_بوست_انستجرام_عن_عروض_نهاية_العام_بسيط_3': '/pptx-studio-pack/previews/tpl_21_year_end_mega_offers_post_3.svg',
+  'year-end mega offers post 3': '/pptx-studio-pack/previews/tpl_21_year_end_mega_offers_post_3.svg',
+  'تصميم-بوست-انستجرام-عن-عروض-نهاية-العام-بسيط-4': '/pptx-studio-pack/previews/tpl_22_year_end_mega_offers_post_4.svg',
+  'تصميم_بوست_انستجرام_عن_عروض_نهاية_العام_بسيط_4': '/pptx-studio-pack/previews/tpl_22_year_end_mega_offers_post_4.svg',
+  'year-end mega offers post 4': '/pptx-studio-pack/previews/tpl_22_year_end_mega_offers_post_4.svg',
+  'تصميم-بوست-انستجرام-عن-عروض-نهاية-العام-بسيط-5': '/pptx-studio-pack/previews/tpl_23_year_end_mega_offers_post_5.svg',
+  'تصميم_بوست_انستجرام_عن_عروض_نهاية_العام_بسيط_5': '/pptx-studio-pack/previews/tpl_23_year_end_mega_offers_post_5.svg',
+  'year-end mega offers post 5': '/pptx-studio-pack/previews/tpl_23_year_end_mega_offers_post_5.svg',
+  'تصميم-بوست-انستجرام-عن-عروض-نهاية-العام-بسيط': '/pptx-studio-pack/previews/tpl_24_year_end_mega_offers_post.svg',
+  'تصميم_بوست_انستجرام_عن_عروض_نهاية_العام_بسيط': '/pptx-studio-pack/previews/tpl_24_year_end_mega_offers_post.svg',
+  'year-end mega offers post': '/pptx-studio-pack/previews/tpl_24_year_end_mega_offers_post.svg',
+  'تصميم-منشور-انستجرام-عن-منتجات-متجر-بيع-مجوهرات-بسيط-1': '/pptx-studio-pack/previews/tpl_25_minimalist_jewelry_showcase_post_1.svg',
+  'تصميم_منشور_انستجرام_عن_منتجات_متجر_بيع_مجوهرات_بسيط_1': '/pptx-studio-pack/previews/tpl_25_minimalist_jewelry_showcase_post_1.svg',
+  'minimalist jewelry showcase post 1': '/pptx-studio-pack/previews/tpl_25_minimalist_jewelry_showcase_post_1.svg',
+  'تصميم-منشور-انستجرام-عن-منتجات-متجر-بيع-مجوهرات-بسيط': '/pptx-studio-pack/previews/tpl_26_minimalist_jewelry_showcase_post.svg',
+  'تصميم_منشور_انستجرام_عن_منتجات_متجر_بيع_مجوهرات_بسيط': '/pptx-studio-pack/previews/tpl_26_minimalist_jewelry_showcase_post.svg',
+  'minimalist jewelry showcase post': '/pptx-studio-pack/previews/tpl_26_minimalist_jewelry_showcase_post.svg',
+  'تصميم-منشور-انستجرام-لمنتجات-متجر-بيع-مجوهرات-بسيط': '/pptx-studio-pack/previews/tpl_27_fine_jewelry_boutique_highlights_post.svg',
+  'تصميم_منشور_انستجرام_لمنتجات_متجر_بيع_مجوهرات_بسيط': '/pptx-studio-pack/previews/tpl_27_fine_jewelry_boutique_highlights_post.svg',
+  'fine jewelry boutique highlights post': '/pptx-studio-pack/previews/tpl_27_fine_jewelry_boutique_highlights_post.svg',
+  'ذهبي-وأسود-عصري-عطر-منشور-إنستغرام': '/pptx-studio-pack/previews/tpl_28_black_gold_luxury_perfume_post.svg',
+  'ذهبي_وأسود_عصري_عطر_منشور_إنستغرام': '/pptx-studio-pack/previews/tpl_28_black_gold_luxury_perfume_post.svg',
+  'black & gold luxury perfume post': '/pptx-studio-pack/previews/tpl_28_black_gold_luxury_perfume_post.svg',
+  'منشور-انستجرام-instagram-post-بنى-عصرى-عن-القهوة-1': '/pptx-studio-pack/previews/tpl_29_modern_specialty_coffee_post_1.svg',
+  'منشور_انستجرام_instagram_post_بنى_عصرى_عن_القهوة_1': '/pptx-studio-pack/previews/tpl_29_modern_specialty_coffee_post_1.svg',
+  'modern specialty coffee post 1': '/pptx-studio-pack/previews/tpl_29_modern_specialty_coffee_post_1.svg',
+  'منشور-انستجرام-instagram-post-بنى-عصرى-عن-القهوة': '/pptx-studio-pack/previews/tpl_30_modern_specialty_coffee_post.svg',
+  'منشور_انستجرام_instagram_post_بنى_عصرى_عن_القهوة': '/pptx-studio-pack/previews/tpl_30_modern_specialty_coffee_post.svg',
+  'modern specialty coffee post': '/pptx-studio-pack/previews/tpl_30_modern_specialty_coffee_post.svg',
+  'منشور-إنستغرام-للمجوهرات-الفاخرة-أنيق-وعصري-بألوان-داكنة': '/pptx-studio-pack/previews/tpl_31_dark_elegant_luxury_jewelry_post.svg',
+  'منشور_إنستغرام_للمجوهرات_الفاخرة_أنيق_وعصري_بألوان_داكنة': '/pptx-studio-pack/previews/tpl_31_dark_elegant_luxury_jewelry_post.svg',
+  'dark elegant luxury jewelry post': '/pptx-studio-pack/previews/tpl_31_dark_elegant_luxury_jewelry_post.svg',
+  'منشور-instagram-أخضر-بسيط-إعلان-متجر-عطور': '/pptx-studio-pack/previews/tpl_32_emerald_green_perfume_store_promotion_post.svg',
+  'منشور_instagram_أخضر_بسيط_إعلان_متجر_عطور': '/pptx-studio-pack/previews/tpl_32_emerald_green_perfume_store_promotion_post.svg',
+  'emerald green perfume store promotion post': '/pptx-studio-pack/previews/tpl_32_emerald_green_perfume_store_promotion_post.svg',
+  'منشور-instagram-حملة-خصومات-على-المجوهرات-الفاخرة-الوردي-والبيج': '/pptx-studio-pack/previews/tpl_33_blush_beige_fine_jewelry_discounts_post.svg',
+  'منشور_instagram_حملة_خصومات_على_المجوهرات_الفاخرة_الوردي_والبيج': '/pptx-studio-pack/previews/tpl_33_blush_beige_fine_jewelry_discounts_post.svg',
+  'blush & beige fine jewelry discounts post': '/pptx-studio-pack/previews/tpl_33_blush_beige_fine_jewelry_discounts_post.svg',
+  'منشور-instagram-حملة-مجوهرات-الجمال-الخالدة-بني-داكن-وأبيض-أنيق': '/pptx-studio-pack/previews/tpl_34_timeless_beauty_luxury_jewelry_campaign.svg',
+  'منشور_instagram_حملة_مجوهرات_الجمال_الخالدة_بني_داكن_وأبيض_أنيق': '/pptx-studio-pack/previews/tpl_34_timeless_beauty_luxury_jewelry_campaign.svg',
+  'timeless beauty luxury jewelry campaign': '/pptx-studio-pack/previews/tpl_34_timeless_beauty_luxury_jewelry_campaign.svg',
+  'منشور-instagram-مجموعة-مجوهرات-رمضان-الفاخرة-ذهبي-وبيج-أنيق-وفوتوغرافي': '/pptx-studio-pack/previews/tpl_35_ramadan_fine_jewelry_gold_beige_collection.svg',
+  'منشور_instagram_مجموعة_مجوهرات_رمضان_الفاخرة_ذهبي_وبيج_أنيق_وفوتوغرافي': '/pptx-studio-pack/previews/tpl_35_ramadan_fine_jewelry_gold_beige_collection.svg',
+  'ramadan fine jewelry gold & beige collection': '/pptx-studio-pack/previews/tpl_35_ramadan_fine_jewelry_gold_beige_collection.svg',
+  'green-white-modern-grocery-mega-sale-flyer': '/pptx-studio-pack/previews/tpl_36_fresh_market_grocery_mega_sale_flyer.svg',
+  'green_white_modern_grocery_mega_sale_flyer': '/pptx-studio-pack/previews/tpl_36_fresh_market_grocery_mega_sale_flyer.svg',
+  'fresh market grocery mega sale flyer': '/pptx-studio-pack/previews/tpl_36_fresh_market_grocery_mega_sale_flyer.svg',
+  'red-white-modern-grocery-big-sale-flyer': '/pptx-studio-pack/previews/tpl_37_supermarket_big_sale_promotional_flyer.svg',
+  'red_white_modern_grocery_big_sale_flyer': '/pptx-studio-pack/previews/tpl_37_supermarket_big_sale_promotional_flyer.svg',
+  'supermarket big sale promotional flyer': '/pptx-studio-pack/previews/tpl_37_supermarket_big_sale_promotional_flyer.svg',
+};
+
+/**
+ * Resolves the full template preview URL (complete composite with typography + shapes + background).
+ * Never leaves template preview showing only the background photo!
+ */
+export function resolveTemplatePreviewUrl(tpl: {
+  id?: string;
+  packKey?: string;
+  nameAr?: string;
+  nameEn?: string;
+  title?: string;
+  previewDataUrl?: string;
+}): string | undefined {
+  // If previewDataUrl is already an SVG full preview, return directly
+  if (tpl.previewDataUrl?.includes('.svg')) {
+    return tpl.previewDataUrl;
+  }
+
+  // 1. Direct packKey lookup
+  const key = tpl.packKey || (tpl.id ? String(tpl.id).replace(/^(mytpl-pptx-|dsd-pptx-[^-]+-)/, '') : '');
+  if (key && PACK_KEY_TO_PREVIEW[key]) {
+    return PACK_KEY_TO_PREVIEW[key];
+  }
+  const cleanKey = cleanRawTitle(key).toLowerCase().replace(/\s+/g, '-');
+  if (PACK_KEY_TO_PREVIEW[cleanKey]) {
+    return PACK_KEY_TO_PREVIEW[cleanKey];
+  }
+
+  // 2. NameAr lookup
+  if (tpl.nameAr) {
+    const rawAr = tpl.nameAr.trim();
+    if (PACK_KEY_TO_PREVIEW[rawAr]) return PACK_KEY_TO_PREVIEW[rawAr];
+    const dashedAr = rawAr.replace(/[_\s]+/g, '-');
+    if (PACK_KEY_TO_PREVIEW[dashedAr]) return PACK_KEY_TO_PREVIEW[dashedAr];
+  }
+
+  // 3. NameEn lookup
+  if (tpl.nameEn) {
+    const rawEn = tpl.nameEn.trim().toLowerCase();
+    if (PACK_KEY_TO_PREVIEW[rawEn]) return PACK_KEY_TO_PREVIEW[rawEn];
+    const resolvedEn = resolveDesignTitle(tpl, false).toLowerCase();
+    if (PACK_KEY_TO_PREVIEW[resolvedEn]) return PACK_KEY_TO_PREVIEW[resolvedEn];
+  }
+
+  // 4. Title lookup
+  if (tpl.title) {
+    const t = tpl.title.trim().toLowerCase();
+    if (PACK_KEY_TO_PREVIEW[t]) return PACK_KEY_TO_PREVIEW[t];
+  }
+
+  // 5. Fallback to existing previewDataUrl
+  return tpl.previewDataUrl;
 }

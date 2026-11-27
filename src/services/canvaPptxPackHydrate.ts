@@ -181,7 +181,7 @@ export async function hydratePptxPackStubsFromApi(
         fromMaster: true,
         layers: [],
         layerCount,
-        previewDataUrl: undefined,
+        previewDataUrl: typeof dj.previewDataUrl === 'string' && dj.previewDataUrl ? dj.previewDataUrl : undefined,
       });
     }
 

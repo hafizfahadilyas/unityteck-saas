@@ -32,6 +32,8 @@ export const PromoBannersPair: React.FC<PromoBannersPairProps> = ({
           activeStore.category.toLowerCase().includes('transport'))
     );
 
+  const isSouq = !isCoffee && !isCarStore && activeStore?.id !== 'store-1';
+
   const [tick, setTick] = useState(0);
   useEffect(() => {
     const handleSync = () => setTick((t) => t + 1);
@@ -201,6 +203,68 @@ export const PromoBannersPair: React.FC<PromoBannersPairProps> = ({
               </h3>
               <p className="text-xs text-stone-300 font-light">
                 {isAr ? 'معدات وموازين احترافية للباريستا المنزلي' : 'Pro equipment and scales for home baristas'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (isSouq) {
+    return (
+      <section className="py-8 md:py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+          {/* Souq Banner 1 */}
+          <div
+            onClick={() => setCurrentPage('catalog')}
+            className="group relative rounded-3xl overflow-hidden cursor-pointer shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 bg-[#0f766e] min-h-[180px] sm:min-h-[220px] flex items-end p-6 text-white"
+          >
+            <div className="absolute inset-0">
+              <img
+                src="/images/saudi_hero_banner_2.jpg"
+                alt="Featured Products"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter brightness-[0.75]"
+                loading="lazy" decoding="async"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+            </div>
+            <div className="relative z-10 space-y-1">
+              <span className="text-[10px] uppercase font-bold text-teal-300 tracking-widest block">
+                {isAr ? 'منتجات مختارة' : 'FEATURED PICKS'}
+              </span>
+              <h3 className="text-xl sm:text-2xl font-bold font-serif">
+                {isAr ? 'تشكيلة المنتجات المميزة' : 'Featured Product Collection'}
+              </h3>
+              <p className="text-xs text-stone-200 font-light">
+                {isAr ? 'جودة عالية وتوصيل سريع لكافة مدن المملكة' : 'High quality with fast shipping across KSA'}
+              </p>
+            </div>
+          </div>
+
+          {/* Souq Banner 2 */}
+          <div
+            onClick={() => setCurrentPage('catalog')}
+            className="group relative rounded-3xl overflow-hidden cursor-pointer shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 bg-[#0f766e] min-h-[180px] sm:min-h-[220px] flex items-end p-6 text-white"
+          >
+            <div className="absolute inset-0">
+              <img
+                src="/images/saudi_hero_banner_3.jpg"
+                alt="Special Offers"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter brightness-[0.75]"
+                loading="lazy" decoding="async"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+            </div>
+            <div className="relative z-10 space-y-1">
+              <span className="text-[10px] uppercase font-bold text-amber-300 tracking-widest block">
+                {isAr ? 'عروض خاصة' : 'SPECIAL DEALS'}
+              </span>
+              <h3 className="text-xl sm:text-2xl font-bold font-serif">
+                {isAr ? 'عروض وتخفيضات حصرية' : 'Exclusive Offers & Discounts'}
+              </h3>
+              <p className="text-xs text-stone-200 font-light">
+                {isAr ? 'توفير حقيقي على أفضل منتجات المتجر' : 'Real savings on top curated products'}
               </p>
             </div>
           </div>

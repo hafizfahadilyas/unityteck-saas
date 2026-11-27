@@ -53,7 +53,7 @@ const central = account('central', {
   host: process.env.FTP_CENTRAL_HOST,
   user: process.env.FTP_CENTRAL_USER,
   password: process.env.FTP_CENTRAL_PASSWORD,
-  dir: process.env.FTP_CENTRAL_DIR || '/',
+  dir: process.env.FTP_CENTRAL_DIR || '/public_html',
   url: process.env.FTP_CENTRAL_URL || 'https://mieraf-ksa.com/',
 });
 
@@ -62,9 +62,7 @@ const flowers = account('flowers', {
   host: process.env.FTP_FLOWERS_HOST || process.env.FTP_HOST,
   user: process.env.FTP_FLOWERS_USER || process.env.FTP_USER,
   password: process.env.FTP_FLOWERS_PASSWORD || process.env.FTP_PASSWORD,
-  // Flowers FTP is usually already chrooted to public_html — use `/` so files land on web root
-  // (using `/public_html` again creates a nested folder and SEO files never go live).
-  dir: process.env.FTP_FLOWERS_DIR || process.env.FTP_REMOTE_DIR || '/',
+  dir: process.env.FTP_FLOWERS_DIR || process.env.FTP_REMOTE_DIR || '/public_html',
   url: process.env.FTP_FLOWERS_URL || process.env.FTP_TARGET_URL || 'https://giftshop-sa.com/',
 });
 
@@ -144,22 +142,10 @@ async function openClient(target, tries = 4) {
   const base = { host: target.host, user: target.user, password: target.password };
   let lastErr;
   for (let i = 1; i <= tries; i++) {
-    const client = new ftp.Client(90_000);
+    const client = new ftp.Client(30_000);
     client.ftp.verbose = false;
     try {
-      try {
-        await client.access({ ...base, secure: true, secureOptions: { rejectUnauthorized: false } });
-      } catch {
-        try {
-          client.close();
-        } catch {
-          /* ignore */
-        }
-        const plain = new ftp.Client(90_000);
-        plain.ftp.verbose = false;
-        await plain.access({ ...base, secure: false });
-        return plain;
-      }
+      await client.access({ ...base, secure: false });
       return client;
     } catch (err) {
       lastErr = err;
@@ -238,20 +224,37 @@ async function uploadTarget(target) {
     return;
   }
 
-  const remoteRoot = (target.dir.startsWith('/') ? target.dir : `/${target.dir}`).replace(/\/$/, '') || '';
   let primaryClient = await openClient(target);
+  const initialPwd = await primaryClient.pwd();
+  const docRoot = (initialPwd && initialPwd !== '/')
+    ? initialPwd
+    : (target.dir && target.dir !== '/' ? target.dir : '/public_html');
+  const remoteRoot = docRoot.replace(/\/$/, '') || '/public_html';
+  console.log(`  Target docroot: ${remoteRoot} (initial pwd: ${initialPwd})`);
+
   const nextManifest = { ...prev };
   let sent = 0;
 
   const resetCwd = async (c) => {
     try {
-      await c.cd(remoteRoot || '/');
+      await c.cd(remoteRoot || '/public_html');
     } catch {
       try {
         await c.cd('/');
       } catch {
         /* ignore */
       }
+    }
+  };
+
+  const ensuredDirs = new Set();
+  const ensureParentDir = async (clientRef, remoteP) => {
+    const parent = path.posix.dirname(remoteP);
+    if (!ensuredDirs.has(parent) && parent !== '/' && parent !== '') {
+      try {
+        await clientRef.ensureDir(parent);
+        ensuredDirs.add(parent);
+      } catch {}
     }
   };
 
@@ -304,6 +307,7 @@ async function uploadTarget(target) {
               return;
             }
           }
+          await ensureParentDir(clientRef, remotePath);
           await clientRef.uploadFrom(file.full, remotePath);
           nextManifest[file.rel] = file.hash;
           return;
@@ -435,13 +439,29 @@ function bundleApiIntoDist() {
   const distAssets = path.join(distDir, 'assets');
   if (fs.existsSync(distAssets)) {
     const files = fs.readdirSync(distAssets);
-    const mainJs = files.find((f) => /^index-[A-Za-z0-9_-]+\.js$/.test(f) && f !== 'index-DFJOKphv.js');
-    const mainCss = files.find((f) => /^index-[A-Za-z0-9_-]+\.css$/.test(f) && f !== 'index-JfJHEEIZ.css');
+    const mainJs = files.find((f) => /^index-[A-Za-z0-9_-]+\.js$/.test(f) && !f.includes('DFJOKphv') && !f.includes('BB2j0HMc') && !f.includes('CS7qLlqF'));
+    const mainCss = files.find((f) => /^index-[A-Za-z0-9_-]+\.css$/.test(f) && !f.includes('JfJHEEIZ'));
+    const legacyAliases = [
+      'index-DFJOKphv.js',
+      'index-BB2j0HMc.js',
+      'index-CS7qLlqF.js',
+      'index-BMQlnFbu.js',
+      'index-CUCxWf99.js',
+      'index-DPpVF4BR.js',
+    ];
     if (mainJs) {
-      fs.copyFileSync(path.join(distAssets, mainJs), path.join(distAssets, 'index-DFJOKphv.js'));
+      for (const alias of legacyAliases) {
+        if (alias !== mainJs) {
+          try {
+            fs.copyFileSync(path.join(distAssets, mainJs), path.join(distAssets, alias));
+          } catch {}
+        }
+      }
     }
     if (mainCss) {
-      fs.copyFileSync(path.join(distAssets, mainCss), path.join(distAssets, 'index-JfJHEEIZ.css'));
+      try {
+        fs.copyFileSync(path.join(distAssets, mainCss), path.join(distAssets, 'index-JfJHEEIZ.css'));
+      } catch {}
     }
     if (mainJs && mainCss && fs.existsSync(htaccessDist)) {
       let ht = fs.readFileSync(htaccessDist, 'utf8');
@@ -455,16 +475,11 @@ function bundleApiIntoDist() {
   const distApiDir = path.join(distDir, 'api');
   if (fs.existsSync(publicApiDir)) {
     fs.mkdirSync(distApiDir, { recursive: true });
-    for (const name of [
-      'index.php',
-      'commerce.php',
-      'live_extensions.php',
-      'google_oauth.php',
-      'session_lite.php',
-      '.env',
-    ]) {
-      const src = path.join(publicApiDir, name);
-      if (fs.existsSync(src)) fs.copyFileSync(src, path.join(distApiDir, name));
+    for (const name of fs.readdirSync(publicApiDir)) {
+      if (name.endsWith('.php') || name === '.env') {
+        const src = path.join(publicApiDir, name);
+        if (fs.existsSync(src)) fs.copyFileSync(src, path.join(distApiDir, name));
+      }
     }
   }
   for (const php of ['sitemap.php', 'robots.php', 'llms.php', 'storefront-shell.php', 'seo-files.php']) {

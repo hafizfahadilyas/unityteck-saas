@@ -257,3 +257,32 @@ export async function fetchAiPayments(storeId: string): Promise<AiPaymentRecord[
   });
   return Array.isArray(res?.data) ? res.data : [];
 }
+
+export async function submitAiOnlinePayment(
+  storeId: string,
+  payload: {
+    package_id: string;
+    payment_method: 'card' | 'mada' | 'apple_pay' | 'visa' | 'mastercard';
+    cardholder_name: string;
+    card_number: string;
+    expiry_month: string;
+    expiry_year: string;
+    cvc: string;
+    gateway?: 'moyasar' | 'stripe' | 'tap' | 'hyperpay';
+  },
+): Promise<{
+  ok: boolean;
+  status?: string;
+  transaction_id?: string;
+  amount_sar?: number;
+  card_brand?: string;
+  last4?: string;
+  message?: string;
+  message_ar?: string;
+}> {
+  return apiFetch('/ai-suite/payment/online', {
+    method: 'POST',
+    storeId,
+    body: payload,
+  });
+}

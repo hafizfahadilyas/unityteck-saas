@@ -32,6 +32,7 @@ const files = [
   'openai_management.php',
   'integration_health.php',
   'souq_marketplace.php',
+  'store_ai_agent_ops.php',
 ];
 // Only upload .env when explicitly requested — overwriting Hostinger DB host
 // (localhost vs srvXXX) silently drops MySQL → SQLite and looks like data loss.

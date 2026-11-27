@@ -38,6 +38,8 @@ export const CartDrawer: React.FC = () => {
   const { activeStore } = useTenant();
 
   const isAr = language === 'ar';
+  const isCoffee = activeStore?.id === 'store-coffee' || (activeStore?.category && activeStore.category.includes('قهوة'));
+  const isSouq = !isCoffee && activeStore?.id !== 'store-1';
   const [promoCode, setPromoCode] = useState('');
   const [promoFeedback, setPromoFeedback] = useState<{ msg: string; isError: boolean } | null>(null);
 
@@ -157,8 +159,16 @@ export const CartDrawer: React.FC = () => {
                   </h4>
                   <p className="text-xs text-[#7d7568] mt-1 max-w-xs mx-auto">
                     {isAr
-                      ? 'اختر باقة استثنائية أو هدية ملكية من مجموعتنا الفاخرة'
-                      : 'Choose an exceptional floral arrangement or royal gift from our boutique.'}
+                      ? (isCoffee
+                          ? 'تصفح محاصيل القهوة ومعدات التحضير الفاخرة'
+                          : isSouq
+                            ? 'تصفح أحدث المنتجات والعروض المميزة في المتجر'
+                            : 'اختر باقة استثنائية أو هدية ملكية من مجموعتنا الفاخرة')
+                      : (isCoffee
+                          ? 'Browse our fresh roasts and barista gear.'
+                          : isSouq
+                            ? 'Browse latest products and special offers in store.'
+                            : 'Choose an exceptional floral arrangement or royal gift from our boutique.')}
                   </p>
                 </div>
                 <button
@@ -168,7 +178,9 @@ export const CartDrawer: React.FC = () => {
                   }}
                   className="px-6 py-2.5 rounded-full bg-[#102a1c] text-[#f5f1e8] text-xs font-bold hover:bg-[#1a3f2b] transition-all"
                 >
-                  {isAr ? 'تصفح باقات الورد' : 'Browse Collections'}
+                  {isAr
+                    ? (isCoffee ? 'تصفح المحاصيل' : isSouq ? 'تصفح المنتجات' : 'تصفح باقات الورد')
+                    : (isCoffee ? 'Browse Roasts' : isSouq ? 'Browse Products' : 'Browse Collections')}
                 </button>
               </div>
             ) : (
