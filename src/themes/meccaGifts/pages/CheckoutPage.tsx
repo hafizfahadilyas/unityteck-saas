@@ -46,6 +46,7 @@ export const CheckoutPage: React.FC = () => {
     appliedDiscount,
     applyCouponCode,
     removeAppliedCoupon,
+    setCheckoutShippingCity,
   } = useApp();
   const { activeStore } = useTenant();
   const { cities: saudiCities } = useSaudiCityOptions(activeStore?.id);
@@ -89,6 +90,11 @@ export const CheckoutPage: React.FC = () => {
     title: string;
     message: string;
   } | null>(null);
+
+  React.useEffect(() => {
+    const cityLine = [city.trim(), district.trim()].filter(Boolean).join('، ');
+    setCheckoutShippingCity(cityLine || city.trim());
+  }, [city, district, setCheckoutShippingCity]);
 
   React.useEffect(() => {
     if (!activeStore?.id) return;

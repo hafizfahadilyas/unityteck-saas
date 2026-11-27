@@ -982,12 +982,27 @@ export const SaudiaTransportThemeView: React.FC<SaudiaTransportThemeViewProps> =
       .then((res) => {
         if (!alive) return;
         const methods = Array.isArray(res.available_methods) ? res.available_methods : [];
-        const fee =
+        const zoneRate = Number(res?.matched_zone?.rate);
+        const paid = methods.filter((m: any) => String(m?.type || '') !== 'free');
+        const pool = paid.length ? paid : methods;
+        const cheapest = [...pool].sort(
+          (a: any, b: any) => (Number(a?.fee) || 0) - (Number(b?.fee) || 0),
+        )[0];
+        let fee =
           typeof res.calculated_shipping_fee === 'number'
             ? res.calculated_shipping_fee
-            : Number(methods[0]?.fee ?? methods[0]?.rate ?? 0) || 0;
-        setShippingFee(res.is_free_shipping ? 0 : Math.max(0, fee));
-        const methodName = methods[0]?.name_ar || methods[0]?.name || null;
+            : Number(cheapest?.fee ?? cheapest?.rate ?? 0) || 0;
+        if (res?.matched_zone && Number.isFinite(zoneRate)) {
+          fee = zoneRate;
+        }
+        setShippingFee(res.is_free_shipping || fee <= 0 ? 0 : Math.max(0, fee));
+        const methodName =
+          res?.matched_zone?.name ||
+          cheapest?.name_ar ||
+          cheapest?.name ||
+          methods[0]?.name_ar ||
+          methods[0]?.name ||
+          null;
         setShippingLabel(
           res.is_free_shipping
             ? (isAr ? 'شحن مجاني' : 'Free shipping')

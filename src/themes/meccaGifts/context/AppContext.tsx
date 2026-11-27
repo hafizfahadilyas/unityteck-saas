@@ -79,6 +79,8 @@ interface AppContextType {
   cartCount: number;
   /** Real fee from /shipping/calculate or store methods — never invent 35. */
   shippingFee: number;
+  /** Checkout address city/district — drives zone-based shipping quote. */
+  setCheckoutShippingCity: (cityLine: string) => void;
   freeShippingThreshold: number | null;
   freeShippingRemaining: number;
   appliedCoupon: CouponItem | null;
@@ -1101,6 +1103,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [estimatedShippingFee, setEstimatedShippingFee] = useState<number | null>(null);
   const [estimatedIsFree, setEstimatedIsFree] = useState(false);
   const [estimatedThreshold, setEstimatedThreshold] = useState<number | null>(null);
+  const [checkoutShippingCity, setCheckoutShippingCity] = useState('');
 
   useEffect(() => {
     if (!activeStore?.id || cartSubtotal <= 0 || cart.length === 0) {
@@ -1113,8 +1116,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const productIds = cart
       .map((i) => String(i.productId || i.product?.id || '').trim())
       .filter(Boolean);
+    const quoteCity = checkoutShippingCity.trim() || 'مكة المكرمة';
     void calculateShippingRates(activeStore.id, {
-      city: 'مكة المكرمة',
+      city: quoteCity,
       order_total: cartSubtotal,
       product_ids: productIds.length ? productIds : undefined,
     })
@@ -1123,11 +1127,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const methods = Array.isArray(res?.available_methods) ? res.available_methods : [];
         let fee = Number(res?.calculated_shipping_fee);
         let isFree = Boolean(res?.is_free_shipping);
-        if (methods.length > 0) {
-          const best = [...methods].sort(
+        const zoneRate = Number(res?.matched_zone?.rate);
+        const paidMethods = methods.filter((m) => String(m?.type || '') !== 'free');
+        const methodPool = paidMethods.length > 0 ? paidMethods : methods;
+        if (methodPool.length > 0) {
+          const best = [...methodPool].sort(
             (a, b) => (Number(a?.fee) || 0) - (Number(b?.fee) || 0),
           )[0];
-          fee = Number(best?.fee);
+          const methodFee = Number(best?.fee);
+          if (res?.matched_zone && Number.isFinite(zoneRate) && zoneRate > 0) {
+            fee = Math.max(zoneRate, Number.isFinite(methodFee) ? methodFee : 0);
+          } else if (Number.isFinite(methodFee)) {
+            fee = methodFee;
+          }
           isFree = Boolean(best?.is_free) || (Number.isFinite(fee) && fee <= 0);
           const methodThreshold = best?.free_shipping_threshold ?? best?.freeShippingThreshold;
           if (methodThreshold != null && Number(methodThreshold) > 0) {
@@ -1165,7 +1177,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return () => {
       cancelled = true;
     };
-  }, [activeStore?.id, cartSubtotal, cart]);
+  }, [activeStore?.id, cartSubtotal, cart, checkoutShippingCity]);
 
   const freeShippingThreshold =
     estimatedThreshold != null
@@ -1640,6 +1652,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         cartSubtotal,
         cartCount,
         shippingFee,
+        setCheckoutShippingCity,
         freeShippingThreshold,
         freeShippingRemaining,
         appliedCoupon,
@@ -1710,6 +1723,7 @@ const DEFAULT_FALLBACK_APP_CONTEXT: AppContextType = {
   cartSubtotal: 0,
   cartCount: 0,
   shippingFee: 0,
+  setCheckoutShippingCity: () => {},
   freeShippingThreshold: null,
   freeShippingRemaining: -1,
   appliedCoupon: null,

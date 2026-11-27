@@ -28,6 +28,7 @@ Yeh index **poori docs folder** ko task ke hisaab se arrange karti hai. Naye age
 | **`38-souq-common-themes-steps-stores-domains.md`** | **Owner steps:** flowers/coffee/car vs common; kis domain pe; kaise banaye / buy / activate |
 | `36-souq-common-theme-subscription-marketplace.md` | Policy: 100/300/500, entitlements, AI price-first, Master powers |
 | `37-souq-common-theme-settings-schema.md` | Shared Customize panels (ثيمات المتجر.docx) |
+| **`41-souq-default-template-theme-execution.md`** | **Step SDT-xx: `store-souq-default` template → all new merchants** |
 | `31-page-builder-theme-customizer-execution.md` | Builder step status PB-xx |
 | `09-visual-theme-builder.md` | Concept / builder vision |
 | `23-storefront-themes-elementor-customizer-guide.md` | Storefront customizer guide |
@@ -67,6 +68,8 @@ Yeh index **poori docs folder** ko task ke hisaab se arrange karti hai. Naye age
 | `18-phase3.2-variations.md` | Variations |
 | `19-phase3.3-categories.md` | Categories |
 | `SHIPPING_COURIER_PAYMENT_INTEGRATION_GUIDE.md` | Shipping / courier / pay |
+| **`43-shipping-payment-checkout-zone-execution.md`** | **SPC-xx: zones → calculate → checkout fee + payments (lifetime lock)** |
+| **`42-commerce-a2z-bugfix-steps.md`** | **A–Z commerce bug steps + test gates** (Bleco `/bleco` temp path) |
 | `25-marketing-hub-campaigns-and-promotions-guide.md` | Marketing hub |
 | `26-reporting-business-intelligence-and-analytics-guide.md` | Reports / BI |
 | `32-utm-marketing-analytics-audit-implementation.md` | UTM / attribution |

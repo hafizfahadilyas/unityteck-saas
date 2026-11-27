@@ -497,6 +497,17 @@ class ShippingController extends Controller
             return true;
         }
 
+        if ($needle === 'makkah') {
+            $blob = mb_strtolower(
+                (string) $zone->name.' '.(string) ($zone->name_ar ?? '').' '.(string) ($zone->region ?? '')
+            );
+            if (str_contains($blob, 'makkah')
+                || str_contains($blob, 'mecca')
+                || mb_strpos($blob, 'مكة') !== false) {
+                return true;
+            }
+        }
+
         return false;
     }
 }

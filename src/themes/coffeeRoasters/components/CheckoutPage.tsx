@@ -200,11 +200,23 @@ export const CheckoutPage: React.FC = () => {
 
         setSelectedMethodId((prevId) => {
           const still = prevId && methods.some((m) => m.id === prevId);
+          const paidDefault = methods.find(
+            (m) =>
+              String((m as { type?: string }).type || '') !== 'free' &&
+              String(m.fulfillment_mode || '') !== 'local_pickup' &&
+              !(Number(m.fee) <= 0 && /pickup|استلام/i.test(String(m.name || ''))),
+          );
           const picked = still
             ? methods.find((m) => m.id === prevId)!
-            : methods[0] || null;
+            : paidDefault || methods[0] || null;
           if (picked) {
-            setShippingFee(Number(picked.fee) || 0);
+            const zoneRate = Number(res?.matched_zone?.rate);
+            const methodFee = Number(picked.fee) || 0;
+            const fee =
+              res?.matched_zone && Number.isFinite(zoneRate) && zoneRate > 0 && methodFee <= 0
+                ? zoneRate
+                : methodFee;
+            setShippingFee(fee);
             setSelectedMethodLabel(
               language === 'AR' ? picked.name_ar || picked.name : picked.name,
             );

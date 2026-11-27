@@ -414,6 +414,165 @@ function souq_ensure_shipping_defaults(PDO $pdo, string $storeId): void
     ]);
 }
 
+function souq_normalize_city_key(string $value): string
+{
+    $v = mb_strtolower(trim($value));
+    $canonical = [
+        'الرياض' => 'riyadh',
+        'riyadh' => 'riyadh',
+        'جدة' => 'jeddah',
+        'jeddah' => 'jeddah',
+        'jiddah' => 'jeddah',
+        'مكة' => 'makkah',
+        'مكة المكرمة' => 'makkah',
+        'makkah' => 'makkah',
+        'mecca' => 'makkah',
+        'الدمام' => 'dammam',
+        'dammam' => 'dammam',
+        'المدينة' => 'madinah',
+        'المدينة المنورة' => 'madinah',
+        'madinah' => 'madinah',
+        'medina' => 'madinah',
+    ];
+    if (isset($canonical[$v])) {
+        return $canonical[$v];
+    }
+
+    return preg_replace('/\s+/u', ' ', $v) ?? $v;
+}
+
+function souq_city_matches_zone(string $city, array $zone): bool
+{
+    $needle = souq_normalize_city_key($city);
+    if ($needle === '') {
+        return false;
+    }
+    $zoneNames = array_filter([
+        (string) ($zone['name'] ?? ''),
+        (string) ($zone['name_ar'] ?? ''),
+    ]);
+    $cities = $zone['city_names'] ?? [];
+    if (is_string($cities)) {
+        $decoded = json_decode($cities, true);
+        $cities = is_array($decoded) ? $decoded : [];
+    }
+    if (is_array($cities)) {
+        foreach ($cities as $c) {
+            if (is_string($c) && trim($c) !== '') {
+                $zoneNames[] = $c;
+            }
+        }
+    }
+    foreach ($zoneNames as $name) {
+        $n = trim((string) $name);
+        if ($n === '') {
+            continue;
+        }
+        $key = souq_normalize_city_key($n);
+        if ($key !== '' && ($key === $needle || str_contains($key, $needle) || str_contains($needle, $key))) {
+            return true;
+        }
+        if (mb_stripos($n, $city) !== false || mb_stripos($city, $n) !== false) {
+            return true;
+        }
+    }
+    if ($needle === 'makkah') {
+        $blob = mb_strtolower(
+            ((string) ($zone['name'] ?? '')).' '.
+            ((string) ($zone['region'] ?? '')).' '.
+            ((string) ($zone['name_ar'] ?? ''))
+        );
+        if (str_contains($blob, 'makkah') || str_contains($blob, 'mecca') || mb_strpos($blob, 'مكة') !== false) {
+            return true;
+        }
+    }
+    $region = (string) ($zone['region'] ?? '');
+    if ($region !== '' && mb_stripos($city, $region) !== false) {
+        return true;
+    }
+
+    return false;
+}
+
+function souq_match_shipping_zone(string $city, array $zones): ?array
+{
+    $matches = [];
+    foreach ($zones as $z) {
+        if (!(bool) (int) ($z['is_active'] ?? 1)) {
+            continue;
+        }
+        if (!souq_city_matches_zone($city, $z)) {
+            continue;
+        }
+        $matches[] = $z;
+    }
+    if ($matches === []) {
+        return null;
+    }
+    if (count($matches) === 1) {
+        return $matches[0];
+    }
+
+    // Prefer district/name that appears inside the typed city line; else highest paid rate
+    // so city-only "مكة" does not silently pick a free Haram zone over paid districts.
+    $cityLower = mb_strtolower(trim($city));
+    $best = null;
+    $bestScore = -1.0;
+    foreach ($matches as $z) {
+        $name = (string) ($z['name'] ?? '');
+        $nameLower = mb_strtolower($name);
+        $rate = (float) ($z['rate'] ?? 0);
+        $score = $rate;
+        if ($nameLower !== '' && (mb_strpos($cityLower, $nameLower) !== false || mb_strpos($nameLower, $cityLower) !== false)) {
+            $score += 1000;
+        }
+        foreach (['aziziyah', 'العزيزية', 'shawqiyyah', 'الشوقية', 'haram', 'الحرم'] as $token) {
+            if (mb_strpos($cityLower, $token) !== false && mb_strpos($nameLower, $token) !== false) {
+                $score += 500;
+            }
+        }
+        if ($score > $bestScore) {
+            $best = $z;
+            $bestScore = $score;
+        }
+    }
+
+    return $best;
+}
+
+function souq_calculate_zone_rate(array $zone, float $orderTotal, float $weightKg, float $distanceKm): array
+{
+    $estimatedDelivery = (string) ($zone['estimated_delivery'] ?? '2-3 Days');
+    $codAvailable = (bool) (int) ($zone['cod_available'] ?? 1);
+    $freeAbove = isset($zone['free_above']) && $zone['free_above'] !== '' && $zone['free_above'] !== null
+        ? (float) $zone['free_above']
+        : null;
+    if ($freeAbove !== null && $freeAbove > 0 && $orderTotal >= $freeAbove) {
+        return ['rate' => 0.0, 'is_free' => true, 'estimated_delivery' => $estimatedDelivery, 'cod_available' => $codAvailable];
+    }
+    $base = (float) ($zone['rate'] ?? 0);
+    $perKg = (float) ($zone['rate_per_kg'] ?? 0);
+    $perKm = (float) ($zone['per_km_rate'] ?? $zone['rate_per_km'] ?? 0);
+    $minW = (float) ($zone['min_weight_kg'] ?? 0);
+    $rateMode = (string) ($zone['rate_mode'] ?? 'fixed');
+    if ($rateMode === 'per_km' && $perKm > 0) {
+        $rate = $base + (max(0.0, $distanceKm) * $perKm);
+        $rate = min($base + 10.0, max($base, $rate));
+    } elseif (($rateMode === 'per_kg' || $perKg > 0) && $weightKg > $minW) {
+        $excess = max(0.0, $weightKg - $minW);
+        $rate = $base + ($excess * $perKg);
+    } else {
+        $rate = $base;
+    }
+
+    return [
+        'rate' => round($rate, 2),
+        'is_free' => $rate <= 0,
+        'estimated_delivery' => $estimatedDelivery,
+        'cod_available' => $codAvailable,
+    ];
+}
+
 function souq_digits(string $phone): string
 {
     return preg_replace('/\D+/', '', $phone) ?? '';
@@ -3965,6 +4124,33 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
         $orderTotal = (float)($input['order_total'] ?? $input['subtotal'] ?? 0);
         $weightKg = (float)($input['total_weight_kg'] ?? 1);
         $distanceKm = (float)($input['distance_km'] ?? 0);
+        $matchedZone = null;
+        $zoneRate = 0.0;
+        $zoneIsFree = false;
+        $zoneDelivery = '2-3 Days';
+        $zoneCod = true;
+        $zones = [];
+        try {
+            $hasZonesTable = (bool) $pdo->query("SHOW TABLES LIKE 'shipping_zones'")->fetch(PDO::FETCH_NUM);
+            if ($hasZonesTable) {
+                $zst = $pdo->prepare('SELECT * FROM shipping_zones WHERE store_id = ? AND (is_active = 1 OR is_active IS NULL) ORDER BY name');
+                $zst->execute([$sid]);
+                $zones = $zst->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            }
+        } catch (Throwable) {
+            $zones = [];
+        }
+        if ($city !== '' && $zones !== []) {
+            $picked = souq_match_shipping_zone($city, $zones);
+            if ($picked !== null) {
+                $matchedZone = $picked;
+                $zoneCalc = souq_calculate_zone_rate($picked, $orderTotal, $weightKg, $distanceKm);
+                $zoneRate = (float) ($zoneCalc['rate'] ?? 0);
+                $zoneIsFree = (bool) ($zoneCalc['is_free'] ?? false);
+                $zoneDelivery = (string) ($zoneCalc['estimated_delivery'] ?? '2-3 Days');
+                $zoneCod = (bool) ($zoneCalc['cod_available'] ?? true);
+            }
+        }
         $st = $pdo->prepare('SELECT * FROM shipping_methods WHERE store_id = ? AND is_active = 1 ORDER BY sort_order, created_at');
         $st->execute([$sid]);
         $methods = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -4022,19 +4208,60 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             ];
             $options[] = $row;
         }
-        $best = $options[0] ?? null;
-        $bestFee = (float)($best['fee'] ?? 0);
+        if ($options === [] && $matchedZone !== null) {
+            $options[] = [
+                'id' => 'zone:'.(string) ($matchedZone['id'] ?? ''),
+                'name' => (string) ($matchedZone['name'] ?? 'Delivery'),
+                'name_ar' => (string) ($matchedZone['name_ar'] ?? $matchedZone['name'] ?? 'توصيل'),
+                'type' => 'zone_rate',
+                'fee' => $zoneRate,
+                'rate' => $zoneRate,
+                'is_free' => $zoneIsFree,
+                'estimated_delivery' => $zoneDelivery,
+                'courier_code' => $matchedZone['courier_code'] ?? null,
+                'logo_url' => null,
+                'fulfillment_mode' => 'courier',
+                'is_cod_allowed' => $zoneCod,
+                'city' => $city !== '' ? $city : null,
+            ];
+        }
+        $eligible = array_values(array_filter(
+            $options,
+            static fn (array $m): bool => (string) ($m['type'] ?? '') !== 'free',
+        ));
+        if ($eligible === []) {
+            $eligible = $options;
+        }
+        usort($eligible, static fn (array $a, array $b): int => ((float) ($a['fee'] ?? 0)) <=> ((float) ($b['fee'] ?? 0)));
+        $best = $eligible[0] ?? ($options[0] ?? null);
+        $methodFee = (float) ($best['fee'] ?? 0);
+        // Zone match wins for calculated fee (merchant city pricing). Methods stay selectable separately.
+        $calculatedFee = $matchedZone !== null ? $zoneRate : $methodFee;
+        $isFreeShipping = $calculatedFee <= 0 || ($matchedZone !== null && $zoneIsFree);
+        $matchedZonePayload = null;
+        if ($matchedZone !== null) {
+            $matchedZonePayload = [
+                'id' => (string) ($matchedZone['id'] ?? ''),
+                'name' => (string) ($matchedZone['name'] ?? ''),
+                'region' => (string) ($matchedZone['region'] ?? ''),
+                'rate' => round($zoneRate, 2),
+                'free_above' => isset($matchedZone['free_above']) ? (float) $matchedZone['free_above'] : null,
+                'is_free' => $zoneIsFree,
+                'estimated_delivery' => $zoneDelivery,
+                'cod_available' => $zoneCod,
+            ];
+        }
         echo json_encode([
             'store_id' => $sid,
             'city' => $city !== '' ? $city : null,
             'order_total' => $orderTotal,
-            'rate' => $bestFee,
-            'calculated_shipping_fee' => $bestFee,
-            'is_free' => (bool)($best['is_free'] ?? false),
-            'is_free_shipping' => (bool)($best['is_free'] ?? false),
-            'estimated_delivery' => $best['estimated_delivery'] ?? null,
-            'cod_available' => $best['is_cod_allowed'] ?? true,
-            'matched_zone' => null,
+            'rate' => round($calculatedFee, 2),
+            'calculated_shipping_fee' => round($calculatedFee, 2),
+            'is_free' => $isFreeShipping,
+            'is_free_shipping' => $isFreeShipping,
+            'estimated_delivery' => $best['estimated_delivery'] ?? $zoneDelivery,
+            'cod_available' => $best['is_cod_allowed'] ?? $zoneCod,
+            'matched_zone' => $matchedZonePayload,
             'available_methods' => $options,
             'methods' => $options,
             'data' => $options,

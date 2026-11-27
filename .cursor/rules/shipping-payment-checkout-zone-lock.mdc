@@ -1,0 +1,45 @@
+---
+description: Lifetime lock — shipping zones/methods + payments must stay real, store-scoped, and wired through checkout calculate (never mock fees / fake Connected).
+alwaysApply: true
+---
+
+# Shipping · Payment · Checkout Zone Lock (LIFETIME)
+
+**Execution:** `docs/43-shipping-payment-checkout-zone-execution.md` (`SPC-xx`)  
+**Hosts:** Flowers `giftshop-sa.com` · Central `mieraf-ksa.com` (coffee / bleco / new tenants)  
+**Related:** `zero-mock-saudi-saas.mdc` · `live-verify-before-done.mdc` · `SHIPPING_COURIER_PAYMENT_INTEGRATION_GUIDE.md`
+
+## Absolute (never weaken)
+
+1. **Zones are truth for city pricing.** Dashboard `shipping_zones` rates (Makkah districts, Jeddah, Riyadh, kg/km, free_above) **must** feed `POST /shipping/calculate` and `/storefront/shipping/calculate`. Returning `matched_zone: null` when an active zone matches the city = **blocker**.
+2. **Methods + zones both real.** `shipping_methods` fees stay merchant DB rates. Do **not** invent 35 SAR / Free / Instant Connected. Empty → empty / Not Connected.
+3. **Checkout must show the calculated fee.** Flowers / Coffee / Bleco (and Souq common) checkout summary uses API `calculated_shipping_fee` / selected method `fee` for the customer’s **city** (and district when provided). Hardcoded city-only quotes without address update = banned.
+4. **Never auto-pick unconditional Free.** If a method `type=free` exists, do not silently force checkout summary to 0 when a paid zone/method applies. Customer may still choose Free/Pickup when that method is real.
+5. **Payments:** Storefront tiles only from `payment_gateways` where `is_enabled=1` and `status=connected` for that `store_id`. No fake Moyasar/Tabby Connected. COD / bank_transfer only when those rows exist.
+6. **Couriers:** `connected` only after real credential save/test API success. Never mark Connected on catch/fail. Missing keys → Not Connected.
+7. **Isolation:** Every query/payload is `store_id`. Store A zones/methods/payments never decorate Store B.
+8. **Live path:** Flowers + Central Hostinger use `public/api/commerce.php` **and** Laravel — both must keep zone matching. Fix one without the other = incomplete.
+
+## Banned forever
+
+- Calculate that lists methods but **ignores** `shipping_zones`
+- Checkout shipping fee from `INITIAL_SHIPPING` / mockData / invent `orders×N`
+- Arabic city `مكة` / `مكة المكرمة` failing to match EN zone names containing Makkah/Mecca (and reverse)
+- Claiming “shipping works” without live probe: health → zones → methods → **calculate with Makkah city** → `matched_zone` + fee
+- Fake Instant pay / Instant courier Connected
+
+## Test gate (every SPC step / every shipping-pay change)
+
+Before **Ho gaya** or next step:
+
+1. `GET /api/health` → 200 + live MySQL  
+2. `GET /api/shipping?store_id=…&all=1` → real zones (or genuine `[]`)  
+3. `GET /api/shipping-methods?store_id=…` → real methods  
+4. `POST /api/storefront/shipping/calculate` body `{ city: "مكة المكرمة", order_total: 150 }` → **`matched_zone` set when Makkah zones exist** · `calculated_shipping_fee` ≥ that zone’s rate (unless free_above / free method explicitly selected)  
+5. Change zone rate in admin (e.g. 40) → recalculate → checkout / calculate shows **40** (after deploy)  
+6. `GET /api/storefront/payments/methods?store_id=…` → only connected gateways  
+7. No secrets in diff
+
+## Status
+
+End turns with **Ho gaya** / **Baqi** + `SPC-xx` + live HTTP notes. Deploy only when owner asks.
