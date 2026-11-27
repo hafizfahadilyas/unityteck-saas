@@ -493,17 +493,34 @@ class ShippingController extends Controller
                 return true;
             }
         }
-        if ($zone->region && mb_stripos($city, (string) $zone->region) !== false) {
-            return true;
+        if ($needle === 'makkah') {
+            $nameBlob = mb_strtolower((string) $zone->name.' '.(string) ($zone->name_ar ?? ''));
+            if (is_array($zone->city_names)) {
+                foreach ($zone->city_names as $c) {
+                    $nameBlob .= ' '.mb_strtolower((string) $c);
+                }
+            }
+            if (str_contains($nameBlob, 'makkah')
+                || str_contains($nameBlob, 'mecca')
+                || mb_strpos($nameBlob, 'مكة') !== false) {
+                if (str_contains($nameBlob, 'jeddah')
+                    || str_contains($nameBlob, 'جدة')
+                    || str_contains($nameBlob, 'riyadh')
+                    || str_contains($nameBlob, 'الرياض')
+                    || str_contains($nameBlob, 'dammam')
+                    || str_contains($nameBlob, 'الدمام')) {
+                    return false;
+                }
+
+                return true;
+            }
+
+            return false;
         }
 
-        if ($needle === 'makkah') {
-            $blob = mb_strtolower(
-                (string) $zone->name.' '.(string) ($zone->name_ar ?? '').' '.(string) ($zone->region ?? '')
-            );
-            if (str_contains($blob, 'makkah')
-                || str_contains($blob, 'mecca')
-                || mb_strpos($blob, 'مكة') !== false) {
+        if ($zone->region) {
+            $regionKey = $this->normalizeCityKey((string) $zone->region);
+            if ($regionKey === $needle && ! preg_match('/\b(region|province|منطقة)\b/iu', (string) $zone->region)) {
                 return true;
             }
         }

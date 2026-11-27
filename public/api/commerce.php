@@ -476,18 +476,46 @@ function souq_city_matches_zone(string $city, array $zone): bool
             return true;
         }
     }
+    // City Makkah must match zone NAME / city_names / name_ar — never province alone
+    // ("Makkah Region" on a Jeddah zone must not win for city مكة).
     if ($needle === 'makkah') {
-        $blob = mb_strtolower(
-            ((string) ($zone['name'] ?? '')).' '.
-            ((string) ($zone['region'] ?? '')).' '.
-            ((string) ($zone['name_ar'] ?? ''))
+        $nameBlob = mb_strtolower(
+            ((string) ($zone['name'] ?? '')).' '.((string) ($zone['name_ar'] ?? ''))
         );
-        if (str_contains($blob, 'makkah') || str_contains($blob, 'mecca') || mb_strpos($blob, 'مكة') !== false) {
+        foreach (is_array($zone['city_names'] ?? null) ? $zone['city_names'] : [] as $c) {
+            $nameBlob .= ' '.mb_strtolower((string) $c);
+        }
+        if (
+            str_contains($nameBlob, 'makkah')
+            || str_contains($nameBlob, 'mecca')
+            || mb_strpos($nameBlob, 'مكة') !== false
+        ) {
+            // Exclude clear Jeddah/Riyadh/Dammam-named zones even if region says Makkah Region.
+            if (
+                str_contains($nameBlob, 'jeddah')
+                || str_contains($nameBlob, 'جدة')
+                || str_contains($nameBlob, 'riyadh')
+                || str_contains($nameBlob, 'الرياض')
+                || str_contains($nameBlob, 'dammam')
+                || str_contains($nameBlob, 'الدمام')
+            ) {
+                return false;
+            }
+
             return true;
         }
+
+        return false;
     }
     $region = (string) ($zone['region'] ?? '');
-    if ($region !== '' && mb_stripos($city, $region) !== false) {
+    $regionKey = souq_normalize_city_key($region);
+    // Do not treat province labels (e.g. "Makkah Region") as city equality.
+    if (
+        $region !== ''
+        && $regionKey !== ''
+        && $regionKey === $needle
+        && !preg_match('/\b(region|province|منطقة)\b/iu', $region)
+    ) {
         return true;
     }
 
@@ -597,25 +625,180 @@ function souq_phones_match(string $a, string $b): bool
     return $tail($a) !== '' && $tail($a) === $tail($b);
 }
 
-function souq_normalize_source(?string $raw): string
+/**
+ * Canonical traffic/order source. Google Ads ONLY when paid signals present
+ * (gclid / cpc / ppc / paid / adwords / gads) — never invent Ads from organic "google".
+ *
+ * @param array<string, mixed>|null $ctx medium / campaign / details / gclid hints
+ */
+function souq_normalize_source(?string $raw, ?array $ctx = null): string
 {
     $s = strtolower(trim((string)$raw));
-    if ($s === '') {
+    $medium = strtolower(trim((string)($ctx['medium'] ?? '')));
+    $details = strtolower(trim((string)($ctx['details'] ?? $ctx['source_details'] ?? '')));
+    $blob = $s.' '.$medium.' '.$details;
+    $paidGoogle = str_contains($blob, 'gclid')
+        || str_contains($blob, 'adwords')
+        || $s === 'gads'
+        || str_contains($s, 'google ads')
+        || str_contains($s, 'googleads')
+        || in_array($medium, ['cpc', 'ppc', 'paid', 'paidsearch', 'paidsocial'], true);
+
+    if ($s === '' || $s === 'direct') {
         return 'Direct';
     }
-    if (str_contains($s, 'whatsapp')) return 'WhatsApp';
-    if (str_contains($s, 'instagram')) return 'Instagram';
-    if (str_contains($s, 'tiktok')) return 'TikTok';
+    if (str_contains($s, 'whatsapp') || $s === 'wa') return 'WhatsApp';
+    if (str_contains($s, 'instagram') || $s === 'ig') return 'Instagram';
+    if (str_contains($s, 'tiktok') || $s === 'tt') return 'TikTok';
     if (str_contains($s, 'snap')) return 'Snapchat';
-    if (str_contains($s, 'facebook')) return 'Facebook';
-    if (str_contains($s, 'google')) return 'Google Ads';
-    if (str_contains($s, 'organic') || $s === 'search') return 'Organic Search';
+    if (str_contains($s, 'facebook') || $s === 'fb' || str_contains($s, 'meta')) return 'Facebook';
+    if ($paidGoogle || $s === 'google ads') return 'Google Ads';
+    if (str_contains($s, 'google') || str_contains($s, 'organic') || $s === 'search') {
+        return 'Organic Search';
+    }
     if (str_contains($s, 'referral') || str_contains($s, 'telegram') || str_contains($s, 'email') || str_contains($s, 'influencer') || str_contains($s, 'qr')) {
         return 'Referral';
     }
-    if ($s === 'direct') return 'Direct';
-    // Tagged but unknown platform → Referral (never invent WhatsApp/Facebook).
+    // Tagged but unknown platform → Referral (never invent WhatsApp/Facebook/Ads).
     return 'Referral';
+}
+
+/** Merchant/master Bearer required for PII list endpoints (orders, customers). */
+function souq_require_merchant_bearer(): bool
+{
+    $auth = trim((string) ($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? ''));
+    if ($auth === '' && function_exists('getallheaders')) {
+        $headers = getallheaders();
+        if (is_array($headers)) {
+            foreach ($headers as $k => $v) {
+                if (strtolower((string) $k) === 'authorization') {
+                    $auth = trim((string) $v);
+                    break;
+                }
+            }
+        }
+    }
+    if (!preg_match('/^Bearer\s+(\S+)/i', $auth, $m)) {
+        http_response_code(401);
+        echo json_encode(['message' => 'Merchant session required.', 'message_ar' => 'يلزم تسجيل دخول التاجر.']);
+        return false;
+    }
+    $token = trim($m[1]);
+    if ($token === '' || str_starts_with($token, 'mock-') || str_starts_with($token, 'sf|')) {
+        http_response_code(401);
+        echo json_encode(['message' => 'Merchant session required.', 'message_ar' => 'يلزم تسجيل دخول التاجر.']);
+        return false;
+    }
+    return true;
+}
+
+/** Guest checkout OFF by default (owner lifetime). Merchant may set checkout.allowGuest=true. */
+function souq_store_allows_guest_checkout(PDO $pdo, string $storeId): bool
+{
+    if ($storeId === '' || !function_exists('souq_store_data')) {
+        return false;
+    }
+    try {
+        $data = souq_store_data($pdo, $storeId);
+    } catch (Throwable) {
+        return false;
+    }
+    if (!is_array($data)) {
+        return false;
+    }
+    foreach (['checkout', 'checkoutFields', 'theme_settings', 'settings'] as $key) {
+        $bag = $data[$key] ?? null;
+        if (!is_array($bag)) {
+            continue;
+        }
+        if (array_key_exists('allowGuest', $bag)) {
+            return (bool) $bag['allowGuest'];
+        }
+        $nested = $bag['checkout'] ?? $bag['checkoutFields'] ?? null;
+        if (is_array($nested) && array_key_exists('allowGuest', $nested)) {
+            return (bool) $nested['allowGuest'];
+        }
+    }
+    return false;
+}
+
+function souq_ensure_sf_sessions_table(PDO $pdo): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    try {
+        if (souq_pdo_is_mysql($pdo)) {
+            $pdo->exec(
+                "CREATE TABLE IF NOT EXISTS storefront_sessions (
+                    token VARCHAR(128) NOT NULL PRIMARY KEY,
+                    store_id VARCHAR(64) NOT NULL,
+                    customer_id VARCHAR(64) NOT NULL,
+                    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+                    expires_at TIMESTAMP NULL,
+                    KEY idx_sf_sess_store (store_id, customer_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+            );
+        } else {
+            $pdo->exec(
+                "CREATE TABLE IF NOT EXISTS storefront_sessions (
+                    token TEXT PRIMARY KEY,
+                    store_id TEXT NOT NULL,
+                    customer_id TEXT NOT NULL,
+                    created_at TEXT,
+                    expires_at TEXT
+                )"
+            );
+        }
+    } catch (Throwable) {
+        /* ignore */
+    }
+}
+
+function souq_sf_session_put(PDO $pdo, string $storeId, string $token, string $customerId): void
+{
+    souq_ensure_sf_sessions_table($pdo);
+    $expires = date('Y-m-d H:i:s', time() + 60 * 60 * 24 * 30);
+    $now = date('Y-m-d H:i:s');
+    try {
+        if (souq_pdo_is_mysql($pdo)) {
+            $pdo->prepare(
+                'INSERT INTO storefront_sessions (token, store_id, customer_id, created_at, expires_at)
+                 VALUES (?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE customer_id = VALUES(customer_id), expires_at = VALUES(expires_at)'
+            )->execute([$token, $storeId, $customerId, $now, $expires]);
+        } else {
+            $pdo->prepare(
+                'INSERT OR REPLACE INTO storefront_sessions (token, store_id, customer_id, created_at, expires_at) VALUES (?, ?, ?, ?, ?)'
+            )->execute([$token, $storeId, $customerId, $now, $expires]);
+        }
+    } catch (Throwable) {
+        /* ignore */
+    }
+}
+
+function souq_sf_session_customer_id(PDO $pdo, string $storeId, ?string $token): ?string
+{
+    $token = trim((string) $token);
+    if ($token === '' || !str_starts_with($token, 'sf|') || $storeId === '') {
+        return null;
+    }
+    souq_ensure_sf_sessions_table($pdo);
+    try {
+        $st = $pdo->prepare(
+            'SELECT customer_id FROM storefront_sessions WHERE token = ? AND store_id = ? LIMIT 1'
+        );
+        $st->execute([$token, $storeId]);
+        $row = $st->fetch();
+        if (!$row) {
+            return null;
+        }
+        return (string) ($row['customer_id'] ?? '');
+    } catch (Throwable) {
+        return null;
+    }
 }
 
 function souq_payment_method(?string $raw): string
@@ -1726,6 +1909,32 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
 
     if ($uri === '/storefront/orders' && $method === 'POST') {
         try {
+        // Lifetime: guest checkout OFF unless merchant explicitly enables allowGuest.
+        // Accept: storefront session token OR existing customer_id for this store (logged-in profile).
+        if (!souq_store_allows_guest_checkout($pdo, $storeId)) {
+            $sfTok = trim((string)($_SERVER['HTTP_X_SF_CUSTOMER_TOKEN'] ?? $input['customer_token'] ?? ''));
+            $sfCust = souq_sf_session_customer_id($pdo, $storeId, $sfTok);
+            $hintId = trim((string)($_SERVER['HTTP_X_SF_CUSTOMER_ID'] ?? $input['customer_id'] ?? ''));
+            $okLogin = $sfCust !== null && $sfCust !== '';
+            if (!$okLogin && $hintId !== '') {
+                try {
+                    $chk = $pdo->prepare('SELECT id FROM customers WHERE id = ? AND store_id = ? LIMIT 1');
+                    $chk->execute([$hintId, $storeId]);
+                    $okLogin = (bool) $chk->fetch();
+                } catch (Throwable) {
+                    $okLogin = false;
+                }
+            }
+            if (!$okLogin) {
+                http_response_code(401);
+                echo json_encode([
+                    'message' => 'Customer login required to place an order.',
+                    'message_ar' => 'يلزم تسجيل دخول العميل لإتمام الطلب.',
+                    'code' => 'login_required',
+                ]);
+                return true;
+            }
+        }
         $name = trim((string)($input['customer_name'] ?? ''));
         $phone = trim((string)($input['customer_phone'] ?? ''));
         $total = (float)($input['total_amount'] ?? 0);
@@ -1736,8 +1945,12 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
         }
         $email = trim((string)($input['customer_email'] ?? ''));
         $email = $email !== '' ? strtolower($email) : null;
-        $source = souq_normalize_source($input['source'] ?? null);
         $details = trim((string)($input['source_details'] ?? ''));
+        $source = souq_normalize_source($input['source'] ?? null, [
+            'medium' => (string)($input['medium'] ?? ''),
+            'details' => $details,
+            'source_details' => $details,
+        ]);
         $city = '';
         $location = trim((string)($input['delivery_location'] ?? ''));
         if ($location !== '') {
@@ -2181,36 +2394,80 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             }
         }
         $token = 'sf|' . bin2hex(random_bytes(16));
-        $pdo->prepare('UPDATE customers SET password_hash = password_hash WHERE id = ?');
+        souq_sf_session_put($pdo, $storeId, $token, (string)($row['id'] ?? ''));
         echo json_encode(['token' => $token, 'customer' => souq_customer_row($row)]);
         return true;
     }
 
     if ($uri === '/storefront/coupons/validate' && $method === 'POST') {
-        $code = strtoupper(trim((string)($input['code'] ?? '')));
-        $total = (float)($input['total'] ?? 0);
-        $st = $pdo->prepare('SELECT * FROM coupons WHERE store_id = ? AND UPPER(code) = ? LIMIT 1');
-        $st->execute([$storeId, $code]);
-        $row = $st->fetch();
-        if (!$row || !(int)$row['is_active']) {
-            http_response_code(404);
-            echo json_encode(['message' => 'Coupon not found.']);
+        $code = strtoupper(trim((string) preg_replace('/\s+/', '', (string)($input['code'] ?? ''))));
+        // Align with Laravel + frontend: cart_total | total | cartTotal
+        $total = (float)($input['cart_total'] ?? $input['total'] ?? $input['cartTotal'] ?? 0);
+        if ($code === '') {
+            http_response_code(422);
+            echo json_encode(['valid' => false, 'message' => 'Coupon code is required.', 'store_id' => $storeId]);
             return true;
         }
-        echo json_encode(['data' => [
+        $st = $pdo->prepare('SELECT * FROM coupons WHERE store_id = ? AND UPPER(TRIM(code)) = ? LIMIT 1');
+        $st->execute([$storeId, $code]);
+        $row = $st->fetch();
+        if (!$row) {
+            http_response_code(404);
+            echo json_encode(['valid' => false, 'message' => 'Coupon code is invalid.', 'store_id' => $storeId]);
+            return true;
+        }
+        $active = ((int)($row['is_active'] ?? 0) === 1) && strtolower((string)($row['status'] ?? '')) === 'active';
+        if (!$active) {
+            http_response_code(422);
+            echo json_encode(['valid' => false, 'message' => 'Coupon is inactive or expired.', 'store_id' => $storeId]);
+            return true;
+        }
+        if (!empty($row['expires_at']) && strtotime((string)$row['expires_at']) < time()) {
+            http_response_code(422);
+            echo json_encode(['valid' => false, 'message' => 'Coupon has expired.', 'store_id' => $storeId]);
+            return true;
+        }
+        if ($row['max_uses'] !== null && (int)$row['usage_count'] >= (int)$row['max_uses']) {
+            http_response_code(422);
+            echo json_encode(['valid' => false, 'message' => 'Coupon usage limit reached.', 'store_id' => $storeId]);
+            return true;
+        }
+        $minOrder = (float)($row['min_order_amount'] ?? 0);
+        if ($minOrder > 0 && $total > 0 && $total < $minOrder) {
+            http_response_code(422);
+            echo json_encode([
+                'valid' => false,
+                'message' => 'Minimum order amount not met.',
+                'min_order_amount' => $minOrder,
+                'store_id' => $storeId,
+            ]);
+            return true;
+        }
+        $discountValue = (float)$row['discount_value'];
+        $dtype = strtolower((string)($row['discount_type'] ?? 'fixed'));
+        $discount = ($dtype === 'percentage' || $dtype === 'percent')
+            ? round($total * ($discountValue / 100), 2)
+            : min($total > 0 ? $total : $discountValue, $discountValue);
+        $payload = [
             'id' => $row['id'],
             'store_id' => $row['store_id'],
             'code' => $row['code'],
             'discount_type' => $row['discount_type'],
-            'discount_value' => (float)$row['discount_value'],
-            'min_order_amount' => (float)$row['min_order_amount'],
+            'discount_value' => $discountValue,
+            'min_order_amount' => $minOrder,
             'max_uses' => $row['max_uses'],
             'usage_count' => (int)$row['usage_count'],
             'status' => $row['status'],
             'is_active' => (bool)$row['is_active'],
             'expires_at' => $row['expires_at'],
-            'applicable' => $total <= 0 || $total >= (float)$row['min_order_amount'],
-        ]]);
+            'applicable' => $total <= 0 || $total >= $minOrder,
+        ];
+        echo json_encode([
+            'valid' => true,
+            'store_id' => $storeId,
+            'discount' => $discount,
+            'data' => $payload,
+        ]);
         return true;
     }
 
@@ -2249,8 +2506,11 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
         $sessionKey = substr(trim((string)($input['session_key'] ?? '')), 0, 64);
         $visitorKey = substr(trim((string)($input['visitor_key'] ?? '')), 0, 64);
         $path = substr((string)($input['path'] ?? ''), 0, 180);
-        $source = souq_normalize_source($input['source'] ?? null);
         $medium = substr(strtolower(trim((string)($input['medium'] ?? ''))), 0, 128);
+        $source = souq_normalize_source($input['source'] ?? null, [
+            'medium' => $medium,
+            'details' => (string)($input['details'] ?? ''),
+        ]);
         $campaign = substr(strtolower(trim((string)($input['campaign'] ?? ''))), 0, 191);
         $metaRaw = $input['meta'] ?? null;
         $metaJson = null;
@@ -2315,6 +2575,9 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
     }
 
     if ($uri === '/orders' && $method === 'GET') {
+        if (!souq_require_merchant_bearer()) {
+            return true;
+        }
         if (!empty($_GET['summary']) || !empty($_GET['counts'])) {
             $statusCounts = [];
             $st = $pdo->prepare('SELECT status, COUNT(*) c FROM orders WHERE store_id = ? GROUP BY status');
@@ -2427,6 +2690,9 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
     }
 
     if ($uri === '/orders' && $method === 'POST') {
+        if (!souq_require_merchant_bearer()) {
+            return true;
+        }
         try {
             $name = trim((string)($input['customer_name'] ?? ''));
             $phone = trim((string)($input['customer_phone'] ?? ''));
@@ -2437,8 +2703,12 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
                 return true;
             }
             $email = strtolower(trim((string)($input['customer_email'] ?? '')));
-            $source = souq_normalize_source($input['source'] ?? null);
             $details = trim((string)($input['source_details'] ?? ''));
+            $source = souq_normalize_source($input['source'] ?? null, [
+                'medium' => (string)($input['medium'] ?? ''),
+                'details' => $details,
+                'source_details' => $details,
+            ]);
             $location = trim((string)($input['delivery_location'] ?? ''));
             if ($location === '') {
                 $location = 'Makkah';
@@ -2558,6 +2828,9 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
         && !in_array((string)$mOrd[1], ['invoice', 'fulfillment'], true)
     ) {
         $orderId = (string)$mOrd[1];
+        if (!souq_require_merchant_bearer()) {
+            return true;
+        }
         $st = $pdo->prepare('SELECT * FROM orders WHERE id = ? AND store_id = ? LIMIT 1');
         $st->execute([$orderId, $storeId]);
         $row = $st->fetch();
@@ -2575,6 +2848,9 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
         && $method === 'PATCH'
         && !in_array((string)$mOrd[1], ['invoice', 'fulfillment'], true)
     ) {
+        if (!souq_require_merchant_bearer()) {
+            return true;
+        }
         $orderId = (string)$mOrd[1];
         if (function_exists('souq_ensure_order_notes_columns')) {
             souq_ensure_order_notes_columns($pdo);
@@ -2625,8 +2901,27 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
             $params[] = $input[$inKey];
         }
         if (array_key_exists('status', $input)) {
+            $newStatusNorm = souq_normalize_order_status($input['status']);
             $sets[] = '`status` = ?';
-            $params[] = souq_normalize_order_status($input['status']);
+            $params[] = $newStatusNorm;
+            // Lifetime: order status → shipping_status sync (unless merchant sent shipping_status)
+            if (!array_key_exists('shipping_status', $input) && souq_table_has_column($pdo, 'orders', 'shipping_status')) {
+                $shipMap = [
+                    'shipped' => 'shipped',
+                    'out_for_delivery' => 'out_for_delivery',
+                    'delivered' => 'delivered',
+                    'completed' => 'delivered',
+                    'cancelled' => 'cancelled',
+                    'returned' => 'returned',
+                    'processing' => 'processing',
+                    'preparing' => 'processing',
+                    'ready' => 'ready',
+                ];
+                if (isset($shipMap[$newStatusNorm])) {
+                    $sets[] = '`shipping_status` = ?';
+                    $params[] = $shipMap[$newStatusNorm];
+                }
+            }
         }
         if (array_key_exists('payment_status', $input)) {
             $sets[] = '`payment_status` = ?';
@@ -2743,6 +3038,9 @@ function souq_commerce_dispatch(PDO $pdo, string $uri, string $method, string $s
     }
 
     if ($uri === '/customers' && $method === 'GET') {
+        if (!souq_require_merchant_bearer()) {
+            return true;
+        }
         souq_ensure_customer_profile_columns($pdo);
         $st = $pdo->prepare('SELECT * FROM customers WHERE store_id = ? ORDER BY created_at DESC');
         $st->execute([$storeId]);
