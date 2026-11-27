@@ -14,23 +14,26 @@ export function isChunkLoadError(err: unknown): boolean {
 /** One hard reload after stale deploy / missing hashed chunk — never loop. */
 export function reloadOnceForStaleChunk(): void {
   try {
-    // Storefront already mounted — do not hard-refresh (buy/PDP auto-refresh bug).
-    if (
+    // Only skip reload if actively in the middle of a customer checkout/buy click on storefront
+    const isCustomerBuying =
       typeof document !== 'undefined' &&
-      document.querySelector(
-        '[data-coffee-product-buy],[data-theme-id],.hibrew-theme-root,.unity-theme-container',
-      )
-    ) {
-      return;
-    }
+      !window.location.pathname.includes('/admin') &&
+      !window.location.search.includes('tab=') &&
+      !window.location.search.includes('store=') &&
+      Boolean(document.querySelector('[data-coffee-product-buy]'));
+
+    if (isCustomerBuying) return;
+
     if (sessionStorage.getItem(RELOAD_ONCE_KEY) === '1') return;
     const now = Date.now();
     const last = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
-    // Legacy key kept for manual retry button; once-flag stops BAR-BAR loops.
-    if (now - last > 60_000) {
+    // Reload at most once per 20 seconds
+    if (now - last > 20_000) {
       sessionStorage.setItem(RELOAD_KEY, String(now));
       sessionStorage.setItem(RELOAD_ONCE_KEY, '1');
-      window.location.reload();
+      const url = new URL(window.location.href);
+      url.searchParams.set('_reload', String(now));
+      window.location.replace(url.toString());
     }
   } catch {
     /* If sessionStorage blocked, skip hard reload to avoid infinite refresh. */

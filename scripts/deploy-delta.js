@@ -88,6 +88,7 @@ function collectFiles(dir, root, out) {
   for (const entry of entries) {
     if (entry.name === 'coffee-theme-refs' || entry.name === 'pptx-studio-pack' || entry.name === 'robots.txt') continue;
     if (entry.name.endsWith('.sqlite') || entry.name.endsWith('.sqlite-journal')) continue;
+    if (!args.includes('--all-media') && (entry.name === 'hero-frames' || entry.name === 'theme-mockups')) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (!fs.existsSync(full)) continue;
@@ -191,21 +192,26 @@ async function uploadTarget(target) {
   const prev = forceFull ? {} : loadManifest(target.name);
   const hasManifest = !forceFull && Object.keys(prev).length > 0;
 
-  // Cold start (no manifest): ONLY entry + JS/CSS bundles + API (skip images/fonts).
-  // Warm: ship anything whose sha1 changed vs last successful deploy.
-  const coldKeep = (rel) =>
-    rel === 'index.html' ||
-    rel === '.htaccess' ||
-    rel.startsWith('api/') ||
-    /\.(php|html)$/i.test(rel) ||
-    (rel.startsWith('assets/') && /\.(js|css)$/i.test(rel));
+  // Deployable files: unless --all-media is requested, ship code, bundles, styles, API, and templates
+  const isDeployable = (rel) => {
+    if (args.includes('--all-media')) return true;
+    return (
+      rel === 'index.html' ||
+      rel === '.htaccess' ||
+      rel.startsWith('api/') ||
+      /\.(php|html|json)$/i.test(rel) ||
+      rel.startsWith('assets/')
+    );
+  };
 
-  const changed = all.filter((f) => {
-    if (!hasManifest) return coldKeep(f.rel);
+  const deployable = all.filter((f) => isDeployable(f.rel));
+
+  const changed = deployable.filter((f) => {
+    if (!hasManifest) return true;
     return prev[f.rel] !== f.hash;
   });
 
-  const must = all.filter(
+  const must = deployable.filter(
     (f) =>
       f.rel === 'index.html' ||
       f.rel === '.htaccess' ||
@@ -227,7 +233,7 @@ async function uploadTarget(target) {
   console.log(
     `\n==== ${target.label} ====`,
   );
-  console.log(`Delta: ${queue.length} changed / ${all.length} total${forceFull ? ' (FULL)' : ''}`);
+  console.log(`Delta: ${queue.length} changed / ${deployable.length} total code assets${forceFull ? ' (FULL)' : ''}`);
 
   if (queue.length === 0) {
     console.log('Nothing to upload.');
@@ -236,19 +242,16 @@ async function uploadTarget(target) {
   }
 
   const remoteRoot = (target.dir.startsWith('/') ? target.dir : `/${target.dir}`).replace(/\/$/, '') || '';
-  let client = await openClient(target);
-  const readyDirs = new Set();
-  // Only hashes we successfully upload (or already had from a prior real upload).
-  // Never invent hashes for files that never left the laptop — that caused 404 SPA shells.
+  let primaryClient = await openClient(target);
   const nextManifest = { ...prev };
   let sent = 0;
 
-  const resetCwd = async () => {
+  const resetCwd = async (c) => {
     try {
-      await client.cd(remoteRoot || '/');
+      await c.cd(remoteRoot || '/');
     } catch {
       try {
-        await client.cd('/');
+        await c.cd('/');
       } catch {
         /* ignore */
       }
@@ -256,28 +259,46 @@ async function uploadTarget(target) {
   };
 
   try {
-    await resetCwd();
+    await resetCwd(primaryClient);
     // Never leave a static robots.txt — it bypasses robots.php and can poison SEO for weeks via cache.
     try {
       const remoteRobots = `${remoteRoot}/robots.txt`.replace(/\/{2,}/g, '/');
-      await client.remove(remoteRobots);
+      await primaryClient.remove(remoteRobots);
       console.log('  removed static robots.txt (robots.php is source of truth)');
     } catch {
       try {
-        await client.remove('robots.txt');
+        await primaryClient.remove('robots.txt');
         console.log('  removed static robots.txt from cwd');
       } catch {
         /* none */
       }
     }
-    for (const file of queue) {
-      const remotePath = `${remoteRoot}/${file.rel}`.replace(/\/{2,}/g, '/');
-      const parent = path.posix.dirname(remotePath);
+
+    // Split queue: non-critical assets first, critical entry files (index.html, shell, .htaccess) LAST!
+    const criticalQueue = queue.filter((f) => isCriticalRel(f.rel));
+    const assetQueue = queue.filter((f) => !isCriticalRel(f.rel));
+
+    // Pre-create all remote directories upfront with primary client
+    const allParents = new Set(
+      queue.map((f) => path.posix.dirname(`${remoteRoot}/${f.rel}`.replace(/\/{2,}/g, '/'))),
+    );
+    for (const dir of allParents) {
+      if (dir && dir !== '/' && dir !== '.') {
+        try {
+          await primaryClient.ensureDir(dir);
+          await resetCwd(primaryClient);
+        } catch (e) {
+          console.warn(`  pre-ensure dir ${dir}: ${e.message}`);
+        }
+      }
+    }
+
+    // Upload helper with retries
+    const uploadSingle = async (clientRef, file, remotePath) => {
       let attempts = 0;
-      while (attempts < 5) {
+      while (attempts < 4) {
         try {
           if (!fs.existsSync(file.full)) {
-            // Mid-upload AV/clean races: regenerate SPA .htaccess / public PHP from public/
             if (file.rel === '.htaccess') {
               writeCleanHtaccess(file.full);
             } else if (
@@ -298,62 +319,94 @@ async function uploadTarget(target) {
                 throw new Error(`Critical dist file missing during upload: ${file.rel}`);
               }
               console.warn(`  skip missing local file: ${file.rel}`);
-              break;
+              return;
             }
           }
-          if (!readyDirs.has(parent)) {
-            await client.ensureDir(parent);
-            // basic-ftp ensureDir leaves CWD inside that folder — absolute uploads then
-            // land under nested paths and the SPA gets 404 for /assets/*.js
-            await resetCwd();
-            readyDirs.add(parent);
-          }
-          await client.uploadFrom(file.full, remotePath);
+          await clientRef.uploadFrom(file.full, remotePath);
           nextManifest[file.rel] = file.hash;
-          sent += 1;
-          if (sent % 20 === 0 || sent === queue.length) {
-            console.log(`  ${sent}/${queue.length}`);
-            saveManifest(target.name, nextManifest);
-          }
-          break;
+          return;
         } catch (err) {
           attempts += 1;
-          console.warn(`  ${file.rel} retry ${attempts}: ${err.message}`);
-          if (String(err.message || err).includes('ENOENT') && !fs.existsSync(file.full)) {
-            console.warn(`  skip missing local file: ${file.rel}`);
-            break;
-          }
-          const baseName = path.posix.basename(remotePath);
-          const tempPath = `${parent}/.in.${baseName}.`;
-          try {
-            await client.remove(tempPath);
-          } catch {
-            /* ignore */
-          }
-          try {
-            client.close();
-          } catch {
-            /* ignore */
-          }
-          if (attempts >= 5) throw err;
-          readyDirs.clear();
-          await new Promise((r) => setTimeout(r, 1000 * attempts));
-          client = await openClient(target);
-          await resetCwd();
+          if (attempts >= 4) throw err;
+          await new Promise((r) => setTimeout(r, 800 * attempts));
         }
       }
+    };
+
+    // Parallel worker pool for asset files
+    const CONCURRENCY = Math.min(4, Math.max(1, assetQueue.length));
+    let cursor = 0;
+    const startTime = Date.now();
+
+    const runWorker = async (workerId) => {
+      let workerClient = workerId === 0 ? primaryClient : await openClient(target);
+      try {
+        await resetCwd(workerClient);
+        while (true) {
+          const idx = cursor++;
+          if (idx >= assetQueue.length) break;
+          const file = assetQueue[idx];
+          const remotePath = `${remoteRoot}/${file.rel}`.replace(/\/{2,}/g, '/');
+          let ok = false;
+          let retries = 0;
+          while (!ok && retries < 3) {
+            try {
+              await uploadSingle(workerClient, file, remotePath);
+              ok = true;
+            } catch (err) {
+              retries += 1;
+              console.warn(`  [worker ${workerId}] ${file.rel} retry ${retries}: ${err.message}`);
+              try { workerClient.close(); } catch {}
+              await new Promise((r) => setTimeout(r, 1000 * retries));
+              workerClient = await openClient(target);
+              await resetCwd(workerClient);
+            }
+          }
+          sent += 1;
+          if (sent % 25 === 0 || sent === assetQueue.length) {
+            const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+            console.log(`  Assets: ${sent}/${assetQueue.length} (${elapsed}s)`);
+            saveManifest(target.name, nextManifest);
+          }
+        }
+      } finally {
+        if (workerId !== 0) {
+          try { workerClient.close(); } catch {}
+        }
+      }
+    };
+
+    if (assetQueue.length > 0) {
+      console.log(`Uploading ${assetQueue.length} assets with ${CONCURRENCY} parallel workers...`);
+      await Promise.all(Array.from({ length: CONCURRENCY }, (_, i) => runWorker(i)));
     }
+
+    // Now upload critical entry files LAST (index.html, storefront-shell.php, .htaccess)
+    if (criticalQueue.length > 0) {
+      console.log(`Uploading ${criticalQueue.length} critical entry files last...`);
+      try { primaryClient.close(); } catch {}
+      primaryClient = await openClient(target);
+      await resetCwd(primaryClient);
+      for (const file of criticalQueue) {
+        const remotePath = `${remoteRoot}/${file.rel}`.replace(/\/{2,}/g, '/');
+        await uploadSingle(primaryClient, file, remotePath);
+        sent += 1;
+        console.log(`  ✓ Critical: ${file.rel}`);
+      }
+    }
+
     // Drop manifest entries for files no longer in dist (stale hashes).
     const liveRels = new Set(all.map((f) => f.rel));
     for (const key of Object.keys(nextManifest)) {
       if (!liveRels.has(key)) delete nextManifest[key];
     }
     saveManifest(target.name, nextManifest);
-    console.log(`Uploaded ${sent} files → ${target.label}`);
+    const totalSec = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`✓ Uploaded ${sent} files in ${totalSec}s → ${target.label}`);
     await verifyLiveSite(target.url);
   } finally {
     try {
-      client.close();
+      primaryClient.close();
     } catch {
       /* ignore */
     }

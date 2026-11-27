@@ -18,13 +18,18 @@
         var ONCE_KEY = 'unityteck_chunk_reload_once';
         function reloadOnceForStaleChunk() {
           try {
-            // Page already painted (e.g. coffee buy) — never yank the customer into a refresh loop.
-            if (document.querySelector('[data-coffee-product-buy],[data-theme-id],.hibrew-theme-root,.unity-theme-container')) {
-              return;
-            }
+            var isCustomerBuying =
+              !window.location.pathname.includes('/admin') &&
+              !window.location.search.includes('tab=') &&
+              !window.location.search.includes('store=') &&
+              Boolean(document.querySelector('[data-coffee-product-buy]'));
+            if (isCustomerBuying) return;
             if (sessionStorage.getItem(ONCE_KEY) === '1') return;
             sessionStorage.setItem(ONCE_KEY, '1');
-            window.location.reload();
+            var now = Date.now();
+            var url = new URL(window.location.href);
+            url.searchParams.set('_reload', String(now));
+            window.location.replace(url.toString());
           } catch (e) {
             /* sessionStorage blocked → skip reload to avoid infinite refresh */
           }
@@ -351,12 +356,13 @@
 
           // On giftshop-sa.com, self-heal any stale coffee preference unless explicitly requested
           var isGiftshopDomain = h.indexOf('giftshop-sa.com') !== -1 || h.indexOf('hadaya') !== -1;
-          var isCoffeeHost = h.indexOf('mieraf-ksa.com') !== -1;
+          var isSouqDefault = s === 'souq-default' || s === 'store-souq-default' || h.indexOf('souq-default') !== -1;
+          var isCoffeeHost = (h === 'mieraf-ksa.com' || h === 'www.mieraf-ksa.com' || h === 'coffee.mieraf-ksa.com') && !isSouqDefault;
           var isCarHost = h.indexOf('tanjeedmakkah.com') !== -1;
-          var isExplicitCoffee = isCoffeeHost || s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee');
+          var isExplicitCoffee = isCoffeeHost || ((s === 'coffee' || s === 'store-coffee' || s === 'roasters' || p.startsWith('/coffee')) && !isSouqDefault);
           var isExplicitCar = isCarHost || s === 'bleco' || s === 'store-bleco' || s === 'cars' || s === 'car' || s === 'alsaeedi' || p.startsWith('/car') || p.startsWith('/bleco');
 
-          if (isGiftshopDomain && !isExplicitCoffee && !isExplicitCar) {
+          if (isGiftshopDomain && !isExplicitCoffee && !isExplicitCar && !isSouqDefault) {
             try {
               var cached = localStorage.getItem('unityteck_active_store_id');
               if (cached === 'store-coffee' || cached === 'store-bleco') {
@@ -365,12 +371,21 @@
             } catch (e) {}
           }
 
-          if (!isExplicitCoffee && !isExplicitCar && !isGiftshopDomain) return;
+          if (isSouqDefault) {
+            try {
+              localStorage.setItem('unityteck_active_store_id', 'store-souq-default');
+            } catch (e) {}
+          }
+
+          if (!isExplicitCoffee && !isExplicitCar && !isGiftshopDomain && !isSouqDefault) return;
 
           var title = isAr ? 'هدايا مكة | متجر الزهور الطبيعية وباقات الورد وتوصيل فنادق الحرم المكي' : 'Hadaya Mecca | Luxury Fresh Flowers, Gifts and Haram Hotel Delivery';
           var desc = isAr ? 'متجر باقات الورد الطبيعي الفاخر، شوكولاتة باتشي وبستاني، وتنسيق هدايا مع خدمة التوصيل السريع إلى جميع فنادق وأبراج مكة المكرمة' : 'Fresh flowers, gifts, and delivery to Makkah hotel districts.';
 
-          if (isExplicitCoffee) {
+          if (isSouqDefault) {
+            title = isAr ? 'متجر سوق الافتراضي | المتجر النموذجي لمنصة سوق' : 'Souq Default Store | Standard Storefront for Souq Platform';
+            desc = isAr ? 'المتجر الافتراضي النموذجي لمنصة سوق للتجارة الإلكترونية في المملكة العربية السعودية. منتجات مختارة وتجربة تسوق متكاملة.' : 'The standard default storefront for Souq multi-store e-commerce platform in Saudi Arabia.';
+          } else if (isExplicitCoffee) {
             title = isAr ? 'هايبرو السعودية | المتجر الرسمي لمكائن ومستلزمات القهوة المختصة' : 'HiBrew KSA | Official Coffee Store - Espresso Machines & Specialty Coffee Gear';
             desc = isAr ? 'متخصصون في بيع مكائن القهوة ومستلزماتها ذات الجودة العالية ☕️ | مكائن 20 بار، مطاحن بن تيتانيوم، أركان ودواليب القهوة الفاخرة بالسعودية' : 'Official HiBrew Saudi Arabia distributor for commercial & home espresso machines, titanium conical grinders and luxury coffee bar setups.';
           } else if (isExplicitCar) {
