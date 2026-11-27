@@ -894,7 +894,7 @@ function invalidateControlsCache() {
   cachedStoreControls.clear();
 }
 
-function resolveStoreControlId(controlId: string): string {
+export function resolveStoreControlId(controlId: string): string {
   if (
     controlId === 'canva-studio' ||
     controlId === 'canva-banner' ||

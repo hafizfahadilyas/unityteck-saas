@@ -15,6 +15,7 @@ import { CORE_STORE_CONTROL_IDS, isStoreControlEnabled } from '../../services/st
 import {
   LayoutDashboard,
   ShoppingCart,
+  CreditCard,
   Package,
   Users,
   Megaphone,
@@ -23,6 +24,7 @@ import {
   ArrowLeft,
   Palette,
   Store,
+  Bot,
   ChevronRight,
   ChevronDown,
   PanelLeftClose,
@@ -63,6 +65,7 @@ const STORE_IOS_ICON_TINT: Record<string, string> = {
   social: '#007AFF',
   reports: '#5856D6',
   canva: '#FF375F',
+  'growth-advisor': '#10B981',
   'ai-media': '#BF5AF2',
   themes: '#FF2D55',
   appstore: '#0A84FF',
@@ -179,8 +182,22 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
     }, 60);
   };
 
+  /** Deep-link into StorePayments internal sub-tabs */
+  const openPaymentsView = (view: 'transactions' | 'gateways' | 'bank_accounts' | 'fees') => {
+    try {
+      sessionStorage.setItem('unityteck-payments-view', view);
+    } catch {
+      /* storage may be unavailable */
+    }
+    selectTab('payments');
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('unityteck-payments-view', { detail: view }));
+    }, 60);
+  };
+
   const isProductsFamily = ['products', 'categories', 'brands', 'media'].includes(currentTab);
-  const isOrdersFamily = ['orders', 'invoices', 'payments'].includes(currentTab);
+  const isOrdersFamily = ['orders', 'invoices', 'appointments'].includes(currentTab);
+  const isPaymentsFamily = currentTab === 'payments';
   /** Themes hub + Theme Store (former App Store) stay under one sidebar family */
   const isThemesFamily = currentTab === 'themes' || currentTab === 'appstore';
 
@@ -265,6 +282,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
     products: true,
     orders: isOrdersFamily,
+    payments: isPaymentsFamily,
     themes: isThemesFamily,
     marketing: isMarketingFamily,
     shipping: currentTab === 'shipping',
@@ -277,6 +295,9 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
     }
     if (isOrdersFamily) {
       setOpenSubmenus((prev) => ({ ...prev, orders: true }));
+    }
+    if (isPaymentsFamily) {
+      setOpenSubmenus((prev) => ({ ...prev, payments: true }));
     }
     if (isThemesFamily) {
       setOpenSubmenus((prev) => ({ ...prev, themes: true }));
@@ -293,6 +314,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
   }, [
     isProductsFamily,
     isOrdersFamily,
+    isPaymentsFamily,
     isThemesFamily,
     isMarketingFamily,
     currentTab,
@@ -306,6 +328,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
       { id: 'pages', icon: Files },
       { id: 'products', icon: Package },
       { id: 'orders', icon: ShoppingCart },
+      { id: 'payments', icon: CreditCard },
       { id: 'customers', icon: Users },
       { id: 'shipping', icon: Truck },
       { id: 'marketing', icon: Megaphone },
@@ -313,6 +336,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
       { id: 'social', icon: Share2 },
       { id: 'reports', icon: FileText },
       { id: 'canva', icon: Paintbrush },
+      { id: 'growth-advisor', icon: Bot },
       { id: 'ai-media', icon: Sparkles },
       { id: 'themes', icon: Palette },
       // App Store / Theme Store lives under Themes & layout submenu (not top-level)
@@ -542,6 +566,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
           const Icon = item.icon;
           const isProducts = item.id === 'products';
           const isOrders = item.id === 'orders';
+          const isPayments = item.id === 'payments';
           const isThemes = item.id === 'themes';
           const isMarketing = item.id === 'marketing';
           const isWhatsApp = item.id === 'whatsapp';
@@ -552,24 +577,26 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
           // Coming Soon = fixed disabled button (no click, no dropdown).
           const hasSubmenu =
             !comingSoon &&
-            (isProducts || isOrders || isThemes || isMarketing || isShipping || isSettings);
+            (isProducts || isOrders || isPayments || isThemes || isMarketing || isShipping || isSettings);
           const isActive = comingSoon
             ? false
             : isProducts
               ? isProductsFamily
               : isOrders
                 ? isOrdersFamily
-                : isThemes
-                  ? isThemesFamily
-                  : isMarketing
-                    ? isMarketingFamily
-                    : isWhatsApp
-                      ? isCommToolsFamily
-                      : isSettings
-                        ? currentTab === 'settings' || currentTab === 'hosting' || currentTab === 'marketplace'
-                        : isAiHub
-                          ? currentTab === 'ai-media' || currentTab === 'analytics'
-                          : currentTab === item.id;
+                : isPayments
+                  ? isPaymentsFamily
+                  : isThemes
+                    ? isThemesFamily
+                    : isMarketing
+                      ? isMarketingFamily
+                      : isWhatsApp
+                        ? isCommToolsFamily
+                        : isSettings
+                          ? currentTab === 'settings' || currentTab === 'hosting' || currentTab === 'marketplace'
+                          : isAiHub
+                            ? currentTab === 'ai-media' || currentTab === 'analytics'
+                            : currentTab === item.id;
           const isSubmenuOpen = !comingSoon && Boolean(openSubmenus[item.id]);
 
           return (
@@ -578,6 +605,12 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                 type="button"
                 disabled={comingSoon}
                 aria-disabled={comingSoon || undefined}
+                onMouseEnter={() => {
+                  if (item.id === 'canva') void import('./StoreCanvaStudio');
+                }}
+                onTouchStart={() => {
+                  if (item.id === 'canva') void import('./StoreCanvaStudio');
+                }}
                 onClick={() => {
                   if (comingSoon) return;
                   if (hasSubmenu) {
@@ -585,6 +618,15 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                       // Always open Installed Themes page + keep submenu visible
                       openThemesInstalled();
                       setOpenSubmenus((prev) => ({ ...prev, [item.id]: true }));
+                      return;
+                    }
+                    if (isPayments) {
+                      if (isActive) {
+                        setOpenSubmenus((prev) => ({ ...prev, [item.id]: !prev[item.id] }));
+                      } else {
+                        selectTab(item.id);
+                        setOpenSubmenus((prev) => ({ ...prev, [item.id]: true }));
+                      }
                       return;
                     }
                     if (isActive) {
@@ -804,6 +846,50 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                 </div>
               )}
 
+              {/* Submenu for Payments — Transactions · Gateways · Bank Proofs · Fees */}
+              {isPayments && !collapsed && isSubmenuOpen && isActive && (
+                <div className="store-subnav ps-7 pe-1 space-y-0.5 py-1">
+                  {[
+                    {
+                      id: 'transactions',
+                      labelAr: 'كل المعاملات والتتبع',
+                      labelEn: 'All Transactions & Tracking',
+                      color: 'bg-emerald-400',
+                    },
+                    {
+                      id: 'gateways',
+                      labelAr: 'بوابات الدفع الإلكتروني',
+                      labelEn: 'Payment Gateways',
+                      color: 'bg-blue-400',
+                    },
+                    {
+                      id: 'bank_accounts',
+                      labelAr: 'إيصالات التحويل البنكي',
+                      labelEn: 'Bank Accounts & Proofs',
+                      color: 'bg-purple-400',
+                    },
+                    {
+                      id: 'fees',
+                      labelAr: 'الرسوم وتكاليف التحصيل',
+                      labelEn: 'Fees & Commissions',
+                      color: 'bg-amber-400',
+                    },
+                  ].map((sub) => {
+                    return (
+                      <button
+                        key={sub.id}
+                        type="button"
+                        onClick={() => openPaymentsView(sub.id as any)}
+                        className="w-full text-start py-1.5 px-2 rounded-lg text-[11.5px] transition-colors flex items-center gap-2 cursor-pointer font-semibold text-slate-200 hover:text-white hover:bg-white/10"
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${sub.color} shrink-0`} />
+                        <span className="truncate">{isAr ? sub.labelAr : sub.labelEn}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Submenu for Themes — Installed · Settings · Theme Store + builder pages */}
               {isThemes && !collapsed && isSubmenuOpen && isActive && (
                 <div className="store-subnav ps-7 pe-1 space-y-0.5 py-1">
@@ -919,7 +1005,7 @@ export const StoreSidebar: React.FC<StoreSidebarProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => openSettingsView('payments')}
+                    onClick={() => selectTab('payments')}
                     className="w-full text-start py-1 px-2 rounded-lg text-[11px] font-semibold text-slate-200 hover:text-white hover:bg-white/15 transition-colors flex items-center gap-2 cursor-pointer"
                   >
                     <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#AF52DE' }} />
