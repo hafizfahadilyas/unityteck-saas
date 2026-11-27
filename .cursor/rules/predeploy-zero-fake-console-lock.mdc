@@ -1,0 +1,28 @@
+---
+description: LIFETIME — before every deploy, verify no fake/dummy/mock, no bugs, no console errors; owner will not retype this.
+alwaysApply: true
+---
+
+# Pre-deploy · Zero Fake · Zero Console Errors (LIFETIME MEMORY)
+
+**Owner order (do not ask again):** Har deploy se **PEHLE** yeh sab lazmi. User bar-bar type nahi karega — agent hamesha khud check kare.
+
+## Absolute before `deploy:*` / FTP / Hostinger push
+
+1. **Zero fake / dummy / mock** on live path — no invent KPIs, Instant Connected, `INITIAL_*` hydrate, fake fees, fake paid.
+2. **Zero known bugs** in the touched slice — fix pehle, deploy baad.
+3. **Zero console errors** on touched surfaces (storefront checkout, admin shipping/payments, login) — probe or note if browser not available; never ship known red console.
+4. **API real** — health MySQL · `store_id` isolation · shipping calculate / payments methods return real DB (or genuine empty).
+5. **Shipping zones → checkout** — if zones exist for city, `matched_zone` + fee must show (see `shipping-payment-checkout-zone-lock.mdc`).
+6. **Smoke** — at least health + affected APIs; for shipping/pay run `node scripts/smoke-shipping-zone-calculate.mjs` when that slice touched.
+7. **Build** — `vite build` / gate when UI changed (OOM = report, don’t claim done).
+
+## Banned
+
+- “Code looks fine” → deploy
+- Deploy with open fake/dummy or console errors
+- Claiming **all steps testing done** jab UI deploy / browser console abhi pending ho
+
+## Status line
+
+Deploy ask ke baad: **Ho gaya** / **Baqi** + checklist (fake? console? smoke HTTP?).

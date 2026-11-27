@@ -93,7 +93,7 @@
 |--|--|
 | **Do** | `deploy:api` / hotfiles flowers+central · `deploy:fast:flowers` + `deploy:fast:central` · re-run Makkah calculate + payments smoke |
 | **Test gate** | Live `matched_zone` set · fee matches zone · payments OK · health MySQL |
-| **Status** | PARTIAL — API hot deploy LIVE (Makkah/Jeddah/districts verified). Flowers UI delta FTP flaky (ECONNRESET / competing `delta:all` lock). Re-run `npm run deploy:fast:flowers` + `deploy:fast:central` when FTP stable. |
+| **Status** | PARTIAL — API hot deploy LIVE + smoke OK. **UI full delta + browser console testing NOT done** (FTP ECONNRESET). Re-run `deploy:fast:flowers` + `deploy:fast:central` then hard-refresh checkout + DevTools (no red console). |
 
 ---
 
